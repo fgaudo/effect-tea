@@ -81,7 +81,7 @@ All code, comments, identifiers, commit messages and `.md` files are in **Englis
 
 ## Checks
 
-From `packages/effect-tea`:
+From the repository root:
 
 - `bun run typecheck`, `bun run lint`, `bun run test`;
 - `bun run build` compiles `src/` into `dist/` (ignored by git); it also runs before `bun pm pack`.
