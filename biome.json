@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "root": false,
+  "files": {
+    "includes": ["**", "!!**/dist"]
+  },
+  "formatter": {
+    "enabled": false
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "correctness": {
+        "useImportExtensions": "error"
+      },
+      "suspicious": { "preset": "none" },
+      "style": {
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "patterns": [
+              {
+                "group": ["snabbdom", "snabbdom/**", "react", "react/**", "react-dom", "react-dom/**"],
+                "message": "@fgaudo/effect-tea is independent of the renderer: views are generic over their node type, and only the code that renders knows the renderer."
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
