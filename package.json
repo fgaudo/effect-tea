@@ -1,7 +1,8 @@
 {
   "name": "@fgaudo/effect-tea",
   "version": "0.1.0",
-  "description": "The Elm architecture on Effect: a pure update, effects as commands and subscriptions, and offers that keep the view and update in agreement.",
+  "description": "The Elm architecture on Effect v4",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "sideEffects": false,

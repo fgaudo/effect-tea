@@ -28,6 +28,7 @@ a compile error, not a silent bug.
   10. [Testing](#10-testing)
 - [API reference](#api-reference)
 - [Development](#development)
+- [License](#license)
 
 ## Installation
 
@@ -781,3 +782,7 @@ From `@fgaudo/effect-tea/testing`: `applyAll`, `dispatchViolations`, `DispatchVi
 
 `bun run typecheck`, `bun run lint` and `bun run test` check the package. `bun run build` compiles `src/`
 into `dist/`; it also runs before `bun pm pack`.
+
+## License
+
+[MIT](LICENSE) © Francesco Gaudenzi
