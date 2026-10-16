@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "description": "The Elm architecture on Effect v4",
   "license": "MIT",
-  "private": true,
   "type": "module",
   "sideEffects": false,
   "exports": {
