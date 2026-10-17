@@ -78,6 +78,9 @@ The version in `package.json` is the one the next release will have, decided by 
 - **`simulate` behaves like the engine** where the engine is deterministic: a rejected message from a
   command is stale and ignored, and only a rejection of the test's own messages fails. Keep the two in step
   when either changes.
+- **`drive` acts only as a user can**: through `run` and the frames' own `dispatch`, so a scenario sends only
+  offered messages. It always runs with `onRejected: 'die'`, since a test must not go on past a bug, and
+  its waits use the real clock, whatever `Clock` the program runs with.
 - **Logs never carry message data by default** (`describeByTag`). Levels: `error` for bugs, `debug` for the
   message loop and for subscriptions starting, stopping and ending.
 

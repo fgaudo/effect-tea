@@ -90,6 +90,9 @@ type EmbedOptions<ParentState, ParentMessage, ChildState, ChildMessage, ChildEve
  * - `key` namespaces the child's subscription keys.
  * - `onEvent` handles the events the child emits, in the same transition, after
  *   the child state has been written back.
+ *
+ * It returns `update`, `subscriptions`, and `liftCommands(commands)`, which wraps a child's commands, e.g.
+ * those of its `init` when the parent adds it: where the child's state goes is the parent's own business.
  */
 export const embed = <ParentState, ParentMessage, ChildState, ChildMessage, R, ChildEvent = never, K = unknown>(
   child: Pick<Program<ChildState, unknown, ChildMessage, R, ChildEvent, K>, 'update' | 'subscriptions'>,
@@ -98,7 +101,7 @@ export const embed = <ParentState, ParentMessage, ChildState, ChildMessage, R, C
   const { key, wrap, get, set, getSubscribed = get } = options
   const onEvent = 'onEvent' in options ? options.onEvent : missingOnEvent('embed', key)
   return {
-    init: (step: Step<ChildState, ChildMessage, R>) => mapStep(step, wrap),
+    liftCommands: (commands: ReadonlyArray<Command<ChildMessage, R>> = []) => mapCommands(commands, wrap),
 
     update: (message: ChildMessage) => (state: ParentState): Transition<ParentState, ParentMessage, R> =>
       Opt.match(get(state), {
@@ -143,7 +146,7 @@ type EmbedEachOptions<ParentState, ParentMessage, Id, ChildState, ChildMessage, 
  *   visible ones); their keys are namespaced by `key` and the id, so ids must compare by value (strings,
  *   numbers, or Effect data);
  * - `onEvent(id, event)` handles what a child asks of its parent;
- * - `init(id, step)` lifts the initial step of a new child, for the parent's update that adds it.
+ * - `liftCommands(id, commands)` lifts a child's commands, e.g. those of its `init` when the parent adds it.
  */
 export const embedEach = <
   ParentState,
@@ -161,8 +164,8 @@ export const embedEach = <
   const { key, wrap, get, set, subscribed } = options
   const onEvent = 'onEvent' in options ? options.onEvent : missingOnEvent('embedEach', key)
   return {
-    init: (id: Id, step: Step<ChildState, ChildMessage, R>) =>
-      mapStep(step, (message: ChildMessage) => wrap(id, message)),
+    liftCommands: (id: Id, commands: ReadonlyArray<Command<ChildMessage, R>> = []) =>
+      mapCommands(commands, (message: ChildMessage) => wrap(id, message)),
 
     update: (id: Id, message: ChildMessage) => (state: ParentState): Transition<ParentState, ParentMessage, R> =>
       Opt.match(get(state, id), {

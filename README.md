@@ -517,6 +517,10 @@ its parent:
 - `onEvent` handles the child's `events`. A child never acts on its parent: it says what happened, and the
   parent decides. The types require `onEvent` exactly when the child has events.
 
+It returns the child's `update` and `subscriptions` lifted into the parent, and `liftCommands(commands)`,
+which wraps the messages of a child's commands: when the parent adds the child, it puts the child's initial
+state where it belongs, and starts its `init` commands through `liftCommands`.
+
 Here the parent shows a list of names, and opens the form from [Input](#3-input) to add one:
 
 ```ts
@@ -557,8 +561,10 @@ const update: Update<State, Message, never> = (message) => (state) => {
   switch (message._tag) {
     case 'AddClicked': {
       if (Opt.isSome(state.form)) return reject
-      const { state: child, commands } = form.init(Form.form.init)
-      return { state: { ...state, form: Opt.some(child) }, commands }
+      return {
+        state: { ...state, form: Opt.some(Form.form.init.state) },
+        commands: form.liftCommands(Form.form.init.commands),
+      }
     }
     case 'GotForm':
       return form.update(message.message)(state)
@@ -642,8 +648,8 @@ const update: Update<State, Message, never> = (message) =>
   counters.update(message.id, message.message)
 ```
 
-It returns `update(id, message)`, `subscriptions`, and `init(id, step)` for the parent's update that adds a
-child. Ids are part of the subscription keys, so they must compare by value.
+It returns `update(id, message)`, `subscriptions`, and `liftCommands(id, commands)` for the parent's update
+that adds a child. Ids are part of the subscription keys, so they must compare by value.
 
 ### 9. Running
 
@@ -740,8 +746,8 @@ test('counting', () => {
 })
 ```
 
-- `applyAll(update)(messages, from)` applies messages in order, and returns the final `state` and all the
-  `commands`. A rejection throws, failing the test.
+- `applyAll(update)(messages, from)` applies messages in order, and returns the final `state`, all the
+  `commands` and all the `events`. A rejection throws, failing the test.
 - Assert rejections with `isRejected`, not by comparing states.
 
 To test a whole flow, commands included, `simulate` runs them too, with the services you provide:
@@ -772,6 +778,43 @@ test('saving', async () => {
 - A rejection of one of your messages fails with a defect; a command's message that `update` rejects is stale
   and ignored, as when the program runs.
 - Subscriptions do not run: put the messages they would send among `messages`.
+
+To test the program as it runs, subscriptions and concurrent commands included, `drive` runs it with `run`
+and lets a scenario act as its user: it waits for what the frames show, and does what they offer.
+
+```ts
+import { drive, input, tap } from '@fgaudo/effect-tea/testing'
+
+test('a saved note is shown as saved', async () => {
+  const saved = await Effect.runPromise(
+    drive(app, (driver) =>
+      Effect.gen(function*() {
+        yield* driver.send((model) => input(model.changeText, 'Milk'))
+        yield* driver.send((model) =>
+          model.text === 'Milk' ? tap(model.save) : Opt.none()
+        )
+        return yield* driver.waitFor((model) => model.saved)
+      })).pipe(Effect.provideService(Storage, { save: Effect.succeed(7) })),
+  )
+  expect(saved).toBe('Milk')
+})
+```
+
+- `drive(program, scenario, options?)` returns what `scenario` returns, then stops the program. A defect of
+  the program fails it, and so does a message the program offered and then rejected: in a test a rejection
+  is always fatal, so there is no `onRejected`, nor an `onBug`: the test fails with the bug as its cause. The
+  options (`DriveOptions`) are `run`'s `describeMessage` and `onApplied` (e.g. to record the accepted
+  messages), and `patience`.
+- The scenario gets a `Driver`: `waitFor(select)` waits for a frame whose model `select` maps to `Some`, and
+  returns that value; `send(select)` waits for a frame on which `select` finds an `Action`, and does it on
+  that frame; `latest` is the latest frame.
+- An `Action` is what a view's handler does: it gets the frame's `dispatch`. `tap(offer)` sends an offered
+  message and `input(offer, value)` enters a value, both `None` while nothing is offered. For a child's
+  offers, wrap the action as the parent's view does: `(dispatch) => action(mapDispatch(dispatch, wrap))`.
+- Wait for what the model shows, never for "the next frame": a message that leaves the very same state makes
+  no frame. What happens outside the model (e.g. the app exiting) is observed on the services you provide.
+- A wait fails after `patience` (2 seconds by default), with the latest model as the error's `cause`. It is
+  measured with the real clock, so a `TestClock` that controls the program's time does not stop it.
 
 The agreement between the view and `update` is worth checking for every state the program can be in. Render
 the real view, collect every message it can send, and pass them to `dispatchViolations`:
@@ -821,8 +864,8 @@ From `@fgaudo/effect-tea`:
 | `Bug`, `BugReporter`, `DefectSource`            | what `onBug` receives; `onBug` itself; where a defect happened                                |
 | `RejectedMessage`                               | the defect the run fails with when a rejection is fatal                                       |
 
-From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `dispatchViolations`,
-`DispatchViolation`.
+From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `drive`, `DriveOptions`, `Driver`,
+`Action`, `tap`, `input`, `dispatchViolations`, `DispatchViolation`.
 
 ## Development
 

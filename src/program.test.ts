@@ -126,3 +126,38 @@ describe('embedded subscriptions that end', () => {
     expect([...sent, last]).toEqual(['child:Tick', 'child:Done'])
   })
 })
+
+describe('liftCommands', () => {
+  type Signal = 'Tick' | 'Done'
+
+  const child: Pick<Program<number, unknown, Signal, never>, 'update' | 'subscriptions'> = {
+    update: () => (count) => ({ state: count }),
+    subscriptions: () => HashMap.empty(),
+  }
+
+  const commands = [Effect.succeed(Opt.some<Signal>('Tick')), Effect.succeed(Opt.none<Signal>())]
+
+  const results = (lifted: ReadonlyArray<Effect.Effect<Opt.Option<string>>>) => Effect.runPromise(Effect.all(lifted))
+
+  test('wraps the messages of a child\'s commands', async () => {
+    const single = embed(child, {
+      key: 'Child',
+      wrap: (signal: Signal) => `child:${signal}`,
+      get: (state: number) => Opt.some(state),
+      set: (_state: number, count: number) => count,
+    })
+    expect(await results(single.liftCommands(commands))).toEqual([Opt.some('child:Tick'), Opt.none()])
+    expect(single.liftCommands()).toEqual([])
+  })
+
+  test('wraps them with the id of the child, in a collection', async () => {
+    const each = embedEach(child, {
+      key: 'Child',
+      wrap: (id: string, signal: Signal) => `${id}:${signal}`,
+      get: (state: number, _id: string) => Opt.some(state),
+      set: (_state: number, _id: string, count: number) => count,
+      subscribed: () => [],
+    })
+    expect(await results(each.liftCommands('a', commands))).toEqual([Opt.some('a:Tick'), Opt.none()])
+  })
+})
