@@ -173,10 +173,10 @@ export type Driver<Model, Message> = Readonly<{
  * How `drive` runs a program: `run`'s options a test may want, and how long a wait lasts before it fails
  * (2 seconds). There is no `onRejected`: in a test, a rejected message is always fatal.
  */
-export type DriveOptions<Message, K = unknown, State = unknown, Command = unknown> = Readonly<{
-  describeMessage?: NonNullable<RunOptions<Message, K, State, Command>['describeMessage']>
-  describeCommand?: NonNullable<RunOptions<Message, K, State, Command>['describeCommand']>
-  onApplied?: NonNullable<RunOptions<Message, K, State, Command>['onApplied']>
+export type DriveOptions<Message, State = unknown, Command = unknown> = Readonly<{
+  describeMessage?: NonNullable<RunOptions<Message, State, Command>['describeMessage']>
+  describeCommand?: NonNullable<RunOptions<Message, State, Command>['describeCommand']>
+  onApplied?: NonNullable<RunOptions<Message, State, Command>['onApplied']>
   patience?: Duration.Input
 }>
 
@@ -189,12 +189,7 @@ export type DriveOptions<Message, K = unknown, State = unknown, Command = unknow
 export const drive = <State, Model, Message, Command, R, K, A, E, RS>(
   program: Program<State, Model, Message, Command, R, never, K>,
   scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RS>,
-  { patience = '2 seconds', ...options }: DriveOptions<
-    NoInfer<Message>,
-    NoInfer<K>,
-    NoInfer<State>,
-    NoInfer<Command>
-  > = {},
+  { patience = '2 seconds', ...options }: DriveOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> = {},
 ): Effect.Effect<A, E, R | RS> =>
   Effect.gen(function*() {
     const frames = yield* SubscriptionRef.make<Opt.Option<Frame<Model, Message>>>(Opt.none())

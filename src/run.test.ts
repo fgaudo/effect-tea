@@ -8,9 +8,9 @@ import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as References from 'effect/References'
 import * as Stream from 'effect/Stream'
-import { type Bug, RejectedMessage } from './bug.ts'
+import { RejectedMessage, type Rejection } from './bug.ts'
 import type { Applied } from './engine.ts'
-import { reject, type Update } from './update.ts'
+import { reject, type Step, type Update } from './update.ts'
 import type { Offer, Offered } from './offer.ts'
 import type { Program } from './program.ts'
 import { type Frame, run, type RunOptions } from './run.ts'
@@ -72,9 +72,9 @@ describe('run', () => {
     expect(Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof RejectedMessage).toBe(true)
   })
 
-  test('with onRejected: \'ignore\', such a message is dropped, reported, and the program goes on', async () => {
+  test('with a function as onRejected, such a message is dropped, reported, and the program goes on', async () => {
     const counts: Array<number> = []
-    const bugs: Array<string> = []
+    const reported: Array<Rejection<Message>> = []
     const exit = await Effect.runPromiseExit(quietly(run(
       counter,
       (frames) =>
@@ -90,22 +90,19 @@ describe('run', () => {
           Stream.take(2),
           Stream.runDrain,
         ),
-      {
-        onRejected: 'ignore',
-        onBug: (bug) => Effect.sync(() => bugs.push(bug._tag === 'Rejected' ? bug.message : bug._tag)),
-      },
+      { onRejected: (rejection) => Effect.sync(() => reported.push(rejection)) },
     )))
     expect(Exit.isSuccess(exit)).toBe(true)
     expect(counts).toEqual([0, 1])
     // The second frame's messages are never handled: the run ends with the renderer.
-    expect(bugs).toEqual(['Forbidden'])
+    expect(reported).toEqual([{ message: 'Forbidden', revision: 0 }])
   })
 
-  test('there is no default for rejections, and onRejected: \'ignore\' requires onBug', () => {
+  test('there is no default for rejections, and no way to ignore one without reporting it', () => {
     const optionsAreRequired: undefined extends Parameters<typeof run>[2] ? false : true = true
     // @ts-expect-error a bug that is neither fatal nor reported would go unnoticed
     const unreported: RunOptions<Message> = { onRejected: 'ignore' }
-    expect([optionsAreRequired, unreported.onRejected]).toEqual([true, 'ignore'])
+    expect([optionsAreRequired, unreported.onRejected as unknown]).toEqual([true, 'ignore'])
   })
 
   test('the run ends when the renderer ends', async () => {
@@ -114,66 +111,66 @@ describe('run', () => {
   })
 })
 
-describe('onBug', () => {
-  /** What `onBug` reports: where a defect happened (a subscription by its key), or `Rejected`. */
-  const label = (bug: Bug<Message>) =>
-    bug._tag === 'Rejected' ? 'Rejected' : bug.where._tag === 'Subscription' ? bug.where.key : bug.where._tag
-
-  /** Runs `program` until it dies, drawing every frame with `draw`, and returns what `onBug` reported. */
-  const diesIn = async <Model>(
-    program: Program<number, Model, Message, Command, never>,
-    draw: (frame: Frame<Model, Message>) => Effect.Effect<void> = () => Effect.void,
-    onApplied?: RunOptions<Message, unknown, number>['onApplied'],
-  ) => {
-    const bugs: Array<unknown> = []
-    const exit = await Effect.runPromiseExit(quietly(run(
-      program,
-      (frames) => frames.pipe(Stream.tap(draw),Stream.runDrain),
-      { onRejected: 'die', onBug: (bug) => Effect.sync(() => bugs.push(label(bug))), ...(onApplied && { onApplied }) },
-    )))
-    return { died: Exit.isFailure(exit), bugs }
+describe('defects', () => {
+  class Boom extends Error {}
+  const boom = (): never => {
+    throw new Boom()
   }
 
-  test('a defect in a command is reported as such, and the run dies', async () => {
-    expect(await diesIn({ ...counter, init: { state: 0, commands: ['Boom'] } })).toEqual({
-      died: true,
-      bugs: ['Command'],
-    })
+  /**
+   * Runs `program`, sending `Increment` from the first frame and drawing every frame with `view`, and tells
+   * whether the run failed with the defect thrown.
+   */
+  const failsWithBoom = async <Model>(
+    program: Program<number, Model, Message, Command, never>,
+    { view = () => undefined, ...options }: Partial<RunOptions<Message, number, Command>> & {
+      view?: (model: Model) => void
+    } = {},
+  ) => {
+    let sent = false
+    const exit = await Effect.runPromiseExit(quietly(run(
+      program,
+      (frames) =>
+        frames.pipe(
+          Stream.tap(({ model, dispatch }) =>
+            Effect.gen(function*() {
+              view(model)
+              if (sent) return
+              sent = true
+              yield* dispatch('Increment' as Offered<Message>)
+            })
+          ),
+          Stream.runDrain,
+        ),
+      { onRejected: 'die', ...options },
+    )))
+    return Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof Boom
+  }
+
+  const pinging = { state: 0, commands: ['Ping'] } as const satisfies Step<number, Command>
+
+  // Whoever runs the program reports its defects: wherever one happens, the run fails with it.
+  test.each<[string, () => Promise<boolean>]>([
+    ['update', () => failsWithBoom({ ...counter, update: () => (count) => count === 0 ? boom() : { state: 1 } })],
+    ['update, deciding an offer', () => failsWithBoom({ ...counter, update: () => boom })],
+    ['makeModel', () => failsWithBoom({ ...counter, makeModel: boom })],
+    ['the view', () => failsWithBoom(counter, { view: ({ count }) => count === 1 ? boom() : undefined })],
+    ['subscriptions', () =>
+      failsWithBoom({ ...counter, subscriptions: (count) => count === 1 ? boom() : HashMap.empty() })],
+    ['a subscription', () =>
+      failsWithBoom({ ...counter, subscriptions: () => HashMap.make(['k', Channel.die(new Boom())]) })],
+    ['a command', () => failsWithBoom({ ...counter, init: pinging, runCommand: () => Effect.sync(boom) })],
+    ['runCommand', () => failsWithBoom({ ...counter, init: pinging, runCommand: boom })],
+    ['describeMessage', () => failsWithBoom(counter, { describeMessage: boom })],
+    ['onApplied', () => failsWithBoom(counter, { onApplied: () => Effect.sync(boom) })],
+  ])('a defect in %s ends the run, which fails with it', async (_, fails) => {
+    expect(await fails()).toBe(true)
   })
 
-  test('a defect in a subscription is reported with its key', async () => {
-    const broken: Program<number, unknown, Message, Command, never> = {
-      ...counter,
-      subscriptions: () => HashMap.make(['broken', Channel.die('boom')]),
-    }
-    expect(await diesIn(broken)).toEqual({ died: true, bugs: ['broken'] })
-  })
-
-  test('a defect in update is reported as such', async () => {
-    const throwing: Program<number, unknown, Message, Command, never> = {
-      ...counter,
-      update: () => () => {
-        throw new Error('boom')
-      },
-      makeModel: () => ({}),
-    }
-    // A view of a buggy update: it sends a message without asking the model.
-    expect(await diesIn(throwing, ({ dispatch }) => dispatch('Increment' as Offered<Message>))).toEqual({
-      died: true,
-      bugs: ['Update'],
-    })
-  })
-
-  test('a rejected message from the current frame is reported, and is fatal with onRejected: \'die\'', async () => {
-    expect(await diesIn(counter, ({ dispatch }) => dispatch('Forbidden' as Offered<Message>))).toEqual({
-      died: true,
-      bugs: ['Rejected'],
-    })
-  })
-
-  test('a defect in onApplied is reported as such', async () => {
-    const increment = ({ model, dispatch }: Frame<Model, Message>) => dispatch(Opt.getOrThrow(model.increment))
-    expect(await diesIn(counter, increment, () => Effect.die('boom'))).toEqual({ died: true, bugs: ['OnApplied'] })
+  test('a rejected message from the current frame is fatal with onRejected: \'die\'', async () => {
+    const exit = await Effect.runPromiseExit(quietly(runDying(counter, (frames) =>
+      frames.pipe(Stream.tap(({ dispatch }) => dispatch('Forbidden' as Offered<Message>)), Stream.runDrain))))
+    expect(Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof RejectedMessage).toBe(true)
   })
 })
 

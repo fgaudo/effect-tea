@@ -56,6 +56,14 @@ version.
   messages was drawn N times. The README explains why a view should not write the model's text into an input
   the user is typing into ("Inputs the user types into"), and the rule that `update` accepts typing in every
   state where the field exists.
+- Defects are no longer reported through an option: the run fails with them, wherever they happen, and whoever
+  runs it reports them. `onBug` heard only the defects of `update`, the commands, the subscriptions and
+  `onApplied`, not those of `makeModel`, the view, the renderer or `subscriptions`. `onRejected` is `'die'` or
+  the function that reports a rejection while the program goes on, in place of `'ignore'` with `onBug`; `Bug`,
+  `BugReporter`, `DefectSource` and `RejectionOptions` are gone, and `Rejection` and `OnRejected` are new.
+  `RunOptions` and `DriveOptions` lose their `K` parameter. To upgrade, report defects with `Effect.tapCause`
+  around `run`, replace `{ onRejected: 'ignore', onBug }` with `{ onRejected: (rejection) => ... }`, and drop
+  `onBug` where `onRejected` is `'die'`.
 
 ## 0.1.0 (2026-10-17)
 

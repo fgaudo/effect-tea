@@ -70,11 +70,13 @@ The version in `package.json` is the one the next release will have, decided by 
   messages arrived in between; if that state accepted it, it is stale and ignored. Messages from commands
   and subscriptions are stale when rejected. Never judge by revision alone: a frequent subscription would
   hide bugs.
-- **No default for rejections.** `onRejected` is required, and `'ignore'` requires `onBug`
-  (`RejectionOptions`): a bug that is neither fatal nor reported must not be expressible.
-- **Defects always die.** `onBug` reports them, and nothing in the library may retry them, swallow them or
-  turn them into messages. `onRejected` is the only opt-in, and it only covers rejections, since a
-  rejection leaves the state unchanged.
+- **No default for rejections.** `onRejected` is required: `'die'`, or the function that reports a rejection
+  the program goes on after. A bug that is neither fatal nor reported must not be expressible.
+- **Defects always die, and the run fails with them.** Nothing in the library may catch, retry, swallow or
+  turn them into messages, so that every defect, wherever it happens (the view and the renderer included),
+  reaches the cause the run fails with: reporting it is the job of whoever runs the program. The engine only
+  logs where a defect happened when it knows. `onRejected` is the only opt-in, and it only covers rejections,
+  since a rejection leaves the state unchanged.
 - **A subscription never ends in silence**: it is a `Channel` whose end value is a message (or `never`), and
   the engine sends that last message to `update`. An ended subscription keeps its key among the active ones,
   so it is not started again until its key goes away and comes back: never restart it automatically, which

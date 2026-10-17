@@ -16,7 +16,7 @@ export type { InputOffer, Offer, Offered, Offers } from './offer.ts'
 // Views, independent of the renderer.
 export { type Dispatch, dispatchUnsafe, mapDispatch, type View } from './view.ts'
 
-// Running a program with a renderer, and the bugs it reports.
-export { type Bug, type BugReporter, type DefectSource, RejectedMessage, type RejectionOptions } from './bug.ts'
+// Running a program with a renderer, and what a rejection from a frame does.
+export { type OnRejected, RejectedMessage, type Rejection } from './bug.ts'
 export type { Applied } from './engine.ts'
 export { type Frame, run, type RunOptions } from './run.ts'

@@ -8,7 +8,7 @@ import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import type * as Stream from 'effect/Stream'
 import * as SubscriptionRef from 'effect/SubscriptionRef'
-import { type DefectSource, describeByTag, RejectedMessage, type RejectionOptions } from './bug.ts'
+import { describeByTag, type OnRejected, RejectedMessage } from './bug.ts'
 import type { RunCommand } from './command.ts'
 import type { Subscribe } from './subscription.ts'
 import { isRejected, type Step, type Update } from './update.ts'
@@ -59,26 +59,24 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
   update,
   runCommand: interpret,
   subscriptions,
-  onBug = () => Effect.void,
   describeMessage = describeByTag,
   describeCommand = describeByTag,
   onApplied = () => Effect.void,
   onRejected,
-}:
-  & {
-    init: Step<State, Command>
-    update: Update<State, Message, Command>
-    runCommand: RunCommand<Command, Message, R>
-    subscriptions: Subscribe<State, Message, S, K>
-    /** How a message appears in the logs, e.g. its tags only, without its data. */
-    describeMessage?: (message: NoInfer<Message>) => unknown
-    /** How a command appears in the logs, e.g. its tags only, without its data. */
-    describeCommand?: (command: NoInfer<Command>) => unknown
-    /** Hears every message `update` accepts, in order, before its frame is drawn and its commands start. */
-    onApplied?: (applied: Applied<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>) => Effect.Effect<void>
-  }
-  & RejectionOptions<NoInfer<Message>, NoInfer<K>>)
-{
+}: {
+  init: Step<State, Command>
+  update: Update<State, Message, Command>
+  runCommand: RunCommand<Command, Message, R>
+  subscriptions: Subscribe<State, Message, S, K>
+  /** What a frame's message that `update` rejects in the frame's own state does. */
+  onRejected: OnRejected<NoInfer<Message>>
+  /** How a message appears in the logs, e.g. its tags only, without its data. */
+  describeMessage?: (message: NoInfer<Message>) => unknown
+  /** How a command appears in the logs, e.g. its tags only, without its data. */
+  describeCommand?: (command: NoInfer<Command>) => unknown
+  /** Hears every message `update` accepts, in order, before its frame is drawn and its commands start. */
+  onApplied?: (applied: Applied<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>) => Effect.Effect<void>
+}) {
   const context = yield* Effect.context<R | S>()
   const queue = yield* Effect.acquireRelease(
     Queue.unbounded<Envelope<State, Message>>(),
@@ -89,20 +87,17 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
   const subscriptionFibers = yield* FiberMap.make<K, void, never>()
   const stateRef = yield* SubscriptionRef.make<Revisioned<State>>({ state: initState, revision: 0 })
   const offer = (message: Message) => Queue.offer(queue, { message, origin: fromProgram })
-  const reportDefect = (defect: unknown, where: DefectSource<K>) =>
-    Effect.logError(`A defect in ${where._tag === 'Subscription' ? 'a subscription' : where._tag}`, where, defect).pipe(
-      Effect.andThen(onBug({ _tag: 'Defect', cause: defect, where })),
-    )
+  // Where a defect happened is known only here, so it goes to the log; the run then fails with the defect.
+  const logDefect = (where: string, ...details: ReadonlyArray<unknown>) => (defect: unknown) =>
+    Effect.logError(`A defect in ${where}`, ...details, defect)
   const apply = (message: Message, state: State) =>
-    Effect.sync(() => update(message)(state)).pipe(
-      Effect.tapDefect((defect) => reportDefect(defect, { _tag: 'Update' })),
-    )
+    Effect.sync(() => update(message)(state)).pipe(Effect.tapDefect(logDefect('update')))
   const observe = (applied: Applied<State, Message, Command>) =>
-    onApplied(applied).pipe(Effect.tapDefect((defect) => reportDefect(defect, { _tag: 'OnApplied' })))
+    onApplied(applied).pipe(Effect.tapDefect(logDefect('onApplied')))
   // The interpreter runs inside the command's fiber, so a defect in it is the command's.
   const runCommand = (command: Command) =>
     Effect.suspend(() => interpret(command)).pipe(
-      Effect.tapDefect((defect) => reportDefect(defect, { _tag: 'Command' })),
+      Effect.tapDefect(logDefect('a command')),
       Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: offer })),
       Effect.provideContext(context),
       FiberSet.run(fibers),
@@ -132,7 +127,7 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
         Effect.flatMap((last) =>
           Effect.logDebug('Subscription ended', key).pipe(Effect.andThen(offer(last)), Effect.asVoid)
         ),
-        Effect.tapDefect((defect) => reportDefect(defect, { _tag: 'Subscription', key })),
+        Effect.tapDefect(logDefect('a subscription', key)),
         Effect.provideContext(context),
         FiberMap.run(subscriptionFibers, key),
       )
@@ -153,10 +148,9 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
           describeMessage(message),
           { revision: frameRevision },
         )
-        yield* onBug({ _tag: 'Rejected', message, revision: frameRevision })
-        return onRejected === 'die'
-          ? yield* Effect.die(new RejectedMessage({ message, revision: frameRevision }))
-          : active
+        if (onRejected === 'die') return yield* Effect.die(new RejectedMessage({ message, revision: frameRevision }))
+        yield* onRejected({ message, revision: frameRevision })
+        return active
       }
       yield* Effect.logDebug('Ignored a stale message', describeMessage(message))
       return active

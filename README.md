@@ -266,24 +266,33 @@ state, and that state was the same.
 
 `run(program, render, options)` starts the program and hands `render` the stream of frames; the run ends when
 `render` ends. A renderer slower than the program gets only the latest frame: one that a newer frame replaced
-would be drawn for nothing. A frame's model is made the first
-time it is read, so a renderer that skips frames (e.g. one per animation frame) never pays for the others,
-and a message that leaves the very same state (`===`) makes no frame. In a browser, start it with
-`BrowserRuntime.runMain` from `@effect/platform-browser`, as the examples do, so that a program that dies is
-reported. `RunOptions`:
+would be drawn for nothing. A frame's model is made the first time it is read, so a renderer that skips
+frames (e.g. one per animation frame) never pays for the others, and a message that leaves the very same state
+(`===`) makes no frame. `RunOptions`:
 
-- **`onRejected`** (required): `'die'` fails the run with `RejectedMessage`, which is what you want while
-  developing; `'ignore'` drops the message and goes on, safe since the state did not change, and then
-  requires `onBug`.
-- **`onBug(bug)`** hears every `Bug`, e.g. for a crash-reporting service: a `Defect` (always fatal, with
-  `where` it happened) or a `Rejected` message.
+- **`onRejected`** (required): what a [bug rejection](#rejections-stale-or-bug) does. `'die'` fails the run
+  with `RejectedMessage`, which is what you want while developing. A function drops the message and goes on,
+  safe since the state did not change, and reports the `Rejection` (the message and the frame's revision),
+  e.g. to a crash-reporting service: a rejection cannot be ignored without being reported.
 - **`describeMessage`** and **`describeCommand`** say how a message and a command appear in the logs: by
   default only their `_tag`, never their data.
 - **`onApplied(applied)`** hears every accepted message, with the states before and after it and the commands
   it started, before its frame is drawn: for devtools, session recordings or analytics. Keep it quick.
 
-The run fails with the first defect. It logs with Effect's logger: `debug` for the message loop and the
-subscriptions, `error` for bugs.
+A **defect** always ends the run, wherever it happens: in `update`, `makeModel`, the view or the renderer,
+`subscriptions`, a subscription, a command, or one of the options. The run fails with it, and whoever runs
+the program reports it, the way any Effect program's failure is reported. In a browser, start it with
+`BrowserRuntime.runMain` from `@effect/platform-browser`, as the examples do, so that a program that dies is
+logged, and add a crash-reporting service with `Effect.tapCause`:
+
+```ts
+BrowserRuntime.runMain(run(app, render, options).pipe(Effect.tapCause((cause) => reportCrash(cause))))
+```
+
+The cause arrives once the run has stopped its commands and subscriptions. A renderer's plain callbacks, such
+as a DOM event handler, run outside Effect: a throw there reaches the browser's own error handler instead.
+The run logs with Effect's logger: `debug` for the message loop and the subscriptions, `error` for bugs, with
+where a defect happened when the engine knows it.
 
 ### Inputs the user types into
 
@@ -356,8 +365,7 @@ From `@fgaudo/effect-tea`:
 | `embed`, `embedEach`                                     | lift a child program, or a collection of them, into a parent                              |
 | `run`, `Frame`, `RunOptions`                             | run a program with a renderer; what the renderer draws; how the program runs              |
 | `Applied`                                                | what `onApplied` hears: a message, the states around it, its revision and commands        |
-| `RejectionOptions`                                       | `onRejected` (`'die'` or `'ignore'`) with the `onBug` it requires                         |
-| `Bug`, `BugReporter`, `DefectSource`                     | what `onBug` receives; `onBug` itself; where a defect happened                            |
+| `OnRejected`, `Rejection`                                | `'die'`, or a function reporting a `Rejection`: a message and the revision of its frame   |
 | `RejectedMessage`                                        | the defect the run fails with when a rejection is fatal                                   |
 
 From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `drive`, `DriveOptions`, `Driver`,
