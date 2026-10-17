@@ -68,6 +68,9 @@ version.
   `RunOptions` and `DriveOptions` lose their `K` parameter. To upgrade, report defects with `Effect.tapCause`
   around `run`, replace `{ onRejected: 'ignore', onBug }` with `{ onRejected: (rejection) => ... }`, and drop
   `onBug` where `onRejected` is `'die'`.
+- When a subscription's key goes away, what it had sent that `update` has not received yet is dropped:
+  nothing arrives from it after the message that stopped it. Before, such messages reached `update`, and how
+  many depended on how the fibers were scheduled. A message that must not be lost belongs to a command.
 
 ## 0.1.0 (2026-10-17)
 

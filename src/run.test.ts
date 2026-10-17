@@ -6,6 +6,7 @@ import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
+import * as Queue from 'effect/Queue'
 import * as References from 'effect/References'
 import * as Stream from 'effect/Stream'
 import { RejectedMessage, type Rejection } from './bug.ts'
@@ -291,5 +292,53 @@ describe('frames', () => {
         Stream.runDrain,
       ))))
     expect(counts).toEqual([0, 3])
+  })
+})
+
+describe('subscriptions', () => {
+  test('what a subscription leaves in the queue after its key went away does not reach update', async () => {
+    // A stopwatch: `Tick` counts in any state, so that only the engine can keep a late one out; `Stop` drops
+    // the key of the ticks.
+    type Watch = Readonly<{ isRunning: boolean; ticks: number }>
+    type WatchMessage = 'Tick' | 'Stop'
+    const ticks = await Effect.runPromise(quietly(Effect.gen(function*() {
+      const source = yield* Queue.unbounded<'Tick'>()
+      const sent = yield* Deferred.make<void>()
+      const stopped = yield* Deferred.make<void>()
+      let latest: Watch = { isRunning: true, ticks: 0 }
+      // The engine asks for what follows the tick only once it has queued the tick: then `sent` completes.
+      const ticking = Channel.unwrap(Effect.map(Queue.take(source), (tick) => Channel.succeed(tick))).pipe(
+        Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never))),
+      )
+      const watch: Program<Watch, Watch, WatchMessage, never, never> = {
+        init: { state: { isRunning: true, ticks: 0 } },
+        update: (message) => (state) =>
+          message === 'Tick'
+            ? { state: { ...state, ticks: state.ticks + 1 } }
+            : { state: { ...state, isRunning: false } },
+        runCommand: () => Effect.succeedNone,
+        subscriptions: (state) => state.isRunning ? HashMap.make(['ticks', ticking]) : HashMap.empty(),
+        makeModel: (state) => state,
+      }
+      yield* run(watch, (frames) =>
+        frames.pipe(
+          Stream.tap(({ model, dispatch }) =>
+            Effect.suspend(() => {
+              latest = model
+              return model.isRunning ? dispatch('Stop' as Offered<WatchMessage>) : Deferred.succeed(stopped, undefined)
+            })
+          ),
+          Stream.runDrain,
+          // Long enough for a late tick to be applied and drawn, if the engine let it through.
+          Effect.raceFirst(Deferred.await(stopped).pipe(Effect.andThen(Effect.sleep('50 millis')))),
+        ), {
+        onRejected: 'die',
+        // After `update` stopped the watch and before the key goes away: a tick is sent meanwhile.
+        onApplied: ({ message }) =>
+          message === 'Stop' ? Queue.offer(source, 'Tick').pipe(Effect.andThen(Deferred.await(sent))) : Effect.void,
+      })
+      return latest.ticks
+    })))
+    expect(ticks).toBe(0)
   })
 })

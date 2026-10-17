@@ -83,7 +83,9 @@ The version in `package.json` is the one the next release will have, decided by 
   would loop on a subscription that ends at once. What the end of a library's stream means is the caller's
   decision: the library offers no helper that takes it for them.
 - **Subscriptions are reconciled by key**: a new key starts its subscription, a kept key leaves it running, a
-  gone key interrupts it.
+  gone key interrupts it. Each start has its own generation, which its messages carry: a message whose key is
+  gone, or came back with a new start, is dropped before `update`, so nothing arrives from a subscription
+  after the message that stopped it, however the fibers were scheduled.
 - **Commands are data; only `runCommand` runs them.** `update` returns what it decided, and the program's
   interpreter is the one place that turns it into an effect. Never let a command carry its effect, or a
   description that must be kept in step with one: a test, `onApplied` and the logs read the command itself.

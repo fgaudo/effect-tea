@@ -206,10 +206,12 @@ After every change of state, the engine compares the keys, by value:
 - a key that **appears** starts its subscription;
 - a key that **stays** keeps it running, untouched; one that has ended is **not** started again, since
   `update` has its last message and decides whether to drop the key;
-- a key that **disappears** interrupts it; if the key comes back, it starts anew.
+- a key that **disappears** interrupts it, and what it had sent that `update` has not received yet is dropped;
+  if the key comes back, it starts anew.
 
 So what the program listens to depends on its state: in [`list`](examples/list/stopwatch.ts), a stopwatch
-ticks only while it runs.
+ticks only while it runs, and no tick arrives after the message that stopped it. A subscription delivers only
+while the program listens; what must never be lost comes from a command, whose message always arrives.
 
 - **From a stream**, which may end, decide what its end means. To keep listening to nothing until the key
   goes away: `Stream.toChannel(stream).pipe(Channel.flattenArray, Channel.concatWith(() => Channel.never))`;

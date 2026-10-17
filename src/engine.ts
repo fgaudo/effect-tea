@@ -3,7 +3,6 @@ import * as Effect from 'effect/Effect'
 import * as FiberMap from 'effect/FiberMap'
 import * as FiberSet from 'effect/FiberSet'
 import * as HashMap from 'effect/HashMap'
-import * as HashSet from 'effect/HashSet'
 import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import type * as Stream from 'effect/Stream'
@@ -30,12 +29,22 @@ export type Applied<State, Message, Command> = Readonly<{
   commands: ReadonlyArray<Command>
 }>
 
-// A view message carries the state its frame was drawn from, to tell a bug from a stale message.
-type Origin<State> = Readonly<{ _tag: 'View'; frame: Revisioned<State> }> | Readonly<{ _tag: 'Program' }>
+/** Counts the starts of subscriptions: each start of a key gets a new one. */
+type Generation = number
 
-type Envelope<State, Message> = Readonly<{ message: Message; origin: Origin<State> }>
+/**
+ * Where a message comes from. A view message carries the state its frame was drawn from, to tell a bug from a
+ * stale message; a subscription's message carries the start it comes from, so that once its key goes away,
+ * what it left in the queue is dropped.
+ */
+type Origin<State, K> =
+  | Readonly<{ _tag: 'View'; frame: Revisioned<State> }>
+  | Readonly<{ _tag: 'Command' }>
+  | Readonly<{ _tag: 'Subscription'; key: K; generation: Generation }>
 
-const fromProgram: Origin<never> = { _tag: 'Program' }
+type Envelope<State, Message, K> = Readonly<{ message: Message; origin: Origin<State, K> }>
+
+const fromCommand: Origin<never, never> = { _tag: 'Command' }
 
 /** The engine owns its message loop: it runs as long as the scope `make` was called in. */
 export interface Engine<State, Message> {
@@ -79,14 +88,17 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
 }) {
   const context = yield* Effect.context<R | S>()
   const queue = yield* Effect.acquireRelease(
-    Queue.unbounded<Envelope<State, Message>>(),
+    Queue.unbounded<Envelope<State, Message, K>>(),
     Queue.shutdown,
   )
   // The loop and the commands. A defect in any of them fails `join`.
   const fibers = yield* FiberSet.make<unknown, never>()
   const subscriptionFibers = yield* FiberMap.make<K, void, never>()
   const stateRef = yield* SubscriptionRef.make<Revisioned<State>>({ state: initState, revision: 0 })
-  const offer = (message: Message) => Queue.offer(queue, { message, origin: fromProgram })
+  const enqueue = (origin: Origin<State, K>) => (message: Message) =>
+    Effect.asVoid(Queue.offer(queue, { message, origin }))
+  // Only the loop starts subscriptions, one step at a time.
+  let started: Generation = 0
   // Where a defect happened is known only here, so it goes to the log; the run then fails with the defect.
   const logDefect = (where: string, ...details: ReadonlyArray<unknown>) => (defect: unknown) =>
     Effect.logError(`A defect in ${where}`, ...details, defect)
@@ -98,46 +110,59 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
   const runCommand = (command: Command) =>
     Effect.suspend(() => interpret(command)).pipe(
       Effect.tapDefect(logDefect('a command')),
-      Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: offer })),
+      Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: enqueue(fromCommand) })),
       Effect.provideContext(context),
       FiberSet.run(fibers),
     )
   /**
-   * Starts the subscriptions whose key appeared and interrupts the ones whose
-   * key disappeared. Subscriptions whose key is unchanged keep running; one that
-   * has ended keeps its key among the active ones, so it does not start again
-   * until its key goes away and comes back.
+   * Starts the subscriptions whose key appeared and interrupts the ones whose key disappeared, and returns the
+   * active keys with the start of each. Subscriptions whose key is unchanged keep running; one that has ended
+   * keeps its key and its start among the active ones, so that it does not start again until its key goes
+   * away and comes back, and its last message still arrives.
    */
   const reconcile = Effect.fnUntraced(function*(
-    active: HashSet.HashSet<K>,
+    active: HashMap.HashMap<K, Generation>,
     state: State,
   ) {
     const next = subscriptions(state)
-    const nextKeys = HashSet.fromIterable(HashMap.keys(next))
-    for (const key of HashSet.difference(active, nextKeys)) {
+    let nextActive = HashMap.empty<K, Generation>()
+    for (const key of HashMap.keys(active)) {
+      if (HashMap.has(next, key)) continue
       yield* Effect.logDebug('Subscription stopped', key)
       yield* FiberMap.remove(subscriptionFibers, key)
     }
     for (const [key, subscription] of next) {
-      if (HashSet.has(active, key)) {
+      const running = HashMap.get(active, key)
+      if (Opt.isSome(running)) {
+        nextActive = HashMap.set(nextActive, key, running.value)
         continue
       }
+      started += 1
+      nextActive = HashMap.set(nextActive, key, started)
+      const send = enqueue({ _tag: 'Subscription', key, generation: started })
       yield* Effect.logDebug('Subscription started', key)
-      yield* Channel.runForEach(subscription, (message) => Effect.asVoid(offer(message))).pipe(
-        Effect.flatMap((last) =>
-          Effect.logDebug('Subscription ended', key).pipe(Effect.andThen(offer(last)), Effect.asVoid)
-        ),
+      yield* Channel.runForEach(subscription, send).pipe(
+        Effect.flatMap((last) => Effect.logDebug('Subscription ended', key).pipe(Effect.andThen(send(last)))),
         Effect.tapDefect(logDefect('a subscription', key)),
         Effect.provideContext(context),
         FiberMap.run(subscriptionFibers, key),
       )
     }
-    return nextKeys
+    return nextActive
   })
   const step = Effect.fnUntraced(function*(
-    active: HashSet.HashSet<K>,
-    { message, origin }: Envelope<State, Message>,
+    active: HashMap.HashMap<K, Generation>,
+    { message, origin }: Envelope<State, Message, K>,
   ) {
+    // Left in the queue by a subscription whose key has gone away since: it was produced after the program
+    // stopped listening, so it does not reach `update`.
+    if (
+      origin._tag === 'Subscription'
+      && !Opt.contains(HashMap.get(active, origin.key), origin.generation)
+    ) {
+      yield* Effect.logDebug('Dropped a message of a stopped subscription', origin.key, describeMessage(message))
+      return active
+    }
     const { state, revision } = yield* SubscriptionRef.get(stateRef)
     const result = yield* apply(message, state)
     if (isRejected(result)) {
@@ -173,7 +198,7 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
     yield* Effect.forEach(commands, runCommand, { discard: true })
     return nextActive
   })
-  const initialActive = yield* reconcile(HashSet.empty(), initState)
+  const initialActive = yield* reconcile(HashMap.empty(), initState)
   yield* Effect.forEach(initCommands, runCommand, { discard: true })
   yield* Effect.gen(function*() {
     let active = initialActive
@@ -186,8 +211,7 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
       FiberSet.join(fibers),
       FiberMap.join(subscriptionFibers),
     ).pipe(Effect.andThen(Effect.never)),
-    dispatchFrom: (frame) => (message) =>
-      Effect.asVoid(Queue.offer(queue, { message, origin: { _tag: 'View', frame } })),
+    dispatchFrom: (frame) => enqueue({ _tag: 'View', frame }),
     state$: SubscriptionRef.changes(stateRef),
   } satisfies Engine<State, Message>
 })
