@@ -116,6 +116,7 @@ describe('simulate', () => {
       messages: [{ _tag: 'Save' }, { _tag: 'Saved', total: 7 }, { _tag: 'Save' }, { _tag: 'Saved', total: 7 }],
       commands: ['Store', 'Store'],
       events: ['Done', 'Done'],
+      ignored: [],
     })
   })
 
@@ -132,11 +133,17 @@ describe('simulate', () => {
     expect(simulation.state).toEqual({ isSaving: false, saved: 3 })
   })
 
-  test('a command\'s message that update rejects is stale and ignored', async () => {
+  test('a command\'s message that update rejects is stale, ignored, and listed', async () => {
     const simulation = await Effect.runPromise(withStorage(
       simulate(saving)([], { state: idle, commands: ['Store'] }),
     ))
-    expect(simulation).toEqual({ state: idle, messages: [], commands: ['Store'], events: [] })
+    expect(simulation).toEqual({
+      state: idle,
+      messages: [],
+      commands: ['Store'],
+      events: [],
+      ignored: [{ _tag: 'Saved', total: 7 }],
+    })
   })
 
   test('a rejection of one of the messages fails, naming it', async () => {

@@ -39,13 +39,14 @@ export const applyAll =
 
 /**
  * Where a simulation ends: the last state, every message `update` accepted and every command it started, in
- * order, and every event.
+ * order, every event, and every message of a command that `update` rejected (`ignored`).
  */
 export type Simulation<State, Message, Command, Event> = Readonly<{
   state: State
   messages: ReadonlyArray<Message>
   commands: ReadonlyArray<Command>
   events: ReadonlyArray<Event>
+  ignored: ReadonlyArray<Message>
 }>
 
 /**
@@ -55,7 +56,9 @@ export type Simulation<State, Message, Command, Event> = Readonly<{
  * program's own `runCommand` with its services provided, or one of the test's that answers each command
  * without any. Subscriptions do not run: pass the messages they would send in `messages`. A rejection of one
  * of `messages` fails the test with a defect; a command's message that `update` rejects is stale and ignored,
- * as when the program runs.
+ * as when the program runs, and listed in `ignored`. Each command completes in the state its message left,
+ * so an ignored message is usually a bug, unless commands started together are meant to exclude one another:
+ * a test says which by asserting `ignored`.
  */
 export const simulate = <State, Message, Command, R, Event>(
   { update, runCommand }: Readonly<{
@@ -77,7 +80,11 @@ export const simulate = <State, Message, Command, R, Event>(
       for (const command of commands) {
         const message = yield* runCommand(command)
         if (Opt.isSome(message)) {
-          current = yield* apply(message.value, current, Effect.succeed)
+          current = yield* apply(
+            message.value,
+            current,
+            (unchanged) => Effect.succeed({ ...unchanged, ignored: [...unchanged.ignored, message.value] }),
+          )
         }
       }
       return current
@@ -94,6 +101,7 @@ export const simulate = <State, Message, Command, R, Event>(
         messages: [...simulation.messages, message],
         commands: simulation.commands,
         events: [...simulation.events, ...(result.events ?? [])],
+        ignored: simulation.ignored,
       })
     })
   return Effect.gen(function*() {
@@ -102,6 +110,7 @@ export const simulate = <State, Message, Command, R, Event>(
       messages: [],
       commands: [],
       events: [],
+      ignored: [],
     })
     for (const [index, message] of messages.entries()) {
       current = yield* apply(

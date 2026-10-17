@@ -73,10 +73,12 @@ describe('form', () => {
     const typedAndSaved = [Message.NameChanged({ name: ' Ada ' }), Message.SaveClicked()]
 
     test('a saved name is listed, trimmed, and the form gets a new, empty input', async () => {
-      const { state } = await Effect.runPromise(
+      const { state, ignored } = await Effect.runPromise(
         simulate(form)(typedAndSaved, form.init).pipe(Effect.provideService(Storage, working)),
       )
       expect(state).toEqual({ name: { text: '', revision: 1 }, isSaving: false, hasFailed: false, saved: ['Ada'] })
+      // The save's completion reached `update`: a rejected one would mean a form stuck saving.
+      expect(ignored).toEqual([])
     })
 
     test('a failure gives the form back, as it was, and says so', async () => {

@@ -9,9 +9,10 @@ version.
 
 - `onApplied`, an option of `run`: hears every message `update` accepts, in order, with the states before and
   after it, its revision and how many commands it started, before its frame is drawn. For devtools, session
-  recording or analytics. A defect in it is reported as the `OnApplied` bug.
+  recording or analytics. A defect in it ends the run, like any other.
 - `simulate` in `@fgaudo/effect-tea/testing`: runs a flow without a runtime, commands included, and returns
-  the final state, every accepted message and every event.
+  the final state, every accepted message, every event, and the messages of commands that `update` rejected
+  (`ignored`), so that a test can catch a completion its state machine drops.
 - `drive` in `@fgaudo/effect-tea/testing`: runs a program with `run`, subscriptions included, and lets a
   scenario act as its user through a `Driver` (`waitFor`, `send`, `latest`), with the actions `tap` and
   `input`. A rejected message is always fatal; a wait fails after `patience`, measured with the real clock.

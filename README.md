@@ -240,7 +240,9 @@ collection of them, each with an id (the cards of a list):
   `get` returns `None` the child is absent, and its messages are rejected.
 - `key` namespaces the child's subscription keys (with the id, for `embedEach`, so ids must compare by
   value). `getSubscribed` (`subscribed` for `embedEach`) decides which children listen: a hidden page can keep
-  receiving its completions without listening to the world.
+  receiving its completions without listening to the world. After every change of state the parent's
+  subscriptions are gathered from each child that listens, so `subscribed` lists only those (the running
+  stopwatches in [`list`](examples/list)), not every child.
 - A child never acts on its parent: it emits **events**, and `onEvent` decides. The types require `onEvent`
   exactly when the child has events. The step `onEvent` returns may emit events of the parent's own, for the
   parent's parent (a dialog's `Confirmed` becomes its page's `AccountDeleted`): they come out of the returned
@@ -337,10 +339,15 @@ each level, all of them used in the examples' tests:
   services provided, or one of the test's that answers each command and needs none.
 - A rejection of one of your messages fails `applyAll` and `simulate`. Assert expected rejections with
   `isRejected(update(message)(state))`, not by comparing states.
+- A command's message that `update` rejects is ignored as stale, as when the program runs, where it may have
+  arrived too late. In `simulate` each command completes at once, so such a message is usually a bug (a form
+  stuck saving): `simulate` lists them in `ignored`, and `expect(ignored).toEqual([])` catches it. Commands
+  started together that exclude one another are the exception, and their test says so.
 - `dispatchViolations` reports each message that `update` rejects in `state` (`Rejected`), and each one that
   acts again when sent twice from the same frame (`ActsTwice`: a double tap would repeat a one-shot action),
   except the `repeatable` ones. Collecting what the view can send depends on the renderer (`messagesSentBy`
-  in `examples/snabbdom.ts`).
+  in `examples/snabbdom.ts`). States are compared with `Equal`, by value; a state is data, and a function in
+  it would be compared by reference, so a new one on every `update` would look like a second action.
 - `drive` gives the scenario a `Driver`: `waitFor(select)` waits for a frame whose model `select` maps to
   `Some`; `send(select)` waits for a frame on which `select` finds an `Action` (`tap(offer)`,
   `input(offer, value)`), and does it. A rejected message is always fatal there. Wait for what the model
