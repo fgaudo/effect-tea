@@ -1,8 +1,10 @@
 import * as Arr from 'effect/Array'
+import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
+import * as Opt from 'effect/Option'
 import { describeByTag } from './bug.ts'
 import type { Command } from './command.ts'
-import { isRejected, type Update } from './update.ts'
+import { isRejected, type Step, type Update } from './update.ts'
 
 /** Applies `messages` in order from `from`, collecting the commands; a rejection fails the test. */
 export const applyAll =
@@ -18,6 +20,65 @@ export const applyAll =
       },
       { state: from, commands: [] as ReadonlyArray<Command<Message, R>> },
     )
+
+/** Where a simulation ends: the last state, every message `update` accepted in order, and every event. */
+export type Simulation<State, Message, Event> = Readonly<{
+  state: State
+  messages: ReadonlyArray<Message>
+  events: ReadonlyArray<Event>
+}>
+
+/**
+ * Runs a program's flow without a runtime: from `from` (e.g. the program's `init`), runs its commands, then
+ * applies `messages` in order. Every command runs as soon as its message is applied, and the message it
+ * produces is applied before anything else, as if each command completed at once. Subscriptions do not run:
+ * pass the messages they would send in `messages`. A rejection of one of `messages` fails the test with a
+ * defect; a command's message that `update` rejects is stale and ignored, as when the program runs.
+ */
+export const simulate = <State, Message, R, Event>(update: Update<State, Message, R, Event>) =>
+(
+  messages: ReadonlyArray<Message>,
+  from: Step<State, Message, R>,
+): Effect.Effect<Simulation<State, Message, Event>, never, R> => {
+  const runCommands = (
+    commands: ReadonlyArray<Command<Message, R>>,
+    simulation: Simulation<State, Message, Event>,
+  ): Effect.Effect<Simulation<State, Message, Event>, never, R> =>
+    Effect.gen(function*() {
+      let current = simulation
+      for (const command of commands) {
+        const message = yield* command
+        if (Opt.isSome(message)) {
+          current = yield* apply(message.value, current, Effect.succeed)
+        }
+      }
+      return current
+    })
+  const apply = (
+    message: Message,
+    simulation: Simulation<State, Message, Event>,
+    onRejected: (unchanged: Simulation<State, Message, Event>) => Effect.Effect<Simulation<State, Message, Event>>,
+  ): Effect.Effect<Simulation<State, Message, Event>, never, R> =>
+    Effect.suspend(() => {
+      const result = update(message)(simulation.state)
+      return isRejected(result) ? onRejected(simulation) : runCommands(result.commands ?? [], {
+        state: result.state,
+        messages: [...simulation.messages, message],
+        events: [...simulation.events, ...(result.events ?? [])],
+      })
+    })
+  return Effect.gen(function*() {
+    let current = yield* runCommands(from.commands ?? [], { state: from.state, messages: [], events: [] })
+    for (const [index, message] of messages.entries()) {
+      current = yield* apply(
+        message,
+        current,
+        () => Effect.die(new Error(`update rejected message ${index} (${String(describeByTag(message))})`)),
+      )
+    }
+    return current
+  })
+}
 
 /**
  * How a message a view can send breaks its agreement with `update`:

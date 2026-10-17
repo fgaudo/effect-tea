@@ -56,6 +56,9 @@ All code, comments, identifiers, commit messages and `.md` files are in **Englis
   very same state makes no new frame. Keep it so: do not compute models eagerly in `run`.
 - **`onApplied` watches, never steers**: it hears each accepted message in order, before its frame is
   published, and gets no way to send messages or change the state. A defect in it is a bug like any other.
+- **`simulate` behaves like the engine** where the engine is deterministic: a rejected message from a
+  command is stale and ignored, and only a rejection of the test's own messages fails. Keep the two in step
+  when either changes.
 - **Logs never carry message data by default** (`describeByTag`). Levels: `error` for bugs, `debug` for the
   message loop and for subscriptions starting, stopping and ending.
 

@@ -744,6 +744,35 @@ test('counting', () => {
   `commands`. A rejection throws, failing the test.
 - Assert rejections with `isRejected`, not by comparing states.
 
+To test a whole flow, commands included, `simulate` runs them too, with the services you provide:
+
+```ts
+import { simulate } from '@fgaudo/effect-tea/testing'
+
+test('saving', async () => {
+  const { state, messages } = await Effect.runPromise(
+    simulate(update)([{ _tag: 'Save' }], program.init).pipe(
+      Effect.provideService(Storage, { save: Effect.succeed(7) }),
+    ),
+  )
+  expect(messages.map((message) => message._tag)).toEqual([
+    'Loaded',
+    'Save',
+    'Saved',
+  ])
+  expect(state.saved).toBe(7)
+})
+```
+
+- `simulate(update)(messages, from)` starts from a `Step` (the program's `init`, or `{ state }`), runs its
+  commands, then applies `messages` in order. Each command runs as soon as its message is applied, and the
+  message it produces is applied before anything else, as if every command completed at once. It returns a
+  `Simulation`: the final `state`, every message `update` accepted in order (yours and the commands'), and
+  every `event`.
+- A rejection of one of your messages fails with a defect; a command's message that `update` rejects is stale
+  and ignored, as when the program runs.
+- Subscriptions do not run: put the messages they would send among `messages`.
+
 The agreement between the view and `update` is worth checking for every state the program can be in. Render
 the real view, collect every message it can send, and pass them to `dispatchViolations`:
 
@@ -787,11 +816,13 @@ From `@fgaudo/effect-tea`:
 | `View`, `Dispatch`, `mapDispatch`               | `(model, dispatch) => Node`; a dispatch of offered messages; a child's dispatch               |
 | `embed`, `embedEach`                            | lift a child program, or a collection of them, into a parent                                  |
 | `run`, `Frame`, `RunOptions`                    | run a program with a renderer; what the renderer draws; how the program runs                  |
+| `Applied`                                       | what `onApplied` hears: a message, the states around it, its revision and commands            |
 | `RejectionOptions`                              | `onRejected` (`'die'` or `'ignore'`) with the `onBug` it requires                             |
 | `Bug`, `BugReporter`, `DefectSource`            | what `onBug` receives; `onBug` itself; where a defect happened                                |
 | `RejectedMessage`                               | the defect the run fails with when a rejection is fatal                                       |
 
-From `@fgaudo/effect-tea/testing`: `applyAll`, `dispatchViolations`, `DispatchViolation`.
+From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `dispatchViolations`,
+`DispatchViolation`.
 
 ## Development
 
@@ -801,4 +832,3 @@ into `dist/`; it also runs before `bun pm pack`.
 ## License
 
 [MIT](LICENSE) © Francesco Gaudenzi
-| `Applied`                                       | what `onApplied` hears: a message, the states around it, its revision and commands            |
