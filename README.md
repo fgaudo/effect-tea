@@ -80,13 +80,12 @@ const counter: Program<number, Model, Message, never> = {
 const main = run(counter, (frames) =>
   frames.pipe(
     Stream.tap(({ model, dispatch }) =>
-      Effect.log(model.count).pipe(
-        Effect.andThen(Effect.sync(() => {
-          if (model.count < 3 && Opt.isSome(model.increment)) {
-            dispatch(model.increment.value)
-          }
-        })),
-      )
+      Effect.gen(function*() {
+        yield* Effect.log(model.count)
+        if (model.count < 3 && Opt.isSome(model.increment)) {
+          yield* dispatch(model.increment.value)
+        }
+      })
     ),
     Stream.take(4),
     Stream.runDrain,
@@ -148,6 +147,10 @@ view does not compile:
 ```ts
 dispatch({ _tag: 'SaveClicked' }) // error: not an Offered<Message>
 ```
+
+Sending is an effect, `Effect<void>` with no error and no services: nothing is sent until it runs. A renderer
+built on Effect runs it as it is. One whose handlers are plain callbacks, like snabbdom's, wraps it with
+`dispatchUnsafe(dispatch)`, which sends at once.
 
 - A model may offer **less** than `update` accepts (e.g. to hide an action), never more.
 - **Input is never a reason to reject.** Whatever is typed is stored, and its validity becomes model data:
@@ -287,6 +290,7 @@ From `@fgaudo/effect-tea`:
 | `offers`                                        | asks `update` what the model may offer: `offer(message)` and `offerInput(toMessage, current)` |
 | `Offer`, `InputOffer`, `Offered`, `Offers`      | an optional offered message; an optional function to one; the brand; what `offers` returns    |
 | `View`, `Dispatch`, `mapDispatch`               | `(model, dispatch) => Node`; a dispatch of offered messages; a child's dispatch               |
+| `dispatchUnsafe`                                | a dispatch that sends at once, for a renderer's plain callbacks                               |
 | `embed`, `embedEach`                            | lift a child program, or a collection of them, into a parent                                  |
 | `run`, `Frame`, `RunOptions`                    | run a program with a renderer; what the renderer draws; how the program runs                  |
 | `Applied`                                       | what `onApplied` hears: a message, the states around it, its revision and commands            |

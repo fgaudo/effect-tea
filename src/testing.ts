@@ -129,7 +129,7 @@ export const dispatchViolations = <State, Message, R, Event>(
   })
 
 /** What a user does on a frame: sends a message through the frame's dispatch, as a view's handler would. */
-export type Action<Message> = (dispatch: Dispatch<Message>) => void
+export type Action<Message> = (dispatch: Dispatch<Message>) => Effect.Effect<void>
 
 /** The action that sends what `offer` offers, while it is offered. */
 export const tap = <Message>(offer: Offer<Message>): Opt.Option<Action<Message>> =>
@@ -200,10 +200,7 @@ export const drive = <State, Model, Message, R, K, A, E, RS>(
     const driver: Driver<Model, Message> = {
       waitFor: (select) => first((frame) => select(frame.model)),
       send: (select) =>
-        Effect.flatMap(
-          first((frame) => Opt.map(select(frame.model), (action) => () => action(frame.dispatch))),
-          Effect.sync,
-        ),
+        Effect.flatten(first((frame) => Opt.map(select(frame.model), (action) => action(frame.dispatch)))),
       latest: first(Opt.some),
     }
     const running = run(

@@ -45,9 +45,9 @@ describe('run', () => {
     await Effect.runPromise(quietly(runDying(counter, (frames) =>
       frames.pipe(
         Stream.tap(({ model, dispatch }) =>
-          Effect.sync(() => {
+          Effect.gen(function*() {
             counts.push(model.count)
-            if (model.count < 2) dispatch(Opt.getOrThrow(model.increment))
+            if (model.count < 2) yield* dispatch(Opt.getOrThrow(model.increment))
           })
         ),
         Stream.take(3),
@@ -61,7 +61,7 @@ describe('run', () => {
       frames.pipe(
         Stream.tap(({ dispatch }) =>
           // A buggy view: it forges a message it was not offered.
-          Effect.sync(() => dispatch('Forbidden' as Offered<Message>))
+          dispatch('Forbidden' as Offered<Message>)
         ),
         Stream.runDrain,
       ))))
@@ -76,11 +76,11 @@ describe('run', () => {
       (frames) =>
         frames.pipe(
           Stream.tap(({ model, dispatch }) =>
-            Effect.sync(() => {
+            Effect.gen(function*() {
               counts.push(model.count)
               // A buggy view: it forges a message, then sends the one it was offered.
-              dispatch('Forbidden' as Offered<Message>)
-              dispatch(Opt.getOrThrow(model.increment))
+              yield* dispatch('Forbidden' as Offered<Message>)
+              yield* dispatch(Opt.getOrThrow(model.increment))
             })
           ),
           Stream.take(2),
@@ -118,13 +118,13 @@ describe('onBug', () => {
   /** Runs `program` until it dies, drawing every frame with `draw`, and returns what `onBug` reported. */
   const diesIn = async <Model>(
     program: Program<number, Model, Message, never>,
-    draw: (frame: Readonly<{ model: Model; dispatch: (message: Offered<Message>) => void }>) => void = () => {},
+    draw: (frame: Frame<Model, Message>) => Effect.Effect<void> = () => Effect.void,
     onApplied?: RunOptions<Message, unknown, number>['onApplied'],
   ) => {
     const bugs: Array<unknown> = []
     const exit = await Effect.runPromiseExit(quietly(run(
       program,
-      (frames) => frames.pipe(Stream.tap((frame) => Effect.sync(() => draw(frame))), Stream.runDrain),
+      (frames) => frames.pipe(Stream.tap(draw),Stream.runDrain),
       { onRejected: 'die', onBug: (bug) => Effect.sync(() => bugs.push(label(bug))), ...(onApplied && { onApplied }) },
     )))
     return { died: Exit.isFailure(exit), bugs }
@@ -182,9 +182,9 @@ describe('onApplied', () => {
       (frames) =>
         frames.pipe(
           Stream.tap(({ model, dispatch }) =>
-            Effect.sync(() => {
+            Effect.gen(function*() {
               drawn.push(heard.length)
-              if (model.count < 2) dispatch(Opt.getOrThrow(model.increment))
+              if (model.count < 2) yield* dispatch(Opt.getOrThrow(model.increment))
             })
           ),
           Stream.take(3),
@@ -235,8 +235,8 @@ describe('frames', () => {
         frames.pipe(
           // The first two frames send an increment without reading their model: three frames in all.
           Stream.tap(({ dispatch }) =>
-            Effect.sync(() => {
-              if (seen++ < 2) dispatch('Increment' as Offered<Message>)
+            Effect.gen(function*() {
+              if (seen++ < 2) yield* dispatch('Increment' as Offered<Message>)
             })
           ),
           Stream.take(3),

@@ -1,6 +1,6 @@
 // The renderer the examples use. The library knows nothing of it: any renderer that can draw a model and
-// call `dispatch` works the same way.
-import type { Dispatch, Frame, InputOffer, Offer, View } from '@fgaudo/effect-tea'
+// run `dispatch` works the same way. snabbdom's handlers are plain callbacks, so they use `dispatchUnsafe`.
+import { type Dispatch, dispatchUnsafe, type Frame, type InputOffer, type Offer, type View } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import * as Stream from 'effect/Stream'
@@ -22,7 +22,7 @@ export const renderInto =
 export const onClick = <Message>(offer: Offer<Message>, dispatch: Dispatch<Message>): On =>
   Opt.match(offer, {
     onNone: () => ({}),
-    onSome: (message) => ({ click: () => dispatch(message) }),
+    onSome: (message) => ({ click: () => dispatchUnsafe(dispatch)(message) }),
   })
 
 /** snabbdom's `on` for a text input: the handler exists only while typing is offered. */
@@ -30,7 +30,7 @@ export const onInput = <Message>(offer: InputOffer<string, Message>, dispatch: D
   Opt.match(offer, {
     onNone: () => ({}),
     onSome: (toMessage) => ({
-      input: (event: Event) => dispatch(toMessage((event.target as HTMLInputElement).value)),
+      input: (event: Event) => dispatchUnsafe(dispatch)(toMessage((event.target as HTMLInputElement).value)),
     }),
   })
 
@@ -53,6 +53,6 @@ export const messagesSentBy = <Model, Message>(
     }
     for (const child of node.children ?? []) visit(child)
   }
-  visit(view(model, (message) => sent.push(message)))
+  visit(view(model, (message) => Effect.sync(() => sent.push(message))))
   return sent
 }

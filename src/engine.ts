@@ -45,7 +45,7 @@ export interface Engine<State, Message> {
    * with every message it enqueues, so that a rejected message can be told
    * apart as a bug or as stale.
    */
-  readonly dispatchFrom: (frame: Revisioned<State>) => (message: Message) => void
+  readonly dispatchFrom: (frame: Revisioned<State>) => (message: Message) => Effect.Effect<void>
   /**
    * Never succeeds. Fails with the first defect raised by `update`, a command
    * or a subscription, or with `RejectedMessage`, so whoever runs the program
@@ -185,9 +185,8 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, R, S, K>(
       FiberSet.join(fibers),
       FiberMap.join(subscriptionFibers),
     ).pipe(Effect.andThen(Effect.never)),
-    dispatchFrom: (frame) => (message) => {
-      Queue.offerUnsafe(queue, { message, origin: { _tag: 'View', frame } })
-    },
+    dispatchFrom: (frame) => (message) =>
+      Effect.asVoid(Queue.offer(queue, { message, origin: { _tag: 'View', frame } })),
     state$: SubscriptionRef.changes(stateRef),
   } satisfies Engine<State, Message>
 })

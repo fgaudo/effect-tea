@@ -19,6 +19,11 @@ version.
 
 ### Changed
 
+- `Dispatch` returns an `Effect<void>` instead of sending at once, so a view or renderer built on Effect sends
+  with `yield* dispatch(message)`. `dispatchUnsafe(dispatch)` is the callback that sends at once, for a
+  renderer whose handlers are plain functions. To upgrade, wrap the dispatch your renderer's callbacks call
+  with `dispatchUnsafe`, and yield it where you called it inside an Effect. `Action`s in `testing` return
+  the effect too.
 - `embed` and `embedEach` return `liftCommands` instead of `init`. `init(step)` returned the child's state
   as it was given, with its commands wrapped: the parent only needs the commands. To upgrade, put the child's
   initial state in the parent's state yourself, and replace `init(step).commands` with

@@ -14,7 +14,7 @@ export type { Subscribe, Subscription, Subscriptions } from './subscription.ts'
 export { type InputOffer, type Offer, type Offered, type Offers, offers } from './offer.ts'
 
 // Views, independent of the renderer.
-export { type Dispatch, mapDispatch, type View } from './view.ts'
+export { type Dispatch, dispatchUnsafe, mapDispatch, type View } from './view.ts'
 
 // Running a program with a renderer, and the bugs it reports.
 export { type Bug, type BugReporter, type DefectSource, RejectedMessage, type RejectionOptions } from './bug.ts'
