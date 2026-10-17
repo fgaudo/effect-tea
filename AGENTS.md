@@ -6,6 +6,12 @@ How the library is used is in [`README.md`](README.md). This file holds the rule
 
 All code, comments, identifiers, commit messages and `.md` files are in **English**.
 
+## Commits
+
+A commit made with an AI agent ends with an `Assisted-by: <model>` trailer (e.g. `Assisted-by: Claude Opus 5.5`),
+never `Co-Authored-By`: the author is the person who commits. A clear subject is usually enough: a body only says
+why, or what the diff, the docs and the changelog do not, never what they already describe.
+
 ## What belongs here
 
 - **Generic, and only Effect.** The library knows nothing of the applications that use it, nor of any
