@@ -18,6 +18,18 @@ export type Revision = number
 
 export type Revisioned<State> = Readonly<{ state: State; revision: Revision }>
 
+/**
+ * A message that `update` accepted: the state before and after it, the revision of `after` (unchanged when
+ * the state is the same), and how many commands it started.
+ */
+export type Applied<State, Message> = Readonly<{
+  message: Message
+  before: State
+  after: State
+  revision: Revision
+  commands: number
+}>
+
 // A view message carries the state its frame was drawn from, to tell a bug from a stale message.
 type Origin<State> = Readonly<{ _tag: 'View'; frame: Revisioned<State> }> | Readonly<{ _tag: 'Program' }>
 
@@ -48,6 +60,7 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, R, S, K>(
   subscriptions,
   onBug = () => Effect.void,
   describeMessage = describeByTag,
+  onApplied = () => Effect.void,
   onRejected,
 }:
   & {
@@ -56,6 +69,8 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, R, S, K>(
     subscriptions: Subscribe<State, Message, S, K>
     /** How a message appears in the logs, e.g. its tags only, without its data. */
     describeMessage?: (message: NoInfer<Message>) => unknown
+    /** Hears every message `update` accepts, in order, before its frame is drawn and its commands start. */
+    onApplied?: (applied: Applied<NoInfer<State>, NoInfer<Message>>) => Effect.Effect<void>
   }
   & RejectionOptions<NoInfer<Message>, NoInfer<K>>)
 {
@@ -77,6 +92,8 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, R, S, K>(
     Effect.sync(() => update(message)(state)).pipe(
       Effect.tapDefect((defect) => reportDefect(defect, { _tag: 'Update' })),
     )
+  const observe = (applied: Applied<State, Message>) =>
+    onApplied(applied).pipe(Effect.tapDefect((defect) => reportDefect(defect, { _tag: 'OnApplied' })))
   const runCommand = (command: Command<Message, R>) =>
     command.pipe(
       Effect.tapDefect((defect) => reportDefect(defect, { _tag: 'Command' })),
@@ -144,10 +161,12 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, R, S, K>(
       if (commands.length > 0) {
         yield* Effect.logDebug('Message', describeMessage(message), { revision, commands: commands.length })
       }
+      yield* observe({ message, before: state, after: state, revision, commands: commands.length })
       yield* Effect.forEach(commands, runCommand, { discard: true })
       return active
     }
     yield* Effect.logDebug('Message', describeMessage(message), { revision: revision + 1, commands: commands.length })
+    yield* observe({ message, before: state, after: newState, revision: revision + 1, commands: commands.length })
     yield* SubscriptionRef.set(stateRef, { state: newState, revision: revision + 1 })
     const nextActive = yield* reconcile(active, newState)
     yield* Effect.forEach(commands, runCommand, { discard: true })

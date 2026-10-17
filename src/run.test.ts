@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
+import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as HashMap from 'effect/HashMap'
@@ -8,6 +9,7 @@ import * as Opt from 'effect/Option'
 import * as References from 'effect/References'
 import * as Stream from 'effect/Stream'
 import { type Bug, RejectedMessage } from './bug.ts'
+import type { Applied } from './engine.ts'
 import { reject, type Update } from './update.ts'
 import { type Offer, type Offered, offers } from './offer.ts'
 import type { Program } from './program.ts'
@@ -117,12 +119,13 @@ describe('onBug', () => {
   const diesIn = async <Model>(
     program: Program<number, Model, Message, never>,
     draw: (frame: Readonly<{ model: Model; dispatch: (message: Offered<Message>) => void }>) => void = () => {},
+    onApplied?: RunOptions<Message, unknown, number>['onApplied'],
   ) => {
     const bugs: Array<unknown> = []
     const exit = await Effect.runPromiseExit(quietly(run(
       program,
       (frames) => frames.pipe(Stream.tap((frame) => Effect.sync(() => draw(frame))), Stream.runDrain),
-      { onRejected: 'die', onBug: (bug) => Effect.sync(() => bugs.push(label(bug))) },
+      { onRejected: 'die', onBug: (bug) => Effect.sync(() => bugs.push(label(bug))), ...(onApplied && { onApplied }) },
     )))
     return { died: Exit.isFailure(exit), bugs }
   }
@@ -162,6 +165,55 @@ describe('onBug', () => {
       died: true,
       bugs: ['Rejected'],
     })
+  })
+
+  test('a defect in onApplied is reported as such', async () => {
+    const increment = ({ model, dispatch }: Frame<Model, Message>) => dispatch(Opt.getOrThrow(model.increment))
+    expect(await diesIn(counter, increment, () => Effect.die('boom'))).toEqual({ died: true, bugs: ['OnApplied'] })
+  })
+})
+
+describe('onApplied', () => {
+  test('hears every accepted message in order, with the states around it, before its frame', async () => {
+    const heard: Array<Applied<number, Message>> = []
+    const drawn: Array<number> = []
+    await Effect.runPromise(quietly(run(
+      counter,
+      (frames) =>
+        frames.pipe(
+          Stream.tap(({ model, dispatch }) =>
+            Effect.sync(() => {
+              drawn.push(heard.length)
+              if (model.count < 2) dispatch(Opt.getOrThrow(model.increment))
+            })
+          ),
+          Stream.take(3),
+          Stream.runDrain,
+        ),
+      { onRejected: 'die', onApplied: (applied) => Effect.sync(() => heard.push(applied)) },
+    )))
+    expect(heard).toEqual([
+      { message: 'Increment', before: 0, after: 1, revision: 1, commands: 0 },
+      { message: 'Increment', before: 1, after: 2, revision: 2, commands: 0 },
+    ])
+    expect(drawn).toEqual([0, 1, 2])
+  })
+
+  test('a message that leaves the very same state is heard too, with an unchanged revision', async () => {
+    const heard = await Effect.runPromise(quietly(Effect.gen(function*() {
+      const applied = yield* Deferred.make<Applied<number, Message>>()
+      const still: Program<number, Model, Message, never> = {
+        ...counter,
+        init: { state: 0, commands: [Effect.succeed(Opt.some<Message>('Increment'))] },
+        update: () => (count) => ({ state: count }),
+      }
+      yield* run(still, () => Effect.asVoid(Deferred.await(applied)), {
+        onRejected: 'die',
+        onApplied: (message) => Effect.asVoid(Deferred.succeed(applied, message)),
+      })
+      return yield* Deferred.await(applied)
+    })))
+    expect(heard).toEqual({ message: 'Increment', before: 0, after: 0, revision: 0, commands: 0 })
   })
 })
 

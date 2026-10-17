@@ -54,6 +54,8 @@ All code, comments, identifiers, commit messages and `.md` files are in **Englis
   asking.
 - **Frames cost only what is drawn**: a frame's model is made when first read, and a message that returns the
   very same state makes no new frame. Keep it so: do not compute models eagerly in `run`.
+- **`onApplied` watches, never steers**: it hears each accepted message in order, before its frame is
+  published, and gets no way to send messages or change the state. A defect in it is a bug like any other.
 - **Logs never carry message data by default** (`describeByTag`). Levels: `error` for bugs, `debug` for the
   message loop and for subscriptions starting, stopping and ending.
 

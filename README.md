@@ -696,12 +696,27 @@ Options (`RunOptions`):
 - **`onBug(bug)`** is called for every bug, fatal or not, e.g. to send it to a crash-reporting service. A
   `Bug` is one of:
   - `Defect`: something blew up (an exception, an `Effect.die`). Its `cause` is the defect, and `where` is
-    `Update`, `Command`, or `Subscription` with its `key`. A defect always ends the run, whatever `onRejected` says: to recover
-    from one, handle it where it happens, with Effect's tools.
+    `Update`, `Command`, `OnApplied`, or `Subscription` with its `key`. A defect always ends the run, whatever
+    `onRejected` says: to recover from one, handle it where it happens, with Effect's tools.
   - `Rejected`: a frame sent a `message` that `update` rejects in the frame's own state, whose `revision`
     it carries (see [Rejections](#6-rejections-stale-or-bug)).
 - **`describeMessage`** says how a message appears in the logs. By default only its `_tag` is logged (or the
   message itself, when it is a string), never its data.
+- **`onApplied(applied)`** hears every message `update` accepts, in order, before its frame is drawn and its
+  commands start. An `Applied` carries the `message`, the state `before` and `after` it, the `revision` of
+  `after` (unchanged when the state is the very same), and how many `commands` it started. Stale and rejected
+  messages are not heard. It is the place for tools that watch the program, like devtools, a recording of the
+  session to replay a bug, or analytics:
+
+  ```ts
+  const main = run(app, render, {
+    onRejected: 'die',
+    onApplied: ({ message, after }) =>
+      Effect.sync(() => devtools.send(message, after)),
+  })
+  ```
+
+  The program waits for it, so keep it quick (fork anything slow); a defect in it is a bug like any other.
 
 The run fails with the first defect. To show an error screen, handle the failure of `run` itself, e.g. with
 `Effect.tapCause`.
@@ -786,3 +801,4 @@ into `dist/`; it also runs before `bun pm pack`.
 ## License
 
 [MIT](LICENSE) © Francesco Gaudenzi
+| `Applied`                                       | what `onApplied` hears: a message, the states around it, its revision and commands            |

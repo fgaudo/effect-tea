@@ -2,10 +2,11 @@ import * as Data from 'effect/Data'
 import type * as Effect from 'effect/Effect'
 import type { Revision } from './engine.ts'
 
-/** Where a defect happened: in `update`, in a command, or in the subscription with that key. */
+/** Where a defect happened: in `update`, in a command, in the subscription with that key, or in `onApplied`. */
 export type DefectSource<K = unknown> =
   | Readonly<{ _tag: 'Update' }>
   | Readonly<{ _tag: 'Command' }>
+  | Readonly<{ _tag: 'OnApplied' }>
   | Readonly<{ _tag: 'Subscription'; key: K }>
 
 /**
