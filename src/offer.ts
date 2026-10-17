@@ -1,6 +1,6 @@
 import type * as Brand from 'effect/Brand'
 import * as Effect from 'effect/Effect'
-import * as Opt from 'effect/Option'
+import { RejectedOffer } from './rejection.ts'
 import { isRejected, type Update } from './update.ts'
 
 /**
@@ -10,16 +10,16 @@ import { isRejected, type Update } from './update.ts'
  */
 export type Offered<Message> = Brand.Branded<Message, 'effect-tea.Offered'>
 
-/** An action the model offers to the view: `Some` exactly when `update` accepts it. */
-export type Offer<Message> = Opt.Option<Offered<Message>>
-
-/** An action whose message carries what the user types or picks. */
-export type InputOffer<Value, Message> = Opt.Option<(value: Value) => Offered<Message>>
-
-/** Both ways of offering for one state, as `makeModel` receives them. */
+/**
+ * How `makeModel` offers actions in one state. The model's shape says which actions exist in each case of the
+ * state, and each offer is checked against `update`: one that `update` rejects throws `RejectedOffer`, so a
+ * model that promises an action the state does not allow dies as it is made, instead of drawing a control
+ * that does nothing or sends a rejected message.
+ */
 export type Offers<Message> = Readonly<{
-  offer: (message: Message) => Offer<Message>
-  offerInput: <Value>(toMessage: (value: Value) => Message, current: Value) => InputOffer<Value, Message>
+  offer: (message: Message) => Offered<Message>
+  /** An action whose message carries what the user types or picks, checked with `current`. */
+  offerInput: <Value>(toMessage: (value: Value) => Message, current: Value) => (value: Value) => Offered<Message>
 }>
 
 /**
@@ -30,12 +30,17 @@ export const offers = <State, Message>(
   update: Update<State, Message, unknown, unknown>,
   state: State,
 ): Offers<Message> => {
-  const offer = (message: Message): Offer<Message> =>
-    isRejected(update(message)(state)) ? Opt.none() : Opt.some(message as Offered<Message>)
+  const offer = (message: Message): Offered<Message> => {
+    // `makeModel` is pure code outside Effect: a throw is how it dies, and the run fails with the defect.
+    if (isRejected(update(message)(state))) throw new RejectedOffer({ message })
+    return message as Offered<Message>
+  }
   return {
     offer,
-    offerInput: (toMessage, current) =>
-      Opt.map(offer(toMessage(current)), () => (value) => toMessage(value) as Offered<Message>),
+    offerInput: (toMessage, current) => {
+      offer(toMessage(current))
+      return (value) => toMessage(value) as Offered<Message>
+    },
   }
 }
 

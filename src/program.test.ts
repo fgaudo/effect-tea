@@ -3,13 +3,14 @@ import * as Channel from 'effect/Channel'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
-import type { Offer } from './offer.ts'
+import type { Offered } from './offer.ts'
+import { RejectedOffer } from './rejection.ts'
 import type { Subscription } from './subscription.ts'
 import { isRejected, reject, type Transition, type Update } from './update.ts'
 import { embed, embedEach, type Program } from './program.ts'
 
 // A child counter that stops at 3, with one subscription, embedded in a parent that holds it and says whether
-// it is shown. Its model is whether it offers to increment.
+// it is shown. Its model always offers to increment, which its `update` rejects at 3.
 type Parent = Readonly<{ child: Opt.Option<number>; isShown: boolean }>
 
 type Increment = 'Increment'
@@ -19,7 +20,7 @@ const ticks: Subscription<Increment, never> = Channel.concatWith(
   () => Channel.never,
 )
 
-const child: Omit<Program<number, Offer<Increment>, Increment>, 'init'> = {
+const child: Omit<Program<number, Offered<Increment>, Increment>, 'init'> = {
   update: () => (count) => count === 3 ? reject : { state: count + 1 },
   subscriptions: () => HashMap.make(['ticks', ticks]),
   makeModel: (_count, { offer }) => offer('Increment'),
@@ -50,9 +51,9 @@ describe('embed', () => {
     )
   })
 
-  test('makeModel offers what the child\'s own update accepts in the child\'s state', () => {
-    expect(Opt.isSome(embedded.makeModel(0))).toBe(true)
-    expect(Opt.isNone(embedded.makeModel(3))).toBe(true)
+  test('makeModel checks the offers against the child\'s own update, in the child\'s state', () => {
+    expect(embedded.makeModel(0)).toBe('Increment' as Offered<Increment>)
+    expect(() => embedded.makeModel(3)).toThrow(RejectedOffer)
   })
 
   test('without subscribed, the child listens whenever it is there', () => {
@@ -197,7 +198,7 @@ describe('child models', () => {
   type Card = Readonly<{ title: string }>
   type Rename = Readonly<{ _tag: 'Rename'; title: string }>
   let made = 0
-  type CardModel = Readonly<{ title: string; rename: Offer<Rename> }>
+  type CardModel = Readonly<{ title: string; rename: Offered<Rename> }>
   const card: Omit<Program<Card, CardModel, Rename>, 'init'> = {
     update: ({ title }) => () => ({ state: { title } }),
     makeModel: (state, { offer }) => {

@@ -1,6 +1,6 @@
 // A page that shows the time, from a subscription, and asks its parent for the About page with an event:
 // it never acts on its parent.
-import type { Offer, Program, Subscription, Update } from '@fgaudo/effect-tea'
+import type { Offered, Program, Subscription, Update } from '@fgaudo/effect-tea'
 import * as Channel from 'effect/Channel'
 import * as Data from 'effect/Data'
 import * as DateTime from 'effect/DateTime'
@@ -37,7 +37,7 @@ const ticks: Subscription<Message, never> = Channel.forever(
   ),
 )
 
-export type Model = Readonly<{ time: string; openAbout: Offer<Message> }>
+export type Model = Readonly<{ time: string; openAbout: Offered<Message> }>
 
 export const clock: Program<State, Model, Message, never, never, Event> = {
   init: { state: { maybeNow: Opt.none() } },

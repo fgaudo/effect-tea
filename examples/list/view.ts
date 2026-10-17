@@ -7,8 +7,9 @@ import type * as Stopwatch from './stopwatch.ts'
 const stopwatchView: View<Stopwatch.Model, Stopwatch.Message, VNode> = (model, dispatch) =>
   h('li', [
     h('output', `${model.seconds} s`),
-    h('button', { on: onClick(model.start, dispatch) }, 'Start'),
-    h('button', { on: onClick(model.stop, dispatch) }, 'Stop'),
+    model.watch._tag === 'Running'
+      ? h('button', { on: onClick(model.watch.stop, dispatch) }, 'Stop')
+      : h('button', { on: onClick(model.watch.start, dispatch) }, 'Start'),
     h('button', { on: onClick(model.remove, dispatch) }, 'Remove'),
   ])
 

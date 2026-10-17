@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { isRejected, modelOf } from '@fgaudo/effect-tea'
-import { applyAll, dispatchViolations, drive, input, simulate, tap } from '@fgaudo/effect-tea/testing'
+import { applyAll, dispatchViolations, drive, input, missingOffers, simulate, tap } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
@@ -55,16 +55,21 @@ describe('form', () => {
     })
 
     test('does not offer typing while saving', () => {
-      expect(Opt.isNone(modelOf(form)({ ...empty, name: Field.make('Ada'), isSaving: true }).changeName)).toBe(true)
+      expect(modelOf(form)({ ...empty, name: Field.make('Ada'), isSaving: true }).editor._tag).toBe('Saving')
     })
   })
 
-  // The real view, for any state and anything typed: every message it can send is accepted, and a double
-  // click saves once.
-  test('the view only sends what update accepts, and acts once when sent twice', () => {
-    const check = dispatchViolations(update)
+  // The real view, for any state and anything typed: every message it can send is accepted, a double click
+  // saves once, and nothing `update` accepts is missing, but typing while saving, which the model withholds.
+  test('the view sends what update accepts, all of it, and acts once when sent twice', () => {
+    const violations = dispatchViolations(update)
+    const missing = missingOffers(update, {
+      withheld: (message, state) => message._tag === 'NameChanged' && state.isSaving,
+    })
     fc.assert(fc.property(state, fc.string(), (before, typed) => {
-      expect(check(before, messagesSentBy(view, modelOf(form)(before), typed))).toEqual([])
+      const sent = messagesSentBy(view, modelOf(form)(before), typed)
+      expect(violations(before, sent)).toEqual([])
+      expect(missing(before, sent, [Message.NameChanged({ name: typed }), Message.SaveClicked()])).toEqual([])
     }))
   })
 
@@ -103,8 +108,12 @@ describe('form', () => {
     const saved = await Effect.runPromise(
       drive(form, (driver) =>
         Effect.gen(function*() {
-          yield* driver.send((model) => input(model.changeName, 'Ada'))
-          yield* driver.send((model) => model.name.text === 'Ada' ? tap(model.save) : Opt.none())
+          yield* driver.send(({ editor }) =>
+            editor._tag === 'Saving' ? Opt.none() : Opt.some(input(editor.changeName, 'Ada'))
+          )
+          yield* driver.send(({ name, editor }) =>
+            name.text === 'Ada' && editor._tag === 'Named' ? Opt.some(tap(editor.save)) : Opt.none()
+          )
           return yield* driver.waitFor((model) => model.saved.length > 0 ? Opt.some(model.saved) : Opt.none())
         })).pipe(Effect.provideService(Storage, working)),
     )

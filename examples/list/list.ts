@@ -1,6 +1,6 @@
 // A list of stopwatches with `embedEach`: each one has its own state, messages and subscriptions, reached
 // through its id. The parent adds them, and removes one when it asks.
-import { embedEach, type Offer, type Program, type Update } from '@fgaudo/effect-tea'
+import { embedEach, type Offered, type Program, type Update } from '@fgaudo/effect-tea'
 import * as Arr from 'effect/Array'
 import * as Data from 'effect/Data'
 import * as Opt from 'effect/Option'
@@ -50,7 +50,7 @@ export const update: Update<State, Message> = (message) => (state) => {
 }
 
 export type Model = Readonly<{
-  add: Offer<Message>
+  add: Offered<Message>
   stopwatches: ReadonlyArray<Readonly<{ id: number; model: Stopwatch.Model }>>
 }>
 

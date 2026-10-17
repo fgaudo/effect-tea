@@ -65,6 +65,10 @@ The version in `package.json` is the one the next release will have, decided by 
 - **Only `offer.ts` makes an `Offered`**: `offers`, by asking `update`, and `mapDispatch`, valid because the
   parent accepts `wrap(message)` exactly when the child accepts `message`. Keep every cast to `Offered` in
   that module, and add no other way to forge one.
+- **An offer `update` rejects is a defect of `makeModel`**: `offer` throws `RejectedOffer`, never returns an
+  `Option`. A model says which actions exist by its shape; an optional offer would turn a wrong rejection
+  into a control that silently does nothing. Do not add a way to ask whether an offer would succeed: a model
+  that picked its case by asking would hide the same bug.
 - **Rejections are judged by the frame's own state.** A view message carries the state its frame was drawn
   from. If `update` rejects it, and rejects it in that state too, it is a `Rejected` bug, however many
   messages arrived in between; if that state accepted it, it is stale and ignored. Messages from commands

@@ -10,19 +10,10 @@ export { isRejected, reject, type Rejected, type Step, type Transition, type Upd
 export { attempt, type Execution, type RunCommand } from './command.ts'
 export type { Subscription, Subscriptions } from './subscription.ts'
 
-// What the model offers to the view, decided by asking `update`, and how a view sends it.
-export {
-  type Dispatch,
-  dispatchUnsafe,
-  type InputOffer,
-  mapDispatch,
-  type Offer,
-  type Offered,
-  type Offers,
-  type View,
-} from './offer.ts'
+// What the model offers to the view, checked against `update`, and how a view sends it.
+export { type Dispatch, dispatchUnsafe, mapDispatch, type Offered, type Offers, type View } from './offer.ts'
 
-// Running a program with a renderer, and what a rejection from a frame does.
+// Running a program with a renderer, and what a rejection from a frame or an offer does.
 export type { Applied, RunOptions } from './engine.ts'
-export { type OnRejected, RejectedMessage, type Rejection } from './rejection.ts'
+export { type OnRejected, RejectedMessage, RejectedOffer, type Rejection } from './rejection.ts'
 export { type Frame, run } from './run.ts'

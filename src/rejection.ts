@@ -22,6 +22,12 @@ export type Rejection<Message> = Readonly<{ message: Message; revision: Revision
  */
 export type OnRejected<Message> = 'die' | ((rejection: Rejection<Message>) => Effect.Effect<void>)
 
+/**
+ * The defect thrown by `makeModel` when it offers a message that `update` rejects in the state the model is
+ * made from: the model promised an action that the state does not allow, so `makeModel` and `update` disagree.
+ */
+export class RejectedOffer extends Data.TaggedError('RejectedOffer')<{ readonly message: unknown }> {}
+
 /** The defect raised when a frame dispatches a message that `update` rejects in the frame's own state. */
 export class RejectedMessage extends Data.TaggedError('RejectedMessage')<{
   readonly message: unknown

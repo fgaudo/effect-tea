@@ -1,8 +1,7 @@
 // The renderer the examples use. The library knows nothing of it: any renderer that can draw a model and
 // run `dispatch` works the same way. snabbdom's handlers are plain callbacks, so they use `dispatchUnsafe`.
-import { type Dispatch, dispatchUnsafe, type Frame, type InputOffer, type Offer, type View } from '@fgaudo/effect-tea'
+import { type Dispatch, dispatchUnsafe, type Frame, type Offered, type View } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
-import * as Opt from 'effect/Option'
 import * as Stream from 'effect/Stream'
 import { eventListenersModule, init, type Module, type On, propsModule, type VNode, type VNodeData } from 'snabbdom'
 
@@ -36,21 +35,15 @@ export const renderInto =
       (previous, { model, dispatch }) => patch(previous, view(model, dispatch)),
     ).pipe(Effect.asVoid)
 
-/** snabbdom's `on` for a click: the handler exists only while the action is offered. */
-export const onClick = <Message>(offer: Offer<Message>, dispatch: Dispatch<Message>): On =>
-  Opt.match(offer, {
-    onNone: () => ({}),
-    onSome: (message) => ({ click: () => dispatchUnsafe(dispatch)(message) }),
-  })
+/** snabbdom's `on` for a click that sends an offered message. */
+export const onClick = <Message>(message: Offered<Message>, dispatch: Dispatch<Message>): On => ({
+  click: () => dispatchUnsafe(dispatch)(message),
+})
 
-/** snabbdom's `on` for a text input: the handler exists only while typing is offered. */
-export const onInput = <Message>(offer: InputOffer<string, Message>, dispatch: Dispatch<Message>): On =>
-  Opt.match(offer, {
-    onNone: () => ({}),
-    onSome: (toMessage) => ({
-      input: (event: Event) => dispatchUnsafe(dispatch)(toMessage((event.target as HTMLInputElement).value)),
-    }),
-  })
+/** snabbdom's `on` for a text input, with the function that `offerInput` made. */
+export const onInput = <Message>(toMessage: (text: string) => Offered<Message>, dispatch: Dispatch<Message>): On => ({
+  input: (event: Event) => dispatchUnsafe(dispatch)(toMessage((event.target as HTMLInputElement).value)),
+})
 
 /**
  * For tests: renders `view` and fires every event handler in the tree, as if `typed` was in every input, and

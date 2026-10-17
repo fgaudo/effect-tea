@@ -4,7 +4,8 @@ import { isRejected, type Update } from '../update.ts'
 
 /**
  * How a message a view can send breaks its agreement with `update`:
- * - `Rejected`: `update` rejects it in the state the view was drawn from, so the model offered too much;
+ * - `Rejected`: `update` rejects it in the state the view was drawn from, so the view sent a message it was not
+ *   offered (e.g. a child's, through a `mapDispatch` whose `wrap` differs from the one it is embedded with);
  * - `ActsTwice`: sent twice from the same frame (a double tap), it acts again, so a one-shot action would
  *   happen twice.
  */

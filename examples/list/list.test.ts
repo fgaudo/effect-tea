@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { type Dispatch, isRejected, mapDispatch, modelOf, type Offer } from '@fgaudo/effect-tea'
-import { applyAll, dispatchViolations, drive, tap } from '@fgaudo/effect-tea/testing'
+import { type Dispatch, isRejected, mapDispatch, modelOf, type Offered } from '@fgaudo/effect-tea'
+import { applyAll, dispatchViolations, drive, missingOffers, tap } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
@@ -25,12 +25,18 @@ const state: fc.Arbitrary<State> = fc
 const subscriptionKeys = (state: State) => Array.from(HashMap.keys(subscriptions(state)))
 
 // An action on a stopwatch's offer, wrapped with its id as the parent's view wraps it.
-const onStopwatch = (id: number, offer: Offer<Stopwatch.Message>) =>
-  Opt.map(
-    tap(offer),
-    (action) => (dispatch: Dispatch<Message>) =>
-      action(mapDispatch(dispatch, (message) => Message.GotStopwatch({ id, message }))),
-  )
+const onStopwatch = (id: number, message: Offered<Stopwatch.Message>) => (dispatch: Dispatch<Message>) =>
+  tap(message)(mapDispatch(dispatch, (message) => Message.GotStopwatch({ id, message })))
+
+// What a user can ask of the list in `state`: adding, and starting, stopping or removing each stopwatch.
+const userMessages = (state: State) => [
+  added,
+  ...state.entries.flatMap(({ id }) =>
+    [Stopwatch.Message.Started(), Stopwatch.Message.Stopped(), Stopwatch.Message.RemoveClicked()].map((message) =>
+      to(id, message)
+    )
+  ),
+]
 
 describe('list', () => {
   // The parent's `update`: each message reaches the stopwatch with its id, and only that one.
@@ -63,11 +69,15 @@ describe('list', () => {
     })
   })
 
-  // The real view, for any list: everything it sends is accepted. Adding is meant to repeat.
-  test('the view only sends what update accepts, and acts once when sent twice', () => {
-    const check = dispatchViolations(update, { repeatable: (message) => message._tag === 'AddClicked' })
+  // The real view, for any list: everything it sends is accepted, and nothing `update` accepts is missing.
+  // Adding is meant to repeat.
+  test('the view sends what update accepts, all of it, and acts once when sent twice', () => {
+    const violations = dispatchViolations(update, { repeatable: (message) => message._tag === 'AddClicked' })
+    const missing = missingOffers(update)
     fc.assert(fc.property(state, (before) => {
-      expect(check(before, messagesSentBy(view, modelOf(list)(before)))).toEqual([])
+      const sent = messagesSentBy(view, modelOf(list)(before))
+      expect(violations(before, sent)).toEqual([])
+      expect(missing(before, sent, userMessages(before))).toEqual([])
     }))
   })
 
@@ -77,9 +87,13 @@ describe('list', () => {
     const seconds = await Effect.runPromise(
       drive(list, (driver) =>
         Effect.gen(function*() {
-          yield* driver.send((model) => tap(model.add))
+          yield* driver.send((model) => Opt.some(tap(model.add)))
           yield* driver.send((model) =>
-            Opt.flatMap(Opt.fromNullishOr(model.stopwatches[0]), ({ id, model }) => onStopwatch(id, model.start))
+            Opt.flatMap(
+              Opt.fromNullishOr(model.stopwatches[0]),
+              ({ id, model }) =>
+                model.watch._tag === 'Stopped' ? Opt.some(onStopwatch(id, model.watch.start)) : Opt.none(),
+            )
           )
           // Time moves on until three seconds have been counted.
           return yield* driver.waitFor((model) =>

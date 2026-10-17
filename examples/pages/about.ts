@@ -1,5 +1,5 @@
 // A page that loads a saying when it opens (its `init` commands), and asks to be left with an event.
-import type { Execution, Offer, Program, Update } from '@fgaudo/effect-tea'
+import type { Execution, Offered, Program, Update } from '@fgaudo/effect-tea'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
@@ -39,7 +39,7 @@ export const update: Update<State, Message, Command, Event> = (message) => (stat
   }
 }
 
-export type Model = Readonly<{ saying: Opt.Option<string>; back: Offer<Message> }>
+export type Model = Readonly<{ saying: Opt.Option<string>; back: Offered<Message> }>
 
 export const about: Program<State, Model, Message, Command, never, Event> = {
   init: { state: { maybeSaying: Opt.none() }, commands: [Command.PickSaying()] },

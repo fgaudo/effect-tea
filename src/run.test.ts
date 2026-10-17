@@ -9,10 +9,10 @@ import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import * as References from 'effect/References'
 import * as Stream from 'effect/Stream'
-import { RejectedMessage, type Rejection } from './rejection.ts'
+import { RejectedMessage, RejectedOffer, type Rejection } from './rejection.ts'
 import type { Applied, RunOptions } from './engine.ts'
 import { reject, type Step, type Update } from './update.ts'
-import type { Offer, Offered } from './offer.ts'
+import type { Offered } from './offer.ts'
 import type { Program } from './program.ts'
 import { type Frame, run } from './run.ts'
 
@@ -25,7 +25,7 @@ type Command = 'Ping' | 'Boom'
 const update: Update<number, Message, Command> = (message) => (count) =>
   message === 'Increment' ? { state: count + 1 } : reject
 
-type Model = Readonly<{ count: number; increment: Offer<Message> }>
+type Model = Readonly<{ count: number; increment: Offered<Message> }>
 
 const counter: Program<number, Model, Message, Command> = {
   init: { state: 0 },
@@ -51,7 +51,7 @@ describe('run', () => {
         Stream.tap(({ model, dispatch }) =>
           Effect.gen(function*() {
             counts.push(model.count)
-            if (model.count < 2) yield* dispatch(Opt.getOrThrow(model.increment))
+            if (model.count < 2) yield* dispatch(model.increment)
           })
         ),
         Stream.take(3),
@@ -84,7 +84,7 @@ describe('run', () => {
               counts.push(model.count)
               // A buggy view: it forges a message, then sends the one it was offered.
               yield* dispatch('Forbidden' as Offered<Message>)
-              yield* dispatch(Opt.getOrThrow(model.increment))
+              yield* dispatch(model.increment)
             })
           ),
           Stream.take(2),
@@ -155,10 +155,14 @@ describe('defects', () => {
     ['update, deciding an offer', () => failsWithBoom({ ...counter, update: () => boom })],
     ['makeModel', () => failsWithBoom({ ...counter, makeModel: boom })],
     ['the view', () => failsWithBoom(counter, { view: ({ count }) => count === 1 ? boom() : undefined })],
-    ['subscriptions', () =>
-      failsWithBoom({ ...counter, subscriptions: (count) => count === 1 ? boom() : HashMap.empty() })],
-    ['a subscription', () =>
-      failsWithBoom({ ...counter, subscriptions: () => HashMap.make(['k', Channel.die(new Boom())]) })],
+    [
+      'subscriptions',
+      () => failsWithBoom({ ...counter, subscriptions: (count) => count === 1 ? boom() : HashMap.empty() }),
+    ],
+    [
+      'a subscription',
+      () => failsWithBoom({ ...counter, subscriptions: () => HashMap.make(['k', Channel.die(new Boom())]) }),
+    ],
     ['a command', () => failsWithBoom({ ...counter, init: pinging, runCommand: () => Effect.sync(boom) })],
     ['runCommand', () => failsWithBoom({ ...counter, init: pinging, runCommand: boom })],
     ['describeMessage', () => failsWithBoom(counter, { describeMessage: boom })],
@@ -167,9 +171,27 @@ describe('defects', () => {
     expect(await fails()).toBe(true)
   })
 
+  test('an offer that update rejects ends the run with RejectedOffer, as the model is made', async () => {
+    const overOffering: Program<number, Offered<Message>, Message, Command> = {
+      ...counter,
+      makeModel: (_count, { offer }) => offer('Forbidden'),
+    }
+    const exit = await Effect.runPromiseExit(quietly(run(
+      overOffering,
+      (frames) => frames.pipe(Stream.tap(({ model }) => Effect.sync(() => model)), Stream.runDrain),
+      { onRejected: 'die' },
+    )))
+    expect(Exit.isFailure(exit) && Cause.squash(exit.cause)).toEqual(new RejectedOffer({ message: 'Forbidden' }))
+  })
+
   test('a rejected message from the current frame is fatal with onRejected: \'die\'', async () => {
-    const exit = await Effect.runPromiseExit(quietly(runDying(counter, (frames) =>
-      frames.pipe(Stream.tap(({ dispatch }) => dispatch('Forbidden' as Offered<Message>)), Stream.runDrain))))
+    const exit = await Effect.runPromiseExit(
+      quietly(runDying(counter, (frames) =>
+        frames.pipe(
+          Stream.tap(({ dispatch }) => dispatch('Forbidden' as Offered<Message>)),
+          Stream.runDrain,
+        ))),
+    )
     expect(Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof RejectedMessage).toBe(true)
   })
 })
@@ -185,7 +207,7 @@ describe('onApplied', () => {
           Stream.tap(({ model, dispatch }) =>
             Effect.gen(function*() {
               drawn.push(heard.length)
-              if (model.count < 2) yield* dispatch(Opt.getOrThrow(model.increment))
+              if (model.count < 2) yield* dispatch(model.increment)
             })
           ),
           Stream.take(3),
@@ -283,7 +305,7 @@ describe('frames', () => {
             counts.push(model.count)
             if (model.count > 0) return
             // Three messages in a burst, while the renderer is still busy with this frame.
-            yield* Effect.repeat(dispatch(Opt.getOrThrow(model.increment)), { times: 2 })
+            yield* Effect.repeat(dispatch(model.increment), { times: 2 })
             yield* Effect.sleep('50 millis')
           })
         ),

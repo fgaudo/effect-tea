@@ -16,6 +16,9 @@ version.
 - `drive` in `@fgaudo/effect-tea/testing`: runs a program with `run`, subscriptions included, and lets a
   scenario act as its user through a `Driver` (`waitFor`, `send`, `latest`), with the actions `tap` and
   `input`. A rejected message is always fatal; a wait fails after `patience`, measured with the real clock.
+- `missingOffers` in `@fgaudo/effect-tea/testing`: of the messages a user could ask for in a state, those that
+  `update` accepts and the view does not send, i.e. the actions a model leaves out by mistake. `withheld`
+  excludes what a model hides on purpose.
 - `applyAll` also returns the `events`, in order.
 - The `makeModel` of `embed` and `embedEach` keeps a child's model while the child's state is the same object,
   so that a renderer can memoize the child's view on it.
@@ -25,6 +28,15 @@ version.
 
 ### Changed
 
+- An offer is an `Offered<Message>`, no longer an `Option`: `offer(message)` returns the offered message and
+  throws `RejectedOffer` when `update` rejects it, and `offerInput(toMessage, current)` returns the function
+  that makes the message. Which actions exist in a state is said by the model's shape, a case for each state
+  the view distinguishes, so the view never checks an `Option`, and a model that promises an action the state
+  does not allow dies as it is made instead of drawing a control that does nothing. `Offer` and `InputOffer`
+  are gone; `tap(message)` and `input(toMessage, value)` in `testing` take the offered values and return an
+  `Action`. To upgrade, turn each model whose actions depend on the state into a union with a case per state,
+  holding only the actions of that case, pick the case from the state, and, in scenarios, return
+  `Opt.some(tap(...))` from `send` where the case has the action.
 - `makeModel` receives the offers: `makeModel(state, { offer, offerInput })`. The library makes them from the
   program's own `update` and the very state it passes, so a model can no longer ask another `update`, or
   about another state, and `offers` is no longer exported. `modelOf(program)(state)` makes a program's model

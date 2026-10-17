@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { type Dispatch, mapDispatch, modelOf, type Offer } from '@fgaudo/effect-tea'
-import { applyAll, dispatchViolations, drive, simulate, tap } from '@fgaudo/effect-tea/testing'
+import { type Dispatch, mapDispatch, modelOf, type Offered } from '@fgaudo/effect-tea'
+import { applyAll, dispatchViolations, drive, missingOffers, simulate, tap } from '@fgaudo/effect-tea/testing'
 import * as DateTime from 'effect/DateTime'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
@@ -26,19 +26,11 @@ const state: fc.Arbitrary<State> = fc.record({
 })
 
 // Actions on a page's offers, wrapped as the parent's view wraps them.
-const onClock = (offer: Offer<Clock.Message>) =>
-  Opt.map(
-    tap(offer),
-    (action) => (dispatch: Dispatch<Message>) =>
-      action(mapDispatch(dispatch, (message) => Message.GotClock({ message }))),
-  )
+const onClock = (message: Offered<Clock.Message>) => (dispatch: Dispatch<Message>) =>
+  tap(message)(mapDispatch(dispatch, (message) => Message.GotClock({ message })))
 
-const onAbout = (offer: Offer<About.Message>) =>
-  Opt.map(
-    tap(offer),
-    (action) => (dispatch: Dispatch<Message>) =>
-      action(mapDispatch(dispatch, (message) => Message.GotAbout({ message }))),
-  )
+const onAbout = (message: Offered<About.Message>) => (dispatch: Dispatch<Message>) =>
+  tap(message)(mapDispatch(dispatch, (message) => Message.GotAbout({ message })))
 
 /** The pages whose subscriptions run, from the keys `embed` namespaces (`['Clock', 'ticks']`). */
 const listening = (state: State) =>
@@ -64,11 +56,17 @@ describe('pages', () => {
     })
   })
 
-  // The real view, for any state: whichever page is drawn, it sends only what the parent accepts.
-  test('the view only sends what update accepts, and acts once when sent twice', () => {
-    const check = dispatchViolations(update)
+  // The real view, for any state: whichever page is drawn, it sends only what the parent accepts, and all of
+  // it but the Clock's, which About covers: the Clock still accepts its messages, but is not drawn.
+  test('the view sends what update accepts, all of it, and acts once when sent twice', () => {
+    const violations = dispatchViolations(update)
+    const missing = missingOffers(update, {
+      withheld: (message, state) => message._tag === 'GotClock' && Opt.isSome(state.maybeAbout),
+    })
     fc.assert(fc.property(state, (before) => {
-      expect(check(before, messagesSentBy(view, modelOf(app)(before)))).toEqual([])
+      const sent = messagesSentBy(view, modelOf(app)(before))
+      expect(violations(before, sent)).toEqual([])
+      expect(missing(before, sent, [aboutClicked, backClicked])).toEqual([])
     }))
   })
 
@@ -84,10 +82,14 @@ describe('pages', () => {
     const time = await Effect.runPromise(drive(app, (driver) =>
       Effect.gen(function*() {
         yield* driver.send((model) =>
-          model.page._tag === 'Clock' && model.page.model.time !== '' ? onClock(model.page.model.openAbout) : Opt.none()
+          model.page._tag === 'Clock' && model.page.model.time !== ''
+            ? Opt.some(onClock(model.page.model.openAbout))
+            : Opt.none()
         )
         yield* driver.waitFor((model) => model.page._tag === 'About' ? model.page.model.saying : Opt.none())
-        yield* driver.send((model) => model.page._tag === 'About' ? onAbout(model.page.model.back) : Opt.none())
+        yield* driver.send((model) =>
+          model.page._tag === 'About' ? Opt.some(onAbout(model.page.model.back)) : Opt.none()
+        )
         return yield* driver.waitFor((model) =>
           model.page._tag === 'Clock' ? Opt.some(model.page.model.time) : Opt.none()
         )

@@ -5,22 +5,22 @@ import * as Opt from 'effect/Option'
 import * as Stream from 'effect/Stream'
 import * as SubscriptionRef from 'effect/SubscriptionRef'
 import type { RunOptions } from '../engine.ts'
-import type { Dispatch, InputOffer, Offer } from '../offer.ts'
+import type { Dispatch, Offered } from '../offer.ts'
 import type { Program } from '../program.ts'
 import { type Frame, run } from '../run.ts'
 
 /** What a user does on a frame: sends a message through the frame's dispatch, as a view's handler would. */
 export type Action<Message> = (dispatch: Dispatch<Message>) => Effect.Effect<void>
 
-/** The action that sends what `offer` offers, while it is offered. */
-export const tap = <Message>(offer: Offer<Message>): Opt.Option<Action<Message>> =>
-  Opt.map(offer, (message) => (dispatch) => dispatch(message))
+/** The action that sends an offered message, as a click on its control does. */
+export const tap = <Message>(message: Offered<Message>): Action<Message> => (dispatch) => dispatch(message)
 
-/** The action that enters `value` into the input `offer` stands for, while it is offered. */
+/** The action that enters `value` into the input that `offerInput` made `toMessage` for. */
 export const input = <Value, Message>(
-  offer: InputOffer<Value, Message>,
+  toMessage: (value: Value) => Offered<Message>,
   value: Value,
-): Opt.Option<Action<Message>> => Opt.map(offer, (toMessage) => (dispatch) => dispatch(toMessage(value)))
+): Action<Message> =>
+(dispatch) => dispatch(toMessage(value))
 
 /** A user of a program that `drive` runs: it waits for what the frames show, and does what they offer. */
 export type Driver<Model, Message> = Readonly<{
