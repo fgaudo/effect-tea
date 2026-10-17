@@ -168,7 +168,8 @@ built on Effect runs it as it is. One whose handlers are plain callbacks, like s
   disabled is then stored, instead of staying on screen while the state lacks it (see
   [inputs](#inputs-the-user-types-into)).
 - **Cost:** each offer runs `update` once per drawn frame. Keep the rejecting branches cheap, and in long
-  lists offer per-item actions only for the items on screen.
+  lists offer per-item actions only for the items on screen. A child of `embed` or `embedEach` pays only
+  when its state changes (see [composing](#composing-programs)).
 
 ### Commands
 
@@ -254,6 +255,12 @@ collection of them, each with an id (the cards of a list):
 In the view, `mapDispatch(dispatch, wrap)` lets the child's view send through the parent's `dispatch`. Pass
 it the same `wrap` given to `embed`: that is what keeps the child's offers valid for the parent. See
 [`pages`](examples/pages) and [`list`](examples/list).
+
+The `makeModel` that `embed` and `embedEach` return gives the very same model, offers included, while the
+child's state is the same object, so a renderer can memoize a child's view on its model (snabbdom's `thunk`)
+and skip the children that did not change. A memoized view keeps the `dispatch` of the frame it was drawn
+from, and that is safe: the parent accepts a child's message exactly when the child accepts it in its own
+state, and that state was the same.
 
 ### Running
 

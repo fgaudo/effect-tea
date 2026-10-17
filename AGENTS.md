@@ -98,6 +98,8 @@ The version in `package.json` is the one the next release will have, decided by 
 - **`drive` acts only as a user can**: through `run` and the frames' own `dispatch`, so a scenario sends only
   offered messages. It always runs with `onRejected: 'die'`, since a test must not go on past a bug, and
   its waits use the real clock, whatever `Clock` the program runs with.
+- **A child's model is kept by its state** (`keptByState` in `program.ts`): `embed`'s `makeModel` relies on
+  `update` and `makeModel` being pure, and on states being replaced, never mutated.
 - **Logs never carry message data by default** (`describeByTag`). Levels: `error` for bugs, `debug` for the
   message loop and for subscriptions starting, stopping and ending.
 

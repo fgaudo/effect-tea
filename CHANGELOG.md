@@ -16,6 +16,8 @@ version.
   scenario act as its user through a `Driver` (`waitFor`, `send`, `latest`), with the actions `tap` and
   `input`. A rejected message is always fatal; a wait fails after `patience`, measured with the real clock.
 - `applyAll` also returns the `events`, in order.
+- The `makeModel` of `embed` and `embedEach` keeps a child's model while the child's state is the same object,
+  so that a renderer can memoize the child's view on it.
 
 ### Changed
 

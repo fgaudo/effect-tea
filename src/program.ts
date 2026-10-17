@@ -30,6 +30,23 @@ export const modelOf = <State, Model, Message, Command, Event>(
 ) =>
 (state: State): Model => program.makeModel(state, offers(program.update, state))
 
+/**
+ * `make`, made once for each state object, then kept while that object lives: a child whose state is the
+ * same keeps the very same model, offers included, so that a renderer can memoize its view on it. A model
+ * depends only on its state, since `update` and `makeModel` are pure; a state that is not an object is made
+ * again each time.
+ */
+const keptByState = <State, Model>(make: (state: State) => Model) => {
+  const made = new WeakMap<object, Model>()
+  return (state: State): Model => {
+    if (typeof state !== 'object' || state === null) return make(state)
+    if (made.has(state)) return made.get(state) as Model
+    const model = make(state)
+    made.set(state, model)
+    return model
+  }
+}
+
 const mapExecution = <A, B, R>(execution: Execution<A, R>, f: (message: A) => B): Execution<B, R> =>
   Effect.map(execution, Opt.map(f))
 
@@ -110,7 +127,8 @@ type EmbedOptions<ParentState, ParentMessage, ParentCommand, ChildState, ChildMe
  * of its `init` when the parent adds it (where the child's state goes is the parent's own business), and
  * `runCommand(command)`, the child's interpreter with its messages wrapped, for the parent's interpreter to
  * delegate to, and `makeModel(childState)`, the child's model with the offers of the child's own `update`, for
- * the parent's model. The child's view sends through `mapDispatch(dispatch, wrap)`.
+ * the parent's model, the very same object while the child's state is. The child's view sends through
+ * `mapDispatch(dispatch, wrap)`.
  */
 // `ParentCommand` comes last, so that it is `never` when neither `wrapCommand` nor `onEvent` gives one.
 export const embed = <
@@ -137,7 +155,7 @@ export const embed = <
 
     runCommand: (command: ChildCommand): Execution<ParentMessage, R> => mapExecution(child.runCommand(command), wrap),
 
-    makeModel: modelOf(child),
+    makeModel: keptByState(modelOf(child)),
 
     update: (message: ChildMessage) => (state: ParentState): Transition<ParentState, ParentCommand> =>
       Opt.match(get(state), {
@@ -195,7 +213,8 @@ type EmbedEachOptions<
  * - `onEvent(id, event)` handles what a child asks of its parent;
  * - `liftCommands(id, commands)` lifts a child's commands, e.g. those of its `init` when the parent adds it;
  * - `runCommand(id, command)` runs a child's command with its messages wrapped, for the parent's interpreter;
- * - `makeModel(childState)` makes a child's model with the offers of the child's own `update`.
+ * - `makeModel(childState)` makes a child's model with the offers of the child's own `update`, the very same
+ *   object while the child's state is.
  */
 export const embedEach = <
   ParentState,
@@ -232,7 +251,7 @@ export const embedEach = <
     runCommand: (id: Id, command: ChildCommand): Execution<ParentMessage, R> =>
       mapExecution(child.runCommand(command), (message) => wrap(id, message)),
 
-    makeModel: modelOf(child),
+    makeModel: keptByState(modelOf(child)),
 
     update: (id: Id, message: ChildMessage) => (state: ParentState): Transition<ParentState, ParentCommand> =>
       Opt.match(get(state, id), {

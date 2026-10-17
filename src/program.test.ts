@@ -196,3 +196,54 @@ describe('commands', () => {
     expect(await run([each.runCommand('a', 'Save')])).toEqual([Opt.some('a:Saved')])
   })
 })
+
+describe('child models', () => {
+  // A card whose model counts how many times it was made.
+  type Card = Readonly<{ title: string }>
+  type Rename = Readonly<{ _tag: 'Rename'; title: string }>
+  let made = 0
+  type CardModel = Readonly<{ title: string; rename: Offer<Rename> }>
+  const card: Omit<Program<Card, CardModel, Rename, never, never>, 'init'> = {
+    update: ({ title }) => () => ({ state: { title } }),
+    runCommand: absurd,
+    subscriptions: () => HashMap.empty(),
+    makeModel: (state, { offer }) => {
+      made++
+      return { title: state.title, rename: offer({ _tag: 'Rename', title: '' }) }
+    },
+  }
+
+  test('embed makes a child\'s model once for each state object, and again for a new one', () => {
+    const embeddedCard = embed(card, {
+      key: 'Card',
+      wrap: (message: Rename) => message,
+      get: (parent: Card) => Opt.some(parent),
+      set: (_, child: Card) => child,
+    })
+    made = 0
+    const state: Card = { title: 'Milk' }
+    const model = embeddedCard.makeModel(state)
+    expect(embeddedCard.makeModel(state)).toBe(model)
+    expect(made).toBe(1)
+    expect(embeddedCard.makeModel({ title: 'Milk' })).not.toBe(model)
+    expect(made).toBe(2)
+  })
+
+  test('embedEach keeps the model of each child whose state is the same', () => {
+    const cards = embedEach(card, {
+      key: 'Cards',
+      wrap: (id: number, message: Rename) => ({ id, message }),
+      get: (state: ReadonlyArray<Card>, id) => Opt.fromUndefinedOr(state[id]),
+      set: (state: ReadonlyArray<Card>, id, child) => state.map((each, index) => (index === id ? child : each)),
+      subscribed: () => [],
+    })
+    const before: ReadonlyArray<Card> = [{ title: 'Milk' }, { title: 'Eggs' }]
+    const result = cards.update(1, { _tag: 'Rename', title: 'Ham' })(before)
+    const after = isRejected(result) ? before : result.state
+    made = 0
+    const models = before.map(cards.makeModel)
+    expect(after.map(cards.makeModel)[0]).toBe(models[0])
+    expect(after.map(cards.makeModel)[1]).not.toBe(models[1])
+    expect(made).toBe(3)
+  })
+})
