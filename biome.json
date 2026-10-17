@@ -34,5 +34,17 @@
         }
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["examples/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": "off"
+          }
+        }
+      }
+    }
+  ]
 }

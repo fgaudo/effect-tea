@@ -15,20 +15,11 @@ a compile error, not a silent bug.
 
 - [Installation](#installation)
 - [Quick start](#quick-start)
-- [Guide](#guide)
-  1. [State, messages and `update`](#1-state-messages-and-update)
-  2. [The model offers, the view sends](#2-the-model-offers-the-view-sends)
-  3. [Input](#3-input)
-  4. [Commands](#4-commands)
-  5. [Subscriptions](#5-subscriptions)
-  6. [Rejections: stale or bug](#6-rejections-stale-or-bug)
-  7. [Composing programs: `embed`](#7-composing-programs-embed)
-  8. [Lists of programs: `embedEach`](#8-lists-of-programs-embedeach)
-  9. [Running](#9-running)
-  10. [Testing](#10-testing)
+- [Examples](#examples)
+- [Concepts](#concepts): [`update`](#update-and-rejections), [offers](#the-model-offers-the-view-sends),
+  [commands](#commands), [subscriptions](#subscriptions), [stale or bug](#rejections-stale-or-bug),
+  [composing](#composing-programs), [running](#running), [testing](#testing)
 - [API reference](#api-reference)
-- [Development](#development)
-- [License](#license)
 
 ## Installation
 
@@ -42,7 +33,7 @@ package.
 ## Quick start
 
 A counter that cannot go below zero. The "renderer" here only logs, and clicks "increment" until the count
-reaches 3.
+reaches 3; [`examples/counter`](examples/counter) draws the same program with snabbdom.
 
 ```ts
 import {
@@ -108,391 +99,105 @@ A program is four pieces: `init`, `update`, `subscriptions` and `makeModel`. The
 `run` hands your renderer a stream of **frames** (`{ model, dispatch }`), and the renderer draws them however
 it likes.
 
-## Guide
+## Examples
 
-The examples below build a small app with [snabbdom](https://github.com/snabbdom/snabbdom). Any renderer
-works the same way. Messages and states are `Data.TaggedEnum`s, but any type will do.
+[`examples/`](examples) holds complete programs, drawn with [snabbdom](https://github.com/snabbdom/snabbdom),
+each with its tests. Run one with `bun examples/<name>/index.html`.
 
-### 1. State, messages and `update`
+| Example                       | What it shows                                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------------------------------- |
+| [`counter`](examples/counter) | the quick start with a view; `applyAll`, `dispatchViolations`, `drive`                            |
+| [`form`](examples/form)       | input, a command that may fail (`attempt`) with its service, a save that only its completion ends |
+| [`pages`](examples/pages)     | two pages with `embed`, events for navigation, `getSubscribed`, `liftCommands`; `simulate`        |
+| [`list`](examples/list)       | stopwatches with `embedEach`, a subscription per running child; a test with a `TestClock`         |
 
-`update` takes a message, then the state. It returns either a `Step` (`{ state, commands?, events? }`) or
-`reject` when the message makes no sense in that state.
+`examples/snabbdom.ts` is the bridge to the renderer: `renderInto` for `run`, handlers that exist only while
+their action is offered, and `messagesSentBy` for the tests.
 
-```ts
-import { reject, type Update } from '@fgaudo/effect-tea'
-import * as Data from 'effect/Data'
+## Concepts
 
-type State = Data.TaggedEnum<{
-  Idle: {}
-  Loading: { seconds: number }
-  Loaded: { quote: string }
-  Failed: {}
-}>
-const State = Data.taggedEnum<State>()
+### `update` and rejections
 
-type Message = Data.TaggedEnum<{
-  LoadClicked: {}
-  Ticked: {}
-  Loaded: { quote: string }
-  LoadFailed: {}
-}>
-const Message = Data.taggedEnum<Message>()
+`update` takes a message, then the state, and returns a `Step` (`{ state, commands?, events? }`), or `reject`
+when the message makes no sense in that state.
 
-const update: Update<State, Message, never> = (message) => (state) => {
-  switch (message._tag) {
-    case 'LoadClicked':
-      return state._tag === 'Loading'
-        ? reject
-        : { state: State.Loading({ seconds: 0 }), commands: [loadQuote] }
-    case 'Ticked':
-      return state._tag === 'Loading'
-        ? { state: State.Loading({ seconds: state.seconds + 1 }) }
-        : reject
-    case 'Loaded':
-      return state._tag === 'Loading'
-        ? { state: State.Loaded({ quote: message.quote }) }
-        : reject
-    case 'LoadFailed':
-      return state._tag === 'Loading' ? { state: State.Failed() } : reject
-  }
-}
-```
-
-Rules that make the rest work:
-
-- **`update` is pure.** It never runs effects; it returns them as `commands`. The library also calls it to
-  decide offers (see below), so it must be cheap and free of side effects.
-- **Conditions live in `update`.** "Can the user load now?" is answered once, here, by rejecting. The view
+- **`update` is pure.** It never runs effects: it returns them as `commands`. The library also calls it to
+  decide offers, so it must be cheap and free of side effects.
+- **Conditions live in `update`.** "Can the user save now?" is answered once, here, by rejecting. The view
   never repeats the check.
-- **Name intents, not toggles.** Prefer `MenuOpened`/`MenuClosed` to `MenuToggled`: an intent sent twice
-  (a double tap, or a second tap on a view that has not caught up yet) does what it did once, while a toggle
-  undoes itself.
-- **One-shot actions move to a state that rejects them.** After `Submitted`, the state is `Submitting`,
-  which rejects a second `Submitted`: sent from the same frame, it is ignored as stale (see
-  [Rejections](#6-rejections-stale-or-bug)), so the form is never sent twice. Actions meant to repeat (a
-  "+1") stay accepted.
+- **Name intents, not toggles.** Prefer `MenuOpened`/`MenuClosed` to `MenuToggled`: an intent sent twice (a
+  double tap, or a tap on a view that has not caught up yet) does what it did once, while a toggle undoes
+  itself.
+- **One-shot actions move to a state that rejects them.** After `SaveClicked` the form is saving, and rejects
+  a second `SaveClicked`: sent from the same frame, it is ignored as stale, so nothing is saved twice. Actions
+  meant to repeat (a "+1") stay accepted.
 - **Rejecting a message that would change nothing is a choice, not a rule.** Rejecting makes the model stop
-  offering it, so the view can hide or disable the control; accepting it is harmless when there is nothing
-  to show.
+  offering it, so the view can hide or disable the control.
 
-### 2. The model offers, the view sends
+### The model offers, the view sends
 
 `makeModel` turns the state into what the view shows. Every action is an `Offer<Message>`: an `Option` that
 is `Some` exactly when `update` accepts the message in this state. `offers(update, state)` asks `update` for
-you.
+you, with `offer(message)`, and with `offerInput(toMessage, current)` for a message that carries what the
+user types (an `InputOffer`).
+
+A view is `(model, dispatch) => Node`, and `dispatch` only takes **offered** messages, a brand that only
+`offers` creates. So the view attaches a handler only when there is an offer, and building a message in the
+view does not compile:
 
 ```ts
-import { type Offer, offers, type Program } from '@fgaudo/effect-tea'
-
-type Model = Readonly<{ text: string; load: Offer<Message> }>
-
-const makeModel = (state: State): Model => {
-  const { offer } = offers(update, state)
-  return {
-    text: State.$match(state, {
-      Idle: () => 'No quote yet',
-      Loading: ({ seconds }) => `Loading… (${seconds}s)`,
-      Loaded: ({ quote }) => quote,
-      Failed: () => 'Could not load a quote',
-    }),
-    load: offer(Message.LoadClicked()), // None while loading
-  }
-}
-
-export const quote: Program<State, Model, Message, never> = {
-  init: { state: State.Idle() },
-  update,
-  subscriptions, // see "Subscriptions"
-  makeModel,
-}
+dispatch({ _tag: 'SaveClicked' }) // error: not an Offered<Message>
 ```
 
-A view is `(model, dispatch) => Node`. `dispatch` only accepts **offered** messages, a brand that only
-`offers` creates, so the view attaches a handler only when there is an offer:
+- A model may offer **less** than `update` accepts (e.g. to hide an action), never more.
+- **Input is never a reason to reject.** Whatever is typed is stored, and its validity becomes model data:
+  "Save" is not offered for a blank name. `offerInput` asks `update` with the current value, and the answer
+  holds for any value.
+- **Cost:** each offer runs `update` once per drawn frame. Keep the rejecting branches cheap, and in long
+  lists offer per-item actions only for the items on screen.
 
-```ts
-import { type Dispatch, type Offer, type View } from '@fgaudo/effect-tea'
-import * as Opt from 'effect/Option'
-import { h, type VNode } from 'snabbdom'
+### Commands
 
-const onClick = <M>(offer: Offer<M>, dispatch: Dispatch<M>) =>
-  Opt.match(offer, {
-    onNone: () => ({}),
-    onSome: (message) => ({ click: () => dispatch(message) }),
-  })
+A `Command<Message, R>` is an `Effect` that produces an optional message (`None` for effects that only act on
+the world). Its error channel is `never`: an expected failure becomes a message, so that `update` decides
+what it means. `attempt(effect, { onSuccess, onFailure })` does that for an effect that may fail.
 
-export const view: View<Model, Message, VNode> = (model, dispatch) =>
-  h('main', [
-    h('p', model.text),
-    h('button', {
-      attrs: { disabled: Opt.isNone(model.load) },
-      on: onClick(model.load, dispatch),
-    }, 'Load a quote'),
-  ])
-```
+- `R` is what the commands need (services). `run` requires it, so you provide it once, around the program.
+- An operation in progress is a state that only its completion leaves (`isSaving` in
+  [`form`](examples/form/form.ts)), and `update` rejects the completion in any other state. Commands cannot be
+  cancelled, so a completion always belongs to the operation in progress; give operations an id only when
+  several of a kind can overlap.
+- A **defect** (`Effect.die`, a thrown exception) is a bug: the program dies. Never catch it to turn it into a
+  message.
 
-Building a message in the view does not compile:
-
-```ts
-dispatch(Message.LoadClicked()) // error: not an Offered<Message>
-```
-
-A model may offer **less** than `update` accepts (e.g. to hide an action), never more.
-
-**Cost:** each offer runs `update` once per frame. Keep the rejecting branches cheap (a check before any
-work), and in long lists offer per-item actions only for the items on screen.
-
-### 3. Input
-
-Input is never a reason to reject: whatever the user types is stored, and its _validity_ becomes model data
-(e.g. "submit" not offered). For messages that carry a value from the view, use `offerInput`. It returns an
-`InputOffer<Value, Message>`: an optional function from the value to an offered message.
-
-```ts
-import {
-  type InputOffer,
-  type Offer,
-  offers,
-  type Program,
-  reject,
-  type Update,
-  type View,
-} from '@fgaudo/effect-tea'
-
-export type State = Readonly<{ name: string }>
-
-export type Message = Data.TaggedEnum<{
-  NameChanged: { name: string }
-  Submitted: {}
-}>
-const Message = Data.taggedEnum<Message>()
-
-/** What the form tells its parent (see "Composing programs"). */
-export type Event = Readonly<{ _tag: 'Saved'; name: string }>
-
-const update: Update<State, Message, never, Event> = (message) => (state) => {
-  switch (message._tag) {
-    case 'NameChanged':
-      return { state: { name: message.name } }
-    case 'Submitted':
-      return state.name.trim() === ''
-        ? reject
-        : { state, events: [{ _tag: 'Saved', name: state.name.trim() }] }
-  }
-}
-
-export type Model = Readonly<
-  {
-    name: string
-    changeName: InputOffer<string, Message>
-    submit: Offer<Message>
-  }
->
-
-export const form: Program<State, Model, Message, never, Event> = {
-  init: { state: { name: '' } },
-  update,
-  subscriptions: () => HashMap.empty(),
-  makeModel: (state) => {
-    const { offer, offerInput } = offers(update, state)
-    return {
-      name: state.name,
-      changeName: offerInput(
-        (name: string) => Message.NameChanged({ name }),
-        state.name,
-      ),
-      submit: offer(Message.Submitted()),
-    }
-  },
-}
-
-// `onClick` as in the previous section.
-export const view: View<Model, Message, VNode> = (model, dispatch) =>
-  h('form', [
-    h('input', {
-      props: { value: model.name },
-      on: Opt.match(model.changeName, {
-        onNone: () => ({}),
-        onSome: (changeName) => ({
-          input: (event) =>
-            dispatch(changeName((event.target as HTMLInputElement).value)),
-        }),
-      }),
-    }),
-    h('button', {
-      attrs: { disabled: Opt.isNone(model.submit) },
-      on: onClick(model.submit, dispatch),
-    }, 'Save'),
-  ])
-```
-
-`offerInput` asks `update` with the current value. Since input is never a reason to reject, the answer holds
-for any value.
-
-### 4. Commands
-
-A `Command<Message, R>` is an `Effect` that produces an optional message (`None` for effects that only act
-on the world). Its error channel is `never`: an expected failure must become a message, so that `update`
-decides what it means. `attempt` does that for an effect that may fail:
-
-```ts
-import { attempt, type Command } from '@fgaudo/effect-tea'
-import * as Effect from 'effect/Effect'
-
-const loadQuote: Command<Message, never> = attempt(
-  Effect.tryPromise(() =>
-    fetch('https://example.com/quote').then((response) => response.text())
-  ),
-  {
-    onSuccess: (quote): Message => Message.Loaded({ quote }),
-    onFailure: (): Message => Message.LoadFailed(),
-  },
-)
-```
-
-`update` returns it in `commands` (see `LoadClicked` above). The engine runs it, then feeds its message back
-to `update`.
-
-- `R` is the context the command needs (services, layers). `run` requires it, so you provide it once
-  around the whole program.
-- A completion can arrive after the state has moved on. Here `Loaded` is rejected unless the state is still
-  `Loading`, and a rejected completion is simply ignored. If two operations of the same kind can overlap,
-  give each one an id kept in the state, and accept a completion only when its id matches.
-- A **defect** (`Effect.die`, a thrown exception) is a bug: the program dies. Never catch it to turn it into
-  a message.
-
-### 5. Subscriptions
+### Subscriptions
 
 `subscriptions(state)` returns a `HashMap` from keys to **subscriptions**. A subscription is an Effect
-[`Channel`](https://effect.website) of messages: values over time, with what they end with in their type.
+`Channel` of messages that takes no input and cannot fail, and it **never ends in silence**: either it never
+ends (its end value is `never`, as for a clock), or it ends with **one last message**, which `update` receives
+like the others. A download can send its progress, end with its file, and be cancelled by dropping its key.
 
-```ts
-type Subscription<Message, R> = Channel<
-  Message,
-  never,
-  Message,
-  unknown,
-  unknown,
-  unknown,
-  R
->
-//                                  messages  no error  ends with a message   └── input: none ──┘
-```
-
-**A subscription never ends in silence.** Either it never ends (its end value is `never`, as for a clock or
-database changes), or it ends with **one last message**, which the engine sends to `update` like the others:
-the type does not let it end without one. After every change, the engine compares the keys:
+After every change of state, the engine compares the keys, by value:
 
 - a key that **appears** starts its subscription;
-- a key that **stays** keeps its subscription running, untouched. If it has ended, it is **not** started
-  again: `update` has its last message, and decides whether to drop the key;
-- a key that **disappears** interrupts its subscription, which releases what it holds. If it comes back,
-  the subscription starts anew.
+- a key that **stays** keeps it running, untouched; one that has ended is **not** started again, since
+  `update` has its last message and decides whether to drop the key;
+- a key that **disappears** interrupts it; if the key comes back, it starts anew.
 
-Unlike Elm, where subscriptions never end, this lets a finite process with progress be one subscription: a
-download sends its progress, ends with its file, and is canceled by dropping its key.
+So what the program listens to depends on its state: in [`list`](examples/list/stopwatch.ts), a stopwatch
+ticks only while it runs.
 
-```ts
-// The download's end value is the file: it becomes the last message.
-const downloadOf = (url: string): Subscription<Message, Downloads> =>
-  Channel.unwrap(
-    Effect.map(Effect.service(Downloads), ({ download }) =>
-      download(url).pipe(
-        Channel.map((progress) => Message.Progressed({ progress })),
-        Channel.mapDone((file) => Message.Downloaded({ file })),
-      )),
-  )
-```
+- **From a stream**, which may end, decide what its end means. To keep listening to nothing until the key
+  goes away: `Stream.toChannel(stream).pipe(Channel.flattenArray, Channel.concatWith(() => Channel.never))`;
+  or end with `Channel.die` if the end is a bug.
+- **Failures** become messages too: retry transient errors at the source (`Stream.retry` with a `Schedule`),
+  or end with a message, and let `update` drop the key and bring it back to try again.
+- A **defect** ends the run, like any defect.
 
-```ts
-import { type Subscription } from '@fgaudo/effect-tea'
-import * as Channel from 'effect/Channel'
-import * as Effect from 'effect/Effect'
-import * as HashMap from 'effect/HashMap'
-
-// A clock that ticks only while loading: every second, then again, forever.
-const clock: Subscription<Message, never> = Channel.forever(
-  Channel.map(
-    Channel.fromEffect(Effect.sleep('1 second')),
-    () => Message.Ticked(),
-  ),
-)
-
-const subscriptions = (state: State) =>
-  state._tag === 'Loading'
-    ? HashMap.make(['clock', clock])
-    : HashMap.empty<string, Subscription<Message, never>>()
-```
-
-Keys are compared by value, so they can be strings, numbers, tuples of them, or Effect data. Channels keep
-their end value through `Channel.map`, `Channel.filter`, `Channel.mapEffect`, `Channel.merge`…, and
-`Channel.unwrap` builds one from an effect, e.g. to read a service:
-
-```ts
-const products: Subscription<Message, ProductList> = Channel.unwrap(
-  Effect.map(
-    Effect.service(ProductList),
-    ({ changes }) => Channel.map(changes, (list) => Message.Listed({ list })),
-  ),
-)
-```
-
-**From a stream.** A stream, unlike a subscription, may end: its type cannot say otherwise. So running one as
-a subscription means deciding what its end means, and that decision is yours:
-
-```ts
-// Once the stream has ended, keep listening to nothing until the key goes away.
-const listen = <Message, R>(
-  stream: Stream.Stream<Message, never, R>,
-): Subscription<Message, R> =>
-  Stream.toChannel(stream).pipe(
-    Channel.flattenArray,
-    Channel.concatWith(() => Channel.never),
-  )
-
-// Or treat the end as a bug.
-const listenForever = <Message, R>(
-  stream: Stream.Stream<Message, never, R>,
-): Subscription<Message, R> =>
-  Stream.toChannel(stream).pipe(
-    Channel.flattenArray,
-    Channel.concatWith(() =>
-      Channel.die(new Error('A subscribed stream ended'))
-    ),
-  )
-```
-
-**Failures.** A subscription cannot fail: an expected failure must become a message, so that `update` decides
-what it means.
-
-- Transient errors can be retried at the source, with `Stream.retry` (or `Channel.retry`) and a `Schedule`,
-  before they ever reach `update`.
-- Otherwise, turn the failure into a message, and let the state decide whether to listen again. The
-  subscription waits after its last message; `update` removes its key, and brings it back to retry:
-
-```ts
-const feed: Subscription<Message, never> = listen(
-  changes.pipe(
-    Stream.map((change) => Message.FeedChanged({ change })),
-    Stream.catch(() => Stream.make(Message.FeedFailed())),
-  ),
-)
-
-subscriptions: (state) =>
-  state.feed._tag === 'Listening' ? HashMap.make(['feed', feed]) : HashMap.empty()
-
-// update
-FeedFailed:   Listening → Failed    // the key goes away: the waiting subscription stops
-RetryClicked: Failed → Listening    // the key comes back: a new subscription starts
-```
-
-A **defect** in a subscription (an exception, an `Effect.die`) ends the run, like any defect. To recover from
-one, handle it at the source with Effect's tools (`Channel.catchDefect`, `Stream.catchCause`).
-
-### 6. Rejections: stale or bug
+### Rejections: stale or bug
 
 Every frame's `dispatch` is bound to the state the frame was drawn from. When `update` rejects a message, the
-engine looks at where it came from, and asks `update` again with the frame's own state:
+engine looks at where it came from:
 
 | The message came from                             | Meaning                                                     | What happens                            |
 | ------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------- |
@@ -500,346 +205,71 @@ engine looks at where it came from, and asks `update` again with the frame's own
 | a command or a subscription                       | a completion that arrived too late                          | ignored                                 |
 | a frame whose state **rejects** it too            | the model offered something `update` rejects: they disagree | a **bug**, handled as `onRejected` says |
 
-A bug is a bug however many messages arrived between the frame and the click: a subscription that ticks
-often cannot hide it. It cannot happen when every action goes through `offers`; it remains a check against
-mistakes in `makeModel`, such as an offer computed from a different state. The second call to `update` only
-happens for a rejected message from the view.
+A bug is a bug however many messages arrived in between: a subscription that ticks often cannot hide it.
 
-### 7. Composing programs: `embed`
+### Composing programs
 
-A child program (a page, a dialog, a form) keeps its own state, messages and `update`. `embed` lifts it into
-its parent:
+`embed(child, options)` lifts a child program (a page, a dialog) into its parent, and `embedEach` a
+collection of them, each with an id (the cards of a list):
 
-- `wrap` turns a child message into a parent message;
-- `get` and `set` read and write the child's state inside the parent's state. When `get` returns `None`, the
-  child is absent and its messages are rejected;
-- `key` namespaces the child's subscription keys;
-- `onEvent` handles the child's `events`. A child never acts on its parent: it says what happened, and the
-  parent decides. The types require `onEvent` exactly when the child has events.
+- `wrap` turns a child's message into the parent's; `get` and `set` read and write the child's state. When
+  `get` returns `None` the child is absent, and its messages are rejected.
+- `key` namespaces the child's subscription keys (with the id, for `embedEach`, so ids must compare by
+  value). `getSubscribed` (`subscribed` for `embedEach`) decides which children listen: a hidden page can keep
+  receiving its completions without listening to the world.
+- A child never acts on its parent: it emits **events**, and `onEvent` decides. The types require `onEvent`
+  exactly when the child has events.
+- They return the child's `update` and `subscriptions` lifted into the parent, and `liftCommands`: when the
+  parent adds a child, it puts the child's initial state where it belongs, and starts its `init` commands
+  through `liftCommands`.
 
-It returns the child's `update` and `subscriptions` lifted into the parent, and `liftCommands(commands)`,
-which wraps the messages of a child's commands: when the parent adds the child, it puts the child's initial
-state where it belongs, and starts its `init` commands through `liftCommands`.
+In the view, `mapDispatch(dispatch, wrap)` lets the child's view send through the parent's `dispatch`. Pass
+it the same `wrap` given to `embed`: that is what keeps the child's offers valid for the parent. See
+[`pages`](examples/pages) and [`list`](examples/list).
 
-Here the parent shows a list of names, and opens the form from [Input](#3-input) to add one:
+### Running
 
-```ts
-import {
-  embed,
-  mapDispatch,
-  type Offer,
-  offers,
-  type Program,
-  reject,
-  type Update,
-  type View,
-} from '@fgaudo/effect-tea'
-import * as Form from './form.ts'
+`run(program, render, options)` starts the program and hands `render` the stream of frames; the run ends when
+`render` ends. A frame's model is made the first time it is read, so a renderer that skips frames (e.g. one
+per animation frame) never pays for the others, and a message that leaves the very same state (`===`) makes
+no frame. In a browser, start it with `BrowserRuntime.runMain` from `@effect/platform-browser`, as the
+examples do, so that a program that dies is reported. `RunOptions`:
 
-type State = Readonly<
-  { names: ReadonlyArray<string>; form: Opt.Option<Form.State> }
->
+- **`onRejected`** (required): `'die'` fails the run with `RejectedMessage`, which is what you want while
+  developing; `'ignore'` drops the message and goes on, safe since the state did not change, and then
+  requires `onBug`.
+- **`onBug(bug)`** hears every `Bug`, e.g. for a crash-reporting service: a `Defect` (always fatal, with
+  `where` it happened) or a `Rejected` message.
+- **`describeMessage`** says how a message appears in the logs: by default only its `_tag`, never its data.
+- **`onApplied(applied)`** hears every accepted message, with the states before and after it, before its
+  frame is drawn: for devtools, session recordings or analytics. Keep it quick.
 
-type Message = Data.TaggedEnum<{
-  AddClicked: {}
-  GotForm: { message: Form.Message }
-}>
-const Message = Data.taggedEnum<Message>()
+The run fails with the first defect. It logs with Effect's logger: `debug` for the message loop and the
+subscriptions, `error` for bugs.
 
-const form = embed(Form.form, {
-  key: 'Form',
-  wrap: (message: Form.Message) => Message.GotForm({ message }),
-  get: (state: State) => state.form,
-  set: (state, child) => ({ ...state, form: Opt.some(child) }),
-  // The form was saved: keep the name and close the form.
-  onEvent: (event) => (state) => ({
-    state: { names: [...state.names, event.name], form: Opt.none() },
-  }),
-})
+### Testing
 
-const update: Update<State, Message, never> = (message) => (state) => {
-  switch (message._tag) {
-    case 'AddClicked': {
-      if (Opt.isSome(state.form)) return reject
-      return {
-        state: { ...state, form: Opt.some(Form.form.init.state) },
-        commands: form.liftCommands(Form.form.init.commands),
-      }
-    }
-    case 'GotForm':
-      return form.update(message.message)(state)
-  }
-}
+`update` and `makeModel` are pure, so most tests need no runtime. `@fgaudo/effect-tea/testing` has a tool for
+each level, all of them used in the examples' tests:
 
-type Model = Readonly<
-  {
-    names: ReadonlyArray<string>
-    add: Offer<Message>
-    form: Opt.Option<Form.Model>
-  }
->
+| Tool                                                       | Runs                                               | For                                           |
+| ---------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------- |
+| `applyAll(update)(messages, from)`                         | `update` only; returns the state, commands, events | the rules, message by message                 |
+| `dispatchViolations(update, { repeatable? })(state, msgs)` | `update`, on what the real view can send           | the view and `update` agree, in any state     |
+| `simulate(update)(messages, from)`                         | `update` and the commands, each completing at once | a flow with its services, without a runtime   |
+| `drive(program, scenario, options?)`                       | the program with `run`, subscriptions included     | a user's scenario, as the program really runs |
 
-const app: Program<State, Model, Message, never> = {
-  init: { state: { names: [], form: Opt.none() } },
-  update,
-  subscriptions: form.subscriptions,
-  makeModel: (state) => ({
-    names: state.names,
-    add: offers(update, state).offer(Message.AddClicked()),
-    form: Opt.map(state.form, Form.form.makeModel),
-  }),
-}
-```
-
-In the view, `mapDispatch` lets the child's view send through the parent's `dispatch`. Pass it the same
-`wrap` given to `embed`: that is what keeps the child's offers valid for the parent.
-
-```ts
-const view: View<Model, Message, VNode> = (model, dispatch) =>
-  h('main', [
-    h('ul', model.names.map((name) => h('li', name))),
-    Opt.match(model.form, {
-      onNone: () =>
-        h('button', { on: onClick(model.add, dispatch) }, 'Add a name'),
-      onSome: (form) =>
-        Form.view(
-          form,
-          mapDispatch(
-            dispatch,
-            (message: Form.Message) => Message.GotForm({ message }),
-          ),
-        ),
-    }),
-  ])
-```
-
-With several children, merge their subscriptions with `HashMap.union`. The optional `getSubscribed` decides
-when the child's subscriptions run, separately from `get`. For example, a page hidden under another one keeps
-receiving the completions of its commands, but stops listening to the world.
-
-### 8. Lists of programs: `embedEach`
-
-`embedEach` is `embed` for a collection of children identified by an id, such as the cards of a list. Every
-option takes the id too, and `subscribed(state)` lists the `[id, childState]` pairs whose subscriptions run.
-
-```ts
-import { embedEach } from '@fgaudo/effect-tea'
-
-type State = Readonly<{ counters: ReadonlyMap<string, number> }>
-type Message = Readonly<
-  { _tag: 'GotCounter'; id: string; message: Counter.Message }
->
-
-const counters = embedEach(Counter.counter, {
-  key: 'Counter',
-  wrap: (id: string, message: Counter.Message): Message => ({
-    _tag: 'GotCounter',
-    id,
-    message,
-  }),
-  get: (state: State, id) => Opt.fromNullishOr(state.counters.get(id)),
-  set: (state, id, count) => ({
-    counters: new Map([...state.counters, [id, count]]),
-  }),
-  subscribed: (state) => state.counters.entries(),
-})
-
-const update: Update<State, Message, never> = (message) =>
-  counters.update(message.id, message.message)
-```
-
-It returns `update(id, message)`, `subscriptions`, and `liftCommands(id, commands)` for the parent's update
-that adds a child. Ids are part of the subscription keys, so they must compare by value.
-
-### 9. Running
-
-`run(program, render, options)` starts the program and hands `render` the stream of frames. The run ends
-when `render` ends. A snabbdom renderer patches the previous tree with each new frame:
-
-```ts
-import { type Frame, run } from '@fgaudo/effect-tea'
-import {
-  attributesModule,
-  eventListenersModule,
-  init,
-  propsModule,
-  type VNode,
-} from 'snabbdom'
-
-const patch = init([propsModule, attributesModule, eventListenersModule])
-
-const render = (frames: Stream.Stream<Frame<Model, Message>>) =>
-  Stream.runFold(
-    frames,
-    (): Element | VNode => document.getElementById('app')!,
-    (previous, { model, dispatch }) => patch(previous, view(model, dispatch)),
-  ).pipe(Effect.asVoid)
-
-const main = run(app, render, {
-  onRejected: 'ignore',
-  onBug: (bug) => reportToCrashService(bug),
-  describeMessage: (message) =>
-    message._tag === 'GotForm' ? `Form/${message.message._tag}` : message._tag,
-})
-
-Effect.runFork(main)
-```
-
-A real renderer usually draws at most once per animation frame (e.g. with a sliding buffer of one frame),
-like Elm does. A frame's `model` is made the first time it is read, so the frames a renderer skips cost
-nothing; and a message that leaves the very same state (`===`) makes no new frame at all, only runs its
-commands.
-
-Options (`RunOptions`):
-
-- **`onRejected`** (required) decides what a `Rejected` bug does. It has no default, because the right
-  answer depends on where the app runs:
-  - `'die'` fails the run with `RejectedMessage`: the bug cannot go unnoticed, which is what you want while
-    developing and testing;
-  - `'ignore'` drops the message and goes on, which is safe since the state did not change: the user only
-    sees an action that does nothing, instead of a crashed app. `onBug` is then **required**, so the bug
-    still reaches you.
-- **`onBug(bug)`** is called for every bug, fatal or not, e.g. to send it to a crash-reporting service. A
-  `Bug` is one of:
-  - `Defect`: something blew up (an exception, an `Effect.die`). Its `cause` is the defect, and `where` is
-    `Update`, `Command`, `OnApplied`, or `Subscription` with its `key`. A defect always ends the run, whatever
-    `onRejected` says: to recover from one, handle it where it happens, with Effect's tools.
-  - `Rejected`: a frame sent a `message` that `update` rejects in the frame's own state, whose `revision`
-    it carries (see [Rejections](#6-rejections-stale-or-bug)).
-- **`describeMessage`** says how a message appears in the logs. By default only its `_tag` is logged (or the
-  message itself, when it is a string), never its data.
-- **`onApplied(applied)`** hears every message `update` accepts, in order, before its frame is drawn and its
-  commands start. An `Applied` carries the `message`, the state `before` and `after` it, the `revision` of
-  `after` (unchanged when the state is the very same), and how many `commands` it started. Stale and rejected
-  messages are not heard. It is the place for tools that watch the program, like devtools, a recording of the
-  session to replay a bug, or analytics:
-
-  ```ts
-  const main = run(app, render, {
-    onRejected: 'die',
-    onApplied: ({ message, after }) =>
-      Effect.sync(() => devtools.send(message, after)),
-  })
-  ```
-
-  The program waits for it, so keep it quick (fork anything slow); a defect in it is a bug like any other.
-
-The run fails with the first defect. To show an error screen, handle the failure of `run` itself, e.g. with
-`Effect.tapCause`.
-
-The run logs with Effect's logger: `debug` for every message that changes the state or runs commands, and
-for subscriptions starting, stopping and ending; `error` for bugs. Lower the minimum log level to see the `debug`
-lines.
-
-### 10. Testing
-
-`update` and `makeModel` are pure functions, so most tests need no runtime at all.
-
-```ts
-import { isRejected } from '@fgaudo/effect-tea'
-import { applyAll } from '@fgaudo/effect-tea/testing'
-
-test('counting', () => {
-  expect(applyAll(update)(['Increment', 'Increment', 'Decrement'], 0).state)
-    .toBe(1)
-  expect(isRejected(update('Decrement')(0))).toBe(true)
-})
-```
-
-- `applyAll(update)(messages, from)` applies messages in order, and returns the final `state`, all the
-  `commands` and all the `events`. A rejection throws, failing the test.
-- Assert rejections with `isRejected`, not by comparing states.
-
-To test a whole flow, commands included, `simulate` runs them too, with the services you provide:
-
-```ts
-import { simulate } from '@fgaudo/effect-tea/testing'
-
-test('saving', async () => {
-  const { state, messages } = await Effect.runPromise(
-    simulate(update)([{ _tag: 'Save' }], program.init).pipe(
-      Effect.provideService(Storage, { save: Effect.succeed(7) }),
-    ),
-  )
-  expect(messages.map((message) => message._tag)).toEqual([
-    'Loaded',
-    'Save',
-    'Saved',
-  ])
-  expect(state.saved).toBe(7)
-})
-```
-
-- `simulate(update)(messages, from)` starts from a `Step` (the program's `init`, or `{ state }`), runs its
-  commands, then applies `messages` in order. Each command runs as soon as its message is applied, and the
-  message it produces is applied before anything else, as if every command completed at once. It returns a
-  `Simulation`: the final `state`, every message `update` accepted in order (yours and the commands'), and
-  every `event`.
-- A rejection of one of your messages fails with a defect; a command's message that `update` rejects is stale
-  and ignored, as when the program runs.
-- Subscriptions do not run: put the messages they would send among `messages`.
-
-To test the program as it runs, subscriptions and concurrent commands included, `drive` runs it with `run`
-and lets a scenario act as its user: it waits for what the frames show, and does what they offer.
-
-```ts
-import { drive, input, tap } from '@fgaudo/effect-tea/testing'
-
-test('a saved note is shown as saved', async () => {
-  const saved = await Effect.runPromise(
-    drive(app, (driver) =>
-      Effect.gen(function*() {
-        yield* driver.send((model) => input(model.changeText, 'Milk'))
-        yield* driver.send((model) =>
-          model.text === 'Milk' ? tap(model.save) : Opt.none()
-        )
-        return yield* driver.waitFor((model) => model.saved)
-      })).pipe(Effect.provideService(Storage, { save: Effect.succeed(7) })),
-  )
-  expect(saved).toBe('Milk')
-})
-```
-
-- `drive(program, scenario, options?)` returns what `scenario` returns, then stops the program. A defect of
-  the program fails it, and so does a message the program offered and then rejected: in a test a rejection
-  is always fatal, so there is no `onRejected`, nor an `onBug`: the test fails with the bug as its cause. The
-  options (`DriveOptions`) are `run`'s `describeMessage` and `onApplied` (e.g. to record the accepted
-  messages), and `patience`.
-- The scenario gets a `Driver`: `waitFor(select)` waits for a frame whose model `select` maps to `Some`, and
-  returns that value; `send(select)` waits for a frame on which `select` finds an `Action`, and does it on
-  that frame; `latest` is the latest frame.
-- An `Action` is what a view's handler does: it gets the frame's `dispatch`. `tap(offer)` sends an offered
-  message and `input(offer, value)` enters a value, both `None` while nothing is offered. For a child's
-  offers, wrap the action as the parent's view does: `(dispatch) => action(mapDispatch(dispatch, wrap))`.
-- Wait for what the model shows, never for "the next frame": a message that leaves the very same state makes
-  no frame. What happens outside the model (e.g. the app exiting) is observed on the services you provide.
-- A wait fails after `patience` (2 seconds by default), with the latest model as the error's `cause`. It is
-  measured with the real clock, so a `TestClock` that controls the program's time does not stop it.
-
-The agreement between the view and `update` is worth checking for every state the program can be in. Render
-the real view, collect every message it can send, and pass them to `dispatchViolations`:
-
-```ts
-import { dispatchViolations } from '@fgaudo/effect-tea/testing'
-import * as fc from 'fast-check'
-
-test('the view and update agree', () => {
-  const check = dispatchViolations(update, {
-    repeatable: (message) => message === 'Increment',
-  })
-  fc.assert(fc.property(arbitraryState, (state) => {
-    expect(check(state, messagesSentBy(view, makeModel(state)))).toEqual([])
-  }))
-})
-```
-
-- `dispatchViolations(update, { repeatable? })(state, messages)` returns a `DispatchViolation` for each
-  message that `update` rejects in `state` (`Rejected`: the model offered too much), and for each one that
-  acts again when sent twice from the same frame (`ActsTwice`: a double tap would repeat a one-shot action).
-  Acting again means a different state (by `Equal`), or commands, or events. Exclude the actions meant to
-  repeat, like a "+1", with `repeatable`.
-- Collecting the messages depends on the renderer, so it is yours to write: `messagesSentBy` renders the view
-  with a `dispatch` that records what it receives, and fires every event handler in the tree.
+- A rejection of one of your messages fails `applyAll` and `simulate`. Assert expected rejections with
+  `isRejected(update(message)(state))`, not by comparing states.
+- `dispatchViolations` reports each message that `update` rejects in `state` (`Rejected`), and each one that
+  acts again when sent twice from the same frame (`ActsTwice`: a double tap would repeat a one-shot action),
+  except the `repeatable` ones. Collecting what the view can send depends on the renderer (`messagesSentBy`
+  in `examples/snabbdom.ts`).
+- `drive` gives the scenario a `Driver`: `waitFor(select)` waits for a frame whose model `select` maps to
+  `Some`; `send(select)` waits for a frame on which `select` finds an `Action` (`tap(offer)`,
+  `input(offer, value)`), and does it. A rejected message is always fatal there. Wait for what the model
+  shows, never for "the next frame"; a wait fails after `patience` (2 seconds), measured with the real clock,
+  so that a `TestClock` can move the program's time.
 
 ## API reference
 
@@ -869,8 +299,8 @@ From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `drive`
 
 ## Development
 
-`bun run typecheck`, `bun run lint` and `bun run test` check the package. `bun run build` compiles `src/`
-into `dist/`; it also runs before `bun pm pack`. What changed in each version is in
+`bun run typecheck`, `bun run lint` and `bun run test` check the package and the examples. `bun run build`
+compiles `src/` into `dist/`; it also runs before `bun pm pack`. What changed in each version is in
 [`CHANGELOG.md`](CHANGELOG.md).
 
 ## License

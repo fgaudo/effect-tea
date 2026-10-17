@@ -17,7 +17,14 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 - **Generic, and only Effect.** The library knows nothing of the applications that use it, nor of any
   renderer. Views are generic over their node type, and the renderer is a function given to `run`. `effect`
   (v4) is its only dependency, as a peer. Biome forbids renderer imports, and `lib` (`ES2022`, no `DOM`)
-  rejects browser APIs.
+  rejects browser APIs, everywhere but in `examples/`.
+- **`examples/` are complete programs, checked like the library.** Each one has its program, a view
+  (snabbdom, through `examples/snabbdom.ts`), a `main.ts` that starts it with `BrowserRuntime.runMain` (so
+  that the failure of a dying program is reported), an `index.html` to run it
+  (`bun examples/<name>/index.html`), and a `*.test.ts` that shows the testing tools on it. They import the
+  package by its name (`@fgaudo/effect-tea`), as a consumer would; `tsc -p examples` checks them with the
+  `bun` condition and the `DOM` lib. They are not published (`files`), and snabbdom and
+  `@effect/platform-browser` are only dev dependencies.
 - **The peer range starts at the oldest Effect 4 the library works with** (`^4.0.0` today), so that any
   application on Effect 4 can use it. Raise the minimum only when the code needs a newer API, after checking:
   copy `src/` into a scratch project with that exact Effect version, then run `tsc` and `bun test` there.
@@ -26,8 +33,9 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 
 - The API is exactly what `src/index.ts` and `src/testing.ts` export; every other module is internal.
   Export only what a consumer needs.
-- A change to the API changes [`README.md`](README.md) in the same change: the guide section that uses it,
-  and the API reference table. Every example in the README must compile against the package.
+- A change to the API changes [`README.md`](README.md) in the same change: the concept that uses it,
+  and the API reference table, and the examples that use it. Every example in the README must compile
+  against the package.
 - `exports` has three conditions: `bun` (the TypeScript sources, for consumers that run under Bun), `types`
   and `default` (`dist/`, for everyone else). A new entrypoint needs all three, and an entry in `files` if
   it is not under `src` or `dist`.
