@@ -3,6 +3,7 @@
 import { embedEach, type Offer, offers, type Program, type Update } from '@fgaudo/effect-tea'
 import * as Arr from 'effect/Array'
 import * as Data from 'effect/Data'
+import { absurd } from 'effect/Function'
 import * as Opt from 'effect/Option'
 import * as Stopwatch from './stopwatch.ts'
 
@@ -54,9 +55,10 @@ export type Model = Readonly<{
   stopwatches: ReadonlyArray<Readonly<{ id: number; model: Stopwatch.Model }>>
 }>
 
-export const list: Program<State, Model, Message, never> = {
+export const list: Program<State, Model, Message, never, never> = {
   init: { state: { nextId: 1, entries: [] } },
   update,
+  runCommand: absurd,
   subscriptions: stopwatches.subscriptions,
   makeModel: (state) => ({
     add: offers(update, state).offer(Message.AddClicked()),

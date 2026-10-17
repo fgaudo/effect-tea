@@ -9,6 +9,7 @@ import * as Opt from 'effect/Option'
 import * as References from 'effect/References'
 import * as TestClock from 'effect/testing/TestClock'
 import { RejectedMessage } from './bug.ts'
+import type { RunCommand } from './command.ts'
 import { type InputOffer, type Offer, type Offered, offers } from './offer.ts'
 import type { Program } from './program.ts'
 import { reject, type Update } from './update.ts'
@@ -16,11 +17,11 @@ import { applyAll, dispatchViolations, drive, input, simulate, tap } from './tes
 
 type State = Readonly<{ count: number; isOpen: boolean }>
 
-// `Increment` repeats on purpose, `Opened` happens once, `Pinged` runs a command every time, `Forbidden` never
+// `Increment` repeats on purpose, `Opened` happens once, `Pinged` starts `Ping` every time, `Forbidden` never
 // applies, and `Closed` changes nothing when sent again.
 type Message = 'Increment' | 'Opened' | 'Closed' | 'Pinged' | 'Forbidden'
 
-const update: Update<State, Message, never> = (message) => (state) => {
+const update: Update<State, Message, 'Ping'> = (message) => (state) => {
   switch (message) {
     case 'Increment':
       return { state: { ...state, count: state.count + 1 } }
@@ -29,7 +30,7 @@ const update: Update<State, Message, never> = (message) => (state) => {
     case 'Closed':
       return { state: { ...state, isOpen: false } }
     case 'Pinged':
-      return { state, commands: [Effect.succeed(Opt.none())] }
+      return { state, commands: ['Ping'] }
     case 'Forbidden':
       return reject
   }
@@ -41,7 +42,7 @@ describe('applyAll', () => {
   test('applies the messages in order and collects their commands', () => {
     const { state, commands } = applyAll(update)(['Increment', 'Opened', 'Pinged', 'Increment'], closed)
     expect(state).toEqual({ count: 2, isOpen: true })
-    expect(commands.length).toBe(1)
+    expect(commands).toEqual(['Ping'])
   })
 
   test('collects the events in order', () => {
@@ -77,27 +78,27 @@ describe('dispatchViolations', () => {
 describe('simulate', () => {
   class Storage extends Context.Service<Storage, { readonly save: Effect.Effect<number> }>()('Storage') {}
 
-  // `Save` starts a save that `Saved` completes; while saving, a second `Save` is rejected. `Saved` tells the
-  // parent with an event.
+  // `Save` starts `Store`, which `Saved` completes; while saving, a second `Save` is rejected. `Saved` tells
+  // the parent with an event.
   type Saving = Readonly<{ isSaving: boolean; saved: number }>
   type Flow = Readonly<{ _tag: 'Save' }> | Readonly<{ _tag: 'Saved'; total: number }>
 
-  const flow: Update<Saving, Flow, Storage, 'Done'> = (message) => (state) => {
+  const flow: Update<Saving, Flow, 'Store', 'Done'> = (message) => (state) => {
     switch (message._tag) {
       case 'Save':
-        return state.isSaving ? reject : {
-          state: { ...state, isSaving: true },
-          commands: [
-            Effect.map(
-              Effect.service(Storage).pipe(Effect.flatMap((storage) => storage.save)),
-              (total) => Opt.some<Flow>({ _tag: 'Saved', total }),
-            ),
-          ],
-        }
+        return state.isSaving ? reject : { state: { ...state, isSaving: true }, commands: ['Store'] }
       case 'Saved':
         return state.isSaving ? { state: { isSaving: false, saved: message.total }, events: ['Done'] } : reject
     }
   }
+
+  const store: RunCommand<'Store', Flow, Storage> = () =>
+    Effect.map(
+      Effect.service(Storage).pipe(Effect.flatMap((storage) => storage.save)),
+      (total) => Opt.some<Flow>({ _tag: 'Saved', total }),
+    )
+
+  const saving = { update: flow, runCommand: store }
 
   const idle: Saving = { isSaving: false, saved: 0 }
 
@@ -106,40 +107,41 @@ describe('simulate', () => {
 
   test('runs each command as soon as its message is applied, and applies its message before the next', async () => {
     const simulation = await Effect.runPromise(withStorage(
-      simulate(flow)([{ _tag: 'Save' }, { _tag: 'Save' }], {
+      simulate(saving)([{ _tag: 'Save' }, { _tag: 'Save' }], {
         state: idle,
       }),
     ))
     expect(simulation).toEqual({
       state: { isSaving: false, saved: 7 },
       messages: [{ _tag: 'Save' }, { _tag: 'Saved', total: 7 }, { _tag: 'Save' }, { _tag: 'Saved', total: 7 }],
+      commands: ['Store', 'Store'],
       events: ['Done', 'Done'],
     })
   })
 
   test('runs the commands of the starting step first', async () => {
     const simulation = await Effect.runPromise(withStorage(
-      simulate(flow)([], {
-        state: { isSaving: true, saved: 0 },
-        commands: [Effect.succeed(Opt.some<Flow>({ _tag: 'Saved', total: 3 }))],
-      }),
+      simulate(saving)([], { state: { isSaving: true, saved: 0 }, commands: ['Store'] }),
     ))
+    expect(simulation.state).toEqual({ isSaving: false, saved: 7 })
+  })
+
+  test('a test\'s own interpreter answers the commands, with no services', async () => {
+    const answered = { update: flow, runCommand: () => Effect.succeedSome<Flow>({ _tag: 'Saved', total: 3 }) }
+    const simulation = await Effect.runPromise(simulate(answered)([{ _tag: 'Save' }], { state: idle }))
     expect(simulation.state).toEqual({ isSaving: false, saved: 3 })
   })
 
   test('a command\'s message that update rejects is stale and ignored', async () => {
     const simulation = await Effect.runPromise(withStorage(
-      simulate(flow)([], {
-        state: idle,
-        commands: [Effect.succeed(Opt.some<Flow>({ _tag: 'Saved', total: 3 }))],
-      }),
+      simulate(saving)([], { state: idle, commands: ['Store'] }),
     ))
-    expect(simulation).toEqual({ state: idle, messages: [], events: [] })
+    expect(simulation).toEqual({ state: idle, messages: [], commands: ['Store'], events: [] })
   })
 
   test('a rejection of one of the messages fails, naming it', async () => {
     const exit = await Effect.runPromiseExit(withStorage(
-      simulate(flow)([{ _tag: 'Saved', total: 1 }], {
+      simulate(saving)([{ _tag: 'Saved', total: 1 }], {
         state: idle,
       }),
     ))
@@ -148,8 +150,8 @@ describe('simulate', () => {
 })
 
 describe('drive', () => {
-  // A note that is saved by a command, and pinged once by a subscription that stops with the program.
-  // `Explode` starts a command with a bug.
+  // A note that is saved by `Store`, and pinged once by a subscription that stops with the program.
+  // `Explode` starts `Crash`, a command with a bug.
   type Note = Readonly<{ text: string; isSaving: boolean; saved: Opt.Option<string>; pings: number }>
   type Edit =
     | Readonly<{ _tag: 'Typed'; text: string }>
@@ -158,21 +160,23 @@ describe('drive', () => {
     | Readonly<{ _tag: 'Pinged' }>
     | Readonly<{ _tag: 'Explode' }>
 
-  const editNote: Update<Note, Edit, never> = (message) => (note) => {
+  type NoteCommand = 'Store' | 'Crash'
+
+  const editNote: Update<Note, Edit, NoteCommand> = (message) => (note) => {
     switch (message._tag) {
       case 'Typed':
         return note.isSaving ? reject : { state: { ...note, text: message.text } }
       case 'Save':
         return note.isSaving || note.text === '' ? reject : {
           state: { ...note, isSaving: true },
-          commands: [Effect.succeed(Opt.some<Edit>({ _tag: 'Saved' }))],
+          commands: ['Store'],
         }
       case 'Saved':
         return note.isSaving ? { state: { ...note, isSaving: false, saved: Opt.some(note.text) } } : reject
       case 'Pinged':
         return { state: { ...note, pings: note.pings + 1 } }
       case 'Explode':
-        return { state: note, commands: [Effect.die(new Error('boom'))] }
+        return { state: note, commands: ['Crash'] }
     }
   }
 
@@ -183,9 +187,11 @@ describe('drive', () => {
     explode: Offer<Edit>
   }>
 
-  const noteProgram = (onStop: Effect.Effect<void>): Program<Note, NoteModel, Edit, never> => ({
+  const noteProgram = (onStop: Effect.Effect<void>): Program<Note, NoteModel, Edit, NoteCommand, never> => ({
     init: { state: { text: '', isSaving: false, saved: Opt.none(), pings: 0 } },
     update: editNote,
+    runCommand: (command) =>
+      command === 'Store' ? Effect.succeedSome<Edit>({ _tag: 'Saved' }) : Effect.die(new Error('boom')),
     subscriptions: () =>
       HashMap.make([
         'ping',
@@ -263,7 +269,7 @@ describe('drive', () => {
   test('a message the model offered and update rejects always fails the scenario', async () => {
     const correct = noteProgram(Effect.void)
     // `save` is offered even with an empty text, which `update` rejects.
-    const overOffering: Program<Note, NoteModel, Edit, never> = {
+    const overOffering: Program<Note, NoteModel, Edit, NoteCommand, never> = {
       ...correct,
       makeModel: (note) => ({ ...correct.makeModel(note), save: Opt.some({ _tag: 'Save' } as Offered<Edit>) }),
     }

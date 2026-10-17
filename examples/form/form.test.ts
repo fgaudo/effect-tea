@@ -5,7 +5,7 @@ import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
 import { messagesSentBy } from '../snabbdom.ts'
-import { form, Message, type State, update } from './form.ts'
+import { Command, form, Message, type State, update } from './form.ts'
 import { Storage, StorageError } from './storage.ts'
 import { view } from './view.ts'
 
@@ -28,13 +28,13 @@ describe('form', () => {
       expect(applyAll(update)([Message.NameChanged({ name: ' Ada ' })], empty).state.name).toBe(' Ada ')
     })
 
-    test('saves a name that is not blank, with one command', () => {
+    test('saves a name that is not blank, trimmed', () => {
       const { state, commands } = applyAll(update)(
-        [Message.NameChanged({ name: 'Ada' }), Message.SaveClicked()],
+        [Message.NameChanged({ name: ' Ada ' }), Message.SaveClicked()],
         empty,
       )
       expect(state.isSaving).toBe(true)
-      expect(commands.length).toBe(1)
+      expect(commands).toEqual([Command.Save({ name: 'Ada' })])
     })
 
     test('rejects saving a blank name, a second save, typing while saving, and a completion with nothing saving', () => {
@@ -61,14 +61,14 @@ describe('form', () => {
 
     test('a saved name is listed, trimmed, and the form is emptied', async () => {
       const { state } = await Effect.runPromise(
-        simulate(update)(typedAndSaved, form.init).pipe(Effect.provideService(Storage, working)),
+        simulate(form)(typedAndSaved, form.init).pipe(Effect.provideService(Storage, working)),
       )
       expect(state).toEqual({ name: '', isSaving: false, hasFailed: false, saved: ['Ada'] })
     })
 
     test('a failure gives the form back, as it was, and says so', async () => {
       const { state } = await Effect.runPromise(
-        simulate(update)(typedAndSaved, form.init).pipe(Effect.provideService(Storage, failing)),
+        simulate(form)(typedAndSaved, form.init).pipe(Effect.provideService(Storage, failing)),
       )
       expect(state).toEqual({ name: ' Ada ', isSaving: false, hasFailed: true, saved: [] })
     })

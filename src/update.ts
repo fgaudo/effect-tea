@@ -1,13 +1,12 @@
-import type { Command } from './command.ts'
-
 /**
- * The result of a transition. `events` are for the parent (the "OutMsg" pattern):
- * what happened that the program itself does not handle, e.g. a page asking to
- * be left. A program that emits none leaves `Event` as `never`.
+ * The result of a transition. `commands` are data, what `update` decided to do in the world, turned into
+ * effects by the program's `runCommand`. `events` are for the parent (the "OutMsg" pattern): what happened
+ * that the program itself does not handle, e.g. a page asking to be left. A program that emits none leaves
+ * `Event` as `never`.
  */
-export type Step<State, Message, R, Event = never> = Readonly<{
+export type Step<State, Command, Event = never> = Readonly<{
   state: State
-  commands?: ReadonlyArray<Command<Message, R>>
+  commands?: ReadonlyArray<Command>
   events?: ReadonlyArray<Event>
 }>
 
@@ -27,8 +26,8 @@ export type Rejected = typeof reject
 
 export const isRejected = (result: unknown): result is Rejected => result === reject
 
-export type Transition<State, Message, R, Event = never> = Step<State, Message, R, Event> | Rejected
+export type Transition<State, Command, Event = never> = Step<State, Command, Event> | Rejected
 
-export type Update<State, Message, R, Event = never> = (
+export type Update<State, Message, Command, Event = never> = (
   message: Message,
-) => (state: State) => Transition<State, Message, R, Event>
+) => (state: State) => Transition<State, Command, Event>

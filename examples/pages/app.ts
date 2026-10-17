@@ -16,17 +16,25 @@ export type Message = Data.TaggedEnum<{
 
 export const Message = Data.taggedEnum<Message>()
 
+/** The Clock has no commands: only About's reach the parent. */
+export type Command = Data.TaggedEnum<{
+  About: { command: About.Command }
+}>
+
+export const Command = Data.taggedEnum<Command>()
+
 // While About is open its messages reach it; once it is closed, `get` is `None` and they are rejected.
 const aboutPage = embed(About.about, {
   key: 'About',
   wrap: (message: About.Message) => Message.GotAbout({ message }),
+  wrapCommand: (command: About.Command) => Command.About({ command }),
   get: (state: State) => state.maybeAbout,
   set: (state, about) => ({ ...state, maybeAbout: Opt.some(about) }),
   onEvent: () => (state) => ({ state: { ...state, maybeAbout: Opt.none() } }),
 })
 
 // Opening About again while it is open changes nothing, so that a double click opens it once.
-const openAbout = (state: State): Step<State, Message, never> =>
+const openAbout = (state: State): Step<State, Command> =>
   Opt.isSome(state.maybeAbout) ? { state } : {
     state: { ...state, maybeAbout: Opt.some(About.about.init.state) },
     commands: aboutPage.liftCommands(About.about.init.commands),
@@ -42,7 +50,7 @@ const clockPage = embed(Clock.clock, {
   onEvent: () => openAbout,
 })
 
-export const update: Update<State, Message, never> = (message) => {
+export const update: Update<State, Message, Command> = (message) => {
   switch (message._tag) {
     case 'GotClock':
       return clockPage.update(message.message)
@@ -59,9 +67,15 @@ export type Model = Readonly<{
   }>
 }>
 
-export const app: Program<State, Model, Message, never> = {
+export const app: Program<State, Model, Message, Command, never> = {
   init: { state: { clock: Clock.clock.init.state, maybeAbout: Opt.none() } },
   update,
+  runCommand: (command) => {
+    switch (command._tag) {
+      case 'About':
+        return aboutPage.runCommand(command.command)
+    }
+  },
   subscriptions: (state) => HashMap.union(clockPage.subscriptions(state), aboutPage.subscriptions(state)),
   makeModel: (state) => ({
     page: Opt.match(state.maybeAbout, {

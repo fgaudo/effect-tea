@@ -3,7 +3,7 @@
 // click is rejected, and the inputs are frozen meanwhile. A failure gives the form back, as it was.
 import {
   attempt,
-  type Command,
+  type Execution,
   type InputOffer,
   type Offer,
   offers,
@@ -32,20 +32,34 @@ export type Message = Data.TaggedEnum<{
 
 export const Message = Data.taggedEnum<Message>()
 
-const save = (name: string): Command<Message, Storage> =>
-  attempt(Effect.flatMap(Effect.service(Storage), (storage) => storage.save(name)), {
-    onSuccess: (): Message => Message.SaveSucceeded(),
-    onFailure: (): Message => Message.SaveFailed(),
-  })
+/** What `update` decides to do in the world, as data: `runCommand` is how it happens. */
+export type Command = Data.TaggedEnum<{
+  Save: { name: string }
+}>
 
-export const update: Update<State, Message, Storage> = (message) => (state) => {
+export const Command = Data.taggedEnum<Command>()
+
+export const runCommand = (command: Command): Execution<Message, Storage> => {
+  switch (command._tag) {
+    case 'Save':
+      return attempt(Effect.flatMap(Effect.service(Storage), (storage) => storage.save(command.name)), {
+        onSuccess: (): Message => Message.SaveSucceeded(),
+        onFailure: (): Message => Message.SaveFailed(),
+      })
+  }
+}
+
+export const update: Update<State, Message, Command> = (message) => (state) => {
   switch (message._tag) {
     case 'NameChanged':
       return state.isSaving ? reject : { state: { ...state, name: message.name } }
     case 'SaveClicked':
       return state.isSaving || state.name.trim() === ''
         ? reject
-        : { state: { ...state, isSaving: true, hasFailed: false }, commands: [save(state.name.trim())] }
+        : {
+          state: { ...state, isSaving: true, hasFailed: false },
+          commands: [Command.Save({ name: state.name.trim() })],
+        }
     // A completion is accepted only while saving: there is no other operation it could belong to.
     case 'SaveSucceeded':
       return state.isSaving
@@ -65,9 +79,10 @@ export type Model = Readonly<{
   saved: ReadonlyArray<string>
 }>
 
-export const form: Program<State, Model, Message, Storage> = {
+export const form: Program<State, Model, Message, Command, Storage> = {
   init: { state: { name: '', isSaving: false, hasFailed: false, saved: [] } },
   update,
+  runCommand,
   subscriptions: () => HashMap.empty(),
   makeModel: (state) => {
     const { offer, offerInput } = offers(update, state)

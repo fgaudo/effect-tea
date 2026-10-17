@@ -7,7 +7,7 @@ import * as Opt from 'effect/Option'
 import * as Stream from 'effect/Stream'
 import * as SubscriptionRef from 'effect/SubscriptionRef'
 import { describeByTag } from './bug.ts'
-import type { Command } from './command.ts'
+import type { RunCommand } from './command.ts'
 import type { InputOffer, Offer } from './offer.ts'
 import type { Program } from './program.ts'
 import { type Frame, run, type RunOptions } from './run.ts'
@@ -16,7 +16,7 @@ import type { Dispatch } from './view.ts'
 
 /** Applies `messages` in order from `from`, collecting the commands and the events; a rejection fails the test. */
 export const applyAll =
-  <State, Message, R, Event>(update: Update<State, Message, R, Event>) =>
+  <State, Message, Command, Event>(update: Update<State, Message, Command, Event>) =>
   (messages: ReadonlyArray<Message>, from: State) =>
     messages.reduce(
       ({ state, commands, events }, message, index) => {
@@ -32,38 +32,50 @@ export const applyAll =
       },
       {
         state: from,
-        commands: [] as ReadonlyArray<Command<Message, R>>,
+        commands: [] as ReadonlyArray<Command>,
         events: [] as ReadonlyArray<Event>,
       },
     )
 
-/** Where a simulation ends: the last state, every message `update` accepted in order, and every event. */
-export type Simulation<State, Message, Event> = Readonly<{
+/**
+ * Where a simulation ends: the last state, every message `update` accepted and every command it started, in
+ * order, and every event.
+ */
+export type Simulation<State, Message, Command, Event> = Readonly<{
   state: State
   messages: ReadonlyArray<Message>
+  commands: ReadonlyArray<Command>
   events: ReadonlyArray<Event>
 }>
 
 /**
  * Runs a program's flow without a runtime: from `from` (e.g. the program's `init`), runs its commands, then
- * applies `messages` in order. Every command runs as soon as its message is applied, and the message it
- * produces is applied before anything else, as if each command completed at once. Subscriptions do not run:
- * pass the messages they would send in `messages`. A rejection of one of `messages` fails the test with a
- * defect; a command's message that `update` rejects is stale and ignored, as when the program runs.
+ * applies `messages` in order. Every command runs through `runCommand` as soon as its message is applied, and
+ * the message it produces is applied before anything else, as if each command completed at once. Pass the
+ * program's own `runCommand` with its services provided, or one of the test's that answers each command
+ * without any. Subscriptions do not run: pass the messages they would send in `messages`. A rejection of one
+ * of `messages` fails the test with a defect; a command's message that `update` rejects is stale and ignored,
+ * as when the program runs.
  */
-export const simulate = <State, Message, R, Event>(update: Update<State, Message, R, Event>) =>
+export const simulate = <State, Message, Command, R, Event>(
+  { update, runCommand }: Readonly<{
+    update: Update<State, Message, Command, Event>
+    runCommand: RunCommand<Command, Message, R>
+  }>,
+) =>
 (
   messages: ReadonlyArray<Message>,
-  from: Step<State, Message, R>,
-): Effect.Effect<Simulation<State, Message, Event>, never, R> => {
+  from: Step<State, Command>,
+): Effect.Effect<Simulation<State, Message, Command, Event>, never, R> => {
+  type Current = Simulation<State, Message, Command, Event>
   const runCommands = (
-    commands: ReadonlyArray<Command<Message, R>>,
-    simulation: Simulation<State, Message, Event>,
-  ): Effect.Effect<Simulation<State, Message, Event>, never, R> =>
+    commands: ReadonlyArray<Command>,
+    simulation: Current,
+  ): Effect.Effect<Current, never, R> =>
     Effect.gen(function*() {
-      let current = simulation
+      let current: Current = { ...simulation, commands: [...simulation.commands, ...commands] }
       for (const command of commands) {
-        const message = yield* command
+        const message = yield* runCommand(command)
         if (Opt.isSome(message)) {
           current = yield* apply(message.value, current, Effect.succeed)
         }
@@ -72,19 +84,25 @@ export const simulate = <State, Message, R, Event>(update: Update<State, Message
     })
   const apply = (
     message: Message,
-    simulation: Simulation<State, Message, Event>,
-    onRejected: (unchanged: Simulation<State, Message, Event>) => Effect.Effect<Simulation<State, Message, Event>>,
-  ): Effect.Effect<Simulation<State, Message, Event>, never, R> =>
+    simulation: Current,
+    onRejected: (unchanged: Current) => Effect.Effect<Current>,
+  ): Effect.Effect<Current, never, R> =>
     Effect.suspend(() => {
       const result = update(message)(simulation.state)
       return isRejected(result) ? onRejected(simulation) : runCommands(result.commands ?? [], {
         state: result.state,
         messages: [...simulation.messages, message],
+        commands: simulation.commands,
         events: [...simulation.events, ...(result.events ?? [])],
       })
     })
   return Effect.gen(function*() {
-    let current = yield* runCommands(from.commands ?? [], { state: from.state, messages: [], events: [] })
+    let current = yield* runCommands(from.commands ?? [], {
+      state: from.state,
+      messages: [],
+      commands: [],
+      events: [],
+    })
     for (const [index, message] of messages.entries()) {
       current = yield* apply(
         message,
@@ -111,8 +129,8 @@ export type DispatchViolation<Message> = Readonly<{ _tag: 'Rejected' | 'ActsTwic
  * Actions meant to repeat (a "+1") are excluded with `repeatable`. Returns every violation, so that a test
  * can assert there are none, e.g. for arbitrary states.
  */
-export const dispatchViolations = <State, Message, R, Event>(
-  update: Update<State, Message, R, Event>,
+export const dispatchViolations = <State, Message, Command, Event>(
+  update: Update<State, Message, Command, Event>,
   { repeatable = () => false }: Readonly<{ repeatable?: (message: Message) => boolean }> = {},
 ) =>
 (state: State, messages: Iterable<Message>): ReadonlyArray<DispatchViolation<Message>> =>
@@ -155,9 +173,10 @@ export type Driver<Model, Message> = Readonly<{
  * How `drive` runs a program: `run`'s options a test may want, and how long a wait lasts before it fails
  * (2 seconds). There is no `onRejected`: in a test, a rejected message is always fatal.
  */
-export type DriveOptions<Message, K = unknown, State = unknown> = Readonly<{
-  describeMessage?: NonNullable<RunOptions<Message, K, State>['describeMessage']>
-  onApplied?: NonNullable<RunOptions<Message, K, State>['onApplied']>
+export type DriveOptions<Message, K = unknown, State = unknown, Command = unknown> = Readonly<{
+  describeMessage?: NonNullable<RunOptions<Message, K, State, Command>['describeMessage']>
+  describeCommand?: NonNullable<RunOptions<Message, K, State, Command>['describeCommand']>
+  onApplied?: NonNullable<RunOptions<Message, K, State, Command>['onApplied']>
   patience?: Duration.Input
 }>
 
@@ -167,10 +186,15 @@ export type DriveOptions<Message, K = unknown, State = unknown> = Readonly<{
  * program. A defect of the program fails it, and so does a message the program offered and then rejected
  * (`onRejected: 'die'`), or a wait that lasts longer than `patience`.
  */
-export const drive = <State, Model, Message, R, K, A, E, RS>(
-  program: Program<State, Model, Message, R, never, K>,
+export const drive = <State, Model, Message, Command, R, K, A, E, RS>(
+  program: Program<State, Model, Message, Command, R, never, K>,
   scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RS>,
-  { patience = '2 seconds', ...options }: DriveOptions<NoInfer<Message>, NoInfer<K>, NoInfer<State>> = {},
+  { patience = '2 seconds', ...options }: DriveOptions<
+    NoInfer<Message>,
+    NoInfer<K>,
+    NoInfer<State>,
+    NoInfer<Command>
+  > = {},
 ): Effect.Effect<A, E, R | RS> =>
   Effect.gen(function*() {
     const frames = yield* SubscriptionRef.make<Opt.Option<Frame<Model, Message>>>(Opt.none())

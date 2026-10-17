@@ -9,7 +9,7 @@ import * as Queue from 'effect/Queue'
 import type * as Stream from 'effect/Stream'
 import * as SubscriptionRef from 'effect/SubscriptionRef'
 import { type DefectSource, describeByTag, RejectedMessage, type RejectionOptions } from './bug.ts'
-import type { Command } from './command.ts'
+import type { RunCommand } from './command.ts'
 import type { Subscribe } from './subscription.ts'
 import { isRejected, type Step, type Update } from './update.ts'
 
@@ -20,14 +20,14 @@ export type Revisioned<State> = Readonly<{ state: State; revision: Revision }>
 
 /**
  * A message that `update` accepted: the state before and after it, the revision of `after` (unchanged when
- * the state is the same), and how many commands it started.
+ * the state is the same), and the commands it started.
  */
-export type Applied<State, Message> = Readonly<{
+export type Applied<State, Message, Command> = Readonly<{
   message: Message
   before: State
   after: State
   revision: Revision
-  commands: number
+  commands: ReadonlyArray<Command>
 }>
 
 // A view message carries the state its frame was drawn from, to tell a bug from a stale message.
@@ -54,23 +54,28 @@ export interface Engine<State, Message> {
   readonly await: Effect.Effect<never>
 }
 
-export const make = Effect.fn('Engine.make')(function*<State, Message, R, S, K>({
+export const make = Effect.fn('Engine.make')(function*<State, Message, Command, R, S, K>({
   init: { state: initState, commands: initCommands = [] },
   update,
+  runCommand: interpret,
   subscriptions,
   onBug = () => Effect.void,
   describeMessage = describeByTag,
+  describeCommand = describeByTag,
   onApplied = () => Effect.void,
   onRejected,
 }:
   & {
-    init: Step<State, Message, R>
-    update: Update<State, Message, R>
+    init: Step<State, Command>
+    update: Update<State, Message, Command>
+    runCommand: RunCommand<Command, Message, R>
     subscriptions: Subscribe<State, Message, S, K>
     /** How a message appears in the logs, e.g. its tags only, without its data. */
     describeMessage?: (message: NoInfer<Message>) => unknown
+    /** How a command appears in the logs, e.g. its tags only, without its data. */
+    describeCommand?: (command: NoInfer<Command>) => unknown
     /** Hears every message `update` accepts, in order, before its frame is drawn and its commands start. */
-    onApplied?: (applied: Applied<NoInfer<State>, NoInfer<Message>>) => Effect.Effect<void>
+    onApplied?: (applied: Applied<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>) => Effect.Effect<void>
   }
   & RejectionOptions<NoInfer<Message>, NoInfer<K>>)
 {
@@ -92,10 +97,11 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, R, S, K>(
     Effect.sync(() => update(message)(state)).pipe(
       Effect.tapDefect((defect) => reportDefect(defect, { _tag: 'Update' })),
     )
-  const observe = (applied: Applied<State, Message>) =>
+  const observe = (applied: Applied<State, Message, Command>) =>
     onApplied(applied).pipe(Effect.tapDefect((defect) => reportDefect(defect, { _tag: 'OnApplied' })))
-  const runCommand = (command: Command<Message, R>) =>
-    command.pipe(
+  // The interpreter runs inside the command's fiber, so a defect in it is the command's.
+  const runCommand = (command: Command) =>
+    Effect.suspend(() => interpret(command)).pipe(
       Effect.tapDefect((defect) => reportDefect(defect, { _tag: 'Command' })),
       Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: offer })),
       Effect.provideContext(context),
@@ -156,17 +162,18 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, R, S, K>(
       return active
     }
     const { state: newState, commands = [] } = result
+    const described = commands.map(describeCommand)
     // The same state needs no new frame and no new subscriptions: only its commands, if any, run.
     if (newState === state) {
       if (commands.length > 0) {
-        yield* Effect.logDebug('Message', describeMessage(message), { revision, commands: commands.length })
+        yield* Effect.logDebug('Message', describeMessage(message), { revision, commands: described })
       }
-      yield* observe({ message, before: state, after: state, revision, commands: commands.length })
+      yield* observe({ message, before: state, after: state, revision, commands })
       yield* Effect.forEach(commands, runCommand, { discard: true })
       return active
     }
-    yield* Effect.logDebug('Message', describeMessage(message), { revision: revision + 1, commands: commands.length })
-    yield* observe({ message, before: state, after: newState, revision: revision + 1, commands: commands.length })
+    yield* Effect.logDebug('Message', describeMessage(message), { revision: revision + 1, commands: described })
+    yield* observe({ message, before: state, after: newState, revision: revision + 1, commands })
     yield* SubscriptionRef.set(stateRef, { state: newState, revision: revision + 1 })
     const nextActive = yield* reconcile(active, newState)
     yield* Effect.forEach(commands, runCommand, { discard: true })

@@ -3,28 +3,24 @@ import * as Channel from 'effect/Channel'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
-import type { Command } from './command.ts'
+import type { Execution, RunCommand } from './command.ts'
 import type { Subscribe, Subscription, Subscriptions } from './subscription.ts'
 import { isRejected, reject, type Rejected, type Step, type Transition, type Update } from './update.ts'
 
-/** The view is not part of it: it lives in its own module, so it can be hot reloaded. */
-export interface Program<State, Model, Message, R, Event = never, K = unknown> {
-  readonly init: Step<State, Message, R>
-  readonly update: Update<State, Message, R, Event>
+/**
+ * The view is not part of it: it lives in its own module, so it can be hot reloaded. A program without
+ * commands has `never` as its `Command`, and `absurd` (from `effect/Function`) as its `runCommand`.
+ */
+export interface Program<State, Model, Message, Command, R, Event = never, K = unknown> {
+  readonly init: Step<State, Command>
+  readonly update: Update<State, Message, Command, Event>
+  readonly runCommand: RunCommand<Command, Message, R>
   readonly subscriptions: Subscribe<State, Message, R, K>
   readonly makeModel: (state: State) => Model
 }
 
-const mapCommands = <A, B, R>(
-  commands: ReadonlyArray<Command<A, R>>,
-  f: (message: A) => B,
-): ReadonlyArray<Command<B, R>> => Arr.map(commands, Effect.map(Opt.map(f)))
-
-/** Maps the commands of a step; its events are left to the caller. */
-const mapStep = <State, A, B, R, Event>(
-  { state, commands = [] }: Step<State, A, R, Event>,
-  f: (message: A) => B,
-): Step<State, B, R> => ({ state, commands: mapCommands(commands, f) })
+const mapExecution = <A, B, R>(execution: Execution<A, R>, f: (message: A) => B): Execution<B, R> =>
+  Effect.map(execution, Opt.map(f))
 
 const mapSubscriptions = <A, B, R, K, NewK>(
   subscriptions: Subscriptions<K, A, R>,
@@ -38,36 +34,42 @@ const mapSubscriptions = <A, B, R, K, NewK>(
       HashMap.set(acc, mapKey(key), subscription.pipe(Channel.map(mapMessage), Channel.mapDone(mapMessage))),
   )
 
-type ParentStep<ParentState, ParentMessage, R> = (state: ParentState) => Step<ParentState, ParentMessage, R>
+type ParentStep<ParentState, ParentCommand> = (state: ParentState) => Step<ParentState, ParentCommand>
 
 /** Required exactly when the child emits events, so none can go unhandled. */
 type OnEvent<ChildEvent, Handler> = [ChildEvent] extends [never] ? object : { onEvent: Handler }
 
+/** Required exactly when the child has commands. */
+type WrapCommand<ChildCommand, Handler> = [ChildCommand] extends [never] ? object : { wrapCommand: Handler }
+
 /** Writes a child's step back into its parent: its state, its commands (wrapped), then its events, in order. */
-const applyChild = <ParentState, ParentMessage, ChildState, ChildMessage, R, ChildEvent>(
-  result: Step<ChildState, ChildMessage, R, ChildEvent>,
-  wrap: (message: ChildMessage) => ParentMessage,
+const applyChild = <ParentState, ParentCommand, ChildState, ChildCommand, ChildEvent>(
+  result: Step<ChildState, ChildCommand, ChildEvent>,
+  wrapCommand: (command: ChildCommand) => ParentCommand,
   set: (state: ParentState, child: ChildState) => ParentState,
-  onEvent: (event: ChildEvent) => ParentStep<ParentState, ParentMessage, R>,
+  onEvent: (event: ChildEvent) => ParentStep<ParentState, ParentCommand>,
 ) =>
-(state: ParentState): Step<ParentState, ParentMessage, R> => {
-  const step = mapStep(result, wrap)
-  return Arr.reduce(
+(state: ParentState): Step<ParentState, ParentCommand> =>
+  Arr.reduce(
     result.events ?? [],
-    { state: set(state, step.state), commands: step.commands ?? [] },
+    { state: set(state, result.state), commands: Arr.map(result.commands ?? [], wrapCommand) },
     (acc, event) => {
       const next = onEvent(event)(acc.state)
       return { state: next.state, commands: [...acc.commands, ...(next.commands ?? [])] }
     },
   )
+
+// Unreachable through the types: `onEvent` and `wrapCommand` are required whenever the child needs them.
+const missing = (name: string, key: string, what: string) => (): never => {
+  throw new Error(`${name}("${key}"): the child emitted ${what}, but nothing handles it`)
 }
 
-// Unreachable through the types: `onEvent` is required whenever the child has events.
-const missingOnEvent = (name: string, key: string) => (): never => {
-  throw new Error(`${name}("${key}"): the child emitted an event, but no onEvent was given`)
-}
+type Child<ChildState, ChildMessage, ChildCommand, R, ChildEvent, K> = Pick<
+  Program<ChildState, unknown, ChildMessage, ChildCommand, R, ChildEvent, K>,
+  'update' | 'runCommand' | 'subscriptions'
+>
 
-type EmbedOptions<ParentState, ParentMessage, ChildState, ChildMessage, ChildEvent, R> =
+type EmbedOptions<ParentState, ParentMessage, ParentCommand, ChildState, ChildMessage, ChildCommand, ChildEvent> =
   & {
     key: string
     wrap: (message: ChildMessage) => ParentMessage
@@ -75,12 +77,14 @@ type EmbedOptions<ParentState, ParentMessage, ChildState, ChildMessage, ChildEve
     getSubscribed?: (state: ParentState) => Opt.Option<ChildState>
     set: (state: ParentState, child: ChildState) => ParentState
   }
-  & OnEvent<ChildEvent, (event: ChildEvent) => ParentStep<ParentState, ParentMessage, R>>
+  & OnEvent<ChildEvent, (event: ChildEvent) => ParentStep<ParentState, ParentCommand>>
+  & WrapCommand<ChildCommand, (command: ChildCommand) => ParentCommand>
 
 /**
  * Lifts a child program into its parent.
  *
- * - `wrap` turns a child message into a parent message (e.g. `GotHomeMsg`).
+ * - `wrap` turns a child message into a parent message (e.g. `GotHomeMsg`), and `wrapCommand` a child
+ *   command into a parent command (required only when the child has commands).
  * - `get` reads the child state from the parent state; `None` means the child
  *   is not active (e.g. the page is not on the navigation stack), and its messages are rejected.
  * - `getSubscribed`, when given, decides instead of `get` whether the child's
@@ -91,24 +95,41 @@ type EmbedOptions<ParentState, ParentMessage, ChildState, ChildMessage, ChildEve
  * - `onEvent` handles the events the child emits, in the same transition, after
  *   the child state has been written back.
  *
- * It returns `update`, `subscriptions`, and `liftCommands(commands)`, which wraps a child's commands, e.g.
- * those of its `init` when the parent adds it: where the child's state goes is the parent's own business.
+ * It returns `update`, `subscriptions`, `liftCommands(commands)`, which wraps a child's commands, e.g. those
+ * of its `init` when the parent adds it (where the child's state goes is the parent's own business), and
+ * `runCommand(command)`, the child's interpreter with its messages wrapped, for the parent's interpreter to
+ * delegate to.
  */
-export const embed = <ParentState, ParentMessage, ChildState, ChildMessage, R, ChildEvent = never, K = unknown>(
-  child: Pick<Program<ChildState, unknown, ChildMessage, R, ChildEvent, K>, 'update' | 'subscriptions'>,
-  options: EmbedOptions<ParentState, ParentMessage, ChildState, ChildMessage, ChildEvent, R>,
+// `ParentCommand` comes last, so that it is `never` when neither `wrapCommand` nor `onEvent` gives one.
+export const embed = <
+  ParentState,
+  ParentMessage,
+  ChildState,
+  ChildMessage,
+  ChildCommand,
+  R,
+  ChildEvent = never,
+  K = unknown,
+  ParentCommand = never,
+>(
+  child: Child<ChildState, ChildMessage, ChildCommand, R, ChildEvent, K>,
+  options: EmbedOptions<ParentState, ParentMessage, ParentCommand, ChildState, ChildMessage, ChildCommand, ChildEvent>,
 ) => {
   const { key, wrap, get, set, getSubscribed = get } = options
-  const onEvent = 'onEvent' in options ? options.onEvent : missingOnEvent('embed', key)
+  const onEvent = 'onEvent' in options ? options.onEvent : missing('embed', key, 'an event')
+  const wrapCommand = 'wrapCommand' in options ? options.wrapCommand : missing('embed', key, 'a command')
   return {
-    liftCommands: (commands: ReadonlyArray<Command<ChildMessage, R>> = []) => mapCommands(commands, wrap),
+    liftCommands: (commands: ReadonlyArray<ChildCommand> = []): ReadonlyArray<ParentCommand> =>
+      Arr.map(commands, wrapCommand),
 
-    update: (message: ChildMessage) => (state: ParentState): Transition<ParentState, ParentMessage, R> =>
+    runCommand: (command: ChildCommand): Execution<ParentMessage, R> => mapExecution(child.runCommand(command), wrap),
+
+    update: (message: ChildMessage) => (state: ParentState): Transition<ParentState, ParentCommand> =>
       Opt.match(get(state), {
         onNone: (): Rejected => reject,
         onSome: (childState) => {
           const result = child.update(message)(childState)
-          return isRejected(result) ? result : applyChild(result, wrap, set, onEvent)(state)
+          return isRejected(result) ? result : applyChild(result, wrapCommand, set, onEvent)(state)
         },
       }),
 
@@ -125,7 +146,16 @@ export const embed = <ParentState, ParentMessage, ChildState, ChildMessage, R, C
   }
 }
 
-type EmbedEachOptions<ParentState, ParentMessage, Id, ChildState, ChildMessage, ChildEvent, R> =
+type EmbedEachOptions<
+  ParentState,
+  ParentMessage,
+  ParentCommand,
+  Id,
+  ChildState,
+  ChildMessage,
+  ChildCommand,
+  ChildEvent,
+> =
   & {
     key: string
     wrap: (id: Id, message: ChildMessage) => ParentMessage
@@ -133,20 +163,23 @@ type EmbedEachOptions<ParentState, ParentMessage, Id, ChildState, ChildMessage, 
     set: (state: ParentState, id: Id, child: ChildState) => ParentState
     subscribed: (state: ParentState) => Iterable<readonly [Id, ChildState]>
   }
-  & OnEvent<ChildEvent, (id: Id, event: ChildEvent) => ParentStep<ParentState, ParentMessage, R>>
+  & OnEvent<ChildEvent, (id: Id, event: ChildEvent) => ParentStep<ParentState, ParentCommand>>
+  & WrapCommand<ChildCommand, (id: Id, command: ChildCommand) => ParentCommand>
 
 /**
  * Lifts a collection of child programs, each identified by an `Id` (e.g. the cards of a list), into their
  * parent. Like `embed`, with the id passed along:
  *
- * - `wrap(id, message)` turns a child's message into a parent message, so that it reaches that child;
+ * - `wrap(id, message)` and `wrapCommand(id, command)` turn a child's message and command into the parent's,
+ *   so that they reach that child;
  * - `get(state, id)` and `set(state, id, child)` read and write one child (`None`: gone, so its messages are
  *   rejected);
  * - `subscribed(state)` lists the children whose subscriptions run, with their state (all of them, or the
  *   visible ones); their keys are namespaced by `key` and the id, so ids must compare by value (strings,
  *   numbers, or Effect data);
  * - `onEvent(id, event)` handles what a child asks of its parent;
- * - `liftCommands(id, commands)` lifts a child's commands, e.g. those of its `init` when the parent adds it.
+ * - `liftCommands(id, commands)` lifts a child's commands, e.g. those of its `init` when the parent adds it;
+ * - `runCommand(id, command)` runs a child's command with its messages wrapped, for the parent's interpreter.
  */
 export const embedEach = <
   ParentState,
@@ -154,20 +187,35 @@ export const embedEach = <
   Id,
   ChildState,
   ChildMessage,
+  ChildCommand,
   R,
   ChildEvent = never,
   K = unknown,
+  ParentCommand = never,
 >(
-  child: Pick<Program<ChildState, unknown, ChildMessage, R, ChildEvent, K>, 'update' | 'subscriptions'>,
-  options: EmbedEachOptions<ParentState, ParentMessage, Id, ChildState, ChildMessage, ChildEvent, R>,
+  child: Child<ChildState, ChildMessage, ChildCommand, R, ChildEvent, K>,
+  options: EmbedEachOptions<
+    ParentState,
+    ParentMessage,
+    ParentCommand,
+    Id,
+    ChildState,
+    ChildMessage,
+    ChildCommand,
+    ChildEvent
+  >,
 ) => {
   const { key, wrap, get, set, subscribed } = options
-  const onEvent = 'onEvent' in options ? options.onEvent : missingOnEvent('embedEach', key)
+  const onEvent = 'onEvent' in options ? options.onEvent : missing('embedEach', key, 'an event')
+  const wrapCommand = 'wrapCommand' in options ? options.wrapCommand : missing('embedEach', key, 'a command')
   return {
-    liftCommands: (id: Id, commands: ReadonlyArray<Command<ChildMessage, R>> = []) =>
-      mapCommands(commands, (message: ChildMessage) => wrap(id, message)),
+    liftCommands: (id: Id, commands: ReadonlyArray<ChildCommand> = []): ReadonlyArray<ParentCommand> =>
+      Arr.map(commands, (command) => wrapCommand(id, command)),
 
-    update: (id: Id, message: ChildMessage) => (state: ParentState): Transition<ParentState, ParentMessage, R> =>
+    runCommand: (id: Id, command: ChildCommand): Execution<ParentMessage, R> =>
+      mapExecution(child.runCommand(command), (message) => wrap(id, message)),
+
+    update: (id: Id, message: ChildMessage) => (state: ParentState): Transition<ParentState, ParentCommand> =>
       Opt.match(get(state, id), {
         onNone: (): Rejected => reject,
         onSome: (childState) => {
@@ -176,7 +224,7 @@ export const embedEach = <
             ? result
             : applyChild(
               result,
-              (message: ChildMessage) => wrap(id, message),
+              (command: ChildCommand) => wrapCommand(id, command),
               (parent: ParentState, updated: ChildState) => set(parent, id, updated),
               (event: ChildEvent) => onEvent(id, event),
             )(state)

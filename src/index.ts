@@ -7,7 +7,7 @@ export { embed, embedEach, type Program } from './program.ts'
 export { isRejected, reject, type Rejected, type Step, type Transition, type Update } from './update.ts'
 
 // The effects it describes: commands, and subscriptions to the world.
-export { attempt, type Command } from './command.ts'
+export { attempt, type Execution, type RunCommand } from './command.ts'
 export type { Subscribe, Subscription, Subscriptions } from './subscription.ts'
 
 // What the model offers to the view, decided by asking `update`.

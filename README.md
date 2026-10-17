@@ -3,7 +3,8 @@
 The Elm architecture (TEA) on [Effect](https://effect.website) v4, for any renderer.
 
 - One **state**, changed only by a pure **`update`**.
-- Effects are described, not run: **commands** (one-shot) and **subscriptions** (listeners, kept by key).
+- Effects are described, not run: **commands** (one-shot, returned as data) and **subscriptions** (listeners,
+  kept by key).
 - The view draws a **model**, and can only send the messages the model **offers**.
 
 What it adds to plain Elm is a guarantee that the view and `update` agree. `update` may **reject** a message
@@ -45,6 +46,7 @@ import {
   type Update,
 } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
+import { absurd } from 'effect/Function'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Stream from 'effect/Stream'
@@ -62,9 +64,11 @@ type Model = Readonly<
   { count: number; increment: Offer<Message>; decrement: Offer<Message> }
 >
 
-const counter: Program<number, Model, Message, never> = {
+// No commands (`never`), and no services.
+const counter: Program<number, Model, Message, never, never> = {
   init: { state: 0 },
   update,
+  runCommand: absurd,
   subscriptions: () => HashMap.empty(),
   makeModel: (count) => {
     const { offer } = offers(update, count)
@@ -94,7 +98,8 @@ const main = run(counter, (frames) =>
 Effect.runFork(main) // logs 0, 1, 2, 3
 ```
 
-A program is four pieces: `init`, `update`, `subscriptions` and `makeModel`. The view is not one of them:
+A program is five pieces: `init`, `update`, `runCommand`, `subscriptions` and `makeModel`. The view is not
+one of them:
 `run` hands your renderer a stream of **frames** (`{ model, dispatch }`), and the renderer draws them however
 it likes.
 
@@ -103,12 +108,12 @@ it likes.
 [`examples/`](examples) holds complete programs, drawn with [snabbdom](https://github.com/snabbdom/snabbdom),
 each with its tests. Run one with `bun examples/<name>/index.html`.
 
-| Example                       | What it shows                                                                                     |
-| ----------------------------- | ------------------------------------------------------------------------------------------------- |
-| [`counter`](examples/counter) | the quick start with a view; `applyAll`, `dispatchViolations`, `drive`                            |
-| [`form`](examples/form)       | input, a command that may fail (`attempt`) with its service, a save that only its completion ends |
-| [`pages`](examples/pages)     | two pages with `embed`, events for navigation, `getSubscribed`, `liftCommands`; `simulate`        |
-| [`list`](examples/list)       | stopwatches with `embedEach`, a subscription per running child; a test with a `TestClock`         |
+| Example                       | What it shows                                                                                       |
+| ----------------------------- | --------------------------------------------------------------------------------------------------- |
+| [`counter`](examples/counter) | the quick start with a view; `applyAll`, `dispatchViolations`, `drive`                              |
+| [`form`](examples/form)       | input, a command and its interpreter, with a service and `attempt`; a save only its completion ends |
+| [`pages`](examples/pages)     | two pages with `embed`, events for navigation, `getSubscribed`, a child's commands; `simulate`      |
+| [`list`](examples/list)       | stopwatches with `embedEach`, a subscription per running child; a test with a `TestClock`           |
 
 `examples/snabbdom.ts` is the bridge to the renderer: `renderInto` for `run`, handlers that exist only while
 their action is offered, and `messagesSentBy` for the tests.
@@ -120,8 +125,9 @@ their action is offered, and `messagesSentBy` for the tests.
 `update` takes a message, then the state, and returns a `Step` (`{ state, commands?, events? }`), or `reject`
 when the message makes no sense in that state.
 
-- **`update` is pure.** It never runs effects: it returns them as `commands`. The library also calls it to
-  decide offers, so it must be cheap and free of side effects.
+- **`update` is pure.** It never runs effects: it returns `commands`, data that says what to do, and the
+  program's `runCommand` turns them into effects. The library also calls it to decide offers, so it must be
+  cheap and free of side effects.
 - **Conditions live in `update`.** "Can the user save now?" is answered once, here, by rejecting. The view
   never repeats the check.
 - **Name intents, not toggles.** Prefer `MenuOpened`/`MenuClosed` to `MenuToggled`: an intent sent twice (a
@@ -161,11 +167,20 @@ built on Effect runs it as it is. One whose handlers are plain callbacks, like s
 
 ### Commands
 
-A `Command<Message, R>` is an `Effect` that produces an optional message (`None` for effects that only act on
-the world). Its error channel is `never`: an expected failure becomes a message, so that `update` decides
-what it means. `attempt(effect, { onSuccess, onFailure })` does that for an effect that may fail.
+A command is **data**: a value of the program's own `Command` type, usually a `Data.TaggedEnum`, that says
+what `update` decided to do (`Command.Save({ name })`). The program's `runCommand(command)` is the only place
+that knows how it happens: it returns an `Execution<Message, R>`, an `Effect` that produces an optional
+message (`None` for effects that only act on the world). A test of `update` can then say what it decided,
+`expect(commands).toEqual([Command.Save({ name: 'Ada' })])`, without running anything, and `onApplied` and
+the logs see it too.
 
-- `R` is what the commands need (services). `run` requires it, so you provide it once, around the program.
+- An execution's error channel is `never`: an expected failure becomes a message, so that `update` decides
+  what it means. `attempt(effect, { onSuccess, onFailure })` does that for an effect that may fail.
+- Everything an execution needs is in its command: `runCommand` gets no state.
+- `R` is what the executions need (services). `run` requires it, so you provide it once, around the
+  program. `update` has none in its type.
+- A program without commands has `never` as its `Command`, and `absurd` (`effect/Function`) as its
+  `runCommand`.
 - An operation in progress is a state that only its completion leaves (`isSaving` in
   [`form`](examples/form/form.ts)), and `update` rejects the completion in any other state. Commands cannot be
   cancelled, so a completion always belongs to the operation in progress; give operations an id only when
@@ -222,9 +237,12 @@ collection of them, each with an id (the cards of a list):
   receiving its completions without listening to the world.
 - A child never acts on its parent: it emits **events**, and `onEvent` decides. The types require `onEvent`
   exactly when the child has events.
-- They return the child's `update` and `subscriptions` lifted into the parent, and `liftCommands`: when the
-  parent adds a child, it puts the child's initial state where it belongs, and starts its `init` commands
-  through `liftCommands`.
+- `wrapCommand` turns a child's command into the parent's, usually a case that holds it
+  (`Command.About({ command })`); the types require it exactly when the child has commands.
+- They return the child's `update` and `subscriptions` lifted into the parent, `liftCommands`, and
+  `runCommand`. When the parent adds a child, it puts the child's initial state where it belongs, and starts
+  its `init` commands through `liftCommands`. The parent's own `runCommand` hands the child's case to the
+  returned `runCommand`, which runs the child's interpreter and wraps its messages.
 
 In the view, `mapDispatch(dispatch, wrap)` lets the child's view send through the parent's `dispatch`. Pass
 it the same `wrap` given to `embed`: that is what keeps the child's offers valid for the parent. See
@@ -243,9 +261,10 @@ examples do, so that a program that dies is reported. `RunOptions`:
   requires `onBug`.
 - **`onBug(bug)`** hears every `Bug`, e.g. for a crash-reporting service: a `Defect` (always fatal, with
   `where` it happened) or a `Rejected` message.
-- **`describeMessage`** says how a message appears in the logs: by default only its `_tag`, never its data.
-- **`onApplied(applied)`** hears every accepted message, with the states before and after it, before its
-  frame is drawn: for devtools, session recordings or analytics. Keep it quick.
+- **`describeMessage`** and **`describeCommand`** say how a message and a command appear in the logs: by
+  default only their `_tag`, never their data.
+- **`onApplied(applied)`** hears every accepted message, with the states before and after it and the commands
+  it started, before its frame is drawn: for devtools, session recordings or analytics. Keep it quick.
 
 The run fails with the first defect. It logs with Effect's logger: `debug` for the message loop and the
 subscriptions, `error` for bugs.
@@ -259,9 +278,12 @@ each level, all of them used in the examples' tests:
 | ---------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------- |
 | `applyAll(update)(messages, from)`                         | `update` only; returns the state, commands, events | the rules, message by message                 |
 | `dispatchViolations(update, { repeatable? })(state, msgs)` | `update`, on what the real view can send           | the view and `update` agree, in any state     |
-| `simulate(update)(messages, from)`                         | `update` and the commands, each completing at once | a flow with its services, without a runtime   |
+| `simulate(program)(messages, from)`                        | `update` and the commands, each completing at once | a flow with its services, without a runtime   |
 | `drive(program, scenario, options?)`                       | the program with `run`, subscriptions included     | a user's scenario, as the program really runs |
 
+- Commands are data, so assert them: `applyAll` returns the commands `update` returned, and `simulate` every
+  command it ran. `simulate` takes `update` and `runCommand` (a program has both): the program's own, with its
+  services provided, or one of the test's that answers each command and needs none.
 - A rejection of one of your messages fails `applyAll` and `simulate`. Assert expected rejections with
   `isRejected(update(message)(state))`, not by comparing states.
 - `dispatchViolations` reports each message that `update` rejects in `state` (`Rejected`), and each one that
@@ -278,25 +300,25 @@ each level, all of them used in the examples' tests:
 
 From `@fgaudo/effect-tea`:
 
-| Export                                          | What it is                                                                                    |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `Program<State, Model, Message, R, Event?, K?>` | `init`, `update`, `subscriptions`, `makeModel`                                                |
-| `Update`, `Transition`, `Step`                  | `(message) => (state) => Step` or `Rejected`; a `Step` is `{ state, commands?, events? }`     |
-| `reject`, `Rejected`, `isRejected`              | the rejection `update` returns, and its check                                                 |
-| `Command<Message, R>`                           | `Effect<Option<Message>, never, R>`                                                           |
-| `attempt`                                       | a command from an effect that may fail: its failure becomes a message                         |
-| `Subscription`                                  | a `Channel` of messages that never ends, or ends with one last message; kept by key           |
-| `Subscribe`, `Subscriptions`                    | `(state) => HashMap<K, Subscription<Message>>`, reconciled by key                             |
-| `offers`                                        | asks `update` what the model may offer: `offer(message)` and `offerInput(toMessage, current)` |
-| `Offer`, `InputOffer`, `Offered`, `Offers`      | an optional offered message; an optional function to one; the brand; what `offers` returns    |
-| `View`, `Dispatch`, `mapDispatch`               | `(model, dispatch) => Node`; a dispatch of offered messages; a child's dispatch               |
-| `dispatchUnsafe`                                | a dispatch that sends at once, for a renderer's plain callbacks                               |
-| `embed`, `embedEach`                            | lift a child program, or a collection of them, into a parent                                  |
-| `run`, `Frame`, `RunOptions`                    | run a program with a renderer; what the renderer draws; how the program runs                  |
-| `Applied`                                       | what `onApplied` hears: a message, the states around it, its revision and commands            |
-| `RejectionOptions`                              | `onRejected` (`'die'` or `'ignore'`) with the `onBug` it requires                             |
-| `Bug`, `BugReporter`, `DefectSource`            | what `onBug` receives; `onBug` itself; where a defect happened                                |
-| `RejectedMessage`                               | the defect the run fails with when a rejection is fatal                                       |
+| Export                                                   | What it is                                                                                    |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `Program<State, Model, Message, Command, R, Event?, K?>` | `init`, `update`, `runCommand`, `subscriptions`, `makeModel`                                  |
+| `Update`, `Transition`, `Step`                           | `(message) => (state) => Step` or `Rejected`; a `Step` is `{ state, commands?, events? }`     |
+| `reject`, `Rejected`, `isRejected`                       | the rejection `update` returns, and its check                                                 |
+| `Execution<Message, R>`, `RunCommand`                    | `Effect<Option<Message>, never, R>`, how a command happens; `(command) => Execution`          |
+| `attempt`                                                | an execution from an effect that may fail: its failure becomes a message                      |
+| `Subscription`                                           | a `Channel` of messages that never ends, or ends with one last message; kept by key           |
+| `Subscribe`, `Subscriptions`                             | `(state) => HashMap<K, Subscription<Message>>`, reconciled by key                             |
+| `offers`                                                 | asks `update` what the model may offer: `offer(message)` and `offerInput(toMessage, current)` |
+| `Offer`, `InputOffer`, `Offered`, `Offers`               | an optional offered message; an optional function to one; the brand; what `offers` returns    |
+| `View`, `Dispatch`, `mapDispatch`                        | `(model, dispatch) => Node`; a dispatch of offered messages; a child's dispatch               |
+| `dispatchUnsafe`                                         | a dispatch that sends at once, for a renderer's plain callbacks                               |
+| `embed`, `embedEach`                                     | lift a child program, or a collection of them, into a parent                                  |
+| `run`, `Frame`, `RunOptions`                             | run a program with a renderer; what the renderer draws; how the program runs                  |
+| `Applied`                                                | what `onApplied` hears: a message, the states around it, its revision and commands            |
+| `RejectionOptions`                                       | `onRejected` (`'die'` or `'ignore'`) with the `onBug` it requires                             |
+| `Bug`, `BugReporter`, `DefectSource`                     | what `onBug` receives; `onBug` itself; where a defect happened                                |
+| `RejectedMessage`                                        | the defect the run fails with when a rejection is fatal                                       |
 
 From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `drive`, `DriveOptions`, `Driver`,
 `Action`, `tap`, `input`, `dispatchViolations`, `DispatchViolation`.

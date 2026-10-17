@@ -5,6 +5,7 @@ import * as Channel from 'effect/Channel'
 import * as Data from 'effect/Data'
 import * as DateTime from 'effect/DateTime'
 import * as Effect from 'effect/Effect'
+import { absurd } from 'effect/Function'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 
@@ -39,9 +40,10 @@ const ticks: Subscription<Message, never> = Channel.forever(
 
 export type Model = Readonly<{ time: string; openAbout: Offer<Message> }>
 
-export const clock: Program<State, Model, Message, never, Event> = {
+export const clock: Program<State, Model, Message, never, never, Event> = {
   init: { state: { maybeNow: Opt.none() } },
   update,
+  runCommand: absurd,
   subscriptions: () => HashMap.make(['ticks', ticks]),
   makeModel: (state) => ({
     time: Opt.match(state.maybeNow, { onNone: () => '', onSome: DateTime.formatIso }),

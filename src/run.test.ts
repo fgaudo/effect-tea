@@ -15,17 +15,21 @@ import { type Offer, type Offered, offers } from './offer.ts'
 import type { Program } from './program.ts'
 import { type Frame, run, type RunOptions } from './run.ts'
 
-// A counter that accepts `Increment` and always rejects `Forbidden`; its model offers `Increment`.
+// A counter that accepts `Increment` and always rejects `Forbidden`; its model offers `Increment`. Its
+// commands only start where a test puts them: `Ping` answers `Increment`, `Boom` dies.
 type Message = 'Increment' | 'Forbidden'
 
-const update: Update<number, Message, never> = (message) => (count) =>
+type Command = 'Ping' | 'Boom'
+
+const update: Update<number, Message, Command> = (message) => (count) =>
   message === 'Increment' ? { state: count + 1 } : reject
 
 type Model = Readonly<{ count: number; increment: Offer<Message> }>
 
-const counter: Program<number, Model, Message, never> = {
+const counter: Program<number, Model, Message, Command, never> = {
   init: { state: 0 },
   update,
+  runCommand: (command) => command === 'Ping' ? Effect.succeedSome<Message>('Increment') : Effect.die('boom'),
   subscriptions: () => HashMap.empty(),
   makeModel: (count) => ({ count, increment: offers(update, count).offer('Increment') }),
 }
@@ -35,7 +39,7 @@ const quietly = <A, E>(effect: Effect.Effect<A, E>) =>
   effect.pipe(Effect.provideService(References.MinimumLogLevel, 'None'))
 
 const runDying = (
-  program: Program<number, Model, Message, never>,
+  program: Program<number, Model, Message, Command, never>,
   render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void>,
 ) => run(program, render, { onRejected: 'die' })
 
@@ -117,7 +121,7 @@ describe('onBug', () => {
 
   /** Runs `program` until it dies, drawing every frame with `draw`, and returns what `onBug` reported. */
   const diesIn = async <Model>(
-    program: Program<number, Model, Message, never>,
+    program: Program<number, Model, Message, Command, never>,
     draw: (frame: Frame<Model, Message>) => Effect.Effect<void> = () => Effect.void,
     onApplied?: RunOptions<Message, unknown, number>['onApplied'],
   ) => {
@@ -131,14 +135,14 @@ describe('onBug', () => {
   }
 
   test('a defect in a command is reported as such, and the run dies', async () => {
-    expect(await diesIn({ ...counter, init: { state: 0, commands: [Effect.die('boom')] } })).toEqual({
+    expect(await diesIn({ ...counter, init: { state: 0, commands: ['Boom'] } })).toEqual({
       died: true,
       bugs: ['Command'],
     })
   })
 
   test('a defect in a subscription is reported with its key', async () => {
-    const broken: Program<number, unknown, Message, never> = {
+    const broken: Program<number, unknown, Message, Command, never> = {
       ...counter,
       subscriptions: () => HashMap.make(['broken', Channel.die('boom')]),
     }
@@ -146,7 +150,7 @@ describe('onBug', () => {
   })
 
   test('a defect in update is reported as such', async () => {
-    const throwing: Program<number, unknown, Message, never> = {
+    const throwing: Program<number, unknown, Message, Command, never> = {
       ...counter,
       update: () => () => {
         throw new Error('boom')
@@ -175,7 +179,7 @@ describe('onBug', () => {
 
 describe('onApplied', () => {
   test('hears every accepted message in order, with the states around it, before its frame', async () => {
-    const heard: Array<Applied<number, Message>> = []
+    const heard: Array<Applied<number, Message, Command>> = []
     const drawn: Array<number> = []
     await Effect.runPromise(quietly(run(
       counter,
@@ -193,18 +197,18 @@ describe('onApplied', () => {
       { onRejected: 'die', onApplied: (applied) => Effect.sync(() => heard.push(applied)) },
     )))
     expect(heard).toEqual([
-      { message: 'Increment', before: 0, after: 1, revision: 1, commands: 0 },
-      { message: 'Increment', before: 1, after: 2, revision: 2, commands: 0 },
+      { message: 'Increment', before: 0, after: 1, revision: 1, commands: [] },
+      { message: 'Increment', before: 1, after: 2, revision: 2, commands: [] },
     ])
     expect(drawn).toEqual([0, 1, 2])
   })
 
   test('a message that leaves the very same state is heard too, with an unchanged revision', async () => {
     const heard = await Effect.runPromise(quietly(Effect.gen(function*() {
-      const applied = yield* Deferred.make<Applied<number, Message>>()
-      const still: Program<number, Model, Message, never> = {
+      const applied = yield* Deferred.make<Applied<number, Message, Command>>()
+      const still: Program<number, Model, Message, Command, never> = {
         ...counter,
-        init: { state: 0, commands: [Effect.succeed(Opt.some<Message>('Increment'))] },
+        init: { state: 0, commands: ['Ping'] },
         update: () => (count) => ({ state: count }),
       }
       yield* run(still, () => Effect.asVoid(Deferred.await(applied)), {
@@ -213,14 +217,37 @@ describe('onApplied', () => {
       })
       return yield* Deferred.await(applied)
     })))
-    expect(heard).toEqual({ message: 'Increment', before: 0, after: 0, revision: 0, commands: 0 })
+    expect(heard).toEqual({ message: 'Increment', before: 0, after: 0, revision: 0, commands: [] })
+  })
+
+  test('hears the commands each message started, as update returned them', async () => {
+    const heard = await Effect.runPromise(quietly(Effect.gen(function*() {
+      const applied: Array<Applied<number, Message, Command>> = []
+      const two = yield* Deferred.make<ReadonlyArray<Applied<number, Message, Command>>>()
+      // The first increment pings again, so a second one follows.
+      const pinging: Program<number, Model, Message, Command, never> = {
+        ...counter,
+        init: { state: 0, commands: ['Ping'] },
+        update: () => (count) => ({ state: count + 1, commands: count === 0 ? ['Ping'] : [] }),
+      }
+      yield* run(pinging, () => Effect.asVoid(Deferred.await(two)), {
+        onRejected: 'die',
+        onApplied: (step) =>
+          Effect.suspend(() => {
+            applied.push(step)
+            return applied.length === 2 ? Effect.asVoid(Deferred.succeed(two, applied)) : Effect.void
+          }),
+      })
+      return yield* Deferred.await(two)
+    })))
+    expect(heard.map((step) => step.commands)).toEqual([['Ping'], []])
   })
 })
 
 describe('frames', () => {
   test('a model is made only for the frames whose model is read, once each', async () => {
     let made = 0
-    const counting: Program<number, number, Message, never> = {
+    const counting: Program<number, number, Message, Command, never> = {
       ...counter,
       makeModel: (count) => {
         made++

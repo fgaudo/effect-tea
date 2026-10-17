@@ -4,6 +4,7 @@ import { type Offer, offers, type Program, reject, type Subscription, type Updat
 import * as Channel from 'effect/Channel'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
+import { absurd } from 'effect/Function'
 import * as HashMap from 'effect/HashMap'
 
 export type State = Readonly<{ seconds: number; isRunning: boolean }>
@@ -46,9 +47,10 @@ export type Model = Readonly<{
   remove: Offer<Message>
 }>
 
-export const stopwatch: Program<State, Model, Message, never, Event> = {
+export const stopwatch: Program<State, Model, Message, never, never, Event> = {
   init: { state: { seconds: 0, isRunning: false } },
   update,
+  runCommand: absurd,
   subscriptions: (state) => state.isRunning ? HashMap.make(['ticks', ticks]) : HashMap.empty(),
   makeModel: (state) => {
     const { offer } = offers(update, state)

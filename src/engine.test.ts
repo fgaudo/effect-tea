@@ -3,6 +3,7 @@ import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
+import { absurd, identity } from 'effect/Function'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as References from 'effect/References'
@@ -10,15 +11,17 @@ import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import * as Engine from './engine.ts'
 import { RejectedMessage } from './bug.ts'
-import type { Command } from './command.ts'
+import type { Execution } from './command.ts'
 import { reject } from './update.ts'
 
-// A counter that accepts `Increment`, `Decrement` only above zero, and never `Forbidden`.
+// A counter that accepts `Increment`, `Decrement` only above zero, and never `Forbidden`. Its only commands are
+// the initial ones, executions run as they are.
 type Message = 'Increment' | 'Decrement' | 'Forbidden'
 
-const make = (initCommands: ReadonlyArray<Command<Message, never>> = []) =>
-  Engine.make<number, Message, never, never, never>({
+const make = (initCommands: ReadonlyArray<Execution<Message, never>> = []) =>
+  Engine.make<number, Message, Execution<Message, never>, never, never, never>({
     init: { state: 0, commands: initCommands },
+    runCommand: identity,
     update: (message) => (count) =>
       message === 'Increment'
         ? { state: count + 1 }
@@ -118,8 +121,9 @@ describe('Engine subscriptions', () => {
 
   /** Runs an engine whose subscriptions write when they start and when they are stopped. */
   const listening = (log: Array<string>) =>
-    Engine.make<Listening, Change, never, never, readonly [string, number]>({
+    Engine.make<Listening, Change, never, never, never, readonly [string, number]>({
       init: { state: { names: [], bumps: 0 } },
+      runCommand: absurd,
       update: (change) => (state) =>
         change._tag === 'Listened'
           ? { state: { ...state, names: change.names } }
@@ -198,14 +202,15 @@ describe('Engine same state', () => {
   type Signal = 'Same' | 'Ping' | 'Increment'
 
   const make = () =>
-    Engine.make<number, Signal, never, never, never>({
+    Engine.make<number, Signal, 'Bump', never, never, never>({
       init: { state: 0 },
+      runCommand: () => Effect.succeedSome<Signal>('Increment'),
       update: (signal) => (count) =>
         signal === 'Increment'
           ? { state: count + 1 }
           : signal === 'Same'
           ? { state: count }
-          : { state: count, commands: [Effect.succeedSome<Signal>('Increment')] },
+          : { state: count, commands: ['Bump'] },
       subscriptions: () => HashMap.empty(),
       onRejected: 'die',
     })
@@ -244,8 +249,9 @@ describe('Engine subscriptions that end', () => {
   const heard = (value: string): Signal => ({ _tag: 'Heard', value })
 
   const make = (starts: Array<number>) =>
-    Engine.make<Heard, Signal, never, never, string>({
+    Engine.make<Heard, Signal, never, never, never, string>({
       init: { state: { listening: false, heard: [], bumps: 0 } },
+      runCommand: absurd,
       update: (signal) => (state) =>
         signal._tag === 'Listened'
           ? { state: { ...state, listening: signal.listening } }

@@ -77,6 +77,9 @@ The version in `package.json` is the one the next release will have, decided by 
   decision: the library offers no helper that takes it for them.
 - **Subscriptions are reconciled by key**: a new key starts its subscription, a kept key leaves it running, a
   gone key interrupts it.
+- **Commands are data; only `runCommand` runs them.** `update` returns what it decided, and the program's
+  interpreter is the one place that turns it into an effect. Never let a command carry its effect, or a
+  description that must be kept in step with one: a test, `onApplied` and the logs read the command itself.
 - **Commands cannot be cancelled.** This is a deliberate choice for now: do not add cancellation without
   asking.
 - **Frames cost only what is drawn**: a frame's model is made when first read, and a message that returns the

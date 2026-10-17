@@ -8,7 +8,7 @@ import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
 import { messagesSentBy } from '../snabbdom.ts'
 import * as About from './about.ts'
-import { app, Message, type State, update } from './app.ts'
+import { app, Command, Message, type State, update } from './app.ts'
 import * as Clock from './clock.ts'
 import { view } from './view.ts'
 
@@ -50,7 +50,7 @@ describe('pages', () => {
     test('the Clock asks for About, which opens over it and loads its saying', () => {
       const { state, commands } = applyAll(update)([aboutClicked], app.init.state)
       expect(state.maybeAbout).toEqual(Opt.some(About.about.init.state))
-      expect(commands.length).toBe(1)
+      expect(commands).toEqual([Command.About({ command: About.Command.PickSaying() })])
     })
 
     test('About asks to be left, and the Clock is back as it was', () => {
@@ -74,7 +74,7 @@ describe('pages', () => {
 
   // The commands that `liftCommands` started reach About, wrapped by the parent.
   test('About receives its saying through the parent', async () => {
-    const { state, messages } = await Effect.runPromise(simulate(update)([aboutClicked], app.init))
+    const { state, messages } = await Effect.runPromise(simulate(app)([aboutClicked], app.init))
     expect(messages.map((message) => message._tag)).toEqual(['GotClock', 'GotAbout'])
     expect(Opt.isSome(Opt.flatMap(state.maybeAbout, (about) => about.maybeSaying))).toBe(true)
   })
