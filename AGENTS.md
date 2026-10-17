@@ -26,6 +26,19 @@ All code, comments, identifiers, commit messages and `.md` files are in **Englis
   and `default` (`dist/`, for everyone else). A new entrypoint needs all three, and an entry in `files` if
   it is not under `src` or `dist`.
 
+## Versions
+
+The version in `package.json` is the one the next release will have, decided by the changes that make it:
+
+- A change a consumer can notice adds an entry to [`CHANGELOG.md`](CHANGELOG.md), in the same commit, under
+  the `(unreleased)` version (`Added`, `Changed`, `Fixed`; a breaking change says how to upgrade). Changes
+  only to tests, tooling or internals add none.
+- The first such change after a release opens a new `## <version> (unreleased)` section, and each change
+  raises the version if it needs more than the section says: a fix the patch version, a feature the minor
+  version, a breaking change the major version (the minor version before 1.0). The version never goes down.
+- A release only replaces `(unreleased)` with the date and tags the commit `v<version>`. The author
+  publishes it: never run `npm publish` or `bun publish`.
+
 ## Invariants the engine keeps
 
 - **`update` is pure and called freely.** The library calls it to decide offers (`offers`)

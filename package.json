@@ -1,6 +1,6 @@
 {
   "name": "@fgaudo/effect-tea",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The Elm architecture on Effect v4",
   "license": "MIT",
   "author": "Francesco Gaudenzi",
@@ -32,7 +32,8 @@
     "dist",
     "src",
     "!src/**/*.test.ts",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "bun build.ts",

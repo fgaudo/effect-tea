@@ -827,7 +827,8 @@ From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `dispat
 ## Development
 
 `bun run typecheck`, `bun run lint` and `bun run test` check the package. `bun run build` compiles `src/`
-into `dist/`; it also runs before `bun pm pack`.
+into `dist/`; it also runs before `bun pm pack`. What changed in each version is in
+[`CHANGELOG.md`](CHANGELOG.md).
 
 ## License
 
