@@ -1,31 +1,11 @@
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 import * as Engine from './engine.ts'
-import type { OnRejected } from './bug.ts'
-import { modelOf, type Program } from './program.ts'
-import type { Dispatch } from './view.ts'
+import type { Dispatch } from './offer.ts'
+import { modelOf, type Program, runCommandOf, subscriptionsOf } from './program.ts'
 
 /** What a renderer draws: a model, and the dispatch bound to the state it was made from. */
 export type Frame<Model, Message> = Readonly<{ model: Model; dispatch: Dispatch<Message> }>
-
-/**
- * How a program runs: what a rejected message from a frame does (with no default), how messages and commands
- * appear in the logs, and who observes the transitions.
- */
-export type RunOptions<Message, State = unknown, Command = unknown> = Readonly<{
-  /** `'die'`, or a function that reports the rejection while the program goes on (see `OnRejected`). */
-  onRejected: OnRejected<Message>
-  /** How a message appears in the logs; by default its `_tag`, never its data. */
-  describeMessage?: (message: Message) => unknown
-  /** How a command appears in the logs; by default its `_tag`, never its data. */
-  describeCommand?: (command: Command) => unknown
-  /**
-   * Hears every message `update` accepts, in order, with the state before and after it and the commands it
-   * started (e.g. for devtools, or to record a session). The program waits for it, so it should be quick; a
-   * defect in it ends the run like any other.
-   */
-  onApplied?: (applied: Engine.Applied<State, Message, Command>) => Effect.Effect<void>
-}>
 
 /**
  * Runs `program` and hands its frames to `render`, the renderer's own loop. Each frame's dispatch is bound to
@@ -37,13 +17,19 @@ export type RunOptions<Message, State = unknown, Command = unknown> = Readonly<{
 export const run = <State, Model, Message, Command, R, RR, K>(
   program: Program<State, Model, Message, Command, R, never, K>,
   render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
-  options: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>,
+  options: Engine.RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>,
 ): Effect.Effect<void, never, R | RR> =>
   Effect.gen(function*() {
-    const engine = yield* Engine.make({ ...program, ...options })
+    const engine = yield* Engine.make({
+      ...options,
+      init: program.init,
+      update: program.update,
+      runCommand: runCommandOf(program),
+      subscriptions: subscriptionsOf(program),
+    })
     const makeModel = modelOf(program)
     // A frame that a newer one has replaced would be drawn for nothing.
-    const frames = engine.state$.pipe(
+    const frames = engine.states.pipe(
       Stream.buffer({ capacity: 1, strategy: 'sliding' }),
       Stream.map((frame) => lazyFrame(() => makeModel(frame.state), engine.dispatchFrom(frame))),
     )

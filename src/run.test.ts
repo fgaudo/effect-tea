@@ -9,12 +9,12 @@ import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import * as References from 'effect/References'
 import * as Stream from 'effect/Stream'
-import { RejectedMessage, type Rejection } from './bug.ts'
-import type { Applied } from './engine.ts'
+import { RejectedMessage, type Rejection } from './rejection.ts'
+import type { Applied, RunOptions } from './engine.ts'
 import { reject, type Step, type Update } from './update.ts'
 import type { Offer, Offered } from './offer.ts'
 import type { Program } from './program.ts'
-import { type Frame, run, type RunOptions } from './run.ts'
+import { type Frame, run } from './run.ts'
 
 // A counter that accepts `Increment` and always rejects `Forbidden`; its model offers `Increment`. Its
 // commands only start where a test puts them: `Ping` answers `Increment`, `Boom` dies.
@@ -27,11 +27,10 @@ const update: Update<number, Message, Command> = (message) => (count) =>
 
 type Model = Readonly<{ count: number; increment: Offer<Message> }>
 
-const counter: Program<number, Model, Message, Command, never> = {
+const counter: Program<number, Model, Message, Command> = {
   init: { state: 0 },
   update,
   runCommand: (command) => command === 'Ping' ? Effect.succeedSome<Message>('Increment') : Effect.die('boom'),
-  subscriptions: () => HashMap.empty(),
   makeModel: (count, { offer }) => ({ count, increment: offer('Increment') }),
 }
 
@@ -40,7 +39,7 @@ const quietly = <A, E>(effect: Effect.Effect<A, E>) =>
   effect.pipe(Effect.provideService(References.MinimumLogLevel, 'None'))
 
 const runDying = (
-  program: Program<number, Model, Message, Command, never>,
+  program: Program<number, Model, Message, Command>,
   render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void>,
 ) => run(program, render, { onRejected: 'die' })
 
@@ -123,7 +122,7 @@ describe('defects', () => {
    * whether the run failed with the defect thrown.
    */
   const failsWithBoom = async <Model>(
-    program: Program<number, Model, Message, Command, never>,
+    program: Program<number, Model, Message, Command>,
     { view = () => undefined, ...options }: Partial<RunOptions<Message, number, Command>> & {
       view?: (model: Model) => void
     } = {},
@@ -204,7 +203,7 @@ describe('onApplied', () => {
   test('a message that leaves the very same state is heard too, with an unchanged revision', async () => {
     const heard = await Effect.runPromise(quietly(Effect.gen(function*() {
       const applied = yield* Deferred.make<Applied<number, Message, Command>>()
-      const still: Program<number, Model, Message, Command, never> = {
+      const still: Program<number, Model, Message, Command> = {
         ...counter,
         init: { state: 0, commands: ['Ping'] },
         update: () => (count) => ({ state: count }),
@@ -223,7 +222,7 @@ describe('onApplied', () => {
       const applied: Array<Applied<number, Message, Command>> = []
       const two = yield* Deferred.make<ReadonlyArray<Applied<number, Message, Command>>>()
       // The first increment pings again, so a second one follows.
-      const pinging: Program<number, Model, Message, Command, never> = {
+      const pinging: Program<number, Model, Message, Command> = {
         ...counter,
         init: { state: 0, commands: ['Ping'] },
         update: () => (count) => ({ state: count + 1, commands: count === 0 ? ['Ping'] : [] }),
@@ -245,7 +244,7 @@ describe('onApplied', () => {
 describe('frames', () => {
   test('a model is made only for the frames whose model is read, once each', async () => {
     let made = 0
-    const counting: Program<number, number, Message, Command, never> = {
+    const counting: Program<number, number, Message, Command> = {
       ...counter,
       makeModel: (count) => {
         made++
@@ -310,13 +309,12 @@ describe('subscriptions', () => {
       const ticking = Channel.unwrap(Effect.map(Queue.take(source), (tick) => Channel.succeed(tick))).pipe(
         Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never))),
       )
-      const watch: Program<Watch, Watch, WatchMessage, never, never> = {
+      const watch: Program<Watch, Watch, WatchMessage> = {
         init: { state: { isRunning: true, ticks: 0 } },
         update: (message) => (state) =>
           message === 'Tick'
             ? { state: { ...state, ticks: state.ticks + 1 } }
             : { state: { ...state, isRunning: false } },
-        runCommand: () => Effect.succeedNone,
         subscriptions: (state) => state.isRunning ? HashMap.make(['ticks', ticking]) : HashMap.empty(),
         makeModel: (state) => state,
       }

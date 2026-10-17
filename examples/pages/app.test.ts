@@ -8,7 +8,7 @@ import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
 import { messagesSentBy } from '../snabbdom.ts'
 import * as About from './about.ts'
-import { app, Command, Message, type State, update } from './app.ts'
+import { app, Command, Message, type State, subscriptions, update } from './app.ts'
 import * as Clock from './clock.ts'
 import { view } from './view.ts'
 
@@ -42,7 +42,7 @@ const onAbout = (offer: Offer<About.Message>) =>
 
 /** The pages whose subscriptions run, from the keys `embed` namespaces (`['Clock', 'ticks']`). */
 const listening = (state: State) =>
-  Array.from(HashMap.keys(app.subscriptions(state))).flatMap((key) => Array.isArray(key) ? [key[0]] : [])
+  Array.from(HashMap.keys(subscriptions(state))).flatMap((key) => Array.isArray(key) ? [key[0]] : [])
 
 describe('pages', () => {
   // The parent's `update`: the pages' events become navigation.

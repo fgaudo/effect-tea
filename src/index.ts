@@ -8,15 +8,21 @@ export { isRejected, reject, type Rejected, type Step, type Transition, type Upd
 
 // The effects it describes: commands, and subscriptions to the world.
 export { attempt, type Execution, type RunCommand } from './command.ts'
-export type { Subscribe, Subscription, Subscriptions } from './subscription.ts'
+export type { Subscription, Subscriptions } from './subscription.ts'
 
-// What the model offers to the view, decided by asking `update`.
-export type { InputOffer, Offer, Offered, Offers } from './offer.ts'
-
-// Views, independent of the renderer.
-export { type Dispatch, dispatchUnsafe, mapDispatch, type View } from './view.ts'
+// What the model offers to the view, decided by asking `update`, and how a view sends it.
+export {
+  type Dispatch,
+  dispatchUnsafe,
+  type InputOffer,
+  mapDispatch,
+  type Offer,
+  type Offered,
+  type Offers,
+  type View,
+} from './offer.ts'
 
 // Running a program with a renderer, and what a rejection from a frame does.
-export { type OnRejected, RejectedMessage, type Rejection } from './bug.ts'
-export type { Applied } from './engine.ts'
-export { type Frame, run, type RunOptions } from './run.ts'
+export type { Applied, RunOptions } from './engine.ts'
+export { type OnRejected, RejectedMessage, type Rejection } from './rejection.ts'
+export { type Frame, run } from './run.ts'

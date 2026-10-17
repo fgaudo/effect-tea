@@ -45,7 +45,7 @@ const clockPage = embed(Clock.clock, {
   wrap: (message: Clock.Message) => Message.GotClock({ message }),
   get: (state: State) => Opt.some(state.clock),
   // Hidden under About, the Clock keeps its state but stops ticking.
-  getSubscribed: (state) => Opt.isNone(state.maybeAbout) ? Opt.some(state.clock) : Opt.none(),
+  subscribed: (state) => Opt.isNone(state.maybeAbout) ? Opt.some(state.clock) : Opt.none(),
   set: (state, clock) => ({ ...state, clock }),
   onEvent: () => openAbout,
 })
@@ -59,6 +59,10 @@ export const update: Update<State, Message, Command> = (message) => {
   }
 }
 
+/** The Clock listens only while it is on top (`subscribed`), About never. */
+export const subscriptions = (state: State) =>
+  HashMap.union(clockPage.subscriptions(state), aboutPage.subscriptions(state))
+
 /** Only the page on top is drawn. */
 export type Model = Readonly<{
   page: Data.TaggedEnum<{
@@ -67,7 +71,7 @@ export type Model = Readonly<{
   }>
 }>
 
-export const app: Program<State, Model, Message, Command, never> = {
+export const app: Program<State, Model, Message, Command> = {
   init: { state: { clock: Clock.clock.init.state, maybeAbout: Opt.none() } },
   update,
   runCommand: (command) => {
@@ -76,7 +80,7 @@ export const app: Program<State, Model, Message, Command, never> = {
         return aboutPage.runCommand(command.command)
     }
   },
-  subscriptions: (state) => HashMap.union(clockPage.subscriptions(state), aboutPage.subscriptions(state)),
+  subscriptions,
   makeModel: (state) => ({
     page: Opt.match(state.maybeAbout, {
       onNone: () => ({ _tag: 'Clock', model: clockPage.makeModel(state.clock) }),

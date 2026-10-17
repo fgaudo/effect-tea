@@ -7,13 +7,11 @@ import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import type * as Stream from 'effect/Stream'
 import * as SubscriptionRef from 'effect/SubscriptionRef'
-import { describeByTag, type OnRejected, RejectedMessage } from './bug.ts'
 import type { RunCommand } from './command.ts'
-import type { Subscribe } from './subscription.ts'
+import { describeByTag } from './log.ts'
+import { type OnRejected, RejectedMessage, type Revision } from './rejection.ts'
+import type { Subscriptions } from './subscription.ts'
 import { isRejected, type Step, type Update } from './update.ts'
-
-/** Counts the states produced by the engine: every message that changes the state creates a new revision. */
-export type Revision = number
 
 export type Revisioned<State> = Readonly<{ state: State; revision: Revision }>
 
@@ -27,6 +25,25 @@ export type Applied<State, Message, Command> = Readonly<{
   after: State
   revision: Revision
   commands: ReadonlyArray<Command>
+}>
+
+/**
+ * How a program runs: what a rejected message from a frame does (with no default), how messages and commands
+ * appear in the logs, and who observes the transitions.
+ */
+export type RunOptions<Message, State = unknown, Command = unknown> = Readonly<{
+  /** `'die'`, or a function that reports the rejection while the program goes on (see `OnRejected`). */
+  onRejected: OnRejected<Message>
+  /** How a message appears in the logs; by default its `_tag`, never its data. */
+  describeMessage?: (message: Message) => unknown
+  /** How a command appears in the logs; by default its `_tag`, never its data. */
+  describeCommand?: (command: Command) => unknown
+  /**
+   * Hears every message `update` accepts, in order, with the state before and after it and the commands it
+   * started (e.g. for devtools, or to record a session), before its frame is drawn and its commands start.
+   * The program waits for it, so it should be quick; a defect in it ends the run like any other.
+   */
+  onApplied?: (applied: Applied<State, Message, Command>) => Effect.Effect<void>
 }>
 
 /** Counts the starts of subscriptions: each start of a key gets a new one. */
@@ -48,7 +65,7 @@ const fromCommand: Origin<never, never> = { _tag: 'Command' }
 
 /** The engine owns its message loop: it runs as long as the scope `make` was called in. */
 export interface Engine<State, Message> {
-  readonly state$: Stream.Stream<Revisioned<State>>
+  readonly states: Stream.Stream<Revisioned<State>>
   /**
    * Returns the dispatch for a view rendered from `frame`: the frame travels
    * with every message it enqueues, so that a rejected message can be told
@@ -63,7 +80,7 @@ export interface Engine<State, Message> {
   readonly await: Effect.Effect<never>
 }
 
-export const make = Effect.fn('Engine.make')(function*<State, Message, Command, R, S, K>({
+export const make = Effect.fn('Engine.make')(function*<State, Message, Command, R, K>({
   init: { state: initState, commands: initCommands = [] },
   update,
   runCommand: interpret,
@@ -72,21 +89,16 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
   describeCommand = describeByTag,
   onApplied = () => Effect.void,
   onRejected,
-}: {
-  init: Step<State, Command>
-  update: Update<State, Message, Command>
-  runCommand: RunCommand<Command, Message, R>
-  subscriptions: Subscribe<State, Message, S, K>
-  /** What a frame's message that `update` rejects in the frame's own state does. */
-  onRejected: OnRejected<NoInfer<Message>>
-  /** How a message appears in the logs, e.g. its tags only, without its data. */
-  describeMessage?: (message: NoInfer<Message>) => unknown
-  /** How a command appears in the logs, e.g. its tags only, without its data. */
-  describeCommand?: (command: NoInfer<Command>) => unknown
-  /** Hears every message `update` accepts, in order, before its frame is drawn and its commands start. */
-  onApplied?: (applied: Applied<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>) => Effect.Effect<void>
-}) {
-  const context = yield* Effect.context<R | S>()
+}:
+  & Readonly<{
+    init: Step<State, Command>
+    update: Update<State, Message, Command>
+    runCommand: RunCommand<Command, Message, R>
+    subscriptions: Subscriptions<State, Message, R, K>
+  }>
+  & RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>)
+{
+  const context = yield* Effect.context<R>()
   const queue = yield* Effect.acquireRelease(
     Queue.unbounded<Envelope<State, Message, K>>(),
     Queue.shutdown,
@@ -180,21 +192,17 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
       yield* Effect.logDebug('Ignored a stale message', describeMessage(message))
       return active
     }
-    const { state: newState, commands = [] } = result
-    const described = commands.map(describeCommand)
-    // The same state needs no new frame and no new subscriptions: only its commands, if any, run.
-    if (newState === state) {
-      if (commands.length > 0) {
-        yield* Effect.logDebug('Message', describeMessage(message), { revision, commands: described })
-      }
-      yield* observe({ message, before: state, after: state, revision, commands })
-      yield* Effect.forEach(commands, runCommand, { discard: true })
-      return active
-    }
-    yield* Effect.logDebug('Message', describeMessage(message), { revision: revision + 1, commands: described })
-    yield* observe({ message, before: state, after: newState, revision: revision + 1, commands })
-    yield* SubscriptionRef.set(stateRef, { state: newState, revision: revision + 1 })
-    const nextActive = yield* reconcile(active, newState)
+    const { state: next, commands = [] } = result
+    // The same state needs no new revision, frame or subscriptions: only its commands, if any, run.
+    const changed = next !== state
+    const nextRevision = changed ? revision + 1 : revision
+    yield* Effect.logDebug('Message', describeMessage(message), {
+      revision: nextRevision,
+      commands: commands.map(describeCommand),
+    })
+    yield* observe({ message, before: state, after: next, revision: nextRevision, commands })
+    if (changed) yield* SubscriptionRef.set(stateRef, { state: next, revision: nextRevision })
+    const nextActive = changed ? yield* reconcile(active, next) : active
     yield* Effect.forEach(commands, runCommand, { discard: true })
     return nextActive
   })
@@ -212,6 +220,6 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
       FiberMap.join(subscriptionFibers),
     ).pipe(Effect.andThen(Effect.never)),
     dispatchFrom: (frame) => enqueue({ _tag: 'View', frame }),
-    state$: SubscriptionRef.changes(stateRef),
+    states: SubscriptionRef.changes(stateRef),
   } satisfies Engine<State, Message>
 })

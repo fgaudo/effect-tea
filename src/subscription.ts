@@ -9,7 +9,7 @@ import type * as HashMap from 'effect/HashMap'
  */
 export type Subscription<Message, R> = Channel.Channel<Message, never, Message, unknown, unknown, unknown, R>
 
-export type Subscriptions<K, Message, R> = HashMap.HashMap<K, Subscription<Message, R>>
-
 /** What a program listens to in a state, by key: the engine starts and stops subscriptions as keys come and go. */
-export type Subscribe<State, Message, R, K = unknown> = (state: State) => Subscriptions<K, Message, R>
+export type Subscriptions<State, Message, R, K = unknown> = (
+  state: State,
+) => HashMap.HashMap<K, Subscription<Message, R>>

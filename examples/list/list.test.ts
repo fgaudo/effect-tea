@@ -7,7 +7,7 @@ import * as Opt from 'effect/Option'
 import * as TestClock from 'effect/testing/TestClock'
 import * as fc from 'fast-check'
 import { messagesSentBy } from '../snabbdom.ts'
-import { list, Message, type State, update } from './list.ts'
+import { list, Message, type State, subscriptions, update } from './list.ts'
 import * as Stopwatch from './stopwatch.ts'
 import { view } from './view.ts'
 
@@ -22,7 +22,7 @@ const state: fc.Arbitrary<State> = fc
   .map((entries) => ({ nextId: 21, entries }))
 
 /** The keys of the running subscriptions: `embedEach` namespaces each one with the id of its stopwatch. */
-const subscriptionKeys = (state: State) => Array.from(HashMap.keys(list.subscriptions(state)))
+const subscriptionKeys = (state: State) => Array.from(HashMap.keys(subscriptions(state)))
 
 // An action on a stopwatch's offer, wrapped with its id as the parent's view wraps it.
 const onStopwatch = (id: number, offer: Offer<Stopwatch.Message>) =>

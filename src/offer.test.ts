@@ -7,7 +7,7 @@ import { reject, type Update } from './update.ts'
 type Message = Readonly<{ _tag: 'Set'; value: number }>
 
 // Accepts a value only when it differs from the state.
-const update: Update<number, Message, never> = ({ value }) => (state) => value === state ? reject : { state: value }
+const update: Update<number, Message> = ({ value }) => (state) => value === state ? reject : { state: value }
 
 describe('offer', () => {
   test('offers a message exactly when update accepts it', () => {

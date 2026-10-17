@@ -10,7 +10,7 @@ import * as References from 'effect/References'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import * as Engine from './engine.ts'
-import { RejectedMessage } from './bug.ts'
+import { RejectedMessage, type Revision } from './rejection.ts'
 import type { Execution } from './command.ts'
 import { reject } from './update.ts'
 
@@ -19,7 +19,7 @@ import { reject } from './update.ts'
 type Message = 'Increment' | 'Decrement' | 'Forbidden'
 
 const make = (initCommands: ReadonlyArray<Execution<Message, never>> = []) =>
-  Engine.make<number, Message, Execution<Message, never>, never, never, never>({
+  Engine.make<number, Message, Execution<Message, never>, never, never>({
     init: { state: 0, commands: initCommands },
     runCommand: identity,
     update: (message) => (count) =>
@@ -34,8 +34,8 @@ const make = (initCommands: ReadonlyArray<Execution<Message, never>> = []) =>
 
 const first: Engine.Revisioned<number> = { state: 0, revision: 0 }
 
-const revision = (engine: Engine.Engine<number, Message>, target: Engine.Revision) =>
-  engine.state$.pipe(
+const revision = (engine: Engine.Engine<number, Message>, target: Revision) =>
+  engine.states.pipe(
     Stream.filter(({ revision }) => revision >= target),
     Stream.runHead,
     Effect.map(Opt.getOrThrow),
@@ -121,7 +121,7 @@ describe('Engine subscriptions', () => {
 
   /** Runs an engine whose subscriptions write when they start and when they are stopped. */
   const listening = (log: Array<string>) =>
-    Engine.make<Listening, Change, never, never, never, readonly [string, number]>({
+    Engine.make<Listening, Change, never, never, readonly [string, number]>({
       init: { state: { names: [], bumps: 0 } },
       runCommand: absurd,
       update: (change) => (state) =>
@@ -149,13 +149,13 @@ describe('Engine subscriptions', () => {
   const send = (engine: Engine.Engine<Listening, Change>, changes: ReadonlyArray<Change>) =>
     Effect.forEach(changes, (change, index) =>
       Effect.gen(function*() {
-        const frame = yield* engine.state$.pipe(
+        const frame = yield* engine.states.pipe(
           Stream.filter(({ revision }) => revision >= index),
           Stream.runHead,
           Effect.map(Opt.getOrThrow),
         )
         yield* engine.dispatchFrom(frame)(change)
-        yield* engine.state$.pipe(Stream.filter(({ revision }) => revision > index), Stream.runHead)
+        yield* engine.states.pipe(Stream.filter(({ revision }) => revision > index), Stream.runHead)
         yield* Effect.sleep('20 millis')
       }), { discard: true })
 
@@ -202,7 +202,7 @@ describe('Engine same state', () => {
   type Signal = 'Same' | 'Ping' | 'Increment'
 
   const make = () =>
-    Engine.make<number, Signal, 'Bump', never, never, never>({
+    Engine.make<number, Signal, 'Bump', never, never>({
       init: { state: 0 },
       runCommand: () => Effect.succeedSome<Signal>('Increment'),
       update: (signal) => (count) =>
@@ -216,7 +216,7 @@ describe('Engine same state', () => {
     })
 
   const firstAfter = (engine: Engine.Engine<number, Signal>) =>
-    engine.state$.pipe(Stream.filter(({ revision }) => revision > 0), Stream.runHead, Effect.map(Opt.getOrThrow))
+    engine.states.pipe(Stream.filter(({ revision }) => revision > 0), Stream.runHead, Effect.map(Opt.getOrThrow))
 
   test('a message that keeps the same state makes no new revision', async () => {
     const reached = await run(Effect.gen(function*() {
@@ -249,7 +249,7 @@ describe('Engine subscriptions that end', () => {
   const heard = (value: string): Signal => ({ _tag: 'Heard', value })
 
   const make = (starts: Array<number>) =>
-    Engine.make<Heard, Signal, never, never, never, string>({
+    Engine.make<Heard, Signal, never, never, string>({
       init: { state: { listening: false, heard: [], bumps: 0 } },
       runCommand: absurd,
       update: (signal) => (state) =>
@@ -272,11 +272,11 @@ describe('Engine subscriptions that end', () => {
     })
 
   const until = (engine: Engine.Engine<Heard, Signal>, done: (state: Heard) => boolean) =>
-    engine.state$.pipe(Stream.filter(({ state }) => done(state)), Stream.runHead, Effect.map(Opt.getOrThrow))
+    engine.states.pipe(Stream.filter(({ state }) => done(state)), Stream.runHead, Effect.map(Opt.getOrThrow))
 
   const send = (engine: Engine.Engine<Heard, Signal>, signal: Signal) =>
     Effect.flatMap(
-      Stream.runHead(engine.state$),
+      Stream.runHead(engine.states),
       (frame) => engine.dispatchFrom(Opt.getOrThrow(frame))(signal),
     )
 

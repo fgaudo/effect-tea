@@ -1,11 +1,12 @@
 import type * as Brand from 'effect/Brand'
+import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import { isRejected, type Update } from './update.ts'
 
 /**
- * A message `update` accepts in the state the view is rendered from. Only
- * `offered` and `offeredInput` make one, and `Dispatch` only takes these: a view
- * cannot send a message it was not offered.
+ * A message `update` accepts in the state the view is rendered from, and the only kind that `Dispatch` takes:
+ * a view cannot send a message it was not offered. This module is the only place that makes one: `offers`,
+ * by asking `update`, and `mapDispatch`, for a child's message the parent accepts exactly when the child does.
  */
 export type Offered<Message> = Brand.Branded<Message, 'effect-tea.Offered'>
 
@@ -15,36 +16,46 @@ export type Offer<Message> = Opt.Option<Offered<Message>>
 /** An action whose message carries what the user types or picks. */
 export type InputOffer<Value, Message> = Opt.Option<(value: Value) => Offered<Message>>
 
-// The update of any program: only whether it rejects matters here.
-type AnyUpdate<State, Message> = Update<State, Message, unknown, unknown>
-
-/** Asks `update` whether it would accept `message` in `state`: `update` is pure, and its commands only describe effects. */
-const offered =
-  <State, Message>(update: AnyUpdate<State, Message>, state: State) => (message: Message): Offer<Message> =>
-    isRejected(update(message)(state))
-      ? Opt.none()
-      : Opt.some(message as Offered<Message>)
-
-/**
- * Like `offered`, for a message built from a value the view supplies later.
- * It asks with `current`: what is typed or picked must never be a reason to
- * reject, so the answer holds for any value.
- */
-const offeredInput =
-  <State, Message>(update: AnyUpdate<State, Message>, state: State) =>
-  <Value>(toMessage: (value: Value) => Message, current: Value): InputOffer<Value, Message> =>
-    Opt.map(
-      offered(update, state)(toMessage(current)),
-      () => (value: Value) => toMessage(value) as Offered<Message>,
-    )
-
-/** Both ways of offering for one state, as `offers` returns them to the parts of a `makeModel`. */
+/** Both ways of offering for one state, as `makeModel` receives them. */
 export type Offers<Message> = Readonly<{
   offer: (message: Message) => Offer<Message>
   offerInput: <Value>(toMessage: (value: Value) => Message, current: Value) => InputOffer<Value, Message>
 }>
 
-export const offers = <State, Message>(update: AnyUpdate<State, Message>, state: State): Offers<Message> => ({
-  offer: offered(update, state),
-  offerInput: offeredInput(update, state),
-})
+/**
+ * Asks `update` about `state`: `update` is pure, and its commands only describe effects. `offerInput` asks
+ * with `current`: what is typed or picked must never be a reason to reject, so the answer holds for any value.
+ */
+export const offers = <State, Message>(
+  update: Update<State, Message, unknown, unknown>,
+  state: State,
+): Offers<Message> => {
+  const offer = (message: Message): Offer<Message> =>
+    isRejected(update(message)(state)) ? Opt.none() : Opt.some(message as Offered<Message>)
+  return {
+    offer,
+    offerInput: (toMessage, current) =>
+      Opt.map(offer(toMessage(current)), () => (value) => toMessage(value) as Offered<Message>),
+  }
+}
+
+/** Sends an offered message: an effect, so nothing is sent until it runs; it never fails and needs no services. */
+export type Dispatch<Message> = (message: Offered<Message>) => Effect.Effect<void>
+
+/** A pure view, independent of the renderer: `Node` is what the renderer draws (e.g. snabbdom's `VNode`). */
+export type View<Model, Message, Node> = (model: Model, dispatch: Dispatch<Message>) => Node
+
+/**
+ * Equivalent to Elm's `Html.map`: lets a child view dispatch parent messages. `wrap` must be the one the child
+ * is embedded with: the parent then accepts `wrap(message)` exactly when the child accepts `message`, so it
+ * stays offered.
+ */
+export const mapDispatch = <A, B>(dispatch: Dispatch<B>, wrap: (message: A) => B): Dispatch<A> => (message) =>
+  dispatch(wrap(message) as Offered<B>)
+
+/**
+ * A dispatch that sends at once, for the callbacks of a renderer outside Effect (e.g. a DOM event handler).
+ * Running it synchronously is safe: sending only enqueues the message.
+ */
+export const dispatchUnsafe = <Message>(dispatch: Dispatch<Message>) => (message: Offered<Message>): void =>
+  Effect.runSync(dispatch(message))

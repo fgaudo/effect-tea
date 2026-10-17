@@ -2,7 +2,6 @@
 import type { Execution, Offer, Program, Update } from '@fgaudo/effect-tea'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
-import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Random from 'effect/Random'
 
@@ -51,6 +50,5 @@ export const about: Program<State, Model, Message, Command, never, Event> = {
         return pickSaying
     }
   },
-  subscriptions: () => HashMap.empty(),
   makeModel: (state, { offer }) => ({ saying: state.maybeSaying, back: offer(Message.BackClicked()) }),
 }

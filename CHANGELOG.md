@@ -43,8 +43,8 @@ version.
   when the child has commands, and return the child's `runCommand` with its messages wrapped, for the
   parent's interpreter. `simulate` takes the program (or its `update` and `runCommand`), so a test can pass
   an interpreter of its own, and its result lists the commands it ran. To upgrade: declare a command union,
-  move each command's effect into `runCommand` (`absurd` from `effect/Function` for a program without
-  commands), return the union's values from `update`, rename `Command` to `Execution`, add `wrapCommand` to
+  move each command's effect into `runCommand` (a program without commands has none, see below),
+  return the union's values from `update`, rename `Command` to `Execution`, add `wrapCommand` to
   the `embed` of a child with commands and delegate to the `runCommand` it returns, and pass the program to
   `simulate`.
 - `Dispatch` returns an `Effect<void>` instead of sending at once, so a view or renderer built on Effect sends
@@ -71,6 +71,18 @@ version.
 - When a subscription's key goes away, what it had sent that `update` has not received yet is dropped:
   nothing arrives from it after the message that stopped it. Before, such messages reached `update`, and how
   many depended on how the fibers were scheduled. A message that must not be lost belongs to a command.
+- A program has a `runCommand` exactly when it has commands, and `subscriptions` only when it listens to
+  something: the types require `runCommand` when `Command` is not `never`, and reject it otherwise.
+  `Program`'s `Command` and `R`, and `Update`, `Step` and `Transition`'s `Command`, default to `never`, so a
+  program without commands nor services is a `Program<State, Model, Message>`. `simulate` follows the same
+  rule. To upgrade, remove `runCommand: absurd` and `subscriptions: () => HashMap.empty()`, and read a
+  program's subscriptions from the function you give it rather than from the program.
+- `Subscribe` is renamed `Subscriptions`, the type of a program's `subscriptions`, and the former
+  `Subscriptions` (the `HashMap` it returns) is no longer exported. To upgrade, rename `Subscribe` to
+  `Subscriptions`, and write `HashMap<K, Subscription<Message, R>>` where you used the old `Subscriptions`.
+- `embed`'s `getSubscribed` is renamed `subscribed`, as in `embedEach`.
+- Every accepted message is logged at `debug`, also when it leaves the state as it was and starts nothing.
+- `DriveOptions` is `RunOptions` without `onRejected`, plus `patience`.
 
 ## 0.1.0 (2026-10-17)
 

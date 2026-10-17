@@ -46,14 +46,12 @@ import {
   type Update,
 } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
-import { absurd } from 'effect/Function'
-import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Stream from 'effect/Stream'
 
 type Message = 'Increment' | 'Decrement'
 
-const update: Update<number, Message, never> = (message) => (count) =>
+const update: Update<number, Message> = (message) => (count) =>
   message === 'Increment'
     ? { state: count + 1 }
     : count > 0
@@ -64,12 +62,10 @@ type Model = Readonly<
   { count: number; increment: Offer<Message>; decrement: Offer<Message> }
 >
 
-// No commands (`never`), and no services.
-const counter: Program<number, Model, Message, never, never> = {
+// No commands, so no `runCommand`; no subscriptions; no services.
+const counter: Program<number, Model, Message> = {
   init: { state: 0 },
   update,
-  runCommand: absurd,
-  subscriptions: () => HashMap.empty(),
   // `decrement` is `None` at 0: update would reject it.
   makeModel: (count, { offer }) => ({
     count,
@@ -95,10 +91,9 @@ const main = run(counter, (frames) =>
 Effect.runFork(main) // logs 0, 1, 2, 3
 ```
 
-A program is five pieces: `init`, `update`, `runCommand`, `subscriptions` and `makeModel`. The view is not
-one of them:
-`run` hands your renderer a stream of **frames** (`{ model, dispatch }`), and the renderer draws them however
-it likes.
+A program is up to five pieces: `init`, `update`, `runCommand` (exactly when it has commands),
+`subscriptions` (when it listens to anything) and `makeModel`. The view is not one of them: `run` hands your
+renderer a stream of **frames** (`{ model, dispatch }`), and the renderer draws them however it likes.
 
 ## Examples
 
@@ -110,7 +105,7 @@ for the browser, so it resolves the package to `dist/`, not to the sources.
 | ----------------------------- | --------------------------------------------------------------------------------------------------- |
 | [`counter`](examples/counter) | the quick start with a view; `applyAll`, `dispatchViolations`, `drive`                              |
 | [`form`](examples/form)       | an input the user owns while typing; a service and `attempt`; a save only its completion ends       |
-| [`pages`](examples/pages)     | two pages with `embed`, events for navigation, `getSubscribed`, a child's commands; `simulate`      |
+| [`pages`](examples/pages)     | two pages with `embed`, events for navigation, `subscribed`, a child's commands; `simulate`         |
 | [`list`](examples/list)       | stopwatches with `embedEach`, a subscription per running child; a test with a `TestClock`           |
 
 `examples/snabbdom.ts` is the bridge to the renderer: `renderInto` for `run`, handlers that exist only while
@@ -185,8 +180,8 @@ the logs see it too.
 - Everything an execution needs is in its command: `runCommand` gets no state.
 - `R` is what the executions need (services). `run` requires it, so you provide it once, around the
   program. `update` has none in its type.
-- A program without commands has `never` as its `Command`, and `absurd` (`effect/Function`) as its
-  `runCommand`.
+- A program without commands has `never` as its `Command` (the default), and no `runCommand`: the types
+  require it exactly when there are commands to interpret.
 - An operation in progress is a state that only its completion leaves (`isSaving` in
   [`form`](examples/form/form.ts)), and `update` rejects the completion in any other state. Commands cannot be
   cancelled, so a completion always belongs to the operation in progress; give operations an id only when
@@ -196,10 +191,11 @@ the logs see it too.
 
 ### Subscriptions
 
-`subscriptions(state)` returns a `HashMap` from keys to **subscriptions**. A subscription is an Effect
-`Channel` of messages that takes no input and cannot fail, and it **never ends in silence**: either it never
-ends (its end value is `never`, as for a clock), or it ends with **one last message**, which `update` receives
-like the others. A download can send its progress, end with its file, and be cancelled by dropping its key.
+`subscriptions(state)` returns a `HashMap` from keys to **subscriptions**; a program that listens to nothing
+leaves it out. A subscription is an Effect `Channel` of messages that takes no input and cannot fail, and it
+**never ends in silence**: either it never ends (its end value is `never`, as for a clock), or it ends with
+**one last message**, which `update` receives like the others. A download can send its progress, end with its
+file, and be cancelled by dropping its key.
 
 After every change of state, the engine compares the keys, by value:
 
@@ -241,9 +237,10 @@ collection of them, each with an id (the cards of a list):
 - `wrap` turns a child's message into the parent's; `get` and `set` read and write the child's state. When
   `get` returns `None` the child is absent, and its messages are rejected.
 - `key` namespaces the child's subscription keys (with the id, for `embedEach`, so ids must compare by
-  value). `getSubscribed` (`subscribed` for `embedEach`) decides which children listen: a hidden page can keep
-  receiving its completions without listening to the world. After every change of state the parent's
-  subscriptions are gathered from each child that listens, so `subscribed` lists only those (the running
+  value). `subscribed` decides which children listen (for `embed` an `Option`, `get` by default; for
+  `embedEach` a list): a hidden page can keep receiving its completions without listening to the world.
+  After every change of state the parent's subscriptions are gathered from each child that listens, so
+  `embedEach`'s `subscribed` lists only those (the running
   stopwatches in [`list`](examples/list)), not every child.
 - A child never acts on its parent: it emits **events**, and `onEvent` decides. The types require `onEvent`
   exactly when the child has events. The step `onEvent` returns may emit events of the parent's own, for the
@@ -362,13 +359,13 @@ From `@fgaudo/effect-tea`:
 
 | Export                                                   | What it is                                                                                |
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `Program<State, Model, Message, Command, R, Event?, K?>` | `init`, `update`, `runCommand`, `subscriptions`, `makeModel`                              |
+| `Program<State, Model, Message, Command, R, Event, K>`   | `init`, `update`, `runCommand` (with commands), `subscriptions` (optional), `makeModel`   |
 | `Update`, `Transition`, `Step`                           | `(message) => (state) => Step` or `Rejected`; a `Step` is `{ state, commands?, events? }` |
 | `reject`, `Rejected`, `isRejected`                       | the rejection `update` returns, and its check                                             |
 | `Execution<Message, R>`, `RunCommand`                    | `Effect<Option<Message>, never, R>`, how a command happens; `(command) => Execution`      |
 | `attempt`                                                | an execution from an effect that may fail: its failure becomes a message                  |
 | `Subscription`                                           | a `Channel` of messages that never ends, or ends with one last message; kept by key       |
-| `Subscribe`, `Subscriptions`                             | `(state) => HashMap<K, Subscription<Message>>`, reconciled by key                         |
+| `Subscriptions`                                          | `(state) => HashMap<K, Subscription<Message>>`, reconciled by key                         |
 | `modelOf`                                                | a program's model in a state, as `run` makes it                                           |
 | `Offers`                                                 | what `makeModel` receives: `offer(message)` and `offerInput(toMessage, current)`          |
 | `Offer`, `InputOffer`, `Offered`                         | an optional offered message; an optional function to one; the brand                       |

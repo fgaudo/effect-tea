@@ -14,7 +14,6 @@ import {
 } from '@fgaudo/effect-tea'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
-import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Field from '../field.ts'
 import { Storage } from './storage.ts'
@@ -93,7 +92,6 @@ export const form: Program<State, Model, Message, Command, Storage> = {
   init: { state: { name: Field.make(''), isSaving: false, hasFailed: false, saved: [] } },
   update,
   runCommand,
-  subscriptions: () => HashMap.empty(),
   makeModel: (state, { offer, offerInput }) => ({
     name: state.name,
     // Offering less than `update` accepts: typing is still accepted while saving, but not offered.

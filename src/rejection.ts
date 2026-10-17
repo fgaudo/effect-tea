@@ -1,6 +1,8 @@
 import * as Data from 'effect/Data'
 import type * as Effect from 'effect/Effect'
-import type { Revision } from './engine.ts'
+
+/** Counts the states a run produces: every message that changes the state creates a new revision. */
+export type Revision = number
 
 /**
  * A message a frame sent and `update` rejects in the frame's own state (`revision`): the model offered an
@@ -25,11 +27,3 @@ export class RejectedMessage extends Data.TaggedError('RejectedMessage')<{
   readonly message: unknown
   readonly revision: Revision
 }> {}
-
-/** By default a message is described by its `_tag` (or itself, if it is a string): logs never carry its data. */
-export const describeByTag = (message: unknown): unknown =>
-  typeof message === 'string'
-    ? message
-    : typeof message === 'object' && message !== null && '_tag' in message
-    ? message._tag
-    : typeof message

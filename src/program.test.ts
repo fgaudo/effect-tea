@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import * as Channel from 'effect/Channel'
 import * as Effect from 'effect/Effect'
-import { absurd } from 'effect/Function'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import type { Offer } from './offer.ts'
@@ -20,9 +19,8 @@ const ticks: Subscription<Increment, never> = Channel.concatWith(
   () => Channel.never,
 )
 
-const child: Omit<Program<number, Offer<Increment>, Increment, never, never>, 'init'> = {
+const child: Omit<Program<number, Offer<Increment>, Increment>, 'init'> = {
   update: () => (count) => count === 3 ? reject : { state: count + 1 },
-  runCommand: absurd,
   subscriptions: () => HashMap.make(['ticks', ticks]),
   makeModel: (_count, { offer }) => offer('Increment'),
 }
@@ -31,12 +29,12 @@ const embedded = embed(child, {
   key: 'Child',
   wrap: (message: Increment) => message,
   get: (parent: Parent) => parent.child,
-  getSubscribed: (parent: Parent) => (parent.isShown ? parent.child : Opt.none()),
+  subscribed: (parent: Parent) => (parent.isShown ? parent.child : Opt.none()),
   set: (parent: Parent, count: number) => ({ ...parent, child: Opt.some(count) }),
 })
 
 describe('embed', () => {
-  test('getSubscribed decides whether the child listens', () => {
+  test('subscribed decides whether the child listens', () => {
     expect(HashMap.size(embedded.subscriptions({ child: Opt.some(0), isShown: true }))).toBe(1)
     expect(HashMap.size(embedded.subscriptions({ child: Opt.some(0), isShown: false }))).toBe(0)
   })
@@ -57,7 +55,7 @@ describe('embed', () => {
     expect(Opt.isNone(embedded.makeModel(3))).toBe(true)
   })
 
-  test('without getSubscribed, the child listens whenever it is there', () => {
+  test('without subscribed, the child listens whenever it is there', () => {
     const always = embed(child, {
       key: 'Child',
       wrap: (message: Increment) => message,
@@ -73,10 +71,9 @@ type Counters = Readonly<{ counts: ReadonlyMap<string, number>; reachedTwo: Read
 
 const counterWithEvent: Pick<
   Program<number, unknown, Increment, never, never, 'ReachedTwo'>,
-  'update' | 'runCommand' | 'subscriptions' | 'makeModel'
+  'update' | 'subscriptions' | 'makeModel'
 > = {
   update: () => (count) => (count + 1 === 2 ? { state: 2, events: ['ReachedTwo'] } : { state: count + 1 }),
-  runCommand: absurd,
   subscriptions: () => HashMap.make(['ticks', ticks]),
   makeModel: () => undefined,
 }
@@ -118,9 +115,8 @@ describe('embedEach', () => {
 describe('embedded subscriptions that end', () => {
   type Signal = 'Tick' | 'Done'
 
-  const finite: Omit<Program<number, unknown, Signal, never, never>, 'init'> = {
+  const finite: Omit<Program<number, unknown, Signal>, 'init'> = {
     update: () => (count) => ({ state: count }),
-    runCommand: absurd,
     subscriptions: () => HashMap.make(['feed', Channel.mapDone(Channel.succeed<Signal>('Tick'), (): Signal => 'Done')]),
     makeModel: () => undefined,
   }
@@ -149,10 +145,9 @@ describe('commands', () => {
   type Signal = 'Tick' | 'Saved'
   type Command = 'Save' | 'Log'
 
-  const child: Omit<Program<number, unknown, Signal, Command, never>, 'init'> = {
+  const child: Omit<Program<number, unknown, Signal, Command>, 'init'> = {
     update: () => (count) => ({ state: count + 1, commands: ['Save'] }),
     runCommand: (command) => command === 'Save' ? Effect.succeedSome<Signal>('Saved') : Effect.succeedNone,
-    subscriptions: () => HashMap.empty(),
     makeModel: () => undefined,
   }
 
@@ -203,10 +198,8 @@ describe('child models', () => {
   type Rename = Readonly<{ _tag: 'Rename'; title: string }>
   let made = 0
   type CardModel = Readonly<{ title: string; rename: Offer<Rename> }>
-  const card: Omit<Program<Card, CardModel, Rename, never, never>, 'init'> = {
+  const card: Omit<Program<Card, CardModel, Rename>, 'init'> = {
     update: ({ title }) => () => ({ state: { title } }),
-    runCommand: absurd,
-    subscriptions: () => HashMap.empty(),
     makeModel: (state, { offer }) => {
       made++
       return { title: state.title, rename: offer({ _tag: 'Rename', title: '' }) }
@@ -261,8 +254,6 @@ describe('events through nested children', () => {
         state: { isOpen: false },
         events: message === 'ConfirmClicked' ? ['Confirmed'] : ['Confirmed', 'Dismissed'],
       },
-    runCommand: absurd,
-    subscriptions: () => HashMap.empty(),
     makeModel: () => null,
   }
 
@@ -287,7 +278,6 @@ describe('events through nested children', () => {
   const settings: Omit<Program<Settings, null, SettingsMessage, 'Erase', never, SettingsEvent>, 'init'> = {
     update: settingsUpdate,
     runCommand: () => Effect.succeedNone,
-    subscriptions: () => HashMap.empty(),
     makeModel: () => null,
   }
 
@@ -360,5 +350,37 @@ describe('events through nested children', () => {
       // @ts-expect-error the page would emit `AccountDeleted`, which an update of `DialogClosed` cannot
       settingsDialog.update(message.message)
     expect([isRejected(quiet), typeof narrower]).toEqual([false, 'function'])
+  })
+})
+
+describe('Program', () => {
+  test('has a runCommand exactly when it has commands, and subscriptions only when it listens', () => {
+    const quiet: Program<number, null, 'Bump'> = {
+      init: { state: 0 },
+      update: () => (count) => ({ state: count + 1 }),
+      makeModel: () => null,
+    }
+    const pinging: Program<number, null, 'Bump', 'Ping'> = {
+      init: { state: 0 },
+      update: () => (count) => ({ state: count, commands: ['Ping'] }),
+      runCommand: () => Effect.succeedNone,
+      makeModel: () => null,
+    }
+    // @ts-expect-error a program with commands needs their interpreter
+    const uninterpreted: Program<number, null, 'Bump', 'Ping'> = {
+      init: { state: 0 },
+      update: () => (count) => ({ state: count }),
+      makeModel: () => null,
+    }
+    const interpretsNothing: Program<number, null, 'Bump'> = {
+      init: { state: 0 },
+      update: () => (count) => ({ state: count }),
+      // @ts-expect-error a program without commands has nothing to interpret
+      runCommand: () => Effect.succeedNone,
+      makeModel: () => null,
+    }
+    expect([quiet, pinging, uninterpreted, interpretsNothing].map((program) => typeof program.update)).toEqual(
+      Array(4).fill('function'),
+    )
   })
 })

@@ -33,7 +33,7 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 
 ## Public API
 
-- The API is exactly what `src/index.ts` and `src/testing.ts` export; every other module is internal.
+- The API is exactly what `src/index.ts` and `src/testing/index.ts` export; every other module is internal.
   Export only what a consumer needs.
 - A change to the API changes [`README.md`](README.md) in the same change: the concept that uses it,
   and the API reference table, and the examples that use it. Every example in the README must compile
@@ -62,9 +62,9 @@ The version in `package.json` is the one the next release will have, decided by 
 - **Only the library makes the `Offers` a model receives**, from the program's own `update` and the state
   it passes to `makeModel` (`modelOf`, and `embed`'s `makeModel` for a child). `offers` stays internal: a
   model that could build its own could ask the wrong `update`, or about another state.
-- **Only `offers` makes an `Offered`** (through the internal `offered` and `offeredInput`). `mapDispatch` is the only other cast, valid
-  because the parent accepts `wrap(message)` exactly when the child accepts `message`. Add no other way to
-  forge one.
+- **Only `offer.ts` makes an `Offered`**: `offers`, by asking `update`, and `mapDispatch`, valid because the
+  parent accepts `wrap(message)` exactly when the child accepts `message`. Keep every cast to `Offered` in
+  that module, and add no other way to forge one.
 - **Rejections are judged by the frame's own state.** A view message carries the state its frame was drawn
   from. If `update` rejects it, and rejects it in that state too, it is a `Rejected` bug, however many
   messages arrived in between; if that state accepted it, it is stale and ignored. Messages from commands
@@ -104,13 +104,17 @@ The version in `package.json` is the one the next release will have, decided by 
   its waits use the real clock, whatever `Clock` the program runs with.
 - **A child's model is kept by its state** (`keptByState` in `program.ts`): `embed`'s `makeModel` relies on
   `update` and `makeModel` being pure, and on states being replaced, never mutated.
-- **Logs never carry message data by default** (`describeByTag`). Levels: `error` for bugs, `debug` for the
+- **Logs never carry message data by default** (`describeByTag` in `log.ts`). Levels: `error` for bugs, `debug` for the
   message loop and for subscriptions starting, stopping and ending.
 
 ## Code
 
-- One module per concept: `update.ts`, `command.ts`, `subscription.ts`, `offer.ts`, `view.ts`, `program.ts` (`embed`),
-  `bug.ts`; `engine.ts` is the runtime only, and `run.ts` connects it to a renderer.
+- One module per concept: `update.ts`, `command.ts`, `subscription.ts`, `offer.ts` (offers and dispatch),
+  `program.ts` (the program, `embed`), `rejection.ts`, `log.ts`; `engine.ts` is the runtime only (with
+  `RunOptions`), and `run.ts` connects it to a renderer. `testing/` holds one module per testing tool, and
+  `testing/index.ts` exports them.
+- A piece of a program that may be missing (`runCommand` without commands, `subscriptions`) is read through
+  `runCommandOf` and `subscriptionsOf`, never directly: the engine always gets the complete set.
 - Effect modules are imported as namespaces (`import * as Effect from 'effect/Effect'`), with `Arr`, `Opt`
   for `Array`, `Option`.
 - Relative imports carry the `.ts` extension; `tsc` rewrites them to `.js` in the build, and `build.ts` does
