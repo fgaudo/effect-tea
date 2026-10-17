@@ -242,7 +242,10 @@ collection of them, each with an id (the cards of a list):
   value). `getSubscribed` (`subscribed` for `embedEach`) decides which children listen: a hidden page can keep
   receiving its completions without listening to the world.
 - A child never acts on its parent: it emits **events**, and `onEvent` decides. The types require `onEvent`
-  exactly when the child has events.
+  exactly when the child has events. The step `onEvent` returns may emit events of the parent's own, for the
+  parent's parent (a dialog's `Confirmed` becomes its page's `AccountDeleted`): they come out of the returned
+  `update`, in order. Build them with constructors (`Data.TaggedEnum`), or `as const` for strings, so that
+  their type is inferred as the union and not as `string`.
 - `wrapCommand` turns a child's command into the parent's, usually a case that holds it
   (`Command.About({ command })`); the types require it exactly when the child has commands.
 - They return the child's `update` and `subscriptions` lifted into the parent, `liftCommands`, `runCommand`

@@ -62,7 +62,9 @@ const mapSubscriptions = <A, B, R, K, NewK>(
       HashMap.set(acc, mapKey(key), subscription.pipe(Channel.map(mapMessage), Channel.mapDone(mapMessage))),
   )
 
-type ParentStep<ParentState, ParentCommand> = (state: ParentState) => Step<ParentState, ParentCommand>
+type ParentStep<ParentState, ParentCommand, ParentEvent> = (
+  state: ParentState,
+) => Step<ParentState, ParentCommand, ParentEvent>
 
 /** Required exactly when the child emits events, so none can go unhandled. */
 type OnEvent<ChildEvent, Handler> = [ChildEvent] extends [never] ? object : { onEvent: Handler }
@@ -70,20 +72,31 @@ type OnEvent<ChildEvent, Handler> = [ChildEvent] extends [never] ? object : { on
 /** Required exactly when the child has commands. */
 type WrapCommand<ChildCommand, Handler> = [ChildCommand] extends [never] ? object : { wrapCommand: Handler }
 
-/** Writes a child's step back into its parent: its state, its commands (wrapped), then its events, in order. */
-const applyChild = <ParentState, ParentCommand, ChildState, ChildCommand, ChildEvent>(
+/**
+ * Writes a child's step back into its parent: its state, its commands (wrapped), then its events, in order,
+ * each handled by `onEvent`, whose own commands and events (for the parent's parent) follow, in order too.
+ */
+const applyChild = <ParentState, ParentCommand, ParentEvent, ChildState, ChildCommand, ChildEvent>(
   result: Step<ChildState, ChildCommand, ChildEvent>,
   wrapCommand: (command: ChildCommand) => ParentCommand,
   set: (state: ParentState, child: ChildState) => ParentState,
-  onEvent: (event: ChildEvent) => ParentStep<ParentState, ParentCommand>,
+  onEvent: (event: ChildEvent) => ParentStep<ParentState, ParentCommand, ParentEvent>,
 ) =>
-(state: ParentState): Step<ParentState, ParentCommand> =>
+(state: ParentState): Step<ParentState, ParentCommand, ParentEvent> =>
   Arr.reduce(
     result.events ?? [],
-    { state: set(state, result.state), commands: Arr.map(result.commands ?? [], wrapCommand) },
+    {
+      state: set(state, result.state),
+      commands: Arr.map(result.commands ?? [], wrapCommand),
+      events: [] as ReadonlyArray<ParentEvent>,
+    },
     (acc, event) => {
       const next = onEvent(event)(acc.state)
-      return { state: next.state, commands: [...acc.commands, ...(next.commands ?? [])] }
+      return {
+        state: next.state,
+        commands: [...acc.commands, ...(next.commands ?? [])],
+        events: [...acc.events, ...(next.events ?? [])],
+      }
     },
   )
 
@@ -97,7 +110,16 @@ type Child<ChildState, ChildModel, ChildMessage, ChildCommand, R, ChildEvent, K>
   'update' | 'runCommand' | 'subscriptions' | 'makeModel'
 >
 
-type EmbedOptions<ParentState, ParentMessage, ParentCommand, ChildState, ChildMessage, ChildCommand, ChildEvent> =
+type EmbedOptions<
+  ParentState,
+  ParentMessage,
+  ParentCommand,
+  ParentEvent,
+  ChildState,
+  ChildMessage,
+  ChildCommand,
+  ChildEvent,
+> =
   & {
     key: string
     wrap: (message: ChildMessage) => ParentMessage
@@ -105,7 +127,7 @@ type EmbedOptions<ParentState, ParentMessage, ParentCommand, ChildState, ChildMe
     getSubscribed?: (state: ParentState) => Opt.Option<ChildState>
     set: (state: ParentState, child: ChildState) => ParentState
   }
-  & OnEvent<ChildEvent, (event: ChildEvent) => ParentStep<ParentState, ParentCommand>>
+  & OnEvent<ChildEvent, (event: ChildEvent) => ParentStep<ParentState, ParentCommand, ParentEvent>>
   & WrapCommand<ChildCommand, (command: ChildCommand) => ParentCommand>
 
 /**
@@ -121,7 +143,8 @@ type EmbedOptions<ParentState, ParentMessage, ParentCommand, ChildState, ChildMe
  * - `set` writes the child state back.
  * - `key` namespaces the child's subscription keys.
  * - `onEvent` handles the events the child emits, in the same transition, after
- *   the child state has been written back.
+ *   the child state has been written back. The step it returns may emit events of the parent's own, for the
+ *   parent's parent: they come out of the returned `update`.
  *
  * It returns `update`, `subscriptions`, `liftCommands(commands)`, which wraps a child's commands, e.g. those
  * of its `init` when the parent adds it (where the child's state goes is the parent's own business), and
@@ -130,7 +153,7 @@ type EmbedOptions<ParentState, ParentMessage, ParentCommand, ChildState, ChildMe
  * the parent's model, the very same object while the child's state is. The child's view sends through
  * `mapDispatch(dispatch, wrap)`.
  */
-// `ParentCommand` comes last, so that it is `never` when neither `wrapCommand` nor `onEvent` gives one.
+// `ParentCommand` and `ParentEvent` come last, so that they are `never` when nothing gives one.
 export const embed = <
   ParentState,
   ParentMessage,
@@ -142,9 +165,19 @@ export const embed = <
   ChildEvent = never,
   K = unknown,
   ParentCommand = never,
+  ParentEvent = never,
 >(
   child: Child<ChildState, ChildModel, ChildMessage, ChildCommand, R, ChildEvent, K>,
-  options: EmbedOptions<ParentState, ParentMessage, ParentCommand, ChildState, ChildMessage, ChildCommand, ChildEvent>,
+  options: EmbedOptions<
+    ParentState,
+    ParentMessage,
+    ParentCommand,
+    ParentEvent,
+    ChildState,
+    ChildMessage,
+    ChildCommand,
+    ChildEvent
+  >,
 ) => {
   const { key, wrap, get, set, getSubscribed = get } = options
   const onEvent = 'onEvent' in options ? options.onEvent : missing('embed', key, 'an event')
@@ -157,7 +190,7 @@ export const embed = <
 
     makeModel: keptByState(modelOf(child)),
 
-    update: (message: ChildMessage) => (state: ParentState): Transition<ParentState, ParentCommand> =>
+    update: (message: ChildMessage) => (state: ParentState): Transition<ParentState, ParentCommand, ParentEvent> =>
       Opt.match(get(state), {
         onNone: (): Rejected => reject,
         onSome: (childState) => {
@@ -183,6 +216,7 @@ type EmbedEachOptions<
   ParentState,
   ParentMessage,
   ParentCommand,
+  ParentEvent,
   Id,
   ChildState,
   ChildMessage,
@@ -196,7 +230,7 @@ type EmbedEachOptions<
     set: (state: ParentState, id: Id, child: ChildState) => ParentState
     subscribed: (state: ParentState) => Iterable<readonly [Id, ChildState]>
   }
-  & OnEvent<ChildEvent, (id: Id, event: ChildEvent) => ParentStep<ParentState, ParentCommand>>
+  & OnEvent<ChildEvent, (id: Id, event: ChildEvent) => ParentStep<ParentState, ParentCommand, ParentEvent>>
   & WrapCommand<ChildCommand, (id: Id, command: ChildCommand) => ParentCommand>
 
 /**
@@ -210,7 +244,7 @@ type EmbedEachOptions<
  * - `subscribed(state)` lists the children whose subscriptions run, with their state (all of them, or the
  *   visible ones); their keys are namespaced by `key` and the id, so ids must compare by value (strings,
  *   numbers, or Effect data);
- * - `onEvent(id, event)` handles what a child asks of its parent;
+ * - `onEvent(id, event)` handles what a child asks of its parent, and may emit events of the parent's own;
  * - `liftCommands(id, commands)` lifts a child's commands, e.g. those of its `init` when the parent adds it;
  * - `runCommand(id, command)` runs a child's command with its messages wrapped, for the parent's interpreter;
  * - `makeModel(childState)` makes a child's model with the offers of the child's own `update`, the very same
@@ -228,12 +262,14 @@ export const embedEach = <
   ChildEvent = never,
   K = unknown,
   ParentCommand = never,
+  ParentEvent = never,
 >(
   child: Child<ChildState, ChildModel, ChildMessage, ChildCommand, R, ChildEvent, K>,
   options: EmbedEachOptions<
     ParentState,
     ParentMessage,
     ParentCommand,
+    ParentEvent,
     Id,
     ChildState,
     ChildMessage,
@@ -253,7 +289,8 @@ export const embedEach = <
 
     makeModel: keptByState(modelOf(child)),
 
-    update: (id: Id, message: ChildMessage) => (state: ParentState): Transition<ParentState, ParentCommand> =>
+    update: (id: Id, message: ChildMessage) =>
+    (state: ParentState): Transition<ParentState, ParentCommand, ParentEvent> =>
       Opt.match(get(state, id), {
         onNone: (): Rejected => reject,
         onSome: (childState) => {

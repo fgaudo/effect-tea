@@ -6,7 +6,7 @@ import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import type { Offer } from './offer.ts'
 import type { Subscription } from './subscription.ts'
-import { isRejected, reject } from './update.ts'
+import { isRejected, reject, type Transition, type Update } from './update.ts'
 import { embed, embedEach, type Program } from './program.ts'
 
 // A child counter that stops at 3, with one subscription, embedded in a parent that holds it and says whether
@@ -245,5 +245,120 @@ describe('child models', () => {
     expect(after.map(cards.makeModel)[0]).toBe(models[0])
     expect(after.map(cards.makeModel)[1]).not.toBe(models[1])
     expect(made).toBe(3)
+  })
+})
+
+describe('events through nested children', () => {
+  // A dialog in a settings page in an app. The dialog emits `Confirmed` and `Dismissed`; the page, in turn,
+  // erases the account and emits `AccountDeleted` for the app, which goes home, or emits `DialogClosed`.
+  type Dialog = Readonly<{ isOpen: boolean }>
+  type DialogMessage = 'ConfirmClicked' | 'ConfirmedThenDismissed'
+  type DialogEvent = 'Confirmed' | 'Dismissed'
+
+  const dialog: Omit<Program<Dialog, null, DialogMessage, never, never, DialogEvent>, 'init'> = {
+    update: (message) => (state) =>
+      !state.isOpen ? reject : {
+        state: { isOpen: false },
+        events: message === 'ConfirmClicked' ? ['Confirmed'] : ['Confirmed', 'Dismissed'],
+      },
+    runCommand: absurd,
+    subscriptions: () => HashMap.empty(),
+    makeModel: () => null,
+  }
+
+  type Settings = Readonly<{ dialog: Opt.Option<Dialog>; isDeleted: boolean }>
+  type SettingsMessage = Readonly<{ _tag: 'GotDialog'; message: DialogMessage }>
+  type SettingsEvent = 'AccountDeleted' | 'DialogClosed'
+
+  const settingsDialog = embed(dialog, {
+    key: 'Dialog',
+    wrap: (message: DialogMessage): SettingsMessage => ({ _tag: 'GotDialog', message }),
+    get: (state: Settings) => state.dialog,
+    set: (state: Settings, child: Dialog) => ({ ...state, dialog: Opt.some(child) }),
+    onEvent: (event) => (state: Settings) =>
+      event === 'Confirmed'
+        ? { state: { ...state, isDeleted: true }, commands: ['Erase' as const], events: ['AccountDeleted' as const] }
+        : { state: { ...state, dialog: Opt.none() }, events: ['DialogClosed' as const] },
+  })
+
+  const settingsUpdate: Update<Settings, SettingsMessage, 'Erase', SettingsEvent> = (message) =>
+    settingsDialog.update(message.message)
+
+  const settings: Omit<Program<Settings, null, SettingsMessage, 'Erase', never, SettingsEvent>, 'init'> = {
+    update: settingsUpdate,
+    runCommand: () => Effect.succeedNone,
+    subscriptions: () => HashMap.empty(),
+    makeModel: () => null,
+  }
+
+  type App = Readonly<{ page: 'Settings' | 'Home'; settings: Settings; closedDialogs: number }>
+
+  const appSettings = embed(settings, {
+    key: 'Settings',
+    wrap: (message: SettingsMessage) => message,
+    get: (state: App) => Opt.some(state.settings),
+    set: (state: App, child: Settings) => ({ ...state, settings: child }),
+    wrapCommand: (command) => ({ settings: command }),
+    onEvent: (event) => (state: App) =>
+      event === 'AccountDeleted'
+        ? { state: { ...state, page: 'Home' as const } }
+        : { state: { ...state, closedDialogs: state.closedDialogs + 1 } },
+  })
+
+  const withOpenDialog: App = {
+    page: 'Settings',
+    settings: { dialog: Opt.some({ isOpen: true }), isDeleted: false },
+    closedDialogs: 0,
+  }
+
+  test('an event of a child becomes an event of its parent, which the parent\'s parent handles', () => {
+    const result = appSettings.update({ _tag: 'GotDialog', message: 'ConfirmClicked' })(withOpenDialog)
+    expect(isRejected(result) ? result : { page: result.state.page, commands: result.commands }).toEqual({
+      page: 'Home',
+      commands: [{ settings: 'Erase' }],
+    })
+  })
+
+  test('the parent\'s events come out in the order of the child\'s, after the state each one leaves', () => {
+    const result = settingsUpdate({ _tag: 'GotDialog', message: 'ConfirmedThenDismissed' })(
+      withOpenDialog.settings,
+    )
+    expect(isRejected(result) ? result : result).toEqual({
+      state: { dialog: Opt.none(), isDeleted: true },
+      commands: ['Erase'],
+      events: ['AccountDeleted', 'DialogClosed'],
+    })
+  })
+
+  test('a message the child rejects is rejected at every level', () => {
+    const closed: App = {
+      ...withOpenDialog,
+      settings: { ...withOpenDialog.settings, dialog: Opt.some({ isOpen: false }) },
+    }
+    expect(isRejected(appSettings.update({ _tag: 'GotDialog', message: 'ConfirmClicked' })(closed))).toBe(true)
+  })
+
+  test('embedEach passes the id along to the parent\'s events', () => {
+    const dialogs = embedEach(dialog, {
+      key: 'Dialogs',
+      wrap: (id: number, message: DialogMessage) => ({ id, message }),
+      get: (state: ReadonlyArray<Dialog>, id) => Opt.fromUndefinedOr(state[id]),
+      set: (state: ReadonlyArray<Dialog>, id, child) => state.map((each, index) => (index === id ? child : each)),
+      subscribed: () => [],
+      onEvent: (id, event) => (state: ReadonlyArray<Dialog>) => ({ state, events: [{ id, event }] }),
+    })
+    const result = dialogs.update(1, 'ConfirmedThenDismissed')([{ isOpen: true }, { isOpen: true }])
+    expect(isRejected(result) ? result : result.events).toEqual([
+      { id: 1, event: 'Confirmed' },
+      { id: 1, event: 'Dismissed' },
+    ])
+  })
+
+  test('a parent emits no events of its own unless onEvent does, and only those its update declares', () => {
+    const quiet: Transition<Parent, never, never> = embedded.update('Increment')({ child: Opt.some(0), isShown: true })
+    const narrower: Update<Settings, SettingsMessage, 'Erase', 'DialogClosed'> = (message) =>
+      // @ts-expect-error the page would emit `AccountDeleted`, which an update of `DialogClosed` cannot
+      settingsDialog.update(message.message)
+    expect([isRejected(quiet), typeof narrower]).toEqual([false, 'function'])
   })
 })

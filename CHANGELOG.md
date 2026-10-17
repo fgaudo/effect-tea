@@ -18,6 +18,9 @@ version.
 - `applyAll` also returns the `events`, in order.
 - The `makeModel` of `embed` and `embedEach` keeps a child's model while the child's state is the same object,
   so that a renderer can memoize the child's view on it.
+- The step that `onEvent` returns, in `embed` and `embedEach`, may emit events of the parent's own, which come
+  out of the returned `update`: a child's event can now lead to an event for the parent's parent, in the same
+  transition.
 
 ### Changed
 
