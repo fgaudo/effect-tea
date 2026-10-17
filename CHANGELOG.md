@@ -50,6 +50,10 @@ version.
   as it was given, with its commands wrapped: the parent only needs the commands. To upgrade, put the child's
   initial state in the parent's state yourself, and replace `init(step).commands` with
   `liftCommands(step.commands)` (`liftCommands(id, step.commands)` for `embedEach`).
+- A renderer slower than the program gets only the latest frame, instead of every frame in turn: a burst of N
+  messages was drawn N times. The README explains why a view should not write the model's text into an input
+  the user is typing into ("Inputs the user types into"), and the rule that `update` accepts typing in every
+  state where the field exists.
 
 ## 0.1.0 (2026-10-17)
 

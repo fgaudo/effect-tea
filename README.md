@@ -19,7 +19,8 @@ a compile error, not a silent bug.
 - [Examples](#examples)
 - [Concepts](#concepts): [`update`](#update-and-rejections), [offers](#the-model-offers-the-view-sends),
   [commands](#commands), [subscriptions](#subscriptions), [stale or bug](#rejections-stale-or-bug),
-  [composing](#composing-programs), [running](#running), [testing](#testing)
+  [composing](#composing-programs), [running](#running), [inputs](#inputs-the-user-types-into),
+  [testing](#testing)
 - [API reference](#api-reference)
 
 ## Installation
@@ -102,17 +103,19 @@ it likes.
 ## Examples
 
 [`examples/`](examples) holds complete programs, drawn with [snabbdom](https://github.com/snabbdom/snabbdom),
-each with its tests. Run one with `bun examples/<name>/index.html`.
+each with its tests. Run one with `bun run build`, then `bun examples/<name>/index.html`: Bun bundles the page
+for the browser, so it resolves the package to `dist/`, not to the sources.
 
 | Example                       | What it shows                                                                                       |
 | ----------------------------- | --------------------------------------------------------------------------------------------------- |
 | [`counter`](examples/counter) | the quick start with a view; `applyAll`, `dispatchViolations`, `drive`                              |
-| [`form`](examples/form)       | input, a command and its interpreter, with a service and `attempt`; a save only its completion ends |
+| [`form`](examples/form)       | an input the user owns while typing; a service and `attempt`; a save only its completion ends       |
 | [`pages`](examples/pages)     | two pages with `embed`, events for navigation, `getSubscribed`, a child's commands; `simulate`      |
 | [`list`](examples/list)       | stopwatches with `embedEach`, a subscription per running child; a test with a `TestClock`           |
 
 `examples/snabbdom.ts` is the bridge to the renderer: `renderInto` for `run`, handlers that exist only while
-their action is offered, and `messagesSentBy` for the tests.
+their action is offered, `initialValue` for the text a new input starts with, and `messagesSentBy` for the
+tests.
 
 ## Concepts
 
@@ -160,6 +163,10 @@ built on Effect runs it as it is. One whose handlers are plain callbacks, like s
 - **Input is never a reason to reject.** Whatever is typed is stored, and its validity becomes model data:
   "Save" is not offered for a blank name. `offerInput` asks `update` with the current value, and the answer
   holds for any value.
+- **Nor is the state.** `update` accepts what is typed into a field in every state where the field exists:
+  to disable it (e.g. while saving), the model stops offering it. A key typed just before the input was
+  disabled is then stored, instead of staying on screen while the state lacks it (see
+  [inputs](#inputs-the-user-types-into)).
 - **Cost:** each offer runs `update` once per drawn frame. Keep the rejecting branches cheap, and in long
   lists offer per-item actions only for the items on screen.
 
@@ -251,10 +258,12 @@ it the same `wrap` given to `embed`: that is what keeps the child's offers valid
 ### Running
 
 `run(program, render, options)` starts the program and hands `render` the stream of frames; the run ends when
-`render` ends. A frame's model is made the first time it is read, so a renderer that skips frames (e.g. one
-per animation frame) never pays for the others, and a message that leaves the very same state (`===`) makes
-no frame. In a browser, start it with `BrowserRuntime.runMain` from `@effect/platform-browser`, as the
-examples do, so that a program that dies is reported. `RunOptions`:
+`render` ends. A renderer slower than the program gets only the latest frame: one that a newer frame replaced
+would be drawn for nothing. A frame's model is made the first
+time it is read, so a renderer that skips frames (e.g. one per animation frame) never pays for the others,
+and a message that leaves the very same state (`===`) makes no frame. In a browser, start it with
+`BrowserRuntime.runMain` from `@effect/platform-browser`, as the examples do, so that a program that dies is
+reported. `RunOptions`:
 
 - **`onRejected`** (required): `'die'` fails the run with `RejectedMessage`, which is what you want while
   developing; `'ignore'` drops the message and goes on, safe since the state did not change, and then
@@ -268,6 +277,29 @@ examples do, so that a program that dies is reported. `RunOptions`:
 
 The run fails with the first defect. It logs with Effect's logger: `debug` for the message loop and the
 subscriptions, `error` for bugs.
+
+### Inputs the user types into
+
+A frame is drawn after its messages were handled, so it can be older than what the user has typed since. A
+view that wrote the model's text into an input on every frame could then take back the last keys and move
+the caret, and no timing rules that out, since a renderer may even draw on another thread. So the text of an
+input has one author at a time:
+
+- **While the user types, the input owns its text.** The view writes it only when the input is created, and
+  the program learns it from the input's messages, which `update` always accepts.
+- **When the program replaces the text** (e.g. empties the form after a save), it changes the input's key, so
+  that the renderer creates a new input with the new text. The key is a revision in the state, which grows
+  only when the program replaces the text.
+
+[`examples/field.ts`](examples/field.ts) keeps the two together: `Field.typed` for what the user typed,
+`Field.replace` for a text from the program, which raises the revision, so that a replaced text cannot keep
+the old input. `initialValue` in [`examples/snabbdom.ts`](examples/snabbdom.ts) writes a text only into a new
+input, and [`form`](examples/form) uses both. With React Native, `defaultValue` and `key` do the same.
+
+What the program does to a text while it is typed (trims it, keeps only digits) is in the state but not on
+screen until the input is created again: limit what can be typed with the input's own attributes
+(`maxlength`, `inputmode`), or show the problem instead of changing the text. A new input does not keep the
+focus.
 
 ### Testing
 

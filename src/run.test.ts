@@ -276,4 +276,23 @@ describe('frames', () => {
     expect(models).toEqual([2, 2])
     expect(made).toBe(1)
   })
+
+  test('a renderer slower than the program gets only the latest frame', async () => {
+    const counts: Array<number> = []
+    await Effect.runPromise(quietly(runDying(counter, (frames) =>
+      frames.pipe(
+        Stream.tap(({ model, dispatch }) =>
+          Effect.gen(function*() {
+            counts.push(model.count)
+            if (model.count > 0) return
+            // Three messages in a burst, while the renderer is still busy with this frame.
+            yield* Effect.repeat(dispatch(Opt.getOrThrow(model.increment)), { times: 2 })
+            yield* Effect.sleep('50 millis')
+          })
+        ),
+        Stream.take(2),
+        Stream.runDrain,
+      ))))
+    expect(counts).toEqual([0, 3])
+  })
 })

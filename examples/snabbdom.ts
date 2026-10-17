@@ -4,9 +4,27 @@ import { type Dispatch, dispatchUnsafe, type Frame, type InputOffer, type Offer,
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import * as Stream from 'effect/Stream'
-import { eventListenersModule, init, type On, propsModule, type VNode } from 'snabbdom'
+import { eventListenersModule, init, type Module, type On, propsModule, type VNode, type VNodeData } from 'snabbdom'
 
-const patch = init([propsModule, eventListenersModule])
+/**
+ * The text an input starts with, written only when the input is created: from then on the user types into it,
+ * and the program learns the text from the input's messages. Rewriting it from the model could draw a frame
+ * older than the last keys, taking them back and moving the caret. To replace the text, the program changes
+ * the input's `key`, so that a new input is created (see `field.ts`).
+ */
+export const initialValue = (text: string): VNodeData => ({ initialValue: text })
+
+const initialValueModule: Module = {
+  create: (_, vnode) => {
+    const text: unknown = vnode.data?.initialValue
+    const element = vnode.elm
+    const hasValue = element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
+      || element instanceof HTMLSelectElement
+    if (typeof text === 'string' && hasValue) element.value = text
+  },
+}
+
+const patch = init([propsModule, eventListenersModule, initialValueModule])
 
 /** The renderer `run` takes: patches the previous tree with each frame, starting from `root`. */
 export const renderInto =

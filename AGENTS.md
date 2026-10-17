@@ -21,10 +21,12 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 - **`examples/` are complete programs, checked like the library.** Each one has its program, a view
   (snabbdom, through `examples/snabbdom.ts`), a `main.ts` that starts it with `BrowserRuntime.runMain` (so
   that the failure of a dying program is reported), an `index.html` to run it
-  (`bun examples/<name>/index.html`), and a `*.test.ts` that shows the testing tools on it. They import the
-  package by its name (`@fgaudo/effect-tea`), as a consumer would; `tsc -p examples` checks them with the
-  `bun` condition and the `DOM` lib. They are not published (`files`), and snabbdom and
-  `@effect/platform-browser` are only dev dependencies.
+  (`bun examples/<name>/index.html`, after `bun run build`: Bun bundles the page with `dist/`), and a
+  `*.test.ts` that shows the testing tools on it. They import the package by its name
+  (`@fgaudo/effect-tea`), as a consumer would; `tsc -p examples` checks them with the `bun` condition and the
+  `DOM` lib. They are not published (`files`), and snabbdom and `@effect/platform-browser` are only dev
+  dependencies. Their inputs follow the README's "Inputs the user types into": `update` accepts typing in
+  every state, and the view writes a text only into a new input (`initialValue`, `Field`).
 - **The peer range starts at the oldest Effect 4 the library works with** (`^4.0.0` today), so that any
   application on Effect 4 can use it. Raise the minimum only when the code needs a newer API, after checking:
   copy `src/` into a scratch project with that exact Effect version, then run `tsc` and `bun test` there.
@@ -86,7 +88,8 @@ The version in `package.json` is the one the next release will have, decided by 
 - **Commands cannot be cancelled.** This is a deliberate choice for now: do not add cancellation without
   asking.
 - **Frames cost only what is drawn**: a frame's model is made when first read, and a message that returns the
-  very same state makes no new frame. Keep it so: do not compute models eagerly in `run`.
+  very same state makes no new frame. Keep it so: do not compute models eagerly in `run`. A renderer slower
+  than the program gets only the latest frame.
 - **`onApplied` watches, never steers**: it hears each accepted message in order, before its frame is
   published, and gets no way to send messages or change the state. A defect in it is a bug like any other.
 - **`simulate` behaves like the engine** where the engine is deterministic: a rejected message from a

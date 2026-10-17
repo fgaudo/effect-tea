@@ -30,8 +30,9 @@ export type RunOptions<Message, K = unknown, State = unknown, Command = unknown>
 /**
  * Runs `program` and hands its frames to `render`, the renderer's own loop. Each frame's dispatch is bound to
  * the state the frame was drawn from: a rejected message that this state accepted is stale and ignored, one
- * that this state rejects too is a bug. Ends when `render` ends, and fails with the first defect of the
- * program (or `RejectedMessage`), so whoever runs it can let the app crash.
+ * that this state rejects too is a bug. A renderer slower than the program gets only the latest frame. Ends
+ * when `render` ends, and fails with the first defect of the program (or `RejectedMessage`), so whoever runs
+ * it can let the app crash.
  */
 export const run = <State, Model, Message, Command, R, RR, K>(
   program: Program<State, Model, Message, Command, R, never, K>,
@@ -41,8 +42,11 @@ export const run = <State, Model, Message, Command, R, RR, K>(
   Effect.gen(function*() {
     const engine = yield* Engine.make({ ...program, ...options })
     const makeModel = modelOf(program)
-    const frames = Stream.map(engine.state$, (frame) =>
-      lazyFrame(() => makeModel(frame.state), engine.dispatchFrom(frame)))
+    // A frame that a newer one has replaced would be drawn for nothing.
+    const frames = engine.state$.pipe(
+      Stream.buffer({ capacity: 1, strategy: 'sliding' }),
+      Stream.map((frame) => lazyFrame(() => makeModel(frame.state), engine.dispatchFrom(frame))),
+    )
     yield* Effect.raceFirst(engine.await, render(frames))
   }).pipe(Effect.scoped)
 
