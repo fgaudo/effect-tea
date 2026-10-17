@@ -1,6 +1,6 @@
 // A stopwatch that ticks every second while it runs: its subscription exists only in the running state. It
 // asks its parent to be removed with an event.
-import { type Offer, offers, type Program, reject, type Subscription, type Update } from '@fgaudo/effect-tea'
+import { type Offer, type Program, reject, type Subscription, type Update } from '@fgaudo/effect-tea'
 import * as Channel from 'effect/Channel'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
@@ -52,13 +52,10 @@ export const stopwatch: Program<State, Model, Message, never, never, Event> = {
   update,
   runCommand: absurd,
   subscriptions: (state) => state.isRunning ? HashMap.make(['ticks', ticks]) : HashMap.empty(),
-  makeModel: (state) => {
-    const { offer } = offers(update, state)
-    return {
-      seconds: state.seconds,
-      start: offer(Message.Started()),
-      stop: offer(Message.Stopped()),
-      remove: offer(Message.RemoveClicked()),
-    }
-  },
+  makeModel: (state, { offer }) => ({
+    seconds: state.seconds,
+    start: offer(Message.Started()),
+    stop: offer(Message.Stopped()),
+    remove: offer(Message.RemoveClicked()),
+  }),
 }

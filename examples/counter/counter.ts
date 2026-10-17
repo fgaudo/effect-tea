@@ -1,5 +1,5 @@
 // A counter that cannot go below zero: `update` rejects `Decrement` at 0, so the model does not offer it.
-import { type Offer, offers, type Program, reject, type Update } from '@fgaudo/effect-tea'
+import { type Offer, type Program, reject, type Update } from '@fgaudo/effect-tea'
 import { absurd } from 'effect/Function'
 import * as HashMap from 'effect/HashMap'
 
@@ -19,8 +19,5 @@ export const counter: Program<number, Model, Message, never, never> = {
   update,
   runCommand: absurd,
   subscriptions: () => HashMap.empty(),
-  makeModel: (count) => {
-    const { offer } = offers(update, count)
-    return { count, increment: offer('Increment'), decrement: offer('Decrement') }
-  },
+  makeModel: (count, { offer }) => ({ count, increment: offer('Increment'), decrement: offer('Decrement') }),
 }

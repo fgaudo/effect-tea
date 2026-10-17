@@ -1,5 +1,5 @@
 // A page that loads a saying when it opens (its `init` commands), and asks to be left with an event.
-import { type Execution, type Offer, offers, type Program, type Update } from '@fgaudo/effect-tea'
+import type { Execution, Offer, Program, Update } from '@fgaudo/effect-tea'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
@@ -52,5 +52,5 @@ export const about: Program<State, Model, Message, Command, never, Event> = {
     }
   },
   subscriptions: () => HashMap.empty(),
-  makeModel: (state) => ({ saying: state.maybeSaying, back: offers(update, state).offer(Message.BackClicked()) }),
+  makeModel: (state, { offer }) => ({ saying: state.maybeSaying, back: offer(Message.BackClicked()) }),
 }

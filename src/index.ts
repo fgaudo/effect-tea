@@ -1,7 +1,7 @@
 // The public API of the package: everything else in `src/` is internal.
 
 // A program: its pieces, and how a child program is lifted into its parent.
-export { embed, embedEach, type Program } from './program.ts'
+export { embed, embedEach, modelOf, type Program } from './program.ts'
 
 // What `update` returns.
 export { isRejected, reject, type Rejected, type Step, type Transition, type Update } from './update.ts'
@@ -11,7 +11,7 @@ export { attempt, type Execution, type RunCommand } from './command.ts'
 export type { Subscribe, Subscription, Subscriptions } from './subscription.ts'
 
 // What the model offers to the view, decided by asking `update`.
-export { type InputOffer, type Offer, type Offered, type Offers, offers } from './offer.ts'
+export type { InputOffer, Offer, Offered, Offers } from './offer.ts'
 
 // Views, independent of the renderer.
 export { type Dispatch, dispatchUnsafe, mapDispatch, type View } from './view.ts'

@@ -1,6 +1,6 @@
 // A page that shows the time, from a subscription, and asks its parent for the About page with an event:
 // it never acts on its parent.
-import { type Offer, offers, type Program, type Subscription, type Update } from '@fgaudo/effect-tea'
+import type { Offer, Program, Subscription, Update } from '@fgaudo/effect-tea'
 import * as Channel from 'effect/Channel'
 import * as Data from 'effect/Data'
 import * as DateTime from 'effect/DateTime'
@@ -45,8 +45,8 @@ export const clock: Program<State, Model, Message, never, never, Event> = {
   update,
   runCommand: absurd,
   subscriptions: () => HashMap.make(['ticks', ticks]),
-  makeModel: (state) => ({
+  makeModel: (state, { offer }) => ({
     time: Opt.match(state.maybeNow, { onNone: () => '', onSome: DateTime.formatIso }),
-    openAbout: offers(update, state).offer(Message.AboutClicked()),
+    openAbout: offer(Message.AboutClicked()),
   }),
 }

@@ -1,6 +1,6 @@
 // A list of stopwatches with `embedEach`: each one has its own state, messages and subscriptions, reached
 // through its id. The parent adds them, and removes one when it asks.
-import { embedEach, type Offer, offers, type Program, type Update } from '@fgaudo/effect-tea'
+import { embedEach, type Offer, type Program, type Update } from '@fgaudo/effect-tea'
 import * as Arr from 'effect/Array'
 import * as Data from 'effect/Data'
 import { absurd } from 'effect/Function'
@@ -60,11 +60,11 @@ export const list: Program<State, Model, Message, never, never> = {
   update,
   runCommand: absurd,
   subscriptions: stopwatches.subscriptions,
-  makeModel: (state) => ({
-    add: offers(update, state).offer(Message.AddClicked()),
+  makeModel: (state, { offer }) => ({
+    add: offer(Message.AddClicked()),
     stopwatches: Arr.map(
       state.entries,
-      ({ id, stopwatch }) => ({ id, model: Stopwatch.stopwatch.makeModel(stopwatch) }),
+      ({ id, stopwatch }) => ({ id, model: stopwatches.makeModel(stopwatch) }),
     ),
   }),
 }

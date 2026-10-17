@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { isRejected } from '@fgaudo/effect-tea'
+import { isRejected, modelOf } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations, drive, input, simulate, tap } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
@@ -51,7 +51,7 @@ describe('form', () => {
   test('the view only sends what update accepts, and acts once when sent twice', () => {
     const check = dispatchViolations(update)
     fc.assert(fc.property(state, fc.string(), (before, typed) => {
-      expect(check(before, messagesSentBy(view, form.makeModel(before), typed))).toEqual([])
+      expect(check(before, messagesSentBy(view, modelOf(form)(before), typed))).toEqual([])
     }))
   })
 

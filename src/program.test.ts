@@ -4,11 +4,13 @@ import * as Effect from 'effect/Effect'
 import { absurd } from 'effect/Function'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
+import type { Offer } from './offer.ts'
 import type { Subscription } from './subscription.ts'
-import { isRejected } from './update.ts'
+import { isRejected, reject } from './update.ts'
 import { embed, embedEach, type Program } from './program.ts'
 
-// A child counter with one subscription, embedded in a parent that holds it and says whether it is shown.
+// A child counter that stops at 3, with one subscription, embedded in a parent that holds it and says whether
+// it is shown. Its model is whether it offers to increment.
 type Parent = Readonly<{ child: Opt.Option<number>; isShown: boolean }>
 
 type Increment = 'Increment'
@@ -18,10 +20,11 @@ const ticks: Subscription<Increment, never> = Channel.concatWith(
   () => Channel.never,
 )
 
-const child: Pick<Program<number, unknown, Increment, never, never>, 'update' | 'runCommand' | 'subscriptions'> = {
-  update: () => (count) => ({ state: count + 1 }),
+const child: Omit<Program<number, Offer<Increment>, Increment, never, never>, 'init'> = {
+  update: () => (count) => count === 3 ? reject : { state: count + 1 },
   runCommand: absurd,
   subscriptions: () => HashMap.make(['ticks', ticks]),
+  makeModel: (_count, { offer }) => offer('Increment'),
 }
 
 const embedded = embed(child, {
@@ -49,6 +52,11 @@ describe('embed', () => {
     )
   })
 
+  test('makeModel offers what the child\'s own update accepts in the child\'s state', () => {
+    expect(Opt.isSome(embedded.makeModel(0))).toBe(true)
+    expect(Opt.isNone(embedded.makeModel(3))).toBe(true)
+  })
+
   test('without getSubscribed, the child listens whenever it is there', () => {
     const always = embed(child, {
       key: 'Child',
@@ -65,11 +73,12 @@ type Counters = Readonly<{ counts: ReadonlyMap<string, number>; reachedTwo: Read
 
 const counterWithEvent: Pick<
   Program<number, unknown, Increment, never, never, 'ReachedTwo'>,
-  'update' | 'runCommand' | 'subscriptions'
+  'update' | 'runCommand' | 'subscriptions' | 'makeModel'
 > = {
   update: () => (count) => (count + 1 === 2 ? { state: 2, events: ['ReachedTwo'] } : { state: count + 1 }),
   runCommand: absurd,
   subscriptions: () => HashMap.make(['ticks', ticks]),
+  makeModel: () => undefined,
 }
 
 const each = embedEach(counterWithEvent, {
@@ -109,10 +118,11 @@ describe('embedEach', () => {
 describe('embedded subscriptions that end', () => {
   type Signal = 'Tick' | 'Done'
 
-  const finite: Pick<Program<number, unknown, Signal, never, never>, 'update' | 'runCommand' | 'subscriptions'> = {
+  const finite: Omit<Program<number, unknown, Signal, never, never>, 'init'> = {
     update: () => (count) => ({ state: count }),
     runCommand: absurd,
     subscriptions: () => HashMap.make(['feed', Channel.mapDone(Channel.succeed<Signal>('Tick'), (): Signal => 'Done')]),
+    makeModel: () => undefined,
   }
 
   test('their last message is wrapped like the others', async () => {
@@ -139,10 +149,11 @@ describe('commands', () => {
   type Signal = 'Tick' | 'Saved'
   type Command = 'Save' | 'Log'
 
-  const child: Pick<Program<number, unknown, Signal, Command, never>, 'update' | 'runCommand' | 'subscriptions'> = {
+  const child: Omit<Program<number, unknown, Signal, Command, never>, 'init'> = {
     update: () => (count) => ({ state: count + 1, commands: ['Save'] }),
     runCommand: (command) => command === 'Save' ? Effect.succeedSome<Signal>('Saved') : Effect.succeedNone,
     subscriptions: () => HashMap.empty(),
+    makeModel: () => undefined,
   }
 
   const single = embed(child, {

@@ -6,7 +6,6 @@ import {
   type Execution,
   type InputOffer,
   type Offer,
-  offers,
   type Program,
   reject,
   type Update,
@@ -84,15 +83,12 @@ export const form: Program<State, Model, Message, Command, Storage> = {
   update,
   runCommand,
   subscriptions: () => HashMap.empty(),
-  makeModel: (state) => {
-    const { offer, offerInput } = offers(update, state)
-    return {
-      name: state.name,
-      changeName: offerInput((name: string) => Message.NameChanged({ name }), state.name),
-      save: offer(Message.SaveClicked()),
-      isSaving: state.isSaving,
-      hasFailed: state.hasFailed,
-      saved: state.saved,
-    }
-  },
+  makeModel: (state, { offer, offerInput }) => ({
+    name: state.name,
+    changeName: offerInput((name: string) => Message.NameChanged({ name }), state.name),
+    save: offer(Message.SaveClicked()),
+    isSaving: state.isSaving,
+    hasFailed: state.hasFailed,
+    saved: state.saved,
+  }),
 }

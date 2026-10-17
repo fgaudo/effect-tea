@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { type Dispatch, isRejected, mapDispatch, type Offer } from '@fgaudo/effect-tea'
+import { type Dispatch, isRejected, mapDispatch, modelOf, type Offer } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations, drive, tap } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
@@ -67,7 +67,7 @@ describe('list', () => {
   test('the view only sends what update accepts, and acts once when sent twice', () => {
     const check = dispatchViolations(update, { repeatable: (message) => message._tag === 'AddClicked' })
     fc.assert(fc.property(state, (before) => {
-      expect(check(before, messagesSentBy(view, list.makeModel(before)))).toEqual([])
+      expect(check(before, messagesSentBy(view, modelOf(list)(before)))).toEqual([])
     }))
   })
 

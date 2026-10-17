@@ -39,7 +39,6 @@ reaches 3; [`examples/counter`](examples/counter) draws the same program with sn
 ```ts
 import {
   type Offer,
-  offers,
   type Program,
   reject,
   run,
@@ -70,15 +69,12 @@ const counter: Program<number, Model, Message, never, never> = {
   update,
   runCommand: absurd,
   subscriptions: () => HashMap.empty(),
-  makeModel: (count) => {
-    const { offer } = offers(update, count)
-    // `decrement` is `None` at 0: update would reject it.
-    return {
-      count,
-      increment: offer('Increment'),
-      decrement: offer('Decrement'),
-    }
-  },
+  // `decrement` is `None` at 0: update would reject it.
+  makeModel: (count, { offer }) => ({
+    count,
+    increment: offer('Increment'),
+    decrement: offer('Decrement'),
+  }),
 }
 
 const main = run(counter, (frames) =>
@@ -141,10 +137,12 @@ when the message makes no sense in that state.
 
 ### The model offers, the view sends
 
-`makeModel` turns the state into what the view shows. Every action is an `Offer<Message>`: an `Option` that
-is `Some` exactly when `update` accepts the message in this state. `offers(update, state)` asks `update` for
+`makeModel(state, offers)` turns the state into what the view shows. Every action is an `Offer<Message>`: an
+`Option` that is `Some` exactly when `update` accepts the message in this state. `offers` asks `update` for
 you, with `offer(message)`, and with `offerInput(toMessage, current)` for a message that carries what the
-user types (an `InputOffer`).
+user types (an `InputOffer`). The library makes `offers` from the program's own `update` and the very state
+it passes, so a model cannot ask the wrong `update`, or about another state. Outside the program, a test
+makes the same model with `modelOf(program)(state)`.
 
 A view is `(model, dispatch) => Node`, and `dispatch` only takes **offered** messages, a brand that only
 `offers` creates. So the view attaches a handler only when there is an offer, and building a message in the
@@ -239,10 +237,12 @@ collection of them, each with an id (the cards of a list):
   exactly when the child has events.
 - `wrapCommand` turns a child's command into the parent's, usually a case that holds it
   (`Command.About({ command })`); the types require it exactly when the child has commands.
-- They return the child's `update` and `subscriptions` lifted into the parent, `liftCommands`, and
-  `runCommand`. When the parent adds a child, it puts the child's initial state where it belongs, and starts
-  its `init` commands through `liftCommands`. The parent's own `runCommand` hands the child's case to the
-  returned `runCommand`, which runs the child's interpreter and wraps its messages.
+- They return the child's `update` and `subscriptions` lifted into the parent, `liftCommands`, `runCommand`
+  and `makeModel`. When the parent adds a child, it puts the child's initial state where it belongs, and
+  starts its `init` commands through `liftCommands`. The parent's own `runCommand` hands the child's case to
+  the returned `runCommand`, which runs the child's interpreter and wraps its messages. The parent's model
+  holds the child's as the returned `makeModel(childState)` makes it, with the offers of the child's own
+  `update`.
 
 In the view, `mapDispatch(dispatch, wrap)` lets the child's view send through the parent's `dispatch`. Pass
 it the same `wrap` given to `embed`: that is what keeps the child's offers valid for the parent. See
@@ -300,25 +300,26 @@ each level, all of them used in the examples' tests:
 
 From `@fgaudo/effect-tea`:
 
-| Export                                                   | What it is                                                                                    |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `Program<State, Model, Message, Command, R, Event?, K?>` | `init`, `update`, `runCommand`, `subscriptions`, `makeModel`                                  |
-| `Update`, `Transition`, `Step`                           | `(message) => (state) => Step` or `Rejected`; a `Step` is `{ state, commands?, events? }`     |
-| `reject`, `Rejected`, `isRejected`                       | the rejection `update` returns, and its check                                                 |
-| `Execution<Message, R>`, `RunCommand`                    | `Effect<Option<Message>, never, R>`, how a command happens; `(command) => Execution`          |
-| `attempt`                                                | an execution from an effect that may fail: its failure becomes a message                      |
-| `Subscription`                                           | a `Channel` of messages that never ends, or ends with one last message; kept by key           |
-| `Subscribe`, `Subscriptions`                             | `(state) => HashMap<K, Subscription<Message>>`, reconciled by key                             |
-| `offers`                                                 | asks `update` what the model may offer: `offer(message)` and `offerInput(toMessage, current)` |
-| `Offer`, `InputOffer`, `Offered`, `Offers`               | an optional offered message; an optional function to one; the brand; what `offers` returns    |
-| `View`, `Dispatch`, `mapDispatch`                        | `(model, dispatch) => Node`; a dispatch of offered messages; a child's dispatch               |
-| `dispatchUnsafe`                                         | a dispatch that sends at once, for a renderer's plain callbacks                               |
-| `embed`, `embedEach`                                     | lift a child program, or a collection of them, into a parent                                  |
-| `run`, `Frame`, `RunOptions`                             | run a program with a renderer; what the renderer draws; how the program runs                  |
-| `Applied`                                                | what `onApplied` hears: a message, the states around it, its revision and commands            |
-| `RejectionOptions`                                       | `onRejected` (`'die'` or `'ignore'`) with the `onBug` it requires                             |
-| `Bug`, `BugReporter`, `DefectSource`                     | what `onBug` receives; `onBug` itself; where a defect happened                                |
-| `RejectedMessage`                                        | the defect the run fails with when a rejection is fatal                                       |
+| Export                                                   | What it is                                                                                |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `Program<State, Model, Message, Command, R, Event?, K?>` | `init`, `update`, `runCommand`, `subscriptions`, `makeModel`                              |
+| `Update`, `Transition`, `Step`                           | `(message) => (state) => Step` or `Rejected`; a `Step` is `{ state, commands?, events? }` |
+| `reject`, `Rejected`, `isRejected`                       | the rejection `update` returns, and its check                                             |
+| `Execution<Message, R>`, `RunCommand`                    | `Effect<Option<Message>, never, R>`, how a command happens; `(command) => Execution`      |
+| `attempt`                                                | an execution from an effect that may fail: its failure becomes a message                  |
+| `Subscription`                                           | a `Channel` of messages that never ends, or ends with one last message; kept by key       |
+| `Subscribe`, `Subscriptions`                             | `(state) => HashMap<K, Subscription<Message>>`, reconciled by key                         |
+| `modelOf`                                                | a program's model in a state, as `run` makes it                                           |
+| `Offers`                                                 | what `makeModel` receives: `offer(message)` and `offerInput(toMessage, current)`          |
+| `Offer`, `InputOffer`, `Offered`                         | an optional offered message; an optional function to one; the brand                       |
+| `View`, `Dispatch`, `mapDispatch`                        | `(model, dispatch) => Node`; a dispatch of offered messages; a child's dispatch           |
+| `dispatchUnsafe`                                         | a dispatch that sends at once, for a renderer's plain callbacks                           |
+| `embed`, `embedEach`                                     | lift a child program, or a collection of them, into a parent                              |
+| `run`, `Frame`, `RunOptions`                             | run a program with a renderer; what the renderer draws; how the program runs              |
+| `Applied`                                                | what `onApplied` hears: a message, the states around it, its revision and commands        |
+| `RejectionOptions`                                       | `onRejected` (`'die'` or `'ignore'`) with the `onBug` it requires                         |
+| `Bug`, `BugReporter`, `DefectSource`                     | what `onBug` receives; `onBug` itself; where a defect happened                            |
+| `RejectedMessage`                                        | the defect the run fails with when a rejection is fatal                                   |
 
 From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `drive`, `DriveOptions`, `Driver`,
 `Action`, `tap`, `input`, `dispatchViolations`, `DispatchViolation`.

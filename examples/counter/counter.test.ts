@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { isRejected } from '@fgaudo/effect-tea'
+import { isRejected, modelOf } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations, drive, tap } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
@@ -22,7 +22,7 @@ describe('counter', () => {
   test('the view only sends what update accepts', () => {
     const check = dispatchViolations(update, { repeatable: () => true })
     fc.assert(fc.property(fc.nat(1_000), (count) => {
-      expect(check(count, messagesSentBy(view, counter.makeModel(count)))).toEqual([])
+      expect(check(count, messagesSentBy(view, modelOf(counter)(count)))).toEqual([])
     }))
   })
 

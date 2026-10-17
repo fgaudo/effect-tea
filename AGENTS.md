@@ -55,8 +55,11 @@ The version in `package.json` is the one the next release will have, decided by 
 
 ## Invariants the engine keeps
 
-- **`update` is pure and called freely.** The library calls it to decide offers (`offers`)
+- **`update` is pure and called freely.** The library calls it to decide offers
   as well as to apply messages. Never assume it runs once per message.
+- **Only the library makes the `Offers` a model receives**, from the program's own `update` and the state
+  it passes to `makeModel` (`modelOf`, and `embed`'s `makeModel` for a child). `offers` stays internal: a
+  model that could build its own could ask the wrong `update`, or about another state.
 - **Only `offers` makes an `Offered`** (through the internal `offered` and `offeredInput`). `mapDispatch` is the only other cast, valid
   because the parent accepts `wrap(message)` exactly when the child accepts `message`. Add no other way to
   forge one.

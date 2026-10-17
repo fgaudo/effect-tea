@@ -2,7 +2,7 @@ import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 import * as Engine from './engine.ts'
 import type { RejectionOptions } from './bug.ts'
-import type { Program } from './program.ts'
+import { modelOf, type Program } from './program.ts'
 import type { Dispatch } from './view.ts'
 
 /** What a renderer draws: a model, and the dispatch bound to the state it was made from. */
@@ -40,8 +40,9 @@ export const run = <State, Model, Message, Command, R, RR, K>(
 ): Effect.Effect<void, never, R | RR> =>
   Effect.gen(function*() {
     const engine = yield* Engine.make({ ...program, ...options })
+    const makeModel = modelOf(program)
     const frames = Stream.map(engine.state$, (frame) =>
-      lazyFrame(() => program.makeModel(frame.state), engine.dispatchFrom(frame)))
+      lazyFrame(() => makeModel(frame.state), engine.dispatchFrom(frame)))
     yield* Effect.raceFirst(engine.await, render(frames))
   }).pipe(Effect.scoped)
 

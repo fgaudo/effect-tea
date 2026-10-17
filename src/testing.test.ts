@@ -10,7 +10,7 @@ import * as References from 'effect/References'
 import * as TestClock from 'effect/testing/TestClock'
 import { RejectedMessage } from './bug.ts'
 import type { RunCommand } from './command.ts'
-import { type InputOffer, type Offer, type Offered, offers } from './offer.ts'
+import type { InputOffer, Offer, Offered } from './offer.ts'
 import type { Program } from './program.ts'
 import { reject, type Update } from './update.ts'
 import { applyAll, dispatchViolations, drive, input, simulate, tap } from './testing.ts'
@@ -200,15 +200,12 @@ describe('drive', () => {
           Channel.ensuring(onStop),
         ),
       ]),
-    makeModel: (note) => {
-      const { offer, offerInput } = offers(editNote, note)
-      return {
-        note,
-        changeText: offerInput((text: string) => ({ _tag: 'Typed', text }), note.text),
-        save: offer({ _tag: 'Save' }),
-        explode: offer({ _tag: 'Explode' }),
-      }
-    },
+    makeModel: (note, { offer, offerInput }) => ({
+      note,
+      changeText: offerInput((text: string) => ({ _tag: 'Typed', text }), note.text),
+      save: offer({ _tag: 'Save' }),
+      explode: offer({ _tag: 'Explode' }),
+    }),
   })
 
   // The program dies on purpose in some tests: what it logs then is expected.
@@ -271,7 +268,10 @@ describe('drive', () => {
     // `save` is offered even with an empty text, which `update` rejects.
     const overOffering: Program<Note, NoteModel, Edit, NoteCommand, never> = {
       ...correct,
-      makeModel: (note) => ({ ...correct.makeModel(note), save: Opt.some({ _tag: 'Save' } as Offered<Edit>) }),
+      makeModel: (note, offers) => ({
+        ...correct.makeModel(note, offers),
+        save: Opt.some({ _tag: 'Save' } as Offered<Edit>),
+      }),
     }
     const exit = await Effect.runPromiseExit(quietly(drive(overOffering, (driver) =>
       Effect.gen(function*() {

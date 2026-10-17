@@ -4,20 +4,31 @@ import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import type { Execution, RunCommand } from './command.ts'
+import { type Offers, offers } from './offer.ts'
 import type { Subscribe, Subscription, Subscriptions } from './subscription.ts'
 import { isRejected, reject, type Rejected, type Step, type Transition, type Update } from './update.ts'
 
 /**
  * The view is not part of it: it lives in its own module, so it can be hot reloaded. A program without
  * commands has `never` as its `Command`, and `absurd` (from `effect/Function`) as its `runCommand`.
+ * `makeModel` receives the offers of its own `update` in that very state, so a model can offer nothing else.
  */
 export interface Program<State, Model, Message, Command, R, Event = never, K = unknown> {
   readonly init: Step<State, Command>
   readonly update: Update<State, Message, Command, Event>
   readonly runCommand: RunCommand<Command, Message, R>
   readonly subscriptions: Subscribe<State, Message, R, K>
-  readonly makeModel: (state: State) => Model
+  readonly makeModel: (state: State, offers: Offers<Message>) => Model
 }
+
+/** The model of a program in `state`, with the offers of the program's own `update`, as `run` makes it. */
+export const modelOf = <State, Model, Message, Command, Event>(
+  program: Readonly<{
+    update: Update<State, Message, Command, Event>
+    makeModel: (state: State, offers: Offers<Message>) => Model
+  }>,
+) =>
+(state: State): Model => program.makeModel(state, offers(program.update, state))
 
 const mapExecution = <A, B, R>(execution: Execution<A, R>, f: (message: A) => B): Execution<B, R> =>
   Effect.map(execution, Opt.map(f))
@@ -64,9 +75,9 @@ const missing = (name: string, key: string, what: string) => (): never => {
   throw new Error(`${name}("${key}"): the child emitted ${what}, but nothing handles it`)
 }
 
-type Child<ChildState, ChildMessage, ChildCommand, R, ChildEvent, K> = Pick<
-  Program<ChildState, unknown, ChildMessage, ChildCommand, R, ChildEvent, K>,
-  'update' | 'runCommand' | 'subscriptions'
+type Child<ChildState, ChildModel, ChildMessage, ChildCommand, R, ChildEvent, K> = Pick<
+  Program<ChildState, ChildModel, ChildMessage, ChildCommand, R, ChildEvent, K>,
+  'update' | 'runCommand' | 'subscriptions' | 'makeModel'
 >
 
 type EmbedOptions<ParentState, ParentMessage, ParentCommand, ChildState, ChildMessage, ChildCommand, ChildEvent> =
@@ -98,13 +109,15 @@ type EmbedOptions<ParentState, ParentMessage, ParentCommand, ChildState, ChildMe
  * It returns `update`, `subscriptions`, `liftCommands(commands)`, which wraps a child's commands, e.g. those
  * of its `init` when the parent adds it (where the child's state goes is the parent's own business), and
  * `runCommand(command)`, the child's interpreter with its messages wrapped, for the parent's interpreter to
- * delegate to.
+ * delegate to, and `makeModel(childState)`, the child's model with the offers of the child's own `update`, for
+ * the parent's model. The child's view sends through `mapDispatch(dispatch, wrap)`.
  */
 // `ParentCommand` comes last, so that it is `never` when neither `wrapCommand` nor `onEvent` gives one.
 export const embed = <
   ParentState,
   ParentMessage,
   ChildState,
+  ChildModel,
   ChildMessage,
   ChildCommand,
   R,
@@ -112,7 +125,7 @@ export const embed = <
   K = unknown,
   ParentCommand = never,
 >(
-  child: Child<ChildState, ChildMessage, ChildCommand, R, ChildEvent, K>,
+  child: Child<ChildState, ChildModel, ChildMessage, ChildCommand, R, ChildEvent, K>,
   options: EmbedOptions<ParentState, ParentMessage, ParentCommand, ChildState, ChildMessage, ChildCommand, ChildEvent>,
 ) => {
   const { key, wrap, get, set, getSubscribed = get } = options
@@ -123,6 +136,8 @@ export const embed = <
       Arr.map(commands, wrapCommand),
 
     runCommand: (command: ChildCommand): Execution<ParentMessage, R> => mapExecution(child.runCommand(command), wrap),
+
+    makeModel: modelOf(child),
 
     update: (message: ChildMessage) => (state: ParentState): Transition<ParentState, ParentCommand> =>
       Opt.match(get(state), {
@@ -179,13 +194,15 @@ type EmbedEachOptions<
  *   numbers, or Effect data);
  * - `onEvent(id, event)` handles what a child asks of its parent;
  * - `liftCommands(id, commands)` lifts a child's commands, e.g. those of its `init` when the parent adds it;
- * - `runCommand(id, command)` runs a child's command with its messages wrapped, for the parent's interpreter.
+ * - `runCommand(id, command)` runs a child's command with its messages wrapped, for the parent's interpreter;
+ * - `makeModel(childState)` makes a child's model with the offers of the child's own `update`.
  */
 export const embedEach = <
   ParentState,
   ParentMessage,
   Id,
   ChildState,
+  ChildModel,
   ChildMessage,
   ChildCommand,
   R,
@@ -193,7 +210,7 @@ export const embedEach = <
   K = unknown,
   ParentCommand = never,
 >(
-  child: Child<ChildState, ChildMessage, ChildCommand, R, ChildEvent, K>,
+  child: Child<ChildState, ChildModel, ChildMessage, ChildCommand, R, ChildEvent, K>,
   options: EmbedEachOptions<
     ParentState,
     ParentMessage,
@@ -214,6 +231,8 @@ export const embedEach = <
 
     runCommand: (id: Id, command: ChildCommand): Execution<ParentMessage, R> =>
       mapExecution(child.runCommand(command), (message) => wrap(id, message)),
+
+    makeModel: modelOf(child),
 
     update: (id: Id, message: ChildMessage) => (state: ParentState): Transition<ParentState, ParentCommand> =>
       Opt.match(get(state, id), {

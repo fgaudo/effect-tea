@@ -19,6 +19,14 @@ version.
 
 ### Changed
 
+- `makeModel` receives the offers: `makeModel(state, { offer, offerInput })`. The library makes them from the
+  program's own `update` and the very state it passes, so a model can no longer ask another `update`, or
+  about another state, and `offers` is no longer exported. `modelOf(program)(state)` makes a program's model
+  outside `run` (e.g. in a test), and `embed` and `embedEach` return `makeModel(childState)`, the child's
+  model with the child's offers, for the parent's model. To upgrade, take `{ offer, offerInput }` as
+  `makeModel`'s second argument instead of calling `offers(update, state)`, call the `makeModel` that
+  `embed` returns instead of the child's, and replace `program.makeModel(state)` with
+  `modelOf(program)(state)`.
 - Commands are data. `update` returns values of the program's own `Command` type, and a new piece of the
   program, `runCommand`, turns each one into an `Execution<Message, R>` (the effect that used to be called
   `Command`). Tests assert the commands themselves instead of counting them, and `onApplied` receives them:

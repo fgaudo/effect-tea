@@ -79,8 +79,8 @@ export const app: Program<State, Model, Message, Command, never> = {
   subscriptions: (state) => HashMap.union(clockPage.subscriptions(state), aboutPage.subscriptions(state)),
   makeModel: (state) => ({
     page: Opt.match(state.maybeAbout, {
-      onNone: () => ({ _tag: 'Clock', model: Clock.clock.makeModel(state.clock) }),
-      onSome: (about) => ({ _tag: 'About', model: About.about.makeModel(about) }),
+      onNone: () => ({ _tag: 'Clock', model: clockPage.makeModel(state.clock) }),
+      onSome: (about) => ({ _tag: 'About', model: aboutPage.makeModel(about) }),
     }),
   }),
 }

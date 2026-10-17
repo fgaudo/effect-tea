@@ -11,7 +11,7 @@ import * as Stream from 'effect/Stream'
 import { type Bug, RejectedMessage } from './bug.ts'
 import type { Applied } from './engine.ts'
 import { reject, type Update } from './update.ts'
-import { type Offer, type Offered, offers } from './offer.ts'
+import type { Offer, Offered } from './offer.ts'
 import type { Program } from './program.ts'
 import { type Frame, run, type RunOptions } from './run.ts'
 
@@ -31,7 +31,7 @@ const counter: Program<number, Model, Message, Command, never> = {
   update,
   runCommand: (command) => command === 'Ping' ? Effect.succeedSome<Message>('Increment') : Effect.die('boom'),
   subscriptions: () => HashMap.empty(),
-  makeModel: (count) => ({ count, increment: offers(update, count).offer('Increment') }),
+  makeModel: (count, { offer }) => ({ count, increment: offer('Increment') }),
 }
 
 // The engine dies on purpose in some tests: what it logs then is expected.
