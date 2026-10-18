@@ -129,6 +129,9 @@ when the message makes no sense in that state.
 - **`update` is pure.** It never runs effects: it returns `commands`, data that says what to do, and the
   program's `runCommand` turns them into effects. The library also calls it to decide offers, so it must be
   cheap and free of side effects.
+- **Treat state as immutable, including its nested objects.** Do not mutate the current state or anything it
+  contains; return a new state when it changes. The library uses state identity to decide whether to publish
+  a new frame, and `embed` and `embedEach` keep a child's model while its state object stays the same.
 - **Conditions live in `update`.** "Can the user save now?" is answered once, here, by rejecting. The view
   never repeats the check.
 - **Name intents, not toggles.** Prefer `MenuOpened`/`MenuClosed` to `MenuToggled`: an intent sent twice (a
@@ -158,18 +161,11 @@ type Editor = Data.TaggedEnum<{
 }>
 ```
 
-`makeModel` picks the case from the state, and fills it with `offer(message)`, and with
-`offerInput(toMessage, current)` for a message that carries what the user types. Each one asks `update` in
-that state, and throws **`RejectedOffer`** if `update` rejects it: the case promised an action that the state
-does not allow, and the program dies as the model is made, instead of drawing a control that sends a
-rejected message. So there are two descriptions of what can be done, checked against each other every time a
-model is made: the case the state picks, and what `update` accepts. Pick the case from the state, never from
-whether an offer would succeed: a case chosen by asking `update` would hide a wrong rejection instead of
-reporting it.
-
-The library makes `offers` from the program's own `update` and the very state it passes, so a model cannot
-ask the wrong `update`, or about another state. Outside the program, a test makes the same model with
-`modelOf(program)(state)`, and any state for which it throws is a bug.
+`makeModel` picks a case from the state and fills its actions with `offer(message)`, or
+`offerInput(toMessage, current)` for typed input. Each offer checks `update` in that state and throws
+**`RejectedOffer`** if the model promises an action the state does not allow. Choose the case from the state;
+choosing it by probing offers could hide a disagreement with `update`. The library supplies offers for the
+program's own `update` and state. `modelOf(program)(state)` makes the same model in tests.
 
 A view is `(model, dispatch) => Node`, and `dispatch` only takes **offered** messages, a brand that only
 `offers` creates. Building a message in the view does not compile:
@@ -185,16 +181,14 @@ built on Effect runs it as it is. One whose handlers are plain callbacks, like s
 - A model may offer **less** than `update` accepts (e.g. to hide an action), never more: a case simply has
   no field for what it hides. `missingOffers` (see [testing](#testing)) finds what a model leaves out by
   mistake.
-- **Input is never a reason to reject.** Whatever is typed is stored, and its validity becomes model data:
-  "Save" exists only for a name that is not blank. `offerInput` asks `update` with the current value, and the
-  answer holds for any value.
+- **Input is never a reason to reject.** Store what is typed and make validity model data: for example, offer
+  "Save" only for a nonblank name. `offerInput` checks the current value; the offer then holds for any input.
 - **Nor is the state.** `update` accepts what is typed into a field in every state where the field exists:
   to disable it (e.g. while saving), the model's case for that state has no input to type into. A key typed
   just before the input was disabled is then stored, instead of staying on screen while the state lacks it
   (see [inputs](#inputs-the-user-types-into)).
-- **Cost:** each offer runs `update` once per drawn frame. Keep the rejecting branches cheap, and in long
-  lists offer per-item actions only for the items on screen. A child of `embed` or `embedEach` pays only
-  when its state changes (see [composing](#composing-programs)).
+- **Cost:** each offer runs `update`. Keep rejection checks cheap, and in long lists offer actions only for
+  visible items. Embedded child models are reused while their state object stays the same.
 
 ### Commands
 
@@ -205,19 +199,13 @@ message (`None` for effects that only act on the world). A test of `update` can 
 `expect(commands).toEqual([Command.Save({ name: 'Ada' })])`, without running anything, and `onApplied` and
 the logs see it too.
 
-- An execution's error channel is `never`: an expected failure becomes a message, so that `update` decides
-  what it means. `attempt(effect, { onSuccess, onFailure })` does that for an effect that may fail.
-- Everything an execution needs is in its command: `runCommand` gets no state.
-- `R` is what the executions need (services). `run` requires it, so you provide it once, around the
-  program. `update` has none in its type.
-- A program without commands has `never` as its `Command` (the default), and no `runCommand`: the types
-  require it exactly when there are commands to interpret.
-- An operation in progress is a state that only its completion leaves (`isSaving` in
-  [`form`](examples/form/form.ts)), and `update` rejects the completion in any other state. Commands cannot be
-  cancelled, so a completion always belongs to the operation in progress; give operations an id only when
-  several of a kind can overlap.
-- A **defect** (`Effect.die`, a thrown exception) is a bug: the program dies. Never catch it to turn it into a
-  message.
+- Expected failures become messages for `update` to handle; `attempt(effect, { onSuccess, onFailure })` does
+  this for effects with an error channel. Defects (`Effect.die` or thrown exceptions) end the run.
+- A command contains everything its interpreter needs; `runCommand` receives no state. Its services are
+  represented by `R` and provided around `run`. A program with no commands (`Command = never`) needs no
+  interpreter.
+- Commands cannot be cancelled. Model an operation in progress so only its completion can leave that state;
+  give operations ids when multiple instances can overlap. See [`form`](examples/form/form.ts).
 
 ### Subscriptions
 
@@ -235,13 +223,13 @@ After every change of state, the engine compares the keys, by value:
 - a key that **disappears** interrupts it, and what it had sent that `update` has not received yet is dropped;
   if the key comes back, it starts anew.
 
-So what the program listens to depends on its state: in [`list`](examples/list/stopwatch.ts), a stopwatch
-ticks only while it runs, and no tick arrives after the message that stopped it. A subscription delivers only
-while the program listens; what must never be lost comes from a command, whose message always arrives.
+Subscriptions suit ongoing input tied to state, such as the running stopwatches in
+[`list`](examples/list/stopwatch.ts). Use a command when a completion must be delivered even after the
+program stops listening.
 
-- **From a stream**, which may end, decide what its end means. To keep listening to nothing until the key
-  goes away: `Stream.toChannel(stream).pipe(Channel.flattenArray, Channel.concatWith(() => Channel.never))`;
-  or end with `Channel.die` if the end is a bug.
+- **From a stream**, decide what its end means. To keep listening after normal completion:
+  `Stream.toChannel(stream).pipe(Channel.flattenArray, Channel.concatWith(() => Channel.never))`; use
+  `Channel.die` if ending is a bug.
 - **Failures** become messages too: retry transient errors at the source (`Stream.retry` with a `Schedule`),
   or end with a message, and let `update` drop the key and bring it back to try again.
 - A **defect** ends the run, like any defect.
@@ -263,48 +251,32 @@ Since every offer is checked as the model is made, such a message was forged wit
 
 ### Composing programs
 
-`embed(child, options)` lifts a child program (a page, a dialog) into its parent, and `embedEach` a
-collection of them, each with an id (the cards of a list):
+Use `embed(child, options)` for one child (a page or dialog), and `embedEach` for children identified by ids
+(such as list items):
 
 - `wrap` turns a child's message into the parent's; `get` and `set` read and write the child's state. When
   `get` returns `None` the child is absent, and its messages are rejected.
-- `key` namespaces the child's subscription keys (with the id, for `embedEach`, so ids must compare by
-  value). `subscribed` decides which children listen (for `embed` an `Option`, `get` by default; for
-  `embedEach` a list): a hidden page can keep receiving its completions without listening to the world.
-  After every change of state the parent's subscriptions are gathered from each child that listens, so
-  `embedEach`'s `subscribed` lists only those (the running
-  stopwatches in [`list`](examples/list)), not every child.
-- A child never acts on its parent: it emits **events**, and `onEvent` decides. The types require `onEvent`
-  exactly when the child has events. The step `onEvent` returns may emit events of the parent's own, for the
-  parent's parent (a dialog's `Confirmed` becomes its page's `AccountDeleted`): they come out of the returned
-  `update`, in order. Build them with constructors (`Data.TaggedEnum`), or `as const` for strings, so that
-  their type is inferred as the union and not as `string`.
-- `wrapCommand` turns a child's command into the parent's, usually a case that holds it
-  (`Command.About({ command })`); the types require it exactly when the child has commands.
-- They return the child's `update` and `subscriptions` lifted into the parent, `liftCommands`, `runCommand`
-  and `makeModel`. When the parent adds a child, it puts the child's initial state where it belongs, and
-  starts its `init` commands through `liftCommands`. The parent's own `runCommand` hands the child's case to
-  the returned `runCommand`, which runs the child's interpreter and wraps its messages. The parent's model
-  holds the child's as the returned `makeModel(childState)` makes it, with the offers of the child's own
-  `update`.
+- `key` namespaces subscription keys; `embedEach` also includes the id, which must compare by value.
+  `subscribed` selects which children listen, so a hidden page can still receive command completions without
+  listening to the world.
+- Children report **events** to the parent; `onEvent` handles them and may return events for the next parent.
+  The types require it only when the child emits events. Use tagged constructors (or `as const`) to preserve
+  the event union.
+- `wrapCommand` maps child commands into parent commands and is required when the child has commands.
+  `liftCommands` handles a child's initial commands; the returned `runCommand` delegates child commands and
+  wraps their messages. See [`pages`](examples/pages) and [`list`](examples/list).
 
-In the view, `mapDispatch(dispatch, wrap)` lets the child's view send through the parent's `dispatch`. Pass
-it the same `wrap` given to `embed`: that is what keeps the child's offers valid for the parent. See
-[`pages`](examples/pages) and [`list`](examples/list).
+In the view, `mapDispatch(dispatch, wrap)` lifts the child's dispatch. Use the same `wrap` as `embed` so the
+parent accepts the child's offered messages.
 
-The `makeModel` that `embed` and `embedEach` return gives the very same model, offers included, while the
-child's state is the same object, so a renderer can memoize a child's view on its model (snabbdom's `thunk`)
-and skip the children that did not change. A memoized view keeps the `dispatch` of the frame it was drawn
-from, and that is safe: the parent accepts a child's message exactly when the child accepts it in its own
-state, and that state was the same.
+Embedded models are reused while the child's state object stays the same. This lets a renderer memoize
+unchanged child views (for example, with snabbdom's `thunk`); their frame-bound dispatch remains valid.
 
 ### Running
 
-`run(program, render, options)` starts the program and hands `render` the stream of frames; the run ends when
-`render` ends. A renderer slower than the program gets only the latest frame: one that a newer frame replaced
-would be drawn for nothing. A frame's model is made the first time it is read, so a renderer that skips
-frames (e.g. one per animation frame) never pays for the others, and a message that leaves the very same state
-(`===`) makes no frame. `RunOptions`:
+`run(program, render, options)` starts the program and gives the renderer a stream of frames. The run ends
+when the renderer ends. A slow renderer gets only the latest frame; a frame's model is made only when read,
+and a message that returns the same state (`===`) makes no frame. `RunOptions`:
 
 - **`onRejected`** (required): what a [bug rejection](#rejections-stale-or-bug) does. `'die'` fails the run
   with `RejectedMessage`, which is what you want while developing. A function drops the message and goes on,
@@ -315,27 +287,22 @@ frames (e.g. one per animation frame) never pays for the others, and a message t
 - **`onApplied(applied)`** hears every accepted message, with the states before and after it and the commands
   it started, before its frame is drawn: for devtools, session recordings or analytics. Keep it quick.
 
-A **defect** always ends the run, wherever it happens: in `update`, `makeModel` (a `RejectedOffer` too), the
-view or the renderer, `subscriptions`, a subscription, a command, or one of the options. The run fails with
-it, and whoever runs the program reports it, the way any Effect program's failure is reported. In a browser, start it with
-`BrowserRuntime.runMain` from `@effect/platform-browser`, as the examples do, so that a program that dies is
-logged, and add a crash-reporting service with `Effect.tapCause`:
+A **defect** in the program or renderer ends the run and reaches its caller. In a browser, use
+`BrowserRuntime.runMain` from `@effect/platform-browser` so failures are reported, and add crash reporting
+with `Effect.tapCause`:
 
 ```ts
 BrowserRuntime.runMain(run(app, render, options).pipe(Effect.tapCause((cause) => reportCrash(cause))))
 ```
 
-The cause arrives once the run has stopped its commands and subscriptions. A renderer's plain callbacks, such
-as a DOM event handler, run outside Effect: a throw there reaches the browser's own error handler instead.
-The run logs with Effect's logger: `debug` for the message loop and the subscriptions, `error` for bugs, with
-where a defect happened when the engine knows it.
+The cause arrives after the run stops its commands and subscriptions. Plain renderer callbacks, such as DOM
+event handlers, run outside Effect; thrown errors go to the browser's error handler. The engine logs
+message-loop and subscription activity at `debug`, and bugs at `error`.
 
 ### Inputs the user types into
 
-A frame is drawn after its messages were handled, so it can be older than what the user has typed since. A
-view that wrote the model's text into an input on every frame could then take back the last keys and move
-the caret, and no timing rules that out, since a renderer may even draw on another thread. So the text of an
-input has one author at a time:
+A frame may be older than the user's latest keystroke. Rewriting an input from every frame can erase typed
+text or move the caret, so let either the user or the program own the input value at a time:
 
 - **While the user types, the input owns its text.** The view writes it only when the input is created, and
   the program learns it from the input's messages, which `update` always accepts.
@@ -343,20 +310,19 @@ input has one author at a time:
   that the renderer creates a new input with the new text. The key is a revision in the state, which grows
   only when the program replaces the text.
 
-[`examples/field.ts`](examples/field.ts) keeps the two together: `Field.typed` for what the user typed,
-`Field.replace` for a text from the program, which raises the revision, so that a replaced text cannot keep
-the old input. `initialValue` in [`examples/snabbdom.ts`](examples/snabbdom.ts) writes a text only into a new
-input, and [`form`](examples/form) uses both. With React Native, `defaultValue` and `key` do the same.
+[`examples/field.ts`](examples/field.ts) models this with `Field.typed` and `Field.replace`; the latter raises
+a revision so the renderer creates a new input. `initialValue` in [`examples/snabbdom.ts`](examples/snabbdom.ts)
+writes only when creating that input. [`form`](examples/form) shows both; React Native uses `defaultValue`
+and `key` for the same pattern.
 
-What the program does to a text while it is typed (trims it, keeps only digits) is in the state but not on
-screen until the input is created again: limit what can be typed with the input's own attributes
-(`maxlength`, `inputmode`), or show the problem instead of changing the text. A new input does not keep the
-focus.
+If the program normalizes typed text, the change appears only when the input is recreated. Prefer input
+attributes such as `maxlength` and `inputmode`, or show validation feedback instead. Recreating an input
+does not preserve focus.
 
 ### Testing
 
-`update` and `makeModel` are pure, so most tests need no runtime. `@fgaudo/effect-tea/testing` has a tool for
-each level, all of them used in the examples' tests:
+Most tests can exercise pure `update` and `makeModel` without a runtime. Choose a tool by what the test should
+cover:
 
 | Tool                                                       | Runs                                               | For                                           |
 | ---------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------- |
@@ -366,32 +332,17 @@ each level, all of them used in the examples' tests:
 | `simulate(program)(messages, from)`                        | `update` and the commands, each completing at once | a flow with its services, without a runtime   |
 | `drive(program, scenario, options?)`                       | the program with `run`, subscriptions included     | a user's scenario, as the program really runs |
 
-- Commands are data, so assert them: `applyAll` returns the commands `update` returned, and `simulate` every
-  command it ran. `simulate` takes `update` and `runCommand` (a program has both): the program's own, with its
-  services provided, or one of the test's that answers each command and needs none.
-- A rejection of one of your messages fails `applyAll` and `simulate`. Assert expected rejections with
-  `isRejected(update(message)(state))`, not by comparing states.
-- A command's message that `update` rejects is ignored as stale, as when the program runs, where it may have
-  arrived too late. In `simulate` each command completes at once, so such a message is usually a bug (a form
-  stuck saving): `simulate` lists them in `ignored`, and `expect(ignored).toEqual([])` catches it. Commands
-  started together that exclude one another are the exception, and their test says so.
-- `dispatchViolations` reports each message that `update` rejects in `state` (`Rejected`), and each one that
-  acts again when sent twice from the same frame (`ActsTwice`: a double tap would repeat a one-shot action),
-  except the `repeatable` ones. Collecting what the view can send depends on the renderer (`messagesSentBy`
-  in `examples/snabbdom.ts`). States are compared with `Equal`, by value; a state is data, and a function in
-  it would be compared by reference, so a new one on every `update` would look like a second action.
-- `modelOf(program)(state)` for arbitrary states checks every offer against `update`: a model that offers
-  what `update` rejects throws `RejectedOffer`.
-- `missingOffers` checks the other direction: of the messages a user could ask for in `state` (the test lists
-  them, with the text it types into inputs), those that `update` accepts and the view does not send. Each is
-  an action the model left out by mistake, a control missing from the screen. `withheld(message, state)`
-  excludes what the model hides on purpose (typing while saving, a page covered by another). Messages are
-  compared with `Equal`.
-- `drive` gives the scenario a `Driver`: `waitFor(select)` waits for a frame whose model `select` maps to
-  `Some`; `send(select)` waits for a frame on which `select` finds an `Action` (`tap(message)` for an offered
-  message, `input(toMessage, value)` for an input), and does it. A rejected message is always fatal there.
-  Wait for what the model shows, never for "the next frame"; a wait fails after `patience` (2 seconds),
-  measured with the real clock, so that a `TestClock` can move the program's time.
+- Use `applyAll` to test transitions and assert returned commands/events. A rejected test message fails; check
+  an expected rejection with `isRejected(update(message)(state))`.
+- Use `simulate` to test a flow including command interpretation, without a runtime. Commands complete in
+  order; rejected command messages are listed in `ignored` as stale. Assert that list when a dropped
+  completion would indicate a bug.
+- Use `dispatchViolations` and `missingOffers` to compare the view's actions with what `update` accepts.
+  `dispatchViolations` catches rejected or repeated actions; `missingOffers` catches actions the model leaves
+  out. Supply the messages the renderer can send (see `messagesSentBy` in `examples/snabbdom.ts`).
+- Use `modelOf(program)(state)` to validate offers in arbitrary states. Use `drive` for scenarios that need
+  the real runtime and subscriptions: `waitFor` and `send` act through displayed frames, and a rejection is
+  fatal. Its waits use the real clock and fail after `patience` (2 seconds).
 
 ## API reference
 

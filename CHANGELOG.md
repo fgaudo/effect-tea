@@ -28,6 +28,8 @@ version.
 
 ### Changed
 
+- The README clarifies immutable state and gives direct guidance on choosing a testing tool, with shorter
+  explanations of the advanced concepts.
 - An offer is an `Offered<Message>`, no longer an `Option`: `offer(message)` returns the offered message and
   throws `RejectedOffer` when `update` rejects it, and `offerInput(toMessage, current)` returns the function
   that makes the message. Which actions exist in a state is said by the model's shape, a case for each state
