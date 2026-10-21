@@ -11,12 +11,9 @@ import * as Stream from 'effect/Stream'
 import * as fc from 'fast-check'
 import { messagesSentBy } from '../snabbdom-next.ts'
 import * as About from './about.ts'
-import { app, type State } from './app.ts'
+import { app, type Message, type Model, type State } from './app.ts'
 import * as Clock from './clock.ts'
 import { view } from './view.ts'
-
-/** The parent's messages, made by the library from its pages': `{ _tag: 'Clock' | 'About', message }`. */
-type Message = Parameters<typeof app.update>[0]
 
 const aboutClicked: Message = { _tag: 'Clock', message: Clock.Message.AboutClicked() }
 const backClicked: Message = { _tag: 'About', message: About.Message.BackClicked() }
@@ -64,7 +61,7 @@ describe('pages, on the prototype', () => {
       withheld: (message, state) => message._tag === 'Clock' && Opt.isSome(state.maybeAbout),
     })
     fc.assert(fc.property(state, (before) => {
-      const sent = messagesSentBy<ReturnType<typeof app.makeModel>, Message>(view, modelOf(app)(before))
+      const sent = messagesSentBy<Model, Message>(view, modelOf(app)(before))
       expect(violations(before, sent)).toEqual([])
       expect(missing(before, sent, [aboutClicked, backClicked])).toEqual([])
     }))

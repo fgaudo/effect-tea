@@ -25,10 +25,11 @@ export type Program<State, Model, Message, Command = never, R = never, Event = n
 // Only what every program has: `Program<any, …>` would demand a `runCommand` (`[any] extends [never]` is false).
 type AnyProgram = Readonly<{ init: Step<any, any>; update: any; makeModel: any }>
 
-type StateOf<P> = P extends { readonly init: Step<infer S, any> } ? S : never
-type ModelOf<P> = P extends { readonly makeModel: (state: any, offers: any) => infer M } ? M : never
-type MessageOf<P> = P extends { readonly update: (message: infer M) => any } ? M : never
-type CommandOf<P> = P extends { readonly init: Step<any, infer C> } ? C : never
+/** A program's state, model, message and command: e.g. `MessageOf<typeof app>` for a composed one. */
+export type StateOf<P> = P extends { readonly init: Step<infer S, any> } ? S : never
+export type ModelOf<P> = P extends { readonly makeModel: (state: any, offers: any) => infer M } ? M : never
+export type MessageOf<P> = P extends { readonly update: (message: infer M) => any } ? M : never
+export type CommandOf<P> = P extends { readonly init: Step<any, infer C> } ? C : never
 type EventOf<P> = P extends { readonly update: Update<any, any, any, infer E> } ? E : never
 type ServicesOf<P> =
   | (P extends { readonly runCommand: RunCommand<any, any, infer R> } ? R : never)
@@ -138,7 +139,14 @@ type OnEvents<State, C, Command, Event> = {
     ) => (state: State) => Step<State, Command, Event>
 }
 
-export type Config<State, C, Own, OwnCommand, Event, Model, R, K> = Readonly<{
+/** `onEvent` is required exactly when a child emits events, so that none goes unhandled. */
+type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Event>] extends [never]
+  ? Readonly<{ onEvent?: OnEvents<State, C, Command, Event> }>
+  : Readonly<{ onEvent: OnEvents<State, C, Command, Event> }>
+
+export type Config<State, C, Own, OwnCommand, Event, Model, R, K> =
+  & OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event>
+  & Readonly<{
   init: Step<State, OwnCommand | ChildCommands<C>>
   children: C
   /** The parent's own messages: its children's are routed by the library. */
@@ -146,7 +154,6 @@ export type Config<State, C, Own, OwnCommand, Event, Model, R, K> = Readonly<{
     message: Own,
     children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>,
   ) => (state: State) => Transition<State, OwnCommand | ChildCommands<C>, Event>
-  onEvent: OnEvents<State, C, OwnCommand | ChildCommands<C>, Event>
   runCommand?: (command: OwnCommand) => Execution<Own | ChildMessages<C>, R>
   subscriptions?: Subscriptions<State, Own, R, K>
   makeModel: (state: State, offers: Offers<Own> & Readonly<{ children: Models<State, C> }>) => Model
@@ -232,7 +239,7 @@ export const compose = <
   const getAt = ({ name, id }: Place, state: State) => isEach(name) ? childOf(name).get(state, id) : childOf(name).get(state)
   const setAt = ({ name, id }: Place, state: State, childState: unknown) =>
     (isEach(name) ? childOf(name).set(state, id, childState) : childOf(name).set(state, childState)) as State
-  const onEvents = config.onEvent as Readonly<Record<string, (...args: ReadonlyArray<unknown>) => (state: State) => Step<State, Command, Event>>>
+  const onEvents = ((config as Readonly<{ onEvent?: unknown }>).onEvent ?? {}) as Readonly<Record<string, (...args: ReadonlyArray<unknown>) => (state: State) => Step<State, Command, Event>>>
   const onEventAt = (place: Place, event: unknown): ((state: State) => Step<State, Command, Event>) => {
     const handle = onEvents[place.name]
     if (handle === undefined) throw new Error(`compose: the child "${place.name}" emitted an event, nothing handles it`)
@@ -367,3 +374,17 @@ export const compose = <
   }
   return program as unknown as Program<State, Model, Message, Command, R | ChildServices<C>, Event>
 }
+
+/**
+ * `child`, `each` and `compose` for a parent whose state is `State`: fixed once, so that `get`, `set` and the
+ * rest are typed from it. Without it, a `get` whose parameter is left untyped makes every child `unknown`.
+ */
+export const parent = <State>() => ({
+  child: <P extends AnyProgram>(program: P, place: Omit<Child<State, P>, 'program' | 'kind'>): Child<State, P> =>
+    child(program, place),
+  each: <Id, P extends AnyProgram>(program: P, place: Omit<Each<State, Id, P>, 'program' | 'kind'>): Each<State, Id, P> =>
+    each(program, place),
+  compose: <C extends Children<State>, Model, Own = never, OwnCommand = never, Event = never, R = never, K = unknown>(
+    config: Config<State, C, Own, OwnCommand, Event, Model, R, K>,
+  ) => compose<State, C, Model, Own, OwnCommand, Event, R, K>(config),
+})

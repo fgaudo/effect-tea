@@ -1,6 +1,6 @@
 // `examples/list` on the prototype: the stopwatches are children by id. The parent says where each one lives
 // and what its event means; adding one is the parent's own message.
-import { compose, each } from '@fgaudo/effect-tea/next'
+import { type MessageOf, parent } from '@fgaudo/effect-tea/next'
 import * as Arr from 'effect/Array'
 import * as Opt from 'effect/Option'
 import * as Stopwatch from './stopwatch.ts'
@@ -12,12 +12,14 @@ export type State = Readonly<{ nextId: number; entries: ReadonlyArray<Entry> }>
 
 type AddClicked = Readonly<{ _tag: 'AddClicked' }>
 
+const { compose, each } = parent<State>()
+
 export const list = compose({
-  init: { state: { nextId: 1, entries: [] } as State },
+  init: { state: { nextId: 1, entries: [] } },
   children: {
     Stopwatch: each(Stopwatch.stopwatch, {
       // A removed stopwatch is `None`: its late messages (a tick already on its way) are rejected.
-      get: (state: State, id: number) =>
+      get: (state, id: number) =>
         Opt.map(Arr.findFirst(state.entries, (entry) => entry.id === id), (entry) => entry.stopwatch),
       set: (state, id, stopwatch) => ({
         ...state,
@@ -47,4 +49,4 @@ export const list = compose({
 export type Model = ReturnType<typeof list.makeModel>
 
 /** The list's messages, made by the library: its own, and `{ _tag: 'Stopwatch', id, message }`. */
-export type Message = Parameters<typeof list.update>[0]
+export type Message = MessageOf<typeof list>
