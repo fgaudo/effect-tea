@@ -2,6 +2,9 @@
 
 The Elm architecture on [Effect](https://effect.website) v4, for any renderer.
 
+[Documentation](https://fgaudo.github.io/effect-tea/): this guide, the API in full and the examples running in
+the browser.
+
 You keep one **state**. A pure **`update`** changes it in response to messages. Effects are described as
 data (**commands**) or listened to (**subscriptions**), never run inside `update`. The view draws a
 **model** and sends the actions the model **offers**.
@@ -117,14 +120,15 @@ Its type names its types: `Program<{ state; model; message }>`, plus `command`, 
 ## Examples
 
 [`examples/`](examples) holds complete programs, drawn with [snabbdom](https://github.com/snabbdom/snabbdom),
-each with its tests. Run one with `bun run build`, then `bun examples/<name>/index.html`.
+each with its tests. Try one in the browser, or run it with `bun run build`, then
+`bun examples/<name>/index.html`.
 
-| Example                       | What it shows                                                                                 |
-| ----------------------------- | --------------------------------------------------------------------------------------------- |
-| [`counter`](examples/counter) | the quick start with a view; `applyAll`, `dispatchViolations`, `missingOffers`, `drive`       |
-| [`form`](examples/form)       | an input the user owns while typing; a service and `attempt`; a save only its completion ends |
-| [`pages`](examples/pages)     | two pages with `parent`, events for navigation, `subscribed`, a child's commands; `simulate`  |
-| [`list`](examples/list)       | stopwatches by id with `each`, a subscription per running child; a test with a `TestClock`    |
+| Example                       | What it shows                                                                                 | Try it                                                        |
+| ----------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [`counter`](examples/counter) | the quick start with a view; `applyAll`, `dispatchViolations`, `missingOffers`, `drive`       | [live](https://fgaudo.github.io/effect-tea/examples/counter/) |
+| [`form`](examples/form)       | an input the user owns while typing; a service and `attempt`; a save only its completion ends | [live](https://fgaudo.github.io/effect-tea/examples/form/)    |
+| [`pages`](examples/pages)     | two pages with `parent`, events for navigation, `subscribed`, a child's commands; `simulate`  | [live](https://fgaudo.github.io/effect-tea/examples/pages/)   |
+| [`list`](examples/list)       | stopwatches by id with `each`, a subscription per running child; a test with a `TestClock`    | [live](https://fgaudo.github.io/effect-tea/examples/list/)    |
 
 [`examples/snabbdom.ts`](examples/snabbdom.ts) is the small bridge to the renderer, worth copying for your
 own: `renderInto` for `run`, click and input handlers, and `messagesSentBy` for tests.
@@ -366,7 +370,8 @@ test('the view sends what update accepts, all of it', () => {
 
 ## API reference
 
-From `@fgaudo/effect-tea`:
+Each export is documented in full in the [documentation](https://fgaudo.github.io/effect-tea/). From
+`@fgaudo/effect-tea`:
 
 | Export                                            | What it is                                                                                    |
 | ------------------------------------------------- | --------------------------------------------------------------------------------------------- |
@@ -396,7 +401,8 @@ From `@fgaudo/effect-tea/testing`: `messageOf`, `applyAll`, `simulate`, `Simulat
 ## Development
 
 `bun run typecheck`, `bun run lint` and `bun run test` check the package and the examples; `bun run build`
-compiles it. Changes are in [`CHANGELOG.md`](CHANGELOG.md); rules for contributors and coding agents are in
+compiles it. `bun install` and `bun run build` in [`site/`](site) build the documentation site into `site/dist/`.
+Changes are in [`CHANGELOG.md`](CHANGELOG.md); rules for contributors and coding agents are in
 [`AGENTS.md`](AGENTS.md).
 
 ## License

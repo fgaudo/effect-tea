@@ -1,4 +1,7 @@
-// The public API of the package: everything else in `src/` is internal.
+/**
+ * The public API of the package: everything else in `src/` is internal.
+ * @module @fgaudo/effect-tea
+ */
 
 // A program, the types read back from one, and a parent made of children.
 export {

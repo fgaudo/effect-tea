@@ -8,7 +8,7 @@
     "type": "git",
     "url": "git+https://github.com/fgaudo/effect-tea.git"
   },
-  "homepage": "https://github.com/fgaudo/effect-tea#readme",
+  "homepage": "https://fgaudo.github.io/effect-tea/",
   "bugs": "https://github.com/fgaudo/effect-tea/issues",
   "keywords": ["effect", "elm", "tea", "elm-architecture", "state-management"],
   "publishConfig": {

@@ -1,0 +1,12 @@
+{
+  "name": "effect-tea-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun build.ts"
+  },
+  "devDependencies": {
+    "typedoc": "0.28.20",
+    "typescript": "6.0.x"
+  }
+}

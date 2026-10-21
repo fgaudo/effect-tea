@@ -42,6 +42,20 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   and `default` (`dist/`, for everyone else). A new entrypoint needs all three, and an entry in `files` if
   it is not under `src` or `dist`.
 
+## Documentation site
+
+- `site/` builds the site published on GitHub Pages (`https://fgaudo.github.io/effect-tea/`): the API generated
+  by TypeDoc from the doc comments of `src/`, with the README as its home page, and each `examples/<name>`
+  bundled to run under `examples/<name>/`. `.github/workflows/docs.yml` builds and deploys it on every
+  `v*` tag, or when run by hand; nothing generated is committed.
+- `site/` is a package of its own because TypeDoc does not support TypeScript 7 yet: it has its own
+  `typescript` 6, used only to read the sources. Move TypeDoc to the root once it supports TypeScript 7.
+- The doc comments (`/** */`) of what `src/index.ts` and `src/testing/index.ts` export are the API reference:
+  `cd site && bun run build` must give no warnings. Types the API refers to without exporting them are
+  shown by name only, on purpose.
+- The README's relative links are rewritten to the repository at the built commit, since the site has no
+  copy of the files.
+
 ## Versions
 
 The version in `package.json` is the one the next release will have, decided by the changes that make it:
