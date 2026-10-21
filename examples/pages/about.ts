@@ -1,11 +1,10 @@
-// A page that loads a saying when it opens (its `init` commands), and asks to be left with an event.
+// A page that picks a saying when it opens, and asks its parent to leave with an event.
 import type { Execution, Offered, Program, Update } from '@fgaudo/effect-tea'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import * as Random from 'effect/Random'
 
-/** Empty while the saying loads. */
 export type State = Readonly<{ maybeSaying: Opt.Option<string> }>
 
 export type Message = Data.TaggedEnum<{
@@ -15,9 +14,7 @@ export type Message = Data.TaggedEnum<{
 
 export const Message = Data.taggedEnum<Message>()
 
-export type Command = Data.TaggedEnum<{
-  PickSaying: object
-}>
+export type Command = Data.TaggedEnum<{ PickSaying: object }>
 
 export const Command = Data.taggedEnum<Command>()
 
@@ -41,7 +38,7 @@ export const update: Update<State, Message, Command, Event> = (message) => (stat
 
 export type Model = Readonly<{ saying: Opt.Option<string>; back: Offered<Message> }>
 
-export const about: Program<State, Model, Message, Command, never, Event> = {
+export const about: Program<{ state: State; model: Model; message: Message; command: Command; event: Event }> = {
   init: { state: { maybeSaying: Opt.none() }, commands: [Command.PickSaying()] },
   update,
   runCommand: (command) => {

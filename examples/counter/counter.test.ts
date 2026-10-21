@@ -5,7 +5,7 @@ import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
 import { messagesSentBy } from '../snabbdom.ts'
-import { counter, update } from './counter.ts'
+import { counter, type Message, type Model, update } from './counter.ts'
 import { view } from './view.ts'
 
 describe('counter', () => {
@@ -31,7 +31,7 @@ describe('counter', () => {
     const violations = dispatchViolations(update, { repeatable: () => true })
     const missing = missingOffers(update)
     fc.assert(fc.property(fc.nat(1_000), (count) => {
-      const sent = messagesSentBy(view, modelOf(counter)(count))
+      const sent = messagesSentBy<Model, Message>(view, modelOf(counter)(count))
       expect(violations(count, sent)).toEqual([])
       expect(missing(count, sent, ['Increment', 'Decrement'])).toEqual([])
     }))

@@ -3,6 +3,64 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version.
 
+## 0.3.0 (unreleased)
+
+### Added
+
+- `parent<{ state; command?; event?; external? }>()`, which makes a parent from declared children: `child` for
+  one, `each` for children by id, and `compose`. The library routes the children's messages
+  (`{ _tag: <child>, message }`, with `id` for `each`), commands, subscriptions (keyed under the child's name
+  and id) and models; the parent writes only where each child lives (`get`, `set`, `subscribed`), what their
+  events mean (`onEvent`, required exactly when a child has events), and its own `update`, `runCommand` and
+  `subscriptions`. Its `update` and `onEvent` get handles to the children: `init` starts one, and `update`
+  applies to it one of the messages its type names as `external`, returning the parent's transition. Its `makeModel` gets `children`, the children's models.
+  An own message named like a child does not compile.
+- `StateOf`, `ModelOf`, `MessageOf`, `CommandOf`, `EventOf`, `ExternalOf` and `ServicesOf` read a program's
+  types back from it, e.g. `MessageOf<typeof app>` for a parent's messages.
+- `messageOf` in `@fgaudo/effect-tea/testing`: the message an offer sends, as the root of its program receives
+  it, for tests that collect what a view sends.
+
+### Changed
+
+- An offer is an opaque token that carries its message as the root of the program receives it, and there is
+  one `dispatch` per run, the same function for every frame and every child: `Dispatch` and `Frame` lose their
+  `Message` parameter (`Dispatch`, `Frame<Model>`, `View<Model, Node>`), and `dispatch` takes an offer of any
+  level of the program. A renderer can therefore memoize a child's view on its model and the dispatch (e.g.
+  snabbdom's `thunk`).
+- Rejections are judged by the offer, no longer by the frame's state: every offer was checked when its model
+  was made, so a rejected one is stale and ignored, except a value typed into an `offerInput` that `update`
+  rejected in the state the offer was made in: a bug, handled as `onRejectedInput` says (the revision of an
+  `InputRejection` is that state's). An offer made by another run (e.g. by `modelOf`) is a defect.
+- The names of that bug say what it is: `onRejected` is `onRejectedInput`, `OnRejected` is `OnRejectedInput`,
+  `Rejection` is `InputRejection`, and the defect `RejectedMessage` is `RejectedInput`.
+- `Program` names its types: `Program<{ state: State; model: Model; message: Message }>`, with `command`,
+  `services`, `event` and `external` when the program has them, instead of
+  `Program<State, Model, Message, Command, R, Event, K>`.
+- `offerInput(toMessage, current)` takes its value type from `current`, widened: a literal `current` such as `true`
+  no longer narrows it to `true`, and `toMessage` still needs no annotation.
+- By default the logs describe a child's message or command by the tags on its way
+  (`Home › Products › Deleted`), no longer by the outermost tag alone; still never by its data.
+- `drive`'s `Action`, `tap` and `input` take offers of any level (`Action`, no longer `Action<Message>`), and
+  `Driver<Model>` loses its `Message` parameter.
+- `embed`, `embedEach` and `mapDispatch` are removed: `parent` replaces them, and a child's offers need no
+  wrapping.
+
+To upgrade:
+
+- Write each `Program<State, Model, Message, …>` as `Program<{ state: State; model: Model; message: Message; … }>`,
+  and drop the `Message` parameter of `View`, `Dispatch` and `Frame`.
+- Rename `onRejected` to `onRejectedInput` in the options of `run`, and `OnRejected`, `Rejection` and
+  `RejectedMessage` to `OnRejectedInput`, `InputRejection` and `RejectedInput`.
+- Replace a parent built with `embed` and `embedEach` by `parent<{ state: State; … }>()`: declare each child
+  with `child(program, { get, set, subscribed? })` or `each(program, { get, set, subscribed })`, move the
+  `onEvent` of each `embed` into `compose`'s `onEvent` under the child's name, and drop `wrap`, `wrapCommand`,
+  `key` and `liftCommands`. Where the parent's `update` sent a child a message, use
+  `children.<Child>.update(message)` and name that message in the child's type as `external`; where it started
+  a child, use `children.<Child>.init`. In `makeModel`, replace each embedded `makeModel(childState)` with
+  `children.<Child>(state)`. Name the parent's messages with `MessageOf<typeof parent>`.
+- In views, drop `mapDispatch`: pass the run's `dispatch` to a child's view as it is.
+- In tests that collect what a view sends, read each offer with `messageOf`.
+
 ## 0.2.0 (2026-10-18)
 
 ### Added

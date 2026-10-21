@@ -9,7 +9,7 @@ import type * as Stream from 'effect/Stream'
 import * as SubscriptionRef from 'effect/SubscriptionRef'
 import type { RunCommand } from './command.ts'
 import { describeByTag } from './log.ts'
-import { type OnRejected, RejectedMessage, type Revision } from './rejection.ts'
+import { type OnRejectedInput, RejectedInput, type Revision } from './rejection.ts'
 import type { Subscriptions } from './subscription.ts'
 import { isRejected, type Step, type Update } from './update.ts'
 
@@ -28,12 +28,12 @@ export type Applied<State, Message, Command> = Readonly<{
 }>
 
 /**
- * How a program runs: what a rejected message from a frame does (with no default), how messages and commands
- * appear in the logs, and who observes the transitions.
+ * How a program runs: what a typed value that `update` rejects does (with no default), how messages and
+ * commands appear in the logs, and who observes the transitions.
  */
 export type RunOptions<Message, State = unknown, Command = unknown> = Readonly<{
-  /** `'die'`, or a function that reports the rejection while the program goes on (see `OnRejected`). */
-  onRejected: OnRejected<Message>
+  /** `'die'`, or a function that reports the rejected input while the program goes on (see `OnRejectedInput`). */
+  onRejectedInput: OnRejectedInput<Message>
   /** How a message appears in the logs; by default its `_tag`, never its data. */
   describeMessage?: (message: Message) => unknown
   /** How a command appears in the logs; by default its `_tag`, never its data. */
@@ -49,41 +49,40 @@ export type RunOptions<Message, State = unknown, Command = unknown> = Readonly<{
 /** Counts the starts of subscriptions: each start of a key gets a new one. */
 type Generation = number
 
+/** What an offer carries besides its message, as `Offer` origins and `dispatchOffer` take it. */
+export type OfferOrigin = Readonly<{
+  /** A typed value that `update` rejected in the very state the offer was made in. */
+  violation: boolean
+  /** The revision of that state. */
+  revision: Revision
+  /** The run whose model made the offer. */
+  run: object
+}>
+
 /**
- * Where a message comes from. A view message carries the state its frame was drawn from, to tell a bug from a
- * stale message; a subscription's message carries the start it comes from, so that once its key goes away,
- * what it left in the queue is dropped.
+ * Where a message comes from. An offer's message was checked against `update` when the offer was made, so
+ * its rejection is stale unless the offer already knew it as a violation; a subscription's message carries
+ * the start it comes from, so that once its key goes away, what it left in the queue is dropped.
  */
-type Origin<State, K> =
-  | Readonly<{ _tag: 'View'; frame: Revisioned<State> }>
-  // Prototype (`src/next`): a message an offer carries, verified when the offer was made. `violation` marks
-  // a typed value that `update` rejected in that very state; `run` is the run that made the offer.
-  | Readonly<{ _tag: 'Offer'; violation: boolean; revision: Revision; run: object }>
+type Origin<K> =
+  | OfferOrigin & Readonly<{ _tag: 'Offer' }>
   | Readonly<{ _tag: 'Command' }>
   | Readonly<{ _tag: 'Subscription'; key: K; generation: Generation }>
 
-type Envelope<State, Message, K> = Readonly<{ message: Message; origin: Origin<State, K> }>
+type Envelope<Message, K> = Readonly<{ message: Message; origin: Origin<K> }>
 
-const fromCommand: Origin<never, never> = { _tag: 'Command' }
+const fromCommand: Origin<never> = { _tag: 'Command' }
 
 /** The engine owns its message loop: it runs as long as the scope `make` was called in. */
 export interface Engine<State, Message> {
   readonly states: Stream.Stream<Revisioned<State>>
-  /**
-   * Returns the dispatch for a view rendered from `frame`: the frame travels
-   * with every message it enqueues, so that a rejected message can be told
-   * apart as a bug or as stale.
-   */
-  readonly dispatchFrom: (frame: Revisioned<State>) => (message: Message) => Effect.Effect<void>
-  /** Prototype (`src/next`): enqueues the message of an offer made by the run `run`. */
-  readonly dispatchOffer: (
-    offer: Readonly<{ message: Message; violation: boolean; revision: Revision; run: object }>,
-  ) => Effect.Effect<void>
-  /** Prototype (`src/next`): who this engine's offers belong to. */
+  /** Enqueues the message of an offer; one made by another run is a defect when it is taken. */
+  readonly dispatchOffer: (message: Message, origin: OfferOrigin) => Effect.Effect<void>
+  /** Who this engine's offers belong to: the `run` of the offers made from its states. */
   readonly run: object
   /**
    * Never succeeds. Fails with the first defect raised by `update`, a command
-   * or a subscription, or with `RejectedMessage`, so whoever runs the program
+   * or a subscription, or with `RejectedInput`, so whoever runs the program
    * can let it crash.
    */
   readonly await: Effect.Effect<never>
@@ -97,7 +96,7 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
   describeMessage = describeByTag,
   describeCommand = describeByTag,
   onApplied = () => Effect.void,
-  onRejected,
+  onRejectedInput,
 }:
   & Readonly<{
     init: Step<State, Command>
@@ -110,15 +109,14 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
   const context = yield* Effect.context<R>()
   const run = {}
   const queue = yield* Effect.acquireRelease(
-    Queue.unbounded<Envelope<State, Message, K>>(),
+    Queue.unbounded<Envelope<Message, K>>(),
     Queue.shutdown,
   )
   // The loop and the commands. A defect in any of them fails `join`.
   const fibers = yield* FiberSet.make<unknown, never>()
   const subscriptionFibers = yield* FiberMap.make<K, void, never>()
   const stateRef = yield* SubscriptionRef.make<Revisioned<State>>({ state: initState, revision: 0 })
-  const enqueue = (origin: Origin<State, K>) => (message: Message) =>
-    Effect.asVoid(Queue.offer(queue, { message, origin }))
+  const enqueue = (origin: Origin<K>) => (message: Message) => Effect.asVoid(Queue.offer(queue, { message, origin }))
   // Only the loop starts subscriptions, one step at a time.
   let started: Generation = 0
   // Where a defect happened is known only here, so it goes to the log; the run then fails with the defect.
@@ -174,7 +172,7 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
   })
   const step = Effect.fnUntraced(function*(
     active: HashMap.HashMap<K, Generation>,
-    { message, origin }: Envelope<State, Message, K>,
+    { message, origin }: Envelope<Message, K>,
   ) {
     // Left in the queue by a subscription whose key has gone away since: it was produced after the program
     // stopped listening, so it does not reach `update`.
@@ -192,22 +190,16 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
     const { state, revision } = yield* SubscriptionRef.get(stateRef)
     const result = yield* apply(message, state)
     if (isRejected(result)) {
-      const isBug = origin._tag === 'View'
-        ? isRejected(yield* apply(message, origin.frame.state))
-        // An offer was verified when it was made, so its rejection is stale, but for a typed value that was
-        // already rejected then.
-        : origin._tag === 'Offer' && origin.violation
-      if (isBug) {
-        const frameRevision = origin._tag === 'View' ? origin.frame.revision : origin._tag === 'Offer'
-          ? origin.revision
-          : revision
+      // A command's or a subscription's message may be rejected by design: the state it reacts to is gone.
+      if (origin._tag === 'Offer' && origin.violation) {
         yield* Effect.logError(
-          'A frame sent a message that update rejects in its own state: the model offered it, so the two disagree',
+          'A view sent a value that update rejected in the state of its offer: the model offered it anyway',
           describeMessage(message),
-          { revision: frameRevision },
+          { revision: origin.revision },
         )
-        if (onRejected === 'die') return yield* Effect.die(new RejectedMessage({ message, revision: frameRevision }))
-        yield* onRejected({ message, revision: frameRevision })
+        const rejection = { message, revision: origin.revision }
+        if (onRejectedInput === 'die') return yield* Effect.die(new RejectedInput(rejection))
+        yield* onRejectedInput(rejection)
         return active
       }
       yield* Effect.logDebug('Ignored a stale message', describeMessage(message))
@@ -240,8 +232,7 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
       FiberSet.join(fibers),
       FiberMap.join(subscriptionFibers),
     ).pipe(Effect.andThen(Effect.never)),
-    dispatchFrom: (frame) => enqueue({ _tag: 'View', frame }),
-    dispatchOffer: ({ message, violation, revision, run }) => enqueue({ _tag: 'Offer', violation, revision, run })(message),
+    dispatchOffer: (message, origin) => enqueue({ _tag: 'Offer', ...origin })(message),
     run,
     states: SubscriptionRef.changes(stateRef),
   } satisfies Engine<State, Message>

@@ -83,7 +83,7 @@ export type Model = Readonly<{
   saved: ReadonlyArray<string>
 }>
 
-export const form: Program<State, Model, Message, Command, Storage> = {
+export const form: Program<{ state: State; model: Model; message: Message; command: Command; services: Storage }> = {
   init: { state: { name: Field.make(''), isSaving: false, hasFailed: false, saved: [] } },
   update,
   runCommand,

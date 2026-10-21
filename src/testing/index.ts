@@ -1,4 +1,5 @@
 // The testing tools of the package, `@fgaudo/effect-tea/testing`, from the cheapest to the most complete.
+export { messageOf } from './message-of.ts'
 export { applyAll } from './apply-all.ts'
 export { type DispatchViolation, dispatchViolations } from './dispatch-violations.ts'
 export { missingOffers } from './missing-offers.ts'

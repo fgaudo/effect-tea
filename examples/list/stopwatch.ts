@@ -48,7 +48,7 @@ export type Model = Readonly<{
   }>
 }>
 
-export const stopwatch: Program<State, Model, Message, never, never, Event> = {
+export const stopwatch: Program<{ state: State; model: Model; message: Message; event: Event }> = {
   init: { state: { seconds: 0, isRunning: false } },
   update,
   subscriptions: (state) => state.isRunning ? HashMap.make(['ticks', ticks]) : HashMap.empty(),

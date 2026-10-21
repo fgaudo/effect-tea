@@ -1,66 +1,116 @@
-import type * as Brand from 'effect/Brand'
+// An offer is an opaque token that carries the message its whole program receives, not the message a child
+// made. A view sends the token as it is, through one dispatch for every level and every frame: there is
+// nothing to wrap, and nothing that changes from a frame to the next.
 import * as Effect from 'effect/Effect'
-import { RejectedOffer } from './rejection.ts'
+import { RejectedOffer, type Revision } from './rejection.ts'
 import { isRejected, type Update } from './update.ts'
 
-/**
- * A message `update` accepts in the state the view is rendered from, and the only kind that `Dispatch` takes:
- * a view cannot send a message it was not offered. This module is the only place that makes one: `offers`,
- * by asking `update`, and `mapDispatch`, for a child's message the parent accepts exactly when the child does.
- */
-export type Offered<Message> = Brand.Branded<Message, 'effect-tea.Offered'>
+declare const OfferedTypeId: unique symbol
 
 /**
- * How `makeModel` offers actions in one state. The model's shape says which actions exist in each case of the
- * state, and each offer is checked against `update`: one that `update` rejects throws `RejectedOffer`, so a
- * model that promises an action the state does not allow dies as it is made, instead of drawing a control
- * that does nothing or sends a rejected message.
+ * An action the model offers: the message of a program's `Message` it stands for is checked against
+ * `update` when the offer is made, and the token knows where its program's parents put it. Only the library
+ * makes one; a view passes it to `dispatch` without looking inside.
  */
-export type Offers<Message> = Readonly<{
-  offer: (message: Message) => Offered<Message>
-  /** An action whose message carries what the user types or picks, checked with `current`. */
-  offerInput: <Value>(toMessage: (value: Value) => Message, current: Value) => (value: Value) => Offered<Message>
+export interface Offered<out Message> {
+  readonly [OfferedTypeId]: (_: never) => Message
+}
+
+/**
+ * What a token holds. Only the engine reads it, and only by its fields: in development a view may be bundled
+ * with a copy of this library of its own, whose classes and symbols would not be the program's.
+ */
+export type Token = Readonly<{
+  /** The message for the root of the program, with every parent's wrapping. */
+  message: unknown
+  /** The revision of the frame whose model made the offer, for reports. */
+  revision: Revision
+  /** The run that made the offer: another run's engine must not apply it. */
+  run: object
+  /** A typed value that `update` rejected in the state the offer was made in: the model and `update` disagree. */
+  violation: boolean
 }>
 
+export const tokenOf = (offered: Offered<unknown>): Token => offered as unknown as Token
+
+const toOffered = <Message>(token: Token): Offered<Message> => token as unknown as Offered<Message>
+
+/** The frame offers are made for. */
+export type Context = Readonly<{ run: object; revision: Revision }>
+
+/** Who made the offers of a model made outside `run` (e.g. in a test): no engine applies them. */
+export const outsideRun: Context = { run: {}, revision: 0 }
+
+export type Offers<Message> = Readonly<{
+  offer: (message: Message) => Offered<Message>
+  /**
+   * An action whose message carries what the user types or picks, checked with `current`, then each value. Its
+   * value type is `current`'s, widened (`true` is a `boolean`), so `toMessage` needs no annotation.
+   */
+  offerInput: <Value>(
+    toMessage: (value: NoInfer<Value>) => Message,
+    current: Value,
+  ) => (value: Value) => Offered<Message>
+}>
+
+/** A level of a program, as its offers know it: their frame, and how a message of the level reaches the root. */
+export type Level = Readonly<{ context: Context; lift: (message: unknown) => unknown }>
+
+// A composed program's `makeModel` gets the offers of its level, and makes its children's from them: from the
+// offers it finds their level. Offers are made and read only on the program's side, in one copy of the library.
+const levels = new WeakMap<object, Level>()
+
+export const levelOf = (offers: Offers<unknown>): Level => {
+  const level = levels.get(offers)
+  if (level === undefined) throw new Error('A composed program got offers that the library did not make')
+  return level
+}
+
 /**
- * Asks `update` about `state`: `update` is pure, and its commands only describe effects. `offerInput` asks
- * with `current`: what is typed or picked must never be a reason to reject, so the answer holds for any value.
+ * Offers of one level of a program. `accepts` asks the update of this level, in the state its model is made
+ * from; `level.lift` wraps a message of this level as each parent does, up to the root. Asking this level is
+ * enough: its parents route its messages by `get`, which the library generates and the model was made by.
  */
-export const offers = <State, Message>(
-  update: Update<State, Message, unknown, unknown>,
-  state: State,
-): Offers<Message> => {
-  const offer = (message: Message): Offered<Message> => {
-    // `makeModel` is pure code outside Effect: a throw is how it dies, and the run fails with the defect.
-    if (isRejected(update(message)(state))) throw new RejectedOffer({ message })
-    return message as Offered<Message>
+export const offersAt = <Message>(accepts: (message: Message) => boolean, level: Level): Offers<Message> => {
+  const token = (message: Message, violation: boolean) =>
+    toOffered<Message>({
+      message: level.lift(message),
+      revision: level.context.revision,
+      run: level.context.run,
+      violation,
+    })
+  const offer = (message: Message) => {
+    if (!accepts(message)) throw new RejectedOffer({ message })
+    return token(message, false)
   }
-  return {
+  const offers: Offers<Message> = {
     offer,
     offerInput: (toMessage, current) => {
       offer(toMessage(current))
-      return (value) => toMessage(value) as Offered<Message>
+      return (value) => {
+        const message = toMessage(value)
+        return token(message, !accepts(message))
+      }
     },
   }
+  levels.set(offers, level)
+  return offers
 }
 
-/** Sends an offered message: an effect, so nothing is sent until it runs; it never fails and needs no services. */
-export type Dispatch<Message> = (message: Offered<Message>) => Effect.Effect<void>
+/** The offers of the root of a program in `state`. */
+export const rootOffers = <State, Message>(
+  update: Update<State, Message, unknown, unknown>,
+  state: State,
+  context: Context,
+): Offers<Message> =>
+  offersAt((message: Message) => !isRejected(update(message)(state)), { context, lift: (message) => message })
 
-/** A pure view, independent of the renderer: `Node` is what the renderer draws (e.g. snabbdom's `VNode`). */
-export type View<Model, Message, Node> = (model: Model, dispatch: Dispatch<Message>) => Node
+/** Sends an offer, from any level and any frame: one function for the whole run. */
+export type Dispatch = (offered: Offered<unknown>) => Effect.Effect<void>
 
-/**
- * Equivalent to Elm's `Html.map`: lets a child view dispatch parent messages. `wrap` must be the one the child
- * is embedded with: the parent then accepts `wrap(message)` exactly when the child accepts `message`, so it
- * stays offered.
- */
-export const mapDispatch = <A, B>(dispatch: Dispatch<B>, wrap: (message: A) => B): Dispatch<A> => (message) =>
-  dispatch(wrap(message) as Offered<B>)
+/** A pure view, independent of the renderer: `Node` is what the renderer draws. */
+export type View<Model, Node> = (model: Model, dispatch: Dispatch) => Node
 
-/**
- * A dispatch that sends at once, for the callbacks of a renderer outside Effect (e.g. a DOM event handler).
- * Running it synchronously is safe: sending only enqueues the message.
- */
-export const dispatchUnsafe = <Message>(dispatch: Dispatch<Message>) => (message: Offered<Message>): void =>
-  Effect.runSync(dispatch(message))
+/** A dispatch that sends at once, for the callbacks of a renderer outside Effect. */
+export const dispatchUnsafe = (dispatch: Dispatch) => (offered: Offered<unknown>): void =>
+  Effect.runSync(dispatch(offered))

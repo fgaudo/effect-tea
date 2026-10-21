@@ -14,7 +14,7 @@ export type Model =
   | Readonly<{ _tag: 'AtZero'; count: number; increment: Offered<Message> }>
   | Readonly<{ _tag: 'Counting'; count: number; increment: Offered<Message>; decrement: Offered<Message> }>
 
-export const counter: Program<number, Model, Message> = {
+export const counter: Program<{ state: number; model: Model; message: Message }> = {
   init: { state: 0 },
   update,
   makeModel: (count, { offer }) =>

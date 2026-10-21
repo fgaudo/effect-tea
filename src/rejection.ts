@@ -5,22 +5,23 @@ import type * as Effect from 'effect/Effect'
 export type Revision = number
 
 /**
- * A message a frame sent and `update` rejects in the frame's own state (`revision`): the model offered an
- * action `update` does not accept, so the two disagree.
+ * A message a view sent with an `offerInput` whose value `update` rejected in the state the offer was made in
+ * (`revision`): the model offered to type a value it does not accept, so the two disagree. Any other rejected
+ * offer is stale (the state moved on since it was drawn) and is ignored.
  */
-export type Rejection<Message> = Readonly<{ message: Message; revision: Revision }>
+export type InputRejection<Message> = Readonly<{ message: Message; revision: Revision }>
 
 /**
- * What a `Rejection` does. There is no default: whether a bug the user may never notice should crash the app
- * depends on where it runs.
- * - `'die'`: the run fails with `RejectedMessage`.
+ * What an `InputRejection` does. There is no default: whether a bug the user may never notice should crash the
+ * app depends on where it runs.
+ * - `'die'`: the run fails with `RejectedInput`.
  * - a function: the message is dropped and the program goes on, which is safe because the state did not
  *   change, and the function reports it (e.g. to a crash-reporting service). A rejection cannot be ignored
  *   without being reported.
  *
  * Defects are not here: they always end the run, which fails with them, and whoever runs it reports them.
  */
-export type OnRejected<Message> = 'die' | ((rejection: Rejection<Message>) => Effect.Effect<void>)
+export type OnRejectedInput<Message> = 'die' | ((rejection: InputRejection<Message>) => Effect.Effect<void>)
 
 /**
  * The defect thrown by `makeModel` when it offers a message that `update` rejects in the state the model is
@@ -28,8 +29,8 @@ export type OnRejected<Message> = 'die' | ((rejection: Rejection<Message>) => Ef
  */
 export class RejectedOffer extends Data.TaggedError('RejectedOffer')<{ readonly message: unknown }> {}
 
-/** The defect raised when a frame dispatches a message that `update` rejects in the frame's own state. */
-export class RejectedMessage extends Data.TaggedError('RejectedMessage')<{
+/** The defect raised by an `InputRejection` with `onRejectedInput: 'die'`. */
+export class RejectedInput extends Data.TaggedError('RejectedInput')<{
   readonly message: unknown
   readonly revision: Revision
 }> {}

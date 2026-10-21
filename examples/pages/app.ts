@@ -1,90 +1,48 @@
-// Two pages under one parent, with `embed`. The Clock is always there, and About opens over it. The pages
-// ask for navigation with events, and the parent decides: it owns where each page's state lives.
-import { embed, type Program, type Step, type Update } from '@fgaudo/effect-tea'
-import * as Data from 'effect/Data'
-import * as HashMap from 'effect/HashMap'
+// The parent declares its pages; their messages, commands, subscriptions and models are routed by the
+// library. What is left is what only the parent knows: where each page lives, and what their events mean.
+import { type MessageOf, type ModelOf, parent } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
 import * as About from './about.ts'
 import * as Clock from './clock.ts'
 
 export type State = Readonly<{ clock: Clock.State; maybeAbout: Opt.Option<About.State> }>
 
-export type Message = Data.TaggedEnum<{
-  GotClock: { message: Clock.Message }
-  GotAbout: { message: About.Message }
-}>
+const { child, compose } = parent<{ state: State }>()
 
-export const Message = Data.taggedEnum<Message>()
-
-/** The Clock has no commands: only About's reach the parent. */
-export type Command = Data.TaggedEnum<{
-  About: { command: About.Command }
-}>
-
-export const Command = Data.taggedEnum<Command>()
-
-// While About is open its messages reach it; once it is closed, `get` is `None` and they are rejected.
-const aboutPage = embed(About.about, {
-  key: 'About',
-  wrap: (message: About.Message) => Message.GotAbout({ message }),
-  wrapCommand: (command: About.Command) => Command.About({ command }),
-  get: (state: State) => state.maybeAbout,
-  set: (state, about) => ({ ...state, maybeAbout: Opt.some(about) }),
-  onEvent: () => (state) => ({ state: { ...state, maybeAbout: Opt.none() } }),
-})
-
-// Opening About again while it is open changes nothing, so that a double click opens it once.
-const openAbout = (state: State): Step<State, Command> =>
-  Opt.isSome(state.maybeAbout) ? { state } : {
-    state: { ...state, maybeAbout: Opt.some(About.about.init.state) },
-    commands: aboutPage.liftCommands(About.about.init.commands),
-  }
-
-const clockPage = embed(Clock.clock, {
-  key: 'Clock',
-  wrap: (message: Clock.Message) => Message.GotClock({ message }),
-  get: (state: State) => Opt.some(state.clock),
-  // Hidden under About, the Clock keeps its state but stops ticking.
-  subscribed: (state) => Opt.isNone(state.maybeAbout) ? Opt.some(state.clock) : Opt.none(),
-  set: (state, clock) => ({ ...state, clock }),
-  onEvent: () => openAbout,
-})
-
-export const update: Update<State, Message, Command> = (message) => {
-  switch (message._tag) {
-    case 'GotClock':
-      return clockPage.update(message.message)
-    case 'GotAbout':
-      return aboutPage.update(message.message)
-  }
-}
-
-/** The Clock listens only while it is on top (`subscribed`), About never. */
-export const subscriptions = (state: State) =>
-  HashMap.union(clockPage.subscriptions(state), aboutPage.subscriptions(state))
-
-/** Only the page on top is drawn. */
-export type Model = Readonly<{
-  page: Data.TaggedEnum<{
-    Clock: { model: Clock.Model }
-    About: { model: About.Model }
-  }>
-}>
-
-export const app: Program<State, Model, Message, Command> = {
+export const app = compose({
   init: { state: { clock: Clock.clock.init.state, maybeAbout: Opt.none() } },
-  update,
-  runCommand: (command) => {
-    switch (command._tag) {
-      case 'About':
-        return aboutPage.runCommand(command.command)
-    }
+  children: {
+    // Hidden under About, the Clock keeps its state but stops ticking.
+    Clock: child(Clock.clock, {
+      get: (state) => Opt.some(state.clock),
+      set: (state, clock) => ({ ...state, clock }),
+      subscribed: (state) => Opt.isNone(state.maybeAbout) ? Opt.some(state.clock) : Opt.none(),
+    }),
+    // While About is closed, `get` is `None` and its messages are rejected.
+    About: child(About.about, {
+      get: (state) => state.maybeAbout,
+      set: (state, about) => ({ ...state, maybeAbout: Opt.some(about) }),
+    }),
   },
-  subscriptions,
-  makeModel: (state) => ({
+  onEvent: {
+    // Opening About again while it is open changes nothing, so that a double click opens it once.
+    Clock: (_, children) => (state) => {
+      if (Opt.isSome(state.maybeAbout)) return { state }
+      const about = children.About.init
+      return { state: { ...state, maybeAbout: Opt.some(about.state) }, commands: about.commands }
+    },
+    About: () => (state) => ({ state: { ...state, maybeAbout: Opt.none() } }),
+  },
+  // Only the page on top is drawn.
+  makeModel: (state, { children }) => ({
     page: Opt.match(state.maybeAbout, {
-      onNone: () => ({ _tag: 'Clock', model: clockPage.makeModel(state.clock) }),
-      onSome: (about) => ({ _tag: 'About', model: aboutPage.makeModel(about) }),
+      onNone: () => ({ _tag: 'Clock' as const, model: children.Clock(state) }),
+      onSome: () => ({ _tag: 'About' as const, model: children.About(state) }),
     }),
   }),
-}
+})
+
+export type Model = ModelOf<typeof app>
+
+/** The parent's messages, made by the library from its pages': `{ _tag: 'Clock' | 'About', message }`. */
+export type Message = MessageOf<typeof app>

@@ -1,8 +1,7 @@
-// A list of stopwatches with `embedEach`: each one has its own state, messages and subscriptions, reached
-// through its id. The parent adds them, and removes one when it asks.
-import { embedEach, type Offered, type Program, type Update } from '@fgaudo/effect-tea'
+// The stopwatches are children by id. The parent says where each one lives and what its event means; adding
+// one is the parent's own message.
+import { type MessageOf, type ModelOf, parent } from '@fgaudo/effect-tea'
 import * as Arr from 'effect/Array'
-import * as Data from 'effect/Data'
 import * as Opt from 'effect/Option'
 import * as Stopwatch from './stopwatch.ts'
 
@@ -11,60 +10,46 @@ export type Entry = Readonly<{ id: number; stopwatch: Stopwatch.State }>
 
 export type State = Readonly<{ nextId: number; entries: ReadonlyArray<Entry> }>
 
-export type Message = Data.TaggedEnum<{
-  AddClicked: object
-  GotStopwatch: { id: number; message: Stopwatch.Message }
-}>
+type AddClicked = Readonly<{ _tag: 'AddClicked' }>
 
-export const Message = Data.taggedEnum<Message>()
+const { compose, each } = parent<{ state: State }>()
 
-const stopwatches = embedEach(Stopwatch.stopwatch, {
-  key: 'Stopwatch',
-  wrap: (id: number, message: Stopwatch.Message) => Message.GotStopwatch({ id, message }),
-  // A removed stopwatch is `None`: its late messages (a tick already on its way) are rejected.
-  get: (state: State, id) =>
-    Opt.map(Arr.findFirst(state.entries, (entry) => entry.id === id), (entry) => entry.stopwatch),
-  set: (state, id, stopwatch) => ({
-    ...state,
-    entries: Arr.map(state.entries, (entry) => entry.id === id ? { id, stopwatch } : entry),
-  }),
-  subscribed: (state) => Arr.map(state.entries, ({ id, stopwatch }) => [id, stopwatch] as const),
-  onEvent: (id) => (state) => ({
-    state: { ...state, entries: Arr.filter(state.entries, (entry) => entry.id !== id) },
+export const list = compose({
+  init: { state: { nextId: 1, entries: [] } },
+  children: {
+    Stopwatch: each(Stopwatch.stopwatch, {
+      // A removed stopwatch is `None`: its late messages (a tick already on its way) are rejected.
+      get: (state, id: number) =>
+        Opt.map(Arr.findFirst(state.entries, (entry) => entry.id === id), (entry) => entry.stopwatch),
+      set: (state, id, stopwatch) => ({
+        ...state,
+        entries: Arr.map(state.entries, (entry) => entry.id === id ? { id, stopwatch } : entry),
+      }),
+      subscribed: (state) => Arr.map(state.entries, ({ id, stopwatch }) => [id, stopwatch] as const),
+    }),
+  },
+  update: (_: AddClicked, children) => (state) => {
+    const stopwatch = children.Stopwatch.init(state.nextId)
+    return {
+      state: {
+        nextId: state.nextId + 1,
+        entries: [...state.entries, { id: state.nextId, stopwatch: stopwatch.state }],
+      },
+      commands: stopwatch.commands,
+    }
+  },
+  onEvent: {
+    Stopwatch: (id) => (state) => ({
+      state: { ...state, entries: Arr.filter(state.entries, (entry) => entry.id !== id) },
+    }),
+  },
+  makeModel: (state, { offer, children }) => ({
+    add: offer({ _tag: 'AddClicked' }),
+    stopwatches: Arr.map(state.entries, ({ id }) => ({ id, model: children.Stopwatch(state, id) })),
   }),
 })
 
-export const update: Update<State, Message> = (message) => (state) => {
-  switch (message._tag) {
-    case 'AddClicked':
-      return {
-        state: {
-          nextId: state.nextId + 1,
-          entries: [...state.entries, { id: state.nextId, stopwatch: Stopwatch.stopwatch.init.state }],
-        },
-        commands: stopwatches.liftCommands(state.nextId, Stopwatch.stopwatch.init.commands),
-      }
-    case 'GotStopwatch':
-      return stopwatches.update(message.id, message.message)(state)
-  }
-}
+export type Model = ModelOf<typeof list>
 
-export type Model = Readonly<{
-  add: Offered<Message>
-  stopwatches: ReadonlyArray<Readonly<{ id: number; model: Stopwatch.Model }>>
-}>
-
-export const subscriptions = stopwatches.subscriptions
-
-export const list: Program<State, Model, Message> = {
-  init: { state: { nextId: 1, entries: [] } },
-  update,
-  subscriptions,
-  makeModel: (state, { offer }) => ({
-    add: offer(Message.AddClicked()),
-    stopwatches: Arr.map(
-      state.entries,
-      ({ id, stopwatch }) => ({ id, model: stopwatches.makeModel(stopwatch) }),
-    ),
-  }),
-}
+/** The list's messages, made by the library: its own, and `{ _tag: 'Stopwatch', id, message }`. */
+export type Message = MessageOf<typeof list>

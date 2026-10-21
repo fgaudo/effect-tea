@@ -1,4 +1,4 @@
-// Prototype: a parent declares its children, and the library generates how their messages, commands,
+// A parent declares its children, and the library generates how their messages, commands,
 // subscriptions and models reach them. A parent decides whether a child is there only with `get` (and
 // `subscribed`), never by rejecting its messages, so an offer that its child's `update` accepts is accepted
 // by the whole program.
@@ -7,36 +7,28 @@ import * as Channel from 'effect/Channel'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
-import type { Execution, RunCommand } from '../command.ts'
-import { type Interpreter, runCommandOf, subscriptionsOf } from '../program.ts'
-import type { Subscription, Subscriptions } from '../subscription.ts'
-import { isRejected, reject, type Step, type Transition, type Update } from '../update.ts'
-import { type Context, type Offers, offersAt } from './offer.ts'
-
-export type Program<State, Model, Message, Command = never, R = never, Event = never, K = unknown> =
-  & Readonly<{
-    init: Step<State, Command>
-    update: Update<State, Message, Command, Event>
-    subscriptions?: Subscriptions<State, Message, R, K>
-    makeModel: (state: State, offers: Offers<Message>) => Model
-  }>
-  & Interpreter<Command, Message, R>
-
-// Only what every program has: `Program<any, …>` would demand a `runCommand` (`[any] extends [never]` is false).
-type AnyProgram = Readonly<{ init: Step<any, any>; update: any; makeModel: any }>
-
-/** A program's state, model, message and command: e.g. `MessageOf<typeof app>` for a composed one. */
-export type StateOf<P> = P extends { readonly init: Step<infer S, any> } ? S : never
-export type ModelOf<P> = P extends { readonly makeModel: (state: any, offers: any) => infer M } ? M : never
-export type MessageOf<P> = P extends { readonly update: (message: infer M) => any } ? M : never
-export type CommandOf<P> = P extends { readonly init: Step<any, infer C> } ? C : never
-type EventOf<P> = P extends { readonly update: Update<any, any, any, infer E> } ? E : never
-type ServicesOf<P> =
-  | (P extends { readonly runCommand: RunCommand<any, any, infer R> } ? R : never)
-  | (P extends { readonly subscriptions?: Subscriptions<any, any, infer R, any> } ? R : never)
+import type { Execution } from './command.ts'
+import { type Level, levelOf, type Offers, offersAt } from './offer.ts'
+import {
+  type AnyProgram,
+  type CommandOf,
+  type EventOf,
+  type ExternalOf,
+  type Field,
+  type Interpreter,
+  type MessageOf,
+  type ModelOf,
+  runCommandOf,
+  type ServicesOf,
+  type Shape,
+  type StateOf,
+  subscriptionsOf,
+} from './program.ts'
+import type { Subscription, Subscriptions } from './subscription.ts'
+import { isRejected, reject, type Step, type Transition, type Update } from './update.ts'
 
 /** One child in its parent's state. `get` must find what `set` put, and depend on the state alone. */
-export type Child<ParentState, P> = Readonly<{
+type Child<ParentState, P> = Readonly<{
   kind: 'one'
   program: P
   get: (state: ParentState) => Opt.Option<StateOf<P>>
@@ -49,7 +41,7 @@ export type Child<ParentState, P> = Readonly<{
  * Children told apart by an id (e.g. the rows of a list), each with its own state. Ids go into subscription
  * keys and messages, so they must compare by value (strings, numbers).
  */
-export type Each<ParentState, Id, P> = Readonly<{
+type Each<ParentState, Id, P> = Readonly<{
   kind: 'each'
   program: P
   get: (state: ParentState, id: Id) => Opt.Option<StateOf<P>>
@@ -57,16 +49,6 @@ export type Each<ParentState, Id, P> = Readonly<{
   /** The children whose subscriptions run, with their state (all of them, or those in sight). */
   subscribed: (state: ParentState) => Iterable<readonly [Id, StateOf<P>]>
 }>
-
-export const child = <ParentState, P extends AnyProgram>(
-  program: P,
-  place: Omit<Child<ParentState, P>, 'program' | 'kind'>,
-): Child<ParentState, P> => ({ kind: 'one', program, ...place })
-
-export const each = <ParentState, Id, P extends AnyProgram>(
-  program: P,
-  place: Omit<Each<ParentState, Id, P>, 'program' | 'kind'>,
-): Each<ParentState, Id, P> => ({ kind: 'each', program, ...place })
 
 // `never` parameters: any `set` fits, whatever its child's state and id.
 type Children<State> = Readonly<
@@ -96,32 +78,42 @@ type EachOf<Id, P> = Readonly<{ kind: 'each'; program: P; get: (state: any, id: 
 type At<C> = C extends EachOf<infer Id, any> ? Readonly<{ id: Id }> : unknown
 
 /** A child's message, as its parent receives it: `{ _tag: <child>, message }`, and its `id` for each child. */
-export type ChildMessages<C> = {
+type ChildMessages<C> = {
   [K in keyof C & string]: Readonly<{ _tag: K; message: MessageOf<ProgramOf<C[K]>> }> & At<C[K]>
 }[keyof C & string]
 
 /** A child's command, as its parent's interpreter receives it. */
-export type ChildCommands<C> = {
+type ChildCommands<C> = {
   [K in keyof C & string]: [CommandOf<ProgramOf<C[K]>>] extends [never] ? never
     : Readonly<{ _tag: K; command: CommandOf<ProgramOf<C[K]>> }> & At<C[K]>
 }[keyof C & string]
 
 type ChildServices<C> = { [K in keyof C]: ServicesOf<ProgramOf<C[K]>> }[keyof C]
 
-/** What a parent can do with a child: send it a message (e.g. an external one), lift its commands. */
-export type Handles<State, C, Command, Event> = {
+/** A new child: the state its parent puts where `get` finds it, and the commands it starts with, lifted. */
+type Start<P, Command> = Readonly<{ state: StateOf<P>; commands: ReadonlyArray<Command> }>
+
+/**
+ * What a parent can do with a child (`children` in `update` and `onEvent`): start one (`init`), and apply to
+ * it one of the messages its type says a parent may send (`update`, e.g. a back button), which returns the
+ * parent's transition. Its other messages are its own: only its view and its effects send them.
+ */
+type Handles<State, C, Command, Event> = {
   readonly [K in keyof C & string]: C[K] extends EachOf<infer Id, infer P> ? Readonly<{
-      update: (id: Id, message: MessageOf<P>) => (state: State) => Transition<State, Command, Event>
-      liftCommands: (id: Id, commands?: ReadonlyArray<CommandOf<P>>) => ReadonlyArray<Command>
+      update: (id: Id, message: ExternalOf<P>) => (state: State) => Transition<State, Command, Event>
+      init: (id: Id) => Start<P, Command>
     }>
     : Readonly<{
-      update: (message: MessageOf<ProgramOf<C[K]>>) => (state: State) => Transition<State, Command, Event>
-      liftCommands: (commands?: ReadonlyArray<CommandOf<ProgramOf<C[K]>>>) => ReadonlyArray<Command>
+      update: (message: ExternalOf<ProgramOf<C[K]>>) => (state: State) => Transition<State, Command, Event>
+      init: Start<ProgramOf<C[K]>, Command>
     }>
 }
 
-/** The children's models, made from the parent's state with `get`: a child that is not there is a defect. */
-export type Models<State, C> = {
+/**
+ * The children's models (`children` in `makeModel`), made from the parent's state with `get`: a child that is
+ * not there is a defect.
+ */
+type Models<State, C> = {
   readonly [K in keyof C & string]: C[K] extends EachOf<infer Id, infer P> ? (state: State, id: Id) => ModelOf<P>
     : (state: State) => ModelOf<ProgramOf<C[K]>>
 }
@@ -144,55 +136,31 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
   ? Readonly<{ onEvent?: OnEvents<State, C, Command, Event> }>
   : Readonly<{ onEvent: OnEvents<State, C, Command, Event> }>
 
-export type Config<State, C, Own, OwnCommand, Event, Model, R, K> =
+/** `runCommand` is required exactly when the parent has commands of its own, so that none goes uninterpreted. */
+type RunCommandOf<OwnCommand, Message, R> = [OwnCommand] extends [never] ? Readonly<{ runCommand?: never }>
+  : Readonly<{ runCommand: (command: OwnCommand) => Execution<Message, R> }>
+
+type TagOf<M> = M extends { readonly _tag: infer T } ? T : never
+
+/** An own message that takes a child's name would be routed to the child: it does not compile. */
+type NoClash<Own, C> = [Extract<TagOf<Own>, keyof C>] extends [never] ? unknown
+  : Readonly<{ 'an own message takes the name of a child': Extract<TagOf<Own>, keyof C> }>
+
+type Config<State, C, Own, OwnCommand, Event, Model, R, K> =
   & OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event>
+  & RunCommandOf<OwnCommand, Own | ChildMessages<C>, R>
+  & NoClash<Own, C>
   & Readonly<{
-  init: Step<State, OwnCommand | ChildCommands<C>>
-  children: C
-  /** The parent's own messages: its children's are routed by the library. */
-  update?: (
-    message: Own,
-    children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>,
-  ) => (state: State) => Transition<State, OwnCommand | ChildCommands<C>, Event>
-  runCommand?: (command: OwnCommand) => Execution<Own | ChildMessages<C>, R>
-  subscriptions?: Subscriptions<State, Own, R, K>
-  makeModel: (state: State, offers: Offers<Own> & Readonly<{ children: Models<State, C> }>) => Model
-}>
-
-/** How an `Offers` reaches the root, for the children's offers made from it. */
-type Level = Readonly<{ context: Context; lift: (message: unknown) => unknown }>
-
-const levels = new WeakMap<object, Level>()
-
-/** The offers of a level, with what its children need to make theirs. */
-export const offersOfLevel = <Message>(
-  accepts: (message: Message) => boolean,
-  lift: (message: Message) => unknown,
-  context: Context,
-): Offers<Message> => {
-  const offers = offersAt(accepts, lift, context)
-  levels.set(offers, { context, lift: lift as (message: unknown) => unknown })
-  return offers
-}
-
-/** The offers of the root of a program in `state`. */
-export const rootOffers = <State, Message>(
-  update: Update<State, Message, unknown, unknown>,
-  state: State,
-  context: Context,
-): Offers<Message> =>
-  offersOfLevel((message: Message) => !isRejected(update(message)(state)), (message) => message, context)
-
-/** Who made the offers of a model made outside `run` (e.g. in a test): no engine applies them. */
-const outsideRun: Context = { run: {}, revision: 0 }
-
-/** A program's model in `state`, with offers of its own, as `run` makes it (outside `run`, e.g. in a test). */
-export const modelOf = <State, Model, Message>(
-  program: Readonly<
-    { update: Update<State, Message, unknown, unknown>; makeModel: (state: State, offers: Offers<Message>) => Model }
-  >,
-) =>
-(state: State): Model => program.makeModel(state, rootOffers(program.update, state, outsideRun))
+    init: Step<State, OwnCommand | ChildCommands<C>>
+    children: C
+    /** The parent's own messages: its children's are routed by the library. */
+    update?: (
+      message: Own,
+      children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>,
+    ) => (state: State) => Transition<State, OwnCommand | ChildCommands<C>, Event>
+    subscriptions?: Subscriptions<State, Own, R, K>
+    makeModel: (state: State, offers: Offers<Own> & Readonly<{ children: Models<State, C> }>) => Model
+  }>
 
 /** Who receives what a child at `id` sends: `undefined` for a child that is alone. */
 type Place = Readonly<{ name: string; id: unknown }>
@@ -205,23 +173,17 @@ type UntypedChild = Readonly<{
   subscribed?: (state: unknown) => Opt.Option<unknown> | Iterable<readonly [unknown, unknown]>
 }>
 
-/**
- * A parent made of children: its own messages, commands and subscriptions, and the children's, routed by
- * `get` and `set`. Its `Message` is its own and `{ _tag: <child>, message }` for each child (with `id` for
- * children by id); its `Command` likewise.
- */
-export const compose = <
-  State,
-  C extends Children<State>,
-  Model,
-  Own = never,
-  OwnCommand = never,
-  Event = never,
-  R = never,
-  K = unknown,
->(
+const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event, R, K, External>(
   config: Config<State, C, Own, OwnCommand, Event, Model, R, K>,
-): Program<State, Model, Own | ChildMessages<C>, OwnCommand | ChildCommands<C>, R | ChildServices<C>, Event> => {
+): Shape<
+  State,
+  Model,
+  Own | ChildMessages<C>,
+  OwnCommand | ChildCommands<C>,
+  R | ChildServices<C>,
+  Event,
+  External
+> => {
   type Message = Own | ChildMessages<C>
   type Command = OwnCommand | ChildCommands<C>
   const children = config.children as unknown as Readonly<Record<string, UntypedChild>>
@@ -229,18 +191,22 @@ export const compose = <
   const childOf = (name: string) => children[name] as UntypedChild
   const isChildName = (tag: unknown): tag is string => typeof tag === 'string' && Object.hasOwn(children, tag)
   const field = (value: unknown, key: string): unknown =>
-    typeof value === 'object' && value !== null && key in value ? (value as Readonly<Record<string, unknown>>)[key]
-    : undefined
+    typeof value === 'object' && value !== null && key in value
+      ? (value as Readonly<Record<string, unknown>>)[key]
+      : undefined
   const placeOf = (value: unknown): Place => ({ name: field(value, '_tag') as string, id: field(value, 'id') })
   const isEach = (name: string) => childOf(name).kind === 'each'
   const at = ({ name, id }: Place) => isEach(name) ? { id } : {}
   const wrapMessage = (place: Place) => (message: unknown) => ({ _tag: place.name, ...at(place), message }) as Message
   const wrapCommand = (place: Place) => (command: unknown) => ({ _tag: place.name, ...at(place), command }) as Command
-  const getAt = ({ name, id }: Place, state: State) => isEach(name) ? childOf(name).get(state, id) : childOf(name).get(state)
+  const getAt = ({ name, id }: Place, state: State) =>
+    isEach(name) ? childOf(name).get(state, id) : childOf(name).get(state)
   const setAt = ({ name, id }: Place, state: State, childState: unknown) =>
     (isEach(name) ? childOf(name).set(state, id, childState) : childOf(name).set(state, childState)) as State
-  const onEvents = ((config as Readonly<{ onEvent?: unknown }>).onEvent ?? {}) as Readonly<Record<string, (...args: ReadonlyArray<unknown>) => (state: State) => Step<State, Command, Event>>>
-  const onEventAt = (place: Place, event: unknown): ((state: State) => Step<State, Command, Event>) => {
+  const onEvents = ((config as Readonly<{ onEvent?: unknown }>).onEvent ?? {}) as Readonly<
+    Record<string, (...args: ReadonlyArray<unknown>) => (state: State) => Step<State, Command, Event>>
+  >
+  const onEventAt = (place: Place, event: unknown): (state: State) => Step<State, Command, Event> => {
     const handle = onEvents[place.name]
     if (handle === undefined) throw new Error(`compose: the child "${place.name}" emitted an event, nothing handles it`)
     return isEach(place.name) ? handle(place.id, event, handles) : handle(event, handles)
@@ -270,18 +236,21 @@ export const compose = <
         )
       },
     })
-  const liftAt = (place: Place) => (commands: ReadonlyArray<unknown> = []) => Arr.map(commands, wrapCommand(place))
+  const startAt = (place: Place) => {
+    const { init } = childOf(place.name).program
+    return { state: init.state, commands: Arr.map(init.commands ?? [], wrapCommand(place)) }
+  }
   // Built once: a child's update calls `onEvent`, which may call any child's handle.
   const handles = Object.fromEntries(names.map((name) => [
     name,
     isEach(name)
       ? {
         update: (id: unknown, message: unknown) => updateAt({ name, id }, message),
-        liftCommands: (id: unknown, commands?: ReadonlyArray<unknown>) => liftAt({ name, id })(commands),
+        init: (id: unknown) => startAt({ name, id }),
       }
       : {
         update: (message: unknown) => updateAt({ name, id: undefined }, message),
-        liftCommands: (commands?: ReadonlyArray<unknown>) => liftAt({ name, id: undefined })(commands),
+        init: startAt({ name, id: undefined }),
       },
   ])) as unknown as Handles<State, C, Command, Event>
   const update: Update<State, Message, Command, Event> = (message) => (state) => {
@@ -317,11 +286,10 @@ export const compose = <
     const make = () =>
       program.makeModel(
         childState,
-        offersOfLevel(
-          (message) => !isRejected(program.update(message)(childState)),
-          (message) => level.lift(wrapMessage(place)(message)),
-          level.context,
-        ),
+        offersAt((message) => !isRejected(program.update(message)(childState)), {
+          context: level.context,
+          lift: (message) => level.lift(wrapMessage(place)(message)),
+        }),
       )
     if (typeof childState !== 'object' || childState === null) return make()
     const byRun = models.get(place.name) as WeakMap<object, WeakMap<object, Map<unknown, unknown>>>
@@ -334,6 +302,8 @@ export const compose = <
     byId.set(place.id, model)
     return model
   }
+  const ownRunCommand = (config as Readonly<{ runCommand?: (command: OwnCommand) => Execution<Message, R> }>)
+    .runCommand
   const program = {
     init: config.init,
     update,
@@ -343,8 +313,9 @@ export const compose = <
         const run = runCommandOf(childOf(place.name).program as unknown as Interpreter<unknown, unknown, unknown>)
         return Effect.map(run(field(command, 'command')), Opt.map(wrapMessage(place)))
       }
-      if (config.runCommand === undefined) throw new Error('compose: a command of its own, and no runCommand')
-      return config.runCommand(command as OwnCommand)
+      // Unreachable through the types: `runCommand` is required whenever the parent has commands of its own.
+      if (ownRunCommand === undefined) throw new Error('compose: a command of its own, and no runCommand')
+      return ownRunCommand(command as OwnCommand)
     },
     subscriptions: (state: State) =>
       Arr.reduce(
@@ -359,9 +330,8 @@ export const compose = <
               HashMap.set(keyed, isEach(name) ? [name, place.id, key] as const : [name, key] as const, subscription))),
       ),
     makeModel: (state: State, offers: Offers<Message>): Model => {
-      const level = levels.get(offers)
-      if (level === undefined) throw new Error('compose: offers that the library did not make')
-      const models = Object.fromEntries(names.map((name) => [
+      const level = levelOf(offers as Offers<unknown>)
+      const children = Object.fromEntries(names.map((name) => [
         name,
         isEach(name)
           ? (parentState: State, id: unknown) => modelAt({ name, id }, parentState, level)
@@ -369,22 +339,39 @@ export const compose = <
       ])) as Models<State, C>
       // The parent's own messages are among its messages: its offers of them are offers of its own.
       const own = offers as unknown as Offers<Own>
-      return config.makeModel(state, { offer: own.offer, offerInput: own.offerInput, children: models })
+      return config.makeModel(state, { offer: own.offer, offerInput: own.offerInput, children })
     },
   }
-  return program as unknown as Program<State, Model, Message, Command, R | ChildServices<C>, Event>
+  return program as unknown as Shape<State, Model, Message, Command, R | ChildServices<C>, Event, External>
 }
 
+/** What a parent declares of itself, by name: its state, and its own commands, events and external messages. */
+export type ParentTypes = Readonly<{ state: unknown; command?: unknown; event?: unknown; external?: unknown }>
+
 /**
- * `child`, `each` and `compose` for a parent whose state is `State`: fixed once, so that `get`, `set` and the
- * rest are typed from it. Without it, a `get` whose parameter is left untyped makes every child `unknown`.
+ * The way to make a parent: its types fixed once, by name (`parent<{ state: State; event: Event }>()`), then
+ * its children declared with `child` (one) or `each` (by id), and the parent made with `compose`. Its messages
+ * are its own and `{ _tag: <child>, message }` for each child (with `id` for children by id); its commands
+ * likewise. Fixing the types first is what lets `get`, `set` and the rest be typed without annotations, and
+ * the parent's own commands, events and external messages, which nothing it returns can reveal, be known.
  */
-export const parent = <State>() => ({
-  child: <P extends AnyProgram>(program: P, place: Omit<Child<State, P>, 'program' | 'kind'>): Child<State, P> =>
-    child(program, place),
-  each: <Id, P extends AnyProgram>(program: P, place: Omit<Each<State, Id, P>, 'program' | 'kind'>): Each<State, Id, P> =>
-    each(program, place),
-  compose: <C extends Children<State>, Model, Own = never, OwnCommand = never, Event = never, R = never, K = unknown>(
-    config: Config<State, C, Own, OwnCommand, Event, Model, R, K>,
-  ) => compose<State, C, Model, Own, OwnCommand, Event, R, K>(config),
-})
+export const parent = <T extends ParentTypes>() => {
+  type State = Field<T, 'state'>
+  type OwnCommand = Field<T, 'command'>
+  type Event = Field<T, 'event'>
+  return {
+    child: <P extends AnyProgram>(program: P, place: Omit<Child<State, P>, 'program' | 'kind'>): Child<State, P> => ({
+      kind: 'one',
+      program,
+      ...place,
+    }),
+    each: <Id, P extends AnyProgram>(
+      program: P,
+      place: Omit<Each<State, Id, P>, 'program' | 'kind'>,
+    ): Each<State, Id, P> => ({ kind: 'each', program, ...place }),
+    // Its external messages are among its own: the intersection keeps only those.
+    compose: <C extends Children<State>, Model, Own = never, R = never, K = unknown>(
+      config: Config<State, C, Own, OwnCommand, Event, Model, R, K>,
+    ) => compose<State, C, Model, Own, OwnCommand, Event, R, K, Field<T, 'external'> & Own>(config),
+  }
+}

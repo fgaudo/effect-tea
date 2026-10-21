@@ -6,7 +6,7 @@ import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
 import * as Field from '../field.ts'
 import { messagesSentBy } from '../snabbdom.ts'
-import { Command, form, Message, type State, update } from './form.ts'
+import { Command, form, Message, type Model, type State, update } from './form.ts'
 import { Storage, StorageError } from './storage.ts'
 import { view } from './view.ts'
 
@@ -67,7 +67,7 @@ describe('form', () => {
       withheld: (message, state) => message._tag === 'NameChanged' && state.isSaving,
     })
     fc.assert(fc.property(state, fc.string(), (before, typed) => {
-      const sent = messagesSentBy(view, modelOf(form)(before), typed)
+      const sent = messagesSentBy<Model, Message>(view, modelOf(form)(before), typed)
       expect(violations(before, sent)).toEqual([])
       expect(missing(before, sent, [Message.NameChanged({ name: typed }), Message.SaveClicked()])).toEqual([])
     }))

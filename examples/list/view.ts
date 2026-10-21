@@ -1,10 +1,13 @@
-import { mapDispatch, type View } from '@fgaudo/effect-tea'
-import { h, type VNode } from 'snabbdom'
+// A stopwatch's offers carry its id, so it gets the one dispatch of the run. Its model is kept while its state is
+// the same, and the dispatch is the same for every frame, so snabbdom's `thunk` draws again only the stopwatch that
+// changed.
+import type { Dispatch, View } from '@fgaudo/effect-tea'
+import { h, thunk, type VNode } from 'snabbdom'
 import { onClick } from '../snabbdom.ts'
-import { Message, type Model } from './list.ts'
+import type { Model } from './list.ts'
 import type * as Stopwatch from './stopwatch.ts'
 
-const stopwatchView: View<Stopwatch.Model, Stopwatch.Message, VNode> = (model, dispatch) =>
+const stopwatchView = (model: Stopwatch.Model, dispatch: Dispatch): VNode =>
   h('li', [
     h('output', `${model.seconds} s`),
     model.watch._tag === 'Running'
@@ -13,14 +16,8 @@ const stopwatchView: View<Stopwatch.Model, Stopwatch.Message, VNode> = (model, d
     h('button', { on: onClick(model.remove, dispatch) }, 'Remove'),
   ])
 
-// Each stopwatch sends through the parent's dispatch, wrapped with its id as `embedEach` wraps it.
-export const view: View<Model, Message, VNode> = (model, dispatch) =>
+export const view: View<Model, VNode> = (model, dispatch) =>
   h('main', [
     h('button', { on: onClick(model.add, dispatch) }, 'Add a stopwatch'),
-    h(
-      'ul',
-      model.stopwatches.map(({ id, model }) =>
-        stopwatchView(model, mapDispatch(dispatch, (message) => Message.GotStopwatch({ id, message })))
-      ),
-    ),
+    h('ul', model.stopwatches.map(({ id, model }) => thunk('li', String(id), stopwatchView, [model, dispatch]))),
   ])

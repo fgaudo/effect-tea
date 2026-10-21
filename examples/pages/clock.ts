@@ -1,5 +1,4 @@
-// A page that shows the time, from a subscription, and asks its parent for the About page with an event:
-// it never acts on its parent.
+// A page with a clock that ticks every second while the page is shown.
 import type { Offered, Program, Subscription, Update } from '@fgaudo/effect-tea'
 import * as Channel from 'effect/Channel'
 import * as Data from 'effect/Data'
@@ -8,7 +7,6 @@ import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 
-/** Empty until the first tick: the time is never read in `update` or `makeModel`, only received. */
 export type State = Readonly<{ maybeNow: Opt.Option<DateTime.Utc> }>
 
 export type Message = Data.TaggedEnum<{
@@ -29,7 +27,6 @@ export const update: Update<State, Message, never, Event> = (message) => (state)
   }
 }
 
-// Now, then every second; it never ends.
 const ticks: Subscription<Message, never> = Channel.forever(
   Channel.fromEffect(DateTime.now).pipe(
     Channel.map((now) => Message.Ticked({ now })),
@@ -39,7 +36,7 @@ const ticks: Subscription<Message, never> = Channel.forever(
 
 export type Model = Readonly<{ time: string; openAbout: Offered<Message> }>
 
-export const clock: Program<State, Model, Message, never, never, Event> = {
+export const clock: Program<{ state: State; model: Model; message: Message; event: Event }> = {
   init: { state: { maybeNow: Opt.none() } },
   update,
   subscriptions: () => HashMap.make(['ticks', ticks]),

@@ -7,4 +7,4 @@ import { view } from './view.ts'
 const root = document.getElementById('app')
 if (root === null) throw new Error('index.html has no #app element')
 
-BrowserRuntime.runMain(run(counter, renderInto(root, view), { onRejected: 'die' }))
+BrowserRuntime.runMain(run(counter, renderInto(root, view), { onRejectedInput: 'die' }))

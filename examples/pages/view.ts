@@ -1,29 +1,30 @@
-import { mapDispatch, type View } from '@fgaudo/effect-tea'
+// A page's offers already know where they go, so each page gets the one dispatch of the run. And since that
+// dispatch is the same for every frame, snabbdom's `thunk` skips a page whose model has not changed.
+import type { Dispatch, View } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
-import { h, type VNode } from 'snabbdom'
+import { h, thunk, type VNode } from 'snabbdom'
 import { onClick } from '../snabbdom.ts'
 import type * as About from './about.ts'
-import { Message, type Model } from './app.ts'
+import type { Model } from './app.ts'
 import type * as Clock from './clock.ts'
 
-const clockView: View<Clock.Model, Clock.Message, VNode> = (model, dispatch) =>
+const clockView = (model: Clock.Model, dispatch: Dispatch): VNode =>
   h('main', [
     h('time', model.time),
     h('button', { on: onClick(model.openAbout, dispatch) }, 'About'),
   ])
 
-const aboutView: View<About.Model, About.Message, VNode> = (model, dispatch) =>
+const aboutView = (model: About.Model, dispatch: Dispatch): VNode =>
   h('main', [
     h('blockquote', Opt.getOrElse(model.saying, () => '…')),
     h('button', { on: onClick(model.back, dispatch) }, 'Back'),
   ])
 
-// Each page sends through the parent's dispatch, wrapped as `embed` wraps it: so its offers stay valid.
-export const view: View<Model, Message, VNode> = (model, dispatch) => {
+export const view: View<Model, VNode> = (model, dispatch) => {
   switch (model.page._tag) {
     case 'Clock':
-      return clockView(model.page.model, mapDispatch(dispatch, (message) => Message.GotClock({ message })))
+      return thunk('main', 'clock', clockView, [model.page.model, dispatch])
     case 'About':
-      return aboutView(model.page.model, mapDispatch(dispatch, (message) => Message.GotAbout({ message })))
+      return thunk('main', 'about', aboutView, [model.page.model, dispatch])
   }
 }

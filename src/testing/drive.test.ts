@@ -9,12 +9,12 @@ import * as References from 'effect/References'
 import * as TestClock from 'effect/testing/TestClock'
 import type { Offered } from '../offer.ts'
 import type { Program } from '../program.ts'
-import { RejectedMessage } from '../rejection.ts'
+import { RejectedInput } from '../rejection.ts'
 import { reject, type Update } from '../update.ts'
 import { drive, input, tap } from './drive.ts'
 
 describe('drive', () => {
-  // A note that is saved by `Store`, and pinged once by a subscription that stops with the program.
+  // A note of one line, saved by `Store`, and pinged once by a subscription that stops with the program.
   // `Explode` starts `Crash`, a command with a bug.
   type Note = Readonly<{ text: string; isSaving: boolean; saved: Opt.Option<string>; pings: number }>
   type Edit =
@@ -29,7 +29,7 @@ describe('drive', () => {
   const editNote: Update<Note, Edit, NoteCommand> = (message) => (note) => {
     switch (message._tag) {
       case 'Typed':
-        return note.isSaving ? reject : { state: { ...note, text: message.text } }
+        return note.isSaving || message.text.includes('\n') ? reject : { state: { ...note, text: message.text } }
       case 'Save':
         return note.isSaving || note.text === '' ? reject : {
           state: { ...note, isSaving: true },
@@ -56,7 +56,9 @@ describe('drive', () => {
       explode: Offered<Edit>
     }>
 
-  const noteProgram = (onStop: Effect.Effect<void>): Program<Note, NoteModel, Edit, NoteCommand> => ({
+  const noteProgram = (
+    onStop: Effect.Effect<void>,
+  ): Program<{ state: Note; model: NoteModel; message: Edit; command: NoteCommand }> => ({
     init: { state: { text: '', isSaving: false, saved: Opt.none(), pings: 0 } },
     update: editNote,
     runCommand: (command) =>
@@ -136,24 +138,14 @@ describe('drive', () => {
     expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain('No frame showed')
   })
 
-  test('a message the frame sends and update rejects always fails the scenario', async () => {
-    const correct = noteProgram(Effect.void)
-    // `save` is forged, with an empty text that `update` rejects.
-    const forging: Program<Note, NoteModel, Edit, NoteCommand> = {
-      ...correct,
-      makeModel: (note, offers) => ({
-        _tag: 'Written',
-        note,
-        changeText: offers.offerInput((text: string): Edit => ({ _tag: 'Typed', text }), note.text),
-        save: { _tag: 'Save' } as Offered<Edit>,
-        explode: offers.offer({ _tag: 'Explode' }),
-      }),
-    }
-    const exit = await Effect.runPromiseExit(quietly(drive(forging, (driver) =>
-      Effect.gen(function*() {
-        yield* driver.send(saving)
-        return yield* Effect.never
-      }))))
-    expect(Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof RejectedMessage).toBe(true)
+  test('a typed value that update rejects always fails the scenario', async () => {
+    const exit = await Effect.runPromiseExit(
+      quietly(drive(noteProgram(Effect.void), (driver) =>
+        Effect.gen(function*() {
+          yield* driver.send(typing('milk\neggs'))
+          return yield* Effect.never
+        }))),
+    )
+    expect(Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof RejectedInput).toBe(true)
   })
 })

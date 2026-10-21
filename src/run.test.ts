@@ -9,15 +9,16 @@ import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import * as References from 'effect/References'
 import * as Stream from 'effect/Stream'
-import { RejectedMessage, RejectedOffer, type Rejection } from './rejection.ts'
+import { type InputRejection, RejectedInput, RejectedOffer } from './rejection.ts'
 import type { Applied, RunOptions } from './engine.ts'
 import { reject, type Step, type Update } from './update.ts'
 import type { Offered } from './offer.ts'
-import type { Program } from './program.ts'
+import { modelOf, type Program } from './program.ts'
 import { type Frame, run } from './run.ts'
 
-// A counter that accepts `Increment` and always rejects `Forbidden`; its model offers `Increment`. Its
-// commands only start where a test puts them: `Ping` answers `Increment`, `Boom` dies.
+// A counter that accepts `Increment` and always rejects `Forbidden`; its model offers `Increment`, and an input
+// that types either (a view that lets the user type `false` is buggy). Its commands only start where a test
+// puts them: `Ping` answers `Increment`, `Boom` dies.
 type Message = 'Increment' | 'Forbidden'
 
 type Command = 'Ping' | 'Boom'
@@ -25,13 +26,23 @@ type Command = 'Ping' | 'Boom'
 const update: Update<number, Message, Command> = (message) => (count) =>
   message === 'Increment' ? { state: count + 1 } : reject
 
-type Model = Readonly<{ count: number; increment: Offered<Message> }>
+type Model = Readonly<{
+  count: number
+  increment: Offered<Message>
+  type: (increments: boolean) => Offered<Message>
+}>
 
-const counter: Program<number, Model, Message, Command> = {
+type Counter<M = Model> = Program<{ state: number; model: M; message: Message; command: Command }>
+
+const counter: Counter = {
   init: { state: 0 },
   update,
   runCommand: (command) => command === 'Ping' ? Effect.succeedSome<Message>('Increment') : Effect.die('boom'),
-  makeModel: (count, { offer }) => ({ count, increment: offer('Increment') }),
+  makeModel: (count, { offer, offerInput }) => ({
+    count,
+    increment: offer('Increment'),
+    type: offerInput((increments) => increments ? 'Increment' : 'Forbidden', true),
+  }),
 }
 
 // The engine dies on purpose in some tests: what it logs then is expected.
@@ -39,9 +50,9 @@ const quietly = <A, E>(effect: Effect.Effect<A, E>) =>
   effect.pipe(Effect.provideService(References.MinimumLogLevel, 'None'))
 
 const runDying = (
-  program: Program<number, Model, Message, Command>,
-  render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void>,
-) => run(program, render, { onRejected: 'die' })
+  program: Counter,
+  render: (frames: Stream.Stream<Frame<Model>>) => Effect.Effect<void>,
+) => run(program, render, { onRejectedInput: 'die' })
 
 describe('run', () => {
   test('frames carry the model, and a dispatch that drives the program', async () => {
@@ -60,21 +71,18 @@ describe('run', () => {
     expect(counts).toEqual([0, 1, 2])
   })
 
-  test('a message the current frame sends and update rejects makes the run fail', async () => {
+  test('a typed value that update rejects makes the run fail', async () => {
     const exit = await Effect.runPromiseExit(quietly(runDying(counter, (frames) =>
       frames.pipe(
-        Stream.tap(({ dispatch }) =>
-          // A buggy view: it forges a message it was not offered.
-          dispatch('Forbidden' as Offered<Message>)
-        ),
+        Stream.tap(({ model, dispatch }) => dispatch(model.type(false))),
         Stream.runDrain,
       ))))
-    expect(Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof RejectedMessage).toBe(true)
+    expect(Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof RejectedInput).toBe(true)
   })
 
-  test('with a function as onRejected, such a message is dropped, reported, and the program goes on', async () => {
+  test('with a function as onRejectedInput, such a message is dropped, reported, and the program goes on', async () => {
     const counts: Array<number> = []
-    const reported: Array<Rejection<Message>> = []
+    const reported: Array<InputRejection<Message>> = []
     const exit = await Effect.runPromiseExit(quietly(run(
       counter,
       (frames) =>
@@ -82,15 +90,15 @@ describe('run', () => {
           Stream.tap(({ model, dispatch }) =>
             Effect.gen(function*() {
               counts.push(model.count)
-              // A buggy view: it forges a message, then sends the one it was offered.
-              yield* dispatch('Forbidden' as Offered<Message>)
+              // A buggy view: it lets the user type a value the model does not accept, then increments.
+              yield* dispatch(model.type(false))
               yield* dispatch(model.increment)
             })
           ),
           Stream.take(2),
           Stream.runDrain,
         ),
-      { onRejected: (rejection) => Effect.sync(() => reported.push(rejection)) },
+      { onRejectedInput: (rejection) => Effect.sync(() => reported.push(rejection)) },
     )))
     expect(Exit.isSuccess(exit)).toBe(true)
     expect(counts).toEqual([0, 1])
@@ -101,8 +109,8 @@ describe('run', () => {
   test('there is no default for rejections, and no way to ignore one without reporting it', () => {
     const optionsAreRequired: undefined extends Parameters<typeof run>[2] ? false : true = true
     // @ts-expect-error a bug that is neither fatal nor reported would go unnoticed
-    const unreported: RunOptions<Message> = { onRejected: 'ignore' }
-    expect([optionsAreRequired, unreported.onRejected as unknown]).toEqual([true, 'ignore'])
+    const unreported: RunOptions<Message> = { onRejectedInput: 'ignore' }
+    expect([optionsAreRequired, unreported.onRejectedInput as unknown]).toEqual([true, 'ignore'])
   })
 
   test('the run ends when the renderer ends', async () => {
@@ -121,8 +129,8 @@ describe('defects', () => {
    * Runs `program`, sending `Increment` from the first frame and drawing every frame with `view`, and tells
    * whether the run failed with the defect thrown.
    */
-  const failsWithBoom = async <Model>(
-    program: Program<number, Model, Message, Command>,
+  const failsWithBoom = async (
+    program: Counter,
     { view = () => undefined, ...options }: Partial<RunOptions<Message, number, Command>> & {
       view?: (model: Model) => void
     } = {},
@@ -137,12 +145,12 @@ describe('defects', () => {
               view(model)
               if (sent) return
               sent = true
-              yield* dispatch('Increment' as Offered<Message>)
+              yield* dispatch(model.increment)
             })
           ),
           Stream.runDrain,
         ),
-      { onRejected: 'die', ...options },
+      { onRejectedInput: 'die', ...options },
     )))
     return Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof Boom
   }
@@ -172,27 +180,26 @@ describe('defects', () => {
   })
 
   test('an offer that update rejects ends the run with RejectedOffer, as the model is made', async () => {
-    const overOffering: Program<number, Offered<Message>, Message, Command> = {
+    const overOffering: Counter<Offered<Message>> = {
       ...counter,
       makeModel: (_count, { offer }) => offer('Forbidden'),
     }
     const exit = await Effect.runPromiseExit(quietly(run(
       overOffering,
       (frames) => frames.pipe(Stream.tap(({ model }) => Effect.sync(() => model)), Stream.runDrain),
-      { onRejected: 'die' },
+      { onRejectedInput: 'die' },
     )))
     expect(Exit.isFailure(exit) && Cause.squash(exit.cause)).toEqual(new RejectedOffer({ message: 'Forbidden' }))
   })
 
-  test('a rejected message from the current frame is fatal with onRejected: \'die\'', async () => {
+  test('an offer of another run ends the run, though update accepts it', async () => {
+    const elsewhere = modelOf(counter)(0).increment
     const exit = await Effect.runPromiseExit(
-      quietly(runDying(counter, (frames) =>
-        frames.pipe(
-          Stream.tap(({ dispatch }) => dispatch('Forbidden' as Offered<Message>)),
-          Stream.runDrain,
-        ))),
+      quietly(
+        runDying(counter, (frames) => frames.pipe(Stream.tap(({ dispatch }) => dispatch(elsewhere)), Stream.runDrain)),
+      ),
     )
-    expect(Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof RejectedMessage).toBe(true)
+    expect(Exit.isFailure(exit) && !(Cause.squash(exit.cause) instanceof RejectedInput)).toBe(true)
   })
 })
 
@@ -213,7 +220,7 @@ describe('onApplied', () => {
           Stream.take(3),
           Stream.runDrain,
         ),
-      { onRejected: 'die', onApplied: (applied) => Effect.sync(() => heard.push(applied)) },
+      { onRejectedInput: 'die', onApplied: (applied) => Effect.sync(() => heard.push(applied)) },
     )))
     expect(heard).toEqual([
       { message: 'Increment', before: 0, after: 1, revision: 1, commands: [] },
@@ -225,13 +232,13 @@ describe('onApplied', () => {
   test('a message that leaves the very same state is heard too, with an unchanged revision', async () => {
     const heard = await Effect.runPromise(quietly(Effect.gen(function*() {
       const applied = yield* Deferred.make<Applied<number, Message, Command>>()
-      const still: Program<number, Model, Message, Command> = {
+      const still: Counter = {
         ...counter,
         init: { state: 0, commands: ['Ping'] },
         update: () => (count) => ({ state: count }),
       }
       yield* run(still, () => Effect.asVoid(Deferred.await(applied)), {
-        onRejected: 'die',
+        onRejectedInput: 'die',
         onApplied: (message) => Effect.asVoid(Deferred.succeed(applied, message)),
       })
       return yield* Deferred.await(applied)
@@ -244,13 +251,13 @@ describe('onApplied', () => {
       const applied: Array<Applied<number, Message, Command>> = []
       const two = yield* Deferred.make<ReadonlyArray<Applied<number, Message, Command>>>()
       // The first increment pings again, so a second one follows.
-      const pinging: Program<number, Model, Message, Command> = {
+      const pinging: Counter = {
         ...counter,
         init: { state: 0, commands: ['Ping'] },
         update: () => (count) => ({ state: count + 1, commands: count === 0 ? ['Ping'] : [] }),
       }
       yield* run(pinging, () => Effect.asVoid(Deferred.await(two)), {
-        onRejected: 'die',
+        onRejectedInput: 'die',
         onApplied: (step) =>
           Effect.suspend(() => {
             applied.push(step)
@@ -266,34 +273,36 @@ describe('onApplied', () => {
 describe('frames', () => {
   test('a model is made only for the frames whose model is read, once each', async () => {
     let made = 0
-    const counting: Program<number, number, Message, Command> = {
+    const counting: Counter = {
       ...counter,
-      makeModel: (count) => {
+      makeModel: (count, offers) => {
         made++
-        return count
+        return counter.makeModel(count, offers)
       },
     }
     const models: Array<number> = []
-    let seen = 0
+    let increment: Offered<Message> | undefined
     await Effect.runPromise(quietly(run(
       counting,
       (frames) =>
         frames.pipe(
-          // The first two frames send an increment without reading their model: three frames in all.
-          Stream.tap(({ dispatch }) =>
-            Effect.gen(function*() {
-              if (seen++ < 2) yield* dispatch('Increment' as Offered<Message>)
+          // The second frame sends the first frame's offer again, without reading its own model: three frames
+          // in all.
+          Stream.tap((frame) =>
+            Effect.suspend(() => {
+              increment ??= frame.model.increment
+              return frame.dispatch(increment)
             })
           ),
           Stream.take(3),
           Stream.runLast,
           // Like a renderer that only draws the newest frame, and reads its model twice.
-          Effect.map(Opt.map((last) => models.push(last.model, last.model))),
+          Effect.map(Opt.map((last) => models.push(last.model.count, last.model.count))),
         ),
-      { onRejected: 'die' },
+      { onRejectedInput: 'die' },
     )))
     expect(models).toEqual([2, 2])
-    expect(made).toBe(1)
+    expect(made).toBe(2)
   })
 
   test('a renderer slower than the program gets only the latest frame', async () => {
@@ -331,28 +340,32 @@ describe('subscriptions', () => {
       const ticking = Channel.unwrap(Effect.map(Queue.take(source), (tick) => Channel.succeed(tick))).pipe(
         Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never))),
       )
-      const watch: Program<Watch, Watch, WatchMessage> = {
+      const watch: Program<{
+        state: Watch
+        model: Readonly<{ watch: Watch; stop: Offered<WatchMessage> }>
+        message: WatchMessage
+      }> = {
         init: { state: { isRunning: true, ticks: 0 } },
         update: (message) => (state) =>
           message === 'Tick'
             ? { state: { ...state, ticks: state.ticks + 1 } }
             : { state: { ...state, isRunning: false } },
         subscriptions: (state) => state.isRunning ? HashMap.make(['ticks', ticking]) : HashMap.empty(),
-        makeModel: (state) => state,
+        makeModel: (watch, { offer }) => ({ watch, stop: offer('Stop') }),
       }
       yield* run(watch, (frames) =>
         frames.pipe(
           Stream.tap(({ model, dispatch }) =>
             Effect.suspend(() => {
-              latest = model
-              return model.isRunning ? dispatch('Stop' as Offered<WatchMessage>) : Deferred.succeed(stopped, undefined)
+              latest = model.watch
+              return model.watch.isRunning ? dispatch(model.stop) : Deferred.succeed(stopped, undefined)
             })
           ),
           Stream.runDrain,
           // Long enough for a late tick to be applied and drawn, if the engine let it through.
           Effect.raceFirst(Deferred.await(stopped).pipe(Effect.andThen(Effect.sleep('50 millis')))),
         ), {
-        onRejected: 'die',
+        onRejectedInput: 'die',
         // After `update` stopped the watch and before the key goes away: a tick is sent meanwhile.
         onApplied: ({ message }) =>
           message === 'Stop' ? Queue.offer(source, 'Tick').pipe(Effect.andThen(Deferred.await(sent))) : Effect.void,

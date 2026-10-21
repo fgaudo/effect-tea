@@ -1,9 +1,9 @@
 import type { View } from '@fgaudo/effect-tea'
 import { h, type VNode } from 'snabbdom'
 import { onClick } from '../snabbdom.ts'
-import type { Message, Model } from './counter.ts'
+import type { Model } from './counter.ts'
 
-export const view: View<Model, Message, VNode> = (model, dispatch) =>
+export const view: View<Model, VNode> = (model, dispatch) =>
   h('main', [
     model._tag === 'Counting'
       ? h('button', { on: onClick(model.decrement, dispatch) }, '−')

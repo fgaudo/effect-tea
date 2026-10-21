@@ -9,13 +9,14 @@ import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as References from 'effect/References'
 import * as Stream from 'effect/Stream'
-import { RejectedMessage } from '../rejection.ts'
-import type { Subscription } from '../subscription.ts'
-import { isRejected, reject } from '../update.ts'
+import { RejectedInput } from './rejection.ts'
+import type { Subscription } from './subscription.ts'
+import { isRejected, reject } from './update.ts'
 import { type Dispatch, dispatchUnsafe, type Offered } from './offer.ts'
-import { child, compose, each, modelOf, type Program } from './program.ts'
+import { parent } from './compose.ts'
+import { modelOf, type Program } from './program.ts'
 import { type Frame, run } from './run.ts'
-import { messageOf } from './testing.ts'
+import { messageOf } from './testing/message-of.ts'
 
 // A counter that cannot go below zero, that saves on request, and that accepts typed numbers only.
 type CounterMessage = Data.TaggedEnum<{
@@ -40,7 +41,17 @@ type CounterModel = Readonly<{
   save: Opt.Option<Offered<CounterMessage>>
 }>
 
-const counter: Program<Counter, CounterModel, CounterMessage, CounterCommand, never, CounterEvent> = {
+// A parent may decrement it, as a back button would: its other messages are its own.
+type External = Extract<CounterMessage, { readonly _tag: 'Decrement' }>
+
+const counter: Program<{
+  state: Counter
+  model: CounterModel
+  message: CounterMessage
+  command: CounterCommand
+  event: CounterEvent
+  external: External
+}> = {
   init: { state: { count: 0, text: '', saving: false } },
   update: (message) => (state) => {
     switch (message._tag) {
@@ -75,7 +86,7 @@ const ticks: Subscription<Tick, never> = Channel.fromEffect(Effect.succeed<Tick>
   Channel.concatWith(() => Channel.never),
 )
 
-const ticker: Program<number, number, Tick> = {
+const ticker: Program<{ state: number; model: number; message: Tick }> = {
   init: { state: 0 },
   update: () => (ticks) => ({ state: ticks + 1 }),
   subscriptions: () => HashMap.make(['ticks', ticks]),
@@ -85,23 +96,25 @@ const ticker: Program<number, number, Tick> = {
 type ParentState = Readonly<{ left: Counter; maybeRight: Opt.Option<Counter>; saves: number; ticks: number }>
 type Reset = Readonly<{ _tag: 'Reset' }>
 
-const parent = compose({
-  init: { state: { left: counter.init.state, maybeRight: Opt.none(), saves: 0, ticks: 0 } as ParentState },
+const Parent = parent<{ state: ParentState }>()
+
+const app = Parent.compose({
+  init: { state: { left: counter.init.state, maybeRight: Opt.none(), saves: 0, ticks: 0 } },
   children: {
-    Left: child(counter, { get: (s: ParentState) => Opt.some(s.left), set: (s, left) => ({ ...s, left }) }),
-    Right: child(counter, {
-      get: (s: ParentState) => s.maybeRight,
+    Left: Parent.child(counter, { get: (s) => Opt.some(s.left), set: (s, left) => ({ ...s, left }) }),
+    Right: Parent.child(counter, {
+      get: (s) => s.maybeRight,
       set: (s, right) => ({ ...s, maybeRight: Opt.some(right) }),
     }),
     // Listens only while the right counter is there.
-    Ticker: child(ticker, {
-      get: (s: ParentState) => Opt.some(s.ticks),
+    Ticker: Parent.child(ticker, {
+      get: (s) => Opt.some(s.ticks),
       set: (s, ticks) => ({ ...s, ticks }),
       subscribed: (s) => Opt.map(s.maybeRight, () => s.ticks),
     }),
   },
   update: (_: Reset, children) => (state) => {
-    // A parent sends its own message to a child through its handle.
+    // A parent applies a message of its own to a child through its handle.
     const step = children.Left.update(CounterMessage.Decrement())(state)
     return isRejected(step) ? { state } : step
   },
@@ -116,14 +129,14 @@ const parent = compose({
   }),
 })
 
-type Model = ReturnType<typeof parent.makeModel>
+type Model = ReturnType<typeof app.makeModel>
 
 /**
  * Runs `program` with a renderer that hands each frame to `act`, until `act` says it is done; returns what the
  * renderer saw. Logs nothing: some tests make the run die on purpose.
  */
 const script = <M>(
-  program: Program<ParentState, M, unknown, unknown, never>,
+  program: Program<{ state: ParentState; model: M; message: unknown; command: unknown }>,
   act: (frame: Frame<M>, index: number) => Effect.Effect<boolean>,
   state: ParentState = program.init.state,
 ) => {
@@ -138,7 +151,7 @@ const script = <M>(
         })),
         () => Effect.void,
       ),
-    { onRejected: 'die' },
+    { onRejectedInput: 'die' },
   ).pipe(
     Effect.timeout('2 seconds'),
     Effect.as(seen),
@@ -147,26 +160,29 @@ const script = <M>(
   )
 }
 
-const asProgram = parent as unknown as Program<ParentState, Model, unknown, unknown, never>
+const asProgram = app as unknown as Program<{ state: ParentState; model: Model; message: unknown; command: unknown }>
 
 const send = (dispatch: Dispatch, offered: Offered<unknown>) => dispatch(offered)
 
 describe('next: offers as tokens', () => {
   test('one dispatch for every frame, and a child sends through it as it is', async () => {
-    const exit = await script(asProgram, (frame, index) =>
-      index < 3 ? send(frame.dispatch, frame.model.left.increment).pipe(Effect.as(false)) : Effect.succeed(true))
+    const exit = await script(
+      asProgram,
+      (frame, index) =>
+        index < 3 ? send(frame.dispatch, frame.model.left.increment).pipe(Effect.as(false)) : Effect.succeed(true),
+    )
     const seen = Exit.isSuccess(exit) ? exit.value : []
     expect(seen.map((frame) => frame.model.left.count)).toEqual([0, 1, 2, 3])
     expect(new Set(seen.map((frame) => frame.dispatch)).size).toBe(1)
   })
 
   test('a token holds the message its whole program receives', () => {
-    const model = modelOf(asProgram)(parent.init.state)
+    const model = modelOf(asProgram)(app.init.state)
     expect(messageOf(model.left.increment)).toEqual({ _tag: 'Left', message: CounterMessage.Increment() })
   })
 
   test('a double tap acts once: the second message is stale', async () => {
-    const at = { ...parent.init.state, left: { ...counter.init.state, count: 1 } }
+    const at = { ...app.init.state, left: { ...counter.init.state, count: 1 } }
     const exit = await script(asProgram, (frame, index) => {
       if (index > 0) return Effect.succeed(true)
       const decrement = Opt.getOrThrow(frame.model.left.decrement)
@@ -175,14 +191,16 @@ describe('next: offers as tokens', () => {
     expect(Exit.isSuccess(exit) && exit.value.map((frame) => frame.model.left.count)).toEqual([1, 0])
   })
 
-  test('a typed value that update rejects is a bug, reported as onRejected says', async () => {
-    const exit = await script(asProgram, (frame) =>
-      send(frame.dispatch, frame.model.left.type('not a number')).pipe(Effect.as(false)))
-    expect(Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof RejectedMessage).toBe(true)
+  test('a typed value that update rejects is a bug, reported as onRejectedInput says', async () => {
+    const exit = await script(
+      asProgram,
+      (frame) => send(frame.dispatch, frame.model.left.type('not a number')).pipe(Effect.as(false)),
+    )
+    expect(Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof RejectedInput).toBe(true)
   })
 
   test('a token of another run kills the run', async () => {
-    const foreign = modelOf(asProgram)(parent.init.state).left.increment
+    const foreign = modelOf(asProgram)(app.init.state).left.increment
     const exit = await script(asProgram, (frame) => send(frame.dispatch, foreign).pipe(Effect.as(false)))
     expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain('another run')
   })
@@ -211,19 +229,19 @@ describe('next: compose', () => {
   })
 
   test('the parent\'s own messages, and what it sends a child through its handle', () => {
-    const at = { ...parent.init.state, left: { ...counter.init.state, count: 2 } }
-    const result = parent.update({ _tag: 'Reset' })(at)
+    const at = { ...app.init.state, left: { ...counter.init.state, count: 2 } }
+    const result = app.update({ _tag: 'Reset' })(at)
     expect(!isRejected(result) && result.state.left.count).toBe(1)
   })
 
   test('a message for a child that is not there is rejected', () => {
-    expect(isRejected(parent.update({ _tag: 'Right', message: CounterMessage.Increment() })(parent.init.state)))
+    expect(isRejected(app.update({ _tag: 'Right', message: CounterMessage.Increment() })(app.init.state)))
       .toBe(true)
   })
 
   test('the model of a child that is not there is a defect', () => {
     expect(() =>
-      parent.makeModel(parent.init.state, {
+      app.makeModel(app.init.state, {
         offer: () => {
           throw new Error('unused')
         },
@@ -235,17 +253,17 @@ describe('next: compose', () => {
   })
 
   test('a child listens under its name, and only when subscribed', () => {
-    const subscriptions = parent.subscriptions ?? (() => HashMap.empty())
-    expect(HashMap.size(subscriptions(parent.init.state))).toBe(0)
+    const subscriptions = app.subscriptions ?? (() => HashMap.empty())
+    expect(HashMap.size(subscriptions(app.init.state))).toBe(0)
     const keys = Array.from(
-      HashMap.keys(subscriptions({ ...parent.init.state, maybeRight: Opt.some(counter.init.state) })),
+      HashMap.keys(subscriptions({ ...app.init.state, maybeRight: Opt.some(counter.init.state) })),
     )
     expect(keys).toEqual([['Ticker', 'ticks']])
   })
 
   test('a child\'s model is kept while its state is the same object, in each run apart', () => {
     const model = modelOf(asProgram)
-    const state = { ...parent.init.state, maybeRight: Opt.some(counter.init.state) }
+    const state = { ...app.init.state, maybeRight: Opt.some(counter.init.state) }
     const first = model(state)
     expect(model({ ...state, saves: 1 }).left).toBe(first.left)
     expect(model({ ...state, left: { ...state.left, count: 1 } }).left).not.toBe(first.left)
@@ -256,17 +274,18 @@ describe('next: compose', () => {
 type Row = Readonly<{ id: number; counter: Counter }>
 type ListState = Readonly<{ rows: ReadonlyArray<Row> }>
 
-const list = compose({
-  init: { state: { rows: [] } as ListState },
+const List = parent<{ state: ListState }>()
+
+const list = List.compose({
+  init: { state: { rows: [] } },
   children: {
-    Rows: each(counter, {
-      get: (state: ListState, id: number) =>
-        Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
+    Rows: List.each(counter, {
+      get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
       set: (state, id, counter) => ({ rows: state.rows.map((row) => row.id === id ? { id, counter } : row) }),
       subscribed: (state) => state.rows.map(({ id, counter }) => [id, counter] as const),
     }),
-    Ticker: child(ticker, {
-      get: (_: ListState) => Opt.some(0),
+    Ticker: List.child(ticker, {
+      get: () => Opt.some(0),
       set: (state) => state,
       subscribed: () => Opt.none(),
     }),
@@ -278,7 +297,9 @@ const list = compose({
 })
 
 // New rows often share one initial state object: here, all of them.
-const rows = (...ids: ReadonlyArray<number>): ListState => ({ rows: ids.map((id) => ({ id, counter: counter.init.state })) })
+const rows = (...ids: ReadonlyArray<number>): ListState => ({
+  rows: ids.map((id) => ({ id, counter: counter.init.state })),
+})
 
 describe('next: children by id', () => {
   test('a message reaches the child with its id, and only that one', () => {
@@ -320,12 +341,12 @@ describe('next: children by id', () => {
   })
 
   test('each child listens under its name and id, alone ones under their name', () => {
-    const tickerList = compose({
-      init: { state: { ids: [7, 8] } as Readonly<{ ids: ReadonlyArray<number> }> },
+    const Tickers = parent<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
+    const tickerList = Tickers.compose({
+      init: { state: { ids: [7, 8] } },
       children: {
-        Tickers: each(ticker, {
-          get: (state: Readonly<{ ids: ReadonlyArray<number> }>, id: number) =>
-            state.ids.includes(id) ? Opt.some(0) : Opt.none(),
+        Tickers: Tickers.each(ticker, {
+          get: (state, id: number) => state.ids.includes(id) ? Opt.some(0) : Opt.none(),
           set: (state) => state,
           subscribed: (state) => state.ids.map((id) => [id, 0] as const),
         }),
@@ -338,5 +359,98 @@ describe('next: children by id', () => {
       ['Tickers', 7, 'ticks'],
       ['Tickers', 8, 'ticks'],
     ])
+  })
+})
+
+describe('next: what a parent can do with a child', () => {
+  test('a handle\'s update takes only the messages the child\'s type says a parent may send', () => {
+    const sendTo = Parent.compose({
+      init: { state: app.init.state },
+      children: {
+        Left: Parent.child(counter, { get: (s) => Opt.some(s.left), set: (s, left) => ({ ...s, left }) }),
+      },
+      update: (_: Reset, children) => (state) => {
+        // @ts-expect-error: `Increment` is the counter's own business.
+        const forged = children.Left.update(CounterMessage.Increment())(state)
+        return isRejected(forged) ? { state } : forged
+      },
+      onEvent: { Left: () => (state) => ({ state }) },
+      makeModel: () => null,
+    })
+    expect(isRejected(sendTo.update({ _tag: 'Reset' })(app.init.state))).toBe(false)
+  })
+
+  test('init gives a new child its state and its commands, lifted with its id', () => {
+    const starting: typeof counter = {
+      ...counter,
+      init: { ...counter.init, commands: [CounterCommand.Save({ count: 0 })] },
+    }
+    const started = List.compose({
+      init: { state: { rows: [] } },
+      children: {
+        Rows: List.each(starting, {
+          get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
+          set: (state, id, counter) => ({ rows: state.rows.map((row) => row.id === id ? { id, counter } : row) }),
+          subscribed: () => [],
+        }),
+      },
+      update: (_: Reset, children) => (state) => {
+        const row = children.Rows.init(7)
+        return { state: { rows: [...state.rows, { id: 7, counter: row.state }] }, commands: row.commands }
+      },
+      onEvent: { Rows: () => (state) => ({ state }) },
+      makeModel: () => null,
+    })
+    const result = started.update({ _tag: 'Reset' })(started.init.state)
+    expect(!isRejected(result) && result.commands).toEqual([
+      { _tag: 'Rows', id: 7, command: CounterCommand.Save({ count: 0 }) },
+    ])
+    expect(!isRejected(result) && result.state.rows).toEqual([{ id: 7, counter: counter.init.state }])
+  })
+})
+
+// Each `@ts-expect-error` is the test: if the types accepted the mistake, the typecheck would fail.
+describe('next: what the types reject', () => {
+  // A program written as a plain object, without `Program<…>`: no external messages, so nothing a parent may send.
+  const plain = {
+    init: { state: 0 },
+    update: (message: Tick) => (ticks: number) => message._tag === 'Tick' ? { state: ticks + 1 } : reject,
+    makeModel: (ticks: number) => ticks,
+  }
+
+  test('a child whose type names no external message takes none from its parent', () => {
+    const { child, compose } = parent<{ state: number }>()
+    const program = compose({
+      init: { state: 0 },
+      children: { Plain: child(plain, { get: (state) => Opt.some(state), set: (_, child) => child }) },
+      update: (_: Reset, children) => (state) => {
+        // @ts-expect-error: `Tick` is the child's own business.
+        const forged = children.Plain.update({ _tag: 'Tick' })(state)
+        return isRejected(forged) ? { state } : forged
+      },
+      makeModel: () => null,
+    })
+    expect(isRejected(program.update({ _tag: 'Reset' })(0))).toBe(false)
+  })
+
+  test('an own message cannot take the name of a child, which would receive it', () => {
+    const { child, compose } = parent<{ state: number }>()
+    // @ts-expect-error: `Plain` is a child's name.
+    compose({
+      init: { state: 0 },
+      children: { Plain: child(plain, { get: (state) => Opt.some(state), set: (_, child) => child }) },
+      update: (_: Readonly<{ _tag: 'Plain' }>) => (state) => ({ state }),
+      makeModel: () => null,
+    })
+  })
+
+  test('commands of its own need a runCommand', () => {
+    const { child, compose } = parent<{ state: number; command: Readonly<{ _tag: 'Beep' }> }>()
+    // @ts-expect-error: `Beep` would go uninterpreted.
+    compose({
+      init: { state: 0 },
+      children: { Plain: child(plain, { get: (state) => Opt.some(state), set: (_, child) => child }) },
+      makeModel: () => null,
+    })
   })
 })

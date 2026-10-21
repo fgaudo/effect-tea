@@ -60,26 +60,30 @@ The version in `package.json` is the one the next release will have, decided by 
 - **`update` is pure and called freely.** The library calls it to decide offers
   as well as to apply messages. Never assume it runs once per message.
 - **Only the library makes the `Offers` a model receives**, from the program's own `update` and the state
-  it passes to `makeModel` (`modelOf`, and `embed`'s `makeModel` for a child). `offers` stays internal: a
+  it passes to `makeModel` (`run`, `modelOf`, and a parent's `children` for a child). They stay internal: a
   model that could build its own could ask the wrong `update`, or about another state.
-- **Only `offer.ts` makes an `Offered`**: `offers`, by asking `update`, and `mapDispatch`, valid because the
-  parent accepts `wrap(message)` exactly when the child accepts `message`. Keep every cast to `Offered` in
-  that module, and add no other way to forge one.
+- **Only `offer.ts` makes an `Offered`**, by asking the `update` of the offer's level, and wrapping its message
+  as every parent does up to the root. Asking that level is enough because a parent decides whether a child
+  is there only with `get`, never by rejecting its messages: keep it so, and keep every cast to `Offered` in
+  that module, with no other way to forge one.
+- **An offer is read only by its fields** (`tokenOf`), never by its class or a symbol: in development a view
+  may be bundled with a copy of the library of its own. One `dispatch` serves a run; an offer carries the run
+  that made it, and one of another run is a defect.
 - **An offer `update` rejects is a defect of `makeModel`**: `offer` throws `RejectedOffer`, never returns an
   `Option`. A model says which actions exist by its shape; an optional offer would turn a wrong rejection
   into a control that silently does nothing. Do not add a way to ask whether an offer would succeed: a model
   that picked its case by asking would hide the same bug.
-- **Rejections are judged by the frame's own state.** A view message carries the state its frame was drawn
-  from. If `update` rejects it, and rejects it in that state too, it is a `Rejected` bug, however many
-  messages arrived in between; if that state accepted it, it is stale and ignored. Messages from commands
-  and subscriptions are stale when rejected. Never judge by revision alone: a frequent subscription would
-  hide bugs.
-- **No default for rejections.** `onRejected` is required: `'die'`, or the function that reports a rejection
+- **Rejections are judged by the offer.** Every offer was checked against `update` when its model was made,
+  so its rejection is stale and ignored, however many messages arrived in between, except a value typed into
+  an `offerInput` that `update` rejected in the offer's own state: the offer marks it as a `violation`, a bug.
+  Messages from commands and subscriptions are stale when rejected. Never judge by revision alone: a frequent
+  subscription would hide bugs.
+- **No default for rejections.** `onRejectedInput` is required: `'die'`, or the function that reports a rejection
   the program goes on after. A bug that is neither fatal nor reported must not be expressible.
 - **Defects always die, and the run fails with them.** Nothing in the library may catch, retry, swallow or
   turn them into messages, so that every defect, wherever it happens (the view and the renderer included),
   reaches the cause the run fails with: reporting it is the job of whoever runs the program. The engine only
-  logs where a defect happened when it knows. `onRejected` is the only opt-in, and it only covers rejections,
+  logs where a defect happened when it knows. `onRejectedInput` is the only opt-in, and it only covers rejections,
   since a rejection leaves the state unchanged.
 - **A subscription never ends in silence**: it is a `Channel` whose end value is a message (or `never`), and
   the engine sends that last message to `update`. An ended subscription keeps its key among the active ones,
@@ -103,19 +107,26 @@ The version in `package.json` is the one the next release will have, decided by 
 - **`simulate` behaves like the engine** where the engine is deterministic: a rejected message from a
   command is stale and ignored, and only a rejection of the test's own messages fails. Keep the two in step
   when either changes.
-- **`drive` acts only as a user can**: through `run` and the frames' own `dispatch`, so a scenario sends only
-  offered messages. It always runs with `onRejected: 'die'`, since a test must not go on past a bug, and
+- **`drive` acts only as a user can**: through `run` and the run's `dispatch`, so a scenario sends only
+  offers. It always runs with `onRejectedInput: 'die'`, since a test must not go on past a bug, and
   its waits use the real clock, whatever `Clock` the program runs with.
-- **A child's model is kept by its state** (`keptByState` in `program.ts`): `embed`'s `makeModel` relies on
-  `update` and `makeModel` being pure, and on states being replaced, never mutated.
-- **Logs never carry message data by default** (`describeByTag` in `log.ts`). Levels: `error` for bugs, `debug` for the
+- **A child's model is kept by its run, its state object and its id** (`modelAt` in `compose.ts`): it relies on
+  `update` and `makeModel` being pure, and on states being replaced, never mutated. Keep all three in the key:
+  new children often share one initial state object, and a model's offers carry their run and id.
+- **What a parent declares, the types enforce**: `runCommand` exactly when it has commands of its own,
+  `onEvent` exactly when a child has events, a handle's `update` only with a child's `external` messages, and no own
+  message named like a child. A program written without `Program<…>` has `unknown` types, read as `never`
+  (`Known` in `program.ts`), so that it does not open these checks.
+- **Logs never carry message data by default** (`describeByTag` in `log.ts`): only tags, following a
+  wrapped `message` or `command` only when it is itself tagged, since a program's own field of that name may
+  hold data. Levels: `error` for bugs, `debug` for the
   message loop and for subscriptions starting, stopping and ending.
 
 ## Code
 
 - One module per concept: `update.ts`, `command.ts`, `subscription.ts`, `offer.ts` (offers and dispatch),
-  `program.ts` (the program, `embed`), `rejection.ts`, `log.ts`; `engine.ts` is the runtime only (with
-  `RunOptions`), and `run.ts` connects it to a renderer. `testing/` holds one module per testing tool, and
+  `program.ts` (the program and its types), `compose.ts` (`parent`), `rejection.ts`, `log.ts`; `engine.ts` is
+  the runtime only (with `RunOptions`), and `run.ts` connects it to a renderer. `testing/` holds one module per testing tool, and
   `testing/index.ts` exports them.
 - A piece of a program that may be missing (`runCommand` without commands, `subscriptions`) is read through
   `runCommandOf` and `subscriptionsOf`, never directly: the engine always gets the complete set.

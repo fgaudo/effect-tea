@@ -18,5 +18,5 @@ const storage = Storage.of({
 })
 
 BrowserRuntime.runMain(
-  run(form, renderInto(root, view), { onRejected: 'die' }).pipe(Effect.provideService(Storage, storage)),
+  run(form, renderInto(root, view), { onRejectedInput: 'die' }).pipe(Effect.provideService(Storage, storage)),
 )
