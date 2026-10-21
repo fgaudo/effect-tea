@@ -3,7 +3,7 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version.
 
-## 0.3.0 (unreleased)
+## 0.3.0 (2026-10-21)
 
 ### Added
 
