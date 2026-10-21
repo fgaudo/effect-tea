@@ -56,6 +56,9 @@ type Generation = number
  */
 type Origin<State, K> =
   | Readonly<{ _tag: 'View'; frame: Revisioned<State> }>
+  // Prototype (`src/next`): a message an offer carries, verified when the offer was made. `violation` marks
+  // a typed value that `update` rejected in that very state; `run` is the run that made the offer.
+  | Readonly<{ _tag: 'Offer'; violation: boolean; revision: Revision; run: object }>
   | Readonly<{ _tag: 'Command' }>
   | Readonly<{ _tag: 'Subscription'; key: K; generation: Generation }>
 
@@ -72,6 +75,12 @@ export interface Engine<State, Message> {
    * apart as a bug or as stale.
    */
   readonly dispatchFrom: (frame: Revisioned<State>) => (message: Message) => Effect.Effect<void>
+  /** Prototype (`src/next`): enqueues the message of an offer made by the run `run`. */
+  readonly dispatchOffer: (
+    offer: Readonly<{ message: Message; violation: boolean; revision: Revision; run: object }>,
+  ) => Effect.Effect<void>
+  /** Prototype (`src/next`): who this engine's offers belong to. */
+  readonly run: object
   /**
    * Never succeeds. Fails with the first defect raised by `update`, a command
    * or a subscription, or with `RejectedMessage`, so whoever runs the program
@@ -99,6 +108,7 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
   & RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>)
 {
   const context = yield* Effect.context<R>()
+  const run = {}
   const queue = yield* Effect.acquireRelease(
     Queue.unbounded<Envelope<State, Message, K>>(),
     Queue.shutdown,
@@ -175,11 +185,22 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
       yield* Effect.logDebug('Dropped a message of a stopped subscription', origin.key, describeMessage(message))
       return active
     }
+    // An offer of another run was drawn by the wrong renderer: its message was verified against another state.
+    if (origin._tag === 'Offer' && origin.run !== run) {
+      return yield* Effect.die(new Error('An offer made by another run was dispatched to this one'))
+    }
     const { state, revision } = yield* SubscriptionRef.get(stateRef)
     const result = yield* apply(message, state)
     if (isRejected(result)) {
-      if (origin._tag === 'View' && isRejected(yield* apply(message, origin.frame.state))) {
-        const frameRevision = origin.frame.revision
+      const isBug = origin._tag === 'View'
+        ? isRejected(yield* apply(message, origin.frame.state))
+        // An offer was verified when it was made, so its rejection is stale, but for a typed value that was
+        // already rejected then.
+        : origin._tag === 'Offer' && origin.violation
+      if (isBug) {
+        const frameRevision = origin._tag === 'View' ? origin.frame.revision : origin._tag === 'Offer'
+          ? origin.revision
+          : revision
         yield* Effect.logError(
           'A frame sent a message that update rejects in its own state: the model offered it, so the two disagree',
           describeMessage(message),
@@ -220,6 +241,8 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
       FiberMap.join(subscriptionFibers),
     ).pipe(Effect.andThen(Effect.never)),
     dispatchFrom: (frame) => enqueue({ _tag: 'View', frame }),
+    dispatchOffer: ({ message, violation, revision, run }) => enqueue({ _tag: 'Offer', violation, revision, run })(message),
+    run,
     states: SubscriptionRef.changes(stateRef),
   } satisfies Engine<State, Message>
 })
