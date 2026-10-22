@@ -119,6 +119,13 @@ The version in `package.json` is the one the next release will have, decided by 
 - **Commands are data; only `runCommand` runs them.** `update` returns what it decided, and the program's
   interpreter is the one place that turns it into an effect. Never let a command carry its effect, or a
   description that must be kept in step with one: a test, `onApplied` and the logs read the command itself.
+- **No span lives as long as the run**: `run` and `Engine.make` are untraced, and the run's fibers see the
+  span of whoever runs it as an external one (`withExternalSpan`), since Effect keeps every log as an event of
+  the current span until it ends.
+- **Each command, each subscription and the renderer has a scope of its own** (`Effect.scoped` where the library
+  starts them; a command's closes before its message is queued). Never let them acquire into the run's
+  scope: what they hold would outlive them, and be released before their fibers are interrupted. `simulate`
+  scopes each command the same way.
 - **Commands cannot be cancelled.** This is a deliberate choice for now: do not add cancellation without
   asking.
 - **Frames cost only what is drawn**: a frame's model is made when first read, and a message that returns the
@@ -132,9 +139,12 @@ The version in `package.json` is the one the next release will have, decided by 
 - **`drive` acts only as a user can**: through `run` and the run's `dispatch`, so a scenario sends only
   offers. It always runs with `onRejectedInput: 'die'`, since a test must not go on past a bug, and
   its waits use the real clock, whatever `Clock` the program runs with.
-- **A child's model is kept by its run, its state object and its id** (`modelAt` in `compose.ts`): it relies on
-  `update` and `makeModel` being pure, and on states being replaced, never mutated. Keep all three in the key:
-  new children often share one initial state object, and a model's offers carry their run and id.
+- **A child's model is kept by its run, its place from the root and its state object, for two frames**
+  (`modelAt` in `compose.ts`): it relies on `update` and `makeModel` being pure, and on states being replaced,
+  never mutated. Keep all three in the key, since a model's offers carry their run and where they are wrapped
+  for: a parent used by id is one program for all its instances, whose children may share ids and states. Keep
+  only the last two frames of the root (`Level.frame`): new children often share one initial state object,
+  which would keep the model of every id it was ever shown under.
 - **What a parent declares, the types enforce**: `runCommand` exactly when it has commands of its own,
   `onEvent` exactly when a child has events, a handle's `update` only with a child's `external` messages, and no own
   message named like a child. A program written without `Program<…>` has `unknown` types, read as `never`

@@ -1,12 +1,15 @@
 import * as Channel from 'effect/Channel'
+import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as FiberMap from 'effect/FiberMap'
 import * as FiberSet from 'effect/FiberSet'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
+import type * as Scope from 'effect/Scope'
 import type * as Stream from 'effect/Stream'
 import * as SubscriptionRef from 'effect/SubscriptionRef'
+import * as Tracer from 'effect/Tracer'
 import type { RunCommand } from './command.ts'
 import { describeByTag } from './log.ts'
 import { type OnRejectedInput, RejectedInput, type Revision } from './rejection.ts'
@@ -31,20 +34,20 @@ export type Applied<State, Message, Command> = Readonly<{
  * How a program runs: what a typed value that `update` rejects does (with no default), how messages and
  * commands appear in the logs, and who observes the transitions.
  */
-export type RunOptions<Message, State = unknown, Command = unknown> = Readonly<{
+export interface RunOptions<Message, State = unknown, Command = unknown> {
   /** `'die'`, or a function that reports the rejected input while the program goes on (see `OnRejectedInput`). */
-  onRejectedInput: OnRejectedInput<Message>
+  readonly onRejectedInput: OnRejectedInput<Message>
   /** How a message appears in the logs; by default its `_tag`, never its data. */
-  describeMessage?: (message: Message) => unknown
+  readonly describeMessage?: (message: Message) => unknown
   /** How a command appears in the logs; by default its `_tag`, never its data. */
-  describeCommand?: (command: Command) => unknown
+  readonly describeCommand?: (command: Command) => unknown
   /**
    * Hears every message `update` accepts, in order, with the state before and after it and the commands it
    * started (e.g. for devtools, or to record a session), before its frame is drawn and its commands start.
    * The program waits for it, so it should be quick; a defect in it ends the run like any other.
    */
-  onApplied?: (applied: Applied<State, Message, Command>) => Effect.Effect<void>
-}>
+  readonly onApplied?: (applied: Applied<State, Message, Command>) => Effect.Effect<void>
+}
 
 /** Counts the starts of subscriptions: each start of a key gets a new one. */
 type Generation = number
@@ -73,6 +76,20 @@ type Envelope<Message, K> = Readonly<{ message: Message; origin: Origin<K> }>
 
 const fromCommand: Origin<never> = { _tag: 'Command' }
 
+/**
+ * What the fibers of a run get from the context of whoever ran it: the same, but for its span, seen by them as
+ * an external one. Every log is also an event of the current span, kept in memory until the span is exported:
+ * a fiber that lives as long as the run (the loop, a subscription, the renderer), or one of its many
+ * commands, would add to it for as long as the run lasts. An external span takes no events, and the spans
+ * that commands and subscriptions open (`Effect.fn`) are still its children in the trace.
+ */
+export const withExternalSpan = <R>(context: Context.Context<R>): Context.Context<R> => {
+  const span = Context.getOrUndefined(context, Tracer.ParentSpan)
+  if (span === undefined || span._tag === 'ExternalSpan') return context
+  const { spanId, traceId, sampled } = span
+  return Context.add(context, Tracer.ParentSpan, Tracer.externalSpan({ spanId, traceId, sampled }))
+}
+
 /** The engine owns its message loop: it runs as long as the scope `make` was called in. */
 export interface Engine<State, Message> {
   readonly states: Stream.Stream<Revisioned<State>>
@@ -88,7 +105,8 @@ export interface Engine<State, Message> {
   readonly await: Effect.Effect<never>
 }
 
-export const make = Effect.fn('Engine.make')(function*<State, Message, Command, R, K>({
+// Untraced: a span of its own would be the one its fibers log into (see `withExternalSpan`).
+export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   init: { state: initState, commands: initCommands = [] },
   update,
   runCommand: interpret,
@@ -106,7 +124,10 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
   }>
   & RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>)
 {
-  const context = yield* Effect.context<R>()
+  // Captured in the run's scope, which no command or subscription gets: each has its own (`Effect.scoped`
+  // below), or what they acquire would stay open until the run ends, and be released before their fibers
+  // are interrupted.
+  const context = withExternalSpan(yield* Effect.context<Exclude<R, Scope.Scope>>())
   const run = {}
   const queue = yield* Effect.acquireRelease(
     Queue.unbounded<Envelope<Message, K>>(),
@@ -126,9 +147,11 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
     Effect.sync(() => update(message)(state)).pipe(Effect.tapDefect(logDefect('update')))
   const observe = (applied: Applied<State, Message, Command>) =>
     onApplied(applied).pipe(Effect.tapDefect(logDefect('onApplied')))
-  // The interpreter runs inside the command's fiber, so a defect in it is the command's.
+  // The interpreter runs inside the command's fiber, so a defect in it is the command's. Its scope closes
+  // before its message is queued, so that `update` never learns of a command whose resources are still open.
   const runCommand = (command: Command) =>
     Effect.suspend(() => interpret(command)).pipe(
+      Effect.scoped,
       Effect.tapDefect(logDefect('a command')),
       Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: enqueue(fromCommand) })),
       Effect.provideContext(context),
@@ -162,6 +185,7 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
       const send = enqueue({ _tag: 'Subscription', key, generation: started })
       yield* Effect.logDebug('Subscription started', key)
       yield* Channel.runForEach(subscription, send).pipe(
+        Effect.scoped,
         Effect.flatMap((last) => Effect.logDebug('Subscription ended', key).pipe(Effect.andThen(send(last)))),
         Effect.tapDefect(logDefect('a subscription', key)),
         Effect.provideContext(context),
@@ -219,14 +243,14 @@ export const make = Effect.fn('Engine.make')(function*<State, Message, Command, 
     yield* Effect.forEach(commands, runCommand, { discard: true })
     return nextActive
   })
-  const initialActive = yield* reconcile(HashMap.empty(), initState)
+  const initialActive = yield* reconcile(HashMap.empty(), initState).pipe(Effect.provideContext(context))
   yield* Effect.forEach(initCommands, runCommand, { discard: true })
   yield* Effect.gen(function*() {
     let active = initialActive
     while (true) {
       active = yield* step(active, yield* Queue.take(queue))
     }
-  }).pipe(FiberSet.run(fibers))
+  }).pipe(Effect.provideContext(context), FiberSet.run(fibers))
   return {
     await: Effect.raceFirst(
       FiberSet.join(fibers),

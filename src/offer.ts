@@ -53,8 +53,17 @@ export type Offers<Message> = Readonly<{
   ) => (value: Value) => Offered<Message>
 }>
 
-/** A level of a program, as its offers know it: their frame, and how a message of the level reaches the root. */
-export type Level = Readonly<{ context: Context; lift: (message: unknown) => unknown }>
+/**
+ * A level of a program, as its offers know it: their frame, the call of the root's `makeModel` they were made
+ * in (`frame`, a new object for each), the way from the root to the level (`at`: the name and id of each child
+ * on it), and how a message of the level reaches the root.
+ */
+export type Level = Readonly<{
+  context: Context
+  frame: object
+  at: ReadonlyArray<unknown>
+  lift: (message: unknown) => unknown
+}>
 
 // A composed program's `makeModel` gets the offers of its level, and makes its children's from them: from the
 // offers it finds their level. Offers are made and read only on the program's side, in one copy of the library.
@@ -103,7 +112,12 @@ export const rootOffers = <State, Message>(
   state: State,
   context: Context,
 ): Offers<Message> =>
-  offersAt((message: Message) => !isRejected(update(message)(state)), { context, lift: (message) => message })
+  offersAt((message: Message) => !isRejected(update(message)(state)), {
+    context,
+    frame: {},
+    at: [],
+    lift: (message) => message,
+  })
 
 /** Sends an offer, from any level and any frame: one function for the whole run. */
 export type Dispatch = (offered: Offered<unknown>) => Effect.Effect<void>

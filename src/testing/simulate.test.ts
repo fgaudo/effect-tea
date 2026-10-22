@@ -4,6 +4,7 @@ import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as Opt from 'effect/Option'
+import type * as Scope from 'effect/Scope'
 import type { RunCommand } from '../command.ts'
 import { reject, type Update } from '../update.ts'
 import { simulate } from './simulate.ts'
@@ -77,6 +78,24 @@ describe('simulate', () => {
       events: [],
       ignored: [{ _tag: 'Saved', total: 7 }],
     })
+  })
+
+  test('a command has a scope of its own, closed before its message is applied', async () => {
+    // `Start` starts `A`, whose `First` starts `B`: `B` acquires only once `A` has released.
+    type Step = 'Start' | 'First' | 'Second'
+    const log: Array<string> = []
+    const resource = (name: string) =>
+      Effect.acquireRelease(
+        Effect.sync(() => log.push(`acquire ${name}`)),
+        () => Effect.sync(() => log.push(`release ${name}`)),
+      )
+    const chained: Update<null, Step, 'A' | 'B'> = (message) => (state) =>
+      message === 'Start' ? { state, commands: ['A'] } : message === 'First' ? { state, commands: ['B'] } : { state }
+    const runCommand: RunCommand<'A' | 'B', Step, Scope.Scope> = (command) =>
+      resource(command).pipe(Effect.as(Opt.some<Step>(command === 'A' ? 'First' : 'Second')))
+    const simulation = await Effect.runPromise(simulate({ update: chained, runCommand })(['Start'], { state: null }))
+    expect(simulation.messages).toEqual(['Start', 'First', 'Second'])
+    expect(log).toEqual(['acquire A', 'release A', 'acquire B', 'release B'])
   })
 
   test('a rejection of one of the messages fails, naming it', async () => {

@@ -4,11 +4,15 @@ import * as Channel from 'effect/Channel'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
 import * as HashMap from 'effect/HashMap'
+import * as Logger from 'effect/Logger'
 import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import * as References from 'effect/References'
+import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
+import type * as Tracer from 'effect/Tracer'
 import { type InputRejection, RejectedInput, RejectedOffer } from './rejection.ts'
 import type { Applied, RunOptions } from './engine.ts'
 import { reject, type Step, type Update } from './update.ts'
@@ -111,6 +115,95 @@ describe('run', () => {
     // @ts-expect-error a bug that is neither fatal nor reported would go unnoticed
     const unreported: RunOptions<Message> = { onRejectedInput: 'ignore' }
     expect([optionsAreRequired, unreported.onRejectedInput as unknown]).toEqual([true, 'ignore'])
+  })
+
+  test('what a command and the renderer acquire is theirs: no scope to provide, released after they stop', async () => {
+    const log: Array<string> = []
+    const note = (line: string) => Effect.sync(() => void log.push(line))
+    const resource = (name: string) => Effect.acquireRelease(note(`acquire ${name}`), () => note(`release ${name}`))
+    const holding = Effect.runSync(Deferred.make<void>())
+    const drawing = Effect.runSync(Deferred.make<void>())
+    const program: Program<{ state: null; model: null; message: never; command: 'Hold'; services: Scope.Scope }> = {
+      init: { state: null, commands: ['Hold'] },
+      update: () => (state) => ({ state }),
+      runCommand: () =>
+        resource('command').pipe(
+          Effect.andThen(Deferred.succeed(holding, undefined)),
+          Effect.andThen(Effect.never),
+          Effect.onInterrupt(() => note('command interrupted')),
+        ),
+      makeModel: (state) => state,
+    }
+    const running: Effect.Effect<void> = run(
+      program,
+      (frames) =>
+        resource('renderer').pipe(
+          Effect.andThen(Deferred.succeed(drawing, undefined)),
+          Effect.andThen(Stream.runDrain(frames)),
+          Effect.onInterrupt(() => note('renderer interrupted')),
+        ),
+      { onRejectedInput: 'die' },
+    )
+    await Effect.runPromise(quietly(Effect.gen(function*() {
+      const fiber = yield* Effect.forkChild(running)
+      yield* Deferred.await(holding)
+      yield* Deferred.await(drawing)
+      yield* Fiber.interrupt(fiber)
+    })))
+    for (const name of ['command', 'renderer']) {
+      expect(log.indexOf(`${name} interrupted`)).toBeGreaterThan(log.indexOf(`acquire ${name}`))
+      expect(log.indexOf(`release ${name}`)).toBeGreaterThan(log.indexOf(`${name} interrupted`))
+    }
+  })
+
+  test('what runs in a run logs nothing into the span of whoever runs it, which stays the parent of their spans', async () => {
+    const commands = 500
+    const parents: Array<string> = []
+    const logging: Program<{ state: number; model: number; message: 'Next'; command: 'Go' }> = {
+      init: { state: 0, commands: ['Go'] },
+      update: () => (count) => count < commands ? { state: count + 1, commands: ['Go'] } : { state: count },
+      runCommand: () =>
+        Effect.logInfo('a command').pipe(
+          Effect.andThen(Effect.orDie(Effect.currentSpan)),
+          Effect.map((span) => parents.push(span.parent._tag === 'Some' ? span.parent.value.spanId : '')),
+          Effect.withSpan('Go'),
+          Effect.andThen(Effect.succeedSome<'Next'>('Next')),
+        ),
+      subscriptions: () =>
+        HashMap.make([
+          'logs',
+          Channel.fromEffectDrain(
+            Effect.forever(Effect.logInfo('a subscription').pipe(Effect.andThen(Effect.sleep('1 millis')))),
+          ).pipe(
+            Channel.concatWith(() => Channel.never),
+          ),
+        ]),
+      makeModel: (count) => count,
+    }
+    const caller = await Effect.runPromise(
+      Effect.gen(function*() {
+        yield* run(
+          logging,
+          (frames) =>
+            frames.pipe(
+              Stream.tap(() => Effect.logInfo('the renderer')),
+              Stream.takeUntil(({ model }) => model >= commands),
+              Stream.runDrain,
+            ),
+          { onRejectedInput: (rejection) => Effect.logInfo(rejection), onApplied: () => Effect.logInfo('onApplied') },
+        )
+        return yield* Effect.orDie(Effect.currentSpan)
+      }).pipe(
+        Effect.withSpan('caller'),
+        // Down to debug: the engine's own logs, such as a subscription starting, are among them.
+        Effect.provideService(References.MinimumLogLevel, 'Debug'),
+        Effect.provide(Logger.layer([Logger.tracerLogger])),
+      ),
+    )
+    expect((caller as Tracer.NativeSpan).events).toEqual([])
+    // The last command may be cut short by the end of the run.
+    expect(parents.length).toBeGreaterThanOrEqual(commands)
+    expect(parents.every((parent) => parent === caller.spanId)).toBe(true)
   })
 
   test('the run ends when the renderer ends', async () => {

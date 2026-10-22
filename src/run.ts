@@ -1,4 +1,5 @@
 import * as Effect from 'effect/Effect'
+import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import * as Engine from './engine.ts'
 import { type Dispatch, rootOffers, tokenOf } from './offer.ts'
@@ -12,12 +13,13 @@ export type Frame<Model> = Readonly<{ model: Model; dispatch: Dispatch }>
  * one is stale and ignored, but for a typed value `update` rejected when it was typed, a bug handled as
  * `onRejectedInput` says.
  */
-export const run = <State, Model, Message, Command, R, RR>(
-  program: Shape<State, Model, Message, Command, R, never, unknown>,
-  render: (frames: Stream.Stream<Frame<Model>>) => Effect.Effect<void, never, RR>,
-  options: Engine.RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>,
-): Effect.Effect<void, never, R | RR> =>
-  Effect.gen(function*() {
+// Untraced: a span of its own would be the one the renderer logs into (see `Engine.withExternalSpan`).
+export const run = Effect.fnUntraced(
+  function*<State, Model, Message, Command, R, RR>(
+    program: Shape<State, Model, Message, Command, R, never, unknown>,
+    render: (frames: Stream.Stream<Frame<Model>>) => Effect.Effect<void, never, RR>,
+    options: Engine.RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>,
+  ): Effect.fn.Return<void, never, R | RR | Scope.Scope> {
     const engine = yield* Engine.make({
       ...options,
       init: program.init,
@@ -38,8 +40,13 @@ export const run = <State, Model, Message, Command, R, RR>(
         )
       ),
     )
-    yield* Effect.raceFirst(engine.await, render(frames))
-  }).pipe(Effect.scoped)
+    yield* Effect.raceFirst(
+      engine.await,
+      Effect.scoped(render(frames)).pipe(Effect.updateContext(Engine.withExternalSpan<Exclude<RR, Scope.Scope>>)),
+    )
+  },
+  Effect.scoped,
+)
 
 const lazyFrame = <Model>(makeModel: () => Model, dispatch: Dispatch): Frame<Model> => {
   let made: Readonly<{ model: Model }> | undefined

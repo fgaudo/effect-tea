@@ -171,8 +171,14 @@ type Editor = Data.TaggedEnum<{
   }
 }>
 
-const makeModel = (state: State, { offer, offerInput }: Offers<Message>): Editor => {
-  const changeName = offerInput((name: string) => Message.NameChanged({ name }), state.name)
+const makeModel = (
+  state: State,
+  { offer, offerInput }: Offers<Message>,
+): Editor => {
+  const changeName = offerInput(
+    (name: string) => Message.NameChanged({ name }),
+    state.name,
+  )
   return state.isSaving
     ? { _tag: 'Saving' }
     : isBlank(state.name)
@@ -230,6 +236,9 @@ expect(commands).toEqual([Command.Save({ name: 'Ada' })])
   ```
 - A command carries everything it needs: `runCommand` does not see the state. Its services are provided
   around `run`.
+- **A command has a scope of its own.** What it acquires (`Effect.acquireRelease`, `Effect.forkScoped`) is
+  released when it ends, before its message reaches `update`, so `run` never asks for a `Scope`. What must
+  outlive a command is a service provided around `run`, or a subscription.
 - **Commands cannot be cancelled.** Once started, a command runs to its end and its message arrives, even if
   the state has moved on: `update` then decides whether the answer still applies. Model the operation as a
   state that only its completion leaves, as [`form`](examples/form/form.ts) does. This keeps commands plain
@@ -326,8 +335,9 @@ What the parent writes:
 What the library gives it:
 
 - **`children` in `makeModel`:** `children.About(state)` is the child's model, with its own offers. It is
-  reused while the child's state is the same object, so a renderer can skip redrawing it (see `thunk` in
-  [`pages`](examples/pages/view.ts)).
+  reused from one frame to the next while the child's state is the same object, so a renderer can skip
+  redrawing it (see `thunk` in [`pages`](examples/pages/view.ts)). Only the models of the last two frames are
+  kept.
 - **`children` in `update` and `onEvent`:** `init` starts a child, and `update` gives it one of the messages
   its type declares as `external` (e.g. a back button).
 - **The parent's types:** its messages are its own plus `{ _tag: <child>, message }` for each child.
@@ -391,6 +401,12 @@ What you can rely on:
 - **Subscriptions follow their keys.** A subscription runs exactly while its key is in the state. When the key
   goes away, it is interrupted and releases what it holds, and nothing it sent reaches `update` afterwards,
   even if the same key comes back later.
+- **Nothing outlives what acquired it.** Each command, each subscription and the renderer has a scope of its
+  own: what it acquires is released when it ends or, when the run ends, once it has been interrupted, never
+  while it still runs. A subscription's release delays the next message, so keep it quick.
+- **Logs do not pile up in a span.** What the run's fibers log is not kept by the span of whoever runs it
+  (Effect keeps each log as an event of the current span until the span ends); that span is still the parent
+  of the spans that commands and subscriptions open.
 - **Nothing ends in silence.** A subscription that ends sends one last message. A defect anywhere ends the
   run, which fails with it.
 - **Frames cost only what is drawn.** A message that returns the very same state draws no new frame, and a
@@ -403,7 +419,7 @@ What is left to you:
   [composing](#composing-programs)).
 - **A slow renderer skips frames**: it gets only the latest one.
 - **`update` and `makeModel` are pure, and states are never mutated.** The library calls `update` to check
-  offers, and reuses a child's model while its state is the same object.
+  offers, and reuses a child's model from one frame to the next while its state is the same object.
 
 The library's tests check each guarantee. [`src/interleaving.test.ts`](src/interleaving.test.ts) checks
 them under random orders of clicks, command answers and subscription messages.

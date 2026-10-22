@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
+import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import { absurd, identity } from 'effect/Function'
@@ -12,6 +13,7 @@ import * as Stream from 'effect/Stream'
 import * as Engine from './engine.ts'
 import { RejectedInput, type Revision } from './rejection.ts'
 import type { Execution } from './command.ts'
+import type { Subscription } from './subscription.ts'
 import { reject } from './update.ts'
 
 // A counter that accepts `Increment`, `Decrement` only above zero, and never `Forbidden`. Its only commands are
@@ -310,5 +312,144 @@ describe('Engine subscriptions that end', () => {
     }))
     expect(starts).toEqual([1, 2])
     expect(reached.state.heard).toEqual(['a', 'end', 'a', 'end'])
+  })
+})
+
+describe('Engine scopes', () => {
+  // `Run` and `Fork` start a command that answers `Done`, `Hold` one that never ends; `Listen` starts the
+  // subscription a test gives, `Stop` stops it. The log says what happens, in order.
+  type Signal = 'Run' | 'Fork' | 'Hold' | 'Listen' | 'Stop' | 'Done'
+
+  type Track = Readonly<{
+    note: (line: string) => Effect.Effect<void>
+    resource: (name: string) => Effect.Effect<void, never, Scope.Scope>
+  }>
+
+  const tracked = Effect.fnUntraced(function*(
+    subscription: (track: Track) => Subscription<Signal, Scope.Scope> = () => Channel.never,
+  ) {
+    const log: Array<string> = []
+    const note = (line: string) => Effect.sync(() => void log.push(line))
+    const resource = (name: string) => Effect.acquireRelease(note(`acquire ${name}`), () => note(`release ${name}`))
+    const held = yield* Deferred.make<void>()
+    const runCommand = (command: Signal): Execution<Signal, Scope.Scope> => {
+      switch (command) {
+        case 'Run':
+          return resource('command').pipe(Effect.as(Opt.some<Signal>('Done')))
+        case 'Fork':
+          return Effect.gen(function*() {
+            const started = yield* Deferred.make<void>()
+            yield* Effect.forkScoped(
+              Deferred.succeed(started, undefined).pipe(
+                Effect.andThen(Effect.never),
+                Effect.onInterrupt(() => note('forked fiber interrupted')),
+              ),
+            )
+            yield* Deferred.await(started)
+            return Opt.some<Signal>('Done')
+          })
+        default:
+          return resource('held command').pipe(
+            Effect.andThen(Deferred.succeed(held, undefined)),
+            Effect.andThen(Effect.never),
+            Effect.onInterrupt(() => note('held command interrupted')),
+          )
+      }
+    }
+    const engine = yield* Engine.make<boolean, Signal, Signal, Scope.Scope, string>({
+      init: { state: false },
+      update: (signal) => (listening) =>
+        signal === 'Listen'
+          ? { state: true }
+          : signal === 'Stop'
+          ? { state: false }
+          : signal === 'Done'
+          ? { state: listening }
+          : { state: listening, commands: [signal] },
+      runCommand,
+      subscriptions: (listening) =>
+        listening ? HashMap.make(['subscription', subscription({ note, resource })]) : HashMap.empty(),
+      onApplied: ({ message }) => note(`applied ${message}`),
+      onRejectedInput: 'die',
+    })
+    const send = (signal: Signal) => engine.dispatchOffer(signal, { violation: false, revision: 0, run: engine.run })
+    const until = (line: string) =>
+      Effect.gen(function*() {
+        while (!log.includes(line)) yield* Effect.sleep('1 millis')
+      }).pipe(Effect.timeoutOption('1 second'))
+    return { log, send, until, held }
+  })
+
+  test('what a command acquires is released when it ends, before update hears its message', async () => {
+    const log = await run(Effect.gen(function*() {
+      const { log, send, until } = yield* tracked()
+      yield* send('Run')
+      yield* until('applied Done')
+      return [...log]
+    }))
+    expect(log).toEqual(['applied Run', 'acquire command', 'release command', 'applied Done'])
+  })
+
+  test('a fiber that a command forks in its scope is interrupted when the command ends', async () => {
+    const log = await run(Effect.gen(function*() {
+      const { log, send, until } = yield* tracked()
+      yield* send('Fork')
+      yield* until('applied Done')
+      return [...log]
+    }))
+    expect(log).toEqual(['applied Fork', 'forked fiber interrupted', 'applied Done'])
+  })
+
+  const fromEffect = ({ resource }: Track): Subscription<Signal, Scope.Scope> =>
+    Channel.fromEffectDrain(resource('subscription')).pipe(Channel.concatWith(() => Channel.never))
+
+  const fromStream = ({ resource }: Track): Subscription<Signal, Scope.Scope> =>
+    Stream.fromEffect(resource('subscription')).pipe(
+      Stream.drain,
+      Stream.concat(Stream.never),
+      Stream.toChannel,
+      Channel.map((): Signal => 'Done'),
+      Channel.concatWith(() => Channel.never),
+    )
+
+  for (const [name, subscription] of [['Channel.fromEffect', fromEffect], ['Stream.fromEffect', fromStream]] as const) {
+    test(`what a subscription acquires (${name}) is released when its key goes away`, async () => {
+      const log = await run(Effect.gen(function*() {
+        const { log, send, until } = yield* tracked(subscription)
+        yield* send('Listen')
+        yield* until('acquire subscription')
+        yield* send('Stop')
+        yield* until('release subscription')
+        return [...log]
+      }))
+      expect(log).toEqual(['applied Listen', 'acquire subscription', 'applied Stop', 'release subscription'])
+    })
+  }
+
+  test('when the run ends, what still runs is interrupted before its resources are released', async () => {
+    const holding = ({ note, resource }: Track): Subscription<Signal, Scope.Scope> =>
+      Channel.fromEffectDrain(
+        resource('subscription').pipe(
+          Effect.andThen(Effect.never),
+          Effect.onInterrupt(() => note('subscription interrupted')),
+        ),
+      ).pipe(
+        Channel.concatWith(() => Channel.never),
+      )
+    const log = await run(Effect.gen(function*() {
+      const log = yield* Effect.scoped(Effect.gen(function*() {
+        const { log, send, until, held } = yield* tracked(holding)
+        yield* send('Hold')
+        yield* send('Listen')
+        yield* Deferred.await(held)
+        yield* until('acquire subscription')
+        return log
+      }))
+      return [...log]
+    }))
+    expect(log.indexOf('held command interrupted')).toBeGreaterThan(log.indexOf('acquire held command'))
+    expect(log.indexOf('release held command')).toBeGreaterThan(log.indexOf('held command interrupted'))
+    expect(log.indexOf('subscription interrupted')).toBeGreaterThan(log.indexOf('acquire subscription'))
+    expect(log.indexOf('release subscription')).toBeGreaterThan(log.indexOf('subscription interrupted'))
   })
 })

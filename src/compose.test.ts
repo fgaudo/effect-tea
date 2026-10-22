@@ -268,6 +268,16 @@ describe('next: compose', () => {
     expect(model({ ...state, saves: 1 }).left).toBe(first.left)
     expect(model({ ...state, left: { ...state.left, count: 1 } }).left).not.toBe(first.left)
   })
+
+  test('one program as two children, in the very same state object, sends for its own place', () => {
+    const model = modelOf(asProgram)({ ...app.init.state, maybeRight: Opt.some(counter.init.state) })
+    const right = Opt.getOrThrow(model.maybeRight)
+    expect(right).not.toBe(model.left)
+    expect([messageOf(model.left.increment), messageOf(right.increment)]).toEqual([
+      { _tag: 'Left', message: CounterMessage.Increment() },
+      { _tag: 'Right', message: CounterMessage.Increment() },
+    ])
+  })
 })
 
 // A list of counters, by id; one row is removed when it reports a save.
@@ -301,6 +311,23 @@ const rows = (...ids: ReadonlyArray<number>): ListState => ({
   rows: ids.map((id) => ({ id, counter: counter.init.state })),
 })
 
+// Lists of counters, by id: parents whose children by id are parents with children by id.
+type Lists = Readonly<{ rows: ReadonlyArray<Readonly<{ id: string; list: ListState }>> }>
+
+const Nested = parent<{ state: Lists }>()
+
+const lists = Nested.compose({
+  init: { state: { rows: [] } },
+  children: {
+    Lists: Nested.each(list, {
+      get: (state, id: string) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.list),
+      set: (state, id, list) => ({ rows: state.rows.map((row) => row.id === id ? { id, list } : row) }),
+      subscribed: (state) => state.rows.map(({ id, list }) => [id, list] as const),
+    }),
+  },
+  makeModel: (state, { children }) => state.rows.map(({ id }) => children.Lists(state, id)),
+})
+
 describe('next: children by id', () => {
   test('a message reaches the child with its id, and only that one', () => {
     const result = list.update({ _tag: 'Rows', id: 2, message: CounterMessage.Increment() })(rows(1, 2))
@@ -322,6 +349,83 @@ describe('next: children by id', () => {
     const state = rows(1, 2)
     const model = modelOf(list)
     expect(model({ rows: [...state.rows] })[1]?.model).toBe(model(state)[1]?.model)
+  })
+
+  test('a child\'s model is let go once the last two frames have not shown it', async () => {
+    const model = modelOf(list)
+    const first = model(rows(1))[0]?.model
+    const released = new WeakRef(first ?? {})
+    model(rows(2))
+    model(rows(3))
+    expect(model(rows(1))[0]?.model).not.toBe(first)
+    // A WeakRef keeps its target until the current job ends.
+    await Promise.resolve()
+    Bun.gc(true)
+    expect(released.deref()).toBeUndefined()
+  })
+
+  test('the models of ids shown once each, under one shared state, do not pile up', () => {
+    const model = modelOf(list)
+    Bun.gc(true)
+    const before = process.memoryUsage().heapUsed
+    for (let id = 0; id < 50_000; id++) model(rows(id))
+    Bun.gc(true)
+    expect(process.memoryUsage().heapUsed - before).toBeLessThan(5_000_000)
+  })
+
+  // Lists A and B, each with counter 1 in the counter's initial state. Each of the first `frames` frames
+  // increments A's counter, or B's on frame `bumpingB`; returns the frames.
+  const nested = (frames: number, bumpingB?: number) => {
+    const seen: Array<Frame<ReturnType<typeof lists.makeModel>>> = []
+    return run(
+      { ...lists, init: { state: { rows: [{ id: 'A', list: rows(1) }, { id: 'B', list: rows(1) }] } } },
+      (stream) =>
+        stream.pipe(
+          Stream.tap((frame) => {
+            seen.push(frame)
+            const index = seen.length - 1
+            const [a, b] = frame.model
+            const counter = (index === bumpingB ? b : a)?.[0]?.model
+            return index < frames && counter !== undefined ? frame.dispatch(counter.increment) : Effect.void
+          }),
+          Stream.take(frames + 1),
+          Stream.runDrain,
+        ),
+      { onRejectedInput: 'die' },
+    ).pipe(Effect.as(seen))
+  }
+
+  test('in a run, a nested child that did not change keeps its model from frame to frame', async () => {
+    const [first, second, third] = (await Effect.runPromise(nested(2))).map((frame) => frame.model)
+    expect(second?.[1]?.[0]?.model).toBe(first?.[1]?.[0]?.model)
+    expect(third?.[1]?.[0]?.model).toBe(first?.[1]?.[0]?.model)
+    expect(second?.[0]?.[0]?.model).not.toBe(first?.[0]?.[0]?.model)
+    expect(third?.[0]?.[0]?.model.count).toBe(2)
+  })
+
+  test('an offer of a model kept from an older frame is applied', async () => {
+    const seen = await Effect.runPromise(nested(2, 1))
+    expect(seen[1]?.model[1]?.[0]?.model).toBe(seen[0]?.model[1]?.[0]?.model)
+    expect(seen.map((frame) => frame.model[1]?.[0]?.model.count)).toEqual([0, 0, 1])
+  })
+
+  test('two runs of one program at once keep their models apart', async () => {
+    const runs = await Effect.runPromise(Effect.all([nested(3), nested(3)], { concurrency: 'unbounded' }))
+    expect(runs.map((seen) => seen.map((frame) => frame.model[0]?.[0]?.model.count))).toEqual([
+      [0, 1, 2, 3],
+      [0, 1, 2, 3],
+    ])
+  })
+
+  test('the children of two children that share their state and ids send for their own parent', () => {
+    // Both lists hold one counter with id 1, in the counter's initial state: only their places differ.
+    const [a, b] = modelOf(lists)({ rows: [{ id: 'A', list: rows(1) }, { id: 'B', list: rows(1) }] })
+    const sent = (models: typeof a) => models?.[0] && messageOf(models[0].model.increment)
+    expect([sent(a), sent(b)]).toEqual(['A', 'B'].map((id) => ({
+      _tag: 'Lists',
+      id,
+      message: { _tag: 'Rows', id: 1, message: CounterMessage.Increment() },
+    })))
   })
 
   test('a child\'s commands come back to it, and its events reach the parent with its id', async () => {

@@ -6,6 +6,7 @@ import * as Exit from 'effect/Exit'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as References from 'effect/References'
+import type * as Scope from 'effect/Scope'
 import * as TestClock from 'effect/testing/TestClock'
 import type { Offered } from '../offer.ts'
 import type { Program } from '../program.ts'
@@ -147,5 +148,24 @@ describe('drive', () => {
         }))),
     )
     expect(Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof RejectedInput).toBe(true)
+  })
+
+  test('a program whose commands acquire needs no scope: each command has its own', async () => {
+    const released: Array<string> = []
+    const holding: Program<{ state: number; model: number; message: 'Held'; command: 'Hold'; services: Scope.Scope }> =
+      {
+        init: { state: 0, commands: ['Hold'] },
+        update: () => (count) => ({ state: count + 1 }),
+        runCommand: () =>
+          Effect.acquireRelease(Effect.void, () => Effect.sync(() => released.push('resource'))).pipe(
+            Effect.as(Opt.some<'Held'>('Held')),
+          ),
+        makeModel: (count) => count,
+      }
+    const driven: Effect.Effect<number> = drive(
+      holding,
+      (driver) => driver.waitFor((count) => count === 1 ? Opt.some(released.length) : Opt.none()),
+    )
+    expect(await Effect.runPromise(driven)).toBe(1)
   })
 })

@@ -10,6 +10,27 @@ version, and everything else, features included, the patch version.
 - `attempt({ onSuccess, onFailure })`, with the handlers alone, returns the function that takes the effect, to
   end a `pipe` or an `Effect.fn`: `Effect.fn('Save')(function*() { … }, attempt({ onSuccess, onFailure }))`.
 
+### Fixed
+
+- Each command and each subscription has a scope of its own. What they acquired with the `Scope` service
+  (`Effect.acquireRelease`, `Effect.forkScoped`, `Stream.fromEffect` of a scoped effect) was kept in the run's
+  scope: released only when the run ended, after a command had answered or a subscription's key had gone
+  away, and even before the command or subscription still running then was interrupted. A command's scope now
+  closes before its message reaches `update`, a subscription's when it ends or its key goes away. `simulate`
+  gives each command its own scope as well. `run`, `simulate` and `drive` therefore no longer require a
+  `Scope` for the program's services; the renderer has one of its own too. A fiber that a command forks with
+  `forkScoped` now stops when the command ends: work that should go on is a subscription.
+- What commands, subscriptions, the renderer, `onApplied` and `onRejectedInput` logged piled up for as long as
+  the run lasted, as events of a span that lives as long as the run (Effect keeps every log as an event of the
+  current span, even one that has ended). The run's fibers now see the span of whoever runs it as an external
+  span, which keeps no events and is still the parent of the spans they open.
+- The models of children by id under a shared state object (e.g. the program's initial state) were kept for
+  as long as that object lived, one for every id it was ever shown under. Only the models of the last two
+  frames are kept now, enough for a renderer to skip what did not change.
+- A parent used as a child by id is one program for all its instances: two of them whose children had the same
+  id and state object got the same models, whose offers sent to the first one. A child's model is now kept by
+  its place from the root as well.
+
 ## 0.3.0 (2026-10-21)
 
 ### Added

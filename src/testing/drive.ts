@@ -2,6 +2,7 @@ import * as Clock from 'effect/Clock'
 import type * as Duration from 'effect/Duration'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
+import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import * as SubscriptionRef from 'effect/SubscriptionRef'
 import type { RunOptions } from '../engine.ts'
@@ -47,7 +48,7 @@ export const drive = <State, Model, Message, Command, R, A, E, RS>(
   program: Shape<State, Model, Message, Command, R, never, unknown>,
   scenario: (driver: Driver<Model>) => Effect.Effect<A, E, RS>,
   { patience = '2 seconds', ...options }: DriveOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> = {},
-): Effect.Effect<A, E, R | RS> =>
+): Effect.Effect<A, E, Exclude<R, Scope.Scope> | RS> =>
   Effect.gen(function*() {
     const frames = yield* SubscriptionRef.make<Opt.Option<Frame<Model>>>(Opt.none())
     const first = <B>(select: (frame: Frame<Model>) => Opt.Option<B>): Effect.Effect<B> =>

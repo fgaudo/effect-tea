@@ -274,32 +274,49 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
     const one = (subscribed ?? get) as (state: unknown) => Opt.Option<unknown>
     return Opt.match(one(state), { onNone: () => [], onSome: (childState) => [[{ name, id: undefined }, childState]] })
   }
-  // A child's model, kept while its state is the same object and its id the same, in each run apart: its offers
-  // carry the run that made them, and its id. New children often share one initial state object.
-  const models = new Map(names.map((name) => [name, new WeakMap<object, WeakMap<object, Map<unknown, unknown>>>()]))
+  // A child's model is kept while it is the same child (its place from the root, which its offers are wrapped
+  // for) with the same state object, in each run apart (its offers carry their run). Only the models of the
+  // root's last two frames are kept (a frame of `run`, a call of `modelOf`): what the previous frame showed is
+  // found again, and the rest is let go. New children often share one initial state object: kept for as long
+  // as that object lives, the models of every id it was ever shown under would pile up.
+  const kept = new WeakMap<object, Readonly<{ current: Frame; previous: Frame | undefined }>>()
+  const startFrame = ({ context, frame }: Level) => {
+    const frames = kept.get(context.run)
+    if (frames?.current.frame !== frame) {
+      kept.set(context.run, { current: { frame, models: node() }, previous: frames?.current })
+    }
+  }
   const modelAt = (place: Place, parentState: State, level: Level) => {
     const { program } = childOf(place.name)
     const childState = Opt.getOrThrowWith(
       getAt(place, parentState),
       () => new Error(`compose: the model of "${place.name}", which is not in this state`),
     )
+    const at = [...level.at, place.name, place.id]
     const make = () =>
       program.makeModel(
         childState,
         offersAt((message) => !isRejected(program.update(message)(childState)), {
           context: level.context,
+          frame: level.frame,
+          at,
           lift: (message) => level.lift(wrapMessage(place)(message)),
         }),
       )
     if (typeof childState !== 'object' || childState === null) return make()
-    const byRun = models.get(place.name) as WeakMap<object, WeakMap<object, Map<unknown, unknown>>>
-    const byState = byRun.get(level.context.run) ?? new WeakMap<object, Map<unknown, unknown>>()
-    byRun.set(level.context.run, byState)
-    const byId = byState.get(childState) ?? new Map<unknown, unknown>()
-    byState.set(childState, byId)
-    if (byId.has(place.id)) return byId.get(place.id)
-    const model = make()
-    byId.set(place.id, model)
+    const frames = kept.get(level.context.run)
+    // A model of an older frame, read late: made again, and kept nowhere.
+    const frame = frames?.current.frame === level.frame
+      ? frames.current
+      : frames?.previous?.frame === level.frame
+      ? frames.previous
+      : undefined
+    if (frame === undefined) return make()
+    const found = modelIn(frame, at, childState)
+    if (Opt.isSome(found)) return found.value
+    const earlier = frame === frames?.current ? frames.previous : undefined
+    const model = Opt.getOrElse(earlier === undefined ? Opt.none() : modelIn(earlier, at, childState), make)
+    keep(frame, at, childState, model)
     return model
   }
   const ownRunCommand = (config as Readonly<{ runCommand?: (command: OwnCommand) => Execution<Message, R> }>)
@@ -331,6 +348,7 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
       ),
     makeModel: (state: State, offers: Offers<Message>): Model => {
       const level = levelOf(offers as Offers<unknown>)
+      startFrame(level)
       const children = Object.fromEntries(names.map((name) => [
         name,
         isEach(name)
@@ -343,6 +361,32 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
     },
   }
   return program as unknown as Shape<State, Model, Message, Command, R | ChildServices<C>, Event, External>
+}
+
+/** The models of a frame's children: by their place from the root, one segment at a time, then their state. */
+type Node = Readonly<{ next: Map<unknown, Node>; models: WeakMap<object, unknown> }>
+
+type Frame = Readonly<{ frame: object; models: Node }>
+
+const node = (): Node => ({ next: new Map(), models: new WeakMap() })
+
+const modelIn = ({ models }: Frame, at: ReadonlyArray<unknown>, childState: object): Opt.Option<unknown> => {
+  let current: Node | undefined = models
+  for (const segment of at) {
+    current = current.next.get(segment)
+    if (current === undefined) return Opt.none()
+  }
+  return current.models.has(childState) ? Opt.some(current.models.get(childState)) : Opt.none()
+}
+
+const keep = ({ models }: Frame, at: ReadonlyArray<unknown>, childState: object, model: unknown): void => {
+  let current = models
+  for (const segment of at) {
+    const next = current.next.get(segment) ?? node()
+    current.next.set(segment, next)
+    current = next
+  }
+  current.models.set(childState, model)
 }
 
 /** What a parent declares of itself, by name: its state, and its own commands, events and external messages. */
