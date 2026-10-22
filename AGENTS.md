@@ -72,7 +72,8 @@ The version in `package.json` is the one the next release will have, decided by 
   only to tests, tooling or internals add none.
 - The first such change after a release opens a new `## <version> (unreleased)` section, and each change
   raises the version if it needs more than the section says: a fix the patch version, a feature the minor
-  version, a breaking change the major version (the minor version before 1.0). The version never goes down.
+  version, a breaking change the major version. Before 1.0 a breaking change raises the minor version, and
+  everything else, features included, the patch version. The version never goes down.
 - A release only replaces `(unreleased)` with the date and tags the commit `v<version>`. The author
   publishes it: never run `npm publish` or `bun publish`.
 

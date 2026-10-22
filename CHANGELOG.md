@@ -1,7 +1,14 @@
 # Changelog
 
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
-version.
+version, and everything else, features included, the patch version.
+
+## 0.3.1 (unreleased)
+
+### Added
+
+- `attempt({ onSuccess, onFailure })`, with the handlers alone, returns the function that takes the effect, to
+  end a `pipe` or an `Effect.fn`: `Effect.fn('Save')(function*() { … }, attempt({ onSuccess, onFailure }))`.
 
 ## 0.3.0 (2026-10-21)
 

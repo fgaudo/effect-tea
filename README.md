@@ -213,7 +213,21 @@ expect(commands).toEqual([Command.Save({ name: 'Ada' })])
 ```
 
 - `attempt(effect, { onSuccess, onFailure })` turns an effect that can fail into one that answers with a
-  message either way. A defect (`Effect.die`, a thrown error) ends the run.
+  message either way. A defect (`Effect.die`, a thrown error) ends the run. Given the handlers alone,
+  `attempt({ onSuccess, onFailure })` is the step to put at the end of a `pipe` or an `Effect.fn`:
+
+  ```ts
+  const save = Effect.fn('Save')(
+    function*(name: string) {
+      const storage = yield* Storage
+      yield* storage.save(name)
+    },
+    attempt({
+      onSuccess: () => Message.Saved(),
+      onFailure: () => Message.SaveFailed(),
+    }),
+  )
+  ```
 - A command carries everything it needs: `runCommand` does not see the state. Its services are provided
   around `run`.
 - **Commands cannot be cancelled.** Once started, a command runs to its end and its message arrives, even if
@@ -450,7 +464,7 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | `Update`, `Transition`, `Step`                    | `(message) => (state) => Step` or `Rejected`; a `Step` is `{ state, commands?, events? }`     |
 | `reject`, `Rejected`, `isRejected`                | the rejection `update` returns, and its check                                                 |
 | `Execution<Message, R>`, `RunCommand`             | `Effect<Option<Message>, never, R>`, how a command happens; `(command) => Execution`          |
-| `attempt`                                         | an execution from an effect that may fail: its failure becomes a message                      |
+| `attempt`                                         | an execution from an effect that may fail: its failure becomes a message; also data-last      |
 | `Subscription`                                    | a `Channel` of messages that never ends, or ends with one last message; kept by key           |
 | `Subscriptions`                                   | `(state) => HashMap<K, Subscription<Message>>`, reconciled by key                             |
 | `modelOf`                                         | a program's model in a state, as `run` makes it, with offers no run applies                   |

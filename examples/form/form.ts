@@ -35,10 +35,12 @@ export const Command = Data.taggedEnum<Command>()
 export const runCommand = (command: Command): Execution<Message, Storage> => {
   switch (command._tag) {
     case 'Save':
-      return attempt(Effect.flatMap(Effect.service(Storage), (storage) => storage.save(command.name)), {
-        onSuccess: (): Message => Message.SaveSucceeded({ name: command.name }),
-        onFailure: (): Message => Message.SaveFailed(),
-      })
+      return Effect.flatMap(Effect.service(Storage), (storage) => storage.save(command.name)).pipe(
+        attempt({
+          onSuccess: (): Message => Message.SaveSucceeded({ name: command.name }),
+          onFailure: (): Message => Message.SaveFailed(),
+        }),
+      )
   }
 }
 
