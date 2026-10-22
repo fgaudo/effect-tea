@@ -39,15 +39,17 @@ describe('counter', () => {
 
   // The program as it runs, driven like a user would.
   test('a user clicks +, + and −', async () => {
-    const count = await Effect.runPromise(drive(counter, (driver) =>
-      Effect.gen(function*() {
+    const count = await Effect.runPromise(drive(
+      counter,
+      Effect.fnUntraced(function*(driver) {
         yield* driver.send((model) => Opt.some(tap(model.increment)))
         yield* driver.send((model) => model.count === 1 ? Opt.some(tap(model.increment)) : Opt.none())
         yield* driver.send((model) =>
           model._tag === 'Counting' && model.count === 2 ? Opt.some(tap(model.decrement)) : Opt.none()
         )
         return yield* driver.waitFor((model) => model.count === 1 ? Opt.some(model.count) : Opt.none())
-      })))
+      }),
+    ))
     expect(count).toBe(1)
   })
 })

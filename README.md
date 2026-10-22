@@ -91,12 +91,10 @@ const counter: Program<{ state: number; model: Model; message: Message }> = {
 
 const main = run(counter, (frames) =>
   frames.pipe(
-    Stream.tap(({ model, dispatch }) =>
-      Effect.gen(function*() {
-        yield* Effect.log(model.count)
-        if (model.count < 3) yield* dispatch(model.increment)
-      })
-    ),
+    Stream.tap(Effect.fnUntraced(function*({ model, dispatch }) {
+      yield* Effect.log(model.count)
+      if (model.count < 3) yield* dispatch(model.increment)
+    })),
     Stream.take(4),
     Stream.runDrain,
   ), { onRejectedInput: 'die' })
@@ -124,12 +122,12 @@ Its type names its types: `Program<{ state; model; message }>`, plus `command`, 
 each with its tests. Try one in the browser, or run it with `bun run build`, then
 `bun examples/<name>/index.html`.
 
-| Example                       | What it shows                                                                                 | Try it                                                        |
-| ----------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| [`counter`](examples/counter) | the quick start with a view; `applyAll`, `dispatchViolations`, `missingOffers`, `drive`       | [live](https://fgaudo.github.io/effect-tea/examples/counter/) |
-| [`form`](examples/form)       | an input the user owns while typing; a service and `attempt`; a save only its completion ends | [live](https://fgaudo.github.io/effect-tea/examples/form/)    |
-| [`pages`](examples/pages)     | two pages with `parent`, events for navigation, `subscribed`, a child's commands; `simulate`  | [live](https://fgaudo.github.io/effect-tea/examples/pages/)   |
-| [`list`](examples/list)       | stopwatches by id with `each`, a subscription per running child; a test with a `TestClock`    | [live](https://fgaudo.github.io/effect-tea/examples/list/)    |
+| Example                       | What it shows                                                                                             | Try it                                                        |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [`counter`](examples/counter) | the quick start with a view; `applyAll`, `dispatchViolations`, `missingOffers`, `drive`                   | [live](https://fgaudo.github.io/effect-tea/examples/counter/) |
+| [`form`](examples/form)       | an input the user owns while typing; a service and `attempt`; a save only its completion ends; `rehearse` | [live](https://fgaudo.github.io/effect-tea/examples/form/)    |
+| [`pages`](examples/pages)     | two pages with `parent`, events for navigation, `subscribed`, a child's commands; `simulate`              | [live](https://fgaudo.github.io/effect-tea/examples/pages/)   |
+| [`list`](examples/list)       | stopwatches by id with `each`, a subscription per running child; a test with a `TestClock`                | [live](https://fgaudo.github.io/effect-tea/examples/list/)    |
 
 [`examples/snabbdom.ts`](examples/snabbdom.ts) is the small bridge to the renderer, worth copying for your
 own: `renderInto` for `run`, click and input handlers, and `messagesSentBy` for tests.
@@ -342,6 +340,9 @@ What the library gives it:
   its type declares as `external` (e.g. a back button).
 - **The parent's types:** its messages are its own plus `{ _tag: <child>, message }` for each child.
   `MessageOf<typeof app>` names them.
+- **The parent's subscriptions:** its own, plus each child's under `[<child>, key]` (`[<child>, id, key]` for
+  children by id): `HashMap.has(subscriptionsOf(app)(state), ['Clock', 'ticks'])` tells a test whether the Clock
+  ticks.
 
 For children by id, such as the rows of a list, use `each` instead of `child`: `get` and `set` take the id,
 `subscribed` lists the rows that listen, and `children.Row(state, id)` is a row's model. See
@@ -428,13 +429,14 @@ them under random orders of clicks, command answers and subscription messages.
 
 Most of a program is pure, so most tests need no runtime. From `@fgaudo/effect-tea/testing`:
 
-| Tool                 | Use it to test                                                         |
-| -------------------- | ---------------------------------------------------------------------- |
-| `applyAll`           | `update`'s rules: apply messages, check the state, commands and events |
-| `dispatchViolations` | that everything the view sends is accepted, and a double tap acts once |
-| `missingOffers`      | that nothing `update` accepts is missing from the view                 |
-| `simulate`           | a flow with its commands answered at once, without a runtime           |
-| `drive`              | a user's scenario on the running program, subscriptions included       |
+| Tool                 | Use it to test                                                                |
+| -------------------- | ----------------------------------------------------------------------------- |
+| `applyAll`           | `update`'s rules: apply messages, check the state, commands and events        |
+| `dispatchViolations` | that everything the view sends is accepted, and a double tap acts once        |
+| `missingOffers`      | that nothing `update` accepts is missing from the view                        |
+| `simulate`           | a flow with its commands answered at once, without a runtime                  |
+| `rehearse`           | a user's scenario without a runtime, the test deciding when each command runs |
+| `drive`              | a user's scenario on the running program, subscriptions included              |
 
 ```ts
 test('counts up and down', () => {
@@ -455,7 +457,8 @@ test('the view sends what update accepts, all of it', () => {
 ```
 
 - `modelOf(program)(state)` makes a model outside `run`, so a property test can check its offers in any
-  state. `messageOf(offered)` reads the message an offer sends.
+  state, and `subscriptionsOf(program)(state)` says what it listens to there. `messageOf(offered)` reads the
+  message an offer sends.
 - `messagesSentBy` is not in the package: it comes from the example bridge
   ([`examples/snabbdom.ts`](examples/snabbdom.ts)), which renders the view and fires every handler. A
   renderer of your own needs one like it.
@@ -464,8 +467,35 @@ test('the view sends what update accepts, all of it', () => {
   model leaves out on purpose, e.g. typing while a save is in progress.
 - `simulate` fails when `update` rejects one of the messages it is given. The command answers that `update`
   rejected are listed in `ignored`: assert it when one being dropped would be a bug.
+- `rehearse` acts only through what the current model offers, as `drive` does, but nothing runs by itself:
+  each command waits until the test runs it (`run`, `runAll`), through the program's `runCommand` with the
+  services provided, and a subscription's message is one the test says was heard (`hear`), only while its key is
+  in the state. So a test says what the user does while a save is under way, and when its answer arrives:
+
+  ```ts
+  rehearse(
+    form,
+    Effect.fnUntraced(function*(rehearsal) {
+      yield* rehearsal.send(({ editor }) =>
+        editor._tag === 'Saving'
+          ? Opt.none()
+          : Opt.some(input(editor.changeName, 'Ada'))
+      )
+      yield* rehearsal.send(({ editor }) =>
+        editor._tag === 'Named' ? Opt.some(tap(editor.save)) : Opt.none()
+      )
+      expect((yield* rehearsal.model).editor._tag).toBe('Saving')
+      yield* rehearsal.run((command) => command._tag === 'Save')
+    }),
+  )
+  ```
+
+  Rejections are judged as when the program runs, and the stale ones are listed in `ignored`. It fails when the
+  model does not offer what the test sends, and when a command is still pending at the end: its answer would
+  still arrive.
 - `drive` acts only through what the frames offer, and fails on a rejected input or a wait longer than
-  `patience` (2 seconds).
+  `patience` (2 seconds). Its commands run as soon as they start: to hold one, give the program a service of the
+  test's that waits on a `Deferred` the scenario completes.
 
 ## API reference
 
@@ -484,6 +514,7 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | `Subscription`                                    | a `Channel` of messages that never ends, or ends with one last message; kept by key           |
 | `Subscriptions`                                   | `(state) => HashMap<K, Subscription<Message>>`, reconciled by key                             |
 | `modelOf`                                         | a program's model in a state, as `run` makes it, with offers no run applies                   |
+| `subscriptionsOf`                                 | what a program listens to in a state, by key, as `run` reconciles it                          |
 | `Offers`                                          | what `makeModel` receives: `offer(message)` and `offerInput(toMessage, current)`              |
 | `Offered`                                         | an action `update` accepts in the model's state, the only kind `dispatch` takes               |
 | `RejectedOffer`                                   | the defect `makeModel` throws when it offers a message `update` rejects                       |
@@ -494,8 +525,9 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | `OnRejectedInput`, `InputRejection`               | `'die'`, or a function reporting an `InputRejection`: a message and the revision of its offer |
 | `RejectedInput`                                   | the defect the run fails with when a rejected input is fatal                                  |
 
-From `@fgaudo/effect-tea/testing`: `messageOf`, `applyAll`, `simulate`, `Simulation`, `drive`, `DriveOptions`,
-`Driver`, `Action`, `tap`, `input`, `dispatchViolations`, `DispatchViolation`, `missingOffers`.
+From `@fgaudo/effect-tea/testing`: `messageOf`, `applyAll`, `simulate`, `Simulation`, `rehearse`, `Rehearsal`,
+`RehearseOptions`, `drive`, `DriveOptions`, `Driver`, `Action`, `tap`, `input`, `dispatchViolations`,
+`DispatchViolation`, `missingOffers`.
 
 ## Development
 

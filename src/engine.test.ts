@@ -151,13 +151,16 @@ describe('Engine subscriptions', () => {
 
   /** Sends `changes` one at a time, each once the previous one is applied, letting the subscriptions settle. */
   const send = (engine: Engine.Engine<Listening, Change>, changes: ReadonlyArray<Change>) =>
-    Effect.forEach(changes, (change, index) =>
-      Effect.gen(function*() {
+    Effect.forEach(
+      changes,
+      Effect.fnUntraced(function*(change, index) {
         yield* engine.states.pipe(Stream.filter(({ revision }) => revision >= index), Stream.runHead)
         yield* offered(engine, change, { revision: index })
         yield* engine.states.pipe(Stream.filter(({ revision }) => revision > index), Stream.runHead)
         yield* Effect.sleep('20 millis')
-      }), { discard: true })
+      }),
+      { discard: true },
+    )
 
   const logOf = async (changes: ReadonlyArray<Change>) => {
     const log: Array<string> = []
@@ -373,10 +376,9 @@ describe('Engine scopes', () => {
       onRejectedInput: 'die',
     })
     const send = (signal: Signal) => engine.dispatchOffer(signal, { violation: false, revision: 0, run: engine.run })
-    const until = (line: string) =>
-      Effect.gen(function*() {
-        while (!log.includes(line)) yield* Effect.sleep('1 millis')
-      }).pipe(Effect.timeoutOption('1 second'))
+    const until = Effect.fnUntraced(function*(line: string) {
+      while (!log.includes(line)) yield* Effect.sleep('1 millis')
+    }, Effect.timeoutOption('1 second'))
     return { log, send, until, held }
   })
 

@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'bun:test'
 import { isRejected, modelOf } from '@fgaudo/effect-tea'
-import { applyAll, dispatchViolations, drive, input, missingOffers, simulate, tap } from '@fgaudo/effect-tea/testing'
+import {
+  applyAll,
+  dispatchViolations,
+  drive,
+  input,
+  missingOffers,
+  rehearse,
+  simulate,
+  tap,
+} from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
@@ -101,13 +110,39 @@ describe('form', () => {
       )
       expect(state.name.text).toBe(' Ada x')
     })
+
+    // The save waits until the test runs it: what the user can do meanwhile, and what its answer finds.
+    test('while saving, the form offers nothing; a failure gives it back, to save again', async () => {
+      const save = ({ editor }: Model) => editor._tag === 'Named' ? Opt.some(tap(editor.save)) : Opt.none()
+      const { whileSaving, afterFailure } = await Effect.runPromise(
+        rehearse(
+          form,
+          Effect.fnUntraced(function*(rehearsal) {
+            yield* rehearsal.send(({ editor }) =>
+              editor._tag === 'Saving' ? Opt.none() : Opt.some(input(editor.changeName, ' Ada '))
+            )
+            yield* rehearsal.send(save)
+            const whileSaving = (yield* rehearsal.model).editor._tag
+            yield* rehearsal.run((command) => command._tag === 'Save')
+            const afterFailure = yield* rehearsal.model
+            yield* rehearsal.send(save)
+            yield* rehearsal.runAll
+            return { whileSaving, afterFailure }
+          }),
+        ).pipe(Effect.provideService(Storage, failing)),
+      )
+      expect(whileSaving).toBe('Saving')
+      expect(afterFailure.editor._tag).toBe('Named')
+      expect(afterFailure.hasFailed).toBe(true)
+    })
   })
 
   // The program as it runs, driven like a user would.
   test('a user types a name and saves it', async () => {
     const saved = await Effect.runPromise(
-      drive(form, (driver) =>
-        Effect.gen(function*() {
+      drive(
+        form,
+        Effect.fnUntraced(function*(driver) {
           yield* driver.send(({ editor }) =>
             editor._tag === 'Saving' ? Opt.none() : Opt.some(input(editor.changeName, 'Ada'))
           )
@@ -115,7 +150,8 @@ describe('form', () => {
             name.text === 'Ada' && editor._tag === 'Named' ? Opt.some(tap(editor.save)) : Opt.none()
           )
           return yield* driver.waitFor((model) => model.saved.length > 0 ? Opt.some(model.saved) : Opt.none())
-        })).pipe(Effect.provideService(Storage, working)),
+        }),
+      ).pipe(Effect.provideService(Storage, working)),
     )
     expect(saved).toEqual(['Ada'])
   })

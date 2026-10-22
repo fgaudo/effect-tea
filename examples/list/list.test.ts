@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { isRejected, modelOf, run } from '@fgaudo/effect-tea'
+import { isRejected, modelOf, run, subscriptionsOf } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations, missingOffers } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
@@ -20,8 +20,6 @@ const state: fc.Arbitrary<State> = fc
     { selector: (entry) => entry.id, maxLength: 4 },
   )
   .map((entries) => ({ nextId: 21, entries }))
-
-const subscriptions = list.subscriptions ?? (() => HashMap.empty())
 
 // What a user can ask of the list in `state`: adding, and starting, stopping or removing each stopwatch.
 const userMessages = (state: State) => [
@@ -54,7 +52,7 @@ describe('list', () => {
 
     test('only running stopwatches tick, each under its own key', () => {
       const { state } = applyAll(list.update)([added, added, to(2, Stopwatch.Message.Started())], list.init.state)
-      expect(Array.from(HashMap.keys(subscriptions(state)))).toEqual([['Stopwatch', 2, 'ticks']])
+      expect(Array.from(HashMap.keys(subscriptionsOf(list)(state)))).toEqual([['Stopwatch', 2, 'ticks']])
     })
   })
 

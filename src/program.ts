@@ -17,6 +17,11 @@ export const runCommandOf = <Command, Message, R>(
   (program as Partial<Readonly<{ runCommand: RunCommand<Command, Message, R> }>>).runCommand
     ?? (absurd as RunCommand<Command, Message, R>)
 
+/**
+ * What a program listens to in `state`, by key, as `run` reconciles it: empty for a program without
+ * `subscriptions`. A parent lists each child's under `[<child>, key]`, or `[<child>, id, key]` for children by id, so
+ * that a test can check who listens, e.g. `HashMap.has(subscriptionsOf(app)(state), ['Clock', 'ticks'])`.
+ */
 export const subscriptionsOf = <State, Message, R, K>(
   program: Readonly<{ subscriptions?: Subscriptions<State, Message, R, K> }>,
 ): Subscriptions<State, Message, R, K> => program.subscriptions ?? (() => HashMap.empty())

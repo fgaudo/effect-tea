@@ -3,6 +3,20 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
+## 0.3.2 (unreleased)
+
+### Added
+
+- `rehearse(program, scenario, { from })`, a testing tool between `simulate` and `drive`: it acts on what the
+  current model offers, as `drive` does, but without a runtime, and each command waits until the test runs it
+  (`run`, `runAll`), so that a test decides what the user does while a command is under way and when its answer
+  arrives. A subscription's message is one the test says was heard (`hear`), while its key is in the state. It
+  fails on a command still pending at the end.
+- `Action`, `tap` and `input` serve `rehearse` as well as `drive`.
+- `subscriptionsOf(program)(state)`, what a program listens to in a state, by key, as `run` reconciles it: empty
+  for a program without `subscriptions`, so that a test reads them as it reads a model with `modelOf`. A child's
+  subscriptions are under `[<child>, key]`, or `[<child>, id, key]` for children by id, as the README now says.
+
 ## 0.3.1 (2026-10-22)
 
 ### Added

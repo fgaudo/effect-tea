@@ -14,6 +14,7 @@ export {
   type Program,
   type ServicesOf,
   type StateOf,
+  subscriptionsOf,
 } from './program.ts'
 export { parent } from './compose.ts'
 

@@ -31,32 +31,27 @@ export type Simulation<State, Message, Command, Event> = Readonly<{
  */
 export const simulate = <State, Message, Command, Event, R = never>(
   program: Readonly<{ update: Update<State, Message, Command, Event> }> & Interpreter<Command, Message, R>,
-) =>
-(
-  messages: ReadonlyArray<Message>,
-  from: Step<State, Command>,
-): Effect.Effect<Simulation<State, Message, Command, Event>, never, Exclude<R, Scope.Scope>> => {
+) => {
   type Current = Simulation<State, Message, Command, Event>
   const { update } = program
   const runCommand = runCommandOf(program)
-  const runCommands = (
+  const runCommands = Effect.fnUntraced(function*(
     commands: ReadonlyArray<Command>,
     simulation: Current,
-  ): Effect.Effect<Current, never, Exclude<R, Scope.Scope>> =>
-    Effect.gen(function*() {
-      let current: Current = { ...simulation, commands: [...simulation.commands, ...commands] }
-      for (const command of commands) {
-        const message = yield* Effect.scoped(runCommand(command))
-        if (Opt.isSome(message)) {
-          current = yield* apply(
-            message.value,
-            current,
-            (unchanged) => Effect.succeed({ ...unchanged, ignored: [...unchanged.ignored, message.value] }),
-          )
-        }
+  ): Effect.fn.Return<Current, never, Exclude<R, Scope.Scope>> {
+    let current: Current = { ...simulation, commands: [...simulation.commands, ...commands] }
+    for (const command of commands) {
+      const message = yield* Effect.scoped(runCommand(command))
+      if (Opt.isSome(message)) {
+        current = yield* apply(
+          message.value,
+          current,
+          (unchanged) => Effect.succeed({ ...unchanged, ignored: [...unchanged.ignored, message.value] }),
+        )
       }
-      return current
-    })
+    }
+    return current
+  })
   const apply = (
     message: Message,
     simulation: Current,
@@ -72,7 +67,10 @@ export const simulate = <State, Message, Command, Event, R = never>(
         ignored: simulation.ignored,
       })
     })
-  return Effect.gen(function*() {
+  return Effect.fnUntraced(function*(
+    messages: ReadonlyArray<Message>,
+    from: Step<State, Command>,
+  ): Effect.fn.Return<Current, never, Exclude<R, Scope.Scope>> {
     let current = yield* runCommands(from.commands ?? [], {
       state: from.state,
       messages: [],

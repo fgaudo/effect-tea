@@ -136,6 +136,10 @@ The version in `package.json` is the one the next release will have, decided by 
 - **`simulate` behaves like the engine** where the engine is deterministic: a rejected message from a
   command is stale and ignored, and only a rejection of the test's own messages fails. Keep the two in step
   when either changes.
+- **`rehearse` behaves like the engine, with the test as its scheduler**: it acts only through offers of its
+  own models, judges rejections by the offer (a violation dies, an offer of another run dies, the rest is stale and
+  listed), scopes each command like the engine, and runs nothing the test did not ask for. A command left pending
+  fails the test, since commands cannot be cancelled and its answer would arrive. Keep it in step with the engine.
 - **`drive` acts only as a user can**: through `run` and the run's `dispatch`, so a scenario sends only
   offers. It always runs with `onRejectedInput: 'die'`, since a test must not go on past a bug, and
   its waits use the real clock, whatever `Clock` the program runs with.
@@ -158,12 +162,16 @@ The version in `package.json` is the one the next release will have, decided by 
 
 - One module per concept: `update.ts`, `command.ts`, `subscription.ts`, `offer.ts` (offers and dispatch),
   `program.ts` (the program and its types), `compose.ts` (`parent`), `rejection.ts`, `log.ts`; `engine.ts` is
-  the runtime only (with `RunOptions`), and `run.ts` connects it to a renderer. `testing/` holds one module per testing tool, and
-  `testing/index.ts` exports them.
+  the runtime only (with `RunOptions`), and `run.ts` connects it to a renderer. `testing/` holds one module per testing tool, plus
+  `action.ts` (what `drive` and `rehearse` send), and `testing/index.ts` exports them.
 - A piece of a program that may be missing (`runCommand` without commands, `subscriptions`) is read through
   `runCommandOf` and `subscriptionsOf`, never directly: the engine always gets the complete set.
 - Effect modules are imported as namespaces (`import * as Effect from 'effect/Effect'`), with `Arr`, `Opt`
   for `Array`, `Option`.
+- A function that returns an effect made with `Effect.gen` is an `Effect.fnUntraced` instead, with what would
+  follow it in a `pipe` as its further arguments, tests included: the library opens no spans of its own (they
+  belong to the application, e.g. `Effect.fn('Save')` in a `runCommand`), and the stack frames `Effect.fn` records
+  add nothing a test's name does not say. An effect that takes no arguments stays an `Effect.gen`.
 - Relative imports carry the `.ts` extension; `tsc` rewrites them to `.js` in the build, and `build.ts` does
   the same in the declarations.
 - Comments only for what the code cannot say: a reason, an invariant the types do not show, a choice that

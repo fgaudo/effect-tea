@@ -12,7 +12,8 @@ import type { Offered } from '../offer.ts'
 import type { Program } from '../program.ts'
 import { RejectedInput } from '../rejection.ts'
 import { reject, type Update } from '../update.ts'
-import { drive, input, tap } from './drive.ts'
+import { input, tap } from './action.ts'
+import { drive } from './drive.ts'
 
 describe('drive', () => {
   // A note of one line, saved by `Store`, and pinged once by a subscription that stops with the program.
@@ -96,34 +97,40 @@ describe('drive', () => {
     const program = noteProgram(Effect.sync(() => {
       stopped = true
     }))
-    const saved = await Effect.runPromise(drive(program, (driver) =>
-      Effect.gen(function*() {
+    const saved = await Effect.runPromise(drive(
+      program,
+      Effect.fnUntraced(function*(driver) {
         yield* driver.waitFor((model) => model.note.pings === 1 ? Opt.some(true) : Opt.none())
         yield* driver.send(typing('milk'))
         yield* driver.send((model) => model.note.text === 'milk' ? saving(model) : Opt.none())
         return yield* driver.waitFor((model) => model.note.saved)
-      })))
+      }),
+    ))
     expect(saved).toBe('milk')
     expect(stopped).toBe(true)
   })
 
   test('send waits for a frame that offers the action', async () => {
-    const saved = await Effect.runPromise(drive(noteProgram(Effect.void), (driver) =>
-      Effect.gen(function*() {
+    const saved = await Effect.runPromise(drive(
+      noteProgram(Effect.void),
+      Effect.fnUntraced(function*(driver) {
         // Not offered while the text is empty.
         yield* Effect.all([driver.send(saving), driver.send(typing('eggs'))], { concurrency: 'unbounded' })
         return yield* driver.waitFor((model) => model.note.saved)
-      })))
+      }),
+    ))
     expect(saved).toBe('eggs')
   })
 
   test('a defect of the program fails the scenario', async () => {
     const exit = await Effect.runPromiseExit(
-      quietly(drive(noteProgram(Effect.void), (driver) =>
-        Effect.gen(function*() {
+      quietly(drive(
+        noteProgram(Effect.void),
+        Effect.fnUntraced(function*(driver) {
           yield* driver.send((model) => Opt.some(tap(model.explode)))
           return yield* Effect.never
-        }))),
+        }),
+      )),
     )
     expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain('boom')
   })
@@ -141,11 +148,13 @@ describe('drive', () => {
 
   test('a typed value that update rejects always fails the scenario', async () => {
     const exit = await Effect.runPromiseExit(
-      quietly(drive(noteProgram(Effect.void), (driver) =>
-        Effect.gen(function*() {
+      quietly(drive(
+        noteProgram(Effect.void),
+        Effect.fnUntraced(function*(driver) {
           yield* driver.send(typing('milk\neggs'))
           return yield* Effect.never
-        }))),
+        }),
+      )),
     )
     expect(Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof RejectedInput).toBe(true)
   })

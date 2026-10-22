@@ -63,12 +63,10 @@ describe('run', () => {
     const counts: Array<number> = []
     await Effect.runPromise(quietly(runDying(counter, (frames) =>
       frames.pipe(
-        Stream.tap(({ model, dispatch }) =>
-          Effect.gen(function*() {
-            counts.push(model.count)
-            if (model.count < 2) yield* dispatch(model.increment)
-          })
-        ),
+        Stream.tap(Effect.fnUntraced(function*({ model, dispatch }) {
+          counts.push(model.count)
+          if (model.count < 2) yield* dispatch(model.increment)
+        })),
         Stream.take(3),
         Stream.runDrain,
       ))))
@@ -91,14 +89,12 @@ describe('run', () => {
       counter,
       (frames) =>
         frames.pipe(
-          Stream.tap(({ model, dispatch }) =>
-            Effect.gen(function*() {
-              counts.push(model.count)
-              // A buggy view: it lets the user type a value the model does not accept, then increments.
-              yield* dispatch(model.type(false))
-              yield* dispatch(model.increment)
-            })
-          ),
+          Stream.tap(Effect.fnUntraced(function*({ model, dispatch }) {
+            counts.push(model.count)
+            // A buggy view: it lets the user type a value the model does not accept, then increments.
+            yield* dispatch(model.type(false))
+            yield* dispatch(model.increment)
+          })),
           Stream.take(2),
           Stream.runDrain,
         ),
@@ -233,14 +229,12 @@ describe('defects', () => {
       program,
       (frames) =>
         frames.pipe(
-          Stream.tap(({ model, dispatch }) =>
-            Effect.gen(function*() {
-              view(model)
-              if (sent) return
-              sent = true
-              yield* dispatch(model.increment)
-            })
-          ),
+          Stream.tap(Effect.fnUntraced(function*({ model, dispatch }) {
+            view(model)
+            if (sent) return
+            sent = true
+            yield* dispatch(model.increment)
+          })),
           Stream.runDrain,
         ),
       { onRejectedInput: 'die', ...options },
@@ -304,12 +298,10 @@ describe('onApplied', () => {
       counter,
       (frames) =>
         frames.pipe(
-          Stream.tap(({ model, dispatch }) =>
-            Effect.gen(function*() {
-              drawn.push(heard.length)
-              if (model.count < 2) yield* dispatch(model.increment)
-            })
-          ),
+          Stream.tap(Effect.fnUntraced(function*({ model, dispatch }) {
+            drawn.push(heard.length)
+            if (model.count < 2) yield* dispatch(model.increment)
+          })),
           Stream.take(3),
           Stream.runDrain,
         ),
@@ -402,15 +394,13 @@ describe('frames', () => {
     const counts: Array<number> = []
     await Effect.runPromise(quietly(runDying(counter, (frames) =>
       frames.pipe(
-        Stream.tap(({ model, dispatch }) =>
-          Effect.gen(function*() {
-            counts.push(model.count)
-            if (model.count > 0) return
-            // Three messages in a burst, while the renderer is still busy with this frame.
-            yield* Effect.repeat(dispatch(model.increment), { times: 2 })
-            yield* Effect.sleep('50 millis')
-          })
-        ),
+        Stream.tap(Effect.fnUntraced(function*({ model, dispatch }) {
+          counts.push(model.count)
+          if (model.count > 0) return
+          // Three messages in a burst, while the renderer is still busy with this frame.
+          yield* Effect.repeat(dispatch(model.increment), { times: 2 })
+          yield* Effect.sleep('50 millis')
+        })),
         Stream.take(2),
         Stream.runDrain,
       ))))

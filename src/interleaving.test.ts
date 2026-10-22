@@ -178,14 +178,17 @@ const runScenario = async (scheduler: fc.Scheduler, acts: ReadonlyArray<Act>, bu
   const stopped = new Promise<void>((resolve) => {
     stop = resolve
   })
-  const scenario = Effect.forEach(acts, (act) =>
-    Effect.gen(function*() {
+  const scenario = Effect.forEach(
+    acts,
+    Effect.fnUntraced(function*(act) {
       yield* Effect.promise(() => scheduler.schedule(Promise.resolve(act)))
       const control = latest === undefined ? Opt.none() : controlFor(latest.model, act)
       if (latest === undefined || Opt.isNone(control)) return
       yield* latest.dispatch(control.value)
       if (act.twice) yield* latest.dispatch(control.value)
-    }), { discard: true })
+    }),
+    { discard: true },
+  )
   const done = Effect.runPromiseExit(Effect.raceFirst(
     run(list, (frames) =>
       Stream.runForEach(frames, (frame) =>

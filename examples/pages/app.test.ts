@@ -2,7 +2,7 @@
 // view's offers are read with `messageOf`.
 import { describe, expect, test } from 'bun:test'
 import { applyAll, dispatchViolations, missingOffers, simulate } from '@fgaudo/effect-tea/testing'
-import { modelOf, run } from '@fgaudo/effect-tea'
+import { modelOf, run, subscriptionsOf } from '@fgaudo/effect-tea'
 import * as DateTime from 'effect/DateTime'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
@@ -30,11 +30,9 @@ const state: fc.Arbitrary<State> = fc.record({
   maybeAbout: maybe(fc.record({ maybeSaying: maybe(fc.string()) })),
 })
 
-const subscriptions = app.subscriptions ?? (() => HashMap.empty())
-
 /** The pages whose subscriptions run, from the keys the library namespaces (`['Clock', 'ticks']`). */
 const listening = (state: State) =>
-  Array.from(HashMap.keys(subscriptions(state))).flatMap((key) => Array.isArray(key) ? [key[0]] : [])
+  Array.from(HashMap.keys(subscriptionsOf(app)(state))).flatMap((key) => Array.isArray(key) ? [key[0]] : [])
 
 describe('pages', () => {
   describe('navigation', () => {
