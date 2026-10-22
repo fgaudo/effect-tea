@@ -103,7 +103,7 @@ export const rehearse = Effect.fnUntraced(function*<State, Model, Message, Comma
     Effect.suspend(() => {
       const { message, revision, run: by, violation } = tokenOf(offered)
       if (by !== self) return Effect.die(new Error('An offer made by another run was dispatched to this one'))
-      if (violation) return Effect.die(new RejectedInput({ message, revision }))
+      if (violation) return Effect.die(new RejectedInput({ rejected: message, revision }))
       return apply(message as Message)
     })
   const model = Effect.map(

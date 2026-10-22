@@ -3,7 +3,17 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
-## 0.3.2 (unreleased)
+## 0.4.0 (unreleased)
+
+### Changed
+
+- `onRejectedInput`'s function gets the `RejectedInput` itself, the very defect `'die'` raises, so that it can go
+  to a crash-reporting service as an error. `InputRejection` is gone: replace `InputRejection<Message>` with
+  `RejectedInput`.
+- `RejectedInput` and `RejectedOffer` hold the program's message in `rejected` (typed as the program's in
+  `onRejectedInput`), no longer in `message`: an error's `message` is now a string that names only the message's
+  tags, as a report's title expects, where it was the message itself (shown as `[object Object]`). Read
+  `rejection.rejected` where you read `rejection.message`.
 
 ### Added
 
@@ -16,6 +26,16 @@ version, and everything else, features included, the patch version.
 - `subscriptionsOf(program)(state)`, what a program listens to in a state, by key, as `run` reconciles it: empty
   for a program without `subscriptions`, so that a test reads them as it reads a model with `modelOf`. A child's
   subscriptions are under `[<child>, key]`, or `[<child>, id, key]` for children by id, as the README now says.
+
+### Fixed
+
+- A parent made a new state of its own for a child's message that left the child's state as it was, so that the
+  very same state drew a new frame, made a new revision and reconciled the subscriptions again. It now keeps its
+  state, while the child's commands and events still go through.
+- The README says what a rejection holds (the message, with what the user typed) and that the debug logs of
+  subscriptions show their keys. It no longer suggests turning a stream that ends into a subscription that never
+  does, and shows how to keep a connection open while a value it uses changes: a service, a subscription under a
+  key that stays the same, and a command.
 
 ## 0.3.1 (2026-10-22)
 

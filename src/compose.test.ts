@@ -234,6 +234,37 @@ describe('next: compose', () => {
     expect(!isRejected(result) && result.state.left.count).toBe(1)
   })
 
+  // The very same state draws no new frame: a parent rebuilt around an unchanged child would draw one.
+  test('a child\'s message that keeps its state keeps the parent\'s, its commands and events still going', () => {
+    type Pinger = Readonly<{ pings: number }>
+    const pinger: Program<{ state: Pinger; model: number; message: 'Ping'; command: 'Pong'; event: 'Pinged' }> = {
+      init: { state: { pings: 0 } },
+      update: () => (state) => ({ state, commands: ['Pong'], events: ['Pinged'] }),
+      runCommand: () => Effect.succeedNone,
+      makeModel: (state) => state.pings,
+    }
+    type Pinged = Readonly<{ pinger: Pinger; heard: number }>
+    const Pings = parent<{ state: Pinged }>()
+    const pingers = (onPinged: (state: Pinged) => Pinged) =>
+      Pings.compose({
+        init: { state: { pinger: pinger.init.state, heard: 0 } },
+        children: {
+          Pinger: Pings.child(pinger, { get: (s) => Opt.some(s.pinger), set: (s, p) => ({ ...s, pinger: p }) }),
+        },
+        onEvent: { Pinger: () => (state) => ({ state: onPinged(state) }) },
+        makeModel: (state, { children }) => children.Pinger(state),
+      })
+    const before = pingers((state) => state).init.state
+    const kept = pingers((state) => state).update({ _tag: 'Pinger', message: 'Ping' })(before)
+    const heard = pingers((state) => ({ ...state, heard: state.heard + 1 })).update({
+      _tag: 'Pinger',
+      message: 'Ping',
+    })(before)
+    expect(!isRejected(kept) && kept.state === before).toBe(true)
+    expect(!isRejected(kept) && kept.commands).toEqual([{ _tag: 'Pinger', command: 'Pong' }])
+    expect(!isRejected(heard) && heard.state.heard).toBe(1)
+  })
+
   test('a message for a child that is not there is rejected', () => {
     expect(isRejected(app.update({ _tag: 'Right', message: CounterMessage.Increment() })(app.init.state)))
       .toBe(true)

@@ -251,7 +251,8 @@ expect(commands).toEqual([Command.Save({ name: 'Ada' })])
 every change of state the keys are compared by value. A new key starts its subscription; a kept key leaves it
 running; a missing key stops it, and drops what it sent that `update` has not seen.
 
-A subscription never ends in silence: either it never ends (a clock), or it ends with **one last message**.
+A subscription never ends in silence: either it never ends (a clock: its end value is `never`), or it ends with
+**one last message**, its end value (a download done).
 An ended subscription is not restarted until its key goes away and comes back.
 
 | Use a…           | for                                                                                                                               |
@@ -259,8 +260,39 @@ An ended subscription is not restarted until its key goes away and comes back.
 | **subscription** | input tied to a state (a clock while a page is open, a scroll), or work that stops when the state no longer wants it (a download) |
 | **command**      | a one-off effect whose answer must arrive even if the state has moved on                                                          |
 
-To listen to a `Stream` that may complete, keep listening after its end:
-`Stream.toChannel(stream).pipe(Channel.flattenArray, Channel.concatWith(() => Channel.never))`.
+A subscription sees the state only through its key: what it depends on goes into the key, and a new value
+starts it anew. That is cheap for a timer whose interval changes. For something that should stay open while a
+value it uses changes, such as a connection whose filter the user picks, split it three ways:
+
+- the connection is a **service**: a layer provided to `run` opens it when the program starts and closes it
+  when the run ends, so subscriptions and commands only use it;
+- a **subscription** under a key that stays the same listens to what the service receives;
+- a **command** sends the service the new value, when `update` decides that it changed.
+
+```ts
+// The service: one connection for the whole run.
+class Feed extends Context.Service<Feed, {
+  readonly items: Channel.Channel<Item, never, never>
+  readonly filter: (filter: string) => Effect.Effect<void>
+}>()('Feed') {}
+
+// While the feed is open, one subscription listens, whatever the filter.
+subscriptions: (state) =>
+  state.isOpen
+    ? HashMap.make([
+      'feed',
+      Channel.unwrap(Effect.map(Effect.service(Feed), (feed) =>
+        Channel.map(feed.items, (item) => Message.Received({ item }))
+      )),
+    ])
+    : HashMap.empty(),
+
+// A new filter is a command: the connection stays open.
+runCommand: (command) =>
+  Effect.flatMap(Effect.service(Feed), (feed) => feed.filter(command.filter)).pipe(
+    Effect.as(Opt.none()),
+  ),
+```
 
 ### When `update` rejects
 
@@ -361,9 +393,13 @@ for the next animation frame before taking another draws at most once per screen
 [`examples/snabbdom.ts`](examples/snabbdom.ts) does. Options:
 
 - **`onRejectedInput`** (required): `'die'` fails the run with `RejectedInput`, what you want while developing.
-  A function reports the rejection (e.g. to a crash-reporting service) and the program goes on.
+  A function gets that same `RejectedInput` to report (e.g. to a crash-reporting service), and the program
+  goes on. Its `message` names only tags; `rejected` holds the message as typed, so also what the user typed:
+  take it out, or what must not leave the device, before sending it. A `RejectedOffer` holds its `rejected`
+  message too.
 - **`describeMessage`**, **`describeCommand`**: how messages and commands appear in the logs. By default only
-  their tags, never their data: `Home › Products › Deleted`.
+  their tags, never their data: `Home › Products › Deleted`. The debug logs of subscriptions show their keys,
+  which may hold data (an id, a search's text).
 - **`onApplied`**: hears every accepted message with the state before and after it, for devtools or session
   recording.
 
@@ -502,28 +538,28 @@ test('the view sends what update accepts, all of it', () => {
 Each export is documented in full in the [documentation](https://fgaudo.github.io/effect-tea/). From
 `@fgaudo/effect-tea`:
 
-| Export                                            | What it is                                                                                    |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `Program<{ state; model; message; command?; … }>` | `init`, `update`, `runCommand` (with commands), `subscriptions` (optional), `makeModel`       |
-| `StateOf`, `ModelOf`, `MessageOf`, `CommandOf`, … | a program's types, read back from it (`EventOf`, `ExternalOf`, `ServicesOf` too)              |
-| `parent`                                          | `parent<{ state; … }>()`: `child`, `each` and `compose`, to make a parent of children         |
-| `Update`, `Transition`, `Step`                    | `(message) => (state) => Step` or `Rejected`; a `Step` is `{ state, commands?, events? }`     |
-| `reject`, `Rejected`, `isRejected`                | the rejection `update` returns, and its check                                                 |
-| `Execution<Message, R>`, `RunCommand`             | `Effect<Option<Message>, never, R>`, how a command happens; `(command) => Execution`          |
-| `attempt`                                         | an execution from an effect that may fail: its failure becomes a message; also data-last      |
-| `Subscription`                                    | a `Channel` of messages that never ends, or ends with one last message; kept by key           |
-| `Subscriptions`                                   | `(state) => HashMap<K, Subscription<Message>>`, reconciled by key                             |
-| `modelOf`                                         | a program's model in a state, as `run` makes it, with offers no run applies                   |
-| `subscriptionsOf`                                 | what a program listens to in a state, by key, as `run` reconciles it                          |
-| `Offers`                                          | what `makeModel` receives: `offer(message)` and `offerInput(toMessage, current)`              |
-| `Offered`                                         | an action `update` accepts in the model's state, the only kind `dispatch` takes               |
-| `RejectedOffer`                                   | the defect `makeModel` throws when it offers a message `update` rejects                       |
-| `View`, `Dispatch`                                | `(model, dispatch) => Node`; the run's one dispatch, for offers of any level                  |
-| `dispatchUnsafe`                                  | a dispatch that sends at once, for a renderer's plain callbacks                               |
-| `run`, `Frame`, `RunOptions`                      | run a program with a renderer; what the renderer draws; how the program runs                  |
-| `Applied`                                         | what `onApplied` hears: a message, the states around it, its revision and commands            |
-| `OnRejectedInput`, `InputRejection`               | `'die'`, or a function reporting an `InputRejection`: a message and the revision of its offer |
-| `RejectedInput`                                   | the defect the run fails with when a rejected input is fatal                                  |
+| Export                                            | What it is                                                                                 |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `Program<{ state; model; message; command?; … }>` | `init`, `update`, `runCommand` (with commands), `subscriptions` (optional), `makeModel`    |
+| `StateOf`, `ModelOf`, `MessageOf`, `CommandOf`, … | a program's types, read back from it (`EventOf`, `ExternalOf`, `ServicesOf` too)           |
+| `parent`                                          | `parent<{ state; … }>()`: `child`, `each` and `compose`, to make a parent of children      |
+| `Update`, `Transition`, `Step`                    | `(message) => (state) => Step` or `Rejected`; a `Step` is `{ state, commands?, events? }`  |
+| `reject`, `Rejected`, `isRejected`                | the rejection `update` returns, and its check                                              |
+| `Execution<Message, R>`, `RunCommand`             | `Effect<Option<Message>, never, R>`, how a command happens; `(command) => Execution`       |
+| `attempt`                                         | an execution from an effect that may fail: its failure becomes a message; also data-last   |
+| `Subscription`                                    | a `Channel` of messages that never ends, or ends with one last message; kept by key        |
+| `Subscriptions`                                   | `(state) => HashMap<K, Subscription<Message>>`, reconciled by key                          |
+| `modelOf`                                         | a program's model in a state, as `run` makes it, with offers no run applies                |
+| `subscriptionsOf`                                 | what a program listens to in a state, by key, as `run` reconciles it                       |
+| `Offers`                                          | what `makeModel` receives: `offer(message)` and `offerInput(toMessage, current)`           |
+| `Offered`                                         | an action `update` accepts in the model's state, the only kind `dispatch` takes            |
+| `RejectedOffer`                                   | the defect `makeModel` throws when it offers a message `update` rejects                    |
+| `View`, `Dispatch`                                | `(model, dispatch) => Node`; the run's one dispatch, for offers of any level               |
+| `dispatchUnsafe`                                  | a dispatch that sends at once, for a renderer's plain callbacks                            |
+| `run`, `Frame`, `RunOptions`                      | run a program with a renderer; what the renderer draws; how the program runs               |
+| `Applied`                                         | what `onApplied` hears: a message, the states around it, its revision and commands         |
+| `OnRejectedInput`                                 | `'die'`, or a function reporting the `RejectedInput`                                       |
+| `RejectedInput`                                   | a rejected input: the message (`rejected`) and the revision of its offer; `'die'`'s defect |
 
 From `@fgaudo/effect-tea/testing`: `messageOf`, `applyAll`, `simulate`, `Simulation`, `rehearse`, `Rehearsal`,
 `RehearseOptions`, `drive`, `DriveOptions`, `Driver`, `Action`, `tap`, `input`, `dispatchViolations`,

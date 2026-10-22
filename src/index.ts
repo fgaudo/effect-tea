@@ -30,5 +30,5 @@ export { type Dispatch, dispatchUnsafe, type Offered, type Offers, type View } f
 
 // Running a program with a renderer, and what a view's rejected value does.
 export type { Applied, RunOptions } from './engine.ts'
-export { type InputRejection, type OnRejectedInput, RejectedInput, RejectedOffer } from './rejection.ts'
+export { type OnRejectedInput, RejectedInput, RejectedOffer } from './rejection.ts'
 export { type Frame, run } from './run.ts'

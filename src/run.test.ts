@@ -13,7 +13,7 @@ import * as References from 'effect/References'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import type * as Tracer from 'effect/Tracer'
-import { type InputRejection, RejectedInput, RejectedOffer } from './rejection.ts'
+import { RejectedInput, RejectedOffer } from './rejection.ts'
 import type { Applied, RunOptions } from './engine.ts'
 import { reject, type Step, type Update } from './update.ts'
 import type { Offered } from './offer.ts'
@@ -84,7 +84,8 @@ describe('run', () => {
 
   test('with a function as onRejectedInput, such a message is dropped, reported, and the program goes on', async () => {
     const counts: Array<number> = []
-    const reported: Array<InputRejection<Message>> = []
+    // Typed as the program's: a report can read the message it holds.
+    const reported: Array<RejectedInput & Readonly<{ rejected: Message }>> = []
     const exit = await Effect.runPromiseExit(quietly(run(
       counter,
       (frames) =>
@@ -103,7 +104,15 @@ describe('run', () => {
     expect(Exit.isSuccess(exit)).toBe(true)
     expect(counts).toEqual([0, 1])
     // The second frame's messages are never handled: the run ends with the renderer.
-    expect(reported).toEqual([{ message: 'Forbidden', revision: 0 }])
+    // The very defect that `'die'` would raise.
+    expect(reported.every((rejection) => rejection instanceof RejectedInput)).toBe(true)
+    expect(reported.map(({ rejected, revision }) => ({ rejected, revision }))).toEqual([
+      { rejected: 'Forbidden', revision: 0 },
+    ])
+    // A report's title: the tags of the message, never its data.
+    expect(reported.map(String)).toEqual([
+      'RejectedInput: A view sent a value that update rejected in the state of its offer (Forbidden)',
+    ])
   })
 
   test('there is no default for rejections, and no way to ignore one without reporting it', () => {
@@ -276,7 +285,7 @@ describe('defects', () => {
       (frames) => frames.pipe(Stream.tap(({ model }) => Effect.sync(() => model)), Stream.runDrain),
       { onRejectedInput: 'die' },
     )))
-    expect(Exit.isFailure(exit) && Cause.squash(exit.cause)).toEqual(new RejectedOffer({ message: 'Forbidden' }))
+    expect(Exit.isFailure(exit) && Cause.squash(exit.cause)).toEqual(new RejectedOffer({ rejected: 'Forbidden' }))
   })
 
   test('an offer of another run ends the run, though update accepts it', async () => {

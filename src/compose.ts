@@ -217,11 +217,12 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
       onSome: (childState) => {
         const result = childOf(place.name).program.update(message)(childState) as Transition<unknown, unknown, unknown>
         if (isRejected(result)) return reject
-        // A child's events are handled in order, each by the state its predecessors left.
+        // A child's events are handled in order, each by the state its predecessors left. An unchanged child
+        // leaves its parent's state as it is, so that the very same state draws no new frame.
         return Arr.reduce(
           result.events ?? [],
           {
-            state: setAt(place, state, result.state),
+            state: result.state === childState ? state : setAt(place, state, result.state),
             commands: Arr.map(result.commands ?? [], wrapCommand(place)),
             events: [] as ReadonlyArray<Event>,
           },

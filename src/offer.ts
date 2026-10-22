@@ -89,7 +89,7 @@ export const offersAt = <Message>(accepts: (message: Message) => boolean, level:
       violation,
     })
   const offer = (message: Message) => {
-    if (!accepts(message)) throw new RejectedOffer({ message })
+    if (!accepts(message)) throw new RejectedOffer({ rejected: message })
     return token(message, false)
   }
   const offers: Offers<Message> = {

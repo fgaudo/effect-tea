@@ -129,8 +129,12 @@ The version in `package.json` is the one the next release will have, decided by 
 - **Commands cannot be cancelled.** This is a deliberate choice for now: do not add cancellation without
   asking.
 - **Frames cost only what is drawn**: a frame's model is made when first read, and a message that returns the
-  very same state makes no new frame. Keep it so: do not compute models eagerly in `run`. A renderer slower
-  than the program gets only the latest frame.
+  very same state makes no new frame: a parent keeps its own state when a child's message leaves the child's
+  as it is. Keep it so: do not compute models eagerly in `run`. A renderer slower than the program gets only the
+  latest frame.
+- **A rejection's error carries no data in its `message`**: `RejectedInput` and `RejectedOffer` name only the
+  tags there (`describeByTag`), and hold the program's message in `rejected`, so that a report's title never
+  leaks what the user typed.
 - **`onApplied` watches, never steers**: it hears each accepted message in order, before its frame is
   published, and gets no way to send messages or change the state. A defect in it is a bug like any other.
 - **`simulate` behaves like the engine** where the engine is deterministic: a rejected message from a

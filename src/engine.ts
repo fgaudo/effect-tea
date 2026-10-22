@@ -221,8 +221,11 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
           describeMessage(message),
           { revision: origin.revision },
         )
-        const rejection = { message, revision: origin.revision }
-        if (onRejectedInput === 'die') return yield* Effect.die(new RejectedInput(rejection))
+        // It holds the message `update` rejected, which is one of `Message`.
+        const rejection = new RejectedInput({ rejected: message, revision: origin.revision }) as
+          & RejectedInput
+          & Readonly<{ rejected: Message }>
+        if (onRejectedInput === 'die') return yield* Effect.die(rejection)
         yield* onRejectedInput(rejection)
         return active
       }

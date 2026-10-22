@@ -205,6 +205,9 @@ describe('rehearse', () => {
     test('when a typed value the model offered is rejected by update', async () => {
       const failure = await failureOf(rehearse(program, (rehearsal) => rehearsal.send(typing('a\nb'))))
       expect(failure).toBeInstanceOf(RejectedInput)
+      // What was typed is in `rejected`, never in the error's message.
+      expect(failure instanceof RejectedInput && failure.rejected).toEqual({ _tag: 'Typed', text: 'a\nb' })
+      expect(String(failure)).not.toContain('a\nb')
     })
 
     test('when an offer comes from another run', async () => {
