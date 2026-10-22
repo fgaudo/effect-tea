@@ -138,6 +138,24 @@ describe('run', () => {
     expect(() => run(counter, () => Effect.void, { onRejectedInput: 'die', flags: 5 })).toBeDefined()
   })
 
+  test('a program written as a plain object needs a runCommand only for commands it has', async () => {
+    const plain = {
+      init: { state: 0 },
+      update: () => (count: number) => ({ state: count + 1 }),
+      makeModel: (count: number) => count,
+    }
+    const counts: Array<number> = []
+    await Effect.runPromise(run(
+      plain,
+      (frames) => Stream.runForEach(Stream.take(frames, 1), ({ model }) => Effect.sync(() => counts.push(model))),
+      { onRejectedInput: 'die' },
+    ))
+    expect(counts).toEqual([0])
+    const pinging = { ...plain, update: () => (count: number) => ({ state: count, commands: ['Ping' as const] }) }
+    // @ts-expect-error: its `Ping` would go uninterpreted.
+    expect(() => run(pinging, () => Effect.void, { onRejectedInput: 'die' })).toBeDefined()
+  })
+
   test('there is no default for rejections, and no way to ignore one without reporting it', () => {
     const optionsAreRequired: undefined extends Parameters<typeof run>[2] ? false : true = true
     // @ts-expect-error a bug that is neither fatal nor reported would go unnoticed

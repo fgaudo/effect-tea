@@ -126,6 +126,15 @@ describe('drive', () => {
     expect(() => drive(seeded, () => Effect.void)).toBeDefined()
   })
 
+  test('a program written as a plain object, without commands, needs no runCommand', async () => {
+    const plain = {
+      init: { state: 0 },
+      update: () => (count: number) => ({ state: count + 1 }),
+      makeModel: (count: number) => count,
+    }
+    expect(await Effect.runPromise(drive(plain, (driver) => driver.waitFor(Opt.some)))).toBe(0)
+  })
+
   test('send waits for a frame that offers the action', async () => {
     const saved = await Effect.runPromise(drive(
       noteProgram(Effect.void),

@@ -19,7 +19,7 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: ne
  */
 // Untraced: a span of its own would be the one the renderer logs into (see `Engine.withExternalSpan`).
 export const run = Effect.fnUntraced(
-  function*<State, Model, Message, Command, R, RR, Flags = never>(
+  function*<State, Model, Message, Command = never, R = never, RR = never, Flags = never>(
     program: Shape<State, Model, Message, Command, R, never, unknown, Flags>,
     render: (frames: Stream.Stream<Frame<Model>>) => Effect.Effect<void, never, RR>,
     options: Engine.RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>,

@@ -152,6 +152,15 @@ describe('rehearse', () => {
     expect(() => rehearse(seeded, () => Effect.void, { flags: 'eggs', from })).toBeDefined()
   })
 
+  test('a program written as a plain object, without commands, needs no runCommand', async () => {
+    const plain = {
+      init: { state: 0 },
+      update: () => (count: number) => ({ state: count + 1 }),
+      makeModel: (count: number) => count,
+    }
+    expect(await Effect.runPromise(rehearse(plain, (rehearsal) => rehearsal.state))).toBe(0)
+  })
+
   test('runAll runs the commands that the commands it runs start', async () => {
     announced.length = 0
     const pending = await Effect.runPromise(withStorage(rehearse(

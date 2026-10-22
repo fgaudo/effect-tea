@@ -15,6 +15,12 @@ version, and everything else, features included, the patch version.
   back from a program. A page can then start from what it was opened for, rather than from a state that waits
   for it.
 
+### Fixed
+
+- `run`, `drive` and `rehearse` rejected a program written as a plain object, without `Program<…>`, that has no
+  commands: with nothing to infer them from, its commands were `unknown`, so a `runCommand` was required. What
+  nothing names (commands, services, events) is now `never`, as for a program whose type names none.
+
 ## 0.5.0 (2026-10-22)
 
 ### Changed
