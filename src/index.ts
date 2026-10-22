@@ -8,6 +8,7 @@ export {
   type CommandOf,
   type EventOf,
   type ExternalOf,
+  type FlagsOf,
   type MessageOf,
   type ModelOf,
   modelOf,

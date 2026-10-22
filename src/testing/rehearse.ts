@@ -6,7 +6,7 @@ import * as Ref from 'effect/Ref'
 import type * as Scope from 'effect/Scope'
 import { describeByTag } from '../log.ts'
 import { type Dispatch, rootOffers, tokenOf } from '../offer.ts'
-import { runCommandOf, type Shape, subscriptionsOf } from '../program.ts'
+import { runCommandOf, type Shape, startOf, subscriptionsOf } from '../program.ts'
 import { RejectedInput, type Revision } from '../rejection.ts'
 import { isRejected, type Step } from '../update.ts'
 import type { Action } from './action.ts'
@@ -50,8 +50,13 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
   ignored: Effect.Effect<ReadonlyArray<Message>>
 }>
 
-/** Where a rehearsal starts: the program's `init` when left out. */
-export type RehearseOptions<State, Command> = Readonly<{ from?: Step<State, Command> }>
+/**
+ * Where a rehearsal starts: `from`, or the program's `init`, from `flags` for a program with them, which then
+ * needs one of the two.
+ */
+export type RehearseOptions<State, Command, Flags = never> = [Flags] extends [never]
+  ? Readonly<{ from?: Step<State, Command> }>
+  : Readonly<{ from: Step<State, Command>; flags?: never }> | Readonly<{ flags: Flags; from?: never }>
 
 type Current<State, Message, Command, Event> = Readonly<{
   state: State
@@ -71,11 +76,25 @@ type Current<State, Message, Command, Event> = Readonly<{
  * rejected fails the test, and so do an offer of another run and a command still pending when `scenario` ends,
  * whose answer would still arrive.
  */
-export const rehearse = Effect.fnUntraced(function*<State, Model, Message, Command, Event, R, A, E, RS>(
-  program: Shape<State, Model, Message, Command, R, Event, unknown>,
+export const rehearse = Effect.fnUntraced(function*<
+  State,
+  Model,
+  Message,
+  Command,
+  Event,
+  R,
+  A,
+  E,
+  RS,
+  Flags = never,
+>(
+  program: Shape<State, Model, Message, Command, R, Event, unknown, Flags>,
   scenario: (rehearsal: Rehearsal<State, Model, Message, Command, Event, R>) => Effect.Effect<A, E, RS>,
-  { from = program.init }: RehearseOptions<NoInfer<State>, NoInfer<Command>> = {},
+  ...[options = {}]: [Flags] extends [never] ? [options?: RehearseOptions<NoInfer<State>, NoInfer<Command>>]
+    : [options: RehearseOptions<NoInfer<State>, NoInfer<Command>, NoInfer<Flags>>]
 ): Effect.fn.Return<A, E, Exclude<R, Scope.Scope> | RS> {
+  const { from: given, flags } = options as Readonly<{ from?: Step<State, Command>; flags?: unknown }>
+  const from = given ?? startOf(program.init, flags)
   type Now = Current<State, Message, Command, Event>
   const self = {}
   const runCommand = runCommandOf(program)

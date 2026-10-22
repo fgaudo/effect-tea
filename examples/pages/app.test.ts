@@ -25,9 +25,11 @@ const ticked = (millis: number): Message => ({
 const maybe = <A>(value: fc.Arbitrary<A>): fc.Arbitrary<Opt.Option<A>> =>
   fc.oneof(fc.constant(Opt.none()), value.map(Opt.some))
 
+const time = fc.nat().map((millis) => DateTime.makeUnsafe(millis))
+
 const state: fc.Arbitrary<State> = fc.record({
-  clock: fc.record({ maybeNow: maybe(fc.nat().map((millis) => DateTime.makeUnsafe(millis))) }),
-  maybeAbout: maybe(fc.record({ maybeSaying: maybe(fc.string()) })),
+  clock: fc.record({ maybeNow: maybe(time) }),
+  maybeAbout: maybe(fc.record({ openedAt: maybe(time), maybeSaying: maybe(fc.string()) })),
 })
 
 /** The pages whose subscriptions run, from the keys the library namespaces (`['Clock', 'ticks']`). */
@@ -38,8 +40,13 @@ describe('pages', () => {
   describe('navigation', () => {
     test('the Clock asks for About, which opens over it and loads its saying', () => {
       const { state, commands } = applyAll(app.update)([aboutClicked], app.init.state)
-      expect(state.maybeAbout).toEqual(Opt.some(About.about.init.state))
+      expect(state.maybeAbout).toEqual(Opt.some(About.about.init({ openedAt: Opt.none() }).state))
       expect(commands).toEqual([{ _tag: 'About', command: About.Command.PickSaying() }])
+    })
+
+    test('About starts from the time the Clock showed when it was asked for', () => {
+      const { state } = applyAll(app.update)([ticked(0), aboutClicked], app.init.state)
+      expect(Opt.map(state.maybeAbout, (about) => about.openedAt)).toEqual(Opt.some(Opt.some(DateTime.makeUnsafe(0))))
     })
 
     test('About asks to be left, and the Clock is back as it was', () => {

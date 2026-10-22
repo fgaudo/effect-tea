@@ -16,14 +16,15 @@ export type Message = Data.TaggedEnum<{
 
 export const Message = Data.taggedEnum<Message>()
 
-export type Event = Readonly<{ _tag: 'AboutRequested' }>
+/** Asks for About, with the time the clock shows (none before its first tick). */
+export type Event = Readonly<{ _tag: 'AboutRequested'; at: Opt.Option<DateTime.Utc> }>
 
 export const update: Update<State, Message, never, Event> = (message) => (state) => {
   switch (message._tag) {
     case 'Ticked':
       return { state: { maybeNow: Opt.some(message.now) } }
     case 'AboutClicked':
-      return { state, events: [{ _tag: 'AboutRequested' }] }
+      return { state, events: [{ _tag: 'AboutRequested', at: state.maybeNow }] }
   }
 }
 

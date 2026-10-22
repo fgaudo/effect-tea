@@ -121,6 +121,37 @@ describe('rehearse', () => {
     })
   })
 
+  test('a program with flags starts from the flags the test gives it', async () => {
+    const seeded: Program<
+      {
+        state: Note
+        model: NoteModel
+        message: Edit
+        command: NoteCommand
+        services: Storage
+        event: 'Stored'
+        flags: string
+      }
+    > = { ...program, init: (text) => ({ state: { text, isSaving: false, saved: Opt.none(), pings: 0 } }) }
+    const text = await Effect.runPromise(withStorage(rehearse(
+      seeded,
+      (rehearsal) => Effect.map(rehearsal.state, (note) => note.text),
+      { flags: 'eggs' },
+    )))
+    expect(text).toBe('eggs')
+    const from = { state: { text: 'milk', isSaving: false, saved: Opt.none(), pings: 0 } }
+    const fromStep = await Effect.runPromise(withStorage(rehearse(
+      seeded,
+      (rehearsal) => Effect.map(rehearsal.state, (note) => note.text),
+      { from },
+    )))
+    expect(fromStep).toBe('milk')
+    // @ts-expect-error: it has nothing to start from.
+    expect(() => rehearse(seeded, () => Effect.void)).toBeDefined()
+    // @ts-expect-error: it starts from one or the other.
+    expect(() => rehearse(seeded, () => Effect.void, { flags: 'eggs', from })).toBeDefined()
+  })
+
   test('runAll runs the commands that the commands it runs start', async () => {
     announced.length = 0
     const pending = await Effect.runPromise(withStorage(rehearse(

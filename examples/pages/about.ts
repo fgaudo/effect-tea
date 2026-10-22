@@ -1,11 +1,16 @@
-// A page that picks a saying when it opens, and asks its parent to leave with an event.
+// A page that starts from the time it was opened at, its flags, picks a saying when it opens, and asks its parent
+// to leave with an event.
 import type { Execution, Offered, Program, Update } from '@fgaudo/effect-tea'
 import * as Data from 'effect/Data'
+import * as DateTime from 'effect/DateTime'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import * as Random from 'effect/Random'
 
-export type State = Readonly<{ maybeSaying: Opt.Option<string> }>
+export type State = Readonly<{ openedAt: Opt.Option<DateTime.Utc>; maybeSaying: Opt.Option<string> }>
+
+/** What its parent starts it from. */
+export type Flags = Readonly<{ openedAt: Opt.Option<DateTime.Utc> }>
 
 export type Message = Data.TaggedEnum<{
   SayingPicked: { saying: string }
@@ -30,16 +35,18 @@ const pickSaying: Execution<Message, never> = Effect.map(
 export const update: Update<State, Message, Command, Event> = (message) => (state) => {
   switch (message._tag) {
     case 'SayingPicked':
-      return { state: { maybeSaying: Opt.some(message.saying) } }
+      return { state: { ...state, maybeSaying: Opt.some(message.saying) } }
     case 'BackClicked':
       return { state, events: [{ _tag: 'LeaveRequested' }] }
   }
 }
 
-export type Model = Readonly<{ saying: Opt.Option<string>; back: Offered<Message> }>
+export type Model = Readonly<{ openedAt: Opt.Option<string>; saying: Opt.Option<string>; back: Offered<Message> }>
 
-export const about: Program<{ state: State; model: Model; message: Message; command: Command; event: Event }> = {
-  init: { state: { maybeSaying: Opt.none() }, commands: [Command.PickSaying()] },
+export const about: Program<
+  { state: State; model: Model; message: Message; command: Command; event: Event; flags: Flags }
+> = {
+  init: ({ openedAt }) => ({ state: { openedAt, maybeSaying: Opt.none() }, commands: [Command.PickSaying()] }),
   update,
   runCommand: (command) => {
     switch (command._tag) {
@@ -47,5 +54,9 @@ export const about: Program<{ state: State; model: Model; message: Message; comm
         return pickSaying
     }
   },
-  makeModel: (state, { offer }) => ({ saying: state.maybeSaying, back: offer(Message.BackClicked()) }),
+  makeModel: (state, { offer }) => ({
+    openedAt: Opt.map(state.openedAt, DateTime.formatIso),
+    saying: state.maybeSaying,
+    back: offer(Message.BackClicked()),
+  }),
 }

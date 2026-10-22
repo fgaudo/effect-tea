@@ -3,26 +3,33 @@ import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import * as Engine from './engine.ts'
 import { type Dispatch, rootOffers, tokenOf } from './offer.ts'
-import { runCommandOf, type Shape, subscriptionsOf } from './program.ts'
+import { runCommandOf, type Shape, startOf, subscriptionsOf } from './program.ts'
 
 /** What a renderer draws: a model, and the dispatch of the run, the very same function for every frame. */
 export type Frame<Model> = Readonly<{ model: Model; dispatch: Dispatch }>
 
+/** What the program starts from: required exactly when it has flags. */
+export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: never }>
+  : Readonly<{ flags: Flags }>
+
 /**
- * Runs `program` and hands its frames to `render`. An offer is verified when its model is made; a rejected
- * one is stale and ignored, but for a typed value `update` rejected when it was typed, a bug handled as
- * `onRejectedInput` says.
+ * Runs `program` from its `flags`, when it has them, and hands its frames to `render`. An offer is verified when
+ * its model is made; a rejected one is stale and ignored, but for a typed value `update` rejected when it was
+ * typed, a bug handled as `onRejectedInput` says.
  */
 // Untraced: a span of its own would be the one the renderer logs into (see `Engine.withExternalSpan`).
 export const run = Effect.fnUntraced(
-  function*<State, Model, Message, Command, R, RR>(
-    program: Shape<State, Model, Message, Command, R, never, unknown>,
+  function*<State, Model, Message, Command, R, RR, Flags = never>(
+    program: Shape<State, Model, Message, Command, R, never, unknown, Flags>,
     render: (frames: Stream.Stream<Frame<Model>>) => Effect.Effect<void, never, RR>,
-    options: Engine.RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>,
+    options: Engine.RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>,
   ): Effect.fn.Return<void, never, R | RR | Scope.Scope> {
+    const { flags, ...runOptions } = options as
+      & Engine.RunOptions<Message, State, Command>
+      & Readonly<{ flags?: unknown }>
     const engine = yield* Engine.make({
-      ...options,
-      init: program.init,
+      ...runOptions,
+      init: startOf(program.init, flags),
       update: program.update,
       runCommand: runCommandOf(program),
       subscriptions: subscriptionsOf(program),

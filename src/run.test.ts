@@ -115,6 +115,29 @@ describe('run', () => {
     ])
   })
 
+  test('a program with flags starts from the flags it is given, its commands included', async () => {
+    const seeded: Program<{ state: number; model: Model; message: Message; command: Command; flags: number }> = {
+      ...counter,
+      init: (count) => ({ state: count, commands: ['Ping'] }),
+    }
+    const counts: Array<number> = []
+    await Effect.runPromise(run(
+      seeded,
+      (frames) =>
+        frames.pipe(
+          Stream.tap(({ model }) => Effect.sync(() => counts.push(model.count))),
+          Stream.takeUntil(({ model }) => model.count === 6),
+          Stream.runDrain,
+        ),
+      { onRejectedInput: 'die', flags: 5 },
+    ))
+    expect(counts.at(-1)).toBe(6)
+    // @ts-expect-error: it has nothing to start from.
+    expect(() => run(seeded, () => Effect.void, { onRejectedInput: 'die' })).toBeDefined()
+    // @ts-expect-error: it starts without flags.
+    expect(() => run(counter, () => Effect.void, { onRejectedInput: 'die', flags: 5 })).toBeDefined()
+  })
+
   test('there is no default for rejections, and no way to ignore one without reporting it', () => {
     const optionsAreRequired: undefined extends Parameters<typeof run>[2] ? false : true = true
     // @ts-expect-error a bug that is neither fatal nor reported would go unnoticed

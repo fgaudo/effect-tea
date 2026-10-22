@@ -169,7 +169,9 @@ The version in `package.json` is the one the next release will have, decided by 
   the runtime only (with `RunOptions`), and `run.ts` connects it to a renderer. `testing/` holds one module per testing tool, plus
   `action.ts` (what `drive` and `rehearse` send), and `testing/index.ts` exports them.
 - A piece of a program that may be missing (`runCommand` without commands, `subscriptions`) is read through
-  `runCommandOf` and `subscriptionsOf`, never directly: the engine always gets the complete set.
+  `runCommandOf` and `subscriptionsOf`, never directly: the engine always gets the complete set. Likewise
+  `init`, a step or a function of the flags, is read through `startOf`: a step is never a function, so `typeof`
+  tells them apart, and so does `compose` for a child's handle.
 - Effect modules are imported as namespaces (`import * as Effect from 'effect/Effect'`), with `Arr`, `Opt`
   for `Array`, `Option`.
 - A function that returns an effect made with `Effect.gen` is an `Effect.fnUntraced` instead, with what would

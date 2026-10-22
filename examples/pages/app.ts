@@ -29,9 +29,9 @@ export const app = compose({
   },
   onEvent: {
     // Opening About again while it is open changes nothing, so that a double click opens it once.
-    Clock: (_, children) => (state) => {
+    Clock: (event, children) => (state) => {
       if (Opt.isSome(state.maybeAbout)) return { state }
-      const about = children.About.init
+      const about = children.About.init({ openedAt: event.at })
       return { state: { ...state, maybeAbout: Opt.some(about.state) }, commands: about.commands }
     },
     About: () => (state) => ({ state: { ...state, maybeAbout: Opt.none() } }),

@@ -110,6 +110,22 @@ describe('drive', () => {
     expect(stopped).toBe(true)
   })
 
+  test('a program with flags starts from the flags the test gives it', async () => {
+    const program = noteProgram(Effect.void)
+    const seeded: Program<{ state: Note; model: NoteModel; message: Edit; command: NoteCommand; flags: string }> = {
+      ...program,
+      init: (text) => ({ state: { text, isSaving: false, saved: Opt.none(), pings: 0 } }),
+    }
+    const text = await Effect.runPromise(drive(
+      seeded,
+      (driver) => driver.waitFor((model) => Opt.some(model.note.text)),
+      { flags: 'eggs' },
+    ))
+    expect(text).toBe('eggs')
+    // @ts-expect-error: it has nothing to start from.
+    expect(() => drive(seeded, () => Effect.void)).toBeDefined()
+  })
+
   test('send waits for a frame that offers the action', async () => {
     const saved = await Effect.runPromise(drive(
       noteProgram(Effect.void),

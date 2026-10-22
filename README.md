@@ -112,9 +112,14 @@ A program is a plain object with up to five pieces:
 | `runCommand`    | how each command happens, as an Effect                               | when it has commands |
 | `subscriptions` | what it listens to in each state                                     | when it listens      |
 
-Its type names its types: `Program<{ state; model; message }>`, plus `command`, `services`, `event` and
-`external` when it has them. The view is not part of it: `run` hands your renderer a stream of **frames**
-(`{ model, dispatch }`) to draw however it likes.
+Its type names its types: `Program<{ state; model; message }>`, plus `command`, `services`, `event`,
+`external` and `flags` when it has them. The view is not part of it: `run` hands your renderer a stream of
+**frames** (`{ model, dispatch }`) to draw however it likes.
+
+A program that cannot start the same way every time, such as a page that shows the product it was opened for,
+declares `flags`, as in Elm: its `init` is then a function of them, `init: ({ id }) => ({ state, commands })`,
+and whoever starts the program gives them. A parent gives them to its child (see
+[Composing programs](#composing-programs)), and `run` to the root (see [Running](#running)).
 
 ## Examples
 
@@ -126,7 +131,7 @@ each with its tests. Try one in the browser, or run it with `bun run build`, the
 | ----------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | [`counter`](examples/counter) | the quick start with a view; `applyAll`, `dispatchViolations`, `missingOffers`, `drive`                   | [live](https://fgaudo.github.io/effect-tea/examples/counter/) |
 | [`form`](examples/form)       | an input the user owns while typing; a service and `attempt`; a save only its completion ends; `rehearse` | [live](https://fgaudo.github.io/effect-tea/examples/form/)    |
-| [`pages`](examples/pages)     | two pages with `parent`, events for navigation, `subscribed`, a child's commands; `simulate`              | [live](https://fgaudo.github.io/effect-tea/examples/pages/)   |
+| [`pages`](examples/pages)     | two pages with `parent`, events, `subscribed`, a child's commands, a page started from flags; `simulate`  | [live](https://fgaudo.github.io/effect-tea/examples/pages/)   |
 | [`list`](examples/list)       | stopwatches by id with `each`, a subscription per running child; a test with a `TestClock`                | [live](https://fgaudo.github.io/effect-tea/examples/list/)    |
 
 [`examples/snabbdom.ts`](examples/snabbdom.ts) is the small bridge to the renderer, worth copying for your
@@ -340,8 +345,9 @@ export const app = compose({
     }),
   },
   onEvent: {
-    Clock: (_, children) => (state) => {
-      const about = children.About.init
+    // About starts from the time the Clock showed, its flags.
+    Clock: (event, children) => (state) => {
+      const about = children.About.init({ openedAt: event.at })
       return {
         state: { ...state, maybeAbout: Opt.some(about.state) },
         commands: about.commands,
@@ -374,7 +380,10 @@ What the library gives it:
 - **`children` in `init`, `update` and `onEvent`:** `init` starts a child, and `update` gives it one of the
   messages its type declares as `external` (e.g. a back button). A parent's `init` is a function of them, so
   that a child there from the start is started like any other: `children.Clock.init` holds its state and its
-  commands, lifted. Reading `Clock.clock.init.state` would leave its commands behind.
+  commands, lifted. Reading `Clock.clock.init.state` would leave its commands behind. A child with `flags`
+  is started from them: `children.About.init({ openedAt })`, and `init(id, flags)` for children by id.
+- **A parent's own flags:** declared as its other types, `parent<{ state: State; flags: Flags }>()`, its `init`
+  then returns the function that starts it: `init: (children) => (flags) => ({ state, commands })`.
 - **The parent's types:** its messages are its own plus `{ _tag: <child>, message }` for each child.
   `MessageOf<typeof app>` names them.
 - **The parent's subscriptions:** its own, plus each child's under `[<child>, key]` (`[<child>, id, key]` for
@@ -397,6 +406,8 @@ the renderer ends. A renderer slower than the program only gets the latest frame
 for the next animation frame before taking another draws at most once per screen refresh, as
 [`examples/snabbdom.ts`](examples/snabbdom.ts) does. Options:
 
+- **`flags`**: what the program starts from, required exactly when it has them, e.g. the product a
+  notification opened the app for.
 - **`onRejectedInput`** (required): `'die'` fails the run with `RejectedInput`, what you want while developing.
   A function gets that same `RejectedInput` to report (e.g. to a crash-reporting service), and the program
   goes on. Its `message` names only tags; `rejected` holds the message as typed, so also what the user typed:
@@ -533,10 +544,12 @@ test('the view sends what update accepts, all of it', () => {
 
   Rejections are judged as when the program runs, and the stale ones are listed in `ignored`. It fails when the
   model does not offer what the test sends, and when a command is still pending at the end: its answer would
-  still arrive.
+  still arrive. It starts from the program's `init`, or from the step given as `from`; a program with flags
+  needs either `from` or its `flags`.
 - `drive` acts only through what the frames offer, and fails on a rejected input or a wait longer than
-  `patience` (2 seconds). Its commands run as soon as they start: to hold one, give the program a service of the
-  test's that waits on a `Deferred` the scenario completes.
+  `patience` (2 seconds). A program with flags gets them as `run` does, in the options. Its commands run as soon
+  as they start: to hold one, give the program a service of the test's that waits on a `Deferred` the scenario
+  completes.
 
 ## API reference
 
@@ -546,7 +559,7 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | Export                                            | What it is                                                                                 |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `Program<{ state; model; message; command?; … }>` | `init`, `update`, `runCommand` (with commands), `subscriptions` (optional), `makeModel`    |
-| `StateOf`, `ModelOf`, `MessageOf`, `CommandOf`, … | a program's types, read back from it (`EventOf`, `ExternalOf`, `ServicesOf` too)           |
+| `StateOf`, `ModelOf`, `MessageOf`, `CommandOf`, … | a program's types, read back from it (`EventOf`, `ExternalOf`, `FlagsOf`, `ServicesOf`)    |
 | `parent`                                          | `parent<{ state; … }>()`: `child`, `each` and `compose`, to make a parent of children      |
 | `Update`, `Transition`, `Step`                    | `(message) => (state) => Step` or `Rejected`; a `Step` is `{ state, commands?, events? }`  |
 | `reject`, `Rejected`, `isRejected`                | the rejection `update` returns, and its check                                              |

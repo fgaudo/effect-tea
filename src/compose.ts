@@ -15,12 +15,15 @@ import {
   type EventOf,
   type ExternalOf,
   type Field,
+  type FlagsOf,
+  type Init,
   type Interpreter,
   type MessageOf,
   type ModelOf,
   runCommandOf,
   type ServicesOf,
   type Shape,
+  startOf,
   type StateOf,
   subscriptionsOf,
 } from './program.ts'
@@ -94,18 +97,21 @@ type ChildServices<C> = { [K in keyof C]: ServicesOf<ProgramOf<C[K]>> }[keyof C]
 type Start<P, Command> = Readonly<{ state: StateOf<P>; commands: ReadonlyArray<Command> }>
 
 /**
- * What a parent can do with a child (`children` in `init`, `update` and `onEvent`): start one (`init`), and apply to
- * it one of the messages its type says a parent may send (`update`, e.g. a back button), which returns the
- * parent's transition. Its other messages are its own: only its view and its effects send them.
+ * What a parent can do with a child (`children` in `init`, `update` and `onEvent`): start one (`init`, from its
+ * flags when it has them), and apply to it one of the messages its type says a parent may send (`update`, e.g. a
+ * back button), which returns the parent's transition. Its other messages are its own: only its view and its
+ * effects send them.
  */
 type Handles<State, C, Command, Event> = {
   readonly [K in keyof C & string]: C[K] extends EachOf<infer Id, infer P> ? Readonly<{
       update: (id: Id, message: ExternalOf<P>) => (state: State) => Transition<State, Command, Event>
-      init: (id: Id) => Start<P, Command>
+      init: [FlagsOf<P>] extends [never] ? (id: Id) => Start<P, Command>
+        : (id: Id, flags: FlagsOf<P>) => Start<P, Command>
     }>
     : Readonly<{
       update: (message: ExternalOf<ProgramOf<C[K]>>) => (state: State) => Transition<State, Command, Event>
-      init: Start<ProgramOf<C[K]>, Command>
+      init: [FlagsOf<ProgramOf<C[K]>>] extends [never] ? Start<ProgramOf<C[K]>, Command>
+        : (flags: FlagsOf<ProgramOf<C[K]>>) => Start<ProgramOf<C[K]>, Command>
     }>
 }
 
@@ -146,18 +152,19 @@ type TagOf<M> = M extends { readonly _tag: infer T } ? T : never
 type NoClash<Own, C> = [Extract<TagOf<Own>, keyof C>] extends [never] ? unknown
   : Readonly<{ 'an own message takes the name of a child': Extract<TagOf<Own>, keyof C> }>
 
-type Config<State, C, Own, OwnCommand, Event, Model, R, K> =
+type Config<State, C, Own, OwnCommand, Event, Model, R, K, Flags> =
   & OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event>
   & RunCommandOf<OwnCommand, Own | ChildMessages<C>, R>
   & NoClash<Own, C>
   & Readonly<{
     /**
-     * The first state and commands. A child there from the start is started with `children.<child>.init`, so
+     * The first state and commands, or, for a parent with flags, the function that makes them from its flags
+     * (`(children) => (flags) => …`). A child there from the start is started with `children.<child>.init`, so
      * that its own commands are not lost.
      */
     init: (
       children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>,
-    ) => Step<State, OwnCommand | ChildCommands<C>>
+    ) => Init<State, OwnCommand | ChildCommands<C>, Flags>
     children: C
     /** The parent's own messages: its children's are routed by the library. */
     update?: (
@@ -179,8 +186,8 @@ type UntypedChild = Readonly<{
   subscribed?: (state: unknown) => Opt.Option<unknown> | Iterable<readonly [unknown, unknown]>
 }>
 
-const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event, R, K, External>(
-  config: Config<State, C, Own, OwnCommand, Event, Model, R, K>,
+const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event, R, K, External, Flags>(
+  config: Config<State, C, Own, OwnCommand, Event, Model, R, K, Flags>,
 ): Shape<
   State,
   Model,
@@ -188,7 +195,8 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
   OwnCommand | ChildCommands<C>,
   R | ChildServices<C>,
   Event,
-  External
+  External,
+  Flags
 > => {
   type Message = Own | ChildMessages<C>
   type Command = OwnCommand | ChildCommands<C>
@@ -243,21 +251,24 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
         )
       },
     })
-  const startAt = (place: Place) => {
-    const { init } = childOf(place.name).program
-    return { state: init.state, commands: Arr.map(init.commands ?? [], wrapCommand(place)) }
+  const startAt = (place: Place, flags: unknown) => {
+    const { state, commands = [] } = startOf(childOf(place.name).program.init, flags)
+    return { state, commands: Arr.map(commands, wrapCommand(place)) }
   }
+  const hasFlags = (name: string) => typeof childOf(name).program.init === 'function'
   // Built once: a child's update calls `onEvent`, which may call any child's handle.
   const handles = Object.fromEntries(names.map((name) => [
     name,
     isEach(name)
       ? {
         update: (id: unknown, message: unknown) => updateAt({ name, id }, message),
-        init: (id: unknown) => startAt({ name, id }),
+        init: (id: unknown, flags: unknown) => startAt({ name, id }, flags),
       }
       : {
         update: (message: unknown) => updateAt({ name, id: undefined }, message),
-        init: startAt({ name, id: undefined }),
+        init: hasFlags(name)
+          ? (flags: unknown) => startAt({ name, id: undefined }, flags)
+          : startAt({ name, id: undefined }, undefined),
       },
   ])) as unknown as Handles<State, C, Command, Event>
   const update: Update<State, Message, Command, Event> = (message) => (state) => {
@@ -367,7 +378,7 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
       return config.makeModel(state, { offer: own.offer, offerInput: own.offerInput, children })
     },
   }
-  return program as unknown as Shape<State, Model, Message, Command, R | ChildServices<C>, Event, External>
+  return program as unknown as Shape<State, Model, Message, Command, R | ChildServices<C>, Event, External, Flags>
 }
 
 /** The models of a frame's children: by their place from the root, one segment at a time, then their state. */
@@ -396,15 +407,24 @@ const keep = ({ models }: Frame, at: ReadonlyArray<unknown>, childState: object,
   current.models.set(childState, model)
 }
 
-/** What a parent declares of itself, by name: its state, and its own commands, events and external messages. */
-export type ParentTypes = Readonly<{ state: unknown; command?: unknown; event?: unknown; external?: unknown }>
+/**
+ * What a parent declares of itself, by name: its state, and its own commands, events, external messages and
+ * flags.
+ */
+export type ParentTypes = Readonly<{
+  state: unknown
+  command?: unknown
+  event?: unknown
+  external?: unknown
+  flags?: unknown
+}>
 
 /**
  * The way to make a parent: its types fixed once, by name (`parent<{ state: State; event: Event }>()`), then
  * its children declared with `child` (one) or `each` (by id), and the parent made with `compose`. Its messages
  * are its own and `{ _tag: <child>, message }` for each child (with `id` for children by id); its commands
  * likewise. Fixing the types first is what lets `get`, `set` and the rest be typed without annotations, and
- * the parent's own commands, events and external messages, which nothing it returns can reveal, be known.
+ * the parent's own commands, events, external messages and flags, which nothing it returns can reveal, be known.
  */
 export const parent = <T extends ParentTypes>() => {
   type State = Field<T, 'state'>
@@ -422,7 +442,7 @@ export const parent = <T extends ParentTypes>() => {
     ): Each<State, Id, P> => ({ kind: 'each', program, ...place }),
     // Its external messages are among its own: the intersection keeps only those.
     compose: <C extends Children<State>, Model, Own = never, R = never, K = unknown>(
-      config: Config<State, C, Own, OwnCommand, Event, Model, R, K>,
-    ) => compose<State, C, Model, Own, OwnCommand, Event, R, K, Field<T, 'external'> & Own>(config),
+      config: Config<State, C, Own, OwnCommand, Event, Model, R, K, Field<T, 'flags'>>,
+    ) => compose<State, C, Model, Own, OwnCommand, Event, R, K, Field<T, 'external'> & Own, Field<T, 'flags'>>(config),
   }
 }

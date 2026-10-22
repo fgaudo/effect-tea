@@ -14,7 +14,7 @@ import type { Subscription } from './subscription.ts'
 import { isRejected, reject } from './update.ts'
 import { type Dispatch, dispatchUnsafe, type Offered } from './offer.ts'
 import { parent } from './compose.ts'
-import { modelOf, type Program } from './program.ts'
+import { type FlagsOf, modelOf, type Program } from './program.ts'
 import { type Frame, run } from './run.ts'
 import { messageOf } from './testing/message-of.ts'
 
@@ -570,6 +570,177 @@ describe('next: what a parent can do with a child', () => {
       makeModel: () => null,
     })
     expect(started.init.commands).toEqual([{ _tag: 'Left', command: CounterCommand.Save({ count: 0 }) }])
+  })
+})
+
+describe('next: flags', () => {
+  // A counter that starts from the count it is given, and saves it at once.
+  const seeded: Program<{
+    state: Counter
+    model: CounterModel
+    message: CounterMessage
+    command: CounterCommand
+    event: CounterEvent
+    external: External
+    flags: number
+  }> = {
+    ...counter,
+    init: (count) => ({ state: { count, text: '', saving: true }, commands: [CounterCommand.Save({ count })] }),
+  }
+
+  type Seeds = Readonly<
+    { maybeSeeded: Opt.Option<Counter>; rows: ReadonlyArray<Readonly<{ id: number; counter: Counter }>> }
+  >
+
+  type Seed = Readonly<{ _tag: 'Seed'; count: number }>
+
+  const Seeds = parent<{ state: Seeds }>()
+
+  const seeds = Seeds.compose({
+    init: () => ({ state: { maybeSeeded: Opt.none(), rows: [] } }),
+    children: {
+      Seeded: Seeds.child(seeded, {
+        get: (state) => state.maybeSeeded,
+        set: (state, seeded) => ({ ...state, maybeSeeded: Opt.some(seeded) }),
+      }),
+      Rows: Seeds.each(seeded, {
+        get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
+        set: (state, id, counter) => ({
+          ...state,
+          rows: state.rows.map((row) => row.id === id ? { id, counter } : row),
+        }),
+        subscribed: () => [],
+      }),
+    },
+    update: ({ count }: Seed, children) => () => {
+      const one = children.Seeded.init(count)
+      const row = children.Rows.init(7, count + 1)
+      return {
+        state: { maybeSeeded: Opt.some(one.state), rows: [{ id: 7, counter: row.state }] },
+        commands: [...one.commands, ...row.commands],
+      }
+    },
+    onEvent: { Seeded: () => (state) => ({ state }), Rows: () => (state) => ({ state }) },
+    makeModel: () => null,
+  })
+
+  test('a child with flags starts from the flags its parent gives it, its commands lifted', () => {
+    const result = seeds.update({ _tag: 'Seed', count: 3 })(seeds.init.state)
+    expect(!isRejected(result) && result.state).toEqual({
+      maybeSeeded: Opt.some({ count: 3, text: '', saving: true }),
+      rows: [{ id: 7, counter: { count: 4, text: '', saving: true } }],
+    })
+    expect(!isRejected(result) && result.commands).toEqual([
+      { _tag: 'Seeded', command: CounterCommand.Save({ count: 3 }) },
+      { _tag: 'Rows', id: 7, command: CounterCommand.Save({ count: 4 }) },
+    ])
+  })
+
+  // A parent with flags: it starts its counter from twice its own.
+  const Relay = parent<{ state: Counter; flags: number }>()
+
+  const relay = Relay.compose({
+    init: (children) => (count) => {
+      const inner = children.Inner.init(count * 2)
+      return { state: inner.state, commands: inner.commands }
+    },
+    children: { Inner: Relay.child(seeded, { get: Opt.some, set: (_, inner) => inner }) },
+    onEvent: { Inner: () => (state) => ({ state }) },
+    makeModel: () => null,
+  })
+
+  test('a parent with flags makes its first step from them, and starts its children from them', () => {
+    const flags: FlagsOf<typeof relay> = 2
+    expect(relay.init(flags)).toEqual({
+      state: { count: 4, text: '', saving: true },
+      commands: [{ _tag: 'Inner', command: CounterCommand.Save({ count: 4 }) }],
+    })
+  })
+
+  test('a parent with flags is started from them by its own parent, alone and by id', () => {
+    type Relays = Readonly<{ relay: Counter; rows: ReadonlyArray<Readonly<{ id: number; counter: Counter }>> }>
+    const Top = parent<{ state: Relays }>()
+    const top = Top.compose({
+      init: (children) => {
+        const one = children.Relay.init(1)
+        const row = children.Rows.init(9, 5)
+        return {
+          state: { relay: one.state, rows: [{ id: 9, counter: row.state }] },
+          commands: [...one.commands, ...row.commands],
+        }
+      },
+      children: {
+        Relay: Top.child(relay, {
+          get: (state) => Opt.some(state.relay),
+          set: (state, one) => ({ ...state, relay: one }),
+        }),
+        Rows: Top.each(relay, {
+          get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
+          set: (state, id, counter) => ({
+            ...state,
+            rows: state.rows.map((row) => row.id === id ? { id, counter } : row),
+          }),
+          subscribed: () => [],
+        }),
+      },
+      makeModel: () => null,
+    })
+    expect(top.init.state).toEqual({
+      relay: { count: 2, text: '', saving: true },
+      rows: [{ id: 9, counter: { count: 10, text: '', saving: true } }],
+    })
+    expect(top.init.commands).toEqual([
+      { _tag: 'Relay', command: { _tag: 'Inner', command: CounterCommand.Save({ count: 2 }) } },
+      { _tag: 'Rows', id: 9, command: { _tag: 'Inner', command: CounterCommand.Save({ count: 10 }) } },
+    ])
+  })
+
+  test('a parent with flags returns the function of them, and one without its first step', () => {
+    Relay.compose({
+      // @ts-expect-error: its first step depends on its flags.
+      init: () => ({ state: counter.init.state }),
+      children: {},
+      makeModel: () => null,
+    })
+    const { compose } = parent<{ state: number }>()
+    compose({
+      // @ts-expect-error: it has no flags to start from.
+      init: () => (count: number) => ({ state: count }),
+      children: {},
+      makeModel: () => null,
+    })
+  })
+
+  test('a child without flags is started with none', () => {
+    const { child, compose } = parent<{ state: number }>()
+    // Not called: its `init` would throw.
+    const make = () =>
+      compose({
+        init: (children) => {
+          // @ts-expect-error: its first step is a value.
+          const started = children.Ticker.init(1)
+          return { state: started.state }
+        },
+        children: { Ticker: child(ticker, { get: Opt.some, set: (_, ticks) => ticks }) },
+        makeModel: () => null,
+      })
+    expect(make).toBeDefined()
+  })
+
+  test('a child with flags starts only from its flags', () => {
+    const { child, compose } = parent<{ state: Opt.Option<Counter> }>()
+    const program = compose({
+      init: () => ({ state: Opt.none() }),
+      children: { Seeded: child(seeded, { get: (state) => state, set: (_, seeded) => Opt.some(seeded) }) },
+      update: (_: Reset, children) => () => {
+        // @ts-expect-error: the child's first state depends on its flags.
+        const started = children.Seeded.init.state
+        return { state: Opt.some(started) }
+      },
+      onEvent: { Seeded: () => (state) => ({ state }) },
+      makeModel: () => null,
+    })
+    expect(program.init.state).toEqual(Opt.none())
   })
 })
 

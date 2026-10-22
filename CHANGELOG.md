@@ -3,6 +3,18 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
+## 0.5.1 (unreleased)
+
+### Added
+
+- A program may start from `flags`, as in Elm, given by whoever starts it: declared in its type
+  (`Program<{ …; flags: Flags }>`, `parent<{ …; flags: Flags }>()`), they make `init` a function of them,
+  `init: (flags) => ({ state, commands })`, and a parent's `init: (children) => (flags) => …`. A parent starts
+  such a child with `children.<child>.init(flags)` (`init(id, flags)` for children by id), `run` and `drive` take
+  the root's in their options (`flags`), and `rehearse` takes them or a step to start `from`. `FlagsOf` reads them
+  back from a program. A page can then start from what it was opened for, rather than from a state that waits
+  for it.
+
 ## 0.5.0 (2026-10-22)
 
 ### Changed
