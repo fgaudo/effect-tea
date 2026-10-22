@@ -17,7 +17,7 @@ export const view: View<Model, VNode> = (model, dispatch) => {
     editor._tag === 'Named'
       ? h('button', { props: { disabled: false }, on: onClick(editor.save, dispatch) }, 'Save')
       : h('button', { props: { disabled: true } }, editor._tag === 'Saving' ? 'Saving…' : 'Save'),
-    ...(model.hasFailed ? [h('p', 'Could not save the name: try again.')] : []),
+    ...(model.hasFailed ? [h('p.error', 'Could not save the name: try again.')] : []),
     h('ul', model.saved.map((name) => h('li', name))),
   ])
 }

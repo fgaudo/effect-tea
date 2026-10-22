@@ -21,7 +21,8 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 - **`examples/` are complete programs, checked like the library.** Each one has its program, a view
   (snabbdom, through `examples/snabbdom.ts`), a `main.ts` that starts it with `BrowserRuntime.runMain` (so
   that the failure of a dying program is reported), an `index.html` to run it
-  (`bun examples/<name>/index.html`, after `bun run build`: Bun bundles the page with `dist/`), and a
+  (`bun examples/<name>/index.html`, after `bun run build`: Bun bundles the page with `dist/`), with a header
+  that says what it shows and the shared `examples/style.css`, and a
   `*.test.ts` that shows the testing tools on it. They import the package by its name
   (`@fgaudo/effect-tea`), as a consumer would; `tsc -p examples` checks them with the `bun` condition and the
   `DOM` lib. They are not published (`files`), and snabbdom, `@effect/platform-browser` and

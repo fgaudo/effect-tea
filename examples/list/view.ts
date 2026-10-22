@@ -13,7 +13,7 @@ const stopwatchView = (model: Stopwatch.Model, dispatch: Dispatch): VNode =>
     model.watch._tag === 'Running'
       ? h('button', { on: onClick(model.watch.stop, dispatch) }, 'Stop')
       : h('button', { on: onClick(model.watch.start, dispatch) }, 'Start'),
-    h('button', { on: onClick(model.remove, dispatch) }, 'Remove'),
+    h('button.secondary', { on: onClick(model.remove, dispatch) }, 'Remove'),
   ])
 
 export const view: View<Model, VNode> = (model, dispatch) =>

@@ -17,7 +17,7 @@ const clockView = (model: Clock.Model, dispatch: Dispatch): VNode =>
 const aboutView = (model: About.Model, dispatch: Dispatch): VNode =>
   h('main', [
     h('blockquote', Opt.getOrElse(model.saying, () => '…')),
-    h('button', { on: onClick(model.back, dispatch) }, 'Back'),
+    h('button.secondary', { on: onClick(model.back, dispatch) }, 'Back'),
   ])
 
 export const view: View<Model, VNode> = (model, dispatch) => {
