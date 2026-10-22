@@ -28,12 +28,22 @@ const initialValueModule: Module = {
 
 const patch = init([propsModule, eventListenersModule, initialValueModule])
 
-/** The renderer `run` takes: patches the previous tree with each frame, starting from `root`. */
+const animationFrame = Effect.callback<void>((resume) => {
+  const id = requestAnimationFrame(() => resume(Effect.void))
+  return Effect.sync(() => cancelAnimationFrame(id))
+})
+
+/**
+ * The renderer `run` takes: patches the previous tree with each frame, starting from `root`. After a patch it
+ * waits for the next animation frame before taking another, so it draws at most once per screen refresh: `run`
+ * keeps only the latest frame meanwhile.
+ */
 export const renderInto = <Model>(root: Element, view: View<Model, VNode>) => (frames: Stream.Stream<Frame<Model>>) =>
-  Stream.runFold(
+  Stream.runFoldEffect(
     frames,
     (): Element | VNode => root,
-    (previous, { model, dispatch }) => patch(previous, view(model, dispatch)),
+    (previous, { model, dispatch }) =>
+      Effect.sync(() => patch(previous, view(model, dispatch))).pipe(Effect.tap(() => animationFrame)),
   ).pipe(Effect.asVoid)
 
 /** snabbdom's `on` for a click that sends an offer, of any level of the program. */

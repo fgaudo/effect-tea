@@ -24,9 +24,15 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   (`bun examples/<name>/index.html`, after `bun run build`: Bun bundles the page with `dist/`), and a
   `*.test.ts` that shows the testing tools on it. They import the package by its name
   (`@fgaudo/effect-tea`), as a consumer would; `tsc -p examples` checks them with the `bun` condition and the
-  `DOM` lib. They are not published (`files`), and snabbdom and `@effect/platform-browser` are only dev
-  dependencies. Their inputs follow the README's "Inputs the user types into": `update` accepts typing in
-  every state, and the view writes a text only into a new input (`initialValue`, `Field`).
+  `DOM` lib. They are not published (`files`), and snabbdom, `@effect/platform-browser` and
+  `@happy-dom/global-registrator` are only dev dependencies. Their inputs follow the README's "Inputs the
+  user types into": `update` accepts typing in every state, and the view writes a text only into a new input
+  (`initialValue`, `Field`).
+- **The bridge is tested in a DOM.** `examples/snabbdom.test.ts` runs examples in happy-dom, with screen
+  refreshes that happen only when the test paints: how often `renderInto` draws, clicks on drawn buttons, and
+  inputs typed into while frames are drawn. Only that file registers the DOM: every other test runs without
+  one. snabbdom's props module never removes a prop, so a view sets a prop such as `disabled` in every case
+  of an element.
 - **The peer range starts at the oldest Effect 4 the library works with** (`^4.0.0` today), so that any
   application on Effect 4 can use it. Raise the minimum only when the code needs a newer API, after checking:
   copy `src/` into a scratch project with that exact Effect version, then run `tsc` and `bun test` there.

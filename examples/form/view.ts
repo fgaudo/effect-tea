@@ -13,8 +13,9 @@ export const view: View<Model, VNode> = (model, dispatch) => {
       props: { disabled: editor._tag === 'Saving', placeholder: 'A name' },
       on: editor._tag === 'Saving' ? {} : onInput(editor.changeName, dispatch),
     }),
+    // snabbdom's props module never removes a prop: the enabled button sets `disabled` too.
     editor._tag === 'Named'
-      ? h('button', { on: onClick(editor.save, dispatch) }, 'Save')
+      ? h('button', { props: { disabled: false }, on: onClick(editor.save, dispatch) }, 'Save')
       : h('button', { props: { disabled: true } }, editor._tag === 'Saving' ? 'Saving…' : 'Save'),
     ...(model.hasFailed ? [h('p', 'Could not save the name: try again.')] : []),
     h('ul', model.saved.map((name) => h('li', name))),

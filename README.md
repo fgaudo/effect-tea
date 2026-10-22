@@ -26,7 +26,7 @@ What it adds to plain Elm:
 - [Examples](#examples)
 - [Guide](#guide): [`update`](#update), [the model](#the-model-and-its-offers), [commands](#commands),
   [subscriptions](#subscriptions), [stale or bug](#stale-or-bug), [composing](#composing-programs),
-  [running](#running), [inputs](#inputs-the-user-types-into), [testing](#testing)
+  [running](#running), [inputs](#inputs-the-user-types-into), [guarantees](#guarantees), [testing](#testing)
 - [API reference](#api-reference)
 
 ## Installation
@@ -132,6 +132,9 @@ each with its tests. Try one in the browser, or run it with `bun run build`, the
 
 [`examples/snabbdom.ts`](examples/snabbdom.ts) is the small bridge to the renderer, worth copying for your
 own: `renderInto` for `run`, click and input handlers, and `messagesSentBy` for tests.
+[`examples/snabbdom.test.ts`](examples/snabbdom.test.ts) runs it in a DOM, with
+[happy-dom](https://github.com/capricorn86/happy-dom): it checks how often it draws, and that what the user
+types survives the frames drawn meanwhile.
 
 ## Guide
 
@@ -202,8 +205,13 @@ expect(commands).toEqual([Command.Save({ name: 'Ada' })])
   message either way. A defect (`Effect.die`, a thrown error) ends the run.
 - A command carries everything it needs: `runCommand` does not see the state. Its services are provided
   around `run`.
-- Commands cannot be cancelled. Model the operation as a state that only its completion leaves, as
-  [`form`](examples/form/form.ts) does.
+- **Commands cannot be cancelled.** Once started, a command runs to its end and its message arrives, even if
+  the state has moved on: `update` then decides whether the answer still applies. Model the operation as a
+  state that only its completion leaves, as [`form`](examples/form/form.ts) does. This keeps commands plain
+  data, and a save is never cut in half.
+- **Work that should stop is a subscription.** A download, or a search while the user types, can be one: keep
+  its key in the state while the work is wanted. When the key goes away (the user cancels, or leaves the
+  page) the subscription is interrupted, and what it holds is released. Its last message says it finished.
 
 ### Subscriptions
 
@@ -214,10 +222,10 @@ running; a missing key stops it, and drops what it sent that `update` has not se
 A subscription never ends in silence: either it never ends (a clock), or it ends with **one last message**.
 An ended subscription is not restarted until its key goes away and comes back.
 
-| Use a…           | for                                                                           |
-| ---------------- | ----------------------------------------------------------------------------- |
-| **subscription** | ongoing input tied to a state: a clock while a page is open, a scroll, a feed |
-| **command**      | a one-off effect whose answer must arrive even if the state has moved on      |
+| Use a…           | for                                                                                                                               |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **subscription** | input tied to a state (a clock while a page is open, a scroll), or work that stops when the state no longer wants it (a download) |
+| **command**      | a one-off effect whose answer must arrive even if the state has moved on                                                          |
 
 To listen to a `Stream` that may complete, keep listening after its end:
 `Stream.toChannel(stream).pipe(Channel.flattenArray, Channel.concatWith(() => Channel.never))`.
@@ -295,10 +303,17 @@ For children by id, such as the rows of a list, use `each` instead of `child`: `
 `subscribed` lists the rows that listen, and `children.Row(state, id)` is a row's model. See
 [`list`](examples/list/list.ts).
 
+Mind ids that come back. A command's answer goes to the id it was started for, to whichever row has that id
+when it arrives. If a row is removed and another is added with its id, the new row may get the old row's
+answer. Use ids that are never reused, or put in the message which row it is for, so that the new row's
+`update` rejects the old answer. Subscriptions do not need this: a row that is removed stops them.
+
 ### Running
 
 `run(program, render, options)` starts the program and hands `render` a stream of frames. The run ends when
-the renderer ends. A renderer slower than the program only gets the latest frame. Options:
+the renderer ends. A renderer slower than the program only gets the latest frame, so a renderer that waits
+for the next animation frame before taking another draws at most once per screen refresh, as
+[`examples/snabbdom.ts`](examples/snabbdom.ts) does. Options:
 
 - **`onRejectedInput`** (required): `'die'` fails the run with `RejectedInput`, what you want while developing.
   A function reports the rejection (e.g. to a crash-reporting service) and the program goes on.
@@ -330,6 +345,34 @@ just typed. Let one side own the text at a time:
 
 [`examples/field.ts`](examples/field.ts) packages this, and [`form`](examples/form) uses it. React Native
 does the same with `defaultValue` and `key`.
+
+### Guarantees
+
+What you can rely on:
+
+- **No dead buttons.** Each offer is checked against `update` when the model is made. Offering something it
+  rejects throws `RejectedOffer` the first time that model is drawn.
+- **Outdated clicks are harmless.** An offer the state has moved past is ignored, however many messages came
+  in between. Only a typed value that `update` rejects is a bug.
+- **Subscriptions follow their keys.** A subscription runs exactly while its key is in the state. When the key
+  goes away, it is interrupted and releases what it holds, and nothing it sent reaches `update` afterwards,
+  even if the same key comes back later.
+- **Nothing ends in silence.** A subscription that ends sends one last message. A defect anywhere ends the
+  run, which fails with it.
+- **Frames cost only what is drawn.** A message that returns the very same state draws no new frame, and a
+  model is made only for the frames the renderer reads.
+
+What is left to you:
+
+- **Commands run to their end**, and their answer goes where it is addressed, even if the state has moved on.
+  `update` decides whether it still applies (see [commands](#commands), and ids that come back in
+  [composing](#composing-programs)).
+- **A slow renderer skips frames**: it gets only the latest one.
+- **`update` and `makeModel` are pure, and states are never mutated.** The library calls `update` to check
+  offers, and reuses a child's model while its state is the same object.
+
+The library's tests check each guarantee. [`src/interleaving.test.ts`](src/interleaving.test.ts) checks
+them under random orders of clicks, command answers and subscription messages.
 
 ### Testing
 
