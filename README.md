@@ -14,7 +14,8 @@ What it adds to plain Elm:
 - **The view and `update` cannot disagree.** `update` may **reject** a message that makes no sense in the
   current state. The model only contains the actions `update` accepts, each checked as the model is made, so
   there are no dead buttons. The view cannot build messages of its own: that does not compile.
-- **Double taps are harmless.** A click on an action that the state has meanwhile left behind is ignored.
+- **Double taps are harmless.** A click on an action that the state has meanwhile left behind is ignored: a
+  save that moves the form to "saving" runs once, however fast the user taps.
 - **Composition is declared, not wired.** A parent says where each child lives in its state, and the library
   routes the children's messages, commands, subscriptions and models.
 - **Views are cheap to memoize.** One `dispatch` serves the whole program, every frame and every child.
@@ -25,7 +26,7 @@ What it adds to plain Elm:
 - [Quick start](#quick-start)
 - [Examples](#examples)
 - [Guide](#guide): [`update`](#update), [the model](#the-model-and-its-offers), [commands](#commands),
-  [subscriptions](#subscriptions), [stale or bug](#stale-or-bug), [composing](#composing-programs),
+  [subscriptions](#subscriptions), [rejections](#when-update-rejects), [composing](#composing-programs),
   [running](#running), [inputs](#inputs-the-user-types-into), [guarantees](#guarantees), [testing](#testing)
 - [API reference](#api-reference)
 
@@ -169,15 +170,25 @@ type Editor = Data.TaggedEnum<{
     save: Offered<Message>
   }
 }>
+
+const makeModel = (state: State, { offer, offerInput }: Offers<Message>): Editor => {
+  const changeName = offerInput((name: string) => Message.NameChanged({ name }), state.name)
+  return state.isSaving
+    ? { _tag: 'Saving' }
+    : isBlank(state.name)
+    ? { _tag: 'Blank', changeName }
+    : { _tag: 'Named', changeName, save: offer(Message.SaveClicked()) }
+}
 ```
 
-- `offer(message)` makes an action; `offerInput(toMessage, current)` makes one that carries what the user
-  types or picks.
-- Each offer asks `update`. Offering something it rejects throws **`RejectedOffer`** at once: a bug in the
-  model, found the first time it is drawn rather than as a button that does nothing.
+- `offer(message)` makes an action. `offerInput(toMessage, current)` makes a function from what the user types
+  or picks to an action: the view calls it with each value.
+- Each offer asks `update`; an `offerInput` asks with `current`, and later with each value. Offering something
+  it rejects throws **`RejectedOffer`** at once: a bug in the model, found the first time it is drawn rather
+  than as a button that does nothing.
 - Pick the case from the state. Never pick it by trying offers: that would hide the disagreement.
 - A model may offer **less** than `update` accepts, never more.
-- Each offer costs one call to `update`: in a long list, offer actions only for the rows in sight.
+- Each check is a call to `update`: in a long list, offer actions only for the rows in sight.
 
 A view is `(model, dispatch) => Node`. `dispatch` only takes offers, so a hand-built message does not compile:
 
@@ -189,7 +200,7 @@ Sending returns an `Effect<void>`. A renderer whose handlers are plain callbacks
 dispatch with `dispatchUnsafe(dispatch)` to send at once.
 
 **Input is never a reason to reject.** Store what is typed, and make its validity model data: offer "Save" only
-for a name that is not blank. A typed value that `update` rejects is a [bug](#stale-or-bug).
+for a name that is not blank. A typed value that `update` rejects is a [bug](#when-update-rejects).
 
 ### Commands
 
@@ -230,16 +241,25 @@ An ended subscription is not restarted until its key goes away and comes back.
 To listen to a `Stream` that may complete, keep listening after its end:
 `Stream.toChannel(stream).pipe(Channel.flattenArray, Channel.concatWith(() => Channel.never))`.
 
-### Stale or bug
+### When `update` rejects
 
-When `update` rejects a message, the library looks at where it came from:
+A rejection is either stale or a bug. A stale one is normal: the state has moved on since the message was
+sent, so it no longer applies. A bug means that the model and `update` disagree. The library tells them apart
+by where the message came from:
 
-| The message came from                                 | What happens                                 |
-| ----------------------------------------------------- | -------------------------------------------- |
-| an offer the state has moved past (e.g. a double tap) | ignored                                      |
-| a command or a subscription that arrived too late     | ignored                                      |
-| a value typed into an `offerInput` that it rejects    | a **bug**: handled as `onRejectedInput` says |
-| an offer made by another run (e.g. by `modelOf`)      | a defect: the run fails                      |
+| The message came from                                                             | What happens                                 |
+| --------------------------------------------------------------------------------- | -------------------------------------------- |
+| an offer the state has moved past (e.g. a double tap)                             | stale: ignored                               |
+| a command or a subscription that arrived too late                                 | stale: ignored                               |
+| a value typed into an `offerInput`, already rejected by the state that offered it | a **bug**: handled as `onRejectedInput` says |
+
+A typed value rejected only when it arrives is stale: the state moved on while the user typed. An offer made by
+another run (e.g. a model made with `modelOf`) is a defect whatever `update` says: it was not checked
+against this run's state.
+
+A defect (an `Effect.die`, a thrown error) is broken code, and the run ends. A rejected input is a condition
+the code did not expect: the state did not change, so the program can go on, and it is the one bug that tests,
+which only sample what users type, can miss. That is why only it is configurable.
 
 ### Composing programs
 
@@ -353,7 +373,7 @@ What you can rely on:
 - **No dead buttons.** Each offer is checked against `update` when the model is made. Offering something it
   rejects throws `RejectedOffer` the first time that model is drawn.
 - **Outdated clicks are harmless.** An offer the state has moved past is ignored, however many messages came
-  in between. Only a typed value that `update` rejects is a bug.
+  in between. Of the rejected messages, only a typed value is a bug.
 - **Subscriptions follow their keys.** A subscription runs exactly while its key is in the state. When the key
   goes away, it is interrupted and releases what it holds, and nothing it sent reaches `update` afterwards,
   even if the same key comes back later.
@@ -406,8 +426,14 @@ test('the view sends what update accepts, all of it', () => {
 
 - `modelOf(program)(state)` makes a model outside `run`, so a property test can check its offers in any
   state. `messageOf(offered)` reads the message an offer sends.
-- `simulate` lists the command answers that `update` rejected in `ignored`: assert it when one being dropped
-  would be a bug.
+- `messagesSentBy` is not in the package: it comes from the example bridge
+  ([`examples/snabbdom.ts`](examples/snabbdom.ts)), which renders the view and fires every handler. A
+  renderer of your own needs one like it.
+- `missingOffers` tries the `candidates` the test lists (what a user could ask for, with the text typed into
+  each input) and returns those `update` accepts but the view does not send. `withheld` excludes what the
+  model leaves out on purpose, e.g. typing while a save is in progress.
+- `simulate` fails when `update` rejects one of the messages it is given. The command answers that `update`
+  rejected are listed in `ignored`: assert it when one being dropped would be a bug.
 - `drive` acts only through what the frames offer, and fails on a rejected input or a wait longer than
   `patience` (2 seconds).
 
