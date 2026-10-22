@@ -10,7 +10,10 @@ export type State = Readonly<{ clock: Clock.State; maybeAbout: Opt.Option<About.
 const { child, compose } = parent<{ state: State }>()
 
 export const app = compose({
-  init: { state: { clock: Clock.clock.init.state, maybeAbout: Opt.none() } },
+  init: (children) => ({
+    state: { clock: children.Clock.init.state, maybeAbout: Opt.none() },
+    commands: children.Clock.init.commands,
+  }),
   children: {
     // Hidden under About, the Clock keeps its state but stops ticking.
     Clock: child(Clock.clock, {

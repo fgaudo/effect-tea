@@ -94,7 +94,7 @@ type ChildServices<C> = { [K in keyof C]: ServicesOf<ProgramOf<C[K]>> }[keyof C]
 type Start<P, Command> = Readonly<{ state: StateOf<P>; commands: ReadonlyArray<Command> }>
 
 /**
- * What a parent can do with a child (`children` in `update` and `onEvent`): start one (`init`), and apply to
+ * What a parent can do with a child (`children` in `init`, `update` and `onEvent`): start one (`init`), and apply to
  * it one of the messages its type says a parent may send (`update`, e.g. a back button), which returns the
  * parent's transition. Its other messages are its own: only its view and its effects send them.
  */
@@ -151,7 +151,13 @@ type Config<State, C, Own, OwnCommand, Event, Model, R, K> =
   & RunCommandOf<OwnCommand, Own | ChildMessages<C>, R>
   & NoClash<Own, C>
   & Readonly<{
-    init: Step<State, OwnCommand | ChildCommands<C>>
+    /**
+     * The first state and commands. A child there from the start is started with `children.<child>.init`, so
+     * that its own commands are not lost.
+     */
+    init: (
+      children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>,
+    ) => Step<State, OwnCommand | ChildCommands<C>>
     children: C
     /** The parent's own messages: its children's are routed by the library. */
     update?: (
@@ -323,7 +329,7 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
   const ownRunCommand = (config as Readonly<{ runCommand?: (command: OwnCommand) => Execution<Message, R> }>)
     .runCommand
   const program = {
-    init: config.init,
+    init: config.init(handles),
     update,
     runCommand: (command: Command): Execution<Message, unknown> => {
       const place = placeOf(command)

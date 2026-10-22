@@ -94,7 +94,7 @@ const makeList = (scheduler: fc.Scheduler, alive: Alive) => {
   }
   const List = parent<{ state: ListState }>()
   return List.compose({
-    init: { state: { rows: [], born: 0 } },
+    init: () => ({ state: { rows: [], born: 0 } }),
     children: {
       Rows: List.each(row, {
         get: (state, id: Id) => Opt.map(Arr.findFirst(state.rows, (entry) => entry.id === id), (entry) => entry.row),

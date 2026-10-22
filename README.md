@@ -322,7 +322,10 @@ A child is any program. A parent declares its children with `parent`, and the li
 const { child, compose } = parent<{ state: State }>()
 
 export const app = compose({
-  init: { state: { clock: Clock.clock.init.state, maybeAbout: Opt.none() } },
+  init: (children) => ({
+    state: { clock: children.Clock.init.state, maybeAbout: Opt.none() },
+    commands: children.Clock.init.commands,
+  }),
   children: {
     Clock: child(Clock.clock, {
       get: (state) => Opt.some(state.clock),
@@ -368,8 +371,10 @@ What the library gives it:
   reused from one frame to the next while the child's state is the same object, so a renderer can skip
   redrawing it (see `thunk` in [`pages`](examples/pages/view.ts)). Only the models of the last two frames are
   kept.
-- **`children` in `update` and `onEvent`:** `init` starts a child, and `update` gives it one of the messages
-  its type declares as `external` (e.g. a back button).
+- **`children` in `init`, `update` and `onEvent`:** `init` starts a child, and `update` gives it one of the
+  messages its type declares as `external` (e.g. a back button). A parent's `init` is a function of them, so
+  that a child there from the start is started like any other: `children.Clock.init` holds its state and its
+  commands, lifted. Reading `Clock.clock.init.state` would leave its commands behind.
 - **The parent's types:** its messages are its own plus `{ _tag: <child>, message }` for each child.
   `MessageOf<typeof app>` names them.
 - **The parent's subscriptions:** its own, plus each child's under `[<child>, key]` (`[<child>, id, key]` for

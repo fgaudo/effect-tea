@@ -15,7 +15,7 @@ type AddClicked = Readonly<{ _tag: 'AddClicked' }>
 const { compose, each } = parent<{ state: State }>()
 
 export const list = compose({
-  init: { state: { nextId: 1, entries: [] } },
+  init: () => ({ state: { nextId: 1, entries: [] } }),
   children: {
     Stopwatch: each(Stopwatch.stopwatch, {
       // A removed stopwatch is `None`: its late messages (a tick already on its way) are rejected.

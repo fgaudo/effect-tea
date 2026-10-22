@@ -99,7 +99,14 @@ type Reset = Readonly<{ _tag: 'Reset' }>
 const Parent = parent<{ state: ParentState }>()
 
 const app = Parent.compose({
-  init: { state: { left: counter.init.state, maybeRight: Opt.none(), saves: 0, ticks: 0 } },
+  init: (children) => {
+    const left = children.Left.init
+    const ticker = children.Ticker.init
+    return {
+      state: { left: left.state, maybeRight: Opt.none(), saves: 0, ticks: ticker.state },
+      commands: [...left.commands, ...ticker.commands],
+    }
+  },
   children: {
     Left: Parent.child(counter, { get: (s) => Opt.some(s.left), set: (s, left) => ({ ...s, left }) }),
     Right: Parent.child(counter, {
@@ -247,7 +254,10 @@ describe('next: compose', () => {
     const Pings = parent<{ state: Pinged }>()
     const pingers = (onPinged: (state: Pinged) => Pinged) =>
       Pings.compose({
-        init: { state: { pinger: pinger.init.state, heard: 0 } },
+        init: (children) => ({
+          state: { pinger: children.Pinger.init.state, heard: 0 },
+          commands: children.Pinger.init.commands,
+        }),
         children: {
           Pinger: Pings.child(pinger, { get: (s) => Opt.some(s.pinger), set: (s, p) => ({ ...s, pinger: p }) }),
         },
@@ -318,7 +328,7 @@ type ListState = Readonly<{ rows: ReadonlyArray<Row> }>
 const List = parent<{ state: ListState }>()
 
 const list = List.compose({
-  init: { state: { rows: [] } },
+  init: () => ({ state: { rows: [] } }),
   children: {
     Rows: List.each(counter, {
       get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
@@ -348,7 +358,7 @@ type Lists = Readonly<{ rows: ReadonlyArray<Readonly<{ id: string; list: ListSta
 const Nested = parent<{ state: Lists }>()
 
 const lists = Nested.compose({
-  init: { state: { rows: [] } },
+  init: () => ({ state: { rows: [] } }),
   children: {
     Lists: Nested.each(list, {
       get: (state, id: string) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.list),
@@ -478,7 +488,7 @@ describe('next: children by id', () => {
   test('each child listens under its name and id, alone ones under their name', () => {
     const Tickers = parent<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
     const tickerList = Tickers.compose({
-      init: { state: { ids: [7, 8] } },
+      init: () => ({ state: { ids: [7, 8] } }),
       children: {
         Tickers: Tickers.each(ticker, {
           get: (state, id: number) => state.ids.includes(id) ? Opt.some(0) : Opt.none(),
@@ -500,7 +510,7 @@ describe('next: children by id', () => {
 describe('next: what a parent can do with a child', () => {
   test('a handle\'s update takes only the messages the child\'s type says a parent may send', () => {
     const sendTo = Parent.compose({
-      init: { state: app.init.state },
+      init: () => ({ state: app.init.state }),
       children: {
         Left: Parent.child(counter, { get: (s) => Opt.some(s.left), set: (s, left) => ({ ...s, left }) }),
       },
@@ -521,7 +531,7 @@ describe('next: what a parent can do with a child', () => {
       init: { ...counter.init, commands: [CounterCommand.Save({ count: 0 })] },
     }
     const started = List.compose({
-      init: { state: { rows: [] } },
+      init: () => ({ state: { rows: [] } }),
       children: {
         Rows: List.each(starting, {
           get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
@@ -542,6 +552,25 @@ describe('next: what a parent can do with a child', () => {
     ])
     expect(!isRejected(result) && result.state.rows).toEqual([{ id: 7, counter: counter.init.state }])
   })
+
+  test('a parent\'s init starts a child there from the start with its commands, lifted', () => {
+    const starting: typeof counter = {
+      ...counter,
+      init: { ...counter.init, commands: [CounterCommand.Save({ count: 0 })] },
+    }
+    const started = Parent.compose({
+      init: (children) => {
+        const left = children.Left.init
+        return { state: { ...app.init.state, left: left.state }, commands: left.commands }
+      },
+      children: {
+        Left: Parent.child(starting, { get: (s) => Opt.some(s.left), set: (s, left) => ({ ...s, left }) }),
+      },
+      onEvent: { Left: () => (state) => ({ state }) },
+      makeModel: () => null,
+    })
+    expect(started.init.commands).toEqual([{ _tag: 'Left', command: CounterCommand.Save({ count: 0 }) }])
+  })
 })
 
 // Each `@ts-expect-error` is the test: if the types accepted the mistake, the typecheck would fail.
@@ -556,7 +585,7 @@ describe('next: what the types reject', () => {
   test('a child whose type names no external message takes none from its parent', () => {
     const { child, compose } = parent<{ state: number }>()
     const program = compose({
-      init: { state: 0 },
+      init: () => ({ state: 0 }),
       children: { Plain: child(plain, { get: (state) => Opt.some(state), set: (_, child) => child }) },
       update: (_: Reset, children) => (state) => {
         // @ts-expect-error: `Tick` is the child's own business.
@@ -572,7 +601,7 @@ describe('next: what the types reject', () => {
     const { child, compose } = parent<{ state: number }>()
     // @ts-expect-error: `Plain` is a child's name.
     compose({
-      init: { state: 0 },
+      init: () => ({ state: 0 }),
       children: { Plain: child(plain, { get: (state) => Opt.some(state), set: (_, child) => child }) },
       update: (_: Readonly<{ _tag: 'Plain' }>) => (state) => ({ state }),
       makeModel: () => null,
@@ -583,7 +612,7 @@ describe('next: what the types reject', () => {
     const { child, compose } = parent<{ state: number; command: Readonly<{ _tag: 'Beep' }> }>()
     // @ts-expect-error: `Beep` would go uninterpreted.
     compose({
-      init: { state: 0 },
+      init: () => ({ state: 0 }),
       children: { Plain: child(plain, { get: (state) => Opt.some(state), set: (_, child) => child }) },
       makeModel: () => null,
     })

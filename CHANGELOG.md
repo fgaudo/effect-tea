@@ -3,6 +3,15 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
+## 0.5.0 (unreleased)
+
+### Changed
+
+- A parent's `init` is a function of its `children`, as `update` and `onEvent` are, so that a child there from the
+  start is started with `children.<child>.init`, its commands lifted. Reading the child program's `init.state`
+  left its commands behind, with no error. Write `init: () => ({ … })` where you wrote `init: { … }`, and start
+  each child there from the start with its handle's `init` (`state` and `commands`).
+
 ## 0.4.0 (2026-10-22)
 
 ### Changed
