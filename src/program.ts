@@ -2,7 +2,6 @@
 import { absurd } from 'effect/Function'
 import * as HashMap from 'effect/HashMap'
 import type { RunCommand } from './command.ts'
-import { type Offers, outsideRun, rootOffers } from './offer.ts'
 import type { Subscriptions } from './subscription.ts'
 import type { Step, Update } from './update.ts'
 
@@ -51,9 +50,9 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
 /**
  * A program of the types `T` names, e.g. `Program<{ state: State; model: Model; message: Message }>`. The view
  * is not part of it: it lives in its own module, so it can be hot reloaded. `runCommand` is there exactly when
- * the program has commands, and `subscriptions` when it listens to something. `makeModel` receives the offers
- * of its own `update` in that very state, so a model can offer nothing else. A parent made of children is made
- * with `parent`.
+ * the program has commands, and `subscriptions` when it listens to something. `makeModel` turns a state into
+ * what the view reads, and is a pure function of it: a test calls it as `run` does. A parent made of children
+ * is made with `parent`.
  */
 export type Program<T extends ProgramTypes> = Shape<
   Field<T, 'state'>,
@@ -80,7 +79,7 @@ export type Shape<State, Model, Message, Command, R, Event, External, Flags = ne
     init: Init<State, Command, Flags>
     update: Update<State, Message, Command, Event>
     subscriptions?: Subscriptions<State, Message, R, unknown>
-    makeModel: (state: State, offers: Offers<Message>) => Model
+    makeModel: (state: State) => Model
   }>
   & Interpreter<Command, Message, R>
 
@@ -102,7 +101,7 @@ export const startOf = <State, Command>(
 
 /** A program's state, model, message, command, flags and external messages, e.g. `MessageOf<typeof app>`. */
 export type StateOf<P> = FirstStepOf<P> extends Step<infer S, any> ? S : never
-export type ModelOf<P> = P extends { readonly makeModel: (state: any, offers: any) => infer M } ? M : never
+export type ModelOf<P> = P extends { readonly makeModel: (state: any) => infer M } ? M : never
 export type MessageOf<P> = P extends { readonly update: (message: infer M) => any } ? M : never
 // What a program's type does not say reads back as `unknown` (an optional property it lacks, a step without
 // commands): none, then, rather than anything.
@@ -117,11 +116,3 @@ export type EventOf<P> = P extends { readonly update: Update<any, any, any, infe
 export type ServicesOf<P> =
   | (P extends { readonly runCommand: RunCommand<any, any, infer R> } ? Known<R> : never)
   | (P extends { readonly subscriptions?: Subscriptions<any, any, infer R, any> } ? Known<R> : never)
-
-/** A program's model in `state`, with offers of its own, as `run` makes it (outside `run`, e.g. in a test). */
-export const modelOf = <State, Model, Message>(
-  program: Readonly<
-    { update: Update<State, Message, unknown, unknown>; makeModel: (state: State, offers: Offers<Message>) => Model }
-  >,
-) =>
-(state: State): Model => program.makeModel(state, rootOffers(program.update, state, outsideRun))

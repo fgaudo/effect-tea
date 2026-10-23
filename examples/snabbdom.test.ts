@@ -53,9 +53,9 @@ afterEach(async () => {
 })
 
 /** Starts a program drawn with `view` into a fresh page; `views` counts the trees drawn, one per patch. */
-const mount = <Model>(
-  view: View<Model, VNode>,
-  start: (render: (frames: Stream.Stream<Frame<Model>>) => Effect.Effect<void>) => Effect.Effect<void>,
+const mount = <Model, Message>(
+  view: View<Model, Message, VNode>,
+  start: (render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void>) => Effect.Effect<void>,
 ) => {
   document.body.innerHTML = '<div id="app"></div>'
   const root = document.getElementById('app') as HTMLElement
@@ -86,7 +86,7 @@ const type = (input: HTMLInputElement, text: string) => {
 
 describe('renderInto', () => {
   test('draws the first frame at once, then at most once per screen refresh, the latest frame', async () => {
-    const app = mount(counterView, (render) => run(counter, render, { onRejectedInput: 'die' }))
+    const app = mount(counterView, (render) => run(counter, render))
     await settle()
     expect(app.views()).toBe(1)
     for (let click = 0; click < 5; click += 1) {
@@ -103,7 +103,7 @@ describe('renderInto', () => {
   })
 
   test('a click on a drawn button reaches the program, and the next refresh shows it', async () => {
-    mount(counterView, (render) => run(counter, render, { onRejectedInput: 'die' }))
+    mount(counterView, (render) => run(counter, render))
     await settle()
     button('+').click()
     await paint()
@@ -119,7 +119,7 @@ describe('inputs the user types into', () => {
   const mountForm = () =>
     mount(
       formView,
-      (render) => run(form, render, { onRejectedInput: 'die' }).pipe(Effect.provideService(Storage, saving)),
+      (render) => run(form, render).pipe(Effect.provideService(Storage, saving)),
     )
 
   test('a frame drawn while the user types does not take back what they typed since', async () => {

@@ -1,5 +1,5 @@
 // A counter that cannot go below zero: `update` rejects `Decrement` at 0, so the model has no `decrement` there.
-import { type Offered, type Program, reject, type Update } from '@fgaudo/effect-tea'
+import { type Program, reject, type Update } from '@fgaudo/effect-tea'
 
 export type Message = 'Increment' | 'Decrement'
 
@@ -11,14 +11,14 @@ export const update: Update<number, Message> = (message) => (count) =>
     : reject
 
 export type Model =
-  | Readonly<{ _tag: 'AtZero'; count: number; increment: Offered<Message> }>
-  | Readonly<{ _tag: 'Counting'; count: number; increment: Offered<Message>; decrement: Offered<Message> }>
+  | Readonly<{ _tag: 'AtZero'; count: number; increment: Message }>
+  | Readonly<{ _tag: 'Counting'; count: number; increment: Message; decrement: Message }>
 
 export const counter: Program<{ state: number; model: Model; message: Message }> = {
   init: { state: 0 },
   update,
-  makeModel: (count, { offer }) =>
+  makeModel: (count) =>
     count > 0
-      ? { _tag: 'Counting', count, increment: offer('Increment'), decrement: offer('Decrement') }
-      : { _tag: 'AtZero', count, increment: offer('Increment') },
+      ? { _tag: 'Counting', count, increment: 'Increment', decrement: 'Decrement' }
+      : { _tag: 'AtZero', count, increment: 'Increment' },
 }

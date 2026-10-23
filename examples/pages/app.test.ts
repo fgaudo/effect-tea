@@ -1,8 +1,7 @@
-// The messages of the pages are built by the test (the parent's are `{ _tag: <page>, message }`), and the
-// view's offers are read with `messageOf`.
+// The messages of the pages are built by the test: the parent's are `{ _tag: <page>, message }`.
 import { describe, expect, test } from 'bun:test'
-import { applyAll, dispatchViolations, missingOffers, simulate } from '@fgaudo/effect-tea/testing'
-import { modelOf, run, subscriptionsOf } from '@fgaudo/effect-tea'
+import { applyAll, dispatchViolations, missingActions, simulate } from '@fgaudo/effect-tea/testing'
+import { dispatchTo, run, subscriptionsOf } from '@fgaudo/effect-tea'
 import * as DateTime from 'effect/DateTime'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
@@ -62,11 +61,11 @@ describe('pages', () => {
 
   test('the view sends what update accepts, all of it, and acts once when sent twice', () => {
     const violations = dispatchViolations(app.update)
-    const missing = missingOffers(app.update, {
+    const missing = missingActions(app.update, {
       withheld: (message, state) => message._tag === 'Clock' && Opt.isSome(state.maybeAbout),
     })
     fc.assert(fc.property(state, (before) => {
-      const sent = messagesSentBy<Model, Message>(view, modelOf(app)(before))
+      const sent = messagesSentBy<Model, Message>(view, app.makeModel(before))
       expect(violations(before, sent)).toEqual([])
       expect(missing(before, sent, [aboutClicked, backClicked])).toEqual([])
     }))
@@ -78,22 +77,25 @@ describe('pages', () => {
     expect(Opt.isSome(Opt.flatMap(state.maybeAbout, (about) => about.maybeSaying))).toBe(true)
   })
 
-  // As it runs: a user opens About, from the Clock's own offer sent through the run's one dispatch.
-  test('a user opens About, and every frame has the same dispatch', async () => {
+  // As it runs: a user opens About with the Clock's own message, through the Clock's dispatch.
+  test('a user opens About, and every frame has the same dispatch, and the same for the Clock', async () => {
     const dispatches = new Set<unknown>()
+    const clockDispatches = new Set<unknown>()
     await Effect.runPromise(
       run(app, (frames) =>
         frames.pipe(
           Stream.tap(({ model, dispatch }) => {
             dispatches.add(dispatch)
+            clockDispatches.add(dispatchTo(dispatch, 'Clock'))
             return model.page._tag === 'Clock' && model.page.model.time !== ''
-              ? dispatch(model.page.model.openAbout)
+              ? dispatchTo(dispatch, 'Clock')(model.page.model.openAbout)
               : Effect.void
           }),
           Stream.takeUntil(({ model }) => model.page._tag === 'About' && Opt.isSome(model.page.model.saying)),
           Stream.runDrain,
-        ), { onRejectedInput: 'die' }).pipe(Effect.timeout('3 seconds')),
+        )).pipe(Effect.timeout('3 seconds')),
     )
     expect(dispatches.size).toBe(1)
+    expect(clockDispatches.size).toBe(1)
   })
 })

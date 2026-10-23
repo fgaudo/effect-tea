@@ -1,9 +1,9 @@
 import type { View } from '@fgaudo/effect-tea'
 import { h, type VNode } from 'snabbdom'
 import { initialValue, onClick, onInput } from '../snabbdom.ts'
-import type { Model } from './form.ts'
+import type { Message, Model } from './form.ts'
 
-export const view: View<Model, VNode> = (model, dispatch) => {
+export const view: View<Model, Message, VNode> = (model, dispatch) => {
   const { editor } = model
   return h('main', [
     h('input', {

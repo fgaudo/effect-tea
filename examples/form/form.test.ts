@@ -1,15 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { isRejected, modelOf } from '@fgaudo/effect-tea'
-import {
-  applyAll,
-  dispatchViolations,
-  drive,
-  input,
-  missingOffers,
-  rehearse,
-  simulate,
-  tap,
-} from '@fgaudo/effect-tea/testing'
+import { isRejected } from '@fgaudo/effect-tea'
+import { applyAll, dispatchViolations, drive, missingActions, rehearse, simulate } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
@@ -63,8 +54,8 @@ describe('form', () => {
       expect(isRejected(update(Message.SaveSucceeded({ name: 'Ada' }))(empty))).toBe(true)
     })
 
-    test('does not offer typing while saving', () => {
-      expect(modelOf(form)({ ...empty, name: Field.make('Ada'), isSaving: true }).editor._tag).toBe('Saving')
+    test('has nothing to type into while saving', () => {
+      expect(form.makeModel({ ...empty, name: Field.make('Ada'), isSaving: true }).editor._tag).toBe('Saving')
     })
   })
 
@@ -72,11 +63,11 @@ describe('form', () => {
   // saves once, and nothing `update` accepts is missing, but typing while saving, which the model withholds.
   test('the view sends what update accepts, all of it, and acts once when sent twice', () => {
     const violations = dispatchViolations(update)
-    const missing = missingOffers(update, {
+    const missing = missingActions(update, {
       withheld: (message, state) => message._tag === 'NameChanged' && state.isSaving,
     })
     fc.assert(fc.property(state, fc.string(), (before, typed) => {
-      const sent = messagesSentBy<Model, Message>(view, modelOf(form)(before), typed)
+      const sent = messagesSentBy<Model, Message>(view, form.makeModel(before), typed)
       expect(violations(before, sent)).toEqual([])
       expect(missing(before, sent, [Message.NameChanged({ name: typed }), Message.SaveClicked()])).toEqual([])
     }))
@@ -112,14 +103,14 @@ describe('form', () => {
     })
 
     // The save waits until the test runs it: what the user can do meanwhile, and what its answer finds.
-    test('while saving, the form offers nothing; a failure gives it back, to save again', async () => {
-      const save = ({ editor }: Model) => editor._tag === 'Named' ? Opt.some(tap(editor.save)) : Opt.none()
+    test('while saving, the form has nothing to do; a failure gives it back, to save again', async () => {
+      const save = ({ editor }: Model) => editor._tag === 'Named' ? Opt.some(editor.save) : Opt.none()
       const { whileSaving, afterFailure } = await Effect.runPromise(
         rehearse(
           form,
           Effect.fnUntraced(function*(rehearsal) {
             yield* rehearsal.send(({ editor }) =>
-              editor._tag === 'Saving' ? Opt.none() : Opt.some(input(editor.changeName, ' Ada '))
+              editor._tag === 'Saving' ? Opt.none() : Opt.some(editor.changeName(' Ada '))
             )
             yield* rehearsal.send(save)
             const whileSaving = (yield* rehearsal.model).editor._tag
@@ -143,11 +134,9 @@ describe('form', () => {
       drive(
         form,
         Effect.fnUntraced(function*(driver) {
-          yield* driver.send(({ editor }) =>
-            editor._tag === 'Saving' ? Opt.none() : Opt.some(input(editor.changeName, 'Ada'))
-          )
+          yield* driver.send(({ editor }) => editor._tag === 'Saving' ? Opt.none() : Opt.some(editor.changeName('Ada')))
           yield* driver.send(({ name, editor }) =>
-            name.text === 'Ada' && editor._tag === 'Named' ? Opt.some(tap(editor.save)) : Opt.none()
+            name.text === 'Ada' && editor._tag === 'Named' ? Opt.some(editor.save) : Opt.none()
           )
           return yield* driver.waitFor((model) => model.saved.length > 0 ? Opt.some(model.saved) : Opt.none())
         }),

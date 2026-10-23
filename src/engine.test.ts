@@ -1,9 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
-import * as Exit from 'effect/Exit'
 import { absurd, identity } from 'effect/Function'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
@@ -11,7 +9,6 @@ import * as References from 'effect/References'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import * as Engine from './engine.ts'
-import { RejectedInput, type Revision } from './rejection.ts'
 import type { Execution } from './command.ts'
 import type { Subscription } from './subscription.ts'
 import { reject } from './update.ts'
@@ -31,20 +28,9 @@ const make = (initCommands: ReadonlyArray<Execution<Message, never>> = []) =>
         ? { state: count - 1 }
         : reject,
     subscriptions: () => HashMap.empty(),
-    onRejectedInput: 'die',
   })
 
-/**
- * Sends `message` as an offer of `engine`'s run, made at `revision` (and, with `violation`, as a typed value
- * that `update` rejected there).
- */
-const offered = <Message>(
-  engine: Engine.Engine<unknown, Message>,
-  message: Message,
-  { revision = 0, violation = false }: Readonly<{ revision?: Revision; violation?: boolean }> = {},
-) => engine.dispatchOffer(message, { violation, revision, run: engine.run })
-
-const revision = (engine: Engine.Engine<number, Message>, target: Revision) =>
+const revision = (engine: Engine.Engine<number, Message>, target: Engine.Revision) =>
   engine.states.pipe(
     Stream.filter(({ revision }) => revision >= target),
     Stream.runHead,
@@ -55,31 +41,31 @@ const revision = (engine: Engine.Engine<number, Message>, target: Revision) =>
 const failureWithin = (engine: Engine.Engine<number, Message>) =>
   engine.await.pipe(Effect.exit, Effect.timeoutOption('200 millis'))
 
-const diedWith = (exit: Opt.Option<Exit.Exit<never>>, isDefect: (defect: unknown) => boolean) =>
-  Opt.isSome(exit) && Exit.isFailure(exit.value) && isDefect(Cause.squash(exit.value.cause))
-
 // Some tests make the engine die on purpose: what it logs then is expected.
 const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect).pipe(Effect.provideService(References.MinimumLogLevel, 'None')))
 
 describe('Engine reject', () => {
-  test('a violation that update rejects kills the engine with RejectedInput', async () => {
-    const exit = await run(Effect.gen(function*() {
-      const engine = yield* make()
-      yield* offered(engine, 'Forbidden', { violation: true })
-      return yield* failureWithin(engine)
-    }))
-    expect(diedWith(exit, (defect) => defect instanceof RejectedInput)).toBe(true)
-  })
-
-  test('an offer that no longer applies is ignored as stale', async () => {
+  test('a message update rejects is ignored, and the program goes on', async () => {
     const outcome = await run(Effect.gen(function*() {
       const engine = yield* make()
-      yield* offered(engine, 'Increment') // revision 0 → 1
+      yield* engine.dispatch('Forbidden')
+      yield* engine.dispatch('Increment')
+      const reached = yield* revision(engine, 1)
+      return { reached, failure: yield* failureWithin(engine) }
+    }))
+    expect(outcome.reached).toEqual({ state: 1, revision: 1 })
+    expect(Opt.isNone(outcome.failure)).toBe(true)
+  })
+
+  test('a message that no longer applies is ignored', async () => {
+    const outcome = await run(Effect.gen(function*() {
+      const engine = yield* make()
+      yield* engine.dispatch('Increment') // revision 0 → 1
       yield* revision(engine, 1)
-      yield* offered(engine, 'Decrement', { revision: 1 }) // revision 1 → 2, back to 0
-      yield* offered(engine, 'Decrement', { revision: 1 }) // a double tap: fine at 1, stale at 0
-      yield* offered(engine, 'Increment', { revision: 1 }) // revision 2 → 3
+      yield* engine.dispatch('Decrement') // revision 1 → 2, back to 0
+      yield* engine.dispatch('Decrement') // a double tap: fine at 1, rejected at 0
+      yield* engine.dispatch('Increment') // revision 2 → 3
       const reached = yield* revision(engine, 3)
       return { reached, failure: yield* failureWithin(engine) }
     }))
@@ -87,19 +73,10 @@ describe('Engine reject', () => {
     expect(Opt.isNone(outcome.failure)).toBe(true)
   })
 
-  test('an offer of another run kills the engine, whether update accepts it or not', async () => {
-    const exit = await run(Effect.gen(function*() {
-      const engine = yield* make()
-      yield* engine.dispatchOffer('Increment', { violation: false, revision: 0, run: {} })
-      return yield* failureWithin(engine)
-    }))
-    expect(diedWith(exit, (defect) => !(defect instanceof RejectedInput))).toBe(true)
-  })
-
   test('a message rejected after coming from a command is ignored', async () => {
     const outcome = await run(Effect.gen(function*() {
       const engine = yield* make([Effect.succeedSome<Message>('Forbidden')])
-      yield* offered(engine, 'Increment')
+      yield* engine.dispatch('Increment')
       const reached = yield* revision(engine, 1)
       return { reached, failure: yield* failureWithin(engine) }
     }))
@@ -107,11 +84,11 @@ describe('Engine reject', () => {
     expect(Opt.isNone(outcome.failure)).toBe(true)
   })
 
-  test('a stale offer that is still accepted is applied', async () => {
+  test('a message sent from an older frame that still applies is applied', async () => {
     const reached = await run(Effect.gen(function*() {
       const engine = yield* make()
-      yield* offered(engine, 'Increment')
-      yield* offered(engine, 'Increment') // made at revision 0, still makes sense
+      yield* engine.dispatch('Increment')
+      yield* engine.dispatch('Increment') // sent from the frame at revision 0, still makes sense
       return yield* revision(engine, 2)
     }))
     expect(reached).toEqual({ state: 2, revision: 2 })
@@ -146,7 +123,6 @@ describe('Engine subscriptions', () => {
             ),
           ] as const
         )),
-      onRejectedInput: 'die',
     })
 
   /** Sends `changes` one at a time, each once the previous one is applied, letting the subscriptions settle. */
@@ -155,7 +131,7 @@ describe('Engine subscriptions', () => {
       changes,
       Effect.fnUntraced(function*(change, index) {
         yield* engine.states.pipe(Stream.filter(({ revision }) => revision >= index), Stream.runHead)
-        yield* offered(engine, change, { revision: index })
+        yield* engine.dispatch(change)
         yield* engine.states.pipe(Stream.filter(({ revision }) => revision > index), Stream.runHead)
         yield* Effect.sleep('20 millis')
       }),
@@ -215,7 +191,6 @@ describe('Engine same state', () => {
           ? { state: count }
           : { state: count, commands: ['Bump'] },
       subscriptions: () => HashMap.empty(),
-      onRejectedInput: 'die',
     })
 
   const firstAfter = (engine: Engine.Engine<number, Signal>) =>
@@ -224,8 +199,8 @@ describe('Engine same state', () => {
   test('a message that keeps the same state makes no new revision', async () => {
     const reached = await run(Effect.gen(function*() {
       const engine = yield* make()
-      yield* offered(engine, 'Same')
-      yield* offered(engine, 'Increment')
+      yield* engine.dispatch('Same')
+      yield* engine.dispatch('Increment')
       return yield* firstAfter(engine)
     }))
     expect(reached).toEqual({ state: 1, revision: 1 })
@@ -234,7 +209,7 @@ describe('Engine same state', () => {
   test('its commands still run', async () => {
     const reached = await run(Effect.gen(function*() {
       const engine = yield* make()
-      yield* offered(engine, 'Ping')
+      yield* engine.dispatch('Ping')
       return yield* firstAfter(engine)
     }))
     expect(reached).toEqual({ state: 1, revision: 1 })
@@ -271,13 +246,12 @@ describe('Engine subscriptions that end', () => {
             }),
           ])
           : HashMap.empty(),
-      onRejectedInput: 'die',
     })
 
   const until = (engine: Engine.Engine<Heard, Signal>, done: (state: Heard) => boolean) =>
     engine.states.pipe(Stream.filter(({ state }) => done(state)), Stream.runHead, Effect.map(Opt.getOrThrow))
 
-  const send = (engine: Engine.Engine<Heard, Signal>, signal: Signal) => offered(engine, signal)
+  const send = (engine: Engine.Engine<Heard, Signal>, signal: Signal) => engine.dispatch(signal)
 
   test('a subscription that ends sends its last message to update', async () => {
     const reached = await run(Effect.gen(function*() {
@@ -373,9 +347,8 @@ describe('Engine scopes', () => {
       subscriptions: (listening) =>
         listening ? HashMap.make(['subscription', subscription({ note, resource })]) : HashMap.empty(),
       onApplied: ({ message }) => note(`applied ${message}`),
-      onRejectedInput: 'die',
     })
-    const send = (signal: Signal) => engine.dispatchOffer(signal, { violation: false, revision: 0, run: engine.run })
+    const send = (signal: Signal) => engine.dispatch(signal)
     const until = Effect.fnUntraced(function*(line: string) {
       while (!log.includes(line)) yield* Effect.sleep('1 millis')
     }, Effect.timeoutOption('1 second'))

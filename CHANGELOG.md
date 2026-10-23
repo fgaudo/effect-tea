@@ -3,6 +3,41 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
+## 0.6.0 (unreleased)
+
+### Changed
+
+- Models hold plain data, and views send messages: the offers are gone, and with them every check of a model
+  against `update` while the program runs. A message `update` rejects is ignored, wherever it comes from, and
+  logged at the debug level; a control shown where `update` rejects its message is found by the tests, as
+  before, with `dispatchViolations`. To upgrade:
+  - `makeModel: (state, { offer, offerInput }) =>` becomes `makeModel: (state) =>`: write `Message` where you
+    wrote `offer(Message)`, and `(value) => Message` where you wrote `offerInput((value) => Message, current)`;
+    `Offered<Message>` becomes `Message` in a model's type. A parent's `makeModel: (state, { children })`
+    becomes `makeModel: (state, children)`, as its `init`, `update` and `onEvent` take them.
+  - `Dispatch` and `View` take the program's messages: `Dispatch<Message>`, `View<Model, Message, Node>`, and
+    `Frame<Model, Message>`. A child's view gets its own dispatch, `dispatchTo(dispatch, '<child>')`, or
+    `dispatchTo(dispatch, '<child>', id)` for children by id, where it got the parent's.
+  - `run` takes no `onRejectedInput`, and its options are optional for a program without flags.
+    `RejectedInput`, `RejectedOffer` and `OnRejectedInput` are gone.
+  - `modelOf(program)(state)` becomes `program.makeModel(state)`.
+  - In `drive` and `rehearse`, `send` takes the message to send, where it took an action: write `model.save`
+    where you wrote `tap(model.save)`, and `model.changeName('Ada')` for `input(model.changeName, 'Ada')`.
+    `Action`, `tap`, `input` and `messageOf` are gone, and `Driver` takes the program's messages again:
+    `Driver<Model, Message>`. `rehearse`'s `send` fails when `update` rejects the message, where only a typed
+    value rejected in its own state failed: a tap on an older frame is tested with `applyAll`, or with `update`
+    itself. `ignored` lists only the messages of commands and subscriptions.
+  - `missingOffers` is now `missingActions`.
+- A child's model is kept while its state object lives, whichever parent, place or run shows it, where it was
+  kept for the root's last two frames: children that share a state share its model.
+
+### Added
+
+- `dispatchTo(dispatch, name, id?)`, the dispatch of a child for its view: it wraps the child's messages as the
+  parent receives them, and is the same function every time it is asked for, so that a view memoized on its
+  dispatch is drawn again only when its model changes. It keeps nothing for the children nobody holds a
+  dispatch of, so that a list whose ids are never reused does not pile them up.
+
 ## 0.5.1 (2026-10-22)
 
 ### Added

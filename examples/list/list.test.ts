@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { isRejected, modelOf, run, subscriptionsOf } from '@fgaudo/effect-tea'
-import { applyAll, dispatchViolations, missingOffers } from '@fgaudo/effect-tea/testing'
+import { dispatchTo, isRejected, run, subscriptionsOf } from '@fgaudo/effect-tea'
+import { applyAll, dispatchViolations, missingActions } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Stream from 'effect/Stream'
@@ -58,9 +58,9 @@ describe('list', () => {
 
   test('the view sends what update accepts, all of it, and acts once when sent twice', () => {
     const violations = dispatchViolations(list.update, { repeatable: (message) => message._tag === 'AddClicked' })
-    const missing = missingOffers(list.update)
+    const missing = missingActions(list.update)
     fc.assert(fc.property(state, (before) => {
-      const sent = messagesSentBy<Model, Message>(view, modelOf(list)(before))
+      const sent = messagesSentBy<Model, Message>(view, list.makeModel(before))
       expect(violations(before, sent)).toEqual([])
       expect(missing(before, sent, userMessages(before))).toEqual([])
     }))
@@ -68,7 +68,7 @@ describe('list', () => {
 
   // What lets the view draw only the stopwatch that changed: the others keep the very same model.
   test('a message to one stopwatch leaves the model of the others as it was', () => {
-    const model = modelOf(list)
+    const model = list.makeModel
     const { state: before } = applyAll(list.update)([added, added], list.init.state)
     const { state: after } = applyAll(list.update)([to(2, Stopwatch.Message.Started())], before)
     expect(model(after).stopwatches[0]?.model).toBe(model(before).stopwatches[0]?.model)
@@ -85,11 +85,13 @@ describe('list', () => {
             const [first] = model.stopwatches
             if (first === undefined) return dispatch(model.add)
             seconds = first.model.seconds
-            return first.model.watch._tag === 'Stopped' ? dispatch(first.model.watch.start) : Effect.void
+            return first.model.watch._tag === 'Stopped'
+              ? dispatchTo(dispatch, 'Stopwatch', first.id)(first.model.watch.start)
+              : Effect.void
           }),
           Stream.takeUntil(({ model }) => (model.stopwatches[0]?.model.seconds ?? 0) >= 3),
           Stream.runDrain,
-        ), { onRejectedInput: 'die' }).pipe(
+        )).pipe(
           // Time moves on until three seconds have been counted: the run ends then, and so does the race.
           Effect.raceFirst(Effect.forever(TestClock.adjust('1 second').pipe(Effect.andThen(Effect.yieldNow)))),
           Effect.provide(TestClock.layer()),

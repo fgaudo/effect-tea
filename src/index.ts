@@ -11,7 +11,6 @@ export {
   type FlagsOf,
   type MessageOf,
   type ModelOf,
-  modelOf,
   type Program,
   type ServicesOf,
   type StateOf,
@@ -26,10 +25,9 @@ export { isRejected, reject, type Rejected, type Step, type Transition, type Upd
 export { attempt, type Execution, type RunCommand } from './command.ts'
 export type { Subscription, Subscriptions } from './subscription.ts'
 
-// What the model offers to the view, and how a view sends it.
-export { type Dispatch, dispatchUnsafe, type Offered, type Offers, type View } from './offer.ts'
+// How a view sends messages, its children's included.
+export { type Dispatch, dispatchTo, dispatchUnsafe, type View } from './dispatch.ts'
 
-// Running a program with a renderer, and what a view's rejected value does.
+// Running a program with a renderer.
 export type { Applied, RunOptions } from './engine.ts'
-export { type OnRejectedInput, RejectedInput, RejectedOffer } from './rejection.ts'
 export { type Frame, run } from './run.ts'

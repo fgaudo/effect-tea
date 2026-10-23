@@ -9,8 +9,8 @@ import * as Opt from 'effect/Option'
 import * as Stream from 'effect/Stream'
 import fc from 'fast-check'
 import { parent } from './compose.ts'
+import { type Dispatch, dispatchTo } from './dispatch.ts'
 import type { Applied } from './engine.ts'
-import type { Offered } from './offer.ts'
 import type { Program } from './program.ts'
 import { type Frame, run } from './run.ts'
 import { reject } from './update.ts'
@@ -35,9 +35,9 @@ type RowCommand = Readonly<{ _tag: 'Work'; born: number }>
 type Row = Readonly<{ born: number; working: boolean; listening: boolean; session: number; heard: number }>
 type RowModel = Readonly<{
   working: boolean
-  work: Opt.Option<Offered<RowMessage>>
-  mute: Opt.Option<Offered<RowMessage>>
-  listen: Opt.Option<Offered<RowMessage>>
+  work: Opt.Option<RowMessage>
+  mute: Opt.Option<RowMessage>
+  listen: Opt.Option<RowMessage>
 }>
 
 type ListState = Readonly<{ rows: ReadonlyArray<Readonly<{ id: Id; row: Row }>>; born: number }>
@@ -85,11 +85,11 @@ const makeList = (scheduler: fc.Scheduler, alive: Alive) => {
     // The same key in every session: only the engine tells a session from the one before.
     subscriptions: (state) =>
       state.listening ? HashMap.make(['ticks', ticking(state.born, state.session)]) : HashMap.empty(),
-    makeModel: (state, { offer }) => ({
+    makeModel: (state) => ({
       working: state.working,
-      work: state.working ? Opt.none() : Opt.some(offer(RowMessage.WorkClicked())),
-      mute: state.listening ? Opt.some(offer(RowMessage.MuteClicked())) : Opt.none(),
-      listen: state.listening ? Opt.none() : Opt.some(offer(RowMessage.ListenClicked())),
+      work: state.working ? Opt.none() : Opt.some(RowMessage.WorkClicked()),
+      mute: state.listening ? Opt.some(RowMessage.MuteClicked()) : Opt.none(),
+      listen: state.listening ? Opt.none() : Opt.some(RowMessage.ListenClicked()),
     }),
   }
   const List = parent<{ state: ListState }>()
@@ -114,11 +114,9 @@ const makeList = (scheduler: fc.Scheduler, alive: Alive) => {
           return present ? { state: { ...state, rows: state.rows.filter((entry) => entry.id !== message.id) } } : reject
       }
     },
-    makeModel: (state, { offer, children }) => ({
-      add: ids.filter((id) => !state.rows.some((entry) => entry.id === id)).map((id) =>
-        [id, offer({ _tag: 'Add', id })] as const
-      ),
-      rows: state.rows.map(({ id }) => ({ id, remove: offer({ _tag: 'Remove', id }), row: children.Rows(state, id) })),
+    makeModel: (state, children) => ({
+      add: ids.filter((id) => !state.rows.some((entry) => entry.id === id)).map((id): Own => ({ _tag: 'Add', id })),
+      rows: state.rows.map(({ id }) => ({ id, remove: { _tag: 'Remove', id } as Own, row: children.Rows(state, id) })),
     }),
   })
 }
@@ -135,13 +133,21 @@ type Act = Readonly<{ pick: number; twice: boolean }>
 
 const act: fc.Arbitrary<Act> = fc.record({ pick: fc.nat(), twice: fc.boolean() })
 
+/** What a control does with the frame's dispatch: a row's sends through the row's own dispatch, as its view would. */
+type Control = (dispatch: Dispatch<Message>) => Effect.Effect<void>
+
 /** Every control the frame shows: a user can only use what is drawn. */
-const controls = (model: Model): ReadonlyArray<Offered<unknown>> => [
-  ...model.add.map(([, add]) => add),
-  ...model.rows.flatMap(({ remove, row }) => [remove, ...Arr.getSomes([row.work, row.mute, row.listen])]),
+const controls = (model: Model): ReadonlyArray<Control> => [
+  ...model.add.map((add): Control => (dispatch) => dispatch(add)),
+  ...model.rows.flatMap(({ id, remove, row }) => [
+    (dispatch: Dispatch<Message>) => dispatch(remove),
+    ...Arr.getSomes([row.work, row.mute, row.listen]).map((message): Control => (dispatch) =>
+      dispatchTo(dispatch, 'Rows', id)(message)
+    ),
+  ]),
 ]
 
-const controlFor = (model: Model, { pick }: Act): Opt.Option<Offered<unknown>> => {
+const controlFor = (model: Model, { pick }: Act): Opt.Option<Control> => {
   const drawn = controls(model)
   return Arr.get(drawn, pick % Math.max(drawn.length, 1))
 }
@@ -171,7 +177,7 @@ const settle = async (scheduler: fc.Scheduler, bursts: ReadonlyArray<number>) =>
 const runScenario = async (scheduler: fc.Scheduler, acts: ReadonlyArray<Act>, bursts: ReadonlyArray<number>) => {
   const alive: Alive = new Map()
   const list = makeList(scheduler, alive)
-  let latest: Frame<Model> | undefined
+  let latest: Frame<Model, Message> | undefined
   let final = list.init.state
   const applied: Array<Applied<ListState, Message, unknown>> = []
   let stop = () => {}
@@ -184,8 +190,8 @@ const runScenario = async (scheduler: fc.Scheduler, acts: ReadonlyArray<Act>, bu
       yield* Effect.promise(() => scheduler.schedule(Promise.resolve(act)))
       const control = latest === undefined ? Opt.none() : controlFor(latest.model, act)
       if (latest === undefined || Opt.isNone(control)) return
-      yield* latest.dispatch(control.value)
-      if (act.twice) yield* latest.dispatch(control.value)
+      yield* control.value(latest.dispatch)
+      if (act.twice) yield* control.value(latest.dispatch)
     }),
     { discard: true },
   )
@@ -195,7 +201,6 @@ const runScenario = async (scheduler: fc.Scheduler, acts: ReadonlyArray<Act>, bu
         Effect.sync(() => {
           latest = frame
         })), {
-      onRejectedInput: 'die',
       onApplied: (step) =>
         Effect.sync(() => {
           applied.push(step)
@@ -229,7 +234,7 @@ describe('interleavings of the user, commands and subscriptions', () => {
       { numRuns: 60 },
     )
 
-  // Also checks that the scenarios reach every message: a model that offered nothing would pass every property.
+  // Also checks that the scenarios reach every message: a model that showed nothing would pass every property.
   test('whatever the order, a user who sends only what is drawn never makes the run fail', async () => {
     const reached = new Set<string>()
     await property(({ exit, applied }) => {

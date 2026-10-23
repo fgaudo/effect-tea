@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { reject, type Update } from '../update.ts'
-import { missingOffers } from './missing-offers.ts'
+import { missingActions } from './missing-actions.ts'
 
 type State = Readonly<{ isOpen: boolean; isSaving: boolean }>
 
@@ -21,8 +21,8 @@ const opened: Message = { _tag: 'Opened' }
 const closed: Message = { _tag: 'Closed' }
 const typed = (text: string): Message => ({ _tag: 'Typed', text })
 
-describe('missingOffers', () => {
-  const check = missingOffers(update)
+describe('missingActions', () => {
+  const check = missingActions(update)
 
   test('reports what update accepts and the view does not send', () => {
     expect(check({ isOpen: true, isSaving: false }, [], [opened, closed])).toEqual([closed])
@@ -33,8 +33,8 @@ describe('missingOffers', () => {
     expect(check({ isOpen: false, isSaving: false }, [typed('milk')], [typed('milk')])).toEqual([])
   })
 
-  test('ignores what the model withholds on purpose', () => {
-    const withholding = missingOffers(update, {
+  test('ignores what the view withholds on purpose', () => {
+    const withholding = missingActions(update, {
       withheld: (message, state) => message._tag === 'Typed' && state.isSaving,
     })
     expect(withholding({ isOpen: false, isSaving: true }, [], [typed('milk')])).toEqual([])

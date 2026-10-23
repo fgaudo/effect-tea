@@ -1,14 +1,11 @@
 // A parent declares its children, and the library generates how their messages, commands,
-// subscriptions and models reach them. A parent decides whether a child is there only with `get` (and
-// `subscribed`), never by rejecting its messages, so an offer that its child's `update` accepts is accepted
-// by the whole program.
+// subscriptions and models reach them.
 import * as Arr from 'effect/Array'
 import * as Channel from 'effect/Channel'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import type { Execution } from './command.ts'
-import { type Level, levelOf, type Offers, offersAt } from './offer.ts'
 import {
   type AnyProgram,
   type CommandOf,
@@ -117,7 +114,7 @@ type Handles<State, C, Command, Event> = {
 
 /**
  * The children's models (`children` in `makeModel`), made from the parent's state with `get`: a child that is
- * not there is a defect.
+ * not there is a defect. A child's model is the same object while its state is, so that a view can skip it.
  */
 type Models<State, C> = {
   readonly [K in keyof C & string]: C[K] extends EachOf<infer Id, infer P> ? (state: State, id: Id) => ModelOf<P>
@@ -172,8 +169,20 @@ type Config<State, C, Own, OwnCommand, Event, Model, R, K, Flags> =
       children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>,
     ) => (state: State) => Transition<State, OwnCommand | ChildCommands<C>, Event>
     subscriptions?: Subscriptions<State, Own, R, K>
-    makeModel: (state: State, offers: Offers<Own> & Readonly<{ children: Models<State, C> }>) => Model
+    makeModel: (state: State, children: Models<State, C>) => Model
   }>
+
+// `makeModel` is pure, so a program's model depends on its state alone: it is kept for as long as that state
+// object lives, whoever shows it (two children that share a state, or two runs).
+const models = new WeakMap<object, WeakMap<object, unknown>>()
+
+const modelsOf = (program: object) => {
+  const found = models.get(program)
+  if (found !== undefined) return found
+  const kept = new WeakMap<object, unknown>()
+  models.set(program, kept)
+  return kept
+}
 
 /** Who receives what a child at `id` sends: `undefined` for a child that is alone. */
 type Place = Readonly<{ name: string; id: unknown }>
@@ -292,51 +301,25 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
     const one = (subscribed ?? get) as (state: unknown) => Opt.Option<unknown>
     return Opt.match(one(state), { onNone: () => [], onSome: (childState) => [[{ name, id: undefined }, childState]] })
   }
-  // A child's model is kept while it is the same child (its place from the root, which its offers are wrapped
-  // for) with the same state object, in each run apart (its offers carry their run). Only the models of the
-  // root's last two frames are kept (a frame of `run`, a call of `modelOf`): what the previous frame showed is
-  // found again, and the rest is let go. New children often share one initial state object: kept for as long
-  // as that object lives, the models of every id it was ever shown under would pile up.
-  const kept = new WeakMap<object, Readonly<{ current: Frame; previous: Frame | undefined }>>()
-  const startFrame = ({ context, frame }: Level) => {
-    const frames = kept.get(context.run)
-    if (frames?.current.frame !== frame) {
-      kept.set(context.run, { current: { frame, models: node() }, previous: frames?.current })
-    }
-  }
-  const modelAt = (place: Place, parentState: State, level: Level) => {
+  const modelAt = (place: Place, parentState: State) => {
     const { program } = childOf(place.name)
     const childState = Opt.getOrThrowWith(
       getAt(place, parentState),
       () => new Error(`compose: the model of "${place.name}", which is not in this state`),
     )
-    const at = [...level.at, place.name, place.id]
-    const make = () =>
-      program.makeModel(
-        childState,
-        offersAt((message) => !isRejected(program.update(message)(childState)), {
-          context: level.context,
-          frame: level.frame,
-          at,
-          lift: (message) => level.lift(wrapMessage(place)(message)),
-        }),
-      )
-    if (typeof childState !== 'object' || childState === null) return make()
-    const frames = kept.get(level.context.run)
-    // A model of an older frame, read late: made again, and kept nowhere.
-    const frame = frames?.current.frame === level.frame
-      ? frames.current
-      : frames?.previous?.frame === level.frame
-      ? frames.previous
-      : undefined
-    if (frame === undefined) return make()
-    const found = modelIn(frame, at, childState)
-    if (Opt.isSome(found)) return found.value
-    const earlier = frame === frames?.current ? frames.previous : undefined
-    const model = Opt.getOrElse(earlier === undefined ? Opt.none() : modelIn(earlier, at, childState), make)
-    keep(frame, at, childState, model)
+    if (typeof childState !== 'object' || childState === null) return program.makeModel(childState)
+    const kept = modelsOf(program)
+    if (kept.has(childState)) return kept.get(childState)
+    const model = program.makeModel(childState)
+    kept.set(childState, model)
     return model
   }
+  const childModels = Object.fromEntries(names.map((name) => [
+    name,
+    isEach(name)
+      ? (parentState: State, id: unknown) => modelAt({ name, id }, parentState)
+      : (parentState: State) => modelAt({ name, id: undefined }, parentState),
+  ])) as Models<State, C>
   const ownRunCommand = (config as Readonly<{ runCommand?: (command: OwnCommand) => Execution<Message, R> }>)
     .runCommand
   const program = {
@@ -364,47 +347,9 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
             HashMap.reduce(subscriptionsAt(place, childState), all, (keyed, subscription, key) =>
               HashMap.set(keyed, isEach(name) ? [name, place.id, key] as const : [name, key] as const, subscription))),
       ),
-    makeModel: (state: State, offers: Offers<Message>): Model => {
-      const level = levelOf(offers as Offers<unknown>)
-      startFrame(level)
-      const children = Object.fromEntries(names.map((name) => [
-        name,
-        isEach(name)
-          ? (parentState: State, id: unknown) => modelAt({ name, id }, parentState, level)
-          : (parentState: State) => modelAt({ name, id: undefined }, parentState, level),
-      ])) as Models<State, C>
-      // The parent's own messages are among its messages: its offers of them are offers of its own.
-      const own = offers as unknown as Offers<Own>
-      return config.makeModel(state, { offer: own.offer, offerInput: own.offerInput, children })
-    },
+    makeModel: (state: State): Model => config.makeModel(state, childModels),
   }
   return program as unknown as Shape<State, Model, Message, Command, R | ChildServices<C>, Event, External, Flags>
-}
-
-/** The models of a frame's children: by their place from the root, one segment at a time, then their state. */
-type Node = Readonly<{ next: Map<unknown, Node>; models: WeakMap<object, unknown> }>
-
-type Frame = Readonly<{ frame: object; models: Node }>
-
-const node = (): Node => ({ next: new Map(), models: new WeakMap() })
-
-const modelIn = ({ models }: Frame, at: ReadonlyArray<unknown>, childState: object): Opt.Option<unknown> => {
-  let current: Node | undefined = models
-  for (const segment of at) {
-    current = current.next.get(segment)
-    if (current === undefined) return Opt.none()
-  }
-  return current.models.has(childState) ? Opt.some(current.models.get(childState)) : Opt.none()
-}
-
-const keep = ({ models }: Frame, at: ReadonlyArray<unknown>, childState: object, model: unknown): void => {
-  let current = models
-  for (const segment of at) {
-    const next = current.next.get(segment) ?? node()
-    current.next.set(segment, next)
-    current = next
-  }
-  current.models.set(childState, model)
 }
 
 /**

@@ -1,6 +1,6 @@
 // A stopwatch that ticks every second while it runs: its subscription exists only in the running state. It
 // asks its parent to be removed with an event.
-import { type Offered, type Program, reject, type Subscription, type Update } from '@fgaudo/effect-tea'
+import { type Program, reject, type Subscription, type Update } from '@fgaudo/effect-tea'
 import * as Channel from 'effect/Channel'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
@@ -25,7 +25,7 @@ export const update: Update<State, Message, never, Event> = (message) => (state)
       return state.isRunning ? reject : { state: { ...state, isRunning: true } }
     case 'Stopped':
       return state.isRunning ? { state: { ...state, isRunning: false } } : reject
-    // A tick that arrives after the stopwatch stopped is stale: rejected here, ignored by the engine.
+    // A tick that arrives after the stopwatch stopped no longer applies: rejected here, ignored by the engine.
     case 'Ticked':
       return state.isRunning ? { state: { ...state, seconds: state.seconds + 1 } } : reject
     case 'RemoveClicked':
@@ -41,10 +41,10 @@ const ticks: Subscription<Message, never> = Channel.forever(
 
 export type Model = Readonly<{
   seconds: number
-  remove: Offered<Message>
+  remove: Message
   watch: Data.TaggedEnum<{
-    Running: { stop: Offered<Message> }
-    Stopped: { start: Offered<Message> }
+    Running: { stop: Message }
+    Stopped: { start: Message }
   }>
 }>
 
@@ -52,11 +52,11 @@ export const stopwatch: Program<{ state: State; model: Model; message: Message; 
   init: { state: { seconds: 0, isRunning: false } },
   update,
   subscriptions: (state) => state.isRunning ? HashMap.make(['ticks', ticks]) : HashMap.empty(),
-  makeModel: (state, { offer }) => ({
+  makeModel: (state) => ({
     seconds: state.seconds,
-    remove: offer(Message.RemoveClicked()),
+    remove: Message.RemoveClicked(),
     watch: state.isRunning
-      ? { _tag: 'Running', stop: offer(Message.Stopped()) }
-      : { _tag: 'Stopped', start: offer(Message.Started()) },
+      ? { _tag: 'Running', stop: Message.Stopped() }
+      : { _tag: 'Stopped', start: Message.Started() },
   }),
 }

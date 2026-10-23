@@ -1,9 +1,9 @@
 // A form that saves names. What is typed is always accepted, in any state, and its validity becomes model
 // data: "Save" exists only for a name that is not blank. Saving is a state that only its completion leaves,
-// so a second click is rejected; the model stops offering the input meanwhile, but a key typed before the
+// so a second click is rejected; the model has no input to type into meanwhile, but a key typed before the
 // input was disabled is still stored, so that the form never shows a text the state does not have. A failure
 // gives the form back, as it was.
-import { attempt, type Execution, type Offered, type Program, reject, type Update } from '@fgaudo/effect-tea'
+import { attempt, type Execution, type Program, reject, type Update } from '@fgaudo/effect-tea'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as Field from '../field.ts'
@@ -78,8 +78,8 @@ export type Model = Readonly<{
   name: Field.Field
   editor: Data.TaggedEnum<{
     Saving: object
-    Blank: { changeName: (name: string) => Offered<Message> }
-    Named: { changeName: (name: string) => Offered<Message>; save: Offered<Message> }
+    Blank: { changeName: (name: string) => Message }
+    Named: { changeName: (name: string) => Message; save: Message }
   }>
   hasFailed: boolean
   saved: ReadonlyArray<string>
@@ -89,16 +89,16 @@ export const form: Program<{ state: State; model: Model; message: Message; comma
   init: { state: { name: Field.make(''), isSaving: false, hasFailed: false, saved: [] } },
   update,
   runCommand,
-  makeModel: (state, { offer, offerInput }) => {
-    const changeName = offerInput((name: string) => Message.NameChanged({ name }), state.name.text)
+  makeModel: (state) => {
+    const changeName = (name: string) => Message.NameChanged({ name })
     return {
       name: state.name,
-      // Offering less than `update` accepts: typing is still accepted while saving, but not offered.
+      // Less than `update` accepts: typing is still accepted while saving, but there is nothing to type into.
       editor: state.isSaving
         ? { _tag: 'Saving' }
         : isBlank(state.name.text)
         ? { _tag: 'Blank', changeName }
-        : { _tag: 'Named', changeName, save: offer(Message.SaveClicked()) },
+        : { _tag: 'Named', changeName, save: Message.SaveClicked() },
       hasFailed: state.hasFailed,
       saved: state.saved,
     }

@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test'
 import * as Arr from 'effect/Array'
-import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
@@ -9,14 +8,12 @@ import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as References from 'effect/References'
 import * as Stream from 'effect/Stream'
-import { RejectedInput } from './rejection.ts'
 import type { Subscription } from './subscription.ts'
 import { isRejected, reject } from './update.ts'
-import { type Dispatch, dispatchUnsafe, type Offered } from './offer.ts'
+import { type Dispatch, dispatchTo } from './dispatch.ts'
 import { parent } from './compose.ts'
-import { type FlagsOf, modelOf, type Program } from './program.ts'
+import type { FlagsOf, MessageOf, Program } from './program.ts'
 import { type Frame, run } from './run.ts'
-import { messageOf } from './testing/message-of.ts'
 
 // A counter that cannot go below zero, that saves on request, and that accepts typed numbers only.
 type CounterMessage = Data.TaggedEnum<{
@@ -35,10 +32,10 @@ type Counter = Readonly<{ count: number; text: string; saving: boolean }>
 
 type CounterModel = Readonly<{
   count: number
-  increment: Offered<CounterMessage>
-  decrement: Opt.Option<Offered<CounterMessage>>
-  type: (text: string) => Offered<CounterMessage>
-  save: Opt.Option<Offered<CounterMessage>>
+  increment: CounterMessage
+  decrement: Opt.Option<CounterMessage>
+  type: (text: string) => CounterMessage
+  save: Opt.Option<CounterMessage>
 }>
 
 // A parent may decrement it, as a back button would: its other messages are its own.
@@ -71,12 +68,12 @@ const counter: Program<{
     }
   },
   runCommand: () => Effect.succeed(Opt.some(CounterMessage.Saved())),
-  makeModel: (state, { offer, offerInput }) => ({
+  makeModel: (state) => ({
     count: state.count,
-    increment: offer(CounterMessage.Increment()),
-    decrement: state.count > 0 ? Opt.some(offer(CounterMessage.Decrement())) : Opt.none(),
-    type: offerInput((text) => CounterMessage.Typed({ text }), state.text),
-    save: state.saving ? Opt.none() : Opt.some(offer(CounterMessage.SaveClicked())),
+    increment: CounterMessage.Increment(),
+    decrement: state.count > 0 ? Opt.some(CounterMessage.Decrement()) : Opt.none(),
+    type: (text) => CounterMessage.Typed({ text }),
+    save: state.saving ? Opt.none() : Opt.some(CounterMessage.SaveClicked()),
   }),
 }
 
@@ -129,25 +126,27 @@ const app = Parent.compose({
     Left: () => (state) => ({ state: { ...state, saves: state.saves + 1 } }),
     Right: () => (state) => ({ state: { ...state, saves: state.saves + 1 } }),
   },
-  makeModel: (state, { offer, children }) => ({
+  makeModel: (state, children) => ({
     left: children.Left(state),
     maybeRight: Opt.map(state.maybeRight, () => children.Right(state)),
-    reset: offer({ _tag: 'Reset' }),
+    reset: { _tag: 'Reset' } as Reset,
   }),
 })
 
 type Model = ReturnType<typeof app.makeModel>
+
+type AppMessage = MessageOf<typeof app>
 
 /**
  * Runs `program` with a renderer that hands each frame to `act`, until `act` says it is done; returns what the
  * renderer saw. Logs nothing: some tests make the run die on purpose.
  */
 const script = <M>(
-  program: Program<{ state: ParentState; model: M; message: unknown; command: unknown }>,
-  act: (frame: Frame<M>, index: number) => Effect.Effect<boolean>,
+  program: Program<{ state: ParentState; model: M; message: AppMessage; command: unknown }>,
+  act: (frame: Frame<M, AppMessage>, index: number) => Effect.Effect<boolean>,
   state: ParentState = program.init.state,
 ) => {
-  const seen: Array<Frame<M>> = []
+  const seen: Array<Frame<M, AppMessage>> = []
   return run(
     { ...program, init: { ...program.init, state } },
     (frames) =>
@@ -158,7 +157,6 @@ const script = <M>(
         })),
         () => Effect.void,
       ),
-    { onRejectedInput: 'die' },
   ).pipe(
     Effect.timeout('2 seconds'),
     Effect.as(seen),
@@ -167,62 +165,70 @@ const script = <M>(
   )
 }
 
-const asProgram = app as unknown as Program<{ state: ParentState; model: Model; message: unknown; command: unknown }>
+const asProgram = app as unknown as Program<
+  { state: ParentState; model: Model; message: AppMessage; command: unknown }
+>
 
-const send = (dispatch: Dispatch, offered: Offered<unknown>) => dispatch(offered)
+const left = (frame: Frame<Model, AppMessage>) => dispatchTo(frame.dispatch, 'Left')
 
-describe('next: offers as tokens', () => {
-  test('one dispatch for every frame, and a child sends through it as it is', async () => {
+/** A dispatch that keeps what it is sent, for `dispatchTo` to wrap. */
+const recording = <Message>() => {
+  const sent: Array<Message> = []
+  const dispatch: Dispatch<Message> = (message) => Effect.sync(() => sent.push(message))
+  return { sent, dispatch }
+}
+
+describe('next: dispatch', () => {
+  test('one dispatch for every frame, and the same dispatch for a child in every frame', async () => {
     const exit = await script(
       asProgram,
       (frame, index) =>
-        index < 3 ? send(frame.dispatch, frame.model.left.increment).pipe(Effect.as(false)) : Effect.succeed(true),
+        index < 3 ? left(frame)(frame.model.left.increment).pipe(Effect.as(false)) : Effect.succeed(true),
     )
     const seen = Exit.isSuccess(exit) ? exit.value : []
     expect(seen.map((frame) => frame.model.left.count)).toEqual([0, 1, 2, 3])
     expect(new Set(seen.map((frame) => frame.dispatch)).size).toBe(1)
+    expect(new Set(seen.map(left)).size).toBe(1)
   })
 
-  test('a token holds the message its whole program receives', () => {
-    const model = modelOf(asProgram)(app.init.state)
-    expect(messageOf(model.left.increment)).toEqual({ _tag: 'Left', message: CounterMessage.Increment() })
+  test('a child\'s dispatch wraps its messages as its parent receives them, at every level', () => {
+    const { sent, dispatch } = recording<MessageOf<typeof lists>>()
+    const row = dispatchTo(dispatchTo(dispatch, 'Lists', 'A'), 'Rows', 1)
+    Effect.runSync(row(CounterMessage.Increment()))
+    Effect.runSync(dispatchTo(dispatchTo(dispatch, 'Lists', 'B'), 'Rows', 1)(CounterMessage.Increment()))
+    expect(sent).toEqual(['A', 'B'].map((id) => ({
+      _tag: 'Lists',
+      id,
+      message: { _tag: 'Rows', id: 1, message: CounterMessage.Increment() },
+    })))
+    expect(dispatchTo(dispatchTo(dispatch, 'Lists', 'A'), 'Rows', 1)).toBe(row)
+    expect(dispatchTo(dispatchTo(dispatch, 'Lists', 'A'), 'Rows', 2)).not.toBe(row)
+    // @ts-expect-error: a name that is no child's gives nothing to send with.
+    expect(() => dispatchTo(dispatch, 'Rows')(CounterMessage.Increment())).toBeDefined()
   })
 
-  test('a double tap acts once: the second message is stale', async () => {
+  test('a double tap acts once: the second message is rejected, and ignored', async () => {
     const at = { ...app.init.state, left: { ...counter.init.state, count: 1 } }
     const exit = await script(asProgram, (frame, index) => {
       if (index > 0) return Effect.succeed(true)
       const decrement = Opt.getOrThrow(frame.model.left.decrement)
-      return send(frame.dispatch, decrement).pipe(Effect.andThen(send(frame.dispatch, decrement)), Effect.as(false))
+      return left(frame)(decrement).pipe(Effect.andThen(left(frame)(decrement)), Effect.as(false))
     }, at)
     expect(Exit.isSuccess(exit) && exit.value.map((frame) => frame.model.left.count)).toEqual([1, 0])
   })
 
-  test('a typed value that update rejects is a bug, reported as onRejectedInput says', async () => {
-    const exit = await script(
-      asProgram,
-      (frame) => send(frame.dispatch, frame.model.left.type('not a number')).pipe(Effect.as(false)),
-    )
-    expect(Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof RejectedInput).toBe(true)
-  })
-
-  test('a token of another run kills the run', async () => {
-    const foreign = modelOf(asProgram)(app.init.state).left.increment
-    const exit = await script(asProgram, (frame) => send(frame.dispatch, foreign).pipe(Effect.as(false)))
-    expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain('another run')
-  })
-
-  // In development a view is bundled with a copy of the library of its own: tokens are read by fields only.
-  test('a token goes through a second copy of the library', async () => {
-    // A query makes Bun load the module again, as a second bundle would.
-    const second = './offer.ts?copy'
-    const copy = await import(second) as typeof import('./offer.ts')
-    expect(copy.dispatchUnsafe).not.toBe(dispatchUnsafe)
+  test('a message update rejects is ignored, and the run goes on', async () => {
     const exit = await script(asProgram, (frame, index) =>
       index === 0
-        ? Effect.sync(() => copy.dispatchUnsafe(frame.dispatch)(frame.model.left.increment)).pipe(Effect.as(false))
+        ? left(frame)(frame.model.left.type('not a number')).pipe(
+          Effect.andThen(left(frame)(frame.model.left.increment)),
+          Effect.as(false),
+        )
         : Effect.succeed(true))
-    expect(Exit.isSuccess(exit) && exit.value.map((frame) => frame.model.left.count)).toEqual([0, 1])
+    expect(Exit.isSuccess(exit) && exit.value.map((frame) => frame.model.left)).toEqual([
+      expect.objectContaining({ count: 0 }),
+      expect.objectContaining({ count: 1 }),
+    ])
   })
 })
 
@@ -230,7 +236,7 @@ describe('next: compose', () => {
   test('a child\'s commands run, and their messages reach it, and its events its parent', async () => {
     const exit = await script(asProgram, (frame, index) =>
       index === 0
-        ? send(frame.dispatch, Opt.getOrThrow(frame.model.left.save)).pipe(Effect.as(false))
+        ? left(frame)(Opt.getOrThrow(frame.model.left.save)).pipe(Effect.as(false))
         : Effect.succeed(frame.model.left.count === 0 && Opt.isSome(frame.model.left.save)))
     expect(Exit.isSuccess(exit)).toBe(true)
   })
@@ -262,7 +268,7 @@ describe('next: compose', () => {
           Pinger: Pings.child(pinger, { get: (s) => Opt.some(s.pinger), set: (s, p) => ({ ...s, pinger: p }) }),
         },
         onEvent: { Pinger: () => (state) => ({ state: onPinged(state) }) },
-        makeModel: (state, { children }) => children.Pinger(state),
+        makeModel: (state, children) => children.Pinger(state),
       })
     const before = pingers((state) => state).init.state
     const kept = pingers((state) => state).update({ _tag: 'Pinger', message: 'Ping' })(before)
@@ -281,16 +287,14 @@ describe('next: compose', () => {
   })
 
   test('the model of a child that is not there is a defect', () => {
-    expect(() =>
-      app.makeModel(app.init.state, {
-        offer: () => {
-          throw new Error('unused')
-        },
-        offerInput: () => () => {
-          throw new Error('unused')
-        },
-      })
-    ).toThrow()
+    const Broken = parent<{ state: ParentState }>()
+    const broken = Broken.compose({
+      init: () => ({ state: app.init.state }),
+      children: { Right: Broken.child(counter, { get: (s) => s.maybeRight, set: (s) => s }) },
+      onEvent: { Right: () => (state) => ({ state }) },
+      makeModel: (state, children) => children.Right(state),
+    })
+    expect(() => broken.makeModel(app.init.state)).toThrow()
   })
 
   test('a child listens under its name, and only when subscribed', () => {
@@ -302,19 +306,21 @@ describe('next: compose', () => {
     expect(keys).toEqual([['Ticker', 'ticks']])
   })
 
-  test('a child\'s model is kept while its state is the same object, in each run apart', () => {
-    const model = modelOf(asProgram)
+  test('a child\'s model is kept while its state is the same object', () => {
     const state = { ...app.init.state, maybeRight: Opt.some(counter.init.state) }
-    const first = model(state)
-    expect(model({ ...state, saves: 1 }).left).toBe(first.left)
-    expect(model({ ...state, left: { ...state.left, count: 1 } }).left).not.toBe(first.left)
+    const first = app.makeModel(state)
+    expect(app.makeModel({ ...state, saves: 1 }).left).toBe(first.left)
+    expect(app.makeModel({ ...state, left: { ...state.left, count: 1 } }).left).not.toBe(first.left)
   })
 
-  test('one program as two children, in the very same state object, sends for its own place', () => {
-    const model = modelOf(asProgram)({ ...app.init.state, maybeRight: Opt.some(counter.init.state) })
-    const right = Opt.getOrThrow(model.maybeRight)
-    expect(right).not.toBe(model.left)
-    expect([messageOf(model.left.increment), messageOf(right.increment)]).toEqual([
+  // A model depends only on its state: what tells the two children apart is the dispatch each one's view gets.
+  test('one program as two children, in the very same state object, has one model', () => {
+    const model = app.makeModel({ ...app.init.state, maybeRight: Opt.some(app.init.state.left) })
+    expect(Opt.getOrThrow(model.maybeRight)).toBe(model.left)
+    const { sent, dispatch } = recording<AppMessage>()
+    Effect.runSync(dispatchTo(dispatch, 'Left')(model.left.increment))
+    Effect.runSync(dispatchTo(dispatch, 'Right')(model.left.increment))
+    expect(sent).toEqual([
       { _tag: 'Left', message: CounterMessage.Increment() },
       { _tag: 'Right', message: CounterMessage.Increment() },
     ])
@@ -344,7 +350,7 @@ const list = List.compose({
   onEvent: {
     Rows: (id) => (state) => ({ state: { rows: state.rows.filter((row) => row.id !== id) } }),
   },
-  makeModel: (state, { children }) => state.rows.map(({ id }) => ({ id, model: children.Rows(state, id) })),
+  makeModel: (state, children) => state.rows.map(({ id }) => ({ id, model: children.Rows(state, id) })),
 })
 
 // New rows often share one initial state object: here, all of them.
@@ -366,7 +372,7 @@ const lists = Nested.compose({
       subscribed: (state) => state.rows.map(({ id, list }) => [id, list] as const),
     }),
   },
-  makeModel: (state, { children }) => state.rows.map(({ id }) => children.Lists(state, id)),
+  makeModel: (state, children) => state.rows.map(({ id }) => ({ id, rows: children.Lists(state, id) })),
 })
 
 describe('next: children by id', () => {
@@ -375,30 +381,25 @@ describe('next: children by id', () => {
     expect(!isRejected(result) && result.state.rows.map((row) => row.counter.count)).toEqual([0, 1])
   })
 
-  // The case `embedEach` gets away with: its offers are plain messages, wrapped with the id by the view.
-  test('children that share one state object get models of their own, whose offers carry their id', () => {
-    const [first, second] = modelOf(list)(rows(1, 2))
-    expect(first?.model).not.toBe(second?.model)
-    expect(second && messageOf(second.model.increment)).toEqual({
-      _tag: 'Rows',
-      id: 2,
-      message: CounterMessage.Increment(),
-    })
+  test('children that share one state object share its model, and their dispatch adds their id', () => {
+    const [first, second] = list.makeModel(rows(1, 2))
+    expect(first?.model).toBe(second?.model)
+    const { sent, dispatch } = recording<MessageOf<typeof list>>()
+    Effect.runSync(dispatchTo(dispatch, 'Rows', 2)(CounterMessage.Increment()))
+    expect(sent).toEqual([{ _tag: 'Rows', id: 2, message: CounterMessage.Increment() }])
   })
 
-  test('a child\'s model is kept while its state and id are the same', () => {
+  test('a child\'s model is kept while its state is the same object', () => {
     const state = rows(1, 2)
-    const model = modelOf(list)
-    expect(model({ rows: [...state.rows] })[1]?.model).toBe(model(state)[1]?.model)
+    expect(list.makeModel({ rows: [...state.rows] })[1]?.model).toBe(list.makeModel(state)[1]?.model)
   })
 
-  test('a child\'s model is let go once the last two frames have not shown it', async () => {
-    const model = modelOf(list)
-    const first = model(rows(1))[0]?.model
-    const released = new WeakRef(first ?? {})
-    model(rows(2))
-    model(rows(3))
-    expect(model(rows(1))[0]?.model).not.toBe(first)
+  test('a child\'s model is let go with its state', async () => {
+    const make = () => {
+      const model = list.makeModel({ rows: [{ id: 1, counter: { ...counter.init.state } }] })[0]?.model
+      return new WeakRef(model ?? {})
+    }
+    const released = make()
     // A WeakRef keeps its target until the current job ends.
     await Promise.resolve()
     Bun.gc(true)
@@ -406,10 +407,9 @@ describe('next: children by id', () => {
   })
 
   test('the models of ids shown once each, under one shared state, do not pile up', () => {
-    const model = modelOf(list)
     Bun.gc(true)
     const before = process.memoryUsage().heapUsed
-    for (let id = 0; id < 50_000; id++) model(rows(id))
+    for (let id = 0; id < 50_000; id++) list.makeModel(rows(id))
     Bun.gc(true)
     expect(process.memoryUsage().heapUsed - before).toBeLessThan(5_000_000)
   })
@@ -417,7 +417,7 @@ describe('next: children by id', () => {
   // Lists A and B, each with counter 1 in the counter's initial state. Each of the first `frames` frames
   // increments A's counter, or B's on frame `bumpingB`; returns the frames.
   const nested = (frames: number, bumpingB?: number) => {
-    const seen: Array<Frame<ReturnType<typeof lists.makeModel>>> = []
+    const seen: Array<Frame<ReturnType<typeof lists.makeModel>, MessageOf<typeof lists>>> = []
     return run(
       { ...lists, init: { state: { rows: [{ id: 'A', list: rows(1) }, { id: 'B', list: rows(1) }] } } },
       (stream) =>
@@ -425,48 +425,37 @@ describe('next: children by id', () => {
           Stream.tap((frame) => {
             seen.push(frame)
             const index = seen.length - 1
-            const [a, b] = frame.model
-            const counter = (index === bumpingB ? b : a)?.[0]?.model
-            return index < frames && counter !== undefined ? frame.dispatch(counter.increment) : Effect.void
+            const id = index === bumpingB ? 'B' : 'A'
+            const counter = frame.model.find((list) => list.id === id)?.rows[0]?.model
+            const send = dispatchTo(dispatchTo(frame.dispatch, 'Lists', id), 'Rows', 1)
+            return index < frames && counter !== undefined ? send(counter.increment) : Effect.void
           }),
           Stream.take(frames + 1),
           Stream.runDrain,
         ),
-      { onRejectedInput: 'die' },
     ).pipe(Effect.as(seen))
   }
 
   test('in a run, a nested child that did not change keeps its model from frame to frame', async () => {
     const [first, second, third] = (await Effect.runPromise(nested(2))).map((frame) => frame.model)
-    expect(second?.[1]?.[0]?.model).toBe(first?.[1]?.[0]?.model)
-    expect(third?.[1]?.[0]?.model).toBe(first?.[1]?.[0]?.model)
-    expect(second?.[0]?.[0]?.model).not.toBe(first?.[0]?.[0]?.model)
-    expect(third?.[0]?.[0]?.model.count).toBe(2)
+    expect(second?.[1]?.rows[0]?.model).toBe(first?.[1]?.rows[0]?.model)
+    expect(third?.[1]?.rows[0]?.model).toBe(first?.[1]?.rows[0]?.model)
+    expect(second?.[0]?.rows[0]?.model).not.toBe(first?.[0]?.rows[0]?.model)
+    expect(third?.[0]?.rows[0]?.model.count).toBe(2)
   })
 
-  test('an offer of a model kept from an older frame is applied', async () => {
+  test('a message from a model kept from an older frame is applied', async () => {
     const seen = await Effect.runPromise(nested(2, 1))
-    expect(seen[1]?.model[1]?.[0]?.model).toBe(seen[0]?.model[1]?.[0]?.model)
-    expect(seen.map((frame) => frame.model[1]?.[0]?.model.count)).toEqual([0, 0, 1])
+    expect(seen[1]?.model[1]?.rows[0]?.model).toBe(seen[0]?.model[1]?.rows[0]?.model)
+    expect(seen.map((frame) => frame.model[1]?.rows[0]?.model.count)).toEqual([0, 0, 1])
   })
 
-  test('two runs of one program at once keep their models apart', async () => {
+  test('two runs of one program at once do not mix', async () => {
     const runs = await Effect.runPromise(Effect.all([nested(3), nested(3)], { concurrency: 'unbounded' }))
-    expect(runs.map((seen) => seen.map((frame) => frame.model[0]?.[0]?.model.count))).toEqual([
+    expect(runs.map((seen) => seen.map((frame) => frame.model[0]?.rows[0]?.model.count))).toEqual([
       [0, 1, 2, 3],
       [0, 1, 2, 3],
     ])
-  })
-
-  test('the children of two children that share their state and ids send for their own parent', () => {
-    // Both lists hold one counter with id 1, in the counter's initial state: only their places differ.
-    const [a, b] = modelOf(lists)({ rows: [{ id: 'A', list: rows(1) }, { id: 'B', list: rows(1) }] })
-    const sent = (models: typeof a) => models?.[0] && messageOf(models[0].model.increment)
-    expect([sent(a), sent(b)]).toEqual(['A', 'B'].map((id) => ({
-      _tag: 'Lists',
-      id,
-      message: { _tag: 'Rows', id: 1, message: CounterMessage.Increment() },
-    })))
   })
 
   test('a child\'s commands come back to it, and its events reach the parent with its id', async () => {

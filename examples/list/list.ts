@@ -43,8 +43,8 @@ export const list = compose({
       state: { ...state, entries: Arr.filter(state.entries, (entry) => entry.id !== id) },
     }),
   },
-  makeModel: (state, { offer, children }) => ({
-    add: offer({ _tag: 'AddClicked' }),
+  makeModel: (state, children) => ({
+    add: { _tag: 'AddClicked' } as AddClicked,
     stopwatches: Arr.map(state.entries, ({ id }) => ({ id, model: children.Stopwatch(state, id) })),
   }),
 })

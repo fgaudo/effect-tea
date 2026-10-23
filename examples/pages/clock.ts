@@ -1,5 +1,5 @@
 // A page with a clock that ticks every second while the page is shown.
-import type { Offered, Program, Subscription, Update } from '@fgaudo/effect-tea'
+import type { Program, Subscription, Update } from '@fgaudo/effect-tea'
 import * as Channel from 'effect/Channel'
 import * as Data from 'effect/Data'
 import * as DateTime from 'effect/DateTime'
@@ -35,14 +35,14 @@ const ticks: Subscription<Message, never> = Channel.forever(
   ),
 )
 
-export type Model = Readonly<{ time: string; openAbout: Offered<Message> }>
+export type Model = Readonly<{ time: string; openAbout: Message }>
 
 export const clock: Program<{ state: State; model: Model; message: Message; event: Event }> = {
   init: { state: { maybeNow: Opt.none() } },
   update,
   subscriptions: () => HashMap.make(['ticks', ticks]),
-  makeModel: (state, { offer }) => ({
+  makeModel: (state) => ({
     time: Opt.match(state.maybeNow, { onNone: () => '', onSome: DateTime.formatIso }),
-    openAbout: offer(Message.AboutClicked()),
+    openAbout: Message.AboutClicked(),
   }),
 }

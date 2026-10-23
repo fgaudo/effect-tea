@@ -7,25 +7,26 @@ the browser.
 
 You keep one **state**. A pure **`update`** changes it in response to messages. Effects are described as
 data (**commands**) or listened to (**subscriptions**), never run inside `update`. The view draws a
-**model** and sends the actions the model **offers**.
+**model**, made from the state, and sends messages.
 
 What it adds to plain Elm:
 
-- **The view and `update` cannot disagree.** `update` may **reject** a message that makes no sense in the
-  current state. The model only contains the actions `update` accepts, each checked as the model is made, so
-  there are no dead buttons. The view cannot build messages of its own: that does not compile.
-- **Double taps are harmless.** A click on an action that the state has meanwhile left behind is ignored: a
+- **`update` says what does not apply.** It may **reject** a message that makes no sense in the current state.
+  The run ignores it, and the testing tools check, for any state, that the view sends only what `update`
+  accepts, and leaves out nothing it accepts.
+- **Double taps are harmless.** A click on an action that the state has meanwhile left behind is rejected: a
   save that moves the form to "saving" runs once, however fast the user taps.
 - **Composition is declared, not wired.** A parent says where each child lives in its state, and the library
   routes the children's messages, commands, subscriptions and models.
-- **Views are cheap to memoize.** One `dispatch` serves the whole program, every frame and every child.
+- **Views are cheap to memoize.** A child's model is the same object while its state is, and its dispatch the
+  same function in every frame.
 
 ## Contents
 
 - [Installation](#installation)
 - [Quick start](#quick-start)
 - [Examples](#examples)
-- [Guide](#guide): [`update`](#update), [the model](#the-model-and-its-offers), [commands](#commands),
+- [Guide](#guide): [`update`](#update), [the model](#the-model), [commands](#commands),
   [subscriptions](#subscriptions), [rejections](#when-update-rejects), [composing](#composing-programs),
   [running](#running), [inputs](#inputs-the-user-types-into), [guarantees](#guarantees), [testing](#testing)
 - [API reference](#api-reference)
@@ -45,13 +46,7 @@ A counter that cannot go below zero. The "renderer" here only logs, and clicks "
 reaches 3; [`examples/counter`](examples/counter) draws the same program with snabbdom.
 
 ```ts
-import {
-  type Offered,
-  type Program,
-  reject,
-  run,
-  type Update,
-} from '@fgaudo/effect-tea'
+import { type Program, reject, run, type Update } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 
@@ -66,27 +61,26 @@ const update: Update<number, Message> = (message) => (count) =>
 
 // At zero there is no `decrement`: the model's shape says so.
 type Model =
-  | Readonly<{ _tag: 'AtZero'; count: number; increment: Offered<Message> }>
+  | Readonly<{ _tag: 'AtZero'; count: number; increment: Message }>
   | Readonly<{
     _tag: 'Counting'
     count: number
-    increment: Offered<Message>
-    decrement: Offered<Message>
+    increment: Message
+    decrement: Message
   }>
 
 const counter: Program<{ state: number; model: Model; message: Message }> = {
   init: { state: 0 },
   update,
-  // Each `offer` asks `update`: offering `Decrement` at zero would throw.
-  makeModel: (count, { offer }) =>
+  makeModel: (count) =>
     count > 0
       ? {
         _tag: 'Counting',
         count,
-        increment: offer('Increment'),
-        decrement: offer('Decrement'),
+        increment: 'Increment',
+        decrement: 'Decrement',
       }
-      : { _tag: 'AtZero', count, increment: offer('Increment') },
+      : { _tag: 'AtZero', count, increment: 'Increment' },
 }
 
 const main = run(counter, (frames) =>
@@ -97,20 +91,20 @@ const main = run(counter, (frames) =>
     })),
     Stream.take(4),
     Stream.runDrain,
-  ), { onRejectedInput: 'die' })
+  ))
 
 Effect.runFork(main) // logs 0, 1, 2, 3
 ```
 
 A program is a plain object with up to five pieces:
 
-| Piece           | What it does                                                         | Needed               |
-| --------------- | -------------------------------------------------------------------- | -------------------- |
-| `init`          | the first state, and the commands to start with                      | always               |
-| `update`        | `(message) => (state) =>` the next state and commands, or `reject`   | always               |
-| `makeModel`     | `(state, offers) =>` what the view draws, with the actions it offers | always               |
-| `runCommand`    | how each command happens, as an Effect                               | when it has commands |
-| `subscriptions` | what it listens to in each state                                     | when it listens      |
+| Piece           | What it does                                                       | Needed               |
+| --------------- | ------------------------------------------------------------------ | -------------------- |
+| `init`          | the first state, and the commands to start with                    | always               |
+| `update`        | `(message) => (state) =>` the next state and commands, or `reject` | always               |
+| `makeModel`     | `(state) =>` what the view draws, with the messages it sends       | always               |
+| `runCommand`    | how each command happens, as an Effect                             | when it has commands |
+| `subscriptions` | what it listens to in each state                                   | when it listens      |
 
 Its type names its types: `Program<{ state; model; message }>`, plus `command`, `services`, `event`,
 `external` and `flags` when it has them. The view is not part of it: `run` hands your renderer a stream of
@@ -129,9 +123,9 @@ each with its tests. Try one in the browser, or run it with `bun run build`, the
 
 | Example                       | What it shows                                                                                             | Try it                                                        |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| [`counter`](examples/counter) | the quick start with a view; `applyAll`, `dispatchViolations`, `missingOffers`, `drive`                   | [live](https://fgaudo.github.io/effect-tea/examples/counter/) |
+| [`counter`](examples/counter) | the quick start with a view; `applyAll`, `dispatchViolations`, `missingActions`, `drive`                  | [live](https://fgaudo.github.io/effect-tea/examples/counter/) |
 | [`form`](examples/form)       | an input the user owns while typing; a service and `attempt`; a save only its completion ends; `rehearse` | [live](https://fgaudo.github.io/effect-tea/examples/form/)    |
-| [`pages`](examples/pages)     | two pages with `parent`, events, `subscribed`, a child's commands, a page started from flags; `simulate`  | [live](https://fgaudo.github.io/effect-tea/examples/pages/)   |
+| [`pages`](examples/pages)     | two pages with `parent`, `dispatchTo`, events, `subscribed`, a page started from flags; `simulate`        | [live](https://fgaudo.github.io/effect-tea/examples/pages/)   |
 | [`list`](examples/list)       | stopwatches by id with `each`, a subscription per running child; a test with a `TestClock`                | [live](https://fgaudo.github.io/effect-tea/examples/list/)    |
 
 [`examples/snabbdom.ts`](examples/snabbdom.ts) is the small bridge to the renderer, worth copying for your
@@ -147,8 +141,7 @@ types survives the frames drawn meanwhile.
 `update` takes a message, then the state, and returns `{ state, commands?, events? }`, or `reject` when the
 message makes no sense in that state.
 
-- **Keep it pure.** It returns commands instead of running effects. The library also calls it to check
-  offers, so keep it cheap.
+- **Keep it pure.** It returns commands instead of running effects.
 - **Never mutate the state**, nested objects included: return a new one. A message that returns the very same
   state draws no new frame.
 - **Conditions live here.** "Can the user save now?" is answered once, by rejecting. The view never repeats
@@ -158,58 +151,50 @@ message makes no sense in that state.
 - **One-shot actions move to a state that rejects them.** After `SaveClicked` the form is saving and rejects
   a second `SaveClicked`, so a double click saves once.
 
-### The model and its offers
+### The model
 
-`makeModel(state, { offer, offerInput })` turns the state into what the view shows. Its **shape** says which
-actions exist: a case for each state the view tells apart, each holding only the actions that make sense in
-it.
+`makeModel(state)` turns the state into what the view reads. Its **shape** says what the view shows: a case
+for each state the view tells apart, each holding only what makes sense in it, the messages of its controls
+included.
 
 ```ts
 type Editor = Data.TaggedEnum<{
   Saving: object
-  Blank: { changeName: (name: string) => Offered<Message> }
+  Blank: { changeName: (name: string) => Message }
   Named: {
-    changeName: (name: string) => Offered<Message>
-    save: Offered<Message>
+    changeName: (name: string) => Message
+    save: Message
   }
 }>
 
-const makeModel = (
-  state: State,
-  { offer, offerInput }: Offers<Message>,
-): Editor => {
-  const changeName = offerInput(
-    (name: string) => Message.NameChanged({ name }),
-    state.name,
-  )
+const makeModel = (state: State): Editor => {
+  const changeName = (name: string) => Message.NameChanged({ name })
   return state.isSaving
     ? { _tag: 'Saving' }
     : isBlank(state.name)
     ? { _tag: 'Blank', changeName }
-    : { _tag: 'Named', changeName, save: offer(Message.SaveClicked()) }
+    : { _tag: 'Named', changeName, save: Message.SaveClicked() }
 }
 ```
 
-- `offer(message)` makes an action. `offerInput(toMessage, current)` makes a function from what the user types
-  or picks to an action: the view calls it with each value.
-- Each offer asks `update`; an `offerInput` asks with `current`, and later with each value. Offering something
-  it rejects throws **`RejectedOffer`** at once: a bug in the model, found the first time it is drawn rather
-  than as a button that does nothing.
-- Pick the case from the state. Never pick it by trying offers: that would hide the disagreement.
-- A model may offer **less** than `update` accepts, never more.
-- Each check is a call to `update`: in a long list, offer actions only for the rows in sight.
+- Pick the case from the state, as `update` reads it. A model that shows "Save" where `update` rejects
+  `SaveClicked` has a button that does nothing: the run does not check it, the [testing](#testing) tools do,
+  for any state.
+- A model may show **less** than `update` accepts, never more.
+- `makeModel` is pure, so a test makes a model as `run` does: `program.makeModel(state)`.
 
-A view is `(model, dispatch) => Node`. `dispatch` only takes offers, so a hand-built message does not compile:
+With its messages in the model, as here, a view sends only what the model holds: export `Message` as a type
+only, and no view can build one. A view may also build its messages itself, from a model of data alone; the
+library does not mind, but a program reads more easily when it does one or the other.
 
-```ts
-dispatch({ _tag: 'SaveClicked' }) // error: not an Offered
-```
+A view is `(model, dispatch) => Node`, and `dispatch` takes the program's messages. Sending returns an
+`Effect<void>`. A renderer whose handlers are plain callbacks, like snabbdom's, wraps the dispatch with
+`dispatchUnsafe(dispatch)` to send at once.
 
-Sending returns an `Effect<void>`. A renderer whose handlers are plain callbacks, like snabbdom's, wraps the
-dispatch with `dispatchUnsafe(dispatch)` to send at once.
-
-**Input is never a reason to reject.** Store what is typed, and make its validity model data: offer "Save" only
-for a name that is not blank. A typed value that `update` rejects is a [bug](#when-update-rejects).
+**Input is never a reason to reject.** The input keeps what the user typed whatever `update` says (see
+[inputs](#inputs-the-user-types-into)), so a value `update` rejects would leave on screen a text the state does
+not have. Store what is typed, and make its validity model data: show "Save" only for a name that is not
+blank.
 
 ### Commands
 
@@ -301,23 +286,24 @@ runCommand: (command) =>
 
 ### When `update` rejects
 
-A rejection is either stale or a bug. A stale one is normal: the state has moved on since the message was
-sent, so it no longer applies. A bug means that the model and `update` disagree. The library tells them apart
-by where the message came from:
+`reject` means one thing: the message does not apply in this state. The run ignores it, logs it at the debug
+level, and the state stays as it was: a second click, or an answer that arrives once the state has moved on,
+changes nothing.
 
-| The message came from                                                             | What happens                                 |
-| --------------------------------------------------------------------------------- | -------------------------------------------- |
-| an offer the state has moved past (e.g. a double tap)                             | stale: ignored                               |
-| a command or a subscription that arrived too late                                 | stale: ignored                               |
-| a value typed into an `offerInput`, already rejected by the state that offered it | a **bug**: handled as `onRejectedInput` says |
+That the view sends only what applies is checked by the tests, where it can be: what the view shows in a state,
+that state must accept. `dispatchViolations` checks it for any state, and the tools in which the test decides
+when each message arrives hold the test to it:
 
-A typed value rejected only when it arrives is stale: the state moved on while the user typed. An offer made by
-another run (e.g. a model made with `modelOf`) is a defect whatever `update` says: it was not checked
-against this run's state.
+|                                                            | A message of the view    | A command's or a subscription's |
+| ---------------------------------------------------------- | ------------------------ | ------------------------------- |
+| The test decides when (`applyAll`, `simulate`, `rehearse`) | rejected: the test fails | rejected: ignored, in `ignored` |
+| Real time (`drive`, and the program as it runs)            | rejected: ignored        | rejected: ignored               |
 
-A defect (an `Effect.die`, a thrown error) is broken code, and the run ends. A rejected input is a condition
-the code did not expect: the state did not change, so the program can go on, and it is the one bug that tests,
-which only sample what users type, can miss. That is why only it is configurable.
+`simulate` takes the messages a subscription would send among the test's own, in the flow it describes: they
+fail the test too. A tap on a frame that the state has since moved past is a message applied to a later state:
+test what it does there with `applyAll`, or with `update` itself.
+
+A defect (an `Effect.die`, a thrown error) is broken code, and the run ends.
 
 ### Composing programs
 
@@ -356,7 +342,7 @@ export const app = compose({
     About: () => (state) => ({ state: { ...state, maybeAbout: Opt.none() } }),
   },
   // Only the page on top is drawn.
-  makeModel: (state, { children }) =>
+  makeModel: (state, children) =>
     Opt.isNone(state.maybeAbout)
       ? { _tag: 'Clock' as const, model: children.Clock(state) }
       : { _tag: 'About' as const, model: children.About(state) },
@@ -373,10 +359,8 @@ What the parent writes:
 
 What the library gives it:
 
-- **`children` in `makeModel`:** `children.About(state)` is the child's model, with its own offers. It is
-  reused from one frame to the next while the child's state is the same object, so a renderer can skip
-  redrawing it (see `thunk` in [`pages`](examples/pages/view.ts)). Only the models of the last two frames are
-  kept.
+- **`children` in `makeModel`:** `children.About(state)` is the child's model. It is the same object while the
+  child's state is, so a renderer can skip redrawing it (see `thunk` in [`pages`](examples/pages/view.ts)).
 - **`children` in `init`, `update` and `onEvent`:** `init` starts a child, and `update` gives it one of the
   messages its type declares as `external` (e.g. a back button). A parent's `init` is a function of them, so
   that a child there from the start is started like any other: `children.Clock.init` holds its state and its
@@ -390,9 +374,29 @@ What the library gives it:
   children by id): `HashMap.has(subscriptionsOf(app)(state), ['Clock', 'ticks'])` tells a test whether the Clock
   ticks.
 
+A child's view sends the child's own messages, through a dispatch of its own: `dispatchTo(dispatch, 'Clock')`
+wraps them as the parent receives them. It is the same function in every frame, so a view memoized on its
+model and its dispatch is drawn again only when its model changes:
+
+```ts
+const view: View<Model, Message, VNode> = (model, dispatch) =>
+  model.page._tag === 'Clock'
+    ? thunk('main', 'clock', clockView, [
+      model.page.model,
+      dispatchTo(dispatch, 'Clock'),
+    ])
+    : thunk('main', 'about', aboutView, [
+      model.page.model,
+      dispatchTo(dispatch, 'About'),
+    ])
+```
+
+A grandchild's is its parent's child's: `dispatchTo(dispatchTo(dispatch, 'Home'), 'Products')`, which a view
+usually writes in two steps, each view taking the dispatch its parent gave it.
+
 For children by id, such as the rows of a list, use `each` instead of `child`: `get` and `set` take the id,
-`subscribed` lists the rows that listen, and `children.Row(state, id)` is a row's model. See
-[`list`](examples/list/list.ts).
+`subscribed` lists the rows that listen, `children.Row(state, id)` is a row's model and
+`dispatchTo(dispatch, 'Row', id)` its dispatch. See [`list`](examples/list/list.ts).
 
 Mind ids that come back. A command's answer goes to the id it was started for, to whichever row has that id
 when it arrives. If a row is removed and another is added with its id, the new row may get the old row's
@@ -401,18 +405,13 @@ answer. Use ids that are never reused, or put in the message which row it is for
 
 ### Running
 
-`run(program, render, options)` starts the program and hands `render` a stream of frames. The run ends when
+`run(program, render, options?)` starts the program and hands `render` a stream of frames. The run ends when
 the renderer ends. A renderer slower than the program only gets the latest frame, so a renderer that waits
 for the next animation frame before taking another draws at most once per screen refresh, as
 [`examples/snabbdom.ts`](examples/snabbdom.ts) does. Options:
 
 - **`flags`**: what the program starts from, required exactly when it has them, e.g. the product a
   notification opened the app for.
-- **`onRejectedInput`** (required): `'die'` fails the run with `RejectedInput`, what you want while developing.
-  A function gets that same `RejectedInput` to report (e.g. to a crash-reporting service), and the program
-  goes on. Its `message` names only tags; `rejected` holds the message as typed, so also what the user typed:
-  take it out, or what must not leave the device, before sending it. A `RejectedOffer` holds its `rejected`
-  message too.
 - **`describeMessage`**, **`describeCommand`**: how messages and commands appear in the logs. By default only
   their tags, never their data: `Home › Products › Deleted`. The debug logs of subscriptions show their keys,
   which may hold data (an id, a search's text).
@@ -447,10 +446,8 @@ does the same with `defaultValue` and `key`.
 
 What you can rely on:
 
-- **No dead buttons.** Each offer is checked against `update` when the model is made. Offering something it
-  rejects throws `RejectedOffer` the first time that model is drawn.
-- **Outdated clicks are harmless.** An offer the state has moved past is ignored, however many messages came
-  in between. Of the rejected messages, only a typed value is a bug.
+- **Outdated clicks are harmless.** A message `update` rejects is ignored: the state stays as it was, however
+  many messages came in between.
 - **Subscriptions follow their keys.** A subscription runs exactly while its key is in the state. When the key
   goes away, it is interrupted and releases what it holds, and nothing it sent reaches `update` afterwards,
   even if the same key comes back later.
@@ -471,8 +468,10 @@ What is left to you:
   `update` decides whether it still applies (see [commands](#commands), and ids that come back in
   [composing](#composing-programs)).
 - **A slow renderer skips frames**: it gets only the latest one.
-- **`update` and `makeModel` are pure, and states are never mutated.** The library calls `update` to check
-  offers, and reuses a child's model from one frame to the next while its state is the same object.
+- **The view sends what `update` accepts.** The run does not check it: `dispatchViolations` and
+  `missingActions` do, in tests (see [testing](#testing)).
+- **`update` and `makeModel` are pure, and states are never mutated.** The library reuses a child's model while
+  its state is the same object.
 
 The library's tests check each guarantee. [`src/interleaving.test.ts`](src/interleaving.test.ts) checks
 them under random orders of clicks, command answers and subscription messages.
@@ -485,7 +484,7 @@ Most of a program is pure, so most tests need no runtime. From `@fgaudo/effect-t
 | -------------------- | ----------------------------------------------------------------------------- |
 | `applyAll`           | `update`'s rules: apply messages, check the state, commands and events        |
 | `dispatchViolations` | that everything the view sends is accepted, and a double tap acts once        |
-| `missingOffers`      | that nothing `update` accepts is missing from the view                        |
+| `missingActions`     | that nothing `update` accepts is missing from the view                        |
 | `simulate`           | a flow with its commands answered at once, without a runtime                  |
 | `rehearse`           | a user's scenario without a runtime, the test deciding when each command runs |
 | `drive`              | a user's scenario on the running program, subscriptions included              |
@@ -499,27 +498,26 @@ test('counts up and down', () => {
 // For any count, the real view and `update` agree both ways.
 test('the view sends what update accepts, all of it', () => {
   fc.assert(fc.property(fc.nat(1_000), (count) => {
-    const sent = messagesSentBy<Model, Message>(view, modelOf(counter)(count))
+    const sent = messagesSentBy<Model, Message>(view, counter.makeModel(count))
     expect(dispatchViolations(update, { repeatable: () => true })(count, sent))
       .toEqual([])
-    expect(missingOffers(update)(count, sent, ['Increment', 'Decrement']))
+    expect(missingActions(update)(count, sent, ['Increment', 'Decrement']))
       .toEqual([])
   }))
 })
 ```
 
-- `modelOf(program)(state)` makes a model outside `run`, so a property test can check its offers in any
-  state, and `subscriptionsOf(program)(state)` says what it listens to there. `messageOf(offered)` reads the
-  message an offer sends.
+- `program.makeModel(state)` makes a model as `run` does, so a property test can draw the view in any state,
+  and `subscriptionsOf(program)(state)` says what the program listens to there.
 - `messagesSentBy` is not in the package: it comes from the example bridge
   ([`examples/snabbdom.ts`](examples/snabbdom.ts)), which renders the view and fires every handler. A
   renderer of your own needs one like it.
-- `missingOffers` tries the `candidates` the test lists (what a user could ask for, with the text typed into
+- `missingActions` tries the `candidates` the test lists (what a user could ask for, with the text typed into
   each input) and returns those `update` accepts but the view does not send. `withheld` excludes what the
   model leaves out on purpose, e.g. typing while a save is in progress.
 - `simulate` fails when `update` rejects one of the messages it is given. The command answers that `update`
   rejected are listed in `ignored`: assert it when one being dropped would be a bug.
-- `rehearse` acts only through what the current model offers, as `drive` does, but nothing runs by itself:
+- `rehearse` acts through what the current model shows, as `drive` does, but nothing runs by itself:
   each command waits until the test runs it (`run`, `runAll`), through the program's `runCommand` with the
   services provided, and a subscription's message is one the test says was heard (`hear`), only while its key is
   in the state. So a test says what the user does while a save is under way, and when its answer arrives:
@@ -531,10 +529,10 @@ test('the view sends what update accepts, all of it', () => {
       yield* rehearsal.send(({ editor }) =>
         editor._tag === 'Saving'
           ? Opt.none()
-          : Opt.some(input(editor.changeName, 'Ada'))
+          : Opt.some(editor.changeName('Ada'))
       )
       yield* rehearsal.send(({ editor }) =>
-        editor._tag === 'Named' ? Opt.some(tap(editor.save)) : Opt.none()
+        editor._tag === 'Named' ? Opt.some(editor.save) : Opt.none()
       )
       expect((yield* rehearsal.model).editor._tag).toBe('Saving')
       yield* rehearsal.run((command) => command._tag === 'Save')
@@ -542,12 +540,14 @@ test('the view sends what update accepts, all of it', () => {
   )
   ```
 
-  Rejections are judged as when the program runs, and the stale ones are listed in `ignored`. It fails when the
-  model does not offer what the test sends, and when a command is still pending at the end: its answer would
-  still arrive. It starts from the program's `init`, or from the step given as `from`; a program with flags
+  It fails when `select` finds nothing to send on the model, when `update` rejects what it sends (a control the
+  model shows and its own state rejects), and when a command is still pending at the end: its answer would
+  still arrive. A command's or a subscription's message that no longer applies is ignored, as when the program
+  runs, and listed in `ignored`. It starts from the program's `init`, or from the step given as `from`; a program with flags
   needs either `from` or its `flags`.
-- `drive` acts only through what the frames offer, and fails on a rejected input or a wait longer than
-  `patience` (2 seconds). A program with flags gets them as `run` does, in the options. Its commands run as soon
+- `drive` sends what the frames show, through the run's dispatch, and fails on a wait longer than `patience`
+  (2 seconds). Its time is real: a frame may be past by the time its message arrives, so, as when the program
+  runs, a rejected message is ignored, and a scenario checks what it expects to see. A program with flags gets them as `run` does, in the options. Its commands run as soon
   as they start: to hold one, give the program a service of the test's that waits on a `Deferred` the scenario
   completes.
 
@@ -556,32 +556,27 @@ test('the view sends what update accepts, all of it', () => {
 Each export is documented in full in the [documentation](https://fgaudo.github.io/effect-tea/). From
 `@fgaudo/effect-tea`:
 
-| Export                                            | What it is                                                                                 |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `Program<{ state; model; message; command?; … }>` | `init`, `update`, `runCommand` (with commands), `subscriptions` (optional), `makeModel`    |
-| `StateOf`, `ModelOf`, `MessageOf`, `CommandOf`, … | a program's types, read back from it (`EventOf`, `ExternalOf`, `FlagsOf`, `ServicesOf`)    |
-| `parent`                                          | `parent<{ state; … }>()`: `child`, `each` and `compose`, to make a parent of children      |
-| `Update`, `Transition`, `Step`                    | `(message) => (state) => Step` or `Rejected`; a `Step` is `{ state, commands?, events? }`  |
-| `reject`, `Rejected`, `isRejected`                | the rejection `update` returns, and its check                                              |
-| `Execution<Message, R>`, `RunCommand`             | `Effect<Option<Message>, never, R>`, how a command happens; `(command) => Execution`       |
-| `attempt`                                         | an execution from an effect that may fail: its failure becomes a message; also data-last   |
-| `Subscription`                                    | a `Channel` of messages that never ends, or ends with one last message; kept by key        |
-| `Subscriptions`                                   | `(state) => HashMap<K, Subscription<Message>>`, reconciled by key                          |
-| `modelOf`                                         | a program's model in a state, as `run` makes it, with offers no run applies                |
-| `subscriptionsOf`                                 | what a program listens to in a state, by key, as `run` reconciles it                       |
-| `Offers`                                          | what `makeModel` receives: `offer(message)` and `offerInput(toMessage, current)`           |
-| `Offered`                                         | an action `update` accepts in the model's state, the only kind `dispatch` takes            |
-| `RejectedOffer`                                   | the defect `makeModel` throws when it offers a message `update` rejects                    |
-| `View`, `Dispatch`                                | `(model, dispatch) => Node`; the run's one dispatch, for offers of any level               |
-| `dispatchUnsafe`                                  | a dispatch that sends at once, for a renderer's plain callbacks                            |
-| `run`, `Frame`, `RunOptions`                      | run a program with a renderer; what the renderer draws; how the program runs               |
-| `Applied`                                         | what `onApplied` hears: a message, the states around it, its revision and commands         |
-| `OnRejectedInput`                                 | `'die'`, or a function reporting the `RejectedInput`                                       |
-| `RejectedInput`                                   | a rejected input: the message (`rejected`) and the revision of its offer; `'die'`'s defect |
+| Export                                            | What it is                                                                                |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `Program<{ state; model; message; command?; … }>` | `init`, `update`, `runCommand` (with commands), `subscriptions` (optional), `makeModel`   |
+| `StateOf`, `ModelOf`, `MessageOf`, `CommandOf`, … | a program's types, read back from it (`EventOf`, `ExternalOf`, `FlagsOf`, `ServicesOf`)   |
+| `parent`                                          | `parent<{ state; … }>()`: `child`, `each` and `compose`, to make a parent of children     |
+| `Update`, `Transition`, `Step`                    | `(message) => (state) => Step` or `Rejected`; a `Step` is `{ state, commands?, events? }` |
+| `reject`, `Rejected`, `isRejected`                | the rejection `update` returns, and its check                                             |
+| `Execution<Message, R>`, `RunCommand`             | `Effect<Option<Message>, never, R>`, how a command happens; `(command) => Execution`      |
+| `attempt`                                         | an execution from an effect that may fail: its failure becomes a message; also data-last  |
+| `Subscription`                                    | a `Channel` of messages that never ends, or ends with one last message; kept by key       |
+| `Subscriptions`                                   | `(state) => HashMap<K, Subscription<Message>>`, reconciled by key                         |
+| `subscriptionsOf`                                 | what a program listens to in a state, by key, as `run` reconciles it                      |
+| `View`, `Dispatch`                                | `(model, dispatch) => Node`; `(message) => Effect<void>`, the same in every frame         |
+| `dispatchTo`                                      | a child's dispatch, for its view: wraps its messages as the parent receives them          |
+| `dispatchUnsafe`                                  | a dispatch that sends at once, for a renderer's plain callbacks                           |
+| `run`, `Frame`, `RunOptions`                      | run a program with a renderer; what the renderer draws; how the program runs              |
+| `Applied`                                         | what `onApplied` hears: a message, the states around it, its revision and commands        |
 
-From `@fgaudo/effect-tea/testing`: `messageOf`, `applyAll`, `simulate`, `Simulation`, `rehearse`, `Rehearsal`,
-`RehearseOptions`, `drive`, `DriveOptions`, `Driver`, `Action`, `tap`, `input`, `dispatchViolations`,
-`DispatchViolation`, `missingOffers`.
+From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `rehearse`, `Rehearsal`,
+`RehearseOptions`, `drive`, `DriveOptions`, `Driver`, `dispatchViolations`, `DispatchViolation`,
+`missingActions`.
 
 ## Development
 

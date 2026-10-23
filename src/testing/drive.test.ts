@@ -8,11 +8,8 @@ import * as Opt from 'effect/Option'
 import * as References from 'effect/References'
 import type * as Scope from 'effect/Scope'
 import * as TestClock from 'effect/testing/TestClock'
-import type { Offered } from '../offer.ts'
 import type { Program } from '../program.ts'
-import { RejectedInput } from '../rejection.ts'
 import { reject, type Update } from '../update.ts'
-import { input, tap } from './action.ts'
 import { drive } from './drive.ts'
 
 describe('drive', () => {
@@ -46,16 +43,16 @@ describe('drive', () => {
     }
   }
 
-  // Typing is offered while not saving, and saving only for a text that is not empty.
+  // Typing is shown while not saving, and saving only for a text that is not empty.
   type NoteModel =
-    | Readonly<{ _tag: 'Saving'; note: Note; explode: Offered<Edit> }>
-    | Readonly<{ _tag: 'Empty'; note: Note; changeText: (text: string) => Offered<Edit>; explode: Offered<Edit> }>
+    | Readonly<{ _tag: 'Saving'; note: Note; explode: Edit }>
+    | Readonly<{ _tag: 'Empty'; note: Note; changeText: (text: string) => Edit; explode: Edit }>
     | Readonly<{
       _tag: 'Written'
       note: Note
-      changeText: (text: string) => Offered<Edit>
-      save: Offered<Edit>
-      explode: Offered<Edit>
+      changeText: (text: string) => Edit
+      save: Edit
+      explode: Edit
     }>
 
   const noteProgram = (
@@ -73,20 +70,20 @@ describe('drive', () => {
           Channel.ensuring(onStop),
         ),
       ]),
-    makeModel: (note, { offer, offerInput }): NoteModel => {
-      const explode = offer({ _tag: 'Explode' })
+    makeModel: (note): NoteModel => {
+      const explode: Edit = { _tag: 'Explode' }
       if (note.isSaving) return { _tag: 'Saving', note, explode }
-      const changeText = offerInput((text: string): Edit => ({ _tag: 'Typed', text }), note.text)
+      const changeText = (text: string): Edit => ({ _tag: 'Typed', text })
       return note.text === ''
         ? { _tag: 'Empty', note, changeText, explode }
-        : { _tag: 'Written', note, changeText, save: offer({ _tag: 'Save' }), explode }
+        : { _tag: 'Written', note, changeText, save: { _tag: 'Save' }, explode }
     },
   })
 
   const typing = (text: string) => (model: NoteModel) =>
-    model._tag === 'Saving' ? Opt.none() : Opt.some(input(model.changeText, text))
+    model._tag === 'Saving' ? Opt.none() : Opt.some(model.changeText(text))
 
-  const saving = (model: NoteModel) => model._tag === 'Written' ? Opt.some(tap(model.save)) : Opt.none()
+  const saving = (model: NoteModel) => model._tag === 'Written' ? Opt.some(model.save) : Opt.none()
 
   // The program dies on purpose in some tests: what it logs then is expected.
   const quietly = <A, E>(effect: Effect.Effect<A, E>) =>
@@ -135,11 +132,11 @@ describe('drive', () => {
     expect(await Effect.runPromise(drive(plain, (driver) => driver.waitFor(Opt.some)))).toBe(0)
   })
 
-  test('send waits for a frame that offers the action', async () => {
+  test('send waits for a frame that shows the message', async () => {
     const saved = await Effect.runPromise(drive(
       noteProgram(Effect.void),
       Effect.fnUntraced(function*(driver) {
-        // Not offered while the text is empty.
+        // Not shown while the text is empty.
         yield* Effect.all([driver.send(saving), driver.send(typing('eggs'))], { concurrency: 'unbounded' })
         return yield* driver.waitFor((model) => model.note.saved)
       }),
@@ -152,7 +149,7 @@ describe('drive', () => {
       quietly(drive(
         noteProgram(Effect.void),
         Effect.fnUntraced(function*(driver) {
-          yield* driver.send((model) => Opt.some(tap(model.explode)))
+          yield* driver.send((model) => Opt.some(model.explode))
           return yield* Effect.never
         }),
       )),
@@ -171,17 +168,17 @@ describe('drive', () => {
     expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain('No frame showed')
   })
 
-  test('a typed value that update rejects always fails the scenario', async () => {
-    const exit = await Effect.runPromiseExit(
-      quietly(drive(
-        noteProgram(Effect.void),
-        Effect.fnUntraced(function*(driver) {
-          yield* driver.send(typing('milk\neggs'))
-          return yield* Effect.never
-        }),
-      )),
-    )
-    expect(Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof RejectedInput).toBe(true)
+  test('a message update rejects is ignored, as when the program runs', async () => {
+    const saved = await Effect.runPromise(drive(
+      noteProgram(Effect.void),
+      Effect.fnUntraced(function*(driver) {
+        yield* driver.send(typing('milk\neggs'))
+        yield* driver.send(typing('milk'))
+        yield* driver.send((model) => model.note.text === 'milk' ? saving(model) : Opt.none())
+        return yield* driver.waitFor((model) => model.note.saved)
+      }),
+    ))
+    expect(saved).toBe('milk')
   })
 
   test('a program whose commands acquire needs no scope: each command has its own', async () => {

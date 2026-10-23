@@ -11,15 +11,9 @@ export type Step<State, Command = never, Event = never> = Readonly<{
 }>
 
 /**
- * What `update` returns for a message that makes no sense in the current state.
- *
- * The engine decides what a rejection means from where the message came from:
- * - from a frame whose own state rejects it too: the frame offered an action
- *   that `update` does not accept, i.e. the model and `update` disagree. It is a
- *   bug, however many messages arrived in between.
- * - from a frame whose state accepted it (a click on a frame that was already
- *   outdated, a double tap, …), or from a command or subscription: the message
- *   is stale and is ignored.
+ * What `update` returns for a message that makes no sense in the current state: a second click, an answer
+ * that came too late. The run ignores it, and the state stays as it was. The testing tools tell those from a
+ * control the view shows where `update` rejects its message (`dispatchViolations`).
  */
 export const reject: unique symbol = Symbol.for('@fgaudo/effect-tea/Rejected')
 export type Rejected = typeof reject

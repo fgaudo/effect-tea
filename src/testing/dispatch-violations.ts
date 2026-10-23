@@ -4,8 +4,8 @@ import { isRejected, type Update } from '../update.ts'
 
 /**
  * How a message a view can send breaks its agreement with `update`:
- * - `Rejected`: `update` rejects it in the state the view was drawn from, so the view sent a value the model
- *   offered to type and `update` does not accept;
+ * - `Rejected`: `update` rejects it in the state the view was drawn from, so the control that sends it does
+ *   nothing: a button shown in the wrong state, or a value typed that `update` does not store;
  * - `ActsTwice`: sent twice from the same frame (a double tap), it acts again, so a one-shot action would
  *   happen twice.
  */
@@ -13,8 +13,8 @@ export type DispatchViolation<Message> = Readonly<{ _tag: 'Rejected' | 'ActsTwic
 
 /**
  * Checks the messages a view can send from `state`, as collected from what the renderer draws for
- * `modelOf(program)(state)`: `update` must accept each one, and the same message sent again from that frame must be
- * rejected (so it is ignored as stale) or change nothing (same state by `Equal`, no commands, no events).
+ * `program.makeModel(state)`: `update` must accept each one, and the same message sent again from that frame must be
+ * rejected (so it is ignored) or change nothing (same state by `Equal`, no commands, no events).
  * Actions meant to repeat (a "+1") are excluded with `repeatable`. Returns every violation, so that a test
  * can assert there are none, e.g. for arbitrary states.
  */

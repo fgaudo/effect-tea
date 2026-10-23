@@ -6,11 +6,8 @@ import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
-import type { Offered } from '../offer.ts'
-import { modelOf, type Program } from '../program.ts'
-import { RejectedInput } from '../rejection.ts'
+import type { Program } from '../program.ts'
 import { reject, type Update } from '../update.ts'
-import { input, tap } from './action.ts'
 import { rehearse } from './rehearse.ts'
 
 describe('rehearse', () => {
@@ -51,8 +48,8 @@ describe('rehearse', () => {
 
   type NoteModel =
     | Readonly<{ _tag: 'Saving'; note: Note }>
-    | Readonly<{ _tag: 'Empty'; note: Note; changeText: (text: string) => Offered<Edit> }>
-    | Readonly<{ _tag: 'Written'; note: Note; changeText: (text: string) => Offered<Edit>; save: Offered<Edit> }>
+    | Readonly<{ _tag: 'Empty'; note: Note; changeText: (text: string) => Edit }>
+    | Readonly<{ _tag: 'Written'; note: Note; changeText: (text: string) => Edit; save: Edit }>
 
   const announced: Array<string> = []
 
@@ -71,19 +68,19 @@ describe('rehearse', () => {
           return Opt.none()
         }),
     subscriptions: (note) => note.isSaving ? HashMap.empty() : HashMap.make(['ping', Channel.never]),
-    makeModel: (note, { offer, offerInput }): NoteModel => {
+    makeModel: (note): NoteModel => {
       if (note.isSaving) return { _tag: 'Saving', note }
-      const changeText = offerInput((text: string): Edit => ({ _tag: 'Typed', text }), note.text)
+      const changeText = (text: string): Edit => ({ _tag: 'Typed', text })
       return note.text === ''
         ? { _tag: 'Empty', note, changeText }
-        : { _tag: 'Written', note, changeText, save: offer({ _tag: 'Save' }) }
+        : { _tag: 'Written', note, changeText, save: { _tag: 'Save' } }
     },
   }
 
   const typing = (text: string) => (model: NoteModel) =>
-    model._tag === 'Saving' ? Opt.none() : Opt.some(input(model.changeText, text))
+    model._tag === 'Saving' ? Opt.none() : Opt.some(model.changeText(text))
 
-  const saving = (model: NoteModel) => model._tag === 'Written' ? Opt.some(tap(model.save)) : Opt.none()
+  const saving = (model: NoteModel) => model._tag === 'Written' ? Opt.some(model.save) : Opt.none()
 
   const isStore = (command: NoteCommand) => command._tag === 'Store'
 
@@ -180,23 +177,17 @@ describe('rehearse', () => {
     expect(announced).toEqual(['announced'])
   })
 
-  test('an offer the state has moved past and an answer update rejects are stale: ignored and listed', async () => {
+  test('a command\'s answer that no longer applies is ignored, and listed', async () => {
     const ignored = await Effect.runPromise(withStorage(rehearse(
       program,
       Effect.fnUntraced(function*(rehearsal) {
         // Answered while nothing is saving.
         yield* rehearsal.run(isStore)
-        yield* rehearsal.send(typing('milk'))
-        const written = yield* rehearsal.model
-        yield* rehearsal.send(saving)
-        // A double tap: the second one comes from the frame that offered saving.
-        yield* rehearsal.send(() => saving(written))
-        yield* rehearsal.runAll
         return yield* rehearsal.ignored
       }),
       { from: { state: program.init.state, commands: [{ _tag: 'Store', text: 'old' }] } },
     )))
-    expect(ignored).toEqual([{ _tag: 'Saved', text: 'old' }, { _tag: 'Save' }])
+    expect(ignored).toEqual([{ _tag: 'Saved', text: 'old' }])
   })
 
   test('a subscription\'s message is heard while its key is in the state, and fails the test otherwise', async () => {
@@ -221,9 +212,25 @@ describe('rehearse', () => {
   })
 
   describe('fails the test', () => {
-    test('when the model does not offer what the test sends', async () => {
+    test('when the model does not show what the test sends', async () => {
       expect(String(await failureOf(rehearse(program, (rehearsal) => rehearsal.send(saving)))))
-        .toContain('does not offer')
+        .toContain('does not show')
+    })
+
+    test('when update rejects what the model of the same state shows: a control that does nothing', async () => {
+      expect(String(await failureOf(rehearse(program, (rehearsal) => rehearsal.send(typing('a\nb'))))))
+        .toContain('a control that does nothing')
+      // A tap on an older frame is a message applied to a later state: `send` is not the way to test it.
+      const failure = await failureOf(rehearse(
+        program,
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.send(typing('milk'))
+          const written = yield* rehearsal.model
+          yield* rehearsal.send(saving)
+          yield* rehearsal.send(() => saving(written))
+        }),
+      ))
+      expect(String(failure)).toContain('test it with applyAll')
     })
 
     test('when no pending command matches', async () => {
@@ -240,20 +247,6 @@ describe('rehearse', () => {
         }),
       ))
       expect(String(failure)).toContain('Commands still pending when the scenario ended: Store')
-    })
-
-    test('when a typed value the model offered is rejected by update', async () => {
-      const failure = await failureOf(rehearse(program, (rehearsal) => rehearsal.send(typing('a\nb'))))
-      expect(failure).toBeInstanceOf(RejectedInput)
-      // What was typed is in `rejected`, never in the error's message.
-      expect(failure instanceof RejectedInput && failure.rejected).toEqual({ _tag: 'Typed', text: 'a\nb' })
-      expect(String(failure)).not.toContain('a\nb')
-    })
-
-    test('when an offer comes from another run', async () => {
-      const outside = modelOf(program)(program.init.state)
-      const failure = await failureOf(rehearse(program, (rehearsal) => rehearsal.send(() => typing('milk')(outside))))
-      expect(String(failure)).toContain('another run')
     })
   })
 })

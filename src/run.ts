@@ -1,32 +1,26 @@
 import * as Effect from 'effect/Effect'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
+import type { Dispatch } from './dispatch.ts'
 import * as Engine from './engine.ts'
-import { type Dispatch, rootOffers, tokenOf } from './offer.ts'
 import { runCommandOf, type Shape, startOf, subscriptionsOf } from './program.ts'
 
 /** What a renderer draws: a model, and the dispatch of the run, the very same function for every frame. */
-export type Frame<Model> = Readonly<{ model: Model; dispatch: Dispatch }>
+export type Frame<Model, Message> = Readonly<{ model: Model; dispatch: Dispatch<Message> }>
 
 /** What the program starts from: required exactly when it has flags. */
 export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: never }>
   : Readonly<{ flags: Flags }>
 
-/**
- * Runs `program` from its `flags`, when it has them, and hands its frames to `render`. An offer is verified when
- * its model is made; a rejected one is stale and ignored, but for a typed value `update` rejected when it was
- * typed, a bug handled as `onRejectedInput` says.
- */
+/** `run`, with its options as one value: for `drive`, which passes them on as it got them. */
 // Untraced: a span of its own would be the one the renderer logs into (see `Engine.withExternalSpan`).
-export const run = Effect.fnUntraced(
-  function*<State, Model, Message, Command = never, R = never, RR = never, Flags = never>(
+export const runWith = Effect.fnUntraced(
+  function*<State, Model, Message, Command, R, RR, Flags>(
     program: Shape<State, Model, Message, Command, R, never, unknown, Flags>,
-    render: (frames: Stream.Stream<Frame<Model>>) => Effect.Effect<void, never, RR>,
-    options: Engine.RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>,
+    render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
+    options: Engine.RunOptions<Message, State, Command> & Readonly<{ flags?: unknown }>,
   ): Effect.fn.Return<void, never, R | RR | Scope.Scope> {
-    const { flags, ...runOptions } = options as
-      & Engine.RunOptions<Message, State, Command>
-      & Readonly<{ flags?: unknown }>
+    const { flags, ...runOptions } = options
     const engine = yield* Engine.make({
       ...runOptions,
       init: startOf(program.init, flags),
@@ -34,18 +28,9 @@ export const run = Effect.fnUntraced(
       runCommand: runCommandOf(program),
       subscriptions: subscriptionsOf(program),
     })
-    const dispatch: Dispatch = (offered) => {
-      const { message, ...origin } = tokenOf(offered)
-      return engine.dispatchOffer(message as Message, origin)
-    }
     const frames = engine.states.pipe(
       Stream.buffer({ capacity: 1, strategy: 'sliding' }),
-      Stream.map(({ state, revision }) =>
-        lazyFrame(
-          () => program.makeModel(state, rootOffers(program.update, state, { run: engine.run, revision })),
-          dispatch,
-        )
-      ),
+      Stream.map(({ state }) => lazyFrame(() => program.makeModel(state), engine.dispatch)),
     )
     yield* Effect.raceFirst(
       engine.await,
@@ -55,7 +40,19 @@ export const run = Effect.fnUntraced(
   Effect.scoped,
 )
 
-const lazyFrame = <Model>(makeModel: () => Model, dispatch: Dispatch): Frame<Model> => {
+/**
+ * Runs `program` from its `flags`, when it has them, and hands its frames to `render`. A message `update` rejects
+ * is ignored: the state it was meant for is gone, or it never applied.
+ */
+export const run = <State, Model, Message, Command = never, R = never, RR = never, Flags = never>(
+  program: Shape<State, Model, Message, Command, R, never, unknown, Flags>,
+  render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
+  ...[options = {}]: [Flags] extends [never]
+    ? [options?: Engine.RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>]
+    : [options: Engine.RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
+): Effect.Effect<void, never, Exclude<R | RR, Scope.Scope>> => runWith(program, render, options)
+
+const lazyFrame = <Model, Message>(makeModel: () => Model, dispatch: Dispatch<Message>): Frame<Model, Message> => {
   let made: Readonly<{ model: Model }> | undefined
   return {
     get model() {

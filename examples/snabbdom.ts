@@ -1,9 +1,8 @@
 // The renderer the examples use. The library knows nothing of it: any renderer that can draw a model and
 // run `dispatch` works the same way. snabbdom's handlers are plain callbacks, so they use `dispatchUnsafe`.
-// One dispatch serves the whole run, so a view can be memoized with snabbdom's own `thunk`, its dispatch
-// among the arguments.
-import { type Dispatch, dispatchUnsafe, type Frame, type Offered, type View } from '@fgaudo/effect-tea'
-import { messageOf } from '@fgaudo/effect-tea/testing'
+// The run's dispatch, and each child's from `dispatchTo`, is the same in every frame, so a view can be
+// memoized with snabbdom's own `thunk`, its dispatch among the arguments.
+import { type Dispatch, dispatchUnsafe, type Frame, type View } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 import { eventListenersModule, init, type Module, type On, propsModule, type VNode, type VNodeData } from 'snabbdom'
@@ -38,31 +37,33 @@ const animationFrame = Effect.callback<void>((resume) => {
  * waits for the next animation frame before taking another, so it draws at most once per screen refresh: `run`
  * keeps only the latest frame meanwhile.
  */
-export const renderInto = <Model>(root: Element, view: View<Model, VNode>) => (frames: Stream.Stream<Frame<Model>>) =>
-  Stream.runFoldEffect(
-    frames,
-    (): Element | VNode => root,
-    (previous, { model, dispatch }) =>
-      Effect.sync(() => patch(previous, view(model, dispatch))).pipe(Effect.tap(() => animationFrame)),
-  ).pipe(Effect.asVoid)
+export const renderInto =
+  <Model, Message>(root: Element, view: View<Model, Message, VNode>) =>
+  (frames: Stream.Stream<Frame<Model, Message>>) =>
+    Stream.runFoldEffect(
+      frames,
+      (): Element | VNode => root,
+      (previous, { model, dispatch }) =>
+        Effect.sync(() => patch(previous, view(model, dispatch))).pipe(Effect.tap(() => animationFrame)),
+    ).pipe(Effect.asVoid)
 
-/** snabbdom's `on` for a click that sends an offer, of any level of the program. */
-export const onClick = (offered: Offered<unknown>, dispatch: Dispatch): On => ({
-  click: () => dispatchUnsafe(dispatch)(offered),
+/** snabbdom's `on` for a click that sends `message`. */
+export const onClick = <Message>(message: Message, dispatch: Dispatch<Message>): On => ({
+  click: () => dispatchUnsafe(dispatch)(message),
 })
 
-/** snabbdom's `on` for a text input, with the function that `offerInput` made. */
-export const onInput = (toOffered: (text: string) => Offered<unknown>, dispatch: Dispatch): On => ({
-  input: (event: Event) => dispatchUnsafe(dispatch)(toOffered((event.target as HTMLInputElement).value)),
+/** snabbdom's `on` for a text input, whose text `toMessage` turns into a message. */
+export const onInput = <Message>(toMessage: (text: string) => Message, dispatch: Dispatch<Message>): On => ({
+  input: (event: Event) => dispatchUnsafe(dispatch)(toMessage((event.target as HTMLInputElement).value)),
 })
 
 /**
  * For tests: renders `view` and fires every event handler in the tree, `thunk`s drawn as the renderer would,
- * as if `typed` was in every input, and returns the messages the offers sent stand for, as the root of the
- * program receives them.
+ * as if `typed` was in every input, and returns the messages they sent, as the root of the program receives
+ * them.
  */
 export const messagesSentBy = <Model, Message>(
-  view: View<Model, VNode>,
+  view: View<Model, Message, VNode>,
   model: Model,
   typed = '',
 ): ReadonlyArray<Message> => {
@@ -81,6 +82,6 @@ export const messagesSentBy = <Model, Message>(
     }
     for (const child of node.children ?? []) visit(child)
   }
-  visit(view(model, (offered) => Effect.sync(() => sent.push(messageOf<Message>(offered)))))
+  visit(view(model, (message) => Effect.sync(() => sent.push(message))))
   return sent
 }

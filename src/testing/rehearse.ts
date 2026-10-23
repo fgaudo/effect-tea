@@ -5,27 +5,25 @@ import * as Opt from 'effect/Option'
 import * as Ref from 'effect/Ref'
 import type * as Scope from 'effect/Scope'
 import { describeByTag } from '../log.ts'
-import { type Dispatch, rootOffers, tokenOf } from '../offer.ts'
 import { runCommandOf, type Shape, startOf, subscriptionsOf } from '../program.ts'
-import { RejectedInput, type Revision } from '../rejection.ts'
 import { isRejected, type Step } from '../update.ts'
-import type { Action } from './action.ts'
 
 /**
  * A rehearsal of a program, without a runtime: nothing happens unless the test does it. The test acts on what the
- * current model offers, decides when each command runs and what each subscription sends, and reads the result
+ * current model shows, decides when each command runs and what each subscription sends, and reads the result
  * at any point.
  */
 export type Rehearsal<State, Model, Message, Command, Event = never, R = never> = Readonly<{
   /** The current state. */
   state: Effect.Effect<State>
-  /** The model of the current state, with offers that this rehearsal applies. */
+  /** The model of the current state. */
   model: Effect.Effect<Model>
   /**
-   * Does the action that `select` finds on the current model, as a user would; fails the test when the model
-   * offers none.
+   * Applies the message that `select` finds on the current model, as a control drawn from it would send it.
+   * Fails the test when `select` finds none, and when `update` rejects it: a control that the model shows and
+   * its own state rejects does nothing.
    */
-  send: (select: (model: Model) => Opt.Option<Action>) => Effect.Effect<void>
+  send: (select: (model: Model) => Opt.Option<Message>) => Effect.Effect<void>
   /** The commands `update` started that have not run yet, oldest first. */
   pending: Effect.Effect<ReadonlyArray<Command>>
   /**
@@ -44,8 +42,8 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
   /** The events `update` raised for the program's parent, in order. */
   events: Effect.Effect<ReadonlyArray<Event>>
   /**
-   * The messages `update` rejected as stale: a command's or a subscription's message, or an offer the state has
-   * moved past, in order.
+   * The messages of commands and subscriptions that `update` rejected, in order: an answer that came when the
+   * state had moved on, an event about something no longer there.
    */
   ignored: Effect.Effect<ReadonlyArray<Message>>
 }>
@@ -60,7 +58,6 @@ export type RehearseOptions<State, Command, Flags = never> = [Flags] extends [ne
 
 type Current<State, Message, Command, Event> = Readonly<{
   state: State
-  revision: Revision
   pending: ReadonlyArray<Command>
   events: ReadonlyArray<Event>
   ignored: ReadonlyArray<Message>
@@ -68,13 +65,13 @@ type Current<State, Message, Command, Event> = Readonly<{
 
 /**
  * Rehearses `program` without a runtime, step by step, and returns what `scenario` returns. As in `drive`, the
- * test acts only through what the models offer; unlike it, nothing runs by itself: each command waits until the
- * test runs it, through the program's `runCommand` with the services provided, and each subscription message is
- * one the test says was heard. So the test decides what happens while a command is under way, and when its
- * answer arrives. Rejections are judged as when the program runs: an offer the state has moved past, or a late
- * message of a command or a subscription, is stale and ignored; a typed value that the model offered and `update`
- * rejected fails the test, and so do an offer of another run and a command still pending when `scenario` ends,
- * whose answer would still arrive.
+ * test acts through what the models show; unlike it, nothing runs by itself: each command waits until the test
+ * runs it, through the program's `runCommand` with the services provided, and each subscription message is one
+ * the test says was heard. So the test decides what happens while a command is under way, and when its answer
+ * arrives. Since the test decides when each message arrives, a message it sends from the current model is applied
+ * to the state that model shows, and a rejection is a control that does nothing: it fails the test. A command's or
+ * a subscription's message may no longer apply when it arrives: as when the program runs, it is ignored, and
+ * listed in `ignored`. A command still pending when `scenario` ends fails the test: its answer would still arrive.
  */
 export const rehearse = Effect.fnUntraced(function*<
   State,
@@ -96,39 +93,38 @@ export const rehearse = Effect.fnUntraced(function*<
   const { from: given, flags } = options as Readonly<{ from?: Step<State, Command>; flags?: unknown }>
   const from = given ?? startOf(program.init, flags)
   type Now = Current<State, Message, Command, Event>
-  const self = {}
   const runCommand = runCommandOf(program)
   const current = yield* Ref.make<Now>({
     state: from.state,
-    revision: 0,
     pending: from.commands ?? [],
     events: [],
     ignored: [],
   })
-  // A typed value rejected in its offer's own state never gets here: every rejection left is stale, as in the engine.
-  const apply = (message: Message) =>
-    Ref.update(current, (now): Now => {
+  const apply = (message: Message, onRejected: (now: Now) => Effect.Effect<Now>) =>
+    Effect.flatMap(Ref.get(current), (now) => {
       const result = program.update(message)(now.state)
-      if (isRejected(result)) return { ...now, ignored: [...now.ignored, message] }
-      return {
+      if (isRejected(result)) return Effect.flatMap(onRejected(now), (next) => Ref.set(current, next))
+      return Ref.set(current, {
         state: result.state,
-        revision: result.state === now.state ? now.revision : now.revision + 1,
         pending: [...now.pending, ...(result.commands ?? [])],
         events: [...now.events, ...(result.events ?? [])],
         ignored: now.ignored,
-      }
+      })
     })
-  const dispatch: Dispatch = (offered) =>
-    Effect.suspend(() => {
-      const { message, revision, run: by, violation } = tokenOf(offered)
-      if (by !== self) return Effect.die(new Error('An offer made by another run was dispatched to this one'))
-      if (violation) return Effect.die(new RejectedInput({ rejected: message, revision }))
-      return apply(message as Message)
-    })
-  const model = Effect.map(
-    Ref.get(current),
-    ({ state, revision }) => program.makeModel(state, rootOffers(program.update, state, { run: self, revision })),
-  )
+  // From the world: it may arrive when it no longer applies.
+  const arrive = (message: Message) =>
+    apply(message, (now) => Effect.succeed({ ...now, ignored: [...now.ignored, message] }))
+  const fromModel = (message: Message) =>
+    apply(message, () =>
+      Effect.die(
+        new Error(
+          `update rejected ${
+            String(describeByTag(message))
+          }, which the model of the same state shows: a control that does nothing. A tap on an older frame is a `
+            + 'message applied to a later state: test it with applyAll, or with update itself.',
+        ),
+      ))
+  const model = Effect.map(Ref.get(current), ({ state }) => program.makeModel(state))
   const run = Effect.fnUntraced(function*(select: (command: Command) => boolean) {
     const { pending } = yield* Ref.get(current)
     const index = pending.findIndex(select)
@@ -138,7 +134,7 @@ export const rehearse = Effect.fnUntraced(function*<
     }
     yield* Ref.update(current, (now): Now => ({ ...now, pending: Arr.remove(now.pending, index) }))
     const message = yield* Effect.scoped(runCommand(command))
-    if (Opt.isSome(message)) yield* apply(message.value)
+    if (Opt.isSome(message)) yield* arrive(message.value)
     return command
   })
   const runAll: Effect.Effect<void, never, Exclude<R, Scope.Scope>> = Effect.flatMap(
@@ -151,8 +147,8 @@ export const rehearse = Effect.fnUntraced(function*<
     send: (select) =>
       Effect.flatMap(model, (shown) =>
         Opt.match(select(shown), {
-          onNone: () => Effect.die(new Error('The model does not offer what the test sends', { cause: shown })),
-          onSome: (action) => action(dispatch),
+          onNone: () => Effect.die(new Error('The model does not show what the test sends', { cause: shown })),
+          onSome: fromModel,
         })),
     pending: Effect.map(Ref.get(current), (now) => now.pending),
     run,
@@ -160,7 +156,7 @@ export const rehearse = Effect.fnUntraced(function*<
     hear: (key, message) =>
       Effect.flatMap(Ref.get(current), ({ state }) =>
         HashMap.has(subscriptionsOf(program)(state), key)
-          ? apply(message)
+          ? arrive(message)
           : Effect.die(new Error(`Nothing listens under ${JSON.stringify(key)} in the current state`))),
     events: Effect.map(Ref.get(current), (now) => now.events),
     ignored: Effect.map(Ref.get(current), (now) => now.ignored),

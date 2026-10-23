@@ -37,7 +37,7 @@ export const app = compose({
     About: () => (state) => ({ state: { ...state, maybeAbout: Opt.none() } }),
   },
   // Only the page on top is drawn.
-  makeModel: (state, { children }) => ({
+  makeModel: (state, children) => ({
     page: Opt.match(state.maybeAbout, {
       onNone: () => ({ _tag: 'Clock' as const, model: children.Clock(state) }),
       onSome: () => ({ _tag: 'About' as const, model: children.About(state) }),

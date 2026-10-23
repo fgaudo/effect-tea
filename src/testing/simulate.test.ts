@@ -67,7 +67,7 @@ describe('simulate', () => {
     expect(simulation.state).toEqual({ isSaving: false, saved: 3 })
   })
 
-  test('a command\'s message that update rejects is stale, ignored, and listed', async () => {
+  test('a command\'s message that update rejects is ignored, and listed', async () => {
     const simulation = await Effect.runPromise(withStorage(
       simulate(saving)([], { state: idle, commands: ['Store'] }),
     ))
