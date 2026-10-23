@@ -184,7 +184,7 @@ const recording = <Message>() => {
   return { sent, dispatch }
 }
 
-describe('next: dispatch', () => {
+describe('what a child\'s view sends', () => {
   test('one dispatch for every frame, and the same dispatch for a child in every frame', async () => {
     const exit = await script(
       asProgram,
@@ -238,8 +238,8 @@ describe('next: dispatch', () => {
   })
 })
 
-describe('next: compose', () => {
-  test('a child\'s commands run, and their messages reach it, and its events its parent', async () => {
+describe('compose', () => {
+  test('in a run, a child\'s commands run and their messages reach it', async () => {
     const exit = await script(asProgram, (frame, index) =>
       index === 0
         ? left(frame)(Opt.getOrThrow(frame.model.left.save)).pipe(Effect.as(false))
@@ -247,7 +247,7 @@ describe('next: compose', () => {
     expect(Exit.isSuccess(exit)).toBe(true)
   })
 
-  test('the parent\'s own messages, and what it sends a child through its handle', () => {
+  test('a parent\'s own message gives a child an external message through its handle', () => {
     const at = { ...app.init.state, left: { ...counter.init.state, count: 2 } }
     const result = app.update({ _tag: 'Reset' })(at)
     expect(!isRejected(result) && result.state.left.count).toBe(0)
@@ -381,7 +381,7 @@ const lists = Nested.compose({
   makeModel: (state, children) => state.rows.map(({ id }) => ({ id, rows: children.Lists(state, id) })),
 })
 
-describe('next: children by id', () => {
+describe('children by id', () => {
   test('a message reaches the child with its id, and only that one', () => {
     const result = list.update({ _tag: 'Rows', id: 2, message: CounterMessage.Increment() })(rows(1, 2))
     expect(!isRejected(result) && result.state.rows.map((row) => row.counter.count)).toEqual([0, 1])
@@ -502,7 +502,7 @@ describe('next: children by id', () => {
   })
 })
 
-describe('next: what a parent can do with a child', () => {
+describe('what a parent can do with a child', () => {
   test('a handle\'s update takes only the messages the child\'s type says a parent may send', () => {
     const sendTo = Parent.compose({
       init: () => ({ state: app.init.state }),
@@ -618,7 +618,7 @@ describe('next: what a parent can do with a child', () => {
   })
 })
 
-describe('next: flags', () => {
+describe('flags', () => {
   // A counter that starts from the count it is given, and saves it at once.
   const seeded: Program<{
     state: Counter
@@ -790,7 +790,7 @@ describe('next: flags', () => {
 })
 
 // Each `@ts-expect-error` is the test: if the types accepted the mistake, the typecheck would fail.
-describe('next: what the types reject', () => {
+describe('what the types reject', () => {
   // A program written as a plain object, without `Program<…>`: no external messages, so nothing a parent may send.
   const plain = {
     init: { state: noTicks },

@@ -272,7 +272,7 @@ describe('interleavings of the user, commands and subscriptions', () => {
     })
   }, 60_000)
 
-  test('once everything has happened, the subscriptions holding resources are those of the rows there', async () => {
+  test('once everything has happened, the subscriptions holding resources are those of listening rows', async () => {
     await property(({ final, holding }) => expect(holding).toEqual(listeners(final)))
   }, 60_000)
 

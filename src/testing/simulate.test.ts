@@ -98,7 +98,7 @@ describe('simulate', () => {
     expect(log).toEqual(['acquire A', 'release A', 'acquire B', 'release B'])
   })
 
-  test('takes a program that keeps its state in an object', () => {
+  test('takes only a program that keeps its state in an object', () => {
     const counting: Update<number, 'Increment'> = () => (count) => ({ state: count + 1 })
     // @ts-expect-error: a number is no object.
     expect(simulate({ update: counting })).toBeDefined()

@@ -185,7 +185,6 @@ const makeModel = (state: State): Editor => {
   `SaveClicked` has a button that does nothing: the run does not check it, the [testing](#testing) tools do,
   for any state.
 - A model may show **less** than `update` accepts, never more.
-- `makeModel` is pure, so a test makes a model as `run` does: `program.makeModel(state)`.
 
 With its messages in the model, as here, a view sends only what the model holds: export `Message` as a type
 only, and no view can build one. A view may also build its messages itself, from a model of data alone; the
@@ -247,8 +246,8 @@ every change of state the keys are compared by value. A new key starts its subsc
 running; a missing key stops it, and drops what it sent that `update` has not seen.
 
 A subscription never ends in silence: either it never ends (a clock: its end value is `never`), or it ends with
-**one last message**, its end value (a download done).
-An ended subscription is not restarted until its key goes away and comes back.
+**one last message**, its end value (a download done). An ended subscription is not restarted until its key goes
+away and comes back.
 
 | Use a…           | for                                                                                                                               |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
@@ -295,18 +294,17 @@ runCommand: (command) =>
 level, and the state stays as it was: a second click, or an answer that arrives once the state has moved on,
 changes nothing.
 
-That the view sends only what applies is checked by the tests, where it can be: what the view shows in a state,
-that state must accept. `dispatchViolations` checks it for any state, and the tools in which the test decides
-when each message arrives hold the test to it:
+Whether the view sends only what applies is for the tests: `dispatchViolations` checks it for any state, and the
+tools in which the test decides when each message arrives fail on a rejected message of the view:
 
 |                                                            | A message of the view    | A command's or a subscription's |
 | ---------------------------------------------------------- | ------------------------ | ------------------------------- |
 | The test decides when (`applyAll`, `simulate`, `rehearse`) | rejected: the test fails | rejected: ignored, in `ignored` |
 | Real time (`drive`, and the program as it runs)            | rejected: ignored        | rejected: ignored               |
 
-`simulate` takes the messages a subscription would send among the test's own, in the flow it describes: they
-fail the test too. A tap on a frame that the state has since moved past is a message applied to a later state:
-test what it does there with `applyAll`, or with `update` itself.
+`applyAll` takes only the test's messages, and `simulate` takes those a subscription would send among them: a
+rejection of any of them fails the test. A tap on a frame that the state has since moved past is a message
+applied to a later state: test what it does there with `applyAll`, or with `update` itself.
 
 A defect (an `Effect.die`, a thrown error) is broken code, and the run ends.
 
@@ -336,8 +334,9 @@ export const app = compose({
     }),
   },
   onEvent: {
-    // About starts from the time the Clock showed, its flags.
+    // About starts from the time the Clock showed, its flags; a double click opens it once.
     Clock: (event, children) => (state) => {
+      if (Opt.isSome(state.maybeAbout)) return { state }
       const about = children.About.init({ openedAt: event.at })
       return {
         state: { ...state, maybeAbout: Opt.some(about.state) },
@@ -347,10 +346,11 @@ export const app = compose({
     About: () => (state) => ({ state: { ...state, maybeAbout: Opt.none() } }),
   },
   // Only the page on top is drawn.
-  makeModel: (state, children) =>
-    Opt.isNone(state.maybeAbout)
+  makeModel: (state, children) => ({
+    page: Opt.isNone(state.maybeAbout)
       ? { _tag: 'Clock' as const, model: children.Clock(state) }
       : { _tag: 'About' as const, model: children.About(state) },
+  }),
 })
 ```
 
@@ -366,8 +366,8 @@ What the library gives it:
 
 - **`children` in `makeModel`:** `children.About(state)` is the child's model. It is the same object while the
   child's state is the same object, so a renderer can skip redrawing it (see `thunk` in
-  [`pages`](examples/pages/view.ts)). A number or a string has no identity to keep a model by: this is why
-  every program keeps its state in an object, the root's included, so that any program can be a child as it is.
+  [`pages`](examples/pages/view.ts)). A number or a string has no identity to keep a model by: this is why a
+  program's state is always an object.
 - **`children` in `init`, `update` and `onEvent`:** `init` starts a child, and `update` gives it one of the
   messages its type declares as `external` (e.g. a back button), and returns the parent's step. A parent and
   its children talk only this way, and with events. The parent decides when to send, and the child's type says
@@ -387,10 +387,10 @@ What the library gives it:
   onEvent: { Page: () => (state) => ({ state: leavePage(state) }) },
   ```
 
-  A parent's `init` is a function of them, so
-  that a child there from the start is started like any other: `children.Clock.init` holds its state and its
-  commands, lifted. Reading `Clock.clock.init.state` would leave its commands behind. A child with `flags`
-  is started from them: `children.About.init({ openedAt })`, and `init(id, flags)` for children by id.
+  A parent's `init` is a function of them, so that a child there from the start is started like any other:
+  `children.Clock.init` holds its state and its commands, lifted. Reading `Clock.clock.init.state` would leave
+  its commands behind. A child with `flags` is started from them: `children.About.init({ openedAt })`, and
+  `init(id, flags)` for children by id.
 - **A parent's own flags:** declared as its other types, `parent<{ state: State; flags: Flags }>()`, its `init`
   then returns the function that starts it: `init: (children) => (flags) => ({ state, commands })`.
 - **The parent's types:** its messages are its own plus `{ _tag: <child>, message }` for each child.
@@ -575,13 +575,13 @@ test('the view sends what update accepts, all of it', () => {
   It fails when `select` finds nothing to send on the model, when `update` rejects what it sends (a control the
   model shows and its own state rejects), and when a command is still pending at the end: its answer would
   still arrive. A command's or a subscription's message that no longer applies is ignored, as when the program
-  runs, and listed in `ignored`. It starts from the program's `init`, or from the step given as `from`; a program with flags
-  needs either `from` or its `flags`.
+  runs, and listed in `ignored`. It starts from the program's `init`, or from the step given as `from`; a
+  program with flags needs either `from` or its `flags`.
 - `drive` sends what the frames show, through the run's dispatch, and fails on a wait longer than `patience`
   (2 seconds). Its time is real: a frame may be past by the time its message arrives, so, as when the program
-  runs, a rejected message is ignored, and a scenario checks what it expects to see. A program with flags gets them as `run` does, in the options. Its commands run as soon
-  as they start: to hold one, give the program a service of the test's that waits on a `Deferred` the scenario
-  completes.
+  runs, a rejected message is ignored, and a scenario checks what it expects to see. A program with flags gets
+  them as `run` does, in the options. Its commands run as soon as they start: to hold one, give the program a
+  service of the test's that waits on a `Deferred` the scenario completes.
 
 ## API reference
 

@@ -54,6 +54,21 @@ describe('form', () => {
       expect(isRejected(update(Message.SaveSucceeded({ name: 'Ada' }))(empty))).toBe(true)
     })
 
+    // Sent from a frame drawn before the save: it arrives while saving, before the save's failure.
+    test('a key typed just before saving disabled the input is kept, for when the save fails', () => {
+      const { state } = applyAll(update)(
+        [
+          Message.NameChanged({ name: ' Ada ' }),
+          Message.SaveClicked(),
+          Message.NameChanged({ name: ' Ada x' }),
+          Message.SaveFailed(),
+        ],
+        empty,
+      )
+      expect(state.name.text).toBe(' Ada x')
+      expect(state.hasFailed).toBe(true)
+    })
+
     test('has nothing to type into while saving', () => {
       expect(form.makeModel({ ...empty, name: Field.make('Ada'), isSaving: true }).editor._tag).toBe('Saving')
     })
@@ -90,15 +105,6 @@ describe('form', () => {
         simulate(form)(typedAndSaved, form.init).pipe(Effect.provideService(Storage, failing)),
       )
       expect(state).toEqual({ name: Field.make(' Ada '), isSaving: false, hasFailed: true, saved: [] })
-    })
-
-    test('a key typed just before saving disabled the input is kept, for when the save fails', async () => {
-      const { state } = await Effect.runPromise(
-        simulate(form)([...typedAndSaved, Message.NameChanged({ name: ' Ada x' })], form.init).pipe(
-          Effect.provideService(Storage, failing),
-        ),
-      )
-      expect(state.name.text).toBe(' Ada x')
     })
 
     // The save waits until the test runs it: what the user can do meanwhile, and what its answer finds.

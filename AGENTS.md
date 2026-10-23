@@ -22,10 +22,9 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   (snabbdom, through `examples/snabbdom.ts`), a `main.ts` that starts it with `BrowserRuntime.runMain` (so
   that the failure of a dying program is reported), an `index.html` to run it
   (`bun examples/<name>/index.html`, after `bun run build`: Bun bundles the page with `dist/`), with a header
-  that says what it shows and the shared `examples/style.css`, and a
-  `*.test.ts` that shows the testing tools on it. They import the package by its name
-  (`@fgaudo/effect-tea`), as a consumer would; `tsc -p examples` checks them with the `bun` condition and the
-  `DOM` lib. They are not published (`files`), and snabbdom, `@effect/platform-browser` and
+  that says what it shows and the shared `examples/style.css`, and a `*.test.ts` that shows the testing tools
+  on it. They import the package by its name (`@fgaudo/effect-tea`), as a consumer would; `tsc -p examples`
+  checks them with the `bun` condition and the `DOM` lib. They are not published (`files`), and snabbdom, `@effect/platform-browser` and
   `@happy-dom/global-registrator` are only dev dependencies. Their inputs follow the README's "Inputs the
   user types into": `update` accepts typing in every state, and the view writes a text only into a new input
   (`initialValue`, `Field`).
@@ -37,14 +36,19 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 - **The peer range starts at the oldest Effect 4 the library works with** (`^4.0.0` today), so that any
   application on Effect 4 can use it. Raise the minimum only when the code needs a newer API, after checking:
   copy `src/` into a scratch project with that exact Effect version, then run `tsc` and `bun test` there.
+- **Only stable Effect APIs.** A module or function marked `@stability unstable` in Effect's declarations
+  (`node_modules/effect/dist/<Module>.d.ts`) may change under the library's users: never build on one, not even
+  as an option.
 
 ## Public API
 
 - The API is exactly what `src/index.ts` and `src/testing/index.ts` export; every other module is internal.
   Export only what a consumer needs.
 - A change to the API changes [`README.md`](README.md) in the same change: the concept that uses it,
-  and the API reference table, and the examples that use it. Every example in the README must compile
-  against the package.
+  and the API reference table, and the examples that use it. Every code block in the README uses the current
+  API as it would be written in its context (names, signatures, the shape of what it returns), and agrees with
+  the blocks it refers to; the quick start, which is complete, must compile and run as it is. Nothing checks
+  them: read them again after a change to what they use.
 - `exports` has three conditions: `bun` (the TypeScript sources, for consumers that run under Bun), `types`
   and `default` (`dist/`, for everyone else). A new entrypoint needs all three, and an entry in `files` if
   it is not under `src` or `dist`.
@@ -136,34 +140,35 @@ The version in `package.json` is the one the next release will have, decided by 
   when either changes.
 - **`rehearse` behaves like the engine, with the test as its scheduler**: it applies what the test finds on its
   current model and fails when `update` rejects it, ignores and lists a command's or a subscription's message
-  that `update` rejects, scopes each command like the engine, and runs nothing the test did not ask for. A command left pending
-  fails the test, since commands cannot be cancelled and its answer would arrive. Keep it in step with the engine.
+  that `update` rejects, scopes each command like the engine, and runs nothing the test did not ask for. A
+  command left pending fails the test, since commands cannot be cancelled and its answer would arrive. Keep it
+  in step with the engine.
 - **`drive` acts only as a user can**: through `run` and the run's `dispatch`, with what the frames show. Its
   waits use the real clock, whatever `Clock` the program runs with.
-- **A program's model is kept by its state object** (`modelsOf` in `compose.ts`), for as long as that object
+- **A child's model is kept by its state object** (`modelsOf` in `compose.ts`), for as long as that object
   lives: it relies on `makeModel` being pure, and on states being replaced, never mutated. A model holds
   nothing of its run or of its place, so children or runs that share a state share its model. So every program
-  keeps its state in an object (`ObjectState` in `program.ts`, checked by `Program`, `parent`, `child`, `each`, `run`
-  and the testing tools that take a program), the root's too, so that any program can be a child as it is: never
-  add a cache for primitive states, which nothing could let go of.
+  keeps its state in an object (`ObjectState` in `program.ts`, checked by `Program`, `parent`, `child`, `each`,
+  `run` and the testing tools that take a program), the root's too, so that any program can be a child as it
+  is: never add a cache for primitive states, which nothing could let go of.
 - **What a parent declares, the types enforce**: `runCommand` exactly when it has commands of its own,
   `onEvent` exactly when a child has events, a handle's `update` only with a child's `external` messages, and no own
   message or command named like a child. A handle's `update` returns a step, never a rejection: a parent and its
   children talk only through external messages and events, so that `reject` means one thing everywhere, that a
   message does not apply, and a child rejecting an external message, or a parent giving one to a child that is
-  not there, is a defect (`tell` in `compose.ts`). A program written without `Program<…>` has `unknown` types, read as `never`
-  (`Known` in `program.ts`), so that it does not open these checks.
+  not there, is a defect (`tell` in `compose.ts`). A program written without `Program<…>` has `unknown` types,
+  read as `never` (`Known` in `program.ts`), so that it does not open these checks.
 - **Logs never carry message data by default** (`describeByTag` in `log.ts`): only tags, following a
   wrapped `message` or `command` only when it is itself tagged, since a program's own field of that name may
-  hold data. Levels: `error` for bugs, `debug` for the
-  message loop and for subscriptions starting, stopping and ending.
+  hold data. Levels: `error` for bugs, `debug` for the message loop and for subscriptions starting, stopping
+  and ending.
 
 ## Code
 
 - One module per concept: `update.ts`, `command.ts`, `subscription.ts`, `dispatch.ts` (views and their
   dispatch), `program.ts` (the program and its types), `compose.ts` (`parent`), `log.ts`; `engine.ts` is the
   runtime only (with `RunOptions`), and `run.ts` connects it to a renderer. `testing/` holds one module per
-  testing tool, and `testing/index.ts` exports them.
+  testing tool (and `unexpected.ts`, the failure they share), and `testing/index.ts` exports them.
 - A piece of a program that may be missing (`runCommand` without commands, `subscriptions`) is read through
   `runCommandOf` and `subscriptionsOf`, never directly: the engine always gets the complete set. Likewise
   `init`, a step or a function of the flags, is read through `startOf`: a step is never a function, so `typeof`
@@ -180,7 +185,9 @@ The version in `package.json` is the one the next release will have, decided by 
   would look like a mistake. Never a repetition of names or of the next line.
 - No blank lines between the statements of a block; blank lines separate declarations and `describe`/`test`
   calls.
-- Formatting: dprint, 120 columns, single quotes, no semicolons. Format only the files you changed.
+- Formatting: 120 columns, two-space indentation, single quotes, no semicolons, trailing commas in multiline
+  lists; `.md` prose wrapped at 120 columns. No formatter is set up: match the surrounding code, and touch only
+  the lines you change.
 
 ## Tests
 
