@@ -1,18 +1,19 @@
 // A view draws a model and sends its program's messages through `dispatch`. A parent's view gives each child's
-// view a dispatch of its own, which wraps the child's messages as the parent receives them. Made once per
-// child and kept, it is the same function in every frame, so that a renderer can skip a child whose model has
-// not changed.
-import * as Effect from 'effect/Effect'
+// view a dispatch of its own, which wraps the child's messages as the parent receives them. Kept while anyone
+// holds it, it is the same function in every frame, so that a renderer can skip a child whose model has not
+// changed.
+import type * as Effect from 'effect/Effect'
 
-/** Sends a message to the running program: `update` decides what it means in the state it finds. */
+/**
+ * Sends a message to the running program: `update` decides what it means in the state it finds. Running it needs
+ * no services and completes synchronously, whatever runs it: it only hands the message to the run, which handles
+ * it in its own fiber, with the services and the scheduler it started with. A renderer whose handlers are plain
+ * callbacks runs it at once with `Effect.runSync`, or with a runtime of its own.
+ */
 export type Dispatch<Message> = (message: Message) => Effect.Effect<void>
 
 /** A pure view, independent of the renderer: `Node` is what the renderer draws. */
 export type View<Model, Message, Node> = (model: Model, dispatch: Dispatch<Message>) => Node
-
-/** A dispatch that sends at once, for the callbacks of a renderer outside Effect. */
-export const dispatchUnsafe = <Message>(dispatch: Dispatch<Message>) => (message: Message): void =>
-  Effect.runSync(dispatch(message))
 
 /**
  * A parent's messages that carry a child's: `{ _tag: <child>, message }`, with `id` for children by id, and

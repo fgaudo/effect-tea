@@ -1,8 +1,8 @@
 // The renderer the examples use. The library knows nothing of it: any renderer that can draw a model and
-// run `dispatch` works the same way. snabbdom's handlers are plain callbacks, so they use `dispatchUnsafe`.
+// run `dispatch` works the same way. snabbdom's handlers are plain callbacks, so they run it with `send`.
 // The run's dispatch, and each child's from `dispatchTo`, is the same in every frame, so a view can be
 // memoized with snabbdom's own `thunk`, its dispatch among the arguments.
-import { type Dispatch, dispatchUnsafe, type Frame, type View } from '@fgaudo/effect-tea'
+import type { Dispatch, Frame, View } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 import { eventListenersModule, init, type Module, type On, propsModule, type VNode, type VNodeData } from 'snabbdom'
@@ -47,14 +47,20 @@ export const renderInto =
         Effect.sync(() => patch(previous, view(model, dispatch))).pipe(Effect.tap(() => animationFrame)),
     ).pipe(Effect.asVoid)
 
+/**
+ * Sends a message at once, from a plain callback. A dispatch needs no services and completes synchronously, so
+ * `Effect.runSync` is enough: the run handles the message with its own services.
+ */
+const send = <Message>(dispatch: Dispatch<Message>, message: Message): void => Effect.runSync(dispatch(message))
+
 /** snabbdom's `on` for a click that sends `message`. */
 export const onClick = <Message>(message: Message, dispatch: Dispatch<Message>): On => ({
-  click: () => dispatchUnsafe(dispatch)(message),
+  click: () => send(dispatch, message),
 })
 
 /** snabbdom's `on` for a text input, whose text `toMessage` turns into a message. */
 export const onInput = <Message>(toMessage: (text: string) => Message, dispatch: Dispatch<Message>): On => ({
-  input: (event: Event) => dispatchUnsafe(dispatch)(toMessage((event.target as HTMLInputElement).value)),
+  input: (event: Event) => send(dispatch, toMessage((event.target as HTMLInputElement).value)),
 })
 
 /**

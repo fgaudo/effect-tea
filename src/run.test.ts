@@ -16,6 +16,7 @@ import type * as Tracer from 'effect/Tracer'
 import type { Applied, RunOptions } from './engine.ts'
 import { reject, type Step, type Update } from './update.ts'
 import type { Program } from './program.ts'
+import type { Dispatch } from './dispatch.ts'
 import { type Frame, run } from './run.ts'
 
 // A counter that accepts `Increment` and always rejects `Forbidden`; its model has `Increment`, and an input
@@ -219,6 +220,27 @@ describe('run', () => {
   test('the run ends when the renderer ends', async () => {
     const exit = await Effect.runPromiseExit(quietly(runCounter(counter, (frames) => Stream.runHead(frames))))
     expect(Exit.isSuccess(exit)).toBe(true)
+  })
+
+  // What a renderer's plain callbacks rely on: no services, nothing to wait for, whatever runs it.
+  test('a dispatch runs with Effect.runSync from a plain callback, and after the run has ended too', async () => {
+    let kept: Dispatch<Message> | undefined
+    const counts: Array<number> = []
+    await Effect.runPromise(quietly(runCounter(counter, (frames) =>
+      frames.pipe(
+        Stream.tap(({ model, dispatch }) =>
+          Effect.sync(() => {
+            counts.push(model.count)
+            kept = dispatch
+            // As a click handler would, outside the renderer's fiber.
+            if (model.count === 0) setTimeout(() => Effect.runSync(dispatch(model.increment)), 0)
+          })
+        ),
+        Stream.take(2),
+        Stream.runDrain,
+      ))))
+    expect(counts).toEqual([0, 1])
+    expect(() => kept && Effect.runSync(kept('Increment'))).not.toThrow()
   })
 })
 

@@ -188,8 +188,9 @@ only, and no view can build one. A view may also build its messages itself, from
 library does not mind, but a program reads more easily when it does one or the other.
 
 A view is `(model, dispatch) => Node`, and `dispatch` takes the program's messages. Sending returns an
-`Effect<void>`. A renderer whose handlers are plain callbacks, like snabbdom's, wraps the dispatch with
-`dispatchUnsafe(dispatch)` to send at once.
+`Effect<void>` that needs no services and completes synchronously: it only hands the message to the run, which
+handles it with its own services. A renderer whose handlers are plain callbacks, like snabbdom's, runs it at
+once with `Effect.runSync(dispatch(message))`, or with a runtime of its own: either is right.
 
 **Input is never a reason to reject.** The input keeps what the user typed whatever `update` says (see
 [inputs](#inputs-the-user-types-into)), so a value `update` rejects would leave on screen a text the state does
@@ -570,7 +571,6 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | `subscriptionsOf`                                 | what a program listens to in a state, by key, as `run` reconciles it                      |
 | `View`, `Dispatch`                                | `(model, dispatch) => Node`; `(message) => Effect<void>`, the same in every frame         |
 | `dispatchTo`                                      | a child's dispatch, for its view: wraps its messages as the parent receives them          |
-| `dispatchUnsafe`                                  | a dispatch that sends at once, for a renderer's plain callbacks                           |
 | `run`, `Frame`, `RunOptions`                      | run a program with a renderer; what the renderer draws; how the program runs              |
 | `Applied`                                         | what `onApplied` hears: a message, the states around it, its revision and commands        |
 

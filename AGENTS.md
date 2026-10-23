@@ -93,6 +93,12 @@ The version in `package.json` is the one the next release will have, decided by 
   parent's dispatch, its name and its id, so that a view memoized on its model and its dispatch is drawn again
   only when its model changes, and an id nobody shows any more costs nothing. Never hold them strongly: ids that
   are never reused, as the README advises, would pile up for as long as the run lasts.
+- **Running a dispatch needs no services and completes synchronously**: it only offers the message to the
+  engine's unbounded queue, which wakes the engine on the scheduler of the run that made it. Renderers rely on it
+  to send from plain callbacks with `Effect.runSync`, whatever runtime the program runs in. Keep the queue
+  unbounded and the dispatch free of services: a queue that waits when full would make every such call throw,
+  and one that drops would lose what the user did. Running a dispatch is the renderer's business: the library
+  exports no helper for it.
 - **Defects always die, and the run fails with them.** Nothing in the library may catch, retry, swallow or
   turn them into messages, so that every defect, wherever it happens (the view and the renderer included),
   reaches the cause the run fails with: reporting it is the job of whoever runs the program. The engine only

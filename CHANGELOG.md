@@ -28,6 +28,9 @@ version, and everything else, features included, the patch version.
     value rejected in its own state failed: a tap on an older frame is tested with `applyAll`, or with `update`
     itself. `ignored` lists only the messages of commands and subscriptions.
   - `missingOffers` is now `missingActions`.
+  - `dispatchUnsafe` is gone: sending from a plain callback is the renderer's business. A dispatch needs no
+    services and completes synchronously, so write `Effect.runSync(dispatch(message))` where you wrote
+    `dispatchUnsafe(dispatch)(message)`, or run it with a runtime of your own.
 - A child's model is kept while its state object lives, whichever parent, place or run shows it, where it was
   kept for the root's last two frames: children that share a state share its model.
 
