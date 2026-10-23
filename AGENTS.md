@@ -35,7 +35,9 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   of an element.
 - **The peer range starts at the oldest Effect 4 the library works with** (`^4.0.0` today), so that any
   application on Effect 4 can use it. Raise the minimum only when the code needs a newer API, after checking:
-  copy `src/` into a scratch project with that exact Effect version, then run `tsc` and `bun test` there.
+  copy `src/` into a scratch project with that exact Effect version, then run `tsc` and `bun test` there. When
+  Effect has a direct API for what is needed, but only in a newer version, do not work around it: ask whether to
+  use it and raise the minimum.
 - **Only stable Effect APIs.** A module or function marked `@stability unstable` in Effect's declarations
   (`node_modules/effect/dist/<Module>.d.ts`) may change under the library's users: never build on one, not even
   as an option.
