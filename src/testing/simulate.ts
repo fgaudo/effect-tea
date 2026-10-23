@@ -1,7 +1,7 @@
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import type * as Scope from 'effect/Scope'
-import { type Interpreter, runCommandOf } from '../program.ts'
+import { type Interpreter, type ObjectState, runCommandOf } from '../program.ts'
 import { isRejected, type Step, type Update } from '../update.ts'
 import { unexpectedRejection } from './unexpected.ts'
 
@@ -30,7 +30,10 @@ export type Simulation<State, Message, Command, Event> = Readonly<{
  * a test says which by asserting `ignored`.
  */
 export const simulate = <State, Message, Command, Event, R = never>(
-  program: Readonly<{ update: Update<State, Message, Command, Event> }> & Interpreter<Command, Message, R>,
+  program:
+    & Readonly<{ update: Update<State, Message, Command, Event> }>
+    & Interpreter<Command, Message, R>
+    & ObjectState<State>,
 ) => {
   type Current = Simulation<State, Message, Command, Event>
   const { update } = program

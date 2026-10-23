@@ -18,7 +18,7 @@ What it adds to plain Elm:
   save that moves the form to "saving" runs once, however fast the user taps.
 - **Composition is declared, not wired.** A parent says where each child lives in its state, and the library
   routes the children's messages, commands, subscriptions and models.
-- **Views are cheap to memoize.** A child's model is the same object while its state is, and its dispatch the
+- **Views are cheap to memoize.** A child's model is the same object while its state object is, and its dispatch the
   same function in every frame.
 
 ## Contents
@@ -50,13 +50,15 @@ import { type Program, reject, run, type Update } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 
+type State = Readonly<{ count: number }>
+
 type Message = 'Increment' | 'Decrement'
 
-const update: Update<number, Message> = (message) => (count) =>
+const update: Update<State, Message> = (message) => ({ count }) =>
   message === 'Increment'
-    ? { state: count + 1 }
+    ? { state: { count: count + 1 } }
     : count > 0
-    ? { state: count - 1 }
+    ? { state: { count: count - 1 } }
     : reject // nothing to decrement
 
 // At zero there is no `decrement`: the model's shape says so.
@@ -69,10 +71,10 @@ type Model =
     decrement: Message
   }>
 
-const counter: Program<{ state: number; model: Model; message: Message }> = {
-  init: { state: 0 },
+const counter: Program<{ state: State; model: Model; message: Message }> = {
+  init: { state: { count: 0 } },
   update,
-  makeModel: (count) =>
+  makeModel: ({ count }) =>
     count > 0
       ? {
         _tag: 'Counting',
@@ -107,7 +109,9 @@ A program is a plain object with up to five pieces:
 | `subscriptions` | what it listens to in each state                                   | when it listens      |
 
 Its type names its types: `Program<{ state; model; message }>`, plus `command`, `services`, `event`,
-`external` and `flags` when it has them. The view is not part of it: `run` hands your renderer a stream of
+`external` and `flags` when it has them. Its state is always an object, `{ count }` rather than `count`, so that
+any program can become a child as it is (see [composing](#composing-programs)): a program whose state is a
+number or a string does not compile. The view is not part of it: `run` hands your renderer a stream of
 **frames** (`{ model, dispatch }`) to draw however it likes.
 
 A program that cannot start the same way every time, such as a page that shows the product it was opened for,
@@ -123,7 +127,7 @@ each with its tests. Try one in the browser, or run it with `bun run build`, the
 
 | Example                       | What it shows                                                                                             | Try it                                                        |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| [`counter`](examples/counter) | the quick start with a view; `applyAll`, `dispatchViolations`, `missingActions`, `drive`                  | [live](https://fgaudo.github.io/effect-tea/examples/counter/) |
+| [`counter`](examples/counter) | the quick start with a view; `applyAll`, `dispatchViolations`, `drive`                                    | [live](https://fgaudo.github.io/effect-tea/examples/counter/) |
 | [`form`](examples/form)       | an input the user owns while typing; a service and `attempt`; a save only its completion ends; `rehearse` | [live](https://fgaudo.github.io/effect-tea/examples/form/)    |
 | [`pages`](examples/pages)     | two pages with `parent`, `dispatchTo`, events, `subscribed`, a page started from flags; `simulate`        | [live](https://fgaudo.github.io/effect-tea/examples/pages/)   |
 | [`list`](examples/list)       | stopwatches by id with `each`, a subscription per running child; a test with a `TestClock`                | [live](https://fgaudo.github.io/effect-tea/examples/list/)    |
@@ -361,9 +365,29 @@ What the parent writes:
 What the library gives it:
 
 - **`children` in `makeModel`:** `children.About(state)` is the child's model. It is the same object while the
-  child's state is, so a renderer can skip redrawing it (see `thunk` in [`pages`](examples/pages/view.ts)).
+  child's state is the same object, so a renderer can skip redrawing it (see `thunk` in
+  [`pages`](examples/pages/view.ts)). A number or a string has no identity to keep a model by: this is why
+  every program keeps its state in an object, the root's included, so that any program can be a child as it is.
 - **`children` in `init`, `update` and `onEvent`:** `init` starts a child, and `update` gives it one of the
-  messages its type declares as `external` (e.g. a back button). A parent's `init` is a function of them, so
+  messages its type declares as `external` (e.g. a back button), and returns the parent's step. A parent and
+  its children talk only this way, and with events. The parent decides when to send, and the child's type says
+  it takes the message: it answers in every state with its state, or with an event, never with `reject`, which
+  is a defect there, as is sending to a child that is not there. A back button closes what the page has open,
+  or the page asks to be left:
+
+  ```ts
+  // In the page: back always means something.
+  case 'BackPressed':
+    return state.menu._tag === 'Open'
+      ? { state: { ...state, menu: { _tag: 'Closed' } } }
+      : { state, events: [{ _tag: 'LeaveRequested' }] }
+
+  // In its parent: what the page asks for, in the same step.
+  update: (_: BackPressed, children) => children.Page.update({ _tag: 'BackPressed' }),
+  onEvent: { Page: () => (state) => ({ state: leavePage(state) }) },
+  ```
+
+  A parent's `init` is a function of them, so
   that a child there from the start is started like any other: `children.Clock.init` holds its state and its
   commands, lifted. Reading `Clock.clock.init.state` would leave its commands behind. A child with `flags`
   is started from them: `children.About.init({ openedAt })`, and `init(id, flags)` for children by id.
@@ -397,7 +421,9 @@ usually writes in two steps, each view taking the dispatch its parent gave it.
 
 For children by id, such as the rows of a list, use `each` instead of `child`: `get` and `set` take the id,
 `subscribed` lists the rows that listen, `children.Row(state, id)` is a row's model and
-`dispatchTo(dispatch, 'Row', id)` its dispatch. See [`list`](examples/list/list.ts).
+`dispatchTo(dispatch, 'Row', id)` its dispatch. Ids are compared by value, with `Equal`, wherever they go
+(subscription keys, dispatches): strings, numbers, or tuples and structs of them. See
+[`list`](examples/list/list.ts).
 
 Mind ids that come back. A command's answer goes to the id it was started for, to whichever row has that id
 when it arrives. If a row is removed and another is added with its id, the new row may get the old row's
@@ -469,8 +495,8 @@ What is left to you:
   `update` decides whether it still applies (see [commands](#commands), and ids that come back in
   [composing](#composing-programs)).
 - **A slow renderer skips frames**: it gets only the latest one.
-- **The view sends what `update` accepts.** The run does not check it: `dispatchViolations` and
-  `missingActions` do, in tests (see [testing](#testing)).
+- **The view sends what `update` accepts, all of it.** The run does not check it: `dispatchViolations` does, in
+  tests (see [testing](#testing)).
 - **`update` and `makeModel` are pure, and states are never mutated.** The library reuses a child's model while
   its state is the same object.
 
@@ -481,29 +507,32 @@ them under random orders of clicks, command answers and subscription messages.
 
 Most of a program is pure, so most tests need no runtime. From `@fgaudo/effect-tea/testing`:
 
-| Tool                 | Use it to test                                                                |
-| -------------------- | ----------------------------------------------------------------------------- |
-| `applyAll`           | `update`'s rules: apply messages, check the state, commands and events        |
-| `dispatchViolations` | that everything the view sends is accepted, and a double tap acts once        |
-| `missingActions`     | that nothing `update` accepts is missing from the view                        |
-| `simulate`           | a flow with its commands answered at once, without a runtime                  |
-| `rehearse`           | a user's scenario without a runtime, the test deciding when each command runs |
-| `drive`              | a user's scenario on the running program, subscriptions included              |
+| Tool                 | Use it to test                                                                   |
+| -------------------- | -------------------------------------------------------------------------------- |
+| `applyAll`           | `update`'s rules: apply messages, check the state, commands and events           |
+| `dispatchViolations` | that the view sends what `update` accepts, all of it, and a double tap acts once |
+| `simulate`           | a flow with its commands answered at once, without a runtime                     |
+| `rehearse`           | a user's scenario without a runtime, the test deciding when each command runs    |
+| `drive`              | a user's scenario on the running program, subscriptions included                 |
 
 ```ts
 test('counts up and down', () => {
-  expect(applyAll(update)(['Increment', 'Increment', 'Decrement'], 0).state)
-    .toBe(1)
+  expect(
+    applyAll(update)(['Increment', 'Increment', 'Decrement'], { count: 0 })
+      .state,
+  )
+    .toEqual({ count: 1 })
 })
 
 // For any count, the real view and `update` agree both ways.
 test('the view sends what update accepts, all of it', () => {
   fc.assert(fc.property(fc.nat(1_000), (count) => {
-    const sent = messagesSentBy<Model, Message>(view, counter.makeModel(count))
-    expect(dispatchViolations(update, { repeatable: () => true })(count, sent))
-      .toEqual([])
-    expect(missingActions(update)(count, sent, ['Increment', 'Decrement']))
-      .toEqual([])
+    const sent = messagesSentBy<Model, Message>(
+      view,
+      counter.makeModel({ count }),
+    )
+    const check = dispatchViolations(update, { repeatable: () => true })
+    expect(check({ count }, sent, ['Increment', 'Decrement'])).toEqual([])
   }))
 })
 ```
@@ -513,9 +542,11 @@ test('the view sends what update accepts, all of it', () => {
 - `messagesSentBy` is not in the package: it comes from the example bridge
   ([`examples/snabbdom.ts`](examples/snabbdom.ts)), which renders the view and fires every handler. A
   renderer of your own needs one like it.
-- `missingActions` tries the `candidates` the test lists (what a user could ask for, with the text typed into
-  each input) and returns those `update` accepts but the view does not send. `withheld` excludes what the
-  model leaves out on purpose, e.g. typing while a save is in progress.
+- `dispatchViolations` checks both ways. Each message the view sends must be accepted (`Rejected`), and act
+  once when sent twice (`ActsTwice`), but those `repeatable` on purpose. Of the `candidates` the test lists
+  (what a user could ask for, with the text typed into each input), each one `update` accepts must be among
+  those sent (`Missing`), but those `withheld` on purpose, e.g. typing while a save is in progress. Without
+  candidates, it checks only what the view sends.
 - `simulate` fails when `update` rejects one of the messages it is given. The command answers that `update`
   rejected are listed in `ignored`: assert it when one being dropped would be a bug.
 - `rehearse` acts through what the current model shows, as `drive` does, but nothing runs by itself:
@@ -575,8 +606,7 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | `Applied`                                         | what `onApplied` hears: a message, the states around it, its revision and commands        |
 
 From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `rehearse`, `Rehearsal`,
-`RehearseOptions`, `drive`, `DriveOptions`, `Driver`, `dispatchViolations`, `DispatchViolation`,
-`missingActions`.
+`RehearseOptions`, `drive`, `DriveOptions`, `Driver`, `dispatchViolations`, `DispatchViolation`.
 
 ## Development
 

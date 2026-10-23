@@ -151,11 +151,11 @@ describe('rehearse', () => {
 
   test('a program written as a plain object, without commands, needs no runCommand', async () => {
     const plain = {
-      init: { state: 0 },
-      update: () => (count: number) => ({ state: count + 1 }),
-      makeModel: (count: number) => count,
+      init: { state: { count: 0 } },
+      update: () => ({ count }: Readonly<{ count: number }>) => ({ state: { count: count + 1 } }),
+      makeModel: ({ count }: Readonly<{ count: number }>) => count,
     }
-    expect(await Effect.runPromise(rehearse(plain, (rehearsal) => rehearsal.state))).toBe(0)
+    expect(await Effect.runPromise(rehearse(plain, (rehearsal) => rehearsal.state))).toEqual({ count: 0 })
   })
 
   test('runAll runs the commands that the commands it runs start', async () => {
@@ -208,7 +208,10 @@ describe('rehearse', () => {
       }),
       { from: program.init },
     ))
-    expect(String(failure)).toContain('Nothing listens under "ping"')
+    expect(String(failure)).toContain('Nothing listens under ping in the current state')
+    // Keys may hold any value a `HashMap` compares, JSON or not.
+    const unheard = await failureOf(rehearse(program, (rehearsal) => rehearsal.hear(['Row', 1n], { _tag: 'Pinged' })))
+    expect(String(unheard)).toContain('Nothing listens under ["Row","1n"] in the current state')
   })
 
   describe('fails the test', () => {

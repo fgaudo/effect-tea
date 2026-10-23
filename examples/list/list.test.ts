@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { dispatchTo, isRejected, run, subscriptionsOf } from '@fgaudo/effect-tea'
-import { applyAll, dispatchViolations, missingActions } from '@fgaudo/effect-tea/testing'
+import { applyAll, dispatchViolations } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Stream from 'effect/Stream'
@@ -58,11 +58,9 @@ describe('list', () => {
 
   test('the view sends what update accepts, all of it, and acts once when sent twice', () => {
     const violations = dispatchViolations(list.update, { repeatable: (message) => message._tag === 'AddClicked' })
-    const missing = missingActions(list.update)
     fc.assert(fc.property(state, (before) => {
       const sent = messagesSentBy<Model, Message>(view, list.makeModel(before))
-      expect(violations(before, sent)).toEqual([])
-      expect(missing(before, sent, userMessages(before))).toEqual([])
+      expect(violations(before, sent, userMessages(before))).toEqual([])
     }))
   })
 

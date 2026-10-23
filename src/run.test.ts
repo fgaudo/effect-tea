@@ -26,8 +26,10 @@ type Message = 'Increment' | 'Forbidden'
 
 type Command = 'Ping' | 'Boom'
 
-const update: Update<number, Message, Command> = (message) => (count) =>
-  message === 'Increment' ? { state: count + 1 } : reject
+type Count = Readonly<{ count: number }>
+
+const update: Update<Count, Message, Command> = (message) => ({ count }) =>
+  message === 'Increment' ? { state: { count: count + 1 } } : reject
 
 type Model = Readonly<{
   count: number
@@ -35,13 +37,13 @@ type Model = Readonly<{
   type: (increments: boolean) => Message
 }>
 
-type Counter<M = Model> = Program<{ state: number; model: M; message: Message; command: Command }>
+type Counter<M = Model> = Program<{ state: Count; model: M; message: Message; command: Command }>
 
 const counter: Counter = {
-  init: { state: 0 },
+  init: { state: { count: 0 } },
   update,
   runCommand: (command) => command === 'Ping' ? Effect.succeedSome<Message>('Increment') : Effect.die('boom'),
-  makeModel: (count) => ({
+  makeModel: ({ count }) => ({
     count,
     increment: 'Increment',
     type: (increments) => increments ? 'Increment' : 'Forbidden',
@@ -90,9 +92,9 @@ describe('run', () => {
   })
 
   test('a program with flags starts from the flags it is given, its commands included', async () => {
-    const seeded: Program<{ state: number; model: Model; message: Message; command: Command; flags: number }> = {
+    const seeded: Program<{ state: Count; model: Model; message: Message; command: Command; flags: number }> = {
       ...counter,
-      init: (count) => ({ state: count, commands: ['Ping'] }),
+      init: (count) => ({ state: { count }, commands: ['Ping'] }),
     }
     const counts: Array<number> = []
     await Effect.runPromise(run(
@@ -114,9 +116,9 @@ describe('run', () => {
 
   test('a program written as a plain object needs a runCommand only for commands it has', async () => {
     const plain = {
-      init: { state: 0 },
-      update: () => (count: number) => ({ state: count + 1 }),
-      makeModel: (count: number) => count,
+      init: { state: { count: 0 } },
+      update: () => ({ count }: Count) => ({ state: { count: count + 1 } }),
+      makeModel: ({ count }: Count) => count,
     }
     const counts: Array<number> = []
     await Effect.runPromise(run(
@@ -124,7 +126,7 @@ describe('run', () => {
       (frames) => Stream.runForEach(Stream.take(frames, 1), ({ model }) => Effect.sync(() => counts.push(model))),
     ))
     expect(counts).toEqual([0])
-    const pinging = { ...plain, update: () => (count: number) => ({ state: count, commands: ['Ping' as const] }) }
+    const pinging = { ...plain, update: () => (state: Count) => ({ state, commands: ['Ping' as const] }) }
     // @ts-expect-error: its `Ping` would go uninterpreted.
     expect(() => run(pinging, () => Effect.void)).toBeDefined()
   })
@@ -135,8 +137,8 @@ describe('run', () => {
     const resource = (name: string) => Effect.acquireRelease(note(`acquire ${name}`), () => note(`release ${name}`))
     const holding = Effect.runSync(Deferred.make<void>())
     const drawing = Effect.runSync(Deferred.make<void>())
-    const program: Program<{ state: null; model: null; message: never; command: 'Hold'; services: Scope.Scope }> = {
-      init: { state: null, commands: ['Hold'] },
+    const program: Program<{ state: object; model: null; message: never; command: 'Hold'; services: Scope.Scope }> = {
+      init: { state: {}, commands: ['Hold'] },
       update: () => (state) => ({ state }),
       runCommand: () =>
         resource('command').pipe(
@@ -144,7 +146,7 @@ describe('run', () => {
           Effect.andThen(Effect.never),
           Effect.onInterrupt(() => note('command interrupted')),
         ),
-      makeModel: (state) => state,
+      makeModel: () => null,
     }
     const running: Effect.Effect<void> = run(
       program,
@@ -170,9 +172,10 @@ describe('run', () => {
   test('what runs in a run logs nothing into the span of whoever runs it, which stays the parent of their spans', async () => {
     const commands = 500
     const parents: Array<string> = []
-    const logging: Program<{ state: number; model: number; message: 'Next'; command: 'Go' }> = {
-      init: { state: 0, commands: ['Go'] },
-      update: () => (count) => count < commands ? { state: count + 1, commands: ['Go'] } : { state: count },
+    const logging: Program<{ state: Count; model: number; message: 'Next'; command: 'Go' }> = {
+      init: { state: { count: 0 }, commands: ['Go'] },
+      update: () => (state) =>
+        state.count < commands ? { state: { count: state.count + 1 }, commands: ['Go'] } : { state },
       runCommand: () =>
         Effect.logInfo('a command').pipe(
           Effect.andThen(Effect.orDie(Effect.currentSpan)),
@@ -189,7 +192,7 @@ describe('run', () => {
             Channel.concatWith(() => Channel.never),
           ),
         ]),
-      makeModel: (count) => count,
+      makeModel: ({ count }) => count,
     }
     const caller = await Effect.runPromise(
       Effect.gen(function*() {
@@ -252,60 +255,90 @@ describe('defects', () => {
 
   /**
    * Runs `program`, sending `Increment` from the first frame and drawing every frame with `view`, and tells
-   * whether the run failed with the defect thrown.
+   * whether the run failed with the defect thrown, and where the error logs say it happened.
    */
   const failsWithBoom = async (
     program: Counter,
-    { view = () => undefined, ...options }: Partial<RunOptions<Message, number, Command>> & {
+    { view = () => undefined, ...options }: Partial<RunOptions<Message, Count, Command>> & {
       view?: (model: Model) => void
     } = {},
   ) => {
     let sent = false
-    const exit = await Effect.runPromiseExit(quietly(run(
-      program,
-      (frames) =>
-        frames.pipe(
-          Stream.tap(Effect.fnUntraced(function*({ model, dispatch }) {
-            view(model)
-            if (sent) return
-            sent = true
-            yield* dispatch(model.increment)
-          })),
-          Stream.runDrain,
-        ),
-      options,
-    )))
-    return Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof Boom
+    const logged: Array<unknown> = []
+    const errors = Logger.make(({ message, logLevel }) => {
+      if (logLevel === 'Error') logged.push(Array.isArray(message) ? message[0] : message)
+    })
+    const exit = await Effect.runPromiseExit(
+      run(
+        program,
+        (frames) =>
+          frames.pipe(
+            Stream.tap(Effect.fnUntraced(function*({ model, dispatch }) {
+              view(model)
+              if (sent) return
+              sent = true
+              yield* dispatch(model.increment)
+            })),
+            Stream.runDrain,
+          ),
+        options,
+      ).pipe(Effect.provide(Logger.layer([errors]))),
+    )
+    return { fails: Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof Boom, logged }
   }
 
-  const pinging = { state: 0, commands: ['Ping'] } as const satisfies Step<number, Command>
+  const pinging = { state: { count: 0 }, commands: ['Ping'] } as const satisfies Step<Count, Command>
 
-  // Whoever runs the program reports its defects: wherever one happens, the run fails with it.
-  test.each<[string, () => Promise<boolean>]>([
-    ['update', () => failsWithBoom({ ...counter, update: () => (count) => count === 0 ? boom() : { state: 1 } })],
-    ['update, given a message', () => failsWithBoom({ ...counter, update: () => boom })],
-    ['makeModel', () => failsWithBoom({ ...counter, makeModel: boom })],
-    ['the view', () => failsWithBoom(counter, { view: ({ count }) => count === 1 ? boom() : undefined })],
+  const renderer = 'A defect in the renderer, its view or makeModel'
+
+  // Whoever runs the program reports its defects: wherever one happens, the run fails with it, and the log says
+  // where it happened.
+  test.each<[string, string, () => ReturnType<typeof failsWithBoom>]>([
+    [
+      'update',
+      'A defect in update',
+      () => failsWithBoom({ ...counter, update: () => ({ count }) => count === 0 ? boom() : { state: { count: 1 } } }),
+    ],
+    ['update, given a message', 'A defect in update', () => failsWithBoom({ ...counter, update: () => boom })],
+    ['makeModel', renderer, () => failsWithBoom({ ...counter, makeModel: boom })],
+    ['the view', renderer, () => failsWithBoom(counter, { view: ({ count }) => count === 1 ? boom() : undefined })],
     [
       'subscriptions',
-      () => failsWithBoom({ ...counter, subscriptions: (count) => count === 1 ? boom() : HashMap.empty() }),
+      'A defect in subscriptions',
+      () => failsWithBoom({ ...counter, subscriptions: ({ count }) => count === 1 ? boom() : HashMap.empty() }),
     ],
     [
       'a subscription',
+      'A defect in a subscription',
       () => failsWithBoom({ ...counter, subscriptions: () => HashMap.make(['k', Channel.die(new Boom())]) }),
     ],
-    ['a command', () => failsWithBoom({ ...counter, init: pinging, runCommand: () => Effect.sync(boom) })],
-    ['runCommand', () => failsWithBoom({ ...counter, init: pinging, runCommand: boom })],
-    ['describeMessage', () => failsWithBoom(counter, { describeMessage: boom })],
-    ['onApplied', () => failsWithBoom(counter, { onApplied: () => Effect.sync(boom) })],
-  ])('a defect in %s ends the run, which fails with it', async (_, fails) => {
-    expect(await fails()).toBe(true)
+    [
+      'a command',
+      'A defect in a command',
+      () => failsWithBoom({ ...counter, init: pinging, runCommand: () => Effect.sync(boom) }),
+    ],
+    ['runCommand', 'A defect in a command', () => failsWithBoom({ ...counter, init: pinging, runCommand: boom })],
+    ['describeMessage', 'A defect in describeMessage', () => failsWithBoom(counter, { describeMessage: boom })],
+    [
+      'describeCommand',
+      'A defect in describeCommand',
+      () =>
+        failsWithBoom({
+          ...counter,
+          update: () => ({ count }) => ({ state: { count: count + 1 }, commands: ['Ping'] }),
+        }, {
+          describeCommand: boom,
+        }),
+    ],
+    ['onApplied', 'A defect in onApplied', () => failsWithBoom(counter, { onApplied: () => Effect.sync(boom) })],
+  ])('a defect in %s ends the run, which fails with it', async (_, where, outcome) => {
+    expect(await outcome()).toEqual({ fails: true, logged: [where] })
   })
 })
 
 describe('onApplied', () => {
   test('hears every accepted message in order, with the states around it, before its frame', async () => {
-    const heard: Array<Applied<number, Message, Command>> = []
+    const heard: Array<Applied<Count, Message, Command>> = []
     const drawn: Array<number> = []
     await Effect.runPromise(quietly(run(
       counter,
@@ -321,37 +354,43 @@ describe('onApplied', () => {
       { onApplied: (applied) => Effect.sync(() => heard.push(applied)) },
     )))
     expect(heard).toEqual([
-      { message: 'Increment', before: 0, after: 1, revision: 1, commands: [] },
-      { message: 'Increment', before: 1, after: 2, revision: 2, commands: [] },
+      { message: 'Increment', before: { count: 0 }, after: { count: 1 }, revision: 1, commands: [] },
+      { message: 'Increment', before: { count: 1 }, after: { count: 2 }, revision: 2, commands: [] },
     ])
     expect(drawn).toEqual([0, 1, 2])
   })
 
   test('a message that leaves the very same state is heard too, with an unchanged revision', async () => {
     const heard = await Effect.runPromise(quietly(Effect.gen(function*() {
-      const applied = yield* Deferred.make<Applied<number, Message, Command>>()
+      const applied = yield* Deferred.make<Applied<Count, Message, Command>>()
       const still: Counter = {
         ...counter,
-        init: { state: 0, commands: ['Ping'] },
-        update: () => (count) => ({ state: count }),
+        init: { state: { count: 0 }, commands: ['Ping'] },
+        update: () => (state) => ({ state }),
       }
       yield* run(still, () => Effect.asVoid(Deferred.await(applied)), {
         onApplied: (message) => Effect.asVoid(Deferred.succeed(applied, message)),
       })
       return yield* Deferred.await(applied)
     })))
-    expect(heard).toEqual({ message: 'Increment', before: 0, after: 0, revision: 0, commands: [] })
+    expect(heard).toEqual({
+      message: 'Increment',
+      before: { count: 0 },
+      after: { count: 0 },
+      revision: 0,
+      commands: [],
+    })
   })
 
   test('hears the commands each message started, as update returned them', async () => {
     const heard = await Effect.runPromise(quietly(Effect.gen(function*() {
-      const applied: Array<Applied<number, Message, Command>> = []
-      const two = yield* Deferred.make<ReadonlyArray<Applied<number, Message, Command>>>()
+      const applied: Array<Applied<Count, Message, Command>> = []
+      const two = yield* Deferred.make<ReadonlyArray<Applied<Count, Message, Command>>>()
       // The first increment pings again, so a second one follows.
       const pinging: Counter = {
         ...counter,
-        init: { state: 0, commands: ['Ping'] },
-        update: () => (count) => ({ state: count + 1, commands: count === 0 ? ['Ping'] : [] }),
+        init: { state: { count: 0 }, commands: ['Ping'] },
+        update: () => ({ count }) => ({ state: { count: count + 1 }, commands: count === 0 ? ['Ping'] : [] }),
       }
       yield* run(pinging, () => Effect.asVoid(Deferred.await(two)), {
         onApplied: (step) =>

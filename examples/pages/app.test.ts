@@ -1,6 +1,6 @@
 // The messages of the pages are built by the test: the parent's are `{ _tag: <page>, message }`.
 import { describe, expect, test } from 'bun:test'
-import { applyAll, dispatchViolations, missingActions, simulate } from '@fgaudo/effect-tea/testing'
+import { applyAll, dispatchViolations, simulate } from '@fgaudo/effect-tea/testing'
 import { dispatchTo, run, subscriptionsOf } from '@fgaudo/effect-tea'
 import * as DateTime from 'effect/DateTime'
 import * as Effect from 'effect/Effect'
@@ -60,14 +60,12 @@ describe('pages', () => {
   })
 
   test('the view sends what update accepts, all of it, and acts once when sent twice', () => {
-    const violations = dispatchViolations(app.update)
-    const missing = missingActions(app.update, {
+    const violations = dispatchViolations(app.update, {
       withheld: (message, state) => message._tag === 'Clock' && Opt.isSome(state.maybeAbout),
     })
     fc.assert(fc.property(state, (before) => {
       const sent = messagesSentBy<Model, Message>(view, app.makeModel(before))
-      expect(violations(before, sent)).toEqual([])
-      expect(missing(before, sent, [aboutClicked, backClicked])).toEqual([])
+      expect(violations(before, sent, [aboutClicked, backClicked])).toEqual([])
     }))
   })
 

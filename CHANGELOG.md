@@ -27,19 +27,45 @@ version, and everything else, features included, the patch version.
     `Driver<Model, Message>`. `rehearse`'s `send` fails when `update` rejects the message, where only a typed
     value rejected in its own state failed: a tap on an older frame is tested with `applyAll`, or with `update`
     itself. `ignored` lists only the messages of commands and subscriptions.
-  - `missingOffers` is now `missingActions`.
+  - `missingOffers` is gone: `dispatchViolations` checks both ways. Write
+    `dispatchViolations(update, { repeatable, withheld })(state, sent, candidates)` where you wrote
+    `dispatchViolations(update, { repeatable })(state, sent)` and `missingOffers(update, { withheld })(state, sent,
+    candidates)`: a message `update` accepts and the view leaves out is a `DispatchViolation` tagged `Missing`.
   - `dispatchUnsafe` is gone: sending from a plain callback is the renderer's business. A dispatch needs no
     services and completes synchronously, so write `Effect.runSync(dispatch(message))` where you wrote
     `dispatchUnsafe(dispatch)(message)`, or run it with a runtime of your own.
 - A child's model is kept while its state object lives, whichever parent, place or run shows it, where it was
   kept for the root's last two frames: children that share a state share its model.
+- A parent's handle gives its child an external message and returns a step, never a rejection
+  (`children.<child>.update(message)`): a parent and its children talk only through external messages and
+  events, and `reject` means one thing everywhere. A child that rejects an external message, or a parent that
+  gives one to a child that is not there, is a defect. To upgrade, a child that rejected to let its parent act
+  raises an event instead, handled in `onEvent`, and the parent drops its `isRejected` check:
+  `update: (_, children) => children.Page.update(message)`, with `onEvent: { Page: … }`.
+- A program keeps its state in an object, the root's included: a number or a string has no identity to keep a
+  child's model by, and any program can then become a child as it is. A program whose state is a primitive or
+  `null` no longer compiles (`Program`, `parent`, `child`, `each`, `run`, `simulate`, `rehearse`, `drive`). To
+  upgrade, wrap the state: `{ count }` where it was `count`, `update: (message) => ({ count }) => ({ state: {
+  count: count + 1 } })`.
 
 ### Added
 
 - `dispatchTo(dispatch, name, id?)`, the dispatch of a child for its view: it wraps the child's messages as the
   parent receives them, and is the same function every time it is asked for, so that a view memoized on its
-  dispatch is drawn again only when its model changes. It keeps nothing for the children nobody holds a
-  dispatch of, so that a list whose ids are never reused does not pile them up.
+  dispatch is drawn again only when its model changes. Ids are compared by value, with `Equal`, as in
+  subscription keys. It keeps nothing for the children nobody holds a dispatch of, so that a list whose ids are
+  never reused does not pile them up.
+
+### Fixed
+
+- A parent's own command named like one of its children compiled, and was given to that child's `runCommand`.
+  It is now a type error, as an own message with a child's name already was.
+- `CommandOf` read a program's commands from its `init` alone: a program written without `Program<…>` that
+  starts with no command had none, and its parent's commands left out the ones its `update` returns.
+- A defect in `subscriptions`, `describeMessage`, `describeCommand`, the renderer, its view or `makeModel` is
+  logged with where it happened, as one in `update`, a command or a subscription already was.
+- `rehearse`'s `hear` failed with a JSON error, rather than saying that nothing listens, for a key that holds a
+  `bigint`.
 
 ## 0.5.1 (2026-10-22)
 

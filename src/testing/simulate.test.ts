@@ -89,13 +89,19 @@ describe('simulate', () => {
         Effect.sync(() => log.push(`acquire ${name}`)),
         () => Effect.sync(() => log.push(`release ${name}`)),
       )
-    const chained: Update<null, Step, 'A' | 'B'> = (message) => (state) =>
+    const chained: Update<object, Step, 'A' | 'B'> = (message) => (state) =>
       message === 'Start' ? { state, commands: ['A'] } : message === 'First' ? { state, commands: ['B'] } : { state }
     const runCommand: RunCommand<'A' | 'B', Step, Scope.Scope> = (command) =>
       resource(command).pipe(Effect.as(Opt.some<Step>(command === 'A' ? 'First' : 'Second')))
-    const simulation = await Effect.runPromise(simulate({ update: chained, runCommand })(['Start'], { state: null }))
+    const simulation = await Effect.runPromise(simulate({ update: chained, runCommand })(['Start'], { state: {} }))
     expect(simulation.messages).toEqual(['Start', 'First', 'Second'])
     expect(log).toEqual(['acquire A', 'release A', 'acquire B', 'release B'])
+  })
+
+  test('takes a program that keeps its state in an object', () => {
+    const counting: Update<number, 'Increment'> = () => (count) => ({ state: count + 1 })
+    // @ts-expect-error: a number is no object.
+    expect(simulate({ update: counting })).toBeDefined()
   })
 
   test('a rejection of one of the messages fails, naming it', async () => {

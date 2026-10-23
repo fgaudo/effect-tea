@@ -90,9 +90,10 @@ The version in `package.json` is the one the next release will have, decided by 
   model, read from the state, and `update` are two derivations that tests check against each other, and a
   model that asked would make a wrong rejection a control that silently disappears.
 - **A child's dispatch is the same while anyone holds it** (`dispatchTo` in `dispatch.ts`): kept weakly by its
-  parent's dispatch, its name and its id, so that a view memoized on its model and its dispatch is drawn again
-  only when its model changes, and an id nobody shows any more costs nothing. Never hold them strongly: ids that
-  are never reused, as the README advises, would pile up for as long as the run lasts.
+  parent's dispatch, its name and its id (compared with `Equal`, as subscription keys are), so that a view
+  memoized on its model and its dispatch is drawn again only when its model changes, and an id nobody shows any
+  more costs nothing: a `FinalizationRegistry` removes its entry once its dispatch is collected. Never hold them
+  strongly: ids that are never reused, as the README advises, would pile up for as long as the run lasts.
 - **Running a dispatch needs no services and completes synchronously**: it only offers the message to the
   engine's unbounded queue, which wakes the engine on the scheduler of the run that made it. Renderers rely on it
   to send from plain callbacks with `Effect.runSync`, whatever runtime the program runs in. Keep the queue
@@ -141,10 +142,16 @@ The version in `package.json` is the one the next release will have, decided by 
   waits use the real clock, whatever `Clock` the program runs with.
 - **A program's model is kept by its state object** (`modelsOf` in `compose.ts`), for as long as that object
   lives: it relies on `makeModel` being pure, and on states being replaced, never mutated. A model holds
-  nothing of its run or of its place, so children or runs that share a state share its model.
+  nothing of its run or of its place, so children or runs that share a state share its model. So every program
+  keeps its state in an object (`ObjectState` in `program.ts`, checked by `Program`, `parent`, `child`, `each`, `run`
+  and the testing tools that take a program), the root's too, so that any program can be a child as it is: never
+  add a cache for primitive states, which nothing could let go of.
 - **What a parent declares, the types enforce**: `runCommand` exactly when it has commands of its own,
   `onEvent` exactly when a child has events, a handle's `update` only with a child's `external` messages, and no own
-  message named like a child. A program written without `Program<…>` has `unknown` types, read as `never`
+  message or command named like a child. A handle's `update` returns a step, never a rejection: a parent and its
+  children talk only through external messages and events, so that `reject` means one thing everywhere, that a
+  message does not apply, and a child rejecting an external message, or a parent giving one to a child that is
+  not there, is a defect (`tell` in `compose.ts`). A program written without `Program<…>` has `unknown` types, read as `never`
   (`Known` in `program.ts`), so that it does not open these checks.
 - **Logs never carry message data by default** (`describeByTag` in `log.ts`): only tags, following a
   wrapped `message` or `command` only when it is itself tagged, since a program's own field of that name may
@@ -182,6 +189,9 @@ The version in `package.json` is the one the next release will have, decided by 
 - Test through behaviour (`run`, `Engine.make`, the public functions), not through internals.
 - Run tests that make the engine die on purpose with a minimum log level of `None`, so that the errors they
   expect are not printed.
+- A test's name says what it checks. When a change touches a test, or what it tests, check that its name, its
+  `describe` and its comments still say what the assertions check: a test adapted to a new design keeps an old
+  name that promises what it no longer proves.
 
 ## Checks
 

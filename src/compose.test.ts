@@ -12,7 +12,7 @@ import type { Subscription } from './subscription.ts'
 import { isRejected, reject } from './update.ts'
 import { type Dispatch, dispatchTo } from './dispatch.ts'
 import { parent } from './compose.ts'
-import type { FlagsOf, MessageOf, Program } from './program.ts'
+import type { CommandOf, FlagsOf, MessageOf, Program } from './program.ts'
 import { type Frame, run } from './run.ts'
 
 // A counter that cannot go below zero, that saves on request, and that accepts typed numbers only.
@@ -22,6 +22,7 @@ type CounterMessage = Data.TaggedEnum<{
   Typed: { text: string }
   SaveClicked: object
   Saved: object
+  Cleared: object
 }>
 const CounterMessage = Data.taggedEnum<CounterMessage>()
 type CounterCommand = Data.TaggedEnum<{ Save: { count: number } }>
@@ -38,8 +39,8 @@ type CounterModel = Readonly<{
   save: Opt.Option<CounterMessage>
 }>
 
-// A parent may decrement it, as a back button would: its other messages are its own.
-type External = Extract<CounterMessage, { readonly _tag: 'Decrement' }>
+// A parent may clear it, in any state: its other messages are its own.
+type External = Extract<CounterMessage, { readonly _tag: 'Cleared' }>
 
 const counter: Program<{
   state: Counter
@@ -65,6 +66,8 @@ const counter: Program<{
         return state.saving
           ? { state: { ...state, saving: false }, events: [{ _tag: 'SavedAt', count: state.count }] }
           : reject
+      case 'Cleared':
+        return { state: { ...state, count: 0 } }
     }
   },
   runCommand: () => Effect.succeed(Opt.some(CounterMessage.Saved())),
@@ -83,14 +86,18 @@ const ticks: Subscription<Tick, never> = Channel.fromEffect(Effect.succeed<Tick>
   Channel.concatWith(() => Channel.never),
 )
 
-const ticker: Program<{ state: number; model: number; message: Tick }> = {
-  init: { state: 0 },
-  update: () => (ticks) => ({ state: ticks + 1 }),
+type Ticks = Readonly<{ ticks: number }>
+
+const noTicks: Ticks = { ticks: 0 }
+
+const ticker: Program<{ state: Ticks; model: number; message: Tick }> = {
+  init: { state: noTicks },
+  update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
   subscriptions: () => HashMap.make(['ticks', ticks]),
-  makeModel: (ticks) => ticks,
+  makeModel: ({ ticks }) => ticks,
 }
 
-type ParentState = Readonly<{ left: Counter; maybeRight: Opt.Option<Counter>; saves: number; ticks: number }>
+type ParentState = Readonly<{ left: Counter; maybeRight: Opt.Option<Counter>; saves: number; ticks: Ticks }>
 type Reset = Readonly<{ _tag: 'Reset' }>
 
 const Parent = parent<{ state: ParentState }>()
@@ -118,9 +125,8 @@ const app = Parent.compose({
     }),
   },
   update: (_: Reset, children) => (state) => {
-    // A parent applies a message of its own to a child through its handle.
-    const step = children.Left.update(CounterMessage.Decrement())(state)
-    return isRejected(step) ? { state } : step
+    // A parent gives a child a message through its handle.
+    return children.Left.update(CounterMessage.Cleared())(state)
   },
   onEvent: {
     Left: () => (state) => ({ state: { ...state, saves: state.saves + 1 } }),
@@ -244,7 +250,7 @@ describe('next: compose', () => {
   test('the parent\'s own messages, and what it sends a child through its handle', () => {
     const at = { ...app.init.state, left: { ...counter.init.state, count: 2 } }
     const result = app.update({ _tag: 'Reset' })(at)
-    expect(!isRejected(result) && result.state.left.count).toBe(1)
+    expect(!isRejected(result) && result.state.left.count).toBe(0)
   })
 
   // The very same state draws no new frame: a parent rebuilt around an unchanged child would draw one.
@@ -342,7 +348,7 @@ const list = List.compose({
       subscribed: (state) => state.rows.map(({ id, counter }) => [id, counter] as const),
     }),
     Ticker: List.child(ticker, {
-      get: () => Opt.some(0),
+      get: () => Opt.some(noTicks),
       set: (state) => state,
       subscribed: () => Opt.none(),
     }),
@@ -400,8 +406,8 @@ describe('next: children by id', () => {
       return new WeakRef(model ?? {})
     }
     const released = make()
-    // A WeakRef keeps its target until the current job ends.
-    await Promise.resolve()
+    // A WeakRef keeps its target until the current job ends: a macrotask, unlike a microtask, ends it.
+    await new Promise((resolve) => setTimeout(resolve, 0))
     Bun.gc(true)
     expect(released.deref()).toBeUndefined()
   })
@@ -480,9 +486,9 @@ describe('next: children by id', () => {
       init: () => ({ state: { ids: [7, 8] } }),
       children: {
         Tickers: Tickers.each(ticker, {
-          get: (state, id: number) => state.ids.includes(id) ? Opt.some(0) : Opt.none(),
+          get: (state, id: number) => state.ids.includes(id) ? Opt.some(noTicks) : Opt.none(),
           set: (state) => state,
-          subscribed: (state) => state.ids.map((id) => [id, 0] as const),
+          subscribed: (state) => state.ids.map((id) => [id, noTicks] as const),
         }),
       },
       onEvent: {},
@@ -505,13 +511,63 @@ describe('next: what a parent can do with a child', () => {
       },
       update: (_: Reset, children) => (state) => {
         // @ts-expect-error: `Increment` is the counter's own business.
-        const forged = children.Left.update(CounterMessage.Increment())(state)
-        return isRejected(forged) ? { state } : forged
+        return children.Left.update(CounterMessage.Increment())(state)
       },
       onEvent: { Left: () => (state) => ({ state }) },
       makeModel: () => null,
     })
     expect(isRejected(sendTo.update({ _tag: 'Reset' })(app.init.state))).toBe(false)
+  })
+
+  // A page with a menu, which a back button closes, or, with nothing to close, asks its parent to leave.
+  type Page = Readonly<{ menu: boolean }>
+  type BackPressed = Readonly<{ _tag: 'BackPressed' }>
+  const page: Program<{
+    state: Page
+    model: null
+    message: BackPressed
+    event: Readonly<{ _tag: 'LeaveRequested' }>
+    external: BackPressed
+  }> = {
+    init: { state: { menu: true } },
+    update: () => (state) => state.menu ? { state: { menu: false } } : { state, events: [{ _tag: 'LeaveRequested' }] },
+    makeModel: () => null,
+  }
+  type Pages = Readonly<{ page: Opt.Option<Page> }>
+  const Pages = parent<{ state: Pages }>()
+  const shown = Pages.child(page, { get: (state) => state.page, set: (_, page) => ({ page: Opt.some(page) }) })
+
+  test('a child answers its parent with its state or an event, handled in the same step', () => {
+    const pages = Pages.compose({
+      init: () => ({ state: { page: Opt.some(page.init.state) } }),
+      children: { Page: shown },
+      update: (_: BackPressed, children) => children.Page.update({ _tag: 'BackPressed' }),
+      onEvent: { Page: () => () => ({ state: { page: Opt.none() } }) },
+      makeModel: () => null,
+    })
+    const back = (state: Pages) => {
+      const result = pages.update({ _tag: 'BackPressed' })(state)
+      return isRejected(result) ? state : result.state
+    }
+    expect(back(pages.init.state)).toEqual({ page: Opt.some({ menu: false }) })
+    expect(back(back(pages.init.state))).toEqual({ page: Opt.none() })
+  })
+
+  test('a child that rejects what its parent gives it, or is not there to take it, is a defect', () => {
+    const rejecting: typeof page = { ...page, update: () => (state) => state.menu ? { state } : reject }
+    const pages = Pages.compose({
+      init: () => ({ state: { page: Opt.some(page.init.state) } }),
+      children: {
+        Page: Pages.child(rejecting, { get: (state) => state.page, set: (_, page) => ({ page: Opt.some(page) }) }),
+      },
+      update: (_: BackPressed, children) => children.Page.update({ _tag: 'BackPressed' }),
+      onEvent: { Page: () => (state) => ({ state }) },
+      makeModel: () => null,
+    })
+    expect(() => pages.update({ _tag: 'BackPressed' })({ page: Opt.some({ menu: false }) }))
+      .toThrow('"Page" rejected an external message')
+    expect(() => pages.update({ _tag: 'BackPressed' })({ page: Opt.none() }))
+      .toThrow('an external message to "Page", which is not in this state')
   })
 
   test('init gives a new child its state and its commands, lifted with its id', () => {
@@ -691,17 +747,17 @@ describe('next: flags', () => {
       children: {},
       makeModel: () => null,
     })
-    const { compose } = parent<{ state: number }>()
+    const { compose } = parent<{ state: Ticks }>()
     compose({
       // @ts-expect-error: it has no flags to start from.
-      init: () => (count: number) => ({ state: count }),
+      init: () => (ticks: number) => ({ state: { ticks } }),
       children: {},
       makeModel: () => null,
     })
   })
 
   test('a child without flags is started with none', () => {
-    const { child, compose } = parent<{ state: number }>()
+    const { child, compose } = parent<{ state: Ticks }>()
     // Not called: its `init` would throw.
     const make = () =>
       compose({
@@ -737,42 +793,91 @@ describe('next: flags', () => {
 describe('next: what the types reject', () => {
   // A program written as a plain object, without `Program<…>`: no external messages, so nothing a parent may send.
   const plain = {
-    init: { state: 0 },
-    update: (message: Tick) => (ticks: number) => message._tag === 'Tick' ? { state: ticks + 1 } : reject,
-    makeModel: (ticks: number) => ticks,
+    init: { state: noTicks },
+    update: (message: Tick) => ({ ticks }: Ticks) => message._tag === 'Tick' ? { state: { ticks: ticks + 1 } } : reject,
+    makeModel: ({ ticks }: Ticks) => ticks,
   }
 
+  // A parent keeps a child's model by its state object: a number or a string has no identity to keep it by.
+  test('a program keeps its state in an object, however it is written', () => {
+    const counting = {
+      init: { state: 0 },
+      update: () => (count: number) => ({ state: count + 1 }),
+      makeModel: (count: number) => count,
+    }
+    // @ts-expect-error: a number is no object.
+    const typed: Program<{ state: number; model: number; message: Tick }> = counting
+    // @ts-expect-error: nor is a string, a parent's included.
+    expect(parent<{ state: string }>()).toBeDefined()
+    const { child } = parent<{ state: Ticks }>()
+    // @ts-expect-error: a child's state is an object.
+    expect(child(counting, { get: () => Opt.some(0), set: (state) => state })).toBeDefined()
+    // @ts-expect-error: and so is the state of the program that runs.
+    expect(run(counting, () => Effect.void)).toBeDefined()
+    expect([typed, counting]).toHaveLength(2)
+  })
+
   test('a child whose type names no external message takes none from its parent', () => {
-    const { child, compose } = parent<{ state: number }>()
+    const { child, compose } = parent<{ state: Ticks }>()
     const program = compose({
-      init: () => ({ state: 0 }),
+      init: () => ({ state: noTicks }),
       children: { Plain: child(plain, { get: (state) => Opt.some(state), set: (_, child) => child }) },
       update: (_: Reset, children) => (state) => {
         // @ts-expect-error: `Tick` is the child's own business.
-        const forged = children.Plain.update({ _tag: 'Tick' })(state)
-        return isRejected(forged) ? { state } : forged
+        return children.Plain.update({ _tag: 'Tick' })(state)
       },
       makeModel: () => null,
     })
-    expect(isRejected(program.update({ _tag: 'Reset' })(0))).toBe(false)
+    expect(isRejected(program.update({ _tag: 'Reset' })(noTicks))).toBe(false)
   })
 
   test('an own message cannot take the name of a child, which would receive it', () => {
-    const { child, compose } = parent<{ state: number }>()
+    const { child, compose } = parent<{ state: Ticks }>()
     // @ts-expect-error: `Plain` is a child's name.
     compose({
-      init: () => ({ state: 0 }),
+      init: () => ({ state: noTicks }),
       children: { Plain: child(plain, { get: (state) => Opt.some(state), set: (_, child) => child }) },
       update: (_: Readonly<{ _tag: 'Plain' }>) => (state) => ({ state }),
       makeModel: () => null,
     })
   })
 
+  test('an own command cannot take the name of a child, whose interpreter would receive it', () => {
+    const { child, compose } = parent<{ state: Ticks; command: Readonly<{ _tag: 'Plain' }> }>()
+    // @ts-expect-error: `Plain` is a child's name.
+    compose({
+      init: () => ({ state: noTicks }),
+      children: { Plain: child(plain, { get: (state) => Opt.some(state), set: (_, child) => child }) },
+      runCommand: () => Effect.succeed(Opt.none()),
+      makeModel: () => null,
+    })
+  })
+
+  test('a child that starts with no command still has those its update returns', () => {
+    const saving = {
+      init: { state: noTicks },
+      update: (_: Tick) => (state: Ticks) =>
+        state.ticks > 0 ? { state, commands: ['Save' as const] } : { state: { ticks: 1 } },
+      runCommand: () => Effect.succeed(Opt.none()),
+      makeModel: ({ ticks }: Ticks) => ticks,
+    }
+    const { child, compose } = parent<{ state: Ticks }>()
+    const program = compose({
+      init: () => ({ state: noTicks }),
+      children: { Saving: child(saving, { get: (state) => Opt.some(state), set: (_, child) => child }) },
+      makeModel: () => null,
+    })
+    const command: CommandOf<typeof program> = { _tag: 'Saving', command: 'Save' }
+    // @ts-expect-error: the child returns no other command.
+    const other: CommandOf<typeof saving> = 'Load'
+    expect([command, other]).toHaveLength(2)
+  })
+
   test('commands of its own need a runCommand', () => {
-    const { child, compose } = parent<{ state: number; command: Readonly<{ _tag: 'Beep' }> }>()
+    const { child, compose } = parent<{ state: Ticks; command: Readonly<{ _tag: 'Beep' }> }>()
     // @ts-expect-error: `Beep` would go uninterpreted.
     compose({
-      init: () => ({ state: 0 }),
+      init: () => ({ state: noTicks }),
       children: { Plain: child(plain, { get: (state) => Opt.some(state), set: (_, child) => child }) },
       makeModel: () => null,
     })

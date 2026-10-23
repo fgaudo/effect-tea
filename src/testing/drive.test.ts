@@ -125,9 +125,9 @@ describe('drive', () => {
 
   test('a program written as a plain object, without commands, needs no runCommand', async () => {
     const plain = {
-      init: { state: 0 },
-      update: () => (count: number) => ({ state: count + 1 }),
-      makeModel: (count: number) => count,
+      init: { state: { count: 0 } },
+      update: () => ({ count }: Readonly<{ count: number }>) => ({ state: { count: count + 1 } }),
+      makeModel: ({ count }: Readonly<{ count: number }>) => count,
     }
     expect(await Effect.runPromise(drive(plain, (driver) => driver.waitFor(Opt.some)))).toBe(0)
   })
@@ -183,15 +183,16 @@ describe('drive', () => {
 
   test('a program whose commands acquire needs no scope: each command has its own', async () => {
     const released: Array<string> = []
-    const holding: Program<{ state: number; model: number; message: 'Held'; command: 'Hold'; services: Scope.Scope }> =
+    type Holding = Readonly<{ count: number }>
+    const holding: Program<{ state: Holding; model: number; message: 'Held'; command: 'Hold'; services: Scope.Scope }> =
       {
-        init: { state: 0, commands: ['Hold'] },
-        update: () => (count) => ({ state: count + 1 }),
+        init: { state: { count: 0 }, commands: ['Hold'] },
+        update: () => ({ count }) => ({ state: { count: count + 1 } }),
         runCommand: () =>
           Effect.acquireRelease(Effect.void, () => Effect.sync(() => released.push('resource'))).pipe(
             Effect.as(Opt.some<'Held'>('Held')),
           ),
-        makeModel: (count) => count,
+        makeModel: ({ count }) => count,
       }
     const driven: Effect.Effect<number> = drive(
       holding,

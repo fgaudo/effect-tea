@@ -17,6 +17,7 @@ import {
   type Interpreter,
   type MessageOf,
   type ModelOf,
+  type ObjectState,
   runCommandOf,
   type ServicesOf,
   type Shape,
@@ -39,7 +40,8 @@ type Child<ParentState, P> = Readonly<{
 
 /**
  * Children told apart by an id (e.g. the rows of a list), each with its own state. Ids go into subscription
- * keys and messages, so they must compare by value (strings, numbers).
+ * keys, messages and their dispatches, which tell them apart with `Equal`: strings, numbers, or tuples and
+ * structs of them.
  */
 type Each<ParentState, Id, P> = Readonly<{
   kind: 'each'
@@ -95,18 +97,19 @@ type Start<P, Command> = Readonly<{ state: StateOf<P>; commands: ReadonlyArray<C
 
 /**
  * What a parent can do with a child (`children` in `init`, `update` and `onEvent`): start one (`init`, from its
- * flags when it has them), and apply to it one of the messages its type says a parent may send (`update`, e.g. a
- * back button), which returns the parent's transition. Its other messages are its own: only its view and its
- * effects send them.
+ * flags when it has them), and give it one of the messages its type says a parent may send (`update`, e.g. a
+ * back button), which returns the parent's step. Its other messages are its own: only its view and its effects
+ * send them. A child answers what its parent tells it with its state, or with an event: one that rejects it, or is
+ * not there, is a defect, since the parent decides when to send and the child's type says it takes the message.
  */
 type Handles<State, C, Command, Event> = {
   readonly [K in keyof C & string]: C[K] extends EachOf<infer Id, infer P> ? Readonly<{
-      update: (id: Id, message: ExternalOf<P>) => (state: State) => Transition<State, Command, Event>
+      update: (id: Id, message: ExternalOf<P>) => (state: State) => Step<State, Command, Event>
       init: [FlagsOf<P>] extends [never] ? (id: Id) => Start<P, Command>
         : (id: Id, flags: FlagsOf<P>) => Start<P, Command>
     }>
     : Readonly<{
-      update: (message: ExternalOf<ProgramOf<C[K]>>) => (state: State) => Transition<State, Command, Event>
+      update: (message: ExternalOf<ProgramOf<C[K]>>) => (state: State) => Step<State, Command, Event>
       init: [FlagsOf<ProgramOf<C[K]>>] extends [never] ? Start<ProgramOf<C[K]>, Command>
         : (flags: FlagsOf<ProgramOf<C[K]>>) => Start<ProgramOf<C[K]>, Command>
     }>
@@ -145,14 +148,17 @@ type RunCommandOf<OwnCommand, Message, R> = [OwnCommand] extends [never] ? Reado
 
 type TagOf<M> = M extends { readonly _tag: infer T } ? T : never
 
-/** An own message that takes a child's name would be routed to the child: it does not compile. */
-type NoClash<Own, C> = [Extract<TagOf<Own>, keyof C>] extends [never] ? unknown
-  : Readonly<{ 'an own message takes the name of a child': Extract<TagOf<Own>, keyof C> }>
+/** An own message or command that takes a child's name would be routed to the child: it does not compile. */
+type NoClash<Own, OwnCommand, C> =
+  & ([Extract<TagOf<Own>, keyof C>] extends [never] ? unknown
+    : Readonly<{ 'an own message takes the name of a child': Extract<TagOf<Own>, keyof C> }>)
+  & ([Extract<TagOf<OwnCommand>, keyof C>] extends [never] ? unknown
+    : Readonly<{ 'an own command takes the name of a child': Extract<TagOf<OwnCommand>, keyof C> }>)
 
 type Config<State, C, Own, OwnCommand, Event, Model, R, K, Flags> =
   & OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event>
   & RunCommandOf<OwnCommand, Own | ChildMessages<C>, R>
-  & NoClash<Own, C>
+  & NoClash<Own, OwnCommand, C>
   & Readonly<{
     /**
      * The first state and commands, or, for a parent with flags, the function that makes them from its flags
@@ -265,16 +271,24 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
     return { state, commands: Arr.map(commands, wrapCommand(place)) }
   }
   const hasFlags = (name: string) => typeof childOf(name).program.init === 'function'
+  const tell = (place: Place, message: unknown) => (state: State): Step<State, Command, Event> => {
+    if (Opt.isNone(getAt(place, state))) {
+      throw new Error(`compose: an external message to "${place.name}", which is not in this state`)
+    }
+    const result = updateAt(place, message)(state)
+    if (isRejected(result)) throw new Error(`compose: "${place.name}" rejected an external message, which it takes`)
+    return result
+  }
   // Built once: a child's update calls `onEvent`, which may call any child's handle.
   const handles = Object.fromEntries(names.map((name) => [
     name,
     isEach(name)
       ? {
-        update: (id: unknown, message: unknown) => updateAt({ name, id }, message),
+        update: (id: unknown, message: unknown) => tell({ name, id }, message),
         init: (id: unknown, flags: unknown) => startAt({ name, id }, flags),
       }
       : {
-        update: (message: unknown) => updateAt({ name, id: undefined }, message),
+        update: (message: unknown) => tell({ name, id: undefined }, message),
         init: hasFlags(name)
           ? (flags: unknown) => startAt({ name, id: undefined }, flags)
           : startAt({ name, id: undefined }, undefined),
@@ -303,11 +317,11 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
   }
   const modelAt = (place: Place, parentState: State) => {
     const { program } = childOf(place.name)
+    // An object, as the types require: a primitive here is a defect, raised by the `WeakMap`.
     const childState = Opt.getOrThrowWith(
       getAt(place, parentState),
       () => new Error(`compose: the model of "${place.name}", which is not in this state`),
-    )
-    if (typeof childState !== 'object' || childState === null) return program.makeModel(childState)
+    ) as object
     const kept = modelsOf(program)
     if (kept.has(childState)) return kept.get(childState)
     const model = program.makeModel(childState)
@@ -357,7 +371,7 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
  * flags.
  */
 export type ParentTypes = Readonly<{
-  state: unknown
+  state: object
   command?: unknown
   event?: unknown
   external?: unknown
@@ -376,14 +390,17 @@ export const parent = <T extends ParentTypes>() => {
   type OwnCommand = Field<T, 'command'>
   type Event = Field<T, 'event'>
   return {
-    child: <P extends AnyProgram>(program: P, place: Omit<Child<State, P>, 'program' | 'kind'>): Child<State, P> => ({
+    child: <P extends AnyProgram>(
+      program: P,
+      place: Omit<Child<State, P>, 'program' | 'kind'> & ObjectState<StateOf<P>>,
+    ): Child<State, P> => ({
       kind: 'one',
       program,
       ...place,
     }),
     each: <Id, P extends AnyProgram>(
       program: P,
-      place: Omit<Each<State, Id, P>, 'program' | 'kind'>,
+      place: Omit<Each<State, Id, P>, 'program' | 'kind'> & ObjectState<StateOf<P>>,
     ): Each<State, Id, P> => ({ kind: 'each', program, ...place }),
     // Its external messages are among its own: the intersection keeps only those.
     compose: <C extends Children<State>, Model, Own = never, R = never, K = unknown>(

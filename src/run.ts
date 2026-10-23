@@ -34,7 +34,11 @@ export const runWith = Effect.fnUntraced(
     )
     yield* Effect.raceFirst(
       engine.await,
-      Effect.scoped(render(frames)).pipe(Effect.updateContext(Engine.withExternalSpan<Exclude<RR, Scope.Scope>>)),
+      Effect.scoped(render(frames)).pipe(
+        // The model is made when the renderer reads it: a defect of `makeModel` is the renderer's.
+        Effect.tapDefect((defect) => Effect.logError('A defect in the renderer, its view or makeModel', defect)),
+        Effect.updateContext(Engine.withExternalSpan<Exclude<RR, Scope.Scope>>),
+      ),
     )
   },
   Effect.scoped,

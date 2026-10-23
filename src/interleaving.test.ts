@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import * as Arr from 'effect/Array'
+import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
@@ -221,7 +222,10 @@ const listeners = (state: ListState) =>
   state.rows.filter(({ row }) => row.listening).map(({ row }) => listener(row.born, row.session)).sort()
 
 describe('interleavings of the user, commands and subscriptions', () => {
-  const property = (check: (outcome: Awaited<ReturnType<typeof runScenario>>) => void) =>
+  const property = (
+    check: (outcome: Awaited<ReturnType<typeof runScenario>>) => void,
+    options: Readonly<{ numRuns?: number; seed?: number }> = {},
+  ) =>
     fc.assert(
       fc.asyncProperty(
         fc.scheduler(),
@@ -231,19 +235,29 @@ describe('interleavings of the user, commands and subscriptions', () => {
           check(await runScenario(scheduler, acts, bursts))
         },
       ),
-      { numRuns: 60 },
+      { numRuns: 60, ...options },
     )
 
-  // Also checks that the scenarios reach every message: a model that showed nothing would pass every property.
-  test('whatever the order, a user who sends only what is drawn never makes the run fail', async () => {
+  // The other properties would hold for scenarios that did nothing: the scenarios reach every message. Listening
+  // again takes three acts in a row (add, mute, listen), which about one run of 60 scenarios in a hundred misses:
+  // 200 make a miss about one in ten million. What is missing shows only once every scenario has run, after
+  // fast-check could name one, so the failure names the seed that makes them again.
+  test('the scenarios reach every message, of the user, of the commands and of the subscriptions', async () => {
+    const seed = Math.floor(Math.random() * 2 ** 31)
     const reached = new Set<string>()
-    await property(({ exit, applied }) => {
-      expect(Exit.isSuccess(exit)).toBe(true)
+    await property(({ applied }) => {
       for (const { message } of applied) reached.add(message._tag === 'Rows' ? message.message._tag : message._tag)
-    })
-    expect([...reached].sort()).toEqual(
-      ['Add', 'Done', 'ListenClicked', 'MuteClicked', 'Remove', 'Tick', 'WorkClicked'],
+    }, { numRuns: 200, seed })
+    const missing = ['Add', 'Done', 'ListenClicked', 'MuteClicked', 'Remove', 'Tick', 'WorkClicked'].filter((tag) =>
+      !reached.has(tag)
     )
+    if (missing.length > 0) throw new Error(`No scenario of seed ${seed} reached ${missing.join(', ')}`)
+  }, 60_000)
+
+  test('whatever the order, nothing the user, the commands or the subscriptions do raises a defect', async () => {
+    await property(({ exit }) => {
+      expect(Exit.isSuccess(exit) ? 'no defect' : Cause.pretty(exit.cause)).toBe('no defect')
+    })
   }, 60_000)
 
   test('a tick reaches update only while the session that sent it is listening', async () => {

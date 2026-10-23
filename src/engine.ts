@@ -126,8 +126,10 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   // Where a defect happened is known only here, so it goes to the log; the run then fails with the defect.
   const logDefect = (where: string, ...details: ReadonlyArray<unknown>) => (defect: unknown) =>
     Effect.logError(`A defect in ${where}`, ...details, defect)
-  const apply = (message: Message, state: State) =>
-    Effect.sync(() => update(message)(state)).pipe(Effect.tapDefect(logDefect('update')))
+  // Each function of the program or of the options, called where its defect can be told apart from the others'.
+  const call = <A>(where: string, f: () => A) => Effect.sync(f).pipe(Effect.tapDefect(logDefect(where)))
+  const apply = (message: Message, state: State) => call('update', () => update(message)(state))
+  const described = (message: Message) => call('describeMessage', () => describeMessage(message))
   const observe = (applied: Applied<State, Message, Command>) =>
     onApplied(applied).pipe(Effect.tapDefect(logDefect('onApplied')))
   // The interpreter runs inside the command's fiber, so a defect in it is the command's. Its scope closes
@@ -150,7 +152,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     active: HashMap.HashMap<K, Generation>,
     state: State,
   ) {
-    const next = subscriptions(state)
+    const next = yield* call('subscriptions', () => subscriptions(state))
     let nextActive = HashMap.empty<K, Generation>()
     for (const key of HashMap.keys(active)) {
       if (HashMap.has(next, key)) continue
@@ -187,23 +189,23 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       origin._tag === 'Subscription'
       && !Opt.contains(HashMap.get(active, origin.key), origin.generation)
     ) {
-      yield* Effect.logDebug('Dropped a message of a stopped subscription', origin.key, describeMessage(message))
+      yield* Effect.logDebug('Dropped a message of a stopped subscription', origin.key, yield* described(message))
       return active
     }
     const { state, revision } = yield* SubscriptionRef.get(stateRef)
     const result = yield* apply(message, state)
     // The state the message was meant for is gone (a late answer, a second click), or it never applied.
     if (isRejected(result)) {
-      yield* Effect.logDebug('Ignored a rejected message', describeMessage(message), { origin: origin._tag })
+      yield* Effect.logDebug('Ignored a rejected message', yield* described(message), { origin: origin._tag })
       return active
     }
     const { state: next, commands = [] } = result
     // The same state needs no new revision, frame or subscriptions: only its commands, if any, run.
     const changed = next !== state
     const nextRevision = changed ? revision + 1 : revision
-    yield* Effect.logDebug('Message', describeMessage(message), {
+    yield* Effect.logDebug('Message', yield* described(message), {
       revision: nextRevision,
-      commands: commands.map(describeCommand),
+      commands: yield* call('describeCommand', () => commands.map(describeCommand)),
     })
     yield* observe({ message, before: state, after: next, revision: nextRevision, commands })
     if (changed) yield* SubscriptionRef.set(stateRef, { state: next, revision: nextRevision })

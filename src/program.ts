@@ -34,7 +34,7 @@ declare const ExternalTypeId: unique symbol
  * `flags` (what it starts from, given by whoever starts it) only when it has them.
  */
 export type ProgramTypes = Readonly<{
-  state: unknown
+  state: object
   model: unknown
   message: unknown
   command?: unknown
@@ -72,8 +72,16 @@ export type Program<T extends ProgramTypes> = Shape<
 export type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, Command>
   : (flags: Flags) => Step<State, Command>
 
+/**
+ * A program keeps its state in an object: a parent keeps a child's model for as long as the child's state is the
+ * same object, and a number or a string has no identity to keep it by. Every program, so that any can be a child.
+ */
+export type ObjectState<State> = [State] extends [object] ? unknown
+  : Readonly<{ 'a program keeps its state in an object': State }>
+
 /** A program's pieces. `External` is only in its type: no program has the property. */
 export type Shape<State, Model, Message, Command, R, Event, External, Flags = never> =
+  & ObjectState<State>
   & Readonly<{
     readonly [ExternalTypeId]?: External
     init: Init<State, Command, Flags>
@@ -107,7 +115,13 @@ export type MessageOf<P> = P extends { readonly update: (message: infer M) => an
 // commands): none, then, rather than anything.
 type Known<T> = unknown extends T ? never : T
 
-export type CommandOf<P> = FirstStepOf<P> extends Step<any, infer C> ? Known<C> : never
+/** Each step `update` may return gives its own: a step without commands names none. */
+type UpdateCommands<P> = P extends { readonly update: (message: any) => (state: any) => infer T }
+  ? T extends Step<any, infer C, any> ? Known<C> : never
+  : never
+
+// Read from `update` too: a program written without `Program<…>` may start with no command and still return some.
+export type CommandOf<P> = (FirstStepOf<P> extends Step<any, infer C> ? Known<C> : never) | UpdateCommands<P>
 /** What a program starts from: none, unless its type says so. */
 export type FlagsOf<P> = P extends { readonly init: (flags: infer F) => any } ? Known<F> : never
 /** The messages a parent may send the program: none, unless its type says so. */

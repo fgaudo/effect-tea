@@ -1,6 +1,7 @@
 import * as Arr from 'effect/Array'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
+import * as Inspectable from 'effect/Inspectable'
 import * as Opt from 'effect/Option'
 import * as Ref from 'effect/Ref'
 import type * as Scope from 'effect/Scope'
@@ -157,7 +158,7 @@ export const rehearse = Effect.fnUntraced(function*<
       Effect.flatMap(Ref.get(current), ({ state }) =>
         HashMap.has(subscriptionsOf(program)(state), key)
           ? arrive(message)
-          : Effect.die(new Error(`Nothing listens under ${JSON.stringify(key)} in the current state`))),
+          : Effect.die(new Error(`Nothing listens under ${Inspectable.toStringUnknown(key, 0)} in the current state`))),
     events: Effect.map(Ref.get(current), (now) => now.events),
     ignored: Effect.map(Ref.get(current), (now) => now.ignored),
   }

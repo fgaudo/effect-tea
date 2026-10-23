@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import * as Effect from 'effect/Effect'
-import { type Dispatch, dispatchTo } from './dispatch.ts'
+import { type Dispatch, dispatchTo, entriesOf } from './dispatch.ts'
 
-type Row = Readonly<{ _tag: 'Row'; id: number; message: 'Inc' }>
+type Row = Readonly<{ _tag: 'Row'; id: number | readonly [string, number]; message: 'Inc' }>
 type Clock = Readonly<{ _tag: 'Clock'; message: 'Tick' }>
 // A message of the parent's own: its `message` field is data, not a child's message.
 type Toast = Readonly<{ _tag: 'Toast'; message: string; level: number }>
@@ -22,9 +22,25 @@ const collect = async () => {
   await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
-const heapUsed = async () => {
-  await collect()
-  return process.memoryUsage().heapUsed
+// Drawn by a function of its own, whose frame is gone when collecting: a collector that scans the stack could
+// otherwise take a stale reference there for a live one.
+const draw = (dispatch: Dispatch<Message>, ids: ReadonlyArray<number>) => {
+  for (const id of ids) dispatchTo(dispatch, 'Row', id)
+}
+
+const range = (from: number, count: number) => Array.from({ length: count }, (_, index) => from + index)
+
+/**
+ * The entries left for the rows of `dispatch` once collections are done with them. A collector may keep a few
+ * dispatches nobody holds for a while: it is given a few collections, and the entries it keeps are those.
+ */
+const entriesLeft = async (dispatch: Dispatch<Message>, atMost: number) => {
+  let left = entriesOf(dispatch, 'Row')
+  for (let collection = 0; collection < 10 && left > atMost; collection++) {
+    await collect()
+    left = entriesOf(dispatch, 'Row')
+  }
+  return left
 }
 
 describe('dispatchTo', () => {
@@ -50,28 +66,40 @@ describe('dispatchTo', () => {
   // A list whose rows get ids that are never reused, as the README advises.
   test('keeps nothing for the ids nobody holds', async () => {
     const { dispatch } = recording()
-    const before = await heapUsed()
     for (let frame = 0; frame < 200; frame++) {
-      for (let id = 0; id < 1_000; id++) dispatchTo(dispatch, 'Row', frame * 1_000 + id)
+      draw(dispatch, range(frame * 1_000, 1_000))
       await collect()
     }
-    expect((await heapUsed()) - before).toBeLessThan(5_000_000)
-    expect(dispatch).toBeDefined()
+    expect(await entriesLeft(dispatch, 10)).toBeLessThanOrEqual(10)
   })
 
-  test('lets go of what a long list held once the list is short', async () => {
+  test('lets go of what a long list held once the list is no longer drawn', async () => {
     const { dispatch } = recording()
-    const before = await heapUsed()
-    let shown = Array.from({ length: 100_000 }, (_, id) => dispatchTo(dispatch, 'Row', id))
+    draw(dispatch, range(0, 100_000))
+    expect(entriesOf(dispatch, 'Row')).toBe(100_000)
+    expect(await entriesLeft(dispatch, 1_000)).toBeLessThanOrEqual(1_000)
+  })
+
+  // The entry of a collected dispatch goes after the collection, when a new dispatch may have taken its place.
+  test('keeps the entry of a new dispatch made for the id of a collected one', async () => {
+    const { dispatch } = recording()
+    draw(dispatch, [1])
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    Bun.gc(true)
+    const row = dispatchTo(dispatch, 'Row', 1)
     await collect()
-    shown = shown.slice(0, 10)
-    // Drawn again and again, the short list sweeps what the long one left.
-    for (let frame = 0; frame < 20; frame++) {
-      shown = Array.from({ length: 10_000 }, (_, call) => dispatchTo(dispatch, 'Row', call % 10))
-      await collect()
-    }
-    expect((await heapUsed()) - before).toBeLessThan(3_000_000)
-    expect(shown.length).toBe(10_000)
+    await collect()
+    expect(dispatchTo(dispatch, 'Row', 1)).toBe(row)
+    expect(entriesOf(dispatch, 'Row')).toBe(1)
+  })
+
+  test('tells ids apart by value, as subscription keys are', () => {
+    const { sent, dispatch } = recording()
+    const row = dispatchTo(dispatch, 'Row', ['milk', 1])
+    expect(dispatchTo(dispatch, 'Row', ['milk', 1])).toBe(row)
+    expect(dispatchTo(dispatch, 'Row', ['milk', 2])).not.toBe(row)
+    Effect.runSync(row('Inc'))
+    expect(sent).toEqual([{ _tag: 'Row', id: ['milk', 1], message: 'Inc' }])
   })
 
   test('takes only the literal name of a child', () => {

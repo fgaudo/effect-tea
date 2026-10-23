@@ -3,6 +3,8 @@
 // holds it, it is the same function in every frame, so that a renderer can skip a child whose model has not
 // changed.
 import type * as Effect from 'effect/Effect'
+import * as MutableHashMap from 'effect/MutableHashMap'
+import * as Opt from 'effect/Option'
 
 /**
  * Sends a message to the running program: `update` decides what it means in the state it finds. Running it needs
@@ -41,17 +43,22 @@ type ChildDispatch<Message, Name extends string> = string extends Name
   : Dispatch<ChildOf<Message, Name>['message']>
 
 /**
- * The dispatches made for one child of one parent dispatch, by id. Each is held weakly: a function nobody holds
- * can be made anew, since nobody can tell it from the old one, while one that a renderer keeps to compare with
- * stays the same. The dead references are swept once every as many calls as there were live ones after the last
- * sweep (64 at least): the entries stay fewer than twice the live ones, the sweeps cost a constant time per call,
- * and what a list showed at its longest is let go once it is shorter, since showing it again counts too.
+ * The dispatches made for one child of one parent dispatch, by id, compared with `Equal` as the engine compares
+ * subscription keys. Each is held weakly: a function nobody holds can be made anew, since nobody can tell it from
+ * the old one, while one that a renderer keeps to compare with stays the same. Once one is collected, its entry
+ * goes too, so that ids nobody shows any more cost nothing.
  */
-type Made = { readonly byId: Map<unknown, WeakRef<Dispatch<unknown>>>; calls: number; sweepAt: number }
+type Made = MutableHashMap.MutableHashMap<unknown, WeakRef<Dispatch<unknown>>>
 
 const alone = Symbol('alone')
 
 const made = new WeakMap<object, Map<string, Made>>()
+
+// An entry whose dispatch is alive belongs to a new dispatch made for the same id: it stays.
+const forgotten = new FinalizationRegistry<Readonly<{ byId: Made; key: unknown }>>(({ byId, key }) => {
+  const entry = MutableHashMap.get(byId, key)
+  if (Opt.isSome(entry) && entry.value.deref() === undefined) MutableHashMap.remove(byId, key)
+})
 
 const madeFor = (dispatch: object, name: string): Made => {
   let byName = made.get(dispatch)
@@ -59,21 +66,17 @@ const madeFor = (dispatch: object, name: string): Made => {
     byName = new Map()
     made.set(dispatch, byName)
   }
-  let child = byName.get(name)
-  if (child === undefined) {
-    child = { byId: new Map(), calls: 0, sweepAt: 64 }
-    byName.set(name, child)
+  let byId = byName.get(name)
+  if (byId === undefined) {
+    byId = MutableHashMap.empty()
+    byName.set(name, byId)
   }
-  return child
+  return byId
 }
 
-const sweep = (child: Made) => {
-  child.calls += 1
-  if (child.calls < child.sweepAt) return
-  child.calls = 0
-  for (const [key, ref] of child.byId) if (ref.deref() === undefined) child.byId.delete(key)
-  child.sweepAt = Math.max(64, child.byId.size)
-}
+/** How many entries `dispatchTo` keeps for the children `name` of `dispatch`: for the tests of its cleanup only. */
+export const entriesOf = (dispatch: object, name: string): number =>
+  MutableHashMap.size(made.get(dispatch)?.get(name) ?? MutableHashMap.empty())
 
 /**
  * The dispatch of a parent's child, for its view: `dispatchTo(dispatch, 'Clock')`, or
@@ -88,13 +91,13 @@ export const dispatchTo = <Message, Name extends string>(
   name: Name,
   ...id: IdOf<Message, Name>
 ): ChildDispatch<Message, Name> => {
-  const child = madeFor(dispatch, name)
-  sweep(child)
+  const byId = madeFor(dispatch, name)
   const key = id.length === 0 ? alone : id[0]
-  const found = child.byId.get(key)?.deref()
-  if (found !== undefined) return found as ChildDispatch<Message, Name>
+  const found = Opt.flatMapNullishOr(MutableHashMap.get(byId, key), (ref) => ref.deref())
+  if (Opt.isSome(found)) return found.value as ChildDispatch<Message, Name>
   const wrapping: Dispatch<unknown> = (message) =>
     dispatch((id.length === 0 ? { _tag: name, message } : { _tag: name, id: id[0], message }) as never)
-  child.byId.set(key, new WeakRef(wrapping))
+  MutableHashMap.set(byId, key, new WeakRef(wrapping))
+  forgotten.register(wrapping, { byId, key })
   return wrapping as ChildDispatch<Message, Name>
 }

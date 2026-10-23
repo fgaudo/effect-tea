@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { isRejected } from '@fgaudo/effect-tea'
-import { applyAll, dispatchViolations, drive, missingActions, rehearse, simulate } from '@fgaudo/effect-tea/testing'
+import { applyAll, dispatchViolations, drive, rehearse, simulate } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
@@ -62,14 +62,13 @@ describe('form', () => {
   // The real view, for any state and anything typed: every message it can send is accepted, a double click
   // saves once, and nothing `update` accepts is missing, but typing while saving, which the model withholds.
   test('the view sends what update accepts, all of it, and acts once when sent twice', () => {
-    const violations = dispatchViolations(update)
-    const missing = missingActions(update, {
+    const violations = dispatchViolations(update, {
       withheld: (message, state) => message._tag === 'NameChanged' && state.isSaving,
     })
     fc.assert(fc.property(state, fc.string(), (before, typed) => {
       const sent = messagesSentBy<Model, Message>(view, form.makeModel(before), typed)
-      expect(violations(before, sent)).toEqual([])
-      expect(missing(before, sent, [Message.NameChanged({ name: typed }), Message.SaveClicked()])).toEqual([])
+      const candidates = [Message.NameChanged({ name: typed }), Message.SaveClicked()]
+      expect(violations(before, sent, candidates)).toEqual([])
     }))
   })
 
