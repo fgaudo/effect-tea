@@ -31,3 +31,4 @@ export { type Dispatch, dispatchTo, type View } from './dispatch.ts'
 // Running a program with a renderer.
 export type { Applied, RunOptions } from './engine.ts'
 export { type Frame, run } from './run.ts'
+export { type DefectSite, ProgramDefect } from './defect.ts'

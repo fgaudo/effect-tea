@@ -5,7 +5,6 @@ import * as Effect from 'effect/Effect'
 import { absurd, identity } from 'effect/Function'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
-import * as References from 'effect/References'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import * as Engine from './engine.ts'
@@ -41,9 +40,7 @@ const revision = (engine: Engine.Engine<number, Message>, target: Engine.Revisio
 const failureWithin = (engine: Engine.Engine<number, Message>) =>
   engine.await.pipe(Effect.exit, Effect.timeoutOption('200 millis'))
 
-// Some tests make the engine die on purpose: what it logs then is expected.
-const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
-  Effect.runPromise(Effect.scoped(effect).pipe(Effect.provideService(References.MinimumLogLevel, 'None')))
+const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) => Effect.runPromise(Effect.scoped(effect))
 
 describe('Engine reject', () => {
   test('a message update rejects is ignored, and the program goes on', async () => {

@@ -6,7 +6,6 @@ import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
-import * as References from 'effect/References'
 import * as Stream from 'effect/Stream'
 import type { Subscription } from './subscription.ts'
 import { isRejected, reject } from './update.ts'
@@ -145,7 +144,7 @@ type AppMessage = MessageOf<typeof app>
 
 /**
  * Runs `program` with a renderer that hands each frame to `act`, until `act` says it is done; returns what the
- * renderer saw. Logs nothing: some tests make the run die on purpose.
+ * renderer saw.
  */
 const script = <M>(
   program: Program<{ state: ParentState; model: M; message: AppMessage; command: unknown }>,
@@ -166,7 +165,6 @@ const script = <M>(
   ).pipe(
     Effect.timeout('2 seconds'),
     Effect.as(seen),
-    Effect.provideService(References.MinimumLogLevel, 'None'),
     Effect.runPromiseExit,
   )
 }

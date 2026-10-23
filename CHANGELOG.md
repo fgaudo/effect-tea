@@ -3,7 +3,23 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
-## 0.6.1 (unreleased)
+## 0.7.0 (unreleased)
+
+### Changed
+
+- The run no longer logs its defects at the error level, which reported each crash once more than whoever runs the
+  program does. It dies with a `ProgramDefect` instead: the defect itself as its `cause`, and where it happened as
+  `where` (with the key of a subscription as `key`), which the log said before; every defect of the cause is
+  wrapped, and the rest of the cause is kept. To upgrade, read `defect.cause` where you inspected the defect the
+  run died with, e.g. with `Cause.squash`; a crash report made with `Effect.tapCause` around `run` needs no change,
+  and now shows where the defect happened.
+- `describeMessage` and `describeCommand` are called only while debug logs are enabled
+  (`References.MinimumLogLevel`): a run that does not log at the debug level no longer describes every message,
+  and a defect in one of them ends the run only when it is called.
+
+### Added
+
+- `ProgramDefect` and `DefectSite`.
 
 ### Fixed
 

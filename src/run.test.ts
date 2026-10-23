@@ -13,6 +13,7 @@ import * as References from 'effect/References'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import type * as Tracer from 'effect/Tracer'
+import { type DefectSite, ProgramDefect } from './defect.ts'
 import type { Applied, RunOptions } from './engine.ts'
 import { reject, type Step, type Update } from './update.ts'
 import type { Program } from './program.ts'
@@ -50,10 +51,6 @@ const counter: Counter = {
   }),
 }
 
-// The engine dies on purpose in some tests: what it logs then is expected.
-const quietly = <A, E>(effect: Effect.Effect<A, E>) =>
-  effect.pipe(Effect.provideService(References.MinimumLogLevel, 'None'))
-
 const runCounter = (
   program: Counter,
   render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void>,
@@ -62,7 +59,7 @@ const runCounter = (
 describe('run', () => {
   test('frames carry the model, and a dispatch that drives the program', async () => {
     const counts: Array<number> = []
-    await Effect.runPromise(quietly(runCounter(counter, (frames) =>
+    await Effect.runPromise(runCounter(counter, (frames) =>
       frames.pipe(
         Stream.tap(Effect.fnUntraced(function*({ model, dispatch }) {
           counts.push(model.count)
@@ -70,13 +67,13 @@ describe('run', () => {
         })),
         Stream.take(3),
         Stream.runDrain,
-      ))))
+      )))
     expect(counts).toEqual([0, 1, 2])
   })
 
   test('a message that update rejects is ignored, and the program goes on', async () => {
     const counts: Array<number> = []
-    const exit = await Effect.runPromiseExit(quietly(runCounter(counter, (frames) =>
+    const exit = await Effect.runPromiseExit(runCounter(counter, (frames) =>
       frames.pipe(
         Stream.tap(Effect.fnUntraced(function*({ model, dispatch }) {
           counts.push(model.count)
@@ -86,7 +83,7 @@ describe('run', () => {
         })),
         Stream.take(2),
         Stream.runDrain,
-      ))))
+      )))
     expect(Exit.isSuccess(exit)).toBe(true)
     expect(counts).toEqual([0, 1])
   })
@@ -157,12 +154,12 @@ describe('run', () => {
           Effect.onInterrupt(() => note('renderer interrupted')),
         ),
     )
-    await Effect.runPromise(quietly(Effect.gen(function*() {
+    await Effect.runPromise(Effect.gen(function*() {
       const fiber = yield* Effect.forkChild(running)
       yield* Deferred.await(holding)
       yield* Deferred.await(drawing)
       yield* Fiber.interrupt(fiber)
-    })))
+    }))
     for (const name of ['command', 'renderer']) {
       expect(log.indexOf(`${name} interrupted`)).toBeGreaterThan(log.indexOf(`acquire ${name}`))
       expect(log.indexOf(`release ${name}`)).toBeGreaterThan(log.indexOf(`${name} interrupted`))
@@ -221,7 +218,7 @@ describe('run', () => {
   })
 
   test('the run ends when the renderer ends', async () => {
-    const exit = await Effect.runPromiseExit(quietly(runCounter(counter, (frames) => Stream.runHead(frames))))
+    const exit = await Effect.runPromiseExit(runCounter(counter, (frames) => Stream.runHead(frames)))
     expect(Exit.isSuccess(exit)).toBe(true)
   })
 
@@ -229,7 +226,7 @@ describe('run', () => {
   test('a dispatch runs with Effect.runSync from a plain callback, and after the run has ended too', async () => {
     let kept: Dispatch<Message> | undefined
     const counts: Array<number> = []
-    await Effect.runPromise(quietly(runCounter(counter, (frames) =>
+    await Effect.runPromise(runCounter(counter, (frames) =>
       frames.pipe(
         Stream.tap(({ model, dispatch }) =>
           Effect.sync(() => {
@@ -241,7 +238,7 @@ describe('run', () => {
         ),
         Stream.take(2),
         Stream.runDrain,
-      ))))
+      )))
     expect(counts).toEqual([0, 1])
     expect(() => kept && Effect.runSync(kept('Increment'))).not.toThrow()
   })
@@ -254,8 +251,9 @@ describe('defects', () => {
   }
 
   /**
-   * Runs `program`, sending `Increment` from the first frame and drawing every frame with `view`, and tells
-   * whether the run failed with the defect thrown, and where the error logs say it happened.
+   * Runs `program`, sending `Increment` from the first frame and drawing every frame with `view`, with debug logs
+   * enabled, and tells where the run says its defect happened, if it died with the one thrown, and what it
+   * logged above the debug level.
    */
   const failsWithBoom = async (
     program: Counter,
@@ -265,8 +263,8 @@ describe('defects', () => {
   ) => {
     let sent = false
     const logged: Array<unknown> = []
-    const errors = Logger.make(({ message, logLevel }) => {
-      if (logLevel === 'Error') logged.push(Array.isArray(message) ? message[0] : message)
+    const aboveDebug = Logger.make(({ message, logLevel }) => {
+      if (logLevel !== 'Debug') logged.push(message)
     })
     const exit = await Effect.runPromiseExit(
       run(
@@ -282,46 +280,50 @@ describe('defects', () => {
             Stream.runDrain,
           ),
         options,
-      ).pipe(Effect.provide(Logger.layer([errors]))),
+      ).pipe(
+        Effect.provideService(References.MinimumLogLevel, 'Debug'),
+        Effect.provide(Logger.layer([aboveDebug])),
+      ),
     )
-    return { fails: Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof Boom, logged }
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    return defect instanceof ProgramDefect && defect.cause instanceof Boom
+      ? { where: defect.where, logged }
+      : { defect, logged }
   }
 
   const pinging = { state: { count: 0 }, commands: ['Ping'] } as const satisfies Step<Count, Command>
 
-  const renderer = 'A defect in the renderer, its view or makeModel'
-
-  // Whoever runs the program reports its defects: wherever one happens, the run fails with it, and the log says
-  // where it happened.
-  test.each<[string, string, () => ReturnType<typeof failsWithBoom>]>([
+  // Whoever runs the program reports its defects: wherever one happens, the run dies with it and with where it
+  // happened, and logs nothing about it.
+  test.each<[string, DefectSite, () => ReturnType<typeof failsWithBoom>]>([
     [
       'update',
-      'A defect in update',
+      'update',
       () => failsWithBoom({ ...counter, update: () => ({ count }) => count === 0 ? boom() : { state: { count: 1 } } }),
     ],
-    ['update, given a message', 'A defect in update', () => failsWithBoom({ ...counter, update: () => boom })],
-    ['makeModel', renderer, () => failsWithBoom({ ...counter, makeModel: boom })],
-    ['the view', renderer, () => failsWithBoom(counter, { view: ({ count }) => count === 1 ? boom() : undefined })],
+    ['update, given a message', 'update', () => failsWithBoom({ ...counter, update: () => boom })],
+    ['makeModel', 'render', () => failsWithBoom({ ...counter, makeModel: boom })],
+    ['the view', 'render', () => failsWithBoom(counter, { view: ({ count }) => count === 1 ? boom() : undefined })],
     [
       'subscriptions',
-      'A defect in subscriptions',
+      'subscriptions',
       () => failsWithBoom({ ...counter, subscriptions: ({ count }) => count === 1 ? boom() : HashMap.empty() }),
     ],
     [
       'a subscription',
-      'A defect in a subscription',
+      'subscription',
       () => failsWithBoom({ ...counter, subscriptions: () => HashMap.make(['k', Channel.die(new Boom())]) }),
     ],
     [
       'a command',
-      'A defect in a command',
+      'command',
       () => failsWithBoom({ ...counter, init: pinging, runCommand: () => Effect.sync(boom) }),
     ],
-    ['runCommand', 'A defect in a command', () => failsWithBoom({ ...counter, init: pinging, runCommand: boom })],
-    ['describeMessage', 'A defect in describeMessage', () => failsWithBoom(counter, { describeMessage: boom })],
+    ['runCommand', 'command', () => failsWithBoom({ ...counter, init: pinging, runCommand: boom })],
+    ['describeMessage', 'describeMessage', () => failsWithBoom(counter, { describeMessage: boom })],
     [
       'describeCommand',
-      'A defect in describeCommand',
+      'describeCommand',
       () =>
         failsWithBoom({
           ...counter,
@@ -330,9 +332,61 @@ describe('defects', () => {
           describeCommand: boom,
         }),
     ],
-    ['onApplied', 'A defect in onApplied', () => failsWithBoom(counter, { onApplied: () => Effect.sync(boom) })],
-  ])('a defect in %s ends the run, which fails with it', async (_, where, outcome) => {
-    expect(await outcome()).toEqual({ fails: true, logged: [where] })
+    ['onApplied', 'onApplied', () => failsWithBoom(counter, { onApplied: () => Effect.sync(boom) })],
+  ])('a defect in %s ends the run, which dies with it and with where it happened', async (_, where, outcome) => {
+    expect(await outcome()).toEqual({ where, logged: [] })
+  })
+
+  test('a defect in a subscription carries its key', async () => {
+    const exit = await Effect.runPromiseExit(run(
+      { ...counter, subscriptions: () => HashMap.make(['k', Channel.die(new Boom())]) },
+      () => Effect.never,
+    ))
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    expect(defect instanceof ProgramDefect && defect.key).toBe('k')
+  })
+
+  test('every defect of the cause is kept, each with where it happened', async () => {
+    const exit = await Effect.runPromiseExit(run(
+      { ...counter, init: pinging, runCommand: () => Effect.die(new Boom()).pipe(Effect.ensuring(Effect.die('also'))) },
+      () => Effect.never,
+    ))
+    const defects = Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isDieReason).map(({ defect }) => defect) : []
+    expect(defects.map((defect) => defect instanceof ProgramDefect && [defect.where, defect.cause])).toEqual([
+      ['command', new Boom()],
+      ['command', 'also'],
+    ])
+  })
+})
+
+describe('logs', () => {
+  /** How many times the run describes a message or a command, for an accepted message and a rejected one. */
+  const descriptionsAt = async (level: 'Info' | 'Debug') => {
+    let described = 0
+    const count = () => {
+      described += 1
+      return 'described'
+    }
+    await Effect.runPromise(run(
+      counter,
+      (frames) =>
+        frames.pipe(
+          Stream.tap(({ model, dispatch }) => dispatch(model.count === 0 ? model.increment : model.type(false))),
+          Stream.take(2),
+          Stream.runDrain,
+        ),
+      { describeMessage: count, describeCommand: count },
+    ).pipe(
+      Effect.provideService(References.MinimumLogLevel, level),
+      // Written nowhere: the level alone decides whether they are described.
+      Effect.provide(Logger.layer([])),
+    ))
+    return described
+  }
+
+  test('messages and commands are described only while debug logs are enabled', async () => {
+    expect(await descriptionsAt('Info')).toBe(0)
+    expect(await descriptionsAt('Debug')).toBeGreaterThan(0)
   })
 })
 
@@ -340,7 +394,7 @@ describe('onApplied', () => {
   test('hears every accepted message in order, with the states around it, before its frame', async () => {
     const heard: Array<Applied<Count, Message, Command>> = []
     const drawn: Array<number> = []
-    await Effect.runPromise(quietly(run(
+    await Effect.runPromise(run(
       counter,
       (frames) =>
         frames.pipe(
@@ -352,7 +406,7 @@ describe('onApplied', () => {
           Stream.runDrain,
         ),
       { onApplied: (applied) => Effect.sync(() => heard.push(applied)) },
-    )))
+    ))
     expect(heard).toEqual([
       { message: 'Increment', before: { count: 0 }, after: { count: 1 }, revision: 1, commands: [] },
       { message: 'Increment', before: { count: 1 }, after: { count: 2 }, revision: 2, commands: [] },
@@ -361,7 +415,7 @@ describe('onApplied', () => {
   })
 
   test('a message that leaves the very same state is heard too, with an unchanged revision', async () => {
-    const heard = await Effect.runPromise(quietly(Effect.gen(function*() {
+    const heard = await Effect.runPromise(Effect.gen(function*() {
       const applied = yield* Deferred.make<Applied<Count, Message, Command>>()
       const still: Counter = {
         ...counter,
@@ -372,7 +426,7 @@ describe('onApplied', () => {
         onApplied: (message) => Effect.asVoid(Deferred.succeed(applied, message)),
       })
       return yield* Deferred.await(applied)
-    })))
+    }))
     expect(heard).toEqual({
       message: 'Increment',
       before: { count: 0 },
@@ -383,7 +437,7 @@ describe('onApplied', () => {
   })
 
   test('hears the commands each message started, as update returned them', async () => {
-    const heard = await Effect.runPromise(quietly(Effect.gen(function*() {
+    const heard = await Effect.runPromise(Effect.gen(function*() {
       const applied: Array<Applied<Count, Message, Command>> = []
       const two = yield* Deferred.make<ReadonlyArray<Applied<Count, Message, Command>>>()
       // The first increment pings again, so a second one follows.
@@ -400,7 +454,7 @@ describe('onApplied', () => {
           }),
       })
       return yield* Deferred.await(two)
-    })))
+    }))
     expect(heard.map((step) => step.commands)).toEqual([['Ping'], []])
   })
 })
@@ -417,7 +471,7 @@ describe('frames', () => {
     }
     const models: Array<number> = []
     let increment: Message | undefined
-    await Effect.runPromise(quietly(run(
+    await Effect.runPromise(run(
       counting,
       (frames) =>
         frames.pipe(
@@ -434,14 +488,14 @@ describe('frames', () => {
           // Like a renderer that only draws the newest frame, and reads its model twice.
           Effect.map(Opt.map((last) => models.push(last.model.count, last.model.count))),
         ),
-    )))
+    ))
     expect(models).toEqual([2, 2])
     expect(made).toBe(2)
   })
 
   test('a renderer slower than the program gets only the latest frame', async () => {
     const counts: Array<number> = []
-    await Effect.runPromise(quietly(runCounter(counter, (frames) =>
+    await Effect.runPromise(runCounter(counter, (frames) =>
       frames.pipe(
         Stream.tap(Effect.fnUntraced(function*({ model, dispatch }) {
           counts.push(model.count)
@@ -452,7 +506,7 @@ describe('frames', () => {
         })),
         Stream.take(2),
         Stream.runDrain,
-      ))))
+      )))
     expect(counts).toEqual([0, 3])
   })
 })
@@ -463,7 +517,7 @@ describe('subscriptions', () => {
     // the key of the ticks.
     type Watch = Readonly<{ isRunning: boolean; ticks: number }>
     type WatchMessage = 'Tick' | 'Stop'
-    const ticks = await Effect.runPromise(quietly(Effect.gen(function*() {
+    const ticks = await Effect.runPromise(Effect.gen(function*() {
       const source = yield* Queue.unbounded<'Tick'>()
       const sent = yield* Deferred.make<void>()
       const stopped = yield* Deferred.make<void>()
@@ -502,7 +556,7 @@ describe('subscriptions', () => {
           message === 'Stop' ? Queue.offer(source, 'Tick').pipe(Effect.andThen(Deferred.await(sent))) : Effect.void,
       })
       return latest.ticks
-    })))
+    }))
     expect(ticks).toBe(0)
   })
 })

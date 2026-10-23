@@ -444,12 +444,18 @@ for the next animation frame before taking another draws at most once per screen
 - **`flags`**: what the program starts from, required exactly when it has them, e.g. the product a
   notification opened the app for.
 - **`describeMessage`**, **`describeCommand`**: how messages and commands appear in the logs. By default only
-  their tags, never their data: `Home › Products › Deleted`. The debug logs of subscriptions show their keys,
-  which may hold data (an id, a search's text).
+  their tags, never their data: `Home › Products › Deleted`. They are called only while debug logs are enabled
+  (`References.MinimumLogLevel`), so they cost nothing otherwise. The debug logs of subscriptions show their
+  keys, which may hold data (an id, a search's text).
 - **`onApplied`**: hears every accepted message with the state before and after it, for devtools or session
   recording.
 
-A defect anywhere ends the run, which fails with it. In a browser, start it with `BrowserRuntime.runMain`
+The run logs only at the debug level: each message, a rejected one, and subscriptions starting, stopping and
+ending. Effect's default minimum level, `Info`, hides them all.
+
+A defect anywhere ends the run, which dies with a `ProgramDefect`: the defect itself as its `cause`, and where it
+happened as `where` (`'update'`, `'command'`, `'subscription'` with its `key`, `'render'`, …), which only the
+run knows. The run does not log it: reporting it is yours. In a browser, start it with `BrowserRuntime.runMain`
 from `@effect/platform-browser`, and report crashes around it:
 
 ```ts
@@ -489,7 +495,7 @@ What you can rely on:
   (Effect keeps each log as an event of the current span until the span ends); that span is still the parent
   of the spans that commands and subscriptions open.
 - **Nothing ends in silence.** A subscription that ends sends one last message. A defect anywhere ends the
-  run, which fails with it.
+  run, which dies with it, as a `ProgramDefect` that says where it happened.
 - **Frames cost only what is drawn.** A message that returns the very same state draws no new frame, and a
   model is made only for the frames the renderer reads.
 
@@ -608,6 +614,7 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | `dispatchTo`                                      | a child's dispatch, for its view: wraps its messages as the parent receives them          |
 | `run`, `Frame`, `RunOptions`                      | run a program with a renderer; what the renderer draws; how the program runs              |
 | `Applied`                                         | what `onApplied` hears: a message, the states around it, its revision and commands        |
+| `ProgramDefect`, `DefectSite`                     | the defect a run dies with: its `cause`, `where` it happened, a subscription's `key`      |
 
 From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `rehearse`, `Rehearsal`,
 `RehearseOptions`, `drive`, `DriveOptions`, `Driver`, `dispatchViolations`, `DispatchViolation`.

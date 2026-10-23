@@ -104,10 +104,11 @@ The version in `package.json` is the one the next release will have, decided by 
   unbounded and the dispatch free of services: a queue that waits when full would make every such call throw,
   and one that drops would lose what the user did. Running a dispatch is the renderer's business: the library
   exports no helper for it.
-- **Defects always die, and the run fails with them.** Nothing in the library may catch, retry, swallow or
-  turn them into messages, so that every defect, wherever it happens (the view and the renderer included),
-  reaches the cause the run fails with: reporting it is the job of whoever runs the program. The engine only
-  logs where a defect happened when it knows.
+- **Defects always die, and the run dies with them.** Nothing in the library may retry, swallow or turn them into
+  messages, so that every defect, wherever it happens (the view and the renderer included), reaches the cause the run
+  dies with: reporting it is the job of whoever runs the program, and the library never logs it. Where the engine knows
+  where a defect happened, it wraps each defect of the cause in a `ProgramDefect` (`diesIn` in `engine.ts`) that holds
+  it as its `cause` and says where, and keeps the rest of the cause (other defects, interruptions, stacks and spans).
 - **A subscription never ends in silence**: it is a `Channel` whose end value is a message (or `never`), and
   the engine sends that last message to `update`. An ended subscription keeps its key among the active ones,
   so it is not started again until its key goes away and comes back: never restart it automatically, which
@@ -158,17 +159,18 @@ The version in `package.json` is the one the next release will have, decided by 
   message does not apply, and a child rejecting an external message, or a parent giving one to a child that is
   not there, is a defect (`tell` in `compose.ts`). A program written without `Program<…>` has `unknown` types,
   read as `never` (`Known` in `program.ts`), so that it does not open these checks.
-- **Logs never carry message data by default** (`describeByTag` in `log.ts`): only tags, following a
-  wrapped `message` or `command` only when it is itself tagged, since a program's own field of that name may
-  hold data. Levels: `error` for bugs, `debug` for the message loop and for subscriptions starting, stopping
-  and ending.
+- **Logs never carry message data by default** (`describeByTag` in `log.ts`): only tags, following a wrapped `message`
+  or `command` only when it is itself tagged, since a program's own field of that name may hold data. Level: `debug` for
+  the message loop and for subscriptions starting, stopping and ending, and nothing else: a library's user decides what
+  reaches their logs. What is computed only to be logged (`describeMessage`, `describeCommand`) is computed only while
+  debug logs are enabled (`LogLevel.isEnabled`).
 
 ## Code
 
-- One module per concept: `update.ts`, `command.ts`, `subscription.ts`, `dispatch.ts` (views and their
-  dispatch), `program.ts` (the program and its types), `compose.ts` (`parent`), `log.ts`; `engine.ts` is the
-  runtime only (with `RunOptions`), and `run.ts` connects it to a renderer. `testing/` holds one module per
-  testing tool (and `unexpected.ts`, the failure they share), and `testing/index.ts` exports them.
+- One module per concept: `update.ts`, `command.ts`, `subscription.ts`, `dispatch.ts` (views and their dispatch),
+  `program.ts` (the program and its types), `compose.ts` (`parent`), `log.ts`, `defect.ts`; `engine.ts` is the
+  runtime only (with `RunOptions`), and `run.ts` connects it to a renderer. `testing/` holds one module per testing
+  tool (and `unexpected.ts`, the failure they share), and `testing/index.ts` exports them.
 - A piece of a program that may be missing (`runCommand` without commands, `subscriptions`) is read through
   `runCommandOf` and `subscriptionsOf`, never directly: the engine always gets the complete set. Likewise
   `init`, a step or a function of the flags, is read through `startOf`: a step is never a function, so `typeof`
@@ -194,8 +196,6 @@ The version in `package.json` is the one the next release will have, decided by 
 - `bun:test`, in a `*.test.ts` next to the module. Tests are excluded from `dist/` and from the packed
   `src/`.
 - Test through behaviour (`run`, `Engine.make`, the public functions), not through internals.
-- Run tests that make the engine die on purpose with a minimum log level of `None`, so that the errors they
-  expect are not printed.
 - A test's name says what it checks. When a change touches a test, or what it tests, check that its name, its
   `describe` and its comments still say what the assertions check: a test adapted to a new design keeps an old
   name that promises what it no longer proves.

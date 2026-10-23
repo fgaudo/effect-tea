@@ -5,9 +5,9 @@ import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
-import * as References from 'effect/References'
 import type * as Scope from 'effect/Scope'
 import * as TestClock from 'effect/testing/TestClock'
+import { ProgramDefect } from '../defect.ts'
 import type { Program } from '../program.ts'
 import { reject, type Update } from '../update.ts'
 import { drive } from './drive.ts'
@@ -85,10 +85,6 @@ describe('drive', () => {
 
   const saving = (model: NoteModel) => model._tag === 'Written' ? Opt.some(model.save) : Opt.none()
 
-  // The program dies on purpose in some tests: what it logs then is expected.
-  const quietly = <A, E>(effect: Effect.Effect<A, E>) =>
-    effect.pipe(Effect.provideService(References.MinimumLogLevel, 'None'))
-
   test('runs the commands and subscriptions, returns what the scenario returns, then stops the program', async () => {
     let stopped = false
     const program = noteProgram(Effect.sync(() => {
@@ -146,15 +142,16 @@ describe('drive', () => {
 
   test('a defect of the program fails the scenario', async () => {
     const exit = await Effect.runPromiseExit(
-      quietly(drive(
+      drive(
         noteProgram(Effect.void),
         Effect.fnUntraced(function*(driver) {
           yield* driver.send((model) => Opt.some(model.explode))
           return yield* Effect.never
         }),
-      )),
+      ),
     )
-    expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain('boom')
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    expect(defect instanceof ProgramDefect && String(defect.cause)).toContain('boom')
   })
 
   test('a wait longer than the patience fails, measured with the real clock even under a TestClock', async () => {

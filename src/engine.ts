@@ -1,9 +1,11 @@
+import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as FiberMap from 'effect/FiberMap'
 import * as FiberSet from 'effect/FiberSet'
 import * as HashMap from 'effect/HashMap'
+import * as LogLevel from 'effect/LogLevel'
 import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import type * as Scope from 'effect/Scope'
@@ -11,6 +13,7 @@ import type * as Stream from 'effect/Stream'
 import * as SubscriptionRef from 'effect/SubscriptionRef'
 import * as Tracer from 'effect/Tracer'
 import type { RunCommand } from './command.ts'
+import { type DefectSite, ProgramDefect } from './defect.ts'
 import { describeByTag } from './log.ts'
 import type { Subscriptions } from './subscription.ts'
 import { isRejected, type Step, type Update } from './update.ts'
@@ -34,9 +37,15 @@ export type Applied<State, Message, Command> = Readonly<{
 
 /** How a program runs: how messages and commands appear in the logs, and who observes the transitions. */
 export interface RunOptions<Message, State = unknown, Command = unknown> {
-  /** How a message appears in the logs; by default its `_tag`, never its data. */
+  /**
+   * How a message appears in the logs; by default its `_tag`, never its data. Called only while debug logs are
+   * enabled.
+   */
   readonly describeMessage?: (message: Message) => unknown
-  /** How a command appears in the logs; by default its `_tag`, never its data. */
+  /**
+   * How a command appears in the logs; by default its `_tag`, never its data. Called only while debug logs are
+   * enabled.
+   */
   readonly describeCommand?: (command: Command) => unknown
   /**
    * Hears every message `update` accepts, in order, with the state before and after it and the commands it
@@ -45,6 +54,24 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
    */
   readonly onApplied?: (applied: Applied<State, Message, Command>) => Effect.Effect<void>
 }
+
+/**
+ * Where a defect happened is known only where it is caught: the run dies with it, and with where, and leaves
+ * reporting it to whoever runs the program. Every defect of the cause is wrapped, with its stack and span, and
+ * the rest of the cause is kept as it is: `Effect.catchDefect` would keep only the first defect.
+ */
+export const diesIn =
+  (where: DefectSite, details: Readonly<{ key?: unknown }> = {}) =>
+  <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+    Effect.catchCauseIf(self, Cause.hasDies, (cause) =>
+      Effect.failCause(Cause.fromReasons(cause.reasons.flatMap((reason): ReadonlyArray<Cause.Reason<E>> =>
+        Cause.isDieReason(reason)
+          ? Cause.annotate(
+            Cause.die(new ProgramDefect({ where, cause: reason.defect, ...details })),
+            Cause.reasonAnnotations(reason),
+          ).reasons
+          : [reason]
+      ))))
 
 /** Counts the starts of subscriptions: each start of a key gets a new one. */
 type Generation = number
@@ -84,8 +111,8 @@ export interface Engine<State, Message> {
   /** Enqueues a message sent by the view. */
   readonly dispatch: (message: Message) => Effect.Effect<void>
   /**
-   * Never succeeds. Fails with the first defect raised by `update`, a command
-   * or a subscription, so whoever runs the program can let it crash.
+   * Never succeeds. Dies with the first defect raised by `update`, a command or a subscription, as a
+   * `ProgramDefect`, so whoever runs the program can let it crash.
    */
   readonly await: Effect.Effect<never>
 }
@@ -123,21 +150,18 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   const enqueue = (origin: Origin<K>) => (message: Message) => Effect.asVoid(Queue.offer(queue, { message, origin }))
   // Only the loop starts subscriptions, one step at a time.
   let started: Generation = 0
-  // Where a defect happened is known only here, so it goes to the log; the run then fails with the defect.
-  const logDefect = (where: string, ...details: ReadonlyArray<unknown>) => (defect: unknown) =>
-    Effect.logError(`A defect in ${where}`, ...details, defect)
   // Each function of the program or of the options, called where its defect can be told apart from the others'.
-  const call = <A>(where: string, f: () => A) => Effect.sync(f).pipe(Effect.tapDefect(logDefect(where)))
+  const call = <A>(where: DefectSite, f: () => A) => Effect.sync(f).pipe(diesIn(where))
   const apply = (message: Message, state: State) => call('update', () => update(message)(state))
   const described = (message: Message) => call('describeMessage', () => describeMessage(message))
   const observe = (applied: Applied<State, Message, Command>) =>
-    onApplied(applied).pipe(Effect.tapDefect(logDefect('onApplied')))
+    onApplied(applied).pipe(diesIn('onApplied'))
   // The interpreter runs inside the command's fiber, so a defect in it is the command's. Its scope closes
   // before its message is queued, so that `update` never learns of a command whose resources are still open.
   const runCommand = (command: Command) =>
     Effect.suspend(() => interpret(command)).pipe(
       Effect.scoped,
-      Effect.tapDefect(logDefect('a command')),
+      diesIn('command'),
       Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: enqueue(fromCommand) })),
       Effect.provideContext(context),
       FiberSet.run(fibers),
@@ -172,7 +196,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       yield* Channel.runForEach(subscription, send).pipe(
         Effect.scoped,
         Effect.flatMap((last) => Effect.logDebug('Subscription ended', key).pipe(Effect.andThen(send(last)))),
-        Effect.tapDefect(logDefect('a subscription', key)),
+        diesIn('subscription', { key }),
         Effect.provideContext(context),
         FiberMap.run(subscriptionFibers, key),
       )
@@ -183,30 +207,38 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     active: HashMap.HashMap<K, Generation>,
     { message, origin }: Envelope<Message, K>,
   ) {
+    // `describeMessage` and `describeCommand` run for every message, and only to be logged.
+    const debugging = yield* LogLevel.isEnabled('Debug')
     // Left in the queue by a subscription whose key has gone away since: it was produced after the program
     // stopped listening, so it does not reach `update`.
     if (
       origin._tag === 'Subscription'
       && !Opt.contains(HashMap.get(active, origin.key), origin.generation)
     ) {
-      yield* Effect.logDebug('Dropped a message of a stopped subscription', origin.key, yield* described(message))
+      if (debugging) {
+        yield* Effect.logDebug('Dropped a message of a stopped subscription', origin.key, yield* described(message))
+      }
       return active
     }
     const { state, revision } = yield* SubscriptionRef.get(stateRef)
     const result = yield* apply(message, state)
     // The state the message was meant for is gone (a late answer, a second click), or it never applied.
     if (isRejected(result)) {
-      yield* Effect.logDebug('Ignored a rejected message', yield* described(message), { origin: origin._tag })
+      if (debugging) {
+        yield* Effect.logDebug('Ignored a rejected message', yield* described(message), { origin: origin._tag })
+      }
       return active
     }
     const { state: next, commands = [] } = result
     // The same state needs no new revision, frame or subscriptions: only its commands, if any, run.
     const changed = next !== state
     const nextRevision = changed ? revision + 1 : revision
-    yield* Effect.logDebug('Message', yield* described(message), {
-      revision: nextRevision,
-      commands: yield* call('describeCommand', () => commands.map(describeCommand)),
-    })
+    if (debugging) {
+      yield* Effect.logDebug('Message', yield* described(message), {
+        revision: nextRevision,
+        commands: yield* call('describeCommand', () => commands.map(describeCommand)),
+      })
+    }
     yield* observe({ message, before: state, after: next, revision: nextRevision, commands })
     if (changed) yield* SubscriptionRef.set(stateRef, { state: next, revision: nextRevision })
     const nextActive = changed ? yield* reconcile(active, next) : active
