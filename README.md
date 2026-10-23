@@ -416,6 +416,10 @@ const view: View<Model, Message, VNode> = (model, dispatch) =>
     ])
 ```
 
+A lambda that wraps the message, `(message) => dispatch({ _tag: 'Clock', message })`, sends the same messages,
+but it is a new function in every frame: a view memoized on it is drawn every time. Use `dispatchTo` for every
+child, memoized or not, and there is nothing to remember.
+
 A grandchild's is its parent's child's: `dispatchTo(dispatchTo(dispatch, 'Home'), 'Products')`, which a view
 usually writes in two steps, each view taking the dispatch its parent gave it.
 

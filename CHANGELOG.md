@@ -3,6 +3,14 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
+## 0.6.1 (unreleased)
+
+### Fixed
+
+- The README says why a child's view takes its dispatch from `dispatchTo` rather than from a lambda that wraps
+  the message: the lambda sends the same messages, but is a new function in every frame, so that a view memoized
+  on it is drawn every time.
+
 ## 0.6.0 (2026-10-23)
 
 ### Changed
