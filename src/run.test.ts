@@ -342,6 +342,18 @@ describe('defects', () => {
     expect(await outcome()).toEqual({ where, logged: [] })
   })
 
+  test('a defect in update says which message it was given, by its tags, in its message too', async () => {
+    const exit = await Effect.runPromiseExit(run(
+      { ...counter, update: (message) => message === 'Increment' ? boom : () => reject },
+      (frames) => Stream.runForEach(frames, ({ model, dispatch }) => dispatch(model.increment)),
+    ))
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    expect(defect instanceof ProgramDefect && [defect.on, defect.message]).toEqual([
+      'Increment',
+      'A defect in update on Increment',
+    ])
+  })
+
   test('a defect in a subscription carries its key', async () => {
     const exit = await Effect.runPromiseExit(run(
       { ...counter, subscriptions: () => HashMap.make(['k', Channel.die(new Boom())]) },

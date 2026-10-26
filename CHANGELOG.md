@@ -36,7 +36,10 @@ version, and everything else, features included, the patch version.
 
 ### Added
 
-- `ProgramDefect`, `DefectSite` and `CompositionDefect`.
+- `ProgramDefect`, `DefectSite` and `CompositionDefect`. A `ProgramDefect` of `update` says which message
+  `update` was given, as `on` and in its `message` (`A defect in update on Home › Products › Deleted`), by its
+  tags as the logs describe it by default, never its data: the reason an `update` dies with needs only to name
+  the invariant.
 - A child may be placed with an optic, `at`, in place of `get` and `set`: `child(clock, { at:
   Optic.id<State>().key('clock') })`, with `.compose(Optic.some())` for a child that may not be there, and
   `at: (id) => …` for children by id.

@@ -469,7 +469,8 @@ commands, if any, with it). A session recorded with `onApplied` plays again the 
 test.
 
 A defect anywhere ends the run, which dies with a `ProgramDefect`: the defect itself as its `cause`, and where it
-happened as `where` (`'update'`, `'command'`, `'subscription'` with its `key`, `'render'`, …), which only the
+happened as `where` (`'update'`, with the message it was given as `on`, by its tags; `'command'`;
+`'subscription'` with its `key`; `'render'`; …), which only the
 run knows. The run does not log it: reporting it is yours. In a browser, start it with `BrowserRuntime.runMain`
 from `@effect/platform-browser`, and report crashes around it:
 
@@ -631,7 +632,7 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | `dispatchTo`                                      | a child's dispatch, for its view: wraps its messages as the parent receives them          |
 | `run`, `Frame`, `RunOptions`                      | run a program with a renderer; what the renderer draws; how the program runs              |
 | `Applied`, `Ignored`, `Origin`                    | what `onApplied` and `onIgnored` hear: a message, where it came from, the states around it |
-| `ProgramDefect`, `DefectSite`                     | the defect a run dies with: its `cause`, `where` it happened, a subscription's `key`      |
+| `ProgramDefect`, `DefectSite`                     | the defect a run dies with: its `cause`, `where` it happened, `update`'s message, a subscription's `key` |
 | `CompositionDefect`                               | a parent breaking what it declared of a child, which the run then dies with               |
 
 From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `rehearse`, `Rehearsal`,

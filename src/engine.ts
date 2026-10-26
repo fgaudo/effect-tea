@@ -82,14 +82,15 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
  * reporting it to whoever runs the program. Every defect of the cause is wrapped, with its stack and span, and
  * the rest of the cause is kept as it is: `Effect.catchDefect` would keep only the first defect.
  */
+// The details are made only when there is a defect to carry them: a message is described on every call otherwise.
 export const diesIn =
-  (where: DefectSite, details: Readonly<{ key?: unknown }> = {}) =>
+  (where: DefectSite, details: () => Readonly<{ key?: unknown; on?: unknown }> = () => ({})) =>
   <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
     Effect.catchCauseIf(self, Cause.hasDies, (cause) =>
       Effect.failCause(Cause.fromReasons(cause.reasons.flatMap((reason): ReadonlyArray<Cause.Reason<E>> =>
         Cause.isDieReason(reason)
           ? Cause.annotate(
-            Cause.die(new ProgramDefect({ where, cause: reason.defect, ...details })),
+            Cause.die(new ProgramDefect({ where, cause: reason.defect, ...details() })),
             Cause.reasonAnnotations(reason),
           ).reasons
           : [reason]
@@ -178,7 +179,10 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   let started: Generation = 0
   // Each function of the program or of the options, called where its defect can be told apart from the others'.
   const call = <A>(where: DefectSite, f: () => A) => Effect.sync(f).pipe(diesIn(where))
-  const apply = (message: Message, state: State) => call('update', () => update(message)(state))
+  // Described by its tags alone, whatever `describeMessage` says: a report must not run the program's code while
+  // the run is dying, nor carry the message's data.
+  const apply = (message: Message, state: State) =>
+    Effect.sync(() => update(message)(state)).pipe(diesIn('update', () => ({ on: describeByTag(message) })))
   const described = (message: Message) => call('describeMessage', () => describeMessage(message))
   const observe = (applied: Applied<State, Message, Command>) =>
     onApplied(applied).pipe(diesIn('onApplied'))
@@ -227,7 +231,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       yield* Channel.runForEach(subscription, send).pipe(
         Effect.scoped,
         Effect.flatMap((last) => Effect.logDebug('Subscription ended', key).pipe(Effect.andThen(send(last)))),
-        diesIn('subscription', { key }),
+        diesIn('subscription', () => ({ key })),
         Effect.provideContext(context),
         FiberMap.run(subscriptionFibers, key),
       )

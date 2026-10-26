@@ -34,15 +34,24 @@ type Fields = Readonly<{
   cause: unknown
   /** The subscription's key, for a defect in a subscription. It may hold data, as a key may. */
   key?: unknown
+  /**
+   * The message `update` was given, for a defect in `update`, by its tags as the logs describe it by default
+   * (`Home › Products › Deleted`): never its data.
+   */
+  on?: unknown
 }>
 
 /**
  * The defect a run dies with: the one that happened, as its `cause`, and where it happened, which only the run
- * knows. The run logs nothing about it: reporting it is the job of whoever runs the program.
+ * knows, with the message it happened on for one in `update`. The run logs nothing about it: reporting it is
+ * the job of whoever runs the program.
  */
 export class ProgramDefect extends Data.TaggedError('ProgramDefect')<Fields & Readonly<{ message: string }>> {
   constructor(fields: Fields) {
-    super({ ...fields, message: `A defect in ${described[fields.where]}` })
+    super({
+      ...fields,
+      message: `A defect in ${described[fields.where]}${fields.on === undefined ? '' : ` on ${String(fields.on)}`}`,
+    })
   }
 }
 
