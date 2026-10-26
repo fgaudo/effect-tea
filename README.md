@@ -621,11 +621,10 @@ From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `rehear
 
 ## Development
 
-`bun run typecheck` (with the Effect language service, `@effect/tsgo`), `bun run lint` and `bun run test` check
-the package and the examples; `bun run build`
-compiles it. `bun install` and `bun run build` in [`site/`](site) build the documentation site into `site/dist/`.
-Changes are in [`CHANGELOG.md`](CHANGELOG.md); rules for contributors and coding agents are in
-[`AGENTS.md`](AGENTS.md).
+`bun run typecheck`, `bun run lint` and `bun run test` check the package and the examples; `bun run build` compiles it
+into `dist/`. Changes are in [`CHANGELOG.md`](CHANGELOG.md). The rules for contributors and coding agents are in
+[`AGENTS.md`](AGENTS.md), and the procedures (changing the API, adding an example, upgrading Effect, releasing and
+building the documentation site) in [`.agents/skills/`](.agents/skills).
 
 ## License
 
