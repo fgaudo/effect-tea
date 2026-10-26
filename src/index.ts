@@ -22,13 +22,13 @@ export { parent } from './compose.ts'
 export { isRejected, reject, type Rejected, type Step, type Transition, type Update } from './update.ts'
 
 // The effects it describes: commands, and subscriptions to the world.
-export { attempt, type Execution, type RunCommand } from './command.ts'
+export type { Execution, RunCommand } from './command.ts'
 export type { Subscription, Subscriptions } from './subscription.ts'
 
 // How a view sends messages, its children's included.
 export { type Dispatch, dispatchTo, type View } from './dispatch.ts'
 
 // Running a program with a renderer.
-export type { Applied, RunOptions } from './engine.ts'
+export type { Applied, Ignored, Origin, RunOptions } from './engine.ts'
 export { type Frame, run } from './run.ts'
-export { type DefectSite, ProgramDefect } from './defect.ts'
+export { CompositionDefect, type DefectSite, ProgramDefect } from './defect.ts'

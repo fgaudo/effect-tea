@@ -33,6 +33,14 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   module is internal. It is judged on its own terms, from the library's concepts, its examples and its users in
   general: coherent, symmetric where its tools are (what `drive` gets, `simulate` and `rehearse` are asked
   about), and never shaped by, nor justified with, what one application happens to use.
+- **A function earns its place by doing what Effect alone cannot.** It stays only if it does something that
+  cannot be written against Effect by someone who does not know the library (`dispatchTo` keeps a dispatch the
+  same by a cache of its own), or if it is the one place where a rule of the library is applied (`reject`,
+  `parent`). A name over a composition of Effect's combinators is not one, however often the composition
+  recurs in an application: a type that already imposes the rule (`Execution` cannot fail, a `Subscription`
+  ends with a message) makes the function that would remind of it superfluous. `attempt`, `silent` and
+  `Subscription.every` were removed by this rule; a form of a declaration that takes a standard type of Effect
+  in place of hand-written functions (`at`, an `Optic`, for `get` and `set`) is not a function, and may stay.
 - **Only stable Effect APIs.** A module or function marked `@stability unstable` in Effect's declarations may
   change under the library's users: never build on one, not even as an option. The typecheck fails on one (the
   Effect language service's `unstableApiUsage`), except in `examples/`, which are not published.
@@ -60,7 +68,8 @@ are kept, and what a change must not undo:
   model that asked would make a wrong rejection a control that silently disappears.
 - **A parent and its children talk only through external messages and events**, so that `reject` means the
   same everywhere: a handle's `update` returns a step, never a rejection, and a child rejecting an external
-  message, or a parent giving one to a child that is not there, is a defect (`tell` in `compose.ts`). The types
+  message, or a parent giving one to a child that is not there, is a defect: a `CompositionDefect`, as every
+  break of what a parent declared is (`defectAt` in `compose.ts`), so that reports group them and name the child. The types
   enforce what a parent declares: `runCommand` exactly when it has commands of its own, `onEvent` exactly when a
   child has events, a handle's `update` only with a child's `external` messages, no own message or command
   named like a child. A program written without `Program<…>` has `unknown` types, read as `never` (`Known` in
@@ -86,8 +95,11 @@ are kept, and what a change must not undo:
 - **A subscription never ends in silence**: its end value is a message (or `never`), sent to `update`. An ended
   subscription keeps its key among the active ones until the key goes away and comes back: never restart it
   automatically, which would loop on one that ends at once. What the end of a library's stream means is the
-  caller's decision: no helper takes it for them.
+  caller's decision: no helper takes it for them, and the type of a subscription asks for it (`Channel.mapDone`).
 - **Subscriptions are reconciled by key**: a new key starts, a kept key leaves running, a gone key interrupts.
+  The gone keys are interrupted together, and awaited before any key starts: the loop waits for the slowest
+  release rather than for their sum, and a key that comes back finds its old subscription released. A parent
+  lifts its children's keys under their names, and dies on an own key equal to a lifted one.
   Each start has a generation that its messages carry, and a message whose key is gone, or came back with a new
   start, is dropped before `update`, however the fibers were scheduled.
 - **Commands are data; only `runCommand` runs them.** Never let a command carry its effect, or a description
@@ -103,8 +115,10 @@ are kept, and what a change must not undo:
 - **Frames cost only what is drawn**: a frame's model is made when first read, and a message that returns the
   very same state makes no new frame (a parent keeps its own state when a child's message leaves the child's as
   it is). Do not compute models eagerly in `run`.
-- **`onApplied` watches, never steers**: it hears each accepted message in order, before its frame is
-  published, with no way to send messages or change the state. A defect in it is a bug like any other.
+- **`onApplied` and `onIgnored` watch, never steer**: they hear each accepted, or rejected, message in order,
+  with where it came from, before its frame is published, with no way to send messages or change the state. A
+  defect in them is a bug like any other. Neither hears a message dropped before `update` (one left by a
+  stopped subscription): that is the engine's, not the program's.
 - **The testing tools behave like the engine** where it is deterministic, with the test as the scheduler
   ("Testing" in the README says what each one runs, fails on and ignores); `rehearse` fails on a command left
   pending, since its answer would arrive, and `drive` acts only as a user can, through `run` and the run's

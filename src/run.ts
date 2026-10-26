@@ -5,7 +5,11 @@ import type { Dispatch } from './dispatch.ts'
 import * as Engine from './engine.ts'
 import { runCommandOf, type Shape, startOf, subscriptionsOf } from './program.ts'
 
-/** What a renderer draws: a model, and the dispatch of the run, the very same function for every frame. */
+/**
+ * What a renderer draws: a model, and the dispatch of the run, the very same function for every frame. The model
+ * is made when it is first read, so a frame nobody reads costs nothing: whatever enumerates or copies a frame
+ * (a spread, `JSON.stringify`) reads it.
+ */
 export type Frame<Model, Message> = Readonly<{ model: Model; dispatch: Dispatch<Message> }>
 
 /** What the program starts from: required exactly when it has flags. */

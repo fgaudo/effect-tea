@@ -16,8 +16,11 @@ export type DispatchViolation<Message> = Readonly<{ _tag: 'Rejected' | 'ActsTwic
  * Checks a view against `update` in `state`, both ways, from the messages it sends there, as collected from what
  * the renderer draws for `program.makeModel(state)`. Each message `sent` must be accepted, and, sent again from
  * that frame, rejected (so it is ignored) or change nothing (same state by `Equal`, no commands, no events);
- * actions meant to repeat (a "+1") are excluded with `repeatable`. Each of the `candidates`, what a user could ask
- * for (with the text typed into each input), that `update` accepts must be among `sent`, compared with `Equal`;
+ * actions meant to repeat (a "+1") are excluded with `repeatable`. States compare by value, so keep them data: a
+ * state holding a value without structural equality (an instance of a class that does not implement `Equal`, a
+ * function) compares by reference, and a message that rebuilds it would count as acting twice. Each of the
+ * `candidates`, what a user could ask for (with the text typed into each input), that `update` accepts must be
+ * among `sent`, compared with `Equal`;
  * a view may show less on purpose (e.g. typing while a save is in progress), which `withheld` excludes. Without
  * candidates, only the messages sent are checked. Returns every violation, so that a test can assert there are
  * none, e.g. for arbitrary states.

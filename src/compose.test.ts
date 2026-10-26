@@ -6,12 +6,14 @@ import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
+import * as Optic from 'effect/Optic'
 import * as Stream from 'effect/Stream'
 import type { Subscription } from './subscription.ts'
 import { isRejected, reject } from './update.ts'
 import { type Dispatch, dispatchTo } from './dispatch.ts'
 import { parent } from './compose.ts'
-import type { CommandOf, FlagsOf, MessageOf, Program } from './program.ts'
+import { CompositionDefect } from './defect.ts'
+import { type CommandOf, type FlagsOf, type MessageOf, type Program, subscriptionsOf } from './program.ts'
 import { type Frame, run } from './run.ts'
 
 // A counter that cannot go below zero, that saves on request, and that accepts typed numbers only.
@@ -69,7 +71,7 @@ const counter: Program<{
         return { state: { ...state, count: 0 } }
     }
   },
-  runCommand: () => Effect.succeed(Opt.some(CounterMessage.Saved())),
+  runCommand: () => Effect.succeedSome(CounterMessage.Saved()),
   makeModel: (state) => ({
     count: state.count,
     increment: CounterMessage.Increment(),
@@ -565,7 +567,111 @@ describe('what a parent can do with a child', () => {
     expect(() => pages.update({ _tag: 'BackPressed' })({ page: Opt.some({ menu: false }) }))
       .toThrow('"Page" rejected an external message')
     expect(() => pages.update({ _tag: 'BackPressed' })({ page: Opt.none() }))
-      .toThrow('an external message to "Page", which is not in this state')
+      .toThrow('An external message to "Page", which is not in this state')
+  })
+
+  test('a defect of the composition is a CompositionDefect naming the child, with its id for a child by id', () => {
+    const thrown = (act: () => unknown): unknown => {
+      try {
+        act()
+      } catch (error) {
+        return error
+      }
+      throw new Error('nothing was thrown')
+    }
+    const pages = Pages.compose({
+      init: () => ({ state: { page: Opt.none() } }),
+      children: { Page: shown },
+      update: (_: BackPressed, children) => children.Page.update({ _tag: 'BackPressed' }),
+      onEvent: { Page: () => (state) => ({ state }) },
+      makeModel: () => null,
+    })
+    const alone = thrown(() => pages.update({ _tag: 'BackPressed' })({ page: Opt.none() }))
+    expect(alone).toBeInstanceOf(CompositionDefect)
+    expect(alone).toMatchObject({ _tag: 'CompositionDefect', child: 'Page' })
+    expect(Object.hasOwn(alone as object, 'id')).toBe(false)
+    const telling = List.compose({
+      init: () => ({ state: { rows: [] } }),
+      children: {
+        Rows: List.each(counter, {
+          get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
+          set: (state, id, counter) => ({ rows: state.rows.map((row) => row.id === id ? { id, counter } : row) }),
+          subscribed: () => [],
+        }),
+      },
+      update: (_: Reset, children) => children.Rows.update(7, CounterMessage.Cleared()),
+      onEvent: { Rows: () => (state) => ({ state }) },
+      makeModel: () => null,
+    })
+    expect(thrown(() => telling.update({ _tag: 'Reset' })({ rows: [] })))
+      .toMatchObject({ _tag: 'CompositionDefect', child: 'Rows', id: 7 })
+  })
+
+  test('an own subscription key that is the lifted key of a child\'s is a defect, never a silent replacement', () => {
+    const { child, compose } = parent<{ state: Ticks }>()
+    const clashing = compose({
+      init: () => ({ state: noTicks }),
+      children: { Ticker: child(ticker, { get: Opt.some, set: (_, ticks) => ticks }) },
+      update: (_: Tick) => (state) => ({ state }),
+      subscriptions: () => HashMap.make([['Ticker', 'ticks'] as const, ticks]),
+      makeModel: () => null,
+    })
+    expect(() => subscriptionsOf(clashing)(noTicks)).toThrow(CompositionDefect)
+  })
+})
+
+describe('a child placed with an optic', () => {
+  const Placed = parent<{ state: ParentState }>()
+  const placed = Placed.compose({
+    init: () => ({ state: app.init.state }),
+    children: {
+      Left: Placed.child(counter, { at: Optic.id<ParentState>().key('left') }),
+      Right: Placed.child(counter, { at: Optic.id<ParentState>().key('maybeRight').compose(Optic.some()) }),
+    },
+    onEvent: { Left: () => (state) => ({ state }), Right: () => (state) => ({ state }) },
+    makeModel: (state, children) => ({
+      left: children.Left(state),
+      maybeRight: Opt.map(state.maybeRight, () => children.Right(state)),
+    }),
+  })
+  const increment = (name: 'Left' | 'Right'): MessageOf<typeof placed> => ({
+    _tag: name,
+    message: CounterMessage.Increment(),
+  })
+
+  test('the optic finds the child and puts its new state back, as get and set would', () => {
+    const left = placed.update(increment('Left'))(app.init.state)
+    expect(!isRejected(left) && left.state.left.count).toBe(1)
+    expect(placed.makeModel(app.init.state).left.count).toBe(0)
+  })
+
+  test('a child the optic does not focus is not there: its messages are rejected, and it has no model', () => {
+    expect(isRejected(placed.update(increment('Right'))(app.init.state))).toBe(true)
+    const withRight = { ...app.init.state, maybeRight: Opt.some(counter.init.state) }
+    const right = placed.update(increment('Right'))(withRight)
+    expect(!isRejected(right) && Opt.map(right.state.maybeRight, (counter) => counter.count)).toEqual(Opt.some(1))
+    expect(Opt.map(placed.makeModel(withRight).maybeRight, (model) => model.count)).toEqual(Opt.some(0))
+  })
+
+  test('a child by id takes an optic of the id', () => {
+    type Rows = Readonly<{ rows: Readonly<Record<number, Counter>> }>
+    const ById = parent<{ state: Rows }>()
+    const byId = ById.compose({
+      init: () => ({ state: { rows: {} } }),
+      children: {
+        Rows: ById.each(counter, {
+          at: (id: number) => Optic.id<Rows>().key('rows').optionalKey(id).notUndefined(),
+          subscribed: () => [],
+        }),
+      },
+      onEvent: { Rows: () => (state) => ({ state }) },
+      makeModel: (state, children) => Object.keys(state.rows).map((id) => children.Rows(state, Number(id))),
+    })
+    const state: Rows = { rows: { 1: counter.init.state } }
+    const result = byId.update({ _tag: 'Rows', id: 1, message: CounterMessage.Increment() })(state)
+    expect(!isRejected(result) && result.state.rows[1]?.count).toBe(1)
+    expect(isRejected(byId.update({ _tag: 'Rows', id: 2, message: CounterMessage.Increment() })(state))).toBe(true)
+    expect(byId.makeModel(state).map((model) => model.count)).toEqual([0])
   })
 
   test('init gives a new child its state and its commands, lifted with its id', () => {
@@ -846,7 +952,7 @@ describe('what the types reject', () => {
     compose({
       init: () => ({ state: noTicks }),
       children: { Plain: child(plain, { get: (state) => Opt.some(state), set: (_, child) => child }) },
-      runCommand: () => Effect.succeed(Opt.none()),
+      runCommand: () => Effect.succeedNone,
       makeModel: () => null,
     })
   })
@@ -856,7 +962,7 @@ describe('what the types reject', () => {
       init: { state: noTicks },
       update: (_: Tick) => (state: Ticks) =>
         state.ticks > 0 ? { state, commands: ['Save' as const] } : { state: { ticks: 1 } },
-      runCommand: () => Effect.succeed(Opt.none()),
+      runCommand: () => Effect.succeedNone,
       makeModel: ({ ticks }: Ticks) => ticks,
     }
     const { child, compose } = parent<{ state: Ticks }>()

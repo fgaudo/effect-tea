@@ -2,7 +2,7 @@ import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import type * as Scope from 'effect/Scope'
 import { type Interpreter, type ObjectState, runCommandOf } from '../program.ts'
-import { isRejected, type Step, type Update } from '../update.ts'
+import { appendStep, isRejected, type Step, type Update } from '../update.ts'
 import { unexpectedRejection } from './unexpected.ts'
 
 /**
@@ -62,12 +62,12 @@ export const simulate = <State, Message, Command, Event, R = never>(
   ): Effect.Effect<Current, never, Exclude<R, Scope.Scope>> =>
     Effect.suspend(() => {
       const result = update(message)(simulation.state)
-      return isRejected(result) ? onRejected(simulation) : runCommands(result.commands ?? [], {
-        state: result.state,
+      if (isRejected(result)) return onRejected(simulation)
+      // The commands are listed as they run, by `runCommands`: only the state and the events are folded here.
+      return runCommands(result.commands ?? [], {
+        ...simulation,
+        ...appendStep(simulation, { state: result.state, events: result.events ?? [] }),
         messages: [...simulation.messages, message],
-        commands: simulation.commands,
-        events: [...simulation.events, ...(result.events ?? [])],
-        ignored: simulation.ignored,
       })
     })
   return Effect.fnUntraced(function*(

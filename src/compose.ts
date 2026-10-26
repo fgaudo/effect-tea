@@ -5,7 +5,12 @@ import * as Channel from 'effect/Channel'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
+import type * as Optic from 'effect/Optic'
+import * as Predicate from 'effect/Predicate'
+import * as Record from 'effect/Record'
+import * as Result from 'effect/Result'
 import type { Execution } from './command.ts'
+import { CompositionDefect } from './defect.ts'
 import {
   type AnyProgram,
   type CommandOf,
@@ -26,9 +31,31 @@ import {
   subscriptionsOf,
 } from './program.ts'
 import type { Subscription, Subscriptions } from './subscription.ts'
-import { isRejected, reject, type Step, type Transition, type Update } from './update.ts'
+import { appendStep, type Folded, isRejected, reject, type Step, type Transition, type Update } from './update.ts'
 
-/** One child in its parent's state. `get` must find what `set` put, and depend on the state alone. */
+/**
+ * Where a child lives in its parent's state: `get`, which finds what `set` put and depends on the state alone,
+ * or an optic that is both (`Optic.id<State>().key('clock')`, or `.compose(Optic.some())` for a child that may
+ * not be there).
+ */
+type Placement<ParentState, ChildState> =
+  | Readonly<{
+    get: (state: ParentState) => Opt.Option<ChildState>
+    set: (state: ParentState, child: ChildState) => ParentState
+    at?: never
+  }>
+  | Readonly<{ at: Optic.Optional<ParentState, ChildState>; get?: never; set?: never }>
+
+/** Where a child by id lives: `get` and `set` take the id, or the optic is a function of it. */
+type EachPlacement<ParentState, Id, ChildState> =
+  | Readonly<{
+    get: (state: ParentState, id: Id) => Opt.Option<ChildState>
+    set: (state: ParentState, id: Id, child: ChildState) => ParentState
+    at?: never
+  }>
+  | Readonly<{ at: (id: Id) => Optic.Optional<ParentState, ChildState>; get?: never; set?: never }>
+
+/** One child in its parent's state. */
 type Child<ParentState, P> = Readonly<{
   kind: 'one'
   program: P
@@ -51,6 +78,27 @@ type Each<ParentState, Id, P> = Readonly<{
   /** The children whose subscriptions run, with their state (all of them, or those in sight). */
   subscribed: (state: ParentState) => Iterable<readonly [Id, StateOf<P>]>
 }>
+
+// An optic focuses or not: `None` where it does not, and `replace` is only called where `get` focused.
+const placed = <S, A>(
+  place: Placement<S, A>,
+): Readonly<{ get: (state: S) => Opt.Option<A>; set: (state: S, child: A) => S }> =>
+  place.at === undefined
+    ? { get: place.get, set: place.set }
+    : {
+      get: (state) => Result.getSuccess(place.at.getResult(state)),
+      set: (state, child) => place.at.replace(child, state),
+    }
+
+const placedEach = <S, Id, A>(
+  place: EachPlacement<S, Id, A>,
+): Readonly<{ get: (state: S, id: Id) => Opt.Option<A>; set: (state: S, id: Id, child: A) => S }> =>
+  place.at === undefined
+    ? { get: place.get, set: place.set }
+    : {
+      get: (state, id) => Result.getSuccess(place.at(id).getResult(state)),
+      set: (state, id, child) => place.at(id).replace(child, state),
+    }
 
 // `never` parameters: any `set` fits, whatever its child's state and id.
 type Children<State> = Readonly<
@@ -216,13 +264,10 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
   type Message = Own | ChildMessages<C>
   type Command = OwnCommand | ChildCommands<C>
   const children = config.children as unknown as Readonly<Record<string, UntypedChild>>
-  const names = Object.keys(children)
+  const names = Record.keys(children)
   const childOf = (name: string) => children[name] as UntypedChild
-  const isChildName = (tag: unknown): tag is string => typeof tag === 'string' && Object.hasOwn(children, tag)
-  const field = (value: unknown, key: string): unknown =>
-    typeof value === 'object' && value !== null && key in value
-      ? (value as Readonly<Record<string, unknown>>)[key]
-      : undefined
+  const isChildName = (tag: unknown): tag is string => typeof tag === 'string' && Record.has(children, tag)
+  const field = (value: unknown, key: string): unknown => Predicate.hasProperty(value, key) ? value[key] : undefined
   const placeOf = (value: unknown): Place => ({ name: field(value, '_tag') as string, id: field(value, 'id') })
   const isEach = (name: string) => childOf(name).kind === 'each'
   const at = ({ name, id }: Place) => isEach(name) ? { id } : {}
@@ -235,9 +280,11 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
   const onEvents = ((config as Readonly<{ onEvent?: unknown }>).onEvent ?? {}) as Readonly<
     Record<string, (...args: ReadonlyArray<unknown>) => (state: State) => Step<State, Command, Event>>
   >
+  const defectAt = (place: Place, message: string) =>
+    new CompositionDefect({ message, child: place.name, ...(isEach(place.name) ? { id: place.id } : {}) })
   const onEventAt = (place: Place, event: unknown): (state: State) => Step<State, Command, Event> => {
     const handle = onEvents[place.name]
-    if (handle === undefined) throw new Error(`compose: the child "${place.name}" emitted an event, nothing handles it`)
+    if (handle === undefined) throw defectAt(place, `The child "${place.name}" emitted an event nothing handles`)
     return isEach(place.name) ? handle(place.id, event, handles) : handle(event, handles)
   }
   const updateAt = (place: Place, message: unknown) => (state: State): Transition<State, Command, Event> =>
@@ -248,22 +295,13 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
         if (isRejected(result)) return reject
         // A child's events are handled in order, each by the state its predecessors left. An unchanged child
         // leaves its parent's state as it is, so that the very same state draws no new frame.
-        return Arr.reduce(
-          result.events ?? [],
-          {
-            state: result.state === childState ? state : setAt(place, state, result.state),
-            commands: Arr.map(result.commands ?? [], wrapCommand(place)),
-            events: [] as ReadonlyArray<Event>,
-          },
-          (acc, event) => {
-            const next = onEventAt(place, event)(acc.state)
-            return {
-              state: next.state,
-              commands: [...acc.commands, ...(next.commands ?? [])],
-              events: [...acc.events, ...(next.events ?? [])],
-            }
-          },
-        )
+        const lifted: Folded<State, Command, Event> = {
+          state: result.state === childState ? state : setAt(place, state, result.state),
+          commands: Arr.map(result.commands ?? [], wrapCommand(place)),
+          events: [],
+        }
+        return Arr.reduce(result.events ?? [], lifted, (acc, event) =>
+          appendStep(acc, onEventAt(place, event)(acc.state)))
       },
     })
   const startAt = (place: Place, flags: unknown) => {
@@ -273,16 +311,15 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
   const hasFlags = (name: string) => typeof childOf(name).program.init === 'function'
   const tell = (place: Place, message: unknown) => (state: State): Step<State, Command, Event> => {
     if (Opt.isNone(getAt(place, state))) {
-      throw new Error(`compose: an external message to "${place.name}", which is not in this state`)
+      throw defectAt(place, `An external message to "${place.name}", which is not in this state`)
     }
     const result = updateAt(place, message)(state)
-    if (isRejected(result)) throw new Error(`compose: "${place.name}" rejected an external message, which it takes`)
+    if (isRejected(result)) throw defectAt(place, `"${place.name}" rejected an external message, which it takes`)
     return result
   }
   // Built once: a child's update calls `onEvent`, which may call any child's handle.
-  const handles = Object.fromEntries(names.map((name) => [
-    name,
-    isEach(name)
+  const handles = Record.map(children, (child, name) =>
+    child.kind === 'each'
       ? {
         update: (id: unknown, message: unknown) => tell({ name, id }, message),
         init: (id: unknown, flags: unknown) => startAt({ name, id }, flags),
@@ -292,8 +329,7 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
         init: hasFlags(name)
           ? (flags: unknown) => startAt({ name, id: undefined }, flags)
           : startAt({ name, id: undefined }, undefined),
-      },
-  ])) as unknown as Handles<State, C, Command, Event>
+      }) as unknown as Handles<State, C, Command, Event>
   const update: Update<State, Message, Command, Event> = (message) => (state) => {
     const place = placeOf(message)
     if (isChildName(place.name)) return updateAt(place, field(message, 'message'))(state)
@@ -320,7 +356,7 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
     // An object, as the types require: a primitive here is a defect, raised by the `WeakMap`.
     const childState = Opt.getOrThrowWith(
       getAt(place, parentState),
-      () => new Error(`compose: the model of "${place.name}", which is not in this state`),
+      () => defectAt(place, `The model of "${place.name}", which is not in this state`),
     ) as object
     const kept = modelsOf(program)
     if (kept.has(childState)) return kept.get(childState)
@@ -328,12 +364,10 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
     kept.set(childState, model)
     return model
   }
-  const childModels = Object.fromEntries(names.map((name) => [
-    name,
-    isEach(name)
+  const childModels = Record.map(children, (child, name) =>
+    child.kind === 'each'
       ? (parentState: State, id: unknown) => modelAt({ name, id }, parentState)
-      : (parentState: State) => modelAt({ name, id: undefined }, parentState),
-  ])) as Models<State, C>
+      : (parentState: State) => modelAt({ name, id: undefined }, parentState)) as Models<State, C>
   const ownRunCommand = (config as Readonly<{ runCommand?: (command: OwnCommand) => Execution<Message, R> }>)
     .runCommand
   const program = {
@@ -349,6 +383,8 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
       if (ownRunCommand === undefined) throw new Error('compose: a command of its own, and no runCommand')
       return ownRunCommand(command as OwnCommand)
     },
+    // A child's keys are under its name and id, so two children never clash: only an own key shaped like one
+    // of theirs could, and would silently take the child's place.
     subscriptions: (state: State) =>
       Arr.reduce(
         names,
@@ -358,8 +394,13 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
         ) as HashMap.HashMap<unknown, Subscription<Message, unknown>>,
         (acc, name) =>
           Arr.reduce(listening(name, state), acc, (all, [place, childState]) =>
-            HashMap.reduce(subscriptionsAt(place, childState), all, (keyed, subscription, key) =>
-              HashMap.set(keyed, isEach(name) ? [name, place.id, key] as const : [name, key] as const, subscription))),
+            HashMap.reduce(subscriptionsAt(place, childState), all, (keyed, subscription, key) => {
+              const lifted = isEach(name) ? [name, place.id, key] as const : [name, key] as const
+              if (HashMap.has(keyed, lifted)) {
+                throw defectAt(place, `An own subscription key is the key of a subscription of "${name}"`)
+              }
+              return HashMap.set(keyed, lifted, subscription)
+            })),
       ),
     makeModel: (state: State): Model => config.makeModel(state, childModels),
   }
@@ -392,16 +433,23 @@ export const parent = <T extends ParentTypes>() => {
   return {
     child: <P extends AnyProgram>(
       program: P,
-      place: Omit<Child<State, P>, 'program' | 'kind'> & ObjectState<StateOf<P>>,
+      place:
+        & Placement<State, StateOf<P>>
+        & Readonly<{ subscribed?: (state: State) => Opt.Option<StateOf<P>> }>
+        & ObjectState<StateOf<P>>,
     ): Child<State, P> => ({
       kind: 'one',
       program,
-      ...place,
+      ...placed(place),
+      ...(place.subscribed === undefined ? {} : { subscribed: place.subscribed }),
     }),
     each: <Id, P extends AnyProgram>(
       program: P,
-      place: Omit<Each<State, Id, P>, 'program' | 'kind'> & ObjectState<StateOf<P>>,
-    ): Each<State, Id, P> => ({ kind: 'each', program, ...place }),
+      place:
+        & EachPlacement<State, Id, StateOf<P>>
+        & Readonly<{ subscribed: (state: State) => Iterable<readonly [Id, StateOf<P>]> }>
+        & ObjectState<StateOf<P>>,
+    ): Each<State, Id, P> => ({ kind: 'each', program, ...placedEach(place), subscribed: place.subscribed }),
     // Its external messages are among its own: the intersection keeps only those.
     compose: <C extends Children<State>, Model, Own = never, R = never, K = unknown>(
       config: Config<State, C, Own, OwnCommand, Event, Model, R, K, Field<T, 'flags'>>,

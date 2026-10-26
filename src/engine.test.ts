@@ -165,6 +165,31 @@ describe('Engine subscriptions', () => {
     expect(log.slice(0, 3)).toEqual(['start a', 'stop a', 'start b'])
   })
 
+  // Each release waits for the other to have begun: released one after the other, they would wait forever.
+  test('keys that go away together release their subscriptions together, not one after the other', async () => {
+    const released = await run(Effect.gen(function*() {
+      const releasing = yield* Deferred.make<void>()
+      let begun = 0
+      const release = Effect.suspend(() => {
+        begun += 1
+        return begun === 2 ? Deferred.succeed(releasing, undefined) : Deferred.await(releasing)
+      })
+      const holding = (): Subscription<Change, Scope.Scope> =>
+        Channel.unwrap(Effect.acquireRelease(Effect.void, () => release).pipe(Effect.as(Channel.never)))
+      const engine = yield* Engine.make<Listening, Change, never, Scope.Scope, string>({
+        init: { state: { names: ['a', 'b'], bumps: 0 } },
+        runCommand: absurd,
+        update: (change) => (state) =>
+          change._tag === 'Listened' ? { state: { ...state, names: change.names } } : { state },
+        subscriptions: ({ names }) => HashMap.fromIterable(names.map((name) => [name, holding()] as const)),
+      })
+      yield* engine.dispatch({ _tag: 'Listened', names: [] })
+      yield* engine.states.pipe(Stream.filter(({ state }) => state.names.length === 0), Stream.runHead)
+      return yield* Deferred.await(releasing).pipe(Effect.as(true), Effect.timeoutOption('1 second'))
+    }))
+    expect(released).toEqual(Opt.some(true))
+  })
+
   test('a key equal by value keeps its subscription running, untouched', async () => {
     const log = await logOf([{ _tag: 'Listened', names: ['a'] }, { _tag: 'Bumped' }, { _tag: 'Bumped' }])
     expect(log.slice(0, 1)).toEqual(['start a'])

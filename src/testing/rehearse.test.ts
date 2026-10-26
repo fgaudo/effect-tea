@@ -214,6 +214,58 @@ describe('rehearse', () => {
     expect(String(unheard)).toContain('Nothing listens under ["Row","1n"] in the current state')
   })
 
+  describe('hearNext', () => {
+    // Pings once at once, and holds a resource while it listens.
+    const pinging = (log: Array<string>): typeof program => ({
+      ...program,
+      subscriptions: (note) =>
+        note.isSaving ? HashMap.empty() : HashMap.make([
+          'ping',
+          Channel.unwrap(
+            Effect.acquireRelease(
+              Effect.sync(() => log.push('acquire')),
+              () => Effect.sync(() => log.push('release')),
+            ).pipe(Effect.as(Channel.succeed<Edit>({ _tag: 'Pinged' }).pipe(Channel.concatWith(() => Channel.never)))),
+          ),
+        ]),
+    })
+
+    test('runs the subscription under the key to its first message, applies it, and releases what it held', async () => {
+      const log: Array<string> = []
+      const { message, pings } = await Effect.runPromise(withStorage(rehearse(
+        pinging(log),
+        Effect.fnUntraced(function*(rehearsal) {
+          const message = yield* rehearsal.hearNext('ping')
+          return { message, pings: (yield* rehearsal.state).pings }
+        }),
+      )))
+      expect(message).toEqual({ _tag: 'Pinged' })
+      expect(pings).toBe(1)
+      expect(log).toEqual(['acquire', 'release'])
+    })
+
+    test('a subscription that ends before sending anything is heard by its last message', async () => {
+      const ending: typeof program = {
+        ...program,
+        subscriptions: () => HashMap.make(['ping', Channel.end<Edit>({ _tag: 'Pinged' })]),
+      }
+      const message = await Effect.runPromise(withStorage(rehearse(ending, (rehearsal) => rehearsal.hearNext('ping'))))
+      expect(message).toEqual({ _tag: 'Pinged' })
+    })
+
+    test('fails the test when nothing listens under the key', async () => {
+      const failure = await failureOf(rehearse(
+        program,
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.send(typing('milk'))
+          yield* rehearsal.send(saving)
+          yield* rehearsal.hearNext('ping')
+        }),
+      ))
+      expect(String(failure)).toContain('Nothing listens under ping in the current state')
+    })
+  })
+
   describe('fails the test', () => {
     test('when the model does not show what the test sends', async () => {
       expect(String(await failureOf(rehearse(program, (rehearsal) => rehearsal.send(saving)))))

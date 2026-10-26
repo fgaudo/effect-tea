@@ -1,3 +1,4 @@
+import * as Arr from 'effect/Array'
 import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Context from 'effect/Context'
@@ -23,16 +24,30 @@ export type Revision = number
 
 export type Revisioned<State> = Readonly<{ state: State; revision: Revision }>
 
+/** Where a message came from: the view, a command, or a subscription, with its key. */
+export type Origin =
+  | Readonly<{ _tag: 'View' }>
+  | Readonly<{ _tag: 'Command' }>
+  | Readonly<{ _tag: 'Subscription'; key: unknown }>
+
 /**
- * A message that `update` accepted: the state before and after it, the revision of `after` (unchanged when
- * the state is the same), and the commands it started.
+ * A message that `update` accepted: where it came from, the state before and after it, the revision of `after`
+ * (unchanged when the state is the same), and the commands it started.
  */
 export type Applied<State, Message, Command> = Readonly<{
   message: Message
+  origin: Origin
   before: State
   after: State
   revision: Revision
   commands: ReadonlyArray<Command>
+}>
+
+/** A message that `update` rejected, and the run ignored: where it came from, and the state it did not apply in. */
+export type Ignored<State, Message> = Readonly<{
+  message: Message
+  origin: Origin
+  state: State
 }>
 
 /** How a program runs: how messages and commands appear in the logs, and who observes the transitions. */
@@ -53,6 +68,13 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
    * The program waits for it, so it should be quick; a defect in it ends the run like any other.
    */
   readonly onApplied?: (applied: Applied<State, Message, Command>) => Effect.Effect<void>
+  /**
+   * Hears every message `update` rejects, which the run ignores, with where it came from and the state it did
+   * not apply in (e.g. for devtools, or to count the taps that did nothing). It only watches: the message stays
+   * ignored, and the state as it was. The program waits for it, so it should be quick; a defect in it ends the
+   * run like any other.
+   */
+  readonly onIgnored?: (ignored: Ignored<State, Message>) => Effect.Effect<void>
 }
 
 /**
@@ -77,19 +99,22 @@ export const diesIn =
 type Generation = number
 
 /**
- * Where a message comes from. A subscription's message carries the start it comes from, so that once its key
- * goes away, what it left in the queue is dropped.
+ * Where a message comes from, as the engine knows it: a subscription's message carries the start it comes from,
+ * so that once its key goes away, what it left in the queue is dropped.
  */
-type Origin<K> =
+type Source<K> =
   | Readonly<{ _tag: 'View' }>
   | Readonly<{ _tag: 'Command' }>
   | Readonly<{ _tag: 'Subscription'; key: K; generation: Generation }>
 
-type Envelope<Message, K> = Readonly<{ message: Message; origin: Origin<K> }>
+type Envelope<Message, K> = Readonly<{ message: Message; source: Source<K> }>
 
-const fromView: Origin<never> = { _tag: 'View' }
+const fromView: Source<never> = { _tag: 'View' }
 
-const fromCommand: Origin<never> = { _tag: 'Command' }
+const fromCommand: Source<never> = { _tag: 'Command' }
+
+const originOf = <K>(source: Source<K>): Origin =>
+  source._tag === 'Subscription' ? { _tag: 'Subscription', key: source.key } : source
 
 /**
  * What the fibers of a run get from the context of whoever ran it: the same, but for its span, seen by them as
@@ -126,6 +151,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   describeMessage = describeByTag,
   describeCommand = describeByTag,
   onApplied = () => Effect.void,
+  onIgnored = () => Effect.void,
 }:
   & Readonly<{
     init: Step<State, Command>
@@ -147,7 +173,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   const fibers = yield* FiberSet.make<unknown, never>()
   const subscriptionFibers = yield* FiberMap.make<K, void, never>()
   const stateRef = yield* SubscriptionRef.make<Revisioned<State>>({ state: initState, revision: 0 })
-  const enqueue = (origin: Origin<K>) => (message: Message) => Effect.asVoid(Queue.offer(queue, { message, origin }))
+  const enqueue = (source: Source<K>) => (message: Message) => Effect.asVoid(Queue.offer(queue, { message, source }))
   // Only the loop starts subscriptions, one step at a time.
   let started: Generation = 0
   // Each function of the program or of the options, called where its defect can be told apart from the others'.
@@ -156,6 +182,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   const described = (message: Message) => call('describeMessage', () => describeMessage(message))
   const observe = (applied: Applied<State, Message, Command>) =>
     onApplied(applied).pipe(diesIn('onApplied'))
+  const observeIgnored = (ignored: Ignored<State, Message>) => onIgnored(ignored).pipe(diesIn('onIgnored'))
   // The interpreter runs inside the command's fiber, so a defect in it is the command's. Its scope closes
   // before its message is queued, so that `update` never learns of a command whose resources are still open.
   const runCommand = (command: Command) =>
@@ -167,10 +194,12 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       FiberSet.run(fibers),
     )
   /**
-   * Starts the subscriptions whose key appeared and interrupts the ones whose key disappeared, and returns the
-   * active keys with the start of each. Subscriptions whose key is unchanged keep running; one that has ended
-   * keeps its key and its start among the active ones, so that it does not start again until its key goes
-   * away and comes back, and its last message still arrives.
+   * Interrupts the subscriptions whose key disappeared, all at once, then starts the ones whose key appeared, and
+   * returns the active keys with the start of each. Subscriptions whose key is unchanged keep running; one that
+   * has ended keeps its key and its start among the active ones, so that it does not start again until its key
+   * goes away and comes back, and its last message still arrives. The stops are awaited together, so that the
+   * next message waits for the slowest release rather than for all of them, and still before any start: a key
+   * that comes back finds its old subscription released.
    */
   const reconcile = Effect.fnUntraced(function*(
     active: HashMap.HashMap<K, Generation>,
@@ -178,11 +207,13 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   ) {
     const next = yield* call('subscriptions', () => subscriptions(state))
     let nextActive = HashMap.empty<K, Generation>()
-    for (const key of HashMap.keys(active)) {
-      if (HashMap.has(next, key)) continue
-      yield* Effect.logDebug('Subscription stopped', key)
-      yield* FiberMap.remove(subscriptionFibers, key)
-    }
+    const gone = Arr.filter(Arr.fromIterable(HashMap.keys(active)), (key) => !HashMap.has(next, key))
+    yield* Effect.forEach(
+      gone,
+      (key) =>
+        Effect.logDebug('Subscription stopped', key).pipe(Effect.andThen(FiberMap.remove(subscriptionFibers, key))),
+      { concurrency: 'unbounded', discard: true },
+    )
     for (const [key, subscription] of next) {
       const running = HashMap.get(active, key)
       if (Opt.isSome(running)) {
@@ -205,28 +236,30 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   })
   const step = Effect.fnUntraced(function*(
     active: HashMap.HashMap<K, Generation>,
-    { message, origin }: Envelope<Message, K>,
+    { message, source }: Envelope<Message, K>,
   ) {
     // `describeMessage` and `describeCommand` run for every message, and only to be logged.
     const debugging = yield* LogLevel.isEnabled('Debug')
     // Left in the queue by a subscription whose key has gone away since: it was produced after the program
     // stopped listening, so it does not reach `update`.
     if (
-      origin._tag === 'Subscription'
-      && !Opt.contains(HashMap.get(active, origin.key), origin.generation)
+      source._tag === 'Subscription'
+      && !Opt.contains(HashMap.get(active, source.key), source.generation)
     ) {
       if (debugging) {
-        yield* Effect.logDebug('Dropped a message of a stopped subscription', origin.key, yield* described(message))
+        yield* Effect.logDebug('Dropped a message of a stopped subscription', source.key, yield* described(message))
       }
       return active
     }
     const { state, revision } = yield* SubscriptionRef.get(stateRef)
     const result = yield* apply(message, state)
+    const origin = originOf(source)
     // The state the message was meant for is gone (a late answer, a second click), or it never applied.
     if (isRejected(result)) {
       if (debugging) {
         yield* Effect.logDebug('Ignored a rejected message', yield* described(message), { origin: origin._tag })
       }
+      yield* observeIgnored({ message, origin, state })
       return active
     }
     const { state: next, commands = [] } = result
@@ -239,7 +272,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
         commands: yield* call('describeCommand', () => commands.map(describeCommand)),
       })
     }
-    yield* observe({ message, before: state, after: next, revision: nextRevision, commands })
+    yield* observe({ message, origin, before: state, after: next, revision: nextRevision, commands })
     if (changed) yield* SubscriptionRef.set(stateRef, { state: next, revision: nextRevision })
     const nextActive = changed ? yield* reconcile(active, next) : active
     yield* Effect.forEach(commands, runCommand, { discard: true })

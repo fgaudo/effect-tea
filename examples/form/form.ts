@@ -3,7 +3,7 @@
 // so a second click is rejected; the model has no input to type into meanwhile, but a key typed before the
 // input was disabled is still stored, so that the form never shows a text the state does not have. A failure
 // gives the form back, as it was.
-import { attempt, type Execution, type Program, reject, type Update } from '@fgaudo/effect-tea'
+import { type Execution, type Program, reject, type Update } from '@fgaudo/effect-tea'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as Field from '../field.ts'
@@ -35,11 +35,13 @@ export const Command = Data.taggedEnum<Command>()
 export const runCommand = (command: Command): Execution<Message, Storage> => {
   switch (command._tag) {
     case 'Save':
+      // The expected failure becomes a message, as the success does: `update` decides what each means.
       return Effect.flatMap(Effect.service(Storage), (storage) => storage.save(command.name)).pipe(
-        attempt({
+        Effect.match({
           onSuccess: (): Message => Message.SaveSucceeded({ name: command.name }),
           onFailure: (): Message => Message.SaveFailed(),
         }),
+        Effect.asSome,
       )
   }
 }

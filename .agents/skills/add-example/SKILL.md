@@ -8,7 +8,8 @@ description: How to add or change an example of @fgaudo/effect-tea under example
 The examples are complete programs, checked like the library, that show its concepts and its testing tools to
 its users; the documentation site runs them in the browser. The ones to copy are
 [`examples/counter`](../../../examples/counter) (one program, one view, the cheapest tests) and
-[`examples/pages`](../../../examples/pages) (a parent, children started from flags, events, `dispatchTo`).
+[`examples/pages`](../../../examples/pages) (a parent, children placed with optics and started from flags,
+events, `dispatchTo`).
 
 ## The folder
 

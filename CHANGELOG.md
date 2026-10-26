@@ -16,10 +16,37 @@ version, and everything else, features included, the patch version.
 - `describeMessage` and `describeCommand` are called only while debug logs are enabled
   (`References.MinimumLogLevel`): a run that does not log at the debug level no longer describes every message,
   and a defect in one of them ends the run only when it is called.
+- The subscriptions one message stops are interrupted together, where they were stopped one after the other, each
+  awaited before the next: the next message waits for the slowest release rather than for their sum. They are
+  still all released before any subscription starts.
+- A parent breaking what it declared of a child (an external message to a child that is not there, or that
+  rejects it; the model of a child that is not there; an event nothing handles) throws a `CompositionDefect`, a
+  tagged error naming the child (`child`) and its id (`id`, for a child by id), where it threw a plain `Error`:
+  crash reports can group them, and tests match them by `_tag`. The messages begin with a capital letter: a test
+  that matched `compose: …` reads the `CompositionDefect` instead.
+- A parent's own subscription key equal to the lifted key of a child's (`['Clock', 'ticks']`) is a
+  `CompositionDefect`, where it silently replaced the child's subscription.
+- `Applied` says where its message came from, as `origin`: the view, a command, or a subscription with its key.
+  `DefectSite` gains `'onIgnored'`.
+- `attempt` is removed: it only named two combinators of Effect, and the type of an execution already demands
+  that an expected failure become a message. Write `Effect.match(effect, { onSuccess, onFailure })` followed by
+  `Effect.asSome` where you wrote `attempt(effect, { onSuccess, onFailure })`, and the two as steps of an
+  `Effect.fn` or a `pipe`, `Effect.match({ onSuccess, onFailure }), Effect.asSome`, where you wrote
+  `attempt({ onSuccess, onFailure })`.
 
 ### Added
 
-- `ProgramDefect` and `DefectSite`.
+- `ProgramDefect`, `DefectSite` and `CompositionDefect`.
+- A child may be placed with an optic, `at`, in place of `get` and `set`: `child(clock, { at:
+  Optic.id<State>().key('clock') })`, with `.compose(Optic.some())` for a child that may not be there, and
+  `at: (id) => …` for children by id.
+- `onIgnored`, an option of `run`: hears every message `update` rejects, with where it came from and the state it
+  did not apply in (`Ignored`), for devtools or analytics. It only watches: the message stays ignored. `Origin`
+  names where a message came from, for `Applied` and `Ignored`.
+- `hearNext(key)` in `rehearse`: runs the subscription under `key`, with the services provided, until its first
+  message (or its last, if it ends first), applies it as `hear` would, and returns it.
+- The README says how to start a program from a state other than its `init`'s (`{ ...program, init: { state } }`),
+  and that `dispatchViolations` compares states by `Equal`, so that states stay data.
 
 ### Fixed
 

@@ -21,6 +21,10 @@ jobs:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
+      # The checks of ci.yml: a tag never deploys what they reject.
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run test
       - run: bun install --frozen-lockfile
         working-directory: site
       - run: bun run build

@@ -22,6 +22,26 @@ export const isRejected = (result: unknown): result is Rejected => result === re
 
 export type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected
 
+/** A step with both its lists present: what a fold of steps accumulates. */
+export type Folded<State, Command, Event> = Readonly<{
+  state: State
+  commands: ReadonlyArray<Command>
+  events: ReadonlyArray<Event>
+}>
+
+/**
+ * How steps add up, for the library's own folds: the state is the last one's, and the commands and the events
+ * are everyone's, in order. A step without a list leaves that list as it was.
+ */
+export const appendStep = <State, Command, Event>(
+  folded: Folded<State, Command, Event>,
+  step: Step<State, Command, Event>,
+): Folded<State, Command, Event> => ({
+  state: step.state,
+  commands: step.commands === undefined ? folded.commands : [...folded.commands, ...step.commands],
+  events: step.events === undefined ? folded.events : [...folded.events, ...step.events],
+})
+
 export type Update<State, Message, Command = never, Event = never> = (
   message: Message,
 ) => (state: State) => Transition<State, Command, Event>

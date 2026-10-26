@@ -14,7 +14,7 @@ import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import type * as Tracer from 'effect/Tracer'
 import { type DefectSite, ProgramDefect } from './defect.ts'
-import type { Applied, RunOptions } from './engine.ts'
+import type { Applied, Ignored, RunOptions } from './engine.ts'
 import { reject, type Step, type Update } from './update.ts'
 import type { Program } from './program.ts'
 import type { Dispatch } from './dispatch.ts'
@@ -132,8 +132,8 @@ describe('run', () => {
     const log: Array<string> = []
     const note = (line: string) => Effect.sync(() => void log.push(line))
     const resource = (name: string) => Effect.acquireRelease(note(`acquire ${name}`), () => note(`release ${name}`))
-    const holding = Effect.runSync(Deferred.make<void>())
-    const drawing = Effect.runSync(Deferred.make<void>())
+    const holding = Deferred.makeUnsafe<void>()
+    const drawing = Deferred.makeUnsafe<void>()
     const program: Program<{ state: object; model: null; message: never; command: 'Hold'; services: Scope.Scope }> = {
       init: { state: {}, commands: ['Hold'] },
       update: () => (state) => ({ state }),
@@ -333,6 +333,11 @@ describe('defects', () => {
         }),
     ],
     ['onApplied', 'onApplied', () => failsWithBoom(counter, { onApplied: () => Effect.sync(boom) })],
+    [
+      'onIgnored',
+      'onIgnored',
+      () => failsWithBoom({ ...counter, update: () => () => reject }, { onIgnored: () => Effect.sync(boom) }),
+    ],
   ])('a defect in %s ends the run, which dies with it and with where it happened', async (_, where, outcome) => {
     expect(await outcome()).toEqual({ where, logged: [] })
   })
@@ -407,11 +412,36 @@ describe('onApplied', () => {
         ),
       { onApplied: (applied) => Effect.sync(() => heard.push(applied)) },
     ))
+    const fromView = { _tag: 'View' } as const
     expect(heard).toEqual([
-      { message: 'Increment', before: { count: 0 }, after: { count: 1 }, revision: 1, commands: [] },
-      { message: 'Increment', before: { count: 1 }, after: { count: 2 }, revision: 2, commands: [] },
+      { message: 'Increment', origin: fromView, before: { count: 0 }, after: { count: 1 }, revision: 1, commands: [] },
+      { message: 'Increment', origin: fromView, before: { count: 1 }, after: { count: 2 }, revision: 2, commands: [] },
     ])
     expect(drawn).toEqual([0, 1, 2])
+  })
+
+  test('says where each message came from: the view, a command, or a subscription with its key', async () => {
+    const origins: Array<unknown> = []
+    const pinging: Counter = {
+      ...counter,
+      init: { state: { count: 0 }, commands: ['Ping'] },
+      subscriptions: () =>
+        HashMap.make(['k', Channel.succeed<Message>('Increment').pipe(Channel.concatWith(() => Channel.never))]),
+    }
+    await Effect.runPromise(run(
+      pinging,
+      (frames) =>
+        frames.pipe(
+          Stream.tap(({ model, dispatch }) => model.count === 2 ? dispatch(model.increment) : Effect.void),
+          Stream.takeUntil(({ model }) => model.count === 3),
+          Stream.runDrain,
+        ),
+      { onApplied: ({ origin }) => Effect.sync(() => origins.push(origin)) },
+    ))
+    expect(origins).toHaveLength(3)
+    expect(origins).toContainEqual({ _tag: 'View' })
+    expect(origins).toContainEqual({ _tag: 'Command' })
+    expect(origins).toContainEqual({ _tag: 'Subscription', key: 'k' })
   })
 
   test('a message that leaves the very same state is heard too, with an unchanged revision', async () => {
@@ -429,6 +459,7 @@ describe('onApplied', () => {
     }))
     expect(heard).toEqual({
       message: 'Increment',
+      origin: { _tag: 'Command' },
       before: { count: 0 },
       after: { count: 0 },
       revision: 0,
@@ -456,6 +487,35 @@ describe('onApplied', () => {
       return yield* Deferred.await(two)
     }))
     expect(heard.map((step) => step.commands)).toEqual([['Ping'], []])
+  })
+})
+
+describe('onIgnored', () => {
+  test('hears every message update rejects, with where it came from and the state it did not apply in', async () => {
+    const ignored: Array<Ignored<Count, Message>> = []
+    const applied: Array<Message> = []
+    await Effect.runPromise(run(
+      {
+        ...counter,
+        init: { state: { count: 0 }, commands: ['Ping'] },
+        runCommand: () => Effect.succeedSome<Message>('Forbidden'),
+      },
+      (frames) =>
+        frames.pipe(
+          Stream.tap(({ model, dispatch }) => model.count === 0 ? dispatch(model.type(false)) : Effect.void),
+          Stream.runDrain,
+          // Long enough for both rejections to be heard.
+          Effect.timeoutOption('100 millis'),
+        ),
+      {
+        onApplied: ({ message }) => Effect.sync(() => applied.push(message)),
+        onIgnored: (each) => Effect.sync(() => ignored.push(each)),
+      },
+    ))
+    expect(applied).toEqual([])
+    expect(ignored).toHaveLength(2)
+    expect(ignored).toContainEqual({ message: 'Forbidden', origin: { _tag: 'View' }, state: { count: 0 } })
+    expect(ignored).toContainEqual({ message: 'Forbidden', origin: { _tag: 'Command' }, state: { count: 0 } })
   })
 })
 

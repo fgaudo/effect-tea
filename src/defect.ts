@@ -2,8 +2,8 @@ import * as Data from 'effect/Data'
 
 /**
  * Where a defect happened: in one of the program's functions (`update`, `subscriptions`, `describeMessage`,
- * `describeCommand`, `onApplied`), in a command (its `runCommand` included), in a subscription, or in the
- * renderer (its view and `makeModel` included, since a frame's model is made when the renderer reads it).
+ * `describeCommand`, `onApplied`, `onIgnored`), in a command (its `runCommand` included), in a subscription, or in
+ * the renderer (its view and `makeModel` included, since a frame's model is made when the renderer reads it).
  */
 export type DefectSite =
   | 'update'
@@ -13,6 +13,7 @@ export type DefectSite =
   | 'describeMessage'
   | 'describeCommand'
   | 'onApplied'
+  | 'onIgnored'
   | 'render'
 
 const described: Readonly<Record<DefectSite, string>> = {
@@ -23,6 +24,7 @@ const described: Readonly<Record<DefectSite, string>> = {
   describeMessage: 'describeMessage',
   describeCommand: 'describeCommand',
   onApplied: 'onApplied',
+  onIgnored: 'onIgnored',
   render: 'the renderer, its view or makeModel',
 }
 
@@ -43,3 +45,13 @@ export class ProgramDefect extends Data.TaggedError('ProgramDefect')<Fields & Re
     super({ ...fields, message: `A defect in ${described[fields.where]}` })
   }
 }
+
+/**
+ * A parent breaking what it declared of a child, raised as it happens (in `update`, `makeModel`, `subscriptions`
+ * or `runCommand`, which the run then dies in): an external message to a child that is not there, or that
+ * rejects it; the model of a child that is not there; an event, a command or a subscription key that nothing
+ * handles. `child` names the child, and `id` its id for a child by id.
+ */
+export class CompositionDefect extends Data.TaggedError('CompositionDefect')<
+  Readonly<{ message: string; child: string; id?: unknown }>
+> {}

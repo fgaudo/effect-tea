@@ -1,5 +1,7 @@
 import * as Arr from 'effect/Array'
+import * as Channel from 'effect/Channel'
 import * as Effect from 'effect/Effect'
+import { identity } from 'effect/Function'
 import * as HashMap from 'effect/HashMap'
 import * as Inspectable from 'effect/Inspectable'
 import * as Opt from 'effect/Option'
@@ -7,7 +9,8 @@ import * as Ref from 'effect/Ref'
 import type * as Scope from 'effect/Scope'
 import { describeByTag } from '../log.ts'
 import { runCommandOf, type Shape, startOf, subscriptionsOf } from '../program.ts'
-import { isRejected, type Step } from '../update.ts'
+import type { Subscription } from '../subscription.ts'
+import { appendStep, isRejected, type Step } from '../update.ts'
 
 /**
  * A rehearsal of a program, without a runtime: nothing happens unless the test does it. The test acts on what the
@@ -40,6 +43,13 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    * name, as its parent lists it (`['Clock', 'ticks']`, with the id for children by id).
    */
   hear: (key: unknown, message: Message) => Effect.Effect<void>
+  /**
+   * Runs the subscription under `key`, with the services provided and in a scope of its own, until its first
+   * message, or its last one if it ends before sending any, applies that message as `hear` would, and returns it.
+   * Fails the test when nothing listens under `key` in the current state. Where `hear` applies a message the test
+   * says was heard, `hearNext` hears what the subscription itself says first.
+   */
+  hearNext: (key: unknown) => Effect.Effect<Message, never, Exclude<R, Scope.Scope>>
   /** The events `update` raised for the program's parent, in order. */
   events: Effect.Effect<ReadonlyArray<Event>>
   /**
@@ -59,7 +69,7 @@ export type RehearseOptions<State, Command, Flags = never> = [Flags] extends [ne
 
 type Current<State, Message, Command, Event> = Readonly<{
   state: State
-  pending: ReadonlyArray<Command>
+  commands: ReadonlyArray<Command>
   events: ReadonlyArray<Event>
   ignored: ReadonlyArray<Message>
 }>
@@ -97,7 +107,7 @@ export const rehearse = Effect.fnUntraced(function*<
   const runCommand = runCommandOf(program)
   const current = yield* Ref.make<Now>({
     state: from.state,
-    pending: from.commands ?? [],
+    commands: from.commands ?? [],
     events: [],
     ignored: [],
   })
@@ -105,12 +115,7 @@ export const rehearse = Effect.fnUntraced(function*<
     Effect.flatMap(Ref.get(current), (now) => {
       const result = program.update(message)(now.state)
       if (isRejected(result)) return Effect.flatMap(onRejected(now), (next) => Ref.set(current, next))
-      return Ref.set(current, {
-        state: result.state,
-        pending: [...now.pending, ...(result.commands ?? [])],
-        events: [...now.events, ...(result.events ?? [])],
-        ignored: now.ignored,
-      })
+      return Ref.set(current, { ...now, ...appendStep(now, result) })
     })
   // From the world: it may arrive when it no longer applies.
   const arrive = (message: Message) =>
@@ -126,21 +131,35 @@ export const rehearse = Effect.fnUntraced(function*<
         ),
       ))
   const model = Effect.map(Ref.get(current), ({ state }) => program.makeModel(state))
+  const listeningUnder = (key: unknown): Effect.Effect<Subscription<Message, R>> =>
+    Effect.flatMap(Ref.get(current), ({ state }) =>
+      Opt.match(HashMap.get(subscriptionsOf(program)(state), key), {
+        onNone: () =>
+          Effect.die(new Error(`Nothing listens under ${Inspectable.toStringUnknown(key, 0)} in the current state`)),
+        onSome: Effect.succeed,
+      }))
+  // The first message ends the run through the failure channel; a subscription that ends first succeeds with its
+  // last message: either way, the message the subscription says first.
+  const firstOf = (subscription: Subscription<Message, R>): Effect.Effect<Message, never, Exclude<R, Scope.Scope>> =>
+    Channel.runForEach(subscription, (message: Message) => Effect.fail(message)).pipe(
+      Effect.match({ onFailure: identity, onSuccess: identity }),
+      Effect.scoped,
+    )
   const run = Effect.fnUntraced(function*(select: (command: Command) => boolean) {
-    const { pending } = yield* Ref.get(current)
+    const { commands: pending } = yield* Ref.get(current)
     const index = pending.findIndex(select)
     const command = pending[index]
     if (command === undefined) {
       return yield* Effect.die(new Error(`No pending command matches (pending: ${describeAll(pending)})`))
     }
-    yield* Ref.update(current, (now): Now => ({ ...now, pending: Arr.remove(now.pending, index) }))
+    yield* Ref.update(current, (now): Now => ({ ...now, commands: Arr.remove(now.commands, index) }))
     const message = yield* Effect.scoped(runCommand(command))
     if (Opt.isSome(message)) yield* arrive(message.value)
     return command
   })
   const runAll: Effect.Effect<void, never, Exclude<R, Scope.Scope>> = Effect.flatMap(
     Ref.get(current),
-    ({ pending }) => pending.length === 0 ? Effect.void : Effect.andThen(run(() => true), runAll),
+    ({ commands }) => commands.length === 0 ? Effect.void : Effect.andThen(run(() => true), runAll),
   )
   const rehearsal: Rehearsal<State, Model, Message, Command, Event, R> = {
     state: Effect.map(Ref.get(current), (now) => now.state),
@@ -151,19 +170,18 @@ export const rehearse = Effect.fnUntraced(function*<
           onNone: () => Effect.die(new Error('The model does not show what the test sends', { cause: shown })),
           onSome: fromModel,
         })),
-    pending: Effect.map(Ref.get(current), (now) => now.pending),
+    pending: Effect.map(Ref.get(current), (now) => now.commands),
     run,
     runAll,
     hear: (key, message) =>
-      Effect.flatMap(Ref.get(current), ({ state }) =>
-        HashMap.has(subscriptionsOf(program)(state), key)
-          ? arrive(message)
-          : Effect.die(new Error(`Nothing listens under ${Inspectable.toStringUnknown(key, 0)} in the current state`))),
+      Effect.flatMap(listeningUnder(key), () => arrive(message)),
+    hearNext: (key) =>
+      Effect.flatMap(listeningUnder(key), (subscription) => Effect.tap(firstOf(subscription), arrive)),
     events: Effect.map(Ref.get(current), (now) => now.events),
     ignored: Effect.map(Ref.get(current), (now) => now.ignored),
   }
   const result = yield* scenario(rehearsal)
-  const { pending } = yield* Ref.get(current)
+  const { commands: pending } = yield* Ref.get(current)
   if (pending.length > 0) {
     return yield* Effect.die(new Error(`Commands still pending when the scenario ended: ${describeAll(pending)}`))
   }

@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run test
+      - run: bun run build
+      - run: bun install --frozen-lockfile
+        working-directory: site
+      # A warning is a doc comment to fix: the site must build without any.
+      - run: bun run build 2>&1 | tee build.log && ! grep -q '\[warning\]' build.log
+        working-directory: site
