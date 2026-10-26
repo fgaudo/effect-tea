@@ -621,7 +621,8 @@ From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `rehear
 
 ## Development
 
-`bun run typecheck`, `bun run lint` and `bun run test` check the package and the examples; `bun run build`
+`bun run typecheck` (with the Effect language service, `@effect/tsgo`), `bun run lint` and `bun run test` check
+the package and the examples; `bun run build`
 compiles it. `bun install` and `bun run build` in [`site/`](site) build the documentation site into `site/dist/`.
 Changes are in [`CHANGELOG.md`](CHANGELOG.md); rules for contributors and coding agents are in
 [`AGENTS.md`](AGENTS.md).

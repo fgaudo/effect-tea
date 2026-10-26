@@ -166,7 +166,7 @@ const settle = async (scheduler: fc.Scheduler, bursts: ReadonlyArray<number>) =>
     if (scheduler.count() > 0) {
       idle = 0
       for (let released = 0; released < (bursts[round % bursts.length] ?? 1) && scheduler.count() > 0; released += 1) {
-        await scheduler.waitOne()
+        await scheduler.waitNext(1)
       }
     } else {
       idle += 1

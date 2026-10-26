@@ -1,8 +1,23 @@
 {
+  "$schema": "../node_modules/@effect/tsgo/schema.json",
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "lib": ["ES2022", "DOM"],
-    "customConditions": ["bun"]
+    "customConditions": ["bun"],
+    // Replaces the plugin of ../tsconfig.json rather than merging with it: only the library is held to stable APIs.
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "namespaceImportPackages": ["effect"],
+        "importAliases": {
+          "Array": "Arr",
+          "Option": "Opt"
+        },
+        "diagnosticSeverity": {
+          "unstableApiUsage": "off"
+        }
+      }
+    ]
   },
   "include": ["."]
 }

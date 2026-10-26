@@ -40,7 +40,12 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   use it and raise the minimum.
 - **Only stable Effect APIs.** A module or function marked `@stability unstable` in Effect's declarations
   (`node_modules/effect/dist/<Module>.d.ts`) may change under the library's users: never build on one, not even
-  as an option.
+  as an option. The typecheck fails on one (the Effect language service's `unstableApiUsage`), except in
+  `examples/`, which are not published and may use them (`BrowserRuntime.runMain`).
+- **Nothing deprecated.** No module, type, function, method or option marked `@deprecated`, in the library, its
+  tests or its examples, of any dependency: use what the deprecation names instead (fast-check's `waitNext(1)`
+  for `waitOne()`), and replace a use found in passing. `bun run lint` warns about one (Oxlint's type-aware
+  `typescript/no-deprecated`).
 
 ## Public API
 
@@ -206,7 +211,9 @@ The version in `package.json` is the one the next release will have, decided by 
 
 From the repository root:
 
-- `bun run typecheck`, `bun run lint`, `bun run test`;
+- `bun run typecheck`, `bun run lint`, `bun run test`; the typecheck runs the Effect language service
+  (`@effect/tsgo`, which `bun install` patches into TypeScript), as does VS Code with the project's TypeScript
+  (`.vscode/settings.json`);
 - `bun run build` compiles `src/` into `dist/` (ignored by git); it also runs before `bun pm pack`.
 
 After an API change, check it as an external consumer would: `bun pm pack`, then extract the tarball into a

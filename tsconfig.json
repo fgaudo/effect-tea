@@ -1,5 +1,16 @@
 {
+  "$schema": "./node_modules/@effect/tsgo/schema.json",
   "compilerOptions": {
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "namespaceImportPackages": ["effect"],
+        "importAliases": {
+          "Array": "Arr",
+          "Option": "Opt"
+        }
+      }
+    ],
     "target": "ES2022",
     "lib": ["ES2022"],
     "module": "ESNext",
