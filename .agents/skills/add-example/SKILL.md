@@ -42,6 +42,10 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
 - **`index.html`** has the title `<Name> · effect-tea`, the shared `../style.css`, a header with the name,
   one sentence on what it shows and a "Source" link to `https://github.com/fgaudo/effect-tea/tree/main/examples/<name>`,
   the `#app` element and `<script type="module" src="./main.ts">`.
+- **The program** follows the README's "Guide": one state machine per concern, as a tagged union
+  (`form/form.ts`'s `save`, `list/stopwatch.ts`'s `watch`), never flags; `reject` for a message that may
+  arrive and does not apply, and a thrown error for one that cannot arrive (a completion outside the state that
+  only it leaves, a tick while stopped), which the test checks as a defect.
 - **The view** follows the README's "Guide". snabbdom's props module never removes a prop, so a view sets a
   prop such as `disabled` in every case of an element (`counter/view.ts`). An input follows "Inputs the user
   types into": `update` accepts typing in every state the input exists in, and the view writes a text only

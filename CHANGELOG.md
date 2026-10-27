@@ -3,6 +3,19 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
+## 0.7.1 (unreleased)
+
+### Changed
+
+- The README's "Guide" says how a program is structured, which it left to its readers: one state machine per
+  concern, as a tagged union, no flags and no derived data; a view that draws and never decides, what it would
+  decide being a case of the model; `reject` for a message that may arrive and does not apply, and a thrown
+  error for one that cannot arrive (a completion outside the state that only it leaves, a subscription's message
+  in a state that does not list its key); when a program splits into children, and by what; and how a program's
+  tests are written. The `form` and `list` examples follow it: the save and the stopwatch are tagged unions
+  where they were flags, a failed save says which name it could not save, and a completion, or a tick, that
+  cannot arrive is a defect where it was rejected.
+
 ## 0.7.0 (2026-10-26)
 
 ### Changed

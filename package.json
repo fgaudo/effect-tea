@@ -1,6 +1,6 @@
 {
   "name": "@fgaudo/effect-tea",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "The Elm architecture on Effect v4",
   "license": "MIT",
   "author": "Francesco Gaudenzi",

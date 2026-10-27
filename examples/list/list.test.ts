@@ -16,7 +16,13 @@ const to = (id: number, message: Stopwatch.Message): Message => ({ _tag: 'Stopwa
 
 const state: fc.Arbitrary<State> = fc
   .uniqueArray(
-    fc.record({ id: fc.nat(20), stopwatch: fc.record({ seconds: fc.nat(), isRunning: fc.boolean() }) }),
+    fc.record({
+      id: fc.nat(20),
+      stopwatch: fc.record({
+        seconds: fc.nat(),
+        watch: fc.constantFrom(Stopwatch.Watch.Running(), Stopwatch.Watch.Stopped()),
+      }),
+    }),
     { selector: (entry) => entry.id, maxLength: 4 },
   )
   .map((entries) => ({ nextId: 21, entries }))
@@ -39,15 +45,15 @@ describe('list', () => {
         list.init.state,
       )
       expect(state.entries).toEqual([
-        { id: 1, stopwatch: { seconds: 1, isRunning: true } },
-        { id: 2, stopwatch: { seconds: 0, isRunning: false } },
+        { id: 1, stopwatch: { seconds: 1, watch: Stopwatch.Watch.Running() } },
+        { id: 2, stopwatch: { seconds: 0, watch: Stopwatch.Watch.Stopped() } },
       ])
     })
 
     test('a stopwatch that asks to be removed is removed, and its late messages are rejected', () => {
       const { state } = applyAll(list.update)([added, added, to(1, Stopwatch.Message.RemoveClicked())], list.init.state)
       expect(state.entries.map((entry) => entry.id)).toEqual([2])
-      expect(isRejected(list.update(to(1, Stopwatch.Message.Ticked()))(state))).toBe(true)
+      expect(isRejected(list.update(to(1, Stopwatch.Message.Stopped()))(state))).toBe(true)
     })
 
     test('only running stopwatches tick, each under its own key', () => {

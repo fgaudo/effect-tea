@@ -18,7 +18,7 @@ export const list = compose({
   init: () => ({ state: { nextId: 1, entries: [] } }),
   children: {
     Stopwatch: each(Stopwatch.stopwatch, {
-      // A removed stopwatch is `None`: its late messages (a tick already on its way) are rejected.
+      // A removed stopwatch is `None`: its late messages (a click on a frame drawn before) are rejected.
       get: (state, id: number) =>
         Opt.map(Arr.findFirst(state.entries, (entry) => entry.id === id), (entry) => entry.stopwatch),
       set: (state, id, stopwatch) => ({

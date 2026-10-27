@@ -6,7 +6,11 @@ import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 
-export type State = Readonly<{ seconds: number; isRunning: boolean }>
+export type Watch = Data.TaggedEnum<{ Running: object; Stopped: object }>
+
+export const Watch = Data.taggedEnum<Watch>()
+
+export type State = Readonly<{ seconds: number; watch: Watch }>
 
 export type Message = Data.TaggedEnum<{
   Started: object
@@ -22,12 +26,14 @@ export type Event = Readonly<{ _tag: 'RemoveRequested' }>
 export const update: Update<State, Message, never, Event> = (message) => (state) => {
   switch (message._tag) {
     case 'Started':
-      return state.isRunning ? reject : { state: { ...state, isRunning: true } }
+      return state.watch._tag === 'Running' ? reject : { state: { ...state, watch: Watch.Running() } }
     case 'Stopped':
-      return state.isRunning ? { state: { ...state, isRunning: false } } : reject
-    // A tick that arrives after the stopwatch stopped no longer applies: rejected here, ignored by the engine.
+      return state.watch._tag === 'Running' ? { state: { ...state, watch: Watch.Stopped() } } : reject
+    // A tick arrives only while running: stopping interrupts the subscription and drops what it sent. One
+    // anywhere else is a bug, and the run dies with it.
     case 'Ticked':
-      return state.isRunning ? { state: { ...state, seconds: state.seconds + 1 } } : reject
+      if (state.watch._tag !== 'Running') throw new Error('A tick while the stopwatch was stopped')
+      return { state: { ...state, seconds: state.seconds + 1 } }
     case 'RemoveClicked':
       return { state, events: [{ _tag: 'RemoveRequested' }] }
   }
@@ -49,13 +55,13 @@ export type Model = Readonly<{
 }>
 
 export const stopwatch: Program<{ state: State; model: Model; message: Message; event: Event }> = {
-  init: { state: { seconds: 0, isRunning: false } },
+  init: { state: { seconds: 0, watch: Watch.Stopped() } },
   update,
-  subscriptions: (state) => state.isRunning ? HashMap.make(['ticks', ticks]) : HashMap.empty(),
+  subscriptions: (state) => state.watch._tag === 'Running' ? HashMap.make(['ticks', ticks]) : HashMap.empty(),
   makeModel: (state) => ({
     seconds: state.seconds,
     remove: Message.RemoveClicked(),
-    watch: state.isRunning
+    watch: state.watch._tag === 'Running'
       ? { _tag: 'Running', stop: Message.Stopped() }
       : { _tag: 'Stopped', start: Message.Started() },
   }),

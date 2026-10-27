@@ -6,7 +6,7 @@ import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
 import * as Field from '../field.ts'
 import { messagesSentBy } from '../snabbdom.ts'
-import { Command, form, Message, type Model, type State, update } from './form.ts'
+import { Command, form, Message, type Model, Save, type State, update } from './form.ts'
 import { Storage, StorageError } from './storage.ts'
 import { view } from './view.ts'
 
@@ -14,8 +14,11 @@ const empty = form.init.state
 
 const state: fc.Arbitrary<State> = fc.record({
   name: fc.record({ text: fc.oneof(fc.string(), fc.constant('   ')), revision: fc.nat() }),
-  isSaving: fc.boolean(),
-  hasFailed: fc.boolean(),
+  save: fc.oneof(
+    fc.constant(Save.Idle()),
+    fc.constant(Save.Saving()),
+    fc.record({ name: fc.string() }).map((failed) => Save.Failed(failed)),
+  ),
   saved: fc.array(fc.string({ minLength: 1 }), { maxLength: 3 }),
 })
 
@@ -43,15 +46,21 @@ describe('form', () => {
         [Message.NameChanged({ name: ' Ada ' }), Message.SaveClicked()],
         empty,
       )
-      expect(state.isSaving).toBe(true)
+      expect(state.save).toEqual(Save.Saving())
       expect(commands).toEqual([Command.Save({ name: 'Ada' })])
     })
 
-    test('rejects saving a blank name, a second save, and a completion with nothing saving', () => {
-      const saving = { ...empty, name: Field.make('Ada'), isSaving: true }
+    test('rejects saving a blank name, and a second save', () => {
+      const saving = { ...empty, name: Field.make('Ada'), save: Save.Saving() }
       expect(isRejected(update(Message.SaveClicked())({ ...empty, name: Field.make('  ') }))).toBe(true)
       expect(isRejected(update(Message.SaveClicked())(saving))).toBe(true)
-      expect(isRejected(update(Message.SaveSucceeded({ name: 'Ada' }))(empty))).toBe(true)
+    })
+
+    // Only the save in progress can complete: a completion anywhere else is a bug, not a message to ignore.
+    test('dies on a completion with nothing saving', () => {
+      const failed = { ...empty, save: Save.Failed({ name: 'Ada' }) }
+      expect(() => update(Message.SaveSucceeded({ name: 'Ada' }))(empty)).toThrow()
+      expect(() => update(Message.SaveFailed({ name: 'Ada' }))(failed)).toThrow()
     })
 
     // Sent from a frame drawn before the save: it arrives while saving, before the save's failure.
@@ -61,16 +70,16 @@ describe('form', () => {
           Message.NameChanged({ name: ' Ada ' }),
           Message.SaveClicked(),
           Message.NameChanged({ name: ' Ada x' }),
-          Message.SaveFailed(),
+          Message.SaveFailed({ name: 'Ada' }),
         ],
         empty,
       )
       expect(state.name.text).toBe(' Ada x')
-      expect(state.hasFailed).toBe(true)
+      expect(state.save).toEqual(Save.Failed({ name: 'Ada' }))
     })
 
     test('has nothing to type into while saving', () => {
-      expect(form.makeModel({ ...empty, name: Field.make('Ada'), isSaving: true }).editor._tag).toBe('Saving')
+      expect(form.makeModel({ ...empty, name: Field.make('Ada'), save: Save.Saving() }).editor._tag).toBe('Saving')
     })
   })
 
@@ -78,7 +87,7 @@ describe('form', () => {
   // saves once, and nothing `update` accepts is missing, but typing while saving, which the model withholds.
   test('the view sends what update accepts, all of it, and acts once when sent twice', () => {
     const violations = dispatchViolations(update, {
-      withheld: (message, state) => message._tag === 'NameChanged' && state.isSaving,
+      withheld: (message, state) => message._tag === 'NameChanged' && state.save._tag === 'Saving',
     })
     fc.assert(fc.property(state, fc.string(), (before, typed) => {
       const sent = messagesSentBy<Model, Message>(view, form.makeModel(before), typed)
@@ -95,7 +104,7 @@ describe('form', () => {
       const { state, ignored } = await Effect.runPromise(
         simulate(form)(typedAndSaved, form.init).pipe(Effect.provideService(Storage, working)),
       )
-      expect(state).toEqual({ name: { text: '', revision: 1 }, isSaving: false, hasFailed: false, saved: ['Ada'] })
+      expect(state).toEqual({ name: { text: '', revision: 1 }, save: Save.Idle(), saved: ['Ada'] })
       // The save's completion reached `update`: a rejected one would mean a form stuck saving.
       expect(ignored).toEqual([])
     })
@@ -104,7 +113,7 @@ describe('form', () => {
       const { state } = await Effect.runPromise(
         simulate(form)(typedAndSaved, form.init).pipe(Effect.provideService(Storage, failing)),
       )
-      expect(state).toEqual({ name: Field.make(' Ada '), isSaving: false, hasFailed: true, saved: [] })
+      expect(state).toEqual({ name: Field.make(' Ada '), save: Save.Failed({ name: 'Ada' }), saved: [] })
     })
 
     // The save waits until the test runs it: what the user can do meanwhile, and what its answer finds.
@@ -129,7 +138,7 @@ describe('form', () => {
       )
       expect(whileSaving).toBe('Saving')
       expect(afterFailure.editor._tag).toBe('Named')
-      expect(afterFailure.hasFailed).toBe(true)
+      expect(afterFailure.failed).toEqual(Opt.some('Ada'))
     })
   })
 

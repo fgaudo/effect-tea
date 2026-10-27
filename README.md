@@ -128,7 +128,7 @@ each with its tests. Try one in the browser, or run it with `bun run build`, the
 | Example                       | What it shows                                                                                             | Try it                                                        |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | [`counter`](examples/counter) | the quick start with a view; `applyAll`, `dispatchViolations`, `drive`                                    | [live](https://fgaudo.github.io/effect-tea/examples/counter/) |
-| [`form`](examples/form)       | an input the user owns while typing; a service, a failure as a message; a save only its completion ends; `rehearse` | [live](https://fgaudo.github.io/effect-tea/examples/form/)    |
+| [`form`](examples/form)       | an input the user owns while typing; a service, a failure as a message; a save only its completion ends, and a completion outside it is a defect; `rehearse` | [live](https://fgaudo.github.io/effect-tea/examples/form/)    |
 | [`pages`](examples/pages)     | two pages with `parent`, placed with optics, `dispatchTo`, events, `subscribed`, a page started from flags; `simulate` | [live](https://fgaudo.github.io/effect-tea/examples/pages/)   |
 | [`list`](examples/list)       | stopwatches by id with `each`, a subscription per running child; a test with a `TestClock`                | [live](https://fgaudo.github.io/effect-tea/examples/list/)    |
 
@@ -154,6 +154,12 @@ message makes no sense in that state.
   what it did once; a toggle undoes itself.
 - **One-shot actions move to a state that rejects them.** After `SaveClicked` the form is saving and rejects
   a second `SaveClicked`, so a double click saves once.
+- **One state machine per concern, no flags.** The save, the selection, the data being loaded: each is a union
+  with a case per state (`Idle | Saving | Failed`), holding only what exists in it, rather than flags that
+  combine (`isSaving`, `hasFailed`): a combination that cannot be does not compile, and `update` matches on
+  the case. The state holds no derived data: what follows from it is computed in `makeModel`, and a value that
+  depends on time is computed there from a `now` that a subscription keeps in the state, as the clock of
+  [`pages`](examples/pages/clock.ts) does.
 
 ### The model
 
@@ -173,7 +179,7 @@ type Editor = Data.TaggedEnum<{
 
 const makeModel = (state: State): Editor => {
   const changeName = (name: string) => Message.NameChanged({ name })
-  return state.isSaving
+  return state.save._tag === 'Saving'
     ? { _tag: 'Saving' }
     : isBlank(state.name)
     ? { _tag: 'Blank', changeName }
@@ -185,6 +191,11 @@ const makeModel = (state: State): Editor => {
   `SaveClicked` has a button that does nothing: the run does not check it, the [testing](#testing) tools do,
   for any state.
 - A model may show **less** than `update` accepts, never more.
+- **A view draws, it never decides.** It matches the model's tags and formats its values (a date, a count, a
+  text): it computes no condition from data (`items.length === 0`), combines no fields, and applies no rule and
+  no fallback. What a view would decide, `makeModel` decides, as a case named for the state the screen tells
+  apart (`Empty | Listed`, `Loading | Loaded`), never a boolean; an `Option` is such a case only when
+  "missing" is all the screen tells apart.
 
 With its messages in the model, as here, a view sends only what the model holds: export `Message` as a type
 only, and no view can build one. A view may also build its messages itself, from a model of data alone; the
@@ -278,7 +289,7 @@ class Feed extends Context.Service<Feed, {
 
 // While the feed is open, one subscription listens, whatever the filter.
 subscriptions: (state) =>
-  state.isOpen
+  state.feed._tag === 'Open'
     ? HashMap.make([
       'feed',
       Channel.unwrap(Effect.map(Effect.service(Feed), (feed) =>
@@ -299,6 +310,13 @@ runCommand: (command) =>
 `reject` means one thing: the message does not apply in this state. The run ignores it, logs it at the debug
 level, and the state stays as it was: a second click, or an answer that arrives once the state has moved on,
 changes nothing.
+
+`reject` is for a message that does not apply but may arrive: a tap on a frame the state has moved past, the
+answer of a command started for a row that has since been replaced. A message that cannot arrive is a bug: the
+completion of an operation outside the state that only its completion leaves, or a subscription's message in a
+state that does not list its key, which the run never delivers. Let `update` throw on it, as
+[`form`](examples/form/form.ts) does on a save that completes while nothing is saving: the run dies with a
+`ProgramDefect` naming the message, where a rejection would hide the bug.
 
 Whether the view sends only what applies is for the tests: `dispatchViolations` checks it for any state, and the
 tools in which the test decides when each message arrives fail on a rejected message of the view:
@@ -440,6 +458,16 @@ Mind ids that come back. A command's answer goes to the id it was started for, t
 when it arrives. If a row is removed and another is added with its id, the new row may get the old row's
 answer. Use ids that are never reused, or put in the message which row it is for, so that the new row's
 `update` rejects the old answer. Subscriptions do not need this: a row that is removed stops them.
+
+**When to split.** A program lives in one module until it is too large, and then splits into children, each a
+program of its own, by concern, never by kind: `messages`, `state` and `update` modules would import each
+other in cycles. What spans the children (a menu, the back button) stays in the parent; what concerns one child,
+even how the user learns of its failure, stays in the child. A parent never reads a child's state to decide:
+what a child needs, it gets from its own services and subscriptions, and only a fact several children must see
+as one truth is the parent's, handed down as an external message. Children that read each other's state are one
+child, whatever its size: a child whose controls the parent would enable from its state, or whose state the
+parent would copy down and back up, is not one, and a parent that grows logic between two siblings is a sign
+that they are one child.
 
 ### Running
 
@@ -611,6 +639,15 @@ test('the view sends what update accepts, all of it', () => {
   runs, a rejected message is ignored, and a scenario checks what it expects to see. A program with flags gets
   them as `run` does, in the options. Its commands run as soon as they start: to hold one, give the program a
   service of the test's that waits on a `Deferred` the scenario completes.
+
+A program's tests follow its shape. Generate its states with a property-testing library (fast-check in the
+examples), one arbitrary that produces only valid states, every case of each state machine among them, and check
+for any of them that `update` is total and deterministic, that the view sends what `update` accepts
+(`dispatchViolations`), and what the program listens to (`subscriptionsOf`). Then one test per message,
+asserting the next state, the commands and the events by value, and a rejection with `isRejected`, never as
+"the state did not change", which a step that keeps the state would pass too. The pairs of state and message
+that the invariants rule out (see [rejections](#when-update-rejects)) are skipped there, and checked as defects:
+`expect(() => update(message)(state)).toThrow()`.
 
 ## API reference
 

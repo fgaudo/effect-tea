@@ -1,18 +1,28 @@
 // A form that saves names. What is typed is always accepted, in any state, and its validity becomes model
-// data: "Save" exists only for a name that is not blank. Saving is a state that only its completion leaves,
-// so a second click is rejected; the model has no input to type into meanwhile, but a key typed before the
-// input was disabled is still stored, so that the form never shows a text the state does not have. A failure
-// gives the form back, as it was.
+// data: "Save" exists only for a name that is not blank. Saving is a state that only its completion leaves, so
+// a second click is rejected, and a completion outside it cannot arrive: it is a defect. The model has no input
+// to type into while saving, but a key typed before the input was disabled is still stored, so that the form
+// never shows a text the state does not have. A failure gives the form back, as it was, and says which name it
+// could not save.
 import { type Execution, type Program, reject, type Update } from '@fgaudo/effect-tea'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
+import * as Opt from 'effect/Option'
 import * as Field from '../field.ts'
 import { Storage } from './storage.ts'
 
+/** The save: one state machine. A failure keeps the name it could not save. */
+export type Save = Data.TaggedEnum<{
+  Idle: object
+  Saving: object
+  Failed: { name: string }
+}>
+
+export const Save = Data.taggedEnum<Save>()
+
 export type State = Readonly<{
   name: Field.Field
-  isSaving: boolean
-  hasFailed: boolean
+  save: Save
   saved: ReadonlyArray<string>
 }>
 
@@ -20,7 +30,7 @@ export type Message = Data.TaggedEnum<{
   NameChanged: { name: string }
   SaveClicked: object
   SaveSucceeded: { name: string }
-  SaveFailed: object
+  SaveFailed: { name: string }
 }>
 
 export const Message = Data.taggedEnum<Message>()
@@ -39,7 +49,7 @@ export const runCommand = (command: Command): Execution<Message, Storage> => {
       return Effect.flatMap(Effect.service(Storage), (storage) => storage.save(command.name)).pipe(
         Effect.match({
           onSuccess: (): Message => Message.SaveSucceeded({ name: command.name }),
-          onFailure: (): Message => Message.SaveFailed(),
+          onFailure: (): Message => Message.SaveFailed({ name: command.name }),
         }),
         Effect.asSome,
       )
@@ -53,26 +63,22 @@ export const update: Update<State, Message, Command> = (message) => (state) => {
     case 'NameChanged':
       return { state: { ...state, name: Field.typed(state.name, message.name) } }
     case 'SaveClicked':
-      return state.isSaving || isBlank(state.name.text)
+      return state.save._tag === 'Saving' || isBlank(state.name.text)
         ? reject
         : {
-          state: { ...state, isSaving: true, hasFailed: false },
+          state: { ...state, save: Save.Saving() },
           commands: [Command.Save({ name: state.name.text.trim() })],
         }
-    // A completion is accepted only while saving: there is no other operation it could belong to.
+    // A completion arrives only while saving: there is no other operation it could belong to. Anywhere else it
+    // is a bug, and the run dies with it.
     case 'SaveSucceeded':
-      return state.isSaving
-        ? {
-          state: {
-            name: Field.replace(state.name, ''),
-            isSaving: false,
-            hasFailed: false,
-            saved: [...state.saved, message.name],
-          },
-        }
-        : reject
+      if (state.save._tag !== 'Saving') throw new Error('A save completed while nothing was saving')
+      return {
+        state: { name: Field.replace(state.name, ''), save: Save.Idle(), saved: [...state.saved, message.name] },
+      }
     case 'SaveFailed':
-      return state.isSaving ? { state: { ...state, isSaving: false, hasFailed: true } } : reject
+      if (state.save._tag !== 'Saving') throw new Error('A save failed while nothing was saving')
+      return { state: { ...state, save: Save.Failed({ name: message.name }) } }
   }
 }
 
@@ -83,12 +89,13 @@ export type Model = Readonly<{
     Blank: { changeName: (name: string) => Message }
     Named: { changeName: (name: string) => Message; save: Message }
   }>
-  hasFailed: boolean
+  /** The name the last save could not save, while the form says so. */
+  failed: Opt.Option<string>
   saved: ReadonlyArray<string>
 }>
 
 export const form: Program<{ state: State; model: Model; message: Message; command: Command; services: Storage }> = {
-  init: { state: { name: Field.make(''), isSaving: false, hasFailed: false, saved: [] } },
+  init: { state: { name: Field.make(''), save: Save.Idle(), saved: [] } },
   update,
   runCommand,
   makeModel: (state) => {
@@ -96,12 +103,12 @@ export const form: Program<{ state: State; model: Model; message: Message; comma
     return {
       name: state.name,
       // Less than `update` accepts: typing is still accepted while saving, but there is nothing to type into.
-      editor: state.isSaving
+      editor: state.save._tag === 'Saving'
         ? { _tag: 'Saving' }
         : isBlank(state.name.text)
         ? { _tag: 'Blank', changeName }
         : { _tag: 'Named', changeName, save: Message.SaveClicked() },
-      hasFailed: state.hasFailed,
+      failed: state.save._tag === 'Failed' ? Opt.some(state.save.name) : Opt.none(),
       saved: state.saved,
     }
   },

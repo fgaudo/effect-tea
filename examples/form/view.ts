@@ -1,4 +1,5 @@
 import type { View } from '@fgaudo/effect-tea'
+import * as Opt from 'effect/Option'
 import { h, type VNode } from 'snabbdom'
 import { initialValue, onClick, onInput } from '../snabbdom.ts'
 import type { Message, Model } from './form.ts'
@@ -17,7 +18,10 @@ export const view: View<Model, Message, VNode> = (model, dispatch) => {
     editor._tag === 'Named'
       ? h('button', { props: { disabled: false }, on: onClick(editor.save, dispatch) }, 'Save')
       : h('button', { props: { disabled: true } }, editor._tag === 'Saving' ? 'Saving…' : 'Save'),
-    ...(model.hasFailed ? [h('p.error', 'Could not save the name: try again.')] : []),
+    ...Opt.match(model.failed, {
+      onNone: () => [],
+      onSome: (name) => [h('p.error', `Could not save “${name}”: try again.`)],
+    }),
     h('ul', model.saved.map((name) => h('li', name))),
   ])
 }
