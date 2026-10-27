@@ -17,7 +17,8 @@ version, and everything else, features included, the patch version.
   cannot arrive is a defect where it was rejected. The introduction says which of its points hold on their own
   and which hold when the Guide is followed: harmless double taps need an action that moves to a state that
   rejects it, a memoizable view a pure `makeModel`, states never mutated and `dispatchTo`, and the testing
-  tools check what a test asks of them, for the states it generates.
+  tools check what a test asks of them, for the states it generates. `applyAll`, `simulate` and `rehearse` say
+  that an error `update` throws fails the test, as `drive` did.
 
 ## 0.7.0 (2026-10-26)
 

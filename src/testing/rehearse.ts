@@ -80,9 +80,10 @@ type Current<State, Message, Command, Event> = Readonly<{
  * runs it, through the program's `runCommand` with the services provided, and each subscription message is one
  * the test says was heard. So the test decides what happens while a command is under way, and when its answer
  * arrives. Since the test decides when each message arrives, a message it sends from the current model is applied
- * to the state that model shows, and a rejection is a control that does nothing: it fails the test. A command's or
- * a subscription's message may no longer apply when it arrives: as when the program runs, it is ignored, and
- * listed in `ignored`. A command still pending when `scenario` ends fails the test: its answer would still arrive.
+ * to the state that model shows, and a rejection is a control that does nothing: it fails the test, as an error
+ * `update` throws does, being a defect of the program. A command's or a subscription's message may no longer
+ * apply when it arrives: as when the program runs, it is ignored, and listed in `ignored`. A command still pending
+ * when `scenario` ends fails the test: its answer would still arrive.
  */
 export const rehearse = Effect.fnUntraced(function*<
   State,

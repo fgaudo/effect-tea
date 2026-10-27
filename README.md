@@ -30,7 +30,8 @@ What it adds to plain Elm:
 - [Examples](#examples)
 - [Guide](#guide): [`update`](#update), [the model](#the-model), [commands](#commands),
   [subscriptions](#subscriptions), [rejections](#when-update-rejects), [composing](#composing-programs),
-  [running](#running), [inputs](#inputs-the-user-types-into), [guarantees](#guarantees), [testing](#testing)
+  [splitting](#splitting-a-program), [running](#running), [inputs](#inputs-the-user-types-into),
+  [guarantees](#guarantees), [testing](#testing)
 - [API reference](#api-reference)
 
 ## Installation
@@ -145,7 +146,8 @@ types survives the frames drawn meanwhile.
 ### `update`
 
 `update` takes a message, then the state, and returns `{ state, commands?, events? }`, or `reject` when the
-message makes no sense in that state.
+message makes no sense in that state. It throws on a message that cannot arrive, which is a bug: the run dies
+with it (see [rejections](#when-update-rejects)).
 
 - **Keep it pure.** It returns commands instead of running effects.
 - **Never mutate the state**, nested objects included: return a new one. A message that returns the very same
@@ -319,7 +321,8 @@ answer of a command started for a row that has since been replaced. A message th
 completion of an operation outside the state that only its completion leaves, or a subscription's message in a
 state that does not list its key, which the run never delivers. Let `update` throw on it, as
 [`form`](examples/form/form.ts) does on a save that completes while nothing is saving: the run dies with a
-`ProgramDefect` naming the message, where a rejection would hide the bug.
+`ProgramDefect` naming the message, as it dies with any defect (an `Effect.die`, a thrown error: broken code),
+where a rejection would hide the bug.
 
 Whether the view sends only what applies is for the tests: `dispatchViolations` checks it for the states a test
 generates, and the tools in which the test decides when each message arrives fail on a rejected message of the
@@ -333,8 +336,6 @@ view:
 `applyAll` takes only the test's messages, and `simulate` takes those a subscription would send among them: a
 rejection of any of them fails the test. A tap on a frame that the state has since moved past is a message
 applied to a later state: test what it does there with `applyAll`, or with `update` itself.
-
-A defect (an `Effect.die`, a thrown error) is broken code, and the run ends.
 
 ### Composing programs
 
@@ -463,7 +464,9 @@ when it arrives. If a row is removed and another is added with its id, the new r
 answer. Use ids that are never reused, or put in the message which row it is for, so that the new row's
 `update` rejects the old answer. Subscriptions do not need this: a row that is removed stops them.
 
-**When to split.** A program lives in one module until it is too large, and then splits into children, each a
+### Splitting a program
+
+A program lives in one module until it is too large, and then splits into children, each a
 program of its own, by concern, never by kind: `messages`, `state` and `update` modules would import each
 other in cycles. What spans the children (a menu, the back button) stays in the parent; what concerns one child,
 even how the user learns of its failure, stays in the child. A parent never reads a child's state to decide:

@@ -1,7 +1,10 @@
 import { appendStep, type Folded, isRejected, type Update } from '../update.ts'
 import { unexpectedRejection } from './unexpected.ts'
 
-/** Applies `messages` in order from `from`, collecting the commands and the events; a rejection fails the test. */
+/**
+ * Applies `messages` in order from `from`, collecting the commands and the events. A rejection fails the test, and
+ * so does an error `update` throws: a defect of the program.
+ */
 export const applyAll =
   <State, Message, Command, Event>(update: Update<State, Message, Command, Event>) =>
   (messages: ReadonlyArray<Message>, from: State): Folded<State, Command, Event> =>
