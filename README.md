@@ -12,14 +12,16 @@ data (**commands**) or listened to (**subscriptions**), never run inside `update
 What it adds to plain Elm:
 
 - **`update` says what does not apply.** It may **reject** a message that makes no sense in the current state.
-  The run ignores it, and the testing tools check, for any state, that the view sends only what `update`
-  accepts, and leaves out nothing it accepts.
-- **Double taps are harmless.** A click on an action that the state has meanwhile left behind is rejected: a
-  save that moves the form to "saving" runs once, however fast the user taps.
+  The run ignores it, and its testing tools let a test check, for the states it generates, that the view sends
+  only what `update` accepts, and leaves out nothing it accepts.
+- **Double taps are harmless, when an action moves to a state that rejects it.** A click on an action that the
+  state has meanwhile left behind is rejected: a save that moves the form to "saving" runs once, however fast
+  the user taps.
 - **Composition is declared, not wired.** A parent says where each child lives in its state, and the library
   routes the children's messages, commands, subscriptions and models.
-- **Views are cheap to memoize.** A child's model is the same object while its state object is, and its dispatch the
-  same function in every frame.
+- **Views are cheap to memoize.** A child's model is the same object while its state object is, as long as
+  `makeModel` is pure and states are replaced rather than mutated, and `dispatchTo` gives its view the same
+  dispatch in every frame.
 
 ## Contents
 
@@ -188,8 +190,8 @@ const makeModel = (state: State): Editor => {
 ```
 
 - Pick the case from the state, as `update` reads it. A model that shows "Save" where `update` rejects
-  `SaveClicked` has a button that does nothing: the run does not check it, the [testing](#testing) tools do,
-  for any state.
+  `SaveClicked` has a button that does nothing: the run does not check it; a test does, with the
+  [testing](#testing) tools, for any state it generates.
 - A model may show **less** than `update` accepts, never more.
 - **A view draws, it never decides.** It matches the model's tags and formats its values (a date, a count, a
   text): it computes no condition from data (`items.length === 0`), combines no fields, and applies no rule and
@@ -246,9 +248,10 @@ expect(commands).toEqual([Command.Save({ name: 'Ada' })])
   released when it ends, before its message reaches `update`, so `run` never asks for a `Scope`. What must
   outlive a command is a service provided around `run`, or a subscription.
 - **Commands cannot be cancelled.** Once started, a command runs to its end and its message arrives, even if
-  the state has moved on: `update` then decides whether the answer still applies. Model the operation as a
-  state that only its completion leaves, as [`form`](examples/form/form.ts) does. This keeps commands plain
-  data, and a save is never cut in half.
+  the state has moved on: `update` then decides whether the answer still applies (see
+  [rejections](#when-update-rejects)). Model the operation as a state that only its completion leaves, as
+  [`form`](examples/form/form.ts) does: the state then cannot have moved on, and a completion anywhere else is a
+  bug. This keeps commands plain data, and a save is never cut in half.
 - **Work that should stop is a subscription.** A download, or a search while the user types, can be one: keep
   its key in the state while the work is wanted. When the key goes away (the user cancels, or leaves the
   page) the subscription is interrupted, and what it holds is released. Its last message says it finished.
@@ -318,8 +321,9 @@ state that does not list its key, which the run never delivers. Let `update` thr
 [`form`](examples/form/form.ts) does on a save that completes while nothing is saving: the run dies with a
 `ProgramDefect` naming the message, where a rejection would hide the bug.
 
-Whether the view sends only what applies is for the tests: `dispatchViolations` checks it for any state, and the
-tools in which the test decides when each message arrives fail on a rejected message of the view:
+Whether the view sends only what applies is for the tests: `dispatchViolations` checks it for the states a test
+generates, and the tools in which the test decides when each message arrives fail on a rejected message of the
+view:
 
 |                                                            | A message of the view    | A command's or a subscription's |
 | ---------------------------------------------------------- | ------------------------ | ------------------------------- |

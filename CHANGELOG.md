@@ -14,7 +14,10 @@ version, and everything else, features included, the patch version.
   in a state that does not list its key); when a program splits into children, and by what; and how a program's
   tests are written. The `form` and `list` examples follow it: the save and the stopwatch are tagged unions
   where they were flags, a failed save says which name it could not save, and a completion, or a tick, that
-  cannot arrive is a defect where it was rejected.
+  cannot arrive is a defect where it was rejected. The introduction says which of its points hold on their own
+  and which hold when the Guide is followed: harmless double taps need an action that moves to a state that
+  rejects it, a memoizable view a pure `makeModel`, states never mutated and `dispatchTo`, and the testing
+  tools check what a test asks of them, for the states it generates.
 
 ## 0.7.0 (2026-10-26)
 
