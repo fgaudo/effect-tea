@@ -406,9 +406,13 @@ describe('children by id', () => {
       return new WeakRef(model ?? {})
     }
     const released = make()
-    // A WeakRef keeps its target until the current job ends: a macrotask, unlike a microtask, ends it.
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    Bun.gc(true)
+    // A WeakRef keeps its target until the current job ends: a macrotask, unlike a microtask, ends it. A collection
+    // can still find the model in a register or stack slot left by JIT-compiled code, which JSC scans
+    // conservatively, until the job after it: each collection gets a job of its own.
+    for (let collection = 0; collection < 10 && released.deref() !== undefined; collection++) {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      Bun.gc(true)
+    }
     expect(released.deref()).toBeUndefined()
   })
 
