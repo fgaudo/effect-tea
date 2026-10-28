@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { isRejected } from '@fgaudo/effect-tea'
+import { InvariantDefect, isRejected } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations, drive, rehearse, simulate } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
@@ -59,8 +59,8 @@ describe('form', () => {
     // Only the save in progress can complete: a completion anywhere else is a bug, not a message to ignore.
     test('dies on a completion with nothing saving', () => {
       const failed = { ...empty, save: Save.Failed({ name: 'Ada' }) }
-      expect(() => update(Message.SaveSucceeded({ name: 'Ada' }))(empty)).toThrow()
-      expect(() => update(Message.SaveFailed({ name: 'Ada' }))(failed)).toThrow()
+      expect(() => update(Message.SaveSucceeded({ name: 'Ada' }))(empty)).toThrow(InvariantDefect)
+      expect(() => update(Message.SaveFailed({ name: 'Ada' }))(failed)).toThrow(InvariantDefect)
     })
 
     // Sent from a frame drawn before the save: it arrives while saving, before the save's failure.

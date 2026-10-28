@@ -4,7 +4,7 @@
 // to type into while saving, but a key typed before the input was disabled is still stored, so that the form
 // never shows a text the state does not have. A failure gives the form back, as it was, and says which name it
 // could not save.
-import { type Execution, type Program, reject, type Update } from '@fgaudo/effect-tea'
+import { defect, type Execution, type Program, reject, type Update } from '@fgaudo/effect-tea'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
@@ -72,13 +72,13 @@ export const update: Update<State, Message, Command> = (message) => (state) => {
     // A completion arrives only while saving: there is no other operation it could belong to. Anywhere else it
     // is a bug, and the run dies with it.
     case 'SaveSucceeded':
-      if (state.save._tag !== 'Saving') throw new Error('A save completed while nothing was saving')
-      return {
-        state: { name: Field.replace(state.name, ''), save: Save.Idle(), saved: [...state.saved, message.name] },
-      }
+      return state.save._tag === 'Saving'
+        ? { state: { name: Field.replace(state.name, ''), save: Save.Idle(), saved: [...state.saved, message.name] } }
+        : defect('A save completed while nothing was saving')
     case 'SaveFailed':
-      if (state.save._tag !== 'Saving') throw new Error('A save failed while nothing was saving')
-      return { state: { ...state, save: Save.Failed({ name: message.name }) } }
+      return state.save._tag === 'Saving'
+        ? { state: { ...state, save: Save.Failed({ name: message.name }) } }
+        : defect('A save failed while nothing was saving')
   }
 }
 

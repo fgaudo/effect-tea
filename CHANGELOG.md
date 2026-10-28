@@ -5,6 +5,19 @@ version, and everything else, features included, the patch version.
 
 ## 0.7.1 (unreleased)
 
+### Added
+
+- `andThen(step, (state) => step)`, which adds up a step and the next one made from its state: the second's
+  state, and both steps' commands and events, in order. A parent that took a step's `state` by hand to give a
+  child's handle dropped that step's commands and events.
+- `raise(event)`, a step that raises an event as the parent's own, the state unchanged: `onEvent: { Products:
+  raise }` for an event a parent has nothing to say about and its own parent handles, where it rewrote the
+  event by hand. It compiles only where the parent's `Event` includes the child's.
+- `defect(reason)`, the twin of `reject` for a message that cannot arrive: it throws an `InvariantDefect` that
+  holds the reason, so that the `cause` of the `ProgramDefect` a run dies with tells a broken rule of the
+  program apart from any other error. It is an expression, for a branch of a ternary or a `Match`, where `throw`
+  is not. The `form` and `list` examples use it where they threw by hand.
+
 ### Changed
 
 - The README's "Guide" says how a program is structured, which it left to its readers: one state machine per
@@ -18,7 +31,9 @@ version, and everything else, features included, the patch version.
   and which hold when the Guide is followed: harmless double taps need an action that moves to a state that
   rejects it, a memoizable view a pure `makeModel`, states never mutated and `dispatchTo`, and the testing
   tools check what a test asks of them, for the states it generates. `applyAll`, `simulate` and `rehearse` say
-  that an error `update` throws fails the test, as `drive` did.
+  that an error `update` throws fails the test, as `drive` did. "Commands" says where a program's effects live,
+  in the algebraic sense: a command's services are its operations and the layer around `run` their handlers;
+  `update` performs none, and what a child asks of its parent is an event, never an operation it resumes from.
 
 ## 0.7.0 (2026-10-26)
 

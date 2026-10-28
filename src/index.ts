@@ -19,7 +19,16 @@ export {
 export { parent } from './compose.ts'
 
 // What `update` returns.
-export { isRejected, reject, type Rejected, type Step, type Transition, type Update } from './update.ts'
+export {
+  andThen,
+  isRejected,
+  raise,
+  reject,
+  type Rejected,
+  type Step,
+  type Transition,
+  type Update,
+} from './update.ts'
 
 // The effects it describes: commands, and subscriptions to the world.
 export type { Execution, RunCommand } from './command.ts'
@@ -31,4 +40,4 @@ export { type Dispatch, dispatchTo, type View } from './dispatch.ts'
 // Running a program with a renderer.
 export type { Applied, Ignored, Origin, RunOptions } from './engine.ts'
 export { type Frame, run } from './run.ts'
-export { CompositionDefect, type DefectSite, ProgramDefect } from './defect.ts'
+export { CompositionDefect, defect, type DefectSite, InvariantDefect, ProgramDefect } from './defect.ts'

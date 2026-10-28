@@ -64,3 +64,26 @@ export class ProgramDefect extends Data.TaggedError('ProgramDefect')<Fields & Re
 export class CompositionDefect extends Data.TaggedError('CompositionDefect')<
   Readonly<{ message: string; child: string; id?: unknown }>
 > {}
+
+/**
+ * A rule of the program broken, which `defect` throws: a message that cannot arrive, a state that cannot be.
+ * `reason` says which rule. As the `cause` of a `ProgramDefect`, it tells a program's own broken rule apart
+ * from any other error thrown.
+ */
+export class InvariantDefect extends Data.TaggedError('InvariantDefect')<
+  Readonly<{ reason: string; message: string }>
+> {
+  constructor({ reason }: Readonly<{ reason: string }>) {
+    super({ reason, message: reason })
+  }
+}
+
+/**
+ * The twin of `reject`, for a message that cannot arrive: throws an `InvariantDefect` with `reason`, and the run
+ * dies with it. An expression, so that it fits a branch of a ternary or a `Match`: `state.save._tag ===
+ * 'Saving' ? … : defect('A save completed while nothing was saving')`. It is for the synchronous functions
+ * (`update`, `onEvent`, `makeModel`, `subscriptions`); inside an Effect, `Effect.die` is the way.
+ */
+export const defect = (reason: string): never => {
+  throw new InvariantDefect({ reason })
+}

@@ -33,14 +33,24 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   module is internal. It is judged on its own terms, from the library's concepts, its examples and its users in
   general: coherent, symmetric where its tools are (what `drive` gets, `simulate` and `rehearse` are asked
   about), and never shaped by, nor justified with, what one application happens to use.
-- **A function earns its place by doing what Effect alone cannot.** It stays only if it does something that
-  cannot be written against Effect by someone who does not know the library (`dispatchTo` keeps a dispatch the
-  same by a cache of its own), or if it is the one place where a rule of the library is applied (`reject`,
-  `parent`). A name over a composition of Effect's combinators is not one, however often the composition
-  recurs in an application: a type that already imposes the rule (`Execution` cannot fail, a `Subscription`
-  ends with a message) makes the function that would remind of it superfluous. `attempt`, `silent` and
-  `Subscription.every` were removed by this rule; a form of a declaration that takes a standard type of Effect
-  in place of hand-written functions (`at`, an `Optic`, for `get` and `set`) is not a function, and may stay.
+- **A type is Effect's or the library's, never half of each.** One of Effect's is an alias with a name
+  (`Subscription` is a `Channel`, `Execution` an `Effect`): it is built and transformed with Effect's own
+  combinators, and the library defines no function over it. One of the library's own has a shape the library
+  defines and documents, public where it is meant to be written by hand (an `update` writes a `Step`,
+  `{ state, commands?, events? }`, as data) and hidden where it is not (a program a `parent` composes); the
+  library gives the functions over it (`andThen` and `raise` over `Step`). An alias with a few helpers over it
+  has the costs of both and keeps neither promise: users still write the representation everywhere else, so it
+  cannot change. A type moves to the library's side only when the library must do with it what Effect alone
+  cannot: inspect it in tests without running it, keep it the same across frames by a cache of its own (as
+  `dispatchTo` does for a dispatch), or enforce at construction what the type cannot. A subscription is already
+  inspected by its key: that is why `Subscription` stays Effect's.
+- **A function earns its place by doing what Effect alone cannot**, or by being the one place where a rule of
+  the library is applied (`reject`, `parent`). A name over a composition of Effect's combinators is not one,
+  however often the composition recurs in an application: `attempt`, `silent` and `Subscription.every` were
+  removed by this rule. A type that already imposes a rule (`Execution` cannot fail, a `Subscription` ends with
+  a message) makes the function that would remind of it superfluous. A form of a declaration that takes a
+  standard type of Effect in place of hand-written functions (`at`, an `Optic`, for `get` and `set`) is not a
+  function, and may stay.
 - **Only stable Effect APIs.** A module or function marked `@stability unstable` in Effect's declarations may
   change under the library's users: never build on one, not even as an option. The typecheck fails on one (the
   Effect language service's `unstableApiUsage`), except in `examples/`, which are not published.

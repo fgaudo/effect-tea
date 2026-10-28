@@ -1,6 +1,6 @@
 // A stopwatch that ticks every second while it runs: its subscription exists only in the running state. It
 // asks its parent to be removed with an event.
-import { type Program, reject, type Subscription, type Update } from '@fgaudo/effect-tea'
+import { defect, type Program, reject, type Subscription, type Update } from '@fgaudo/effect-tea'
 import * as Channel from 'effect/Channel'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
@@ -32,8 +32,9 @@ export const update: Update<State, Message, never, Event> = (message) => (state)
     // A tick arrives only while running: stopping interrupts the subscription and drops what it sent. One
     // anywhere else is a bug, and the run dies with it.
     case 'Ticked':
-      if (state.watch._tag !== 'Running') throw new Error('A tick while the stopwatch was stopped')
-      return { state: { ...state, seconds: state.seconds + 1 } }
+      return state.watch._tag === 'Running'
+        ? { state: { ...state, seconds: state.seconds + 1 } }
+        : defect('A tick while the stopwatch was stopped')
     case 'RemoveClicked':
       return { state, events: [{ _tag: 'RemoveRequested' }] }
   }

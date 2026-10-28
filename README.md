@@ -146,8 +146,8 @@ types survives the frames drawn meanwhile.
 ### `update`
 
 `update` takes a message, then the state, and returns `{ state, commands?, events? }`, or `reject` when the
-message makes no sense in that state. It throws on a message that cannot arrive, which is a bug: the run dies
-with it (see [rejections](#when-update-rejects)).
+message makes no sense in that state. It throws on a message that cannot arrive, which is a bug, with
+`defect(reason)`: the run dies with it (see [rejections](#when-update-rejects)).
 
 - **Keep it pure.** It returns commands instead of running effects.
 - **Never mutate the state**, nested objects included: return a new one. A message that returns the very same
@@ -246,6 +246,11 @@ expect(commands).toEqual([Command.Save({ name: 'Ada' })])
   ```
 - A command carries everything it needs: `runCommand` does not see the state. Its services are provided
   around `run`.
+
+  A command's services are its operations, and the layer around `run` their handlers. This is where a program
+  performs effects, in the algebraic sense, and where a handler lives. `update` performs none. What a child
+  asks of its parent is an event: data the parent handles after the child's step, never an operation the child
+  resumes from.
 - **A command has a scope of its own.** What it acquires (`Effect.acquireRelease`, `Effect.forkScoped`) is
   released when it ends, before its message reaches `update`, so `run` never asks for a `Scope`. What must
   outlive a command is a service provided around `run`, or a subscription.
@@ -319,10 +324,13 @@ changes nothing.
 `reject` is for a message that does not apply but may arrive: a tap on a frame the state has moved past, the
 answer of a command started for a row that has since been replaced. A message that cannot arrive is a bug: the
 completion of an operation outside the state that only its completion leaves, or a subscription's message in a
-state that does not list its key, which the run never delivers. Let `update` throw on it, as
-[`form`](examples/form/form.ts) does on a save that completes while nothing is saving: the run dies with a
-`ProgramDefect` naming the message, as it dies with any defect (an `Effect.die`, a thrown error: broken code),
-where a rejection would hide the bug.
+state that does not list its key, which the run never delivers. Let `update` throw on it with
+`defect(reason)`, the twin of `reject`, as [`form`](examples/form/form.ts) does on a save that completes while
+nothing is saving: the run dies with a `ProgramDefect` naming the message, as it dies with any defect (an
+`Effect.die`, a thrown error: broken code), where a rejection would hide the bug. Its `cause` is an
+`InvariantDefect` that holds the reason, so that a crash report tells a broken rule of the program from any
+other error. `defect` is an expression, for a branch of a ternary or a `Match`. It is for the synchronous
+functions (`update`, `onEvent`, `makeModel`, `subscriptions`); inside an Effect, `Effect.die` stays.
 
 Whether the view sends only what applies is for the tests: `dispatchViolations` checks it for the states a test
 generates, and the tools in which the test decides when each message arrives fail on a rejected message of the
@@ -389,7 +397,9 @@ What the parent writes:
   optic is, `get` and `set`. Where the optic focuses nothing, or `get` returns `None`, the child is not there.
   `subscribed` says when its subscriptions run (by default, whenever it is there).
 - **What its events mean:** `onEvent`, one handler per child that has events. A child raises an event to ask
-  its parent for something, like leaving the page.
+  its parent for something, like leaving the page. An event the parent has nothing to say about, and its own
+  parent handles, it raises as its own: `onEvent: { Products: raise }`. Its `Event` then includes the child's,
+  or this does not compile.
 - **Its own messages, commands and subscriptions,** if it has any: `update`, `runCommand`, `subscriptions`.
 
 What the library gives it:
@@ -416,6 +426,11 @@ What the library gives it:
   update: (_: BackPressed, children) => children.Page.update({ _tag: 'BackPressed' }),
   onEvent: { Page: () => (state) => ({ state: leavePage(state) }) },
   ```
+
+  A parent that takes a step of its own before a child's adds them up with `andThen`:
+  `andThen(leave(state), children.Home.update({ _tag: 'ProductGone', at }))`. The result has the second step's
+  state, and both steps' commands and events, in order. Taking a step's `.state` by hand to make the next one
+  drops its commands and its events.
 
   A parent's `init` is a function of them, so that a child there from the start is started like any other:
   `children.Clock.init` holds its state and its commands, lifted. Reading `Clock.clock.init.state` would leave
@@ -654,7 +669,7 @@ for any of them that `update` is total and deterministic, that the view sends wh
 asserting the next state, the commands and the events by value, and a rejection with `isRejected`, never as
 "the state did not change", which a step that keeps the state would pass too. The pairs of state and message
 that the invariants rule out (see [rejections](#when-update-rejects)) are skipped there, and checked as defects:
-`expect(() => update(message)(state)).toThrow()`.
+`expect(() => update(message)(state)).toThrow(InvariantDefect)`.
 
 ## API reference
 
@@ -668,6 +683,9 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | `parent`                                          | `parent<{ state; … }>()`: `child`, `each` and `compose`, to make a parent of children     |
 | `Update`, `Transition`, `Step`                    | `(message) => (state) => Step` or `Rejected`; a `Step` is `{ state, commands?, events? }` |
 | `reject`, `Rejected`, `isRejected`                | the rejection `update` returns, and its check                                             |
+| `defect`, `InvariantDefect`                       | `defect(reason)` throws an `InvariantDefect`: a message that cannot arrive, a defect      |
+| `andThen`                                         | a step and the next, made from its state: the next's state, all commands and events       |
+| `raise`                                           | `(event) => (state) => Step`: a child's event raised as the parent's own                  |
 | `Execution<Message, R>`, `RunCommand`             | `Effect<Option<Message>, never, R>`, how a command happens; `(command) => Execution`      |
 | `Subscription`                                    | a `Channel` of messages that never ends, or ends with one last message; kept by key       |
 | `Subscriptions`                                   | `(state) => HashMap<K, Subscription<Message>>`, reconciled by key                         |
@@ -676,7 +694,7 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | `dispatchTo`                                      | a child's dispatch, for its view: wraps its messages as the parent receives them          |
 | `run`, `Frame`, `RunOptions`                      | run a program with a renderer; what the renderer draws; how the program runs              |
 | `Applied`, `Ignored`, `Origin`                    | what `onApplied` and `onIgnored` hear: a message, where it came from, the states around it |
-| `ProgramDefect`, `DefectSite`                     | the defect a run dies with: its `cause`, `where` it happened, `update`'s message, a subscription's `key` |
+| `ProgramDefect`, `DefectSite`                     | the defect a run dies with: its `cause` (an `InvariantDefect` for `defect`), `where` it happened, `update`'s message, a subscription's `key` |
 | `CompositionDefect`                               | a parent breaking what it declared of a child, which the run then dies with               |
 
 From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `rehearse`, `Rehearsal`,

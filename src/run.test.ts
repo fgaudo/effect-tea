@@ -13,7 +13,7 @@ import * as References from 'effect/References'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import type * as Tracer from 'effect/Tracer'
-import { type DefectSite, ProgramDefect } from './defect.ts'
+import { defect, type DefectSite, InvariantDefect, ProgramDefect } from './defect.ts'
 import type { Applied, Ignored, RunOptions } from './engine.ts'
 import { reject, type Step, type Update } from './update.ts'
 import type { Program } from './program.ts'
@@ -351,6 +351,19 @@ describe('defects', () => {
     expect(defect instanceof ProgramDefect && [defect.on, defect.message]).toEqual([
       'Increment',
       'A defect in update on Increment',
+    ])
+  })
+
+  test('defect in update dies in update, on its message, with the InvariantDefect as its cause', async () => {
+    const exit = await Effect.runPromiseExit(run(
+      { ...counter, update: () => () => defect('An increment cannot arrive') },
+      (frames) => Stream.runForEach(frames, ({ model, dispatch }) => dispatch(model.increment)),
+    ))
+    const thrown = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    expect(thrown instanceof ProgramDefect && [thrown.where, thrown.on, thrown.cause]).toEqual([
+      'update',
+      'Increment',
+      new InvariantDefect({ reason: 'An increment cannot arrive' }),
     ])
   })
 

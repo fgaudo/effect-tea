@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { defect, InvariantDefect } from '../defect.ts'
 import { reject, type Update } from '../update.ts'
 import { applyAll } from './apply-all.ts'
 
@@ -39,5 +40,10 @@ describe('applyAll', () => {
 
   test('a rejection fails, naming the message', () => {
     expect(() => applyAll(update)(['Increment', 'Forbidden'], closed)).toThrow('message 1 (Forbidden)')
+  })
+
+  test('the InvariantDefect of defect fails the test, as any error update throws', () => {
+    const broken: Update<State, Message> = () => () => defect('No message arrives here')
+    expect(() => applyAll(broken)(['Increment'], closed)).toThrow(InvariantDefect)
   })
 })

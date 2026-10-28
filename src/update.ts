@@ -42,6 +42,32 @@ export const appendStep = <State, Command, Event>(
   events: step.events === undefined ? folded.events : [...folded.events, ...step.events],
 })
 
+/**
+ * A step followed by another, made from its state: e.g. a parent's own step, then a child's handle,
+ * `andThen(leave(state), children.Home.update({ _tag: 'ProductGone', at }))`. The state is the second's, and the
+ * commands and the events are both steps', in order; its lists are always present. Taking a step's `state` by
+ * hand to make the next one would drop its commands and its events.
+ */
+export const andThen = <State, Command1, Event1, Command2, Event2>(
+  step: Step<State, Command1, Event1>,
+  next: (state: State) => Step<State, Command2, Event2>,
+): Step<State, Command1 | Command2, Event1 | Event2> =>
+  appendStep<State, Command1 | Command2, Event1 | Event2>(
+    { state: step.state, commands: step.commands ?? [], events: step.events ?? [] },
+    next(step.state),
+  )
+
+/**
+ * An event a parent has nothing to say about, raised as its own for its own parent to handle, the state
+ * unchanged: `onEvent: { Products: raise }`, or `raise(event)(state)` in a handler that decides. It compiles
+ * only where the parent's `Event` includes the child's. A handler of children by id takes the id first:
+ * `(_, event) => raise(event)`.
+ */
+export const raise = <Event>(event: Event) => <State>(state: State): Step<State, never, Event> => ({
+  state,
+  events: [event],
+})
+
 export type Update<State, Message, Command = never, Event = never> = (
   message: Message,
 ) => (state: State) => Transition<State, Command, Event>

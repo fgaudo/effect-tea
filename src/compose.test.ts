@@ -9,7 +9,7 @@ import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import * as Stream from 'effect/Stream'
 import type { Subscription } from './subscription.ts'
-import { isRejected, reject } from './update.ts'
+import { andThen, isRejected, raise, reject, type Step } from './update.ts'
 import { type Dispatch, dispatchTo } from './dispatch.ts'
 import { parent } from './compose.ts'
 import { CompositionDefect } from './defect.ts'
@@ -620,6 +620,78 @@ describe('what a parent can do with a child', () => {
   })
 })
 
+describe('steps that add up', () => {
+  test('andThen takes the second state, and keeps both steps\' commands and events in order', () => {
+    const step: Step<Ticks, 'Save' | 'Load', 'Saved' | 'Loaded'> = andThen(
+      { state: { ticks: 1 }, commands: ['Save'], events: ['Saved'] },
+      ({ ticks }) => ({ state: { ticks: ticks + 1 }, commands: ['Load'], events: ['Loaded'] }),
+    )
+    expect(step).toEqual({ state: { ticks: 2 }, commands: ['Save', 'Load'], events: ['Saved', 'Loaded'] })
+    expect(andThen({ state: noTicks }, (state) => ({ state }))).toEqual({ state: noTicks, commands: [], events: [] })
+  })
+
+  // A page that, left, forgets what it held and says so; a home that has nothing to say about it; an app that
+  // counts the pages left, and remembers whether each was left when it heard of it.
+  type Leave = Readonly<{ _tag: 'Leave' }>
+  type Left = Readonly<{ _tag: 'Left' }>
+  const leaving: Program<{
+    state: Readonly<{ left: boolean }>
+    model: null
+    message: Leave
+    command: 'Forget'
+    event: Left
+    external: Leave
+  }> = {
+    init: { state: { left: false } },
+    update: () => () => ({ state: { left: true }, commands: ['Forget'], events: [{ _tag: 'Left' }] }),
+    runCommand: () => Effect.succeedNone,
+    makeModel: () => null,
+  }
+  type Home = Readonly<{ page: Readonly<{ left: boolean }> }>
+  const Home = parent<{ state: Home; event: Left; external: Leave }>()
+  const home = Home.compose({
+    init: (children) => ({ state: { page: children.Page.init.state } }),
+    children: { Page: Home.child(leaving, { get: (state) => Opt.some(state.page), set: (_, page) => ({ page }) }) },
+    update: (_: Leave, children) => children.Page.update({ _tag: 'Leave' }),
+    onEvent: { Page: raise },
+    makeModel: () => null,
+  })
+  type App = Readonly<{ home: Home; heard: ReadonlyArray<boolean>; resets: number }>
+  const App = parent<{ state: App }>()
+  const app = App.compose({
+    init: (children) => ({ state: { home: children.Home.init.state, heard: [], resets: 0 } }),
+    children: {
+      Home: App.child(home, { get: (state) => Opt.some(state.home), set: (state, home) => ({ ...state, home }) }),
+    },
+    update: (_: Reset, children) => (state) =>
+      andThen(
+        { state: { ...state, resets: state.resets + 1 } },
+        children.Home.update({ _tag: 'Leave' }),
+      ),
+    onEvent: { Home: () => (state) => ({ state: { ...state, heard: [...state.heard, state.home.page.left] } }) },
+    makeModel: () => null,
+  })
+
+  test('an event its parent raises reaches the grandparent in the same step, after the parent\'s', () => {
+    const result = app.update({ _tag: 'Home', message: { _tag: 'Page', message: { _tag: 'Leave' } } })(
+      app.init.state,
+    )
+    expect(result).toEqual({
+      state: { home: { page: { left: true } }, heard: [true], resets: 0 },
+      commands: [{ _tag: 'Home', command: { _tag: 'Page', command: 'Forget' } }],
+      events: [],
+    })
+  })
+
+  test('a parent\'s own step, then a child\'s, keeps the parent\'s state and both steps\' effects', () => {
+    expect(app.update({ _tag: 'Reset' })(app.init.state)).toEqual({
+      state: { home: { page: { left: true } }, heard: [true], resets: 1 },
+      commands: [{ _tag: 'Home', command: { _tag: 'Page', command: 'Forget' } }],
+      events: [],
+    })
+  })
+})
+
 describe('a child placed with an optic', () => {
   const Placed = parent<{ state: ParentState }>()
   const placed = Placed.compose({
@@ -975,6 +1047,34 @@ describe('what the types reject', () => {
     // @ts-expect-error: the child returns no other command.
     const other: CommandOf<typeof saving> = 'Load'
     expect([command, other]).toHaveLength(2)
+  })
+
+  test('a parent raises only the events its own type includes', () => {
+    type Gone = Readonly<{ _tag: 'Gone' }>
+    const gone = {
+      init: { state: noTicks },
+      update: (_: Tick) => (state: Ticks) => ({ state, events: [{ _tag: 'Gone' } as Gone] }),
+      makeModel: ({ ticks }: Ticks) => ticks,
+    }
+    const Silent = parent<{ state: Ticks; event: Readonly<{ _tag: 'Other' }> }>()
+    Silent.compose({
+      init: () => ({ state: noTicks }),
+      children: { Gone: Silent.child(gone, { get: (state) => Opt.some(state), set: (_, child) => child }) },
+      // @ts-expect-error: `Gone` is no event of this parent's.
+      onEvent: { Gone: raise },
+      makeModel: () => null,
+    })
+    const Raising = parent<{ state: Ticks; event: Gone }>()
+    expect(Raising.compose({
+      init: () => ({ state: noTicks }),
+      children: { Gone: Raising.child(gone, { get: (state) => Opt.some(state), set: (_, child) => child }) },
+      onEvent: { Gone: raise },
+      makeModel: () => null,
+    }).update({ _tag: 'Gone', message: { _tag: 'Tick' } })(noTicks)).toEqual({
+      state: noTicks,
+      commands: [],
+      events: [{ _tag: 'Gone' }],
+    })
   })
 
   test('commands of its own need a runCommand', () => {
