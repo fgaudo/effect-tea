@@ -3,7 +3,7 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
-## 0.7.1 (unreleased)
+## 0.7.1 (2026-10-28)
 
 ### Added
 
