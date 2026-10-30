@@ -25,14 +25,13 @@ What it adds to plain Elm:
 
 - **`update` says what does not apply.** It may **reject** a message that makes no sense in the current state,
   and the run ignores it. A save that moves the form to "saving" then runs once, however fast the user taps. A
-  message that cannot arrive is a bug instead: `defect` ends the run with it, where a rejection would hide it.
-  The testing tools check, for the states a test generates, that the view sends only what `update` accepts, and
-  leaves out nothing it accepts but what it withholds on purpose.
+  message that cannot arrive, if it does, is a bug: `update` throws `defect` on it, and the run dies, where a
+  rejection would hide the bug. The testing tools check, for the states a test generates, that the view sends
+  only what `update` accepts, and leaves out nothing it accepts but what it withholds on purpose.
+- **Commands are your own data.** Elm's `Cmd` is opaque: a test cannot see what `update` decided. Here a command
+  is a value of your own type, which `runCommand` turns into an Effect, so a test asserts it by value.
 - **Composition is declared, not wired.** A parent says where each child lives in its state, and the library
   routes the children's messages, commands, subscriptions and models.
-- **Views are cheap to memoize.** A child's model is the same object while its state object is, as long as
-  `makeModel` is pure and states are replaced rather than mutated. `dispatchTo` gives its view the same
-  dispatch in every frame.
 
 ## Contents
 
@@ -161,7 +160,7 @@ A program is a plain object with up to five pieces:
 
 `update` takes a message, then the state, and returns `{ state, commands?, events? }`, or `reject` when the
 message makes no sense in that state. Events are for a parent (see [composition](#composition)). On a message
-that cannot arrive, which is a bug, it throws with `defect(reason)`, and the run dies with it (see
+that cannot arrive, whose arrival is a bug, it throws `defect(reason)`, and the run dies (see
 [rejections and defects](#rejections-and-defects)).
 
 - **Keep it pure.** It returns commands instead of running effects.
@@ -286,8 +285,8 @@ expect(commands).toEqual([Command.Save({ name: 'Ada' })])
   the state has moved on. `update` then decides whether the answer still applies (see
   [rejections and defects](#rejections-and-defects)). Model the operation as a state that only its completion
   leaves, as [`form`](examples/form/form.ts) does: the state then cannot have moved on, and a completion
-  anywhere else is a bug, a `defect`. This keeps commands plain data, and a save is never cut in half. Work that should
-  stop is a [subscription](#subscriptions).
+  anywhere else is a bug, a `defect`. This keeps commands plain data, and a save is never cut in half. Work
+  that should stop is a [subscription](#subscriptions).
 
 A command's services are its operations, and the layer around `run` their handlers. This is where a program
 performs effects, in the algebraic sense, and where a handler lives. `update` performs none. What a child asks
@@ -317,7 +316,8 @@ Effect's own combinators, as the clock of [`pages`](examples/pages/clock.ts) and
 
 **Work that should stop is a subscription.** A download, or a search while the user types, can be one: keep
 its key in the state while the work is wanted. When the key goes away (the user cancels, or leaves the page)
-the subscription is interrupted, and what it holds is released. Its last message says it finished.
+the subscription is interrupted, and what it holds is released. When the work ends by itself, its last message
+says so.
 
 A subscription sees the state only through its key: what it depends on goes into the key, and a new value
 starts it anew. That is cheap for a timer whose interval changes. For something that should stay open while a
@@ -381,10 +381,10 @@ subscription sent. Nothing else makes that promise:
   is rejected where it does not apply, whatever the model showed.
 - **An event keeps the timing of its cause.** A child that raises an event for a click raises it whenever the
   click comes, so the parent's `onEvent` cannot rule it out by its own state either. A handler answers with a
-  step, and its type has no `reject`: one that does not apply answers `{ state }`, as [`pages`](examples/pages/app.ts)
-  does when About is asked for while it is open. A completion promises something of the child's state, not of
-  its parent's. An event raised for one rules out a parent's state only where the parent's own state promises
-  it too.
+  step, and its type has no `reject`: one that does not apply answers `{ state }`, as
+  [`pages`](examples/pages/app.ts) does when About is asked for while it is open. A completion promises
+  something of the child's state, not of its parent's. An event raised for one rules out a parent's state only
+  where the parent's own state promises it too.
 
 To tell them apart, ask whether the message could reach that state while the program's code and the library's
 are right. If a fast finger, a slow frame or another device is enough, it is a `reject`. If only a bug can
@@ -502,8 +502,8 @@ onEvent: { Page: () => (state) => ({ state: leavePage(state) }) },
 a child's, a parent adds them up:
 
 - **`andThen`**: `andThen(leave(state), children.Home.update({ _tag: 'ProductGone', at }))`. The result has the
-  second step's state, and both steps' commands and events, in order. Taking a step's `.state` by hand to make the
-  next one drops its commands and its events.
+  second step's state, and both steps' commands and events, in order. Taking a step's `.state` by hand to make
+  the next one drops its commands and its events.
 - **`forEach`** is the `andThen` of many: one step for each item, each made from the state the previous one
   left, e.g. a message to every child by id,
   `forEach({ state }, state.rows, ({ id }) => children.Row.update(id, Cleared()))`.
@@ -602,13 +602,17 @@ A defect anywhere ends the run, which dies with a `ProgramDefect`:
   it was given as `on`, by its tags; `'subscriptions'`; `'subscription'`, with its `key`; `'command'`;
   `'render'` (the view and `makeModel` included); or one of the options, by name.
 
-The run does not log it: reporting it is yours. In a browser, start it with `BrowserRuntime.runMain` from
-`@effect/platform-browser`, and report crashes around it:
+The run never recovers from it, and does not log it: reporting it, and what the user sees next, are the app's,
+around the run. The screen keeps the last frame: show a crash screen, or run the program again. In a browser,
+start it with `BrowserRuntime.runMain` from `@effect/platform-browser`. An interruption, such as the page
+closing, ends the run too, and is no crash:
 
 ```ts
 BrowserRuntime.runMain(
   run(app, render, options).pipe(
-    Effect.tapCause((cause) => reportCrash(cause)),
+    Effect.tapCause((cause) =>
+      Cause.hasInterruptsOnly(cause) ? Effect.void : reportCrash(cause)
+    ),
   ),
 )
 ```

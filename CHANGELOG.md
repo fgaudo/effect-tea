@@ -22,6 +22,10 @@ version, and everything else, features included, the patch version.
   what a test lists as `withheld`, that `ActsTwice` also counts commands and events, that a parent's commands
   are its children's too and run by their `runCommand`, that `onEvent` is required exactly when a child has
   events, and that the model of a child that is not there is a `CompositionDefect`.
+- The README's "Running" says that the run never recovers from a defect, and that the app may, around it. Its
+  example reported an interruption as a crash.
+- The README's "What it adds to plain Elm" names commands as data of your own, which Elm's opaque `Cmd` is not,
+  where it named views cheap to memoize, which Elm's `Html.Lazy` makes them too.
 - The README is reorganized. A mermaid diagram of the loop opens it, drawn on GitHub and
   on the documentation site. The "Guide" starts with the anatomy of a program, which was in the quick start, and
   has a section for the view, holding the inputs the user types into. "When `update` rejects" is now "Rejections
