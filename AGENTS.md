@@ -60,8 +60,9 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   in the library, its tests or its examples: use what the deprecation names instead, and replace a use found in
   passing. `bun run lint` warns about one (Oxlint's type-aware `typescript/no-deprecated`).
 - **The peer range starts at the oldest Effect 4 the library works with** (`^4.0.0` today), so that any
-  application on Effect 4 can use it. An API that exists only in a newer Effect is not a reason for a
-  workaround: ask whether to use it and raise the minimum (`upgrade-effect`).
+  application on Effect 4 can use it. The CI checks the library against exactly that version. An API that
+  exists only in a newer Effect is not a reason for a workaround: ask whether to use it and raise the minimum
+  (`upgrade-effect`).
 - **A change a consumer can notice has a changelog entry** in the same commit, and raises the version when it
   needs more than the unreleased section says (`release`).
 - **The README is a specification.** Its "Guide" and "Guarantees" say what the library promises, and

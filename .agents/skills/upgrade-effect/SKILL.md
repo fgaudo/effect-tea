@@ -9,7 +9,8 @@ description: How @fgaudo/effect-tea depends on Effect: the peer range and its mi
 
 `peerDependencies.effect` (`^4.0.0` today) starts at the oldest Effect 4 the library works with, so that any
 application on Effect 4 can use it. `devDependencies.effect` is the version the library is developed and tested
-with, usually newer: passing checks say nothing about the minimum, which is checked on its own (below).
+with, usually newer: passing checks say nothing about the minimum, which is checked on its own. The CI's
+`minimum-effect` job installs exactly the minimum over the lockfile and runs `tsc --noEmit` and `bun test src`.
 
 ## An API the minimum lacks
 
@@ -21,9 +22,8 @@ the author's call.
 ## Raising the minimum
 
 1. Set `peerDependencies.effect` to the oldest version that has the API, as a caret range (`^4.<minor>.<patch>`).
-2. Check the library against exactly that version: copy `src/` into a scratch project outside the repository,
-   install `effect@<version>` exactly, with `typescript` and `@types/bun`, and run `tsc --noEmit` and
-   `bun test` there.
+2. Set the same version in the `minimum-effect` job of `.github/workflows/ci.yml`. Run its steps once in a
+   scratch copy of the repository before pushing.
 3. A raised minimum is a change a consumer can notice: a `Changed` entry in `CHANGELOG.md` that names the new
    minimum, and the version a breaking change raises ([`release`](../release/SKILL.md)).
 
