@@ -1,6 +1,6 @@
 // The stopwatches are children by id. The parent says where each one lives and what its event means; adding
-// one is the parent's own message.
-import { type MessageOf, type ModelOf, parent } from '@fgaudo/effect-tea'
+// one, and halting them all, are the parent's own messages.
+import { forEach, type MessageOf, type ModelOf, parent } from '@fgaudo/effect-tea'
 import * as Arr from 'effect/Array'
 import * as Opt from 'effect/Option'
 import * as Stopwatch from './stopwatch.ts'
@@ -11,6 +11,8 @@ export type Entry = Readonly<{ id: number; stopwatch: Stopwatch.State }>
 export type State = Readonly<{ nextId: number; entries: ReadonlyArray<Entry> }>
 
 type AddClicked = Readonly<{ _tag: 'AddClicked' }>
+
+type StopAllClicked = Readonly<{ _tag: 'StopAllClicked' }>
 
 const { compose, each } = parent<{ state: State }>()
 
@@ -28,14 +30,21 @@ export const list = compose({
       subscribed: (state) => Arr.map(state.entries, ({ id, stopwatch }) => [id, stopwatch] as const),
     }),
   },
-  update: (_: AddClicked, children) => (state) => {
-    const stopwatch = children.Stopwatch.init(state.nextId)
-    return {
-      state: {
-        nextId: state.nextId + 1,
-        entries: [...state.entries, { id: state.nextId, stopwatch: stopwatch.state }],
-      },
-      commands: stopwatch.commands,
+  update: (message: AddClicked | StopAllClicked, children) => (state) => {
+    switch (message._tag) {
+      case 'AddClicked': {
+        const stopwatch = children.Stopwatch.init(state.nextId)
+        return {
+          state: {
+            nextId: state.nextId + 1,
+            entries: [...state.entries, { id: state.nextId, stopwatch: stopwatch.state }],
+          },
+          commands: stopwatch.commands,
+        }
+      }
+      // Every stopwatch is told, running or not: the parent never reads a child's state to decide.
+      case 'StopAllClicked':
+        return forEach({ state }, state.entries, ({ id }) => children.Stopwatch.update(id, Stopwatch.Message.Halted()))
     }
   },
   onEvent: {
@@ -45,6 +54,7 @@ export const list = compose({
   },
   makeModel: (state, children) => ({
     add: { _tag: 'AddClicked' } as AddClicked,
+    stopAll: { _tag: 'StopAllClicked' } as StopAllClicked,
     stopwatches: Arr.map(state.entries, ({ id }) => ({ id, model: children.Stopwatch(state, id) })),
   }),
 })

@@ -5,6 +5,15 @@ version, and everything else, features included, the patch version.
 
 ## 0.7.2 (unreleased)
 
+### Added
+
+- `forEach(step, items, (item) => (state) => step)`, the `andThen` of many: one step for each item, in order,
+  each made from the state the previous one left, with every step's commands and events. With it, a parent tells
+  each of its children by id the same thing: `forEach({ state }, state.rows, ({ id }) => children.Row.update(id,
+  Cleared()))`. The `list` example stops all its stopwatches with it.
+- `andThen` and `forEach` are dual: `andThen(next)` and `forEach(items, next)` take the step last, for a chain of
+  steps written with `pipe`. The spelling with the step first is unchanged.
+
 ### Changed
 
 - The README's "When `update` rejects" says who promises that a message cannot arrive: the program's state,

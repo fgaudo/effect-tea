@@ -21,6 +21,7 @@ export { parent } from './compose.ts'
 // What `update` returns.
 export {
   andThen,
+  forEach,
   isRejected,
   raise,
   reject,

@@ -133,7 +133,7 @@ each with its tests. Try one in the browser, or run it with `bun run build`, the
 | [`counter`](examples/counter) | the quick start with a view; `applyAll`, `dispatchViolations`, `drive`                                    | [live](https://fgaudo.github.io/effect-tea/examples/counter/) |
 | [`form`](examples/form)       | an input the user owns while typing; a service, a failure as a message; a save only its completion ends, and a completion outside it is a defect; `rehearse` | [live](https://fgaudo.github.io/effect-tea/examples/form/)    |
 | [`pages`](examples/pages)     | two pages with `parent`, placed with optics, `dispatchTo`, events, `subscribed`, a page started from flags; `simulate` | [live](https://fgaudo.github.io/effect-tea/examples/pages/)   |
-| [`list`](examples/list)       | stopwatches by id with `each`, a subscription per running child; a test with a `TestClock`                | [live](https://fgaudo.github.io/effect-tea/examples/list/)    |
+| [`list`](examples/list)       | stopwatches by id with `each`, a subscription per running child, all told at once with `forEach`; a test with a `TestClock` | [live](https://fgaudo.github.io/effect-tea/examples/list/)    |
 
 [`examples/snabbdom.ts`](examples/snabbdom.ts) is the small bridge to the renderer, worth copying for your
 own: `renderInto` for `run`, click and input handlers, and `messagesSentBy` for tests.
@@ -448,7 +448,10 @@ What the library gives it:
   A parent that takes a step of its own before a child's adds them up with `andThen`:
   `andThen(leave(state), children.Home.update({ _tag: 'ProductGone', at }))`. The result has the second step's
   state, and both steps' commands and events, in order. Taking a step's `.state` by hand to make the next one
-  drops its commands and its events.
+  drops its commands and its events. `forEach` is the `andThen` of many: one step for each item, each made from
+  the state the previous one left, e.g. a message to every child by id,
+  `forEach({ state }, state.rows, ({ id }) => children.Row.update(id, Cleared()))`. Both take the step last as
+  well, for a chain written with Effect's `pipe`: `pipe({ state }, andThen(leave), forEach(ids, clear))`.
 
   A parent's `init` is a function of them, so that a child there from the start is started like any other:
   `children.Clock.init` holds its state and its commands, lifted. Reading `Clock.clock.init.state` would leave
@@ -702,7 +705,7 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | `Update`, `Transition`, `Step`                    | `(message) => (state) => Step` or `Rejected`; a `Step` is `{ state, commands?, events? }` |
 | `reject`, `Rejected`, `isRejected`                | the rejection `update` returns, and its check                                             |
 | `defect`, `InvariantDefect`                       | `defect(reason)` throws an `InvariantDefect`: a message that cannot arrive, a defect      |
-| `andThen`                                         | a step and the next, made from its state: the next's state, all commands and events       |
+| `andThen`, `forEach`                              | a step and the next made from its state, or one for each item: the last state, all commands and events; dual |
 | `raise`                                           | `(event) => (state) => Step`: a child's event raised as the parent's own                  |
 | `Execution<Message, R>`, `RunCommand`             | `Effect<Option<Message>, never, R>`, how a command happens; `(command) => Execution`      |
 | `Subscription`                                    | a `Channel` of messages that never ends, or ends with one last message; kept by key       |

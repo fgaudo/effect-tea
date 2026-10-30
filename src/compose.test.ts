@@ -4,12 +4,13 @@ import * as Channel from 'effect/Channel'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
+import { pipe } from 'effect/Function'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import * as Stream from 'effect/Stream'
 import type { Subscription } from './subscription.ts'
-import { andThen, isRejected, raise, reject, type Step } from './update.ts'
+import { andThen, forEach, isRejected, raise, reject, type Step } from './update.ts'
 import { type Dispatch, dispatchTo } from './dispatch.ts'
 import { parent } from './compose.ts'
 import { CompositionDefect } from './defect.ts'
@@ -632,6 +633,63 @@ describe('steps that add up', () => {
     )
     expect(step).toEqual({ state: { ticks: 2 }, commands: ['Save', 'Load'], events: ['Saved', 'Loaded'] })
     expect(andThen({ state: noTicks }, (state) => ({ state }))).toEqual({ state: noTicks, commands: [], events: [] })
+  })
+
+  test('andThen with the step last, in a pipe, adds up as with the step first', () => {
+    const next = ({ ticks }: Ticks): Step<Ticks, 'Load'> => ({ state: { ticks: ticks * 10 }, commands: ['Load'] })
+    const first: Step<Ticks, 'Save'> = { state: { ticks: 1 }, commands: ['Save'] }
+    expect(pipe(first, andThen(next), andThen(next))).toEqual(andThen(andThen(first, next), next))
+  })
+
+  test('forEach makes each item\'s step from the state the previous one left, and keeps every step\'s effects', () => {
+    const first: Step<Ticks, string, string> = { state: { ticks: 1 }, commands: ['Save'], events: ['Saved'] }
+    const step = forEach(
+      first,
+      [2, 3],
+      (by) => ({ ticks }) => ({ state: { ticks: ticks * by }, commands: [`Times ${by}`], events: [`${ticks}`] }),
+    )
+    expect(step).toEqual({ state: { ticks: 6 }, commands: ['Save', 'Times 2', 'Times 3'], events: ['Saved', '1', '2'] })
+  })
+
+  test('forEach over no items is the step, with both its lists', () => {
+    expect(forEach({ state: noTicks }, [], () => (state: Ticks) => ({ state }))).toEqual({
+      state: noTicks,
+      commands: [],
+      events: [],
+    })
+  })
+
+  test('forEach with the step last, in a pipe, adds up as with the step first', () => {
+    const times = (by: number) => ({ ticks }: Ticks): Step<Ticks, number> => ({
+      state: { ticks: ticks * by },
+      commands: [by],
+    })
+    expect(pipe({ state: { ticks: 1 } }, forEach([2, 3], times), andThen(times(5))))
+      .toEqual(andThen(forEach({ state: { ticks: 1 } }, [2, 3], times), times(5)))
+  })
+
+  test('a parent that tells each of its children by id the same thing, with forEach, reaches every one', () => {
+    const Clearing = parent<{ state: ListState }>()
+    const clearing = Clearing.compose({
+      init: () => ({ state: { rows: [] } }),
+      children: {
+        Rows: Clearing.each(counter, {
+          get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
+          set: (state, id, counter) => ({ rows: state.rows.map((row) => row.id === id ? { id, counter } : row) }),
+          subscribed: () => [],
+        }),
+      },
+      update: (_: Reset, children) => (state) =>
+        forEach({ state }, state.rows, ({ id }) => children.Rows.update(id, CounterMessage.Cleared())),
+      onEvent: { Rows: () => (state) => ({ state }) },
+      makeModel: () => null,
+    })
+    const counted = (id: number, count: number): Row => ({ id, counter: { ...counter.init.state, count } })
+    expect(clearing.update({ _tag: 'Reset' })({ rows: [counted(1, 4), counted(2, 7)] })).toEqual({
+      state: { rows: [counted(1, 0), counted(2, 0)] },
+      commands: [],
+      events: [],
+    })
   })
 
   // A page that, left, forgets what it held and says so; a home that has nothing to say about it; an app that

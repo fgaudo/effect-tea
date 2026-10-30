@@ -19,6 +19,7 @@ const stopwatchView = (model: Stopwatch.Model, dispatch: Dispatch<Stopwatch.Mess
 export const view: View<Model, Message, VNode> = (model, dispatch) =>
   h('main', [
     h('button', { on: onClick(model.add, dispatch) }, 'Add a stopwatch'),
+    h('button.secondary', { on: onClick(model.stopAll, dispatch) }, 'Stop all'),
     h(
       'ul',
       model.stopwatches.map(({ id, model }) =>

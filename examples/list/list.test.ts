@@ -12,6 +12,7 @@ import * as Stopwatch from './stopwatch.ts'
 import { view } from './view.ts'
 
 const added: Message = { _tag: 'AddClicked' }
+const stoppedAll: Message = { _tag: 'StopAllClicked' }
 const to = (id: number, message: Stopwatch.Message): Message => ({ _tag: 'Stopwatch', id, message })
 
 const state: fc.Arbitrary<State> = fc
@@ -27,9 +28,11 @@ const state: fc.Arbitrary<State> = fc
   )
   .map((entries) => ({ nextId: 21, entries }))
 
-// What a user can ask of the list in `state`: adding, and starting, stopping or removing each stopwatch.
+// What a user can ask of the list in `state`: adding, stopping all, and starting, stopping or removing each
+// stopwatch.
 const userMessages = (state: State) => [
   added,
+  stoppedAll,
   ...state.entries.flatMap(({ id }) =>
     [Stopwatch.Message.Started(), Stopwatch.Message.Stopped(), Stopwatch.Message.RemoveClicked()].map((message) =>
       to(id, message)
@@ -54,6 +57,19 @@ describe('list', () => {
       const { state } = applyAll(list.update)([added, added, to(1, Stopwatch.Message.RemoveClicked())], list.init.state)
       expect(state.entries.map((entry) => entry.id)).toEqual([2])
       expect(isRejected(list.update(to(1, Stopwatch.Message.Stopped()))(state))).toBe(true)
+    })
+
+    test('stopping all stops the running stopwatches and leaves the others as they were', () => {
+      const { state } = applyAll(list.update)(
+        [added, added, added, to(1, Stopwatch.Message.Started()), to(3, Stopwatch.Message.Started()), stoppedAll],
+        list.init.state,
+      )
+      expect(state.entries.map((entry) => entry.stopwatch.watch)).toEqual([
+        Stopwatch.Watch.Stopped(),
+        Stopwatch.Watch.Stopped(),
+        Stopwatch.Watch.Stopped(),
+      ])
+      expect(HashMap.size(subscriptionsOf(list)(state))).toBe(0)
     })
 
     test('only running stopwatches tick, each under its own key', () => {

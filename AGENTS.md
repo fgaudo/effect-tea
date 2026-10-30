@@ -50,11 +50,9 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   removed by this rule. A type that already imposes a rule (`Execution` cannot fail, a `Subscription` ends with
   a message) makes the function that would remind of it superfluous. A form of a declaration that takes a
   standard type of Effect in place of hand-written functions (`at`, an `Optic`, for `get` and `set`) is not a
-  function, and may stay. The one function the rule still admits, not written because nothing needs it yet:
-  `forEach(items, (item) => (state) => Step)` over `Step`, the n-ary `andThen`, for a parent that tells one
-  message to each of its children by id, or starts them in its `init`. It enters with the first example that
-  broadcasts to an `each`, never before, and may make `andThen` and itself dual (`Function.dual`, data-first
-  and data-last) for a chain of steps written in a `pipe`.
+  function, and may stay. `forEach` over `Step`, the n-ary `andThen`, is a fold the rule admits: with it, a parent
+  tells one message to each of its children by id (the `list` example). Both are dual (`Function.dual`), for a
+  chain of steps written in a `pipe`.
 - **Only stable Effect APIs.** A module or function marked `@stability unstable` in Effect's declarations may
   change under the library's users: never build on one, not even as an option. The typecheck fails on one (the
   Effect language service's `unstableApiUsage`), except in `examples/`, which are not published.

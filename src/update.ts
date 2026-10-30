@@ -1,3 +1,6 @@
+import * as Arr from 'effect/Array'
+import { dual } from 'effect/Function'
+
 /**
  * The result of a transition. `commands` are data, what `update` decided to do in the world, turned into
  * effects by the program's `runCommand`. `events` are for the parent (the "OutMsg" pattern): what happened
@@ -46,16 +49,61 @@ export const appendStep = <State, Command, Event>(
  * A step followed by another, made from its state: e.g. a parent's own step, then a child's handle,
  * `andThen(leave(state), children.Home.update({ _tag: 'ProductGone', at }))`. The state is the second's, and the
  * commands and the events are both steps', in order; its lists are always present. Taking a step's `state` by
- * hand to make the next one would drop its commands and its events.
+ * hand to make the next one would drop its commands and its events. It is dual: `andThen(next)` takes the step
+ * last, for a chain of steps written with `pipe`.
  */
-export const andThen = <State, Command1, Event1, Command2, Event2>(
-  step: Step<State, Command1, Event1>,
-  next: (state: State) => Step<State, Command2, Event2>,
-): Step<State, Command1 | Command2, Event1 | Event2> =>
-  appendStep<State, Command1 | Command2, Event1 | Event2>(
-    { state: step.state, commands: step.commands ?? [], events: step.events ?? [] },
-    next(step.state),
-  )
+export const andThen: {
+  <State, Command2, Event2>(
+    next: (state: State) => Step<State, Command2, Event2>,
+  ): <Command1, Event1>(step: Step<State, Command1, Event1>) => Step<State, Command1 | Command2, Event1 | Event2>
+  <State, Command1, Event1, Command2, Event2>(
+    step: Step<State, Command1, Event1>,
+    next: (state: State) => Step<State, Command2, Event2>,
+  ): Step<State, Command1 | Command2, Event1 | Event2>
+} = dual(
+  2,
+  <State, Command1, Event1, Command2, Event2>(
+    step: Step<State, Command1, Event1>,
+    next: (state: State) => Step<State, Command2, Event2>,
+  ): Step<State, Command1 | Command2, Event1 | Event2> =>
+    appendStep<State, Command1 | Command2, Event1 | Event2>(
+      { state: step.state, commands: step.commands ?? [], events: step.events ?? [] },
+      next(step.state),
+    ),
+)
+
+/**
+ * A step followed by one more for each item, in order, each made from the state the previous one left: the
+ * `andThen` of many. E.g. a parent that tells each of its children by id the same thing,
+ * `forEach({ state }, ids, (id) => children.Row.update(id, Cleared()))`. The state is the last one's, and the
+ * commands and the events are every step's, in order; its lists are always present. It is dual:
+ * `forEach(items, next)` takes the step last, for a chain of steps written with `pipe`.
+ */
+export const forEach: {
+  <Item, State, Command2, Event2>(
+    items: Iterable<Item>,
+    next: (item: Item) => (state: State) => Step<State, Command2, Event2>,
+  ): <Command1, Event1>(step: Step<State, Command1, Event1>) => Step<State, Command1 | Command2, Event1 | Event2>
+  <State, Command1, Event1, Item, Command2, Event2>(
+    step: Step<State, Command1, Event1>,
+    items: Iterable<Item>,
+    next: (item: Item) => (state: State) => Step<State, Command2, Event2>,
+  ): Step<State, Command1 | Command2, Event1 | Event2>
+} = dual(
+  3,
+  <State, Command1, Event1, Item, Command2, Event2>(
+    step: Step<State, Command1, Event1>,
+    items: Iterable<Item>,
+    next: (item: Item) => (state: State) => Step<State, Command2, Event2>,
+  ): Step<State, Command1 | Command2, Event1 | Event2> => {
+    const first: Folded<State, Command1 | Command2, Event1 | Event2> = {
+      state: step.state,
+      commands: step.commands ?? [],
+      events: step.events ?? [],
+    }
+    return Arr.reduce(items, first, (folded, item) => appendStep(folded, next(item)(folded.state)))
+  },
+)
 
 /**
  * An event a parent has nothing to say about, raised as its own for its own parent to handle, the state

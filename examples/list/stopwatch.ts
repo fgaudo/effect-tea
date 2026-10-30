@@ -1,5 +1,5 @@
 // A stopwatch that ticks every second while it runs: its subscription exists only in the running state. It
-// asks its parent to be removed with an event.
+// asks its parent to be removed with an event, and its parent may halt it, in any state.
 import { defect, type Program, reject, type Subscription, type Update } from '@fgaudo/effect-tea'
 import * as Channel from 'effect/Channel'
 import * as Data from 'effect/Data'
@@ -17,11 +17,14 @@ export type Message = Data.TaggedEnum<{
   Stopped: object
   Ticked: object
   RemoveClicked: object
+  Halted: object
 }>
 
 export const Message = Data.taggedEnum<Message>()
 
 export type Event = Readonly<{ _tag: 'RemoveRequested' }>
+
+export type External = Data.TaggedEnum.Value<Message, 'Halted'>
 
 export const update: Update<State, Message, never, Event> = (message) => (state) => {
   switch (message._tag) {
@@ -37,6 +40,8 @@ export const update: Update<State, Message, never, Event> = (message) => (state)
         : defect('A tick while the stopwatch was stopped')
     case 'RemoveClicked':
       return { state, events: [{ _tag: 'RemoveRequested' }] }
+    case 'Halted':
+      return { state: state.watch._tag === 'Running' ? { ...state, watch: Watch.Stopped() } : state }
   }
 }
 
@@ -55,7 +60,13 @@ export type Model = Readonly<{
   }>
 }>
 
-export const stopwatch: Program<{ state: State; model: Model; message: Message; event: Event }> = {
+export const stopwatch: Program<{
+  state: State
+  model: Model
+  message: Message
+  event: Event
+  external: External
+}> = {
   init: { state: { seconds: 0, watch: Watch.Stopped() } },
   update,
   subscriptions: (state) => state.watch._tag === 'Running' ? HashMap.make(['ticks', ticks]) : HashMap.empty(),
