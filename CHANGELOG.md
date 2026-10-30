@@ -16,7 +16,19 @@ version, and everything else, features included, the patch version.
 
 ### Changed
 
-- The README's "When `update` rejects" says who promises that a message cannot arrive: the program's state,
+- The README says what it left out or got wrong of the library: which rejections fail which testing tool
+  (`simulate` fails on a subscription's message, which the test sends, and `applyAll` runs no command), that only
+  a program without events runs, every place a `ProgramDefect` says a defect happened, that a view may leave out
+  what a test lists as `withheld`, that `ActsTwice` also counts commands and events, that a parent's commands
+  are its children's too and run by their `runCommand`, that `onEvent` is required exactly when a child has
+  events, and that the model of a child that is not there is a `CompositionDefect`.
+- The README is reorganized. A mermaid diagram of the loop opens it, drawn on GitHub and
+  on the documentation site. The "Guide" starts with the anatomy of a program, which was in the quick start, and
+  has a section for the view, holding the inputs the user types into. "When `update` rejects" is now "Rejections
+  and defects", with a table that sets one against the other. "Composing programs" is now "Composition", split
+  into four parts. "Testing" starts with how a program is tested, then the tools. The quick start's `update`
+  reads with `if`, without nested ternaries.
+- The README's "Rejections and defects" says who promises that a message cannot arrive: the program's state,
   kept by the run, as for a completion only its operation awaits or a key the state no longer lists. What the
   view draws never promises it, and an event keeps the timing of its cause: a message of the view, or an event
   raised for one, is rejected (`{ state }` in `onEvent`), never a defect.

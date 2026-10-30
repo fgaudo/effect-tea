@@ -74,7 +74,7 @@ are kept, and what a change must not undo:
 - **`update` is pure and called freely.** Tests call it more than once per message (`dispatchViolations` sends
   each one twice): never assume it runs once per message.
 - **`reject` means one thing: the message does not apply in the state.** The run ignores every rejection, and
-  whether the view sends only what applies is for the tests ("When `update` rejects" in the README). Never add
+  whether the view sends only what applies is for the tests ("Rejections and defects" in the README). Never add
   a runtime check of the model against `update`, nor a way for a model to ask `update` what it accepts: the
   model, read from the state, and `update` are two derivations that tests check against each other, and a
   model that asked would make a wrong rejection a control that silently disappears. A `defect` is only for a
