@@ -4,6 +4,7 @@
   "compilerOptions": {
     "lib": ["ES2022", "DOM"],
     "customConditions": ["bun"],
+    "jsx": "react-jsx",
     // Replaces the plugin of ../tsconfig.json rather than merging with it: only the library is held to stable APIs.
     "plugins": [
       {

@@ -24,6 +24,11 @@ examples/<name>/
 
 What the examples share, in `examples/`: [`snabbdom.ts`](../../../examples/snabbdom.ts), the bridge to the
 renderer (`renderInto` for `run`, `onClick`, `onInput`, `initialValue`, and `messagesSentBy` for tests);
+[`react.ts`](../../../examples/react.ts), the same bridge for React, which only
+[`counter-react`](../../../examples/counter-react) and [`form-react`](../../../examples/form-react) use, to show
+that a program does not change with its renderer (each imports the program of `counter` or `form`, and has a
+`view.tsx` and its own test of the view only), with [`react.test.ts`](../../../examples/react.test.ts), its test
+in a DOM;
 [`field.ts`](../../../examples/field.ts), a text the user types into and the program may replace;
 [`style.css`](../../../examples/style.css); [`preload.ts`](../../../examples/preload.ts), which `bun test`
 loads first (`bunfig.toml`); [`snabbdom.test.ts`](../../../examples/snabbdom.test.ts), the bridge's own test;
@@ -46,17 +51,18 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
   (`form/form.ts`'s `save`, `list/stopwatch.ts`'s `watch`), never flags; `reject` for a message that may
   arrive and does not apply, and a thrown error for one that cannot arrive (a completion outside the state that
   only it leaves, a tick while stopped), which the test checks as a defect.
-- **The view** follows the README's "Guide". snabbdom's props module never removes a prop, so a view sets a
-  prop such as `disabled` in every case of an element (`counter/view.ts`). An input follows "Inputs the user
+- **The view** follows the README's "Guide", and is drawn with snabbdom: React is for `counter-react` and
+  `form-react` alone, so that the examples share one bridge. snabbdom's props module never removes a prop, so a
+  view sets a prop such as `disabled` in every case of an element (`counter/view.ts`). An input follows "Inputs the user
   types into": `update` accepts typing in every state the input exists in, and the view writes a text only
   into a new input (`initialValue`, with a `Field`'s `revision` as the input's `key`). A child's view is
   memoized with snabbdom's `thunk`, its dispatch from `dispatchTo` among the arguments (`pages/view.ts`).
 - **The test** shows the testing tools on the example, from the cheapest that proves the point: `applyAll` and
   `dispatchViolations` always (with `messagesSentBy(view, model)`, which renders the view and fires every
   handler, for what the view sends), then `simulate`, `rehearse` or `drive` for what needs them. It runs
-  without a DOM: `preload.ts` sets `window` to `undefined` so that snabbdom loads, and only `snabbdom.test.ts`
-  registers happy-dom. A check that needs a DOM (how often the bridge draws, a click on a drawn button, typing
-  while frames are drawn) goes into `snabbdom.test.ts`.
+  without a DOM: `preload.ts` sets `window` to `undefined` so that snabbdom loads, and only the bridges' tests
+  register happy-dom. A check that needs a DOM (how often the bridge draws, a click on a drawn button, typing
+  while frames are drawn) goes into the test of the bridge the example uses.
 
 ## Run it
 

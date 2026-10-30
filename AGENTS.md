@@ -64,6 +64,10 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   workaround: ask whether to use it and raise the minimum (`upgrade-effect`).
 - **A change a consumer can notice has a changelog entry** in the same commit, and raises the version when it
   needs more than the unreleased section says (`release`).
+- **The README is a specification.** Its "Guide" and "Guarantees" say what the library promises, and
+  applications cite them as rules. Its prose changes one section at a time, each sentence checked against the
+  old one: the same promise, no weaker and no stronger, as the code and the tests keep it. A word that looks
+  minor ("exactly when", "by `Equal`", "never more") is often the rule.
 
 ## Invariants the engine keeps
 
@@ -176,7 +180,8 @@ are kept, and what a change must not undo:
 - A test's name says what it checks. When a change touches a test, or what it tests, check that its name, its
   `describe` and its comments still say what the assertions check: a test adapted to a new design keeps an old
   name that promises what it no longer proves.
-- Only `examples/snabbdom.test.ts` registers a DOM (happy-dom); every other test runs without one.
+- Only the bridges' tests, `examples/snabbdom.test.ts` and `examples/react.test.ts`, register a DOM (happy-dom);
+  every other test runs without one.
 
 ## Checks
 

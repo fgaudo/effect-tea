@@ -24,10 +24,11 @@ flowchart LR
 What it adds to plain Elm:
 
 - **`update` says what does not apply.** It may **reject** a message that makes no sense in the current state,
-  and the run ignores it. A save that moves the form to "saving" then runs once, however fast the user taps. A
-  message that cannot arrive, if it does, is a bug: `update` throws `defect` on it, and the run dies, where a
-  rejection would hide the bug. The testing tools check, for the states a test generates, that the view sends
-  only what `update` accepts, and leaves out nothing it accepts but what it withholds on purpose.
+  and the run ignores it. So a save that moves the form to "saving" runs once, however fast the user taps.
+- **A bug is loud.** A message that cannot arrive is a bug. `update` throws `defect` on it, and the run dies
+  instead of hiding it.
+- **The view is checked against `update`.** The testing tools check, for any state a test generates, that the
+  view sends only what `update` accepts, and leaves out only what the test says it withholds.
 - **Commands are your own data.** Elm's `Cmd` is opaque: a test cannot see what `update` decided. Here a command
   is a value of your own type, which `runCommand` turns into an Effect, so a test asserts it by value.
 - **Composition is declared, not wired.** A parent says where each child lives in its state, and the library
@@ -40,7 +41,7 @@ What it adds to plain Elm:
 - [Examples](#examples)
 - [Guide](#guide): [anatomy](#anatomy-of-a-program), [update](#update), [model](#model), [view](#view),
   [commands](#commands), [subscriptions](#subscriptions), [rejections and defects](#rejections-and-defects),
-  [composition](#composition), [splitting](#splitting-a-program), [running](#running),
+  [composition](#composition), [structuring](#structuring-a-program), [running](#running),
   [guarantees](#guarantees), [testing](#testing)
 - [API reference](#api-reference)
 
@@ -114,22 +115,25 @@ What each piece is, and what else a program may have, is in the [Guide](#guide).
 
 ## Examples
 
-[`examples/`](examples) holds complete programs, drawn with [snabbdom](https://github.com/snabbdom/snabbdom),
-each with its tests. Try one in the browser, or run it with `bun run build`, then
-`bun examples/<name>/index.html`.
+[`examples/`](examples) holds complete programs, each with its tests, drawn with
+[snabbdom](https://github.com/snabbdom/snabbdom), and two of them with React too. Try one in the browser, or run it
+with `bun run build`, then `bun examples/<name>/index.html`.
 
-| Example                       | What it is                   | What it shows                                                                                                       | Try it                                                        |
-| ----------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| [`counter`](examples/counter) | the quick start, with a view | `applyAll`, `dispatchViolations`, `drive`                                                                           | [live](https://fgaudo.github.io/effect-tea/examples/counter/) |
-| [`form`](examples/form)       | a form that saves a name     | an input the user owns while typing; a service; a failure as a message; a save only its completion ends; `rehearse` | [live](https://fgaudo.github.io/effect-tea/examples/form/)    |
-| [`pages`](examples/pages)     | a clock and an About page    | `parent`, optics, `dispatchTo`, events, `subscribed`, a page started from flags; `simulate`                         | [live](https://fgaudo.github.io/effect-tea/examples/pages/)   |
-| [`list`](examples/list)       | stopwatches by id            | `each`, a subscription per running child, `forEach`; a test with a `TestClock`                                      | [live](https://fgaudo.github.io/effect-tea/examples/list/)    |
+| Example                                   | What it is                   | What it shows                                                                                                       | Try it                                                              |
+| ----------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| [`counter`](examples/counter)             | the quick start, with a view | `applyAll`, `dispatchViolations`, `drive`                                                                           | [live](https://fgaudo.github.io/effect-tea/examples/counter/)       |
+| [`counter-react`](examples/counter-react) | the same program, in React   | what changes with the renderer: the view, `main.ts` and the bridge, never the program                               | [live](https://fgaudo.github.io/effect-tea/examples/counter-react/) |
+| [`form`](examples/form)                   | a form that saves a name     | an input the user owns while typing; a service; a failure as a message; a save only its completion ends; `rehearse` | [live](https://fgaudo.github.io/effect-tea/examples/form/)          |
+| [`form-react`](examples/form-react)       | the form, in React           | an uncontrolled input: `defaultValue` and `key`, never `value`                                                      | [live](https://fgaudo.github.io/effect-tea/examples/form-react/)    |
+| [`pages`](examples/pages)                 | a clock and an About page    | `parent`, optics, `dispatchTo`, events, `subscribed`, a page started from flags; `simulate`                         | [live](https://fgaudo.github.io/effect-tea/examples/pages/)         |
+| [`list`](examples/list)                   | stopwatches by id            | `each`, a subscription per running child, `forEach`; a test with a `TestClock`                                      | [live](https://fgaudo.github.io/effect-tea/examples/list/)          |
 
-[`examples/snabbdom.ts`](examples/snabbdom.ts) is the small bridge to the renderer, worth copying for your
-own: `renderInto` for `run`, click and input handlers, and `messagesSentBy` for tests.
-[`examples/snabbdom.test.ts`](examples/snabbdom.test.ts) runs it in a DOM, with
-[happy-dom](https://github.com/capricorn86/happy-dom). It checks how often the bridge draws, and that what the
-user types survives the frames drawn meanwhile.
+[`examples/snabbdom.ts`](examples/snabbdom.ts) and [`examples/react.ts`](examples/react.ts) are the small
+bridges to the two renderers, worth copying for your own: `renderInto` for `run`, handlers, and
+`messagesSentBy` for tests. Their tests, [`examples/snabbdom.test.ts`](examples/snabbdom.test.ts) and
+[`examples/react.test.ts`](examples/react.test.ts), run them in a DOM, with
+[happy-dom](https://github.com/capricorn86/happy-dom). They check how often a bridge draws, that a click reaches
+the program, and that what the user types survives the frames drawn meanwhile.
 
 ## Guide
 
@@ -166,19 +170,8 @@ that cannot arrive, whose arrival is a bug, it throws `defect(reason)`, and the 
 - **Keep it pure.** It returns commands instead of running effects.
 - **Never mutate the state**, nested objects included: return a new one. A message that returns the very same
   state draws no new frame.
-- **Conditions live here.** "Can the user save now?" is answered once, by rejecting. The view never repeats
-  the check.
-- **Name intents, not toggles.** `MenuOpened` and `MenuClosed`, not `MenuToggled`. An intent sent twice does
-  what it did once; a toggle undoes itself.
-- **One-shot actions move to a state that rejects them.** After `SaveClicked` the form is saving and rejects
-  a second `SaveClicked`, so a double click saves once.
-- **One state machine per concern, no flags.** The save, the selection, the data being loaded: each is a union
-  with a case per state (`Idle | Saving | Failed`), holding only what exists in it. Flags that combine
-  (`isSaving`, `hasFailed`) allow combinations that cannot be; a union makes them fail to compile, and `update`
-  matches on the case.
-- **No derived data in the state.** What follows from it is computed in `makeModel`. A value that depends on
-  time is computed there too, from a `now` that a subscription keeps in the state, as the clock of
-  [`pages`](examples/pages/clock.ts) does.
+
+How to shape the state and its messages is in [structuring a program](#structuring-a-program).
 
 ### Model
 
@@ -209,16 +202,8 @@ const makeModel = (state: State): Editor => {
 - **Pick the case from the state, as `update` reads it.** A model that shows "Save" where `update` rejects
   `SaveClicked` has a button that does nothing. The run does not check it; a test does, with the
   [testing](#testing) tools, for any state it generates.
-- **Show less than `update` accepts, never more.** What it leaves out on purpose, a test lists as `withheld`
-  (see [testing](#testing)); anything else left out is a control missing from the screen.
-- **A view draws, it never decides.** It matches the model's tags and formats its values (a date, a count, a
-  text). It computes no condition from data (`items.length === 0`), combines no fields, and applies no rule and
-  no fallback. What a view would decide, `makeModel` decides, as a case named for the state the screen tells
-  apart (`Empty | Listed`, `Loading | Loaded`), never a boolean. An `Option` is such a case only when
-  "missing" is all the screen tells apart.
-- **Input is never a reason to reject.** The input keeps what the user typed whatever `update` says (see
-  [view](#view)), so a value `update` rejects would leave on screen a text the state does not have. Store what
-  is typed, and make its validity model data: show "Save" only for a name that is not blank.
+
+What a model shows, and what a view may decide, is in [structuring a program](#structuring-a-program).
 
 With its messages in the model, as here, a view sends only what the model holds. Export `Message` as a type
 only, and no view can build one. A view may also build its messages itself, from a model of data alone. The
@@ -231,8 +216,13 @@ A view is `(model, dispatch) => Node`, and `dispatch` takes the program's messag
 handles it with its own services. A renderer whose handlers are plain callbacks, like snabbdom's, runs it at
 once with `Effect.runSync(dispatch(message))`, or with a runtime of its own: either is right.
 
-The library ships no renderer. [`examples/snabbdom.ts`](examples/snabbdom.ts) is one, small enough to copy, and
-a bridge to React or React Native is written the same way: draw each frame, and run `dispatch` in the handlers.
+The library ships no renderer. A bridge to one does three things: it draws each frame, runs `dispatch` in the
+handlers, and, for tests, finds what a view sends (`messagesSentBy`).
+[`examples/snabbdom.ts`](examples/snabbdom.ts) and [`examples/react.ts`](examples/react.ts) are two, each small
+enough to copy. [`counter-react`](examples/counter-react) and [`form-react`](examples/form-react) draw the
+programs of [`counter`](examples/counter) and [`form`](examples/form) with the second. In React, a view stays a
+function of its model, called by the bridge, never a component with state or hooks; React only draws what it
+returns. React Native's bridge is written the same way.
 
 #### Inputs the user types into
 
@@ -244,8 +234,8 @@ just typed. Let one side own the text at a time:
 - **When the program replaces it** (e.g. clears the form after saving), it changes the input's `key`, so that
   the renderer creates a new input with the new text.
 
-[`examples/field.ts`](examples/field.ts) packages this, and [`form`](examples/form) uses it. React Native
-does the same with `defaultValue` and `key`.
+[`examples/field.ts`](examples/field.ts) packages this, and [`form`](examples/form) uses it. React and React
+Native do the same with `defaultValue` and `key`, never `value`, as [`form-react`](examples/form-react) does.
 
 ### Commands
 
@@ -283,10 +273,9 @@ expect(commands).toEqual([Command.Save({ name: 'Ada' })])
   outlive a command is a service provided around `run`, or a subscription.
 - **Commands cannot be cancelled.** Once started, a command runs to its end and its message arrives, even if
   the state has moved on. `update` then decides whether the answer still applies (see
-  [rejections and defects](#rejections-and-defects)). Model the operation as a state that only its completion
-  leaves, as [`form`](examples/form/form.ts) does: the state then cannot have moved on, and a completion
-  anywhere else is a bug, a `defect`. This keeps commands plain data, and a save is never cut in half. Work
-  that should stop is a [subscription](#subscriptions).
+  [rejections and defects](#rejections-and-defects)). An operation that is a state only its completion leaves
+  has no outdated answer (see [structuring a program](#structuring-a-program)). This keeps commands plain data,
+  and a save is never cut in half. Work that should stop is a [subscription](#subscriptions).
 
 A command's services are its operations, and the layer around `run` their handlers. This is where a program
 performs effects, in the algebraic sense, and where a handler lives. `update` performs none. What a child asks
@@ -553,7 +542,43 @@ when it arrives. If a row is removed and another is added with its id, the new r
 answer. Use ids that are never reused, or put in the message which row it is for, so that the new row's
 `update` rejects the old answer. Subscriptions do not need this: a row that is removed stops them.
 
-### Splitting a program
+### Structuring a program
+
+The sections above say what the library does. These rules say how to write a program so that what it promises
+holds, and its tests can check it. The library does not enforce them; the examples follow them.
+
+#### State and messages
+
+- **Conditions live in `update`.** "Can the user save now?" is answered once, by rejecting. The view never
+  repeats the check.
+- **Name intents, not toggles.** `MenuOpened` and `MenuClosed`, not `MenuToggled`. An intent sent twice does
+  what it did once; a toggle undoes itself.
+- **One-shot actions move to a state that rejects them.** After `SaveClicked` the form is saving and rejects
+  a second `SaveClicked`, so a double click saves once.
+- **An operation is a state that only its completion leaves**, as the save of [`form`](examples/form/form.ts)
+  is. When its answer arrives, the state cannot have moved on, and a completion anywhere else is a `defect`.
+- **One state machine per concern, no flags.** The save, the selection, the data being loaded: each is a union
+  with a case per state (`Idle | Saving | Failed`), holding only what exists in it. Flags that combine
+  (`isSaving`, `hasFailed`) allow combinations that cannot be; a union makes them fail to compile, and `update`
+  matches on the case.
+- **No derived data in the state.** What follows from it is computed in `makeModel`. A value that depends on
+  time is computed there too, from a `now` that a subscription keeps in the state, as the clock of
+  [`pages`](examples/pages/clock.ts) does.
+
+#### Model and view
+
+- **Show less than `update` accepts, never more.** What it leaves out on purpose, a test lists as `withheld`
+  (see [testing](#testing)); anything else left out is a control missing from the screen.
+- **A view draws, it never decides.** It matches the model's tags and formats its values (a date, a count, a
+  text). It computes no condition from data (`items.length === 0`), combines no fields, and applies no rule and
+  no fallback. What a view would decide, `makeModel` decides, as a case named for the state the screen tells
+  apart (`Empty | Listed`, `Loading | Loaded`), never a boolean. An `Option` is such a case only when
+  "missing" is all the screen tells apart.
+- **Input is never a reason to reject.** The input keeps what the user typed whatever `update` says (see
+  [view](#view)), so a value `update` rejects would leave on screen a text the state does not have. Store what
+  is typed, and make its validity model data: show "Save" only for a name that is not blank.
+
+#### Splitting a program
 
 A program lives in one module until it is too large. Then it splits into children, each a program of its own:
 
@@ -696,9 +721,9 @@ test('the view sends what update accepts, all of it', () => {
 
 - `program.makeModel(state)` makes a model as `run` does, so a property test can draw the view in any state,
   and `subscriptionsOf(program)(state)` says what the program listens to there.
-- `messagesSentBy` is not in the package. It comes from the example bridge
-  ([`examples/snabbdom.ts`](examples/snabbdom.ts)), which renders the view and fires every handler. A
-  renderer of your own needs one like it.
+- `messagesSentBy` is not in the package. It comes from the example bridges
+  ([`examples/snabbdom.ts`](examples/snabbdom.ts), [`examples/react.ts`](examples/react.ts)), which draw the
+  view and fire every handler. A renderer of your own needs one like it.
 
 #### The tools
 

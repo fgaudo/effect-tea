@@ -13,6 +13,9 @@ A change a consumer can notice adds an entry to [`CHANGELOG.md`](../../../CHANGE
 under the `(unreleased)` version: `Changed`, `Added` or `Fixed`, and a breaking change says how to upgrade, with
 the old and the new spelling. Changes only to tests, tooling or internals add none.
 
+An entry says what changes for whoever upgrades, in a few lines. A change to the README or the examples is one
+entry of a line or two, naming the sections: what they now say is read in the README, not retold here.
+
 ## The version
 
 Versions follow [semantic versioning](https://semver.org). The first change that needs an entry after a release

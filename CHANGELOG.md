@@ -16,26 +16,13 @@ version, and everything else, features included, the patch version.
 
 ### Changed
 
-- The README says what it left out or got wrong of the library: which rejections fail which testing tool
-  (`simulate` fails on a subscription's message, which the test sends, and `applyAll` runs no command), that only
-  a program without events runs, every place a `ProgramDefect` says a defect happened, that a view may leave out
-  what a test lists as `withheld`, that `ActsTwice` also counts commands and events, that a parent's commands
-  are its children's too and run by their `runCommand`, that `onEvent` is required exactly when a child has
-  events, and that the model of a child that is not there is a `CompositionDefect`.
-- The README's "Running" says that the run never recovers from a defect, and that the app may, around it. Its
-  example reported an interruption as a crash.
-- The README's "What it adds to plain Elm" names commands as data of your own, which Elm's opaque `Cmd` is not,
-  where it named views cheap to memoize, which Elm's `Html.Lazy` makes them too.
-- The README is reorganized. A mermaid diagram of the loop opens it, drawn on GitHub and
-  on the documentation site. The "Guide" starts with the anatomy of a program, which was in the quick start, and
-  has a section for the view, holding the inputs the user types into. "When `update` rejects" is now "Rejections
-  and defects", with a table that sets one against the other. "Composing programs" is now "Composition", split
-  into four parts. "Testing" starts with how a program is tested, then the tools. The quick start's `update`
-  reads with `if`, without nested ternaries.
-- The README's "Rejections and defects" says who promises that a message cannot arrive: the program's state,
-  kept by the run, as for a completion only its operation awaits or a key the state no longer lists. What the
-  view draws never promises it, and an event keeps the timing of its cause: a message of the view, or an event
-  raised for one, is rejected (`{ state }` in `onEvent`), never a defect.
+- The README is reorganized and corrected. A diagram of the loop opens it. The "Guide" starts with the anatomy
+  of a program, and has sections for the view, for rejections and defects (who promises that a message cannot
+  arrive: the state, never the view), for composition, and for structuring a program, which gathers the rules
+  the library does not enforce. "Running" says that the run never recovers from a defect. "Testing" says which
+  rejections fail which tool.
+- The `counter-react` and `form-react` examples draw the programs of `counter` and `form` with React, through
+  `examples/react.ts`, a bridge to copy as `examples/snabbdom.ts` is.
 
 ## 0.7.1 (2026-10-28)
 
