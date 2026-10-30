@@ -79,7 +79,9 @@ are kept, and what a change must not undo:
   whether the view sends only what applies is for the tests ("When `update` rejects" in the README). Never add
   a runtime check of the model against `update`, nor a way for a model to ask `update` what it accepts: the
   model, read from the state, and `update` are two derivations that tests check against each other, and a
-  model that asked would make a wrong rejection a control that silently disappears.
+  model that asked would make a wrong rejection a control that silently disappears. A `defect` is only for a
+  message the state and the engine together rule out, never one that what was drawn rules out: an example
+  never dies on a message of its view, nor on an event raised for one.
 - **A parent and its children talk only through external messages and events**, so that `reject` means the
   same everywhere: a handle's `update` returns a step, never a rejection, and a child rejecting an external
   message, or a parent giving one to a child that is not there, is a defect: a `CompositionDefect`, as every

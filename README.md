@@ -332,6 +332,24 @@ nothing is saving: the run dies with a `ProgramDefect` naming the message, as it
 other error. `defect` is an expression, for a branch of a ternary or a `Match`. It is for the synchronous
 functions (`update`, `onEvent`, `makeModel`, `subscriptions`); inside an Effect, `Effect.die` stays.
 
+"Cannot arrive" is a promise of the program's state, kept by the run. The state says that only a completion
+leaves an operation, and a command answers once. The state stops listing a key, and the run drops what that
+subscription sent. Nothing else makes that promise:
+
+- **What the view draws never does.** A tap may come from a frame drawn before, from two fingers in one frame,
+  or from a control still on screen while it animates away. A message of the view may arrive in any state, and
+  is rejected where it does not apply, whatever the model showed.
+- **An event keeps the timing of its cause.** A child that raises an event for a click raises it whenever the
+  click comes, so the parent's `onEvent` cannot rule it out by its own state either. A handler answers with a
+  step, never with `reject`: one that does not apply answers `{ state }`, as [`pages`](examples/pages/app.ts)
+  does when About is asked for while it is open. A completion promises something of the child's state, not of
+  its parent's: an event raised for one rules out a parent's state only where the parent's own state promises
+  it too.
+
+To tell them apart, ask whether the message could reach that state while the program's code and the library's
+are right. If a fast finger, a slow frame or another device is enough, it is a `reject`. If only a bug can
+bring it there, it is a `defect`.
+
 Whether the view sends only what applies is for the tests: `dispatchViolations` checks it for the states a test
 generates, and the tools in which the test decides when each message arrives fail on a rejected message of the
 view:

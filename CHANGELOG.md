@@ -3,6 +3,15 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
+## 0.7.2 (unreleased)
+
+### Changed
+
+- The README's "When `update` rejects" says who promises that a message cannot arrive: the program's state,
+  kept by the run, as for a completion only its operation awaits or a key the state no longer lists. What the
+  view draws never promises it, and an event keeps the timing of its cause: a message of the view, or an event
+  raised for one, is rejected (`{ state }` in `onEvent`), never a defect.
+
 ## 0.7.1 (2026-10-28)
 
 ### Added
