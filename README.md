@@ -26,7 +26,8 @@ What it adds to plain Elm:
 - **`update` says what does not apply.** It may **reject** a message that makes no sense in the current state,
   and the run ignores it. So a save that moves the form to "saving" runs once, however fast the user taps.
 - **A bug is loud.** A message that cannot arrive is a bug. `update` throws `defect` on it, and the run dies
-  instead of hiding it.
+  instead of hiding it. The app, around the run, decides what the user sees next: a crash screen, or the
+  program started again (see [running](#running)).
 - **The view is checked against `update`.** The testing tools check, for any state a test generates, that the
   view sends only what `update` accepts, and leaves out only what the test says it withholds.
 - **Commands are your own data.** Elm's `Cmd` is opaque: a test cannot see what `update` decided. Here a command
