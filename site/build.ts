@@ -1,5 +1,6 @@
 // Builds the documentation site into `site/dist/`: the API reference generated from `src/`, with the README as
-// its home page, and the examples bundled to run in the browser under `examples/<name>/`.
+// its home page and its diagrams drawn by `mermaid.ts`, and the examples bundled to run in the browser under
+// `examples/<name>/`.
 import { $, Glob } from 'bun'
 
 const here = import.meta.dir
@@ -12,7 +13,10 @@ const readme = (await Bun.file(`${root}/README.md`).text()).replace(
   `](https://github.com/fgaudo/effect-tea/tree/${revision}/$1)`,
 )
 await Bun.write(`${here}/.build/README.md`, readme)
+await $`bun build custom.ts --outfile .build/custom.js --format iife --target browser --minify`.cwd(here)
 await $`bunx typedoc --readme .build/README.md --gitRevision ${revision}`.cwd(here)
+// Split, so that a page loads only the kinds of diagram it draws.
+await $`bun build mermaid.ts --outdir ${dist}/assets/mermaid --splitting --target browser --minify`.cwd(here)
 // The examples import the package by its name, which a browser bundle resolves to the package's `dist/`.
 await $`bun run build`.cwd(root)
 const examples = await Array.fromAsync(new Glob('examples/*/index.html').scan({ cwd: root, absolute: true }))

@@ -6,5 +6,7 @@
   "out": "dist",
   "includeVersion": true,
   "validation": { "notExported": false },
-  "headings": { "readme": false }
+  "headings": { "readme": false },
+  "ignoredHighlightLanguages": ["mermaid"],
+  "customJs": ".build/custom.js"
 }
