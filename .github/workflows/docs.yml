@@ -28,7 +28,9 @@ jobs:
       - run: bun run test
       - run: bun install --frozen-lockfile
         working-directory: site
-      - run: bun audit
+      # TypeDoc 0.28.20 needs minimatch 10, and the fix of this advisory is in minimatch 11 alone. The site's globs
+      # are its own configuration. Remove the ignore once TypeDoc depends on a minimatch with the fix.
+      - run: bun audit --ignore=GHSA-g3hv-75wg-m249
         working-directory: site
       - run: bun run build
         working-directory: site

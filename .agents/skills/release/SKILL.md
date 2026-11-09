@@ -63,4 +63,6 @@ site, TypeDoc leaves them as code (`ignoredHighlightLanguages`), and `site/custo
 on every page, imports `site/mermaid.ts` only on a page that has one, bundled apart into `assets/mermaid/`.
 `site/package.json` overrides `katex`, which mermaid depends on, to a version without the advisory that
 `bun audit` reports, since the docs workflow stops on it. Remove the override once mermaid depends on such a
-version.
+version. The site's audit ignores one advisory of minimatch, which TypeDoc depends on: its fix is in minimatch 11
+alone, which TypeDoc 0.28.20 does not take, and an override to it breaks TypeDoc. The workflows' comment says when
+the ignore goes.
