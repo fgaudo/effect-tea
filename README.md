@@ -5,6 +5,9 @@ The Elm architecture on [Effect](https://effect.website) v4, for any renderer.
 [Documentation](https://fgaudo.github.io/effect-tea/): this guide, the API in full and the examples running in
 the browser.
 
+[effect-tea-persistent](https://fgaudo.github.io/effect-tea-persistent/) brings the same architecture to long-lived
+entities on a server, whose state a database keeps. It is experimental, and not published yet.
+
 You keep one **state**. A pure **`update`** changes it in response to messages. Effects are described as
 data (**commands**) or listened to (**subscriptions**), never run inside `update`. The view draws a
 **model**, made from the state, and sends messages.
