@@ -1,19 +1,20 @@
 // The bridge in a DOM (happy-dom), with screen refreshes that happen only when a test paints. What the other
 // tests cannot see: how often `renderInto` draws, that a click on a drawn button reaches the program, and that
-// what the user types survives the frames drawn while they type.
+// what the user types survives the frames drawn while they type. And that `messagesSentBy` keeps the contract
+// the README's "Testing" sets for one.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
-import { type Frame, run, type View } from '@fgaudo/effect-tea'
+import { type Dispatch, dispatchTo, type Frame, run, type View } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Fiber from 'effect/Fiber'
 import type * as Stream from 'effect/Stream'
-import type { VNode } from 'snabbdom'
+import { h, thunk, type VNode } from 'snabbdom'
 import { counter } from './counter/counter.ts'
 import { view as counterView } from './counter/view.ts'
 import { form } from './form/form.ts'
 import { Storage } from './form/storage.ts'
 import { view as formView } from './form/view.ts'
-import { renderInto } from './snabbdom.ts'
+import { messagesSentBy, onClick, onInput, renderInto } from './snabbdom.ts'
 
 // The callbacks waiting for the next screen refresh: none runs until `paint`.
 const waiting = new Map<number, FrameRequestCallback>()
@@ -149,5 +150,37 @@ describe('inputs the user types into', () => {
     expect(replaced).not.toBe(input)
     expect(replaced.value).toBe('')
     expect(element('li').textContent).toBe('Ada')
+  })
+})
+
+describe('messagesSentBy', () => {
+  type Row = 'Tapped'
+  type Message =
+    | Readonly<{ _tag: 'Typed'; text: string }>
+    | Readonly<{ _tag: 'Cleared' }>
+    | Readonly<{ _tag: 'Saved' }>
+    | Readonly<{ _tag: 'Row'; id: number; message: Row }>
+  const send = (dispatch: Dispatch<Message>, message: Message) => () => Effect.runSync(dispatch(message))
+  const rowView = (id: number, dispatch: Dispatch<Row>) => h('button', { on: onClick('Tapped', dispatch) }, String(id))
+  const view: View<ReadonlyArray<number>, Message, VNode> = (ids, dispatch) =>
+    h('div', [
+      h('input', { on: onInput((text): Message => ({ _tag: 'Typed', text }), dispatch) }),
+      h('button', { on: { click: [send(dispatch, { _tag: 'Cleared' }), send(dispatch, { _tag: 'Saved' })] } }),
+      ...ids.map((id) => thunk('button', String(id), rowView, [id, dispatchTo(dispatch, 'Row', id)])),
+    ])
+
+  test('gives every input the text typed', () => {
+    expect(messagesSentBy(view, [], 'Ada')[0]).toEqual({ _tag: 'Typed', text: 'Ada' })
+  })
+
+  test('calls each listener of a list, in order', () => {
+    expect(messagesSentBy(view, []).slice(1)).toEqual([{ _tag: 'Cleared' }, { _tag: 'Saved' }])
+  })
+
+  test('draws each thunk, and records the message of a child as the root of the program receives it', () => {
+    expect(messagesSentBy(view, [1, 2]).slice(3)).toEqual([
+      { _tag: 'Row', id: 1, message: 'Tapped' },
+      { _tag: 'Row', id: 2, message: 'Tapped' },
+    ])
   })
 })
