@@ -13,12 +13,6 @@ when it is done or rejected, with the reason in the commit.
 - **The declarations are checked with TypeScript 7 only.** Many consumers are still on 5.x or 6, and the
   conditional types of `compose.ts` (`Handles`, `OnEventOf`, `NoClash`) are the kind whose behaviour changes
   between versions.
-- **A parent's subscriptions cost O(children) on every change of state.** `subscriptions` in `compose.ts`
-  recomputes, for every child, its `HashMap` and wraps each subscription in new `Channel.map`/`Channel.mapDone`,
-  even when the child's state is the same object. For `each` with many children (a list of a thousand rows that
-  tick), every message rebuilds a thousand maps that the engine then discards for the kept keys. Models are
-  already kept by state object (`modelsOf`); subscriptions could be too, once it is settled that `subscriptions`
-  is as pure as `makeModel` and the README says so.
 - **`onApplied` and `onIgnored` hold the loop.** It is documented ("it should be quick"), but a slow devtools slows
   the whole program, and nothing shows how to hand the work off (a queue of its own, a forked fiber).
 - **The order of a step's commands is not stated.** They run concurrently in the run's `FiberSet`, with no bound,
@@ -31,10 +25,8 @@ when it is done or rejected, with the reason in the commit.
 - **A smoke test of the package in the CI**: after `bun pm pack`, install the tarball in a temporary project, run
   the quick start with Node, and typecheck it with `moduleResolution` `nodenext` and `bundler`, under the oldest
   TypeScript the package supports. This covers the first two problems.
-- **Keep a child's lifted subscriptions by its state object**, as its model is, with a benchmark on a list of many
-  children to show the gain.
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is
-  drawn" from regressing.
+  drawn" from regressing. `bun run bench` (`bench/subscriptions.ts`) measures a parent's subscriptions only.
 - **`messagesSentBy` is written again by every bridge.** Either the testing tools take a generic helper over an
   abstract tree of handlers, or the README states its contract precisely enough to write one.
 - **A `CompositionDefect` names the child, not the message**: the one for a rejected external message could carry

@@ -41,6 +41,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p examples",
     "lint": "biome lint . && oxlint --type-aware",
     "test": "bun test",
+    "bench": "bun bench/subscriptions.ts",
     "prepare": "bunx effect-tsgo patch --typescript --no-oxlint"
   },
   "peerDependencies": {

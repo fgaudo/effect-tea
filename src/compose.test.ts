@@ -505,6 +505,58 @@ describe('children by id', () => {
       ['Tickers', 8, 'ticks'],
     ])
   })
+
+  // Rows of tickers, each in a state of its own; `calls` counts the calls of the ticker's `subscriptions`.
+  const countedTickers = () => {
+    const counted = { calls: 0 }
+    const Tickers = parent<{ state: Readonly<{ rows: ReadonlyArray<Readonly<{ id: number; ticks: Ticks }>> }> }>()
+    const tickers = Tickers.compose({
+      init: () => ({ state: { rows: [] } }),
+      children: {
+        Tickers: Tickers.each({
+          ...ticker,
+          subscriptions: () => {
+            counted.calls++
+            return HashMap.make(['ticks', ticks])
+          },
+        }, {
+          get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.ticks),
+          set: (state, id, ticks) => ({ rows: state.rows.map((row) => row.id === id ? { id, ticks } : row) }),
+          subscribed: (state) => state.rows.map(({ id, ticks }) => [id, ticks] as const),
+        }),
+      },
+      makeModel: () => null,
+    })
+    return { counted, subscriptions: subscriptionsOf(tickers) }
+  }
+
+  test('a child\'s subscriptions are kept while its state is the same object, and made again for a new one', () => {
+    const { counted, subscriptions } = countedTickers()
+    const one = { id: 1, ticks: { ticks: 0 } }
+    const state = { rows: [one, { id: 2, ticks: { ticks: 0 } }] }
+    const first = subscriptions(state)
+    const kept = subscriptions({ rows: [...state.rows] })
+    expect(counted.calls).toBe(2)
+    const lifted = (all: typeof first) => Opt.getOrThrow(HashMap.get(all, ['Tickers', 1, 'ticks']))
+    expect(lifted(kept)).toBe(lifted(first))
+    const changed = subscriptions({ rows: [one, { id: 2, ticks: { ticks: 1 } }] })
+    expect(counted.calls).toBe(3)
+    expect(lifted(changed)).toBe(lifted(first))
+    expect(HashMap.size(changed)).toBe(2)
+  })
+
+  test('children that share one state object each listen with their own id, however often they are asked', () => {
+    const { subscriptions } = countedTickers()
+    const state = { rows: [{ id: 1, ticks: noTicks }, { id: 2, ticks: noTicks }] }
+    const first = (all: ReturnType<typeof subscriptions>, id: number) =>
+      Effect.runSync(Channel.runHead(Opt.getOrThrow(HashMap.get(all, ['Tickers', id, 'ticks']))))
+    for (const all of [subscriptions(state), subscriptions({ rows: [...state.rows] })]) {
+      expect([first(all, 1), first(all, 2)]).toEqual([
+        Opt.some({ _tag: 'Tickers', id: 1, message: { _tag: 'Tick' } }),
+        Opt.some({ _tag: 'Tickers', id: 2, message: { _tag: 'Tick' } }),
+      ])
+    }
+  })
 })
 
 describe('what a parent can do with a child', () => {

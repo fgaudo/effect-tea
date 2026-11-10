@@ -675,8 +675,8 @@ What is left to you:
 - **A slow renderer skips frames**: it gets only the latest one.
 - **The view sends what `update` accepts, all of it but what it withholds on purpose.** The run does not check
   it: `dispatchViolations` does, in tests (see [testing](#testing)).
-- **`update` and `makeModel` are pure, and states are never mutated.** The library reuses a child's model while
-  its state is the same object.
+- **`update`, `makeModel` and `subscriptions` are pure, and states are never mutated.** The library reuses a
+  child's model, and its subscriptions, while its state is the same object.
 
 The library's tests check each guarantee. [`src/interleaving.test.ts`](src/interleaving.test.ts) checks
 them under random orders of clicks, command answers and subscription messages.

@@ -3,6 +3,7 @@
 import * as Arr from 'effect/Array'
 import * as Channel from 'effect/Channel'
 import * as Effect from 'effect/Effect'
+import * as Equal from 'effect/Equal'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import type * as Optic from 'effect/Optic'
@@ -241,6 +242,9 @@ const modelsOf = (program: object) => {
 /** Who receives what a child at `id` sends: `undefined` for a child that is alone. */
 type Place = Readonly<{ name: string; id: unknown }>
 
+/** A child's subscriptions under its parent's keys, `[<child>, key]` or `[<child>, id, key]`. */
+type Lifted = ReadonlyArray<readonly [unknown, Subscription<unknown, unknown>]>
+
 type UntypedChild = Readonly<{
   kind: 'one' | 'each'
   program: AnyProgram
@@ -342,6 +346,24 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
       )(childState),
       (subscription) => subscription.pipe(Channel.map(wrapMessage(place)), Channel.mapDone(wrapMessage(place))),
     )
+  // `subscriptions` is pure, as `makeModel` is: a child's, lifted under its place, are kept for as long as its
+  // state object lives, by every run of this parent. The place is checked rather than keyed, so a state that two
+  // places share is lifted again when it moves from one to the other.
+  const lifted = new WeakMap<object, Readonly<{ place: Place; subscriptions: Lifted }>>()
+  const liftedAt = (place: Place, childState: unknown): Lifted => {
+    // An object, as the types require: a primitive here is a defect, raised by the `WeakMap`.
+    const kept = lifted.get(childState as object)
+    if (kept !== undefined && kept.place.name === place.name && Equal.equals(kept.place.id, place.id)) {
+      return kept.subscriptions
+    }
+    const subscriptions = Arr.map(
+      Arr.fromIterable(subscriptionsAt(place, childState)),
+      ([key, subscription]) =>
+        [isEach(place.name) ? [place.name, place.id, key] : [place.name, key], subscription] as const,
+    )
+    lifted.set(childState as object, { place, subscriptions })
+    return subscriptions
+  }
   const listening = (name: string, state: State): ReadonlyArray<readonly [Place, unknown]> => {
     const { get, subscribed } = childOf(name)
     if (isEach(name)) {
@@ -384,23 +406,26 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
       return ownRunCommand(command as OwnCommand)
     },
     // A child's keys are under its name and id, so two children never clash: only an own key shaped like one
-    // of theirs could, and would silently take the child's place.
+    // of theirs could, and would silently take the child's place. Built in place: a list of a thousand children
+    // makes a thousand keys on every change of state.
     subscriptions: (state: State) =>
-      Arr.reduce(
-        names,
+      HashMap.mutate(
         HashMap.map(
           config.subscriptions?.(state) ?? HashMap.empty<K, Subscription<Own, R>>(),
           (subscription) => subscription as Subscription<Message, unknown>,
         ) as HashMap.HashMap<unknown, Subscription<Message, unknown>>,
-        (acc, name) =>
-          Arr.reduce(listening(name, state), acc, (all, [place, childState]) =>
-            HashMap.reduce(subscriptionsAt(place, childState), all, (keyed, subscription, key) => {
-              const lifted = isEach(name) ? [name, place.id, key] as const : [name, key] as const
-              if (HashMap.has(keyed, lifted)) {
-                throw defectAt(place, `An own subscription key is the key of a subscription of "${name}"`)
+        (keyed) => {
+          for (const name of names) {
+            for (const [place, childState] of listening(name, state)) {
+              for (const [key, subscription] of liftedAt(place, childState)) {
+                if (HashMap.has(keyed, key)) {
+                  throw defectAt(place, `An own subscription key is the key of a subscription of "${name}"`)
+                }
+                HashMap.set(keyed, key, subscription as Subscription<Message, unknown>)
               }
-              return HashMap.set(keyed, lifted, subscription)
-            })),
+            }
+          }
+        },
       ),
     makeModel: (state: State): Model => config.makeModel(state, childModels),
   }

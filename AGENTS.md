@@ -93,9 +93,12 @@ are kept, and what a change must not undo:
   child has events, a handle's `update` only with a child's `external` messages, no own message or command
   named like a child. A program written without `Program<…>` has `unknown` types, read as `never` (`Known` in
   `program.ts`), so that it does not open these checks.
-- **A child's model is kept by its state object** (`modelsOf` in `compose.ts`) for as long as that object
-  lives: it relies on `makeModel` being pure and on states being replaced, never mutated, and holds nothing of
-  its run or its place, so children or runs that share a state share its model. That is why every program
+- **A child's model, and its lifted subscriptions, are kept by its state object** (`modelsOf` and `lifted` in
+  `compose.ts`) for as long as that object lives: they rely on `makeModel` and `subscriptions` being pure and on
+  states being replaced, never mutated, and hold nothing of the run, so runs that share a state share them. A
+  model holds nothing of its place either, so children that share a state share its model; lifted subscriptions
+  carry their place, which is checked rather than kept, one per state, so that ids never pile up under a shared
+  state. That is why every program
   keeps its state in an object (`ObjectState` in `program.ts`, checked by `Program`, `parent`, `child`, `each`,
   `run` and the testing tools): never add a cache for primitive states, which nothing could let go of.
 - **A child's dispatch is the same while anyone holds it** (`dispatchTo` in `dispatch.ts`): kept weakly by its

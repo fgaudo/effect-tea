@@ -16,6 +16,10 @@ version, and everything else, features included, the patch version.
 
 ### Changed
 
+- A parent's subscriptions are kept by each child's state object, as its models are: a child whose state is the
+  same object is not asked again, and its subscriptions are not lifted again. On a list of a thousand children
+  that change one at a time, a parent's subscriptions cost about a fifth of what they did.
+  "Guarantees" in the README now asks that `subscriptions` be pure, as `update` and `makeModel` are.
 - The README is reorganized and corrected. A diagram of the loop opens it. The "Guide" starts with the anatomy
   of a program, and has sections for the view, for rejections and defects (who promises that a message cannot
   arrive: the state, never the view), for composition, and for structuring a program, which gathers the rules
