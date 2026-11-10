@@ -76,6 +76,17 @@ export const messagesSentBy = <Model, Message>(
   const sent: Array<Message> = []
   // Without a DOM, a stand-in for the only part of the event that the handlers read.
   const event = { target: { value: typed } } as unknown as Event
+  // Called as snabbdom calls a listener, with the node as `this` and as its second argument, and lists of them,
+  // nested or not, in order, as snabbdom walks them.
+  const listen = (node: VNode, listeners: unknown): void => {
+    if (Array.isArray(listeners)) {
+      for (const listener of listeners) listen(node, listener)
+      return
+    }
+    if (typeof listeners === 'function') {
+      ;(listeners as (this: VNode, event: Event, vnode: VNode) => void).call(node, event, node)
+    }
+  }
   const visit = (node: VNode | string): void => {
     if (typeof node === 'string') return
     const { fn, args } = (node.data ?? {}) as Readonly<{ fn?: unknown; args?: unknown }>
@@ -83,12 +94,7 @@ export const messagesSentBy = <Model, Message>(
       visit(fn(...args))
       return
     }
-    for (const listeners of Object.values(node.data?.on ?? {})) {
-      // Called as snabbdom calls a listener, with the node as `this` and as its second argument.
-      for (const listener of Array.isArray(listeners) ? listeners : [listeners]) {
-        ;(listener as (this: VNode, event: Event, vnode: VNode) => void).call(node, event, node)
-      }
-    }
+    for (const listeners of Object.values(node.data?.on ?? {})) listen(node, listeners)
     for (const child of node.children ?? []) visit(child)
   }
   visit(view(model, (message) => Effect.sync(() => sent.push(message))))

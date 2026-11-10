@@ -8,7 +8,7 @@ import { type Dispatch, dispatchTo, type Frame, run, type View } from '@fgaudo/e
 import * as Effect from 'effect/Effect'
 import * as Fiber from 'effect/Fiber'
 import type * as Stream from 'effect/Stream'
-import { createElement, memo, type ReactNode } from 'react'
+import { Component, createElement, forwardRef, memo, type ReactNode } from 'react'
 import { counter } from './counter/counter.ts'
 import { form } from './form/form.ts'
 import { Storage } from './form/storage.ts'
@@ -191,6 +191,13 @@ describe('messagesSentBy, with React', () => {
   const RowButton = ({ id, dispatch }: RowProps) =>
     createElement('button', { type: 'button', onClick: bridge.onClick<Row>('Tapped', dispatch) }, String(id))
   const MemoRow = memo(RowButton)
+  class ClassRow extends Component<RowProps> {
+    override render() {
+      return createElement(RowButton, this.props)
+    }
+  }
+  const ForwardedRow = forwardRef<HTMLButtonElement, RowProps>((props, _ref) => createElement(RowButton, props))
+  const rows = [RowButton, MemoRow, ClassRow, ForwardedRow] as const
   const view: View<ReadonlyArray<number>, Message, ReactNode> = (ids, dispatch) =>
     createElement(
       'div',
@@ -199,7 +206,7 @@ describe('messagesSentBy, with React', () => {
       createElement('button', { type: 'button', onClick: bridge.onClick<Message>({ _tag: 'Saved' }, dispatch) }),
       ids.map((id) => {
         const props = { key: id, id, dispatch: dispatchTo(dispatch, 'Row', id) }
-        return id % 2 === 0 ? createElement(MemoRow, props) : createElement(RowButton, props)
+        return createElement(rows[id % rows.length] ?? RowButton, props)
       }),
     )
 
@@ -207,10 +214,12 @@ describe('messagesSentBy, with React', () => {
     expect(bridge.messagesSentBy(view, [], 'Ada')).toEqual([{ _tag: 'Typed', text: 'Ada' }, { _tag: 'Saved' }])
   })
 
-  test('draws each function component, memo or not, and records the message of a child as the root receives it', () => {
-    expect(bridge.messagesSentBy(view, [1, 2]).slice(2)).toEqual([
+  test('draws every kind of component, and records the message of a child as the root receives it', () => {
+    expect(bridge.messagesSentBy(view, [0, 1, 2, 3]).slice(2)).toEqual([
+      { _tag: 'Row', id: 0, message: 'Tapped' },
       { _tag: 'Row', id: 1, message: 'Tapped' },
       { _tag: 'Row', id: 2, message: 'Tapped' },
+      { _tag: 'Row', id: 3, message: 'Tapped' },
     ])
   })
 })

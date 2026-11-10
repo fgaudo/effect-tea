@@ -48,18 +48,34 @@ export const onInput =
 
 const memo = Symbol.for('react.memo')
 
-/** The function a function component, or a `memo` of one, draws with: what React would call to draw it. */
-const componentOf = (type: unknown): ((props: unknown) => ReactNode) | undefined => {
-  if (typeof type === 'function') return type as (props: unknown) => ReactNode
-  const { $$typeof, type: inner } = (type ?? {}) as Readonly<{ $$typeof?: unknown; type?: unknown }>
-  return $$typeof === memo ? componentOf(inner) : undefined
+const forwardRef = Symbol.for('react.forward_ref')
+
+type Draw = (props: Readonly<Record<string, unknown>>) => ReactNode
+
+/**
+ * What React would call to draw a component: a function, the `render` of a class (made with its props), of a
+ * `forwardRef` (with no ref: nothing is mounted), or of what a `memo` wraps.
+ */
+const componentOf = (type: unknown): Draw | undefined => {
+  if (typeof type === 'function') {
+    const prototype = (type as Readonly<{ prototype?: Readonly<{ isReactComponent?: unknown }> }>).prototype
+    if (prototype?.isReactComponent === undefined) return type as Draw
+    const Class = type as new(props: unknown) => Readonly<{ render: () => ReactNode }>
+    return (props) => new Class(props).render()
+  }
+  const { $$typeof, type: inner, render } = (type ?? {}) as Readonly<
+    { $$typeof?: unknown; type?: unknown; render?: (props: unknown, ref: null) => ReactNode }
+  >
+  if ($$typeof === memo) return componentOf(inner)
+  if ($$typeof === forwardRef && render !== undefined) return (props) => render(props, null)
+  return undefined
 }
 
 /**
  * For tests: what `view` can send in `model`, as the README's "Testing" asks of a bridge. Draws the view without
- * React, with a dispatch that records, calling every function component in the tree, `memo`s included, calls
- * every `on…` callback of an element as if `typed` was in every input, and returns the messages recorded, as the
- * root of the program receives them.
+ * React, with a dispatch that records, drawing every component in the tree (functions, classes, `memo`s and
+ * `forwardRef`s), calls every `on…` callback of an element as if `typed` was in every input, and returns the
+ * messages recorded, as the root of the program receives them.
  */
 export const messagesSentBy = <Model, Message>(
   view: View<Model, Message, ReactNode>,

@@ -72,8 +72,9 @@ try {
   // TypeScript resolves a `.ts` import of a declaration to its `.d.ts` by itself, so no typecheck below would
   // notice a broken rewrite in `build.ts`; other tools that read declarations do not.
   const installed = join(dir, 'node_modules/@fgaudo/effect-tea/dist')
+  const tsImport = /from\s+'\.{1,2}\/[^']*\.ts'|import\("\.{1,2}\/[^"]*\.ts"\)/
   for await (const path of new Glob('**/*.d.ts').scan({ cwd: installed })) {
-    if (/from\s+'\.{1,2}\/[^']*\.ts'/.test(await Bun.file(join(installed, path)).text())) {
+    if (tsImport.test(await Bun.file(join(installed, path)).text())) {
       throw new Error(`dist/${path} imports a .ts file`)
     }
   }

@@ -9,5 +9,10 @@ await $`rm -rf ${dist}`
 const tsc = Bun.resolveSync('typescript/package.json', import.meta.dir).replace(/package\.json$/, 'bin/tsc')
 await $`bun ${tsc} -p tsconfig.build.json`.cwd(import.meta.dir)
 for await (const path of new Glob('**/*.d.ts').scan({ cwd: dist, absolute: true })) {
-  await Bun.write(path, (await Bun.file(path).text()).replace(/(from\s+'\.{1,2}\/[^']*)\.ts'/g, "$1.js'"))
+  // Both forms `tsc` may write: `from './x.ts'`, and `import("./x.ts")` in an inferred type.
+  const text = await Bun.file(path).text()
+  await Bun.write(
+    path,
+    text.replace(/(from\s+'\.{1,2}\/[^']*)\.ts'/g, "$1.js'").replace(/(import\("\.{1,2}\/[^"]*)\.ts"\)/g, '$1.js")'),
+  )
 }
