@@ -405,6 +405,14 @@ describe('defects', () => {
     expect(defect instanceof ProgramDefect && [defect.where, defect.cause instanceof Error]).toEqual([where, true])
   })
 
+  test('a command that fails without a defect, which its type rules out, is a defect in the command', async () => {
+    const outcome = await Effect.runPromiseExit(
+      run({ ...counter, init: pinging, runCommand: () => Effect.failCause(Cause.empty) }, () => Effect.never),
+    )
+    const defect = Exit.isFailure(outcome) ? Cause.squash(outcome.cause) : undefined
+    expect(defect instanceof ProgramDefect && [defect.where, defect.cause instanceof Error]).toEqual(['command', true])
+  })
+
   test('a run interrupted by whoever runs it is no defect', async () => {
     const outcome = await Effect.runPromiseExit(Effect.gen(function*() {
       const drawn = yield* Deferred.make<void>()

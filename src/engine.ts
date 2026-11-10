@@ -83,7 +83,8 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
  * the rest of the cause is kept as it is: `Effect.catchDefect` would keep only the first defect. An effect that
  * interrupts itself (`Effect.interrupt`, or the join of an interrupted fiber) is a defect too: the fibers of a
  * run ignore their interruptions, which would leave a command without its answer, or a subscription ended in
- * silence. An interruption by the run, or by whoever runs it, is never taken for one: an interrupted fiber runs
+ * silence. So is any other failure without a defect, which the types rule out (an empty cause, a failure a cast
+ * let through): it would end the run with no defect to report. An interruption by the run, or by whoever runs it, is never taken for one: an interrupted fiber runs
  * no handler while it is interruptible, as it is where the effect runs. The defects are wrapped where it is not,
  * so that those of an interrupted effect are too: what a subscription the run stopped dies with while it
  * releases what it holds.
@@ -94,8 +95,15 @@ export const diesIn =
   <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
     Effect.uninterruptibleMask((restore) =>
       restore(
-        Effect.catchCauseIf(self, Cause.hasInterruptsOnly, (cause) =>
-          Effect.die(new Error('It interrupted itself, which only the run may do', { cause }))),
+        Effect.catchCauseIf(self, (cause) => !Cause.hasDies(cause), (cause) =>
+          Effect.die(
+            new Error(
+              Cause.hasInterruptsOnly(cause)
+                ? 'It interrupted itself, which only the run may do'
+                : 'It failed, which its type rules out',
+              { cause },
+            ),
+          )),
       ).pipe(
         Effect.catchCauseIf(Cause.hasDies, (cause) =>
           Effect.failCause(Cause.fromReasons(cause.reasons.flatMap((reason): ReadonlyArray<Cause.Reason<E>> =>
