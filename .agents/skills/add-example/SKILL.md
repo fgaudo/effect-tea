@@ -85,3 +85,8 @@ Bun bundles the page for the browser, where the package resolves to `dist/`: hen
   uses, and the live link `https://fgaudo.github.io/effect-tea/examples/<name>/`, which works after the next
   release ([`release`](../release/SKILL.md)).
 - Nothing to add to the site: `site/build.ts` bundles every `examples/*/index.html`.
+
+[`examples/timer`](../../../examples/timer) is the tutorial's application, one module per step: its
+`// #region` comments are the blocks the pages of [`site/tutorial`](../../../site/tutorial) include. A change to it
+keeps them, and the pages' prose, true, and the site build shows the pages as they will be read
+([`release`](../release/SKILL.md)).

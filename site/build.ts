@@ -1,6 +1,6 @@
 // Builds the documentation site into `site/dist/`: the API reference generated from `src/`, with the README as
-// its home page and its diagrams drawn by `mermaid.ts`, and the examples bundled to run in the browser under
-// `examples/<name>/`.
+// its home page and its diagrams drawn by `mermaid.ts`, the tutorial of `tutorial/`, and the examples bundled to
+// run in the browser under `examples/<name>/`.
 import { $, Glob } from 'bun'
 
 const here = import.meta.dir

@@ -5,6 +5,9 @@ The Elm architecture on [Effect](https://effect.website) v4, for any renderer.
 [Documentation](https://fgaudo.github.io/effect-tea/): this guide, the API in full and the examples running in
 the browser.
 
+New to it? The [tutorial](https://fgaudo.github.io/effect-tea/documents/Tutorial.html) builds an application step
+by step.
+
 [effect-tea-persistent](https://fgaudo.github.io/effect-tea-persistent/) brings the same architecture to long-lived
 entities on a server, whose state a database keeps. It is experimental, and not published yet.
 
@@ -132,6 +135,7 @@ with `bun run build`, then `bun examples/<name>/index.html`.
 | [`form-react`](examples/form-react)       | the form, in React           | an uncontrolled input: `defaultValue` and `key`, never `value`                                                      | [live](https://fgaudo.github.io/effect-tea/examples/form-react/)    |
 | [`pages`](examples/pages)                 | a clock and an About page    | `parent`, optics, `dispatchTo`, events, `subscribed`, a page started from flags; `simulate`                         | [live](https://fgaudo.github.io/effect-tea/examples/pages/)         |
 | [`list`](examples/list)                   | stopwatches by id            | `each`, a subscription per running child, `forEach`; a test with a `TestClock`                                      | [live](https://fgaudo.github.io/effect-tea/examples/list/)          |
+| [`timer`](examples/timer)                 | the tutorial's application   | timers by id, each ticking only while it runs, and a bell as a command; `rehearse` with `hear`                      | [live](https://fgaudo.github.io/effect-tea/examples/timer/)         |
 
 [`examples/snabbdom.ts`](examples/snabbdom.ts) and [`examples/react.ts`](examples/react.ts) are the small
 bridges to the two renderers, worth copying for your own: `renderInto` for `run`, handlers, and
