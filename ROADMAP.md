@@ -6,13 +6,6 @@ when it is done or rejected, with the reason in the commit.
 
 ## Open problems
 
-- **The published package is never run.** Under Bun the `bun` export condition loads `src/*.ts`, so the tests and
-  the CI never import `dist/`. The CI builds it and stops there: a broken `.ts` → `.js` rewrite in `build.ts`, or
-  broken declarations, would pass every check and reach the users of Node and of bundlers. The consumer check of
-  `change-api` is manual.
-- **The declarations are checked with TypeScript 7 only.** Many consumers are still on 5.x or 6, and the
-  conditional types of `compose.ts` (`Handles`, `OnEventOf`, `NoClash`) are the kind whose behaviour changes
-  between versions.
 - **`onApplied` and `onIgnored` hold the loop.** It is documented ("it should be quick"), but a slow devtools slows
   the whole program, and nothing shows how to hand the work off (a queue of its own, a forked fiber).
 - **The order of a step's commands is not stated.** They run concurrently in the run's `FiberSet`, with no bound,
@@ -22,9 +15,6 @@ when it is done or rejected, with the reason in the commit.
 
 ## Possible improvements
 
-- **A smoke test of the package in the CI**: after `bun pm pack`, install the tarball in a temporary project, run
-  the quick start with Node, and typecheck it with `moduleResolution` `nodenext` and `bundler`, under the oldest
-  TypeScript the package supports. This covers the first two problems.
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is
   drawn" from regressing. `bun run bench` (`bench/subscriptions.ts`) measures a parent's subscriptions only.
 - **A `CompositionDefect` names the child, not the message**: the one for a rejected external message could carry

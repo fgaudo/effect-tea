@@ -10,7 +10,10 @@ description: How @fgaudo/effect-tea depends on Effect: the peer range and its mi
 `peerDependencies.effect` (`^4.0.0` today) starts at the oldest Effect 4 the library works with, so that any
 application on Effect 4 can use it. `devDependencies.effect` is the version the library is developed and tested
 with, usually newer: passing checks say nothing about the minimum, which is checked on its own. The CI's
-`minimum-effect` job installs exactly the minimum over the lockfile and runs `tsc --noEmit` and `bun test src`.
+`minimum-effect` job installs exactly the minimum over the lockfile and runs `tsc --noEmit` and `bun test src`, and
+the `package` job checks the packed package against it (`bun run smoke --effect <minimum>`).
+The oldest TypeScript the package supports is Effect's (5.9 for Effect 4): the README's "Installation" states it,
+and `smoke/smoke.ts` checks it by default. An upgrade that raises Effect's raises both, with a changelog entry.
 
 ## An API the minimum lacks
 
@@ -22,8 +25,8 @@ the author's call.
 ## Raising the minimum
 
 1. Set `peerDependencies.effect` to the oldest version that has the API, as a caret range (`^4.<minor>.<patch>`).
-2. Set the same version in the `minimum-effect` job of `.github/workflows/ci.yml`. Run its steps once in a
-   scratch copy of the repository before pushing.
+2. Set the same version in the `minimum-effect` job of `.github/workflows/ci.yml`, and in the `--effect` of the
+   `package` job. Run the steps of `minimum-effect` once in a scratch copy of the repository before pushing.
 3. A raised minimum is a change a consumer can notice: a `Changed` entry in `CHANGELOG.md` that names the new
    minimum, and the version a breaking change raises ([`release`](../release/SKILL.md)).
 

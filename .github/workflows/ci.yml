@@ -36,3 +36,19 @@ jobs:
       - run: bun add --dev --exact effect@4.0.0
       - run: bunx tsc --noEmit
       - run: bun test src
+
+  # The package as a consumer outside Bun gets it (`smoke/smoke.ts`): the tarball installed with npm, run with Node
+  # and typechecked under the oldest TypeScript the package supports and the current one, with the Effect of the
+  # lockfile and with the oldest its peer range accepts. Keep that version equal to the one of `minimum-effect`.
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      # Node runs the consumer's TypeScript as it is, which needs Node 22.18 or newer.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - run: bun run smoke
+      - run: bun run smoke --effect 4.0.0

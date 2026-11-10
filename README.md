@@ -56,7 +56,8 @@ bun add @fgaudo/effect-tea effect
 ```
 
 `effect` (v4) is a peer dependency. The package ships JavaScript with declarations: use `moduleResolution`
-`nodenext` or `bundler`. Under Bun, the `bun` export condition loads the TypeScript sources instead.
+`nodenext` or `bundler`, and TypeScript 5.9 or newer, as Effect 4 does. Under Bun, the `bun` export condition loads
+the TypeScript sources instead.
 
 ## Quick start
 
@@ -844,8 +845,9 @@ From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `rehear
 ## Development
 
 `bun run typecheck`, `bun run lint` and `bun run test` check the package and the examples; `bun run build`
-compiles it into `dist/`. Changes are in [`CHANGELOG.md`](CHANGELOG.md), open problems and possible
-improvements in [`ROADMAP.md`](ROADMAP.md). The rules for contributors and coding agents are in
+compiles it into `dist/`, and `bun run smoke` checks the packed package as Node and TypeScript consumers get it.
+Changes are in [`CHANGELOG.md`](CHANGELOG.md), open problems and possible improvements in
+[`ROADMAP.md`](ROADMAP.md). The rules for contributors and coding agents are in
 [`AGENTS.md`](AGENTS.md), and the procedures (changing the API, adding an example, upgrading Effect, releasing and
 building the documentation site) in [`.agents/skills/`](.agents/skills).
 
