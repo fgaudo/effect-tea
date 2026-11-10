@@ -64,9 +64,9 @@ export const onInput = <Message>(toMessage: (text: string) => Message, dispatch:
 })
 
 /**
- * For tests: renders `view` and fires every event handler in the tree, `thunk`s drawn as the renderer would,
- * as if `typed` was in every input, and returns the messages they sent, as the root of the program receives
- * them.
+ * For tests: what `view` can send in `model`, as the README's "Testing" asks of a bridge. Draws the view with a
+ * dispatch that records, draws each `thunk` as the renderer would, calls every listener in the tree as if
+ * `typed` was in every input, and returns the messages recorded, as the root of the program receives them.
  */
 export const messagesSentBy = <Model, Message>(
   view: View<Model, Message, VNode>,
@@ -74,6 +74,8 @@ export const messagesSentBy = <Model, Message>(
   typed = '',
 ): ReadonlyArray<Message> => {
   const sent: Array<Message> = []
+  // Without a DOM, a stand-in for the only part of the event that the handlers read.
+  const event = { target: { value: typed } } as unknown as Event
   const visit = (node: VNode | string): void => {
     if (typeof node === 'string') return
     const { fn, args } = (node.data ?? {}) as Readonly<{ fn?: unknown; args?: unknown }>
@@ -81,10 +83,11 @@ export const messagesSentBy = <Model, Message>(
       visit(fn(...args))
       return
     }
-    for (const [type, handler] of Object.entries(node.data?.on ?? {})) {
-      // Without a DOM, a stand-in for the only parts of the event that the handlers read.
-      const event = { type, target: { value: typed } } as unknown as Event
-      if (typeof handler === 'function') (handler as (event: Event) => void)(event)
+    for (const listeners of Object.values(node.data?.on ?? {})) {
+      // Called as snabbdom calls a listener, with the node as `this` and as its second argument.
+      for (const listener of Array.isArray(listeners) ? listeners : [listeners]) {
+        ;(listener as (this: VNode, event: Event, vnode: VNode) => void).call(node, event, node)
+      }
     }
     for (const child of node.children ?? []) visit(child)
   }

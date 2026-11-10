@@ -725,9 +725,17 @@ test('the view sends what update accepts, all of it', () => {
 
 - `program.makeModel(state)` makes a model as `run` does, so a property test can draw the view in any state,
   and `subscriptionsOf(program)(state)` says what the program listens to there.
-- `messagesSentBy` is not in the package. It comes from the example bridges
-  ([`examples/snabbdom.ts`](examples/snabbdom.ts), [`examples/react.ts`](examples/react.ts)), which draw the
-  view and fire every handler. A renderer of your own needs one like it.
+- `messagesSentBy` is not in the package: each bridge writes its own
+  ([`examples/snabbdom.ts`](examples/snabbdom.ts), [`examples/react.ts`](examples/react.ts)), since only the
+  renderer knows what a handler is. One for a renderer of your own takes the view, a model and the text typed,
+  and:
+  - draws the view once, with a dispatch that records each message it is given, in order, and completes at
+    once. A child's dispatch from `dispatchTo` wraps that one, so a child's messages are recorded as the root of
+    the program receives them;
+  - draws every part of the tree that the renderer would draw for that model, memoized parts included;
+  - calls every handler in that tree once, with a stand-in for its event that holds only what the handlers
+    read, and the text typed as the text of every input;
+  - returns every message recorded, and needs no DOM, no run and no services.
 
 #### The tools
 

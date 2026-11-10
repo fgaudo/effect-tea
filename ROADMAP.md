@@ -27,8 +27,6 @@ when it is done or rejected, with the reason in the commit.
   TypeScript the package supports. This covers the first two problems.
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is
   drawn" from regressing. `bun run bench` (`bench/subscriptions.ts`) measures a parent's subscriptions only.
-- **`messagesSentBy` is written again by every bridge.** Either the testing tools take a generic helper over an
-  abstract tree of handlers, or the README states its contract precisely enough to write one.
 - **A `CompositionDefect` names the child, not the message**: the one for a rejected external message could carry
   its tags, as `ProgramDefect`'s `on` does.
 - **Two levels of documentation**: a short tutorial on the site that builds an application step by step, and the

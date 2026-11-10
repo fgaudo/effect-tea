@@ -57,6 +57,9 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
   types into": `update` accepts typing in every state the input exists in, and the view writes a text only
   into a new input (`initialValue`, with a `Field`'s `revision` as the input's `key`). A child's view is
   memoized with snabbdom's `thunk`, its dispatch from `dispatchTo` among the arguments (`pages/view.ts`).
+- **A bridge's `messagesSentBy`** keeps the contract the README's "Testing" sets for one, the same in both
+  bridges, and each bridge's test checks every point of it (`describe('messagesSentBy')`): a change to one
+  bridge is made to the other, and to the contract only one sentence at a time.
 - **The test** shows the testing tools on the example, from the cheapest that proves the point: `applyAll` and
   `dispatchViolations` always (with `messagesSentBy(view, model)`, which renders the view and fires every
   handler, for what the view sends), then `simulate`, `rehearse` or `drive` for what needs them. It runs

@@ -29,6 +29,8 @@ version, and everything else, features included, the patch version.
   long-lived entities on a server.
 - The `counter-react` and `form-react` examples draw the programs of `counter` and `form` with React, through
   `examples/react.ts`, a bridge to copy as `examples/snabbdom.ts` is.
+- "Testing" in the README states what a bridge's `messagesSentBy` must do, for a renderer of your own. Both
+  example bridges keep it: snabbdom's calls every listener of a list, and React's draws `memo` components.
 
 ## 0.7.1 (2026-10-28)
 

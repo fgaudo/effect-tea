@@ -46,9 +46,20 @@ export const onInput =
   <Message>(toMessage: (text: string) => Message, dispatch: Dispatch<Message>) =>
   (event: ChangeEvent<HTMLInputElement>) => send(dispatch, toMessage(event.target.value))
 
+const memo = Symbol.for('react.memo')
+
+/** The function a function component, or a `memo` of one, draws with: what React would call to draw it. */
+const componentOf = (type: unknown): ((props: unknown) => ReactNode) | undefined => {
+  if (typeof type === 'function') return type as (props: unknown) => ReactNode
+  const { $$typeof, type: inner } = (type ?? {}) as Readonly<{ $$typeof?: unknown; type?: unknown }>
+  return $$typeof === memo ? componentOf(inner) : undefined
+}
+
 /**
- * For tests: draws `view` without React, calling every function component in the tree, fires every `on…`
- * callback as if `typed` was in every input, and returns the messages they sent.
+ * For tests: what `view` can send in `model`, as the README's "Testing" asks of a bridge. Draws the view without
+ * React, with a dispatch that records, calling every function component in the tree, `memo`s included, calls
+ * every `on…` callback of an element as if `typed` was in every input, and returns the messages recorded, as the
+ * root of the program receives them.
  */
 export const messagesSentBy = <Model, Message>(
   view: View<Model, Message, ReactNode>,
@@ -56,7 +67,7 @@ export const messagesSentBy = <Model, Message>(
   typed = '',
 ): ReadonlyArray<Message> => {
   const sent: Array<Message> = []
-  // Without a DOM, a stand-in for the only parts of the event that the handlers read.
+  // Without a DOM, a stand-in for the only part of the event that the handlers read.
   const event = { target: { value: typed } }
   const visit = (node: ReactNode): void => {
     if (Array.isArray(node)) {
@@ -65,8 +76,9 @@ export const messagesSentBy = <Model, Message>(
     }
     if (!isValidElement(node)) return
     const { type, props } = node as ReactElement<Record<string, unknown>>
-    if (typeof type === 'function') {
-      visit((type as (props: unknown) => ReactNode)(props))
+    const component = componentOf(type)
+    if (component !== undefined) {
+      visit(component(props))
       return
     }
     for (const [name, handler] of Object.entries(props)) {
