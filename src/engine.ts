@@ -77,38 +77,37 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
   readonly onIgnored?: (ignored: Ignored<State, Message>) => Effect.Effect<void>
 }
 
-const diesOrInterruptsItself = <E>(cause: Cause.Cause<E>) => Cause.hasDies(cause) || Cause.hasInterruptsOnly(cause)
-
 /**
  * Where a defect happened is known only where it is caught: the run dies with it, and with where, and leaves
  * reporting it to whoever runs the program. Every defect of the cause is wrapped, with its stack and span, and
  * the rest of the cause is kept as it is: `Effect.catchDefect` would keep only the first defect. An effect that
  * interrupts itself (`Effect.interrupt`, or the join of an interrupted fiber) is a defect too: the fibers of a
  * run ignore their interruptions, which would leave a command without its answer, or a subscription ended in
- * silence. An interruption by the run, or by whoever runs it, is never caught: an interrupted fiber runs no
- * handler.
+ * silence. An interruption by the run, or by whoever runs it, is never taken for one: an interrupted fiber runs
+ * no handler while it is interruptible, as it is where the effect runs. The defects are wrapped where it is not,
+ * so that those of an interrupted effect are too: what a subscription the run stopped dies with while it
+ * releases what it holds.
  */
 // The details are made only when there is a defect to carry them: a message is described on every call otherwise.
 export const diesIn =
   (where: DefectSite, details: () => Readonly<{ key?: unknown; on?: unknown }> = () => ({})) =>
   <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
-    Effect.catchCauseIf(self, diesOrInterruptsItself, (cause) =>
-      Cause.hasInterruptsOnly(cause)
-        ? Effect.die(
-          new ProgramDefect({
-            where,
-            cause: new Error('It interrupted itself, which only the run may do', { cause }),
-            ...details(),
-          }),
-        )
-        : Effect.failCause(Cause.fromReasons(cause.reasons.flatMap((reason): ReadonlyArray<Cause.Reason<E>> =>
-          Cause.isDieReason(reason)
-            ? Cause.annotate(
-              Cause.die(new ProgramDefect({ where, cause: reason.defect, ...details() })),
-              Cause.reasonAnnotations(reason),
-            ).reasons
-            : [reason]
-        ))))
+    Effect.uninterruptibleMask((restore) =>
+      restore(
+        Effect.catchCauseIf(self, Cause.hasInterruptsOnly, (cause) =>
+          Effect.die(new Error('It interrupted itself, which only the run may do', { cause }))),
+      ).pipe(
+        Effect.catchCauseIf(Cause.hasDies, (cause) =>
+          Effect.failCause(Cause.fromReasons(cause.reasons.flatMap((reason): ReadonlyArray<Cause.Reason<E>> =>
+            Cause.isDieReason(reason)
+              ? Cause.annotate(
+                Cause.die(new ProgramDefect({ where, cause: reason.defect, ...details() })),
+                Cause.reasonAnnotations(reason),
+              ).reasons
+              : [reason]
+          )))),
+      )
+    )
 
 /** Counts the starts of subscriptions: each start of a key gets a new one. */
 type Generation = number
@@ -198,9 +197,11 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   const apply = (message: Message, state: State) =>
     Effect.sync(() => update(message)(state)).pipe(diesIn('update', () => ({ on: describeByTag(message) })))
   const described = (message: Message) => call('describeMessage', () => describeMessage(message))
+  // Suspended, as the interpreter is below: an option that throws before it returns its effect dies there too.
   const observe = (applied: Applied<State, Message, Command>) =>
-    onApplied(applied).pipe(diesIn('onApplied'))
-  const observeIgnored = (ignored: Ignored<State, Message>) => onIgnored(ignored).pipe(diesIn('onIgnored'))
+    Effect.suspend(() => onApplied(applied)).pipe(diesIn('onApplied'))
+  const observeIgnored = (ignored: Ignored<State, Message>) =>
+    Effect.suspend(() => onIgnored(ignored)).pipe(diesIn('onIgnored'))
   // The interpreter runs inside the command's fiber, so a defect in it is the command's. Its scope closes
   // before its message is queued, so that `update` never learns of a command whose resources are still open.
   const runCommand = (command: Command) =>

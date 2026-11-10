@@ -43,6 +43,10 @@ version, and everything else, features included, the patch version.
   subscription stopped without its last message and was not started again, and the run went on. It is now a
   defect: the run dies with a `ProgramDefect` that says where, whose `cause` is an `Error` holding the
   interruption. "Guarantees" in the README says so.
+- Three defects ended the run with the error itself, not with a `ProgramDefect` that says where: `onApplied`,
+  `onIgnored` or the renderer throwing before returning its effect, and a subscription the run stopped dying
+  while it released what it held. They now die in `'onApplied'`, `'onIgnored'`, `'render'` and `'subscription'`,
+  the last with its `key`.
 - A parent whose `subscribed` lists one id of its children twice died with a `CompositionDefect` saying that an
   own subscription key took a child's: it now says that the id is listed twice.
 

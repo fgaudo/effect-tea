@@ -332,14 +332,38 @@ describe('defects', () => {
           describeCommand: boom,
         }),
     ],
+    [
+      'what a subscription the run stopped releases',
+      'subscription',
+      () =>
+        failsWithBoom({
+          ...counter,
+          subscriptions: ({ count }) =>
+            count === 0
+              ? HashMap.make(['k', Channel.fromEffectDone(Effect.ensuring(Effect.never, Effect.sync(boom)))])
+              : HashMap.empty(),
+        }),
+    ],
     ['onApplied', 'onApplied', () => failsWithBoom(counter, { onApplied: () => Effect.sync(boom) })],
+    ['onApplied, before it returns its effect', 'onApplied', () => failsWithBoom(counter, { onApplied: boom })],
     [
       'onIgnored',
       'onIgnored',
       () => failsWithBoom({ ...counter, update: () => () => reject }, { onIgnored: () => Effect.sync(boom) }),
     ],
+    [
+      'onIgnored, before it returns its effect',
+      'onIgnored',
+      () => failsWithBoom({ ...counter, update: () => () => reject }, { onIgnored: boom }),
+    ],
   ])('a defect in %s ends the run, which dies with it and with where it happened', async (_, where, outcome) => {
     expect(await outcome()).toEqual({ where, logged: [] })
+  })
+
+  test('a renderer that throws before it returns its effect dies in the renderer', async () => {
+    const exit = await Effect.runPromiseExit(run(counter, boom))
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    expect(defect instanceof ProgramDefect && [defect.where, defect.cause]).toEqual(['render', new Boom()])
   })
 
   // The fibers of a run ignore their interruptions: one that came from the program itself would otherwise leave

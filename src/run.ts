@@ -38,7 +38,7 @@ export const runWith = Effect.fnUntraced(
     )
     yield* Effect.raceFirst(
       engine.await,
-      Effect.scoped(render(frames)).pipe(
+      Effect.scoped(Effect.suspend(() => render(frames))).pipe(
         // The model is made when the renderer reads it: a defect of `makeModel` is the renderer's.
         Engine.diesIn('render'),
         Effect.updateContext(Engine.withExternalSpan<Exclude<RR, Scope.Scope>>),
