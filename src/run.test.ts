@@ -342,6 +342,60 @@ describe('defects', () => {
     expect(await outcome()).toEqual({ where, logged: [] })
   })
 
+  // The fibers of a run ignore their interruptions: one that came from the program itself would otherwise leave
+  // a command without its answer, or a subscription ended without its last message, and the run going on.
+  const joinsAnInterruptedFiber = Effect.gen(function*() {
+    const interrupted = yield* Effect.forkChild(Effect.never)
+    yield* Fiber.interrupt(interrupted)
+    return yield* Fiber.join(interrupted)
+  })
+
+  const sendsIncrement = (frames: Stream.Stream<Frame<Model, Message>>) =>
+    Stream.runForEach(frames, ({ model, dispatch }) => dispatch(model.increment))
+
+  test.each<[string, DefectSite, () => Effect.Effect<void>]>([
+    [
+      'a command',
+      'command',
+      () => run({ ...counter, init: pinging, runCommand: () => Effect.interrupt }, () => Effect.never),
+    ],
+    [
+      'a command that joins an interrupted fiber',
+      'command',
+      () => run({ ...counter, init: pinging, runCommand: () => joinsAnInterruptedFiber }, () => Effect.never),
+    ],
+    [
+      'a subscription',
+      'subscription',
+      () =>
+        run(
+          { ...counter, subscriptions: () => HashMap.make(['k', Channel.fromEffectDone(Effect.interrupt)]) },
+          () => Effect.never,
+        ),
+    ],
+    ['onApplied', 'onApplied', () => run(counter, sendsIncrement, { onApplied: () => Effect.interrupt })],
+    ['the renderer', 'render', () => run(counter, () => Effect.interrupt)],
+  ])('%s that interrupts itself is a defect, where it happened', async (_, where, running) => {
+    const outcome = await Effect.runPromiseExit(running())
+    const defect = Exit.isFailure(outcome) ? Cause.squash(outcome.cause) : undefined
+    expect(defect instanceof ProgramDefect && [defect.where, defect.cause instanceof Error]).toEqual([where, true])
+  })
+
+  test('a run interrupted by whoever runs it is no defect', async () => {
+    const outcome = await Effect.runPromiseExit(Effect.gen(function*() {
+      const drawn = yield* Deferred.make<void>()
+      const running = yield* Effect.forkChild(run(
+        { ...counter, init: pinging, runCommand: () => Effect.never },
+        (frames) => Stream.runForEach(frames, () => Deferred.succeed(drawn, undefined)),
+      ))
+      yield* Deferred.await(drawn)
+      yield* Fiber.interrupt(running)
+      return yield* Fiber.await(running)
+    }))
+    expect(Exit.isSuccess(outcome) && Exit.isFailure(outcome.value) && Cause.hasInterruptsOnly(outcome.value.cause))
+      .toBe(true)
+  })
+
   test('a defect in update says which message it was given, by its tags, in its message too', async () => {
     const exit = await Effect.runPromiseExit(run(
       { ...counter, update: (message) => message === 'Increment' ? boom : () => reject },

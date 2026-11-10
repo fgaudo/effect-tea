@@ -36,6 +36,16 @@ version, and everything else, features included, the patch version.
 - The site has a tutorial that builds an application, the new `timer` example, in four steps, and the README's
   opening links it.
 
+### Fixed
+
+- A command, a subscription, the renderer, `onApplied` or `onIgnored` that interrupted itself (with
+  `Effect.interrupt`, or by joining an interrupted fiber) ended without a word: a command never answered, a
+  subscription stopped without its last message and was not started again, and the run went on. It is now a
+  defect: the run dies with a `ProgramDefect` that says where, whose `cause` is an `Error` holding the
+  interruption. "Guarantees" in the README says so.
+- A parent whose `subscribed` lists one id of its children twice died with a `CompositionDefect` saying that an
+  own subscription key took a child's: it now says that the id is listed twice.
+
 ## 0.7.1 (2026-10-28)
 
 ### Added

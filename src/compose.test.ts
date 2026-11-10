@@ -506,6 +506,28 @@ describe('children by id', () => {
     ])
   })
 
+  test('subscribed children that list one id twice are a defect that says so, not a clash with an own key', () => {
+    const Tickers = parent<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
+    const twice = Tickers.compose({
+      init: () => ({ state: { ids: [7, 7] } }),
+      children: {
+        Tickers: Tickers.each(ticker, {
+          get: (state, id: number) => state.ids.includes(id) ? Opt.some(noTicks) : Opt.none(),
+          set: (state) => state,
+          subscribed: (state) => state.ids.map((id) => [id, noTicks] as const),
+        }),
+      },
+      onEvent: {},
+      makeModel: () => null,
+    })
+    expect(() => subscriptionsOf(twice)(twice.init.state))
+      .toThrow(new CompositionDefect({
+        message: 'The subscribed children of "Tickers" list the same id twice',
+        child: 'Tickers',
+        id: 7,
+      }))
+  })
+
   // Rows of tickers, each in a state of its own; `calls` counts the calls of the ticker's `subscriptions`.
   const countedTickers = () => {
     const counted = { calls: 0 }

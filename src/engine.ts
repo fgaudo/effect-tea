@@ -77,24 +77,38 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
   readonly onIgnored?: (ignored: Ignored<State, Message>) => Effect.Effect<void>
 }
 
+const diesOrInterruptsItself = <E>(cause: Cause.Cause<E>) => Cause.hasDies(cause) || Cause.hasInterruptsOnly(cause)
+
 /**
  * Where a defect happened is known only where it is caught: the run dies with it, and with where, and leaves
  * reporting it to whoever runs the program. Every defect of the cause is wrapped, with its stack and span, and
- * the rest of the cause is kept as it is: `Effect.catchDefect` would keep only the first defect.
+ * the rest of the cause is kept as it is: `Effect.catchDefect` would keep only the first defect. An effect that
+ * interrupts itself (`Effect.interrupt`, or the join of an interrupted fiber) is a defect too: the fibers of a
+ * run ignore their interruptions, which would leave a command without its answer, or a subscription ended in
+ * silence. An interruption by the run, or by whoever runs it, is never caught: an interrupted fiber runs no
+ * handler.
  */
 // The details are made only when there is a defect to carry them: a message is described on every call otherwise.
 export const diesIn =
   (where: DefectSite, details: () => Readonly<{ key?: unknown; on?: unknown }> = () => ({})) =>
   <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
-    Effect.catchCauseIf(self, Cause.hasDies, (cause) =>
-      Effect.failCause(Cause.fromReasons(cause.reasons.flatMap((reason): ReadonlyArray<Cause.Reason<E>> =>
-        Cause.isDieReason(reason)
-          ? Cause.annotate(
-            Cause.die(new ProgramDefect({ where, cause: reason.defect, ...details() })),
-            Cause.reasonAnnotations(reason),
-          ).reasons
-          : [reason]
-      ))))
+    Effect.catchCauseIf(self, diesOrInterruptsItself, (cause) =>
+      Cause.hasInterruptsOnly(cause)
+        ? Effect.die(
+          new ProgramDefect({
+            where,
+            cause: new Error('It interrupted itself, which only the run may do', { cause }),
+            ...details(),
+          }),
+        )
+        : Effect.failCause(Cause.fromReasons(cause.reasons.flatMap((reason): ReadonlyArray<Cause.Reason<E>> =>
+          Cause.isDieReason(reason)
+            ? Cause.annotate(
+              Cause.die(new ProgramDefect({ where, cause: reason.defect, ...details() })),
+              Cause.reasonAnnotations(reason),
+            ).reasons
+            : [reason]
+        ))))
 
 /** Counts the starts of subscriptions: each start of a key gets a new one. */
 type Generation = number

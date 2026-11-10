@@ -668,7 +668,9 @@ What you can rely on:
   (Effect keeps each log as an event of the current span until the span ends). That span is still the parent
   of the spans that commands and subscriptions open.
 - **Nothing ends in silence.** A subscription that ends sends one last message. A defect anywhere ends the
-  run, which dies with it, as a `ProgramDefect` that says where it happened.
+  run, which dies with it, as a `ProgramDefect` that says where it happened. A command, a subscription, the
+  renderer or an option that interrupts itself (with `Effect.interrupt`, or by joining an interrupted fiber) is
+  a defect too: only the run, and whoever runs it, interrupt them.
 - **Frames cost only what is drawn.** A message that returns the very same state draws no new frame, and a
   model is made only for the frames the renderer reads.
 

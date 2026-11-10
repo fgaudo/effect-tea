@@ -408,25 +408,31 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
     // A child's keys are under its name and id, so two children never clash: only an own key shaped like one
     // of theirs could, and would silently take the child's place. Built in place: a list of a thousand children
     // makes a thousand keys on every change of state.
-    subscriptions: (state: State) =>
-      HashMap.mutate(
-        HashMap.map(
-          config.subscriptions?.(state) ?? HashMap.empty<K, Subscription<Own, R>>(),
-          (subscription) => subscription as Subscription<Message, unknown>,
-        ) as HashMap.HashMap<unknown, Subscription<Message, unknown>>,
+    // Two children's keys clash only when `subscribed` lists one id twice.
+    subscriptions: (state: State) => {
+      const own = HashMap.map(
+        config.subscriptions?.(state) ?? HashMap.empty<K, Subscription<Own, R>>(),
+        (subscription) => subscription as Subscription<Message, unknown>,
+      ) as HashMap.HashMap<unknown, Subscription<Message, unknown>>
+      return HashMap.mutate(
+        own,
         (keyed) => {
           for (const name of names) {
             for (const [place, childState] of listening(name, state)) {
               for (const [key, subscription] of liftedAt(place, childState)) {
-                if (HashMap.has(keyed, key)) {
+                if (HashMap.has(own, key)) {
                   throw defectAt(place, `An own subscription key is the key of a subscription of "${name}"`)
+                }
+                if (HashMap.has(keyed, key)) {
+                  throw defectAt(place, `The subscribed children of "${name}" list the same id twice`)
                 }
                 HashMap.set(keyed, key, subscription as Subscription<Message, unknown>)
               }
             }
           }
         },
-      ),
+      )
+    },
     makeModel: (state: State): Model => config.makeModel(state, childModels),
   }
   return program as unknown as Shape<State, Model, Message, Command, R | ChildServices<C>, Event, External, Flags>
