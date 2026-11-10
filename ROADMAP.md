@@ -23,8 +23,7 @@ when it is done or rejected, with the reason in the commit.
   the whole program, and nothing shows how to hand the work off (a queue of its own, a forked fiber).
 - **The order of a step's commands is not stated.** They run concurrently in the run's `FiberSet`, with no bound,
   so their answers may arrive in any order. The README does not say so.
-- **The README is hard to learn from.** As a specification it is precise; as a first contact it is 845 lines of
-  dense prose. The changelog's entries are paragraphs too.
+- **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
 
 ## Possible improvements
 
@@ -39,8 +38,6 @@ when it is done or rejected, with the reason in the commit.
   abstract tree of handlers, or the README states its contract precisely enough to write one.
 - **A `CompositionDefect` names the child, not the message**: the one for a rejected external message could carry
   its tags, as `ProgramDefect`'s `on` does.
-- **Two levels of documentation**: a short tutorial on the site that builds an application step by step, and the
-  README as the specification it is.
 
 ## Ideas, to be decided
 

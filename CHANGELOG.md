@@ -25,6 +25,8 @@ version, and everything else, features included, the patch version.
   long-lived entities on a server.
 - The `counter-react` and `form-react` examples draw the programs of `counter` and `form` with React, through
   `examples/react.ts`, a bridge to copy as `examples/snabbdom.ts` is.
+- The site has a tutorial that builds an application, the new `timer` example, in four steps, and the README's
+  opening links it.
 
 ## 0.7.1 (2026-10-28)
 
