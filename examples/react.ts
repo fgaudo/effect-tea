@@ -7,6 +7,7 @@ import type { Dispatch, Frame, View } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 import { type ChangeEvent, isValidElement, type ReactElement, type ReactNode } from 'react'
+import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 
 const animationFrame = Effect.callback<void>((resume) => {
@@ -17,15 +18,26 @@ const animationFrame = Effect.callback<void>((resume) => {
 /**
  * The renderer `run` takes: draws each frame into a React root made in `element`, and unmounts it when the run
  * ends. After a frame it waits for the next animation frame before taking another, as the snabbdom bridge does.
- * A view that throws throws here, so the run dies with it.
+ * A view that throws throws here, its components included, so the run dies with it.
  */
 export const renderInto =
   <Model, Message>(element: Element, view: View<Model, Message, ReactNode>) =>
   (frames: Stream.Stream<Frame<Model, Message>>) =>
-    Effect.acquireRelease(Effect.sync(() => createRoot(element)), (root) => Effect.sync(() => root.unmount())).pipe(
-      Effect.flatMap((root) =>
+    Effect.acquireRelease(
+      Effect.sync(() => {
+        // React calls the components later, from its own scheduler, and reports what they throw to the root, not
+        // to whoever rendered: drawn at once, an error is known before the frame is done.
+        const thrown: Array<unknown> = []
+        return { root: createRoot(element, { onUncaughtError: (error) => thrown.push(error) }), thrown }
+      }),
+      ({ root }) => Effect.sync(() => root.unmount()),
+    ).pipe(
+      Effect.flatMap(({ root, thrown }) =>
         Stream.runForEach(frames, ({ model, dispatch }) =>
-          Effect.sync(() => root.render(view(model, dispatch))).pipe(Effect.tap(() => animationFrame)))
+          Effect.sync(() => {
+            flushSync(() => root.render(view(model, dispatch)))
+            if (thrown.length > 0) throw thrown[0]
+          }).pipe(Effect.tap(() => animationFrame)))
       ),
       Effect.scoped,
     )

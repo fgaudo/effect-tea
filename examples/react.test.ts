@@ -4,8 +4,10 @@
 // `messagesSentBy` keeps the contract the README's "Testing" sets for one.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
-import { type Dispatch, dispatchTo, type Frame, run, type View } from '@fgaudo/effect-tea'
+import { type Dispatch, dispatchTo, type Frame, ProgramDefect, run, type View } from '@fgaudo/effect-tea'
+import * as Cause from 'effect/Cause'
 import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
 import type * as Stream from 'effect/Stream'
 import { Component, createElement, forwardRef, memo, type ReactNode } from 'react'
@@ -140,6 +142,19 @@ describe('renderInto, with React', () => {
     await stop()
     await settle()
     expect(element('#app').childElementCount).toBe(0)
+  })
+
+  test('a component that throws ends the run, which dies in the renderer with what it threw', async () => {
+    document.body.innerHTML = '<div id="app"></div>'
+    const root = element<HTMLElement>('#app')
+    const thrown = new Error('A component that cannot draw')
+    const Broken = (): ReactNode => {
+      throw thrown
+    }
+    const exit = await Effect.runPromiseExit(run(counter, bridge.renderInto(root, () => createElement(Broken))))
+    const died = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    expect(died).toBeInstanceOf(ProgramDefect)
+    expect(died).toMatchObject({ where: 'render', cause: thrown })
   })
 })
 
