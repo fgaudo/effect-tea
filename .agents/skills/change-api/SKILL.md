@@ -61,9 +61,12 @@ Besides `bun run typecheck`, `bun run lint` and `bun run test`, check the change
 would see it: the `types` and `default` conditions, and the declarations in `dist/`, whose relative imports
 `build.ts` rewrites to `.js`.
 
-1. `bun pm pack` (it builds `dist/` first, through `prepack`) makes `fgaudo-effect-tea-<version>.tgz` at the
-   root, ignored by git.
-2. Extract it into a scratch project outside the repository, with `effect` installed and a `tsconfig.json`
-   with `moduleResolution: nodenext`, `skipLibCheck: false` and the `ESNext` and `DOM` libs.
-3. Typecheck and run, with Node, code that uses the changed API.
-4. Delete the tarball.
+`bun run smoke` (`smoke/smoke.ts`, also run by the CI) packs the package, installs the tarball with npm in a
+project outside the repository, runs the README's quick start and
+[`smoke/consumer.ts`](../../../smoke/consumer.ts) with Node, and typechecks both, with `skipLibCheck: false`, under `moduleResolution` `nodenext` and `bundler` and
+each supported TypeScript. It needs Node 22.18 or newer, which runs TypeScript as it is.
+
+- A change to what `parent` declares or derives, or to the shape of what `run` and the testing tools take, gets
+  code in `smoke/consumer.ts` that uses it, and a `// @ts-expect-error` for what its types newly reject.
+- `--effect <version>` installs another Effect (the CI also runs the minimum), `--typescript 5.9,7.0` other
+  TypeScripts, and `--keep` leaves the project in place to look into a failure.

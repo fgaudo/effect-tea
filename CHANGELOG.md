@@ -21,6 +21,8 @@ version, and everything else, features included, the patch version.
   arrive: the state, never the view), for composition, and for structuring a program, which gathers the rules
   the library does not enforce. "Running" says that the run never recovers from a defect. "Testing" says which
   rejections fail which tool.
+- The README's "Installation" states the oldest TypeScript the package supports, 5.9, as Effect 4's. The CI now
+  runs the packed package with Node, and typechecks it under TypeScript 5.9, 6 and 7.
 - The README's opening, and the site's navigation, link effect-tea-persistent, the same architecture for
   long-lived entities on a server.
 - The `counter-react` and `form-react` examples draw the programs of `counter` and `form` with React, through

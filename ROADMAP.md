@@ -6,13 +6,6 @@ when it is done or rejected, with the reason in the commit.
 
 ## Open problems
 
-- **The published package is never run.** Under Bun the `bun` export condition loads `src/*.ts`, so the tests and
-  the CI never import `dist/`. The CI builds it and stops there: a broken `.ts` → `.js` rewrite in `build.ts`, or
-  broken declarations, would pass every check and reach the users of Node and of bundlers. The consumer check of
-  `change-api` is manual.
-- **The declarations are checked with TypeScript 7 only.** Many consumers are still on 5.x or 6, and the
-  conditional types of `compose.ts` (`Handles`, `OnEventOf`, `NoClash`) are the kind whose behaviour changes
-  between versions.
 - **A parent's subscriptions cost O(children) on every change of state.** `subscriptions` in `compose.ts`
   recomputes, for every child, its `HashMap` and wraps each subscription in new `Channel.map`/`Channel.mapDone`,
   even when the child's state is the same object. For `each` with many children (a list of a thousand rows that
@@ -28,9 +21,6 @@ when it is done or rejected, with the reason in the commit.
 
 ## Possible improvements
 
-- **A smoke test of the package in the CI**: after `bun pm pack`, install the tarball in a temporary project, run
-  the quick start with Node, and typecheck it with `moduleResolution` `nodenext` and `bundler`, under the oldest
-  TypeScript the package supports. This covers the first two problems.
 - **Keep a child's lifted subscriptions by its state object**, as its model is, with a benchmark on a list of many
   children to show the gain.
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is
