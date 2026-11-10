@@ -1,11 +1,12 @@
 import * as Data from 'effect/Data'
 
 /**
- * Where a defect happened: in one of the program's functions (`update`, `subscriptions`, `describeMessage`,
- * `describeCommand`, `onApplied`, `onIgnored`), in a command (its `runCommand` included), in a subscription, or in
+ * Where a defect happened: in one of the program's functions (`init`, for a program with flags, `update`,
+ * `subscriptions`, `describeMessage`, `describeCommand`, `onApplied`, `onIgnored`), in a command (its `runCommand` included), in a subscription, or in
  * the renderer (its view and `makeModel` included, since a frame's model is made when the renderer reads it).
  */
 export type DefectSite =
+  | 'init'
   | 'update'
   | 'subscriptions'
   | 'subscription'
@@ -17,6 +18,7 @@ export type DefectSite =
   | 'render'
 
 const described: Readonly<Record<DefectSite, string>> = {
+  init: 'init',
   update: 'update',
   subscriptions: 'subscriptions',
   subscription: 'a subscription',
@@ -82,7 +84,7 @@ export class InvariantDefect extends Data.TaggedError('InvariantDefect')<
  * The twin of `reject`, for a message that cannot arrive: throws an `InvariantDefect` with `reason`, and the run
  * dies with it. An expression, so that it fits a branch of a ternary or a `Match`: `state.save._tag ===
  * 'Saving' ? … : defect('A save completed while nothing was saving')`. It is for the synchronous functions
- * (`update`, `onEvent`, `makeModel`, `subscriptions`); inside an Effect, `Effect.die` is the way.
+ * (`init`, `update`, `onEvent`, `makeModel`, `subscriptions`); inside an Effect, `Effect.die` is the way.
  */
 export const defect = (reason: string): never => {
   throw new InvariantDefect({ reason })

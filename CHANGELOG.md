@@ -3,7 +3,7 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
-## 0.7.2 (unreleased)
+## 0.8.0 (unreleased)
 
 ### Added
 
@@ -16,6 +16,9 @@ version, and everything else, features included, the patch version.
 
 ### Changed
 
+- **Breaking**: `DefectSite` gains `'init'`. An `init` that throws on its flags ended the run with the error
+  itself: the run now dies with a `ProgramDefect` in `'init'`. A `switch` over `where` that must be exhaustive
+  needs a `case 'init'`.
 - A parent's subscriptions are kept by each child's state object, as its models are: a child whose state is the
   same object is not asked again, and its subscriptions are not lifted again. On a list of a thousand children
   that change one at a time, a parent's subscriptions cost about a fifth of what they did.

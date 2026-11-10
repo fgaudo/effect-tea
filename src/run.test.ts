@@ -360,6 +360,16 @@ describe('defects', () => {
     expect(await outcome()).toEqual({ where, logged: [] })
   })
 
+  test('an init that throws on its flags dies in init', async () => {
+    const seeded: Program<{ state: Count; model: Model; message: Message; command: Command; flags: number }> = {
+      ...counter,
+      init: boom,
+    }
+    const exit = await Effect.runPromiseExit(run(seeded, () => Effect.never, { flags: 5 }))
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    expect(defect instanceof ProgramDefect && [defect.where, defect.cause]).toEqual(['init', new Boom()])
+  })
+
   test('a renderer that throws before it returns its effect dies in the renderer', async () => {
     const exit = await Effect.runPromiseExit(run(counter, boom))
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined

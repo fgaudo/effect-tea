@@ -25,9 +25,11 @@ export const runWith = Effect.fnUntraced(
     options: Engine.RunOptions<Message, State, Command> & Readonly<{ flags?: unknown }>,
   ): Effect.fn.Return<void, never, R | RR | Scope.Scope> {
     const { flags, ...runOptions } = options
+    // A step is data: only an `init` that makes it from the flags can throw.
+    const init = yield* Effect.sync(() => startOf(program.init, flags)).pipe(Engine.diesIn('init'))
     const engine = yield* Engine.make({
       ...runOptions,
-      init: startOf(program.init, flags),
+      init,
       update: program.update,
       runCommand: runCommandOf(program),
       subscriptions: subscriptionsOf(program),
