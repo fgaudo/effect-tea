@@ -95,6 +95,11 @@ type Fates = Readonly<{
   /** How `onApplied` hears each step, and how `onIgnored` does: rejections are fewer, and die more often. */
   hearings: ReadonlyArray<Hearing>
   ignorings: ReadonlyArray<Hearing>
+  /**
+   * How many turns of the scheduler each wait of the program lasts: a tick, an answer, a release or a hearing that
+   * waits, or the renderer. So a wait that began first may end last, as a promise released in any order would.
+   */
+  waits: ReadonlyArray<number>
   rendererReleasesSlowly: boolean
   /** Whether the renderer dies, when the scheduler says. */
   rendererDies: Opt.Option<Death>
@@ -141,6 +146,7 @@ const fates: fc.Arbitrary<Fates> = fc.record({
     ),
     { minLength: 1, maxLength: 6 },
   ),
+  waits: fc.array(fc.integer({ min: 1, max: 16 }), { minLength: 1, maxLength: 8 }),
   rendererReleasesSlowly: fc.boolean(),
   rendererDies: fc.oneof(
     { arbitrary: fc.constant(Opt.none<Death>()), weight: 12 },
@@ -254,14 +260,22 @@ const holds = (events: Array<Event>, holder: Holder, release: Effect.Effect<void
 /** A point where the scheduler of the tests picks which fiber runs next, the one waiting among them. */
 const later = <A>(value: A) => Effect.as(Effect.yieldNow, value)
 
+/** A wait of the program, of as many turns as `fates` says for `index`, which only the program's data gives. */
+const waits = (fates: Fates, index: number) =>
+  Effect.replicateEffect(later(undefined), fateOf(fates.waits, index), { discard: true })
+
 const makeList = (fates: Fates, events: Array<Event>) => {
   const ticking = (id: Id, born: number, session: number): Subscription<RowMessage, never> => {
     const key = listener(born, session)
     const index = born * 31 + session
-    const tick = Channel.fromEffect(
-      spanned(events, 'Tick').pipe(Effect.andThen(later(RowMessage.Tick({ born, session })))),
-    )
-    const ticks = tick.pipe(Channel.concatWith(() => tick))
+    const tick = (nth: number) =>
+      Channel.fromEffect(
+        spanned(events, 'Tick').pipe(
+          Effect.andThen(waits(fates, index * 4 + nth)),
+          Effect.as(RowMessage.Tick({ born, session })),
+        ),
+      )
+    const ticks = tick(0).pipe(Channel.concatWith(() => tick(1)))
     const released = Effect.sync(() => events.push({ _tag: 'Released', listener: key }))
     const release = Effect.suspend(() => {
       const fate = fateOf(fates.releases, index)
@@ -270,9 +284,9 @@ const makeList = (fates: Fates, events: Array<Event>) => {
         case 'quick':
           return released
         case 'slow':
-          return later(undefined).pipe(Effect.andThen(released))
+          return waits(fates, index * 4 + 2).pipe(Effect.andThen(released))
         case 'dies':
-          return later(undefined).pipe(
+          return waits(fates, index * 4 + 2).pipe(
             Effect.andThen(released),
             Effect.andThen(dies(events, 'subscription', 'defect', `release of ${key}`)),
             Effect.onExit(endsAs(events, `release of ${key}`)),
@@ -291,7 +305,9 @@ const makeList = (fates: Fates, events: Array<Event>) => {
       ))
       : ticks.pipe(Channel.concatWith(() =>
         Channel.unwrap<RowMessage, never, RowMessage, unknown, unknown, unknown, never, never, never>(
-          later(undefined).pipe(Effect.andThen(dies(events, 'subscription', ending, `subscription ${key}`))),
+          waits(fates, index * 4 + 3).pipe(
+            Effect.andThen(dies(events, 'subscription', ending, `subscription ${key}`)),
+          ),
         )
       ))
     return Channel.unwrap(
@@ -350,7 +366,7 @@ const makeList = (fates: Fates, events: Array<Event>) => {
         return holds(events, holder).pipe(
           Effect.andThen(Effect.logDebug('Working', name)),
           Effect.andThen(spanned(events, 'Work')),
-          Effect.andThen(later(undefined)),
+          Effect.andThen(waits(fates, command.born * 7 + command.attempt)),
           Effect.andThen(
             answer === 'answers'
               ? Effect.succeedSome(RowMessage.Done({ born: command.born, attempt: command.attempt }))
@@ -480,8 +496,8 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
           fate === 'quick'
             ? Effect.void
             : fate === 'slow'
-            ? later(undefined)
-            : later(undefined).pipe(Effect.andThen(dies(events, where, fate, name))),
+            ? waits(fates, heard)
+            : waits(fates, heard).pipe(Effect.andThen(dies(events, where, fate, name))),
         ),
         Effect.onExit(endsAs(events, name)),
       )
@@ -493,14 +509,14 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
         latest = frame
       }))
   const renderer = (frames: Stream.Stream<Frame<Model, Message>>) =>
-    holds(events, 'renderer', fates.rendererReleasesSlowly ? later(undefined) : Effect.void).pipe(
+    holds(events, 'renderer', fates.rendererReleasesSlowly ? waits(fates, 0) : Effect.void).pipe(
       Effect.andThen(Effect.logDebug('Drawing')),
       Effect.andThen(Opt.match(fates.rendererDies, {
         onNone: () => drawing(frames),
         onSome: (how) =>
           Effect.raceFirst(
             drawing(frames),
-            later(undefined).pipe(Effect.andThen(dies(events, 'render', how, 'the renderer'))),
+            waits(fates, 1).pipe(Effect.andThen(dies(events, 'render', how, 'the renderer'))),
           ),
       })),
       Effect.onInterrupt(() => Effect.sync(() => events.push({ _tag: 'Interrupted', holder: 'renderer' }))),
@@ -521,6 +537,8 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
       Effect.provide(Logger.layer([Logger.tracerLogger])),
     ),
   )
+  // The user acts on what is drawn: before the first frame, or once the run has ended, an act does nothing.
+  while (latest === undefined && fiber.pollUnsafe() === undefined) yield* later(undefined)
   for (const act of acts) {
     for (let turn = 0; turn < act.pause; turn++) yield* later(undefined)
     const control = latest === undefined ? Opt.none() : controlFor(modelOf(latest), act)
@@ -597,6 +615,17 @@ const answerOf = (event: Event) => {
     : Opt.none()
 }
 
+/** Whether two releases that wait ended in the other order than they began: the one that began later ended first. */
+const releaseOvertaken = (events: ReadonlyArray<Event>) => {
+  const releasing = new Map<string, number>()
+  const begun: Array<number> = []
+  events.forEach((event, index) => {
+    if (event._tag === 'Releasing' && !event.quick) releasing.set(event.listener, index)
+    if (event._tag === 'Released' && releasing.has(event.listener)) begun.push(releasing.get(event.listener) ?? 0)
+  })
+  return begun.some((start, index) => begun.slice(index + 1).some((later) => later < start))
+}
+
 /** Whether a defect is the error the run wraps a self-interruption in: its cause interrupts, and does nothing else. */
 const isSelfInterruption = (defect: unknown) =>
   defect instanceof Error && Cause.isCause(defect.cause) && Cause.hasInterruptsOnly(defect.cause)
@@ -633,7 +662,8 @@ describe('interleavings of the user, commands and subscriptions', () => {
   // dying in every place, and what each property checks. Listening again takes three acts in a row (add, mute,
   // listen), and stopping two subscriptions at once three too (add, add, clear), with two releases that wait, and a
   // command dies only once one has started, before anything else has died, which some runs of 60 scenarios miss. The
-  // rarest, two releases that wait, comes in about five scenarios of 2,000: 4,000 make a miss rare. What is missing
+  // rarest, two releases that wait, comes in about twelve scenarios of 2,000, and a release that overtakes another,
+  // which only the waits' drawn lengths give, in about twenty: 2,000 make a miss rare. What is missing
   // shows only once every scenario has run, after fast-check could name one, so the failure names the seed that
   // makes them again.
   test('the scenarios reach every message, every way of dying, and what each property checks', () => {
@@ -660,7 +690,8 @@ describe('interleavings of the user, commands and subscriptions', () => {
         reached.add('a renderer released once interrupted')
       }
       if (made > 0 && read < events.filter(({ _tag }) => _tag === 'Drew').length) reached.add('a frame never read')
-    }, { numRuns: 4000, seed })
+      if (releaseOvertaken(events)) reached.add('a release overtaken')
+    }, { numRuns: 2000, seed })
     const places: ReadonlyArray<Where> = ['command', 'subscription', 'render', 'onApplied', 'onIgnored']
     const missing = [
       'Add',
@@ -681,6 +712,7 @@ describe('interleavings of the user, commands and subscriptions', () => {
       'a renderer released once interrupted',
       'a frame never read',
       'a span of the program',
+      'a release overtaken',
     ].filter((tag) => !reached.has(tag))
     if (missing.length > 0) throw new Error(`No scenario of seed ${seed} reached ${missing.join(', ')}`)
   }, 180_000)
