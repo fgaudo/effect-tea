@@ -164,10 +164,8 @@ are kept, and what a change must not undo:
 
 An invariant holds only while what it rests on does: the purity of the program's code, states never mutated, and
 the behaviour of Effect's runtime and of the JavaScript engine. What the program must do is the README's ("What is
-left to you"). What Effect and the JavaScript engine must do is listed here, each with the test that would fail
-without it. A premise read only in Effect's source, and not in its documentation, may change in a minor version:
-the test is what keeps it, run against the oldest Effect of the peer range by the CI. A change that rests on a
-new premise adds it here, with its test.
+left to you"). What Effect and the JavaScript engine must do is listed here, each with what checks it, as the rule
+after the list says. A change that rests on a new premise adds it here, with what checks it.
 
 - **`HashMap` compares keys with `Equal`, structurally for arrays and records**, so a key made anew
   for each state, as a parent's lifted keys are, keeps its subscription: "a key equal by value keeps its
@@ -210,10 +208,25 @@ new premise adds it here, with its test.
   of a value with its key: the tests of `dispatchTo` (`dispatch.test.ts`) and "a child's model is let go with its
   state" (`compose.test.ts`), under `Bun.gc`.
 
-A premise about what code does when it runs is never only reasoned. A review of the premises reports a finding only
-once it is reproduced by a test that fails, or ruled out by a test that passes or by Effect's documentation in the
-oldest version of the peer range: a reading of the code alone, or of Effect's source, gives a lead, and the review
-turns it into a test or drops it. A review is due after a change of the engine or of a testing tool that adds a
+A premise about what code does when it runs is checked before the change that rests on it is written, and never
+only reasoned. How depends on what promises it, in the oldest version of the peer range (for Effect, the JSDoc of
+its declarations):
+
+- **Documented, on a stable API**: the documentation is enough, since a stable API keeps its promise within the
+  major.
+- **Documented, on an API marked `@stability unstable`** (only the examples may use one): a spike, a test in
+  `spikes/` of what the dependency alone does, with no code of the library, which `bun run test` runs at the
+  version of the lockfile, so that an upgrade that changes the behaviour fails it.
+- **Not documented** (read only in the source, or seen in a run): a test of the library that fails without it, which
+  the CI runs against the oldest Effect of the peer range too, since what is not promised may change in a minor
+  version.
+
+A premise that none of these can check yet holds the change up: it waits, or a guard of the library's makes the
+premise unneeded, and the premise goes under "Premises that no test reaches yet".
+
+A review of the premises reports a finding only once it is reproduced by a test that fails, or ruled out by the check
+the rule above asks of the premise: a reading of the code alone, or of a dependency's source, gives a lead, and the
+review turns it into a test or drops it. A review is due after a change of the engine or of a testing tool that adds a
 premise, and before 1.0, in a session that did not write the change: it follows
 [`premise-review`](.agents/skills/premise-review/SKILL.md).
 

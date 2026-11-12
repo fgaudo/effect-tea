@@ -35,7 +35,8 @@ the author's call.
 - A module or function marked `@stability unstable` in Effect's declarations may change under the library's
   users: never build on one, not even as an option. The typecheck fails on one in the library (the Effect
   language service's `unstableApiUsage`); the examples turn it off in `examples/tsconfig.json`, since they are
-  not published.
+  not published. What an example relies on of such an API has a spike in `spikes/` (`AGENTS.md`, under "What the
+  invariants rest on"), which an upgrade that changes it fails.
 - Nothing marked `@deprecated`, of any dependency, in the library, its tests or its examples: use what the
   deprecation names instead (fast-check's `waitNext(1)` for `waitOne()`), and replace a use found in passing.
   `bun run lint` warns about one (Oxlint's type-aware `typescript/no-deprecated`). An upgrade that deprecates
