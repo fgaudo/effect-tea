@@ -178,8 +178,9 @@ after the list says. A change that rests on a new premise adds it here, with wha
   again" (`dispatch.test.ts`). Both are read only in the source.
 - **`HashMap` calls a key's `Equal` and `Hash` only within the call it is given the key in**, synchronously, and
   never later, so that `reconcile` compares keys all inside `'subscriptions'`: "a key whose Equal throws dies in
-  subscriptions" (`run.test.ts`). `FiberMap` compares its keys in a fiber's observer as well, which is why the run
-  keeps its fibers by their start, never by their key. Both are read only in the source.
+  subscriptions" (`run.test.ts`), and so do `simulate` and `rehearse`, which compare them as it does: "… on a key
+  whose Equal throws against the key of the state before" (`contract.test.ts`). `FiberMap` compares its keys in a
+  fiber's observer as well, which is why the run keeps its fibers by their start, never by their key. Both are read only in the source.
 - **`FiberMap.remove` waits for the interrupted fiber to end**, its release included, which is what makes the
   gone keys released before any key starts: "a key that changes stops the old subscription and starts the new
   one", "keys that go away together release their subscriptions together, not one after the other"

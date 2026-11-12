@@ -100,6 +100,9 @@ version, and everything else, features included, the patch version.
   them. A message that stopped a subscription waited for its release before it wrote its state, and wrote it over
   what arrived meanwhile: a command's answer was lost, and a command run meanwhile was pending again. "Testing" in
   the README says so.
+- `simulate` and `rehearse` compare the keys of a new state's subscriptions with those of the state before, as the
+  run does, and fail where the run dies of a key whose `Equal` throws against one of them, in `'subscriptions'`.
+  They compared only the keys of one state, and passed. "Testing" in the README says so.
 
 ## 0.7.1 (2026-10-28)
 

@@ -40,9 +40,6 @@ when it is done or rejected, with the reason in the commit.
 - **A message a `hearNext` takes after its key went away reaches `update`.** Waiting in a fiber of the test's, it
   takes the message from the queue of a start `listen` has already removed; the run drops it by its generation.
   `rehearse.test.ts` holds it. A fix could apply a heard message only while that very start is still open.
-- **`simulate` and `rehearse` miss a key whose `Equal` throws against a key of the state before**, which the run
-  compares in `reconcile` and dies of in `'subscriptions'`. `contract.test.ts` holds it, once for each tool. A fix
-  could keep the previous listing and compare with it as `reconcile` does.
 - **`rehearse`'s `hearNext` runs the subscription listed at its first call, the run the one listed when its key
   appeared.** It shows only with a subscription that sees the state other than through its key, which the README
   advises against but "What is left to you" does not list. `contract.test.ts` holds it. A fix could take the

@@ -806,7 +806,8 @@ there with `applyAll`, or with `update` itself.
   `update` rejects one of them. Each command runs after those started before it, so the commands of one step all
   answer before those their answers start, as when the program runs commands that answer at once. The command
   answers that `update` rejected are listed in `ignored`: assert it when one being dropped would be a bug. Its subscriptions do not run, but it reads them on each new state, as
-  the run does, and fails on a state whose subscriptions are a defect, as the run dies of one.
+  the run does, and fails on a state whose subscriptions are a defect, as the run dies of one, a key whose
+  `Equal` throws against a key of the state before included.
 - **`rehearse`** acts through what the current model shows, as `drive` does, but nothing reaches `update` by itself. Each
   command waits until the test runs it (`run`, `runAll`), through the program's `runCommand` with the services
   provided. A subscription's message is one the test says was heard (`hear`), or the next one the subscription
@@ -841,8 +842,8 @@ there with `applyAll`, or with `update` itself.
   It fails when `send` finds nothing to send on the model, when `update` rejects what it sends (a control the
   model shows and its own state rejects), and when a command is still pending at the end: its answer would
   still arrive. It also fails, as the run dies, on a state whose subscriptions are a defect, which it reads on
-  each new state, and on a command or a subscription that interrupts itself. A command's or a subscription's
-  message that no longer applies is ignored, as when the program runs, and listed in `ignored`. Messages that
+  each new state, a key whose `Equal` throws against a key of the state before included, and on a command or a
+  subscription that interrupts itself. A command's or a subscription's message that no longer applies is ignored, as when the program runs, and listed in `ignored`. Messages that
   arrive together, from fibers of the test's, are applied one at a time, as the run takes them: each waits for the
   state the one before left, the release of the subscriptions it stopped included. It starts from the program's `init`, or from the step given as `from`; a
   program with flags needs either `from` or its `flags`.

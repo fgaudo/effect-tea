@@ -1,4 +1,5 @@
 import * as Effect from 'effect/Effect'
+import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import type * as Scope from 'effect/Scope'
 import { diesIn } from '../engine.ts'
@@ -27,7 +28,8 @@ export type Simulation<State, Message, Command, Event> = Readonly<{
  * program runs, each command has a scope of its own, closed before its message is applied. Pass the program's
  * own `runCommand` with its services provided, or one of the test's that answers each command without any.
  * Subscriptions do not run: pass the messages they would send in `messages`. They are read on each new state, as
- * the run reads them, so a state whose subscriptions are a defect fails the test, as it ends the run; a command
+ * the run reads them, so a state whose subscriptions are a defect fails the test, as it ends the run, a key whose
+ * `Equal` throws against a key of the state before included; a command
  * that interrupts itself is a defect too, as in the run. A rejection of one of `messages`
  * fails the test with a defect, and so does an error `update` throws; a command's message that `update` rejects
  * no longer applies: it is ignored, as when the program runs, and listed in `ignored`. Each command completes in
@@ -45,11 +47,21 @@ export const simulate = <State, Message, Command, Event, R = never>(
   const { update } = program
   const runCommand = runCommandOf(program)
   const subscriptions = subscriptionsOf(program)
-  // Read, never run, as the run reads them on each new state: a state whose subscriptions are a defect ends it.
-  const listen = (state: State) => Effect.sync(() => void subscriptions(state)).pipe(diesIn('subscriptions'))
+  // The keys of the state before, which a new state's are compared with.
+  type Listening = { listed: ReturnType<typeof subscriptions> }
+  // Read, never run, as the run reads them on each new state, and their keys compared with those of the state
+  // before, as the run reconciles them: a state whose subscriptions are a defect ends it, and so does a key whose
+  // `Equal` throws against a key of the state before.
+  const listen = (listening: Listening, state: State) =>
+    Effect.sync(() => {
+      const listed = subscriptions(state)
+      for (const [key] of listening.listed) void HashMap.has(listed, key)
+      for (const [key] of listed) void HashMap.has(listening.listed, key)
+      listening.listed = listed
+    }).pipe(diesIn('subscriptions'))
   // A message `update` accepts, folded with its step: the commands it starts join `commands`, after those already
   // started, and `runFrom` runs them in that order.
-  const apply = (message: Message, simulation: Current): Effect.Effect<Opt.Option<Current>> =>
+  const apply = (message: Message, simulation: Current, listening: Listening): Effect.Effect<Opt.Option<Current>> =>
     Effect.suspend(() => {
       const result = update(message)(simulation.state)
       if (isRejected(result)) return Effect.succeedNone
@@ -60,20 +72,21 @@ export const simulate = <State, Message, Command, Event, R = never>(
       }
       return result.state === simulation.state
         ? Effect.succeedSome(applied)
-        : Effect.as(listen(result.state), Opt.some(applied))
+        : Effect.as(listen(listening, result.state), Opt.some(applied))
     })
   // Runs the commands from `ran` on, oldest first, as the run starts them: those a command's answer starts wait
   // behind those started before it.
   const runFrom = Effect.fnUntraced(function*(
     simulation: Current,
     ran: number,
+    listening: Listening,
   ): Effect.fn.Return<Current, never, Exclude<R, Scope.Scope>> {
     let current = simulation
     for (let index = ran; index < current.commands.length; index++) {
       const command = current.commands[index] as Command
       const message = yield* Effect.suspend(() => runCommand(command)).pipe(Effect.scoped, diesIn('command'))
       if (Opt.isNone(message)) continue
-      const applied = yield* apply(message.value, current)
+      const applied = yield* apply(message.value, current, listening)
       current = Opt.isSome(applied) ? applied.value : { ...current, ignored: [...current.ignored, message.value] }
     }
     return current
@@ -82,18 +95,19 @@ export const simulate = <State, Message, Command, Event, R = never>(
     messages: ReadonlyArray<Message>,
     from: Step<State, Command>,
   ): Effect.fn.Return<Current, never, Exclude<R, Scope.Scope>> {
-    yield* listen(from.state)
+    const listening: Listening = { listed: HashMap.empty() }
+    yield* listen(listening, from.state)
     let current = yield* runFrom({
       state: from.state,
       messages: [],
       commands: from.commands ?? [],
       events: [],
       ignored: [],
-    }, 0)
+    }, 0, listening)
     for (const [index, message] of messages.entries()) {
-      const applied = yield* apply(message, current)
+      const applied = yield* apply(message, current, listening)
       if (Opt.isNone(applied)) return yield* Effect.die(unexpectedRejection(index, message))
-      current = yield* runFrom(applied.value, current.commands.length)
+      current = yield* runFrom(applied.value, current.commands.length, listening)
     }
     return current
   })
