@@ -43,9 +43,9 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
   runAll: Effect.Effect<void, never, Exclude<R, Scope.Scope>>
   /**
    * Applies `message` as the subscription under `key` would send it, without running it; fails the test when
-   * nothing listens under `key` in the current state, and when `hearNext` has heard that subscription end, until
-   * the key goes away and comes back. Keys compare by value, as the engine compares them; a child's key is under its
-   * name, as its parent lists it (`['Clock', 'ticks']`, with the id for children by id).
+   * nothing listens under `key` in the current state, and when `hearNext` runs that subscription, or has heard it
+   * end, until the key goes away and comes back. Keys compare by value, as the engine compares them; a child's key
+   * is under its name, as its parent lists it (`['Clock', 'ticks']`, with the id for children by id).
    */
   hear: (key: unknown, message: Message) => Effect.Effect<void>
   /**
@@ -54,7 +54,8 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    * waits after each message for the next call; it stays as it is for as long as its key does, as the run keeps a
    * key that stays, and is interrupted when its key goes away, or when the scenario ends. Its end value is its last
    * message: after it, `hearNext` and `hear` fail the test until the key goes away and comes back. Fails the test
-   * when nothing listens under `key` in the current state. It waits as long as the subscription does.
+   * when nothing listens under `key` in the current state, and when the test has played that subscription with
+   * `hear`, until the key goes away and comes back. It waits as long as the subscription does.
    */
   hearNext: (key: unknown) => Effect.Effect<Message, never, Exclude<R, Scope.Scope>>
   /** The events `update` raised for the program's parent, in order. */
@@ -132,6 +133,10 @@ export const rehearse = Effect.fnUntraced(function*<
   // keeps its subscription as it is, and one that went away takes it with it. Keys are compared only in
   // `subscriptions`, as in the run.
   let opened = HashMap.empty<unknown, Opened<Message>>()
+  // The keys whose current start the test plays with `hear`. A start is either the test's or the subscription's,
+  // never both: the run hears one subscription per start, so a message the test adds to one that runs, or a
+  // subscription run from its start after the test heard it, is a history no run makes.
+  let scripted = HashMap.empty<unknown, true>()
   // Interrupts them together, as the run stops the keys that went away, and fails the test on a defect of what
   // they release.
   const stop = (stopping: Iterable<Opened<Message>>) =>
@@ -148,6 +153,7 @@ export const rehearse = Effect.fnUntraced(function*<
       const listed = subscriptions(state)
       const gone = Arr.fromIterable(HashMap.values(HashMap.filter(opened, (_, key) => !HashMap.has(listed, key))))
       opened = HashMap.filter(opened, (_, key) => HashMap.has(listed, key))
+      scripted = HashMap.filter(scripted, (_, key) => HashMap.has(listed, key))
       return gone
     }).pipe(diesIn('subscriptions'), Effect.flatMap(stop))
   yield* listen(from.state)
@@ -192,6 +198,7 @@ export const rehearse = Effect.fnUntraced(function*<
           onSome: Effect.succeed,
         })),
       ))
+  const untilItComesBack = 'until its key goes away and comes back'
   const openedUnder = (key: unknown) =>
     Effect.sync(() => HashMap.get(opened, key)).pipe(
       diesIn('subscriptions'),
@@ -201,13 +208,26 @@ export const rehearse = Effect.fnUntraced(function*<
           each.ended
             ? Effect.die(
               new Error(
-                `The subscription under ${Inspectable.toStringUnknown(key, 0)} has ended: it sends nothing until its `
-                  + 'key goes away and comes back',
+                `The subscription under ${Inspectable.toStringUnknown(key, 0)} has ended: it sends nothing `
+                  + untilItComesBack,
               ),
             )
             : Effect.succeedSome(each),
       })),
     )
+  // `hear` plays the subscription of a start that `hearNext` has not run.
+  const script = (key: unknown) =>
+    Effect.flatMap(openedUnder(key), (found) =>
+      Opt.isSome(found)
+        ? Effect.die(
+          new Error(
+            `The subscription under ${Inspectable.toStringUnknown(key, 0)} runs under hearNext: only it sends `
+              + `messages under its key, ${untilItComesBack}`,
+          ),
+        )
+        : Effect.sync(() => {
+          scripted = HashMap.set(scripted, key, true)
+        }).pipe(diesIn('subscriptions')))
   // Started as the run starts a subscription, but held after each message until the next `hearNext` asks for one:
   // between two of them, it waits where the run's would wait for the loop to take its message. Its last message
   // follows the end of its scope, as in the run.
@@ -231,6 +251,14 @@ export const rehearse = Effect.fnUntraced(function*<
   })
   const hearNext = Effect.fnUntraced(function*(key: unknown) {
     const subscription = yield* listeningUnder(key)
+    if (yield* Effect.sync(() => HashMap.has(scripted, key)).pipe(diesIn('subscriptions'))) {
+      return yield* Effect.die(
+        new Error(
+          `The test plays the subscription under ${Inspectable.toStringUnknown(key, 0)} with hear: hearNext would `
+            + `start it again, which the run does not do ${untilItComesBack}`,
+        ),
+      )
+    }
     const found = yield* openedUnder(key)
     const each = Opt.isSome(found) ? found.value : yield* open(key, subscription)
     // Asked once until it is heard: a `hearNext` interrupted while it waits leaves its message to the next one,
@@ -280,7 +308,7 @@ export const rehearse = Effect.fnUntraced(function*<
     run,
     runAll,
     hear: (key, message) =>
-      listeningUnder(key).pipe(Effect.andThen(openedUnder(key)), Effect.andThen(arrive(message))),
+      listeningUnder(key).pipe(Effect.andThen(script(key)), Effect.andThen(arrive(message))),
     hearNext,
     events: Effect.map(Ref.get(current), (now) => now.events),
     ignored: Effect.map(Ref.get(current), (now) => now.ignored),

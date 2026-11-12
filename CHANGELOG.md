@@ -33,6 +33,11 @@ version, and everything else, features included, the patch version.
   stopped once its first message was in, with a failure, so a release that read its exit (`Channel.onExit`,
   `Effect.acquireRelease`) saw a failure where the run gives an interruption. A scenario that awaits what the
   subscription releases right after `hearNext` makes its key go away first.
+- **Breaking**: `rehearse` hears each start of a key one way, as the run hears one subscription for each. Once
+  `hearNext` runs a subscription, `hear` fails the test on its key, and once `hear` has played one, `hearNext` does,
+  until the key goes away and comes back. A test mixed them: `hear` added a message the running subscription never
+  sent, and `hearNext` after `hear` started the subscription again from its start. A test that mixes them hears
+  that start with one of the two, or makes its key go away and come back in between.
 - "Commands" in the README says that commands run concurrently, with no bound, and that their answers reach
   `update` in the order they end: the run always did so.
 - "Running" in the README says that the run waits for `onApplied` and `onIgnored` before the next message, as it

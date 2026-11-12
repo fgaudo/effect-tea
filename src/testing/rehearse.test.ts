@@ -12,7 +12,7 @@ import * as Opt from 'effect/Option'
 import { ProgramDefect } from '../defect.ts'
 import type { Program } from '../program.ts'
 import { reject, type Update } from '../update.ts'
-import { rehearse } from './rehearse.ts'
+import { type Rehearsal, rehearse } from './rehearse.ts'
 
 describe('rehearse', () => {
   class Storage extends Context.Service<Storage, { readonly store: (text: string) => Effect.Effect<void> }>()(
@@ -308,6 +308,52 @@ describe('rehearse', () => {
       }
       const message = await Effect.runPromise(withStorage(rehearse(ending, (rehearsal) => rehearsal.hearNext('ping'))))
       expect(message).toEqual({ _tag: 'Pinged' })
+    })
+
+    // Saving makes the key go away, and its answer brings it back.
+    const comingBack = Effect.fnUntraced(function*(
+      rehearsal: Rehearsal<Note, NoteModel, Edit, NoteCommand, 'Stored', Storage>,
+    ) {
+      yield* rehearsal.send(typing('milk'))
+      yield* rehearsal.send(saving)
+      yield* rehearsal.runAll
+    })
+
+    const failingWith = <A, R>(effect: Effect.Effect<A, never, R>) =>
+      Effect.map(Effect.exit(effect), (exit) => Exit.isFailure(exit) ? String(Cause.squash(exit.cause)) : '')
+
+    test('a start it runs takes no message from hear, until the key goes away and comes back', async () => {
+      const log: Array<string> = []
+      const { failure, pings } = await Effect.runPromise(withStorage(rehearse(
+        pinging(log),
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.hearNext('ping')
+          const failure = yield* failingWith(rehearsal.hear('ping', { _tag: 'Pinged' }))
+          yield* comingBack(rehearsal)
+          yield* rehearsal.hear('ping', { _tag: 'Pinged' })
+          return { failure, pings: (yield* rehearsal.state).pings }
+        }),
+      )))
+      expect(failure).toContain('The subscription under ping runs under hearNext')
+      expect(pings).toBe(2)
+    })
+
+    test('a start the test played with hear is not run, until the key goes away and comes back', async () => {
+      const log: Array<string> = []
+      const { failure, pings } = await Effect.runPromise(withStorage(rehearse(
+        pinging(log),
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.hear('ping', { _tag: 'Pinged' })
+          yield* rehearsal.hear('ping', { _tag: 'Pinged' })
+          const failure = yield* failingWith(rehearsal.hearNext('ping'))
+          yield* comingBack(rehearsal)
+          yield* rehearsal.hearNext('ping')
+          return { failure, pings: (yield* rehearsal.state).pings }
+        }),
+      )))
+      expect(failure).toContain('The test plays the subscription under ping with hear')
+      expect(pings).toBe(3)
+      expect(log).toEqual(['acquire', 'release'])
     })
 
     test('fails the test when nothing listens under the key', async () => {
