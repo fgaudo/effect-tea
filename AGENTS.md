@@ -274,6 +274,28 @@ A lead no test can reach yet is listed here, with what would decide it. None tod
 
 - `bun:test`, in a `*.test.ts` next to the module. Tests are excluded from `dist/` and from the packed `src/`.
 - Test through behaviour (`run`, `Engine.make`, the public functions), not through internals.
+- A test of the library is of one of five kinds, and a test of none of them is not added:
+  - **the semantics of the pure pieces**: what a function that runs nothing returns, as a `Step` and `andThen`,
+    `forEach` and `reject` over it, a parent's composition, how a child's message is wrapped, how the logs describe
+    a message, `defect`, `applyAll` and `dispatchViolations`. They lie in the test file of their module
+    (`compose.test.ts`, `dispatch.test.ts`, `log.test.ts`, `defect.test.ts`, `src/testing/`).
+  - **invariants under random histories**: fast-check draws orders of clicks, answers and subscription messages,
+    and each promise of the README's "Guarantees" is checked on every one (`interleaving.test.ts`).
+  - **contracts**: one program and its inputs given alike to each testing tool and to the run
+    (`src/testing/contract.test.ts`, where a `test.failing` says how they still differ), and one view to each
+    bridge (the same tests, `messagesSentBy`'s included, in `examples/snabbdom.test.ts` and
+    `examples/react.test.ts`).
+  - **the boundary of a run**, the run's or a testing tool's: its lifecycle, scopes, interruption and defects, what
+    it holds and lets go, what a tool fails on (`run.test.ts`, `engine.test.ts`, the cache of `dispatchTo` in
+    `dispatch.test.ts`, a parent's subscriptions in a run in `compose.test.ts`, each tool's own file in
+    `src/testing/`, a bridge's `renderInto`). A test of a premise ("What the invariants rest on") is of this kind.
+  - **the types**: what the compiler refuses (`@ts-expect-error`), or infers (`expectTypeOf`), next to the tests
+    of the function whose types they are.
+
+  A bug found is held by a case of one of them: a rule of a pure piece, an invariant, a contract, a boundary or a
+  type, and gets a scenario of its own only where none can hold it. The examples' own tests show users how to test
+  a program, and the smoke test (`smoke/`) and the benchmark (`bench/`) check the package and its speed: none of
+  them is a test of the library's correctness, and they are kept apart from the five.
 - A test's name says what it checks. When a change touches a test, or what it tests, check that its name, its
   `describe` and its comments still say what the assertions check: a test adapted to a new design keeps an old
   name that promises what it no longer proves.
