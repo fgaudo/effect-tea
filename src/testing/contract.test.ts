@@ -205,6 +205,67 @@ describe('the order of the answers of commands started together', () => {
   })
 })
 
+describe('how a subscription stopped after its first message ends', () => {
+  // Listening under `ticks` until the first `Tick`; the subscription tells `ended` how it ended, as a release that
+  // reads its exit sees it.
+  type Listening = Readonly<{ listening: boolean }>
+  type Listener = Program<{ state: Listening; model: Listening; message: 'Tick' }>
+  const listener = (ended: Deferred.Deferred<string>): Listener => ({
+    init: { state: { listening: true } },
+    update: () => () => ({ state: { listening: false } }),
+    subscriptions: ({ listening }) =>
+      listening
+        ? HashMap.make([
+          'ticks',
+          Channel.succeed<'Tick'>('Tick').pipe(
+            Channel.concatWith(() => Channel.never),
+            Channel.onExit((exit) =>
+              Deferred.succeed(
+                ended,
+                Exit.isSuccess(exit) ? 'ended' : Cause.hasInterruptsOnly(exit.cause) ? 'interrupted' : 'failed',
+              )
+            ),
+          ),
+        ])
+        : HashMap.empty(),
+    makeModel: (listening) => listening,
+  })
+
+  test('in the run, the subscription whose key went away is interrupted', async () => {
+    const end = await Effect.runPromise(Effect.gen(function*() {
+      const ended = yield* Deferred.make<string>()
+      return yield* drive(listener(ended), () => Deferred.await(ended))
+    }))
+    expect(end).toBe('interrupted')
+  })
+
+  test('rehearse, once hearNext has its first message, interrupts the subscription as the run does', async () => {
+    const end = await Effect.runPromise(Effect.gen(function*() {
+      const ended = yield* Deferred.make<string>()
+      return yield* rehearse(listener(ended), (rehearsal) =>
+        Effect.andThen(rehearsal.hearNext('ticks'), Deferred.await(ended)))
+    }))
+    expect(end).toBe('interrupted')
+  })
+
+  test('rehearse fails, as the run dies, on a defect of what the subscription hearNext stops releases', async () => {
+    const dying: Listener = {
+      ...listener(Deferred.makeUnsafe<string>()),
+      subscriptions: () =>
+        HashMap.make([
+          'ticks',
+          Channel.succeed<'Tick'>('Tick').pipe(
+            Channel.concatWith(() => Channel.never),
+            Channel.onExit(() => Effect.die('release')),
+          ),
+        ]),
+    }
+    const exit = await Effect.runPromiseExit(rehearse(dying, (rehearsal) => rehearsal.hearNext('ticks')))
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    expect(defect instanceof ProgramDefect && defect.where === 'subscription' && defect.cause).toBe('release')
+  })
+})
+
 describe('what the run dies of, and the tools fail on', () => {
   // A row by id, listening under `ticks`; `Doubled` makes the parent's `subscribed` list its id twice, which the
   // run's reconciliation of the parent's subscriptions finds in the state `Doubled` leaves.

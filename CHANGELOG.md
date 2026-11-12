@@ -25,6 +25,9 @@ version, and everything else, features included, the patch version.
   answer before those their answers start. It ran the commands a command's answer started before the next
   command of the same step, so a step starting `A` and `B`, with `A`'s answer starting `C`, was heard `A, C, B`
   where the run hears `A, B, C`. A test that asserts the old order sees the new one.
+- `rehearse`'s `hearNext` interrupts the subscription once it has its first message, as the run stops one whose
+  key went away. It stopped it with a failure, so a release that read its exit (`Channel.onExit`,
+  `Effect.acquireRelease`) saw a failure where the run gives an interruption.
 - "Commands" in the README says that commands run concurrently, with no bound, and that their answers reach
   `update` in the order they end: the run always did so.
 - **Breaking**: `DefectSite` gains `'init'`. An `init` that throws on its flags ended the run with the error

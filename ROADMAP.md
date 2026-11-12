@@ -11,8 +11,6 @@ when it is done or rejected, with the reason in the commit.
 - **Premises that no test reaches yet**, found in a review of the engine's premises (November 2026):
   - that a dispatch wakes the loop on the scheduler of the run, read only in Effect's source (a `Queue` keeps the
     scheduler of the fiber that made it);
-  - that `hearNext` stops a subscription with a failure, where the run interrupts it: a release that reads its
-    exit sees another one;
   - that a `Logger` never throws in the loop's debug logs: the loop is not under `diesIn`, so its defect would be
     no `ProgramDefect`.
   `hear` accepts a key whose subscription the run would have seen end, since an ended subscription keeps its key:

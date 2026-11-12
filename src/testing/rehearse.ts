@@ -1,7 +1,10 @@
 import * as Arr from 'effect/Array'
+import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
+import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
-import { identity } from 'effect/Function'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
 import * as HashMap from 'effect/HashMap'
 import * as Inspectable from 'effect/Inspectable'
 import * as Opt from 'effect/Option'
@@ -46,7 +49,8 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
   hear: (key: unknown, message: Message) => Effect.Effect<void>
   /**
    * Runs the subscription under `key`, with the services provided and in a scope of its own, until its first
-   * message, or its last one if it ends before sending any, applies that message as `hear` would, and returns it.
+   * message, or its last one if it ends before sending any, then interrupts it, as the run stops a subscription
+   * whose key went away, applies that message as `hear` would, and returns it.
    * Fails the test when nothing listens under `key` in the current state. Where `hear` applies a message the test
    * says was heard, `hearNext` hears what the subscription itself says first.
    */
@@ -152,15 +156,25 @@ export const rehearse = Effect.fnUntraced(function*<
       }))
   // The first message ends the run through the failure channel; a subscription that ends first succeeds with its
   // last message: either way, the message the subscription says first.
-  const firstOf = (
+  // The subscription runs in a fiber of its own, interrupted once its first message is in, as the run stops one
+  // whose key went away: what it releases sees an interruption, and a defect of its release fails the test.
+  const firstOf = Effect.fnUntraced(function*(
     key: unknown,
     subscription: Subscription<Message, R>,
-  ): Effect.Effect<Message, never, Exclude<R, Scope.Scope>> =>
-    Channel.runForEach(subscription, (message: Message) => Effect.fail(message)).pipe(
-      Effect.match({ onFailure: identity, onSuccess: identity }),
+  ): Effect.fn.Return<Message, never, Exclude<R, Scope.Scope>> {
+    const first = yield* Deferred.make<Message>()
+    const fiber = yield* Channel.runForEach(subscription, (message: Message) => Deferred.succeed(first, message)).pipe(
+      Effect.flatMap((last) => Deferred.succeed(first, last)),
       Effect.scoped,
       diesIn('subscription', () => ({ key })),
+      Effect.forkChild,
     )
+    const message = yield* Effect.raceFirst(Deferred.await(first), Effect.andThen(Fiber.join(fiber), Effect.never))
+    yield* Fiber.interrupt(fiber)
+    const exit = yield* Fiber.await(fiber)
+    const dies = Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isDieReason) : []
+    return Arr.isArrayNonEmpty(dies) ? yield* Effect.failCause(Cause.fromReasons<never>(dies)) : message
+  })
   const run = Effect.fnUntraced(function*(select: (command: Command) => boolean) {
     const { commands: pending } = yield* Ref.get(current)
     const index = pending.findIndex(select)
