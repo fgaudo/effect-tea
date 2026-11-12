@@ -18,7 +18,7 @@ needs.
   index.
 - Keep the tools symmetric: what `drive` gets, `simulate` and `rehearse` are asked about, and the engine and
   the three tools behave alike where the engine is deterministic ("Invariants the engine keeps").
-- Only stable Effect APIs, nothing deprecated, nothing the peer minimum lacks without asking
+- Only stable Effect APIs, nothing deprecated, and no upgrade of Effect for a newer API without asking
   ([`upgrade-effect`](../upgrade-effect/SKILL.md)).
 - A new entrypoint beside `.` and `./testing` needs the three conditions of `exports` in `package.json`: `bun`
   (the TypeScript source, for consumers that run under Bun), `types` and `default` (`dist/`, for everyone else),
@@ -68,5 +68,5 @@ each supported TypeScript. It needs Node 22.18 or newer, which runs TypeScript a
 
 - A change to what `parent` declares or derives, or to the shape of what `run` and the testing tools take, gets
   code in `smoke/consumer.ts` that uses it, and a `// @ts-expect-error` for what its types newly reject.
-- `--effect <version>` installs another Effect (the CI also runs the minimum), `--typescript 5.9,7.0` other
+- `--effect <version>` installs another Effect than the lockfile's, `--typescript 5.9,7.0` other
   TypeScripts, and `--keep` leaves the project in place to look into a failure.

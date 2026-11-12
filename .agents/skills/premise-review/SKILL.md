@@ -63,10 +63,9 @@ HOW:
    source, gives a lead and no finding: report it as a lead, with the test that would reproduce it. Run only the
    tests you need.
 4. A suspect is ruled out as AGENTS.md says under "What the invariants rest on": by the documentation of a stable
-   API (for Effect, the JSDoc of the declarations in the oldest version of the peer range, `bun add --dev --exact
-   effect@<minimum>` in a scratch copy of the repository, as the CI's `minimum-effect` job does; for the JavaScript
-   engine, the ECMAScript specification), or by a test that passes for what is not documented. Effect's source,
-   effect.website and its maintainers' answers rule out nothing. A property of src/interleaving.test.ts rules a
+   API (for Effect, the JSDoc of the declarations in the version of the lockfile, where the peer range starts; for
+   the JavaScript engine, the ECMAScript specification), or by a test that passes for what is not documented.
+   Effect's source, effect.website and its maintainers' answers rule out nothing. A property of src/interleaving.test.ts rules a
    suspect out only under the runs it made: run it with `numRuns` of a thousand at least, and name the seeds.
 5. While you read the code that keeps a row, note each place where it does otherwise than AGENTS.md or the README
    says, and each test whose name promises more than its assertions check.

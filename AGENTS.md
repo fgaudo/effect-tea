@@ -10,7 +10,7 @@ for the task before starting it:
 | ------------------------------------------------------- | ---------------------------------------------------------- |
 | adding, changing or removing an export                  | [`change-api`](.agents/skills/change-api/SKILL.md)         |
 | adding or changing an example, or the bridge they share | [`add-example`](.agents/skills/add-example/SKILL.md)       |
-| an API the peer minimum lacks, or a dependency upgrade  | [`upgrade-effect`](.agents/skills/upgrade-effect/SKILL.md) |
+| an API of a newer Effect, or a dependency upgrade       | [`upgrade-effect`](.agents/skills/upgrade-effect/SKILL.md) |
 | a changelog entry, the version, a release, the site     | [`release`](.agents/skills/release/SKILL.md)               |
 | a review of what the invariants rest on                 | [`premise-review`](.agents/skills/premise-review/SKILL.md) |
 
@@ -61,9 +61,10 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 - **Nothing deprecated.** No module, type, function, method or option marked `@deprecated`, of any dependency,
   in the library, its tests or its examples: use what the deprecation names instead, and replace a use found in
   passing. `bun run lint` warns about one (Oxlint's type-aware `typescript/no-deprecated`).
-- **The peer range starts at the oldest Effect 4 the library works with** (`^4.0.0` today), so that any
-  application on Effect 4 can use it. The CI checks the library against exactly that version. An API that
-  exists only in a newer Effect is not a reason for a workaround: ask whether to use it and raise the minimum
+- **The peer range starts at the Effect the library is developed with** (`^4.1.4` today): `peerDependencies`
+  names the version of `devDependencies` with a caret, and an upgrade of Effect raises both in one commit, so that
+  the library is checked, and what it rests on of Effect read and tested, at one version only. No older Effect is
+  supported. An API that exists only in a newer Effect is not a reason for a workaround: ask whether to upgrade
   (`upgrade-effect`).
 - **A change a consumer can notice has a changelog entry** in the same commit, and raises the version when it
   needs more than the unreleased section says (`release`).
@@ -305,12 +306,12 @@ A premise about what code does when it runs is checked before the change that re
 only reasoned:
 
 - **Documented, on a stable API**: the documentation is enough, since a stable API keeps its promise within the
-  major. For Effect, it is the JSDoc of its declarations in the oldest version of the peer range; for the JavaScript
-  engine, the ECMAScript specification. That a bug of the dependency where it promises is caught by no test is a
-  risk the rule accepts.
-- **Not documented** (read only in the source, or seen in a run): a test that fails without it. For Effect, the CI
-  runs it against the oldest version of the peer range too, since what is not promised may change in a minor
-  version. For the JavaScript engine, the test runs on Bun only, and says so: what Node or a browser could do
+  major. For Effect, it is the JSDoc of its declarations in the version of the lockfile, where the peer range starts;
+  for the JavaScript engine, the ECMAScript specification. That a bug of the dependency where it promises is caught
+  by no test is a risk the rule accepts.
+- **Not documented** (read only in the source, or seen in a run): a test that fails without it. For Effect, what is
+  not promised may change in a minor version: an upgrade of Effect runs every such test before it raises the peer
+  range. For the JavaScript engine, the test runs on Bun only, and says so: what Node or a browser could do
   otherwise goes under "Premises that no test reaches yet", unless `smoke/` runs it on Node.
 
 What the dependencies of development do (fast-check, happy-dom, the renderers of the examples) is no premise of the
@@ -319,8 +320,8 @@ library, and the rule leaves it out, with two exceptions. The bridges, `examples
 lockfile, each bridge's opening comment names the versions it was checked with, and what they rest on of the DOM is
 documented by its specification (WHATWG), since their tests run on happy-dom, which no browser is; one that is not
 goes under "Premises that no test reaches yet". A bridge that becomes a package of its own makes its renderer a peer,
-checked at the oldest version of its range, as Effect is. And a test resting on what a dependency of development
-does is still held to failing without what it checks.
+whose range starts at the version it is developed with, as Effect's does. And a test resting on what a dependency of
+development does is still held to failing without what it checks.
 
 A premise that the rule cannot check yet holds the change up: it waits, or a guard of the library's makes the premise
 unneeded, and the premise goes under "Premises that no test reaches yet". A move to a new major of Effect, or of a

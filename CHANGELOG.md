@@ -20,6 +20,9 @@ version, and everything else, features included, the patch version.
 
 ### Changed
 
+- The peer dependency on `effect` is `^4.1.4`, where it was `^4.0.0`: the library is developed and tested with
+  Effect 4.1.4, and no longer checked against an older Effect. From now on its range starts at the Effect it is
+  developed with, raised with each upgrade.
 - `simulate` and `rehearse` read a program's `subscriptions` on each new state, as the run does, and fail where
   the run dies of them: a parent's `subscribed` that lists an id twice, an own key equal to a lifted one, a
   `subscriptions` that throws. `simulate` accepts a program's `subscriptions` for this. A command, or a

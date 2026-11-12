@@ -26,20 +26,9 @@ jobs:
       - run: bun run build 2>&1 | tee build.log && ! grep -q '\[warning\]' build.log
         working-directory: site
 
-  # The library against the oldest Effect its peer range accepts. Keep the version equal to that minimum.
-  minimum-effect:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - run: bun add --dev --exact effect@4.0.0
-      - run: bunx tsc --noEmit
-      - run: bun test src
-
   # The package as a consumer outside Bun gets it (`smoke/smoke.ts`): the tarball installed with npm, run with Node
   # and typechecked under the oldest TypeScript the package supports and the current one, with the Effect of the
-  # lockfile and with the oldest its peer range accepts. Keep that version equal to the one of `minimum-effect`.
+  # lockfile, which is the oldest its peer range accepts.
   package:
     runs-on: ubuntu-latest
     steps:
@@ -51,4 +40,3 @@ jobs:
           node-version: 24
       - run: bun install --frozen-lockfile
       - run: bun run smoke
-      - run: bun run smoke --effect 4.0.0

@@ -1,33 +1,33 @@
 ---
 name: upgrade-effect
-description: How @fgaudo/effect-tea depends on Effect: the peer range and its minimum, how to check the library against the oldest Effect it supports, what to do when an API it needs is newer than the minimum, unstable or deprecated, and how to upgrade the development dependencies (Effect, the language service, TypeScript, TypeDoc). Use when an Effect API is missing, unstable or deprecated, when raising the peer minimum, or when upgrading a dependency.
+description: How @fgaudo/effect-tea depends on Effect: the peer range starts at the version the library is developed with, and an upgrade raises both together; what to do when an API it needs is in a newer Effect, unstable or deprecated, and how to upgrade the development dependencies (Effect, the language service, TypeScript, TypeDoc). Use when an Effect API is missing, unstable or deprecated, or when upgrading a dependency.
 ---
 
 # Upgrade Effect and the dependencies
 
 ## The peer range
 
-`peerDependencies.effect` (`^4.0.0` today) starts at the oldest Effect 4 the library works with, so that any
-application on Effect 4 can use it. `devDependencies.effect` is the version the library is developed and tested
-with, usually newer: passing checks say nothing about the minimum, which is checked on its own. The CI's
-`minimum-effect` job installs exactly the minimum over the lockfile and runs `tsc --noEmit` and `bun test src`, and
-the `package` job checks the packed package against it (`bun run smoke --effect <minimum>`).
-The oldest TypeScript the package supports is Effect's (5.9 for Effect 4): the README's "Installation" states it,
-and `smoke/smoke.ts` checks it by default. An upgrade that raises Effect's raises both, with a changelog entry.
+`peerDependencies.effect` (`^4.1.4` today) is the version of `devDependencies.effect` with a caret, and the lockfile
+holds exactly that version: the library supports no older Effect, so that it is checked, and what it rests on of
+Effect read and tested, at one version only. The CI's `check` job runs the library at it, and the `package` job the
+packed package (`bun run smoke`, with the Effect of the lockfile). The oldest TypeScript the package supports is
+Effect's (5.9 for Effect 4): the README's "Installation" states it, and `smoke/smoke.ts` checks it by default. An
+upgrade that raises Effect's raises both, with a changelog entry.
 
-## An API the minimum lacks
+## An API of a newer Effect
 
 When Effect has a direct API for what is needed, but only since a later version (its `@since` tag in
-`node_modules/effect/dist/<Module>.d.ts`, or it fails the check against the minimum), do not work around it:
-stop and ask whether to use it and raise the minimum. The direct API is preferred, and raising the minimum is
-the author's call.
+`node_modules/effect/dist/<Module>.d.ts`), do not work around it: stop and ask whether to upgrade. The direct API
+is preferred, and the upgrade is the author's call.
 
-## Raising the minimum
+## Upgrading Effect
 
-1. Set `peerDependencies.effect` to the oldest version that has the API, as a caret range (`^4.<minor>.<patch>`).
-2. Set the same version in the `minimum-effect` job of `.github/workflows/ci.yml`, and in the `--effect` of the
-   `package` job. Run the steps of `minimum-effect` once in a scratch copy of the repository before pushing.
-3. A raised minimum is a change a consumer can notice: a `Changed` entry in `CHANGELOG.md` that names the new
+1. `bun add --dev effect@^4.<minor>.<patch>`, so that `devDependencies` and the lockfile name the new version.
+2. Set `peerDependencies.effect` to the same caret range, and the version in the README's "Installation".
+3. Read what changed in Effect's source between the two versions, in the modules the premises of `AGENTS.md`
+   ("What the invariants rest on") name and in the runtime (`internal/effect.ts`), and the JSDoc of every premise
+   that rests on documentation; run every test the premises name, which `bun run test` does.
+4. A raised peer range is a change a consumer can notice: a `Changed` entry in `CHANGELOG.md` that names the new
    minimum, and the version a breaking change raises ([`release`](../release/SKILL.md)).
 
 ## Unstable and deprecated APIs

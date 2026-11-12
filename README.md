@@ -58,9 +58,9 @@ What it adds to plain Elm:
 bun add @fgaudo/effect-tea effect
 ```
 
-`effect` (v4) is a peer dependency. The package ships JavaScript with declarations: use `moduleResolution`
-`nodenext` or `bundler`, and TypeScript 5.9 or newer, as Effect 4 does. Under Bun, the `bun` export condition loads
-the TypeScript sources instead.
+`effect` is a peer dependency, 4.1.4 or a newer 4.x. The package ships JavaScript with declarations: use
+`moduleResolution` `nodenext` or `bundler`, and TypeScript 5.9 or newer, as Effect 4 does. Under Bun, the `bun`
+export condition loads the TypeScript sources instead.
 
 ## Quick start
 
