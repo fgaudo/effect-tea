@@ -11,6 +11,7 @@ import { TestClock } from 'effect/testing'
 import {
   deviated,
   everySchedule,
+  idle,
   inOrder,
   prioritized,
   prioritizedSchedules,
@@ -19,6 +20,7 @@ import {
   scheduled,
   seeds,
   type Strategy,
+  unpreempted,
 } from './scheduled.ts'
 
 const value = <A, E>(run: Run<A, E>) => run.exit !== undefined && Exit.isSuccess(run.exit) ? run.exit.value : undefined
@@ -493,4 +495,46 @@ test('a fiber started inline yields with no task ready, and gives its parent bac
   })
   expect([...ends]).toContain('c1 c2 c3 c4 p')
   expect([...ends]).toContain('c1 p c2 c3 c4')
+})
+
+/** A fiber that takes three turns of the scheduler, yielding between them, while its parent runs `idle`. */
+const idleWhileForked = Effect.gen(function*() {
+  let turns = 0
+  yield* Effect.forkChild(Effect.replicateEffect(Effect.andThen(Effect.yieldNow, Effect.sync(() => turns++)), 3))
+  yield* idle
+  return turns
+})
+
+test('idle returns once no other task is ready, whatever the order', () => {
+  everySchedule(idleWhileForked, { bound: 2 }, counted(3))
+  prioritizedSchedules(idleWhileForked, { runs: 200, depth: 3 }, counted(3))
+})
+
+test('idle dies outside a run of scheduled', () => {
+  const exit = Effect.runSyncExit(idle)
+  expect(Exit.isFailure(exit)).toBe(true)
+})
+
+/** Two writers, one of which asks no more to be made to yield before it writes. */
+const oneUnpreempted = (marked: boolean) =>
+  Effect.gen(function*() {
+    const log: Array<string> = []
+    const write = (letter: string) => Effect.replicateEffect(Effect.sync(() => log.push(letter)), 4, { discard: true })
+    const a = yield* Effect.forkChild(marked ? Effect.andThen(unpreempted, write('a')) : write('a'))
+    const b = yield* Effect.forkChild(write('b'))
+    yield* Fiber.join(a)
+    yield* Fiber.join(b)
+    return log.join('')
+  })
+
+test('a fiber unpreempted is made to yield no more, and one not marked is', () => {
+  const ends = (marked: boolean) => {
+    const all = new Set<string>()
+    everySchedule(oneUnpreempted(marked), { bound: 2 }, (exit) => {
+      if (Exit.isSuccess(exit)) all.add(exit.value)
+    })
+    return [...all]
+  }
+  expect(ends(true).filter((log) => !log.includes('aaaa'))).toEqual([])
+  expect(ends(false).filter((log) => !log.includes('aaaa'))).not.toEqual([])
 })

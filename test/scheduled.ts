@@ -8,7 +8,7 @@
 import * as Effect from 'effect/Effect'
 import type * as Exit from 'effect/Exit'
 import type * as Fiber from 'effect/Fiber'
-import type * as Scheduler from 'effect/Scheduler'
+import * as Scheduler from 'effect/Scheduler'
 
 
 /**
@@ -64,6 +64,12 @@ export type Run<A, E> = Readonly<{
   left: number
 }>
 
+/** How many tasks are ready, by the scheduler of each run under `controlled`. */
+const readyCounts = new WeakMap<Scheduler.Scheduler, () => number>()
+
+/** The fibers `unpreempted` has marked, which no run under `controlled` makes yield again. */
+const unpreemptable = new WeakSet<Fiber.Fiber<unknown, unknown>>()
+
 /**
  * A scheduler that holds every task Effect gives it and runs the one `strategy` picks, stepped by hand
  * (decision 0104). It keeps the rules its spike found, in `spikes/effect-scheduler-controlled.test.ts`:
@@ -112,6 +118,7 @@ const controlled = (strategy: Strategy, resumptions: Resumptions) => {
   const id = (fiber: Fiber.Fiber<unknown, unknown>) => fiber.id - (first ?? fiber.id)
   const readyTasks = () => ready.map(({ fiber }) => ({ fiber }))
   const yields = (fiber: Fiber.Fiber<unknown, unknown>) => {
+    if (unpreemptable.has(fiber)) return false
     if (fiber.currentOpCount === 1) {
       const firstRun = !started.has(fiber)
       const resumed = entering && letThrough.delete(fiber)
@@ -204,6 +211,7 @@ const controlled = (strategy: Strategy, resumptions: Resumptions) => {
     task()
     return true
   }
+  readyCounts.set(scheduler, () => ready.length)
   return {
     scheduler,
     step,
@@ -213,6 +221,29 @@ const controlled = (strategy: Strategy, resumptions: Resumptions) => {
     failure: () => failure,
   }
 }
+
+/**
+ * Yields until it resumes with no other task ready: every other fiber of the run then waits on something only the
+ * fiber that runs `idle` can give, or that never comes. It dies outside a run of `scheduled`, where nothing tells it.
+ * Under `prioritized`, it may spin while a fiber lowered beneath its yield waits, until the strategy turns fair.
+ */
+export const idle: Effect.Effect<void> = Effect.withFiber((fiber) => {
+  const count = readyCounts.get(fiber.getRef(Scheduler.Scheduler))
+  if (count === undefined) return Effect.die(new Error('idle runs under the scheduler of scheduled alone'))
+  const wait: Effect.Effect<void> = Effect.yieldNow.pipe(
+    Effect.andThen(Effect.suspend(() => count() === 0 ? Effect.void : wait)),
+  )
+  return wait
+})
+
+/**
+ * Marks the fiber that runs it, which no run under `controlled` makes yield from then on, at a step or as it resumes:
+ * it runs on until it waits, yields of itself, or ends. So what it does in between is one step to every other fiber,
+ * as a failure on its way out is, which an interruption that reaches the fiber at a yield would take the place of.
+ */
+export const unpreempted: Effect.Effect<void> = Effect.withFiberSucceed((fiber) => {
+  unpreemptable.add(fiber)
+})
 
 /**
  * The least budget of steps whose yield is not the one a `queued` resumption makes: the step a preemption first

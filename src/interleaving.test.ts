@@ -14,6 +14,7 @@ import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import type * as Tracer from 'effect/Tracer'
 import fc from 'fast-check'
+import { idle, prioritizedSchedules, unpreempted } from '../test/scheduled.ts'
 import { parent } from './compose.ts'
 import { type DefectSite, ProgramDefect } from './defect.ts'
 import { type Dispatch, dispatchTo } from './dispatch.ts'
@@ -28,8 +29,9 @@ import { reject } from './update.ts'
 // step both stops a subscription and starts a command), can be poked, which leaves it as it is, and, while it
 // listens, hears two ticks from a subscription that then stays open, ends with a last message, or dies; each time it
 // starts listening again is a new session. The list can clear all its rows at once, stopping their subscriptions
-// together. What the user does, when commands complete, when ticks arrive and when releases end is all in the
-// scheduler's hands; what is drawn beside it (`Fates`) says which subscriptions end or die, which releases take time
+// together. What the user does, when commands complete, when ticks arrive and when releases end is all in the hands
+// of the scheduler of the tests (`test/scheduled.ts`), which may also make any fiber yield between two of its steps;
+// what is drawn beside it (`Fates`) says which subscriptions end or die, which releases take time
 // or die, which commands die, which steps `onApplied` and `onIgnored` hold or die in, and whether the renderer, which
 // acquires something too, dies, and takes time to release what it holds, which is when a run that died still has
 // fibers under way. To die is to die of a defect, or to interrupt oneself, which the run takes for one. The run runs
@@ -174,25 +176,65 @@ const listener = (born: number, session: number) => `${born}.${session}`
 /** What a self-interruption is called among the defects: the run wraps it in an error of its own. */
 const interruptedItself = 'interrupted itself'
 
-// The fibers of a run ignore their interruptions: one that came from the program itself would otherwise leave a
-// command without its answer, a subscription ended without its last message, and the run going on.
-const joinsAnInterruptedFiber = Effect.gen(function*() {
-  const interrupted = yield* Effect.forkChild(Effect.never)
-  yield* Fiber.interrupt(interrupted)
-  return yield* Fiber.join(interrupted)
-})
+/** A death decided, by the fiber that decides it. */
+type Decision = Readonly<{ where: Where; how: Death; fiber: number }>
 
-const dies = (events: Array<Event>, where: Where, how: Death, defect: string): Effect.Effect<never> =>
+/** The deaths decided in a scenario, by the name of what dies, which is the defect it dies of. */
+const decisions = new WeakMap<ReadonlyArray<Event>, Map<string, Decision>>()
+
+const decidedIn = (events: ReadonlyArray<Event>) => {
+  let decided = decisions.get(events)
+  if (decided === undefined) decisions.set(events, decided = new Map())
+  return decided
+}
+
+/**
+ * Dies as `how` says, as `defect`, which names what dies: at once, or by joining a fiber it has interrupted. The
+ * fibers of a run ignore their interruptions: one that came from the program itself would otherwise leave a command
+ * without its answer, a subscription ended without its last message, and the run going on. It decides the death
+ * alone: `endsAs` records it, where the effect the run gets ends.
+ */
+const dies = (events: Array<Event>, where: Where, how: Death, defect: string): Effect.Effect<never> => {
+  const now = (dying: Effect.Effect<never>) =>
+    unpreempted.pipe(Effect.andThen(Effect.withFiber((fiber) => {
+      decidedIn(events).set(defect, { where, how, fiber: fiber.id })
+      return dying
+    })))
+  switch (how) {
+    case 'defect':
+      return now(Effect.die(defect))
+    case 'interrupts':
+      return now(Effect.interrupt)
+    case 'joins':
+      return Effect.gen(function*() {
+        const interrupted = yield* Effect.forkChild(Effect.never)
+        yield* Fiber.interrupt(interrupted)
+        return yield* now(Fiber.join(interrupted))
+      })
+  }
+}
+
+/**
+ * Records `Died` where the effect the run gets for `name` ends with the death decided for it, its defect or an
+ * interruption by the fiber that decided it, and lets the fiber yield no more until it ends: the run learns of the
+ * death there, and the scheduler would let another fiber run in between. A death decided earlier is no death if the
+ * effect ends otherwise: one in a fiber of its own, as in a race, that the run interrupts before its effect learns
+ * of it, or a failure on its way out that an interruption by the run takes the place of, at a yield.
+ */
+const endsAs = (events: Array<Event>, name: string) => <A, E>(exit: Exit.Exit<A, E>): Effect.Effect<void> =>
   Effect.suspend(() => {
-    events.push({ _tag: 'Died', where, how, defect: how === 'defect' ? defect : interruptedItself })
-    switch (how) {
-      case 'defect':
-        return Effect.die(defect)
-      case 'interrupts':
-        return Effect.interrupt
-      case 'joins':
-        return joinsAnInterruptedFiber
-    }
+    const decided = decidedIn(events).get(name)
+    if (decided === undefined || Exit.isSuccess(exit)) return Effect.void
+    const { where, how, fiber } = decided
+    const died = exit.cause.reasons.some((reason) =>
+      how === 'defect'
+        ? Cause.isDieReason(reason) && reason.defect === name
+        : Cause.isInterruptReason(reason) && reason.fiberId === fiber
+    )
+    if (!died) return Effect.void
+    return unpreempted.pipe(Effect.andThen(Effect.sync(() => {
+      events.push({ _tag: 'Died', where, how, defect: how === 'defect' ? name : interruptedItself })
+    })))
   })
 
 /** Opens a span of the program's own, and records the span it is a child of. */
@@ -209,8 +251,10 @@ const holds = (events: Array<Event>, holder: Holder, release: Effect.Effect<void
     () => release.pipe(Effect.andThen(Effect.sync(() => events.push({ _tag: 'Gave', holder })))),
   )
 
-const makeList = (scheduler: fc.Scheduler, fates: Fates, events: Array<Event>) => {
-  const later = <A>(value: A) => Effect.promise(() => scheduler.schedule(Promise.resolve(value)))
+/** A point where the scheduler of the tests picks which fiber runs next, the one waiting among them. */
+const later = <A>(value: A) => Effect.as(Effect.yieldNow, value)
+
+const makeList = (fates: Fates, events: Array<Event>) => {
   const ticking = (id: Id, born: number, session: number): Subscription<RowMessage, never> => {
     const key = listener(born, session)
     const index = born * 31 + session
@@ -231,6 +275,7 @@ const makeList = (scheduler: fc.Scheduler, fates: Fates, events: Array<Event>) =
           return later(undefined).pipe(
             Effect.andThen(released),
             Effect.andThen(dies(events, 'subscription', 'defect', `release of ${key}`)),
+            Effect.onExit(endsAs(events, `release of ${key}`)),
           )
       }
     })
@@ -252,7 +297,7 @@ const makeList = (scheduler: fc.Scheduler, fates: Fates, events: Array<Event>) =
     return Channel.unwrap(
       Effect.acquireRelease(Effect.sync(() => events.push({ _tag: 'Acquired', listener: key, id })), () => release)
         .pipe(Effect.tap(() => Effect.logDebug('Listening', key)), Effect.as(body)),
-    )
+    ).pipe(Channel.onExit(endsAs(events, `subscription ${key}`)))
   }
   const initial: Row = {
     id: 1,
@@ -312,6 +357,7 @@ const makeList = (scheduler: fc.Scheduler, fates: Fates, events: Array<Event>) =
               : dies(events, 'command', answer, `command ${name}`),
           ),
           Effect.onInterrupt(() => Effect.sync(() => events.push({ _tag: 'Interrupted', holder }))),
+          Effect.onExit(endsAs(events, holder)),
         )
       }),
     // The same key in every session: only the engine tells a session from the one before.
@@ -365,11 +411,12 @@ type Message = Parameters<List['update']>[0]
 
 /**
  * What the user does, on whatever frame is drawn when the scheduler lets them: `pick` chooses among the
- * controls drawn, so that every act does something; `twice` is a double tap.
+ * controls drawn, so that every act does something; `twice` is a double tap; `pause` is how many turns of the
+ * scheduler the user waits before, so that a frame may catch up with the last act, or not.
  */
-type Act = Readonly<{ pick: number; twice: boolean }>
+type Act = Readonly<{ pick: number; twice: boolean; pause: number }>
 
-const act: fc.Arbitrary<Act> = fc.record({ pick: fc.nat(), twice: fc.boolean() })
+const act: fc.Arbitrary<Act> = fc.record({ pick: fc.nat(), twice: fc.boolean(), pause: fc.integer({ min: 1, max: 4 }) })
 
 /** What a control does with the frame's dispatch: a row's sends through the row's own dispatch, as its view would. */
 type Control = (dispatch: Dispatch<Message>) => Effect.Effect<void>
@@ -391,41 +438,15 @@ const controlFor = (model: Model, { pick }: Act): Opt.Option<Control> => {
   return Arr.get(drawn, pick % Math.max(drawn.length, 1))
 }
 
-const macrotask = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
-
 /**
- * Releases what the scheduler holds, in its order, until nothing more is scheduled for a while and `until` holds.
- * Each burst releases its tasks within one macrotask, so that what they send meets in the engine's queue before
- * the loop takes any of it: one task at a time, the loop would always have caught up.
+ * Runs `acts` against the list, in a span of its own with debug logs enabled, and what was seen once nothing is under
+ * way but what waits forever (`settled`, the number of events by then), then once whoever runs it has interrupted it
+ * and it has ended: the span it ran in, the models made, and the frames whose model was read. It is run under the
+ * scheduler of the tests, which picks every order: each act waits for its turn as a `later` does.
  */
-const settle = async (scheduler: fc.Scheduler, bursts: ReadonlyArray<number>, until: () => boolean = () => true) => {
-  for (let idle = 0, round = 0; idle < 10 || !until(); round += 1) {
-    if (idle > 1000) throw new Error('The run never ended')
-    await macrotask()
-    if (scheduler.count() > 0) {
-      idle = 0
-      for (let released = 0; released < (bursts[round % bursts.length] ?? 1) && scheduler.count() > 0; released += 1) {
-        await scheduler.waitNext(1)
-      }
-    } else {
-      idle += 1
-    }
-  }
-}
-
-/**
- * Runs `acts` against the list, in a span of its own with debug logs enabled, and what was seen once everything
- * scheduled has happened (`settled`, the number of events by then), then once whoever runs it has interrupted it and
- * it has ended: the span it ran in, the models made, and the frames whose model was read.
- */
-const runScenario = async (
-  scheduler: fc.Scheduler,
-  fates: Fates,
-  acts: ReadonlyArray<Act>,
-  bursts: ReadonlyArray<number>,
-) => {
+const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArray<Act>) {
   const events: Array<Event> = []
-  const list = makeList(scheduler, fates, events)
+  const list = makeList(fates, events)
   let made = 0
   const counted: List = {
     ...list,
@@ -453,13 +474,17 @@ const runScenario = async (
       heard += 1
       const where = event._tag === 'Applied' ? 'onApplied' : 'onIgnored'
       const fate = fateOf(where === 'onApplied' ? fates.hearings : fates.ignorings, heard)
-      return Effect.logDebug('Heard', where).pipe(Effect.andThen(
-        fate === 'quick'
-          ? Effect.void
-          : fate === 'slow'
-          ? whenScheduled(scheduler)
-          : whenScheduled(scheduler).pipe(Effect.andThen(dies(events, where, fate, `${where} ${heard}`))),
-      ))
+      const name = `${where} ${heard}`
+      return Effect.logDebug('Heard', where).pipe(
+        Effect.andThen(
+          fate === 'quick'
+            ? Effect.void
+            : fate === 'slow'
+            ? later(undefined)
+            : later(undefined).pipe(Effect.andThen(dies(events, where, fate, name))),
+        ),
+        Effect.onExit(endsAs(events, name)),
+      )
     })
   const drawing = (frames: Stream.Stream<Frame<Model, Message>>) =>
     Stream.runForEach(frames, (frame) =>
@@ -468,20 +493,21 @@ const runScenario = async (
         latest = frame
       }))
   const renderer = (frames: Stream.Stream<Frame<Model, Message>>) =>
-    holds(events, 'renderer', fates.rendererReleasesSlowly ? whenScheduled(scheduler) : Effect.void).pipe(
+    holds(events, 'renderer', fates.rendererReleasesSlowly ? later(undefined) : Effect.void).pipe(
       Effect.andThen(Effect.logDebug('Drawing')),
       Effect.andThen(Opt.match(fates.rendererDies, {
         onNone: () => drawing(frames),
         onSome: (how) =>
           Effect.raceFirst(
             drawing(frames),
-            whenScheduled(scheduler).pipe(Effect.andThen(dies(events, 'render', how, 'the renderer'))),
+            later(undefined).pipe(Effect.andThen(dies(events, 'render', how, 'the renderer'))),
           ),
       })),
       Effect.onInterrupt(() => Effect.sync(() => events.push({ _tag: 'Interrupted', holder: 'renderer' }))),
+      Effect.onExit(endsAs(events, 'the renderer')),
     )
   let caller: Tracer.Span | undefined
-  const fiber = Effect.runFork(
+  const fiber = yield* Effect.forkChild(
     Effect.gen(function*() {
       caller = yield* Effect.orDie(Effect.currentSpan)
       yield* run(counted, renderer, {
@@ -495,34 +521,22 @@ const runScenario = async (
       Effect.provide(Logger.layer([Logger.tracerLogger])),
     ),
   )
-  let ended = false
-  const exited = Effect.runPromise(Fiber.await(fiber)).then((exit) => {
-    ended = true
-    return exit
-  })
-  const scenario = Effect.runPromise(Effect.forEach(
-    acts,
-    Effect.fnUntraced(function*(act) {
-      yield* Effect.promise(() => scheduler.schedule(Promise.resolve(act)))
-      const control = latest === undefined ? Opt.none() : controlFor(modelOf(latest), act)
-      if (latest === undefined || Opt.isNone(control)) return
-      yield* control.value(latest.dispatch)
-      if (act.twice) yield* control.value(latest.dispatch)
-    }),
-    { discard: true },
-  ))
-  await settle(scheduler, bursts)
+  for (const act of acts) {
+    for (let turn = 0; turn < act.pause; turn++) yield* later(undefined)
+    const control = latest === undefined ? Opt.none() : controlFor(modelOf(latest), act)
+    if (latest === undefined || Opt.isNone(control)) continue
+    yield* control.value(latest.dispatch)
+    if (act.twice) yield* control.value(latest.dispatch)
+  }
+  yield* idle
   const settled = events.length
   const drawn = latest === undefined ? undefined : modelOf(latest)
-  Effect.runFork(Fiber.interrupt(fiber))
-  await settle(scheduler, bursts, () => ended)
-  await scenario
-  return { exit: await exited, events, settled, drawn, made, read: read.size, caller }
-}
+  yield* Fiber.interrupt(fiber)
+  const exit = yield* Fiber.await(fiber)
+  return { exit, events, settled, drawn, made, read: read.size, caller }
+})
 
-const whenScheduled = (scheduler: fc.Scheduler) => Effect.promise(() => scheduler.schedule(Promise.resolve()))
-
-type Outcome = Awaited<ReturnType<typeof runScenario>>
+type Outcome = Effect.Success<ReturnType<typeof runScenario>>
 
 const applied = (events: ReadonlyArray<Event>) =>
   events.flatMap((event) => event._tag === 'Applied' ? [event.applied] : [])
@@ -597,34 +611,35 @@ const defects = (exit: Exit.Exit<unknown>) =>
     : []
 
 describe('interleavings of the user, commands and subscriptions', () => {
+  const depth = 3
+
+  // fast-check draws the scenario and the seed of the prioritized schedules it runs under, one or more from that seed
+  // on, and a failure names both: fast-check's replays the scenario, the strategy's its order.
   const property = (
     check: (outcome: Outcome) => void,
-    options: Readonly<{ numRuns?: number; seed?: number }> = {},
+    { schedules = 1, ...options }: Readonly<{ numRuns?: number; seed?: number; schedules?: number }> = {},
   ) =>
     fc.assert(
-      fc.asyncProperty(
-        fc.scheduler(),
-        fates,
-        fc.array(act, { maxLength: 12 }),
-        fc.array(fc.integer({ min: 1, max: 4 }), { minLength: 1, maxLength: 8 }),
-        async (scheduler, fates, acts, bursts) => {
-          check(await runScenario(scheduler, fates, acts, bursts))
-        },
-      ),
+      fc.property(fates, fc.array(act, { maxLength: 12 }), fc.nat(), (fates, acts, seed) => {
+        prioritizedSchedules(runScenario(fates, acts), { runs: schedules, depth, first: seed }, (exit) => {
+          if (Exit.isFailure(exit)) throw new Error(`the scenario failed: ${Cause.pretty(exit.cause)}`)
+          check(exit.value)
+        })
+      }),
       { numRuns: 60, ...options },
     )
 
   // The other properties would hold for scenarios that did nothing: the scenarios reach every message, every way of
   // dying in every place, and what each property checks. Listening again takes three acts in a row (add, mute,
   // listen), and stopping two subscriptions at once three too (add, add, clear), with two releases that wait, and a
-  // command dies only once one has started, before anything else has died, which some runs of 60 scenarios miss:
-  // 500 make a miss rare. What is missing
+  // command dies only once one has started, before anything else has died, which some runs of 60 scenarios miss. The
+  // rarest, two releases that wait, comes in about five scenarios of 2,000: 4,000 make a miss rare. What is missing
   // shows only once every scenario has run, after fast-check could name one, so the failure names the seed that
   // makes them again.
-  test('the scenarios reach every message, every way of dying, and what each property checks', async () => {
+  test('the scenarios reach every message, every way of dying, and what each property checks', () => {
     const seed = Math.floor(Math.random() * 2 ** 31)
     const reached = new Set<string>()
-    await property(({ events, made, read }) => {
+    property(({ events, made, read }) => {
       events.forEach((event, index) => {
         if (Opt.isSome(answerOf(event)) && given(events.slice(0, index)).has(Opt.getOrThrow(answerOf(event)))) {
           reached.add('an answer after its release')
@@ -645,7 +660,7 @@ describe('interleavings of the user, commands and subscriptions', () => {
         reached.add('a renderer released once interrupted')
       }
       if (made > 0 && read < events.filter(({ _tag }) => _tag === 'Drew').length) reached.add('a frame never read')
-    }, { numRuns: 500, seed })
+    }, { numRuns: 4000, seed })
     const places: ReadonlyArray<Where> = ['command', 'subscription', 'render', 'onApplied', 'onIgnored']
     const missing = [
       'Add',
@@ -670,8 +685,8 @@ describe('interleavings of the user, commands and subscriptions', () => {
     if (missing.length > 0) throw new Error(`No scenario of seed ${seed} reached ${missing.join(', ')}`)
   }, 180_000)
 
-  test('a rejected message leaves the state as it was, and an accepted one starts from the one before', async () => {
-    await property(({ events }) => {
+  test('a rejected message leaves the state as it was, and an accepted one starts from the one before', () => {
+    property(({ events }) => {
       // The first state heard is the one the run starts from.
       let state: ListState | undefined
       const broken: Array<string> = []
@@ -689,8 +704,8 @@ describe('interleavings of the user, commands and subscriptions', () => {
     })
   }, 120_000)
 
-  test('the defects of the cause are those that happened, self-interruptions too, each where, in order', async () => {
-    await property(({ exit, events }) => {
+  test('the defects of the cause are those that happened, self-interruptions too, each where, in order', () => {
+    property(({ exit, events }) => {
       expect(defects(exit)).toEqual(deaths(events))
     })
   }, 120_000)
@@ -701,16 +716,18 @@ describe('interleavings of the user, commands and subscriptions', () => {
     return first === -1 ? [] : events.slice(first).filter(({ _tag }) => tags.includes(_tag)).map(({ _tag }) => _tag)
   }
 
-  test('from the first defect on, the run applies no message', async () => {
-    await property(({ events }) => expect(sinceFirstDefect(events, ['Updated'])).toEqual([]))
+  // The windows between a check of the register of deaths and the call it guards are few among the orders, and this
+  // fails only on one of them: taken out, the check in the thunk of `update` was found in 205 scenarios of four
+  // schedules on average, the one before `runCommand` in 62. 1,500 make a miss rare.
+  test('from the first defect on, the run applies no message and starts no command', () => {
+    property(
+      ({ events }) => expect(sinceFirstDefect(events, ['Updated', 'CommandStarted'])).toEqual([]),
+      { numRuns: 1500, schedules: 4 },
+    )
   }, 120_000)
 
-  test('from the first defect on, the run starts no command', async () => {
-    await property(({ events }) => expect(sinceFirstDefect(events, ['CommandStarted'])).toEqual([]))
-  }, 120_000)
-
-  test('a tick or the end of a subscription reaches update only while the session that sent it listens', async () => {
-    await property(({ events }) => {
+  test('a tick or the end of a subscription reaches update only while the session that sent it listens', () => {
+    property(({ events }) => {
       const late = applied(events).filter(({ message, before }) => {
         if (message._tag !== 'Rows' || (message.message._tag !== 'Tick' && message.message._tag !== 'Finished')) {
           return false
@@ -723,8 +740,8 @@ describe('interleavings of the user, commands and subscriptions', () => {
     })
   }, 120_000)
 
-  test('a subscription that ends is heard ending, and never starts again while its key stays', async () => {
-    await property(({ events, settled }) => {
+  test('a subscription that ends is heard ending, and never starts again while its key stays', () => {
+    property(({ events, settled }) => {
       const starts = new Map<string, number>()
       for (const event of events) {
         if (event._tag === 'Acquired') starts.set(event.listener, (starts.get(event.listener) ?? 0) + 1)
@@ -742,8 +759,8 @@ describe('interleavings of the user, commands and subscriptions', () => {
     })
   }, 120_000)
 
-  test('the subscriptions one message stops are released together, before the next message and any start', async () => {
-    await property(({ events }) => {
+  test('the subscriptions one message stops are released together, before the next message and any start', () => {
+    property(({ events }) => {
       const broken: Array<string> = []
       events.forEach((event, index) => {
         if (event._tag === 'Acquired') {
@@ -773,8 +790,8 @@ describe('interleavings of the user, commands and subscriptions', () => {
     })
   }, 120_000)
 
-  test('a command has released what it acquired before its answer reaches update', async () => {
-    await property(({ events }) => {
+  test('a command has released what it acquired before its answer reaches update', () => {
+    property(({ events }) => {
       const early = events.flatMap((event, index) =>
         Opt.toArray(answerOf(event)).filter((command) => !given(events.slice(0, index)).has(command))
       )
@@ -782,8 +799,8 @@ describe('interleavings of the user, commands and subscriptions', () => {
     })
   }, 120_000)
 
-  test('the renderer releases what it acquired only once it has stopped, and draws nothing after', async () => {
-    await property(({ events }) => {
+  test('the renderer releases what it acquired only once it has stopped, and draws nothing after', () => {
+    property(({ events }) => {
       const gave = events.findIndex((event) => event._tag === 'Gave' && event.holder === 'renderer')
       if (gave === -1) return
       const before = events.slice(0, gave)
@@ -795,8 +812,8 @@ describe('interleavings of the user, commands and subscriptions', () => {
     })
   }, 120_000)
 
-  test('once everything has happened, the subscriptions holding resources are those of listening rows', async () => {
-    await property(({ events, settled }) => {
+  test('once everything has happened, the subscriptions holding resources are those of listening rows', () => {
+    property(({ events, settled }) => {
       if (deaths(events).length > 0) return
       const ended = new Set(events.slice(0, settled).flatMap((event) => event._tag === 'Ended' ? [event.listener] : []))
       expect(Array.from(holding(events, settled)).sort()).toEqual(
@@ -805,8 +822,8 @@ describe('interleavings of the user, commands and subscriptions', () => {
     })
   }, 120_000)
 
-  test('once the run has ended, the subscriptions, the commands and the renderer have released all', async () => {
-    await property(({ events }) => {
+  test('once the run has ended, the subscriptions, the commands and the renderer have released all', () => {
+    property(({ events }) => {
       const acquired = events.flatMap((event) => event._tag === 'Acquired' ? [event.listener] : [])
       const done = released(events, events.length)
       expect(acquired.filter((key) => !done.has(key))).toEqual([])
@@ -816,8 +833,8 @@ describe('interleavings of the user, commands and subscriptions', () => {
     })
   }, 120_000)
 
-  test('once everything has happened, every operation has ended and the last frame shows the last state', async () => {
-    await property(({ events, drawn }) => {
+  test('once everything has happened, every operation has ended and the last frame shows the last state', () => {
+    property(({ events, drawn }) => {
       if (deaths(events).length > 0) return
       const final = finalState(events)
       expect(final.rows.filter(({ row }) => row.working)).toEqual([])
@@ -827,16 +844,16 @@ describe('interleavings of the user, commands and subscriptions', () => {
     })
   }, 120_000)
 
-  test('what the run logs stays out of the span of whoever runs it, the parent of the spans opened in it', async () => {
-    await property(({ events, caller }) => {
+  test('what the run logs stays out of the span of whoever runs it, the parent of the spans opened in it', () => {
+    property(({ events, caller }) => {
       expect((caller as Tracer.NativeSpan | undefined)?.events).toEqual([])
       const parents = events.flatMap((event) => event._tag === 'Spanned' ? [Opt.getOrUndefined(event.parent)] : [])
       expect(parents.filter((parent) => parent !== caller?.spanId)).toEqual([])
     })
   }, 120_000)
 
-  test('a model is made once for each frame whose model is read, and the very same state draws no frame', async () => {
-    await property(({ events, made, read }) => {
+  test('a model is made once for each frame whose model is read, and the very same state draws no frame', () => {
+    property(({ events, made, read }) => {
       expect(made).toBe(read)
       // The first frame is the state the run starts from.
       const states = 1 + applied(events).filter(({ before, after }) => before !== after).length
@@ -844,3 +861,4 @@ describe('interleavings of the user, commands and subscriptions', () => {
     })
   }, 120_000)
 })
+

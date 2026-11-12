@@ -403,9 +403,10 @@ A lead no test can reach yet is listed here, with what would decide it. None is,
     `forEach` and `reject` over it, a parent's composition, how a child's message is wrapped, how the logs describe
     a message, `defect`, `applyAll` and `dispatchViolations`. They lie in the test file of their module
     (`compose.test.ts`, `dispatch.test.ts`, `log.test.ts`, `defect.test.ts`, `src/testing/`).
-  - **invariants under random histories**: fast-check draws orders of clicks, answers, subscription messages and
-    ends, releases, defects and self-interruptions, and each promise of the README's "Guarantees" that the scenario
-    reaches is checked on every one (`interleaving.test.ts`).
+  - **invariants under random histories**: fast-check draws clicks, answers, subscription messages and ends,
+    releases, defects and self-interruptions, and the seed of the order the scheduler of the tests (`test/scheduled.ts`)
+    runs them in, and each promise of the README's "Guarantees" that the scenario reaches is checked on every one
+    (`interleaving.test.ts`).
   - **contracts**: one program and its inputs given alike to each testing tool and to the run
     (`src/testing/contract.test.ts`, where a `test.failing` says how they still differ), and one view to each
     bridge (the same tests, `messagesSentBy`'s included, in `examples/snabbdom.test.ts` and
