@@ -41,6 +41,9 @@ version, and everything else, features included, the patch version.
 
 ### Fixed
 
+- A subscription or a command that dies while the end of the run releases what it holds ends the run with that
+  defect, a `ProgramDefect` that says where, as the README's "Guarantees" promise. The defect was lost: a run whose
+  renderer ended succeeded, and an interrupted one ended with its interruption alone.
 - A command, a subscription, the renderer, `onApplied` or `onIgnored` that interrupted itself (with
   `Effect.interrupt`, or by joining an interrupted fiber) ended without a word: a command never answered, a
   subscription stopped without its last message and was not started again, and the run went on. It is now a
