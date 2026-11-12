@@ -9,7 +9,31 @@ when it is done or rejected, with the reason in the commit.
 - **`onApplied` and `onIgnored` hold the loop.** It is documented ("it should be quick"), but a slow devtools slows
   the whole program, and nothing shows how to hand the work off (a queue of its own, a forked fiber).
 - **The order of a step's commands is not stated.** They run concurrently in the run's `FiberSet`, with no bound,
-  so their answers may arrive in any order. The README does not say so.
+  so their answers may arrive in any order. The README does not say so. Commands that answer at once are heard in
+  the order they started, as `rehearse`'s `runAll` hears them, but `simulate` applies each answer, and runs the
+  commands it starts, before the next command of the same step: it hears `A, C, B` where the run hears `A, B, C`,
+  and its "as if each command completed at once" is not what the run does. `simulate` could keep its pending
+  commands in order, as `rehearse` does (a change its users notice), or say what it does instead.
+  `src/testing/contract.test.ts`: "simulate hears the answers of commands started together as the run does".
+- **`rehearse` and `simulate` never read `subscriptions`.** The run reads it after every change of state, and dies
+  when it throws, as a parent's does on an id that `subscribed` lists twice, or an own key equal to a lifted one.
+  A scenario through such a state passes in both tools. They could read it after each change of state, which a
+  parent's cache of lifted subscriptions keeps cheap. `src/testing/contract.test.ts`: "rehearse fails, as the run
+  dies, on a state whose subscriptions are a defect", and its twin for `simulate`.
+- **A command that interrupts itself is a defect in the run, an interruption of the test in `rehearse` and
+  `simulate`**, which run it as it is, not through `diesIn`. The test fails either way, but with no defect that
+  says where; a command that fails without a defect, which its type rules out, is the same.
+  `src/testing/contract.test.ts`: "simulate fails with a defect, as the run dies, on a command interrupting
+  itself", and its twin for `rehearse`.
+- **Premises that no test reaches yet**, found in a review of the engine's premises (November 2026):
+  - that a dispatch wakes the loop on the scheduler of the run, read only in Effect's source (a `Queue` keeps the
+    scheduler of the fiber that made it);
+  - that `hearNext` stops a subscription with a failure, where the run interrupts it: a release that reads its
+    exit sees another one;
+  - that a `Logger` never throws in the loop's debug logs: the loop is not under `diesIn`, so its defect would be
+    no `ProgramDefect`.
+  `hear` accepts a key whose subscription the run would have seen end, since an ended subscription keeps its key:
+  no tool can know it.
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
 
 ## Possible improvements

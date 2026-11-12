@@ -52,6 +52,8 @@ the author's call.
 - `typescript` 7 at the root. `site/` is a package of its own with its own `typescript` 6, used only by TypeDoc
   to read the sources, because TypeDoc does not support TypeScript 7 yet: when it does, move TypeDoc to the root
   and drop the site's own TypeScript.
+- An upgrade of Effect is checked against what the invariants rest on, as `AGENTS.md` lists it: the tests named
+  there are what keeps each premise, and one read only in Effect's source is read again in the new version.
 - After any upgrade: `bun install`, `bun run typecheck`, `bun run lint`, `bun run test`, and
   `cd site && bun install && bun run build` without warnings. Commit `bun.lock` and `site/bun.lock` with
   `package.json` and `site/package.json`: the documentation workflow installs both with `--frozen-lockfile`.

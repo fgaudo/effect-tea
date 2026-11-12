@@ -146,12 +146,55 @@ are kept, and what a change must not undo:
 - **The testing tools behave like the engine** where it is deterministic, with the test as the scheduler
   ("Testing" in the README says what each one runs, fails on and ignores); `rehearse` fails on a command left
   pending, since its answer would arrive, and `drive` acts only as a user can, through `run` and the run's
-  dispatch. When the engine or one tool changes, keep the others in step.
+  dispatch. When the engine or one tool changes, keep the others in step. `src/testing/contract.test.ts` gives
+  the same program and inputs to each tool and to the run; where they still differ, its `test.failing` cases say
+  how, and `ROADMAP.md` lists them.
 - **Logs never carry message data by default** (`describeByTag` in `log.ts`): only tags, following a wrapped
   `message` or `command` only when it is itself tagged, since a program's own field of that name may hold data.
   Level: `debug` for the message loop and for subscriptions starting, stopping and ending, nothing else. What
   is computed only to be logged (`describeMessage`, `describeCommand`) is computed only while debug logs are
   enabled (`LogLevel.isEnabled`).
+
+## What the invariants rest on
+
+An invariant holds only while what it rests on does: the purity of the program's code, states never mutated, and
+the behaviour of Effect's runtime and of the JavaScript engine. What the program must do is the README's ("What is
+left to you"). What Effect and the JavaScript engine must do is listed here, each with the test that would fail
+without it. A premise read only in Effect's source, and not in its documentation, may change in a minor version:
+the test is what keeps it, run against the oldest Effect of the peer range by the CI. A change that rests on a
+new premise adds it here, with its test.
+
+- **`FiberMap` and `HashMap` compare keys with `Equal`, structurally for arrays and records**, so a key made anew
+  for each state, as a parent's lifted keys are, keeps its subscription: "a key equal by value keeps its
+  subscription running, untouched" (`engine.test.ts`), "a child whose state changes, under the same key, keeps
+  its subscription running" (`compose.test.ts`). `Equal` keeps its results and hashes by reference, so a key or an
+  id is never mutated, as states are not.
+- **`FiberMap.remove` waits for the interrupted fiber to end**, its release included, which is what makes the
+  gone keys released before any key starts: "a key that changes stops the old subscription and starts the new
+  one", "keys that go away together release their subscriptions together, not one after the other"
+  (`engine.test.ts`). The removed fiber stays in the map until it ends, so a defect of its release still fails
+  `join`: "a defect in what a subscription the run stopped releases ends the run" (`run.test.ts`).
+- **`FiberMap` and `FiberSet` fail `join` with a defect of their fibers only while they are open.** As they close,
+  they discard the exits of the fibers they interrupt: the engine interrupts its fibers itself first ("the end of
+  the run", `run.test.ts`).
+- **A fiber interrupted while interruptible runs no failure handler**, which is how `diesIn` tells an interruption
+  by the run from one the program makes: "a run interrupted by whoever runs it is no defect", "a subscription
+  stopped inside an uninterruptible region is no defect" (`run.test.ts`).
+- **An unbounded `Queue` takes an offer at once, and a shut one refuses it without interrupting**: "a dispatch runs
+  with Effect.runSync from a plain callback, and after the run has ended too" (`run.test.ts`). It wakes its taker
+  through the scheduler of the fiber that made it, so a dispatch never runs `update` in its caller's stack:
+  "running a dispatch from a plain callback returns before update has seen the message" (`run.test.ts`). That
+  the scheduler is the run's own is read only in the source.
+- **A start's generation, not only its key, says whether its messages still apply**: "a message left by an earlier
+  start of a key that came back does not reach update" (`engine.test.ts`), and "what a subscription leaves in the
+  queue after its key went away does not reach update" (`run.test.ts`). This one rests on nothing of Effect: it is
+  the engine's own rule, tested where the fibers' order would otherwise hide it.
+- **`SubscriptionRef.changes` replays the latest state to a new subscriber**, so a renderer that subscribes late,
+  or skips frames, still draws the last state: "a renderer slower than the program gets only the latest frame"
+  (`run.test.ts`).
+- **A `WeakRef` is cleared before the `FinalizationRegistry` callback of its target runs**, and a `WeakMap` lets go
+  of a value with its key: the tests of `dispatchTo` (`dispatch.test.ts`) and "a child's model is let go with its
+  state" (`compose.test.ts`), under `Bun.gc`.
 
 ## Code
 
