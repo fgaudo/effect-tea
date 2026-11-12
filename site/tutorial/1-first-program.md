@@ -49,8 +49,7 @@ decides nothing on its own:
 
 `run(duration, renderInto(root, durationView))` starts the program and hands the renderer a stream of frames,
 each a model and the `dispatch` to send its messages with. `renderInto` draws each frame into the element `root`.
-In a browser, the run is started with `BrowserRuntime.runMain` from `@effect/platform-browser`, as
-[step 3](./3-children.md) does, so that a run that dies is reported (see
-[running](https://fgaudo.github.io/effect-tea/#running)).
+In a browser, the run is started with `Effect.runFork`, as [step 3](./3-children.md) does, with a `tapCause` that
+reports a run that dies (see [running](https://fgaudo.github.io/effect-tea/#running)).
 
 Next, [the timer itself](./2-commands-and-subscriptions.md).

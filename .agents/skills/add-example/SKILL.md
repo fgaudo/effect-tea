@@ -39,12 +39,12 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
 - **An example is a consumer.** It imports the package by its name (`@fgaudo/effect-tea`,
   `@fgaudo/effect-tea/testing`), never by a relative path. `tsc -p examples` checks it with the `bun` condition
   (the sources) and the `DOM` lib; Biome allows renderer imports there. Unstable APIs are not used there either:
-  `unstableApiUsage` is still off in `examples/tsconfig.json`, for `BrowserRuntime.runMain`, until the item of
-  `ROADMAP.md` that removes it is done.
-  The examples are not published (`files` in `package.json`), and snabbdom, `@effect/platform-browser` and
+  the typecheck refuses one, as in the library.
+  The examples are not published (`files` in `package.json`), and snabbdom, React and
   `@happy-dom/global-registrator` are only dev dependencies.
-- **`main.ts`** finds `#app` and starts the program with `BrowserRuntime.runMain(run(program, renderInto(root,
-  view)))`, so that the failure of a dying program is reported.
+- **`main.ts`** finds `#app` and starts the program with `Effect.runFork(run(program, renderInto(root, view)))`,
+  through an `Effect.tapCause` that logs the failure of a dying program, unless it is only an interruption
+  (`counter/main.ts`).
 - **`index.html`** has the title `<Name> · effect-tea`, the shared `../style.css`, a header with the name,
   one sentence on what it shows and a "Source" link to `https://github.com/fgaudo/effect-tea/tree/main/examples/<name>`,
   the `#app` element and `<script type="module" src="./main.ts">`.

@@ -9,11 +9,6 @@ when it is done or rejected, with the reason in the commit.
 - **`hear` accepts a key whose subscription the run would have seen end**, since an ended subscription keeps its
   key: unless `hearNext` heard it end, the test alone knows it.
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
-- **The examples use an unstable API**, `BrowserRuntime.runMain` of `@effect/platform-browser`, in every
-  `main.ts`, where users copy it. Unstable APIs are never used, the examples included (`AGENTS.md`): replace it with
-  stable ones that still report the failure of a dying program, with what the README and the tutorial say of it
-  (`site/tutorial/1-first-program.md`), and remove `"unstableApiUsage": "off"` from
-  `examples/tsconfig.json`, so that the typecheck refuses one everywhere.
 
 ## Possible improvements
 

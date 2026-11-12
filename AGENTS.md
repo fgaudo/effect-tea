@@ -57,8 +57,7 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 - **Only stable APIs.** A module or function marked `@stability unstable` in Effect's declarations may change
   under the library's users: never build on one, not even as an option, and not in `examples/` either, since
   users copy them. The same holds for React's `unstable_` and `experimental_` APIs in the bridges. The typecheck
-  fails on one in the library (the Effect language service's `unstableApiUsage`); `examples/tsconfig.json` still
-  turns the check off, and removing what the examples use of such APIs is an item of `ROADMAP.md`.
+  fails on one, in the library and in the examples (the Effect language service's `unstableApiUsage`).
 - **Nothing deprecated.** No module, type, function, method or option marked `@deprecated`, of any dependency,
   in the library, its tests or its examples: use what the deprecation names instead, and replace a use found in
   passing. `bun run lint` warns about one (Oxlint's type-aware `typescript/no-deprecated`).

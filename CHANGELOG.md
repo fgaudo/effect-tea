@@ -55,6 +55,9 @@ version, and everything else, features included, the patch version.
   runs the packed package with Node, and typechecks it under TypeScript 5.9, 6 and 7.
 - The README's opening, and the site's navigation, link effect-tea-persistent, the same architecture for
   long-lived entities on a server.
+- "Running" in the README starts a program in a browser with `Effect.runFork`, through a `tapCause` that reports
+  its failure, where it used `BrowserRuntime.runMain` of `@effect/platform-browser`, an unstable API. So do the
+  examples and the tutorial, and the typecheck now refuses an unstable API in the examples too.
 - The `counter-react` and `form-react` examples draw the programs of `counter` and `form` with React, through
   `examples/react.ts`, a bridge to copy as `examples/snabbdom.ts` is.
 - "Testing" in the README states what a bridge's `messagesSentBy` must do, for a renderer of your own. Both

@@ -34,8 +34,7 @@ the author's call.
 
 - A module or function marked `@stability unstable` in Effect's declarations may change under the library's
   users: never build on one, not even as an option, and not in the examples either, since users copy them. The
-  typecheck fails on one in the library (the Effect language service's `unstableApiUsage`); the examples still turn
-  it off in `examples/tsconfig.json`, for `BrowserRuntime.runMain`, and removing it is an item of `ROADMAP.md`.
+  typecheck fails on one, in the library and in the examples (the Effect language service's `unstableApiUsage`).
 - Nothing marked `@deprecated`, of any dependency, in the library, its tests or its examples: use what the
   deprecation names instead (fast-check's `waitNext(1)` for `waitOne()`), and replace a use found in passing.
   `bun run lint` warns about one (Oxlint's type-aware `typescript/no-deprecated`). An upgrade that deprecates
@@ -43,8 +42,6 @@ the author's call.
 
 ## Upgrading the development dependencies
 
-- `effect` and `@effect/platform-browser` (used by the examples) move together: `@effect/platform-browser` has
-  a peer range on `effect` of its own.
 - `@effect/tsgo` is pinned to an exact version. The `prepare` script runs its patch of the workspace's
   TypeScript (`effect-tsgo patch`, through `bunx`, since lifecycle scripts do not see `node_modules/.bin`), so
   that `tsc` and VS Code (`.vscode/settings.json`) run the Effect language service; `bun install` runs it

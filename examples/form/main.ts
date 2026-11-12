@@ -1,5 +1,5 @@
-import * as BrowserRuntime from '@effect/platform-browser/BrowserRuntime'
 import { run } from '@fgaudo/effect-tea'
+import * as Cause from 'effect/Cause'
 import * as Effect from 'effect/Effect'
 import { renderInto } from '../snabbdom.ts'
 import { form } from './form.ts'
@@ -17,6 +17,10 @@ const storage = Storage.of({
     ),
 })
 
-BrowserRuntime.runMain(
-  run(form, renderInto(root, view)).pipe(Effect.provideService(Storage, storage)),
+Effect.runFork(
+  run(form, renderInto(root, view)).pipe(
+    Effect.provideService(Storage, storage),
+    // The failure of a program that dies is reported; an interruption is no crash.
+    Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause))),
+  ),
 )

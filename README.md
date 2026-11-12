@@ -658,11 +658,11 @@ A defect anywhere ends the run, which dies with a `ProgramDefect`:
 
 The run never recovers from it, and does not log it: reporting it, and what the user sees next, are the app's,
 around the run. The screen keeps the last frame: show a crash screen, or run the program again. In a browser,
-start it with `BrowserRuntime.runMain` from `@effect/platform-browser`. An interruption, such as the page
-closing, ends the run too, and is no crash:
+start it with `Effect.runFork`, which reports nothing itself. An interruption of the fiber it returns, on
+`pagehide` for one, ends the run too, and is no crash:
 
 ```ts
-BrowserRuntime.runMain(
+Effect.runFork(
   run(app, render, options).pipe(
     Effect.tapCause((cause) =>
       Cause.hasInterruptsOnly(cause) ? Effect.void : reportCrash(cause)
