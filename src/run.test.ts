@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import * as Arr from 'effect/Array'
 import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Deferred from 'effect/Deferred'
@@ -506,6 +507,86 @@ describe('defects', () => {
       ['command', new Boom()],
       ['command', 'also'],
     ])
+  })
+
+  /** Runs `running` with debug logs enabled and a `Logger` that throws on the log that starts with `text`. */
+  const diesOnLog = async (text: string, running: Effect.Effect<void>) => {
+    const throwing = Logger.make(({ message }) => {
+      if (Arr.isArray(message) && message[0] === text) boom()
+    })
+    const exit = await Effect.runPromiseExit(running.pipe(
+      Effect.provideService(References.MinimumLogLevel, 'Debug'),
+      Effect.provide(Logger.layer([throwing])),
+    ))
+    const defects = Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isDieReason).map(({ defect }) => defect) : []
+    return defects.map((defect) => defect instanceof ProgramDefect ? [defect.where, defect.cause] : defect)
+  }
+
+  // A message the subscription sends after the one that stops it: `onApplied` holds the loop until it is queued.
+  const leavesAMessage = Effect.gen(function*() {
+    const sent = yield* Deferred.make<void>()
+    const twice = Channel.fromIterable<Message, void>(['Increment', 'Increment']).pipe(
+      Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never))),
+    )
+    yield* run(
+      { ...counter, subscriptions: ({ count }) => count === 0 ? HashMap.make(['k', twice]) : HashMap.empty() },
+      () => Effect.never,
+      { onApplied: () => Deferred.await(sent) },
+    )
+  })
+
+  // The run's own logs are in no function of the program: whatever throws in one dies in the log, and never in the
+  // subscription or the step that logs it.
+  test.each<[string, string, () => Effect.Effect<void>]>([
+    ['an accepted message', 'Message', () => run(counter, sendsIncrement)],
+    [
+      'a rejected message',
+      'Ignored a rejected message',
+      () => run({ ...counter, update: () => () => reject }, sendsIncrement),
+    ],
+    ['a dropped message', 'Dropped a message of a stopped subscription', () => leavesAMessage],
+    [
+      'a subscription started by init',
+      'Subscription started',
+      () => run({ ...counter, subscriptions: () => HashMap.make(['k', Channel.never]) }, () => Effect.never),
+    ],
+    [
+      'a subscription started by a message',
+      'Subscription started',
+      () =>
+        run({
+          ...counter,
+          subscriptions: ({ count }) => count === 1 ? HashMap.make(['k', Channel.never]) : HashMap.empty(),
+        }, sendsIncrement),
+    ],
+    [
+      'a subscription stopped',
+      'Subscription stopped',
+      () =>
+        run({
+          ...counter,
+          subscriptions: ({ count }) => count === 0 ? HashMap.make(['k', Channel.never]) : HashMap.empty(),
+        }, sendsIncrement),
+    ],
+    [
+      'a subscription ended',
+      'Subscription ended',
+      () =>
+        run({
+          ...counter,
+          subscriptions: () => HashMap.make(['k', Channel.fromEffectDone(Effect.succeed<Message>('Forbidden'))]),
+        }, () => Effect.never),
+    ],
+  ])('a Logger that throws on the log of %s is one defect, in the log', async (_, text, running) => {
+    expect(await diesOnLog(text, running())).toEqual([['log', new Boom()]])
+  })
+
+  test('a Logger that throws on what a command logs is a defect in the command', async () => {
+    const logging = run(
+      { ...counter, init: pinging, runCommand: () => Effect.logDebug('Pinging').pipe(Effect.as(Opt.none())) },
+      () => Effect.never,
+    )
+    expect(await diesOnLog('Pinging', logging)).toEqual([['command', new Boom()]])
   })
 })
 

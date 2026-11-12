@@ -113,7 +113,9 @@ are kept, and what a change must not undo:
 - **Defects always die, and the run dies with them.** Nothing in the library may retry, swallow, log or turn
   them into messages: reporting is the job of whoever runs the program. Where the engine knows where a defect
   happened, it wraps each defect of the cause in a `ProgramDefect` (`diesIn` in `engine.ts`) that holds it as
-  its `cause` and says where, and keeps the rest of the cause. The end of the run interrupts its fibers itself
+  its `cause` and says where, and keeps the rest of the cause. The run's own logs die in `'log'`, each outside
+  any other site, so that a `Logger` that throws is never taken for the subscription or the step that logs; what
+  the program logs is in the site it logs from. The end of the run interrupts its fibers itself
   and dies of what they die of while they release what they hold: `FiberSet` and `FiberMap` discard those exits
   as they close.
 - **A subscription never ends in silence**: its end value is a message (or `never`), sent to `update`. An ended
@@ -192,6 +194,10 @@ new premise adds it here, with its test.
 - **`SubscriptionRef.changes` replays the latest state to a new subscriber**, so a renderer that subscribes late,
   or skips frames, still draws the last state: "a renderer slower than the program gets only the latest frame"
   (`run.test.ts`).
+- **Effect calls each `Logger` synchronously, in the fiber that logs**, so that what it throws is a defect of
+  that fiber, which `diesIn` wraps where the log is written: "a Logger that throws on the log of an accepted
+  message is one defect, in the log", "a Logger that throws on what a command logs is a defect in the command"
+  (`run.test.ts`). That it runs in the fiber that logs is read only in the source.
 - **A `WeakRef` is cleared before the `FinalizationRegistry` callback of its target runs**, and a `WeakMap` lets go
   of a value with its key: the tests of `dispatchTo` (`dispatch.test.ts`) and "a child's model is let go with its
   state" (`compose.test.ts`), under `Bun.gc`.

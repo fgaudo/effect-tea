@@ -30,9 +30,11 @@ version, and everything else, features included, the patch version.
   `Effect.acquireRelease`) saw a failure where the run gives an interruption.
 - "Commands" in the README says that commands run concurrently, with no bound, and that their answers reach
   `update` in the order they end: the run always did so.
-- **Breaking**: `DefectSite` gains `'init'`. An `init` that throws on its flags ended the run with the error
-  itself: the run now dies with a `ProgramDefect` in `'init'`. A `switch` over `where` that must be exhaustive
-  needs a `case 'init'`.
+- **Breaking**: `DefectSite` gains `'init'` and `'log'`. An `init` that throws on its flags ended the run with
+  the error itself: the run now dies with a `ProgramDefect` in `'init'`. A `Logger` that throws on one of the
+  run's own debug logs ended it with the error itself, or in `'subscription'` on a subscription's end: the run
+  now dies in `'log'`. What a program logs itself stays in the site it logs from. A `switch` over `where` that
+  must be exhaustive needs a `case 'init'` and a `case 'log'`.
 - A parent's subscriptions are kept by each child's state object, as its models are: a child whose state is the
   same object is not asked again, and its subscriptions are not lifted again. On a list of a thousand children
   that change one at a time, a parent's subscriptions cost about a fifth of what they did.

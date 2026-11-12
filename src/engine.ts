@@ -160,8 +160,8 @@ export interface Engine<State, Message> {
   /** Enqueues a message sent by the view. */
   readonly dispatch: (message: Message) => Effect.Effect<void>
   /**
-   * Never succeeds. Dies with the first defect raised by `update`, a command or a subscription, as a
-   * `ProgramDefect`, so whoever runs the program can let it crash.
+   * Never succeeds. Dies with the first defect raised by `update`, a command, a subscription, an option or a log
+   * of the run, as a `ProgramDefect`, so whoever runs the program can let it crash.
    */
   readonly await: Effect.Effect<never>
 }
@@ -220,6 +220,9 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   let started: Generation = 0
   // Each function of the program or of the options, called where its defect can be told apart from the others'.
   const call = <A>(where: DefectSite, f: () => A) => Effect.sync(f).pipe(diesIn(where))
+  // The run's own logs belong to no function of the program: a `Logger` that throws, or that cannot format what
+  // it is given, dies in them, and never in the subscription or the loop that logs.
+  const log = (...message: ReadonlyArray<unknown>) => Effect.logDebug(...message).pipe(diesIn('log'))
   // Described by its tags alone, whatever `describeMessage` says: a report must not run the program's code while
   // the run is dying, nor carry the message's data.
   const apply = (message: Message, state: State) =>
@@ -258,7 +261,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     yield* Effect.forEach(
       gone,
       (key) =>
-        Effect.logDebug('Subscription stopped', key).pipe(Effect.andThen(FiberMap.remove(subscriptionFibers, key))),
+        log('Subscription stopped', key).pipe(Effect.andThen(FiberMap.remove(subscriptionFibers, key))),
       { concurrency: 'unbounded', discard: true },
     )
     for (const [key, subscription] of next) {
@@ -270,11 +273,11 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       started += 1
       nextActive = HashMap.set(nextActive, key, started)
       const send = enqueue({ _tag: 'Subscription', key, generation: started })
-      yield* Effect.logDebug('Subscription started', key)
+      yield* log('Subscription started', key)
       yield* Channel.runForEach(subscription, send).pipe(
         Effect.scoped,
-        Effect.flatMap((last) => Effect.logDebug('Subscription ended', key).pipe(Effect.andThen(send(last)))),
         diesIn('subscription', () => ({ key })),
+        Effect.flatMap((last) => log('Subscription ended', key).pipe(Effect.andThen(send(last)))),
         Effect.provideContext(context),
         FiberMap.run(subscriptionFibers, key),
       )
@@ -294,7 +297,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       && !Opt.contains(HashMap.get(active, source.key), source.generation)
     ) {
       if (debugging) {
-        yield* Effect.logDebug('Dropped a message of a stopped subscription', source.key, yield* described(message))
+        yield* log('Dropped a message of a stopped subscription', source.key, yield* described(message))
       }
       return active
     }
@@ -304,7 +307,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     // The state the message was meant for is gone (a late answer, a second click), or it never applied.
     if (isRejected(result)) {
       if (debugging) {
-        yield* Effect.logDebug('Ignored a rejected message', yield* described(message), { origin: origin._tag })
+        yield* log('Ignored a rejected message', yield* described(message), { origin: origin._tag })
       }
       yield* observeIgnored({ message, origin, state })
       return active
@@ -314,7 +317,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     const changed = next !== state
     const nextRevision = changed ? revision + 1 : revision
     if (debugging) {
-      yield* Effect.logDebug('Message', yield* described(message), {
+      yield* log('Message', yield* described(message), {
         revision: nextRevision,
         commands: yield* call('describeCommand', () => commands.map(describeCommand)),
       })

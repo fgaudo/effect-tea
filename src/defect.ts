@@ -2,8 +2,10 @@ import * as Data from 'effect/Data'
 
 /**
  * Where a defect happened: in one of the program's functions (`init`, for a program with flags, `update`,
- * `subscriptions`, `describeMessage`, `describeCommand`, `onApplied`, `onIgnored`), in a command (its `runCommand` included), in a subscription, or in
- * the renderer (its view and `makeModel` included, since a frame's model is made when the renderer reads it).
+ * `subscriptions`, `describeMessage`, `describeCommand`, `onApplied`, `onIgnored`), in a command (its `runCommand`
+ * included), in a subscription, in the renderer (its view and `makeModel` included, since a frame's model is made
+ * when the renderer reads it), or in one of the run's own debug logs (a `Logger` that throws, or an argument it
+ * cannot format). What a program logs itself is in the site it logs from.
  */
 export type DefectSite =
   | 'init'
@@ -16,6 +18,7 @@ export type DefectSite =
   | 'onApplied'
   | 'onIgnored'
   | 'render'
+  | 'log'
 
 const described: Readonly<Record<DefectSite, string>> = {
   init: 'init',
@@ -28,6 +31,7 @@ const described: Readonly<Record<DefectSite, string>> = {
   onApplied: 'onApplied',
   onIgnored: 'onIgnored',
   render: 'the renderer, its view or makeModel',
+  log: 'a log of the run',
 }
 
 type Fields = Readonly<{
