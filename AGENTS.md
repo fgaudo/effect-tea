@@ -124,7 +124,9 @@ messages, as the README says). This is how they are kept, and what a change must
   order it happened, though its release lets another fiber die first. Each defect recorded is reported once, in that
   order: by the run as soon as one dies, and by the end of the run, which interrupts its fibers itself, waits for them
   to release what they hold, and dies of the rest; the run's cause holds the defects first, then the rest of what it
-  ended with. From the first defect on, the loop applies no message, while the renderer releases what it holds. Never
+  ended with. From the first defect on, the loop applies no message, while the renderer releases what it holds, and
+  nothing starts a command or a subscription, a step under way included: each is checked in the fiber that starts it
+  (`dead` in `engine.ts`), since a step may wait for a release or an option while another fiber dies. Never
   report a defect only through a `join`, or through a fiber that races: once nothing awaits it, or the race is lost, the
   defect is lost with it, and `FiberSet` and `FiberMap` discard the exits of the fibers they interrupt as they close.
   The renderer is one of them, interrupted and awaited first however the run ends (`runWith` in `run.ts`). `drive`
@@ -270,10 +272,13 @@ after the list says. A change that rests on a new premise adds it here, with wha
   dies before another, which its release lets die, is the first defect" (`run.test.ts`), "a command that dies before
   another, which its release lets die, fails it first", "a subscription that dies before another, which its release
   lets die, fails it first" (`rehearse.test.ts`). Documented.
-- **`Effect.raceFirst` ends with the first of its effects to end, and interrupts the other**, which is how a call of
-  `rehearse`'s that waits for a subscription or a command fails as soon as another fiber dies: "a hearNext waiting on
-  its subscription fails as soon as another fiber of the test's dies", "a run waiting for its command fails as soon as
-  another fiber of the test's dies" (`rehearse.test.ts`). Documented.
+- **`Effect.raceFirst` ends with the first of its effects to end, and interrupts the other, and waits for it to end,
+  its release included**, which is how a call of `rehearse`'s that waits for a subscription or a command fails as soon
+  as another fiber dies: "a hearNext waiting on its subscription fails as soon as another fiber of the test's dies", "a
+  run waiting for its command fails as soon as another fiber of the test's dies" (`rehearse.test.ts`); and how a `run`
+  whose command dies fails with what the command dies of as it releases, too: "a run whose command dies, then dies
+  again as it slowly releases, fails with both" (`rehearse.test.ts`). That it interrupts the other is documented; that
+  it waits for it is not, and the last test fails with a race that does not wait.
 
 A premise about what code does when it runs is checked before the change that rests on it is written, and never
 only reasoned:

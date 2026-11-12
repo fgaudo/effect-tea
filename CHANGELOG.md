@@ -148,7 +148,9 @@ version, and everything else, features included, the patch version.
   `Effect.exit` and went on passed: it now fails, and a test that expects a defect wraps `rehearse` instead.
   "Testing" in the README says so.
 - A run that died applies no message, and so starts no command, while it releases its renderer: it went on
-  applying what its subscriptions sent, and starting the commands of each step, until the renderer was released.
+  applying what its subscriptions sent, and starting the commands of each step, until the renderer was released. A
+  step already under way, waiting for what a subscription it stopped releases or for `onApplied`, starts none of its
+  commands and subscriptions either, nor do the keys of the first state after one that dies as the run starts.
   "Running" in the README says so.
 - The defects a run dies of are in its cause in the order they happened: the renderer's, what the run dies of as it
   starts, and a command's or a subscription's before what its release lets another fiber die of. A later defect

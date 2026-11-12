@@ -1162,8 +1162,9 @@ describe('the end of the run', () => {
   })
 
   // The renderer releases slowly, while a subscription goes on sending, and each step would start a command: from the
-  // defect on, the run applies none of it, as `rehearse` stops at a defect.
-  test('a run that died applies no message, and starts no command, while the renderer releases', async () => {
+  // defect on, the run takes none of them from its queue, as `rehearse` stops at a defect. A step already under way is
+  // in the tests that follow.
+  test('a run that died takes no message from its queue while the renderer releases', async () => {
     let died = false
     let startedAfter = 0
     const exit = await Effect.runPromiseExit(run(
@@ -1194,6 +1195,90 @@ describe('the end of the run', () => {
           ]),
       },
       () => releasesSlowly,
+    ))
+    expect(wheres(exit)).toEqual(['command'])
+    expect(startedAfter).toBe(0)
+  })
+
+  // A message applied before the defect, whose step goes on after it: it waits for the release of a subscription it
+  // stopped, which dies, or for `onApplied` while a command dies. From the defect on, the run starts nothing of it,
+  // however long the renderer takes to release what it holds: without a renderer that releases slowly, the end of the
+  // run would interrupt the step before it started anything. Found by the fourth premise review.
+  const sendsOnceThenReleasesSlowly = (frames: Stream.Stream<Frame<Model, Message>>) =>
+    Stream.runHead(frames).pipe(
+      Effect.flatMap(Opt.match({
+        onNone: () => Effect.never,
+        onSome: ({ model, dispatch }) => dispatch(model.increment).pipe(Effect.andThen(releasesSlowly)),
+      })),
+    )
+
+  const diesInItsRelease = Channel.fromEffectDone(
+    Effect.acquireRelease(Effect.void, () => Effect.die('release')).pipe(Effect.andThen(Effect.never)),
+  )
+
+  test('a message whose stopped subscription dies in its release starts none of its commands', async () => {
+    let started = 0
+    const exit = await Effect.runPromiseExit(run(
+      {
+        ...counter,
+        update: () => ({ count }) => ({ state: { count: count + 1 }, commands: ['Ping'] }),
+        runCommand: () =>
+          Effect.sync(() => {
+            started += 1
+            return Opt.none<Message>()
+          }),
+        subscriptions: ({ count }) => count === 0 ? HashMap.make(['a', diesInItsRelease]) : HashMap.empty(),
+      },
+      sendsOnceThenReleasesSlowly,
+    ))
+    expect(wheres(exit)).toEqual(['subscription'])
+    expect(started).toBe(0)
+  })
+
+  test('a message whose stopped subscription dies in its release starts none of its new keys', async () => {
+    let started = 0
+    const exit = await Effect.runPromiseExit(run(
+      {
+        ...counter,
+        subscriptions: ({ count }) =>
+          count === 0
+            ? HashMap.make(['a', diesInItsRelease])
+            : HashMap.make([
+              'b',
+              Channel.fromEffectDone(Effect.sync(() => {
+                started += 1
+              }).pipe(Effect.andThen(Effect.never))),
+            ]),
+      },
+      sendsOnceThenReleasesSlowly,
+    ))
+    expect(wheres(exit)).toEqual(['subscription'])
+    expect(started).toBe(0)
+  })
+
+  test('a message whose onApplied waits while a command dies starts none of its commands', async () => {
+    let died = false
+    let startedAfter = 0
+    const exit = await Effect.runPromiseExit(run(
+      {
+        ...counter,
+        init: { state: { count: 0 }, commands: ['Boom'] },
+        update: () => ({ count }) => ({ state: { count: count + 1 }, commands: ['Ping'] }),
+        runCommand: (command) =>
+          command === 'Boom'
+            ? Effect.sleep('10 millis').pipe(
+              Effect.andThen(Effect.sync(() => {
+                died = true
+              })),
+              Effect.andThen(Effect.die('boom')),
+            )
+            : Effect.sync(() => {
+              if (died) startedAfter += 1
+              return Opt.none<Message>()
+            }),
+      },
+      sendsOnceThenReleasesSlowly,
+      { onApplied: () => Effect.sleep('30 millis') },
     ))
     expect(wheres(exit)).toEqual(['command'])
     expect(startedAfter).toBe(0)
@@ -1276,10 +1361,12 @@ describe('the end of the run', () => {
     expect(defects(exit)).toEqual(['first', 'second'])
   })
 
-  test('a subscription that dies as the run starts comes before a log that dies after it', async () => {
+  test('a subscription that dies as the run starts keeps the keys after it from starting', async () => {
     let died = false
-    const throwsOnceItDied = Logger.make(({ message }) => {
-      if (died && Array.isArray(message) && message[0] === 'Subscription started') throw new Error('log')
+    let started = 0
+    const loggedOnceItDied: Array<unknown> = []
+    const logs = Logger.make(({ message }) => {
+      if (died) loggedOnceItDied.push(Array.isArray(message) ? message[0] : message)
     })
     const exit = await Effect.runPromiseExit(run(
       {
@@ -1292,15 +1379,22 @@ describe('the end of the run', () => {
                 died = true
               }).pipe(Effect.andThen(Effect.die('boom')))),
             ],
-            ['b', Channel.fromEffectDone(Effect.never)],
+            [
+              'b',
+              Channel.fromEffectDone(Effect.sync(() => {
+                started += 1
+              }).pipe(Effect.andThen(Effect.never))),
+            ],
           ),
       },
       () => Effect.never,
     ).pipe(
       Effect.provideService(References.MinimumLogLevel, 'Debug'),
-      Effect.provide(Logger.layer([throwsOnceItDied])),
+      Effect.provide(Logger.layer([logs])),
     ))
-    expect(wheres(exit)).toEqual(['subscription', 'log'])
+    expect(wheres(exit)).toEqual(['subscription'])
+    expect(started).toBe(0)
+    expect(loggedOnceItDied).not.toContain('Subscription started')
   })
 
   test('a log that dies as the run starts comes before what a subscription dies of as the end releases it', async () => {

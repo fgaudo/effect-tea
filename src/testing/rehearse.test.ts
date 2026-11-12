@@ -1039,4 +1039,23 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
     }))
     expect(defectsOf(exit)).toEqual(['first', 'second'])
   })
+
+  // `run` loses its race with the death of its own command, and interrupts it while it still releases what it holds:
+  // the race waits for that release, which then dies too.
+  const diesThenDiesInItsRelease = Effect.addFinalizer(() =>
+    Effect.sleep('20 millis').pipe(Effect.andThen(Effect.die('release')))
+  ).pipe(Effect.andThen(Effect.die('first')))
+
+  test('a run whose command dies, then dies again as it slowly releases, fails with both', async () => {
+    const exit = await Effect.runPromiseExit(rehearse(
+      {
+        init: { state: { still: true }, commands: ['First'] },
+        update: () => (state: Still) => ({ state }),
+        runCommand: () => diesThenDiesInItsRelease,
+        makeModel: (state: Still) => state,
+      },
+      (rehearsal) => rehearsal.run(() => true),
+    ))
+    expect(defectsOf(exit)).toEqual(['first', 'release'])
+  })
 })

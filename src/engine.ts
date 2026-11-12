@@ -285,8 +285,10 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   )
   const deaths = given ?? (yield* makeDeaths(() => true))
   const { recorded, died, report, all } = deaths
-  // A run that died applies no message, and so starts no command, as nothing happens in a run that died, while
-  // whoever runs it stops it: the renderer, which it stops first, may take a while to release what it holds.
+  // A run that died applies no message, and starts no command and no subscription, as nothing happens in a run that
+  // died, while whoever runs it stops it: the renderer, which it stops first, may take a while to release what it
+  // holds. A step under way when another fiber dies goes on, as it may wait for a release or an option: what it would
+  // start is checked in the fiber that starts it, as it starts, since another fiber may die before it does.
   const dead = () => all().length > 0
   // The loop and the commands.
   const fibers = yield* FiberSet.make<unknown, never>()
@@ -326,7 +328,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   // The interpreter runs inside the command's fiber, so a defect in it is the command's. Its scope closes
   // before its message is queued, so that `update` never learns of a command whose resources are still open.
   const runCommand = (command: Command) =>
-    Effect.suspend(() => interpret(command)).pipe(
+    Effect.suspend(() => dead() ? Effect.succeedNone : interpret(command)).pipe(
       scopedIn(deaths, 'command'),
       Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: enqueue(fromCommand) })),
       Effect.provideContext(context),
@@ -369,11 +371,17 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       { concurrency: 'unbounded', discard: true },
     )
     for (const [key, subscription, generation] of fresh) {
+      if (dead()) break
       const send = enqueue({ _tag: 'Subscription', key, generation })
       yield* log('Subscription started', key)
-      yield* Channel.runForEach(subscription, send).pipe(
-        scopedIn(deaths, 'subscription', () => ({ key })),
-        Effect.flatMap((last) => log('Subscription ended', key).pipe(Effect.andThen(send(last)))),
+      // Checked again as its fiber starts, so that nothing rests on when a forked fiber first runs, which Effect does
+      // not document: today it runs before the loop goes on, and no test reaches a death in between.
+      yield* Effect.suspend(() =>
+        dead() ? Effect.void : Channel.runForEach(subscription, send).pipe(
+          scopedIn(deaths, 'subscription', () => ({ key })),
+          Effect.flatMap((last) => log('Subscription ended', key).pipe(Effect.andThen(send(last)))),
+        )
+      ).pipe(
         Effect.provideContext(context),
         recorded,
         FiberMap.run(subscriptionFibers, generation),
