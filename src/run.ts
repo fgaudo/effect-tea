@@ -1,4 +1,8 @@
+import * as Arr from 'effect/Array'
+import * as Cause from 'effect/Cause'
 import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import type { Dispatch } from './dispatch.ts'
@@ -38,12 +42,23 @@ export const runWith = Effect.fnUntraced(
       Stream.buffer({ capacity: 1, strategy: 'sliding' }),
       Stream.map(({ state }) => lazyFrame(() => program.makeModel(state), engine.dispatch)),
     )
-    yield* Effect.raceFirst(
-      engine.await,
-      Effect.scoped(Effect.suspend(() => render(frames))).pipe(
-        // The model is made when the renderer reads it: a defect of `makeModel` is the renderer's.
-        Engine.diesIn('render'),
-        Effect.updateContext(Engine.withExternalSpan<Exclude<RR, Scope.Scope>>),
+    const renderer = yield* Effect.scoped(Effect.suspend(() => render(frames))).pipe(
+      // The model is made when the renderer reads it: a defect of `makeModel` is the renderer's.
+      Engine.diesIn('render'),
+      Effect.updateContext(Engine.withExternalSpan<Exclude<RR, Scope.Scope>>),
+      Effect.forkChild,
+    )
+    // However the run ends, the renderer is interrupted and awaited before the engine's fibers, and what it dies
+    // of, while it releases what it holds too, joins the cause, as the engine's fibers' does.
+    yield* Effect.raceFirst(engine.await, Fiber.await(renderer)).pipe(
+      Effect.onExit(() =>
+        Fiber.interrupt(renderer).pipe(
+          Effect.andThen(Fiber.await(renderer)),
+          Effect.flatMap((exit) => {
+            const dies = Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isDieReason) : []
+            return Arr.isArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : Effect.void
+          }),
+        )
       ),
     )
   },

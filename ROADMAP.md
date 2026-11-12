@@ -7,17 +7,6 @@ when it is done or rejected, with the reason in the commit.
 ## Open problems
 
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
-- **A renderer's defect is lost when the run ends otherwise.** The renderer is the loser of `Effect.raceFirst` in
-  `runWith` (`run.ts`), which keeps nothing of its exit: when whoever runs it interrupts the run, or the run dies
-  of a defect elsewhere, what the renderer dies of while it is released is not in the cause, where a
-  subscription's or a command's is. `run.test.ts`, "the end of the run", holds it with two `test.failing` cases. A
-  fix could fork the renderer and add the dies of its exit, as the engine's finalizer does for its fibers.
-- **A command or a subscription that dies once the renderer has ended is lost.** When the renderer ends of itself,
-  `engine.await` is interrupted at once, and the engine's finalizer runs only as the run's scope closes, seeing the
-  fibers still in its `FiberSet` and `FiberMap`: one that dies in between has left them, and its defect fails a
-  `join` nobody awaits, so the run succeeds. Interrupted by whoever runs it, the run keeps it ("a command that dies
-  once the renderer of an interrupted run has ended…"). `run.test.ts` holds it with two `test.failing` cases. A fix
-  could record each die of the engine's fibers in a place of its own, and fail the finalizer with it.
 - **A child with commands and no `runCommand` compiles, and dies as a plain `Error`.** `child` takes any program,
   and one written without `Program<…>` whose `init` or `update` returns commands has known commands, so its parent
   compiles; its parent's `runCommand` gives them to the `absurd` of `runCommandOf`, which names no child, where

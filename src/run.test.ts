@@ -1012,13 +1012,13 @@ describe('the end of the run', () => {
       )
       : []
 
-  // The renderer is the loser of `Effect.raceFirst` in `runWith` (`run.ts`), which interrupts it and keeps
-  // nothing of its exit; the subscriptions and the commands keep theirs, by the end of the run's own finalizer.
-  test.failing('a renderer that dies while an interrupted run releases it is in the cause', async () => {
+  // However the run ends, it interrupts the renderer and awaits it, as it does the subscriptions and the commands:
+  // what the renderer dies of while it releases what it holds joins the cause, after what ended the run.
+  test('a renderer that dies while an interrupted run releases it is in the cause', async () => {
     expect(wheres(await interrupted(run(counter, () => holdsWhatDies)))).toEqual(['render'])
   })
 
-  test.failing('a renderer that dies as a run that died elsewhere releases it is in the cause', async () => {
+  test('a renderer that dies as a run that died elsewhere releases it is in the cause', async () => {
     const exit = await Effect.runPromiseExit(run(
       { ...counter, update: () => () => defect('update') },
       (frames) =>
@@ -1037,17 +1037,17 @@ describe('the end of the run', () => {
   const endsAndTells = (renderEnded: Deferred.Deferred<void>) => () =>
     Effect.addFinalizer(() => Deferred.succeed(renderEnded, undefined)).pipe(Effect.andThen(Effect.sleep('5 millis')))
 
-  // The end of the run interrupts the fibers still in its `FiberSet` and `FiberMap` when its finalizer runs.
-  // One that dies after the renderer has ended and before then has left them already: its defect fails their `join`,
-  // which nobody awaits any more (`engine.await` lost the race to the renderer), and the run succeeds.
-  test.failing('a command that dies once the renderer has ended ends the run with it', async () => {
+  // Once the renderer has ended of itself, nothing awaits `engine.await` any more: the end of the run interrupts
+  // the fibers still in its `FiberSet` and `FiberMap`, and awaits one that dies while it cannot be interrupted.
+  // Left interruptible, such a fiber is interrupted before its step, and never dies.
+  test('a command that dies once the renderer has ended ends the run with it', async () => {
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const renderEnded = yield* Deferred.make<void>()
       yield* run(
         {
           ...counter,
           init: { state: { count: 0 }, commands: ['Ping'] },
-          runCommand: () => diesAfterTheRenderer(renderEnded),
+          runCommand: () => Effect.uninterruptible(diesAfterTheRenderer(renderEnded)),
         },
         endsAndTells(renderEnded),
       )
@@ -1055,13 +1055,14 @@ describe('the end of the run', () => {
     expect(wheres(exit)).toEqual(['command'])
   })
 
-  test.failing('a subscription that dies once the renderer has ended ends the run with it', async () => {
+  test('a subscription that dies once the renderer has ended ends the run with it', async () => {
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const renderEnded = yield* Deferred.make<void>()
       yield* run(
         {
           ...counter,
-          subscriptions: () => HashMap.make(['k', Channel.fromEffectDone(diesAfterTheRenderer(renderEnded))]),
+          subscriptions: () =>
+            HashMap.make(['k', Channel.fromEffectDone(Effect.uninterruptible(diesAfterTheRenderer(renderEnded)))]),
         },
         endsAndTells(renderEnded),
       )
@@ -1069,9 +1070,7 @@ describe('the end of the run', () => {
     expect(wheres(exit)).toEqual(['subscription'])
   })
 
-  // The window above opens only when the renderer ends of itself: interrupted by whoever runs it, the run's end
-  // interrupts the renderer and the engine's fibers in one close, and awaits a fiber that dies while it cannot be
-  // interrupted.
+  // Interrupted by whoever runs it, the run's end interrupts the renderer and the engine's fibers in one close.
   test('a command that dies once the renderer of an interrupted run has ended ends the run with it', async () => {
     const exit = await interrupted(Effect.gen(function*() {
       const renderEnded = yield* Deferred.make<void>()
