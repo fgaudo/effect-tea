@@ -12,6 +12,7 @@ import * as Record from 'effect/Record'
 import * as Result from 'effect/Result'
 import type { Execution } from './command.ts'
 import { CompositionDefect } from './defect.ts'
+import { describeByTag } from './log.ts'
 import {
   type AnyProgram,
   type CommandOf,
@@ -284,11 +285,19 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
   const onEvents = ((config as Readonly<{ onEvent?: unknown }>).onEvent ?? {}) as Readonly<
     Record<string, (...args: ReadonlyArray<unknown>) => (state: State) => Step<State, Command, Event>>
   >
-  const defectAt = (place: Place, message: string) =>
-    new CompositionDefect({ message, child: place.name, ...(isEach(place.name) ? { id: place.id } : {}) })
+  const defectAt = (place: Place, message: string, on?: unknown) =>
+    new CompositionDefect({
+      message,
+      child: place.name,
+      ...(isEach(place.name) ? { id: place.id } : {}),
+      ...(on === undefined ? {} : { on }),
+    })
   const onEventAt = (place: Place, event: unknown): (state: State) => Step<State, Command, Event> => {
     const handle = onEvents[place.name]
-    if (handle === undefined) throw defectAt(place, `The child "${place.name}" emitted an event nothing handles`)
+    if (handle === undefined) {
+      const on = describeByTag(event)
+      throw defectAt(place, `The child "${place.name}" emitted the event ${String(on)}, which nothing handles`, on)
+    }
     return isEach(place.name) ? handle(place.id, event, handles) : handle(event, handles)
   }
   const updateAt = (place: Place, message: unknown) => (state: State): Transition<State, Command, Event> =>
@@ -315,10 +324,14 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
   const hasFlags = (name: string) => typeof childOf(name).program.init === 'function'
   const tell = (place: Place, message: unknown) => (state: State): Step<State, Command, Event> => {
     if (Opt.isNone(getAt(place, state))) {
-      throw defectAt(place, `An external message to "${place.name}", which is not in this state`)
+      const on = describeByTag(message)
+      throw defectAt(place, `The external message ${String(on)} to "${place.name}", which is not in this state`, on)
     }
     const result = updateAt(place, message)(state)
-    if (isRejected(result)) throw defectAt(place, `"${place.name}" rejected an external message, which it takes`)
+    if (isRejected(result)) {
+      const on = describeByTag(message)
+      throw defectAt(place, `"${place.name}" rejected the external message ${String(on)}, which it takes`, on)
+    }
     return result
   }
   // Built once: a child's update calls `onEvent`, which may call any child's handle.

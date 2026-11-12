@@ -12,8 +12,6 @@ when it is done or rejected, with the reason in the commit.
 
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is
   drawn" from regressing. `bun run bench` (`bench/subscriptions.ts`) measures a parent's subscriptions only.
-- **A `CompositionDefect` names the child, not the message**: the one for a rejected external message could carry
-  its tags, as `ProgramDefect`'s `on` does.
 
 ## Ideas, to be decided
 

@@ -644,12 +644,12 @@ describe('what a parent can do with a child', () => {
       makeModel: () => null,
     })
     expect(() => pages.update({ _tag: 'BackPressed' })({ page: Opt.some({ menu: false }) }))
-      .toThrow('"Page" rejected an external message')
+      .toThrow('"Page" rejected the external message BackPressed, which it takes')
     expect(() => pages.update({ _tag: 'BackPressed' })({ page: Opt.none() }))
-      .toThrow('An external message to "Page", which is not in this state')
+      .toThrow('The external message BackPressed to "Page", which is not in this state')
   })
 
-  test('a defect of the composition is a CompositionDefect naming the child, with its id for a child by id', () => {
+  test('a CompositionDefect names the child, its id for a child by id, and the tags of what it happened on', () => {
     const thrown = (act: () => unknown): unknown => {
       try {
         act()
@@ -667,7 +667,7 @@ describe('what a parent can do with a child', () => {
     })
     const alone = thrown(() => pages.update({ _tag: 'BackPressed' })({ page: Opt.none() }))
     expect(alone).toBeInstanceOf(CompositionDefect)
-    expect(alone).toMatchObject({ _tag: 'CompositionDefect', child: 'Page' })
+    expect(alone).toMatchObject({ _tag: 'CompositionDefect', child: 'Page', on: 'BackPressed' })
     expect(Object.hasOwn(alone as object, 'id')).toBe(false)
     const telling = List.compose({
       init: () => ({ state: { rows: [] } }),
@@ -683,7 +683,37 @@ describe('what a parent can do with a child', () => {
       makeModel: () => null,
     })
     expect(thrown(() => telling.update({ _tag: 'Reset' })({ rows: [] })))
-      .toMatchObject({ _tag: 'CompositionDefect', child: 'Rows', id: 7 })
+      .toMatchObject({ _tag: 'CompositionDefect', child: 'Rows', id: 7, on: 'Cleared' })
+    const refusing: typeof counter = { ...counter, update: () => () => reject }
+    const rejecting = List.compose({
+      init: () => ({ state: { rows: [{ id: 7, counter: { count: 0, text: '', saving: false } }] } }),
+      children: {
+        Rows: List.each(refusing, {
+          get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
+          set: (state, id, counter) => ({ rows: state.rows.map((row) => row.id === id ? { id, counter } : row) }),
+          subscribed: () => [],
+        }),
+      },
+      update: (_: Reset, children) => children.Rows.update(7, CounterMessage.Cleared()),
+      onEvent: { Rows: () => (state) => ({ state }) },
+      makeModel: () => null,
+    })
+    expect(thrown(() => rejecting.update({ _tag: 'Reset' })(rejecting.init.state)))
+      .toMatchObject({ _tag: 'CompositionDefect', child: 'Rows', id: 7, on: 'Cleared' })
+    const raising = {
+      init: { state: noTicks },
+      update: (_: Tick) => (state: Ticks) => ({ state, events: [{ _tag: 'Beeped' }] }),
+      makeModel: ({ ticks }: Ticks) => ticks,
+    }
+    const Unheard = parent<{ state: Ticks }>()
+    // @ts-expect-error: the types ask for an `onEvent` already; this one runs without.
+    const unheard = Unheard.compose({
+      init: () => ({ state: noTicks }),
+      children: { Beeper: Unheard.child(raising, { get: (state) => Opt.some(state), set: (_, child) => child }) },
+      makeModel: () => null,
+    })
+    expect(thrown(() => unheard.update({ _tag: 'Beeper', message: { _tag: 'Tick' } })(noTicks)))
+      .toMatchObject({ _tag: 'CompositionDefect', child: 'Beeper', on: 'Beeped' })
   })
 
   test('an own subscription key that is the lifted key of a child\'s is a defect, never a silent replacement', () => {

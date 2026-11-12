@@ -68,7 +68,16 @@ export class ProgramDefect extends Data.TaggedError('ProgramDefect')<Fields & Re
  * handles. `child` names the child, and `id` its id for a child by id.
  */
 export class CompositionDefect extends Data.TaggedError('CompositionDefect')<
-  Readonly<{ message: string; child: string; id?: unknown }>
+  Readonly<{
+    message: string
+    child: string
+    id?: unknown
+    /**
+     * The external message, or the event, it happened on, for one that has one, by its tags as the logs describe
+     * it by default (`Cleared`): never its data.
+     */
+    on?: unknown
+  }>
 > {}
 
 /**

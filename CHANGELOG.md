@@ -13,6 +13,10 @@ version, and everything else, features included, the patch version.
   Cleared()))`. The `list` example stops all its stopwatches with it.
 - `andThen` and `forEach` are dual: `andThen(next)` and `forEach(items, next)` take the step last, for a chain of
   steps written with `pipe`. The spelling with the step first is unchanged.
+- A `CompositionDefect` for an external message, rejected or sent to a child that is not there, or for an event
+  nothing handles, says which one in `on`, by its tags as `ProgramDefect`'s `on` does, never its data, and so
+  does its `message`. Where a parent tells several things to its children in one step, the child alone did not
+  say which one broke the rule.
 
 ### Changed
 

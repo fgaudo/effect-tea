@@ -483,7 +483,7 @@ A parent and its children talk only through events and external messages.
   `onEvent`: one of the messages the child's type declares as `external` (e.g. a back button). The parent
   decides when to send, and the child's type says it takes the message. The child answers in every state, with
   its state or with an event, never with `reject`. A rejection there is a defect (a `CompositionDefect`, naming
-  the child), as is sending to a child that is not there.
+  the child, and the message by its tags), as is sending to a child that is not there.
 
 A back button closes what the page has open, or the page asks to be left:
 
