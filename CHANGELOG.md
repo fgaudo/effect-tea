@@ -73,6 +73,11 @@ version, and everything else, features included, the patch version.
   example bridges keep it: snabbdom's calls every listener of a list, and React's draws `memo` components.
 - The site has a tutorial that builds an application, the new `timer` example, in four steps, and the README's
   opening links it.
+- **Breaking**: `child` and `each` refuse a program with commands and no `runCommand`, which a program written
+  without `Program<…>` can be: its parent compiled, and the run died of a plain `Error` naming no child when the
+  command ran. Give the child the `runCommand` its commands need. One that gets there through a cast is a
+  `CompositionDefect` naming the child, with its id and the command in `on`, as the README's "Declaring children"
+  says.
 
 ### Fixed
 
