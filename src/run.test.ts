@@ -1094,7 +1094,7 @@ describe('the end of the run', () => {
   // Dies of itself, while the renderer of a run that has ended releases what it holds.
   const diesLater = Effect.sleep('40 millis').pipe(Effect.andThen(Effect.die('late')))
 
-  test.failing('a command that dies while an interrupted run releases the renderer ends the run with it', async () => {
+  test('a command that dies while an interrupted run releases the renderer ends the run with it', async () => {
     const exit = await interrupted(run(
       { ...counter, init: { state: { count: 0 }, commands: ['Ping'] }, runCommand: () => diesLater },
       () => releasesSlowly,
@@ -1102,7 +1102,7 @@ describe('the end of the run', () => {
     expect(wheres(exit)).toEqual(['command'])
   })
 
-  test.failing('a subscription that dies while an interrupted run releases the renderer ends the run with it', async () => {
+  test('a subscription that dies while an interrupted run releases the renderer ends the run with it', async () => {
     const exit = await interrupted(run(
       { ...counter, subscriptions: () => HashMap.make(['k', Channel.fromEffectDone(diesLater)]) },
       () => releasesSlowly,
@@ -1110,7 +1110,7 @@ describe('the end of the run', () => {
     expect(wheres(exit)).toEqual(['subscription'])
   })
 
-  test.failing('a message the renderer sends as an interrupted run releases it, on which update dies, ends the run', async () => {
+  test('a message the renderer sends as an interrupted run releases it, on which update dies, ends the run', async () => {
     const exit = await interrupted(run(
       { ...counter, update: () => () => defect('update') },
       (frames) =>
@@ -1128,7 +1128,7 @@ describe('the end of the run', () => {
     expect(wheres(exit)).toEqual(['update'])
   })
 
-  test.failing('a command that dies while a run that died elsewhere releases the renderer is in the cause', async () => {
+  test('a command that dies while a run that died elsewhere releases the renderer is in the cause', async () => {
     const exit = await Effect.runPromiseExit(run(
       {
         ...counter,
@@ -1143,6 +1143,22 @@ describe('the end of the run', () => {
         ),
     ))
     expect(wheres(exit)).toEqual(['update', 'command'])
+  })
+
+  test('a subscription that dies while a run that died elsewhere releases the renderer is in the cause', async () => {
+    const exit = await Effect.runPromiseExit(run(
+      {
+        ...counter,
+        update: () => () => defect('update'),
+        subscriptions: () => HashMap.make(['k', Channel.fromEffectDone(diesLater)]),
+      },
+      (frames) =>
+        Effect.acquireRelease(Effect.void, () => Effect.sleep('60 millis')).pipe(
+          Effect.andThen(Stream.runForEach(frames, ({ model, dispatch }) => dispatch(model.increment))),
+          Effect.andThen(Effect.never),
+        ),
+    ))
+    expect(wheres(exit)).toEqual(['update', 'subscription'])
   })
 
   // An interruption by the run is told from one the program makes by whether the fiber was interrupted when the

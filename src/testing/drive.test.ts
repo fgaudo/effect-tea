@@ -243,7 +243,6 @@ describe('drive and a defect of the step the scenario waits for', () => {
   })
 })
 
-// Found by the premise review of the testing tools (November 2026): it says what should hold, and fails until it does.
 describe('drive interrupted by whoever runs it', () => {
   // Ticks once, telling `started`, and dies as it releases what it holds.
   type Still = Readonly<{ seen: number }>
@@ -262,9 +261,9 @@ describe('drive interrupted by whoever runs it', () => {
   })
 
   // As the run interrupted by whoever runs it keeps such a defect in its cause ("a subscription that dies while an
-  // interrupted run releases it is in the cause", `run.test.ts`): here the run's fiber is a child of `drive`'s,
-  // interrupted with it, and its exit is discarded.
-  test.failing('fails on a defect of what a subscription releases', async () => {
+  // interrupted run releases it is in the cause", `run.test.ts`): the run's fiber is a child of `drive`'s, which
+  // stops it and awaits its exit however it ends.
+  test('fails on a defect of what a subscription releases', async () => {
     const exit = await Effect.runPromise(Effect.gen(function*() {
       const started = yield* Deferred.make<void>()
       const fiber = yield* Effect.forkChild(drive(dying(started), () => Effect.never))

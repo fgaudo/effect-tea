@@ -34,8 +34,8 @@ export type DriveOptions<Message, State = unknown, Command = unknown> =
 /**
  * Runs `program` with `run`, from its `flags` when it has them, its commands and subscriptions included, with a
  * renderer that keeps only the latest frame, and runs `scenario` against that frame. Returns what `scenario`
- * returns, then stops the program and waits for it to release what it holds. A defect of the program fails it,
- * one of what it releases as it stops included, and so does a wait that lasts longer than `patience`. As when the
+ * returns, then stops the program and waits for it to release what it holds, as it does when whoever runs it
+ * interrupts it. A defect of the program fails it, one of what it releases as it stops included, and so does a wait that lasts longer than `patience`. As when the
  * program runs, a message `update` rejects is ignored: a scenario checks what it expects to see.
  */
 export const drive = Effect.fnUntraced(function*<
@@ -94,22 +94,28 @@ export const drive = Effect.fnUntraced(function*<
     // The rest of the options keeps the flags the parameter's type requires.
     options as RunOptions<Message, State, Command>,
   ).pipe(Effect.andThen(Effect.die(new Error('The program ended before the scenario'))))
-  const fiber = yield* Effect.forkChild(running)
-  const ended = yield* Effect.raceFirst(
-    Effect.asSome(Effect.exit(scenario(driver))),
-    Effect.as(Fiber.await(fiber), Opt.none()),
-  )
-  yield* Fiber.interrupt(fiber)
-  const stopped = yield* Fiber.await(fiber)
-  if (Opt.isNone(ended)) {
-    return yield* stopped
-  }
-  // Interrupted, the run dies of what its fibers die of as they release what they hold, as when whoever runs it
-  // interrupts it.
-  const dies = Exit.isFailure(stopped) ? stopped.cause.reasons.filter(Cause.isDieReason) : []
-  if (!Arr.isArrayNonEmpty(dies)) {
-    return yield* ended.value
-  }
-  const failed = Exit.isFailure(ended.value) ? ended.value.cause : Cause.empty
-  return yield* Effect.failCause(Cause.combine(failed, Cause.fromReasons<never>(dies)))
+  // Stopped and awaited however `drive` ends, interrupted by whoever runs it too: its exit holds what the program
+  // dies of as it releases what it holds.
+  return yield* Effect.uninterruptibleMask(Effect.fnUntraced(function*(restore) {
+    const fiber = yield* Effect.forkChild(restore(running))
+    const ended = yield* Effect.exit(restore(Effect.raceFirst(
+      Effect.asSome(Effect.exit(scenario(driver))),
+      Effect.as(Fiber.await(fiber), Opt.none()),
+    )))
+    yield* Fiber.interrupt(fiber)
+    const stopped = yield* Fiber.await(fiber)
+    // What the scenario ended with, or how `drive` was interrupted; none when the run ended first.
+    const outcome = Exit.isSuccess(ended) ? ended.value : Opt.some(Exit.failCause(ended.cause))
+    if (Opt.isNone(outcome)) {
+      return yield* stopped
+    }
+    // Interrupted, the run dies of what its fibers die of as they release what they hold, as when whoever runs it
+    // interrupts it.
+    const dies = Exit.isFailure(stopped) ? stopped.cause.reasons.filter(Cause.isDieReason) : []
+    if (!Arr.isArrayNonEmpty(dies)) {
+      return yield* outcome.value
+    }
+    const failed = Exit.isFailure(outcome.value) ? outcome.value.cause : Cause.empty
+    return yield* Effect.failCause(Cause.combine(failed, Cause.fromReasons<never>(dies)))
+  }))
 })

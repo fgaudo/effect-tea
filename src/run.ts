@@ -49,8 +49,11 @@ export const runWith = Effect.fnUntraced(
       Effect.forkChild,
     )
     // However the run ends, the renderer is interrupted and awaited before the engine's fibers, and what it dies
-    // of, while it releases what it holds too, joins the cause, as the engine's fibers' does.
-    yield* Effect.raceFirst(engine.await, Fiber.await(renderer)).pipe(
+    // of, while it releases what it holds too, joins the cause, as the engine's fibers' does. Only signals race, so
+    // that no defect is lost with the loser: what the engine's fibers die of is reported here, in the run's fiber,
+    // and what they die of later, while the renderer releases what it holds too, by the end of the engine.
+    yield* Effect.raceFirst(engine.died, Fiber.await(renderer)).pipe(
+      Effect.andThen(engine.report),
       Effect.onExit(() =>
         Fiber.interrupt(renderer).pipe(
           Effect.andThen(Fiber.await(renderer)),

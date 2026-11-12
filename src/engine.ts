@@ -2,6 +2,7 @@ import * as Arr from 'effect/Array'
 import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Context from 'effect/Context'
+import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
@@ -174,10 +175,14 @@ export interface Engine<State, Message> {
   readonly states: Stream.Stream<Revisioned<State>>
   /** Enqueues a message sent by the view. */
   readonly dispatch: (message: Message) => Effect.Effect<void>
+  /** Succeeds once a fiber of the run has died: of `update`, a command, a subscription, an option or a log. */
+  readonly died: Effect.Effect<void>
   /**
-   * Never succeeds. Dies with the first defect raised by `update`, a command, a subscription, an option or a log
-   * of the run, as a `ProgramDefect`, so whoever runs the program can let it crash.
+   * Dies with every defect the fibers of the run have died of and that it has not reported yet, each a
+   * `ProgramDefect`, in the order they died; succeeds when there is none. The end of the run reports the rest.
    */
+  readonly report: Effect.Effect<void>
+  /** Never succeeds: waits until a fiber of the run has died, and dies as `report` does. */
   readonly await: Effect.Effect<never>
 }
 
@@ -208,14 +213,33 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     Queue.unbounded<Envelope<Message, K>>(),
     Queue.shutdown,
   )
-  // The loop and the commands. A defect in any of them fails `join`.
+  // Each fiber of the run records what it dies of here, as it ends, however it ends: nothing is lost to a `join` that
+  // nobody awaits any more, or to a `FiberSet` or a `FiberMap` that discards the exits of the fibers it interrupts
+  // as it closes. Each defect is reported once, by `report`, in the order the fibers died.
+  const deaths: Array<Cause.Reason<never>> = []
+  let reported = 0
+  const died = yield* Deferred.make<void>()
+  const recorded = <A>(self: Effect.Effect<A>) =>
+    Effect.onExit(self, (exit) =>
+      Effect.suspend(() => {
+        if (Exit.isSuccess(exit)) return Effect.void
+        const dies = exit.cause.reasons.filter(Cause.isDieReason)
+        if (!Arr.isArrayNonEmpty(dies)) return Effect.void
+        deaths.push(...dies)
+        return Deferred.succeed(died, undefined)
+      }))
+  const report = Effect.suspend(() => {
+    const dies = deaths.slice(reported)
+    reported = deaths.length
+    return Arr.isArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : Effect.void
+  })
+  // The loop and the commands.
   const fibers = yield* FiberSet.make<unknown, never>()
   // Kept by their start, never by their key: `FiberMap` compares its keys, in a fiber's observer too, where
   // nothing could tell the defect of a key's `Equal` that throws.
   const subscriptionFibers = yield* FiberMap.make<Generation, void, never>()
-  // Run before they close, which discards the exits of the fibers they interrupt: the end of the run interrupts its
-  // fibers itself, all at once, and dies of what they die of while they release what they hold, which `diesIn`
-  // already says where.
+  // Run before they close: the end of the run interrupts its fibers itself, all at once, waits for them to release
+  // what they hold, and dies of what they have died of and nobody has reported, which `diesIn` already says where.
   yield* Effect.addFinalizer(() =>
     Effect.suspend(() => {
       const running: ReadonlyArray<Fiber.Fiber<unknown, never>> = [
@@ -223,11 +247,8 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
         ...Arr.map(Arr.fromIterable(subscriptionFibers), ([, fiber]) => fiber),
       ]
       return Fiber.interruptAll(running).pipe(
-        Effect.andThen(Effect.forEach(running, Fiber.await)),
-        Effect.flatMap((exits) => {
-          const dies = exits.flatMap((exit) => Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isDieReason) : [])
-          return Arr.isArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : Effect.void
-        }),
+        Effect.andThen(Effect.forEach(running, Fiber.await, { discard: true })),
+        Effect.andThen(report),
       )
     })
   )
@@ -255,6 +276,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       diesIn('command'),
       Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: enqueue(fromCommand) })),
       Effect.provideContext(context),
+      recorded,
       FiberSet.run(fibers),
     )
   /**
@@ -300,6 +322,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
         diesIn('subscription', () => ({ key })),
         Effect.flatMap((last) => log('Subscription ended', key).pipe(Effect.andThen(send(last)))),
         Effect.provideContext(context),
+        recorded,
         FiberMap.run(subscriptionFibers, generation),
       )
     }
@@ -350,12 +373,11 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     while (true) {
       active = yield* step(active, yield* Queue.take(queue))
     }
-  }).pipe(Effect.provideContext(context), FiberSet.run(fibers))
+  }).pipe(Effect.provideContext(context), recorded, FiberSet.run(fibers))
   return {
-    await: Effect.raceFirst(
-      FiberSet.join(fibers),
-      FiberMap.join(subscriptionFibers),
-    ).pipe(Effect.andThen(Effect.never)),
+    await: Deferred.await(died).pipe(Effect.andThen(report), Effect.andThen(Effect.never)),
+    died: Deferred.await(died),
+    report,
     dispatch: enqueue(fromView),
     states: SubscriptionRef.changes(stateRef),
   } satisfies Engine<State, Message>

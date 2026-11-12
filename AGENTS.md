@@ -117,10 +117,14 @@ messages, as the README says). This is how they are kept, and what a change must
   happened, it wraps each defect of the cause in a `ProgramDefect` (`diesIn` in `engine.ts`) that holds it as
   its `cause` and says where, and keeps the rest of the cause. The run's own logs die in `'log'`, each outside
   any other site, so that a `Logger` that throws is never taken for the subscription or the step that logs; what
-  the program logs is in the site it logs from. The end of the run interrupts its fibers itself
-  and dies of what they die of while they release what they hold: `FiberSet` and `FiberMap` discard those exits
-  as they close. The renderer is one of them, interrupted and awaited first however the run ends (`runWith` in
-  `run.ts`), and what it dies of follows what ended the run.
+  the program logs is in the site it logs from. Each fiber of the engine records what it dies of, as it ends, in
+  a place of the engine's (`recorded` in `engine.ts`), and each defect recorded is reported once, in the order the
+  fibers died: by the run as soon as one dies, and by the end of the run, which interrupts its fibers itself, waits
+  for them to release what they hold, and dies of the rest. Never report a defect only through a `join`, or
+  through a fiber that races: once nothing awaits it, or the race is lost, the defect is lost with it, and
+  `FiberSet` and `FiberMap` discard the exits of the fibers they interrupt as they close. The renderer is one of
+  them, interrupted and awaited first however the run ends (`runWith` in `run.ts`), and what it dies of follows
+  what ended the run. `drive` stops and awaits its run however it ends, interrupted too.
 - **A subscription never ends in silence**: its end value is a message (or `never`), sent to `update`. An ended
   subscription keeps its key among the active ones until the key goes away and comes back: never restart it
   automatically, which would loop on one that ends at once. What the end of a library's stream means is the
@@ -186,16 +190,19 @@ after the list says. A change that rests on a new premise adds it here, with wha
 - **`FiberMap.remove` waits for the interrupted fiber to end**, its release included, which is what makes the
   gone keys released before any key starts: "a key that changes stops the old subscription and starts the new
   one", "keys that go away together release their subscriptions together, not one after the other"
-  (`engine.test.ts`). The removed fiber stays in the map until it ends, so a defect of its release still fails
-  `join`: "a defect in what a subscription the run stopped releases ends the run" (`run.test.ts`).
-- **`FiberMap` and `FiberSet` fail `join` with a defect of their fibers only while they are open.** As they close,
-  they discard the exits of the fibers they interrupt: the engine interrupts its fibers itself first ("the end of
-  the run", `run.test.ts`).
+  (`engine.test.ts`).
 - **`Effect.onExit` runs its cleanup however the effect ends, and puts what the cleanup fails with after the cause
   of the effect**, so that `runWith` interrupts the renderer however the run ends, and what ended the run stays
   the first defect of the cause: "a renderer that dies while an interrupted run releases it is in the cause", "a
-  renderer that dies as a run that died elsewhere releases it is in the cause" (`run.test.ts`). That the cleanup
-  runs, and that the causes are merged, is documented; their order is read only in the source.
+  renderer that dies as a run that died elsewhere releases it is in the cause" (`run.test.ts`). It is also how
+  each fiber of the engine records what it dies of, interrupted or not: "a defect in what a subscription the run
+  stopped releases ends the run", "a command that dies while an interrupted run releases the renderer ends the run
+  with it", "a command that dies while a run that died elsewhere releases the renderer is in the cause"
+  (`run.test.ts`). That the cleanup runs, and that the causes are merged, is documented; their order is read only
+  in the source.
+- **`Effect.uninterruptibleMask` keeps what runs outside `restore` from being interrupted**, which is how `drive`
+  stops and awaits its run when whoever runs it interrupts it: "drive interrupted by whoever runs it"
+  (`drive.test.ts`). Documented.
 - **A fiber interrupted while interruptible runs no failure handler**, which is how `diesIn` tells an interruption
   by the run from one the program makes: "a run interrupted by whoever runs it is no defect", "a subscription
   stopped inside an uninterruptible region is no defect" (`run.test.ts`).
@@ -274,16 +281,7 @@ met the form of f415d46 again in four places that the fixes of the first had not
 
 ### Premises that no test reaches yet
 
-A lead no test can reach yet is listed here, with what would decide it.
-
-- **No other fiber runs between the end of a renderer that ends of itself and the engine's finalizer.** Once the
-  renderer has ended, nothing awaits `engine.await`, and the finalizer sees only the fibers still in its `FiberSet`
-  and `FiberMap`: one that died in between would fail a `join` nobody awaits, and the run would succeed. No test
-  could open the window: a fiber woken by the renderer's release, after a step, a microtask, a timer or
-  `setImmediate`, is interrupted before it dies, or awaited by the finalizer if it cannot be ("the end of the run",
-  `run.test.ts`). A test that dies in between would decide it, and so would a guard that makes the premise
-  unneeded: each fiber recording what it dies of in a place of the engine's, which `engine.await` and the finalizer
-  report.
+A lead no test can reach yet is listed here, with what would decide it. None is, today.
 
 ## Code
 

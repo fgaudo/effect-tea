@@ -93,6 +93,12 @@ version, and everything else, features included, the patch version.
   renderer ended succeeded, and an interrupted one ended with its interruption alone.
 - A renderer that dies while it releases what it holds, in a run that whoever runs it interrupts or that dies of
   a defect elsewhere, ends the run with that defect too, after what ended the run. It was lost.
+- A command, a subscription, or a message the renderer sends, that dies while the run releases the renderer, in a
+  run that whoever runs it interrupts or that dies of a defect elsewhere, ends the run with that defect too, after
+  what ended the run. It was lost: nothing watched the engine's fibers once the run had begun to end.
+- `drive` interrupted by whoever runs it stops the run, waits for it to release what it holds, and fails on a
+  defect of that release, as the run interrupted by whoever runs it dies: it discarded the run's exit.
+  "Testing" in the README says so.
 - A command, a subscription, the renderer, `onApplied` or `onIgnored` that interrupted itself (with
   `Effect.interrupt`, or by joining an interrupted fiber) ended without a word: a command never answered, a
   subscription stopped without its last message and was not started again, and the run went on. It is now a
