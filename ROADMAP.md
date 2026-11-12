@@ -24,10 +24,6 @@ when it is done or rejected, with the reason in the commit.
   every break of what a parent declared is a `CompositionDefect` (and `Interpreter` promises that none goes
   uninterpreted). `compose.test.ts` holds it with a `test.failing` case. A fix could ask `child` and `each` for an
   `Interpreter` of the program's commands, and raise a `defectAt` where nothing interprets one.
-- **`drive` loses a defect of what a subscription releases as the scenario ends.** Its `Effect.raceFirst`
-  (`drive.ts`) interrupts the run and discards its exit, where the run interrupted by whoever runs it dies of that
-  defect and `rehearse` fails on it; its JSDoc says "a defect of the program fails it". `contract.test.ts` holds it.
-  A fix could fork the run, interrupt and await it once the scenario ends, and fail with its dies.
 - **`rehearse` cancels a command whose `run` is interrupted, and the scenario passes.** The command leaves
   `pending` before it runs, so interrupting the `run` (a `timeoutOption` around it) closes its scope and drops its
   answer, a history no run makes; the JSDoc promises that a command left without an answer fails the test.

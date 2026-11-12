@@ -847,7 +847,8 @@ there with `applyAll`, or with `update` itself.
 - **`drive`** sends what the frames show, through the run's dispatch, and fails on a wait longer than
   `patience` (2 seconds). Its time is real: a frame may be past by the time its message arrives. So, as when
   the program runs, a rejected message is ignored, and a scenario checks what it expects to see. A program with
-  flags gets them as `run` does, in the options. Its commands run as soon as they start: to hold one, give the
+  flags gets them as `run` does, in the options. Once the scenario ends, it interrupts the run and waits for it,
+  and fails, as the run dies, on a defect of what the program releases as it stops. Its commands run as soon as they start: to hold one, give the
   program a service of the test's that waits on a `Deferred` the scenario completes.
 
 ## API reference
