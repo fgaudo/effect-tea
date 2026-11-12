@@ -663,8 +663,10 @@ A command, a subscription or the renderer dies when its effect ends with a defec
 the run gives it (`Effect.acquireRelease`, `Effect.addFinalizer`, a channel's own scopes) is released after that;
 what it wraps around its own code (`Effect.ensuring`, `Effect.onExit`, an `Effect.scoped` of its own) is part of its
 effect, runs before it ends, and may still catch the defect. From the defect on, the run applies no message, and so
-starts no command, while it releases what it holds; a defect met meanwhile joins the cause, which keeps the defects
-in the order they happened. The run never recovers from it,
+starts no command, while it releases what it holds: it calls neither `update` nor `runCommand`, and starts no
+subscription. A message whose `update` it called before goes on to its frame, and what a command or a subscription
+started before does is the program's, until the run interrupts it. A defect met meanwhile joins the cause, which keeps
+the defects in the order they happened. The run never recovers from it,
 and does not log it: reporting it, and what the user sees next, are the app's, around the run. The screen keeps the
 last frame: show a crash screen, or run the program again. In a browser, start it with `Effect.runFork`, which
 reports nothing itself. An interruption of the fiber it returns, on `pagehide` for one, ends the run too, and is no

@@ -93,6 +93,10 @@ version, and everything else, features included, the patch version.
 
 ### Fixed
 
+- A message the run took before a defect could reach `update` after it, and a command could start after it in a
+  program that lowers `Scheduler.MaxOpsBeforeYield`: the scheduler may yield between the run's check and the call.
+  The run now checks in the thunk that calls `update` or `runCommand`, and `rehearse` too, in `run` and `model` as
+  well. "Running" in the README says what stops at the defect.
 - A release that interrupted itself, or failed though its type rules it out, after the command or the subscription
   it belonged to had died, was lost: the run died of the first defect alone, and `rehearse` failed with a bare
   interruption after it. It is a second defect, where it happened, after the first, as "Nothing ends in silence" in

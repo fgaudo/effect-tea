@@ -7,19 +7,14 @@ when it is done or rejected, with the reason in the commit.
 ## Open problems
 
 The premise review of November 2026 on the changes 65ba8b9..d6c2e56 (branch `claude/premise-review-4`) found three
-forms. The one still open is held by `test.failing` tests that a fix turns green:
+forms, all fixed. What is left of the first:
 
-- **A window between a check of the register of deaths and what it guards**, where the scheduler may yield
-  (`Scheduler.MaxOpsBeforeYield`) and another fiber die. The loop applies a message it took before the first
-  defect after it, under Effect's default budget (`engine.ts`, `if (dead()) return` before `apply`); a command or a
-  subscription starts after it under a budget the program lowers (`runCommand` and `reconcile`, whose comment
-  "nothing rests on when a forked fiber first runs" does not hold); `rehearse` applies a message after it under a
-  lowered budget (`deadOr(step)`, and the same window in `run`, `runAll` and `model`). Tests: "Engine after the first
-  defect, a yield of the scheduler in between" (`engine.test.ts`), "rehearse, after the first defect, a yield of the
-  scheduler in between" (`rehearse.test.ts`). The fix must also say what "applies" covers in the README, for the rest
-  of a step under way (`onApplied`, the frame, `subscriptions`), and where a command or a subscription starts. The
-  interleavings never reach the budget, so "from the first defect on, the run applies no message" and "… starts no
-  command" (`interleaving.test.ts`) promise more than their runs reach.
+- **Windows no budget of operations reaches.** The check of the register is in the thunk that calls the program
+  everywhere, but the tests reach only the loop's, and `runCommand`'s in the run: `rehearse`'s `run` and `model`,
+  and the start of a subscription's fiber, pass without their check under every budget from 8 to 299. A scheduler the
+  tests control, as effect-tea-persistent's (its decision 0104), would reach them. The interleavings never reach the
+  budget either, and their "from the first defect on, the run applies no message" counts `onApplied`, which hears a
+  message whose `update` was called before the death: under such a scheduler they must count the calls of `update`.
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
 
 ## Possible improvements

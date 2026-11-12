@@ -176,6 +176,20 @@ export const applyIn = <State, Message, Command, Event>(
 ) => Effect.sync(() => update(message)(state)).pipe(diesIn('update', () => ({ on: describeByTag(message) })))
 
 /**
+ * `applyIn`, unless the run has died: `None`, with `update` not called, once `dead` says so. Asked in the thunk that
+ * calls `update`, where no other fiber can run, so that no yield of the scheduler lets one die in between.
+ */
+export const applyAlive = <State, Message, Command, Event>(
+  update: Update<State, Message, Command, Event>,
+  message: Message,
+  state: State,
+  dead: () => boolean,
+) =>
+  Effect.sync(() => dead() ? Opt.none() : Opt.some(update(message)(state))).pipe(
+    diesIn('update', () => ({ on: describeByTag(message) })),
+  )
+
+/**
  * Where the fibers of a run, or of a rehearsal, record what they die of, as they end, however they end: nothing is
  * lost to a `join` that nobody awaits any more, or to a `FiberSet` or a `FiberMap` that discards the exits of the
  * fibers it interrupts as it closes. Each defect is kept once, by its identity, in the order the fibers died: a
@@ -316,8 +330,10 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   const { recorded, died, report, all } = deaths
   // A run that died applies no message, and starts no command and no subscription, as nothing happens in a run that
   // died, while whoever runs it stops it: the renderer, which it stops first, may take a while to release what it
-  // holds. A step under way when another fiber dies goes on, as it may wait for a release or an option: what it would
-  // start is checked in the fiber that starts it, as it starts, since another fiber may die before it does.
+  // holds. Each is checked in the thunk that calls the program, `update` or `runCommand`, or that starts the fiber of a
+  // subscription, where no other fiber can run: the scheduler may yield at any other operation. A step whose `update`
+  // was called before the death goes on, as it may wait for a release or an option; what the program's effects do
+  // once started is theirs, until the end of the run interrupts them.
   const dead = () => all().length > 0
   // The loop and the commands.
   const fibers = yield* FiberSet.make<unknown, never>()
@@ -347,7 +363,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   // The run's own logs belong to no function of the program: a `Logger` that throws, or that cannot format what
   // it is given, dies in them, and never in the subscription or the loop that logs.
   const log = (...message: ReadonlyArray<unknown>) => Effect.logDebug(...message).pipe(diesIn('log'))
-  const apply = (message: Message, state: State) => applyIn(update, message, state)
+  const apply = (message: Message, state: State) => applyAlive(update, message, state, dead)
   const described = (message: Message) => call('describeMessage', () => describeMessage(message))
   // Suspended, as the interpreter is below: an option that throws before it returns its effect dies there too.
   const observe = (applied: Applied<State, Message, Command>) =>
@@ -403,8 +419,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       if (dead()) break
       const send = enqueue({ _tag: 'Subscription', key, generation })
       yield* log('Subscription started', key)
-      // Checked again as its fiber starts, so that nothing rests on when a forked fiber first runs, which Effect does
-      // not document: today it runs before the loop goes on, and no test reaches a death in between.
+      // Checked again as its fiber starts, since another fiber may die before a forked one first runs.
       yield* Effect.suspend(() =>
         dead() ? Effect.void : runSubscription(subscription, send).pipe(
           scopedIn(deaths, 'subscription', () => ({ key })),
@@ -430,7 +445,10 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       return active
     }
     const { state, revision } = yield* SubscriptionRef.get(stateRef)
-    const result = yield* apply(message, state)
+    const applied = yield* apply(message, state)
+    // A fiber died since the loop took the message: it is not applied, and the loop takes no other.
+    if (Opt.isNone(applied)) return active
+    const result = applied.value
     const origin = originOf(source)
     // The state the message was meant for is gone (a late answer, a second click), or it never applied.
     if (isRejected(result)) {

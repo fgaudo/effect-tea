@@ -130,9 +130,12 @@ is how they are kept, and what a change must not undo:
   lets another fiber die first. Each defect recorded is reported once, in that
   order: by the run as soon as one dies, and by the end of the run, which interrupts its fibers itself, waits for them
   to release what they hold, and dies of the rest; the run's cause holds the defects first, then the rest of what it
-  ended with. From the first defect on, the loop applies no message, while the renderer releases what it holds, and
-  nothing starts a command or a subscription, a step under way included: each is checked in the fiber that starts it
-  (`dead` in `engine.ts`), since a step may wait for a release or an option while another fiber dies. Never
+  ended with. From the first defect recorded on, the run calls neither `update` nor `runCommand`, and starts the fiber
+  of no subscription, a step under way included, while the renderer releases what it holds: each is checked in the
+  thunk that calls the program or starts the fiber (`dead` in `engine.ts`, `applyAlive`), where no other fiber can
+  run, since the scheduler may yield at any other operation, and a step may wait for a release or an option while
+  another fiber dies. What an effect of the program does once started is its own, until the end of the run interrupts
+  it: no check can come between two of its operations. Never
   report a defect only through a `join`, or through a fiber that races: once nothing awaits it, or the race is lost, the
   defect is lost with it, and `FiberSet` and `FiberMap` discard the exits of the fibers they interrupt as they close.
   The renderer is one of them, interrupted and awaited first however the run ends (`runWith` in `run.ts`). `drive`

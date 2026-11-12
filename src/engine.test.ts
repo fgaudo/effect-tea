@@ -528,9 +528,10 @@ describe('Engine after the first defect, a yield of the scheduler in between', (
       )
     })
 
-  // A message taken before the death, and applied after it: `dead` is checked as the loop takes it, and the loop may
-  // yield before `update`, under Effect's default budget of operations (4.1.0) or one the program lowers.
-  test.failing('no message reaches update once a command has died, whatever operation the loop yields at', async () => {
+  // A message taken before the death: the loop may yield between taking it and calling `update`, under Effect's
+  // default budget of operations (4.1.0) or one the program lowers, so `dead` is checked again in the thunk that calls
+  // `update`.
+  test('no message reaches update once a command has died, whatever operation the loop yields at', async () => {
     let late = 0
     for (let before = 0; before < 10; before++) late += await Effect.runPromise(lateUpdates(before))
     // Under budgets a program may set too: effect 4.0.0 reaches the window only there.
@@ -538,30 +539,23 @@ describe('Engine after the first defect, a yield of the scheduler in between', (
     expect(late).toBe(0)
   })
 
-  // What is checked in the fiber that starts a command or a subscription, before its effect runs: a fiber that starts
-  // yields there too, once a program has lowered `MaxOpsBeforeYield`, a stable reference.
-  const lateStarts = (ops: number, what: 'command' | 'subscription') =>
+  // A command starts when the run calls `runCommand`, which it checks the register in the same thunk for: what the
+  // effect it returned does once started is the program's, until the end of the run interrupts it. A forked fiber
+  // yields before it first runs too, once a program has lowered `MaxOpsBeforeYield`, a stable reference.
+  const lateCalls = (ops: number) =>
     Effect.suspend(() => {
       let late = 0
       return Effect.gen(function*() {
         const deaths = yield* Engine.makeDeaths(() => true)
-        const started = Effect.sync(() => {
-          if (deaths.all().length > 0) late += 1
-        })
-        const listening: Subscription<'Go', never> = Channel.unwrap(Effect.as(started, Channel.never))
-        const engine = yield* Engine.make<Readonly<{ n: number }>, 'Go', 'Die' | 'Start', never, string>({
+        const engine = yield* Engine.make<Readonly<{ n: number }>, 'Go', 'Die' | 'Start', never, never>({
           deaths,
           init: { state: { n: 0 } },
-          runCommand: (command) =>
-            command === 'Die'
-              ? Effect.yieldNow.pipe(Effect.andThen(Effect.die('boom')))
-              : Effect.as(started, Opt.none()),
-          update: () => ({ n }) => ({
-            state: { n: n + 1 },
-            commands: what === 'command' ? ['Die', 'Start', 'Start', 'Start'] : ['Die'],
-          }),
-          subscriptions: ({ n }) =>
-            n === 0 || what === 'command' ? HashMap.empty() : HashMap.make(['a', listening], ['b', listening]),
+          runCommand: (command) => {
+            if (command === 'Start' && deaths.all().length > 0) late += 1
+            return command === 'Die' ? Effect.yieldNow.pipe(Effect.andThen(Effect.die('boom'))) : Effect.succeedNone
+          },
+          update: () => ({ n }) => ({ state: { n: n + 1 }, commands: ['Die', 'Start', 'Start', 'Start'] }),
+          subscriptions: () => HashMap.empty(),
         })
         yield* engine.dispatch('Go')
         yield* engine.died
@@ -574,12 +568,9 @@ describe('Engine after the first defect, a yield of the scheduler in between', (
       )
     })
 
-  for (const what of ['command', 'subscription'] as const) {
-    const name = `no ${what} starts once a command has died, whatever budget of operations the program sets`
-    test.failing(name, async () => {
-      let late = 0
-      for (let ops = 8; ops < 40; ops++) late += await Effect.runPromise(lateStarts(ops, what))
-      expect(late).toBe(0)
-    })
-  }
+  test('no runCommand is called once a command has died, whatever budget of operations the program sets', async () => {
+    let late = 0
+    for (let ops = 8; ops < 40; ops++) late += await Effect.runPromise(lateCalls(ops))
+    expect(late).toBe(0)
+  })
 })

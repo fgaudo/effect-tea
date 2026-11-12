@@ -10,7 +10,7 @@ import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import * as Scope from 'effect/Scope'
 import { ProgramDefect } from '../defect.ts'
-import { applyIn, diesIn, makeDeaths, runSubscription, scopedIn } from '../engine.ts'
+import { applyAlive, diesIn, makeDeaths, runSubscription, scopedIn } from '../engine.ts'
 import { describeByTag } from '../log.ts'
 import { runCommandOf, type Shape, startOf, subscriptionsOf } from '../program.ts'
 import type { Subscription } from '../subscription.ts'
@@ -166,6 +166,9 @@ export const rehearse = Effect.fnUntraced(function*<
   // alone, so only a `ProgramDefect` is recorded.
   const register = yield* makeDeaths((defect) => defect instanceof ProgramDefect)
   const { recorded, all: deaths, has: isRecorded } = register
+  const dead = () => deaths().length > 0
+  // Fails with the defects recorded so far, if any: else runs `effect`. A call to the program that must not follow a
+  // death checks it again in the thunk that calls it, since the scheduler may yield between this check and the call.
   const deadOr = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     Effect.suspend(() => {
       const dies = deaths()
@@ -249,7 +252,9 @@ export const rehearse = Effect.fnUntraced(function*<
   const applyNow = (message: Message, onRejected: () => Effect.Effect<void>) =>
     Effect.suspend(() => {
       const before = now
-      return Effect.flatMap(applyIn(program.update, message, before.state), (result) => {
+      return Effect.flatMap(applyAlive(program.update, message, before.state, dead), (applied) => {
+        if (Opt.isNone(applied)) return deadOr(Effect.never)
+        const result = applied.value
         if (isRejected(result)) return onRejected()
         return Effect.andThen(
           result.state === before.state ? Effect.void : listen(result.state),
@@ -269,7 +274,10 @@ export const rehearse = Effect.fnUntraced(function*<
       }))
   // There is no renderer: the test reads the model where the run's renderer would, and a defect of `makeModel` is
   // in `'render'` all the same.
-  const modelOf = (state: State) => Effect.sync(() => program.makeModel(state)).pipe(diesIn('render'))
+  const modelOf = (state: State) =>
+    Effect.suspend(() => dead() ? deadOr(Effect.never) : Effect.succeed(program.makeModel(state))).pipe(
+      diesIn('render'),
+    )
   // Selected on the model of the state it applies to, in the loop.
   const send = (select: (model: Model) => Opt.Option<Message>) =>
     Effect.flatMap(modelOf(now.state), (shown) =>
@@ -420,7 +428,7 @@ export const rehearse = Effect.fnUntraced(function*<
         pending = Arr.remove(pending, index)
         const running = { command }
         underWay.add(running)
-        return restore(orDead(Effect.suspend(() => runCommand(command)).pipe(
+        return restore(orDead(Effect.suspend(() => dead() ? deadOr(Effect.never) : runCommand(command)).pipe(
           scopedIn(register, 'command'),
           Effect.onInterrupt(() =>
             Effect.sync(() => {

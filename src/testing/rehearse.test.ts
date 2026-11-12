@@ -1140,7 +1140,7 @@ describe('rehearse, after the first defect, a yield of the scheduler in between'
 
   // Under the default budget of operations no update was late in this scenario; under budgets from 9 to 21, one was.
   const name = 'no message reaches update once a command has died, whatever budget of operations the program sets'
-  test.failing(name, async () => {
+  test(name, async () => {
     let late = 0
     for (let ops = 8; ops < 30; ops++) late += await Effect.runPromise(lateUpdates(ops))
     expect(late).toBe(0)
