@@ -21,6 +21,10 @@ version, and everything else, features included, the patch version.
   `subscriptions` that throws. `simulate` accepts a program's `subscriptions` for this. A command, or a
   subscription that `hearNext` runs, that interrupts itself, or fails though its type rules it out, fails the test
   with a `ProgramDefect` in `'command'` or `'subscription'`, as the run dies, where it interrupted the test.
+- **Breaking**: `simulate` runs each command after those started before it, as the run does: the commands of one step all
+  answer before those their answers start. It ran the commands a command's answer started before the next
+  command of the same step, so a step starting `A` and `B`, with `A`'s answer starting `C`, was heard `A, C, B`
+  where the run hears `A, B, C`. A test that asserts the old order sees the new one.
 - **Breaking**: `DefectSite` gains `'init'`. An `init` that throws on its flags ended the run with the error
   itself: the run now dies with a `ProgramDefect` in `'init'`. A `switch` over `where` that must be exhaustive
   needs a `case 'init'`.

@@ -783,8 +783,9 @@ there with `applyAll`, or with `update` itself.
 
   Without candidates, it checks only what the view sends.
 - **`simulate`** takes the test's messages and those a subscription would send among them, and fails when
-  `update` rejects one of them. The command answers that `update` rejected are listed in `ignored`: assert it
-  when one being dropped would be a bug. Its subscriptions do not run, but it reads them on each new state, as
+  `update` rejects one of them. Each command runs after those started before it, so the commands of one step all
+  answer before those their answers start, as when the program runs commands that answer at once. The command
+  answers that `update` rejected are listed in `ignored`: assert it when one being dropped would be a bug. Its subscriptions do not run, but it reads them on each new state, as
   the run does, and fails on a state whose subscriptions are a defect, as the run dies of one.
 - **`rehearse`** acts through what the current model shows, as `drive` does, but nothing runs by itself. Each
   command waits until the test runs it (`run`, `runAll`), through the program's `runCommand` with the services

@@ -199,10 +199,7 @@ describe('the order of the answers of commands started together', () => {
     expect(heard).toEqual(await inTheRun())
   })
 
-  // FAILING: simulate applies a command's answer, and runs the commands it starts, before it runs the next command
-  // started with it ("before anything else"): it hears `C` before `B`, which the run, where `A` and `B` start in
-  // one step, never does, however fast each command answers.
-  test.failing('FAILING: simulate hears the answers of commands started together as the run does', async () => {
+  test('simulate, running the oldest started command first, hears them as the run does', async () => {
     const simulation = await Effect.runPromise(simulate(ordered)([{ _tag: 'Go' }], ordered.init))
     expect(simulation.state.heard).toEqual(await inTheRun())
   })
