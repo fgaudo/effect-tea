@@ -29,12 +29,11 @@ export type Simulation<State, Message, Command, Event> = Readonly<{
  * own `runCommand` with its services provided, or one of the test's that answers each command without any.
  * Subscriptions do not run: pass the messages they would send in `messages`. They are read on each new state, as
  * the run reads them, so a state whose subscriptions are a defect fails the test, as it ends the run, a key whose
- * `Equal` throws against a key of the state before included; a command
- * that interrupts itself is a defect too, as in the run. A rejection of one of `messages`
- * fails the test with a defect, and so does an error `update` throws; a command's message that `update` rejects
- * no longer applies: it is ignored, as when the program runs, and listed in `ignored`. Each command completes in
- * the state its message left, so an ignored message is usually a bug, unless commands started together are meant
- * to exclude one another: a test says which by asserting `ignored`.
+ * `Equal` throws against a key of the state before included; a command that interrupts itself is a defect too, as
+ * in the run. A rejection of one of `messages` fails the test with a defect, and so does an error `update` throws; a
+ * command's message that `update` rejects no longer applies: it is ignored, as when the program runs, and listed in
+ * `ignored`. Each command completes in the state its message left, so an ignored message is usually a bug, unless
+ * commands started together are meant to exclude one another: a test says which by asserting `ignored`.
  */
 export const simulate = <State, Message, Command, Event, R = never>(
   program:

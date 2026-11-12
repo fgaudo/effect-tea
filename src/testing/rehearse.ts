@@ -123,10 +123,10 @@ type Current<State, Message, Command, Event> = Readonly<{
  * or under way when `scenario` ends fails the test, and so does one whose `run` was interrupted before it answered:
  * commands cannot be cancelled, and its answer would still arrive. Subscriptions are read on each new state, as
  * the run reads them, so a state whose subscriptions are a defect fails the test, as it ends the run, a key whose
- * `Equal` throws against a key of the state before included; a command or
- * a subscription that interrupts itself is a defect too, as in the run. Messages that arrive together, from fibers of
- * the test's, are applied one at a time, as the run takes them: each waits for the state the one before left, the
- * release of the subscriptions it stopped included.
+ * `Equal` throws against a key of the state before included; a command or a subscription that interrupts itself is
+ * a defect too, as in the run. Messages that arrive together, from fibers of the test's, are applied one at a time,
+ * as the run takes them: each waits for the state the one before left, the release of the subscriptions it stopped
+ * included.
  */
 export const rehearse = Effect.fnUntraced(function*<
   State,
