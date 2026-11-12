@@ -205,9 +205,60 @@ describe('the order of the answers of commands started together', () => {
   })
 })
 
-describe('how a subscription stopped after its first message ends', () => {
-  // Listening under `ticks` until the first `Tick`; the subscription tells `ended` how it ended, as a release that
-  // reads its exit sees it.
+describe('a subscription that sends A, then ends with B', () => {
+  // Listens under `k` while `listening`; `Stop` and `Listen` make the key go away and come back.
+  type Log = Readonly<{ heard: ReadonlyArray<string>; listening: boolean }>
+  type Said = 'A' | 'B' | 'Stop' | 'Listen'
+  const said: Program<{ state: Log; model: Log; message: Said }> = {
+    init: { state: { heard: [], listening: true } },
+    update: (message) => (log) =>
+      message === 'Stop' || message === 'Listen'
+        ? { state: { ...log, listening: message === 'Listen' } }
+        : { state: { ...log, heard: [...log.heard, message] } },
+    subscriptions: ({ listening }) =>
+      listening
+        ? HashMap.make(['k', Channel.succeed<Said>('A').pipe(Channel.concatWith(() => Channel.end<Said>('B')))])
+        : HashMap.empty(),
+    makeModel: (log) => log,
+  }
+
+  test('in the run, it is heard once to its end, under a key that stays, and again once its key comes back', async () => {
+    const heard = await Effect.runPromise(drive(said, Effect.fnUntraced(function*(driver) {
+      yield* driver.waitFor(({ heard }) => heard.length === 2 ? Opt.some(heard) : Opt.none())
+      // Long enough for a subscription that started again to be heard.
+      yield* Effect.sleep('50 millis')
+      yield* driver.send(() => Opt.some('Stop'))
+      yield* driver.send(() => Opt.some('Listen'))
+      return yield* driver.waitFor(({ heard }) => heard.length >= 4 ? Opt.some(heard) : Opt.none())
+    })))
+    expect(heard).toEqual(['A', 'B', 'A', 'B'])
+  })
+
+  test('rehearse\'s hearNext hears it as the run does, and nothing more until its key comes back', async () => {
+    const { heard, failures } = await Effect.runPromise(rehearse(said, Effect.fnUntraced(function*(rehearsal) {
+      yield* rehearsal.hearNext('k')
+      yield* rehearsal.hearNext('k')
+      const failures = yield* Effect.forEach(
+        [rehearsal.hearNext('k'), rehearsal.hear('k', 'A')],
+        (after) => Effect.map(Effect.exit(after), (exit) => Exit.isFailure(exit) ? String(Cause.squash(exit.cause)) : ''),
+      )
+      yield* rehearsal.send(() => Opt.some('Stop'))
+      yield* rehearsal.send(() => Opt.some('Listen'))
+      yield* rehearsal.hearNext('k')
+      yield* rehearsal.hearNext('k')
+      return { heard: (yield* rehearsal.state).heard, failures }
+    })))
+    expect(heard).toEqual(['A', 'B', 'A', 'B'])
+    expect(failures).toEqual([
+      expect.stringContaining('The subscription under k has ended'),
+      expect.stringContaining('The subscription under k has ended'),
+    ])
+  })
+})
+
+describe('how a stopped subscription ends', () => {
+  // Listening under `ticks` until the first `Tick`, which makes the key go away; the subscription tells `ended` how
+  // it ended, as a release that reads its exit sees it.
   type Listening = Readonly<{ listening: boolean }>
   type Listener = Program<{ state: Listening; model: Listening; message: 'Tick' }>
   const listener = (ended: Deferred.Deferred<string>): Listener => ({
@@ -239,7 +290,7 @@ describe('how a subscription stopped after its first message ends', () => {
     expect(end).toBe('interrupted')
   })
 
-  test('rehearse, once hearNext has its first message, interrupts the subscription as the run does', async () => {
+  test('rehearse interrupts the subscription hearNext started once its key goes away, as the run does', async () => {
     const end = await Effect.runPromise(Effect.gen(function*() {
       const ended = yield* Deferred.make<string>()
       return yield* rehearse(listener(ended), (rehearsal) =>
@@ -248,7 +299,7 @@ describe('how a subscription stopped after its first message ends', () => {
     expect(end).toBe('interrupted')
   })
 
-  test('rehearse fails, as the run dies, on a defect of what the subscription hearNext stops releases', async () => {
+  test('rehearse fails, as the run dies, on a defect of what a subscription releases when the scenario ends', async () => {
     const dying: Listener = {
       ...listener(Deferred.makeUnsafe<string>()),
       subscriptions: () =>

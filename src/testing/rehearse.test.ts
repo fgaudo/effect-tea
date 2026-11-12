@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Context from 'effect/Context'
+import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
 import * as Exit from 'effect/Exit'
@@ -233,7 +234,7 @@ describe('rehearse', () => {
         ]),
     })
 
-    test('runs the subscription under the key to its first message, applies it, and releases what it held', async () => {
+    test('runs the subscription under the key to its first message, applies it, and releases it at the end', async () => {
       const log: Array<string> = []
       const { message, pings } = await Effect.runPromise(withStorage(rehearse(
         pinging(log),
@@ -245,6 +246,59 @@ describe('rehearse', () => {
       expect(message).toEqual({ _tag: 'Pinged' })
       expect(pings).toBe(1)
       expect(log).toEqual(['acquire', 'release'])
+    })
+
+    // Pings twice, writing down each ping as it makes it; the second waits for `gate`.
+    const twice = (log: Array<string>, gate: Effect.Effect<void>): typeof program => ({
+      ...program,
+      subscriptions: () =>
+        HashMap.make([
+          'ping',
+          Channel.unwrap(Effect.sync(() => {
+            log.push('first')
+            return Channel.succeed<Edit>({ _tag: 'Pinged' })
+          })).pipe(
+            Channel.concatWith(() =>
+              Channel.unwrap(Effect.as(Effect.andThen(gate, Effect.sync(() => log.push('second'))), Channel.succeed<Edit>({ _tag: 'Pinged' })))
+            ),
+            Channel.concatWith(() => Channel.never),
+          ),
+        ]),
+    })
+
+    test('each call hears the next message, and the subscription waits between two of them', async () => {
+      const log: Array<string> = []
+      const pings = await Effect.runPromise(withStorage(rehearse(
+        twice(log, Effect.void),
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.hearNext('ping')
+          yield* Effect.sleep('20 millis')
+          expect(log).toEqual(['first'])
+          yield* rehearsal.hearNext('ping')
+          return (yield* rehearsal.state).pings
+        }),
+      )))
+      expect(pings).toBe(2)
+      expect(log).toEqual(['first', 'second'])
+    })
+
+    test('a call interrupted while the subscription waits leaves its message to the next one', async () => {
+      const log: Array<string> = []
+      const pings = await Effect.runPromise(Effect.gen(function*() {
+        const gate = yield* Deferred.make<void>()
+        return yield* withStorage(rehearse(
+          twice(log, Deferred.await(gate)),
+          Effect.fnUntraced(function*(rehearsal) {
+            yield* rehearsal.hearNext('ping')
+            expect(Opt.isNone(yield* Effect.timeoutOption(rehearsal.hearNext('ping'), '20 millis'))).toBe(true)
+            yield* Deferred.succeed(gate, undefined)
+            yield* rehearsal.hearNext('ping')
+            return (yield* rehearsal.state).pings
+          }),
+        ))
+      }))
+      expect(pings).toBe(2)
+      expect(log).toEqual(['first', 'second'])
     })
 
     test('a subscription that ends before sending anything is heard by its last message', async () => {

@@ -25,9 +25,14 @@ version, and everything else, features included, the patch version.
   answer before those their answers start. It ran the commands a command's answer started before the next
   command of the same step, so a step starting `A` and `B`, with `A`'s answer starting `C`, was heard `A, C, B`
   where the run hears `A, B, C`. A test that asserts the old order sees the new one.
-- `rehearse`'s `hearNext` interrupts the subscription once it has its first message, as the run stops one whose
-  key went away. It stopped it with a failure, so a release that read its exit (`Channel.onExit`,
-  `Effect.acquireRelease`) saw a failure where the run gives an interruption.
+- **Breaking**: `rehearse`'s `hearNext` keeps the subscription it starts for as long as its key stays, as the run
+  does, and each call hears its next message, the last one being its end value. It ran the subscription again
+  from its start on every call, so a subscription sending `A` then ending with `B` was heard `A, A, A` where the
+  run hears `A, B`. After the end, `hearNext` and `hear` fail the test until the key goes away and comes back. The
+  subscription is interrupted when its key goes away, or when the scenario ends, as the run stops it; it was
+  stopped once its first message was in, with a failure, so a release that read its exit (`Channel.onExit`,
+  `Effect.acquireRelease`) saw a failure where the run gives an interruption. A scenario that awaits what the
+  subscription releases right after `hearNext` makes its key go away first.
 - "Commands" in the README says that commands run concurrently, with no bound, and that their answers reach
   `update` in the order they end: the run always did so.
 - "Running" in the README says that the run waits for `onApplied` and `onIgnored` before the next message, as it

@@ -806,10 +806,15 @@ there with `applyAll`, or with `update` itself.
   answer before those their answers start, as when the program runs commands that answer at once. The command
   answers that `update` rejected are listed in `ignored`: assert it when one being dropped would be a bug. Its subscriptions do not run, but it reads them on each new state, as
   the run does, and fails on a state whose subscriptions are a defect, as the run dies of one.
-- **`rehearse`** acts through what the current model shows, as `drive` does, but nothing runs by itself. Each
+- **`rehearse`** acts through what the current model shows, as `drive` does, but nothing reaches `update` by itself. Each
   command waits until the test runs it (`run`, `runAll`), through the program's `runCommand` with the services
-  provided. A subscription's message is one the test says was heard (`hear`), or the first one the subscription
-  itself sends when the test runs it (`hearNext`), only while its key is in the state. So a test says what the
+  provided. A subscription's message is one the test says was heard (`hear`), or the next one the subscription
+  itself sends (`hearNext`), only while its key is in the state. `hearNext` starts the subscription the first time
+  it hears its key, and keeps it, as the run does, for as long as the key stays: each call hears its next
+  message, which waits for the call, and the last one is its end value, after which neither `hearNext` nor `hear`
+  hears that key until it goes away and comes back. A key that goes away interrupts its subscription, and so does
+  the end of the scenario: a defect in what it releases fails the test. `hear` runs nothing: the test answers for
+  what it says was heard, and for whether the subscription had ended. So a test says what the
   user does while a save is under way, and when its answer arrives:
 
   ```ts

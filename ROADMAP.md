@@ -7,7 +7,7 @@ when it is done or rejected, with the reason in the commit.
 ## Open problems
 
 - **`hear` accepts a key whose subscription the run would have seen end**, since an ended subscription keeps its
-  key: no tool can know it.
+  key: unless `hearNext` heard it end, the test alone knows it.
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
 
 ## Possible improvements
