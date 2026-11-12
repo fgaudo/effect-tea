@@ -154,6 +154,7 @@ type Holder = `command ${string}` | 'renderer'
 
 /** What happened, in the order it happened, as the program's own code, the renderer and the options saw it. */
 type Event =
+  | Readonly<{ _tag: 'Updated' }>
   | Readonly<{ _tag: 'Applied'; applied: Applied<ListState, Message, unknown> }>
   | Readonly<{ _tag: 'Ignored'; ignored: Ignored<ListState, Message> }>
   | Readonly<{ _tag: 'CommandStarted'; command: string }>
@@ -428,6 +429,12 @@ const runScenario = async (
   let made = 0
   const counted: List = {
     ...list,
+    // Recorded as the run calls `update`, which is what it applies: `onApplied` hears a message later, and may hear
+    // after a defect one whose `update` was called before it.
+    update: (message) => {
+      events.push({ _tag: 'Updated' })
+      return list.update(message)
+    },
     makeModel: (state) => {
       made += 1
       return list.makeModel(state)
@@ -695,7 +702,7 @@ describe('interleavings of the user, commands and subscriptions', () => {
   }
 
   test('from the first defect on, the run applies no message', async () => {
-    await property(({ events }) => expect(sinceFirstDefect(events, ['Applied', 'Ignored'])).toEqual([]))
+    await property(({ events }) => expect(sinceFirstDefect(events, ['Updated'])).toEqual([]))
   }, 120_000)
 
   test('from the first defect on, the run starts no command', async () => {

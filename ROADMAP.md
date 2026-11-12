@@ -6,15 +6,11 @@ when it is done or rejected, with the reason in the commit.
 
 ## Open problems
 
-The premise review of November 2026 on the changes 65ba8b9..d6c2e56 (branch `claude/premise-review-4`) found three
-forms, all fixed. What is left of the first:
-
-- **Windows no budget of operations reaches.** The check of the register is in the thunk that calls the program
-  everywhere, but the tests reach only the loop's, and `runCommand`'s in the run: `rehearse`'s `run` and `model`,
-  and the start of a subscription's fiber, pass without their check under every budget from 8 to 299. A scheduler the
-  tests control, as effect-tea-persistent's (its decision 0104), would reach them. The interleavings never reach the
-  budget either, and their "from the first defect on, the run applies no message" counts `onApplied`, which hears a
-  message whose `update` was called before the death: under such a scheduler they must count the calls of `update`.
+- **Tests that sweep budgets of operations**, the engine's "after the first defect, a yield of the scheduler in
+  between" and `rehearse`'s update, and the interleavings, which order promises with fast-check's scheduler: none
+  runs under `test/scheduled.ts`, which reaches what a budget does not (effect-tea-persistent moved all of its tests
+  under budgets onto it, its decision 0104). The interleavings use real promises and timers, which the scheduler of
+  the tests does not step.
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
 
 ## Possible improvements

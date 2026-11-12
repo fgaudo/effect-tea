@@ -130,12 +130,13 @@ is how they are kept, and what a change must not undo:
   lets another fiber die first. Each defect recorded is reported once, in that
   order: by the run as soon as one dies, and by the end of the run, which interrupts its fibers itself, waits for them
   to release what they hold, and dies of the rest; the run's cause holds the defects first, then the rest of what it
-  ended with. From the first defect recorded on, the run calls neither `update` nor `runCommand`, and starts the fiber
-  of no subscription, a step under way included, while the renderer releases what it holds: each is checked in the
-  thunk that calls the program or starts the fiber (`dead` in `engine.ts`, `applyAlive`), where no other fiber can
-  run, since the scheduler may yield at any other operation, and a step may wait for a release or an option while
-  another fiber dies. What an effect of the program does once started is its own, until the end of the run interrupts
-  it: no check can come between two of its operations. Never
+  ended with. From the first defect recorded on, the run calls neither `update` nor `runCommand`, a step under way
+  included, while the renderer releases what it holds: each is checked in the thunk that calls the program (`dead` in
+  `engine.ts`, `applyAlive`), where no other fiber can run, since the scheduler may yield at any other operation, and
+  a step may wait for a release or an option while another fiber dies. A subscription is a `Channel`, which the run
+  does not call: the start of its fiber is checked too, but its first step may still come after the defect, under the
+  scheduler of the tests with the check as without it. What an effect of the program does once started is its own,
+  until the end of the run interrupts it: no check can come between two of its operations. Never
   report a defect only through a `join`, or through a fiber that races: once nothing awaits it, or the race is lost, the
   defect is lost with it, and `FiberSet` and `FiberMap` discard the exits of the fibers they interrupt as they close.
   The renderer is one of them, interrupted and awaited first however the run ends (`runWith` in `run.ts`). `drive`
@@ -153,6 +154,14 @@ is how they are kept, and what a change must not undo:
   start, is dropped before `update`, however the fibers were scheduled. Keys are the program's, and so are their
   `Equal` and `Hash`: the run compares them only in `'subscriptions'` (`reconcile` in `engine.ts`), and keeps its
   fibers, and tells a message that still applies, by their start, which compares no keys.
+- **A check of what another fiber may change, and the act it guards, are one thunk.** Where the engine or a testing
+  tool decides from what another fiber may change (the register of deaths, the keys of a state, `pending`), the
+  check and the act it guards, a call of the program or the start of a fiber, are in one synchronous thunk: the
+  scheduler may yield at any other operation, and another fiber die or write meanwhile. A change of the engine or of
+  a testing tool lists the points where another fiber can run between a check and its act, and leaves a test under
+  the scheduler of the tests (`test/scheduled.ts`) that fails without the check: a budget of operations samples the
+  interleavings, and reaches only some. What cannot be one thunk with its check, as the first step of an effect of
+  the program, is no act the README promises about.
 - **Commands are data; only `runCommand` runs them.** Never let a command carry its effect, or a description
   that must be kept in step with one: a test, `onApplied` and the logs read the command itself.
 - **Commands cannot be cancelled**, a deliberate choice: do not add cancellation without asking.
@@ -238,6 +247,14 @@ after the list says. A change that rests on a new premise adds it here, with wha
   queue after its key went away does not reach update" (`run.test.ts`); `rehearse` keeps it by the start itself: "a
   message its subscription sends after its key went away does not reach update" (`rehearse.test.ts`). This one
   rests on nothing of Effect: it is the engine's own rule, tested where the fibers' order would otherwise hide it.
+- **Every fiber of a run asks the `Scheduler` it is given before each step, and every task it makes goes to that
+  scheduler's dispatcher, or resumes inline where the scheduler of the tests makes it yield first**, so that
+  `test/scheduled.ts` decides where each fiber yields and which runs next, needing nothing of the platform's: "driven
+  by hand, every fiber resumes through the scheduler, that of the test clock included", "fibers a Deferred resumes
+  inline run in the order the test picks", "a fiber that yielded and is interrupted waits for its turn, as one resumed
+  inline does" (`test/effect-scheduler.test.ts`), and the rules of the scheduler built on them
+  (`test/scheduled.test.ts`). Read in the source (`runLoop` in `internal/effect.ts`, unchanged from 4.1.3, where
+  effect-tea-persistent's decision 0104 found them), and seen in those tests.
 - **`SubscriptionRef.changes` replays the latest state to a new subscriber**, so a renderer that subscribes late,
   or skips frames, still draws the last state: "a renderer slower than the program gets only the latest frame"
   (`run.test.ts`).
@@ -396,7 +413,8 @@ A lead no test can reach yet is listed here, with what would decide it. None is,
   - **the boundary of a run**, the run's or a testing tool's: its lifecycle, scopes, interruption and defects, what
     it holds and lets go, what a tool fails on (`run.test.ts`, `engine.test.ts`, the cache of `dispatchTo` in
     `dispatch.test.ts`, a parent's subscriptions in a run in `compose.test.ts`, each tool's own file in
-    `src/testing/`, a bridge's `renderInto`). A test of a premise ("What the invariants rest on") is of this kind.
+    `src/testing/`, a bridge's `renderInto`). A test of a premise ("What the invariants rest on") is of this kind,
+    and so is one under the scheduler of the tests, `test/scheduled.ts`, which is no part of the package.
   - **the types**: what the compiler refuses (`@ts-expect-error`), or infers (`expectTypeOf`), next to the tests
     of the function whose types they are.
 
