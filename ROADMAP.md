@@ -7,10 +7,6 @@ when it is done or rejected, with the reason in the commit.
 ## Open problems
 
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
-- **`drive` loses a defect of what a subscription releases as the scenario ends.** Its `Effect.raceFirst`
-  (`drive.ts`) interrupts the run and discards its exit, where the run interrupted by whoever runs it dies of that
-  defect and `rehearse` fails on it; its JSDoc says "a defect of the program fails it". `contract.test.ts` holds it.
-  A fix could fork the run, interrupt and await it once the scenario ends, and fail with its dies.
 - **`rehearse` cancels a command whose `run` is interrupted, and the scenario passes.** The command leaves
   `pending` before it runs, so interrupting the `run` (a `timeoutOption` around it) closes its scope and drops its
   answer, a history no run makes; the JSDoc promises that a command left without an answer fails the test.

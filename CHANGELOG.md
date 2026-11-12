@@ -81,6 +81,9 @@ version, and everything else, features included, the patch version.
 
 ### Fixed
 
+- `drive` waits, once the scenario ends, for the run it interrupts to release what it holds, and fails, as the run
+  dies, on a defect of that release (a subscription's, say): it discarded the run's exit, and the scenario passed.
+  "Testing" in the README says so.
 - A subscription or a command that dies while the end of the run releases what it holds ends the run with that
   defect, a `ProgramDefect` that says where, as the README's "Guarantees" promise. The defect was lost: a run whose
   renderer ended succeeded, and an interrupted one ended with its interruption alone.

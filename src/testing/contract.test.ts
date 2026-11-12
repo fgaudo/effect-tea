@@ -320,7 +320,7 @@ describe('how a stopped subscription ends', () => {
 
   // The run interrupted by whoever runs it keeps such a defect in its cause ("a subscription that dies while an
   // interrupted run releases it is in the cause", `run.test.ts`); `drive` stops the run when the scenario ends.
-  test.failing('drive fails, as the run dies, on a defect of what a subscription releases when the scenario ends', async () => {
+  test('drive fails, as the run dies, on a defect of what a subscription releases when the scenario ends', async () => {
     const dying: Listener = {
       ...listener(Deferred.makeUnsafe<string>()),
       update: () => (state) => ({ state }),
