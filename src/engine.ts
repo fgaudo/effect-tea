@@ -88,12 +88,15 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
  * the rest of the cause is kept as it is: `Effect.catchDefect` would keep only the first defect. An effect that
  * interrupts itself (`Effect.interrupt`, or the join of an interrupted fiber) is a defect too: the fibers of a
  * run ignore their interruptions, which would leave a command without its answer, or a subscription ended in
- * silence. So is any other failure without a defect, which the types rule out (an empty cause, a failure a cast
- * let through): it would end the run with no defect to report. An interruption by the run, or by whoever runs it, is never taken for one: an interrupted fiber runs
- * no handler while it is interruptible, as it is where the effect runs. The defects are wrapped where it is not,
- * so that those of an interrupted effect are too: what a subscription the run stopped dies with while it
- * releases what it holds.
+ * silence. So is any other failure, which the types rule out (an empty cause, a failure a cast let through): it would
+ * end the run with no defect to report. Either is a defect beside the defects of the cause too, in the place it
+ * happened: a release that interrupts itself after its effect died. An interruption by the run, or by whoever runs
+ * it, is never taken for one: an interrupted fiber runs no handler while it is interruptible, as it is where the
+ * effect runs. The defects are wrapped where it is not, so that those of an interrupted effect are too: what a
+ * subscription the run stopped dies with while it releases what it holds.
  */
+const diesOnly = (cause: Cause.Cause<unknown>) => Cause.hasDies(cause) && cause.reasons.every(Cause.isDieReason)
+
 // The details are made only when there is a defect to carry them: a message is described on every call otherwise.
 export const diesIn =
   (
@@ -104,15 +107,25 @@ export const diesIn =
   <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
     Effect.uninterruptibleMask((restore) =>
       restore(
-        Effect.catchCauseIf(self, (cause) => !Cause.hasDies(cause), (cause) =>
-          Effect.die(
+        // Beside a defect too: a release that interrupts itself after its effect died is a second defect.
+        Effect.catchCauseIf(self, (cause) => !diesOnly(cause), (cause) => {
+          const others = Cause.fromReasons(cause.reasons.filter((reason) => !Cause.isDieReason(reason)))
+          const defect = Cause.die(
             new Error(
-              Cause.hasInterruptsOnly(cause)
+              Cause.hasInterruptsOnly(others)
                 ? 'It interrupted itself, which only the run may do'
                 : 'It failed, which its type rules out',
-              { cause },
+              { cause: others },
             ),
-          )),
+          ).reasons
+          // In the place of the first of them, so that the defects stay in the order they happened.
+          const first = cause.reasons.findIndex((reason) => !Cause.isDieReason(reason))
+          return Effect.failCause(Cause.fromReasons<never>(
+            first === -1 ? defect : cause.reasons.flatMap((reason, index) =>
+              Cause.isDieReason(reason) ? [reason] : index === first ? defect : []
+            ),
+          ))
+        }),
       ).pipe(
         Effect.catchCauseIf(Cause.hasDies, (cause) =>
           Effect.failCause(Cause.fromReasons(cause.reasons.flatMap((reason): ReadonlyArray<Cause.Reason<E>> =>

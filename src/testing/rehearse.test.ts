@@ -1151,7 +1151,7 @@ describe('rehearse, after the first defect, a yield of the scheduler in between'
 // interrupts itself", `run.test.ts`): never a bare interruption in the cause.
 const quitting = 'rehearse fails on a release that interrupts itself after its command died, with two defects'
 
-test.failing(quitting, async () => {
+test(quitting, async () => {
   type Still = Readonly<{ still: boolean }>
   const exit = await Effect.runPromiseExit(rehearse(
     {

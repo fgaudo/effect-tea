@@ -220,7 +220,10 @@ after the list says. A change that rests on a new premise adds it here, with wha
   only in the source.
 - **A fiber interrupted while interruptible runs no failure handler**, which is how `diesIn` tells an interruption
   by the run from one the program makes: "a run interrupted by whoever runs it is no defect", "a subscription
-  stopped inside an uninterruptible region is no defect" (`run.test.ts`).
+  stopped inside an uninterruptible region is no defect" (`run.test.ts`); and beside a defect of its release, which is
+  how `diesIn` turns a self-interruption into a defect even after a defect, never one by the run: "a defect in what
+  a subscription the run stopped releases ends the run", "a subscription stopped as whoever runs the run interrupts
+  it, which dies as it releases, is in the cause" (`run.test.ts`) fail with a handler that runs on them.
 - **An unbounded `Queue` takes an offer at once, and a shut one refuses it without interrupting**: "a dispatch runs
   with Effect.runSync from a plain callback, and after the run has ended too" (`run.test.ts`). It wakes its taker
   through the scheduler of the fiber that made it, so a dispatch never runs `update` in its caller's stack:

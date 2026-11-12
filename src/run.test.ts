@@ -1776,7 +1776,7 @@ describe('a release that interrupts itself', () => {
       )
       : []
 
-  test.failing('after the command died, is a second defect of the command, after the first', async () => {
+  test('after the command died, is a second defect of the command, after the first', async () => {
     const exit = await Effect.runPromiseExit(run(
       {
         ...counter,

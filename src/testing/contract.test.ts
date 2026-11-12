@@ -767,7 +767,7 @@ describe('a defect of the program, then a failure of the scenario', () => {
       : []
 
   const inOrder = 'drive fails, as rehearse does, with the defect first, then with what the scenario ended with'
-  test.failing(inOrder, async () => {
+  test(inOrder, async () => {
     const exit = await Effect.runPromiseExit(drive(booming, (driver) =>
       driver.send(() => Opt.some('Boom')).pipe(
         Effect.andThen(Effect.sleep('10 millis')),

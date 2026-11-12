@@ -117,6 +117,7 @@ export const drive = Effect.fnUntraced(function*<
       return yield* outcome.value
     }
     const failed = Exit.isFailure(outcome.value) ? outcome.value.cause : Cause.empty
-    return yield* Effect.failCause(Cause.combine(failed, Cause.fromReasons<never>(dies)))
+    // The defects first, as the run puts them before the rest of what it ended with.
+    return yield* Effect.failCause(Cause.combine(Cause.fromReasons<never>(dies), failed))
   }))
 })

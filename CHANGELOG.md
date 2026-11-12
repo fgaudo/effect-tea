@@ -93,6 +93,12 @@ version, and everything else, features included, the patch version.
 
 ### Fixed
 
+- A release that interrupted itself, or failed though its type rules it out, after the command or the subscription
+  it belonged to had died, was lost: the run died of the first defect alone, and `rehearse` failed with a bare
+  interruption after it. It is a second defect, where it happened, after the first, as "Nothing ends in silence" in
+  the README promises.
+- `drive`, failing on a defect of the program after the scenario had failed, put what the scenario ended with first
+  in the cause. The defect comes first, as the run and `rehearse` put it. "Testing" in the README says so.
 - `drive` waits, once the scenario ends, for the run it interrupts to release what it holds, and fails, as the run
   dies, on a defect of that release (a subscription's, say): it discarded the run's exit, and the scenario passed.
   "Testing" in the README says so.

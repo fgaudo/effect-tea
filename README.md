@@ -880,8 +880,8 @@ there with `applyAll`, or with `update` itself.
   the program runs, a rejected message is ignored, and a scenario checks what it expects to see. A program with
   flags gets them as `run` does, in the options. Once the scenario ends, or whoever runs `drive` interrupts it, it
   interrupts the run and waits for it, and fails, as the run dies, on a defect of what the program releases as it
-  stops. Its commands run as soon as they start: to hold one, give the program a service of the test's that waits
-  on a `Deferred` the scenario completes.
+  stops: the defect comes first in the cause, before what the scenario ended with. Its commands run as soon as they
+  start: to hold one, give the program a service of the test's that waits on a `Deferred` the scenario completes.
 
 A defect of the program fails `simulate`, `rehearse` and `drive` as it ends the run when the program runs: with the
 `ProgramDefect` the run dies with, in the same `where`, with the same `on` or `key`, wherever the tool calls the
