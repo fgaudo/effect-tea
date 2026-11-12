@@ -645,7 +645,55 @@ describe('logs', () => {
   })
 })
 
+// The view sends `first`, then `Increment`; `observe` puts `held` in the hook that hears `first`, which tells
+// that it is holding and waits until the renderer has given the loop time to go on. Returns how many times
+// `update` ran meanwhile.
+const updatesWhileHeld = (
+  first: Message,
+  observe: (held: Effect.Effect<void>) => RunOptions<Message, Count, Command>,
+) =>
+  Effect.gen(function*() {
+    const holding = yield* Deferred.make<void>()
+    const release = yield* Deferred.make<void>()
+    let updates = 0
+    let whileHeld = -1
+    const counting: Counter = {
+      ...counter,
+      update: (message) => (state) => {
+        updates += 1
+        return update(message)(state)
+      },
+    }
+    yield* run(
+      counting,
+      (frames) =>
+        frames.pipe(
+          Stream.tap(Effect.fnUntraced(function*({ model, dispatch }) {
+            if (model.count > 0) return
+            yield* dispatch(first === 'Increment' ? model.increment : model.type(false))
+            yield* dispatch(model.increment)
+            yield* Deferred.await(holding)
+            // Long enough for the loop to take the second message, if it did not wait.
+            yield* Effect.sleep('20 millis')
+            whileHeld = updates
+            yield* Deferred.succeed(release, undefined)
+          })),
+          Stream.takeUntil(({ model }) => model.count === (first === 'Increment' ? 2 : 1)),
+          Stream.runDrain,
+        ),
+      observe(Deferred.succeed(holding, undefined).pipe(Effect.andThen(Deferred.await(release)))),
+    )
+    return whileHeld
+  })
+
 describe('onApplied', () => {
+  test('the next message waits until it ends', async () => {
+    const updates = await Effect.runPromise(updatesWhileHeld('Increment', (held) => ({
+      onApplied: ({ after }) => after.count === 1 ? held : Effect.void,
+    })))
+    expect(updates).toBe(1)
+  })
+
   test('hears every accepted message in order, with the states around it, before its frame', async () => {
     const heard: Array<Applied<Count, Message, Command>> = []
     const drawn: Array<number> = []
@@ -741,6 +789,11 @@ describe('onApplied', () => {
 })
 
 describe('onIgnored', () => {
+  test('the next message waits until it ends', async () => {
+    const updates = await Effect.runPromise(updatesWhileHeld('Forbidden', (held) => ({ onIgnored: () => held })))
+    expect(updates).toBe(1)
+  })
+
   test('hears every message update rejects, with where it came from and the state it did not apply in', async () => {
     const ignored: Array<Ignored<Count, Message>> = []
     const applied: Array<Message> = []

@@ -6,8 +6,6 @@ when it is done or rejected, with the reason in the commit.
 
 ## Open problems
 
-- **`onApplied` and `onIgnored` hold the loop.** It is documented ("it should be quick"), but a slow devtools slows
-  the whole program, and nothing shows how to hand the work off (a queue of its own, a forked fiber).
 - **`hear` accepts a key whose subscription the run would have seen end**, since an ended subscription keeps its
   key: no tool can know it.
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.

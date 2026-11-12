@@ -67,14 +67,15 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
   /**
    * Hears every message `update` accepts, in order, with the state before and after it and the commands it
    * started (e.g. for devtools, or to record a session), before its frame is drawn and its commands start.
-   * The program waits for it, so it should be quick; a defect in it ends the run like any other.
+   * The next message waits for it, so a slow one holds the program: it hands slow work off to a queue (the
+   * README's "Running" shows how). A defect in it ends the run like any other.
    */
   readonly onApplied?: (applied: Applied<State, Message, Command>) => Effect.Effect<void>
   /**
    * Hears every message `update` rejects, which the run ignores, with where it came from and the state it did
    * not apply in (e.g. for devtools, or to count the taps that did nothing). It only watches: the message stays
-   * ignored, and the state as it was. The program waits for it, so it should be quick; a defect in it ends the
-   * run like any other.
+   * ignored, and the state as it was. The next message waits for it, so a slow one holds the program: it hands
+   * slow work off to a queue, as `onApplied` does. A defect in it ends the run like any other.
    */
   readonly onIgnored?: (ignored: Ignored<State, Message>) => Effect.Effect<void>
 }

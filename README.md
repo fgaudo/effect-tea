@@ -624,6 +624,21 @@ Options:
 - **`onIgnored`**: hears every message `update` rejected, with where it came from and the state it did not
   apply in. It only watches: the message stays ignored. For devtools, or to count the taps that did nothing.
 
+The run waits for `onApplied` and `onIgnored` before it takes the next message, so that they hear every message
+in order, and `onApplied` before the message's frame: a slow one holds the whole program. One with slow work to
+do, as a devtools that sends each step away, hands it off. It offers what it hears to an unbounded queue, which
+takes it at once, and a fiber of whoever runs the program takes it from there. Raced with the run, that fiber
+ends with it, and a defect in it ends the run; what is still in the queue when the run ends is not reported:
+
+```ts
+const app = Effect.gen(function*() {
+  const heard = yield* Queue.unbounded<Applied<State, Message, Command>>()
+  const report = Queue.take(heard).pipe(Effect.flatMap(sendToDevtools), Effect.forever)
+  const running = run(program, render, { onApplied: (applied) => Effect.asVoid(Queue.offer(heard, applied)) })
+  yield* Effect.raceFirst(running, report)
+})
+```
+
 The run logs only at the debug level: each message, a rejected one, and subscriptions starting, stopping and
 ending. Effect's default minimum level, `Info`, hides them all.
 

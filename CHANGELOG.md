@@ -30,6 +30,8 @@ version, and everything else, features included, the patch version.
   `Effect.acquireRelease`) saw a failure where the run gives an interruption.
 - "Commands" in the README says that commands run concurrently, with no bound, and that their answers reach
   `update` in the order they end: the run always did so.
+- "Running" in the README says that the run waits for `onApplied` and `onIgnored` before the next message, as it
+  always did, and shows how a slow observer hands its work off to a queue and a fiber raced with the run.
 - **Breaking**: `DefectSite` gains `'init'` and `'log'`. An `init` that throws on its flags ended the run with
   the error itself: the run now dies with a `ProgramDefect` in `'init'`. A `Logger` that throws on one of the
   run's own debug logs ended it with the error itself, or in `'subscription'` on a subscription's end: the run
