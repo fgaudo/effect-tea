@@ -12,6 +12,7 @@ for the task before starting it:
 | adding or changing an example, or the bridge they share | [`add-example`](.agents/skills/add-example/SKILL.md)       |
 | an API the peer minimum lacks, or a dependency upgrade  | [`upgrade-effect`](.agents/skills/upgrade-effect/SKILL.md) |
 | a changelog entry, the version, a release, the site     | [`release`](.agents/skills/release/SKILL.md)               |
+| a review of what the invariants rest on                 | [`premise-review`](.agents/skills/premise-review/SKILL.md) |
 
 ## Language
 
@@ -208,6 +209,17 @@ new premise adds it here, with its test.
 - **A `WeakRef` is cleared before the `FinalizationRegistry` callback of its target runs**, and a `WeakMap` lets go
   of a value with its key: the tests of `dispatchTo` (`dispatch.test.ts`) and "a child's model is let go with its
   state" (`compose.test.ts`), under `Bun.gc`.
+
+A premise about what code does when it runs is never only reasoned. A review of the premises reports a finding only
+once it is reproduced by a test that fails, or ruled out by a test that passes or by Effect's documentation in the
+oldest version of the peer range: a reading of the code alone, or of Effect's source, gives a lead, and the review
+turns it into a test or drops it. A review is due after a change of the engine or of a testing tool that adds a
+premise, and before 1.0, in a session that did not write the change: it follows
+[`premise-review`](.agents/skills/premise-review/SKILL.md).
+
+### Premises that no test reaches yet
+
+A lead no test can reach yet is listed here, with what would decide it. None today.
 
 ## Code
 
