@@ -279,7 +279,8 @@ expect(commands).toEqual([Command.Save({ name: 'Ada' })])
   around `run`.
 - **A command has a scope of its own.** What it acquires (`Effect.acquireRelease`, `Effect.forkScoped`) is
   released when it ends, before its message reaches `update`, so `run` never asks for a `Scope`. What must
-  outlive a command is a service provided around `run`, or a subscription.
+  outlive a command is a service provided around `run`, or a subscription. Acquired there rather than in a scope
+  of the command's own, it lets a defect end the run before the release, not after (see [running](#running)).
 - **Commands run concurrently.** Each one starts in a fiber of its own once its step is applied, with no bound
   on how many run at once, and the loop goes on without waiting for it. Their answers reach `update` in the
   order they end, not the order they started: `update` handles them in any order.
@@ -658,8 +659,12 @@ A defect anywhere ends the run, which dies with a `ProgramDefect`:
   options, by name; or `'log'`, for one of the run's own debug logs (a `Logger` that throws). What the program
   logs itself is in the place it logs from.
 
-From the defect on, the run applies no message, and so starts no command, while it releases what it holds; a defect
-met meanwhile joins the cause, which keeps the defects in the order they happened. The run never recovers from it,
+A command, a subscription or the renderer dies when its effect ends with a defect. What it acquired in the scope
+the run gives it (`Effect.acquireRelease`, `Effect.addFinalizer`, a channel's own scopes) is released after that;
+what it wraps around its own code (`Effect.ensuring`, `Effect.onExit`, an `Effect.scoped` of its own) is part of its
+effect, runs before it ends, and may still catch the defect. From the defect on, the run applies no message, and so
+starts no command, while it releases what it holds; a defect met meanwhile joins the cause, which keeps the defects
+in the order they happened. The run never recovers from it,
 and does not log it: reporting it, and what the user sees next, are the app's, around the run. The screen keeps the
 last frame: show a crash screen, or run the program again. In a browser, start it with `Effect.runFork`, which
 reports nothing itself. An interruption of the fiber it returns, on `pagehide` for one, ends the run too, and is no

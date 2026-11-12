@@ -658,6 +658,40 @@ describe('what the run dies of, and the tools fail on', () => {
     expect(diedIn(exit)).toBe('command')
   })
 
+  // A defect a command catches around a scope of its own is the command's, never the run's: it answers.
+  const recovering: Program<{ state: Row; model: number; message: 'Go' | 'Saved'; command: 'Save' }> = {
+    init: { state: { seen: 0 } },
+    update: (message) => (state) =>
+      message === 'Go' ? { state, commands: ['Save'] } : { state: { seen: state.seen + 1 } },
+    runCommand: () =>
+      Effect.scoped(Effect.addFinalizer(() => Effect.yieldNow).pipe(Effect.andThen(Effect.die(new Boom())))).pipe(
+        Effect.catchCause(() => Effect.succeedSome<'Go' | 'Saved'>('Saved')),
+      ),
+    makeModel: ({ seen }) => seen,
+  }
+
+  test('the run applies the answer of a command that catches the defect of a scope of its own', async () => {
+    const seen = await Effect.runPromise(drive(recovering, Effect.fnUntraced(function*(driver) {
+      yield* driver.send(() => Opt.some<'Go' | 'Saved'>('Go'))
+      return yield* driver.waitFor((seen) => seen === 1 ? Opt.some(seen) : Opt.none())
+    })))
+    expect(seen).toBe(1)
+  })
+
+  test('simulate applies, as the run does, the answer of a command that catches the defect of a scope of its own', async () => {
+    const { state } = await Effect.runPromise(simulate(recovering)(['Go'], recovering.init))
+    expect(state).toEqual({ seen: 1 })
+  })
+
+  test('rehearse applies, as the run does, the answer of a command that catches the defect of a scope of its own', async () => {
+    const seen = await Effect.runPromise(rehearse(recovering, (rehearsal) =>
+      rehearsal.send(() => Opt.some<'Go' | 'Saved'>('Go')).pipe(
+        Effect.andThen(rehearsal.runAll),
+        Effect.andThen(rehearsal.model),
+      )))
+    expect(seen).toBe(1)
+  })
+
   // A `runCommand` that throws before it returns its effect: the run suspends it, so the defect is the command's.
   const raising: Program<{ state: Row; model: number; message: 'Go'; command: 'Explode' }> = {
     ...exploding,

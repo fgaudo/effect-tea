@@ -1445,6 +1445,99 @@ describe('the end of the run', () => {
     expect([wheres(exit), applied]).toEqual([['subscription'], 0])
   })
 
+  // What a command, a subscription or the renderer wraps around its own code (`Effect.ensuring`, an `Effect.scoped` of
+  // its own) is part of its effect, which ends with the defect only once that has run: until then the defect is the
+  // program's, which may still catch it, and messages apply as they do while the effect runs. Here `a` releases slowly
+  // around its defect, and `b` sends once the release has begun.
+  const behindItsOwnRelease = (where: 'command' | 'subscription' | 'render') =>
+    Effect.gen(function*() {
+      let applied = 0
+      const releasing = yield* Deferred.make<void>()
+      const heard = yield* Deferred.make<void>()
+      const dies = Effect.die('boom').pipe(
+        Effect.ensuring(Deferred.succeed(releasing, undefined).pipe(
+          // Bounded, so that a run that applies nothing still ends.
+          Effect.andThen(Effect.timeoutOrElse(Deferred.await(heard), {
+            duration: '50 millis',
+            orElse: () => Effect.void,
+          })),
+        )),
+      )
+      const b = Channel.fromEffect(Effect.as(Deferred.await(releasing), 'Increment' as const)).pipe(
+        Channel.concatWith(() => Channel.never),
+      )
+      const exit = yield* Effect.exit(run(
+        {
+          ...counter,
+          init: { state: { count: 0 }, commands: where === 'command' ? ['Boom'] : [] },
+          runCommand: () => dies,
+          subscriptions: () =>
+            where === 'subscription'
+              ? HashMap.make(['a', Channel.fromEffectDone(dies)], ['b', b])
+              : HashMap.make(['b', b]),
+        },
+        () => where === 'render' ? dies : Effect.never,
+        {
+          onApplied: () =>
+            Effect.sync(() => {
+              applied += 1
+            }).pipe(Effect.andThen(Deferred.succeed(heard, undefined))),
+        },
+      ))
+      return [wheres(exit), applied]
+    })
+
+  test('a command that dies under a release of its own dies once it has released, applying messages meanwhile', async () => {
+    expect(await Effect.runPromise(behindItsOwnRelease('command'))).toEqual([['command'], 1])
+  })
+
+  test('a subscription that dies under a release of its own dies once it has released, applying messages meanwhile', async () => {
+    expect(await Effect.runPromise(behindItsOwnRelease('subscription'))).toEqual([['subscription'], 1])
+  })
+
+  test('a renderer that dies under a release of its own dies once it has released, applying messages meanwhile', async () => {
+    expect(await Effect.runPromise(behindItsOwnRelease('render'))).toEqual([['render'], 1])
+  })
+
+  // Dies inside a scope of its own, which it catches around: the run never learns of the defect.
+  const caught = <A>(recovered: A) =>
+    Effect.scoped(Effect.addFinalizer(() => Effect.yieldNow).pipe(Effect.andThen(Effect.die('boom')))).pipe(
+      Effect.catchCause(() => Effect.succeed(recovered)),
+    )
+
+  const counted = (frames: Stream.Stream<Frame<Model, Message>>) =>
+    frames.pipe(Stream.filter(({ model }) => model.count === 1), Stream.take(1), Stream.runDrain)
+
+  test('a command that catches the defect of a scope of its own answers, and the run goes on', async () => {
+    const exit = await Effect.runPromiseExit(run(
+      {
+        ...counter,
+        init: { state: { count: 0 }, commands: ['Boom'] },
+        runCommand: () => caught(Opt.some<Message>('Increment')),
+      },
+      counted,
+    ))
+    expect(Exit.isSuccess(exit)).toBe(true)
+  })
+
+  test('a subscription that catches the defect of a scope of its own ends with its message, and the run goes on', async () => {
+    const exit = await Effect.runPromiseExit(run(
+      { ...counter, subscriptions: () => HashMap.make(['a', Channel.fromEffectDone(caught<Message>('Increment'))]) },
+      counted,
+    ))
+    expect(Exit.isSuccess(exit)).toBe(true)
+  })
+
+  test('a renderer that catches the defect of a scope of its own draws on, and the run goes on', async () => {
+    const exit = await Effect.runPromiseExit(run(counter, (frames) =>
+      caught(undefined).pipe(
+        Effect.andThen(counted(frames.pipe(Stream.tap(({ model, dispatch }) =>
+          model.count === 0 ? dispatch(model.increment) : Effect.void
+        )))),
+      )))
+    expect(Exit.isSuccess(exit)).toBe(true)
+  })
+
   test('a subscription that dies as the run starts keeps the keys after it from starting', async () => {
     let died = false
     let started = 0

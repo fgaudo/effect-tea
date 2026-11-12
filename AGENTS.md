@@ -114,8 +114,11 @@ is how they are kept, and what a change must not undo:
   every such call throw, one that drops would lose what the user did) and the dispatch free of services.
   Running a dispatch is the renderer's business: the library exports no helper for it.
 - **Defects always die, and the run dies with them.** Nothing in the library may retry, swallow, log or turn
-  them into messages: reporting is the job of whoever runs the program. Where the engine knows where a defect
-  happened, it wraps each defect of the cause in a `ProgramDefect` (`diesIn` in `engine.ts`) that holds it as
+  them into messages: reporting is the job of whoever runs the program. A fiber of the program dies when its effect
+  ends with a defect: what the program wraps around its own code (`Effect.ensuring`, an `Effect.scoped` of its own)
+  runs before, and may still catch it, so never add a way to learn of a defect earlier (a `Supervisor`, a look at a
+  fiber's state); what it acquires in the scope the library gives it is released after. Where the engine knows
+  where a defect happened, it wraps each defect of the cause in a `ProgramDefect` (`diesIn` in `engine.ts`) that holds it as
   its `cause` and says where, and keeps the rest of the cause. The run's own logs die in `'log'`, each outside
   any other site, so that a `Logger` that throws is never taken for the subscription or the step that logs; what
   the program logs is in the site it logs from. Each fiber of the run records what it dies of in one place
@@ -274,6 +277,13 @@ after the list says. A change that rests on a new premise adds it here, with wha
   dies before another, which its release lets die, is the first defect" (`run.test.ts`), "a command that dies before
   another, which its release lets die, fails it first", "a subscription that dies before another, which its release
   lets die, fails it first" (`rehearse.test.ts`). Documented.
+- **An effect ends with a defect only once what it wraps around its own code (`Effect.ensuring`, an `Effect.scoped`
+  of its own) has run, and `Effect.catchCause` around it recovers from the defect**, which is why the README counts a
+  defect from the end of the effect, and the engine learns of it no earlier: "a command that dies under a release of
+  its own dies once it has released, applying messages meanwhile", and the same of a subscription and of a renderer,
+  "a command that catches the defect of a scope of its own answers, and the run goes on", and the same of a
+  subscription and of a renderer (`run.test.ts`), "simulate applies, as the run does, the answer of a command that
+  catches the defect of a scope of its own", and the same of `rehearse` (`contract.test.ts`). Documented.
 - **`Channel.toPull` keeps what a channel acquires, in scopes of its own too, in the scope it is given, and releases
   none of it as the pull fails**, which is how `runSubscription` leaves a subscription's channel to release what it
   holds as the scope of `scopedIn` closes, once its defect is recorded, and how the loop applies nothing meanwhile: "a

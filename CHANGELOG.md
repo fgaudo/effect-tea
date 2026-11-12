@@ -82,6 +82,11 @@ version, and everything else, features included, the patch version.
   command ran. Give the child the `runCommand` its commands need. One that gets there through a cast is a
   `CompositionDefect` naming the child, with its id and the command in `on`, as the README's "Declaring children"
   says.
+- The README says when a command, a subscription or the renderer dies: when its effect ends with a defect. What it
+  wraps around its own code (`Effect.ensuring`, an `Effect.scoped` of its own) runs before, and may still catch the
+  defect, so messages apply meanwhile; what it acquires in the scope the run gives it is released after, while the
+  run applies none. It said that the run applies no message from the defect on, which a release of the program's own
+  never kept. The run behaves as before.
 
 ### Fixed
 
