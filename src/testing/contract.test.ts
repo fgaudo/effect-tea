@@ -735,3 +735,44 @@ describe('what the run dies of, and the tools fail on', () => {
     expect(said(exit)).toEqual(['render', undefined])
   })
 })
+
+// The run's cause holds its defects first, then the rest of what it ended with, and so does `rehearse`'s, before what
+// the scenario ended with ("a defect the scenario catches fails it all the same, first, and once"): `drive`, which
+// fails "as the run dies", keeps the same order. Here `update` dies on `Boom`, the run releases a subscription slowly,
+// and the scenario fails meanwhile.
+describe('a defect of the program, then a failure of the scenario', () => {
+  type Still = Readonly<{ still: true }>
+  const booming: Program<{ state: Still; model: Still; message: 'Boom' }> = {
+    init: { state: { still: true } },
+    update: () => () => {
+      throw new Error('update')
+    },
+    subscriptions: () =>
+      HashMap.make([
+        'k',
+        Channel.unwrap(
+          Effect.acquireRelease(Effect.void, () => Effect.sleep('50 millis')).pipe(Effect.as(Channel.never)),
+        ),
+      ]),
+    makeModel: (state) => state,
+  }
+
+  const said = (exit: Exit.Exit<unknown>) =>
+    Exit.isFailure(exit)
+      ? exit.cause.reasons.map((reason) =>
+        Cause.isDieReason(reason)
+          ? reason.defect instanceof ProgramDefect ? reason.defect.where : reason.defect
+          : reason._tag
+      )
+      : []
+
+  const inOrder = 'drive fails, as rehearse does, with the defect first, then with what the scenario ended with'
+  test.failing(inOrder, async () => {
+    const exit = await Effect.runPromiseExit(drive(booming, (driver) =>
+      driver.send(() => Opt.some('Boom')).pipe(
+        Effect.andThen(Effect.sleep('10 millis')),
+        Effect.andThen(Effect.die('after')),
+      )))
+    expect(said(exit)).toEqual(['update', 'after'])
+  })
+})

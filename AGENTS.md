@@ -208,10 +208,11 @@ after the list says. A change that rests on a new premise adds it here, with wha
   of the effect**, so that `runWith` interrupts the renderer however the run ends, and what ended the run stays
   the first defect of the cause: "a renderer that dies while an interrupted run releases it is in the cause", "a
   renderer that dies as a run that died elsewhere releases it is in the cause" (`run.test.ts`). It is also how
-  each fiber of the engine records what it dies of, interrupted or not: "a defect in what a subscription the run
-  stopped releases ends the run", "a command that dies while an interrupted run releases the renderer ends the run
-  with it", "a command that dies while a run that died elsewhere releases the renderer is in the cause"
-  (`run.test.ts`); and how `rehearse` records each defect of the program in whichever fiber, an interrupted one
+  each fiber of the engine records what it dies of, interrupted or not. Interrupted: "a defect in what a subscription
+  the run stopped releases ends the run", "a subscription stopped as whoever runs the run interrupts it, which dies
+  as it releases, is in the cause"; dying of itself: "a command that dies while an interrupted run releases the
+  renderer ends the run with it", "a command that dies while a run that died elsewhere releases the renderer is in
+  the cause" (`run.test.ts`); and how `rehearse` records each defect of the program in whichever fiber, an interrupted one
   included, merging no causes there: "a defect of what a subscription releases fails it, in a fiber of the test's
   that nobody joins", "a defect of what a command the scenario interrupts releases fails it, alone"
   (`rehearse.test.ts`), "rehearse fails, as the run dies, on a command that dies in a fiber nobody joins"

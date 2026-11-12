@@ -1762,3 +1762,29 @@ describe('dispatch', () => {
     expect(woken).toBe(1)
   })
 })
+
+// A command that interrupts itself is a defect ("Nothing ends in silence" in the README), and its release is part of
+// it: a release that interrupts itself is one too, after the defect the command died of, in the order they happened.
+// Alone, without a defect before it, the run dies of it as one.
+describe('a release that interrupts itself', () => {
+  const said = (exit: Exit.Exit<unknown>) =>
+    Exit.isFailure(exit)
+      ? exit.cause.reasons.map((reason) =>
+        Cause.isDieReason(reason) && reason.defect instanceof ProgramDefect
+          ? reason.defect.cause instanceof Error ? reason.defect.cause.message : reason.defect.cause
+          : reason._tag
+      )
+      : []
+
+  test.failing('after the command died, is a second defect of the command, after the first', async () => {
+    const exit = await Effect.runPromiseExit(run(
+      {
+        ...counter,
+        init: { state: { count: 0 }, commands: ['Boom'] },
+        runCommand: () => Effect.addFinalizer(() => Effect.interrupt).pipe(Effect.andThen(Effect.die('boom'))),
+      },
+      () => Effect.never,
+    ))
+    expect(said(exit)).toEqual(['boom', 'It interrupted itself, which only the run may do'])
+  })
+})

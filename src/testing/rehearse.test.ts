@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import * as Arr from 'effect/Array'
 import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Context from 'effect/Context'
@@ -10,6 +11,7 @@ import * as Fiber from 'effect/Fiber'
 import * as Hash from 'effect/Hash'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
+import * as Scheduler from 'effect/Scheduler'
 import type * as Scope from 'effect/Scope'
 import { ProgramDefect } from '../defect.ts'
 import type { Program } from '../program.ts'
@@ -1100,4 +1102,72 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
     ))
     expect(defectsOf(exit)).toEqual(['first', 'release'])
   })
+})
+
+// The form of the engine's window between a check of its register and what it guards: the loop of `rehearse` checks
+// the register as it takes a step (`deadOr`), and a loop that yields before `update` lets another fiber die meanwhile.
+// `update` reads the register through `model`, which fails at once once a defect is recorded.
+describe('rehearse, after the first defect, a yield of the scheduler in between', () => {
+  type Count = Readonly<{ n: number }>
+  type Burst = 'Go' | 'Hit'
+
+  const lateUpdates = (ops: number) =>
+    Effect.suspend(() => {
+      let late = 0
+      let rehearsing: Rehearsal<Count, Count, Burst, 'Die'> | undefined
+      const dead = () => rehearsing !== undefined && Exit.isFailure(Effect.runSync(Effect.exit(rehearsing.model)))
+      const program: Program<{ state: Count; model: Count; message: Burst; command: 'Die' }> = {
+        init: { state: { n: 0 } },
+        update: (message) => ({ n }) => {
+          if (message === 'Hit' && dead()) late += 1
+          return message === 'Go' ? { state: { n: n + 1 }, commands: ['Die'] } : { state: { n: n + 1 } }
+        },
+        runCommand: () => Effect.yieldNow.pipe(Effect.andThen(Effect.die('boom'))),
+        makeModel: (state) => state,
+      }
+      const hit = () => Opt.some<Burst>('Hit')
+      return rehearse(program, Effect.fnUntraced(function*(rehearsal) {
+        rehearsing = rehearsal
+        yield* rehearsal.send(() => Opt.some('Go'))
+        const dying = yield* Effect.forkChild(Effect.exit(rehearsal.run(() => true)))
+        yield* Effect.forEach(Arr.makeBy(3000, () => rehearsal.send(hit)), Effect.exit, {
+          concurrency: 'unbounded',
+          discard: true,
+        })
+        yield* Fiber.await(dying)
+      })).pipe(Effect.exit, Effect.map(() => late), Effect.provideService(Scheduler.MaxOpsBeforeYield, ops))
+    })
+
+  // Under the default budget of operations no update was late in this scenario; under budgets from 9 to 21, one was.
+  const name = 'no message reaches update once a command has died, whatever budget of operations the program sets'
+  test.failing(name, async () => {
+    let late = 0
+    for (let ops = 8; ops < 30; ops++) late += await Effect.runPromise(lateUpdates(ops))
+    expect(late).toBe(0)
+  })
+})
+
+// A release that interrupts itself after its command died is a second defect, as in the run ("a release that
+// interrupts itself", `run.test.ts`): never a bare interruption in the cause.
+const quitting = 'rehearse fails on a release that interrupts itself after its command died, with two defects'
+
+test.failing(quitting, async () => {
+  type Still = Readonly<{ still: boolean }>
+  const exit = await Effect.runPromiseExit(rehearse(
+    {
+      init: { state: { still: true }, commands: ['Boom'] },
+      update: () => (state: Still) => ({ state }),
+      runCommand: () => Effect.addFinalizer(() => Effect.interrupt).pipe(Effect.andThen(Effect.die('boom'))),
+      makeModel: (state: Still) => state,
+    },
+    (rehearsal) => rehearsal.run(() => true),
+  ))
+  const said = Exit.isFailure(exit)
+    ? exit.cause.reasons.map((reason) =>
+      Cause.isDieReason(reason) && reason.defect instanceof ProgramDefect
+        ? reason.defect.cause instanceof Error ? reason.defect.cause.message : reason.defect.cause
+        : reason._tag
+    )
+    : []
+  expect(said).toEqual(['boom', 'It interrupted itself, which only the run may do'])
 })
