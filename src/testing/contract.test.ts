@@ -553,6 +553,27 @@ describe('what the run dies of, and the tools fail on', () => {
     expect(said(exit)).toEqual(['init', undefined])
   })
 
+  const ticking: Seeded = {
+    ...seeded,
+    subscriptions: () => HashMap.make(['ticks', Channel.fromEffectDone(Effect.sync(throwing))]),
+  }
+  const keyed = (exit: Exit.Exit<unknown>) => {
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    return defect instanceof ProgramDefect ? [defect.where, defect.key] : defect
+  }
+
+  test('the run dies in a subscription, with its key, on a subscription that throws', async () => {
+    const exit = await Effect.runPromiseExit(drive(ticking, () => Effect.never, { flags: 0 }))
+    expect(keyed(exit)).toEqual(['subscription', 'ticks'])
+  })
+
+  test('rehearse fails, as the run dies, in a subscription, with its key, on a subscription that throws', async () => {
+    const exit = await Effect.runPromiseExit(
+      rehearse(ticking, (rehearsal) => rehearsal.hearNext('ticks'), { flags: 0 }),
+    )
+    expect(keyed(exit)).toEqual(['subscription', 'ticks'])
+  })
+
   test('rehearse fails, as the run dies, in init, on an init that throws on its flags', async () => {
     const exit = await Effect.runPromiseExit(rehearse(starting, () => Effect.void, { flags: 0 }))
     expect(said(exit)).toEqual(['init', undefined])
