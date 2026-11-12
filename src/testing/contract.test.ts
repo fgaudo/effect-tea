@@ -3,7 +3,9 @@ import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
+import * as Equal from 'effect/Equal'
 import * as Exit from 'effect/Exit'
+import * as Hash from 'effect/Hash'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import { parent } from '../compose.ts'
@@ -315,6 +317,61 @@ describe('how a stopped subscription ends', () => {
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
     expect(defect instanceof ProgramDefect && defect.where === 'subscription' && defect.cause).toBe('release')
   })
+
+  // The run interrupted by whoever runs it keeps such a defect in its cause ("a subscription that dies while an
+  // interrupted run releases it is in the cause", `run.test.ts`); `drive` stops the run when the scenario ends.
+  test.failing('drive fails, as the run dies, on a defect of what a subscription releases when the scenario ends', async () => {
+    const dying: Listener = {
+      ...listener(Deferred.makeUnsafe<string>()),
+      update: () => (state) => ({ state }),
+      subscriptions: () =>
+        HashMap.make([
+          'ticks',
+          Channel.succeed<'Tick'>('Tick').pipe(
+            Channel.concatWith(() => Channel.never),
+            Channel.onExit(() => Effect.die('release')),
+          ),
+        ]),
+    }
+    const exit = await Effect.runPromiseExit(drive(dying, (driver) => driver.latest))
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    expect(defect instanceof ProgramDefect && defect.where === 'subscription' && defect.cause).toBe('release')
+  })
+})
+
+describe('a subscription that depends on more of the state than its key', () => {
+  // Under the one key `seen`, the subscription holds the count of the state it is listed in, and ends with it once
+  // `gate` opens; `Inc` counts up while the key stays.
+  type Counted = Readonly<{ count: number; seen: ReadonlyArray<number> }>
+  type Counting = Readonly<{ _tag: 'Inc' }> | Readonly<{ _tag: 'Seen'; count: number }>
+  const counted = (gate: Effect.Effect<void>): Program<{ state: Counted; model: Counted; message: Counting }> => ({
+    init: { state: { count: 0, seen: [] } },
+    update: (message) => (state) =>
+      message._tag === 'Inc'
+        ? { state: { ...state, count: state.count + 1 } }
+        : { state: { ...state, seen: [...state.seen, message.count] } },
+    subscriptions: ({ count }) =>
+      HashMap.make(['seen', Channel.unwrap(Effect.as(gate, Channel.end<Counting>({ _tag: 'Seen', count })))]),
+    makeModel: (state) => state,
+  })
+
+  test.failing('rehearse\'s hearNext runs the subscription listed when its key appeared, as the run starts it', async () => {
+    const rehearsed = await Effect.runPromise(rehearse(counted(Effect.void), Effect.fnUntraced(function*(rehearsal) {
+      yield* rehearsal.send(() => Opt.some({ _tag: 'Inc' }))
+      yield* rehearsal.hearNext('seen')
+      return (yield* rehearsal.state).seen
+    })))
+    const ran = await Effect.runPromise(Effect.gen(function*() {
+      const gate = yield* Deferred.make<void>()
+      return yield* drive(counted(Deferred.await(gate)), Effect.fnUntraced(function*(driver) {
+        yield* driver.send(() => Opt.some({ _tag: 'Inc' }))
+        yield* driver.waitFor(({ count }) => count === 1 ? Opt.some(count) : Opt.none())
+        yield* Deferred.succeed(gate, undefined)
+        return yield* driver.waitFor(({ seen }) => seen.length === 1 ? Opt.some(seen) : Opt.none())
+      }))
+    }))
+    expect(rehearsed).toEqual(ran)
+  })
 })
 
 describe('what the run dies of, and the tools fail on', () => {
@@ -364,6 +421,36 @@ describe('what the run dies of, and the tools fail on', () => {
   test('simulate fails, as the run dies, on a state whose subscriptions are a defect', async () => {
     const exit = await Effect.runPromiseExit(simulate(table)(['Doubled'], table.init))
     expect(isCompositionDefect(exit)).toBe(true)
+  })
+
+  // A key whose Equal throws, under the same hash as every other: no state lists two, so only a comparison with
+  // the keys of the state before finds it, as the run's reconciliation does ("a key whose Equal throws dies in
+  // subscriptions", `run.test.ts`).
+  class Throwing implements Equal.Equal {
+    [Equal.symbol](): boolean {
+      throw new Error('boom')
+    }
+    [Hash.symbol](): number {
+      return 0
+    }
+  }
+  const renewing: Program<{ state: Row; model: number; message: 'Seen' }> = {
+    ...row,
+    subscriptions: () => HashMap.make([new Throwing(), Channel.never]),
+  }
+  const diesInSubscriptions = (exit: Exit.Exit<unknown>) => {
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    return defect instanceof ProgramDefect && defect.where === 'subscriptions'
+  }
+
+  test.failing('simulate fails, as the run dies, on a key whose Equal throws against the key of the state before', async () => {
+    const exit = await Effect.runPromiseExit(simulate(renewing)(['Seen'], renewing.init))
+    expect(diesInSubscriptions(exit)).toBe(true)
+  })
+
+  test.failing('rehearse fails, as the run dies, on a key whose Equal throws against the key of the state before', async () => {
+    const exit = await Effect.runPromiseExit(rehearse(renewing, (rehearsal) => rehearsal.send(() => Opt.some('Seen'))))
+    expect(diesInSubscriptions(exit)).toBe(true)
   })
 
   // A command or a subscription that interrupts itself is a defect of the run (`diesIn`), and of the tools, which

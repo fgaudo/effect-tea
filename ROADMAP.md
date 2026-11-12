@@ -24,6 +24,32 @@ when it is done or rejected, with the reason in the commit.
   every break of what a parent declared is a `CompositionDefect` (and `Interpreter` promises that none goes
   uninterpreted). `compose.test.ts` holds it with a `test.failing` case. A fix could ask `child` and `each` for an
   `Interpreter` of the program's commands, and raise a `defectAt` where nothing interprets one.
+- **`drive` loses a defect of what a subscription releases as the scenario ends.** Its `Effect.raceFirst`
+  (`drive.ts`) interrupts the run and discards its exit, where the run interrupted by whoever runs it dies of that
+  defect and `rehearse` fails on it; its JSDoc says "a defect of the program fails it". `contract.test.ts` holds it.
+  A fix could fork the run, interrupt and await it once the scenario ends, and fail with its dies.
+- **`rehearse` cancels a command whose `run` is interrupted, and the scenario passes.** The command leaves
+  `pending` before it runs, so interrupting the `run` (a `timeoutOption` around it) closes its scope and drops its
+  answer, a history no run makes; the JSDoc promises that a command left without an answer fails the test.
+  `rehearse.test.ts` holds it. A fix could keep the command pending until it answers, or fail when its run is
+  interrupted.
+- **A subscription first heard by a `hearNext` in a fiber that ends dies with that fiber.** `open` forks it as a
+  child of the calling fiber (`Effect.forkChild`), so the key stays and the subscription is gone; the README says
+  `hearNext` keeps it "as the run does, for as long as the key stays". `rehearse.test.ts` holds it. A fix could fork
+  it into a scope the rehearsal owns.
+- **A message a `hearNext` takes after its key went away reaches `update`.** Waiting in a fiber of the test's, it
+  takes the message from the queue of a start `listen` has already removed; the run drops it by its generation.
+  `rehearse.test.ts` holds it. A fix could apply a heard message only while that very start is still open.
+- **Two messages that arrive together in `rehearse` lose one when the first stops a subscription.** `apply` reads
+  the state, awaits the release of the gone keys, then writes, so a command's answer applied meanwhile is written
+  over; the run takes one message at a time. `rehearse.test.ts` holds it. A fix could apply one message at a time.
+- **`simulate` and `rehearse` miss a key whose `Equal` throws against a key of the state before**, which the run
+  compares in `reconcile` and dies of in `'subscriptions'`. `contract.test.ts` holds it, once for each tool. A fix
+  could keep the previous listing and compare with it as `reconcile` does.
+- **`rehearse`'s `hearNext` runs the subscription listed at its first call, the run the one listed when its key
+  appeared.** It shows only with a subscription that sees the state other than through its key, which the README
+  advises against but "What is left to you" does not list. `contract.test.ts` holds it. A fix could take the
+  subscription in `listen` when its key appears, or state the rule among what is left to the program.
 
 ## Possible improvements
 

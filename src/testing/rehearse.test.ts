@@ -6,6 +6,7 @@ import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
 import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
 import * as Hash from 'effect/Hash'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
@@ -301,6 +302,82 @@ describe('rehearse', () => {
       expect(log).toEqual(['first', 'second'])
     })
 
+    test.failing('a subscription first heard in a fiber that has ended since keeps running while its key stays', async () => {
+      const log: Array<string> = []
+      const { second, pings } = await Effect.runPromise(withStorage(rehearse(
+        twice(log, Effect.void),
+        Effect.fnUntraced(function*(rehearsal) {
+          // `timeoutOption` runs the call in a fiber of its own, which ends with it.
+          yield* Effect.timeoutOption(rehearsal.hearNext('ping'), '1 second')
+          const second = yield* Effect.exit(rehearsal.hearNext('ping'))
+          return { second: Exit.isSuccess(second), pings: (yield* rehearsal.state).pings }
+        }),
+      )))
+      expect({ second, pings }).toEqual({ second: true, pings: 2 })
+    })
+
+    // The key goes away while a `hearNext` waits, in a fiber of the test's, for the message its subscription is about
+    // to send: in the run, a message of a start whose key went away never reaches `update`.
+    test.failing('a message its subscription sends after its key went away does not reach update', async () => {
+      type Listening = Readonly<{ listening: boolean; late: number }>
+      type Said = 'Stop' | 'Heard'
+      const late = await Effect.runPromise(Effect.gen(function*() {
+        const gate = yield* Deferred.make<void>()
+        const listening: Program<{ state: Listening; model: Listening; message: Said }> = {
+          init: { state: { listening: true, late: 0 } },
+          update: (message) => (state) =>
+            message === 'Stop'
+              ? { state: { ...state, listening: false } }
+              : { state: { ...state, late: state.listening ? state.late : state.late + 1 } },
+          subscriptions: ({ listening }) =>
+            listening
+              ? HashMap.make(['k', Channel.unwrap(Effect.as(Deferred.await(gate), Channel.end<Said>('Heard')))])
+              : HashMap.empty(),
+          makeModel: (state) => state,
+        }
+        return yield* rehearse(listening, Effect.fnUntraced(function*(rehearsal) {
+          const waiting = yield* Effect.forkChild(rehearsal.hearNext('k'))
+          yield* Effect.sleep('10 millis')
+          yield* Deferred.succeed(gate, undefined)
+          yield* rehearsal.send(() => Opt.some('Stop'))
+          yield* Fiber.await(waiting)
+          return (yield* rehearsal.state).late
+        }))
+      }))
+      expect(late).toBe(0)
+    })
+
+    // A message that stops a subscription waits for its release before the state is written: one that arrives in
+    // the meantime, here a command's answer, is applied to the state before and then written over.
+    test.failing('two messages that arrive together, one stopping a subscription, are both applied', async () => {
+      type Counting = Readonly<{ listening: boolean; count: number }>
+      type Counted = 'Stop' | 'Count'
+      const counting: Program<{ state: Counting; model: Counting; message: Counted; command: 'Count' }> = {
+        init: { state: { listening: true, count: 0 }, commands: ['Count'] },
+        update: (message) => (state) =>
+          message === 'Stop'
+            ? { state: { ...state, listening: false } }
+            : { state: { ...state, count: state.count + 1 } },
+        runCommand: () => Effect.as(Effect.sleep('10 millis'), Opt.some<Counted>('Count')),
+        subscriptions: ({ listening }) =>
+          listening
+            ? HashMap.make([
+              'k',
+              Channel.succeed<Counted>('Stop').pipe(
+                Channel.concatWith(() => Channel.never),
+                Channel.ensuring(Effect.sleep('50 millis')),
+              ),
+            ])
+            : HashMap.empty(),
+        makeModel: (state) => state,
+      }
+      const state = await Effect.runPromise(rehearse(counting, Effect.fnUntraced(function*(rehearsal) {
+        yield* Effect.all([rehearsal.hearNext('k'), rehearsal.run(() => true)], { concurrency: 'unbounded' })
+        return yield* rehearsal.state
+      })))
+      expect(state).toEqual({ listening: false, count: 1 })
+    })
+
     test('a subscription that ends before sending anything is heard by its last message', async () => {
       const ending: typeof program = {
         ...program,
@@ -421,6 +498,19 @@ describe('rehearse', () => {
         }),
       ))
       expect(String(failure)).toContain('Commands still pending when the scenario ended: Store')
+    })
+
+    // Commands cannot be cancelled: in the run, a command once started still answers.
+    test.failing('when a run interrupted while its command runs leaves the command unanswered', async () => {
+      const failure = await failureOf(rehearse(
+        { ...program, runCommand: () => Effect.never },
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.send(typing('milk'))
+          yield* rehearsal.send(saving)
+          yield* Effect.timeoutOption(rehearsal.run(isStore), '20 millis')
+        }),
+      ))
+      expect(failure).toBeDefined()
     })
   })
 })
