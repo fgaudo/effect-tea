@@ -35,8 +35,9 @@ export type DriveOptions<Message, State = unknown, Command = unknown> =
  * Runs `program` with `run`, from its `flags` when it has them, its commands and subscriptions included, with a
  * renderer that keeps only the latest frame, and runs `scenario` against that frame. Returns what `scenario`
  * returns, then stops the program and waits for it to release what it holds, as it does when whoever runs it
- * interrupts it. A defect of the program fails it, one of what it releases as it stops included, and so does a wait that lasts longer than `patience`. As when the
- * program runs, a message `update` rejects is ignored: a scenario checks what it expects to see.
+ * interrupts it. A defect of the program fails it, one of what it releases as it stops included, and so does a wait
+ * that lasts longer than `patience`. As when the program runs, a message `update` rejects is ignored: a scenario
+ * checks what it expects to see.
  */
 export const drive = Effect.fnUntraced(function*<
   State,
