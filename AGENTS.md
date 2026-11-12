@@ -121,8 +121,9 @@ they are kept, and what a change must not undo:
   the program logs is in the site it logs from. Each fiber of the run records what it dies of in one place
   (`makeDeaths` in `engine.ts`, made by `runWith` and given to the engine; `rehearse` has its own, keeping only the
   program's defects): the engine's, the renderer, and the run's own as it starts the engine, as they end, and one with
-  a scope of its own as it dies too, before the scope releases what it holds (`scopedIn`), so that a defect is in the
-  order it happened, though its release lets another fiber die first. Each defect recorded is reported once, in that
+  a scope of its own as it dies too, before the scope releases what it holds (`scopedIn`), a subscription's channel and
+  the scopes of its own included (`runSubscription`), so that a defect is in the order it happened, though its release
+  lets another fiber die first. Each defect recorded is reported once, in that
   order: by the run as soon as one dies, and by the end of the run, which interrupts its fibers itself, waits for them
   to release what they hold, and dies of the rest; the run's cause holds the defects first, then the rest of what it
   ended with. From the first defect on, the loop applies no message, while the renderer releases what it holds, and
@@ -273,6 +274,15 @@ after the list says. A change that rests on a new premise adds it here, with wha
   dies before another, which its release lets die, is the first defect" (`run.test.ts`), "a command that dies before
   another, which its release lets die, fails it first", "a subscription that dies before another, which its release
   lets die, fails it first" (`rehearse.test.ts`). Documented.
+- **`Channel.toPull` keeps what a channel acquires, in scopes of its own too, in the scope it is given, and releases
+  none of it as the pull fails**, which is how `runSubscription` leaves a subscription's channel to release what it
+  holds as the scope of `scopedIn` closes, once its defect is recorded, and how the loop applies nothing meanwhile: "a
+  subscription dying in a scope of its channel, before one its release lets die, is the first defect", "a subscription
+  dying in a scope of its channel lets no message apply as the channel releases" (`run.test.ts`), "a subscription
+  dying in a scope of its channel, before one its release lets die, fails it first" (`rehearse.test.ts`). That it
+  takes the scope it is run in, and its pull is used while that scope is open, is documented; that a failing pull
+  releases nothing is not, and the three fail with `Channel.runForEach`, which closes a scope of its own before the
+  defect leaves it.
 - **`Effect.raceFirst` ends with the first of its effects to end, and interrupts the other, and waits for it to end,
   its release included**, which is how a call of `rehearse`'s that waits for a subscription or a command fails as soon
   as another fiber dies: "a hearNext waiting on its subscription fails as soon as another fiber of the test's dies", "a

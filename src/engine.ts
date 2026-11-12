@@ -11,6 +11,7 @@ import * as FiberSet from 'effect/FiberSet'
 import * as HashMap from 'effect/HashMap'
 import * as LogLevel from 'effect/LogLevel'
 import * as Opt from 'effect/Option'
+import * as Pull from 'effect/Pull'
 import * as Queue from 'effect/Queue'
 import type * as Scope from 'effect/Scope'
 import type * as Stream from 'effect/Stream'
@@ -137,6 +138,21 @@ export const scopedIn =
       diesIn(where, details, deaths.has),
       deaths.recorded,
     )
+
+/**
+ * Runs a subscription, sending each of its messages, in the scope of the fiber that runs it, and returns its last
+ * message: what the channel acquires in scopes of its own is released as that scope closes, after `scopedIn` has
+ * recorded what the subscription died of. `Channel.runForEach` closes a scope of its own first, so that a defect would
+ * wait for that release, while the loop goes on applying messages.
+ */
+export const runSubscription = <Message, R, RS>(
+  subscription: Subscription<Message, R>,
+  send: (message: Message) => Effect.Effect<void, never, RS>,
+): Effect.Effect<Message, never, R | RS | Scope.Scope> =>
+  Channel.toPull(subscription).pipe(
+    Effect.flatMap((pull) => Effect.forever(Effect.flatMap(pull, send), { disableYield: true })),
+    Pull.catchDone(Effect.succeed),
+  )
 
 // Described by its tags alone, whatever `describeMessage` says: a report must not run the program's code while the
 // run is dying, nor carry the message's data. The testing tools apply a message the same way.
@@ -377,7 +393,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       // Checked again as its fiber starts, so that nothing rests on when a forked fiber first runs, which Effect does
       // not document: today it runs before the loop goes on, and no test reaches a death in between.
       yield* Effect.suspend(() =>
-        dead() ? Effect.void : Channel.runForEach(subscription, send).pipe(
+        dead() ? Effect.void : runSubscription(subscription, send).pipe(
           scopedIn(deaths, 'subscription', () => ({ key })),
           Effect.flatMap((last) => log('Subscription ended', key).pipe(Effect.andThen(send(last)))),
         )

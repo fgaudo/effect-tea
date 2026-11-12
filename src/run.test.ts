@@ -1361,6 +1361,90 @@ describe('the end of the run', () => {
     expect(defects(exit)).toEqual(['first', 'second'])
   })
 
+  // Dies of `first` inside a scope of the channel's own, whose release lets `second` die, and ends once it has.
+  const diesInItsChannel = (released: Deferred.Deferred<void>, dying: Deferred.Deferred<void>) =>
+    Channel.unwrap(
+      Effect.addFinalizer(() =>
+        Deferred.succeed(released, undefined).pipe(
+          Effect.andThen(Deferred.await(dying)),
+          Effect.andThen(Effect.yieldNow),
+        )
+      ).pipe(Effect.as(Channel.fromEffectDone(Effect.yieldNow.pipe(Effect.andThen(Effect.die('first')))))),
+    )
+
+  test('a subscription dying in a scope of its channel, before one its release lets die, is the first defect', async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const released = yield* Deferred.make<void>()
+      const dying = yield* Deferred.make<void>()
+      yield* run(
+        {
+          ...counter,
+          subscriptions: () =>
+            HashMap.make(
+              ['a', diesInItsChannel(released, dying)],
+              [
+                'b',
+                Channel.fromEffectDone(Effect.uninterruptible(
+                  Deferred.await(released).pipe(
+                    Effect.andThen(Deferred.succeed(dying, undefined)),
+                    Effect.andThen(Effect.die('second')),
+                  ),
+                )),
+              ],
+            ),
+        },
+        () => Effect.never,
+      )
+    }))
+    expect(defects(exit)).toEqual(['first', 'second'])
+  })
+
+  test('a subscription dying in a scope of its channel lets no message apply as the channel releases', async () => {
+    let applied = 0
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const releasing = yield* Deferred.make<void>()
+      const heard = yield* Deferred.make<void>()
+      yield* run(
+        {
+          ...counter,
+          subscriptions: () =>
+            HashMap.make(
+              [
+                'a',
+                Channel.unwrap(
+                  // Bounded, so that a run that applies nothing still ends.
+                  Effect.addFinalizer(() =>
+                    Deferred.succeed(releasing, undefined).pipe(
+                      Effect.andThen(
+                        Effect.timeoutOrElse(Deferred.await(heard), {
+                          duration: '50 millis',
+                          orElse: () => Effect.void,
+                        }),
+                      ),
+                    )
+                  ).pipe(Effect.as(Channel.fromEffectDone(Effect.yieldNow.pipe(Effect.andThen(Effect.die('boom')))))),
+                ),
+              ],
+              [
+                'b',
+                Channel.fromEffect(Effect.as(Deferred.await(releasing), 'Increment' as const)).pipe(
+                  Channel.concatWith(() => Channel.never),
+                ),
+              ],
+            ),
+        },
+        () => Effect.never,
+        {
+          onApplied: () =>
+            Effect.sync(() => {
+              applied += 1
+            }).pipe(Effect.andThen(Deferred.succeed(heard, undefined))),
+        },
+      )
+    }))
+    expect([wheres(exit), applied]).toEqual([['subscription'], 0])
+  })
+
   test('a subscription that dies as the run starts keeps the keys after it from starting', async () => {
     let died = false
     let started = 0

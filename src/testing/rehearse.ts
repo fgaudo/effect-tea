@@ -1,6 +1,5 @@
 import * as Arr from 'effect/Array'
 import * as Cause from 'effect/Cause'
-import * as Channel from 'effect/Channel'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
@@ -11,7 +10,7 @@ import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import * as Scope from 'effect/Scope'
 import { ProgramDefect } from '../defect.ts'
-import { applyIn, diesIn, makeDeaths, scopedIn } from '../engine.ts'
+import { applyIn, diesIn, makeDeaths, runSubscription, scopedIn } from '../engine.ts'
 import { describeByTag } from '../log.ts'
 import { runCommandOf, type Shape, startOf, subscriptionsOf } from '../program.ts'
 import type { Subscription } from '../subscription.ts'
@@ -329,7 +328,7 @@ export const rehearse = Effect.fnUntraced(function*<
     const asks = yield* Queue.unbounded<void>()
     const heard = yield* Queue.unbounded<Heard<Message>>()
     const fiber = yield* Queue.take(asks).pipe(
-      Effect.andThen(Channel.runForEach(start.subscription, (message: Message) =>
+      Effect.andThen(runSubscription(start.subscription, (message: Message) =>
         Queue.offer(heard, { message, last: false }).pipe(Effect.andThen(Queue.take(asks))))),
       scopedIn(register, 'subscription', () => ({ key })),
       Effect.flatMap((last) => Queue.offer(heard, { message: last, last: true })),

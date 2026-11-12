@@ -161,6 +161,10 @@ version, and everything else, features included, the patch version.
   hear the end fails, as a call made after it does, where it waited for ever. A `hearNext` waiting as its key goes
   away leaves the defect of what the subscription releases alone in the cause, as the run does, where an
   interruption followed it. "Testing" in the README says so.
+- A subscription that dies while its channel holds what it acquired in a scope of its own (`Channel.unwrap` around
+  an `Effect.acquireRelease`) ends the run as it dies, before that release: the run learnt of the defect only once
+  the release had ended, applied what other subscriptions sent meanwhile, and put a defect that release let another
+  fiber die of first. `rehearse`'s `hearNext` orders its defects the same way.
 
 ## 0.7.1 (2026-10-28)
 

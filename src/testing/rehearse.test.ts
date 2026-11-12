@@ -1040,6 +1040,48 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
     expect(defectsOf(exit)).toEqual(['first', 'second'])
   })
 
+  test('a subscription dying in a scope of its channel, before one its release lets die, fails it first', async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const released = yield* Deferred.make<void>()
+      const dying = yield* Deferred.make<void>()
+      const program: Program<{ state: Still; model: Still; message: 'Heard'; services: Scope.Scope }> = {
+        init: { state: { still: true } },
+        update: () => (state) => ({ state }),
+        subscriptions: () =>
+          HashMap.make(
+            [
+              'first',
+              // Dies inside a scope of the channel's own, whose release lets `second` die, and ends once it has.
+              Channel.unwrap(
+                Effect.addFinalizer(() =>
+                  Deferred.succeed(released, undefined).pipe(
+                    Effect.andThen(Deferred.await(dying)),
+                    Effect.andThen(Effect.yieldNow),
+                  )
+                ).pipe(Effect.as(Channel.fromEffectDone(Effect.yieldNow.pipe(Effect.andThen(Effect.die('first')))))),
+              ),
+            ],
+            [
+              'second',
+              Channel.fromEffectDone(Effect.uninterruptible(
+                Deferred.await(released).pipe(
+                  Effect.andThen(Deferred.succeed(dying, undefined)),
+                  Effect.andThen(Effect.die('second')),
+                ),
+              )),
+            ],
+          ),
+        makeModel: (state) => state,
+      }
+      return yield* rehearse(program, Effect.fnUntraced(function*(rehearsal) {
+        yield* Effect.forkChild(rehearsal.hearNext('second'))
+        yield* Effect.sleep('10 millis')
+        yield* rehearsal.hearNext('first')
+      }))
+    }))
+    expect(defectsOf(exit)).toEqual(['first', 'second'])
+  })
+
   // `run` loses its race with the death of its own command, and interrupts it while it still releases what it holds:
   // the race waits for that release, which then dies too.
   const diesThenDiesInItsRelease = Effect.addFinalizer(() =>
