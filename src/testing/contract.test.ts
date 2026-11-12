@@ -1,0 +1,280 @@
+import { describe, expect, test } from 'bun:test'
+import * as Cause from 'effect/Cause'
+import * as Channel from 'effect/Channel'
+import * as Deferred from 'effect/Deferred'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as HashMap from 'effect/HashMap'
+import * as Opt from 'effect/Option'
+import { parent } from '../compose.ts'
+import { CompositionDefect, ProgramDefect } from '../defect.ts'
+import type { Applied, Ignored } from '../engine.ts'
+import type { Program } from '../program.ts'
+import { reject, type Update } from '../update.ts'
+import { applyAll } from './apply-all.ts'
+import { drive } from './drive.ts'
+import { rehearse } from './rehearse.ts'
+import { simulate } from './simulate.ts'
+
+// The same program and the same inputs, given to each testing tool and to the run (through `drive`): where the
+// engine is deterministic, they must end in the same place.
+
+// A draft saved by `Store`, whose answer waits for `answer`; while it saves, a subscription ticks once.
+type Draft = Readonly<{ text: string; isSaving: boolean; saved: ReadonlyArray<string>; ticks: number }>
+type Edit =
+  | Readonly<{ _tag: 'Typed'; text: string }>
+  | Readonly<{ _tag: 'Save' }>
+  | Readonly<{ _tag: 'Cancel' }>
+  | Readonly<{ _tag: 'Stored'; text: string }>
+  | Readonly<{ _tag: 'Tick' }>
+type Store = Readonly<{ _tag: 'Store'; text: string }>
+
+const edit: Update<Draft, Edit, Store> = (message) => (draft) => {
+  switch (message._tag) {
+    case 'Typed':
+      return draft.isSaving ? reject : { state: { ...draft, text: message.text } }
+    case 'Save':
+      return draft.isSaving || draft.text === ''
+        ? reject
+        : { state: { ...draft, isSaving: true }, commands: [{ _tag: 'Store', text: draft.text }] }
+    case 'Cancel':
+      return draft.isSaving ? { state: { ...draft, isSaving: false } } : reject
+    case 'Stored':
+      return draft.isSaving ? { state: { ...draft, isSaving: false, saved: [...draft.saved, message.text] } } : reject
+    case 'Tick':
+      return draft.isSaving ? { state: { ...draft, ticks: draft.ticks + 1 } } : reject
+  }
+}
+
+type DraftModel = Readonly<{
+  draft: Draft
+  type: (text: string) => Opt.Option<Edit>
+  save: Opt.Option<Edit>
+  cancel: Opt.Option<Edit>
+}>
+
+const empty: Draft = { text: '', isSaving: false, saved: [], ticks: 0 }
+
+const draftProgram = (
+  answer: Effect.Effect<void>,
+  ticking: boolean,
+): Program<{ state: Draft; model: DraftModel; message: Edit; command: Store }> => ({
+  init: { state: empty },
+  update: edit,
+  runCommand: ({ text }) => Effect.as(answer, Opt.some<Edit>({ _tag: 'Stored', text })),
+  subscriptions: (draft) =>
+    ticking && draft.isSaving
+      ? HashMap.make([
+        'ticks',
+        Channel.succeed<Edit>({ _tag: 'Tick' }).pipe(Channel.concatWith(() => Channel.never)),
+      ])
+      : HashMap.empty(),
+  makeModel: (draft) => ({
+    draft,
+    type: (text) => draft.isSaving ? Opt.none() : Opt.some({ _tag: 'Typed', text }),
+    save: draft.isSaving || draft.text === '' ? Opt.none() : Opt.some({ _tag: 'Save' }),
+    cancel: draft.isSaving ? Opt.some({ _tag: 'Cancel' }) : Opt.none(),
+  }),
+})
+
+const idle = ({ draft }: DraftModel) => draft.isSaving ? Opt.none() : Opt.some(draft)
+
+/** Runs `scenario` with `drive`, and returns what `onApplied` and `onIgnored` heard. */
+const recorded = Effect.fnUntraced(function*<A>(
+  program: ReturnType<typeof draftProgram>,
+  scenario: Parameters<typeof drive<Draft, DraftModel, Edit, Store, never, A>>[1],
+) {
+  const applied: Array<Applied<Draft, Edit, Store>> = []
+  const ignored: Array<Ignored<Draft, Edit>> = []
+  const result = yield* drive(program, scenario, {
+    onApplied: (heard) => Effect.sync(() => void applied.push(heard)),
+    onIgnored: (heard) => Effect.sync(() => void ignored.push(heard)),
+  })
+  return { result, applied, ignored }
+})
+
+describe('the testing tools and the run, on the same program and inputs', () => {
+  test('a session the run records with onApplied plays again with applyAll, step by step', async () => {
+    const { applied } = await Effect.runPromise(recorded(draftProgram(Effect.void, true), (driver) =>
+      Effect.gen(function*() {
+        yield* driver.send(({ type }) => type('a'))
+        yield* driver.send(({ save }) => save)
+        yield* driver.waitFor(({ draft }) => draft.saved.length === 1 ? Opt.some(draft) : Opt.none())
+      })))
+    const replayed = applied.map((_, index) =>
+      applyAll(edit)(applied.slice(0, index + 1).map(({ message }) => message), empty)
+    )
+    expect(replayed.map(({ state }) => state)).toEqual(applied.map(({ after }) => after))
+    expect(replayed.at(-1)?.commands).toEqual(applied.flatMap(({ commands }) => commands))
+  })
+
+  test('simulate ends where the run ends, when every command answers at once and nothing ticks', async () => {
+    const program = draftProgram(Effect.void, false)
+    // Each message, with what shows that the run has applied it, its command's answer included.
+    const steps: ReadonlyArray<readonly [Edit, (draft: Draft) => boolean]> = [
+      [{ _tag: 'Typed', text: 'a' }, (draft) => draft.text === 'a'],
+      [{ _tag: 'Save' }, (draft) => draft.saved.length === 1 && !draft.isSaving],
+      [{ _tag: 'Typed', text: 'b' }, (draft) => draft.text === 'b'],
+      [{ _tag: 'Save' }, (draft) => draft.saved.length === 2 && !draft.isSaving],
+    ]
+    const simulation = await Effect.runPromise(simulate(program)(steps.map(([message]) => message), program.init))
+    const { result, applied } = await Effect.runPromise(recorded(program, Effect.fnUntraced(function*(driver) {
+      let last = empty
+      for (const [message, done] of steps) {
+        yield* driver.send(() => Opt.some(message))
+        last = yield* driver.waitFor(({ draft }) => done(draft) ? Opt.some(draft) : Opt.none())
+      }
+      return last
+    })))
+    expect(result).toEqual(simulation.state)
+    expect(applied.map(({ message }) => message)).toEqual([...simulation.messages])
+    expect(applied.flatMap(({ commands }) => commands)).toEqual([...simulation.commands])
+    expect(simulation.ignored).toEqual([])
+  })
+
+  test('rehearse and the run apply and ignore the same messages, a late answer and a tick included', async () => {
+    const program = draftProgram(Effect.void, true)
+    const rehearsed = await Effect.runPromise(rehearse(program, (rehearsal) =>
+      Effect.gen(function*() {
+        yield* rehearsal.send(({ type }) => type('a'))
+        yield* rehearsal.send(({ save }) => save)
+        yield* rehearsal.hearNext('ticks')
+        yield* rehearsal.send(({ cancel }) => cancel)
+        yield* rehearsal.run(() => true)
+        return { state: yield* rehearsal.state, ignored: yield* rehearsal.ignored }
+      })))
+    const answer = await Effect.runPromise(Deferred.make<void>())
+    const { result, ignored } = await Effect.runPromise(
+      recorded(draftProgram(Deferred.await(answer), true), (driver) =>
+        Effect.gen(function*() {
+          yield* driver.send(({ type }) => type('a'))
+          yield* driver.send(({ save }) => save)
+          yield* driver.waitFor(({ draft }) => draft.ticks === 1 ? Opt.some(draft) : Opt.none())
+          yield* driver.send(({ cancel }) => cancel)
+          const cancelled = yield* driver.waitFor(idle)
+          yield* Deferred.succeed(answer, undefined)
+          // The late answer is ignored, so no frame shows it: give it the time to arrive.
+          yield* Effect.sleep('50 millis')
+          return cancelled
+        })),
+    )
+    expect(result).toEqual(rehearsed.state)
+    expect(ignored.map(({ message }) => message)).toEqual([...rehearsed.ignored])
+  })
+})
+
+describe('the order of the answers of commands started together', () => {
+  // `Go` starts `A` and `B`; `A`'s answer starts `C`. Every command answers at once, and `update` writes down the
+  // order in which the answers arrive.
+  type Order = Readonly<{ heard: ReadonlyArray<string> }>
+  type Answer = Readonly<{ _tag: 'Go' }> | Readonly<{ _tag: 'Answered'; by: string }>
+  const ordered: Program<{ state: Order; model: Order; message: Answer; command: string }> = {
+    init: { state: { heard: [] } },
+    update: (message) => ({ heard }) =>
+      message._tag === 'Go'
+        ? { state: { heard }, commands: ['A', 'B'] }
+        : { state: { heard: [...heard, message.by] }, commands: message.by === 'A' ? ['C'] : [] },
+    runCommand: (command) => Effect.succeedSome<Answer>({ _tag: 'Answered', by: command }),
+    makeModel: (order) => order,
+  }
+
+  const inTheRun = () =>
+    Effect.runPromise(drive(ordered, (driver) =>
+      Effect.gen(function*() {
+        yield* driver.send(() => Opt.some({ _tag: 'Go' }))
+        return yield* driver.waitFor(({ heard }) => heard.length === 3 ? Opt.some(heard) : Opt.none())
+      })))
+
+  test('in the run, a command that answers at once is heard after the commands started with it', async () => {
+    expect(await inTheRun()).toEqual(['A', 'B', 'C'])
+  })
+
+  test('rehearse, running the oldest pending command first, hears them as the run does', async () => {
+    const heard = await Effect.runPromise(rehearse(ordered, (rehearsal) =>
+      Effect.gen(function*() {
+        yield* rehearsal.send(() => Opt.some({ _tag: 'Go' }))
+        yield* rehearsal.runAll
+        return (yield* rehearsal.state).heard
+      })))
+    expect(heard).toEqual(await inTheRun())
+  })
+
+  // FAILING: simulate applies a command's answer, and runs the commands it starts, before it runs the next command
+  // started with it ("before anything else"): it hears `C` before `B`, which the run, where `A` and `B` start in
+  // one step, never does, however fast each command answers.
+  test.failing('FAILING: simulate hears the answers of commands started together as the run does', async () => {
+    const simulation = await Effect.runPromise(simulate(ordered)([{ _tag: 'Go' }], ordered.init))
+    expect(simulation.state.heard).toEqual(await inTheRun())
+  })
+})
+
+describe('what the run dies of, and the tools do not see', () => {
+  // A row by id, listening under `ticks`; `Doubled` makes the parent's `subscribed` list its id twice, which the
+  // run's reconciliation of the parent's subscriptions finds in the state `Doubled` leaves.
+  type Row = Readonly<{ seen: number }>
+  const row: Program<{ state: Row; model: number; message: 'Seen' }> = {
+    init: { state: { seen: 0 } },
+    update: () => ({ seen }) => ({ state: { seen: seen + 1 } }),
+    subscriptions: () => HashMap.make(['ticks', Channel.never]),
+    makeModel: ({ seen }) => seen,
+  }
+  type Table = Readonly<{ row: Row; twice: boolean }>
+  const { each, compose } = parent<{ state: Table }>()
+  const table = compose({
+    init: (children) => ({ state: { row: children.Row.init(1).state, twice: false } }),
+    children: {
+      Row: each(row, {
+        get: (state, id: number) => id === 1 ? Opt.some(state.row) : Opt.none(),
+        set: (state, _, row) => ({ ...state, row }),
+        subscribed: (state) => state.twice ? [[1, state.row], [1, state.row]] : [[1, state.row]],
+      }),
+    },
+    update: (_: 'Doubled') => (state) => ({ state: { ...state, twice: true } }),
+    makeModel: ({ twice }) => ({ double: twice ? Opt.none<'Doubled'>() : Opt.some<'Doubled'>('Doubled') }),
+  })
+
+  const isCompositionDefect = (exit: Exit.Exit<unknown>) => {
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    return (defect instanceof ProgramDefect ? defect.cause : defect) instanceof CompositionDefect
+  }
+
+  test('the run dies of a state whose subscriptions are a defect', async () => {
+    const exit = await Effect.runPromiseExit(drive(table, Effect.fnUntraced(function*(driver) {
+      yield* driver.send(({ double }) => double)
+      yield* driver.waitFor(({ double }) => Opt.isNone(double) ? Opt.some(true) : Opt.none())
+    })))
+    expect(isCompositionDefect(exit)).toBe(true)
+  })
+
+  // FAILING: `rehearse` reads `subscriptions` only when the test hears a key, and `simulate` never: a scenario
+  // through such a state passes, where the run, deterministic there, dies.
+  test.failing('FAILING: rehearse fails, as the run dies, on a state whose subscriptions are a defect', async () => {
+    const exit = await Effect.runPromiseExit(rehearse(table, (rehearsal) => rehearsal.send(({ double }) => double)))
+    expect(isCompositionDefect(exit)).toBe(true)
+  })
+
+  test.failing('FAILING: simulate fails, as the run dies, on a state whose subscriptions are a defect', async () => {
+    const exit = await Effect.runPromiseExit(simulate(table)(['Doubled'], table.init))
+    expect(isCompositionDefect(exit)).toBe(true)
+  })
+
+  // A command that interrupts itself is a defect of the run (`diesIn`); the tools run it as it is, so the test's
+  // own fiber is interrupted. A test fails either way, but not with a defect that says so.
+  const quitting: Program<{ state: Row; model: number; message: 'Go'; command: 'Quit' }> = {
+    init: { state: { seen: 0 } },
+    update: () => (state) => ({ state, commands: ['Quit'] }),
+    runCommand: () => Effect.interrupt,
+    makeModel: ({ seen }) => seen,
+  }
+
+  test.failing('FAILING: simulate fails with a defect, as the run dies, on a command interrupting itself', async () => {
+    const exit = await Effect.runPromiseExit(simulate(quitting)(['Go'], quitting.init))
+    expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
+  })
+
+  test.failing('FAILING: rehearse fails with a defect, as the run dies, on a command interrupting itself', async () => {
+    const exit = await Effect.runPromiseExit(rehearse(quitting, (rehearsal) =>
+      rehearsal.send(() => Opt.some('Go')).pipe(Effect.andThen(rehearsal.runAll))))
+    expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
+  })
+})

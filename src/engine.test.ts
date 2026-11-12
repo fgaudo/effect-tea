@@ -5,6 +5,7 @@ import * as Effect from 'effect/Effect'
 import { absurd, identity } from 'effect/Function'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
+import * as Queue from 'effect/Queue'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import * as Engine from './engine.ts'
@@ -448,5 +449,44 @@ describe('Engine scopes', () => {
     expect(log.indexOf('release held command')).toBeGreaterThan(log.indexOf('held command interrupted'))
     expect(log.indexOf('subscription interrupted')).toBeGreaterThan(log.indexOf('acquire subscription'))
     expect(log.indexOf('release subscription')).toBeGreaterThan(log.indexOf('subscription interrupted'))
+  })
+})
+
+describe('Engine generations', () => {
+  // A key that went away and came back is a new start: what the old one left in the queue is dropped all the same,
+  // though its key is listened to again when it is taken from the queue.
+  test('a message left by an earlier start of a key that came back does not reach update', async () => {
+    type Watch = Readonly<{ isRunning: boolean; ticks: number }>
+    type WatchMessage = 'Tick' | 'Stop' | 'Start'
+    const ticks = await run(Effect.gen(function*() {
+      const source = yield* Queue.unbounded<'Tick'>()
+      const sent = yield* Deferred.make<void>()
+      // The engine asks for what follows the tick only once it has queued the tick: then `sent` completes.
+      const ticking = Channel.unwrap(Effect.map(Queue.take(source), (tick) => Channel.succeed(tick))).pipe(
+        Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never))),
+      )
+      let dispatch: (message: WatchMessage) => Effect.Effect<void> = () => Effect.void
+      const engine = yield* Engine.make<Watch, WatchMessage, never, never, string>({
+        init: { state: { isRunning: true, ticks: 0 } },
+        runCommand: absurd,
+        update: (message) => (state) =>
+          message === 'Tick'
+            ? { state: { ...state, ticks: state.ticks + 1 } }
+            : { state: { ...state, isRunning: message === 'Start' } },
+        subscriptions: (state) => state.isRunning ? HashMap.make(['ticks', ticking]) : HashMap.empty(),
+        // Before the key of `Stop` goes away, `Start` is queued, then a tick of the first start behind it.
+        onApplied: ({ message }) =>
+          message === 'Stop'
+            ? dispatch('Start').pipe(Effect.andThen(Queue.offer(source, 'Tick')), Effect.andThen(Deferred.await(sent)))
+            : Effect.void,
+      })
+      dispatch = engine.dispatch
+      yield* engine.dispatch('Stop')
+      yield* engine.states.pipe(Stream.filter(({ revision }) => revision >= 2), Stream.runHead)
+      // Long enough for the late tick to be applied, if the engine let it through.
+      yield* Effect.sleep('50 millis')
+      return yield* engine.states.pipe(Stream.runHead, Effect.map((latest) => Opt.getOrThrow(latest).state.ticks))
+    }))
+    expect(ticks).toBe(0)
   })
 })

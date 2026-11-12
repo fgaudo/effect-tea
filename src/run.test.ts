@@ -741,3 +741,100 @@ describe('subscriptions', () => {
     expect(ticks).toBe(0)
   })
 })
+
+describe('the end of the run', () => {
+  const where = (exit: Exit.Exit<unknown>) => {
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    return defect instanceof ProgramDefect ? defect.where : undefined
+  }
+
+  // Holds until the run ends, and dies while it releases what it holds.
+  const dying = Effect.ensuring(Effect.never, Effect.die('boom'))
+
+  const drawsOnce = (frames: Stream.Stream<Frame<Model, Message>>) =>
+    Stream.runHead(frames).pipe(Effect.andThen(Effect.sleep('20 millis')))
+
+  // FAILING: the run closes its subscriptions and its commands with `FiberMap` and `FiberSet`, whose finalizers
+  // discard the exits of the fibers they interrupt (`Fiber.interruptAll`), and whose observers ignore any exit once
+  // they are closed: the defect is lost, and the run succeeds.
+  test.failing('FAILING: a subscription that dies as the end of the run releases it ends the run with it', async () => {
+    const exit = await Effect.runPromiseExit(
+      run({ ...counter, subscriptions: () => HashMap.make(['k', Channel.fromEffectDone(dying)]) }, drawsOnce),
+    )
+    expect(where(exit)).toBe('subscription')
+  })
+
+  test.failing('FAILING: a command that dies as the end of the run interrupts it ends the run with it', async () => {
+    const exit = await Effect.runPromiseExit(
+      run({ ...counter, init: { state: { count: 0 }, commands: ['Ping'] }, runCommand: () => dying }, drawsOnce),
+    )
+    expect(where(exit)).toBe('command')
+  })
+
+  test.failing('FAILING: a subscription that dies while an interrupted run releases it is in the cause', async () => {
+    const exit = await Effect.runPromise(Effect.gen(function*() {
+      const holding: Counter = { ...counter, subscriptions: () => HashMap.make(['k', Channel.fromEffectDone(dying)]) }
+      const running = yield* Effect.forkChild(run(holding, () => Effect.never))
+      yield* Effect.sleep('20 millis')
+      yield* Fiber.interrupt(running)
+      return yield* Fiber.await(running)
+    }))
+    expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
+  })
+
+  test('a renderer that dies while it releases what it holds ends the run with that defect', async () => {
+    const exit = await Effect.runPromiseExit(run(counter, (frames) =>
+      Effect.acquireRelease(Effect.void, () => Effect.die('boom')).pipe(Effect.andThen(Stream.runHead(frames)))))
+    expect(where(exit)).toBe('render')
+  })
+
+  // An interruption by the run is told from one the program makes by whether the fiber was interrupted when the
+  // effect ended: an uninterruptible region delays it, and it is still the run's.
+  test('a subscription stopped inside an uninterruptible region is no defect', async () => {
+    const busy = Effect.uninterruptible(Effect.sleep('30 millis')).pipe(Effect.andThen(Effect.never))
+    const stopping: Counter = {
+      ...counter,
+      subscriptions: ({ count }) =>
+        count === 0 ? HashMap.make(['k', Channel.fromEffectDone(busy)]) : HashMap.empty(),
+    }
+    const exit = await Effect.runPromiseExit(run(stopping, (frames) =>
+      frames.pipe(
+        Stream.tap(({ model, dispatch }) => model.count === 0 ? dispatch(model.increment) : Effect.void),
+        Stream.takeUntil(({ model }) => model.count === 1),
+        Stream.runDrain,
+        Effect.andThen(Effect.sleep('60 millis')),
+      )))
+    expect(Exit.isSuccess(exit)).toBe(true)
+  })
+})
+
+describe('dispatch', () => {
+  // The engine takes the message in its own fiber: a renderer's callback never runs `update` in its own stack.
+  test('running a dispatch from a plain callback returns before update has seen the message', async () => {
+    let applied = 0
+    const seen: Array<number> = []
+    const counting: Counter = {
+      ...counter,
+      update: (message) => (state) => {
+        applied += 1
+        return update(message)(state)
+      },
+    }
+    await Effect.runPromise(runCounter(counting, (frames) =>
+      frames.pipe(
+        Stream.tap(({ model, dispatch }) =>
+          Effect.sync(() => {
+            if (model.count === 0) {
+              setTimeout(() => {
+                Effect.runSync(dispatch(model.increment))
+                seen.push(applied)
+              }, 0)
+            }
+          })
+        ),
+        Stream.take(2),
+        Stream.runDrain,
+      )))
+    expect(seen).toEqual([0])
+  })
+})

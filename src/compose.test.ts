@@ -1223,3 +1223,36 @@ describe('what the types reject', () => {
     })
   })
 })
+
+describe('a child\'s subscriptions in a run', () => {
+  // Its lifted keys are new arrays for each new state of the child: only their values, compared with `Equal`, keep
+  // its subscription running.
+  test('a child whose state changes, under the same key, keeps its subscription running', async () => {
+    let starts = 0
+    type Bumps = Readonly<{ bumps: number }>
+    const bumping: Program<{ state: Bumps; model: number; message: 'Bump' }> = {
+      init: { state: { bumps: 0 } },
+      update: () => ({ bumps }) => ({ state: { bumps: bumps + 1 } }),
+      subscriptions: () =>
+        HashMap.make([
+          { name: 'ticks' },
+          Channel.fromEffectDone(Effect.sync(() => void (starts += 1)).pipe(Effect.andThen(Effect.never))),
+        ]),
+      makeModel: ({ bumps }) => bumps,
+    }
+    type Holder = Readonly<{ bumping: Bumps }>
+    const { child, compose } = parent<{ state: Holder }>()
+    const holder = compose({
+      init: (children) => ({ state: { bumping: children.Bumping.init.state } }),
+      children: { Bumping: child(bumping, { at: Optic.id<Holder>().key('bumping') }) },
+      makeModel: (state, children) => children.Bumping(state),
+    })
+    await Effect.runPromise(run(holder, (frames) =>
+      frames.pipe(
+        Stream.tap(({ model, dispatch }) => model < 3 ? dispatch({ _tag: 'Bumping', message: 'Bump' }) : Effect.void),
+        Stream.takeUntil(({ model }) => model === 3),
+        Stream.runDrain,
+      )))
+    expect(starts).toBe(1)
+  })
+})

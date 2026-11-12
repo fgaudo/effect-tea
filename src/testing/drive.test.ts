@@ -198,3 +198,45 @@ describe('drive', () => {
     expect(await Effect.runPromise(driven)).toBe(1)
   })
 })
+
+describe('drive and a defect of the step the scenario waits for', () => {
+  // The frame of a step is published before its subscriptions are reconciled and its commands start: a scenario
+  // that ends as soon as it sees that frame still fails with the defect they raise.
+  type Count = Readonly<{ count: number }>
+  type Model = Readonly<{ count: number; next: 'Next' }>
+  const counting = { init: { state: { count: 0 } }, makeModel: ({ count }: Count): Model => ({ count, next: 'Next' }) }
+  const next = ({ count }: Count) => ({ count: count + 1 })
+  const boom = (): never => {
+    throw new Error('boom')
+  }
+
+  const whereItDied = async (program: Program<{ state: Count; model: Model; message: 'Next'; command: 'Crash' }>) => {
+    const exit = await Effect.runPromiseExit(drive(program, Effect.fnUntraced(function*(driver) {
+      yield* driver.send(({ next }) => Opt.some(next))
+      yield* driver.waitFor(({ count }) => count === 1 ? Opt.some(count) : Opt.none())
+    })))
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    return defect instanceof ProgramDefect ? defect.where : undefined
+  }
+
+  test('in its subscriptions', async () => {
+    expect(
+      await whereItDied({
+        ...counting,
+        update: () => (state) => ({ state: next(state) }),
+        runCommand: () => Effect.succeedNone,
+        subscriptions: ({ count }) => count === 1 ? boom() : HashMap.empty(),
+      }),
+    ).toBe('subscriptions')
+  })
+
+  test('in a command it starts', async () => {
+    expect(
+      await whereItDied({
+        ...counting,
+        update: () => (state) => ({ state: next(state), commands: ['Crash'] }),
+        runCommand: () => Effect.die('boom'),
+      }),
+    ).toBe('command')
+  })
+})
