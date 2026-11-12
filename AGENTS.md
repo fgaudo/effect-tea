@@ -192,7 +192,8 @@ new premise adds it here, with its test.
   with Effect.runSync from a plain callback, and after the run has ended too" (`run.test.ts`). It wakes its taker
   through the scheduler of the fiber that made it, so a dispatch never runs `update` in its caller's stack:
   "running a dispatch from a plain callback returns before update has seen the message" (`run.test.ts`). That
-  the scheduler is the run's own is read only in the source.
+  the scheduler is the run's own is read only in the source: "a dispatch run from a plain callback wakes the
+  program on the scheduler the run started with" (`run.test.ts`).
 - **A start's generation, not only its key, says whether its messages still apply**: "a message left by an earlier
   start of a key that came back does not reach update" (`engine.test.ts`), and "what a subscription leaves in the
   queue after its key went away does not reach update" (`run.test.ts`). This one rests on nothing of Effect: it is

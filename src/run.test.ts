@@ -13,6 +13,7 @@ import * as Logger from 'effect/Logger'
 import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import * as References from 'effect/References'
+import * as Scheduler from 'effect/Scheduler'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import type * as Tracer from 'effect/Tracer'
@@ -963,5 +964,44 @@ describe('dispatch', () => {
         Stream.runDrain,
       )))
     expect(seen).toEqual([0])
+  })
+
+  test('a dispatch run from a plain callback wakes the program on the scheduler the run started with', async () => {
+    // `Effect.runSync` runs the dispatch on a scheduler of its own: a task this one gets while it runs can only be
+    // the queue waking the loop.
+    const base = new Scheduler.MixedScheduler()
+    let inCallback = false
+    let woken = 0
+    const scheduler: Scheduler.Scheduler = {
+      executionMode: base.executionMode,
+      shouldYield: (fiber) => base.shouldYield(fiber),
+      makeDispatcher: () => {
+        const dispatcher = base.makeDispatcher()
+        return {
+          scheduleTask: (task, priority) => {
+            if (inCallback) woken += 1
+            dispatcher.scheduleTask(task, priority)
+          },
+          flush: () => dispatcher.flush(),
+        }
+      },
+    }
+    await Effect.runPromise(runCounter(counter, (frames) =>
+      frames.pipe(
+        Stream.tap(({ model, dispatch }) =>
+          Effect.sync(() => {
+            if (model.count === 0) {
+              setTimeout(() => {
+                inCallback = true
+                Effect.runSync(dispatch(model.increment))
+                inCallback = false
+              }, 0)
+            }
+          })
+        ),
+        Stream.take(2),
+        Stream.runDrain,
+      )).pipe(Effect.provideService(Scheduler.Scheduler, scheduler)))
+    expect(woken).toBe(1)
   })
 })
