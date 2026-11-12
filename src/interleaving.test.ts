@@ -384,8 +384,12 @@ const released = (events: ReadonlyArray<Event>, count: number) =>
 const stoppedAt = (events: ReadonlyArray<Event>, index: number, applied: Applied<ListState, Message, unknown>) => {
   const held = holding(events, index)
   const stopped = listeners(applied.before).filter((key) => held.has(key) && !listeners(applied.after).includes(key))
+  // One that ends by itself releases in its own fiber, which may be before the step stops the others.
+  const ended = new Set(events.flatMap((event) => event._tag === 'Ended' ? [event.listener] : []))
   const waiting = new Set(events.slice(index + 1).flatMap((later) =>
-    later._tag === 'Releasing' && !later.quick && stopped.includes(later.listener) ? [later.listener] : []
+    later._tag === 'Releasing' && !later.quick && stopped.includes(later.listener) && !ended.has(later.listener)
+      ? [later.listener]
+      : []
   ))
   return { stopped, waiting }
 }
