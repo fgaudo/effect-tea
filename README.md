@@ -861,6 +861,11 @@ there with `applyAll`, or with `update` itself.
   they start: to hold one, give the program a service of the test's that waits on a `Deferred` the scenario
   completes.
 
+A defect of the program fails `simulate`, `rehearse` and `drive` as it ends the run when the program runs: with the
+`ProgramDefect` the run dies with, in the same `where`, with the same `on` or `key`, wherever the tool calls the
+program (`init`, `update`, `makeModel`, `subscriptions`, a subscription, `runCommand`). `applyAll` and
+`dispatchViolations` call `update` without a run, and fail with the defect itself.
+
 ## API reference
 
 Each export is documented in full in the [documentation](https://fgaudo.github.io/effect-tea/). From
