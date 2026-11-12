@@ -328,7 +328,7 @@ describe('rehearse', () => {
 
     // The key goes away while a `hearNext` waits, in a fiber of the test's, for the message its subscription is about
     // to send: in the run, a message of a start whose key went away never reaches `update`.
-    test.failing('a message its subscription sends after its key went away does not reach update', async () => {
+    test('a message its subscription sends after its key went away does not reach update', async () => {
       type Listening = Readonly<{ listening: boolean; late: number }>
       type Said = 'Stop' | 'Heard'
       const late = await Effect.runPromise(Effect.gen(function*() {
@@ -355,6 +355,24 @@ describe('rehearse', () => {
         }))
       }))
       expect(late).toBe(0)
+    })
+
+    test('a call waiting when its key goes away fails the test, since nothing more arrives under it', async () => {
+      const silent: Program<{ state: Readonly<{ listening: boolean }>; model: boolean; message: 'Stop' }> = {
+        init: { state: { listening: true } },
+        update: () => () => ({ state: { listening: false } }),
+        subscriptions: ({ listening }) => listening ? HashMap.make(['k', Channel.never]) : HashMap.empty(),
+        makeModel: ({ listening }) => listening,
+      }
+      const exit = await Effect.runPromise(rehearse(silent, Effect.fnUntraced(function*(rehearsal) {
+        const waiting = yield* Effect.forkChild(rehearsal.hearNext('k'))
+        yield* Effect.sleep('10 millis')
+        yield* rehearsal.send(() => Opt.some('Stop'))
+        return yield* Fiber.await(waiting)
+      })))
+      expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain(
+        'The subscription under k was stopped while hearNext waited for its message',
+      )
     })
 
     // A message that stops a subscription waits for its release before its state is written, as the run's loop

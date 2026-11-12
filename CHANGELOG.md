@@ -109,6 +109,10 @@ version, and everything else, features included, the patch version.
 - A subscription that `rehearse`'s `hearNext` started keeps running while its key stays, whichever fiber of the
   test's first heard it, as the README's "Testing" says. It was interrupted with that fiber (one of `timeoutOption`,
   say), and its key stayed with nothing running under it. It is released when the rehearsal is interrupted too.
+- What a subscription that `rehearse`'s `hearNext` runs sends after its key went away no longer reaches `update`,
+  as in the run: a `hearNext` waiting in a fiber of the test's applied it to the state that had stopped it. A
+  `hearNext` still waiting when the key goes away fails the test, where it was interrupted, or applied the message.
+  "Testing" in the README says so.
 
 ## 0.7.1 (2026-10-28)
 

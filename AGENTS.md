@@ -201,8 +201,9 @@ after the list says. A change that rests on a new premise adds it here, with wha
   program on the scheduler the run started with" (`run.test.ts`).
 - **A start's generation, not only its key, says whether its messages still apply**: "a message left by an earlier
   start of a key that came back does not reach update" (`engine.test.ts`), and "what a subscription leaves in the
-  queue after its key went away does not reach update" (`run.test.ts`). This one rests on nothing of Effect: it is
-  the engine's own rule, tested where the fibers' order would otherwise hide it.
+  queue after its key went away does not reach update" (`run.test.ts`); `rehearse` keeps it by the start itself: "a
+  message its subscription sends after its key went away does not reach update" (`rehearse.test.ts`). This one
+  rests on nothing of Effect: it is the engine's own rule, tested where the fibers' order would otherwise hide it.
 - **`SubscriptionRef.changes` replays the latest state to a new subscriber**, so a renderer that subscribes late,
   or skips frames, still draws the last state: "a renderer slower than the program gets only the latest frame"
   (`run.test.ts`).

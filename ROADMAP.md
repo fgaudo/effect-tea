@@ -33,9 +33,6 @@ when it is done or rejected, with the reason in the commit.
   answer, a history no run makes; the JSDoc promises that a command left without an answer fails the test.
   `rehearse.test.ts` holds it. A fix could keep the command pending until it answers, or fail when its run is
   interrupted.
-- **A message a `hearNext` takes after its key went away reaches `update`.** Waiting in a fiber of the test's, it
-  takes the message from the queue of a start `listen` has already removed; the run drops it by its generation.
-  `rehearse.test.ts` holds it. A fix could apply a heard message only while that very start is still open.
 
 ## Possible improvements
 
