@@ -10,7 +10,7 @@ import type * as Optic from 'effect/Optic'
 import * as Predicate from 'effect/Predicate'
 import * as Record from 'effect/Record'
 import * as Result from 'effect/Result'
-import type { Execution } from './command.ts'
+import type { Execution, RunCommand } from './command.ts'
 import { CompositionDefect } from './defect.ts'
 import { describeByTag } from './log.ts'
 import {
@@ -25,7 +25,6 @@ import {
   type MessageOf,
   type ModelOf,
   type ObjectState,
-  runCommandOf,
   type ServicesOf,
   type Shape,
   startOf,
@@ -411,8 +410,15 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
     runCommand: (command: Command): Execution<Message, unknown> => {
       const place = placeOf(command)
       if (isChildName(place.name)) {
-        const run = runCommandOf(childOf(place.name).program as unknown as Interpreter<unknown, unknown, unknown>)
-        return Effect.map(run(field(command, 'command')), Opt.map(wrapMessage(place)))
+        const childCommand = field(command, 'command')
+        // Unreachable through the types: `child` and `each` ask for a `runCommand` whenever the child has commands.
+        const run = (childOf(place.name).program as Readonly<{ runCommand?: RunCommand<unknown, unknown, unknown> }>)
+          .runCommand
+        if (run === undefined) {
+          const on = describeByTag(childCommand)
+          throw defectAt(place, `The command ${String(on)} of "${place.name}", which has no runCommand`, on)
+        }
+        return Effect.map(run(childCommand), Opt.map(wrapMessage(place)))
       }
       // Unreachable through the types: `runCommand` is required whenever the parent has commands of its own.
       if (ownRunCommand === undefined) throw new Error('compose: a command of its own, and no runCommand')
@@ -467,8 +473,9 @@ export type ParentTypes = Readonly<{
  * The way to make a parent: its types fixed once, by name (`parent<{ state: State; event: Event }>()`), then
  * its children declared with `child` (one) or `each` (by id), and the parent made with `compose`. Its messages
  * are its own and `{ _tag: <child>, message }` for each child (with `id` for children by id); its commands
- * likewise. Fixing the types first is what lets `get`, `set` and the rest be typed without annotations, and
- * the parent's own commands, events, external messages and flags, which nothing it returns can reveal, be known.
+ * likewise, each run by its child's `runCommand`, which a child with commands must have. Fixing the types first
+ * is what lets `get`, `set` and the rest be typed without annotations, and the parent's own commands, events,
+ * external messages and flags, which nothing it returns can reveal, be known.
  */
 export const parent = <T extends ParentTypes>() => {
   type State = Field<T, 'state'>
@@ -476,7 +483,7 @@ export const parent = <T extends ParentTypes>() => {
   type Event = Field<T, 'event'>
   return {
     child: <P extends AnyProgram>(
-      program: P,
+      program: P & Interpreter<CommandOf<P>, unknown, unknown>,
       place:
         & Placement<State, StateOf<P>>
         & Readonly<{ subscribed?: (state: State) => Opt.Option<StateOf<P>> }>
@@ -488,7 +495,7 @@ export const parent = <T extends ParentTypes>() => {
       ...(place.subscribed === undefined ? {} : { subscribed: place.subscribed }),
     }),
     each: <Id, P extends AnyProgram>(
-      program: P,
+      program: P & Interpreter<CommandOf<P>, unknown, unknown>,
       place:
         & EachPlacement<State, Id, StateOf<P>>
         & Readonly<{ subscribed: (state: State) => Iterable<readonly [Id, StateOf<P>]> }>

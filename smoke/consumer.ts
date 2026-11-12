@@ -105,6 +105,13 @@ compose({
   makeModel: () => null,
 })
 
+// A child with commands has a `runCommand`, even when written without `Program<…>`.
+child(
+  // @ts-expect-error
+  { init: { state: { count: 0 }, commands: ['Save' as const] }, update: counterUpdate, makeModel: () => null },
+  { get: (state) => Opt.some(state.main), set: (state, main) => ({ ...state, main }) },
+)
+
 const assert = (condition: boolean, what: string) => {
   if (!condition) throw new Error(`smoke: ${what}`)
 }

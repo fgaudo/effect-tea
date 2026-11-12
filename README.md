@@ -461,6 +461,8 @@ What the library derives from it:
 - **The parent's messages:** its own plus `{ _tag: <child>, message }` for each child. `MessageOf<typeof app>`
   names them. An own message that takes a child's name does not compile.
 - **The parent's commands:** its own plus each child's, wrapped likewise and run by the child's `runCommand`.
+  A child with commands and no `runCommand`, which a program written without `Program<…>` can be, does not
+  compile; one that gets there through a cast is a defect when its command runs (a `CompositionDefect`).
 - **The parent's subscriptions:** its own, plus each child's under `[<child>, key]` (`[<child>, id, key]` for
   children by id). `HashMap.has(subscriptionsOf(app)(state), ['Clock', 'ticks'])` tells a test whether the
   Clock ticks.

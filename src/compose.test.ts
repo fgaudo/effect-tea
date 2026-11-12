@@ -723,29 +723,46 @@ describe('what a parent can do with a child', () => {
       .toMatchObject({ _tag: 'CompositionDefect', child: 'Beeper', on: 'Beeped' })
   })
 
-  // `child` takes any program, and a child written without `Program<…>` that has commands, read from its
-  // `init` and its `update`, and no `runCommand` compiles; its parent's `runCommand` gives the command to `absurd`
-  // (`runCommandOf`), which throws a plain `Error` that names no child.
-  test.failing('a child\'s command that nothing interprets is a CompositionDefect naming the child', () => {
+  test('a child\'s command that nothing interprets is a CompositionDefect naming the child', () => {
     const saving = {
-      init: { state: noTicks, commands: ['Save' as const] },
+      init: { state: noTicks, commands: [{ _tag: 'Save' as const }] },
       update: (_: Tick) => (state: Ticks) => ({ state }),
       makeModel: ({ ticks }: Ticks) => ticks,
     }
-    const { child, compose } = parent<{ state: Ticks }>()
-    const program = compose({
-      init: (children) => children.Saving.init,
-      children: { Saving: child(saving, { get: (state) => Opt.some(state), set: (_, child) => child }) },
-      makeModel: () => null,
-    })
-    const thrown = (() => {
+    const thrown = (run: () => unknown) => {
       try {
-        return program.runCommand({ _tag: 'Saving', command: 'Save' })
+        return run()
       } catch (error) {
         return error
       }
-    })()
-    expect(thrown).toMatchObject({ _tag: 'CompositionDefect', child: 'Saving' })
+    }
+    const One = parent<{ state: Ticks }>()
+    const one = One.compose({
+      init: (children) => children.Saving.init,
+      children: {
+        // @ts-expect-error: a child with commands and no `runCommand` does not compile; this one runs without.
+        Saving: One.child(saving, { get: (state) => Opt.some(state), set: (_, child) => child }),
+      },
+      makeModel: () => null,
+    })
+    expect(thrown(() => one.runCommand({ _tag: 'Saving', command: { _tag: 'Save' } })))
+      .toMatchObject({ _tag: 'CompositionDefect', child: 'Saving', on: 'Save' })
+    const List = parent<{ state: { rows: ReadonlyArray<Ticks> } }>()
+    const list = List.compose({
+      init: () => ({ state: { rows: [noTicks] } }),
+      children: {
+        // @ts-expect-error: likewise for children by id.
+        Rows: List.each(saving, {
+          get: (state, id: number) => Arr.get(state.rows, id),
+          set: (state, id, row) => ({ rows: state.rows.map((kept, at) => at === id ? row : kept) }),
+          subscribed: () => [],
+        }),
+      },
+      makeModel: () => null,
+    })
+    // The id of a child the types refused reads as `never`.
+    expect(thrown(() => list.runCommand({ _tag: 'Rows', id: 0 as never, command: { _tag: 'Save' } })))
+      .toMatchObject({ _tag: 'CompositionDefect', child: 'Rows', id: 0, on: 'Save' })
   })
 
   test('an own subscription key that is the lifted key of a child\'s is a defect, never a silent replacement', () => {

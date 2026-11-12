@@ -18,12 +18,6 @@ when it is done or rejected, with the reason in the commit.
   `join` nobody awaits, so the run succeeds. Interrupted by whoever runs it, the run keeps it ("a command that dies
   once the renderer of an interrupted run has ended…"). `run.test.ts` holds it with two `test.failing` cases. A fix
   could record each die of the engine's fibers in a place of its own, and fail the finalizer with it.
-- **A child with commands and no `runCommand` compiles, and dies as a plain `Error`.** `child` takes any program,
-  and one written without `Program<…>` whose `init` or `update` returns commands has known commands, so its parent
-  compiles; its parent's `runCommand` gives them to the `absurd` of `runCommandOf`, which names no child, where
-  every break of what a parent declared is a `CompositionDefect` (and `Interpreter` promises that none goes
-  uninterpreted). `compose.test.ts` holds it with a `test.failing` case. A fix could ask `child` and `each` for an
-  `Interpreter` of the program's commands, and raise a `defectAt` where nothing interprets one.
 - **`drive` loses a defect of what a subscription releases as the scenario ends.** Its `Effect.raceFirst`
   (`drive.ts`) interrupts the run and discards its exit, where the run interrupted by whoever runs it dies of that
   defect and `rehearse` fails on it; its JSDoc says "a defect of the program fails it". `contract.test.ts` holds it.
