@@ -11,7 +11,7 @@ import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import * as Scope from 'effect/Scope'
 import { ProgramDefect } from '../defect.ts'
-import { applyIn, diesIn } from '../engine.ts'
+import { applyIn, diesIn, makeDeaths } from '../engine.ts'
 import { describeByTag } from '../log.ts'
 import { runCommandOf, type Shape, startOf, subscriptionsOf } from '../program.ts'
 import type { Subscription } from '../subscription.ts'
@@ -157,25 +157,17 @@ export const rehearse = Effect.fnUntraced(function*<
   type Now = Current<State, Message, Event>
   const runCommand = runCommandOf(program)
   const subscriptions = subscriptionsOf(program)
-  // Each fiber of the rehearsal records the defects of the program it dies of here, as it ends, however it ends, as
-  // the engine's fibers record theirs: the loop, a command's, a subscription's, a read of the model. Each defect once,
-  // by its identity, in the order they died. The run dies of the first, so the rehearsal fails with them at its end,
-  // and what the test asks for after the first fails with them, as nothing happens in a run that died. The tool's own
-  // failures of a call (nothing to send, a control that does nothing) are the caller's alone.
-  const deaths: Array<Cause.Die> = []
-  const isRecorded = (defect: unknown) => deaths.some((death) => death.defect === defect)
-  const recorded = <A, E, R>(self: Effect.Effect<A, E, R>) =>
-    Effect.onExit(self, (exit) =>
-      Effect.sync(() => {
-        if (Exit.isSuccess(exit)) return
-        for (const reason of exit.cause.reasons) {
-          if (Cause.isDieReason(reason) && reason.defect instanceof ProgramDefect && !isRecorded(reason.defect)) {
-            deaths.push(reason)
-          }
-        }
-      }))
+  // Each fiber of the rehearsal records the defects of the program it dies of, as the engine's fibers record theirs:
+  // the loop, a command's, a subscription's, a read of the model. The run dies of the first, so the rehearsal fails
+  // with them at its end, and what the test asks for after the first fails with them, as nothing happens in a run
+  // that died. The tool's own failures of a call (nothing to send, a control that does nothing) are the caller's
+  // alone, so only a `ProgramDefect` is recorded.
+  const { recorded, all: deaths, has: isRecorded } = yield* makeDeaths((defect) => defect instanceof ProgramDefect)
   const deadOr = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    Effect.suspend(() => Arr.isArrayNonEmpty(deaths) ? Effect.failCause(Cause.fromReasons<never>(deaths)) : effect)
+    Effect.suspend(() => {
+      const dies = deaths()
+      return Arr.isArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : effect
+    })
   // The keys of the current state, each with its start, as the run keeps them: a key that stays keeps its start as
   // it is, and one that went away takes it with it. Keys are compared only in `subscriptions`, as in the run.
   let active = HashMap.empty<unknown, Start<Message, R>>()
@@ -471,11 +463,12 @@ export const rehearse = Effect.fnUntraced(function*<
     Effect.exit(restore(scenario(rehearsal))).pipe(
       Effect.tap(end),
       Effect.flatMap((exit) => {
-        if (!Arr.isArrayNonEmpty(deaths)) return exit
+        const dies = deaths()
+        if (!Arr.isArrayNonEmpty(dies)) return exit
         const rest = Exit.isFailure(exit)
           ? exit.cause.reasons.filter((reason) => !(Cause.isDieReason(reason) && isRecorded(reason.defect)))
           : []
-        return Effect.failCause(Cause.fromReasons<E>([...deaths, ...rest]))
+        return Effect.failCause(Cause.fromReasons<E>([...dies, ...rest]))
       }),
     )
   )

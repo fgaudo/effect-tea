@@ -129,6 +129,52 @@ export const applyIn = <State, Message, Command, Event>(
   state: State,
 ) => Effect.sync(() => update(message)(state)).pipe(diesIn('update', () => ({ on: describeByTag(message) })))
 
+/**
+ * Where the fibers of a run, or of a rehearsal, record what they die of, as they end, however they end: nothing is
+ * lost to a `join` that nobody awaits any more, or to a `FiberSet` or a `FiberMap` that discards the exits of the
+ * fibers it interrupts as it closes. Each defect is kept once, by its identity, in the order the fibers died: a
+ * fiber that joins one that died dies of the same defect.
+ */
+export interface Deaths {
+  /** Records the defects that `self` dies of, those `keeps` accepts, however it ends. */
+  readonly recorded: <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
+  /** Succeeds once a defect has been recorded. */
+  readonly died: Effect.Effect<void>
+  /** The defects recorded so far, in the order they died. */
+  readonly all: () => ReadonlyArray<Cause.Die>
+  /** Whether `defect` has been recorded, by its identity, never by `Equal`. */
+  readonly has: (defect: unknown) => boolean
+  /** Dies with the defects recorded since it last ran, in the order they died; succeeds when there is none. */
+  readonly report: Effect.Effect<void>
+}
+
+export const makeDeaths = Effect.fnUntraced(function*(keeps: (defect: unknown) => boolean) {
+  const deaths: Array<Cause.Die> = []
+  let reported = 0
+  const died = yield* Deferred.make<void>()
+  const has = (defect: unknown) => deaths.some((death) => death.defect === defect)
+  return {
+    recorded: (self) =>
+      Effect.onExit(self, (exit) =>
+        Effect.suspend(() => {
+          if (Exit.isSuccess(exit)) return Effect.void
+          const before = deaths.length
+          for (const reason of exit.cause.reasons) {
+            if (Cause.isDieReason(reason) && keeps(reason.defect) && !has(reason.defect)) deaths.push(reason)
+          }
+          return deaths.length > before ? Deferred.succeed(died, undefined) : Effect.void
+        })),
+    died: Deferred.await(died),
+    all: () => deaths,
+    has,
+    report: Effect.suspend(() => {
+      const dies = deaths.slice(reported)
+      reported = deaths.length
+      return Arr.isArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : Effect.void
+    }),
+  } satisfies Deaths
+})
+
 /** Counts the starts of subscriptions: each start of a key gets a new one. */
 type Generation = number
 
@@ -213,26 +259,9 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     Queue.unbounded<Envelope<Message, K>>(),
     Queue.shutdown,
   )
-  // Each fiber of the run records what it dies of here, as it ends, however it ends: nothing is lost to a `join` that
-  // nobody awaits any more, or to a `FiberSet` or a `FiberMap` that discards the exits of the fibers it interrupts
-  // as it closes. Each defect is reported once, by `report`, in the order the fibers died.
-  const deaths: Array<Cause.Reason<never>> = []
-  let reported = 0
-  const died = yield* Deferred.make<void>()
-  const recorded = <A>(self: Effect.Effect<A>) =>
-    Effect.onExit(self, (exit) =>
-      Effect.suspend(() => {
-        if (Exit.isSuccess(exit)) return Effect.void
-        const dies = exit.cause.reasons.filter(Cause.isDieReason)
-        if (!Arr.isArrayNonEmpty(dies)) return Effect.void
-        deaths.push(...dies)
-        return Deferred.succeed(died, undefined)
-      }))
-  const report = Effect.suspend(() => {
-    const dies = deaths.slice(reported)
-    reported = deaths.length
-    return Arr.isArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : Effect.void
-  })
+  // Each fiber of the run records every defect it dies of: `diesIn` has made each a `ProgramDefect`, and one that is
+  // not would be the engine's own, which the run dies of all the same.
+  const { recorded, died, report } = yield* makeDeaths(() => true)
   // The loop and the commands.
   const fibers = yield* FiberSet.make<unknown, never>()
   // Kept by their start, never by their key: `FiberMap` compares its keys, in a fiber's observer too, where
@@ -375,8 +404,8 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     }
   }).pipe(Effect.provideContext(context), recorded, FiberSet.run(fibers))
   return {
-    await: Deferred.await(died).pipe(Effect.andThen(report), Effect.andThen(Effect.never)),
-    died: Deferred.await(died),
+    await: died.pipe(Effect.andThen(report), Effect.andThen(Effect.never)),
+    died,
     report,
     dispatch: enqueue(fromView),
     states: SubscriptionRef.changes(stateRef),

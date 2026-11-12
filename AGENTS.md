@@ -117,14 +117,14 @@ messages, as the README says). This is how they are kept, and what a change must
   happened, it wraps each defect of the cause in a `ProgramDefect` (`diesIn` in `engine.ts`) that holds it as
   its `cause` and says where, and keeps the rest of the cause. The run's own logs die in `'log'`, each outside
   any other site, so that a `Logger` that throws is never taken for the subscription or the step that logs; what
-  the program logs is in the site it logs from. Each fiber of the engine records what it dies of, as it ends, in
-  a place of the engine's (`recorded` in `engine.ts`), and each defect recorded is reported once, in the order the
-  fibers died: by the run as soon as one dies, and by the end of the run, which interrupts its fibers itself, waits
-  for them to release what they hold, and dies of the rest. Never report a defect only through a `join`, or
-  through a fiber that races: once nothing awaits it, or the race is lost, the defect is lost with it, and
-  `FiberSet` and `FiberMap` discard the exits of the fibers they interrupt as they close. The renderer is one of
-  them, interrupted and awaited first however the run ends (`runWith` in `run.ts`), and what it dies of follows
-  what ended the run. `drive` stops and awaits its run however it ends, interrupted too.
+  the program logs is in the site it logs from. Each fiber of the engine records what it dies of, as it ends, in a place
+  of the engine's (`makeDeaths` in `engine.ts`, which `rehearse` shares, keeping only the program's defects), and each
+  defect recorded is reported once, in the order the fibers died: by the run as soon as one dies, and by the end of the
+  run, which interrupts its fibers itself, waits for them to release what they hold, and dies of the rest. Never report
+  a defect only through a `join`, or through a fiber that races: once nothing awaits it, or the race is lost, the defect
+  is lost with it, and `FiberSet` and `FiberMap` discard the exits of the fibers they interrupt as they close. The
+  renderer is one of them, interrupted and awaited first however the run ends (`runWith` in `run.ts`), and what it dies
+  of follows what ended the run. `drive` stops and awaits its run however it ends, interrupted too.
 - **A subscription never ends in silence**: its end value is a message (or `never`), sent to `update`. An ended
   subscription keeps its key among the active ones until the key goes away and comes back: never restart it
   automatically, which would loop on one that ends at once. What the end of a library's stream means is the
