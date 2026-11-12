@@ -113,7 +113,9 @@ are kept, and what a change must not undo:
 - **Defects always die, and the run dies with them.** Nothing in the library may retry, swallow, log or turn
   them into messages: reporting is the job of whoever runs the program. Where the engine knows where a defect
   happened, it wraps each defect of the cause in a `ProgramDefect` (`diesIn` in `engine.ts`) that holds it as
-  its `cause` and says where, and keeps the rest of the cause.
+  its `cause` and says where, and keeps the rest of the cause. The end of the run interrupts its fibers itself
+  and dies of what they die of while they release what they hold: `FiberSet` and `FiberMap` discard those exits
+  as they close.
 - **A subscription never ends in silence**: its end value is a message (or `never`), sent to `update`. An ended
   subscription keeps its key among the active ones until the key goes away and comes back: never restart it
   automatically, which would loop on one that ends at once. What the end of a library's stream means is the

@@ -3,6 +3,8 @@ import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
 import * as FiberMap from 'effect/FiberMap'
 import * as FiberSet from 'effect/FiberSet'
 import * as HashMap from 'effect/HashMap'
@@ -194,6 +196,24 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   // The loop and the commands. A defect in any of them fails `join`.
   const fibers = yield* FiberSet.make<unknown, never>()
   const subscriptionFibers = yield* FiberMap.make<K, void, never>()
+  // Run before they close, which discards the exits of the fibers they interrupt: the end of the run interrupts its
+  // fibers itself, all at once, and dies of what they die of while they release what they hold, which `diesIn`
+  // already says where.
+  yield* Effect.addFinalizer(() =>
+    Effect.suspend(() => {
+      const running: ReadonlyArray<Fiber.Fiber<unknown, never>> = [
+        ...fibers,
+        ...Arr.map(Arr.fromIterable(subscriptionFibers), ([, fiber]) => fiber),
+      ]
+      return Fiber.interruptAll(running).pipe(
+        Effect.andThen(Effect.forEach(running, Fiber.await)),
+        Effect.flatMap((exits) => {
+          const dies = exits.flatMap((exit) => Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isDieReason) : [])
+          return Arr.isArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : Effect.void
+        }),
+      )
+    })
+  )
   const stateRef = yield* SubscriptionRef.make<Revisioned<State>>({ state: initState, revision: 0 })
   const enqueue = (source: Source<K>) => (message: Message) => Effect.asVoid(Queue.offer(queue, { message, source }))
   // Only the loop starts subscriptions, one step at a time.

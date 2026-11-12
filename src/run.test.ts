@@ -754,24 +754,23 @@ describe('the end of the run', () => {
   const drawsOnce = (frames: Stream.Stream<Frame<Model, Message>>) =>
     Stream.runHead(frames).pipe(Effect.andThen(Effect.sleep('20 millis')))
 
-  // FAILING: the run closes its subscriptions and its commands with `FiberMap` and `FiberSet`, whose finalizers
-  // discard the exits of the fibers they interrupt (`Fiber.interruptAll`), and whose observers ignore any exit once
-  // they are closed: the defect is lost, and the run succeeds.
-  test.failing('FAILING: a subscription that dies as the end of the run releases it ends the run with it', async () => {
+  // `FiberMap` and `FiberSet` discard the exits of the fibers they interrupt as they close: left to them, such a
+  // defect would be lost, and the run would succeed.
+  test('a subscription that dies as the end of the run releases it ends the run with it', async () => {
     const exit = await Effect.runPromiseExit(
       run({ ...counter, subscriptions: () => HashMap.make(['k', Channel.fromEffectDone(dying)]) }, drawsOnce),
     )
     expect(where(exit)).toBe('subscription')
   })
 
-  test.failing('FAILING: a command that dies as the end of the run interrupts it ends the run with it', async () => {
+  test('a command that dies as the end of the run interrupts it ends the run with it', async () => {
     const exit = await Effect.runPromiseExit(
       run({ ...counter, init: { state: { count: 0 }, commands: ['Ping'] }, runCommand: () => dying }, drawsOnce),
     )
     expect(where(exit)).toBe('command')
   })
 
-  test.failing('FAILING: a subscription that dies while an interrupted run releases it is in the cause', async () => {
+  test('a subscription that dies while an interrupted run releases it is in the cause', async () => {
     const exit = await Effect.runPromise(Effect.gen(function*() {
       const holding: Counter = { ...counter, subscriptions: () => HashMap.make(['k', Channel.fromEffectDone(dying)]) }
       const running = yield* Effect.forkChild(run(holding, () => Effect.never))
