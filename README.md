@@ -849,7 +849,13 @@ there with `applyAll`, or with `update` itself.
   also fails, as the run dies, on a state whose subscriptions are a defect, which it reads on each new state, a key
   whose `Equal` throws against a key of the state before included, and on a command or a subscription that
   interrupts itself. A defect of the program fails it whichever fiber of the test's it reached, one that nobody
-  joins included, and what the test asks for after it fails with it, as nothing happens in a run that died. A
+  joins included, and however the rehearsal ends, once what it stopped has released what it held: the defect comes
+  first in the cause, before what the scenario ended with, and a rehearsal that died checks nothing more of its
+  commands. A scenario that catches the defect, with `Effect.exit` say, does not keep it from failing the
+  rehearsal: a test that expects a defect wraps `rehearse` itself. After a defect, `send`, `run`, `runAll`, `hear`,
+  `hearNext` and `model` fail with it, as nothing happens in a run that died, while `state`, `pending`, `events`
+  and `ignored` stay readable. A fiber that the test detaches from the scenario (`Effect.forkDetach`) is beyond its
+  reach: what such a fiber asks for after the rehearsal ended is interrupted, and a defect it meets then is lost. A
   command's or a subscription's message that no longer applies is ignored, as when the program runs, and listed in
   `ignored`. Messages that arrive together, from fibers of the test's, are applied one at a time, as the run takes
   them: each waits for the state the one before left, the release of the subscriptions it stopped included, and

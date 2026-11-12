@@ -517,6 +517,32 @@ describe('what the run dies of, and the tools fail on', () => {
   const starting: Seeded = { ...seeded, init: throwing }
   const go = () => Opt.some<'Go'>('Go')
 
+  // The run dies of a command's defect, whoever waits for what the command does: in `rehearse`, a fiber of the test's
+  // that nobody joins runs it.
+  const exploding: Program<{ state: Row; model: number; message: 'Go'; command: 'Explode' }> = {
+    init: { state: { seen: 0 } },
+    update: () => (state) => ({ state, commands: ['Explode'] }),
+    runCommand: () => Effect.die(new Boom()),
+    makeModel: ({ seen }) => seen,
+  }
+
+  test('the run dies in a command on a command that dies', async () => {
+    const exit = await Effect.runPromiseExit(drive(exploding, Effect.fnUntraced(function*(driver) {
+      yield* driver.send(go)
+      return yield* driver.waitFor(() => Opt.none())
+    })))
+    expect(diedIn(exit)).toBe('command')
+  })
+
+  test('rehearse fails, as the run dies, on a command that dies in a fiber nobody joins', async () => {
+    const exit = await Effect.runPromiseExit(rehearse(exploding, Effect.fnUntraced(function*(rehearsal) {
+      yield* rehearsal.send(go)
+      yield* Effect.forkChild(rehearsal.run(() => true))
+      yield* Effect.sleep('20 millis')
+    })))
+    expect(diedIn(exit)).toBe('command')
+  })
+
   test('the run dies in update, with its message, on an update that throws', async () => {
     const exit = await Effect.runPromiseExit(drive(updating, Effect.fnUntraced(function*(driver) {
       yield* driver.send(go)

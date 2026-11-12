@@ -196,11 +196,10 @@ after the list says. A change that rests on a new premise adds it here, with wha
   the first defect of the cause: "a renderer that dies while an interrupted run releases it is in the cause", "a
   renderer that dies as a run that died elsewhere releases it is in the cause" (`run.test.ts`). That the cleanup
   runs, and that the causes are merged, is documented; their order is read only in the source. It is also how
-  `rehearse` stops what it started however the rehearsal ends, and records each defect of the program in whichever
-  fiber, an interrupted one included: "interrupted by whoever runs it, it fails on a defect of what a subscription
-  releases", "a defect of what a subscription releases fails it, in a fiber of the test's that nobody joins", "a
-  defect of a command fails it, in a fiber of the test's that nobody joins" (`rehearse.test.ts`); their order is
-  nothing it rests on.
+  `rehearse` records each defect of the program in whichever fiber, an interrupted one included: "a defect of what a
+  subscription releases fails it, in a fiber of the test's that nobody joins", "a defect of what a command the
+  scenario interrupts releases fails it, alone" (`rehearse.test.ts`), "rehearse fails, as the run dies, on a command
+  that dies in a fiber nobody joins" (`contract.test.ts`); it merges no causes there.
 - **A fiber interrupted while interruptible runs no failure handler**, which is how `diesIn` tells an interruption
   by the run from one the program makes: "a run interrupted by whoever runs it is no defect", "a subscription
   stopped inside an uninterruptible region is no defect" (`run.test.ts`).
@@ -235,7 +234,11 @@ after the list says. A change that rests on a new premise adds it here, with wha
 - **What `Effect.uninterruptibleMask` runs outside `restore` cannot be interrupted**, which is how `rehearse`'s
   `run` and `hearNext` give the loop the message they took before anything interrupts them: "a run interrupted while
   its answer stops a subscription has answered, and leaves its state", "a hearNext interrupted while its
-  message stops a subscription leaves the state the message made" (`rehearse.test.ts`). Documented.
+  message stops a subscription leaves the state the message made" (`rehearse.test.ts`). It is also how the end of
+  `rehearse` takes the scenario's exit however it ends, an interruption by whoever runs it included, and stops what
+  it started before it reads what its fibers died of, the defects first: "interrupted by whoever runs it, it fails on
+  a defect of what a subscription releases", "a defect of a release still under way when the scenario returns fails
+  it", "a defect the scenario catches fails it all the same, first, and once" (`rehearse.test.ts`). Documented.
 - **A fiber forked with `Effect.forkIn` is interrupted when its scope closes, and not when the fiber that forked it
   ends**, which is how `rehearse` keeps its loop, and a subscription that `hearNext` started for as long as its key
   stays, whichever fiber of the test's asked for them: "a

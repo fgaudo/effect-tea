@@ -157,23 +157,25 @@ export const rehearse = Effect.fnUntraced(function*<
   type Now = Current<State, Message, Event>
   const runCommand = runCommandOf(program)
   const subscriptions = subscriptionsOf(program)
-  // The defects of the program, wherever they happened, each once: the run dies of the first, so the rehearsal fails
-  // with them at its end, and every step asked for after the first fails with them, as nothing happens in a run that
-  // died. The tool's own failures of a call (nothing to send, a control that does nothing) are the caller's alone.
-  const died: Array<Cause.Die> = []
-  const record = (exit: Exit.Exit<unknown, unknown>) =>
-    Effect.sync(() => {
-      if (Exit.isSuccess(exit)) return
-      for (const reason of exit.cause.reasons) {
-        if (
-          Cause.isDieReason(reason) && reason.defect instanceof ProgramDefect
-          && !died.some(({ defect }) => defect === reason.defect)
-        ) died.push(reason)
-      }
-    })
-  const watched = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.onExit(effect, record)
+  // Each fiber of the rehearsal records the defects of the program it dies of here, as it ends, however it ends, as
+  // the engine's fibers record theirs: the loop, a command's, a subscription's, a read of the model. Each defect once,
+  // by its identity, in the order they died. The run dies of the first, so the rehearsal fails with them at its end,
+  // and what the test asks for after the first fails with them, as nothing happens in a run that died. The tool's own
+  // failures of a call (nothing to send, a control that does nothing) are the caller's alone.
+  const deaths: Array<Cause.Die> = []
+  const isRecorded = (defect: unknown) => deaths.some((death) => death.defect === defect)
+  const recorded = <A, E, R>(self: Effect.Effect<A, E, R>) =>
+    Effect.onExit(self, (exit) =>
+      Effect.sync(() => {
+        if (Exit.isSuccess(exit)) return
+        for (const reason of exit.cause.reasons) {
+          if (Cause.isDieReason(reason) && reason.defect instanceof ProgramDefect && !isRecorded(reason.defect)) {
+            deaths.push(reason)
+          }
+        }
+      }))
   const deadOr = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    Effect.suspend(() => Arr.isArrayNonEmpty(died) ? Effect.failCause(Cause.fromReasons<never>(died)) : effect)
+    Effect.suspend(() => Arr.isArrayNonEmpty(deaths) ? Effect.failCause(Cause.fromReasons<never>(deaths)) : effect)
   // The keys of the current state, each with its start, as the run keeps them: a key that stays keeps its start as
   // it is, and one that went away takes it with it. Keys are compared only in `subscriptions`, as in the run.
   let active = HashMap.empty<unknown, Start<Message, R>>()
@@ -225,20 +227,23 @@ export const rehearse = Effect.fnUntraced(function*<
   const undelivered = new Set<Deferred.Deferred<unknown>>()
   const loop = yield* Queue.take(requests).pipe(
     Effect.flatMap(({ step, done }) =>
-      Effect.flatMap(Effect.exit(watched(deadOr(step))), (exit) =>
+      Effect.flatMap(Effect.exit(recorded(deadOr(step))), (exit) =>
         Effect.andThen(Deferred.done(done, exit), Effect.sync(() => undelivered.delete(done))))
     ),
     Effect.forever,
     Effect.forkIn(forks),
   )
+  // Once the rehearsal has ended, the queue refuses what a fiber of the test's still running asks, and the call is
+  // interrupted: nothing would apply it.
   const submit = <A, RA>(step: Effect.Effect<A, never, RA>) =>
     Effect.flatMap(Effect.context<RA>(), (context) =>
       Effect.flatMap(Deferred.make<unknown>(), (done) => {
         undelivered.add(done)
-        return Effect.as(
-          Queue.offer(requests, { step: Effect.provideContext(step, context), done }),
-          done as Deferred.Deferred<A>,
-        )
+        return Effect.flatMap(Queue.offer(requests, { step: Effect.provideContext(step, context), done }), (taken) => {
+          if (taken) return Effect.succeed(done as Deferred.Deferred<A>)
+          undelivered.delete(done)
+          return Effect.interrupt
+        })
       }))
   const ask = <A, RA>(step: Effect.Effect<A, never, RA>) => Effect.flatMap(submit(step), Deferred.await)
   const applyNow = (message: Message, onRejected: () => Effect.Effect<void>) =>
@@ -329,7 +334,7 @@ export const rehearse = Effect.fnUntraced(function*<
       diesIn('subscription', () => ({ key })),
       Effect.flatMap((last) => Queue.offer(heard, { message: last, last: true })),
       Effect.asVoid,
-      watched,
+      recorded,
       Effect.forkIn(forks),
     )
     const each: Opened<Message> = { fiber, asks, heard, waiting: 0, asked: 0, ended: false }
@@ -408,7 +413,7 @@ export const rehearse = Effect.fnUntraced(function*<
         return restore(Effect.suspend(() => runCommand(command)).pipe(
           Effect.scoped,
           diesIn('command'),
-          watched,
+          recorded,
           Effect.onInterrupt(() =>
             Effect.sync(() => {
               cancelled.push(command)
@@ -431,12 +436,13 @@ export const rehearse = Effect.fnUntraced(function*<
         })
       ),
     )
-  const runAll: Effect.Effect<void, never, Exclude<R, Scope.Scope>> = Effect.suspend(() =>
+  const runAll: Effect.Effect<void, never, Exclude<R, Scope.Scope>> = deadOr(Effect.suspend(() =>
     pending.length === 0 ? Effect.void : Effect.andThen(run(() => true), runAll)
-  )
+  ))
+  // What the test reads of the state stays readable once the rehearsal died; what asks the program for more fails.
   const rehearsal: Rehearsal<State, Model, Message, Command, Event, R> = {
     state: Effect.sync(() => now.state),
-    model: Effect.suspend(() => watched(modelOf(now.state))),
+    model: deadOr(Effect.suspend(() => recorded(modelOf(now.state)))),
     send: (select) => ask(Effect.suspend(() => send(select))),
     pending: Effect.sync(() => pending),
     run,
@@ -448,20 +454,31 @@ export const rehearse = Effect.fnUntraced(function*<
     events: Effect.sync(() => now.events),
     ignored: Effect.sync(() => now.ignored),
   }
-  // However the rehearsal ends, it stops the loop, and what `hearNext` started, as the end of the run interrupts its
-  // fibers, and fails with the defects of the program it has not failed with yet: what a subscription releases as it
-  // stops, and what reached a fiber of the test's that nobody joined.
-  const end = Effect.fnUntraced(function*(exit: Exit.Exit<unknown, unknown>) {
+  // However the rehearsal ends, it closes the queue, stops the loop and what `hearNext` started, as the end of the run
+  // interrupts its fibers, and waits for them to release what they hold: only then does it read what they died of.
+  const end = Effect.gen(function*() {
     yield* Fiber.interrupt(loop)
+    yield* Queue.shutdown(requests)
     yield* Effect.forEach(undelivered, Deferred.interrupt, { discard: true })
     // What they die of is recorded as they end.
     yield* Effect.exit(stop(Arr.flatMap(Arr.fromIterable(HashMap.values(active)), ({ opened }) => Opt.toArray(opened))))
     yield* Scope.close(forks, Exit.void)
-    const known = Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isDieReason).map(({ defect }) => defect) : []
-    const left = died.filter(({ defect }) => !known.includes(defect))
-    if (Arr.isArrayNonEmpty(left)) return yield* Effect.failCause(Cause.fromReasons<never>(left))
   })
-  const result = yield* Effect.onExit(scenario(rehearsal), end)
+  // A defect of the program comes first, as the run keeps first what ended it, then what the scenario ended with,
+  // but for the defects already among them, by their identity. A rehearsal that died checks nothing more: its
+  // commands are the run's, which died with it.
+  const result = yield* Effect.uninterruptibleMask((restore) =>
+    Effect.exit(restore(scenario(rehearsal))).pipe(
+      Effect.tap(end),
+      Effect.flatMap((exit) => {
+        if (!Arr.isArrayNonEmpty(deaths)) return exit
+        const rest = Exit.isFailure(exit)
+          ? exit.cause.reasons.filter((reason) => !(Cause.isDieReason(reason) && isRecorded(reason.defect)))
+          : []
+        return Effect.failCause(Cause.fromReasons<E>([...deaths, ...rest]))
+      }),
+    )
+  )
   if (cancelled.length > 0) {
     return yield* Effect.die(
       new Error(

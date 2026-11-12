@@ -757,46 +757,99 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
     expect(diesOfRelease(exit)).toBe(true)
   })
 
-  test('a defect of a command fails it, in a fiber of the test\'s that nobody joins', async () => {
-    const exit = await Effect.runPromiseExit(rehearse(
-      { ...dying(Deferred.makeUnsafe()), runCommand: () => Effect.die('boom') },
-      Effect.fnUntraced(function*(rehearsal) {
-        yield* rehearsal.send(() => Opt.some('Go'))
-        yield* Effect.forkChild(rehearsal.run(() => true))
-        yield* Effect.sleep('20 millis')
-      }),
-    ))
-    expect(
-      Exit.isFailure(exit) && exit.cause.reasons.some((reason) =>
-        Cause.isDieReason(reason) && reason.defect instanceof ProgramDefect && reason.defect.where === 'command'
-      ),
-    ).toBe(true)
+  // Counts each message; `Boom` makes `update` throw. Listens under `k` to a subscription that dies after `after`,
+  // sending nothing.
+  type Counted = 'Tick' | 'Boom'
+  const counting = (after: Effect.Effect<void>): Program<{ state: Gated; model: Gated; message: Counted }> => ({
+    init: { state: { listening: true, count: 0 } },
+    update: (message) => (state) => {
+      if (message === 'Boom') throw new Error('boom')
+      return { state: { ...state, count: state.count + 1 } }
+    },
+    subscriptions: () =>
+      HashMap.make([
+        'k',
+        Channel.unwrap(Effect.andThen(after, Effect.die('late')).pipe(Effect.as(Channel.end<Counted>('Tick')))),
+      ]),
+    makeModel: (state) => state,
   })
 
-  // Nothing happens in a run that died: what the test asks for after a defect of the program fails with it, though
-  // the defect reached none of its calls.
-  test('after a defect of the program, what the test sends fails with it', async () => {
-    const late: Program<{ state: Gated; model: Gated; message: GatedMessage }> = {
-      init: { state: { listening: true, count: 0 } },
-      update: () => (state) => ({ state: { ...state, count: state.count + 1 } }),
-      subscriptions: () =>
-        HashMap.make([
-          'k',
-          Channel.unwrap(Effect.andThen(Effect.sleep('10 millis'), Effect.die('late')).pipe(
-            Effect.as(Channel.end<GatedMessage>({ _tag: 'Tick' })),
-          )),
-        ]),
-      makeModel: (state) => state,
-    }
-    let sent: Opt.Option<Exit.Exit<void>> = Opt.none()
-    const exit = await Effect.runPromiseExit(rehearse(late, Effect.fnUntraced(function*(rehearsal) {
-      yield* Effect.timeoutOption(rehearsal.hearNext('k'), '1 millis')
-      yield* Effect.sleep('30 millis')
-      sent = Opt.some(yield* Effect.exit(rehearsal.send(() => Opt.some({ _tag: 'Tick' }))))
-    })))
-    const defectOf = (exit: Exit.Exit<unknown>) => Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
-    expect(Opt.map(sent, defectOf).pipe(Opt.getOrUndefined)).toBeInstanceOf(ProgramDefect)
-    expect(defectOf(exit)).toBe(Opt.map(sent, defectOf).pipe(Opt.getOrUndefined))
+  const defectsOf = (exit: Exit.Exit<unknown>) =>
+    Exit.isFailure(exit) ? exit.cause.reasons.flatMap((reason) => Cause.isDieReason(reason) ? [reason.defect] : []) : []
+
+  // Nothing happens in a run that died: what the test asks the program for after a defect fails with it, though the
+  // defect reached none of its calls, and what it reads of the state stays readable.
+  test('after a defect of the program, what the test asks for fails with it, and the state is still read', async () => {
+    let after: Opt.Option<Readonly<{ sent: Exit.Exit<void>; model: Exit.Exit<Gated>; count: number }>> = Opt.none()
+    const exit = await Effect.runPromiseExit(rehearse(
+      counting(Effect.sleep('10 millis')),
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* Effect.timeoutOption(rehearsal.hearNext('k'), '1 millis')
+        yield* Effect.sleep('30 millis')
+        after = Opt.some({
+          sent: yield* Effect.exit(rehearsal.send(() => Opt.some('Tick'))),
+          model: yield* Effect.exit(rehearsal.model),
+          count: (yield* rehearsal.state).count,
+        })
+      }),
+    ))
+    const [died] = defectsOf(exit)
+    expect(died).toBeInstanceOf(ProgramDefect)
+    expect(Opt.map(after, ({ sent, model, count }) => [defectsOf(sent), defectsOf(model), count])).toEqual(
+      Opt.some([[died], [died], 0]),
+    )
+  })
+
+  // A test that asserts a defect wraps `rehearse`, never the call: caught by the scenario, it fails the rehearsal at
+  // the end all the same, first in its cause, before what the scenario ended with.
+  test('a defect the scenario catches fails it all the same, first, and once', async () => {
+    const caught = await Effect.runPromiseExit(rehearse(counting(Effect.never), (rehearsal) =>
+      Effect.exit(rehearsal.send(() => Opt.some('Boom'))).pipe(Effect.andThen(Effect.die('after')))))
+    const kept = await Effect.runPromiseExit(rehearse(counting(Effect.never), (rehearsal) =>
+      rehearsal.send(() => Opt.some('Boom'))))
+    const [died, ...rest] = defectsOf(caught)
+    expect(died instanceof ProgramDefect && died.where).toBe('update')
+    expect(rest).toEqual(['after'])
+    expect(defectsOf(kept)).toHaveLength(1)
+  })
+
+  // An interruption by the scenario is no defect, but what the interrupted command releases may die: that defect is
+  // the rehearsal's, and the rehearsal that died of it checks nothing more.
+  test('a defect of what a command the scenario interrupts releases fails it, alone', async () => {
+    const exit = await Effect.runPromiseExit(rehearse(
+      {
+        ...dying(Deferred.makeUnsafe()),
+        runCommand: () =>
+          Effect.acquireRelease(Effect.void, () => Effect.die('release')).pipe(Effect.andThen(Effect.never)),
+      },
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.send(() => Opt.some('Go'))
+        const running = yield* Effect.forkChild(rehearsal.run(() => true))
+        yield* Effect.sleep('10 millis')
+        yield* Fiber.interrupt(running)
+      }),
+    ))
+    const defects = defectsOf(exit)
+    expect(defects.map((defect) => defect instanceof ProgramDefect && [defect.where, defect.cause])).toEqual([
+      ['command', 'release'],
+    ])
+  })
+
+  // The scenario returns while a message it sent waits for the release it started: the end waits for that release
+  // before it reads what the fibers died of.
+  test('a defect of a release still under way when the scenario returns fails it', async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const releasing = yield* Deferred.make<void>()
+      return yield* rehearse(
+        gated(releasing, Effect.andThen(Effect.sleep('20 millis'), Effect.die('release'))),
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.hearNext('k')
+          yield* Effect.forkChild(rehearsal.send(() => Opt.some({ _tag: 'Drop' })))
+          yield* Deferred.await(releasing)
+        }),
+      )
+    }))
+    expect(diesOfRelease(exit)).toBe(true)
   })
 
   // A message once sent is applied whole, whichever call sent it: interrupting the call while its message waits for a

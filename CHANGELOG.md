@@ -136,9 +136,11 @@ version, and everything else, features included, the patch version.
   fail saying that `update` rejected what the same state shows; one interrupted while its message stopped a
   subscription left that subscription stopped and the state unwritten; of two `hearNext` calls at once on one key,
   the second never heard. A defect of the program now fails the rehearsal however it ends, whichever fiber it
-  reached: one that only a fiber nobody joins met, or that what a subscription releases as an interrupted
-  rehearsal stops it, was lost. What the test asks for after such a defect fails with it, as nothing happens in a
-  run that died: a scenario that caught one and went on now fails. "Testing" in the README says so.
+  reached, first in the cause: one that only a fiber nobody joins met, or that what a subscription releases as an
+  interrupted rehearsal stops it, was lost. After it, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail
+  with it, and the checks of the commands at the end are skipped. A scenario that caught a defect with
+  `Effect.exit` and went on passed: it now fails, and a test that expects a defect wraps `rehearse` instead.
+  "Testing" in the README says so.
 
 ## 0.7.1 (2026-10-28)
 
