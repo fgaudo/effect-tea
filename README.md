@@ -808,18 +808,21 @@ there with `applyAll`, or with `update` itself.
   `update` rejects one of them. Each command runs after those started before it, so the commands of one step all
   answer before those their answers start, as when the program runs commands that answer at once. The command
   answers that `update` rejected are listed in `ignored`: assert it when one being dropped would be a bug. Its subscriptions do not run, but it reads them on each new state, as
-  the run does, and fails on a state whose subscriptions are a defect, as the run dies of one.
+  the run does, and fails on a state whose subscriptions are a defect, as the run dies of one, a key whose
+  `Equal` throws against a key of the state before included.
 - **`rehearse`** acts through what the current model shows, as `drive` does, but nothing reaches `update` by itself. Each
   command waits until the test runs it (`run`, `runAll`), through the program's `runCommand` with the services
   provided. A subscription's message is one the test says was heard (`hear`), or the next one the subscription
   itself sends (`hearNext`), only while its key is in the state. `hearNext` starts the subscription the first time
-  it hears its key, and keeps it, as the run does, for as long as the key stays: each call hears its next
+  it hears its key, the one listed when the key appeared, as the run starts that one, and keeps it, as the run
+  does, for as long as the key stays, whichever fiber of the test's first heard it: each call hears its next
   message, which waits for the call, and the last one is its end value, after which neither `hearNext` nor `hear`
   hears that key until it goes away and comes back. A key that goes away interrupts its subscription, and so does
-  the end of the scenario: a defect in what it releases fails the test. Each start of a key is heard one way, as the
-  run hears one subscription for each: once `hearNext` runs it, `hear` fails the test on that key, and once `hear`
-  has played it, `hearNext` does, until the key goes away and comes back. `hear` runs nothing: the test answers for
-  what it says was heard, and for whether the subscription had ended. So a test says what the
+  the end of the scenario: a defect in what it releases fails the test. What it sent that `update` has not seen is
+  dropped, as the run drops it, and a `hearNext` still waiting for it fails the test. Each start of a key is heard
+  one way, as the run hears one subscription for each: once `hearNext` runs it, `hear` fails the test on that key,
+  and once `hear` has played it, `hearNext` does, until the key goes away and comes back. `hear` runs nothing: the
+  test answers for what it says was heard, and for whether the subscription had ended. So a test says what the
   user does while a save is under way, and when its answer arrives:
 
   ```ts
@@ -841,11 +844,15 @@ there with `applyAll`, or with `update` itself.
   ```
 
   It fails when `send` finds nothing to send on the model, when `update` rejects what it sends (a control the
-  model shows and its own state rejects), and when a command is still pending at the end: its answer would
-  still arrive. It also fails, as the run dies, on a state whose subscriptions are a defect, which it reads on
-  each new state, and on a command or a subscription that interrupts itself. A command's or a subscription's
-  message that no longer applies is ignored, as when the program runs, and listed in `ignored`. It starts from the program's `init`, or from the step given as `from`; a
-  program with flags needs either `from` or its `flags`.
+  model shows and its own state rejects), and when a command is still pending or under way at the end, or its
+  `run` was interrupted before it answered: commands cannot be cancelled, and its answer would still arrive. It
+  also fails, as the run dies, on a state whose subscriptions are a defect, which it reads on each new state, a key
+  whose `Equal` throws against a key of the state before included, and on a command or a subscription that
+  interrupts itself. A command's or a subscription's message that no longer applies is ignored, as when the program
+  runs, and listed in `ignored`. Messages that arrive together, from fibers of the test's, are applied one at a
+  time, as the run takes them: each waits for the state the one before left, the release of the subscriptions it
+  stopped included. It starts from the program's `init`, or from the step given as `from`; a program with flags
+  needs either `from` or its `flags`.
 - **`drive`** sends what the frames show, through the run's dispatch, and fails on a wait longer than
   `patience` (2 seconds). Its time is real: a frame may be past by the time its message arrives. So, as when
   the program runs, a rejected message is ignored, and a scenario checks what it expects to see. A program with

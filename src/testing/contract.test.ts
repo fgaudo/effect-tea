@@ -355,7 +355,7 @@ describe('a subscription that depends on more of the state than its key', () => 
     makeModel: (state) => state,
   })
 
-  test.failing('rehearse\'s hearNext runs the subscription listed when its key appeared, as the run starts it', async () => {
+  test('rehearse\'s hearNext runs the subscription listed when its key appeared, as the run starts it', async () => {
     const rehearsed = await Effect.runPromise(rehearse(counted(Effect.void), Effect.fnUntraced(function*(rehearsal) {
       yield* rehearsal.send(() => Opt.some({ _tag: 'Inc' }))
       yield* rehearsal.hearNext('seen')
@@ -443,12 +443,12 @@ describe('what the run dies of, and the tools fail on', () => {
     return defect instanceof ProgramDefect && defect.where === 'subscriptions'
   }
 
-  test.failing('simulate fails, as the run dies, on a key whose Equal throws against the key of the state before', async () => {
+  test('simulate fails, as the run dies, on a key whose Equal throws against the key of the state before', async () => {
     const exit = await Effect.runPromiseExit(simulate(renewing)(['Seen'], renewing.init))
     expect(diesInSubscriptions(exit)).toBe(true)
   })
 
-  test.failing('rehearse fails, as the run dies, on a key whose Equal throws against the key of the state before', async () => {
+  test('rehearse fails, as the run dies, on a key whose Equal throws against the key of the state before', async () => {
     const exit = await Effect.runPromiseExit(rehearse(renewing, (rehearsal) => rehearsal.send(() => Opt.some('Seen'))))
     expect(diesInSubscriptions(exit)).toBe(true)
   })

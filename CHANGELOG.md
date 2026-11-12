@@ -106,6 +106,27 @@ version, and everything else, features included, the patch version.
   happened, as one that interrupts itself is.
 - A parent whose `subscribed` lists one id of its children twice died with a `CompositionDefect` saying that an
   own subscription key took a child's: it now says that the id is listed twice.
+- `rehearse` applies messages that arrive together, from fibers of the test's, one at a time, as the run takes
+  them. A message that stopped a subscription waited for its release before it wrote its state, and wrote it over
+  what arrived meanwhile: a command's answer was lost, and a command run meanwhile was pending again. "Testing" in
+  the README says so.
+- `simulate` and `rehearse` compare the keys of a new state's subscriptions with those of the state before, as the
+  run does, and fail where the run dies of a key whose `Equal` throws against one of them, in `'subscriptions'`.
+  They compared only the keys of one state, and passed. "Testing" in the README says so.
+- `rehearse`'s `hearNext` runs the subscription listed when its key appeared, as the run starts that one, where it
+  ran the one listed at its first call: a subscription that sees more of the state than its key heard a later
+  state than the run's. "Testing" in the README says so.
+- A subscription that `rehearse`'s `hearNext` started keeps running while its key stays, whichever fiber of the
+  test's first heard it, as the README's "Testing" says. It was interrupted with that fiber (one of `timeoutOption`,
+  say), and its key stayed with nothing running under it. It is released when the rehearsal is interrupted too.
+- What a subscription that `rehearse`'s `hearNext` runs sends after its key went away no longer reaches `update`,
+  as in the run: a `hearNext` waiting in a fiber of the test's applied it to the state that had stopped it. A
+  `hearNext` still waiting when the key goes away fails the test, where it was interrupted, or applied the message.
+  "Testing" in the README says so.
+- `rehearse` fails the test on a command whose `run` was interrupted before it answered (a `timeoutOption` around
+  it), and on one still under way when the scenario ends (a `run` in a fiber of the test's), as on one still
+  pending: commands cannot be cancelled, and in the run its answer would still arrive. The scenario passed, the
+  command dropped. "Testing" in the README says so.
 
 ## 0.7.1 (2026-10-28)
 

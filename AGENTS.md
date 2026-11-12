@@ -179,8 +179,10 @@ after the list says. A change that rests on a new premise adds it here, with wha
   again" (`dispatch.test.ts`). Both are read only in the source.
 - **`HashMap` calls a key's `Equal` and `Hash` only within the call it is given the key in**, synchronously, and
   never later, so that `reconcile` compares keys all inside `'subscriptions'`: "a key whose Equal throws dies in
-  subscriptions" (`run.test.ts`). `FiberMap` compares its keys in a fiber's observer as well, which is why the run
-  keeps its fibers by their start, never by their key. Both are read only in the source.
+  subscriptions" (`run.test.ts`), and so do `simulate` and `rehearse`, which compare them as it does: "… on a key
+  whose Equal throws against the key of the state before" (`contract.test.ts`). `FiberMap` compares its keys in a
+  fiber's observer as well, which is why the run keeps its fibers by their start, never by their key. Both are read
+  only in the source.
 - **`FiberMap.remove` waits for the interrupted fiber to end**, its release included, which is what makes the
   gone keys released before any key starts: "a key that changes stops the old subscription and starts the new
   one", "keys that go away together release their subscriptions together, not one after the other"
@@ -205,8 +207,9 @@ after the list says. A change that rests on a new premise adds it here, with wha
   program on the scheduler the run started with" (`run.test.ts`).
 - **A start's generation, not only its key, says whether its messages still apply**: "a message left by an earlier
   start of a key that came back does not reach update" (`engine.test.ts`), and "what a subscription leaves in the
-  queue after its key went away does not reach update" (`run.test.ts`). This one rests on nothing of Effect: it is
-  the engine's own rule, tested where the fibers' order would otherwise hide it.
+  queue after its key went away does not reach update" (`run.test.ts`); `rehearse` keeps it by the start itself: "a
+  message its subscription sends after its key went away does not reach update" (`rehearse.test.ts`). This one
+  rests on nothing of Effect: it is the engine's own rule, tested where the fibers' order would otherwise hide it.
 - **`SubscriptionRef.changes` replays the latest state to a new subscriber**, so a renderer that subscribes late,
   or skips frames, still draws the last state: "a renderer slower than the program gets only the latest frame"
   (`run.test.ts`).
@@ -217,6 +220,17 @@ after the list says. A change that rests on a new premise adds it here, with wha
 - **A `WeakRef` is cleared before the `FinalizationRegistry` callback of its target runs**, and a `WeakMap` lets go
   of a value with its key: the tests of `dispatchTo` (`dispatch.test.ts`) and "a child's model is let go with its
   state" (`compose.test.ts`), under `Bun.gc`.
+- **A `Semaphore` of one permit runs one `withPermit` at a time**, which is how `rehearse` applies one message at a
+  time, as the run's loop takes them: "two messages that arrive together, one stopping a subscription, are both
+  applied", "a command run while a message waits for a release leaves pending once" (`rehearse.test.ts`).
+  Documented.
+- **A fiber forked with `Effect.forkIn` is interrupted when its scope closes, and not when the fiber that forked it
+  ends**, which is how `rehearse` keeps a subscription that `hearNext` started for as long as its key stays: "a
+  subscription first heard in a fiber that has ended since keeps running while its key stays", "a subscription it
+  started is released when whoever runs the rehearsal interrupts it" (`rehearse.test.ts`). Documented.
+- **`Effect.onInterrupt` runs its finalizer when the effect is interrupted**, which is how `rehearse` fails on a
+  command whose `run` was interrupted before it answered: "when a run interrupted while its command runs leaves the
+  command unanswered" (`rehearse.test.ts`). Documented.
 
 A premise about what code does when it runs is checked before the change that rests on it is written, and never
 only reasoned:

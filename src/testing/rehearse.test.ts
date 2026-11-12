@@ -302,7 +302,7 @@ describe('rehearse', () => {
       expect(log).toEqual(['first', 'second'])
     })
 
-    test.failing('a subscription first heard in a fiber that has ended since keeps running while its key stays', async () => {
+    test('a subscription first heard in a fiber that has ended since keeps running while its key stays', async () => {
       const log: Array<string> = []
       const { second, pings } = await Effect.runPromise(withStorage(rehearse(
         twice(log, Effect.void),
@@ -316,9 +316,19 @@ describe('rehearse', () => {
       expect({ second, pings }).toEqual({ second: true, pings: 2 })
     })
 
+    test('a subscription it started is released when whoever runs the rehearsal interrupts it', async () => {
+      const log: Array<string> = []
+      const ended = await Effect.runPromise(withStorage(rehearse(
+        pinging(log),
+        (rehearsal) => Effect.andThen(rehearsal.hearNext('ping'), Effect.never),
+      )).pipe(Effect.timeoutOption('20 millis')))
+      expect(Opt.isNone(ended)).toBe(true)
+      expect(log).toEqual(['acquire', 'release'])
+    })
+
     // The key goes away while a `hearNext` waits, in a fiber of the test's, for the message its subscription is about
     // to send: in the run, a message of a start whose key went away never reaches `update`.
-    test.failing('a message its subscription sends after its key went away does not reach update', async () => {
+    test('a message its subscription sends after its key went away does not reach update', async () => {
       type Listening = Readonly<{ listening: boolean; late: number }>
       type Said = 'Stop' | 'Heard'
       const late = await Effect.runPromise(Effect.gen(function*() {
@@ -347,35 +357,73 @@ describe('rehearse', () => {
       expect(late).toBe(0)
     })
 
-    // A message that stops a subscription waits for its release before the state is written: one that arrives in
-    // the meantime, here a command's answer, is applied to the state before and then written over.
-    test.failing('two messages that arrive together, one stopping a subscription, are both applied', async () => {
-      type Counting = Readonly<{ listening: boolean; count: number }>
-      type Counted = 'Stop' | 'Count'
-      const counting: Program<{ state: Counting; model: Counting; message: Counted; command: 'Count' }> = {
-        init: { state: { listening: true, count: 0 }, commands: ['Count'] },
-        update: (message) => (state) =>
-          message === 'Stop'
-            ? { state: { ...state, listening: false } }
-            : { state: { ...state, count: state.count + 1 } },
-        runCommand: () => Effect.as(Effect.sleep('10 millis'), Opt.some<Counted>('Count')),
-        subscriptions: ({ listening }) =>
-          listening
-            ? HashMap.make([
-              'k',
-              Channel.succeed<Counted>('Stop').pipe(
-                Channel.concatWith(() => Channel.never),
-                Channel.ensuring(Effect.sleep('50 millis')),
-              ),
-            ])
-            : HashMap.empty(),
-        makeModel: (state) => state,
+    test('a call waiting when its key goes away fails the test, since nothing more arrives under it', async () => {
+      const silent: Program<{ state: Readonly<{ listening: boolean }>; model: boolean; message: 'Stop' }> = {
+        init: { state: { listening: true } },
+        update: () => () => ({ state: { listening: false } }),
+        subscriptions: ({ listening }) => listening ? HashMap.make(['k', Channel.never]) : HashMap.empty(),
+        makeModel: ({ listening }) => listening,
       }
-      const state = await Effect.runPromise(rehearse(counting, Effect.fnUntraced(function*(rehearsal) {
-        yield* Effect.all([rehearsal.hearNext('k'), rehearsal.run(() => true)], { concurrency: 'unbounded' })
-        return yield* rehearsal.state
+      const exit = await Effect.runPromise(rehearse(silent, Effect.fnUntraced(function*(rehearsal) {
+        const waiting = yield* Effect.forkChild(rehearsal.hearNext('k'))
+        yield* Effect.sleep('10 millis')
+        yield* rehearsal.send(() => Opt.some('Stop'))
+        return yield* Fiber.await(waiting)
       })))
+      expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain(
+        'The subscription under k was stopped while hearNext waited for its message',
+      )
+    })
+
+    // A message that stops a subscription waits for its release before its state is written, as the run's loop
+    // waits before it takes the next message: what arrives in the meantime waits for that state.
+    type Counting = Readonly<{ listening: boolean; count: number }>
+    type Counted = 'Stop' | 'Count'
+    const counting = (
+      answer: Effect.Effect<void>,
+    ): Program<{ state: Counting; model: Counting; message: Counted; command: 'Count' }> => ({
+      init: { state: { listening: true, count: 0 }, commands: ['Count'] },
+      update: (message) => (state) =>
+        message === 'Stop'
+          ? { state: { ...state, listening: false } }
+          : { state: { ...state, count: state.count + 1 } },
+      runCommand: () => Effect.as(answer, Opt.some<Counted>('Count')),
+      subscriptions: ({ listening }) =>
+        listening
+          ? HashMap.make([
+            'k',
+            Channel.succeed<Counted>('Stop').pipe(
+              Channel.concatWith(() => Channel.never),
+              Channel.ensuring(Effect.sleep('50 millis')),
+            ),
+          ])
+          : HashMap.empty(),
+      makeModel: (state) => state,
+    })
+
+    test('two messages that arrive together, one stopping a subscription, are both applied', async () => {
+      const state = await Effect.runPromise(rehearse(
+        counting(Effect.sleep('10 millis')),
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* Effect.all([rehearsal.hearNext('k'), rehearsal.run(() => true)], { concurrency: 'unbounded' })
+          return yield* rehearsal.state
+        }),
+      ))
       expect(state).toEqual({ listening: false, count: 1 })
+    })
+
+    test('a command run while a message waits for a release leaves pending once', async () => {
+      const { state, pending } = await Effect.runPromise(rehearse(
+        counting(Effect.void),
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* Effect.all([
+            rehearsal.hearNext('k'),
+            Effect.andThen(Effect.sleep('10 millis'), rehearsal.run(() => true)),
+          ], { concurrency: 'unbounded' })
+          return { state: yield* rehearsal.state, pending: yield* rehearsal.pending }
+        }),
+      ))
+      expect({ state, pending }).toEqual({ state: { listening: false, count: 1 }, pending: [] })
     })
 
     test('a subscription that ends before sending anything is heard by its last message', async () => {
@@ -501,7 +549,7 @@ describe('rehearse', () => {
     })
 
     // Commands cannot be cancelled: in the run, a command once started still answers.
-    test.failing('when a run interrupted while its command runs leaves the command unanswered', async () => {
+    test('when a run interrupted while its command runs leaves the command unanswered', async () => {
       const failure = await failureOf(rehearse(
         { ...program, runCommand: () => Effect.never },
         Effect.fnUntraced(function*(rehearsal) {
@@ -510,7 +558,20 @@ describe('rehearse', () => {
           yield* Effect.timeoutOption(rehearsal.run(isStore), '20 millis')
         }),
       ))
-      expect(failure).toBeDefined()
+      expect(String(failure)).toContain('Commands whose run was interrupted before they answered: Store')
+    })
+
+    test('when a command is still under way at the end, since its answer would still arrive', async () => {
+      const failure = await failureOf(rehearse(
+        { ...program, runCommand: () => Effect.never },
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.send(typing('milk'))
+          yield* rehearsal.send(saving)
+          yield* Effect.forkChild(rehearsal.run(isStore))
+          yield* Effect.sleep('10 millis')
+        }),
+      ))
+      expect(String(failure)).toContain('Commands still under way when the scenario ended: Store')
     })
   })
 })
