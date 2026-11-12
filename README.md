@@ -658,10 +658,12 @@ A defect anywhere ends the run, which dies with a `ProgramDefect`:
   options, by name; or `'log'`, for one of the run's own debug logs (a `Logger` that throws). What the program
   logs itself is in the place it logs from.
 
-The run never recovers from it, and does not log it: reporting it, and what the user sees next, are the app's,
-around the run. The screen keeps the last frame: show a crash screen, or run the program again. In a browser,
-start it with `Effect.runFork`, which reports nothing itself. An interruption of the fiber it returns, on
-`pagehide` for one, ends the run too, and is no crash:
+From the defect on, the run applies no message, and so starts no command, while it releases what it holds; a defect
+met meanwhile joins the cause, which keeps the defects in the order they happened. The run never recovers from it,
+and does not log it: reporting it, and what the user sees next, are the app's, around the run. The screen keeps the
+last frame: show a crash screen, or run the program again. In a browser, start it with `Effect.runFork`, which
+reports nothing itself. An interruption of the fiber it returns, on `pagehide` for one, ends the run too, and is no
+crash:
 
 ```ts
 Effect.runFork(
@@ -817,7 +819,8 @@ there with `applyAll`, or with `update` itself.
   it hears its key, the one listed when the key appeared, as the run starts that one, and keeps it, as the run
   does, for as long as the key stays, whichever fiber of the test's first heard it: each call hears its next
   message, which waits for the call, and the last one is its end value, after which neither `hearNext` nor `hear`
-  hears that key until it goes away and comes back. A key that goes away interrupts its subscription, and so does
+  hears that key until it goes away and comes back: a `hearNext` that was waiting with the one that heard the end
+  fails the test. A key that goes away interrupts its subscription, and so does
   the end of the scenario, or of the rehearsal however it ends: a defect in what it releases fails the test. What it
   sent that `update` has not seen is dropped, as the run drops it, and a `hearNext` still waiting for it fails the
   test. Each start of a key is heard one way, as the run hears one subscription for each: once `hearNext` runs it,
@@ -853,9 +856,9 @@ there with `applyAll`, or with `update` itself.
   first in the cause, before what the scenario ended with, and a rehearsal that died checks nothing more of its
   commands. A scenario that catches the defect, with `Effect.exit` say, does not keep it from failing the
   rehearsal: a test that expects a defect wraps `rehearse` itself. After a defect, `send`, `run`, `runAll`, `hear`,
-  `hearNext` and `model` fail with it, as nothing happens in a run that died, while `state`, `pending`, `events`
-  and `ignored` stay readable. A fiber that the test detaches from the scenario (`Effect.forkDetach`) is beyond its
-  reach: what such a fiber asks for after the rehearsal ended is interrupted, and a defect it meets then is lost. A
+  `hearNext` and `model` fail with it, and so do a `hearNext` and a `run` already waiting for their subscription or
+  their command, as nothing happens in a run that died, while `state`, `pending`, `events` and `ignored` stay
+  readable. A fiber that the test detaches from the scenario (`Effect.forkDetach`) is beyond its reach: what such a fiber asks for after the rehearsal ended is interrupted, and a defect it meets then is lost. A
   command's or a subscription's message that no longer applies is ignored, as when the program runs, and listed in
   `ignored`. Messages that arrive together, from fibers of the test's, are applied one at a time, as the run takes
   them: each waits for the state the one before left, the release of the subscriptions it stopped included, and

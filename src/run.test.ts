@@ -1161,10 +1161,9 @@ describe('the end of the run', () => {
     expect(wheres(exit)).toEqual(['update', 'subscription'])
   })
 
-  // Found by the third review of the premises. `rehearse` stops at a defect, "as nothing happens in a run that died"
-  // (the README's "Testing"); the run's loop goes on while the renderer releases what it holds, applying what its
-  // subscriptions send and starting the commands of each step.
-  test.failing('a run that died applies no message, and starts no command, while the renderer releases', async () => {
+  // The renderer releases slowly, while a subscription goes on sending, and each step would start a command: from the
+  // defect on, the run applies none of it, as `rehearse` stops at a defect.
+  test('a run that died applies no message, and starts no command, while the renderer releases', async () => {
     let died = false
     let startedAfter = 0
     const exit = await Effect.runPromiseExit(run(
@@ -1200,10 +1199,9 @@ describe('the end of the run', () => {
     expect(startedAfter).toBe(0)
   })
 
-  // Found by the third review of the premises. Only the engine's fibers record their deaths: what the renderer, or the
-  // run's own fiber as the engine starts, dies of joins the cause after what they have recorded by then, which may
-  // have died later.
-  test.failing('a renderer that dies before a command is the first defect of the cause', async () => {
+  // The renderer, and the run's own fiber as it starts the engine, record what they die of where the engine's fibers
+  // do: a defect that happened later never comes first.
+  test('a renderer that dies before a command is the first defect of the cause', async () => {
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const rendererDied = yield* Deferred.make<void>()
       yield* run(
@@ -1222,7 +1220,63 @@ describe('the end of the run', () => {
     expect(wheres(exit)).toEqual(['render', 'command'])
   })
 
-  test.failing('a subscription that dies as the run starts comes before a log that dies after it', async () => {
+  // What dies first is first, though the release of what it held lets another fiber die before it has ended: each
+  // fiber with a scope of its own records its defect as it dies, and what its release dies of as it ends.
+  const defects = (exit: Exit.Exit<unknown>) =>
+    Exit.isFailure(exit)
+      ? exit.cause.reasons.filter(Cause.isDieReason).map(({ defect }) =>
+        defect instanceof ProgramDefect ? defect.cause : defect
+      )
+      : []
+
+  // Dies of `first`, then releases, which lets `second` die.
+  const diesThenReleases = (released: Deferred.Deferred<void>) =>
+    Effect.addFinalizer(() => Deferred.succeed(released, undefined)).pipe(
+      Effect.andThen(Effect.yieldNow),
+      Effect.andThen(Effect.die('first')),
+    )
+
+  // Uninterruptible, so that the end of the run, which `first` starts, lets it die.
+  const diesOnceReleased = (released: Deferred.Deferred<void>) =>
+    Effect.uninterruptible(Deferred.await(released).pipe(Effect.andThen(Effect.die('second'))))
+
+  test('a command that dies before another, which its release lets die, is the first defect of the cause', async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const released = yield* Deferred.make<void>()
+      yield* run(
+        {
+          ...counter,
+          init: { state: { count: 0 }, commands: ['Boom', 'Ping'] },
+          runCommand: (command) =>
+            command === 'Boom'
+              ? diesThenReleases(released)
+              : diesOnceReleased(released),
+        },
+        () => Effect.never,
+      )
+    }))
+    expect(defects(exit)).toEqual(['first', 'second'])
+  })
+
+  test('a subscription that dies before another, which its release lets die, is the first defect', async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const released = yield* Deferred.make<void>()
+      yield* run(
+        {
+          ...counter,
+          subscriptions: () =>
+            HashMap.make(
+              ['a', Channel.fromEffectDone(diesThenReleases(released))],
+              ['b', Channel.fromEffectDone(diesOnceReleased(released))],
+            ),
+        },
+        () => Effect.never,
+      )
+    }))
+    expect(defects(exit)).toEqual(['first', 'second'])
+  })
+
+  test('a subscription that dies as the run starts comes before a log that dies after it', async () => {
     let died = false
     const throwsOnceItDied = Logger.make(({ message }) => {
       if (died && Array.isArray(message) && message[0] === 'Subscription started') throw new Error('log')
@@ -1247,6 +1301,32 @@ describe('the end of the run', () => {
       Effect.provide(Logger.layer([throwsOnceItDied])),
     ))
     expect(wheres(exit)).toEqual(['subscription', 'log'])
+  })
+
+  test('a log that dies as the run starts comes before what a subscription dies of as the end releases it', async () => {
+    const throwsOnB = Logger.make(({ message }) => {
+      if (Array.isArray(message) && message[0] === 'Subscription started' && message[1] === 'b') throw new Error('log')
+    })
+    const exit = await Effect.runPromiseExit(run(
+      {
+        ...counter,
+        subscriptions: () =>
+          HashMap.make(
+            [
+              'a',
+              Channel.unwrap(
+                Effect.acquireRelease(Effect.void, () => Effect.die('release')).pipe(Effect.as(Channel.never)),
+              ),
+            ],
+            ['b', Channel.never],
+          ),
+      },
+      () => Effect.never,
+    ).pipe(
+      Effect.provideService(References.MinimumLogLevel, 'Debug'),
+      Effect.provide(Logger.layer([throwsOnB])),
+    ))
+    expect(wheres(exit)).toEqual(['log', 'subscription'])
   })
 
   // `FiberMap.remove` leaves the fiber in the map until it has ended: the end of the run, which interrupts the loop

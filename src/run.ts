@@ -22,17 +22,42 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: ne
 
 /** `run`, with its options as one value: for `drive`, which passes them on as it got them. */
 // Untraced: a span of its own would be the one the renderer logs into (see `Engine.withExternalSpan`).
-export const runWith = Effect.fnUntraced(
+export const runWith = Effect.fnUntraced(function*<State, Model, Message, Command, R, RR, Flags>(
+  program: Shape<State, Model, Message, Command, R, never, unknown, Flags>,
+  render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
+  options: Engine.RunOptions<Message, State, Command> & Readonly<{ flags?: unknown }>,
+): Effect.fn.Return<void, never, Exclude<R | RR, Scope.Scope>> {
+  // The renderer, the fiber of the run as it starts the engine, and the engine's fibers record what they die of in
+  // one place: the defects come first in the cause, in the order they died, then the rest of what the run ended with
+  // (an interruption by whoever runs it), but for the defects already among them, by their identity.
+  const deaths = yield* Engine.makeDeaths(() => true)
+  return yield* Effect.uninterruptibleMask((restore) =>
+    Effect.exit(restore(running(program, render, options, deaths))).pipe(
+      Effect.flatMap((exit) => {
+        const dies = deaths.all()
+        if (!Arr.isArrayNonEmpty(dies)) return exit
+        const rest = Exit.isFailure(exit)
+          ? exit.cause.reasons.filter((reason) => !(Cause.isDieReason(reason) && deaths.has(reason.defect)))
+          : []
+        return Effect.failCause(Cause.fromReasons<never>([...dies, ...rest]))
+      }),
+    )
+  )
+})
+
+const running = Effect.fnUntraced(
   function*<State, Model, Message, Command, R, RR, Flags>(
     program: Shape<State, Model, Message, Command, R, never, unknown, Flags>,
     render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
     options: Engine.RunOptions<Message, State, Command> & Readonly<{ flags?: unknown }>,
+    deaths: Engine.Deaths,
   ): Effect.fn.Return<void, never, R | RR | Scope.Scope> {
     const { flags, ...runOptions } = options
     // A step is data: only an `init` that makes it from the flags can throw.
-    const init = yield* Effect.sync(() => startOf(program.init, flags)).pipe(Engine.diesIn('init'))
+    const init = yield* Effect.sync(() => startOf(program.init, flags)).pipe(Engine.diesIn('init'), deaths.recorded)
     const engine = yield* Engine.make({
       ...runOptions,
+      deaths,
       init,
       update: program.update,
       runCommand: runCommandOf(program),
@@ -42,27 +67,19 @@ export const runWith = Effect.fnUntraced(
       Stream.buffer({ capacity: 1, strategy: 'sliding' }),
       Stream.map(({ state }) => lazyFrame(() => program.makeModel(state), engine.dispatch)),
     )
-    const renderer = yield* Effect.scoped(Effect.suspend(() => render(frames))).pipe(
+    const renderer = yield* Effect.suspend(() => render(frames)).pipe(
       // The model is made when the renderer reads it: a defect of `makeModel` is the renderer's.
-      Engine.diesIn('render'),
+      Engine.scopedIn(deaths, 'render'),
       Effect.updateContext(Engine.withExternalSpan<Exclude<RR, Scope.Scope>>),
       Effect.forkChild,
     )
-    // However the run ends, the renderer is interrupted and awaited before the engine's fibers, and what it dies
-    // of, while it releases what it holds too, joins the cause, as the engine's fibers' does. Only signals race, so
-    // that no defect is lost with the loser: what the engine's fibers die of is reported here, in the run's fiber,
-    // and what they die of later, while the renderer releases what it holds too, by the end of the engine.
+    // However the run ends, the renderer is interrupted and awaited before the engine's fibers. Only signals race, so
+    // that no defect is lost with the loser: every fiber records what it dies of, the renderer too, and the run
+    // reports here what they have died of so far, and what they die of later, while the renderer releases what it
+    // holds too, by the end of the engine.
     yield* Effect.raceFirst(engine.died, Fiber.await(renderer)).pipe(
       Effect.andThen(engine.report),
-      Effect.onExit(() =>
-        Fiber.interrupt(renderer).pipe(
-          Effect.andThen(Fiber.await(renderer)),
-          Effect.flatMap((exit) => {
-            const dies = Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isDieReason) : []
-            return Arr.isArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : Effect.void
-          }),
-        )
-      ),
+      Effect.onExit(() => Effect.asVoid(Fiber.interrupt(renderer).pipe(Effect.andThen(Fiber.await(renderer))))),
     )
   },
   Effect.scoped,

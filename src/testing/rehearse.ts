@@ -11,7 +11,7 @@ import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import * as Scope from 'effect/Scope'
 import { ProgramDefect } from '../defect.ts'
-import { applyIn, diesIn, makeDeaths } from '../engine.ts'
+import { applyIn, diesIn, makeDeaths, scopedIn } from '../engine.ts'
 import { describeByTag } from '../log.ts'
 import { runCommandOf, type Shape, startOf, subscriptionsOf } from '../program.ts'
 import type { Subscription } from '../subscription.ts'
@@ -38,7 +38,8 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
   /**
    * Runs the oldest pending command `select` matches through the program's `runCommand`, in a scope of its own,
    * and applies its message, then returns the command. Fails the test when no pending command matches, and, at the
-   * end of the scenario, when it was interrupted before the command answered: commands cannot be cancelled.
+   * end of the scenario, when it was interrupted before the command answered: commands cannot be cancelled. A
+   * defect of the program, in whichever fiber, fails it while the command runs.
    */
   run: (select: (command: Command) => boolean) => Effect.Effect<Command, never, Exclude<R, Scope.Scope>>
   /** Runs the oldest pending command until none is left, the commands they start included. */
@@ -58,9 +59,10 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    * key that stays, whichever fiber of the test's first heard it, and is interrupted when its key goes away, or
    * when the scenario ends: what it sent that `update` has not seen is dropped, as the run drops it, and a call
    * still waiting for it fails the test. Its end value is its last message: after it, `hearNext` and `hear` fail
-   * the test until the key goes away and comes back. Fails the test when nothing listens under `key` in the
-   * current state, and when the test has played that subscription with `hear`, until the key goes away and comes
-   * back. It waits as long as the subscription does.
+   * the test until the key goes away and comes back, and so does a call that was waiting with the one that heard it.
+   * Fails the test when nothing listens under `key` in the current state, and when the test has played that
+   * subscription with `hear`, until the key goes away and comes back. It waits as long as the subscription does, or
+   * until a defect of the program, in whichever fiber, fails it.
    */
   hearNext: (key: unknown) => Effect.Effect<Message, never, Exclude<R, Scope.Scope>>
   /** The events `update` raised for the program's parent, in order. */
@@ -80,7 +82,8 @@ export type RehearseOptions<State, Command, Flags = never> = [Flags] extends [ne
   ? Readonly<{ from?: Step<State, Command> }>
   : Readonly<{ from: Step<State, Command>; flags?: never }> | Readonly<{ flags: Flags; from?: never }>
 
-type Heard<Message> = Readonly<{ message: Message; last: boolean }>
+// A message of the subscription, or, to each call still waiting once another heard its last one, that it has ended.
+type Heard<Message> = Readonly<{ message: Message; last: boolean }> | 'ended'
 
 // What `hearNext` keeps of a subscription it started: `waiting`, the calls waiting for a message, `asked`, the
 // messages asked for and not heard yet, `ended` once it heard the last one. A call interrupted while it waits leaves
@@ -133,7 +136,7 @@ type Request = Readonly<{ step: Effect.Effect<unknown>; done: Deferred.Deferred<
  * included, and `send` selects on the model of that state. A message once sent is applied whole, even when the
  * fiber that sent it is interrupted meanwhile. A defect of the program fails the rehearsal as it ends the run,
  * whichever fiber of the test's it reached, one nobody joins included, and however the rehearsal ends: what the
- * test does after it fails with it.
+ * test does after it fails with it, and so does a call waiting for a subscription or a command.
  */
 export const rehearse = Effect.fnUntraced(function*<
   State,
@@ -162,12 +165,18 @@ export const rehearse = Effect.fnUntraced(function*<
   // with them at its end, and what the test asks for after the first fails with them, as nothing happens in a run
   // that died. The tool's own failures of a call (nothing to send, a control that does nothing) are the caller's
   // alone, so only a `ProgramDefect` is recorded.
-  const { recorded, all: deaths, has: isRecorded } = yield* makeDeaths((defect) => defect instanceof ProgramDefect)
+  const register = yield* makeDeaths((defect) => defect instanceof ProgramDefect)
+  const { recorded, all: deaths, has: isRecorded } = register
   const deadOr = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     Effect.suspend(() => {
       const dies = deaths()
       return Arr.isArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : effect
     })
+  // A call that waits for a subscription or a command fails as soon as a fiber dies, whichever, as the run dies at
+  // once: what it waits for would come in a run that died. One that waits for the loop waits for a release, which the
+  // end of the rehearsal awaits all the same.
+  const orDead = <A, E, R>(waiting: Effect.Effect<A, E, R>) =>
+    Effect.raceFirst(waiting, Effect.andThen(register.died, deadOr(Effect.never)))
   // The keys of the current state, each with its start, as the run keeps them: a key that stays keeps its start as
   // it is, and one that went away takes it with it. Keys are compared only in `subscriptions`, as in the run.
   let active = HashMap.empty<unknown, Start<Message, R>>()
@@ -322,8 +331,7 @@ export const rehearse = Effect.fnUntraced(function*<
     const fiber = yield* Queue.take(asks).pipe(
       Effect.andThen(Channel.runForEach(start.subscription, (message: Message) =>
         Queue.offer(heard, { message, last: false }).pipe(Effect.andThen(Queue.take(asks))))),
-      Effect.scoped,
-      diesIn('subscription', () => ({ key })),
+      scopedIn(register, 'subscription', () => ({ key })),
       Effect.flatMap((last) => Queue.offer(heard, { message: last, last: true })),
       Effect.asVoid,
       recorded,
@@ -352,7 +360,7 @@ export const rehearse = Effect.fnUntraced(function*<
   const hearNext = Effect.fnUntraced(function*(key: unknown) {
     const { start, each } = yield* ask(opening(key))
     // The subscription stopped, its key gone or the scenario ended, sends nothing more to wait for; a defect of it
-    // ends the wait, as it ends the run.
+    // ends the wait, as it ends the run, and so does a defect of what it releases, alone, as the run dies of it.
     const stopped = () =>
       Effect.die(
         new Error(
@@ -362,7 +370,8 @@ export const rehearse = Effect.fnUntraced(function*<
       )
     const ends = Effect.flatMap(Fiber.await(each.fiber), (exit) => {
       if (Exit.isSuccess(exit)) return Effect.never
-      return Cause.hasInterruptsOnly(exit.cause) ? stopped() : Effect.failCause(exit.cause)
+      const dies = exit.cause.reasons.filter(Cause.isDieReason)
+      return Arr.isArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : stopped()
     })
     // A message once taken is given to the loop before anything can interrupt the call: what it applies, it applies
     // whole.
@@ -373,16 +382,26 @@ export const rehearse = Effect.fnUntraced(function*<
         each.asked++
         return Queue.offer(each.asks, undefined)
       }).pipe(
-        Effect.andThen(restore(Effect.raceFirst(Queue.take(each.heard), ends))),
+        Effect.andThen(restore(orDead(Effect.raceFirst(Queue.take(each.heard), ends)))),
         Effect.ensuring(Effect.sync(() => {
           each.waiting--
         })),
-        Effect.flatMap(({ message, last }) => {
+        Effect.flatMap((heard) => {
+          if (heard === 'ended') return Effect.andThen(notEnded(key, each), Effect.never)
+          const { message, last } = heard
           each.asked--
           each.ended = last
+          // The calls still waiting would wait for ever: they fail, as a call made after the end does.
+          const ending = last
+            ? Effect.forEach(Arr.makeBy(each.waiting, () => 'ended' as const), (ended) =>
+              Queue.offer(each.heard, ended))
+            : Effect.void
           // Applied only while its start is: what a start sends after its key went away does not reach `update`,
           // as in the run.
-          return submit(Effect.suspend(() => start.gone ? stopped() : Effect.as(arriveNow(message), message)))
+          return Effect.andThen(
+            ending,
+            submit(Effect.suspend(() => start.gone ? stopped() : Effect.as(arriveNow(message), message))),
+          )
         }),
       )
     )
@@ -402,16 +421,14 @@ export const rehearse = Effect.fnUntraced(function*<
         pending = Arr.remove(pending, index)
         const running = { command }
         underWay.add(running)
-        return restore(Effect.suspend(() => runCommand(command)).pipe(
-          Effect.scoped,
-          diesIn('command'),
-          recorded,
+        return restore(orDead(Effect.suspend(() => runCommand(command)).pipe(
+          scopedIn(register, 'command'),
           Effect.onInterrupt(() =>
             Effect.sync(() => {
               cancelled.push(command)
             })
           ),
-        )).pipe(
+        ))).pipe(
           Effect.flatMap(Opt.match({
             onNone: () => Effect.succeedNone,
             onSome: (message) => Effect.asSome(submit(arriveNow(message))),

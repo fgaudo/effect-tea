@@ -117,14 +117,19 @@ messages, as the README says). This is how they are kept, and what a change must
   happened, it wraps each defect of the cause in a `ProgramDefect` (`diesIn` in `engine.ts`) that holds it as
   its `cause` and says where, and keeps the rest of the cause. The run's own logs die in `'log'`, each outside
   any other site, so that a `Logger` that throws is never taken for the subscription or the step that logs; what
-  the program logs is in the site it logs from. Each fiber of the engine records what it dies of, as it ends, in a place
-  of the engine's (`makeDeaths` in `engine.ts`, which `rehearse` shares, keeping only the program's defects), and each
-  defect recorded is reported once, in the order the fibers died: by the run as soon as one dies, and by the end of the
-  run, which interrupts its fibers itself, waits for them to release what they hold, and dies of the rest. Never report
-  a defect only through a `join`, or through a fiber that races: once nothing awaits it, or the race is lost, the defect
-  is lost with it, and `FiberSet` and `FiberMap` discard the exits of the fibers they interrupt as they close. The
-  renderer is one of them, interrupted and awaited first however the run ends (`runWith` in `run.ts`), and what it dies
-  of follows what ended the run. `drive` stops and awaits its run however it ends, interrupted too.
+  the program logs is in the site it logs from. Each fiber of the run records what it dies of in one place
+  (`makeDeaths` in `engine.ts`, made by `runWith` and given to the engine; `rehearse` has its own, keeping only the
+  program's defects): the engine's, the renderer, and the run's own as it starts the engine, as they end, and one with
+  a scope of its own as it dies too, before the scope releases what it holds (`scopedIn`), so that a defect is in the
+  order it happened, though its release lets another fiber die first. Each defect recorded is reported once, in that
+  order: by the run as soon as one dies, and by the end of the run, which interrupts its fibers itself, waits for them
+  to release what they hold, and dies of the rest; the run's cause holds the defects first, then the rest of what it
+  ended with. From the first defect on, the loop applies no message, while the renderer releases what it holds. Never
+  report a defect only through a `join`, or through a fiber that races: once nothing awaits it, or the race is lost, the
+  defect is lost with it, and `FiberSet` and `FiberMap` discard the exits of the fibers they interrupt as they close.
+  The renderer is one of them, interrupted and awaited first however the run ends (`runWith` in `run.ts`). `drive`
+  stops and awaits its run however it ends, interrupted too. A call of `rehearse`'s that waits for a subscription or a
+  command races its wait with the death of any fiber (`orDead`), as the run dies at once.
 - **A subscription never ends in silence**: its end value is a message (or `never`), sent to `update`. An ended
   subscription keeps its key among the active ones until the key goes away and comes back: never restart it
   automatically, which would loop on one that ends at once. What the end of a library's stream means is the
@@ -258,6 +263,17 @@ after the list says. A change that rests on a new premise adds it here, with wha
 - **`Effect.onInterrupt` runs its finalizer when the effect is interrupted**, which is how `rehearse` fails on a
   command whose `run` was interrupted before it answered: "when a run interrupted while its command runs leaves the
   command unanswered" (`rehearse.test.ts`). Documented.
+- **`Effect.scoped` closes the scope once the effect has ended, and what an effect inside it does on its exit runs
+  before the release**, which is how `scopedIn` records the defect of a command, a subscription or the renderer before
+  its release lets another fiber die: "a renderer that dies before a command is the first defect of the cause", "a
+  command that dies before another, which its release lets die, is the first defect of the cause", "a subscription that
+  dies before another, which its release lets die, is the first defect" (`run.test.ts`), "a command that dies before
+  another, which its release lets die, fails it first", "a subscription that dies before another, which its release
+  lets die, fails it first" (`rehearse.test.ts`). Documented.
+- **`Effect.raceFirst` ends with the first of its effects to end, and interrupts the other**, which is how a call of
+  `rehearse`'s that waits for a subscription or a command fails as soon as another fiber dies: "a hearNext waiting on
+  its subscription fails as soon as another fiber of the test's dies", "a run waiting for its command fails as soon as
+  another fiber of the test's dies" (`rehearse.test.ts`). Documented.
 
 A premise about what code does when it runs is checked before the change that rests on it is written, and never
 only reasoned:

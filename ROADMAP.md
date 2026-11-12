@@ -8,30 +8,6 @@ when it is done or rejected, with the reason in the commit.
 
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
 
-### Found by the third review of the premises (November 2026)
-
-Each is held by a `test.failing` case named after what should hold; its fix removes the mark and the item.
-
-- **A run that died goes on applying messages and starting commands while its renderer releases**: `runWith`
-  reports the defect at once, then awaits the renderer while the engine's loop still runs, where `rehearse` says
-  nothing happens in a run that died. The interrupted run keeps its loop on purpose, so the fix tells the two ends
-  apart. `run.test.ts`, "a run that died applies no message, and starts no command, while the renderer releases".
-- **What the renderer, or the run's own fiber as the engine starts, dies of is placed in the cause by when the run's
-  fiber reads it**, not by when it died: only the engine's fibers record their deaths (`makeDeaths`), so a later
-  defect can come first and `Cause.squash` gives it. `run.test.ts`, "a renderer that dies before a command is the
-  first defect of the cause", "a subscription that dies as the run starts comes before a log that dies after it".
-- **A call of `rehearse` already waiting is not ended by a defect in another fiber of the test's**, where the run
-  dies at once: a `hearNext` on a subscription that sends nothing, or a `run` of a command that never answers, waits
-  until whoever runs the rehearsal interrupts it (`died` of `makeDeaths` is raced with no wait). `rehearse.test.ts`,
-  "a hearNext waiting on its subscription fails as soon as another fiber of the test's dies", "a run waiting for its
-  command fails as soon as another fiber of the test's dies".
-- **Of two `hearNext` waiting on one key as its subscription ends, one hears the end and the other waits for
-  ever** (`ends` is `Effect.never` once the subscription succeeded). `rehearse.test.ts`, "of two hearNext waiting as
-  the subscription ends, one hears its end, the other fails".
-- **A `hearNext` waiting as its key goes away leaves an `Interrupt` in the rehearsal's cause after the defect of the
-  release**, where the run's cause holds the defect alone. `contract.test.ts`, "rehearse fails with the defect alone,
-  as the run dies, though a hearNext waited".
-
 ## Possible improvements
 
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is

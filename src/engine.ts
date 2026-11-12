@@ -95,7 +95,11 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
  */
 // The details are made only when there is a defect to carry them: a message is described on every call otherwise.
 export const diesIn =
-  (where: DefectSite, details: () => Readonly<{ key?: unknown; on?: unknown }> = () => ({})) =>
+  (
+    where: DefectSite,
+    details: () => Readonly<{ key?: unknown; on?: unknown }> = () => ({}),
+    wrapped: (defect: unknown) => boolean = () => false,
+  ) =>
   <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
     Effect.uninterruptibleMask((restore) =>
       restore(
@@ -111,7 +115,7 @@ export const diesIn =
       ).pipe(
         Effect.catchCauseIf(Cause.hasDies, (cause) =>
           Effect.failCause(Cause.fromReasons(cause.reasons.flatMap((reason): ReadonlyArray<Cause.Reason<E>> =>
-            Cause.isDieReason(reason)
+            Cause.isDieReason(reason) && !wrapped(reason.defect)
               ? Cause.annotate(
                 Cause.die(new ProgramDefect({ where, cause: reason.defect, ...details() })),
                 Cause.reasonAnnotations(reason),
@@ -119,6 +123,19 @@ export const diesIn =
               : [reason]
           )))),
       )
+    )
+
+/**
+ * `Effect.scoped`, for a fiber of the run with a scope of its own, whose defects die in `where`: what `self` dies of
+ * is recorded as it dies, before its scope releases what it holds, and what the release dies of as it ends. A
+ * defect is in the order it happened, though the release of what died first lets another fiber die before it ends.
+ */
+export const scopedIn =
+  (deaths: Deaths, where: DefectSite, details?: () => Readonly<{ key?: unknown; on?: unknown }>) =>
+  <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, Scope.Scope>> =>
+    Effect.scoped(self.pipe(diesIn(where, details), deaths.recorded)).pipe(
+      diesIn(where, details, deaths.has),
+      deaths.recorded,
     )
 
 // Described by its tags alone, whatever `describeMessage` says: a report must not run the program's code while the
@@ -234,6 +251,7 @@ export interface Engine<State, Message> {
 
 // Untraced: a span of its own would be the one its fibers log into (see `withExternalSpan`).
 export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
+  deaths: given,
   init: { state: initState, commands: initCommands = [] },
   update,
   runCommand: interpret,
@@ -244,6 +262,12 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   onIgnored = () => Effect.void,
 }:
   & Readonly<{
+    /**
+     * Where the fibers of the run record what they die of, shared with whoever runs the engine, so that what its own
+     * fibers die of is in the same order: every defect a `ProgramDefect`, which `diesIn` has made each, but for the
+     * engine's own, which the run dies of all the same. By default, one of its own.
+     */
+    deaths?: Deaths
     init: Step<State, Command>
     update: Update<State, Message, Command>
     runCommand: RunCommand<Command, Message, R>
@@ -259,9 +283,11 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     Queue.unbounded<Envelope<Message, K>>(),
     Queue.shutdown,
   )
-  // Each fiber of the run records every defect it dies of: `diesIn` has made each a `ProgramDefect`, and one that is
-  // not would be the engine's own, which the run dies of all the same.
-  const { recorded, died, report } = yield* makeDeaths(() => true)
+  const deaths = given ?? (yield* makeDeaths(() => true))
+  const { recorded, died, report, all } = deaths
+  // A run that died applies no message, and so starts no command, as nothing happens in a run that died, while
+  // whoever runs it stops it: the renderer, which it stops first, may take a while to release what it holds.
+  const dead = () => all().length > 0
   // The loop and the commands.
   const fibers = yield* FiberSet.make<unknown, never>()
   // Kept by their start, never by their key: `FiberMap` compares its keys, in a fiber's observer too, where
@@ -301,8 +327,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   // before its message is queued, so that `update` never learns of a command whose resources are still open.
   const runCommand = (command: Command) =>
     Effect.suspend(() => interpret(command)).pipe(
-      Effect.scoped,
-      diesIn('command'),
+      scopedIn(deaths, 'command'),
       Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: enqueue(fromCommand) })),
       Effect.provideContext(context),
       recorded,
@@ -347,8 +372,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       const send = enqueue({ _tag: 'Subscription', key, generation })
       yield* log('Subscription started', key)
       yield* Channel.runForEach(subscription, send).pipe(
-        Effect.scoped,
-        diesIn('subscription', () => ({ key })),
+        scopedIn(deaths, 'subscription', () => ({ key })),
         Effect.flatMap((last) => log('Subscription ended', key).pipe(Effect.andThen(send(last)))),
         Effect.provideContext(context),
         recorded,
@@ -395,12 +419,19 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     yield* Effect.forEach(commands, runCommand, { discard: true })
     return nextActive
   })
-  const initialActive = yield* reconcile({ keys: HashMap.empty(), starts: new Set() }, initState).pipe(Effect.provideContext(context))
-  yield* Effect.forEach(initCommands, runCommand, { discard: true })
+  // Run in the fiber that makes the engine, which records what it dies of here, among what the subscriptions it starts
+  // die of meanwhile.
+  const initialActive = yield* reconcile({ keys: HashMap.empty(), starts: new Set() }, initState).pipe(
+    Effect.tap(() => Effect.forEach(initCommands, runCommand, { discard: true })),
+    Effect.provideContext(context),
+    recorded,
+  )
   yield* Effect.gen(function*() {
     let active = initialActive
     while (true) {
-      active = yield* step(active, yield* Queue.take(queue))
+      const envelope = yield* Queue.take(queue)
+      if (dead()) return
+      active = yield* step(active, envelope)
     }
   }).pipe(Effect.provideContext(context), recorded, FiberSet.run(fibers))
   return {

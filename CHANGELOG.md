@@ -147,6 +147,18 @@ version, and everything else, features included, the patch version.
   with it, and the checks of the commands at the end are skipped. A scenario that caught a defect with
   `Effect.exit` and went on passed: it now fails, and a test that expects a defect wraps `rehearse` instead.
   "Testing" in the README says so.
+- A run that died applies no message, and so starts no command, while it releases its renderer: it went on
+  applying what its subscriptions sent, and starting the commands of each step, until the renderer was released.
+  "Running" in the README says so.
+- The defects a run dies of are in its cause in the order they happened: the renderer's, what the run dies of as it
+  starts, and a command's or a subscription's before what its release lets another fiber die of. A later defect
+  could come first, and `Cause.squash` gave it. `rehearse` orders a command's and a subscription's the same way.
+- `rehearse`'s `hearNext` waiting on its subscription, or its `run` waiting for its command, fails as soon as a
+  defect of the program reaches another fiber of the test's, as the run dies at once: it waited until whoever ran
+  the rehearsal interrupted it. Of two `hearNext` waiting on one key as its subscription ends, the one that does not
+  hear the end fails, as a call made after it does, where it waited for ever. A `hearNext` waiting as its key goes
+  away leaves the defect of what the subscription releases alone in the cause, as the run does, where an
+  interruption followed it. "Testing" in the README says so.
 
 ## 0.7.1 (2026-10-28)
 

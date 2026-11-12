@@ -375,7 +375,7 @@ describe('how a stopped subscription ends', () => {
   // A `hearNext` waiting when the key goes away fails with what its subscription ended with, the interruption by the
   // rehearsal included; the scenario that joins it fails with that, and the rehearsal's cause keeps the interruption
   // after the defect, where the run's holds the defect alone.
-  test.failing('rehearse fails with the defect alone, as the run dies, though a hearNext waited', async () => {
+  test('rehearse fails with the defect alone, as the run dies, though a hearNext waited', async () => {
     const exit = await Effect.runPromiseExit(rehearse(stopping, Effect.fnUntraced(function*(rehearsal) {
       yield* rehearsal.hearNext('ticks')
       const waiting = yield* Effect.forkChild(rehearsal.hearNext('ticks'))

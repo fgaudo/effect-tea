@@ -10,6 +10,7 @@ import * as Fiber from 'effect/Fiber'
 import * as Hash from 'effect/Hash'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
+import type * as Scope from 'effect/Scope'
 import { ProgramDefect } from '../defect.ts'
 import type { Program } from '../program.ts'
 import { reject, type Update } from '../update.ts'
@@ -949,7 +950,7 @@ describe('rehearse, while a fiber of the test\'s waits for what nothing will sen
 
   // The run dies as soon as one of its fibers dies, and interrupts what still waits: a call of the test's that waits
   // for a message nothing will send ends with the defect, or the rehearsal never ends where the run has died.
-  test.failing('a hearNext waiting on its subscription fails as soon as another fiber of the test\'s dies', async () => {
+  test('a hearNext waiting on its subscription fails as soon as another fiber of the test\'s dies', async () => {
     const outcome = await outcomeOf(rehearse(waiting(Channel.never), Effect.fnUntraced(function*(rehearsal) {
       yield* rehearsal.send(() => Opt.some('Go'))
       yield* Effect.forkChild(rehearsal.run((command) => command === 'Dies'))
@@ -958,7 +959,7 @@ describe('rehearse, while a fiber of the test\'s waits for what nothing will sen
     expect(whereDied(outcome)).toEqual(['command'])
   })
 
-  test.failing('a run waiting for its command fails as soon as another fiber of the test\'s dies', async () => {
+  test('a run waiting for its command fails as soon as another fiber of the test\'s dies', async () => {
     const outcome = await outcomeOf(rehearse(waiting(Channel.never), Effect.fnUntraced(function*(rehearsal) {
       yield* rehearsal.send(() => Opt.some('Go'))
       yield* Effect.forkChild(rehearsal.run((command) => command === 'Dies'))
@@ -969,7 +970,7 @@ describe('rehearse, while a fiber of the test\'s waits for what nothing will sen
 
   // Two calls wait when the subscription ends: one hears its last message, after which it sends nothing, so the
   // other fails, as a call made after the end does; waiting for a message that cannot come, it would never return.
-  test.failing('of two hearNext waiting as the subscription ends, one hears its end, the other fails', async () => {
+  test('of two hearNext waiting as the subscription ends, one hears its end, the other fails', async () => {
     const outcome = await outcomeOf(rehearse(waiting(Channel.end<Waited>('Last')), (rehearsal) =>
       Effect.all([Effect.exit(rehearsal.hearNext('k')), Effect.exit(rehearsal.hearNext('k'))], {
         concurrency: 'unbounded',
@@ -978,5 +979,64 @@ describe('rehearse, while a fiber of the test\'s waits for what nothing will sen
       false,
       true,
     ])
+  })
+})
+
+describe('rehearse, as the release of what died lets another fiber die', () => {
+  // Dies of `first`, then releases, which lets `second` die; uninterruptible, so that the end of the rehearsal, which
+  // `first` starts, lets it.
+  const diesThenReleases = (released: Deferred.Deferred<void>) =>
+    Effect.addFinalizer(() => Deferred.succeed(released, undefined)).pipe(
+      Effect.andThen(Effect.yieldNow),
+      Effect.andThen(Effect.die('first')),
+    )
+  const diesOnceReleased = (released: Deferred.Deferred<void>) =>
+    Effect.uninterruptible(Deferred.await(released).pipe(Effect.andThen(Effect.die('second'))))
+
+  type Still = Readonly<{ still: true }>
+  // `First` and the subscription under `first` die of `first`; `Second` and the one under `second`, of `second`.
+  const ordered = (
+    released: Deferred.Deferred<void>,
+  ): Program<{ state: Still; model: Still; message: 'Heard'; command: 'First' | 'Second'; services: Scope.Scope }> => ({
+    init: { state: { still: true }, commands: ['First', 'Second'] },
+    update: () => (state) => ({ state }),
+    runCommand: (command) => command === 'First' ? diesThenReleases(released) : diesOnceReleased(released),
+    subscriptions: () =>
+      HashMap.make(
+        ['first', Channel.fromEffectDone(diesThenReleases(released))],
+        ['second', Channel.fromEffectDone(diesOnceReleased(released))],
+      ),
+    makeModel: (state) => state,
+  })
+
+  const defectsOf = (exit: Exit.Exit<unknown, unknown>) =>
+    Exit.isFailure(exit)
+      ? exit.cause.reasons.flatMap((reason) =>
+        Cause.isDieReason(reason) && reason.defect instanceof ProgramDefect ? [reason.defect.cause] : []
+      )
+      : []
+
+  test('a command that dies before another, which its release lets die, fails it first', async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const released = yield* Deferred.make<void>()
+      return yield* rehearse(ordered(released), Effect.fnUntraced(function*(rehearsal) {
+        yield* Effect.forkChild(rehearsal.run((command) => command === 'Second'))
+        yield* Effect.sleep('10 millis')
+        yield* rehearsal.run((command) => command === 'First')
+      }))
+    }))
+    expect(defectsOf(exit)).toEqual(['first', 'second'])
+  })
+
+  test('a subscription that dies before another, which its release lets die, fails it first', async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const released = yield* Deferred.make<void>()
+      return yield* rehearse(ordered(released), Effect.fnUntraced(function*(rehearsal) {
+        yield* Effect.forkChild(rehearsal.hearNext('second'))
+        yield* Effect.sleep('10 millis')
+        yield* rehearsal.hearNext('first')
+      }), { from: { state: { still: true } } })
+    }))
+    expect(defectsOf(exit)).toEqual(['first', 'second'])
   })
 })
