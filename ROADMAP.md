@@ -8,6 +8,33 @@ when it is done or rejected, with the reason in the commit.
 
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
 
+Found by the second premise review of November 2026, each held by a `test.failing` case. The first four are of one
+form, the form of f415d46: a defect that nothing watches as a run ends is lost. They are meant to be fixed together,
+by one mechanism (each fiber records what it dies of in a place of the engine's or the tool's, which the end
+reports), as `AGENTS.md` asks of a finding's fix.
+
+- **A defect is lost while the run releases the renderer**: once `engine.await` is no longer raced, a command, a
+  subscription or the loop that dies while the renderer releases what it holds leaves no trace, whether the run was
+  interrupted or died elsewhere (`run.test.ts`, "the end of the run"). It was there before the first review.
+- **`drive` interrupted by whoever runs it loses a defect of what a subscription releases** (`drive.test.ts`): its
+  run is a child of its fiber, interrupted with it, and its exit is discarded.
+- **`rehearse` interrupted by whoever runs it loses a defect of what a subscription releases** (`rehearse.test.ts`):
+  the interruption skips `stopAll`, and closing `forks` discards the subscription's exit.
+- **`rehearse` loses a defect of a release in a fiber of the test's that nobody joins** (`rehearse.test.ts`): the
+  defect reaches only the fiber that applied the message. Whether the tool must report it is to be decided.
+
+The last three come from `rehearse` letting several fibers of the test, and interruptions, into one step, where the
+run has one loop. A single actor inside `rehearse`, a queue its fibers only offer to, as the run's dispatch does, would
+hold all three.
+
+- **`rehearse`'s `send` selects on a model older than the state it applies to** (`rehearse.test.ts`): it reads the
+  model outside the permit, and dies with "update rejected …, which the model of the same state shows", which is
+  false.
+- **A `send` interrupted while its message stops a subscription leaves the state unwritten** (`rehearse.test.ts`):
+  the subscription is stopped and its key is no longer active, but the state still lists it.
+- **Two `hearNext` calls at once on one key: the second never hears** (`rehearse.test.ts`): one flag, `owed`, stands
+  for every call waiting.
+
 ## Possible improvements
 
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is

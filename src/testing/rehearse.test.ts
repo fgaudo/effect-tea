@@ -575,3 +575,174 @@ describe('rehearse', () => {
     })
   })
 })
+
+// Found by the premise review of the testing tools (November 2026): each case says what should hold, and fails until
+// it does.
+describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
+  // Listens under `k` while `listening`, and tells `releasing` when its release starts, which then waits for `gate`.
+  // `Drop` stops it and counts one; `Set` counts to the next number only.
+  type Gated = Readonly<{ listening: boolean; count: number }>
+  type GatedMessage = Readonly<{ _tag: 'Tick' }> | Readonly<{ _tag: 'Drop' }> | Readonly<{ _tag: 'Set'; to: number }>
+  const gated = (
+    releasing: Deferred.Deferred<void>,
+    gate: Effect.Effect<void>,
+  ): Program<{ state: Gated; model: Gated; message: GatedMessage }> => ({
+    init: { state: { listening: true, count: 0 } },
+    update: (message) => (state) =>
+      message._tag === 'Tick'
+        ? { state }
+        : message._tag === 'Drop'
+        ? state.listening ? { state: { listening: false, count: state.count + 1 } } : reject
+        : message.to === state.count + 1
+        ? { state: { ...state, count: message.to } }
+        : reject,
+    subscriptions: ({ listening }) =>
+      listening
+        ? HashMap.make([
+          'k',
+          Channel.succeed<GatedMessage>({ _tag: 'Tick' }).pipe(
+            Channel.concatWith(() => Channel.never),
+            Channel.ensuring(Effect.andThen(Deferred.succeed(releasing, undefined), gate)),
+          ),
+        ])
+        : HashMap.empty(),
+    makeModel: (state) => state,
+  })
+
+  // `send` reads the model, then waits for the message before it: what it selected was drawn from a state that is
+  // gone by the time it applies, and the failure says it was the same state.
+  test.failing('send selects on the model of the state its message is applied to', async () => {
+    const count = await Effect.runPromise(Effect.gen(function*() {
+      const releasing = yield* Deferred.make<void>()
+      const gate = yield* Deferred.make<void>()
+      return yield* rehearse(gated(releasing, Deferred.await(gate)), Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.hearNext('k')
+        const dropping = yield* Effect.forkChild(rehearsal.send(() => Opt.some({ _tag: 'Drop' })))
+        yield* Deferred.await(releasing)
+        const setting = yield* Effect.forkChild(rehearsal.send(({ count }) => Opt.some({ _tag: 'Set', to: count + 1 })))
+        yield* Effect.sleep('10 millis')
+        yield* Deferred.succeed(gate, undefined)
+        yield* Fiber.join(dropping)
+        yield* Fiber.join(setting)
+        return (yield* rehearsal.state).count
+      }))
+    }))
+    expect(count).toBe(2)
+  })
+
+  // Interrupted while the subscriptions its message stopped release, a `send` leaves them stopped and the state
+  // unwritten: the state still lists `k`, and nothing listens under it.
+  test.failing('a send interrupted while its message stops a subscription leaves the state that stopped it', async () => {
+    const listening = await Effect.runPromise(Effect.gen(function*() {
+      const releasing = yield* Deferred.make<void>()
+      const gate = yield* Deferred.make<void>()
+      return yield* rehearse(gated(releasing, Deferred.await(gate)), Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.hearNext('k')
+        const dropping = yield* Effect.forkChild(rehearsal.send(() => Opt.some({ _tag: 'Drop' })))
+        yield* Deferred.await(releasing)
+        const interrupting = yield* Effect.forkChild(Fiber.interrupt(dropping))
+        yield* Effect.sleep('10 millis')
+        yield* Deferred.succeed(gate, undefined)
+        yield* Fiber.join(interrupting)
+        return (yield* rehearsal.state).listening
+      }))
+    }))
+    expect(listening).toBe(false)
+  })
+
+  // Pings twice, then waits forever.
+  type Pings = Readonly<{ pings: number }>
+  const pingingTwice: Program<{ state: Pings; model: Pings; message: 'Pinged' }> = {
+    init: { state: { pings: 0 } },
+    update: () => ({ pings }) => ({ state: { pings: pings + 1 } }),
+    subscriptions: () =>
+      HashMap.make([
+        'k',
+        Channel.succeed<'Pinged'>('Pinged').pipe(
+          Channel.concatWith(() => Channel.succeed<'Pinged'>('Pinged')),
+          Channel.concatWith(() => Channel.never),
+        ),
+      ]),
+    makeModel: (state) => state,
+  }
+
+  // The second call finds the first one's request (`owed`) and asks for nothing: once the first has its message, the
+  // second waits for one nobody asked for.
+  test.failing('two calls of hearNext at once on one key each hear a message of their own', async () => {
+    const heard = await Effect.runPromise(rehearse(pingingTwice, Effect.fnUntraced(function*(rehearsal) {
+      const both = yield* Effect.timeoutOption(
+        Effect.all([rehearsal.hearNext('k'), rehearsal.hearNext('k')], { concurrency: 'unbounded' }),
+        '200 millis',
+      )
+      return { both: Opt.isSome(both), pings: (yield* rehearsal.state).pings }
+    })))
+    expect(heard).toEqual({ both: true, pings: 2 })
+  })
+
+  // Ticks once, telling `started`, and dies as it releases what it holds; `Go` starts a command whose answer, `Done`,
+  // makes its key go away.
+  type Still = Readonly<{ listening: boolean }>
+  type StillMessage = 'Tick' | 'Go' | 'Done'
+  const dying = (
+    started: Deferred.Deferred<void>,
+  ): Program<{ state: Still; model: Still; message: StillMessage; command: 'Answer' }> => ({
+    init: { state: { listening: true } },
+    update: (message) => (state) =>
+      message === 'Go'
+        ? { state, commands: ['Answer'] }
+        : message === 'Done'
+        ? { state: { listening: false } }
+        : { state },
+    runCommand: () => Effect.succeedSome<StillMessage>('Done'),
+    subscriptions: ({ listening }) =>
+      listening
+        ? HashMap.make([
+          'ticks',
+          Channel.unwrap(Effect.as(Deferred.succeed(started, undefined), Channel.succeed<StillMessage>('Tick'))).pipe(
+            Channel.concatWith(() => Channel.never),
+            Channel.onExit(() => Effect.die('release')),
+          ),
+        ])
+        : HashMap.empty(),
+    makeModel: (state) => state,
+  })
+
+  const diesOfRelease = (exit: Exit.Exit<unknown>) =>
+    Exit.isFailure(exit)
+    && exit.cause.reasons.some((reason) =>
+      Cause.isDieReason(reason) && reason.defect instanceof ProgramDefect && reason.defect.where === 'subscription'
+      && reason.defect.cause === 'release'
+    )
+
+  // As the run interrupted by whoever runs it keeps such a defect in its cause ("a subscription that dies while an
+  // interrupted run releases it is in the cause", `run.test.ts`): here the interruption skips `stopAll`, and closing
+  // `forks` interrupts the subscription and discards its exit.
+  test.failing('interrupted by whoever runs it, it fails on a defect of what a subscription releases', async () => {
+    const exit = await Effect.runPromise(Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const fiber = yield* Effect.forkChild(
+        rehearse(dying(started), (rehearsal) => Effect.andThen(rehearsal.hearNext('ticks'), Effect.never)),
+      )
+      yield* Deferred.await(started)
+      yield* Effect.sleep('10 millis')
+      yield* Fiber.interrupt(fiber)
+      return yield* Fiber.await(fiber)
+    }))
+    expect(diesOfRelease(exit)).toBe(true)
+  })
+
+  // The defect of the release reaches only the fiber of the test's that applied the message: one the scenario does
+  // not join loses it, and the rehearsal succeeds where the run would die.
+  test.failing('a defect of what a subscription releases fails it, in a fiber of the test\'s that nobody joins', async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      return yield* rehearse(dying(started), Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.hearNext('ticks')
+        yield* rehearsal.send(() => Opt.some('Go'))
+        yield* Effect.forkChild(rehearsal.run(() => true))
+        yield* Effect.sleep('20 millis')
+      }))
+    }))
+    expect(diesOfRelease(exit)).toBe(true)
+  })
+})

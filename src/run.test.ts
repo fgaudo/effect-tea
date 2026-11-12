@@ -1086,6 +1086,65 @@ describe('the end of the run', () => {
     expect(wheres(exit)).toEqual(['command'])
   })
 
+  // A renderer whose release takes a while, once it is interrupted: the engine's fibers still run meanwhile.
+  const releasesSlowly = Effect.acquireRelease(Effect.void, () => Effect.sleep('60 millis')).pipe(
+    Effect.andThen(Effect.never),
+  )
+
+  // Dies of itself, while the renderer of a run that has ended releases what it holds.
+  const diesLater = Effect.sleep('40 millis').pipe(Effect.andThen(Effect.die('late')))
+
+  test.failing('a command that dies while an interrupted run releases the renderer ends the run with it', async () => {
+    const exit = await interrupted(run(
+      { ...counter, init: { state: { count: 0 }, commands: ['Ping'] }, runCommand: () => diesLater },
+      () => releasesSlowly,
+    ))
+    expect(wheres(exit)).toEqual(['command'])
+  })
+
+  test.failing('a subscription that dies while an interrupted run releases the renderer ends the run with it', async () => {
+    const exit = await interrupted(run(
+      { ...counter, subscriptions: () => HashMap.make(['k', Channel.fromEffectDone(diesLater)]) },
+      () => releasesSlowly,
+    ))
+    expect(wheres(exit)).toEqual(['subscription'])
+  })
+
+  test.failing('a message the renderer sends as an interrupted run releases it, on which update dies, ends the run', async () => {
+    const exit = await interrupted(run(
+      { ...counter, update: () => () => defect('update') },
+      (frames) =>
+        Stream.runHead(frames).pipe(
+          Effect.flatMap(Opt.match({
+            onNone: () => Effect.never,
+            onSome: ({ model, dispatch }) =>
+              Effect.acquireRelease(Effect.void, () =>
+                dispatch(model.increment).pipe(Effect.andThen(Effect.sleep('60 millis')))).pipe(
+                  Effect.andThen(Effect.never),
+                ),
+          })),
+        ),
+    ))
+    expect(wheres(exit)).toEqual(['update'])
+  })
+
+  test.failing('a command that dies while a run that died elsewhere releases the renderer is in the cause', async () => {
+    const exit = await Effect.runPromiseExit(run(
+      {
+        ...counter,
+        init: { state: { count: 0 }, commands: ['Ping'] },
+        update: () => () => defect('update'),
+        runCommand: () => diesLater,
+      },
+      (frames) =>
+        Effect.acquireRelease(Effect.void, () => Effect.sleep('60 millis')).pipe(
+          Effect.andThen(Stream.runForEach(frames, ({ model, dispatch }) => dispatch(model.increment))),
+          Effect.andThen(Effect.never),
+        ),
+    ))
+    expect(wheres(exit)).toEqual(['update', 'command'])
+  })
+
   // An interruption by the run is told from one the program makes by whether the fiber was interrupted when the
   // effect ended: an uninterruptible region delays it, and it is still the run's.
   test('a subscription stopped inside an uninterruptible region is no defect', async () => {
