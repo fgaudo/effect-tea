@@ -301,7 +301,14 @@ describe('compose', () => {
       onEvent: { Right: () => (state) => ({ state }) },
       makeModel: (state, children) => children.Right(state),
     })
-    expect(() => broken.makeModel(app.init.state)).toThrow()
+    const thrown = (() => {
+      try {
+        return broken.makeModel(app.init.state)
+      } catch (error) {
+        return error
+      }
+    })()
+    expect(thrown).toMatchObject({ _tag: 'CompositionDefect', child: 'Right' })
   })
 
   test('a child listens under its name, and only when subscribed', () => {
@@ -714,6 +721,31 @@ describe('what a parent can do with a child', () => {
     })
     expect(thrown(() => unheard.update({ _tag: 'Beeper', message: { _tag: 'Tick' } })(noTicks)))
       .toMatchObject({ _tag: 'CompositionDefect', child: 'Beeper', on: 'Beeped' })
+  })
+
+  // `child` takes any program, and a child written without `Program<…>` that has commands, read from its
+  // `init` and its `update`, and no `runCommand` compiles; its parent's `runCommand` gives the command to `absurd`
+  // (`runCommandOf`), which throws a plain `Error` that names no child.
+  test.failing('a child\'s command that nothing interprets is a CompositionDefect naming the child', () => {
+    const saving = {
+      init: { state: noTicks, commands: ['Save' as const] },
+      update: (_: Tick) => (state: Ticks) => ({ state }),
+      makeModel: ({ ticks }: Ticks) => ticks,
+    }
+    const { child, compose } = parent<{ state: Ticks }>()
+    const program = compose({
+      init: (children) => children.Saving.init,
+      children: { Saving: child(saving, { get: (state) => Opt.some(state), set: (_, child) => child }) },
+      makeModel: () => null,
+    })
+    const thrown = (() => {
+      try {
+        return program.runCommand({ _tag: 'Saving', command: 'Save' })
+      } catch (error) {
+        return error
+      }
+    })()
+    expect(thrown).toMatchObject({ _tag: 'CompositionDefect', child: 'Saving' })
   })
 
   test('an own subscription key that is the lifted key of a child\'s is a defect, never a silent replacement', () => {

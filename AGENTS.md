@@ -75,8 +75,8 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 ## Invariants the engine keeps
 
 The README's "Guarantees" says what a user may rely on, and the library's tests check each one
-(`src/interleaving.test.ts` under random orders of clicks, answers and subscription messages). This is how they
-are kept, and what a change must not undo:
+(`src/interleaving.test.ts` checks three of them under random orders of clicks, answers and subscription
+messages, as the README says). This is how they are kept, and what a change must not undo:
 
 - **`update` is pure and called freely.** Tests call it more than once per message (`dispatchViolations` sends
   each one twice): never assume it runs once per message.
@@ -172,7 +172,10 @@ after the list says. A change that rests on a new premise adds it here, with wha
   for each state, as a parent's lifted keys are, keeps its subscription: "a key equal by value keeps its
   subscription running, untouched" (`engine.test.ts`), "a child whose state changes, under the same key, keeps
   its subscription running" (`compose.test.ts`). `Equal` keeps its results and hashes by reference, so a key or an
-  id is never mutated, as states are not.
+  id is never mutated, as states are not. A `MutableHashMap` compares the key it is given with those already in
+  it, that key first, so that what `dispatchTo`'s `FinalizationRegistry` callback looks up, outside any run, finds
+  only pairs compared while the view made the dispatches: "lets go of collected dispatches without comparing ids
+  again" (`dispatch.test.ts`). Both are read only in the source.
 - **`HashMap` calls a key's `Equal` and `Hash` only within the call it is given the key in**, synchronously, and
   never later, so that `reconcile` compares keys all inside `'subscriptions'`: "a key whose Equal throws dies in
   subscriptions" (`run.test.ts`). `FiberMap` compares its keys in a fiber's observer as well, which is why the run
@@ -280,7 +283,8 @@ A lead no test can reach yet is listed here, with what would decide it. None tod
     a message, `defect`, `applyAll` and `dispatchViolations`. They lie in the test file of their module
     (`compose.test.ts`, `dispatch.test.ts`, `log.test.ts`, `defect.test.ts`, `src/testing/`).
   - **invariants under random histories**: fast-check draws orders of clicks, answers and subscription messages,
-    and each promise of the README's "Guarantees" is checked on every one (`interleaving.test.ts`).
+    and each promise of the README's "Guarantees" that the scenario reaches is checked on every one
+    (`interleaving.test.ts`).
   - **contracts**: one program and its inputs given alike to each testing tool and to the run
     (`src/testing/contract.test.ts`, where a `test.failing` says how they still differ), and one view to each
     bridge (the same tests, `messagesSentBy`'s included, in `examples/snabbdom.test.ts` and

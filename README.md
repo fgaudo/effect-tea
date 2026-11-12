@@ -705,8 +705,9 @@ What is left to you:
 - **`update`, `makeModel` and `subscriptions` are pure, and states are never mutated.** The library reuses a
   child's model, and its subscriptions, while its state is the same object.
 
-The library's tests check each guarantee. [`src/interleaving.test.ts`](src/interleaving.test.ts) checks
-them under random orders of clicks, command answers and subscription messages.
+The library's tests check each guarantee. [`src/interleaving.test.ts`](src/interleaving.test.ts) checks three
+of them under random orders of clicks, command answers and subscription messages: that outdated clicks raise no
+defect, that subscriptions follow their keys, and that nothing outlives what acquired it.
 
 ### Testing
 

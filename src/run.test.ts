@@ -197,6 +197,7 @@ describe('run', () => {
   test('what runs in a run logs nothing into the span of whoever runs it, which stays the parent of their spans', async () => {
     const commands = 500
     const parents: Array<string> = []
+    const listening: Array<string> = []
     const logging: Program<{ state: Count; model: number; message: 'Next'; command: 'Go' }> = {
       init: { state: { count: 0 }, commands: ['Go'] },
       update: () => (state) =>
@@ -212,7 +213,12 @@ describe('run', () => {
         HashMap.make([
           'logs',
           Channel.fromEffectDrain(
-            Effect.forever(Effect.logInfo('a subscription').pipe(Effect.andThen(Effect.sleep('1 millis')))),
+            Effect.forever(Effect.logInfo('a subscription').pipe(
+              Effect.andThen(Effect.orDie(Effect.currentSpan)),
+              Effect.map((span) => listening.push(span.parent._tag === 'Some' ? span.parent.value.spanId : '')),
+              Effect.withSpan('Listen'),
+              Effect.andThen(Effect.sleep('1 millis')),
+            )),
           ).pipe(
             Channel.concatWith(() => Channel.never),
           ),
@@ -243,6 +249,8 @@ describe('run', () => {
     // The last command may be cut short by the end of the run.
     expect(parents.length).toBeGreaterThanOrEqual(commands)
     expect(parents.every((parent) => parent === caller.spanId)).toBe(true)
+    expect(listening.length).toBeGreaterThan(0)
+    expect(listening.every((parent) => parent === caller.spanId)).toBe(true)
   })
 
   test('the run ends when the renderer ends', async () => {
@@ -615,22 +623,36 @@ describe('defects', () => {
 })
 
 describe('logs', () => {
-  /** How many times the run describes a message or a command, for an accepted message and a rejected one. */
+  /**
+   * How many times the run describes a message, and a command, for an accepted message that starts a command and a
+   * rejected one.
+   */
   const descriptionsAt = async (level: 'Info' | 'Debug') => {
-    let described = 0
-    const count = () => {
-      described += 1
-      return 'described'
-    }
+    const described = { messages: 0, commands: 0 }
     await Effect.runPromise(run(
-      counter,
+      {
+        ...counter,
+        update: (message) => (state) =>
+          message === 'Increment' && state.count === 0
+            ? { state: { count: 1 }, commands: ['Ping' as const] }
+            : update(message)(state),
+      },
       (frames) =>
         frames.pipe(
           Stream.tap(({ model, dispatch }) => dispatch(model.count === 0 ? model.increment : model.type(false))),
           Stream.take(2),
           Stream.runDrain,
         ),
-      { describeMessage: count, describeCommand: count },
+      {
+        describeMessage: () => {
+          described.messages += 1
+          return 'described'
+        },
+        describeCommand: () => {
+          described.commands += 1
+          return 'described'
+        },
+      },
     ).pipe(
       Effect.provideService(References.MinimumLogLevel, level),
       // Written nowhere: the level alone decides whether they are described.
@@ -640,8 +662,10 @@ describe('logs', () => {
   }
 
   test('messages and commands are described only while debug logs are enabled', async () => {
-    expect(await descriptionsAt('Info')).toBe(0)
-    expect(await descriptionsAt('Debug')).toBeGreaterThan(0)
+    expect(await descriptionsAt('Info')).toEqual({ messages: 0, commands: 0 })
+    const atDebug = await descriptionsAt('Debug')
+    expect(atDebug.messages).toBeGreaterThan(0)
+    expect(atDebug.commands).toBeGreaterThan(0)
   })
 })
 
@@ -967,6 +991,100 @@ describe('the end of the run', () => {
     const exit = await Effect.runPromiseExit(run(counter, (frames) =>
       Effect.acquireRelease(Effect.void, () => Effect.die('boom')).pipe(Effect.andThen(Stream.runHead(frames)))))
     expect(where(exit)).toBe('render')
+  })
+
+  // A renderer whose release dies, once it is interrupted.
+  const holdsWhatDies = Effect.acquireRelease(Effect.void, () => Effect.die('boom')).pipe(Effect.andThen(Effect.never))
+
+  /** Runs `running`, interrupts it once it has started, and returns how it ended. */
+  const interrupted = (running: Effect.Effect<void>) =>
+    Effect.runPromise(Effect.gen(function*() {
+      const fiber = yield* Effect.forkChild(running)
+      yield* Effect.sleep('20 millis')
+      yield* Fiber.interrupt(fiber)
+      return yield* Fiber.await(fiber)
+    }))
+
+  const wheres = (exit: Exit.Exit<unknown>) =>
+    Exit.isFailure(exit)
+      ? exit.cause.reasons.filter(Cause.isDieReason).map(({ defect }) =>
+        defect instanceof ProgramDefect ? defect.where : defect
+      )
+      : []
+
+  // The renderer is the loser of `Effect.raceFirst` in `runWith` (`run.ts`), which interrupts it and keeps
+  // nothing of its exit; the subscriptions and the commands keep theirs, by the end of the run's own finalizer.
+  test.failing('a renderer that dies while an interrupted run releases it is in the cause', async () => {
+    expect(wheres(await interrupted(run(counter, () => holdsWhatDies)))).toEqual(['render'])
+  })
+
+  test.failing('a renderer that dies as a run that died elsewhere releases it is in the cause', async () => {
+    const exit = await Effect.runPromiseExit(run(
+      { ...counter, update: () => () => defect('update') },
+      (frames) =>
+        Effect.acquireRelease(Effect.void, () => Effect.die('boom')).pipe(
+          Effect.andThen(Stream.runForEach(frames, ({ model, dispatch }) => dispatch(model.increment))),
+          Effect.andThen(Effect.never),
+        ),
+    ))
+    expect(wheres(exit)).toEqual(['update', 'render'])
+  })
+
+  // A fiber that dies as the renderer releases what it holds, a step later than the release.
+  const diesAfterTheRenderer = (renderEnded: Deferred.Deferred<void>) =>
+    Deferred.await(renderEnded).pipe(Effect.andThen(Effect.yieldNow), Effect.andThen(Effect.die('late')))
+
+  const endsAndTells = (renderEnded: Deferred.Deferred<void>) => () =>
+    Effect.addFinalizer(() => Deferred.succeed(renderEnded, undefined)).pipe(Effect.andThen(Effect.sleep('5 millis')))
+
+  // The end of the run interrupts the fibers still in its `FiberSet` and `FiberMap` when its finalizer runs.
+  // One that dies after the renderer has ended and before then has left them already: its defect fails their `join`,
+  // which nobody awaits any more (`engine.await` lost the race to the renderer), and the run succeeds.
+  test.failing('a command that dies once the renderer has ended ends the run with it', async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const renderEnded = yield* Deferred.make<void>()
+      yield* run(
+        {
+          ...counter,
+          init: { state: { count: 0 }, commands: ['Ping'] },
+          runCommand: () => diesAfterTheRenderer(renderEnded),
+        },
+        endsAndTells(renderEnded),
+      )
+    }))
+    expect(wheres(exit)).toEqual(['command'])
+  })
+
+  test.failing('a subscription that dies once the renderer has ended ends the run with it', async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const renderEnded = yield* Deferred.make<void>()
+      yield* run(
+        {
+          ...counter,
+          subscriptions: () => HashMap.make(['k', Channel.fromEffectDone(diesAfterTheRenderer(renderEnded))]),
+        },
+        endsAndTells(renderEnded),
+      )
+    }))
+    expect(wheres(exit)).toEqual(['subscription'])
+  })
+
+  // The window above opens only when the renderer ends of itself: interrupted by whoever runs it, the run's end
+  // interrupts the renderer and the engine's fibers in one close, and awaits a fiber that dies while it cannot be
+  // interrupted.
+  test('a command that dies once the renderer of an interrupted run has ended ends the run with it', async () => {
+    const exit = await interrupted(Effect.gen(function*() {
+      const renderEnded = yield* Deferred.make<void>()
+      yield* run(
+        {
+          ...counter,
+          init: { state: { count: 0 }, commands: ['Ping'] },
+          runCommand: () => Effect.uninterruptible(diesAfterTheRenderer(renderEnded)),
+        },
+        () => Effect.addFinalizer(() => Deferred.succeed(renderEnded, undefined)).pipe(Effect.andThen(Effect.never)),
+      )
+    }))
+    expect(wheres(exit)).toEqual(['command'])
   })
 
   // An interruption by the run is told from one the program makes by whether the fiber was interrupted when the

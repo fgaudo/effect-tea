@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import * as Effect from 'effect/Effect'
+import * as Equal from 'effect/Equal'
+import * as Hash from 'effect/Hash'
 import { type Dispatch, dispatchTo, entriesOf } from './dispatch.ts'
 
 type Row = Readonly<{ _tag: 'Row'; id: number | readonly [string, number]; message: 'Inc' }>
@@ -91,6 +93,36 @@ describe('dispatchTo', () => {
     await collect()
     expect(dispatchTo(dispatch, 'Row', 1)).toBe(row)
     expect(entriesOf(dispatch, 'Row')).toBe(1)
+  })
+
+  // The collector's callback runs in a host job, outside any run, where an id's `Equal` that throws would be no
+  // defect of a run. It compares only pairs already compared while the dispatches were made, in either order of
+  // collection: `Equal` keeps its results by reference.
+  test('lets go of collected dispatches without comparing ids again', async () => {
+    const compared: Array<string> = []
+    let collecting = false
+    class Colliding implements Equal.Equal {
+      constructor(readonly name: string) {}
+      [Equal.symbol](that: Equal.Equal): boolean {
+        if (collecting) compared.push(`${this.name}=${(that as Colliding).name}`)
+        return this === that
+      }
+      [Hash.symbol](): number {
+        return 0
+      }
+    }
+    const sent: Array<unknown> = []
+    const dispatch: Dispatch<Readonly<{ _tag: 'Row'; id: Colliding; message: 'Inc' }>> = (message) =>
+      Effect.sync(() => sent.push(message))
+    const drawAll = () => {
+      for (const name of ['a', 'b', 'c', 'd']) dispatchTo(dispatch, 'Row', new Colliding(name))
+    }
+    drawAll()
+    expect(entriesOf(dispatch, 'Row')).toBe(4)
+    collecting = true
+    for (let collection = 0; collection < 10 && entriesOf(dispatch, 'Row') > 0; collection++) await collect()
+    expect(entriesOf(dispatch, 'Row')).toBe(0)
+    expect(compared).toEqual([])
   })
 
   test('tells ids apart by value, as subscription keys are', () => {
