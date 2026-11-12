@@ -12,12 +12,6 @@ when it is done or rejected, with the reason in the commit.
 
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is
   drawn" from regressing. `bun run bench` (`bench/subscriptions.ts`) measures a parent's subscriptions only.
-- **A scenario of `interleaving.test.ts` that reaches every guarantee**: it reaches rejected clicks, subscriptions
-  that end, releases that wait or die, commands that die, a slow `onApplied` and a renderer that releases slowly,
-  but none of its commands or of its renderer acquires anything, nothing in it interrupts itself, its options and
-  its renderer never die, and it neither logs nor counts the models made, so "Nothing outlives what acquired it"
-  for commands and the renderer, the self-interruption of "Nothing ends in silence", "Logs do not pile up in a
-  span" and "Frames cost only what is drawn" are checked only by the run's own tests.
 
 ## Ideas, to be decided
 

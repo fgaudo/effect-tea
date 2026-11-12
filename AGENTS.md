@@ -75,9 +75,9 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 ## Invariants the engine keeps
 
 The README's "Guarantees" says what a user may rely on, and the library's tests check each one
-(`src/interleaving.test.ts` checks four of them, and what the run does from the first defect on, under random
-orders of clicks, answers, subscription messages and ends, releases and defects, as the README says). This is how
-they are kept, and what a change must not undo:
+(`src/interleaving.test.ts` checks all six, and what the run does from the first defect on, under random orders of
+clicks, answers, subscription messages and ends, releases, defects and self-interruptions, as the README says). This
+is how they are kept, and what a change must not undo:
 
 - **`update` is pure and called freely.** Tests call it more than once per message (`dispatchViolations` sends
   each one twice): never assume it runs once per message.
@@ -369,8 +369,8 @@ A lead no test can reach yet is listed here, with what would decide it. None is,
     a message, `defect`, `applyAll` and `dispatchViolations`. They lie in the test file of their module
     (`compose.test.ts`, `dispatch.test.ts`, `log.test.ts`, `defect.test.ts`, `src/testing/`).
   - **invariants under random histories**: fast-check draws orders of clicks, answers, subscription messages and
-    ends, releases and defects, and each promise of the README's "Guarantees" that the scenario reaches is checked
-    on every one (`interleaving.test.ts`).
+    ends, releases, defects and self-interruptions, and each promise of the README's "Guarantees" that the scenario
+    reaches is checked on every one (`interleaving.test.ts`).
   - **contracts**: one program and its inputs given alike to each testing tool and to the run
     (`src/testing/contract.test.ts`, where a `test.failing` says how they still differ), and one view to each
     bridge (the same tests, `messagesSentBy`'s included, in `examples/snabbdom.test.ts` and

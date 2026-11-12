@@ -709,12 +709,14 @@ What is left to you:
 - **`update`, `makeModel` and `subscriptions` are pure, and states are never mutated.** The library reuses a
   child's model, and its subscriptions, while its state is the same object.
 
-The library's tests check each guarantee. [`src/interleaving.test.ts`](src/interleaving.test.ts) checks four
-of them under random orders of clicks, command answers, subscription messages and ends, releases and defects:
-that outdated clicks leave the state as it was, that subscriptions follow their keys, that what a subscription
-acquires does not outlive it and the next message waits for the slowest release, and that nothing ends in silence.
-It checks too that the run dies with each defect in the order it happened, and from the first one on applies no
-message and starts no command (see [running](#running)).
+The library's tests check each guarantee. [`src/interleaving.test.ts`](src/interleaving.test.ts) checks all six
+under random orders of clicks, command answers, subscription messages and ends, releases, defects and
+self-interruptions: that outdated clicks leave the state as it was, that subscriptions follow their keys, that what
+a subscription, a command or the renderer acquires does not outlive it and the next message waits for the slowest
+release, that what the run logs is not kept by the span of whoever runs it, which stays the parent of the spans
+opened in it, that nothing ends in silence, and that a model is made only for the frames read and the very same
+state draws no new frame. It checks too that the run dies with each defect in the order it happened, and from the
+first one on applies no message and starts no command (see [running](#running)).
 
 ### Testing
 
