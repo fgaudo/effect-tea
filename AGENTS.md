@@ -127,7 +127,9 @@ are kept, and what a change must not undo:
   release rather than for their sum, and a key that comes back finds its old subscription released. A parent
   lifts its children's keys under their names, and dies on an own key equal to a lifted one.
   Each start has a generation that its messages carry, and a message whose key is gone, or came back with a new
-  start, is dropped before `update`, however the fibers were scheduled.
+  start, is dropped before `update`, however the fibers were scheduled. Keys are the program's, and so are their
+  `Equal` and `Hash`: the run compares them only in `'subscriptions'` (`reconcile` in `engine.ts`), and keeps its
+  fibers, and tells a message that still applies, by their start, which compares no keys.
 - **Commands are data; only `runCommand` runs them.** Never let a command carry its effect, or a description
   that must be kept in step with one: a test, `onApplied` and the logs read the command itself.
 - **Commands cannot be cancelled**, a deliberate choice: do not add cancellation without asking.
@@ -166,11 +168,15 @@ without it. A premise read only in Effect's source, and not in its documentation
 the test is what keeps it, run against the oldest Effect of the peer range by the CI. A change that rests on a
 new premise adds it here, with its test.
 
-- **`FiberMap` and `HashMap` compare keys with `Equal`, structurally for arrays and records**, so a key made anew
+- **`HashMap` compares keys with `Equal`, structurally for arrays and records**, so a key made anew
   for each state, as a parent's lifted keys are, keeps its subscription: "a key equal by value keeps its
   subscription running, untouched" (`engine.test.ts`), "a child whose state changes, under the same key, keeps
   its subscription running" (`compose.test.ts`). `Equal` keeps its results and hashes by reference, so a key or an
   id is never mutated, as states are not.
+- **`HashMap` calls a key's `Equal` and `Hash` only within the call it is given the key in**, synchronously, and
+  never later, so that `reconcile` compares keys all inside `'subscriptions'`: "a key whose Equal throws dies in
+  subscriptions" (`run.test.ts`). `FiberMap` compares its keys in a fiber's observer as well, which is why the run
+  keeps its fibers by their start, never by their key. Both are read only in the source.
 - **`FiberMap.remove` waits for the interrupted fiber to end**, its release included, which is what makes the
   gone keys released before any key starts: "a key that changes stops the old subscription and starts the new
   one", "keys that go away together release their subscriptions together, not one after the other"

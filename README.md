@@ -636,8 +636,8 @@ A defect anywhere ends the run, which dies with a `ProgramDefect`:
 
 - its `cause` is the defect itself, an `InvariantDefect` for one thrown with `defect`;
 - `where` says where it happened, which only the run knows: `'init'`, for a program that starts from flags;
-  `'update'` (`onEvent` included), with the message it was given as `on`, by its tags; `'subscriptions'`;
-  `'subscription'`, with its `key`; `'command'`; `'render'` (the view and `makeModel` included); one of the
+  `'update'` (`onEvent` included), with the message it was given as `on`, by its tags; `'subscriptions'` (the
+  `Equal` and `Hash` of its keys included); `'subscription'`, with its `key`; `'command'`; `'render'` (the view and `makeModel` included); one of the
   options, by name; or `'log'`, for one of the run's own debug logs (a `Logger` that throws). What the program
   logs itself is in the place it logs from.
 

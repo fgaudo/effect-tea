@@ -4,8 +4,10 @@ import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
+import * as Equal from 'effect/Equal'
 import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
+import * as Hash from 'effect/Hash'
 import * as HashMap from 'effect/HashMap'
 import * as Logger from 'effect/Logger'
 import * as Opt from 'effect/Option'
@@ -495,6 +497,27 @@ describe('defects', () => {
     ))
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
     expect(defect instanceof ProgramDefect && defect.key).toBe('k')
+  })
+
+  // Equal throws when the run compares a key with the next state's; Hash, which Effect caches by object, when the
+  // key is first hashed.
+  test.each(['Equal', 'Hash'])('a key whose %s throws dies in subscriptions', async (throwing) => {
+    class Key implements Equal.Equal {
+      [Equal.symbol](): boolean {
+        return boom()
+      }
+      [Hash.symbol](): number {
+        return throwing === 'Hash' ? boom() : 0
+      }
+    }
+    const exit = await Effect.runPromiseExit(run(
+      { ...counter, subscriptions: () => HashMap.make([new Key(), Channel.never]) },
+      sendsIncrement,
+    ))
+    const defects = Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isDieReason).map(({ defect }) => defect) : []
+    expect(defects.map((defect) => defect instanceof ProgramDefect ? [defect.where, defect.cause] : defect)).toEqual([
+      ['subscriptions', new Boom()],
+    ])
   })
 
   test('every defect of the cause is kept, each with where it happened', async () => {

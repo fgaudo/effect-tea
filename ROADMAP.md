@@ -10,9 +10,7 @@ when it is done or rejected, with the reason in the commit.
   the whole program, and nothing shows how to hand the work off (a queue of its own, a forked fiber).
 - **Premises that no test reaches yet**, found in a review of the engine's premises (November 2026):
   - that a dispatch wakes the loop on the scheduler of the run, read only in Effect's source (a `Queue` keeps the
-    scheduler of the fiber that made it);
-  - that a key's `Equal` and `Hash` never throw: `reconcile` compares keys outside `diesIn`, so their defect
-    would be no `ProgramDefect` (a lead, not yet reproduced).
+    scheduler of the fiber that made it).
   `hear` accepts a key whose subscription the run would have seen end, since an ended subscription keeps its key:
   no tool can know it.
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.

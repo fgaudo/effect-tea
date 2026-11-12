@@ -149,11 +149,16 @@ export const rehearse = Effect.fnUntraced(function*<
   const model = Effect.map(Ref.get(current), ({ state }) => program.makeModel(state))
   const listeningUnder = (key: unknown): Effect.Effect<Subscription<Message, R>> =>
     Effect.flatMap(Ref.get(current), ({ state }) =>
-      Opt.match(HashMap.get(subscriptions(state), key), {
-        onNone: () =>
-          Effect.die(new Error(`Nothing listens under ${Inspectable.toStringUnknown(key, 0)} in the current state`)),
-        onSome: Effect.succeed,
-      }))
+      // The program's keys are compared with the test's, by their `Equal`: a defect of theirs is in `subscriptions`,
+      // as in the run.
+      Effect.sync(() => HashMap.get(subscriptions(state), key)).pipe(
+        diesIn('subscriptions'),
+        Effect.flatMap(Opt.match({
+          onNone: () =>
+            Effect.die(new Error(`Nothing listens under ${Inspectable.toStringUnknown(key, 0)} in the current state`)),
+          onSome: Effect.succeed,
+        })),
+      ))
   // The first message ends the run through the failure channel; a subscription that ends first succeeds with its
   // last message: either way, the message the subscription says first.
   // The subscription runs in a fiber of its own, interrupted once its first message is in, as the run stops one

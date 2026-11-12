@@ -69,6 +69,9 @@ version, and everything else, features included, the patch version.
   `onIgnored` or the renderer throwing before returning its effect, and a subscription the run stopped dying
   while it released what it held. They now die in `'onApplied'`, `'onIgnored'`, `'render'` and `'subscription'`,
   the last with its `key`.
+- A subscription key whose `Equal` or `Hash` throws ended the run with the error itself, when the run compared it
+  with the keys of another state, or with the key of a message: it now dies in `'subscriptions'`, as `rehearse`'s
+  `hear` and `hearNext` do when they look the test's key up. "Running" in the README says so.
 - A command, a subscription, the renderer or an option that failed without a defect, which their types rule out
   (an empty cause, a failure a cast let through), ended the run with that failure. It is now a defect, where it
   happened, as one that interrupts itself is.

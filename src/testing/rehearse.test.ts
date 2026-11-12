@@ -3,9 +3,12 @@ import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
+import * as Equal from 'effect/Equal'
 import * as Exit from 'effect/Exit'
+import * as Hash from 'effect/Hash'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
+import { ProgramDefect } from '../defect.ts'
 import type { Program } from '../program.ts'
 import { reject, type Update } from '../update.ts'
 import { rehearse } from './rehearse.ts'
@@ -263,6 +266,22 @@ describe('rehearse', () => {
         }),
       ))
       expect(String(failure)).toContain('Nothing listens under ping in the current state')
+    })
+
+    test('dies in subscriptions when a key\'s Equal throws, as the run does', async () => {
+      class Key implements Equal.Equal {
+        [Equal.symbol](): boolean {
+          throw new Error('boom')
+        }
+        [Hash.symbol](): number {
+          return 0
+        }
+      }
+      const failure = await failureOf(rehearse(
+        { ...program, subscriptions: () => HashMap.make([new Key(), Channel.never]) },
+        (rehearsal) => rehearsal.hearNext(new Key()),
+      ))
+      expect(failure instanceof ProgramDefect && failure.where).toBe('subscriptions')
     })
   })
 
