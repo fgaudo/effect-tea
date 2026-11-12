@@ -1,6 +1,6 @@
 ---
 name: premise-review
-description: How a review of the premises of @fgaudo/effect-tea is done: a reviewer that did not write the change reads the invariants of AGENTS.md, what they rest on and the README's "Guarantees" against the code, and reproduces what it finds with a failing test; then what becomes of its findings, its leads and what it ruled out. Use after a change of the engine or of a testing tool that touches an invariant or what it rests on, before 1.0, or when the author asks whether an invariant still holds.
+description: How a review of the premises of @fgaudo/effect-tea is done: a reviewer that wrote none of the changes reads the invariants of AGENTS.md, what they rest on and the README's "Guarantees" against the code, and reproduces what it finds with a failing test; then what becomes of its findings, its leads and what it ruled out, and how a finding is fixed by its form. Use before a release, over the changes of the engine and of the testing tools since the last review, before 1.0, or when the author asks whether an invariant still holds.
 ---
 
 # A review of the premises
@@ -16,10 +16,12 @@ the documentation of a stable API, or a test for what is not documented.
 
 ## Before it starts
 
-1. Choose what the review reads: the invariants, premises and guarantees a change touches, by the modules it
-   changed and the names those cite (`reconcile`, `diesIn`, `dispatchTo`, `modelsOf`), or all of them before 1.0.
-   The author may name others.
-2. The reviewer did not write the change. Start it as a session in a worktree of its own, so that its failing tests
+1. Choose what the review reads: the invariants, premises and guarantees that the changes since the last review touch
+   (`git log <the last review's commit>..main`: the last review is the commit that brought its findings to `main`), by
+   the modules they changed and the names those cite (`reconcile`, `diesIn`, `dispatchTo`, `modelsOf`), or all of
+   them before 1.0. The author may name others. A review is not run after each change: changes are not held up for
+   it, and it reads them together.
+2. The reviewer wrote none of the changes. Start it as a session in a worktree of its own, so that its failing tests
    stay off `main` until they are read, or as a subagent where the author asks for one. Commit what the review must
    see first: a worktree is cut from the last commit. Two reviewers at once read apart: the engine (`engine.ts`,
    `run.ts`, `compose.ts`, `dispatch.ts`, `log.ts`) and the testing tools (`src/testing/`).
@@ -97,6 +99,13 @@ Your last message says the branch, the commit and the findings in a few lines.
   proves nothing. Run each again on the last commit of `main` where the branch was cut before it.
 - A finding is an open problem of `ROADMAP.md` until it is fixed, and its test may come to `main` with its
   `test.failing` mark, as those of the November review did. Its fix removes the mark and the item, in one commit.
+- A finding is fixed by its form, as `AGENTS.md` says after the rule of a review. Before the fix, write the form in a
+  line (a cleanup skipped, or an exit discarded, as a scope closes; a step applied by two actors at once; a window
+  between two fibers that nobody watches), and list each place of the engine and of the testing tools that ends a
+  run, applies a message or releases what a fiber holds: `runWith`, the engine's finalizer, `drive`, `simulate`,
+  `rehearse`, and any added since. Each place the form can reach gets a test, failing where the form is and passing
+  where it is not; the fix's commit names the form and the places it checked. Findings of one form are fixed
+  together, by one mechanism where one can hold them all, rather than one place at a time.
 - A suspect ruled out that rests on Effect or on the JavaScript engine is a premise, added to "What the invariants
   rest on" with what ruled it out: the declaration that documents it, or the test, which comes to `main`.
 - A lead, and a suspect left unchecked, are no findings yet. Write the test that would reproduce each, here or in a

@@ -259,9 +259,16 @@ bridge's renderer, checks every premise on it again, the documented ones include
 
 A review of the premises reports a finding only once it is reproduced by a test that fails, or ruled out by the check
 the rule above asks of the premise: a reading of the code alone, or of a dependency's source, gives a lead, and the
-review turns it into a test or drops it. A review is due after a change of the engine or of a testing tool that
-touches an invariant or what it rests on, whether it adds a premise or takes one away, and before 1.0, in a session
-that did not write the change: it follows [`premise-review`](.agents/skills/premise-review/SKILL.md).
+review turns it into a test or drops it. A review is due before a release, and before 1.0, over the changes of the
+engine and of the testing tools since the last review, in a session that wrote none of them: it follows
+[`premise-review`](.agents/skills/premise-review/SKILL.md). A change is not held up for it: between two reviews, what
+keeps a known bug from coming back is the rule of fixes that follows, and the tests it leaves.
+
+A finding is fixed by its form, not only by the sequence that found it. The fix names the form (a cleanup skipped, or
+an exit discarded, as a scope closes; a step applied by two actors at once; a window between two fibers that nobody
+watches), looks for it in every place of the engine and of the testing tools that ends a run, applies a message or
+releases what a fiber holds, and leaves a test at each place the form can reach. The second review of November 2026
+met the form of f415d46 again in four places that the fixes of the first had not looked at.
 
 ### Premises that no test reaches yet
 
