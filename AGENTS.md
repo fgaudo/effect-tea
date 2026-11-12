@@ -227,7 +227,9 @@ after the list says. A change that rests on a new premise adds it here, with wha
 - **A fiber forked with `Effect.forkIn` is interrupted when its scope closes, and not when the fiber that forked it
   ends**, which is how `rehearse` keeps a subscription that `hearNext` started for as long as its key stays: "a
   subscription first heard in a fiber that has ended since keeps running while its key stays", "a subscription it
-  started is released when whoever runs the rehearsal interrupts it" (`rehearse.test.ts`). Documented.
+  started is released when whoever runs the rehearsal interrupts it" (`rehearse.test.ts`). That it is interrupted
+  when its scope closes is documented (`Effect.forkIn`); that it is not when the fiber that forked it ends is not,
+  and the first of those tests fails without it.
 - **`Effect.onInterrupt` runs its finalizer when the effect is interrupted**, which is how `rehearse` fails on a
   command whose `run` was interrupted before it answered: "when a run interrupted while its command runs leaves the
   command unanswered" (`rehearse.test.ts`). Documented.
