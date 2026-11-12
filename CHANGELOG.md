@@ -16,6 +16,11 @@ version, and everything else, features included, the patch version.
 
 ### Changed
 
+- `simulate` and `rehearse` read a program's `subscriptions` on each new state, as the run does, and fail where
+  the run dies of them: a parent's `subscribed` that lists an id twice, an own key equal to a lifted one, a
+  `subscriptions` that throws. `simulate` accepts a program's `subscriptions` for this. A command, or a
+  subscription that `hearNext` runs, that interrupts itself, or fails though its type rules it out, fails the test
+  with a `ProgramDefect` in `'command'` or `'subscription'`, as the run dies, where it interrupted the test.
 - **Breaking**: `DefectSite` gains `'init'`. An `init` that throws on its flags ended the run with the error
   itself: the run now dies with a `ProgramDefect` in `'init'`. A `switch` over `where` that must be exhaustive
   needs a `case 'init'`.

@@ -7,6 +7,7 @@ import * as Inspectable from 'effect/Inspectable'
 import * as Opt from 'effect/Option'
 import * as Ref from 'effect/Ref'
 import type * as Scope from 'effect/Scope'
+import { diesIn } from '../engine.ts'
 import { describeByTag } from '../log.ts'
 import { runCommandOf, type Shape, startOf, subscriptionsOf } from '../program.ts'
 import type { Subscription } from '../subscription.ts'
@@ -83,7 +84,9 @@ type Current<State, Message, Command, Event> = Readonly<{
  * to the state that model shows, and a rejection is a control that does nothing: it fails the test, as an error
  * `update` throws does, being a defect of the program. A command's or a subscription's message may no longer
  * apply when it arrives: as when the program runs, it is ignored, and listed in `ignored`. A command still pending
- * when `scenario` ends fails the test: its answer would still arrive.
+ * when `scenario` ends fails the test: its answer would still arrive. Subscriptions are read on each new state, as
+ * the run reads them, so a state whose subscriptions are a defect fails the test, as it ends the run; a command or
+ * a subscription that interrupts itself is a defect too, as in the run.
  */
 export const rehearse = Effect.fnUntraced(function*<
   State,
@@ -106,6 +109,11 @@ export const rehearse = Effect.fnUntraced(function*<
   const from = given ?? startOf(program.init, flags)
   type Now = Current<State, Message, Command, Event>
   const runCommand = runCommandOf(program)
+  const subscriptions = subscriptionsOf(program)
+  // Read on each new state, as the run reconciles them, though only `hear` and `hearNext` act on them: a state
+  // whose subscriptions are a defect ends the run.
+  const listen = (state: State) => Effect.sync(() => void subscriptions(state)).pipe(diesIn('subscriptions'))
+  yield* listen(from.state)
   const current = yield* Ref.make<Now>({
     state: from.state,
     commands: from.commands ?? [],
@@ -116,7 +124,10 @@ export const rehearse = Effect.fnUntraced(function*<
     Effect.flatMap(Ref.get(current), (now) => {
       const result = program.update(message)(now.state)
       if (isRejected(result)) return Effect.flatMap(onRejected(now), (next) => Ref.set(current, next))
-      return Ref.set(current, { ...now, ...appendStep(now, result) })
+      return Effect.andThen(
+        result.state === now.state ? Effect.void : listen(result.state),
+        Ref.set(current, { ...now, ...appendStep(now, result) }),
+      )
     })
   // From the world: it may arrive when it no longer applies.
   const arrive = (message: Message) =>
@@ -134,17 +145,21 @@ export const rehearse = Effect.fnUntraced(function*<
   const model = Effect.map(Ref.get(current), ({ state }) => program.makeModel(state))
   const listeningUnder = (key: unknown): Effect.Effect<Subscription<Message, R>> =>
     Effect.flatMap(Ref.get(current), ({ state }) =>
-      Opt.match(HashMap.get(subscriptionsOf(program)(state), key), {
+      Opt.match(HashMap.get(subscriptions(state), key), {
         onNone: () =>
           Effect.die(new Error(`Nothing listens under ${Inspectable.toStringUnknown(key, 0)} in the current state`)),
         onSome: Effect.succeed,
       }))
   // The first message ends the run through the failure channel; a subscription that ends first succeeds with its
   // last message: either way, the message the subscription says first.
-  const firstOf = (subscription: Subscription<Message, R>): Effect.Effect<Message, never, Exclude<R, Scope.Scope>> =>
+  const firstOf = (
+    key: unknown,
+    subscription: Subscription<Message, R>,
+  ): Effect.Effect<Message, never, Exclude<R, Scope.Scope>> =>
     Channel.runForEach(subscription, (message: Message) => Effect.fail(message)).pipe(
       Effect.match({ onFailure: identity, onSuccess: identity }),
       Effect.scoped,
+      diesIn('subscription', () => ({ key })),
     )
   const run = Effect.fnUntraced(function*(select: (command: Command) => boolean) {
     const { commands: pending } = yield* Ref.get(current)
@@ -154,7 +169,7 @@ export const rehearse = Effect.fnUntraced(function*<
       return yield* Effect.die(new Error(`No pending command matches (pending: ${describeAll(pending)})`))
     }
     yield* Ref.update(current, (now): Now => ({ ...now, commands: Arr.remove(now.commands, index) }))
-    const message = yield* Effect.scoped(runCommand(command))
+    const message = yield* Effect.suspend(() => runCommand(command)).pipe(Effect.scoped, diesIn('command'))
     if (Opt.isSome(message)) yield* arrive(message.value)
     return command
   })
@@ -177,7 +192,7 @@ export const rehearse = Effect.fnUntraced(function*<
     hear: (key, message) =>
       Effect.flatMap(listeningUnder(key), () => arrive(message)),
     hearNext: (key) =>
-      Effect.flatMap(listeningUnder(key), (subscription) => Effect.tap(firstOf(subscription), arrive)),
+      Effect.flatMap(listeningUnder(key), (subscription) => Effect.tap(firstOf(key, subscription), arrive)),
     events: Effect.map(Ref.get(current), (now) => now.events),
     ignored: Effect.map(Ref.get(current), (now) => now.ignored),
   }

@@ -15,16 +15,6 @@ when it is done or rejected, with the reason in the commit.
   and its "as if each command completed at once" is not what the run does. `simulate` could keep its pending
   commands in order, as `rehearse` does (a change its users notice), or say what it does instead.
   `src/testing/contract.test.ts`: "simulate hears the answers of commands started together as the run does".
-- **`rehearse` and `simulate` never read `subscriptions`.** The run reads it after every change of state, and dies
-  when it throws, as a parent's does on an id that `subscribed` lists twice, or an own key equal to a lifted one.
-  A scenario through such a state passes in both tools. They could read it after each change of state, which a
-  parent's cache of lifted subscriptions keeps cheap. `src/testing/contract.test.ts`: "rehearse fails, as the run
-  dies, on a state whose subscriptions are a defect", and its twin for `simulate`.
-- **A command that interrupts itself is a defect in the run, an interruption of the test in `rehearse` and
-  `simulate`**, which run it as it is, not through `diesIn`. The test fails either way, but with no defect that
-  says where; a command that fails without a defect, which its type rules out, is the same.
-  `src/testing/contract.test.ts`: "simulate fails with a defect, as the run dies, on a command interrupting
-  itself", and its twin for `rehearse`.
 - **Premises that no test reaches yet**, found in a review of the engine's premises (November 2026):
   - that a dispatch wakes the loop on the scheduler of the run, read only in Effect's source (a `Queue` keeps the
     scheduler of the fiber that made it);

@@ -208,7 +208,7 @@ describe('the order of the answers of commands started together', () => {
   })
 })
 
-describe('what the run dies of, and the tools do not see', () => {
+describe('what the run dies of, and the tools fail on', () => {
   // A row by id, listening under `ticks`; `Doubled` makes the parent's `subscribed` list its id twice, which the
   // run's reconciliation of the parent's subscriptions finds in the state `Doubled` leaves.
   type Row = Readonly<{ seen: number }>
@@ -246,20 +246,24 @@ describe('what the run dies of, and the tools do not see', () => {
     expect(isCompositionDefect(exit)).toBe(true)
   })
 
-  // FAILING: `rehearse` reads `subscriptions` only when the test hears a key, and `simulate` never: a scenario
-  // through such a state passes, where the run, deterministic there, dies.
-  test.failing('FAILING: rehearse fails, as the run dies, on a state whose subscriptions are a defect', async () => {
+  // Neither tool runs the subscriptions, but both read them on each new state, as the run does.
+  test('rehearse fails, as the run dies, on a state whose subscriptions are a defect', async () => {
     const exit = await Effect.runPromiseExit(rehearse(table, (rehearsal) => rehearsal.send(({ double }) => double)))
     expect(isCompositionDefect(exit)).toBe(true)
   })
 
-  test.failing('FAILING: simulate fails, as the run dies, on a state whose subscriptions are a defect', async () => {
+  test('simulate fails, as the run dies, on a state whose subscriptions are a defect', async () => {
     const exit = await Effect.runPromiseExit(simulate(table)(['Doubled'], table.init))
     expect(isCompositionDefect(exit)).toBe(true)
   })
 
-  // A command that interrupts itself is a defect of the run (`diesIn`); the tools run it as it is, so the test's
-  // own fiber is interrupted. A test fails either way, but not with a defect that says so.
+  // A command or a subscription that interrupts itself is a defect of the run (`diesIn`), and of the tools, which
+  // would otherwise interrupt the test's own fiber, with no defect that says where.
+  const diedIn = (exit: Exit.Exit<unknown>) => {
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    return defect instanceof ProgramDefect ? defect.where : undefined
+  }
+
   const quitting: Program<{ state: Row; model: number; message: 'Go'; command: 'Quit' }> = {
     init: { state: { seen: 0 } },
     update: () => (state) => ({ state, commands: ['Quit'] }),
@@ -267,14 +271,32 @@ describe('what the run dies of, and the tools do not see', () => {
     makeModel: ({ seen }) => seen,
   }
 
-  test.failing('FAILING: simulate fails with a defect, as the run dies, on a command interrupting itself', async () => {
+  test('simulate fails with a defect, as the run dies, on a command interrupting itself', async () => {
     const exit = await Effect.runPromiseExit(simulate(quitting)(['Go'], quitting.init))
-    expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
+    expect(diedIn(exit)).toBe('command')
   })
 
-  test.failing('FAILING: rehearse fails with a defect, as the run dies, on a command interrupting itself', async () => {
+  test('rehearse fails with a defect, as the run dies, on a command interrupting itself', async () => {
     const exit = await Effect.runPromiseExit(rehearse(quitting, (rehearsal) =>
       rehearsal.send(() => Opt.some('Go')).pipe(Effect.andThen(rehearsal.runAll))))
-    expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
+    expect(diedIn(exit)).toBe('command')
+  })
+
+  test('the run dies with a defect of a command interrupting itself', async () => {
+    const exit = await Effect.runPromiseExit(drive(quitting, Effect.fnUntraced(function*(driver) {
+      yield* driver.send(() => Opt.some('Go'))
+      // The run dies before any frame could end the wait.
+      return yield* driver.waitFor(() => Opt.none())
+    })))
+    expect(diedIn(exit)).toBe('command')
+  })
+
+  test('rehearse fails with a defect, as the run dies, on a subscription interrupting itself', async () => {
+    const leaving: Program<{ state: Row; model: number; message: 'Seen' }> = {
+      ...row,
+      subscriptions: () => HashMap.make(['ticks', Channel.fromEffect(Effect.interrupt).pipe(Channel.mapDone((): 'Seen' => 'Seen'))]),
+    }
+    const exit = await Effect.runPromiseExit(rehearse(leaving, (rehearsal) => rehearsal.hearNext('ticks')))
+    expect(diedIn(exit)).toBe('subscription')
   })
 })
