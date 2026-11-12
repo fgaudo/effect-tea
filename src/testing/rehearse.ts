@@ -9,7 +9,7 @@ import * as Inspectable from 'effect/Inspectable'
 import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import * as Ref from 'effect/Ref'
-import type * as Scope from 'effect/Scope'
+import * as Scope from 'effect/Scope'
 import * as Semaphore from 'effect/Semaphore'
 import { diesIn } from '../engine.ts'
 import { describeByTag } from '../log.ts'
@@ -54,10 +54,11 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    * subscription is the one listed when its key appeared, as the run starts that one, though the state has changed
    * since. It starts at the first call for its key, with the services provided and in a scope of its own, and
    * waits after each message for the next call; it stays as it is for as long as its key does, as the run keeps a
-   * key that stays, and is interrupted when its key goes away, or when the scenario ends. Its end value is its last
-   * message: after it, `hearNext` and `hear` fail the test until the key goes away and comes back. Fails the test
-   * when nothing listens under `key` in the current state, and when the test has played that subscription with
-   * `hear`, until the key goes away and comes back. It waits as long as the subscription does.
+   * key that stays, whichever fiber of the test's first heard it, and is interrupted when its key goes away, or
+   * when the scenario ends. Its end value is its last message: after it, `hearNext` and `hear` fail the test until
+   * the key goes away and comes back. Fails the test when nothing listens under `key` in the current state, and
+   * when the test has played that subscription with `hear`, until the key goes away and comes back. It waits as
+   * long as the subscription does.
    */
   hearNext: (key: unknown) => Effect.Effect<Message, never, Exclude<R, Scope.Scope>>
   /** The events `update` raised for the program's parent, in order. */
@@ -147,6 +148,9 @@ export const rehearse = Effect.fnUntraced(function*<
   // The keys of the current state, each with its start, as the run keeps them: a key that stays keeps its start as
   // it is, and one that went away takes it with it. Keys are compared only in `subscriptions`, as in the run.
   let active = HashMap.empty<unknown, Start<Message, R>>()
+  // Where `hearNext` forks the subscriptions it starts, so that one outlives the fiber that first heard it, as the
+  // run's outlives the message that started it. Closed at the end, however the rehearsal ends.
+  const forks = yield* Scope.make()
   // Interrupts them together, as the run stops the keys that went away, and fails the test on a defect of what
   // they release.
   const stop = (stopping: Iterable<Opened<Message>>) =>
@@ -256,7 +260,7 @@ export const rehearse = Effect.fnUntraced(function*<
       diesIn('subscription', () => ({ key })),
       Effect.flatMap((last) => Queue.offer(heard, { message: last, last: true })),
       Effect.asVoid,
-      Effect.forkChild,
+      Effect.forkIn(forks),
     )
     const each: Opened<Message> = { fiber, asked, heard, owed: false, ended: false }
     start.opened = Opt.some(each)
@@ -332,9 +336,13 @@ export const rehearse = Effect.fnUntraced(function*<
     events: Effect.map(Ref.get(current), (now) => now.events),
     ignored: Effect.map(Ref.get(current), (now) => now.ignored),
   }
-  const exit = yield* Effect.exit(scenario(rehearsal))
   // The end of the scenario stops what `hearNext` started, as the end of the run interrupts its subscriptions.
-  const stopped = yield* Effect.exit(Effect.suspend(() => stop(Arr.flatMap(Arr.fromIterable(HashMap.values(active)), ({ opened }) => Opt.toArray(opened)))))
+  const stopAll = Effect.suspend(() =>
+    stop(Arr.flatMap(Arr.fromIterable(HashMap.values(active)), ({ opened }) => Opt.toArray(opened)))
+  )
+  const [exit, stopped] = yield* Effect.all([Effect.exit(scenario(rehearsal)), Effect.exit(stopAll)]).pipe(
+    Effect.ensuring(Scope.close(forks, Exit.void)),
+  )
   const result = yield* exit
   yield* stopped
   const { commands: pending } = yield* Ref.get(current)

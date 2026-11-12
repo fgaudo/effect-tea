@@ -180,7 +180,8 @@ after the list says. A change that rests on a new premise adds it here, with wha
   never later, so that `reconcile` compares keys all inside `'subscriptions'`: "a key whose Equal throws dies in
   subscriptions" (`run.test.ts`), and so do `simulate` and `rehearse`, which compare them as it does: "… on a key
   whose Equal throws against the key of the state before" (`contract.test.ts`). `FiberMap` compares its keys in a
-  fiber's observer as well, which is why the run keeps its fibers by their start, never by their key. Both are read only in the source.
+  fiber's observer as well, which is why the run keeps its fibers by their start, never by their key. Both are read
+  only in the source.
 - **`FiberMap.remove` waits for the interrupted fiber to end**, its release included, which is what makes the
   gone keys released before any key starts: "a key that changes stops the old subscription and starts the new
   one", "keys that go away together release their subscriptions together, not one after the other"
@@ -216,6 +217,10 @@ after the list says. A change that rests on a new premise adds it here, with wha
   time, as the run's loop takes them: "two messages that arrive together, one stopping a subscription, are both
   applied", "a command run while a message waits for a release leaves pending once" (`rehearse.test.ts`).
   Documented.
+- **A fiber forked with `Effect.forkIn` is interrupted when its scope closes, and not when the fiber that forked it
+  ends**, which is how `rehearse` keeps a subscription that `hearNext` started for as long as its key stays: "a
+  subscription first heard in a fiber that has ended since keeps running while its key stays", "a subscription it
+  started is released when whoever runs the rehearsal interrupts it" (`rehearse.test.ts`). Documented.
 
 A premise about what code does when it runs is checked before the change that rests on it is written, and never
 only reasoned:

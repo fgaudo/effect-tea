@@ -106,6 +106,9 @@ version, and everything else, features included, the patch version.
 - `rehearse`'s `hearNext` runs the subscription listed when its key appeared, as the run starts that one, where it
   ran the one listed at its first call: a subscription that sees more of the state than its key heard a later
   state than the run's. "Testing" in the README says so.
+- A subscription that `rehearse`'s `hearNext` started keeps running while its key stays, whichever fiber of the
+  test's first heard it, as the README's "Testing" says. It was interrupted with that fiber (one of `timeoutOption`,
+  say), and its key stayed with nothing running under it. It is released when the rehearsal is interrupted too.
 
 ## 0.7.1 (2026-10-28)
 

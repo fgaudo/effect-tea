@@ -302,7 +302,7 @@ describe('rehearse', () => {
       expect(log).toEqual(['first', 'second'])
     })
 
-    test.failing('a subscription first heard in a fiber that has ended since keeps running while its key stays', async () => {
+    test('a subscription first heard in a fiber that has ended since keeps running while its key stays', async () => {
       const log: Array<string> = []
       const { second, pings } = await Effect.runPromise(withStorage(rehearse(
         twice(log, Effect.void),
@@ -314,6 +314,16 @@ describe('rehearse', () => {
         }),
       )))
       expect({ second, pings }).toEqual({ second: true, pings: 2 })
+    })
+
+    test('a subscription it started is released when whoever runs the rehearsal interrupts it', async () => {
+      const log: Array<string> = []
+      const ended = await Effect.runPromise(withStorage(rehearse(
+        pinging(log),
+        (rehearsal) => Effect.andThen(rehearsal.hearNext('ping'), Effect.never),
+      )).pipe(Effect.timeoutOption('20 millis')))
+      expect(Opt.isNone(ended)).toBe(true)
+      expect(log).toEqual(['acquire', 'release'])
     })
 
     // The key goes away while a `hearNext` waits, in a fiber of the test's, for the message its subscription is about
