@@ -7,6 +7,12 @@ when it is done or rejected, with the reason in the commit.
 ## Open problems
 
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
+- **A command or the renderer that dies inside a scope of its own** (an `Effect.scoped` of its own, around an
+  `acquireRelease` and a defect) reaches the run only once that scope has released what it holds: meanwhile the
+  loop goes on applying messages (nine during a release of 50 ms), though "Running" says that from the defect on
+  the run applies none. A subscription's channel no longer does, since `runSubscription`; this scope is the
+  program's own, which the library does not run. To decide: whether the README counts a defect from when it leaves
+  the program's code, or the engine can learn of it earlier.
 
 ## Possible improvements
 
