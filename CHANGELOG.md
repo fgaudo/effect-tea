@@ -25,6 +25,10 @@ version, and everything else, features included, the patch version.
   `subscriptions` that throws. `simulate` accepts a program's `subscriptions` for this. A command, or a
   subscription that `hearNext` runs, that interrupts itself, or fails though its type rules it out, fails the test
   with a `ProgramDefect` in `'command'` or `'subscription'`, as the run dies, where it interrupted the test.
+- `simulate`, `rehearse` and `drive` fail with a `ProgramDefect` in the site the run dies in, wherever they call the
+  program: an `update` that throws (a parent's `onEvent` and its `CompositionDefect` included) in `'update'`, with
+  the message as `on`; a `makeModel` that throws, as `rehearse` and `drive` read the model, in `'render'`; an `init`
+  that throws on its flags, in `rehearse`, in `'init'`. They failed with the defect alone.
 - **Breaking**: `simulate` runs each command after those started before it, as the run does: the commands of one step all
   answer before those their answers start. It ran the commands a command's answer started before the next
   command of the same step, so a step starting `A` and `B`, with `A`'s answer starting `C`, was heard `A, C, B`

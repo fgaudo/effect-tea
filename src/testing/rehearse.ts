@@ -11,7 +11,7 @@ import * as Queue from 'effect/Queue'
 import * as Ref from 'effect/Ref'
 import * as Scope from 'effect/Scope'
 import * as Semaphore from 'effect/Semaphore'
-import { diesIn } from '../engine.ts'
+import { applyIn, diesIn } from '../engine.ts'
 import { describeByTag } from '../log.ts'
 import { runCommandOf, type Shape, startOf, subscriptionsOf } from '../program.ts'
 import type { Subscription } from '../subscription.ts'
@@ -146,7 +146,7 @@ export const rehearse = Effect.fnUntraced(function*<
     : [options: RehearseOptions<NoInfer<State>, NoInfer<Command>, NoInfer<Flags>>]
 ): Effect.fn.Return<A, E, Exclude<R, Scope.Scope> | RS> {
   const { from: given, flags } = options as Readonly<{ from?: Step<State, Command>; flags?: unknown }>
-  const from = given ?? startOf(program.init, flags)
+  const from = given ?? (yield* Effect.sync(() => startOf(program.init, flags)).pipe(diesIn('init')))
   type Now = Current<State, Message, Command, Event>
   const runCommand = runCommandOf(program)
   const subscriptions = subscriptionsOf(program)
@@ -198,14 +198,14 @@ export const rehearse = Effect.fnUntraced(function*<
   // before its state is written, and one that arrives meanwhile waits for that state.
   const exclusively = Semaphore.withPermit(yield* Semaphore.make(1))
   const applyNow = (message: Message, onRejected: (now: Now) => Effect.Effect<Now>) =>
-    Effect.flatMap(Ref.get(current), (now) => {
-      const result = program.update(message)(now.state)
-      if (isRejected(result)) return Effect.flatMap(onRejected(now), (next) => Ref.set(current, next))
-      return Effect.andThen(
-        result.state === now.state ? Effect.void : listen(result.state),
-        Ref.set(current, { ...now, ...appendStep(now, result) }),
-      )
-    })
+    Effect.flatMap(Ref.get(current), (now) =>
+      Effect.flatMap(applyIn(program.update, message, now.state), (result) => {
+        if (isRejected(result)) return Effect.flatMap(onRejected(now), (next) => Ref.set(current, next))
+        return Effect.andThen(
+          result.state === now.state ? Effect.void : listen(result.state),
+          Ref.set(current, { ...now, ...appendStep(now, result) }),
+        )
+      }))
   // From the world: it may arrive when it no longer applies.
   const arriveNow = (message: Message) =>
     applyNow(message, (now) => Effect.succeed({ ...now, ignored: [...now.ignored, message] }))
@@ -219,7 +219,12 @@ export const rehearse = Effect.fnUntraced(function*<
             + 'message applied to a later state: test it with applyAll, or with update itself.',
         ),
       )))
-  const model = Effect.map(Ref.get(current), ({ state }) => program.makeModel(state))
+  // There is no renderer: the test reads the model where the run's renderer would, and a defect of `makeModel` is
+  // in `'render'` all the same.
+  const model = Effect.flatMap(
+    Ref.get(current),
+    ({ state }) => Effect.sync(() => program.makeModel(state)).pipe(diesIn('render')),
+  )
   // The program's keys are compared with the test's, by their `Equal`: a defect of theirs is in `subscriptions`, as
   // in the run.
   const startUnder = (key: unknown) =>

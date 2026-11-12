@@ -9,7 +9,7 @@ import * as Opt from 'effect/Option'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import * as SubscriptionRef from 'effect/SubscriptionRef'
-import type { RunOptions } from '../engine.ts'
+import { diesIn, type RunOptions } from '../engine.ts'
 import type { Shape } from '../program.ts'
 import { type FlagsOption, type Frame, runWith } from '../run.ts'
 
@@ -56,9 +56,9 @@ export const drive = Effect.fnUntraced(function*<
     : [options: DriveOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
 ): Effect.fn.Return<A, E, Exclude<R, Scope.Scope> | RS> {
   const frames = yield* SubscriptionRef.make<Opt.Option<Frame<Model, Message>>>(Opt.none())
-  const first = <B>(select: (frame: Frame<Model, Message>) => Opt.Option<B>): Effect.Effect<B> =>
+  const first = <B>(select: (frame: Frame<Model, Message>) => Effect.Effect<Opt.Option<B>>): Effect.Effect<B> =>
     SubscriptionRef.changes(frames).pipe(
-      Stream.map(Opt.flatMap(select)),
+      Stream.mapEffect(Opt.match({ onNone: () => Effect.succeedNone, onSome: select })),
       Stream.filter(Opt.isSome),
       Stream.runHead,
       Effect.flatMap(Effect.fromOption),
@@ -79,10 +79,14 @@ export const drive = Effect.fnUntraced(function*<
       // The frames never end, so a frame always comes before the stream ends.
       Effect.orDie,
     )
+  // The model is made when the scenario first reads it, where the run makes it when its renderer does: a defect of
+  // `makeModel` is in `'render'` all the same.
+  const shown = (frame: Frame<Model, Message>) => Effect.sync(() => frame.model).pipe(diesIn('render'))
   const driver: Driver<Model, Message> = {
-    waitFor: (select) => first((frame) => select(frame.model)),
-    send: (select) => Effect.flatten(first((frame) => Opt.map(select(frame.model), frame.dispatch))),
-    latest: first(Opt.some),
+    waitFor: (select) => first((frame) => Effect.map(shown(frame), select)),
+    send: (select) =>
+      Effect.flatten(first((frame) => Effect.map(shown(frame), (model) => Opt.map(select(model), frame.dispatch)))),
+    latest: first(Effect.succeedSome),
   }
   const running = runWith(
     program,

@@ -120,6 +120,14 @@ export const diesIn =
       )
     )
 
+// Described by its tags alone, whatever `describeMessage` says: a report must not run the program's code while the
+// run is dying, nor carry the message's data. The testing tools apply a message the same way.
+export const applyIn = <State, Message, Command, Event>(
+  update: Update<State, Message, Command, Event>,
+  message: Message,
+  state: State,
+) => Effect.sync(() => update(message)(state)).pipe(diesIn('update', () => ({ on: describeByTag(message) })))
+
 /** Counts the starts of subscriptions: each start of a key gets a new one. */
 type Generation = number
 
@@ -232,10 +240,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   // The run's own logs belong to no function of the program: a `Logger` that throws, or that cannot format what
   // it is given, dies in them, and never in the subscription or the loop that logs.
   const log = (...message: ReadonlyArray<unknown>) => Effect.logDebug(...message).pipe(diesIn('log'))
-  // Described by its tags alone, whatever `describeMessage` says: a report must not run the program's code while
-  // the run is dying, nor carry the message's data.
-  const apply = (message: Message, state: State) =>
-    Effect.sync(() => update(message)(state)).pipe(diesIn('update', () => ({ on: describeByTag(message) })))
+  const apply = (message: Message, state: State) => applyIn(update, message, state)
   const described = (message: Message) => call('describeMessage', () => describeMessage(message))
   // Suspended, as the interpreter is below: an option that throws before it returns its effect dies there too.
   const observe = (applied: Applied<State, Message, Command>) =>

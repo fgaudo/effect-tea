@@ -2,7 +2,7 @@ import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import type * as Scope from 'effect/Scope'
-import { diesIn } from '../engine.ts'
+import { applyIn, diesIn } from '../engine.ts'
 import { type Interpreter, type ObjectState, runCommandOf, subscriptionsOf } from '../program.ts'
 import type { Subscriptions } from '../subscription.ts'
 import { appendStep, isRejected, type Step, type Update } from '../update.ts'
@@ -61,8 +61,7 @@ export const simulate = <State, Message, Command, Event, R = never>(
   // A message `update` accepts, folded with its step: the commands it starts join `commands`, after those already
   // started, and `runFrom` runs them in that order.
   const apply = (message: Message, simulation: Current, listening: Listening): Effect.Effect<Opt.Option<Current>> =>
-    Effect.suspend(() => {
-      const result = update(message)(simulation.state)
+    Effect.flatMap(applyIn(update, message, simulation.state), (result) => {
       if (isRejected(result)) return Effect.succeedNone
       const applied: Current = {
         ...simulation,

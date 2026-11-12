@@ -495,4 +495,66 @@ describe('what the run dies of, and the tools fail on', () => {
     const exit = await Effect.runPromiseExit(rehearse(leaving, (rehearsal) => rehearsal.hearNext('ticks')))
     expect(diedIn(exit)).toBe('subscription')
   })
+
+  // Each function of the program that a tool calls fails it in the site the run dies in, with what the run says of
+  // it: `update` with the message it was given, by its tags.
+  const said = (exit: Exit.Exit<unknown>) => {
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    return defect instanceof ProgramDefect ? [defect.where, defect.on] : defect
+  }
+  class Boom extends Error {}
+  type Seeded = Program<{ state: Row; model: number; message: 'Go'; flags: number }>
+  const seeded: Seeded = {
+    init: (seen) => ({ state: { seen } }),
+    update: () => (state) => ({ state: { seen: state.seen + 1 } }),
+    makeModel: ({ seen }) => seen,
+  }
+  const throwing = (): never => {
+    throw new Boom()
+  }
+  const updating: Seeded = { ...seeded, update: () => throwing }
+  const modeling: Seeded = { ...seeded, makeModel: throwing }
+  const starting: Seeded = { ...seeded, init: throwing }
+  const go = () => Opt.some<'Go'>('Go')
+
+  test('the run dies in update, with its message, on an update that throws', async () => {
+    const exit = await Effect.runPromiseExit(drive(updating, Effect.fnUntraced(function*(driver) {
+      yield* driver.send(go)
+      return yield* driver.waitFor(() => Opt.none())
+    }), { flags: 0 }))
+    expect(said(exit)).toEqual(['update', 'Go'])
+  })
+
+  test('simulate fails, as the run dies, in update, with its message, on an update that throws', async () => {
+    const exit = await Effect.runPromiseExit(simulate(updating)(['Go'], { state: { seen: 0 } }))
+    expect(said(exit)).toEqual(['update', 'Go'])
+  })
+
+  test('rehearse fails, as the run dies, in update, with its message, on an update that throws', async () => {
+    const exit = await Effect.runPromiseExit(rehearse(updating, (rehearsal) => rehearsal.send(go), { flags: 0 }))
+    expect(said(exit)).toEqual(['update', 'Go'])
+  })
+
+  test('the run dies in render on a makeModel that throws', async () => {
+    // The model is made when the scenario reads it.
+    const exit = await Effect.runPromiseExit(
+      drive(modeling, (driver) => driver.waitFor(() => Opt.none()), { flags: 0 }),
+    )
+    expect(said(exit)).toEqual(['render', undefined])
+  })
+
+  test('rehearse fails, as the run dies, in render, on a makeModel that throws', async () => {
+    const exit = await Effect.runPromiseExit(rehearse(modeling, (rehearsal) => rehearsal.model, { flags: 0 }))
+    expect(said(exit)).toEqual(['render', undefined])
+  })
+
+  test('the run dies in init on an init that throws on its flags', async () => {
+    const exit = await Effect.runPromiseExit(drive(starting, () => Effect.never, { flags: 0 }))
+    expect(said(exit)).toEqual(['init', undefined])
+  })
+
+  test('rehearse fails, as the run dies, in init, on an init that throws on its flags', async () => {
+    const exit = await Effect.runPromiseExit(rehearse(starting, () => Effect.void, { flags: 0 }))
+    expect(said(exit)).toEqual(['init', undefined])
+  })
 })
