@@ -355,7 +355,7 @@ describe('a subscription that depends on more of the state than its key', () => 
     makeModel: (state) => state,
   })
 
-  test.failing('rehearse\'s hearNext runs the subscription listed when its key appeared, as the run starts it', async () => {
+  test('rehearse\'s hearNext runs the subscription listed when its key appeared, as the run starts it', async () => {
     const rehearsed = await Effect.runPromise(rehearse(counted(Effect.void), Effect.fnUntraced(function*(rehearsal) {
       yield* rehearsal.send(() => Opt.some({ _tag: 'Inc' }))
       yield* rehearsal.hearNext('seen')

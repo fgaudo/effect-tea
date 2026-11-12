@@ -40,10 +40,6 @@ when it is done or rejected, with the reason in the commit.
 - **A message a `hearNext` takes after its key went away reaches `update`.** Waiting in a fiber of the test's, it
   takes the message from the queue of a start `listen` has already removed; the run drops it by its generation.
   `rehearse.test.ts` holds it. A fix could apply a heard message only while that very start is still open.
-- **`rehearse`'s `hearNext` runs the subscription listed at its first call, the run the one listed when its key
-  appeared.** It shows only with a subscription that sees the state other than through its key, which the README
-  advises against but "What is left to you" does not list. `contract.test.ts` holds it. A fix could take the
-  subscription in `listen` when its key appears, or state the rule among what is left to the program.
 
 ## Possible improvements
 

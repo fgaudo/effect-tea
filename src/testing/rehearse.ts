@@ -51,7 +51,8 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
   hear: (key: unknown, message: Message) => Effect.Effect<void>
   /**
    * Hears the next message of the subscription under `key`, applies it as `hear` would, and returns it. The
-   * subscription starts at the first call for its key, with the services provided and in a scope of its own, and
+   * subscription is the one listed when its key appeared, as the run starts that one, though the state has changed
+   * since. It starts at the first call for its key, with the services provided and in a scope of its own, and
    * waits after each message for the next call; it stays as it is for as long as its key does, as the run keeps a
    * key that stays, and is interrupted when its key goes away, or when the scenario ends. Its end value is its last
    * message: after it, `hearNext` and `hear` fail the test until the key goes away and comes back. Fails the test
@@ -88,10 +89,12 @@ type Opened<Message> = {
   ended: boolean
 }
 
-// A start of a key, as the run keeps one, heard one way: the test plays it with `hear` (`scripted`), or `hearNext`
-// runs its subscription (`opened`), never both, since the run hears one subscription per start. A message the test
-// adds to one that runs, or a subscription run from its start after the test heard it, is a history no run makes.
-type Start<Message> = {
+// A start of a key, as the run keeps one, with the subscription listed when the key appeared, which the run starts
+// then. It is heard one way: the test plays it with `hear` (`scripted`), or `hearNext` runs its subscription
+// (`opened`), never both, since the run hears one subscription per start. A message the test adds to one that runs,
+// or a subscription run from its start after the test heard it, is a history no run makes.
+type Start<Message, R> = {
+  readonly subscription: Subscription<Message, R>
   opened: Opt.Option<Opened<Message>>
   scripted: boolean
 }
@@ -143,7 +146,7 @@ export const rehearse = Effect.fnUntraced(function*<
   const subscriptions = subscriptionsOf(program)
   // The keys of the current state, each with its start, as the run keeps them: a key that stays keeps its start as
   // it is, and one that went away takes it with it. Keys are compared only in `subscriptions`, as in the run.
-  let active = HashMap.empty<unknown, Start<Message>>()
+  let active = HashMap.empty<unknown, Start<Message, R>>()
   // Interrupts them together, as the run stops the keys that went away, and fails the test on a defect of what
   // they release.
   const stop = (stopping: Iterable<Opened<Message>>) =>
@@ -160,10 +163,14 @@ export const rehearse = Effect.fnUntraced(function*<
     Effect.sync(() => {
       const listed = subscriptions(state)
       const gone = Arr.filter(Arr.fromIterable(active), ([key]) => !HashMap.has(listed, key))
-      let next = HashMap.empty<unknown, Start<Message>>()
-      for (const [key] of listed) {
+      let next = HashMap.empty<unknown, Start<Message, R>>()
+      for (const [key, subscription] of listed) {
         const kept = HashMap.get(active, key)
-        next = HashMap.set(next, key, Opt.isSome(kept) ? kept.value : { opened: Opt.none(), scripted: false })
+        next = HashMap.set(
+          next,
+          key,
+          Opt.isSome(kept) ? kept.value : { subscription, opened: Opt.none(), scripted: false },
+        )
       }
       active = next
       return Arr.flatMap(gone, ([, { opened }]) => Opt.toArray(opened))
@@ -201,15 +208,6 @@ export const rehearse = Effect.fnUntraced(function*<
         ),
       ))
   const model = Effect.map(Ref.get(current), ({ state }) => program.makeModel(state))
-  const listeningUnder = (key: unknown): Effect.Effect<Subscription<Message, R>> =>
-    Effect.flatMap(Ref.get(current), ({ state }) =>
-      Effect.sync(() => HashMap.get(subscriptions(state), key)).pipe(
-        diesIn('subscriptions'),
-        Effect.flatMap(Opt.match({
-          onNone: () => Effect.die(nothingListensUnder(key)),
-          onSome: Effect.succeed,
-        })),
-      ))
   // The program's keys are compared with the test's, by their `Equal`: a defect of theirs is in `subscriptions`, as
   // in the run.
   const startUnder = (key: unknown) =>
@@ -228,7 +226,7 @@ export const rehearse = Effect.fnUntraced(function*<
       )
       : Effect.succeed(each)
   // `hear` plays the subscription of a start that `hearNext` has not run.
-  const script = (key: unknown, start: Start<Message>) =>
+  const script = (key: unknown, start: Start<Message, R>) =>
     Opt.match(start.opened, {
       onNone: () =>
         Effect.sync(() => {
@@ -248,11 +246,11 @@ export const rehearse = Effect.fnUntraced(function*<
   // Started as the run starts a subscription, but held after each message until the next `hearNext` asks for one:
   // between two of them, it waits where the run's would wait for the loop to take its message. Its last message
   // follows the end of its scope, as in the run.
-  const open = Effect.fnUntraced(function*(key: unknown, start: Start<Message>, subscription: Subscription<Message, R>) {
+  const open = Effect.fnUntraced(function*(key: unknown, start: Start<Message, R>) {
     const asked = yield* Queue.unbounded<void>()
     const heard = yield* Queue.unbounded<Heard<Message>>()
     const fiber = yield* Queue.take(asked).pipe(
-      Effect.andThen(Channel.runForEach(subscription, (message: Message) =>
+      Effect.andThen(Channel.runForEach(start.subscription, (message: Message) =>
         Queue.offer(heard, { message, last: false }).pipe(Effect.andThen(Queue.take(asked))))),
       Effect.scoped,
       diesIn('subscription', () => ({ key })),
@@ -276,7 +274,7 @@ export const rehearse = Effect.fnUntraced(function*<
     }
     const each = Opt.isSome(start.opened)
       ? yield* notEnded(key, start.opened.value)
-      : yield* open(key, start, yield* listeningUnder(key))
+      : yield* open(key, start)
     // Asked once until it is heard: a `hearNext` interrupted while it waits leaves its message to the next one,
     // which does not ask for another.
     yield* Effect.uninterruptible(Effect.suspend(() =>

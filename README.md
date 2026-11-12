@@ -812,7 +812,8 @@ there with `applyAll`, or with `update` itself.
   command waits until the test runs it (`run`, `runAll`), through the program's `runCommand` with the services
   provided. A subscription's message is one the test says was heard (`hear`), or the next one the subscription
   itself sends (`hearNext`), only while its key is in the state. `hearNext` starts the subscription the first time
-  it hears its key, and keeps it, as the run does, for as long as the key stays: each call hears its next
+  it hears its key, the one listed when the key appeared, as the run starts that one, and keeps it, as the run
+  does, for as long as the key stays: each call hears its next
   message, which waits for the call, and the last one is its end value, after which neither `hearNext` nor `hear`
   hears that key until it goes away and comes back. A key that goes away interrupts its subscription, and so does
   the end of the scenario: a defect in what it releases fails the test. Each start of a key is heard one way, as the
