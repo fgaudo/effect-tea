@@ -245,12 +245,16 @@ after the list says. A change that rests on a new premise adds it here, with wha
   defect of what a subscription releases", "a defect of a release still under way when the scenario returns fails it",
   "a defect the scenario catches fails it all the same, first, and once" (`rehearse.test.ts`). Documented.
 - **A fiber forked with `Effect.forkIn` is interrupted when its scope closes, and not when the fiber that forked it
-  ends**, which is how `rehearse` keeps its loop, and a subscription that `hearNext` started for as long as its key
-  stays, whichever fiber of the test's asked for them: "a
+  ends, and the close waits for it to end, its release included**, which is how `rehearse` keeps its loop, and a
+  subscription that `hearNext` started for as long as its key stays, whichever fiber of the test's asked for them: "a
   subscription first heard in a fiber that has ended since keeps running while its key stays", "a subscription it
-  started is released when whoever runs the rehearsal interrupts it" (`rehearse.test.ts`). That it is interrupted
-  when its scope closes is documented (`Effect.forkIn`); that it is not when the fiber that forked it ends is not,
-  and the first of those tests fails without it.
+  started is released when whoever runs the rehearsal interrupts it"; and how its end reaches a release under way in
+  a step its loop was interrupted in, whose key has already left the state: "it returns once a release under way when
+  the scenario returns has ended, its key already gone", "a defect of a release still under way when the scenario
+  returns fails it" (`rehearse.test.ts`). That it is interrupted when its scope closes is documented
+  (`Effect.forkIn`); that it is not when the fiber that forked it ends is not, and "a subscription first heard in a
+  fiber that has ended since" fails without it; that the close waits is not either, and the last two fail with a
+  close that does not wait.
 - **`Effect.onInterrupt` runs its finalizer when the effect is interrupted**, which is how `rehearse` fails on a
   command whose `run` was interrupted before it answered: "when a run interrupted while its command runs leaves the
   command unanswered" (`rehearse.test.ts`). Documented.

@@ -1161,6 +1161,167 @@ describe('the end of the run', () => {
     expect(wheres(exit)).toEqual(['update', 'subscription'])
   })
 
+  // Found by the third review of the premises. `rehearse` stops at a defect, "as nothing happens in a run that died"
+  // (the README's "Testing"); the run's loop goes on while the renderer releases what it holds, applying what its
+  // subscriptions send and starting the commands of each step.
+  test.failing('a run that died applies no message, and starts no command, while the renderer releases', async () => {
+    let died = false
+    let startedAfter = 0
+    const exit = await Effect.runPromiseExit(run(
+      {
+        ...counter,
+        init: { state: { count: 0 }, commands: ['Boom'] },
+        update: () => ({ count }) => ({ state: { count: count + 1 }, commands: ['Ping'] }),
+        runCommand: (command) =>
+          command === 'Boom'
+            ? Effect.sleep('10 millis').pipe(
+              Effect.andThen(Effect.sync(() => {
+                died = true
+              })),
+              Effect.andThen(Effect.die('boom')),
+            )
+            : Effect.sync(() => {
+              if (died) startedAfter += 1
+              return Opt.none<Message>()
+            }),
+        subscriptions: () =>
+          HashMap.make([
+            'k',
+            Stream.tick('5 millis').pipe(
+              Stream.toChannel,
+              Channel.map((): Message => 'Increment'),
+              Channel.concatWith(() => Channel.never),
+            ),
+          ]),
+      },
+      () => releasesSlowly,
+    ))
+    expect(wheres(exit)).toEqual(['command'])
+    expect(startedAfter).toBe(0)
+  })
+
+  // Found by the third review of the premises. Only the engine's fibers record their deaths: what the renderer, or the
+  // run's own fiber as the engine starts, dies of joins the cause after what they have recorded by then, which may
+  // have died later.
+  test.failing('a renderer that dies before a command is the first defect of the cause', async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const rendererDied = yield* Deferred.make<void>()
+      yield* run(
+        {
+          ...counter,
+          init: { state: { count: 0 }, commands: ['Ping'] },
+          runCommand: () => Deferred.await(rendererDied).pipe(Effect.andThen(Effect.die('late'))),
+        },
+        () =>
+          Effect.addFinalizer(() => Deferred.succeed(rendererDied, undefined)).pipe(
+            Effect.andThen(Effect.yieldNow),
+            Effect.andThen(Effect.die('boom')),
+          ),
+      )
+    }))
+    expect(wheres(exit)).toEqual(['render', 'command'])
+  })
+
+  test.failing('a subscription that dies as the run starts comes before a log that dies after it', async () => {
+    let died = false
+    const throwsOnceItDied = Logger.make(({ message }) => {
+      if (died && Array.isArray(message) && message[0] === 'Subscription started') throw new Error('log')
+    })
+    const exit = await Effect.runPromiseExit(run(
+      {
+        ...counter,
+        subscriptions: () =>
+          HashMap.make(
+            [
+              'a',
+              Channel.fromEffectDone(Effect.sync(() => {
+                died = true
+              }).pipe(Effect.andThen(Effect.die('boom')))),
+            ],
+            ['b', Channel.fromEffectDone(Effect.never)],
+          ),
+      },
+      () => Effect.never,
+    ).pipe(
+      Effect.provideService(References.MinimumLogLevel, 'Debug'),
+      Effect.provide(Logger.layer([throwsOnceItDied])),
+    ))
+    expect(wheres(exit)).toEqual(['subscription', 'log'])
+  })
+
+  // `FiberMap.remove` leaves the fiber in the map until it has ended: the end of the run, which interrupts the loop
+  // while it waits there, still finds the fiber, and awaits its release.
+  test('a subscription stopped as whoever runs the run interrupts it, which dies as it releases, is in the cause', async () => {
+    const exit = await Effect.runPromise(Effect.gen(function*() {
+      const releasing = yield* Deferred.make<void>()
+      const releasesThenDies = Channel.unwrap(
+        Effect.acquireRelease(Effect.void, () =>
+          Deferred.succeed(releasing, undefined).pipe(
+            Effect.andThen(Effect.sleep('40 millis')),
+            Effect.andThen(Effect.die('boom')),
+          )).pipe(Effect.as(Channel.never)),
+      )
+      const running = yield* Effect.forkChild(run(
+        {
+          ...counter,
+          subscriptions: ({ count }) => count === 0 ? HashMap.make(['k', releasesThenDies]) : HashMap.empty(),
+        },
+        (frames) =>
+          Stream.runHead(frames).pipe(
+            Effect.flatMap(Opt.match({
+              onNone: () => Effect.void,
+              onSome: ({ model, dispatch }) => dispatch(model.increment),
+            })),
+            Effect.andThen(Effect.never),
+          ),
+      ))
+      yield* Deferred.await(releasing)
+      yield* Fiber.interrupt(running)
+      return yield* Fiber.await(running)
+    }))
+    expect(wheres(exit)).toEqual(['subscription'])
+  })
+
+  // The end of the run interrupts the fibers it lists, and only those: a step that went on past it, while an option
+  // held the loop uninterruptibly, would start a command and a subscription that nothing awaits. The loop stops at the
+  // option's end, so nothing starts; were anything to start, its defect would have to be in the cause.
+  test('a step held by an uninterruptible onApplied as the run is interrupted starts nothing the run does not await', async () => {
+    let started = 0
+    const exit = await Effect.runPromise(Effect.gen(function*() {
+      const holding = yield* Deferred.make<void>()
+      const startsAndDies = Effect.sync(() => {
+        started += 1
+      }).pipe(Effect.andThen(Effect.die('boom')))
+      const running = yield* Effect.forkChild(run(
+        {
+          ...counter,
+          update: () => ({ count }) => ({ state: { count: count + 1 }, commands: ['Boom'] }),
+          runCommand: () => startsAndDies,
+          subscriptions: ({ count }) =>
+            count === 1 ? HashMap.make(['k', Channel.fromEffectDone(startsAndDies)]) : HashMap.empty(),
+        },
+        (frames) =>
+          Stream.runHead(frames).pipe(
+            Effect.flatMap(Opt.match({
+              onNone: () => Effect.void,
+              onSome: ({ model, dispatch }) => dispatch(model.increment),
+            })),
+            Effect.andThen(Effect.never),
+          ),
+        {
+          onApplied: () =>
+            Effect.uninterruptible(
+              Deferred.succeed(holding, undefined).pipe(Effect.andThen(Effect.sleep('30 millis'))),
+            ),
+        },
+      ))
+      yield* Deferred.await(holding)
+      yield* Fiber.interrupt(running)
+      return yield* Fiber.await(running)
+    }))
+    expect(wheres(exit).length).toBe(started)
+  })
+
   // An interruption by the run is told from one the program makes by whether the fiber was interrupted when the
   // effect ended: an uninterruptible region delays it, and it is still the run's.
   test('a subscription stopped inside an uninterruptible region is no defect', async () => {

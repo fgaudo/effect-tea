@@ -852,6 +852,27 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
     expect(diesOfRelease(exit)).toBe(true)
   })
 
+  // The end interrupts the loop in the step that waits for the release, and the key has already left the state: only
+  // the close of the scope the subscription was forked in reaches it, and the rehearsal returns once that close has
+  // waited for the release (the `Effect.forkIn` premise in AGENTS.md).
+  test('it returns once a release under way when the scenario returns has ended, its key already gone', async () => {
+    let released = false
+    await Effect.runPromise(Effect.gen(function*() {
+      const releasing = yield* Deferred.make<void>()
+      return yield* rehearse(
+        gated(releasing, Effect.andThen(Effect.sleep('20 millis'), Effect.sync(() => {
+          released = true
+        }))),
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.hearNext('k')
+          yield* Effect.forkChild(rehearsal.send(() => Opt.some({ _tag: 'Drop' })))
+          yield* Deferred.await(releasing)
+        }),
+      )
+    }))
+    expect(released).toBe(true)
+  })
+
   // A message once sent is applied whole, whichever call sent it: interrupting the call while its message waits for a
   // release leaves the step to end as it would have.
   test('a run interrupted while its answer stops a subscription has answered, and leaves its state', async () => {
@@ -891,5 +912,71 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
       )
     }))
     expect(listening).toBe(false)
+  })
+})
+
+describe('rehearse, while a fiber of the test\'s waits for what nothing will send', () => {
+  // `Go` starts `Dies`, a command that dies after a while, and `Waits`, one that never answers; every other message
+  // counts. Listens under `k` to `subscription`.
+  type Counter = Readonly<{ count: number }>
+  type Waited = 'Tick' | 'Go' | 'Last'
+  const waiting = (
+    subscription: Channel.Channel<Waited, never, Waited>,
+  ): Program<{ state: Counter; model: Counter; message: Waited; command: 'Dies' | 'Waits' }> => ({
+    init: { state: { count: 0 } },
+    update: (message) => ({ count }) =>
+      message === 'Go' ? { state: { count }, commands: ['Dies', 'Waits'] } : { state: { count: count + 1 } },
+    runCommand: (command) =>
+      command === 'Dies' ? Effect.andThen(Effect.sleep('10 millis'), Effect.die('boom')) : Effect.never,
+    subscriptions: () => HashMap.make(['k', subscription]),
+    makeModel: (state) => state,
+  })
+
+  // What the rehearsal ended with, or `hung` when it had not ended after 300 milliseconds.
+  const outcomeOf = <A, E>(rehearsal: Effect.Effect<A, E>) =>
+    Effect.runPromise(
+      Effect.map(Effect.timeoutOption(Effect.exit(rehearsal), '300 millis'), Opt.getOrElse(() => 'hung' as const)),
+    )
+
+  const whereDied = (outcome: Exit.Exit<unknown, unknown> | 'hung') =>
+    outcome === 'hung'
+      ? 'hung'
+      : Exit.isFailure(outcome)
+      ? outcome.cause.reasons.flatMap((reason) =>
+        Cause.isDieReason(reason) && reason.defect instanceof ProgramDefect ? [reason.defect.where] : []
+      )
+      : []
+
+  // The run dies as soon as one of its fibers dies, and interrupts what still waits: a call of the test's that waits
+  // for a message nothing will send ends with the defect, or the rehearsal never ends where the run has died.
+  test.failing('a hearNext waiting on its subscription fails as soon as another fiber of the test\'s dies', async () => {
+    const outcome = await outcomeOf(rehearse(waiting(Channel.never), Effect.fnUntraced(function*(rehearsal) {
+      yield* rehearsal.send(() => Opt.some('Go'))
+      yield* Effect.forkChild(rehearsal.run((command) => command === 'Dies'))
+      yield* rehearsal.hearNext('k')
+    })))
+    expect(whereDied(outcome)).toEqual(['command'])
+  })
+
+  test.failing('a run waiting for its command fails as soon as another fiber of the test\'s dies', async () => {
+    const outcome = await outcomeOf(rehearse(waiting(Channel.never), Effect.fnUntraced(function*(rehearsal) {
+      yield* rehearsal.send(() => Opt.some('Go'))
+      yield* Effect.forkChild(rehearsal.run((command) => command === 'Dies'))
+      yield* rehearsal.run((command) => command === 'Waits')
+    })))
+    expect(whereDied(outcome)).toEqual(['command'])
+  })
+
+  // Two calls wait when the subscription ends: one hears its last message, after which it sends nothing, so the
+  // other fails, as a call made after the end does; waiting for a message that cannot come, it would never return.
+  test.failing('of two hearNext waiting as the subscription ends, one hears its end, the other fails', async () => {
+    const outcome = await outcomeOf(rehearse(waiting(Channel.end<Waited>('Last')), (rehearsal) =>
+      Effect.all([Effect.exit(rehearsal.hearNext('k')), Effect.exit(rehearsal.hearNext('k'))], {
+        concurrency: 'unbounded',
+      })))
+    expect(outcome !== 'hung' && Exit.isSuccess(outcome) && outcome.value.map(Exit.isSuccess).sort()).toEqual([
+      false,
+      true,
+    ])
   })
 })

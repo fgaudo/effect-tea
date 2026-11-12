@@ -5,6 +5,7 @@ import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
 import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
 import * as Hash from 'effect/Hash'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
@@ -337,6 +338,53 @@ describe('how a stopped subscription ends', () => {
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
     expect(defect instanceof ProgramDefect && defect.where === 'subscription' && defect.cause).toBe('release')
   })
+
+  // `Stop` makes the key go away; the subscription ticks once, then waits, and dies as it releases what it holds.
+  type Stopping = Program<{ state: Listening; model: Listening; message: 'Tick' | 'Stop' }>
+  const stopping: Stopping = {
+    init: { state: { listening: true } },
+    update: (message) => (state) => message === 'Stop' ? { state: { listening: false } } : { state },
+    subscriptions: ({ listening }) =>
+      listening
+        ? HashMap.make([
+          'ticks',
+          Channel.succeed<'Tick' | 'Stop'>('Tick').pipe(
+            Channel.concatWith(() => Channel.never),
+            Channel.onExit(() => Effect.die('release')),
+          ),
+        ])
+        : HashMap.empty(),
+    makeModel: (listening) => listening,
+  }
+  // Each reason of the cause: the defect a `ProgramDefect` holds, or the tag of what is not a defect.
+  const reasonsOf = (exit: Exit.Exit<unknown, unknown>) =>
+    Exit.isFailure(exit)
+      ? exit.cause.reasons.map((reason) =>
+        Cause.isDieReason(reason) && reason.defect instanceof ProgramDefect ? reason.defect.cause : reason._tag
+      )
+      : []
+
+  test('in the run, a defect of what a stopped subscription releases is all the cause holds', async () => {
+    const exit = await Effect.runPromiseExit(drive(stopping, Effect.fnUntraced(function*(driver) {
+      yield* driver.send(() => Opt.some('Stop'))
+      return yield* Effect.never
+    })))
+    expect(reasonsOf(exit)).toEqual(['release'])
+  })
+
+  // A `hearNext` waiting when the key goes away fails with what its subscription ended with, the interruption by the
+  // rehearsal included; the scenario that joins it fails with that, and the rehearsal's cause keeps the interruption
+  // after the defect, where the run's holds the defect alone.
+  test.failing('rehearse fails with the defect alone, as the run dies, though a hearNext waited', async () => {
+    const exit = await Effect.runPromiseExit(rehearse(stopping, Effect.fnUntraced(function*(rehearsal) {
+      yield* rehearsal.hearNext('ticks')
+      const waiting = yield* Effect.forkChild(rehearsal.hearNext('ticks'))
+      yield* Effect.sleep('10 millis')
+      yield* Effect.exit(rehearsal.send(() => Opt.some('Stop')))
+      return yield* Fiber.join(waiting)
+    })))
+    expect(reasonsOf(exit)).toEqual(['release'])
+  })
 })
 
 describe('a subscription that depends on more of the state than its key', () => {
@@ -603,5 +651,53 @@ describe('what the run dies of, and the tools fail on', () => {
   test('rehearse fails, as the run dies, in init, on an init that throws on its flags', async () => {
     const exit = await Effect.runPromiseExit(rehearse(starting, () => Effect.void, { flags: 0 }))
     expect(said(exit)).toEqual(['init', undefined])
+  })
+
+  test('simulate fails, as the run dies, in a command on a command that dies', async () => {
+    const exit = await Effect.runPromiseExit(simulate(exploding)(['Go'], exploding.init))
+    expect(diedIn(exit)).toBe('command')
+  })
+
+  // A `runCommand` that throws before it returns its effect: the run suspends it, so the defect is the command's.
+  const raising: Program<{ state: Row; model: number; message: 'Go'; command: 'Explode' }> = {
+    ...exploding,
+    runCommand: throwing,
+  }
+
+  test('the run dies in a command on a runCommand that throws before it returns an effect', async () => {
+    const exit = await Effect.runPromiseExit(drive(raising, Effect.fnUntraced(function*(driver) {
+      yield* driver.send(go)
+      return yield* driver.waitFor(() => Opt.none())
+    })))
+    expect(diedIn(exit)).toBe('command')
+  })
+
+  test('simulate fails, as the run dies, in a command on a runCommand that throws before its effect', async () => {
+    const exit = await Effect.runPromiseExit(simulate(raising)(['Go'], raising.init))
+    expect(diedIn(exit)).toBe('command')
+  })
+
+  // The subscriptions of the state the program starts from are read before any message.
+  const deaf: Program<{ state: Row; model: number; message: 'Seen' }> = { ...row, subscriptions: throwing }
+
+  test('the run dies in subscriptions on the subscriptions of the state it starts from', async () => {
+    const exit = await Effect.runPromiseExit(drive(deaf, () => Effect.never))
+    expect(diedIn(exit)).toBe('subscriptions')
+  })
+
+  test('simulate fails, as the run dies, in subscriptions on those of the state it starts from', async () => {
+    const exit = await Effect.runPromiseExit(simulate(deaf)([], deaf.init))
+    expect(diedIn(exit)).toBe('subscriptions')
+  })
+
+  test('rehearse fails, as the run dies, in subscriptions on those of the state it starts from', async () => {
+    const exit = await Effect.runPromiseExit(rehearse(deaf, () => Effect.void))
+    expect(diedIn(exit)).toBe('subscriptions')
+  })
+
+  // `drive` reads the model where the scenario does, and `send` selects on it there.
+  test('drive fails in render on a makeModel that throws, when it sends', async () => {
+    const exit = await Effect.runPromiseExit(drive(modeling, (driver) => driver.send(go), { flags: 0 }))
+    expect(said(exit)).toEqual(['render', undefined])
   })
 })
