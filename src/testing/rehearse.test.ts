@@ -11,7 +11,6 @@ import * as Fiber from 'effect/Fiber'
 import * as Hash from 'effect/Hash'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
-import * as Scheduler from 'effect/Scheduler'
 import type * as Scope from 'effect/Scope'
 import { prioritizedSchedules } from '../../test/scheduled.ts'
 import { ProgramDefect } from '../defect.ts'
@@ -1106,53 +1105,16 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
 })
 
 // The form of the engine's window between a check of its register and what it guards: the loop of `rehearse` checks
-// the register as it takes a step (`deadOr`), and a loop that yields before `update` lets another fiber die meanwhile.
-// `update` reads the register through `model`, which fails at once once a defect is recorded.
+// the register as it takes a step (`deadOr`), and may yield before it calls `update`, as `run` may before it calls
+// `runCommand` and `model` before it calls `makeModel`, while another fiber dies. Each checks again in the thunk that
+// calls the program, which a scheduler the test controls reaches.
 describe('rehearse, after the first defect, a yield of the scheduler in between', () => {
   type Count = Readonly<{ n: number }>
-  type Burst = 'Go' | 'Hit'
 
-  const lateUpdates = (ops: number) =>
-    Effect.suspend(() => {
-      let late = 0
-      let rehearsing: Rehearsal<Count, Count, Burst, 'Die'> | undefined
-      const dead = () => rehearsing !== undefined && Exit.isFailure(Effect.runSync(Effect.exit(rehearsing.model)))
-      const program: Program<{ state: Count; model: Count; message: Burst; command: 'Die' }> = {
-        init: { state: { n: 0 } },
-        update: (message) => ({ n }) => {
-          if (message === 'Hit' && dead()) late += 1
-          return message === 'Go' ? { state: { n: n + 1 }, commands: ['Die'] } : { state: { n: n + 1 } }
-        },
-        runCommand: () => Effect.yieldNow.pipe(Effect.andThen(Effect.die('boom'))),
-        makeModel: (state) => state,
-      }
-      const hit = () => Opt.some<Burst>('Hit')
-      return rehearse(program, Effect.fnUntraced(function*(rehearsal) {
-        rehearsing = rehearsal
-        yield* rehearsal.send(() => Opt.some('Go'))
-        const dying = yield* Effect.forkChild(Effect.exit(rehearsal.run(() => true)))
-        yield* Effect.forEach(Arr.makeBy(3000, () => rehearsal.send(hit)), Effect.exit, {
-          concurrency: 'unbounded',
-          discard: true,
-        })
-        yield* Fiber.await(dying)
-      })).pipe(Effect.exit, Effect.map(() => late), Effect.provideService(Scheduler.MaxOpsBeforeYield, ops))
-    })
-
-  // Under the default budget of operations no update was late in this scenario; under budgets from 9 to 21, one was.
-  const name = 'no message reaches update once a command has died, whatever budget of operations the program sets'
-  test(name, async () => {
-    let late = 0
-    for (let ops = 8; ops < 30; ops++) late += await Effect.runPromise(lateUpdates(ops))
-    expect(late).toBe(0)
-  })
-
-  // The same window before `run` calls `runCommand`, and before `model` calls `makeModel`, which no budget of
-  // operations reaches: a scheduler the test controls does.
-  const lateCalls = (what: 'run' | 'model', late: { n: number }) =>
+  const lateCalls = (what: 'send' | 'run' | 'model', late: { n: number }) =>
     Effect.suspend(() => {
       let probing = false
-      let rehearsing: Rehearsal<Count, Count, 'Go', 'Die' | 'Start'> | undefined
+      let rehearsing: Rehearsal<Count, Count, 'Go' | 'Hit', 'Die' | 'Start'> | undefined
       // `model` reads `makeModel`, which this probe is called from.
       const dead = () => {
         if (rehearsing === undefined || probing) return false
@@ -1161,9 +1123,14 @@ describe('rehearse, after the first defect, a yield of the scheduler in between'
         probing = false
         return died
       }
-      const program: Program<{ state: Count; model: Count; message: 'Go'; command: 'Die' | 'Start' }> = {
+      const program: Program<{ state: Count; model: Count; message: 'Go' | 'Hit'; command: 'Die' | 'Start' }> = {
         init: { state: { n: 0 } },
-        update: () => ({ n }) => ({ state: { n: n + 1 }, commands: ['Die', 'Start', 'Start'] }),
+        update: (message) => ({ n }) => {
+          if (message === 'Hit' && dead()) late.n += 1
+          return message === 'Go'
+            ? { state: { n: n + 1 }, commands: ['Die', 'Start', 'Start'] }
+            : { state: { n: n + 1 } }
+        },
         runCommand: (command) => {
           if (command === 'Start' && dead()) late.n += 1
           return command === 'Die' ? Effect.die('boom') : Effect.succeedNone
@@ -1177,7 +1144,9 @@ describe('rehearse, after the first defect, a yield of the scheduler in between'
         rehearsing = rehearsal
         yield* rehearsal.send(() => Opt.some('Go'))
         const dying = yield* Effect.forkChild(Effect.exit(rehearsal.run((command) => command === 'Die')))
-        const call: Effect.Effect<unknown> = what === 'run'
+        const call: Effect.Effect<unknown> = what === 'send'
+          ? rehearsal.send(() => Opt.some('Hit'))
+          : what === 'run'
           ? rehearsal.run((command) => command === 'Start')
           : rehearsal.model
         yield* Effect.all(Arr.makeBy(2, () => Effect.exit(call)), { concurrency: 'unbounded', discard: true })
@@ -1185,10 +1154,10 @@ describe('rehearse, after the first defect, a yield of the scheduler in between'
       })).pipe(Effect.exit)
     })
 
-  for (const [what, called] of [['run', 'runCommand'], ['model', 'makeModel']] as const) {
+  for (const [what, called] of [['send', 'update'], ['run', 'runCommand'], ['model', 'makeModel']] as const) {
     test(`${what} calls no ${called} once a command has died, under prioritized schedules`, () => {
       const late = { n: 0 }
-      prioritizedSchedules(lateCalls(what, late), { runs: 300, depth: 3 }, () => {})
+      prioritizedSchedules(lateCalls(what, late), { runs: 2000, depth: 4 }, () => {})
       expect(late.n).toBe(0)
     })
   }

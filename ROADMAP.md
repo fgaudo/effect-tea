@@ -6,11 +6,11 @@ when it is done or rejected, with the reason in the commit.
 
 ## Open problems
 
-- **Tests that sweep budgets of operations**, the engine's "after the first defect, a yield of the scheduler in
-  between" and `rehearse`'s update, and the interleavings, which order promises with fast-check's scheduler: none
-  runs under `test/scheduled.ts`, which reaches what a budget does not (effect-tea-persistent moved all of its tests
-  under budgets onto it, its decision 0104). The interleavings use real promises and timers, which the scheduler of
-  the tests does not step.
+- **The interleavings order promises with fast-check's scheduler**, which never yields a fiber between two of its
+  steps: "from the first defect on, the run applies no message" and "… starts no command" (`interleaving.test.ts`)
+  hold in every run they make, but reach no window between a check and its act. They use real promises and timers,
+  which the scheduler of the tests (`test/scheduled.ts`) does not step; the windows are reached by the tests of the
+  engine and of `rehearse` under it ("after the first defect, a yield of the scheduler in between").
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
 
 ## Possible improvements

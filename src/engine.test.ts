@@ -6,9 +6,9 @@ import { absurd, identity } from 'effect/Function'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
-import * as Scheduler from 'effect/Scheduler'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
+import { prioritizedSchedules } from '../test/scheduled.ts'
 import * as Engine from './engine.ts'
 import type { Execution } from './command.ts'
 import type { Subscription } from './subscription.ts'
@@ -492,85 +492,41 @@ describe('Engine generations', () => {
   })
 })
 
-// Effect's fibers yield to the scheduler once they have run `Scheduler.MaxOpsBeforeYield` operations without
-// suspending (2048 by default): the loop, which takes queued messages without suspending, yields between any two of
-// its operations, and so does a fiber as it starts. Each test records, from the shared register of deaths, whether
-// the program's code ran once a fiber had died.
+// Under a scheduler the test controls, any fiber may yield at any step, and another run meanwhile: the loop between
+// taking a message and calling `update`, the fiber of a step between its check of the register and the call of
+// `runCommand`. Each test records, from the shared register of deaths, whether the program's code was called once a
+// fiber had died.
 describe('Engine after the first defect, a yield of the scheduler in between', () => {
-  type Burst = 'Go' | 'Hit'
+  const late = (what: 'update' | 'runCommand', calls: { n: number }) =>
+    Effect.gen(function*() {
+      const deaths = yield* Engine.makeDeaths(() => true)
+      const dead = () => deaths.all().length > 0
+      const engine = yield* Engine.make<Readonly<{ n: number }>, 'Go' | 'Hit', 'Die' | 'Start', never, never>({
+        deaths,
+        init: { state: { n: 0 } },
+        runCommand: (command) => {
+          if (command === 'Start' && dead()) calls.n += 1
+          return command === 'Die' ? Effect.die('boom') : Effect.succeedNone
+        },
+        update: (message) => ({ n }) => {
+          if (message === 'Hit' && dead()) calls.n += 1
+          return message === 'Go'
+            ? { state: { n: n + 1 }, commands: what === 'update' ? ['Die'] : ['Die', 'Start', 'Start'] }
+            : { state: { n: n + 1 } }
+        },
+        subscriptions: () => HashMap.empty(),
+      })
+      yield* engine.dispatch('Go')
+      if (what === 'update') for (let i = 0; i < 3; i++) yield* engine.dispatch('Hit')
+      yield* engine.died
+    }).pipe(Effect.scoped, Effect.exit)
 
-  const lateUpdates = (before: number, ops = 2048) =>
-    Effect.suspend(() => {
-      let late = 0
-      return Effect.gen(function*() {
-        const deaths = yield* Engine.makeDeaths(() => true)
-        const engine = yield* Engine.make<number, Burst, 'Die', never, never>({
-          deaths,
-          init: { state: 0 },
-          runCommand: () => Effect.yieldNow.pipe(Effect.andThen(Effect.die('boom'))),
-          update: (message) => (count) => {
-            if (message === 'Hit' && deaths.all().length > 0) late += 1
-            return message === 'Go' ? { state: count + 1, commands: ['Die'] } : { state: count + 1 }
-          },
-          subscriptions: () => HashMap.empty(),
-        })
-        // A burst the loop takes without suspending: it yields, at some operation, while the command dies.
-        for (let i = 0; i < before; i++) yield* engine.dispatch('Hit')
-        yield* engine.dispatch('Go')
-        for (let i = 0; i < 3000; i++) yield* engine.dispatch('Hit')
-        yield* engine.died
-        yield* Effect.sleep('10 millis')
-      }).pipe(
-        Effect.scoped,
-        Effect.exit,
-        Effect.map(() => late),
-        Effect.provideService(Scheduler.MaxOpsBeforeYield, ops),
-      )
+  // At depth 4: at depth 3, 2,000 seeds reach no late update with the check taken out.
+  for (const what of ['update', 'runCommand'] as const) {
+    test(`no ${what} is called once a command has died, under prioritized schedules`, () => {
+      const calls = { n: 0 }
+      prioritizedSchedules(late(what, calls), { runs: 2000, depth: 4 }, () => {})
+      expect(calls.n).toBe(0)
     })
-
-  // A message taken before the death: the loop may yield between taking it and calling `update`, under Effect's
-  // default budget of operations (4.1.0) or one the program lowers, so `dead` is checked again in the thunk that calls
-  // `update`.
-  test('no message reaches update once a command has died, whatever operation the loop yields at', async () => {
-    let late = 0
-    for (let before = 0; before < 10; before++) late += await Effect.runPromise(lateUpdates(before))
-    // Under budgets a program may set too: effect 4.0.0 reaches the window only there.
-    for (let ops = 8; ops < 40; ops++) late += await Effect.runPromise(lateUpdates(0, ops))
-    expect(late).toBe(0)
-  })
-
-  // A command starts when the run calls `runCommand`, which it checks the register in the same thunk for: what the
-  // effect it returned does once started is the program's, until the end of the run interrupts it. A forked fiber
-  // yields before it first runs too, once a program has lowered `MaxOpsBeforeYield`, a stable reference.
-  const lateCalls = (ops: number) =>
-    Effect.suspend(() => {
-      let late = 0
-      return Effect.gen(function*() {
-        const deaths = yield* Engine.makeDeaths(() => true)
-        const engine = yield* Engine.make<Readonly<{ n: number }>, 'Go', 'Die' | 'Start', never, never>({
-          deaths,
-          init: { state: { n: 0 } },
-          runCommand: (command) => {
-            if (command === 'Start' && deaths.all().length > 0) late += 1
-            return command === 'Die' ? Effect.yieldNow.pipe(Effect.andThen(Effect.die('boom'))) : Effect.succeedNone
-          },
-          update: () => ({ n }) => ({ state: { n: n + 1 }, commands: ['Die', 'Start', 'Start', 'Start'] }),
-          subscriptions: () => HashMap.empty(),
-        })
-        yield* engine.dispatch('Go')
-        yield* engine.died
-        yield* Effect.sleep('10 millis')
-      }).pipe(
-        Effect.scoped,
-        Effect.exit,
-        Effect.map(() => late),
-        Effect.provideService(Scheduler.MaxOpsBeforeYield, ops),
-      )
-    })
-
-  test('no runCommand is called once a command has died, whatever budget of operations the program sets', async () => {
-    let late = 0
-    for (let ops = 8; ops < 40; ops++) late += await Effect.runPromise(lateCalls(ops))
-    expect(late).toBe(0)
-  })
+  }
 })
