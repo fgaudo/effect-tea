@@ -166,6 +166,30 @@ describe('run', () => {
     }
   })
 
+  test('the commands of a step run concurrently, and their answers reach update in the order they end', async () => {
+    // `Slow` answers only once the answer of `Fast`, started after it, has been drawn.
+    const slow = Deferred.makeUnsafe<void>()
+    type Heard = Readonly<{ heard: ReadonlyArray<'Slow' | 'Fast'> }>
+    const program: Program<{ state: Heard; model: Heard; message: 'Slow' | 'Fast'; command: 'Slow' | 'Fast' }> = {
+      init: { state: { heard: [] }, commands: ['Slow', 'Fast'] },
+      update: (message) => ({ heard }) => ({ state: { heard: [...heard, message] } }),
+      runCommand: (command) =>
+        command === 'Slow' ? Effect.as(Deferred.await(slow), Opt.some(command)) : Effect.succeedSome(command),
+      makeModel: (heard) => heard,
+    }
+    let last: ReadonlyArray<string> = []
+    await Effect.runPromise(run(program, (frames) =>
+      frames.pipe(
+        Stream.tap(({ model }) => {
+          last = model.heard
+          return model.heard.length === 1 ? Deferred.succeed(slow, undefined) : Effect.void
+        }),
+        Stream.takeUntil(({ model }) => model.heard.length === 2),
+        Stream.runDrain,
+      )))
+    expect(last).toEqual(['Fast', 'Slow'])
+  })
+
   test('what runs in a run logs nothing into the span of whoever runs it, which stays the parent of their spans', async () => {
     const commands = 500
     const parents: Array<string> = []

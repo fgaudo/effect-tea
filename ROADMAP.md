@@ -8,9 +8,6 @@ when it is done or rejected, with the reason in the commit.
 
 - **`onApplied` and `onIgnored` hold the loop.** It is documented ("it should be quick"), but a slow devtools slows
   the whole program, and nothing shows how to hand the work off (a queue of its own, a forked fiber).
-- **The order of a step's commands is not stated.** They run concurrently in the run's `FiberSet`, with no bound,
-  so their answers may arrive in any order. The README does not say so: it says only that `simulate` hears commands
-  that answer at once in the order they started, as the run does.
 - **Premises that no test reaches yet**, found in a review of the engine's premises (November 2026):
   - that a dispatch wakes the loop on the scheduler of the run, read only in Effect's source (a `Queue` keeps the
     scheduler of the fiber that made it);

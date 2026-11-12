@@ -280,6 +280,9 @@ expect(commands).toEqual([Command.Save({ name: 'Ada' })])
 - **A command has a scope of its own.** What it acquires (`Effect.acquireRelease`, `Effect.forkScoped`) is
   released when it ends, before its message reaches `update`, so `run` never asks for a `Scope`. What must
   outlive a command is a service provided around `run`, or a subscription.
+- **Commands run concurrently.** Each one starts in a fiber of its own once its step is applied, with no bound
+  on how many run at once, and the loop goes on without waiting for it. Their answers reach `update` in the
+  order they end, not the order they started: `update` handles them in any order.
 - **Commands cannot be cancelled.** Once started, a command runs to its end and its message arrives, even if
   the state has moved on. `update` then decides whether the answer still applies (see
   [rejections and defects](#rejections-and-defects)). An operation that is a state only its completion leaves
