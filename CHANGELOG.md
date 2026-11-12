@@ -113,6 +113,10 @@ version, and everything else, features included, the patch version.
   as in the run: a `hearNext` waiting in a fiber of the test's applied it to the state that had stopped it. A
   `hearNext` still waiting when the key goes away fails the test, where it was interrupted, or applied the message.
   "Testing" in the README says so.
+- `rehearse` fails the test on a command whose `run` was interrupted before it answered (a `timeoutOption` around
+  it), and on one still under way when the scenario ends (a `run` in a fiber of the test's), as on one still
+  pending: commands cannot be cancelled, and in the run its answer would still arrive. The scenario passed, the
+  command dropped. "Testing" in the README says so.
 
 ## 0.7.1 (2026-10-28)
 

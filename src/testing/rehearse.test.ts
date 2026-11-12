@@ -549,7 +549,7 @@ describe('rehearse', () => {
     })
 
     // Commands cannot be cancelled: in the run, a command once started still answers.
-    test.failing('when a run interrupted while its command runs leaves the command unanswered', async () => {
+    test('when a run interrupted while its command runs leaves the command unanswered', async () => {
       const failure = await failureOf(rehearse(
         { ...program, runCommand: () => Effect.never },
         Effect.fnUntraced(function*(rehearsal) {
@@ -558,7 +558,20 @@ describe('rehearse', () => {
           yield* Effect.timeoutOption(rehearsal.run(isStore), '20 millis')
         }),
       ))
-      expect(failure).toBeDefined()
+      expect(String(failure)).toContain('Commands whose run was interrupted before they answered: Store')
+    })
+
+    test('when a command is still under way at the end, since its answer would still arrive', async () => {
+      const failure = await failureOf(rehearse(
+        { ...program, runCommand: () => Effect.never },
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.send(typing('milk'))
+          yield* rehearsal.send(saving)
+          yield* Effect.forkChild(rehearsal.run(isStore))
+          yield* Effect.sleep('10 millis')
+        }),
+      ))
+      expect(String(failure)).toContain('Commands still under way when the scenario ended: Store')
     })
   })
 })
