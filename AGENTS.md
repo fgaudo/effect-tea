@@ -211,6 +211,10 @@ after the list says. A change that rests on a new premise adds it here, with wha
 - **A `WeakRef` is cleared before the `FinalizationRegistry` callback of its target runs**, and a `WeakMap` lets go
   of a value with its key: the tests of `dispatchTo` (`dispatch.test.ts`) and "a child's model is let go with its
   state" (`compose.test.ts`), under `Bun.gc`.
+- **A `Semaphore` of one permit runs one `withPermit` at a time**, which is how `rehearse` applies one message at a
+  time, as the run's loop takes them: "two messages that arrive together, one stopping a subscription, are both
+  applied", "a command run while a message waits for a release leaves pending once" (`rehearse.test.ts`).
+  Documented.
 
 A premise about what code does when it runs is checked before the change that rests on it is written, and never
 only reasoned:

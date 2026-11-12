@@ -842,7 +842,9 @@ there with `applyAll`, or with `update` itself.
   model shows and its own state rejects), and when a command is still pending at the end: its answer would
   still arrive. It also fails, as the run dies, on a state whose subscriptions are a defect, which it reads on
   each new state, and on a command or a subscription that interrupts itself. A command's or a subscription's
-  message that no longer applies is ignored, as when the program runs, and listed in `ignored`. It starts from the program's `init`, or from the step given as `from`; a
+  message that no longer applies is ignored, as when the program runs, and listed in `ignored`. Messages that
+  arrive together, from fibers of the test's, are applied one at a time, as the run takes them: each waits for the
+  state the one before left, the release of the subscriptions it stopped included. It starts from the program's `init`, or from the step given as `from`; a
   program with flags needs either `from` or its `flags`.
 - **`drive`** sends what the frames show, through the run's dispatch, and fails on a wait longer than
   `patience` (2 seconds). Its time is real: a frame may be past by the time its message arrives. So, as when

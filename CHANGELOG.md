@@ -96,6 +96,10 @@ version, and everything else, features included, the patch version.
   happened, as one that interrupts itself is.
 - A parent whose `subscribed` lists one id of its children twice died with a `CompositionDefect` saying that an
   own subscription key took a child's: it now says that the id is listed twice.
+- `rehearse` applies messages that arrive together, from fibers of the test's, one at a time, as the run takes
+  them. A message that stopped a subscription waited for its release before it wrote its state, and wrote it over
+  what arrived meanwhile: a command's answer was lost, and a command run meanwhile was pending again. "Testing" in
+  the README says so.
 
 ## 0.7.1 (2026-10-28)
 

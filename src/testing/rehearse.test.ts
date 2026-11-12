@@ -347,35 +347,55 @@ describe('rehearse', () => {
       expect(late).toBe(0)
     })
 
-    // A message that stops a subscription waits for its release before the state is written: one that arrives in
-    // the meantime, here a command's answer, is applied to the state before and then written over.
-    test.failing('two messages that arrive together, one stopping a subscription, are both applied', async () => {
-      type Counting = Readonly<{ listening: boolean; count: number }>
-      type Counted = 'Stop' | 'Count'
-      const counting: Program<{ state: Counting; model: Counting; message: Counted; command: 'Count' }> = {
-        init: { state: { listening: true, count: 0 }, commands: ['Count'] },
-        update: (message) => (state) =>
-          message === 'Stop'
-            ? { state: { ...state, listening: false } }
-            : { state: { ...state, count: state.count + 1 } },
-        runCommand: () => Effect.as(Effect.sleep('10 millis'), Opt.some<Counted>('Count')),
-        subscriptions: ({ listening }) =>
-          listening
-            ? HashMap.make([
-              'k',
-              Channel.succeed<Counted>('Stop').pipe(
-                Channel.concatWith(() => Channel.never),
-                Channel.ensuring(Effect.sleep('50 millis')),
-              ),
-            ])
-            : HashMap.empty(),
-        makeModel: (state) => state,
-      }
-      const state = await Effect.runPromise(rehearse(counting, Effect.fnUntraced(function*(rehearsal) {
-        yield* Effect.all([rehearsal.hearNext('k'), rehearsal.run(() => true)], { concurrency: 'unbounded' })
-        return yield* rehearsal.state
-      })))
+    // A message that stops a subscription waits for its release before its state is written, as the run's loop
+    // waits before it takes the next message: what arrives in the meantime waits for that state.
+    type Counting = Readonly<{ listening: boolean; count: number }>
+    type Counted = 'Stop' | 'Count'
+    const counting = (
+      answer: Effect.Effect<void>,
+    ): Program<{ state: Counting; model: Counting; message: Counted; command: 'Count' }> => ({
+      init: { state: { listening: true, count: 0 }, commands: ['Count'] },
+      update: (message) => (state) =>
+        message === 'Stop'
+          ? { state: { ...state, listening: false } }
+          : { state: { ...state, count: state.count + 1 } },
+      runCommand: () => Effect.as(answer, Opt.some<Counted>('Count')),
+      subscriptions: ({ listening }) =>
+        listening
+          ? HashMap.make([
+            'k',
+            Channel.succeed<Counted>('Stop').pipe(
+              Channel.concatWith(() => Channel.never),
+              Channel.ensuring(Effect.sleep('50 millis')),
+            ),
+          ])
+          : HashMap.empty(),
+      makeModel: (state) => state,
+    })
+
+    test('two messages that arrive together, one stopping a subscription, are both applied', async () => {
+      const state = await Effect.runPromise(rehearse(
+        counting(Effect.sleep('10 millis')),
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* Effect.all([rehearsal.hearNext('k'), rehearsal.run(() => true)], { concurrency: 'unbounded' })
+          return yield* rehearsal.state
+        }),
+      ))
       expect(state).toEqual({ listening: false, count: 1 })
+    })
+
+    test('a command run while a message waits for a release leaves pending once', async () => {
+      const { state, pending } = await Effect.runPromise(rehearse(
+        counting(Effect.void),
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* Effect.all([
+            rehearsal.hearNext('k'),
+            Effect.andThen(Effect.sleep('10 millis'), rehearsal.run(() => true)),
+          ], { concurrency: 'unbounded' })
+          return { state: yield* rehearsal.state, pending: yield* rehearsal.pending }
+        }),
+      ))
+      expect({ state, pending }).toEqual({ state: { listening: false, count: 1 }, pending: [] })
     })
 
     test('a subscription that ends before sending anything is heard by its last message', async () => {

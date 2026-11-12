@@ -10,6 +10,7 @@ import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import * as Ref from 'effect/Ref'
 import type * as Scope from 'effect/Scope'
+import * as Semaphore from 'effect/Semaphore'
 import { diesIn } from '../engine.ts'
 import { describeByTag } from '../log.ts'
 import { runCommandOf, type Shape, startOf, subscriptionsOf } from '../program.ts'
@@ -105,7 +106,9 @@ type Current<State, Message, Command, Event> = Readonly<{
  * apply when it arrives: as when the program runs, it is ignored, and listed in `ignored`. A command still pending
  * when `scenario` ends fails the test: its answer would still arrive. Subscriptions are read on each new state, as
  * the run reads them, so a state whose subscriptions are a defect fails the test, as it ends the run; a command or
- * a subscription that interrupts itself is a defect too, as in the run.
+ * a subscription that interrupts itself is a defect too, as in the run. Messages that arrive together, from fibers of
+ * the test's, are applied one at a time, as the run takes them: each waits for the state the one before left, the
+ * release of the subscriptions it stopped included.
  */
 export const rehearse = Effect.fnUntraced(function*<
   State,
@@ -163,15 +166,18 @@ export const rehearse = Effect.fnUntraced(function*<
     events: [],
     ignored: [],
   })
+  // One message at a time, as the run's loop takes them: a message that stops a subscription waits for its release
+  // before its state is written, and one that arrives meanwhile waits for that state.
+  const exclusively = Semaphore.withPermit(yield* Semaphore.make(1))
   const apply = (message: Message, onRejected: (now: Now) => Effect.Effect<Now>) =>
-    Effect.flatMap(Ref.get(current), (now) => {
+    exclusively(Effect.flatMap(Ref.get(current), (now) => {
       const result = program.update(message)(now.state)
       if (isRejected(result)) return Effect.flatMap(onRejected(now), (next) => Ref.set(current, next))
       return Effect.andThen(
         result.state === now.state ? Effect.void : listen(result.state),
         Ref.set(current, { ...now, ...appendStep(now, result) }),
       )
-    })
+    }))
   // From the world: it may arrive when it no longer applies.
   const arrive = (message: Message) =>
     apply(message, (now) => Effect.succeed({ ...now, ignored: [...now.ignored, message] }))
@@ -280,13 +286,18 @@ export const rehearse = Effect.fnUntraced(function*<
     )
   })
   const run = Effect.fnUntraced(function*(select: (command: Command) => boolean) {
-    const { commands: pending } = yield* Ref.get(current)
-    const index = pending.findIndex(select)
-    const command = pending[index]
-    if (command === undefined) {
-      return yield* Effect.die(new Error(`No pending command matches (pending: ${describeAll(pending)})`))
-    }
-    yield* Ref.update(current, (now): Now => ({ ...now, commands: Arr.remove(now.commands, index) }))
+    // Taken at once, so that two calls never take the same command.
+    const command = yield* exclusively(Ref.modify(current, (now): [Opt.Option<Command>, Now] => {
+      const index = now.commands.findIndex(select)
+      return index === -1
+        ? [Opt.none(), now]
+        : [Opt.some(now.commands[index] as Command), { ...now, commands: Arr.remove(now.commands, index) }]
+    })).pipe(Effect.flatMap(Opt.match({
+      onNone: () =>
+        Effect.flatMap(Ref.get(current), ({ commands }) =>
+          Effect.die(new Error(`No pending command matches (pending: ${describeAll(commands)})`))),
+      onSome: Effect.succeed,
+    })))
     const message = yield* Effect.suspend(() => runCommand(command)).pipe(Effect.scoped, diesIn('command'))
     if (Opt.isSome(message)) yield* arrive(message.value)
     return command
