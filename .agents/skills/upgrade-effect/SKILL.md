@@ -33,10 +33,9 @@ the author's call.
 ## Unstable and deprecated APIs
 
 - A module or function marked `@stability unstable` in Effect's declarations may change under the library's
-  users: never build on one, not even as an option. The typecheck fails on one in the library (the Effect
-  language service's `unstableApiUsage`); the examples turn it off in `examples/tsconfig.json`, since they are
-  not published. What an example relies on of such an API has a spike in `spikes/` (`AGENTS.md`, under "What the
-  invariants rest on"), which an upgrade that changes it fails.
+  users: never build on one, not even as an option, and not in the examples either, since users copy them. The
+  typecheck fails on one in the library (the Effect language service's `unstableApiUsage`); the examples still turn
+  it off in `examples/tsconfig.json`, for `BrowserRuntime.runMain`, and removing it is an item of `ROADMAP.md`.
 - Nothing marked `@deprecated`, of any dependency, in the library, its tests or its examples: use what the
   deprecation names instead (fast-check's `waitNext(1)` for `waitOne()`), and replace a use found in passing.
   `bun run lint` warns about one (Oxlint's type-aware `typescript/no-deprecated`). An upgrade that deprecates
@@ -54,7 +53,9 @@ the author's call.
   to read the sources, because TypeDoc does not support TypeScript 7 yet: when it does, move TypeDoc to the root
   and drop the site's own TypeScript.
 - An upgrade of Effect is checked against what the invariants rest on, as `AGENTS.md` lists it: the tests named
-  there are what keeps each premise, and one read only in Effect's source is read again in the new version.
+  there are what keeps each premise, and one read only in Effect's source is read again in the new version. A move
+  to a new major checks every premise again, the documented ones included. An upgrade of React or snabbdom does the
+  same for the bridges' premises, and updates the versions their opening comments name.
 - After any upgrade: `bun install`, `bun run typecheck`, `bun run lint`, `bun run test`, and
   `cd site && bun install && bun run build` without warnings. Commit `bun.lock` and `site/bun.lock` with
   `package.json` and `site/package.json`: the documentation workflow installs both with `--frozen-lockfile`.

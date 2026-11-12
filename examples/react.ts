@@ -3,6 +3,7 @@
 // its tests stay as they are.
 // A view is a plain function of its model, called here on each frame, and so are its children's views: React
 // only draws the tree it returns. No component holds state or uses hooks, so the frames are the only truth.
+// Checked with react and react-dom 19.3.1.
 import type { Dispatch, Frame, View } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'

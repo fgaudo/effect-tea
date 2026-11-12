@@ -2,6 +2,7 @@
 // run `dispatch` works the same way. snabbdom's handlers are plain callbacks, so they run it with `send`.
 // The run's dispatch, and each child's from `dispatchTo`, is the same in every frame, so a view can be
 // memoized with snabbdom's own `thunk`, its dispatch among the arguments.
+// Checked with snabbdom 3.6.4.
 import type { Dispatch, Frame, View } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'

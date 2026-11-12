@@ -1,6 +1,6 @@
 ---
 name: premise-review
-description: How a review of the premises of @fgaudo/effect-tea is done: a reviewer that did not write the change reads the invariants of AGENTS.md, what they rest on and the README's "Guarantees" against the code, and reproduces what it finds with a failing test; then what becomes of its findings, its leads and what it ruled out. Use when a change of the engine or of a testing tool adds a premise, before 1.0, or when the author asks whether an invariant still holds.
+description: How a review of the premises of @fgaudo/effect-tea is done: a reviewer that did not write the change reads the invariants of AGENTS.md, what they rest on and the README's "Guarantees" against the code, and reproduces what it finds with a failing test; then what becomes of its findings, its leads and what it ruled out. Use after a change of the engine or of a testing tool that touches an invariant or what it rests on, before 1.0, or when the author asks whether an invariant still holds.
 ---
 
 # A review of the premises
@@ -12,7 +12,7 @@ review of November 2026 found that a defect while the end of the run releases a 
 since `FiberMap` and `FiberSet` discard the exits of the fibers they interrupt as they close (f415d46). This review
 looks for the same. Its rule is in `AGENTS.md`, under "What the invariants rest on": a reading of the code alone
 gives a lead, and a finding is reproduced by a test that fails, or ruled out by what that rule asks of the premise:
-the documentation of a stable API, a spike for an unstable one, a test for one that is not documented.
+the documentation of a stable API, or a test for what is not documented.
 
 ## Before it starts
 
@@ -60,12 +60,12 @@ HOW:
    tests, through behaviour (`run`, `Engine.make`, the public functions). A reading of the code alone, or of Effect's
    source, gives a lead and no finding: report it as a lead, with the test that would reproduce it. Run only the
    tests you need.
-4. A suspect is ruled out as AGENTS.md says under "What the invariants rest on": by the documentation (the JSDoc of
-   the declarations) of a stable API in the oldest Effect of the peer range, `bun add --dev --exact effect@<minimum>`
-   in a scratch copy of the repository, as the CI's `minimum-effect` job does; by a spike in spikes/ for an API marked
-   `@stability unstable`; by a test that passes for what is not documented. Effect's source, effect.website and its
-   maintainers' answers rule out nothing. A property of src/interleaving.test.ts rules a suspect out only under the
-   runs it made: run it with `numRuns` of a thousand at least, and name the seeds.
+4. A suspect is ruled out as AGENTS.md says under "What the invariants rest on": by the documentation of a stable
+   API (for Effect, the JSDoc of the declarations in the oldest version of the peer range, `bun add --dev --exact
+   effect@<minimum>` in a scratch copy of the repository, as the CI's `minimum-effect` job does; for the JavaScript
+   engine, the ECMAScript specification), or by a test that passes for what is not documented. Effect's source,
+   effect.website and its maintainers' answers rule out nothing. A property of src/interleaving.test.ts rules a
+   suspect out only under the runs it made: run it with `numRuns` of a thousand at least, and name the seeds.
 5. While you read the code that keeps a row, note each place where it does otherwise than AGENTS.md or the README
    says, and each test whose name promises more than its assertions check.
 
@@ -78,8 +78,8 @@ YOUR REPORT, the deliverable, in this order:
 - The table of step 1: each row, the code and the test, and how you read it: whole, or in part (say which part).
 - Each finding, with the invariant or premise that fell, the sequence that breaks, the files and lines, the test that
   reproduces it, and where a fix could begin. Each lead, with the same, and the test that would reproduce it.
-- The suspects you ruled out, each with its reason in a line: the test or the spike (with its runs and seeds), or
-  the documentation of the oldest Effect of the peer range, with the declaration and its stability.
+- The suspects you ruled out, each with its reason in a line: the test (with its runs and seeds), or the
+  documentation, with the declaration or the section of the specification.
 - Every suspect you noticed and did not check, with the sequence you suspect, and why it is left.
 - Each place where the code does otherwise than AGENTS.md or the README says, and each test whose name says more than
   it checks, with the file and line.
@@ -98,8 +98,7 @@ Your last message says the branch, the commit and the findings in a few lines.
 - A finding is an open problem of `ROADMAP.md` until it is fixed, and its test may come to `main` with its
   `test.failing` mark, as those of the November review did. Its fix removes the mark and the item, in one commit.
 - A suspect ruled out that rests on Effect or on the JavaScript engine is a premise, added to "What the invariants
-  rest on" with what ruled it out: the declaration that documents it, or the spike or the test, which comes to
-  `main`.
+  rest on" with what ruled it out: the declaration that documents it, or the test, which comes to `main`.
 - A lead, and a suspect left unchecked, are no findings yet. Write the test that would reproduce each, here or in a
   session of its own, and run it: a test that fails makes it a finding, one that passes rules it out. A lead no test
   can reach yet goes under "Premises that no test reaches yet" in `AGENTS.md`, with what would decide it.

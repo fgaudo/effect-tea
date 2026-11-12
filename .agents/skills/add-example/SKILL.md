@@ -38,8 +38,9 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
 
 - **An example is a consumer.** It imports the package by its name (`@fgaudo/effect-tea`,
   `@fgaudo/effect-tea/testing`), never by a relative path. `tsc -p examples` checks it with the `bun` condition
-  (the sources) and the `DOM` lib; Biome allows renderer imports there, and the Effect language service allows
-  unstable APIs there (`unstableApiUsage` is off in `examples/tsconfig.json`: `BrowserRuntime.runMain` is one).
+  (the sources) and the `DOM` lib; Biome allows renderer imports there. Unstable APIs are not used there either:
+  `unstableApiUsage` is still off in `examples/tsconfig.json`, for `BrowserRuntime.runMain`, until the item of
+  `ROADMAP.md` that removes it is done.
   The examples are not published (`files` in `package.json`), and snabbdom, `@effect/platform-browser` and
   `@happy-dom/global-registrator` are only dev dependencies.
 - **`main.ts`** finds `#app` and starts the program with `BrowserRuntime.runMain(run(program, renderInto(root,

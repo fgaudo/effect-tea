@@ -54,9 +54,11 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   function, and may stay. `forEach` over `Step`, the n-ary `andThen`, is a fold the rule admits: with it, a parent
   tells one message to each of its children by id (the `list` example). Both are dual (`Function.dual`), for a
   chain of steps written in a `pipe`.
-- **Only stable Effect APIs.** A module or function marked `@stability unstable` in Effect's declarations may
-  change under the library's users: never build on one, not even as an option. The typecheck fails on one (the
-  Effect language service's `unstableApiUsage`), except in `examples/`, which are not published.
+- **Only stable APIs.** A module or function marked `@stability unstable` in Effect's declarations may change
+  under the library's users: never build on one, not even as an option, and not in `examples/` either, since
+  users copy them. The same holds for React's `unstable_` and `experimental_` APIs in the bridges. The typecheck
+  fails on one in the library (the Effect language service's `unstableApiUsage`); `examples/tsconfig.json` still
+  turns the check off, and removing what the examples use of such APIs is an item of `ROADMAP.md`.
 - **Nothing deprecated.** No module, type, function, method or option marked `@deprecated`, of any dependency,
   in the library, its tests or its examples: use what the deprecation names instead, and replace a use found in
   passing. `bun run lint` warns about one (Oxlint's type-aware `typescript/no-deprecated`).
@@ -209,26 +211,35 @@ after the list says. A change that rests on a new premise adds it here, with wha
   state" (`compose.test.ts`), under `Bun.gc`.
 
 A premise about what code does when it runs is checked before the change that rests on it is written, and never
-only reasoned. How depends on what promises it, in the oldest version of the peer range (for Effect, the JSDoc of
-its declarations):
+only reasoned:
 
 - **Documented, on a stable API**: the documentation is enough, since a stable API keeps its promise within the
-  major.
-- **Documented, on an API marked `@stability unstable`** (only the examples may use one): a spike, a test in
-  `spikes/` of what the dependency alone does, with no code of the library, which `bun run test` runs at the
-  version of the lockfile, so that an upgrade that changes the behaviour fails it.
-- **Not documented** (read only in the source, or seen in a run): a test of the library that fails without it, which
-  the CI runs against the oldest Effect of the peer range too, since what is not promised may change in a minor
-  version.
+  major. For Effect, it is the JSDoc of its declarations in the oldest version of the peer range; for the JavaScript
+  engine, the ECMAScript specification. That a bug of the dependency where it promises is caught by no test is a
+  risk the rule accepts.
+- **Not documented** (read only in the source, or seen in a run): a test that fails without it. For Effect, the CI
+  runs it against the oldest version of the peer range too, since what is not promised may change in a minor
+  version. For the JavaScript engine, the test runs on Bun only, and says so: what Node or a browser could do
+  otherwise goes under "Premises that no test reaches yet", unless `smoke/` runs it on Node.
 
-A premise that none of these can check yet holds the change up: it waits, or a guard of the library's makes the
-premise unneeded, and the premise goes under "Premises that no test reaches yet".
+What the dependencies of development do (fast-check, happy-dom, the renderers of the examples) is no premise of the
+library, and the rule leaves it out, with two exceptions. The bridges, `examples/snabbdom.ts` and
+`examples/react.ts`, are copied by users: their premises about the renderer follow the rule at the version of the
+lockfile, each bridge's opening comment names the versions it was checked with, and what they rest on of the DOM is
+documented by its specification (WHATWG), since their tests run on happy-dom, which no browser is; one that is not
+goes under "Premises that no test reaches yet". A bridge that becomes a package of its own makes its renderer a peer,
+checked at the oldest version of its range, as Effect is. And a test resting on what a dependency of development
+does is still held to failing without what it checks.
+
+A premise that the rule cannot check yet holds the change up: it waits, or a guard of the library's makes the premise
+unneeded, and the premise goes under "Premises that no test reaches yet". A move to a new major of Effect, or of a
+bridge's renderer, checks every premise on it again, the documented ones included.
 
 A review of the premises reports a finding only once it is reproduced by a test that fails, or ruled out by the check
 the rule above asks of the premise: a reading of the code alone, or of a dependency's source, gives a lead, and the
-review turns it into a test or drops it. A review is due after a change of the engine or of a testing tool that adds a
-premise, and before 1.0, in a session that did not write the change: it follows
-[`premise-review`](.agents/skills/premise-review/SKILL.md).
+review turns it into a test or drops it. A review is due after a change of the engine or of a testing tool that
+touches an invariant or what it rests on, whether it adds a premise or takes one away, and before 1.0, in a session
+that did not write the change: it follows [`premise-review`](.agents/skills/premise-review/SKILL.md).
 
 ### Premises that no test reaches yet
 
