@@ -8,7 +8,6 @@ import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
-import { prioritizedSchedules } from '../test/scheduled.ts'
 import * as Engine from './engine.ts'
 import type { Execution } from './command.ts'
 import type { Subscription } from './subscription.ts'
@@ -492,35 +491,7 @@ describe('Engine generations', () => {
   })
 })
 
-// Under a scheduler the test controls, any fiber may yield at any step, and another run meanwhile: the loop between
-// taking a message and calling `update`, the fiber of a step between its check of the register and the call of
-// `runCommand`. Each test records, from the shared register of deaths, whether the program's code was called once a
-// fiber had died.
-describe('Engine after the first defect, a yield of the scheduler in between', () => {
-  const late = (what: 'update' | 'runCommand', calls: { n: number }) =>
-    Effect.gen(function*() {
-      const deaths = yield* Engine.makeDeaths(() => true)
-      const dead = () => deaths.all().length > 0
-      const engine = yield* Engine.make<Readonly<{ n: number }>, 'Go' | 'Hit', 'Die' | 'Start', never, never>({
-        deaths,
-        init: { state: { n: 0 } },
-        runCommand: (command) => {
-          if (command === 'Start' && dead()) calls.n += 1
-          return command === 'Die' ? Effect.die('boom') : Effect.succeedNone
-        },
-        update: (message) => ({ n }) => {
-          if (message === 'Hit' && dead()) calls.n += 1
-          return message === 'Go'
-            ? { state: { n: n + 1 }, commands: what === 'update' ? ['Die'] : ['Die', 'Start', 'Start'] }
-            : { state: { n: n + 1 } }
-        },
-        subscriptions: () => HashMap.empty(),
-      })
-      yield* engine.dispatch('Go')
-      if (what === 'update') for (let i = 0; i < 3; i++) yield* engine.dispatch('Hit')
-      yield* engine.died
-    }).pipe(Effect.scoped, Effect.exit)
-
+describe('Engine after the first defect', () => {
   // The order no yield of the scheduler needs: the loop is held by `onApplied` while a command dies, with a message
   // queued behind, which it takes once the death is recorded.
   test('no update is called on a message taken once a command has died', async () => {
@@ -549,13 +520,4 @@ describe('Engine after the first defect, a yield of the scheduler in between', (
     }).pipe(Effect.scoped))
     expect(calls.n).toBe(0)
   })
-
-  // At depth 4: at depth 3, 2,000 seeds reach no late update with the check taken out.
-  for (const what of ['update', 'runCommand'] as const) {
-    test(`no ${what} is called once a command has died, under prioritized schedules`, () => {
-      const calls = { n: 0 }
-      prioritizedSchedules(late(what, calls), { runs: 2000, depth: 4 }, () => {})
-      expect(calls.n).toBe(0)
-    })
-  }
 })

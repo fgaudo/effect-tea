@@ -22,8 +22,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       ['src/core.test.ts', 'once the run has died, update is not called'],
       ['src/engine.test.ts', 'no update is called on a message taken once a command has died'],
-      ['src/engine.test.ts', 'no update is called once a command has died, under prioritized schedules'],
-      ['src/testing/rehearse.test.ts', 'send calls no update once a command has died, under prioritized schedules'],
     ],
   },
   {
@@ -32,7 +30,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: 'Effect.suspend(() => Opt.getOrElse(alive(dead, () => interpret(command)), () => Effect.succeedNone))',
     to: 'Effect.suspend(() => interpret(command))',
     killedBy: [
-      ['src/engine.test.ts', 'no runCommand is called once a command has died, under prioritized schedules'],
       ['src/run.test.ts', 'a message whose stopped subscription dies in its release starts none of its commands'],
       ['src/run.test.ts', 'a message whose onApplied waits while a command dies starts none of its commands'],
     ],

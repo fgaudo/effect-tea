@@ -133,10 +133,14 @@ Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun ru
    mutation; `interleaving.test.ts` leaves `bun run test` for a search job of the CI, on a schedule, from a random
    seed, and an order it finds is fixed by a test of the core, a gate (program code held by a `Deferred`) or a
    primitive. AGENTS.md's rule "one thunk" becomes "a transition of the core, or a gate where program code lies
-   between".
+   between". Under way: the rule is rewritten, and the scheduled tests of the engine's `update` and `runCommand` and
+   of `rehearse`'s `send` are gone, each mutation killed by a deterministic test; `rehearse`'s `run`, `model` and
+   `runAll` keep theirs, the only killers of their mutations. The counterexamples of "from the first defect on" were
+   readings of the property's, and the README now says when the defect of a release counts; those of the order of
+   the defects and of the releases together are open (ROADMAP).
 
-No step changes what a consumer sees: the README stays as it is, and so does the API. A step that turns out to need
-a change of either stops and asks.
+No step changes what a consumer sees: the API stays as it is, and the README only says what the run already did (steps
+6 and 7). A step that turns out to need a change of either stops and asks.
 
 ## What it rests on
 

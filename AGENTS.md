@@ -161,12 +161,16 @@ is how they are kept, and what a change must not undo:
 - **A check of what another fiber may change, and the act it guards, are one thunk.** Where the engine or a testing
   tool decides from what another fiber may change (the register of deaths, the keys of a state, `pending`), the
   check and the act it guards, a call of the program or the start of a fiber, are in one synchronous thunk: the
-  scheduler may yield at any other operation, and another fiber die or write meanwhile. A change of the engine or of
-  a testing tool lists the points where another fiber can run between a check and its act, and leaves a test under
-  the scheduler of the tests (`test/scheduled.ts`) that fails without the check: a budget of operations samples the
-  interleavings, and reaches only some. The check also gets a mutation that takes it out, naming that test
-  (`mutations/`, under "Tests"). What cannot be one thunk with its check, as the first step of an effect of the
-  program, is no act the README promises about.
+  scheduler may yield at any other operation, and another fiber die or write meanwhile. The check is a transition of
+  the core (`core.ts`, `testing/ledger.ts`), or of a function as pure (`alive`), tested on its own; where program code
+  lies between the check and what the test watches, a gate (program code held by a `Deferred`) makes the order
+  deterministic. A change of the engine or of a testing tool lists the points where another fiber can run between a
+  check and its act, and leaves a test that fails without the check: deterministic, of the core or with a gate, and
+  under the scheduler of the tests (`test/scheduled.ts`) only where neither reaches the act, since a budget of
+  operations samples the interleavings, and reaches only some. Such a test goes once a deterministic one kills the
+  check's mutation. The check also gets a mutation that takes it out, naming that test (`mutations/`, under "Tests").
+  What cannot be one thunk with its check, as the first step of an effect of the program, is no act the README
+  promises about.
 - **Commands are data; only `runCommand` runs them.** Never let a command carry its effect, or a description
   that must be kept in step with one: a test, `onApplied` and the logs read the command itself.
 - **Commands cannot be cancelled**, a deliberate choice: do not add cancellation without asking.
