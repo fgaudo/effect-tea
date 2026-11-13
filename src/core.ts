@@ -1,6 +1,7 @@
 import * as Arr from 'effect/Array'
 import * as Cause from 'effect/Cause'
 import * as Context from 'effect/Context'
+import * as Exit from 'effect/Exit'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import { type DefectSite, ProgramDefect } from './defect.ts'
@@ -111,6 +112,27 @@ export const report = (register: Register): readonly [Opt.Option<Cause.Cause<nev
     ? [Opt.some(Cause.fromReasons<never>(dies)), { ...register, reported: register.deaths.length }]
     : [Opt.none(), register]
 }
+
+/** The defects a fiber ended with, in the order of its cause; none for one that succeeded. */
+export const diesOf = (exit: Exit.Exit<unknown, unknown>): ReadonlyArray<Cause.Die> =>
+  Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isDieReason) : []
+
+/**
+ * `deaths` first, in their order, then the rest of `cause`, but for the defects already among them, by their identity,
+ * never by `Equal`, which is the program's and which `Cause.combine` compares reasons with.
+ */
+export const diesFirst = <E>(deaths: ReadonlyArray<Cause.Die>, cause: Cause.Cause<E>): Cause.Cause<E> =>
+  Cause.fromReasons<E>([
+    ...deaths,
+    ...cause.reasons.filter((reason) => !(Cause.isDieReason(reason) && holds(deaths, reason.defect))),
+  ])
+
+/**
+ * What a run, or a testing tool, ends with: `exit` as it is when nothing died, else what its fibers died of first
+ * (`diesFirst`), then the rest of what it ended with, whose result is dropped.
+ */
+export const endedWith = <A, E>(deaths: ReadonlyArray<Cause.Die>, exit: Exit.Exit<A, E>): Exit.Exit<A, E> =>
+  deaths.length === 0 ? exit : Exit.failCause(diesFirst(deaths, Exit.isFailure(exit) ? exit.cause : Cause.empty))
 
 /** Counts the starts of subscriptions: each start of a key gets a new one. */
 export type Generation = number

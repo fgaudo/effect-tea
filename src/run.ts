@@ -1,10 +1,8 @@
-import * as Arr from 'effect/Array'
-import * as Cause from 'effect/Cause'
 import * as Effect from 'effect/Effect'
-import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
+import * as Core from './core.ts'
 import type { Dispatch } from './dispatch.ts'
 import * as Engine from './engine.ts'
 import { runCommandOf, type Shape, startOf, subscriptionsOf } from './program.ts'
@@ -33,14 +31,7 @@ export const runWith = Effect.fnUntraced(function*<State, Model, Message, Comman
   const deaths = yield* Engine.makeDeaths(() => true)
   return yield* Effect.uninterruptibleMask((restore) =>
     Effect.exit(restore(running(program, render, options, deaths))).pipe(
-      Effect.flatMap((exit) => {
-        const dies = deaths.all()
-        if (!Arr.isReadonlyArrayNonEmpty(dies)) return exit
-        const rest = Exit.isFailure(exit)
-          ? exit.cause.reasons.filter((reason) => !(Cause.isDieReason(reason) && deaths.has(reason.defect)))
-          : []
-        return Effect.failCause(Cause.fromReasons<never>([...dies, ...rest]))
-      }),
+      Effect.flatMap((exit) => Core.endedWith(deaths.all(), exit)),
     )
   )
 })

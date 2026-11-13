@@ -83,10 +83,8 @@ export const simulate = <State, Message, Command, Event, R = never>(
         Effect.flatMap((fiber) =>
           Effect.flatMap(Effect.exit(restore(Fiber.join(fiber))), (joined) =>
             Exit.isFailure(joined) && Cause.hasInterrupts(joined.cause)
-              ? Effect.flatMap(Effect.andThen(stopping(fiber), Fiber.await(fiber)), (stopped) => {
-                const dies = Exit.isFailure(stopped) ? stopped.cause.reasons.filter(Cause.isDieReason) : []
-                return Effect.failCause(Cause.combine(Cause.fromReasons<never>(dies), joined.cause))
-              })
+              ? Effect.flatMap(Effect.andThen(stopping(fiber), Fiber.await(fiber)), (stopped) =>
+                Effect.failCause(Core.diesFirst(Core.diesOf(stopped), joined.cause)))
               : joined)
         ),
       )

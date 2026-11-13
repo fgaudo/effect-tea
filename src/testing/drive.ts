@@ -1,4 +1,3 @@
-import * as Arr from 'effect/Array'
 import * as Cause from 'effect/Cause'
 import * as Clock from 'effect/Clock'
 import * as Deferred from 'effect/Deferred'
@@ -10,6 +9,7 @@ import * as Opt from 'effect/Option'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import * as SubscriptionRef from 'effect/SubscriptionRef'
+import * as Core from '../core.ts'
 import { diesIn, type RunOptions } from '../engine.ts'
 import type { Shape } from '../program.ts'
 import { type FlagsOption, type Frame, runWith } from '../run.ts'
@@ -120,7 +120,7 @@ export const drive = Effect.fnUntraced(function*<
     const stopped = yield* Fiber.await(fiber)
     // Interrupted, the run dies of what its fibers die of as they release what they hold, as when whoever runs it
     // interrupts it.
-    const dies = Exit.isFailure(stopped) ? stopped.cause.reasons.filter(Cause.isDieReason) : []
+    const dies = Core.diesOf(stopped)
     // The run died in its renderer, as it dies when its renderer reads the model: what the scenario ended with is
     // dropped as when the run dies first, whichever of the two the race saw end first, and the defect is the first.
     if (modeled.reasons.length > 0) {
@@ -131,11 +131,7 @@ export const drive = Effect.fnUntraced(function*<
     if (Opt.isNone(outcome)) {
       return yield* stopped
     }
-    if (!Arr.isArrayNonEmpty(dies)) {
-      return yield* outcome.value
-    }
-    const failed = Exit.isFailure(outcome.value) ? outcome.value.cause : Cause.empty
     // The defects first, as the run puts them before the rest of what it ended with.
-    return yield* Effect.failCause(Cause.combine(Cause.fromReasons<never>(dies), failed))
+    return yield* Core.endedWith(dies, outcome.value)
   }))
 })

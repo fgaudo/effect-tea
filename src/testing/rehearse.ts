@@ -153,7 +153,7 @@ export const rehearse = Effect.fnUntraced(function*<
   // that died. The tool's own failures of a call (nothing to send, a control that does nothing) are the caller's
   // alone, so only a `ProgramDefect` is recorded.
   const register = yield* makeDeaths((defect) => defect instanceof ProgramDefect)
-  const { recorded, all: deaths, has: isRecorded, dead } = register
+  const { recorded, all: deaths, dead } = register
   // Fails with the defects recorded so far, if any: else runs `effect`. It guards no call of the program: one that
   // must not follow a death has its own check, the only one, in the thunk that calls it, since the scheduler may
   // yield between this check and `effect`.
@@ -206,7 +206,7 @@ export const rehearse = Effect.fnUntraced(function*<
     Effect.forEach(stopping, ({ fiber }) => Effect.andThen(stopFiber(fiber), Fiber.await(fiber)), {
       concurrency: 'unbounded',
     }).pipe(Effect.flatMap((exits) => {
-      const dies = exits.flatMap((exit) => Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isDieReason) : [])
+      const dies = exits.flatMap(Core.diesOf)
       return Arr.isArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : Effect.void
     }))
   // Read on each new state and compared with the keys of the state before, as the run reconciles them, though only
@@ -598,14 +598,7 @@ export const rehearse = Effect.fnUntraced(function*<
       // One that failed, or was interrupted, stops the loop at once: its result is the failure.
       Effect.tap((exit) => Exit.isSuccess(exit) ? Effect.exit(finish) : Effect.void),
       Effect.tap(end),
-      Effect.flatMap((exit) => {
-        const dies = deaths()
-        if (!Arr.isReadonlyArrayNonEmpty(dies)) return exit
-        const rest = Exit.isFailure(exit)
-          ? exit.cause.reasons.filter((reason) => !(Cause.isDieReason(reason) && isRecorded(reason.defect)))
-          : []
-        return Effect.failCause(Cause.fromReasons<E>([...dies, ...rest]))
-      }),
+      Effect.flatMap((exit) => Core.endedWith(deaths(), exit)),
     )
   )
   // Pending once the loop has finished: a command that a message it finished starts fails the rehearsal too.

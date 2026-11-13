@@ -69,7 +69,9 @@ is how they are kept, and what a change must not undo. What they rest on of Effe
   - Each defect recorded is reported once, in that order: by the run as soon as one dies, and by the end of the run,
     which stops the loop first and waits for it (`stop` in `engine.ts`), so that what is sent meanwhile is not applied
     and nothing forks a fiber while it reads them, then interrupts its other fibers itself, waits for them to release
-    what they hold, and dies of the rest; the run's cause holds the defects first, then the rest of what it ended with.
+    what they hold, and dies of the rest; the run's cause holds the defects first, then the rest of what it ended with,
+    but for the defects already among them, by their identity (`endedWith` in `core.ts`, which `rehearse`, `drive` and
+    `simulate` end with too).
   - From the first defect recorded on, the run applies no message, until its end stops the loop: it calls no `update`,
     checked in the thunk that calls it (`arrive` in `core.ts`), where no other fiber can run, since the scheduler may
     yield at any other operation. It is the only check. A step whose `update` was called before goes on whole until the

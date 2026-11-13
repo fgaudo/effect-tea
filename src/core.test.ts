@@ -1,13 +1,17 @@
 import { describe, expect, test } from 'bun:test'
 import * as Cause from 'effect/Cause'
 import * as Context from 'effect/Context'
+import * as Exit from 'effect/Exit'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import fc from 'fast-check'
 import {
   type Active,
   arrive,
+  diesFirst,
+  diesOf,
   ended,
+  endedWith,
   hasDied,
   init,
   noDeaths,
@@ -159,6 +163,39 @@ describe('the register of deaths', () => {
     expect(report(after)[0]).toEqual(Opt.none())
     const [later] = report(record(after, Cause.die('c'), () => true))
     expect(Opt.map(later, defects)).toEqual(Opt.some(['c']))
+  })
+})
+
+describe('what a run ends with', () => {
+  const dies = (...thrown: ReadonlyArray<unknown>) =>
+    thrown.flatMap((defect) => Cause.die(defect).reasons.filter(Cause.isDieReason))
+
+  test('the defects a fiber ended with are those of its cause, in order, and none for one that succeeded', () => {
+    const cause = Cause.fromReasons<string>([...dies('a'), ...Cause.interrupt(1).reasons, ...dies('b')])
+    expect(diesOf(Exit.failCause(cause)).map((death) => death.defect)).toEqual(['a', 'b'])
+    expect(diesOf(Exit.succeed(1))).toEqual([])
+  })
+
+  test('a run that died ends with its defects first, then the rest of what it ended with', () => {
+    const a = new Error('a')
+    const b = new Error('b')
+    const ended = Cause.fromReasons<string>([...Cause.interrupt(1).reasons, ...dies(b), ...Cause.fail('oops').reasons])
+    const failed = endedWith(dies(a, b), Exit.failCause(ended))
+    expect(Exit.isFailure(failed) ? defects(failed.cause) : []).toEqual([a, b, 'Interrupt', 'Fail'])
+    const succeeded = endedWith(dies(a), Exit.succeed(1))
+    expect(Exit.isFailure(succeeded) ? defects(succeeded.cause) : []).toEqual([a])
+  })
+
+  test('a run where nothing died ends with what it ended with, as it is', () => {
+    const exit = Exit.fail('oops')
+    expect(endedWith([], exit)).toBe(exit)
+  })
+
+  test('a defect is left out of the rest by its identity, never by Equal', () => {
+    const one = { _tag: 'Boom' }
+    const other = { _tag: 'Boom' }
+    expect(defects(diesFirst(dies(one), Cause.fromReasons([...dies(other), ...dies(one)])))).toEqual([one, other])
+    expect(diesFirst(dies(one), Cause.die(other)).reasons[1]?._tag === 'Die').toBe(true)
   })
 })
 

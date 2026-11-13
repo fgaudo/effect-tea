@@ -334,14 +334,32 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: 'the run ends with what it ended with, not with its defects first',
-    file: 'src/run.ts',
-    from: 'if (!Arr.isReadonlyArrayNonEmpty(dies)) return exit',
-    to: 'if (true) return exit',
+    file: 'src/core.ts',
+    from: 'deaths.length === 0 ? exit :',
+    to: 'true ? exit :',
     killedBy: [
+      ['src/core.test.ts', 'a run that died ends with its defects first, then the rest of what it ended with'],
       [
         'src/run.test.ts',
         'an interrupted run whose renderer dies as it releases has the defect first, then the interruption',
       ],
+      ['src/testing/contract.test.ts', 'rehearse fails, as the run dies, on a command that dies in a fiber nobody joins'],
+      [
+        'src/testing/contract.test.ts',
+        'drive fails, as rehearse does, with the defect first, then with what the scenario ended with',
+      ],
+    ],
+  },
+  {
+    name: 'a defect the run died of is in its cause again, among the rest of what it ended with',
+    file: 'src/core.ts',
+    from: '!(Cause.isDieReason(reason) && holds(deaths, reason.defect))',
+    to: 'true',
+    killedBy: [
+      ['src/core.test.ts', 'a run that died ends with its defects first, then the rest of what it ended with'],
+      ['src/core.test.ts', 'a defect is left out of the rest by its identity, never by Equal'],
+      ['src/run.test.ts', 'every defect of the cause is kept, each with where it happened'],
+      ['src/testing/rehearse.test.ts', 'a defect the scenario catches fails it all the same, first, and once'],
     ],
   },
   {
