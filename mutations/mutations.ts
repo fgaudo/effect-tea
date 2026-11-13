@@ -221,7 +221,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: 'Queue.bounded<Envelope<Message, K>>(1)',
     killedBy: [
       ['src/engine.test.ts', 'a message left by an earlier start of a key that came back does not reach update'],
-      ['src/engine.test.ts', 'no update is called once a command has died, under prioritized schedules'],
     ],
   },
   {
