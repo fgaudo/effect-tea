@@ -80,14 +80,14 @@ const running = Effect.fnUntraced(
     // However the run ends, the renderer is interrupted and awaited before the engine's fibers. Only signals race, so
     // that no defect is lost with the loser: every fiber records what it dies of, the renderer too, and the run
     // reports here what they have died of so far, and what they die of later, while the renderer releases what it
-    // holds too, by the end of the engine. Forked where nothing interrupts the run before its end is set: interrupted
-    // in between, the run would leave the renderer to the end of whichever fiber runs it, unawaited.
-    yield* Effect.uninterruptibleMask((restore) =>
-      Effect.flatMap(Effect.forkChild(rendering), (renderer) =>
-        restore(Effect.raceFirst(engine.died, Fiber.await(renderer)).pipe(Effect.andThen(engine.report))).pipe(
-          Effect.onExit(() => Effect.asVoid(Fiber.interrupt(renderer).pipe(Effect.andThen(Fiber.await(renderer))))),
-        ))
+    // holds too, by the end of the engine. The fork and how the run stops it are one acquisition, which nothing
+    // interrupts in between: forked apart, the run would leave the renderer to the end of whichever fiber runs it,
+    // unawaited. Its release comes before the engine's, acquired first in the same scope.
+    const renderer = yield* Effect.acquireRelease(
+      Effect.forkChild(rendering),
+      (renderer) => Fiber.interrupt(renderer).pipe(Effect.andThen(Fiber.await(renderer))),
     )
+    yield* Effect.raceFirst(engine.died, Fiber.await(renderer)).pipe(Effect.andThen(engine.report))
   },
   Effect.scoped,
 )

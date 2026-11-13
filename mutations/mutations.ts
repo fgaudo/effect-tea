@@ -47,18 +47,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
-    name: 'the run may be interrupted between forking the renderer and setting how it stops it',
-    file: 'src/run.ts',
-    from: 'Effect.uninterruptibleMask((restore) =>\n      Effect.flatMap(Effect.forkChild(rendering)',
-    to: 'Effect.interruptibleMask((restore) =>\n      Effect.flatMap(Effect.forkChild(rendering)',
-    killedBy: [
-      [
-        'src/run.test.ts',
-        'a run interrupted as it starts the renderer stops it, and keeps its defects, under prioritized schedules',
-      ],
-    ],
-  },
-  {
     name: 'reconcile starts subscriptions after the first defect',
     file: 'src/engine.ts',
     from: '      if (dead()) break\n',
@@ -341,13 +329,24 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
-    name: 'the renderer is stopped only when the run succeeds',
+    name: 'the run does not stop the renderer',
     file: 'src/run.ts',
-    from: 'Effect.onExit(() => Effect.asVoid(Fiber.interrupt(renderer)',
-    to: 'Effect.tap(() => Effect.asVoid(Fiber.interrupt(renderer)',
+    from: '    const renderer = yield* Effect.acquireRelease(\n'
+      + '      Effect.forkChild(rendering),\n'
+      + '      (renderer) => Fiber.interrupt(renderer).pipe(Effect.andThen(Fiber.await(renderer))),\n'
+      + '    )\n',
+    to: '    const renderer = yield* Effect.forkChild(rendering)\n',
     killedBy: [
       ['src/run.test.ts', 'a renderer that dies while an interrupted run releases it is in the cause'],
+      [
+        'src/run.test.ts',
+        'an interrupted run whose renderer dies as it releases has the defect first, then the interruption',
+      ],
       ['src/run.test.ts', 'a renderer that dies as a run that died elsewhere releases it is in the cause'],
+      [
+        'src/run.test.ts',
+        'a makeModel that dies as a run that died releases the renderer is the second defect, in render',
+      ],
       ['src/run.test.ts', 'a command that dies once the renderer of an interrupted run has ended ends the run with it'],
       ['src/run.test.ts', 'a command that dies while an interrupted run releases the renderer ends the run with it'],
       [
@@ -364,6 +363,10 @@ export const mutations: ReadonlyArray<Mutation> = [
         'a subscription that dies while a run that died elsewhere releases the renderer is in the cause',
       ],
       ['src/run.test.ts', 'a renderer that dies before a command is the first defect of the cause'],
+      [
+        'src/run.test.ts',
+        'a renderer that interrupts itself as whoever runs the run interrupts it is a defect in the renderer',
+      ],
       [
         'src/testing/contract.test.ts',
         'drive fails, as the run dies, on a defect of what a subscription releases when the scenario ends',

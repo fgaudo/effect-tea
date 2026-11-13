@@ -226,11 +226,19 @@ after the list says. A change that rests on a new premise adds it here, with wha
   gone keys released before any key starts: "a key that changes stops the old subscription and starts the new
   one", "keys that go away together release their subscriptions together, not one after the other"
   (`engine.test.ts`).
+- **`Effect.acquireRelease` lets nothing interrupt its acquisition, and runs its release when its scope closes,
+  however it closes**, which is how the run forks the renderer and sets how its end stops it with nothing between
+  to leave the renderer to the end of the fiber the run is in, which would interrupt it as a child, unawaited, and
+  how it interrupts and awaits the renderer however the run ends, before the engine's fibers, acquired earlier in
+  the same scope: "a renderer that dies while an interrupted run releases it is in the cause", "a renderer that
+  dies as a run that died elsewhere releases it is in the cause" (`run.test.ts`). Documented.
+- **`FiberSet.run` and `FiberMap.run` start their fiber at once**, so that the check before `runCommand`, the first
+  step of a command's fiber, is reached where the loop forks it, and a key the loop starts has started before the
+  next is looked at: "a message whose stopped subscription dies in its release starts none of its commands", "a
+  message whose onApplied waits while a command dies starts none of its commands", "a subscription that dies as the
+  run starts keeps the keys after it from starting" (`run.test.ts`). Documented.
 - **`Effect.onExit` runs its cleanup however the effect ends, and puts what the cleanup fails with after the cause
-  of the effect**, so that `runWith` interrupts the renderer however the run ends, and what ended the run stays
-  the first defect of the cause: "a renderer that dies while an interrupted run releases it is in the cause", "a
-  renderer that dies as a run that died elsewhere releases it is in the cause" (`run.test.ts`). It is also how
-  each fiber of the engine records what it dies of, interrupted or not. Interrupted: "a defect in what a subscription
+  of the effect**, which is how each fiber of the engine records what it dies of, interrupted or not. Interrupted: "a defect in what a subscription
   the run stopped releases ends the run", "a subscription stopped as whoever runs the run interrupts it, which dies
   as it releases, is in the cause"; dying of itself: "a command that dies while an interrupted run releases the
   renderer ends the run with it", "a command that dies while a run that died elsewhere releases the renderer is in
@@ -292,10 +300,7 @@ after the list says. A change that rests on a new premise adds it here, with wha
   of the state its message is applied to", "a send interrupted while its message stops a subscription leaves the
   state that stopped it" (`rehearse.test.ts`). Documented.
 - **What `Effect.uninterruptibleMask` runs outside `restore` cannot be interrupted**, which is how `drive` stops and
-  awaits its run when whoever runs it interrupts it: "drive interrupted by whoever runs it" (`drive.test.ts`); how the
-  run forks the renderer and sets how its end stops it, with nothing between to leave the renderer to the end of the
-  fiber the run is in, which would interrupt it as a child and end with that alone: "a run interrupted as it starts
-  the renderer stops it, and keeps its defects, under prioritized schedules" (`run.test.ts`); and how
+  awaits its run when whoever runs it interrupts it: "drive interrupted by whoever runs it" (`drive.test.ts`); and how
   `rehearse`'s `run` and `hearNext` give the loop the message they took before anything interrupts them: "a run
   interrupted while its answer stops a subscription has answered, and leaves its state", "a hearNext interrupted while
   its message stops a subscription leaves the state the message made" (`rehearse.test.ts`). It is also how the end of

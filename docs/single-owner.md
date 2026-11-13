@@ -1,7 +1,8 @@
 # A run that needs no test of the order of yields
 
-**Status:** proposed, November 2026. An investigation: no file of the library, of its tests or of its documents was
-changed. It asks whether the run and the testing tools can be made, by construction, not to need the tests under
+**Status:** proposed, November 2026; steps 1 to 3 of its plan are done, and the rest waits for the open questions.
+What follows is the investigation as it was written, when no file of the library, of its tests or of its documents
+had changed: where it says "today", it is the code before those steps. It asks whether the run and the testing tools can be made, by construction, not to need the tests under
 `test/scheduled.ts`, which decide where every fiber yields. Its spikes ran on a copy of the repository, on Effect
 4.1.4 and Bun 1.4.4, and were deleted: "What it rests on" says what each one showed.
 
@@ -213,7 +214,9 @@ two test files and its two modes go with it.
 ## Plan
 
 Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun run mutations` green, and is a commit.
-Steps 1 to 3 change nothing a consumer sees and need no decision.
+Steps 1 to 3 change nothing a consumer sees and need no decision: they are done. The mutation of step 3 has thirteen
+killers, twelve of `run.test.ts` and one of `contract.test.ts`, and takes the place of "the renderer is stopped only
+when the run succeeds" too, whose `Effect.onExit` the release replaced.
 
 1. `rehearse`'s `model`: one check, in the thunk that calls `makeModel`, outside `diesIn('render')`. A test with no
    schedule, "model calls no makeModel once a command has died", replaces the scheduled one as the killer of

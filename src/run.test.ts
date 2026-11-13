@@ -1793,51 +1793,6 @@ describe('the end of the run', () => {
     expect(wheres(exit).length).toBe(started)
   })
 
-  // The run forks the renderer, then sets how its end stops it: interrupted in between, it left the renderer to the
-  // end of the fiber it runs in, which interrupted it as a child and ended with that interruption alone, the defect of
-  // the run lost. No program code lies between the two, so no gate reaches it: seed 767 found it.
-  test('a run interrupted as it starts the renderer stops it, and keeps its defects, under prioritized schedules', () => {
-    let acquired = false
-    let lost = 0
-    const program: Program<{ state: Count; model: Count; message: 'Go'; command: 'Boom'; services: Scope.Scope }> = {
-      init: { state: { count: 0 } },
-      update: () => ({ count }) => ({ state: { count: count + 1 }, commands: ['Boom'] }),
-      runCommand: () =>
-        Effect.acquireRelease(Effect.sync(() => {
-          acquired = true
-        }), () => Effect.yieldNow.pipe(Effect.andThen(Effect.die('release')))).pipe(
-          Effect.andThen(Effect.never),
-        ),
-      makeModel: (state) => state,
-    }
-    const once = Effect.gen(function*() {
-      acquired = false
-      const holding = yield* Deferred.make<void>()
-      const running = yield* Effect.forkChild(run(
-        program,
-        (frames) =>
-          Stream.runHead(frames).pipe(
-            Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: ({ dispatch }) => dispatch('Go') })),
-            Effect.andThen(Effect.never),
-          ),
-        {
-          onApplied: () =>
-            Effect.uninterruptible(
-              Deferred.succeed(holding, undefined).pipe(
-                Effect.andThen(Effect.replicateEffect(Effect.yieldNow, 3, { discard: true })),
-              ),
-            ),
-        },
-      ))
-      yield* Deferred.await(holding)
-      yield* Fiber.interrupt(running)
-      const exit = yield* Fiber.await(running)
-      if (acquired && !wheres(exit).includes('command')) lost += 1
-    })
-    prioritizedSchedules(once, { runs: 500, depth: 3, pinned: [767] }, () => {})
-    expect(lost).toBe(0)
-  })
-
   // An interruption by the run is told from one the program makes by whether the fiber was interrupted when the
   // effect ended: an uninterruptible region delays it, and it is still the run's.
   test('a subscription stopped inside an uninterruptible region is no defect', async () => {
