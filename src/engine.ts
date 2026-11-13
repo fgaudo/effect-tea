@@ -176,16 +176,20 @@ export const applyIn = <State, Message, Command, Event>(
 ) => Effect.sync(() => update(message)(state)).pipe(diesIn('update', () => ({ on: describeByTag(message) })))
 
 /**
- * `applyIn`, unless the run has died: `None`, with `update` not called, once `dead` says so. Asked in the thunk that
- * calls `update`, where no other fiber can run, so that no yield of the scheduler lets one die in between.
+ * Calls `f` unless the run has died: `None`, with `f` not called, once `dead` says so. The only way the run and the
+ * testing tools call the program's code that must not run after a death: the check and the call are one synchronous
+ * function, where no other fiber can run, so that no yield of the scheduler lets one die in between.
  */
+export const alive = <A>(dead: () => boolean, f: () => A): Opt.Option<A> => dead() ? Opt.none() : Opt.some(f())
+
+/** `applyIn`, unless the run has died: `None`, with `update` not called, once `dead` says so (`alive`). */
 export const applyAlive = <State, Message, Command, Event>(
   update: Update<State, Message, Command, Event>,
   message: Message,
   state: State,
   dead: () => boolean,
 ) =>
-  Effect.sync(() => dead() ? Opt.none() : Opt.some(update(message)(state))).pipe(
+  Effect.sync(() => alive(dead, () => update(message)(state))).pipe(
     diesIn('update', () => ({ on: describeByTag(message) })),
   )
 
@@ -330,8 +334,9 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   const { recorded, died, report, all } = deaths
   // A run that died applies no message, and starts no command and no subscription, as nothing happens in a run that
   // died, while whoever runs it stops it: the renderer, which it stops first, may take a while to release what it
-  // holds. Each is checked in the thunk that calls the program, `update` or `runCommand`, or that starts the fiber of a
-  // subscription, where no other fiber can run: the scheduler may yield at any other operation. A step whose `update`
+  // holds. Each is checked in the thunk that calls the program, `update` or `runCommand` (`alive`), or that starts the
+  // fiber of a subscription, where no other fiber can run: the scheduler may yield at any other operation. The loop
+  // checks nothing of its own, which would hide a check left apart from its call from any test. A step whose `update`
   // was called before the death goes on, as it may wait for a release or an option; what the program's effects do
   // once started is theirs, until the end of the run interrupts them.
   const dead = () => all().length > 0
@@ -373,7 +378,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   // The interpreter runs inside the command's fiber, so a defect in it is the command's. Its scope closes
   // before its message is queued, so that `update` never learns of a command whose resources are still open.
   const runCommand = (command: Command) =>
-    Effect.suspend(() => dead() ? Effect.succeedNone : interpret(command)).pipe(
+    Effect.suspend(() => Opt.getOrElse(alive(dead, () => interpret(command)), () => Effect.succeedNone)).pipe(
       scopedIn(deaths, 'command'),
       Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: enqueue(fromCommand) })),
       Effect.provideContext(context),
@@ -439,8 +444,12 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     // Left in the queue by a subscription whose key has gone away since: it was produced after the program
     // stopped listening, so it does not reach `update`.
     if (source._tag === 'Subscription' && !active.starts.has(source.generation)) {
-      if (debugging) {
-        yield* log('Dropped a message of a stopped subscription', source.key, yield* described(message))
+      // The loop takes messages after a death too, and calls nothing of the program on them.
+      const description = debugging
+        ? yield* call('describeMessage', () => alive(dead, () => describeMessage(message)))
+        : Opt.none()
+      if (Opt.isSome(description)) {
+        yield* log('Dropped a message of a stopped subscription', source.key, description.value)
       }
       return active
     }
@@ -484,9 +493,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   yield* Effect.gen(function*() {
     let active = initialActive
     while (true) {
-      const envelope = yield* Queue.take(queue)
-      if (dead()) return
-      active = yield* step(active, envelope)
+      active = yield* step(active, yield* Queue.take(queue))
     }
   }).pipe(Effect.provideContext(context), recorded, FiberSet.run(fibers))
   return {

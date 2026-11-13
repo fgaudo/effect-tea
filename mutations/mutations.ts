@@ -17,9 +17,10 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'update is called after the first defect',
     file: 'src/engine.ts',
-    from: 'Effect.sync(() => dead() ? Opt.none() : Opt.some(update(message)(state)))',
+    from: 'Effect.sync(() => alive(dead, () => update(message)(state)))',
     to: 'Effect.sync(() => Opt.some(update(message)(state)))',
     killedBy: [
+      ['src/engine.test.ts', 'no update is called on a message taken once a command has died'],
       ['src/engine.test.ts', 'no update is called once a command has died, under prioritized schedules'],
       ['src/testing/rehearse.test.ts', 'send calls no update once a command has died, under prioritized schedules'],
     ],
@@ -27,7 +28,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'runCommand is called after the first defect',
     file: 'src/engine.ts',
-    from: 'Effect.suspend(() => dead() ? Effect.succeedNone : interpret(command))',
+    from: 'Effect.suspend(() => Opt.getOrElse(alive(dead, () => interpret(command)), () => Effect.succeedNone))',
     to: 'Effect.suspend(() => interpret(command))',
     killedBy: [
       ['src/engine.test.ts', 'no runCommand is called once a command has died, under prioritized schedules'],

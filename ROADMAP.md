@@ -8,8 +8,8 @@ when it is done or rejected, with the reason in the commit.
 
 An audit of November 2026 of every check of what another fiber may change against the act it guards (the rule
 "one thunk" of AGENTS.md) found these. Covered, each check in the thunk of its act: the calls of `update` by the
-engine's loop and by `rehearse`'s (`applyAlive`), of `runCommand` by the engine (before `interpret(command)`) and by
-`rehearse`'s `run`, of `makeModel` by `rehearse`'s `model`, and `run`'s take from `pending` (`findIndex` and
+engine's loop and by `rehearse`'s (`applyAlive`), of `runCommand` by the engine (`alive` around `interpret(command)`)
+and by `rehearse`'s `run`, of `makeModel` by `rehearse`'s `model`, and `run`'s take from `pending` (`findIndex` and
 `Arr.remove` in one thunk). The engine's `active` and `started`, and `rehearse`'s `now`, `active` and `gone`, are read
 and written by one fiber only, so no window opens on them. Beyond any check: the first step of a subscription, or of
 an effect already started, and a `makeModel` the renderer reads as it releases, which the README promises nothing
@@ -26,10 +26,15 @@ that fails without it.
   run applies no message and starts no command" (`interleaving.test.ts`) fails, every time, under fast-check's
   `{ seed: -1159550533, path: '842:3:3:3:30:29:33:40:38:38:40:40:38:38:46:38:42:51:52:46:46:46:46:56:46:49:53:54:53:59:57:57:57:57:57:57:57:58:57:57:57:57:58:57:58:57:57:57:57:57:57:57:57:57:57:57:96:98:103:103:104:104:133' }`,
   passed to that test's `property` (whose options then take a `path`): the subscription of row 2, which has ended by
-  itself, releases slowly and dies there, and command `1.0` starts after the death. The lead is the window between
-  the release's defect and its record (`scopedIn` in `engine.ts`): the operations of `diesIn` and of the scope's
-  close come between, and `dead()` in `runCommand` sees no death there. The fix starts from the counterexample,
-  names the form, and looks for it wherever `scopedIn` and `recorded` wrap a fiber, `rehearse`'s included.
+  itself, releases slowly and dies there, and command `1.0` starts after the death. It needs no yield of the
+  scheduler: under Effect's own, a subscription that ends with two finalizers in the run's scope, the first of which
+  dies while the second waits on a `Deferred`, lets a message dispatched meanwhile reach `update` and start its
+  command (a probe, November 2026, not committed). The defect is recorded only as the scope's close ends
+  (`scopedIn`), and the engine can learn of it no earlier, with no `Supervisor`. So the README says nothing of when a
+  release dies ("dies when its effect ends with a defect" says it of the effect alone), and the property counts the
+  death from the finalizer's own exit. To decide: the README says a defect of what the run releases counts from the
+  end of that release, and the property moves its `Died` there; or the run learns of it earlier, which no API of
+  Effect offers but a `Supervisor`.
 - **The interleavings fail in about one run of three** (November 2026; `interleaving.test.ts` alone, 3 of 10 runs),
   each on a seed drawn at random, so `bun run test` too. The counterexamples met, each the `seed` and `path` to pass to
   the test's `property` (whose options then take a `path`), and failing every time with them; fast-check names the
@@ -77,19 +82,18 @@ that fails without it.
   dies as it releases: the run's cause must hold that defect, and the command's release must have ended when the
   run returns. If one is missed, the form is a snapshot taken while another fiber may still add to the set: look for
   it in `rehearse`'s end too (`forks`, `underWay`).
-- **Two checks of the engine that no test can hold, to keep or remove**, found as `mutations/mutations.ts` was
-  written: the window each narrows is one the README promises nothing about, so neither has a mutation.
-  - The start of a subscription's fiber after the first defect (`dead() ? Effect.void : runSubscription(…)` in
-    `reconcile`). Under `prioritizedSchedules` (2,000 seeds), three subscriptions started by the step whose command
-    dies run their channel's code after the defect in 59 runs at depth 3 and 127 at depth 4 with the check, 65 and
-    133 without: the scheduler yields between the check and the channel's first step, as AGENTS.md says. Only the
-    interleavings, under a seed drawn at random, fail without it.
-  - The loop's `if (dead()) return` after `Queue.take`: `applyAlive` checks the same in the thunk that calls
-    `update`. What it still spares, after the first defect, is the drop of a stopped start's message, with
-    `describeMessage` and its debug log, in a thunk of its own as well.
-
-  Kept, each narrows a window at the cost of a check; removed, AGENTS.md's "one thunk" names the start of a
-  subscription's fiber among what is checked, and changes with it.
+- **A check of the engine that no test can hold, to keep or remove**, found as `mutations/mutations.ts` was
+  written: the start of a subscription's fiber after the first defect (`dead() ? Effect.void : runSubscription(…)` in
+  `reconcile`). The window it narrows is one the README promises nothing about, so it has no mutation. Under
+  `prioritizedSchedules` (2,000 seeds), three subscriptions started by the step whose command dies run their
+  channel's code after the defect in 59 runs at depth 3 and 127 at depth 4 with the check, 65 and 133 without: the
+  scheduler yields between the check and the channel's first step, as AGENTS.md says. Only the interleavings, under a
+  seed drawn at random, fail without it. Kept, it narrows a window at the cost of a check; removed, AGENTS.md's "one
+  thunk" names the start of a subscription's fiber among what is checked, and changes with it.
+- **`rehearse`'s loop checks the register before each step** (`recorded(deadOr(step))`), which hides the check of
+  `applyAlive` from every order but a scheduled one, as the engine's loop did: "send calls no update once a command
+  has died" is held only under `prioritizedSchedules`. Unlike the engine's, it also keeps `hearNext` from starting a
+  subscription after a death (`opening`): taken out, that start needs a check of its own, in the thunk that forks it.
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
 
 ## Possible improvements

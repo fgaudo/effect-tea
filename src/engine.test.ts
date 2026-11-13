@@ -521,6 +521,35 @@ describe('Engine after the first defect, a yield of the scheduler in between', (
       yield* engine.died
     }).pipe(Effect.scoped, Effect.exit)
 
+  // The order no yield of the scheduler needs: the loop is held by `onApplied` while a command dies, with a message
+  // queued behind, which it takes once the death is recorded.
+  test('no update is called on a message taken once a command has died', async () => {
+    const calls = { n: 0 }
+    await Effect.runPromiseExit(Effect.gen(function*() {
+      const deaths = yield* Engine.makeDeaths(() => true)
+      const dead = () => deaths.all().length > 0
+      const go = yield* Deferred.make<void>()
+      const engine = yield* Engine.make<Readonly<{ n: number }>, 'Go' | 'Hit', 'Die', never, never>({
+        deaths,
+        init: { state: { n: 0 }, commands: ['Die'] },
+        runCommand: () => Deferred.await(go).pipe(Effect.andThen(Effect.die('boom'))),
+        update: (message) => ({ n }) => {
+          if (message === 'Hit' && dead()) calls.n += 1
+          return { state: { n: n + 1 } }
+        },
+        subscriptions: () => HashMap.empty(),
+        onApplied: ({ message }) =>
+          message === 'Go' ? Deferred.succeed(go, undefined).pipe(Effect.andThen(deaths.died)) : Effect.void,
+      })
+      yield* engine.dispatch('Go')
+      yield* engine.dispatch('Hit')
+      yield* engine.died
+      // Long enough for the loop to take `Hit`, once `onApplied` lets it go.
+      yield* Effect.sleep('20 millis')
+    }).pipe(Effect.scoped))
+    expect(calls.n).toBe(0)
+  })
+
   // At depth 4: at depth 3, 2,000 seeds reach no late update with the check taken out.
   for (const what of ['update', 'runCommand'] as const) {
     test(`no ${what} is called once a command has died, under prioritized schedules`, () => {
