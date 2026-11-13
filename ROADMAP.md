@@ -6,6 +6,70 @@ when it is done or rejected, with the reason in the commit.
 
 ## Open problems
 
+An audit of November 2026 of every check of what another fiber may change against the act it guards (the rule
+"one thunk" of AGENTS.md) found these. Covered, each check in the thunk of its act: the calls of `update` by the
+engine's loop and by `rehearse`'s (`applyAlive`), of `runCommand` by the engine (before `interpret(command)`) and by
+`rehearse`'s `run`, of `makeModel` by `rehearse`'s `model`, and `run`'s take from `pending` (`findIndex` and
+`Arr.remove` in one thunk). The engine's `active` and `started`, and `rehearse`'s `now`, `active` and `gone`, are read
+and written by one fiber only, so no window opens on them. Beyond any check: the first step of a subscription, or of
+an effect already started, and a `makeModel` the renderer reads as it releases, which the README promises nothing
+about.
+
+A lead below is checked under `test/scheduled.ts` in both of its modes of resumption. A failure under `'inline'`
+is an order Effect's own scheduler gives, but for where it preempts, and so reachable when the program runs. One
+under `'queued'` alone (the default) rests on a fiber resumed by a `Deferred` or a `Fiber.join` waiting for its turn,
+where Effect 4.1.4 resumes it at once on the stack of the fiber that completes it: still a finding by the rules of
+AGENTS.md, since that inline resumption is read only in the source, unless it is added as a premise with a test
+that fails without it.
+
+- **`rehearse`'s `runAll` dies on a command another call took** (reproduced). It checks `pending.length` in one
+  thunk (`runAll` in `rehearse.ts`) and takes the command in another, `run(() => true)`'s, and the scheduler may yield
+  in between: a `run` of the test's that takes the last command there leaves `runAll` dying with "No pending command
+  matches", where it promises to run the pending commands until none is left. Seen with a probe, not committed: a
+  program whose `Go` starts one `Work` that answers at once; the scenario sends `Go`, then runs
+  `Effect.exit(rehearsal.runAll)` and `Effect.exit(rehearsal.run(() => true))` together
+  (`Effect.all(…, { concurrency: 'unbounded' })`), and counts the runs where `runAll`'s exit is a failure: 273 of
+  `prioritizedSchedules(…, { runs: 2000, depth: 4 })` (`test/scheduled.ts`). A failure of `run` there is the test's
+  own, and is not counted. The fix takes the command, or finds none and ends, in one thunk: `run`'s own thunk, given
+  a way to succeed when nothing matches, or a take of `runAll`'s own that `run` shares. It leaves that scenario as a
+  test in the describe "rehearse, after the first defect, a yield of the scheduler in between" or one of its own in
+  `rehearse.test.ts`, and a mutation in `mutations/mutations.ts` that splits the check from the take again, naming
+  it. "Testing" in the README, on `runAll`, is read again against it, and the changelog gets an entry.
+- **To verify: the renderer may start after the first defect.** `running` in `run.ts` calls `render(frames)` after
+  `Engine.make`, with no check of the register, so a subscription of `init` that dies as the engine starts may let
+  the renderer's code run after the defect. The fifth premise review ruled it out with one run under Effect's own
+  scheduler (an `init` subscription that dies at once, a renderer that counts its starts: none), never under the
+  scheduler of the tests. To check: that scenario under `prioritizedSchedules` (depth 4, 2,000 seeds), counting the
+  calls of `render` made once `deaths.all()` is not empty. The README promises only of `update` and `runCommand`, so
+  a call found is a decision before it is a bug: check in the thunk that calls `render`, as for `runCommand`, or say
+  in "Running" that the renderer may still start.
+- **To verify: the end of the run may miss a fiber started after it looked.** The engine's finalizer
+  (`Effect.addFinalizer` in `Engine.make`, `engine.ts`) takes `fibers` and `subscriptionFibers` in one thunk, then
+  interrupts and awaits those alone. A step the loop is in when the run is interrupted, held by an uninterruptible
+  `onApplied`, may start a command after that snapshot: the run then ends without awaiting it, or without the defect
+  it dies of. Not a death, so the check of `runCommand` lets it start. The fifth review ruled it out with "a step held
+  by an uninterruptible onApplied as the run is interrupted starts nothing the run does not await" (`run.test.ts`),
+  under Effect's own scheduler. To check: that test's scenario under `prioritizedSchedules`, with a command that
+  dies as it releases: the run's cause must hold that defect, and the command's release must have ended when the
+  run returns. If one is missed, the form is a snapshot taken while another fiber may still add to the set: look for
+  it in `rehearse`'s end too (`forks`, `underWay`).
+- **Four checks whose removal no deterministic test notices**, found as `mutations/mutations.ts` was written: each
+  is a lead, to be held by a test that fails without the check, and given its mutation, or found equivalent and
+  dropped. `bun run mutations --discover` was run on each over the whole suite.
+  - The loop's `if (dead()) return` after `Queue.take` (`engine.ts`): no test fails, since `applyAlive` checks the
+    same in the thunk that calls `update`. What it still guards is the drop of a stopped start's message and its
+    debug log after the first defect, which the README promises nothing about: likely equivalent, and then the
+    check is the one to weigh.
+  - The start of a subscription's fiber after the first defect (`dead() ? Effect.void : runSubscription(…)` in
+    `reconcile`): only the interleavings fail, under a seed drawn at random, and a test of `run.test.ts` that hears
+    rejections fails when its whole file runs, not alone, so through another test. AGENTS.md says that first step may
+    come after the defect anyway: what a test can hold is that the fiber's code does not start.
+  - `runWith`'s defects first (`if (!Arr.isArrayNonEmpty(dies)) return exit` in `run.ts`, made `if (true)`): no test
+    fails, though AGENTS.md says the run's cause holds the defects first, then the rest. A run interrupted by whoever
+    runs it, whose renderer dies as it releases, is the scenario to try: its order is asserted nowhere.
+  - `rehearse`'s stops together (`concurrency: 'unbounded'` in `stop`): no test fails when the keys that go away are
+    released one after the other, where the run's are released together ("keys that go away together release their
+    subscriptions together", `engine.test.ts`). A contract case would hold both.
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
 
 ## Possible improvements
@@ -22,13 +86,6 @@ when it is done or rejected, with the reason in the commit.
   what `src/index.ts` and `src/testing/index.ts` export shows in the diff, and a breaking one is not made by
   accident (as api-extractor does), with a check that the package's types resolve for each kind of consumer.
   `change-api` asks for this by hand today.
-- **A list of mutations, one for each check an invariant rests on**, each with the tests that must fail under it: a
-  script applies them one at a time, runs those tests alone, and fails when one passes. So "a check of what another
-  fiber may change leaves a test that fails without it" (AGENTS.md) is run, not only done by hand once: taking out
-  `dead` in `applyAlive`, the check before `interpret(command)`, the drop of a message of an earlier generation, the
-  wait for the gone keys' releases before any key starts, the weak hold of `dispatchTo`. A few minutes for twenty or
-  thirty, before a release; Stryker would mutate every line, but runs `bun test` only as a whole command, about
-  seven hours for this code.
 
 ## Ideas, to be decided
 

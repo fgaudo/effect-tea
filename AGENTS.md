@@ -160,8 +160,9 @@ is how they are kept, and what a change must not undo:
   scheduler may yield at any other operation, and another fiber die or write meanwhile. A change of the engine or of
   a testing tool lists the points where another fiber can run between a check and its act, and leaves a test under
   the scheduler of the tests (`test/scheduled.ts`) that fails without the check: a budget of operations samples the
-  interleavings, and reaches only some. What cannot be one thunk with its check, as the first step of an effect of
-  the program, is no act the README promises about.
+  interleavings, and reaches only some. The check also gets a mutation that takes it out, naming that test
+  (`mutations/`, under "Tests"). What cannot be one thunk with its check, as the first step of an effect of the
+  program, is no act the README promises about.
 - **Commands are data; only `runCommand` runs them.** Never let a command carry its effect, or a description
   that must be kept in step with one: a test, `onApplied` and the logs read the command itself.
 - **Commands cannot be cancelled**, a deliberate choice: do not add cancellation without asking.
@@ -423,6 +424,14 @@ A lead no test can reach yet is listed here, with what would decide it. None is,
   type, and gets a scenario of its own only where none can hold it. The examples' own tests show users how to test
   a program, and the smoke test (`smoke/`) and the benchmark (`bench/`) check the package and its speed: none of
   them is a test of the library's correctness, and they are kept apart from the five.
+- **Each check an invariant rests on has a mutation** in `mutations/mutations.ts` that takes it out, with the tests
+  that must fail under it: `bun run mutations` applies them one at a time to a copy of the repository (`.mutants/`),
+  runs those tests alone, and fails when one passes under its mutation, or fails without it. So a test that fails
+  without its check is run again, not only seen once. A new check adds its mutation; a test of one renamed or
+  removed, or the code it replaces rewritten, updates the list, which the script refuses otherwise (a name that runs
+  no test, or a text not found exactly once); `bun run mutations --discover <name>` lists every test that fails
+  under one. A test that fails only beside others of its file is no killer: the list names those that fail alone. It
+  runs before a release (`release`), and after a change of a file it mutates.
 - A test's name says what it checks. When a change touches a test, or what it tests, check that its name, its
   `describe` and its comments still say what the assertions check: a test adapted to a new design keeps an old
   name that promises what it no longer proves.

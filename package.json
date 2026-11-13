@@ -42,6 +42,7 @@
     "lint": "biome lint . && oxlint --type-aware",
     "test": "bun test",
     "bench": "bun bench/subscriptions.ts",
+    "mutations": "bun mutations/mutate.ts",
     "smoke": "bun smoke/smoke.ts",
     "prepare": "bunx effect-tsgo patch --typescript --no-oxlint"
   },
