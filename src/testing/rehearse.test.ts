@@ -11,7 +11,6 @@ import * as Hash from 'effect/Hash'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import type * as Scope from 'effect/Scope'
-import { prioritizedSchedules } from '../../test/scheduled.ts'
 import { ProgramDefect } from '../defect.ts'
 import type { Program } from '../program.ts'
 import { reject, type Update } from '../update.ts'
@@ -1264,29 +1263,4 @@ test(quitting, async () => {
     )
     : []
   expect(said).toEqual(['boom', 'It interrupted itself, which only the run may do'])
-})
-
-describe('rehearse, as another call takes what it checked, a yield of the scheduler in between', () => {
-  test('runAll runs what is pending, though another call takes the last command, under prioritized schedules', () => {
-    type Done = Readonly<{ done: boolean }>
-    const program: Program<{ state: Done; model: Done; message: 'Go' | 'Worked'; command: 'Work' }> = {
-      init: { state: { done: false } },
-      update: (message) => (state) => message === 'Go' ? { state, commands: ['Work'] } : { state: { done: true } },
-      runCommand: () => Effect.succeedSome('Worked'),
-      makeModel: (state) => state,
-    }
-    const failed = { n: 0 }
-    prioritizedSchedules(
-      rehearse(program, Effect.fnUntraced(function*(rehearsal) {
-        yield* rehearsal.send(() => Opt.some('Go'))
-        const [all] = yield* Effect.all([Effect.exit(rehearsal.runAll), Effect.exit(rehearsal.run(() => true))], {
-          concurrency: 'unbounded',
-        })
-        if (Exit.isFailure(all)) failed.n += 1
-      })).pipe(Effect.exit),
-      { runs: 2000, depth: 4 },
-      () => {},
-    )
-    expect(failed.n).toBe(0)
-  })
 })

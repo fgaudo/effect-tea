@@ -515,19 +515,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
-    name: "rehearse's runAll counts the pending commands apart from its take",
-    file: 'src/testing/rehearse.ts',
-    from: '    runFirst(() => true),\n',
-    to: "    Effect.suspend(() => ledger.pending.length === 0 ? Effect.succeed({ _tag: 'None' }) : "
-      + "Effect.as(run(() => true), { _tag: 'Ran' })),\n",
-    killedBy: [
-      [
-        'src/testing/rehearse.test.ts',
-        'runAll runs what is pending, though another call takes the last command, under prioritized schedules',
-      ],
-    ],
-  },
-  {
     name: "rehearse's take leaves its command pending",
     file: 'src/testing/ledger.ts',
     from: 'pending: Arr.remove(ledger.pending, index),',

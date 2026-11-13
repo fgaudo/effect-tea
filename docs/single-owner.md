@@ -1,6 +1,6 @@
 # A run that needs no test of the order of yields
 
-**Status:** accepted, November 2026. Steps 1 to 6 of its plan are done. The decision was revised on 13 November 2026,
+**Status:** accepted, November 2026. Steps 1 to 7 of its plan are done. The decision was revised on 13 November 2026,
 after four more spikes: steps 4 to 8 below replace the steps 4 to 6 first written, and steps 6 to 8 wait for the open
 questions.
 "Context" is the investigation as it was written, when no file of the library, of its tests or of its documents had
@@ -156,7 +156,7 @@ three that steps 1 to 3 already applied.
 And one of policy: **a mutation takes a check out, and a form is held by its construction.** A mutation that writes a
 second reader apart from an act, as `runAll`'s does, restores a bug the structure rules out (`Ledger.take` finds none
 in the transition that would take). No deterministic test can kill it, since no code of the program lies between the
-two reads. It goes, with its test, or stays as the one test under a schedule: an open question.
+two reads. It goes, with its test (step 7).
 
 The hypothesis's first rule, in its letter, is dropped: see "Alternatives".
 
@@ -270,7 +270,8 @@ by no test.
    A gated test, "a message of a stopped subscription, taken once a command has died, is not described", and the
    core's, kill the mutation that puts the start first. In `rehearse`, a `hearNext` whose message a key gone meanwhile
    would have dropped fails with the defect, as the README says of every call after one.
-7. `runAll`'s mutation, once decided: gone with its test, or kept as the one test under a schedule.
+7. Done. `runAll`'s mutation went, with its test under `prioritizedSchedules`, the last test under a schedule to
+   kill a mutation: `ledger.test.ts` holds the take that rules its form out.
 8. AGENTS.md: the rules beside "one thunk", and the policy of mutations. `interleaving.test.ts` and
    `test/scheduled.ts`, once decided: kept as an alarm, or gone with the premise of the `Scheduler`.
 
@@ -340,7 +341,6 @@ Each was spiked, but for the last two.
 - Whether `rehearse` stays as it is. It fails a call made after a defect, and the test starts each command itself,
   so no step of its is under way while a command dies: nothing found needs it to change.
 - Whether the engine keeps a stop of its own in its end, which only a test of `Engine.make` without `run` reaches.
-- Whether a mutation of form stays in `mutations.ts` (step 7).
 - Whether the search of `interleaving.test.ts` stays as an alarm, and `test/scheduled.ts` with it (step 8). It is
   what watches the end of the run, which no test holds.
 - Whether `scopedIn` should tell the defects its own fiber wrapped by a set of its own, rather than by the register.

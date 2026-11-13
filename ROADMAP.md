@@ -24,19 +24,18 @@ where Effect 4.1.4 resumes it at once on the stack of the fiber that completes i
 AGENTS.md, since that inline resumption is read only in the source, unless it is added as a premise with a test
 that fails without it.
 
-- **The run's tests rest on the order of Effect's yields**, which Effect does not promise: one test under
-  `prioritizedSchedules` is the only killer of its mutation ("runAll runs what is pending, though another call takes
-  the last command", `rehearse.test.ts`), and `test/scheduled.ts` models that order from Effect's source, in two
-  modes neither of which reaches every order of the other. First, before the rest of this list.
+- **The run's tests rest on the order of Effect's yields**, which Effect does not promise: the search of
+  `interleaving.test.ts` runs under `test/scheduled.ts`, which models that order from Effect's source, in two modes
+  neither of which reaches every order of the other. First, before the rest of this list.
   [`docs/single-owner.md`](docs/single-owner.md) holds the first by construction, with a plan. Its steps 1 to 3,
   which change nothing a consumer sees, are done (a function of the program is called where the call is decided, one
   check for each call, a fiber and how it stops are one primitive), and so are steps 4 and 5: the run stops the loop
   first as it ends, keeps one check, where the loop applies a message, has none in the middle of a step, and calls
   `render` once as it starts, so that a step under way when a defect is recorded may start its commands. The
   scheduled test of the renderer went with its check. Step 6 is done too: `Core.arrive` reads the register first, so
-  a dropped message is never described after a defect. To decide: whether `runAll`'s mutation, of a form the ledger
-  rules out, stays with its scheduled test (step 7); whether the search of `interleaving.test.ts` stays as an alarm,
-  or goes with `test/scheduled.ts` and its two modes (step 8).
+  a dropped message is never described after a defect, and so is step 7: `runAll`'s mutation, of a form the ledger
+  rules out, went with its scheduled test, so no test under a schedule kills a mutation. To decide: whether the search
+  of `interleaving.test.ts` stays as an alarm, or goes with `test/scheduled.ts` and its two modes (step 8).
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
 
 ## Possible improvements
