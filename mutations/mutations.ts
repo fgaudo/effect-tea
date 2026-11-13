@@ -853,9 +853,22 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'simulate reconciles the keys of a state with none of the state before',
     file: 'src/testing/simulate.ts',
-    from: 'Core.reconcile(listening.active, subscriptions(state))',
-    to: 'Core.reconcile(Core.noneActive, subscriptions(state))',
+    from: 'Core.reconcile(listening.active, subscriptions(listening.current.state))',
+    to: 'Core.reconcile(Core.noneActive, subscriptions(listening.current.state))',
     killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails, as the run dies, on a key whose Equal throws against the key of the state before',
+      ],
+    ],
+  },
+  {
+    name: 'simulate reads no subscriptions of a new state',
+    file: 'src/testing/simulate.ts',
+    from: 'return arrived.changed ? Effect.as(listen(listening), Opt.some(applied))',
+    to: 'return false ? Effect.as(listen(listening), Opt.some(applied))',
+    killedBy: [
+      ['src/testing/contract.test.ts', 'simulate fails, as the run dies, on a state whose subscriptions are a defect'],
       [
         'src/testing/contract.test.ts',
         'simulate fails, as the run dies, on a key whose Equal throws against the key of the state before',

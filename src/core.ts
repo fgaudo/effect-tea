@@ -196,6 +196,10 @@ export type Source<K> =
   | Readonly<{ _tag: 'Command' }>
   | Readonly<{ _tag: 'Subscription'; key: K; generation: Generation }>
 
+export const fromView: Source<never> = { _tag: 'View' }
+
+export const fromCommand: Source<never> = { _tag: 'Command' }
+
 /** What a program starts from: its first state, at the first revision, and the commands of its first step. */
 export type Started<State, Command> = Readonly<{ current: Revisioned<State>; commands: ReadonlyArray<Command> }>
 

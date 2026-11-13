@@ -162,14 +162,6 @@ export const runSubscription = <Message, R, RS>(
     Pull.catchDone(Effect.succeed),
   )
 
-// Described by its tags alone, whatever `describeMessage` says: a report must not run the program's code while the
-// run is dying, nor carry the message's data. The testing tools apply a message the same way.
-export const applyIn = <State, Message, Command, Event>(
-  update: Update<State, Message, Command, Event>,
-  message: Message,
-  state: State,
-) => Effect.sync(() => update(message)(state)).pipe(diesIn('update', () => ({ on: describeByTag(message) })))
-
 /**
  * Where the fibers of a run, or of a rehearsal, record what they die of, as they end, however they end: nothing is
  * lost to a `join` that nobody awaits any more, or to a `FiberSet` or a `FiberMap` that discards the exits of the
@@ -218,10 +210,6 @@ export const makeDeaths = Effect.fnUntraced(function*(keeps: (defect: unknown) =
 // A subscription's message carries the start it comes from, so that once its key goes away, what it left in the queue
 // is dropped.
 type Envelope<Message, K> = Readonly<{ message: Message; source: Core.Source<K> }>
-
-const fromView: Core.Source<never> = { _tag: 'View' }
-
-const fromCommand: Core.Source<never> = { _tag: 'Command' }
 
 const originOf = <K>(source: Core.Source<K>): Origin =>
   source._tag === 'Subscription' ? { _tag: 'Subscription', key: source.key } : source
@@ -349,7 +337,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   const runCommand = (command: Command) =>
     Effect.suspend(() => interpret(command)).pipe(
       scopedIn(deaths, 'command'),
-      Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: enqueue(fromCommand) })),
+      Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: enqueue(Core.fromCommand) })),
       Effect.provideContext(context),
       recorded,
       FiberSet.run(fibers),
@@ -395,6 +383,8 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     // `describeMessage` and `describeCommand` run for every message, and only to be logged.
     const debugging = yield* LogLevel.isEnabled('Debug')
     const current = yield* SubscriptionRef.get(stateRef)
+    // Described by its tags alone, whatever `describeMessage` says: a report must not run the program's code while the
+    // run is dying, nor carry the message's data. The testing tools apply a message the same way.
     const arrived = yield* Effect.sync(() => Core.arrive(update, current, active, source, message, dead)).pipe(
       diesIn('update', () => ({ on: describeByTag(message) })),
     )
@@ -462,7 +452,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     died,
     report,
     stop,
-    dispatch: enqueue(fromView),
+    dispatch: enqueue(Core.fromView),
     states: SubscriptionRef.changes(stateRef),
   } satisfies Engine<State, Message>
 })
