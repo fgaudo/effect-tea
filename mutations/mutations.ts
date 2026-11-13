@@ -430,10 +430,68 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse lets a command's interrupted run go unanswered",
     file: 'src/testing/rehearse.ts',
-    from: '              cancelled.push(command)\n',
+    from: '              ledger = Ledger.cancel(ledger, ticket)\n',
     to: '',
     killedBy: [
       ['src/testing/rehearse.test.ts', 'when a run interrupted while its command runs leaves the command unanswered'],
+    ],
+  },
+  {
+    name: "rehearse's runAll counts the pending commands apart from its take",
+    file: 'src/testing/rehearse.ts',
+    from: '    runFirst(() => true),\n',
+    to: "    Effect.suspend(() => ledger.pending.length === 0 ? Effect.succeed({ _tag: 'None' }) : "
+      + "Effect.as(run(() => true), { _tag: 'Ran' })),\n",
+    killedBy: [
+      [
+        'src/testing/rehearse.test.ts',
+        'runAll runs what is pending, though another call takes the last command, under prioritized schedules',
+      ],
+    ],
+  },
+  {
+    name: "rehearse's take leaves its command pending",
+    file: 'src/testing/ledger.ts',
+    from: 'pending: Arr.remove(ledger.pending, index),',
+    to: 'pending: ledger.pending,',
+    killedBy: [
+      [
+        'src/testing/ledger.test.ts',
+        'a take takes the oldest pending command the selection matches, under way under a ticket of its own',
+      ],
+    ],
+  },
+  {
+    name: "rehearse's hearNext asks again for a message asked for and not heard",
+    file: 'src/testing/ledger.ts',
+    from: 'return hearing.asked >= waiting',
+    to: 'return false',
+    killedBy: [
+      [
+        'src/testing/ledger.test.ts',
+        'each call asks for a message, unless one asked for by a call that left is not heard yet',
+      ],
+    ],
+  },
+  {
+    name: "rehearse's hearNext tells no call waiting as its start ends",
+    file: 'src/testing/ledger.ts',
+    from: 'last ? hearing.waiting : 0',
+    to: '0',
+    killedBy: [
+      ['src/testing/ledger.test.ts', 'the last message tells the calls still waiting, and only the last'],
+    ],
+  },
+  {
+    name: 'rehearse forgets an opened start whose key went away while calls wait on it',
+    file: 'src/testing/ledger.ts',
+    from: '      if (hearing.waiting > 0) {',
+    to: '      if (false) {',
+    killedBy: [
+      [
+        'src/testing/ledger.test.ts',
+        'a start whose key went away is stopped, and kept only while calls wait on it',
+      ],
     ],
   },
   {

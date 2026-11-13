@@ -1,6 +1,6 @@
 # A core shared by the run and the testing tools
 
-**Status:** decided, November 2026; steps 0 to 4 done. It follows effect-tea-persistent's decision 0292
+**Status:** decided, November 2026; steps 0 to 5 done. It follows effect-tea-persistent's decision 0292
 (`docs/decisions/0292-…` there), which moves that runtime's state into a pure core, and a reading of it by Fable 5.2
 for this library.
 
@@ -115,7 +115,15 @@ Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun ru
    message `hearNext` heard, and `reconcile` keeps the mark only while the start does; the engine marks none. It is
    still marked by the fiber of `hearNext` that took the last message, in the thunk where it takes it, as `rehearse`
    marked it before: step 5 makes it a transition of `rehearse`'s bookkeeping, with `waiting` and `asked`.
-5. `rehearse`'s own bookkeeping as a pure module, and `runAll` fixed by it, with a changelog entry.
+5. `rehearse`'s own bookkeeping as a pure module, and `runAll` fixed by it, with a changelog entry. Done:
+   `src/testing/ledger.ts`, tested in `ledger.test.ts`, holds `pending`, the commands under way and those cancelled,
+   and for each start how it is heard (unheard, `Scripted`, or `Opened` with `waiting` and `asked`), by generation.
+   `rehearse` keeps one ledger, written by one transition per thunk, and keeps apart only what is no data: the fiber
+   and the queues of a start `hearNext` runs, opaque to the ledger. `runAll` ends on a `take` that finds nothing,
+   in the thunk where it would take, with a test under `prioritizedSchedules` and a mutation that counts `pending`
+   apart again. The end of a start stays in `Active`, marked in the thunk of `heard`, where its waiting calls are
+   counted. An opened start whose key went away is kept while calls wait on it, so that a last message it sent before
+   is still told to them, and forgotten when the last of them leaves.
 6. `model`, once the README says whether the check holds of `makeModel`: the renderer's frames and `rehearse`'s
    `model` make it through the core, with a changelog entry if the run's behaviour changes.
 7. The testing policy of decision 0292: a test under `prioritizedSchedules` goes once a deterministic test kills its
@@ -155,6 +163,5 @@ a change of either stops and asks.
 - Whether the README's "from the defect on, the run calls neither `update` nor `runCommand`" grows to `makeModel`
   (step 6), and what the run then gives a renderer that reads a model after a death.
 
-- The module's name, and whether `rehearse`'s bookkeeping lies in it or in `src/testing/`.
 - Whether `drive`, which runs the run itself, needs anything of it: likely not.
 - How AGENTS.md's sentence "the testing tools behave like the engine" is said once the core holds it by its form.

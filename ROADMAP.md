@@ -13,19 +13,21 @@ Decided, and done before the rest, since it rewrites what several open problems 
   goes in seven steps, each a commit with every check green, after a step 0, done: `interleaving.test.ts` runs apart
   (`bun run interleavings`, and a daily job of the CI), so that the steps do not meet a suite that fails in about
   one run of three. Steps 1 to 4, the functions over `Cause` of `diesIn` and `makeDeaths`, `reconcile` with `simulate`
-  on it, `init` and `arrive` with the engine on them, and `rehearse` on the core, with `ended`, are done; next is step
-  5, `rehearse`'s own bookkeeping as a pure module. The core's steps 5 and 6 answer "`rehearse`'s `runAll` dies on a
-  command another call took" and "the renderer may start after the first defect", and step 7 the interleavings' counterexamples, each by a test of the core, a gate or a primitive.
+  on it, `init` and `arrive` with the engine on them, `rehearse` on the core, with `ended`, and `rehearse`'s own
+  bookkeeping as a pure module (`src/testing/ledger.ts`), which fixed its `runAll`, are done; next is step 6, `model`.
+  It answers "the renderer may start after the first defect", and step 7 the interleavings' counterexamples, each by a
+  test of the core, a gate or a primitive.
 
 ## Open problems
 
 An audit of November 2026 of every check of what another fiber may change against the act it guards (the rule
 "one thunk" of AGENTS.md) found these. Covered, each check in the thunk of its act: the calls of `update` by the
 engine's loop and by `rehearse`'s (`Core.arrive`, for both), of `runCommand` by the engine (`alive` around
-`interpret(command)`) and by `rehearse`'s `run`, of `makeModel` by `rehearse`'s `model`, and `run`'s take from
-`pending` (`findIndex` and `Arr.remove` in one thunk). The engine's `active` and `started`, and `rehearse`'s `now`,
-`active` and `starts`, are read and written by one fiber only, the loop, but for the end of a start, which `hearNext`
-marks in the thunk where it takes the last message, so no window opens on them. Beyond any check: the first step of
+`interpret(command)`) and by `rehearse`'s `run`, of `makeModel` by `rehearse`'s `model`, and the take from `pending`
+of `run` and `runAll` (`Ledger.take`, which finds the command or none in one thunk). The engine's `active` and
+`started`, and `rehearse`'s `now` and `active`, are read and written by one fiber only, the loop, but for the end of a
+start, which `hearNext` marks in the thunk where it counts the calls still waiting; `rehearse`'s ledger is written by
+every fiber of the test's, one transition per thunk, so no window opens on them. Beyond any check: the first step of
 a subscription, or of an effect already started, and a `makeModel` the renderer reads as it releases, which the README
 promises nothing about.
 
@@ -71,19 +73,6 @@ that fails without it.
 
   Each is a finding until a fix, or a reading of the assertion, says otherwise: the last two may share the first's
   form or have their own, and the last, with no defect, may be a scheduling the property does not allow for.
-- **`rehearse`'s `runAll` dies on a command another call took** (reproduced). It checks `pending.length` in one
-  thunk (`runAll` in `rehearse.ts`) and takes the command in another, `run(() => true)`'s, and the scheduler may yield
-  in between: a `run` of the test's that takes the last command there leaves `runAll` dying with "No pending command
-  matches", where it promises to run the pending commands until none is left. Seen with a probe, not committed: a
-  program whose `Go` starts one `Work` that answers at once; the scenario sends `Go`, then runs
-  `Effect.exit(rehearsal.runAll)` and `Effect.exit(rehearsal.run(() => true))` together
-  (`Effect.all(…, { concurrency: 'unbounded' })`), and counts the runs where `runAll`'s exit is a failure: 273 of
-  `prioritizedSchedules(…, { runs: 2000, depth: 4 })` (`test/scheduled.ts`). A failure of `run` there is the test's
-  own, and is not counted. The fix takes the command, or finds none and ends, in one thunk: `run`'s own thunk, given
-  a way to succeed when nothing matches, or a take of `runAll`'s own that `run` shares. It leaves that scenario as a
-  test in the describe "rehearse, after the first defect, a yield of the scheduler in between" or one of its own in
-  `rehearse.test.ts`, and a mutation in `mutations/mutations.ts` that splits the check from the take again, naming
-  it. "Testing" in the README, on `runAll`, is read again against it, and the changelog gets an entry.
 - **To verify: the renderer may start after the first defect.** `running` in `run.ts` calls `render(frames)` after
   `Engine.make`, with no check of the register, so a subscription of `init` that dies as the engine starts may let
   the renderer's code run after the defect. The fifth premise review ruled it out with one run under Effect's own

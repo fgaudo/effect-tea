@@ -185,6 +185,10 @@ version, and everything else, features included, the patch version.
   an `Effect.acquireRelease`) ends the run as it dies, before that release: the run learnt of the defect only once
   the release had ended, applied what other subscriptions sent meanwhile, and put a defect that release let another
   fiber die of first. `rehearse`'s `hearNext` orders its defects the same way.
+- `rehearse`'s `runAll` could fail with "No pending command matches" when another fiber of the test's ran the last
+  pending command at the same time (a `run` alongside it): it counted the pending commands, then took one, and the
+  scheduler may yield in between. It now takes the oldest pending command, or finds none and ends, in one step, so it
+  runs the pending commands until none is left, as "Testing" in the README says.
 
 ## 0.7.1 (2026-10-28)
 
