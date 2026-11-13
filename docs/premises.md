@@ -21,10 +21,10 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   whose Equal throws against the key of the state before" (`contract.test.ts`). `FiberMap` compares its keys in a
   fiber's observer as well, which is why the run keeps its fibers by their start, never by their key. Both are read
   only in the source.
-- **`FiberMap.remove` waits for the interrupted fiber to end**, its release included, which is what makes the
+- **`Fiber.interruptAs` waits for the interrupted fiber to end**, its release included, which is what makes the
   gone keys released before any key starts: "a key that changes stops the old subscription and starts the new
   one", "keys that go away together release their subscriptions together, not one after the other"
-  (`engine.test.ts`).
+  (`engine.test.ts`). Documented.
 - **`Effect.acquireRelease` lets nothing interrupt its acquisition, and runs its release when its scope closes,
   however it closes**, which is how the run forks the renderer and sets how its end stops it with nothing between
   to leave the renderer to the end of the fiber the run is in, which would interrupt it as a child, unawaited, and
@@ -36,7 +36,7 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   how the run forks the renderer inside that acquisition and still stops it: "a run interrupted by whoever runs it is
   no defect", "a renderer that dies while an interrupted run releases it is in the cause" (`run.test.ts`) never end
   with a renderer that inherits it (`{ uninterruptible: 'inherit' }`). Not documented, and seen in those tests.
-- **`Fiber.interrupt` completes only once the interrupted fiber has**, which is how the end of the run stops the loop
+- **`Fiber.interruptAs` completes only once the interrupted fiber has**, which is how the end of the run stops the loop
   before it stops the renderer, and before it reads the fibers to interrupt: "a message the renderer sends as the run
   releases it does not reach update" (`run.test.ts`). Documented.
 - **`Effect.onExit` runs its cleanup however the effect ends, and puts what the cleanup fails with after the cause
@@ -65,6 +65,14 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   `rehearse`: "rehearse fails with a defect of a command interrupting itself as whoever runs it interrupts it", and
   the same of a subscription (`contract.test.ts`), whose gate waits on that very failure. Read only in the source (`exitFailCause` and `causeAddInterrupts` in
   `internal/core.ts`), and seen in those tests.
+- **An interruption made with `Fiber.interruptAs` carries the annotations it is given on its reason, and the runtime
+  keeps them as it annotates the reason further**, which is how `diesIn` tells the run's interruption from one the
+  program makes with the same fiber id, by the mark the run puts on each of its own (`Stopped` in `core.ts`, `stopping`
+  in `engine.ts`): "a renderer that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the
+  renderer" fails without the mark, and "a subscription stopped inside an uninterruptible region, which then enters a
+  traced function, is no defect" (`run.test.ts`) with a copy of the reason that drops it, as one compared by identity
+  does. That `Cause.annotate` keeps the keys a reason has is documented; that `interruptAs` puts its annotations on
+  the reason is not, and seen in those tests.
 - **An unbounded `Queue` takes an offer at once, and a shut one refuses it without interrupting**: "a dispatch runs
   with Effect.runSync from a plain callback, and after the run has ended too" (`run.test.ts`). It wakes its taker
   through the scheduler of the fiber that made it, so a dispatch never runs `update` in its caller's stack:

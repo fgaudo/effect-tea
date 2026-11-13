@@ -80,6 +80,14 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
 }
 
 /**
+ * Interrupts `fiber` as the current fiber does, with a mark of its own (`Core.Stopped`), and waits for it to end, its
+ * release included: how the run stops each fiber of the program, so that `diesIn` tells this interruption from one the
+ * program makes with the same fiber id.
+ */
+export const stopping = <A, E>(fiber: Fiber.Fiber<A, E>): Effect.Effect<void> =>
+  Effect.flatMap(Effect.fiberId, (id) => Fiber.interruptAs(fiber, id, Context.make(Core.Stopped, {})))
+
+/**
  * Where a defect happened is known only where it is caught: the run dies with it, and with where, and leaves
  * reporting it to whoever runs the program. Every defect of the cause is wrapped (`wrapDefects`), and a
  * self-interruption, or a failure the types rule out, is a defect too (`otherwiseDefect`). An interruption by the
@@ -303,7 +311,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   // The loop, once it runs. Stopped first as the run ends, and awaited: what is sent meanwhile is not applied, and
   // nothing forks a fiber while the end reads those to interrupt.
   let loop: Fiber.Fiber<unknown, never> | undefined
-  const stop = Effect.suspend(() => loop === undefined ? Effect.void : Fiber.interrupt(loop))
+  const stop = Effect.suspend(() => loop === undefined ? Effect.void : stopping(loop))
   // Run before they close: the end of the run stops the loop, interrupts its other fibers itself, all at once, waits
   // for them to release what they hold, and dies of what they have died of and nobody has reported, which `diesIn`
   // already says where.
@@ -315,8 +323,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
           ...fibers,
           ...Arr.map(Arr.fromIterable(subscriptionFibers), ([, fiber]) => fiber),
         ]
-        return Fiber.interruptAll(running).pipe(
-          Effect.andThen(Effect.forEach(running, Fiber.await, { discard: true })),
+        return Effect.forEach(running, stopping, { concurrency: 'unbounded', discard: true }).pipe(
           Effect.andThen(report),
         )
       }),
@@ -365,7 +372,10 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     yield* Effect.forEach(
       gone,
       ([key, generation]) =>
-        log('Subscription stopped', key).pipe(Effect.andThen(FiberMap.remove(subscriptionFibers, generation))),
+        log('Subscription stopped', key).pipe(
+          Effect.andThen(FiberMap.get(subscriptionFibers, generation)),
+          Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: stopping })),
+        ),
       { concurrency: 'unbounded', discard: true },
     )
     for (const [key, subscription, generation] of fresh) {

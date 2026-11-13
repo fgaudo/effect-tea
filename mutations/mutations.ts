@@ -74,8 +74,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'keys start before the gone keys are released',
     file: 'src/engine.ts',
-    from: 'Effect.andThen(FiberMap.remove(subscriptionFibers, generation))',
-    to: 'Effect.andThen(Effect.forkDetach(FiberMap.remove(subscriptionFibers, generation)))',
+    from: 'onSome: stopping })),',
+    to: 'onSome: (fiber) => Effect.forkDetach(stopping(fiber)) })),',
     killedBy: [
       ['src/engine.test.ts', 'a key that changes stops the old subscription and starts the new one'],
     ],
@@ -246,8 +246,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'a self-interruption beside one the fiber received is no defect',
     file: 'src/core.ts',
-    from: '!(Cause.isInterruptReason(reason) && interrupters.includes(reason.fiberId))',
-    to: '!(Cause.isInterruptReason(reason) && interrupters.length > 0)',
+    from: 'interrupters.some(({ fiberId, mark }) => fiberId === reason.fiberId && mark === markOf(reason))',
+    to: 'interrupters.length > 0',
     killedBy: [
       [
         'src/core.test.ts',
@@ -350,7 +350,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: '    const renderer = yield* Effect.acquireRelease(\n'
       + '      Effect.forkChild(rendering),\n'
       + '      (renderer) =>\n'
-      + '        engine.stop.pipe(Effect.andThen(Fiber.interrupt(renderer)), Effect.andThen(Fiber.await(renderer))),\n'
+      + '        engine.stop.pipe(Effect.andThen(Engine.stopping(renderer))),\n'
       + '    )\n',
     to: '    const renderer = yield* Effect.forkChild(rendering)\n',
     killedBy: [
@@ -387,10 +387,35 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'an interruption with the fiber id of one the fiber received is no defect, whatever its mark',
+    file: 'src/core.ts',
+    from: ' && mark === markOf(reason)',
+    to: '',
+    killedBy: [
+      ['src/core.test.ts', 'an interruption with the fiber id of one received, and not its mark, is a defect'],
+      [
+        'src/run.test.ts',
+        'a renderer that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the renderer',
+      ],
+    ],
+  },
+  {
+    name: 'the run stops its fibers with no mark of its own',
+    file: 'src/engine.ts',
+    from: 'Fiber.interruptAs(fiber, id, Context.make(Core.Stopped, {}))',
+    to: 'Fiber.interruptAs(fiber, id)',
+    killedBy: [
+      [
+        'src/run.test.ts',
+        'a renderer that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the renderer',
+      ],
+    ],
+  },
+  {
     name: 'the end of the run stops the renderer before the loop',
     file: 'src/run.ts',
-    from: 'engine.stop.pipe(Effect.andThen(Fiber.interrupt(renderer)), Effect.andThen(Fiber.await(renderer)))',
-    to: 'Fiber.interrupt(renderer).pipe(Effect.andThen(Fiber.await(renderer)))',
+    from: 'engine.stop.pipe(Effect.andThen(Engine.stopping(renderer)))',
+    to: 'Engine.stopping(renderer)',
     killedBy: [
       ['src/run.test.ts', 'a message the renderer sends as the run releases it does not reach update'],
     ],

@@ -84,7 +84,7 @@ const running = Effect.fnUntraced(
     const renderer = yield* Effect.acquireRelease(
       Effect.forkChild(rendering),
       (renderer) =>
-        engine.stop.pipe(Effect.andThen(Fiber.interrupt(renderer)), Effect.andThen(Fiber.await(renderer))),
+        engine.stop.pipe(Effect.andThen(Engine.stopping(renderer))),
     )
     yield* Effect.raceFirst(engine.died, Fiber.await(renderer)).pipe(Effect.andThen(engine.report))
   },

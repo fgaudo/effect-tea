@@ -1,5 +1,6 @@
 import * as Arr from 'effect/Array'
 import * as Cause from 'effect/Cause'
+import * as Context from 'effect/Context'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import { type DefectSite, ProgramDefect } from './defect.ts'
@@ -7,6 +8,17 @@ import { isRejected, type Step, type Update } from './update.ts'
 
 // The semantics shared by the run and the testing tools, as pure functions of data (`docs/shared-core.md`): the
 // shells, `engine.ts` and `src/testing/`, decide when they run and perform what they return.
+
+/**
+ * The mark of an interruption the run makes (`Engine.stopping`), one for each, among the annotations of its reason. A
+ * fiber id tells no interruption of the run's from one the program makes: `FiberMap`, `FiberSet` and `FiberHandle`
+ * interrupt as the fiber -1, and the fiber that ends the run may have interrupted a fiber before, that the program
+ * joins. The program cannot make the mark: the key is the library's, and so is each value, made anew for each stop.
+ */
+export class Stopped extends Context.Service<Stopped, object>()('@fgaudo/effect-tea/Stopped') {}
+
+const markOf = (reason: Cause.Reason<unknown>): object | undefined =>
+  Context.getOrUndefined(Cause.reasonAnnotations(reason), Stopped)
 
 /**
  * The cause with what is not a defect turned into one, in the place of the first of them, so that the defects stay
@@ -17,16 +29,20 @@ import { isRejected, type Step, type Update } from './update.ts'
  * too: a release that interrupts itself after its effect died is a second defect.
  *
  * `received` holds the interruptions the fiber received from outside, by the run or by whoever runs it: those of
- * the cause made by the same fibers are kept as they are, beside the defect, and are no defect themselves. A cause
- * with nothing else is returned as it is.
+ * the cause made by the same fiber, with the same mark of the run's (`Stopped`) or with none, are kept as they are,
+ * beside the defect, and are no defect themselves. A cause with nothing else is returned as it is.
  */
 export const otherwiseDefect = (
   cause: Cause.Cause<unknown>,
   received: Cause.Cause<never> = Cause.empty,
 ): Cause.Cause<never> => {
-  const interrupters = received.reasons.flatMap((reason) => Cause.isInterruptReason(reason) ? [reason.fiberId] : [])
+  const interrupters = received.reasons.flatMap((reason) =>
+    Cause.isInterruptReason(reason) ? [{ fiberId: reason.fiberId, mark: markOf(reason) }] : []
+  )
   const own = (reason: Cause.Reason<unknown>) =>
-    !Cause.isDieReason(reason) && !(Cause.isInterruptReason(reason) && interrupters.includes(reason.fiberId))
+    !Cause.isDieReason(reason)
+    && !(Cause.isInterruptReason(reason)
+      && interrupters.some(({ fiberId, mark }) => fiberId === reason.fiberId && mark === markOf(reason)))
   const others = Cause.fromReasons(cause.reasons.filter(own))
   if (others.reasons.length === 0 && cause.reasons.length > 0) return cause as Cause.Cause<never>
   const defect = Cause.die(

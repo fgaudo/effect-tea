@@ -8,26 +8,14 @@ when it is done or rejected, with the reason in the commit.
 
 ### Found by the sixth review of the premises (November 2026)
 
-Each is held by a `test.failing` case named after what should hold; its fix removes the mark and the item. The
-reports are the bodies of the commits of `claude/premise-review-6-engine-8ac990` (`ec3fe8c`, `d08d9d7`) and of
-`claude/premise-review-6-testing-d70db0` (`463159c`, `e4f4687`).
-
-- **An interruption the program makes with the fiber id of the one its effect received ends in silence**:
-  `Core.otherwiseDefect` takes an interruption for the run's by the id of the fiber that made it, an id the program
-  can make too. By key, a gone subscription is stopped by `FiberMap.remove`, as the fiber -1, as every `FiberMap`,
-  `FiberSet` and `FiberHandle` of the program's interrupts; at the end of the run, the renderer, the commands and the
-  subscriptions are interrupted as the fiber the run is in, which may have interrupted a fiber before. The form: an
-  identity taken for the run's that the program can make too; `Fiber.interrupt` in place of `FiberMap.remove` only
-  moves the first sequence into the second. `run.test.ts`, "a subscription that joins a fiber its own FiberMap
-  interrupted, as the run stops it, is a defect in the subscription", the same of `FiberSet` and of `FiberHandle`,
-  and "a command that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the command",
-  the same of a renderer and of a subscription.
+The reports are the bodies of the commits of `claude/premise-review-6-engine-8ac990` (`ec3fe8c`, `d08d9d7`) and of
+`claude/premise-review-6-testing-d70db0` (`463159c`, `e4f4687`). Its open problems are closed.
 
 Conditions the review took out with every test still passing, each to get a test and, where it is a check, a
 mutation:
 
 - **The engine's own end** (`engine.ts`, the finalizer of `make`, the fix of f415d46): with nothing after `stop`,
-  `bun run test` and the search pass. What it still gives is read only: the fibers interrupted as the run's fiber,
+  `bun run test` and the search pass. What it still gives is read only: the fibers interrupted with the run's mark,
   and the commands and the subscriptions together.
 - **The end of `rehearse`**: that it interrupts the loop, shuts the queue (and that a refused `submit` interrupts the
   call), interrupts what was offered and not delivered, and stops the opened starts itself; that a step fails on a

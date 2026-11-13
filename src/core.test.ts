@@ -17,6 +17,7 @@ import {
   record,
   report,
   type Source,
+  Stopped,
   wrapDefects,
 } from './core.ts'
 import { ProgramDefect } from './defect.ts'
@@ -70,6 +71,22 @@ describe('what a fiber dies of', () => {
     expect(otherwiseDefect(received, received)).toBe(received)
     const dying = Cause.fromReasons([...Cause.die('boom').reasons, ...Cause.interrupt(2).reasons])
     expect(otherwiseDefect(dying, received)).toBe(dying)
+  })
+
+  // `FiberMap`, `FiberSet` and `FiberHandle` interrupt as the fiber -1, as a stop of the run could: the mark tells them.
+  test('an interruption with the fiber id of one received, and not its mark, is a defect', () => {
+    const received = Cause.annotate(Cause.interrupt(-1), Context.make(Stopped, {}))
+    const cause = Cause.fromReasons([...Cause.interrupt(-1).reasons, ...received.reasons])
+    expect(defects(otherwiseDefect(cause, received)).map(message)).toEqual([
+      'It interrupted itself, which only the run may do',
+      'Interrupt',
+    ])
+    const again = Cause.annotate(Cause.interrupt(-1), Context.make(Stopped, {}))
+    expect(defects(otherwiseDefect(again, received)).map(message)).toEqual([
+      'It interrupted itself, which only the run may do',
+    ])
+    const annotated = Cause.annotate(received, Context.make(Request, 'r-1'))
+    expect(otherwiseDefect(annotated, received)).toBe(annotated)
   })
 
   test('each defect is wrapped where it happened, with its annotations, and the rest kept as it is', () => {

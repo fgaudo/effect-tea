@@ -1669,6 +1669,29 @@ describe('the end of the run', () => {
       )))
     expect(Exit.isSuccess(exit)).toBe(true)
   })
+
+  // Interrupted where it is uninterruptible, the fiber fails as it turns interruptible inside an `Effect.fn`, traced so
+  // that the runtime annotates the interruption with its frame: on a copy of the reason the run made, which keeps the
+  // run's mark.
+  test('a subscription stopped inside an uninterruptible region, which then enters a traced function, is no defect', async () => {
+    const listen = Effect.fn('Listen')(function*() {
+      return yield* Effect.interruptible(Effect.never)
+    })
+    const busy = Effect.uninterruptible(Effect.sleep('30 millis').pipe(Effect.andThen(listen())))
+    const stopping: Counter = {
+      ...counter,
+      subscriptions: ({ count }) =>
+        count === 0 ? HashMap.make(['k', Channel.fromEffectDone(busy)]) : HashMap.empty(),
+    }
+    const exit = await Effect.runPromiseExit(run(stopping, (frames) =>
+      frames.pipe(
+        Stream.tap(({ model, dispatch }) => model.count === 0 ? dispatch(model.increment) : Effect.void),
+        Stream.takeUntil(({ model }) => model.count === 1),
+        Stream.runDrain,
+        Effect.andThen(Effect.sleep('60 millis')),
+      )))
+    expect(Exit.isSuccess(exit)).toBe(true)
+  })
 })
 
 // An effect that interrupts itself while the run is interrupting it ends with both interruptions in its cause, its
@@ -1773,7 +1796,7 @@ describe('a self-interruption as the run interrupts', () => {
       return yield* Fiber.join(work)
     })).pipe(Effect.scoped)
 
-  test.failing(
+  test(
     'a subscription that joins a fiber its own FiberMap interrupted, as the run stops it, is a defect in the subscription',
     async () => {
       const exit = await Effect.runPromiseExit(Effect.gen(function*() {
@@ -1825,7 +1848,7 @@ describe('a self-interruption as the run interrupts', () => {
       ['FiberHandle', joinsWhatItsHandleInterrupted],
     ] as const
   ) {
-    test.failing(
+    test(
       `a subscription that joins a fiber its own ${name} interrupted, as the run stops it, is a defect in the subscription`,
       async () => {
         const exit = await Effect.runPromiseExit(Effect.gen(function*() {
@@ -1872,7 +1895,7 @@ describe('a self-interruption as the run interrupts', () => {
       })
     )
 
-  test.failing(
+  test(
     'a command that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the command',
     async () => {
       const exit = await endedByTheFiberThatInterrupted((started, stale) =>
@@ -1889,7 +1912,7 @@ describe('a self-interruption as the run interrupts', () => {
     },
   )
 
-  test.failing(
+  test(
     'a renderer that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the renderer',
     async () => {
       const exit = await endedByTheFiberThatInterrupted((started, stale) =>
@@ -1899,7 +1922,7 @@ describe('a self-interruption as the run interrupts', () => {
     },
   )
 
-  test.failing(
+  test(
     'a subscription that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the subscription',
     async () => {
       const exit = await endedByTheFiberThatInterrupted((started, stale) =>
