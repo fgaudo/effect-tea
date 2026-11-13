@@ -12,21 +12,22 @@ Decided, and done before the rest, since it rewrites what several open problems 
   step written once, in pure transitions, which the run, `simulate` and `rehearse` perform as three shells. Its plan
   goes in seven steps, each a commit with every check green, after a step 0, done: `interleaving.test.ts` runs apart
   (`bun run interleavings`, and a daily job of the CI), so that the steps do not meet a suite that fails in about
-  one run of three. Steps 1 to 3, the functions over `Cause` of `diesIn` and `makeDeaths`, `reconcile` with `simulate`
-  on it, and `init` and `arrive` with the engine on them, are done; next is step 4, `rehearse` on the core, with
-  `ended`. The core's steps 5 and 6 answer "`rehearse`'s `runAll` dies on a command another call took" and "the renderer may start after the first
-  defect", and step 7 the interleavings' counterexamples, each by a test of the core, a gate or a primitive.
+  one run of three. Steps 1 to 4, the functions over `Cause` of `diesIn` and `makeDeaths`, `reconcile` with `simulate`
+  on it, `init` and `arrive` with the engine on them, and `rehearse` on the core, with `ended`, are done; next is step
+  5, `rehearse`'s own bookkeeping as a pure module. The core's steps 5 and 6 answer "`rehearse`'s `runAll` dies on a
+  command another call took" and "the renderer may start after the first defect", and step 7 the interleavings' counterexamples, each by a test of the core, a gate or a primitive.
 
 ## Open problems
 
 An audit of November 2026 of every check of what another fiber may change against the act it guards (the rule
 "one thunk" of AGENTS.md) found these. Covered, each check in the thunk of its act: the calls of `update` by the
-engine's loop and by `rehearse`'s (`applyAlive`), of `runCommand` by the engine (`alive` around `interpret(command)`)
-and by `rehearse`'s `run`, of `makeModel` by `rehearse`'s `model`, and `run`'s take from `pending` (`findIndex` and
-`Arr.remove` in one thunk). The engine's `active` and `started`, and `rehearse`'s `now`, `active` and `gone`, are read
-and written by one fiber only, so no window opens on them. Beyond any check: the first step of a subscription, or of
-an effect already started, and a `makeModel` the renderer reads as it releases, which the README promises nothing
-about.
+engine's loop and by `rehearse`'s (`Core.arrive`, for both), of `runCommand` by the engine (`alive` around
+`interpret(command)`) and by `rehearse`'s `run`, of `makeModel` by `rehearse`'s `model`, and `run`'s take from
+`pending` (`findIndex` and `Arr.remove` in one thunk). The engine's `active` and `started`, and `rehearse`'s `now`,
+`active` and `starts`, are read and written by one fiber only, the loop, but for the end of a start, which `hearNext`
+marks in the thunk where it takes the last message, so no window opens on them. Beyond any check: the first step of
+a subscription, or of an effect already started, and a `makeModel` the renderer reads as it releases, which the README
+promises nothing about.
 
 A lead below is checked under `test/scheduled.ts` in both of its modes of resumption. A failure under `'inline'`
 is an order Effect's own scheduler gives, but for where it preempts, and so reachable when the program runs. One
@@ -63,7 +64,10 @@ that fails without it.
     a subscription and a command that die, and a renderer that dies joining a fiber (`rendererDies: 'joins'`).
   - "The subscriptions one message stops are released together, before the next message and any start":
     `{ seed: -1243041135, path: '46:0:0:6:1:2:2:6:4:7:10:12:37:23:24:16:5:0:1:2:4:17:19:24:18:18:18:22:22:27:27:1:1:29:28:28:28:28:28:28:28:28:28:28:28:28:28:29:18:18:19:35:45:18:36:0:30:1:1:2:4:4:29:30:36:24:23' }`,
-    with no defect: a slow release, and a subscription that stays (`endings: ['stays']`).
+    with no defect: a slow release, and a subscription that stays (`endings: ['stays']`); and
+    `{ seed: 1817263562, path: '14:0:0:0:8:1:2:2:7:6:5:5:5:7:6:5:9:6:7:5:5:11:11:15:15:19:20:23:19:0:0:24:24:26:29:11:12:23:24:26:10:11:20:20:0' }`,
+    the same (`endings: ['stays']`, `releases: ['slow']`), met after step 4 of the core, whose seeds drawn at random
+    fail this property as often before it.
 
   Each is a finding until a fix, or a reading of the assertion, says otherwise: the last two may share the first's
   form or have their own, and the last, with no defect, may be a scheduling the property does not allow for.
@@ -107,7 +111,7 @@ that fails without it.
   seed drawn at random, fail without it. Kept, it narrows a window at the cost of a check; removed, AGENTS.md's "one
   thunk" names the start of a subscription's fiber among what is checked, and changes with it.
 - **`rehearse`'s loop checks the register before each step** (`recorded(deadOr(step))`), which hides the check of
-  `applyAlive` from every order but a scheduled one, as the engine's loop did: "send calls no update once a command
+  `Core.arrive` from every order but a scheduled one, as the engine's loop did: "send calls no update once a command
   has died" is held only under `prioritizedSchedules`. Unlike the engine's, it also keeps `hearNext` from starting a
   subscription after a death (`opening`): taken out, that start needs a check of its own, in the thunk that forks it.
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.

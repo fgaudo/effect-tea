@@ -9,12 +9,13 @@ import * as Inspectable from 'effect/Inspectable'
 import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import * as Scope from 'effect/Scope'
+import * as Core from '../core.ts'
 import { ProgramDefect } from '../defect.ts'
-import { applyAlive, diesIn, makeDeaths, runSubscription, scopedIn } from '../engine.ts'
+import { diesIn, makeDeaths, runSubscription, scopedIn } from '../engine.ts'
 import { describeByTag } from '../log.ts'
 import { runCommandOf, type Shape, startOf, subscriptionsOf } from '../program.ts'
 import type { Subscription } from '../subscription.ts'
-import { appendStep, isRejected, type Step } from '../update.ts'
+import { appendStep, type Step } from '../update.ts'
 
 /**
  * A rehearsal of a program, without a runtime: nothing happens unless the test does it. The test acts on what the
@@ -85,31 +86,29 @@ export type RehearseOptions<State, Command, Flags = never> = [Flags] extends [ne
 type Heard<Message> = Readonly<{ message: Message; last: boolean }> | 'ended'
 
 // What `hearNext` keeps of a subscription it started: `waiting`, the calls waiting for a message, `asked`, the
-// messages asked for and not heard yet, `ended` once it heard the last one. A call interrupted while it waits leaves
-// what it asked for to the next one.
+// messages asked for and not heard yet. A call interrupted while it waits leaves what it asked for to the next one.
 type Opened<Message> = {
   readonly fiber: Fiber.Fiber<void>
   readonly asks: Queue.Queue<void>
   readonly heard: Queue.Queue<Heard<Message>>
   waiting: number
   asked: number
-  ended: boolean
 }
 
-// A start of a key, as the run keeps one, with the subscription listed when the key appeared, which the run starts
-// then, `gone` once the key has gone away. It is heard one way: the test plays it with `hear` (`scripted`), or
-// `hearNext` runs its subscription (`opened`), never both, since the run hears one subscription per start. A message
-// the test adds to one that runs, or a subscription run from its start after the test heard it, is a history no run
-// makes.
+// What the rehearsal keeps of a start of a key, by its generation, as the run keeps its fibers: the subscription
+// listed when the key appeared, which the run starts then. It is heard one way: the test plays it with `hear`
+// (`scripted`), or `hearNext` runs its subscription (`opened`), never both, since the run hears one subscription per
+// start. A message the test adds to one that runs, or a subscription run from its start after the test heard it, is
+// a history no run makes.
 type Start<Message, R> = {
   readonly subscription: Subscription<Message, R>
   opened: Opt.Option<Opened<Message>>
   scripted: boolean
-  gone: boolean
 }
 
 type Current<State, Message, Event> = Readonly<{
   state: State
+  revision: Core.Revision
   events: ReadonlyArray<Event>
   ignored: ReadonlyArray<Message>
 }>
@@ -179,9 +178,11 @@ export const rehearse = Effect.fnUntraced(function*<
   // end of the rehearsal awaits all the same.
   const orDead = <A, E, R>(waiting: Effect.Effect<A, E, R>) =>
     Effect.raceFirst(waiting, Effect.andThen(register.died, deadOr(Effect.never)))
-  // The keys of the current state, each with its start, as the run keeps them: a key that stays keeps its start as
-  // it is, and one that went away takes it with it. Keys are compared only in `subscriptions`, as in the run.
-  let active = HashMap.empty<unknown, Start<Message, R>>()
+  // The keys of the current state, each with its start, as the run keeps them (`Core.reconcile`): a key that stays
+  // keeps its start as it is, and one that went away takes it with it. Keys are compared only in `subscriptions`, as
+  // in the run. Written by the loop, but for the end of a start, which `hearNext` marks as it hears the last message.
+  let active: Core.Active<unknown> = Core.noneActive
+  const starts = new Map<Core.Generation, Start<Message, R>>()
   // Where the loop and the subscriptions `hearNext` starts are forked, so that they outlive the fiber of the test's
   // that asked for them, as the run's loop and subscriptions outlive whoever dispatched. Closed at the end, however
   // the rehearsal ends, once what it holds is stopped.
@@ -200,27 +201,21 @@ export const rehearse = Effect.fnUntraced(function*<
   // whose `Equal` throws against a key of the state before.
   const listen = (state: State) =>
     Effect.sync(() => {
-      const listed = subscriptions(state)
-      const gone = Arr.filter(Arr.fromIterable(active), ([key]) => !HashMap.has(listed, key))
-      let next = HashMap.empty<unknown, Start<Message, R>>()
-      for (const [key, subscription] of listed) {
-        const kept = HashMap.get(active, key)
-        next = HashMap.set(
-          next,
-          key,
-          Opt.isSome(kept) ? kept.value : { subscription, opened: Opt.none(), scripted: false, gone: false },
-        )
-      }
+      const { gone, fresh, active: next } = Core.reconcile(active, subscriptions(state))
       active = next
-      return Arr.flatMap(gone, ([, start]) => {
-        start.gone = true
-        return Opt.toArray(start.opened)
+      for (const [, subscription, generation] of fresh) {
+        starts.set(generation, { subscription, opened: Opt.none(), scripted: false })
+      }
+      return Arr.flatMap(gone, ([, generation]) => {
+        const start = starts.get(generation)
+        starts.delete(generation)
+        return start === undefined ? [] : Opt.toArray(start.opened)
       })
     }).pipe(diesIn('subscriptions'), Effect.flatMap(stop))
   yield* listen(from.state)
   // Written only by the loop, but for `pending`, which `run` takes a command from at once, and the loop adds to when
   // it writes a state, so that neither writes over the other.
-  let now: Now = { state: from.state, events: [], ignored: [] }
+  let now: Now = { state: from.state, revision: 0, events: [], ignored: [] }
   let pending: ReadonlyArray<Command> = from.commands ?? []
   // One loop applies every message, one at a time, as the run's loop takes them: the fibers of the test's only offer
   // it a step and wait for its result, so that a message that stops a subscription waits for its release before its
@@ -249,29 +244,47 @@ export const rehearse = Effect.fnUntraced(function*<
         })
       }))
   const ask = <A, RA>(step: Effect.Effect<A, never, RA>) => Effect.flatMap(submit(step), Deferred.await)
-  const applyNow = (message: Message, onRejected: () => Effect.Effect<void>) =>
+  // A message of a start that is no longer active (`onDropped`) reaches nothing of the program, as in the run: only a
+  // message of `hearNext`'s can be one, since `hear` looks its start up in the loop.
+  const applyNow = (
+    source: Core.Source<unknown>,
+    message: Message,
+    onRejected: () => Effect.Effect<void>,
+    onDropped: () => Effect.Effect<void> = () => Effect.void,
+  ) =>
     Effect.suspend(() => {
       const before = now
-      return Effect.flatMap(applyAlive(program.update, message, before.state, dead), (applied) => {
-        if (Opt.isNone(applied)) return deadOr(Effect.never)
-        const result = applied.value
-        if (isRejected(result)) return onRejected()
-        return Effect.andThen(
-          result.state === before.state ? Effect.void : listen(result.state),
-          Effect.sync(() => {
-            const { commands, events } = appendStep({ ...before, commands: pending }, result)
-            now = { ...before, state: result.state, events }
-            pending = commands
-          }),
-        )
-      })
+      return Effect.sync(() => Core.arrive(program.update, before, active, source, message, dead)).pipe(
+        diesIn('update', () => ({ on: describeByTag(message) })),
+        Effect.flatMap((arrived) => {
+          switch (arrived._tag) {
+            case 'Dropped':
+              return onDropped()
+            case 'Dead':
+              return deadOr(Effect.never)
+            case 'Ignored':
+              return onRejected()
+            case 'Applied': {
+              const { next, changed, commands, events } = arrived
+              return Effect.andThen(
+                changed ? listen(next.state) : Effect.void,
+                Effect.sync(() => {
+                  const folded = appendStep({ ...before, commands: pending }, { state: next.state, commands, events })
+                  now = { ...before, ...next, events: folded.events }
+                  pending = folded.commands
+                }),
+              )
+            }
+          }
+        }),
+      )
     })
   // From the world: it may arrive when it no longer applies.
-  const arriveNow = (message: Message) =>
-    applyNow(message, () =>
+  const arriveNow = (source: Core.Source<unknown>, message: Message, onDropped?: () => Effect.Effect<void>) =>
+    applyNow(source, message, () =>
       Effect.sync(() => {
         now = { ...now, ignored: [...now.ignored, message] }
-      }))
+      }), onDropped)
   // There is no renderer: the test reads the model where the run's renderer would, and a defect of `makeModel` is
   // in `'render'` all the same.
   const modelOf = (state: State) =>
@@ -284,7 +297,7 @@ export const rehearse = Effect.fnUntraced(function*<
       Opt.match(select(shown), {
         onNone: () => Effect.die(new Error('The model does not show what the test sends', { cause: shown })),
         onSome: (message) =>
-          applyNow(message, () =>
+          applyNow(fromView, message, () =>
             Effect.die(
               new Error(
                 `update rejected ${
@@ -297,30 +310,32 @@ export const rehearse = Effect.fnUntraced(function*<
   // The program's keys are compared with the test's, by their `Equal`: a defect of theirs is in `subscriptions`, as
   // in the run.
   const startUnder = (key: unknown) =>
-    Effect.sync(() => HashMap.get(active, key)).pipe(
+    Effect.sync(() => HashMap.get(active.keys, key)).pipe(
       diesIn('subscriptions'),
-      Effect.flatMap(Opt.match({ onNone: () => Effect.die(nothingListensUnder(key)), onSome: Effect.succeed })),
+      Effect.flatMap(Opt.match({
+        onNone: () => Effect.die(nothingListensUnder(key)),
+        onSome: (generation) => Effect.succeed({ generation, start: starts.get(generation) as Start<Message, R> }),
+      })),
     )
   const untilItComesBack = 'until its key goes away and comes back'
-  const notEnded = (key: unknown, each: Opened<Message>) =>
-    each.ended
-      ? Effect.die(
-        new Error(
-          `The subscription under ${Inspectable.toStringUnknown(key, 0)} has ended: it sends nothing `
-            + untilItComesBack,
-        ),
-      )
-      : Effect.succeed(each)
+  const hasEnded = (key: unknown) =>
+    Effect.die(
+      new Error(
+        `The subscription under ${Inspectable.toStringUnknown(key, 0)} has ended: it sends nothing ${untilItComesBack}`,
+      ),
+    )
+  const notEnded = (key: unknown, generation: Core.Generation) =>
+    Effect.suspend(() => active.ended.has(generation) ? hasEnded(key) : Effect.void)
   // `hear` plays the subscription of a start that `hearNext` has not run.
-  const script = (key: unknown, start: Start<Message, R>) =>
+  const script = (key: unknown, generation: Core.Generation, start: Start<Message, R>) =>
     Opt.match(start.opened, {
       onNone: () =>
         Effect.sync(() => {
           start.scripted = true
         }),
-      onSome: (each) =>
+      onSome: () =>
         Effect.andThen(
-          notEnded(key, each),
+          notEnded(key, generation),
           Effect.die(
             new Error(
               `The subscription under ${Inspectable.toStringUnknown(key, 0)} runs under hearNext: only it sends `
@@ -344,13 +359,13 @@ export const rehearse = Effect.fnUntraced(function*<
       recorded,
       Effect.forkIn(forks),
     )
-    const each: Opened<Message> = { fiber, asks, heard, waiting: 0, asked: 0, ended: false }
+    const each: Opened<Message> = { fiber, asks, heard, waiting: 0, asked: 0 }
     start.opened = Opt.some(each)
     return each
   })
   // Looked up, and started, in the loop, so that the key is the current state's and two calls start it once.
   const opening = (key: unknown) =>
-    Effect.flatMap(startUnder(key), (start) => {
+    Effect.flatMap(startUnder(key), ({ generation, start }) => {
       if (start.scripted) {
         return Effect.die(
           new Error(
@@ -360,12 +375,12 @@ export const rehearse = Effect.fnUntraced(function*<
         )
       }
       return Effect.map(
-        Opt.isSome(start.opened) ? notEnded(key, start.opened.value) : open(key, start),
-        (each) => ({ start, each }),
+        Opt.isSome(start.opened) ? Effect.as(notEnded(key, generation), start.opened.value) : open(key, start),
+        (each) => ({ generation, each }),
       )
     })
   const hearNext = Effect.fnUntraced(function*(key: unknown) {
-    const { start, each } = yield* ask(opening(key))
+    const { generation, each } = yield* ask(opening(key))
     // The subscription stopped, its key gone or the scenario ended, sends nothing more to wait for; a defect of it
     // ends the wait, as it ends the run, and so does a defect of what it releases, alone, as the run dies of it.
     const stopped = () =>
@@ -394,10 +409,10 @@ export const rehearse = Effect.fnUntraced(function*<
           each.waiting--
         })),
         Effect.flatMap((heard) => {
-          if (heard === 'ended') return Effect.andThen(notEnded(key, each), Effect.never)
+          if (heard === 'ended') return hasEnded(key)
           const { message, last } = heard
           each.asked--
-          each.ended = last
+          if (last) active = Core.ended(active, generation)
           // The calls still waiting would wait for ever: they fail, as a call made after the end does.
           const ending = last
             ? Effect.forEach(Arr.makeBy(each.waiting, () => 'ended' as const), (ended) =>
@@ -407,7 +422,7 @@ export const rehearse = Effect.fnUntraced(function*<
           // as in the run.
           return Effect.andThen(
             ending,
-            submit(Effect.suspend(() => start.gone ? stopped() : Effect.as(arriveNow(message), message))),
+            submit(Effect.as(arriveNow({ _tag: 'Subscription', key, generation }, message, stopped), message)),
           )
         }),
       )
@@ -438,7 +453,7 @@ export const rehearse = Effect.fnUntraced(function*<
         ))).pipe(
           Effect.flatMap(Opt.match({
             onNone: () => Effect.succeedNone,
-            onSome: (message) => Effect.asSome(submit(arriveNow(message))),
+            onSome: (message) => Effect.asSome(submit(arriveNow(fromCommand, message))),
           })),
           Effect.ensuring(Effect.sync(() => underWay.delete(running))),
           Effect.map((answer) => ({ command, answer })),
@@ -465,7 +480,11 @@ export const rehearse = Effect.fnUntraced(function*<
     runAll,
     // Looked up and applied at once, so that the key is the current state's.
     hear: (key, message) =>
-      ask(startUnder(key).pipe(Effect.flatMap((start) => script(key, start)), Effect.andThen(arriveNow(message)))),
+      ask(startUnder(key).pipe(
+        Effect.flatMap(({ generation, start }) =>
+          Effect.andThen(script(key, generation, start), arriveNow({ _tag: 'Subscription', key, generation }, message))
+        ),
+      )),
     hearNext,
     events: Effect.sync(() => now.events),
     ignored: Effect.sync(() => now.ignored),
@@ -477,7 +496,7 @@ export const rehearse = Effect.fnUntraced(function*<
     yield* Queue.shutdown(requests)
     yield* Effect.forEach(undelivered, Deferred.interrupt, { discard: true })
     // What they die of is recorded as they end.
-    yield* Effect.exit(stop(Arr.flatMap(Arr.fromIterable(HashMap.values(active)), ({ opened }) => Opt.toArray(opened))))
+    yield* Effect.exit(stop(Arr.flatMap(Arr.fromIterable(starts.values()), ({ opened }) => Opt.toArray(opened))))
     yield* Scope.close(forks, Exit.void)
   })
   // A defect of the program comes first, as the run keeps first what ended it, then what the scenario ended with,
@@ -513,6 +532,10 @@ export const rehearse = Effect.fnUntraced(function*<
   }
   return result
 })
+
+const fromView: Core.Source<never> = { _tag: 'View' }
+
+const fromCommand: Core.Source<never> = { _tag: 'Command' }
 
 const nothingListensUnder = (key: unknown) =>
   new Error(`Nothing listens under ${Inspectable.toStringUnknown(key, 0)} in the current state`)

@@ -143,21 +143,11 @@ export const applyIn = <State, Message, Command, Event>(
 
 /**
  * Calls `f` unless the run has died: `None`, with `f` not called, once `dead` says so. The only way the run and the
- * testing tools call the program's code that must not run after a death: the check and the call are one synchronous
- * function, where no other fiber can run, so that no yield of the scheduler lets one die in between.
+ * testing tools call the program's code that must not run after a death, but for `update`, which `Core.arrive` calls
+ * with the same check: the check and the call are one synchronous function, where no other fiber can run, so that no
+ * yield of the scheduler lets one die in between.
  */
 export const alive = <A>(dead: () => boolean, f: () => A): Opt.Option<A> => dead() ? Opt.none() : Opt.some(f())
-
-/** `applyIn`, unless the run has died: `None`, with `update` not called, once `dead` says so (`alive`). */
-export const applyAlive = <State, Message, Command, Event>(
-  update: Update<State, Message, Command, Event>,
-  message: Message,
-  state: State,
-  dead: () => boolean,
-) =>
-  Effect.sync(() => alive(dead, () => update(message)(state))).pipe(
-    diesIn('update', () => ({ on: describeByTag(message) })),
-  )
 
 /**
  * Where the fibers of a run, or of a rehearsal, record what they die of, as they end, however they end: nothing is

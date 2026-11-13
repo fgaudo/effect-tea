@@ -23,14 +23,6 @@ export const mutations: ReadonlyArray<Mutation> = [
       ['src/core.test.ts', 'once the run has died, update is not called'],
       ['src/engine.test.ts', 'no update is called on a message taken once a command has died'],
       ['src/engine.test.ts', 'no update is called once a command has died, under prioritized schedules'],
-    ],
-  },
-  {
-    name: 'rehearse calls update after the first defect',
-    file: 'src/engine.ts',
-    from: 'Effect.sync(() => alive(dead, () => update(message)(state)))',
-    to: 'Effect.sync(() => Opt.some(update(message)(state)))',
-    killedBy: [
       ['src/testing/rehearse.test.ts', 'send calls no update once a command has died, under prioritized schedules'],
     ],
   },
@@ -67,6 +59,10 @@ export const mutations: ReadonlyArray<Mutation> = [
       ['src/engine.test.ts', 'a message left by an earlier start of a key that came back does not reach update'],
       ['src/run.test.ts', 'what a subscription leaves in the queue after its key went away does not reach update'],
       ['src/run.test.ts', 'a Logger that throws on the log of a dropped message is one defect, in the log'],
+      [
+        'src/testing/rehearse.test.ts',
+        'a message its subscription sends after its key went away does not reach update',
+      ],
     ],
   },
   {
@@ -416,18 +412,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
-    name: 'rehearse applies what a start sends after its key went away',
-    file: 'src/testing/rehearse.ts',
-    from: 'start.gone ? stopped() : Effect.as(arriveNow(message), message)',
-    to: 'Effect.as(arriveNow(message), message)',
-    killedBy: [
-      [
-        'src/testing/rehearse.test.ts',
-        'a message its subscription sends after its key went away does not reach update',
-      ],
-    ],
-  },
-  {
     name: "a call of rehearse's waits on through another fiber's death",
     file: 'src/testing/rehearse.ts',
     from: 'Effect.raceFirst(waiting, Effect.andThen(register.died, deadOr(Effect.never)))',
@@ -465,11 +449,16 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
-    name: 'rehearse gives a key that stays a new start',
-    file: 'src/testing/rehearse.ts',
-    from: 'Opt.isSome(kept) ? kept.value : {',
-    to: '{',
+    name: 'a kept key starts again',
+    file: 'src/core.ts',
+    from: 'if (Opt.isSome(running)) {',
+    to: 'if (false) {',
+    // The rest of the suite hangs under it.
     killedBy: [
+      ['src/core.test.ts', 'a kept key keeps its start, and a gone key stops with its start'],
+      ['src/core.test.ts', 'a key equal by value, made anew, keeps its start'],
+      ['src/engine.test.ts', 'a key equal by value keeps its subscription running, untouched'],
+      ['src/compose.test.ts', 'a child whose state changes, under the same key, keeps its subscription running'],
       [
         'src/testing/contract.test.ts',
         "rehearse's hearNext hears it as the run does, and nothing more until its key comes back",
@@ -485,16 +474,19 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
-    name: 'a kept key starts again',
+    name: 'an ended start is heard again while its key stays',
     file: 'src/core.ts',
-    from: 'if (Opt.isSome(running)) {',
-    to: 'if (false) {',
-    // The rest of the suite hangs under it.
+    from: 'active.starts.has(generation) && !active.ended.has(generation)',
+    to: 'false',
     killedBy: [
-      ['src/core.test.ts', 'a kept key keeps its start, and a gone key stops with its start'],
-      ['src/core.test.ts', 'a key equal by value, made anew, keeps its start'],
-      ['src/engine.test.ts', 'a key equal by value keeps its subscription running, untouched'],
-      ['src/compose.test.ts', 'a child whose state changes, under the same key, keeps its subscription running'],
+      [
+        'src/core.test.ts',
+        'an ended start keeps its key and stays ended while it stays, and its key comes back not ended',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        "rehearse's hearNext hears it as the run does, and nothing more until its key comes back",
+      ],
     ],
   },
   {

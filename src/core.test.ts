@@ -8,6 +8,7 @@ import {
   type Active,
   arrive,
   diesOnly,
+  ended,
   hasDied,
   init,
   noDeaths,
@@ -205,6 +206,29 @@ describe('the keys of a new state, against those before', () => {
         active = after
       }
     }))
+  })
+})
+
+describe('the end of a subscription', () => {
+  test('an ended start keeps its key and stays ended while it stays, and its key comes back not ended', () => {
+    const first = ended(reconcile(noneActive, listing('a', 'b')).active, 1)
+    expect(first.ended).toEqual(new Set([1]))
+    const kept = reconcile(first, listing('a'))
+    expect(kept.fresh).toEqual([])
+    expect(startsOf(kept.active)).toEqual({ a: 1 })
+    expect(kept.active.ended).toEqual(new Set([1]))
+    const without = reconcile(kept.active, listing())
+    expect(without.gone).toEqual([['a', 1]])
+    expect(without.active.ended).toEqual(new Set())
+    const back = reconcile(without.active, listing('a'))
+    expect(back.fresh).toEqual([['a', 'of a', 3]])
+    expect(back.active.ended).toEqual(new Set())
+  })
+
+  test('the end of a start no longer active, or already ended, leaves the keys as they are', () => {
+    const active = ended(reconcile(noneActive, listing('a')).active, 1)
+    expect(ended(active, 1)).toBe(active)
+    expect(ended(active, 2)).toBe(active)
   })
 })
 

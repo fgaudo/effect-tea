@@ -1,6 +1,6 @@
 # A core shared by the run and the testing tools
 
-**Status:** decided, November 2026; steps 0 to 3 done. It follows effect-tea-persistent's decision 0292
+**Status:** decided, November 2026; steps 0 to 4 done. It follows effect-tea-persistent's decision 0292
 (`docs/decisions/0292-…` there), which moves that runtime's state into a pure core, and a reading of it by Fable 5.2
 for this library.
 
@@ -108,7 +108,13 @@ Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun ru
    the check of the register, of the generation and of a new revision point at `arrive`, each with a test of the core
    among its killers. `applyAlive` stays for `rehearse` until step 4, with a mutation of its own. `Ignored` and
    `Applied` carry only what the core decides: the origin and the state before are the shell's, which has them.
-4. `rehearse` on the core, its starts kept by generation, its `ended` the core's, which `Active` holds.
+4. `rehearse` on the core, its starts kept by generation, its `ended` the core's, which `Active` holds. Done:
+   `rehearse` reconciles and applies through `reconcile` and `arrive`, so a message of a gone start is `Dropped` there,
+   and `applyAlive` goes, with the mutations of `rehearse`'s own copies (a start for a kept key, a message of a gone
+   start, a call of `update` after a death), whose tests now kill those of the core. `ended` marks a start whose last
+   message `hearNext` heard, and `reconcile` keeps the mark only while the start does; the engine marks none. It is
+   still marked by the fiber of `hearNext` that took the last message, in the thunk where it takes it, as `rehearse`
+   marked it before: step 5 makes it a transition of `rehearse`'s bookkeeping, with `waiting` and `asked`.
 5. `rehearse`'s own bookkeeping as a pure module, and `runAll` fixed by it, with a changelog entry.
 6. `model`, once the README says whether the check holds of `makeModel`: the renderer's frames and `rehearse`'s
    `model` make it through the core, with a changelog entry if the run's behaviour changes.
