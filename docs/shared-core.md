@@ -1,6 +1,6 @@
 # A core shared by the run and the testing tools
 
-**Status:** decided, November 2026; steps 0 to 6 done. It follows effect-tea-persistent's decision 0292
+**Status:** decided, November 2026; done, steps 0 to 7. It follows effect-tea-persistent's decision 0292
 (`docs/decisions/0292-…` there), which moves that runtime's state into a pure core, and a reading of it by Fable 5.2
 for this library.
 
@@ -133,15 +133,18 @@ Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun ru
    mutation; `interleaving.test.ts` leaves `bun run test` for a search job of the CI, on a schedule, from a random
    seed, and an order it finds is fixed by a test of the core, a gate (program code held by a `Deferred`) or a
    primitive. AGENTS.md's rule "one thunk" becomes "a transition of the core, or a gate where program code lies
-   between". Under way: the rule is rewritten, and the scheduled tests of the engine's `update` and `runCommand` and
+   between". Done: the rule is rewritten, and the scheduled tests of the engine's `update` and `runCommand` and
    of `rehearse`'s `send` are gone, each mutation killed by a deterministic test; `rehearse`'s `run`, `model` and
-   `runAll` keep theirs, the only killers of their mutations. The counterexamples of "from the first defect on" were
-   readings of the property's, and the README now says when the defect of a release counts. Those of the releases
-   together were too: a release waits by yielding, and a schedule may run one to its end before the other's
-   interruption first runs, so the property checks only that the next message waits for the slowest, and the
-   deterministic test of `engine.test.ts` that they are interrupted together. That of the order of the defects was a
-   finding: a self-interruption the run's interruption met was lost, and `diesIn` now asks the fiber which
-   interruptions it received, with a gate in `run.test.ts` for each fiber of the run.
+   `runAll` keep theirs, the only killers of their mutations, as the rule allows: no program code lies between their
+   check and their act, so no gate reaches it, and `run`'s act is in a fiber `orDead` forks. The counterexamples of
+   "from the first defect on" were readings of the property's, and the README now says when the defect of a release
+   counts. Those of the releases together were too: a release waits by yielding, and a schedule may run one to its
+   end before the other's interruption first runs, so the property checks only that the next message waits for the
+   slowest, and the deterministic test of `engine.test.ts` that they are interrupted together. That of the order of
+   the defects was a finding: a self-interruption the run's interruption met was lost, and `diesIn` now asks the
+   fiber which interruptions it received, with a gate in `run.test.ts` for each fiber of the run. Three searches from
+   random seeds, after that fix, found no counterexample: an order the daily job finds from now on is a finding of
+   ROADMAP.md, as AGENTS.md says.
 
 No step changes what a consumer sees: the API stays as it is, and the README only says what the run already did (steps
 6 and 7). A step that turns out to need a change of either stops and asks.

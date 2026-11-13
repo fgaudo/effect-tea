@@ -4,21 +4,6 @@ Open problems and possible improvements, found in a review of the project (Novem
 promise: each item is decided before it is done, against the rules of [`AGENTS.md`](AGENTS.md). Remove an item
 when it is done or rejected, with the reason in the commit.
 
-## Priority
-
-Decided, and done before the rest, since it rewrites what several open problems below would fix one by one.
-
-- **A core shared by the run and the testing tools** ([`docs/shared-core.md`](docs/shared-core.md)): the semantics of a
-  step written once, in pure transitions, which the run, `simulate` and `rehearse` perform as three shells. Its plan
-  goes in seven steps, each a commit with every check green, after a step 0, done: `interleaving.test.ts` runs apart
-  (`bun run interleavings`, and a daily job of the CI), so that the steps do not meet a suite that fails in about
-  one run of three. Steps 1 to 4, the functions over `Cause` of `diesIn` and `makeDeaths`, `reconcile` with `simulate`
-  on it, `init` and `arrive` with the engine on them, `rehearse` on the core, with `ended`, and `rehearse`'s own
-  bookkeeping as a pure module (`src/testing/ledger.ts`), which fixed its `runAll`, are done, and so is step 6, which
-  left the model to the shells: the README says a frame read after a defect still makes it. Step 7, under way,
-  answers the interleavings' counterexamples, each by a test of the core, a gate or a primitive: all those met so far
-  are answered.
-
 ## Open problems
 
 An audit of November 2026 of every check of what another fiber may change against the act it guards (the rule
