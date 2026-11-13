@@ -16,12 +16,21 @@ export type Mutation = Readonly<{
 export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'update is called after the first defect',
+    file: 'src/core.ts',
+    from: '  if (died()) return dead\n',
+    to: '',
+    killedBy: [
+      ['src/core.test.ts', 'once the run has died, update is not called'],
+      ['src/engine.test.ts', 'no update is called on a message taken once a command has died'],
+      ['src/engine.test.ts', 'no update is called once a command has died, under prioritized schedules'],
+    ],
+  },
+  {
+    name: 'rehearse calls update after the first defect',
     file: 'src/engine.ts',
     from: 'Effect.sync(() => alive(dead, () => update(message)(state)))',
     to: 'Effect.sync(() => Opt.some(update(message)(state)))',
     killedBy: [
-      ['src/engine.test.ts', 'no update is called on a message taken once a command has died'],
-      ['src/engine.test.ts', 'no update is called once a command has died, under prioritized schedules'],
       ['src/testing/rehearse.test.ts', 'send calls no update once a command has died, under prioritized schedules'],
     ],
   },
@@ -47,10 +56,14 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: 'a message of a stopped start reaches update',
-    file: 'src/engine.ts',
+    file: 'src/core.ts',
     from: "source._tag === 'Subscription' && !active.starts.has(source.generation)",
     to: 'false',
     killedBy: [
+      [
+        'src/core.test.ts',
+        'a message of an earlier start of a key that came back is dropped, alive or dead, and calls nothing',
+      ],
       ['src/engine.test.ts', 'a message left by an earlier start of a key that came back does not reach update'],
       ['src/run.test.ts', 'what a subscription leaves in the queue after its key went away does not reach update'],
       ['src/run.test.ts', 'a Logger that throws on the log of a dropped message is one defect, in the log'],
@@ -58,11 +71,14 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: 'a message applies by its key, not by its start',
-    file: 'src/engine.ts',
+    file: 'src/core.ts',
     from: "source._tag === 'Subscription' && !active.starts.has(source.generation)",
-    // By identity, which the test's keys, strings, are equal by: the engine imports no `HashMap` of its own.
-    to: "source._tag === 'Subscription' && ![...active.keys].some(([key]) => key === source.key)",
+    to: "source._tag === 'Subscription' && !HashMap.has(active.keys, source.key)",
     killedBy: [
+      [
+        'src/core.test.ts',
+        'a message of an earlier start of a key that came back is dropped, alive or dead, and calls nothing',
+      ],
       ['src/engine.test.ts', 'a message left by an earlier start of a key that came back does not reach update'],
     ],
   },
@@ -91,10 +107,11 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: 'the same state makes a new frame',
-    file: 'src/engine.ts',
-    from: 'const changed = next !== state',
+    file: 'src/core.ts',
+    from: 'const changed = result.state !== current.state',
     to: 'const changed = true',
     killedBy: [
+      ['src/core.test.ts', 'the very same state keeps its revision, and its commands still run'],
       ['src/engine.test.ts', 'a message that keeps the same state makes no new revision'],
       ['src/engine.test.ts', 'its commands still run'],
       ['src/run.test.ts', 'a message that leaves the very same state is heard too, with an unchanged revision'],
@@ -241,8 +258,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'a message is described while debug logs are disabled',
     file: 'src/engine.ts',
-    from: "    if (debugging) {\n      yield* log('Message',",
-    to: "    if (true) {\n      yield* log('Message',",
+    from: "        if (debugging) {\n          yield* log('Message',",
+    to: "        if (true) {\n          yield* log('Message',",
     killedBy: [
       ['src/run.test.ts', 'messages and commands are described only while debug logs are enabled'],
     ],

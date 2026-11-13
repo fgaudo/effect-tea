@@ -12,10 +12,9 @@ Decided, and done before the rest, since it rewrites what several open problems 
   step written once, in pure transitions, which the run, `simulate` and `rehearse` perform as three shells. Its plan
   goes in seven steps, each a commit with every check green, after a step 0, done: `interleaving.test.ts` runs apart
   (`bun run interleavings`, and a daily job of the CI), so that the steps do not meet a suite that fails in about
-  one run of three. Steps 1 and 2, the functions over `Cause` of `diesIn` and `makeDeaths`, and `reconcile` with
-  `simulate` on it, are done; next is step 3, `init`, `arrive` and `ended`, with the engine on them. The core's steps 5
-  and 6
-  answer "`rehearse`'s `runAll` dies on a command another call took" and "the renderer may start after the first
+  one run of three. Steps 1 to 3, the functions over `Cause` of `diesIn` and `makeDeaths`, `reconcile` with `simulate`
+  on it, and `init` and `arrive` with the engine on them, are done; next is step 4, `rehearse` on the core, with
+  `ended`. The core's steps 5 and 6 answer "`rehearse`'s `runAll` dies on a command another call took" and "the renderer may start after the first
   defect", and step 7 the interleavings' counterexamples, each by a test of the core, a gate or a primitive.
 
 ## Open problems
@@ -55,7 +54,10 @@ that fails without it.
   scenario but not the assertion, which a run with them prints:
   - "From the first defect on, the run applies no message and starts no command": the one above, and
     `{ seed: 1253238301, path: '1008:0:1:5:10:14:14:18:19:38:28:34:36:32:41:32:34:32:32:32:37:39:39:40:39:42:43' }`,
-    a subscription that ends, releases slowly and dies there too (`endings: ['ends']`, `releases: ['slow']`).
+    a subscription that ends, releases slowly and dies there too (`endings: ['ends']`, `releases: ['slow']`), and
+    `{ seed: 163470521, path: '993:1:1:9:15:16:24:23:24:31:30:57:34:46:9:48:51:18:0:45:50:52:53:72:14:69' }`, the same
+    with a release that dies (`releases: ['slow', 'quick', 'quick', 'dies', 'quick']`), failing before step 3 of the
+    core as after it.
   - "The defects of the cause are those that happened, self-interruptions too, each where, in order":
     `{ seed: 2065983806, path: '44:0:0:9:8:8:3:0:5:9:13:19:19:3:0:1:3:3:0:3:4:9:7:7:34:30:33:30:0:35:32:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:7' }`,
     a subscription and a command that die, and a renderer that dies joining a fiber (`rendererDies: 'joins'`).

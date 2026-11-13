@@ -3,6 +3,7 @@ import * as Cause from 'effect/Cause'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import { type DefectSite, ProgramDefect } from './defect.ts'
+import { isRejected, type Step, type Update } from './update.ts'
 
 // The semantics shared by the run and the testing tools, as pure functions of data (`docs/shared-core.md`): the
 // shells, `engine.ts` and `src/testing/`, decide when they run and perform what they return.
@@ -134,4 +135,79 @@ export const reconcile = <K, S>(active: Active<K>, listed: HashMap.HashMap<K, S>
     fresh.push([key, subscription, started])
   }
   return { gone, fresh, active: { keys, starts: new Set(HashMap.values(keys)), started } }
+}
+
+/** Counts the states a run produces: every message that changes the state creates a new revision. */
+export type Revision = number
+
+export type Revisioned<State> = Readonly<{ state: State; revision: Revision }>
+
+/** Where a message comes from: the view, a command, or a subscription, with its key and the start it comes from. */
+export type Source<K> =
+  | Readonly<{ _tag: 'View' }>
+  | Readonly<{ _tag: 'Command' }>
+  | Readonly<{ _tag: 'Subscription'; key: K; generation: Generation }>
+
+/** What a program starts from: its first state, at the first revision, and the commands of its first step. */
+export type Started<State, Command> = Readonly<{ current: Revisioned<State>; commands: ReadonlyArray<Command> }>
+
+/**
+ * The start of a program, from its first step, which is data: whoever makes the step from the flags (`startOf`)
+ * does it where a defect of `init` dies in `init`. Its subscriptions start before its commands, as those of every
+ * step do.
+ */
+export const init = <State, Command>(step: Step<State, Command>): Started<State, Command> => ({
+  current: { state: step.state, revision: 0 },
+  commands: step.commands ?? [],
+})
+
+/**
+ * What a message makes of the current state: `Dropped` when its start is no longer active (a subscription's message
+ * left after its key went away, or came back with a new start), `Dead` once the run has died, `Ignored` when `update`
+ * rejects it, `Applied` otherwise, with a new revision only when the state changes.
+ */
+export type Arrived<State, Command, Event> =
+  | Readonly<{ _tag: 'Dropped' }>
+  | Readonly<{ _tag: 'Dead' }>
+  | Readonly<{ _tag: 'Ignored' }>
+  | Readonly<{
+    _tag: 'Applied'
+    next: Revisioned<State>
+    changed: boolean
+    commands: ReadonlyArray<Command>
+    events: ReadonlyArray<Event>
+  }>
+
+const dropped: Arrived<never, never, never> = { _tag: 'Dropped' }
+
+const dead: Arrived<never, never, never> = { _tag: 'Dead' }
+
+const ignored: Arrived<never, never, never> = { _tag: 'Ignored' }
+
+/**
+ * Applies `message` to the current state, calling `update` unless its start is gone or `died` says the run has died:
+ * whoever calls it calls it in one synchronous thunk, where no other fiber can die between the check and the call, and
+ * where a defect of `update` dies in `update`. A dropped message reaches nothing of the program, whether the run has
+ * died or not.
+ */
+export const arrive = <State, Message, Command, Event, K>(
+  update: Update<State, Message, Command, Event>,
+  current: Revisioned<State>,
+  active: Active<K>,
+  source: Source<K>,
+  message: Message,
+  died: () => boolean,
+): Arrived<State, Command, Event> => {
+  if (source._tag === 'Subscription' && !active.starts.has(source.generation)) return dropped
+  if (died()) return dead
+  const result = update(message)(current.state)
+  if (isRejected(result)) return ignored
+  const changed = result.state !== current.state
+  return {
+    _tag: 'Applied',
+    next: changed ? { state: result.state, revision: current.revision + 1 } : current,
+    changed,
+    commands: result.commands ?? [],
+    events: result.events ?? [],
+  }
 }

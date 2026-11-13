@@ -1,6 +1,6 @@
 # A core shared by the run and the testing tools
 
-**Status:** decided, November 2026; steps 0 to 2 done. It follows effect-tea-persistent's decision 0292
+**Status:** decided, November 2026; steps 0 to 3 done. It follows effect-tea-persistent's decision 0292
 (`docs/decisions/0292-…` there), which moves that runtime's state into a pure core, and a reading of it by Fable 5.2
 for this library.
 
@@ -100,8 +100,15 @@ Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun ru
    none of the state before", since what it takes out is the shell's: which `Active` it reconciles against.
 3. `init`, `arrive`, with the check of the register (`alive` moves into it), and `ended`; the engine on them. The
    engine's mutations of `alive`, of the generation and of the order of stops and starts point at the core, each with
-   a deterministic test of the core among its killers.
-4. `rehearse` on the core, its starts kept by generation, its `ended` the core's.
+   a deterministic test of the core among its killers. Done, but for three points. `init` takes the first step, which
+   is data: making it from the flags (`startOf`) stays the shells', in their thunk under `diesIn('init')`, since
+   `compose` makes a child's with it too. `ended` moves to step 4: the engine keeps nothing of an end, and a set of
+   ended starts that only `rehearse` reads would be state the engine writes for nobody. The order of stops and starts
+   is the shell's, which awaits the stops before it forks the starts, so its mutations stay on `engine.ts`; those of
+   the check of the register, of the generation and of a new revision point at `arrive`, each with a test of the core
+   among its killers. `applyAlive` stays for `rehearse` until step 4, with a mutation of its own. `Ignored` and
+   `Applied` carry only what the core decides: the origin and the state before are the shell's, which has them.
+4. `rehearse` on the core, its starts kept by generation, its `ended` the core's, which `Active` holds.
 5. `rehearse`'s own bookkeeping as a pure module, and `runAll` fixed by it, with a changelog entry.
 6. `model`, once the README says whether the check holds of `makeModel`: the renderer's frames and `rehearse`'s
    `model` make it through the core, with a changelog entry if the run's behaviour changes.

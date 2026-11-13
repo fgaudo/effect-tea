@@ -6,17 +6,21 @@ import * as Opt from 'effect/Option'
 import fc from 'fast-check'
 import {
   type Active,
+  arrive,
   diesOnly,
   hasDied,
+  init,
   noDeaths,
   noneActive,
   otherwiseDefect,
   reconcile,
   record,
   report,
+  type Source,
   wrapDefects,
 } from './core.ts'
 import { ProgramDefect } from './defect.ts'
+import { reject, type Update } from './update.ts'
 
 class Request extends Context.Service<Request, string>()('Request') {}
 
@@ -199,6 +203,126 @@ describe('the keys of a new state, against those before', () => {
         }
         expect(after.starts).toEqual(new Set(Object.values(now)))
         active = after
+      }
+    }))
+  })
+})
+
+describe('the start of a program', () => {
+  test('starts from its first state, at the first revision, with the commands of its first step', () => {
+    const state = { n: 0 }
+    expect(init({ state, commands: ['Load'] })).toEqual({ current: { state, revision: 0 }, commands: ['Load'] })
+    expect(init({ state }).commands).toEqual([])
+  })
+})
+
+type Counted = Readonly<{ n: number }>
+
+type Change = 'Bump' | 'Stay' | 'Refuse'
+
+/** An `update` that counts its calls. */
+const counting = () => {
+  const calls = { count: 0 }
+  const update: Update<Counted, Change, 'Save', 'Saved'> = (message) => (state) => {
+    calls.count += 1
+    return message === 'Bump'
+      ? { state: { n: state.n + 1 }, commands: ['Save'], events: ['Saved'] }
+      : message === 'Stay'
+      ? { state, commands: ['Save'] }
+      : reject
+  }
+  return { calls, update }
+}
+
+const fromView: Source<string> = { _tag: 'View' }
+
+const alive = () => false
+
+describe('a message against the state', () => {
+  const current = { state: { n: 0 }, revision: 3 }
+
+  test('a new state gets the next revision, with the commands and the events of its step', () => {
+    const { calls, update } = counting()
+    expect(arrive(update, current, noneActive, fromView, 'Bump', alive)).toEqual({
+      _tag: 'Applied',
+      next: { state: { n: 1 }, revision: 4 },
+      changed: true,
+      commands: ['Save'],
+      events: ['Saved'],
+    })
+    expect(calls.count).toBe(1)
+  })
+
+  test('the very same state keeps its revision, and its commands still run', () => {
+    const { update } = counting()
+    const arrived = arrive(update, current, noneActive, { _tag: 'Command' }, 'Stay', alive)
+    expect(arrived).toEqual({ _tag: 'Applied', next: current, changed: false, commands: ['Save'], events: [] })
+    expect(arrived._tag === 'Applied' && arrived.next).toBe(current)
+  })
+
+  test('a message update rejects is ignored', () => {
+    const { update } = counting()
+    expect(arrive(update, current, noneActive, fromView, 'Refuse', alive)).toEqual({ _tag: 'Ignored' })
+  })
+
+  test('once the run has died, update is not called', () => {
+    const { calls, update } = counting()
+    expect(arrive(update, current, noneActive, fromView, 'Bump', () => true)).toEqual({ _tag: 'Dead' })
+    expect(calls.count).toBe(0)
+  })
+
+  test('a message of an earlier start of a key that came back is dropped, alive or dead, and calls nothing', () => {
+    const { calls, update } = counting()
+    const first = reconcile(noneActive, listing('a')).active
+    const back = reconcile(reconcile(first, listing()).active, listing('a')).active
+    const earlier: Source<string> = { _tag: 'Subscription', key: 'a', generation: 1 }
+    expect(arrive(update, current, back, earlier, 'Bump', alive)).toEqual({ _tag: 'Dropped' })
+    expect(arrive(update, current, back, earlier, 'Bump', () => true)).toEqual({ _tag: 'Dropped' })
+    expect(calls.count).toBe(0)
+    const now: Source<string> = { _tag: 'Subscription', key: 'a', generation: 2 }
+    expect(arrive(update, current, back, now, 'Bump', alive)._tag).toBe('Applied')
+  })
+
+  test('under any history of listings, arrivals and a death, update is called exactly when it applies', () => {
+    type Event =
+      | Readonly<{ _tag: 'List'; keys: ReadonlyArray<string> }>
+      | Readonly<{ _tag: 'Arrive'; from: number }>
+      | Readonly<{ _tag: 'Die' }>
+    const event = fc.oneof(
+      fc.record({
+        _tag: fc.constant('List' as const),
+        keys: fc.uniqueArray(fc.constantFrom('a', 'b', 'c'), { maxLength: 3 }),
+      }),
+      // A start among those made so far, by its index, or the view (-1).
+      fc.record({ _tag: fc.constant('Arrive' as const), from: fc.integer({ min: -1, max: 12 }) }),
+      fc.constant({ _tag: 'Die' as const }),
+    )
+    fc.assert(fc.property(fc.array(event, { maxLength: 40 }), (history: ReadonlyArray<Event>) => {
+      const { calls, update } = counting()
+      let active: Active<string> = noneActive
+      let state = { state: { n: 0 }, revision: 0 }
+      let died = false
+      const starts: Array<readonly [string, number]> = []
+      for (const happened of history) {
+        if (happened._tag === 'Die') {
+          died = true
+        } else if (happened._tag === 'List') {
+          const { fresh, active: after } = reconcile(active, listing(...happened.keys))
+          for (const [key, , start] of fresh) starts.push([key, start])
+          active = after
+        } else {
+          const start = starts[happened.from]
+          if (happened.from >= 0 && start === undefined) continue
+          const source: Source<string> = start === undefined
+            ? fromView
+            : { _tag: 'Subscription', key: start[0], generation: start[1] }
+          const applies = start === undefined || HashMap.get(active.keys, start[0]).pipe(Opt.contains(start[1]))
+          const before = calls.count
+          const arrived = arrive(update, state, active, source, 'Bump', () => died)
+          expect(arrived._tag).toBe(!applies ? 'Dropped' : died ? 'Dead' : 'Applied')
+          expect(calls.count - before).toBe(applies && !died ? 1 : 0)
+          if (arrived._tag === 'Applied') state = arrived.next
+        }
       }
     }))
   })

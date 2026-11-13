@@ -21,12 +21,9 @@ import * as Core from './core.ts'
 import type { DefectSite } from './defect.ts'
 import { describeByTag } from './log.ts'
 import type { Subscription, Subscriptions } from './subscription.ts'
-import { isRejected, type Step, type Update } from './update.ts'
+import type { Step, Update } from './update.ts'
 
-/** Counts the states a run produces: every message that changes the state creates a new revision. */
-export type Revision = number
-
-export type Revisioned<State> = Readonly<{ state: State; revision: Revision }>
+export type { Revision, Revisioned } from './core.ts'
 
 /** Where a message came from: the view, a command, or a subscription, with its key. */
 export type Origin =
@@ -43,7 +40,7 @@ export type Applied<State, Message, Command> = Readonly<{
   origin: Origin
   before: State
   after: State
-  revision: Revision
+  revision: Core.Revision
   commands: ReadonlyArray<Command>
 }>
 
@@ -204,22 +201,15 @@ export const makeDeaths = Effect.fnUntraced(function*(keeps: (defect: unknown) =
   } satisfies Deaths
 })
 
-/**
- * Where a message comes from, as the engine knows it: a subscription's message carries the start it comes from,
- * so that once its key goes away, what it left in the queue is dropped.
- */
-type Source<K> =
-  | Readonly<{ _tag: 'View' }>
-  | Readonly<{ _tag: 'Command' }>
-  | Readonly<{ _tag: 'Subscription'; key: K; generation: Core.Generation }>
+// A subscription's message carries the start it comes from, so that once its key goes away, what it left in the queue
+// is dropped.
+type Envelope<Message, K> = Readonly<{ message: Message; source: Core.Source<K> }>
 
-type Envelope<Message, K> = Readonly<{ message: Message; source: Source<K> }>
+const fromView: Core.Source<never> = { _tag: 'View' }
 
-const fromView: Source<never> = { _tag: 'View' }
+const fromCommand: Core.Source<never> = { _tag: 'Command' }
 
-const fromCommand: Source<never> = { _tag: 'Command' }
-
-const originOf = <K>(source: Source<K>): Origin =>
+const originOf = <K>(source: Core.Source<K>): Origin =>
   source._tag === 'Subscription' ? { _tag: 'Subscription', key: source.key } : source
 
 /**
@@ -238,7 +228,7 @@ export const withExternalSpan = <R>(context: Context.Context<R>): Context.Contex
 
 /** The engine owns its message loop: it runs as long as the scope `make` was called in. */
 export interface Engine<State, Message> {
-  readonly states: Stream.Stream<Revisioned<State>>
+  readonly states: Stream.Stream<Core.Revisioned<State>>
   /** Enqueues a message sent by the view. */
   readonly dispatch: (message: Message) => Effect.Effect<void>
   /** Succeeds once a fiber of the run has died: of `update`, a command, a subscription, an option or a log. */
@@ -255,7 +245,7 @@ export interface Engine<State, Message> {
 // Untraced: a span of its own would be the one its fibers log into (see `withExternalSpan`).
 export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   deaths: given,
-  init: { state: initState, commands: initCommands = [] },
+  init: first,
   update,
   runCommand: interpret,
   subscriptions,
@@ -290,11 +280,11 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   const { recorded, died, report, all } = deaths
   // A run that died applies no message, and starts no command and no subscription, as nothing happens in a run that
   // died, while whoever runs it stops it: the renderer, which it stops first, may take a while to release what it
-  // holds. Each is checked in the thunk that calls the program, `update` or `runCommand` (`alive`), or that starts the
-  // fiber of a subscription, where no other fiber can run: the scheduler may yield at any other operation. The loop
-  // checks nothing of its own, which would hide a check left apart from its call from any test. A step whose `update`
-  // was called before the death goes on, as it may wait for a release or an option; what the program's effects do
-  // once started is theirs, until the end of the run interrupts them.
+  // holds. Each is checked in the thunk that calls the program, `update` (`Core.arrive`) or `runCommand` (`alive`), or
+  // that starts the fiber of a subscription, where no other fiber can run: the scheduler may yield at any other
+  // operation. The loop checks nothing of its own, which would hide a check left apart from its call from any test. A
+  // step whose `update` was called before the death goes on, as it may wait for a release or an option; what the
+  // program's effects do once started is theirs, until the end of the run interrupts them.
   const dead = () => all().length > 0
   // The loop and the commands.
   const fibers = yield* FiberSet.make<unknown, never>()
@@ -315,14 +305,15 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       )
     })
   )
-  const stateRef = yield* SubscriptionRef.make<Revisioned<State>>({ state: initState, revision: 0 })
-  const enqueue = (source: Source<K>) => (message: Message) => Effect.asVoid(Queue.offer(queue, { message, source }))
+  const started = Core.init(first)
+  const stateRef = yield* SubscriptionRef.make(started.current)
+  const enqueue = (source: Core.Source<K>) => (message: Message) =>
+    Effect.asVoid(Queue.offer(queue, { message, source }))
   // Each function of the program or of the options, called where its defect can be told apart from the others'.
   const call = <A>(where: DefectSite, f: () => A) => Effect.sync(f).pipe(diesIn(where))
   // The run's own logs belong to no function of the program: a `Logger` that throws, or that cannot format what
   // it is given, dies in them, and never in the subscription or the loop that logs.
   const log = (...message: ReadonlyArray<unknown>) => Effect.logDebug(...message).pipe(diesIn('log'))
-  const apply = (message: Message, state: State) => applyAlive(update, message, state, dead)
   const described = (message: Message) => call('describeMessage', () => describeMessage(message))
   // Suspended, as the interpreter is below: an option that throws before it returns its effect dies there too.
   const observe = (applied: Applied<State, Message, Command>) =>
@@ -381,52 +372,63 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   const step = Effect.fnUntraced(function*(active: Core.Active<K>, { message, source }: Envelope<Message, K>) {
     // `describeMessage` and `describeCommand` run for every message, and only to be logged.
     const debugging = yield* LogLevel.isEnabled('Debug')
-    // Left in the queue by a subscription whose key has gone away since: it was produced after the program
-    // stopped listening, so it does not reach `update`.
-    if (source._tag === 'Subscription' && !active.starts.has(source.generation)) {
-      // The loop takes messages after a death too, and calls nothing of the program on them.
-      const description = debugging
-        ? yield* call('describeMessage', () => alive(dead, () => describeMessage(message)))
-        : Opt.none()
-      if (Opt.isSome(description)) {
-        yield* log('Dropped a message of a stopped subscription', source.key, description.value)
+    const current = yield* SubscriptionRef.get(stateRef)
+    const arrived = yield* Effect.sync(() => Core.arrive(update, current, active, source, message, dead)).pipe(
+      diesIn('update', () => ({ on: describeByTag(message) })),
+    )
+    switch (arrived._tag) {
+      // Left in the queue by a subscription whose key has gone away since: it was produced after the program
+      // stopped listening, so it does not reach `update`.
+      case 'Dropped': {
+        // The loop takes messages after a death too, and calls nothing of the program on them.
+        const description = debugging
+          ? yield* call('describeMessage', () => alive(dead, () => describeMessage(message)))
+          : Opt.none()
+        if (Opt.isSome(description) && source._tag === 'Subscription') {
+          yield* log('Dropped a message of a stopped subscription', source.key, description.value)
+        }
+        return active
       }
-      return active
-    }
-    const { state, revision } = yield* SubscriptionRef.get(stateRef)
-    const applied = yield* apply(message, state)
-    // A fiber died since the loop took the message: it is not applied, and the loop takes no other.
-    if (Opt.isNone(applied)) return active
-    const result = applied.value
-    const origin = originOf(source)
-    // The state the message was meant for is gone (a late answer, a second click), or it never applied.
-    if (isRejected(result)) {
-      if (debugging) {
-        yield* log('Ignored a rejected message', yield* described(message), { origin: origin._tag })
+      // A fiber died since the loop took the message: it is not applied, and the loop takes no other.
+      case 'Dead':
+        return active
+      // The state the message was meant for is gone (a late answer, a second click), or it never applied.
+      case 'Ignored': {
+        const origin = originOf(source)
+        if (debugging) {
+          yield* log('Ignored a rejected message', yield* described(message), { origin: origin._tag })
+        }
+        yield* observeIgnored({ message, origin, state: current.state })
+        return active
       }
-      yield* observeIgnored({ message, origin, state })
-      return active
+      case 'Applied': {
+        // The same state needs no new revision, frame or subscriptions: only its commands, if any, run.
+        const { next, changed, commands } = arrived
+        if (debugging) {
+          yield* log('Message', yield* described(message), {
+            revision: next.revision,
+            commands: yield* call('describeCommand', () => commands.map(describeCommand)),
+          })
+        }
+        yield* observe({
+          message,
+          origin: originOf(source),
+          before: current.state,
+          after: next.state,
+          revision: next.revision,
+          commands,
+        })
+        if (changed) yield* SubscriptionRef.set(stateRef, next)
+        const nextActive = changed ? yield* reconcile(active, next.state) : active
+        yield* Effect.forEach(commands, runCommand, { discard: true })
+        return nextActive
+      }
     }
-    const { state: next, commands = [] } = result
-    // The same state needs no new revision, frame or subscriptions: only its commands, if any, run.
-    const changed = next !== state
-    const nextRevision = changed ? revision + 1 : revision
-    if (debugging) {
-      yield* log('Message', yield* described(message), {
-        revision: nextRevision,
-        commands: yield* call('describeCommand', () => commands.map(describeCommand)),
-      })
-    }
-    yield* observe({ message, origin, before: state, after: next, revision: nextRevision, commands })
-    if (changed) yield* SubscriptionRef.set(stateRef, { state: next, revision: nextRevision })
-    const nextActive = changed ? yield* reconcile(active, next) : active
-    yield* Effect.forEach(commands, runCommand, { discard: true })
-    return nextActive
   })
   // Run in the fiber that makes the engine, which records what it dies of here, among what the subscriptions it starts
   // die of meanwhile.
-  const initialActive = yield* reconcile(Core.noneActive, initState).pipe(
-    Effect.tap(() => Effect.forEach(initCommands, runCommand, { discard: true })),
+  const initialActive = yield* reconcile(Core.noneActive, started.current.state).pipe(
+    Effect.tap(() => Effect.forEach(started.commands, runCommand, { discard: true })),
     Effect.provideContext(context),
     recorded,
   )
