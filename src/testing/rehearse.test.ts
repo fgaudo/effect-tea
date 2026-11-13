@@ -1353,8 +1353,9 @@ describe('rehearse, as a fiber of the test\'s runs a command while it ends', () 
   })
 
   // The rehearsal has ended, failing on its pending command, when a fiber the scenario did not join asks to run it:
-  // the call is interrupted only once the program's `runCommand` has run, with nothing left to apply its answer.
-  test.failing('a run made once the rehearsal has ended calls no runCommand', async () => {
+  // nothing is left to apply its answer. The call is recorded, not the effect, which a scope already closed would not
+  // run.
+  test('a run made once the rehearsal has ended calls no runCommand', async () => {
     const ran: Array<'Answer'> = []
     await Effect.runPromise(Effect.gen(function*() {
       const ended = yield* Deferred.make<void>()
@@ -1362,11 +1363,10 @@ describe('rehearse, as a fiber of the test\'s runs a command while it ends', () 
       const program: Program<{ state: Count; model: Count; message: Counted; command: 'Answer' }> = {
         init: { state: { count: 0 }, commands: ['Answer'] },
         update: () => ({ count }) => ({ state: { count: count + 1 } }),
-        runCommand: (command) =>
-          Effect.sync(() => {
-            ran.push(command)
-            return Opt.some<Counted>('Answered')
-          }),
+        runCommand: (command) => {
+          ran.push(command)
+          return Effect.succeedSome<Counted>('Answered')
+        },
         makeModel: (state) => state,
       }
       yield* Effect.exit(rehearse(program, Effect.fnUntraced(function*(rehearsal) {
@@ -1421,7 +1421,7 @@ describe('rehearse, as a call is interrupted between what it took and the loop',
 
   // The command has answered when the interruption reaches the call: its answer is given to nobody, and it is
   // neither under way nor cancelled.
-  test.failing('a run interrupted once its command has answered applies the answer, or fails the rehearsal', () => {
+  test('a run interrupted once its command has answered applies the answer, or fails the rehearsal', () => {
     prioritizedSchedules(interrupted, { ...runs, pinned: [10, 11, 14, 26] }, (exit) => {
       if (Exit.isFailure(exit)) throw new Error(Cause.pretty(exit.cause))
       expect(exit.value.unanswered && exit.value.seen.includes('answered')).toBe(false)
@@ -1430,7 +1430,7 @@ describe('rehearse, as a call is interrupted between what it took and the loop',
 
   // `runCommand` has been called, and its effect has not begun when the interruption reaches the call: the fiber
   // that would run it ends before `Effect.onInterrupt` is entered, so nothing cancels the command.
-  test.failing('a run interrupted before the effect of its command begins fails the rehearsal', () => {
+  test('a run interrupted before the effect of its command begins fails the rehearsal', () => {
     prioritizedSchedules(interrupted, { ...runs, pinned: [8, 17, 29, 44] }, (exit) => {
       if (Exit.isFailure(exit)) throw new Error(Cause.pretty(exit.cause))
       expect(exit.value.unanswered && !exit.value.seen.includes('started')).toBe(false)

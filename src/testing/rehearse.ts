@@ -234,13 +234,14 @@ export const rehearse = Effect.fnUntraced(function*<
   )
   // Once the rehearsal has ended, what a fiber of the test's still running asks is refused, and the call is
   // interrupted: nothing would apply it. The check and the offer are one thunk, so that nothing is offered once the
-  // scenario's exit is taken.
-  const submit = <A, RA>(step: Effect.Effect<A, never, RA>) =>
+  // scenario's exit is taken, and `offered` runs in it too.
+  const submit = <A, RA>(step: Effect.Effect<A, never, RA>, offered: () => void = () => {}) =>
     Effect.flatMap(Effect.context<RA>(), (context) =>
       Effect.flatMap(Deferred.make<unknown>(), (done) =>
         Effect.suspend(() => {
           undelivered.add(done)
           if (!ended && Queue.offerUnsafe(requests, { step: Effect.provideContext(step, context), done })) {
+            offered()
             return Effect.succeed(done as Deferred.Deferred<A>)
           }
           undelivered.delete(done)
@@ -442,9 +443,27 @@ export const rehearse = Effect.fnUntraced(function*<
     )
     return yield* Deferred.await(applied)
   })
-  // Checks the register, takes the oldest pending command `select` matches, or finds none (`Ledger.take`), and calls
-  // `runCommand`, all in one thunk, with no check in front of it; then runs the effect it returned and applies its
-  // message.
+  // The effect of a command, in a fiber of the rehearsal's scope: once it answers, nothing interrupts it before its
+  // answer is offered to the loop, and the command is no longer under way from the thunk of the offer on. Refused, as
+  // the rehearsal has ended, the answer is applied by nobody, and the command was under way when it ended.
+  const answering = <RC>(ticket: Ledger.Ticket, effect: Effect.Effect<Opt.Option<Message>, never, RC>) => {
+    const settle = () => {
+      ledger = Ledger.settle(ledger, ticket)
+    }
+    return Effect.uninterruptibleMask((restore) =>
+      restore(effect.pipe(scopedIn(register, 'command'))).pipe(
+        Effect.flatMap(Opt.match({
+          onNone: () => Effect.succeedNone,
+          onSome: (message) => Effect.asSome(submit(arriveNow(fromCommand, message), settle)),
+        })),
+        Effect.onExit((exit) => Exit.isSuccess(exit) && Opt.isSome(exit.value) ? Effect.void : Effect.sync(settle)),
+      )
+    )
+  }
+  // Checks that the rehearsal has not ended and the register, takes the oldest pending command `select` matches, or
+  // finds none (`Ledger.take`), and calls `runCommand`, all in one thunk, with no check in front of it; then forks the
+  // effect it returned in the rehearsal's scope, nothing interrupting the call in between, and waits for that fiber.
+  // Interrupted, the call cancels the command and interrupts its fiber, which may have offered its answer already.
   type Ran =
     | Readonly<{ _tag: 'None'; pending: ReadonlyArray<Command> }>
     | Readonly<{ _tag: 'Ran'; command: Command; answer: Opt.Option<Deferred.Deferred<void>> }>
@@ -452,25 +471,25 @@ export const rehearse = Effect.fnUntraced(function*<
     Effect.uninterruptibleMask((restore) =>
       Effect.suspend((): Effect.Effect<Ran, never, Exclude<R, Scope.Scope>> => {
         if (dead()) return deadOr(Effect.never)
+        if (ended) return Effect.interrupt
         const taking = Ledger.take(ledger, select)
         if (Opt.isNone(taking)) return Effect.succeed({ _tag: 'None', pending: ledger.pending })
         const [{ ticket, command }, taken] = taking.value
         ledger = taken
-        return restore(orDead(calling(() => runCommand(command)).pipe(
-          scopedIn(register, 'command'),
-          Effect.onInterrupt(() =>
-            Effect.sync(() => {
-              ledger = Ledger.cancel(ledger, ticket)
-            })
+        return answering(ticket, calling(() => runCommand(command))).pipe(
+          Effect.forkIn(forks),
+          Effect.flatMap((fiber) =>
+            restore(orDead(Fiber.join(fiber))).pipe(
+              Effect.onInterrupt(() =>
+                Effect.andThen(
+                  Effect.sync(() => {
+                    ledger = Ledger.cancel(ledger, ticket)
+                  }),
+                  Fiber.interrupt(fiber),
+                )
+              ),
+            )
           ),
-        ))).pipe(
-          Effect.flatMap(Opt.match({
-            onNone: () => Effect.succeedNone,
-            onSome: (message) => Effect.asSome(submit(arriveNow(fromCommand, message))),
-          })),
-          Effect.ensuring(Effect.sync(() => {
-            ledger = Ledger.settle(ledger, ticket)
-          })),
           Effect.map((answer): Ran => ({ _tag: 'Ran', command, answer })),
         )
       })

@@ -79,6 +79,8 @@ version, and everything else, features included, the patch version.
 - A scenario that throws before it returns its effect fails `drive` and `rehearse`, which then stop the run as they end.
 - `rehearse` fails on a command under way as the scenario ends, though it answers while the end releases what it holds.
 - `rehearse` applies what the test sent before its scenario returned, where it dropped what its loop had not taken.
+- `rehearse` runs a command's effect in its own scope: an interrupted `run` no longer loses its answer or its count.
+- A `run` made once a rehearsal has ended no longer calls `runCommand`.
 
 ## 0.7.1 (2026-10-28)
 

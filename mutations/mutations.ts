@@ -502,10 +502,19 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'rehearse runs a command after the first defect',
     file: 'src/testing/rehearse.ts',
-    from: '        if (dead()) return deadOr(Effect.never)\n        const taking = Ledger.take(ledger, select)\n',
-    to: '        const taking = Ledger.take(ledger, select)\n',
+    from: '        if (dead()) return deadOr(Effect.never)\n        if (ended) return Effect.interrupt\n',
+    to: '        if (ended) return Effect.interrupt\n',
     killedBy: [
       ['src/testing/rehearse.test.ts', 'run calls no runCommand once a command has died'],
+    ],
+  },
+  {
+    name: 'rehearse runs a command once it has ended',
+    file: 'src/testing/rehearse.ts',
+    from: '        if (ended) return Effect.interrupt\n',
+    to: '',
+    killedBy: [
+      ['src/testing/rehearse.test.ts', 'a run made once the rehearsal has ended calls no runCommand'],
     ],
   },
   {
@@ -542,7 +551,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse lets a command's interrupted run go unanswered",
     file: 'src/testing/rehearse.ts',
-    from: '              ledger = Ledger.cancel(ledger, ticket)\n',
+    from: '                    ledger = Ledger.cancel(ledger, ticket)\n',
     to: '',
     killedBy: [
       ['src/testing/rehearse.test.ts', 'when a run interrupted while its command runs leaves the command unanswered'],
