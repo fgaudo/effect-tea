@@ -374,6 +374,7 @@ A lead no test can reach yet is listed here, with what would decide it. None is,
 
 - One module per concept: `update.ts`, `command.ts`, `subscription.ts`, `dispatch.ts` (views and their
   dispatch), `program.ts` (the program and its types), `compose.ts` (`parent`), `log.ts`, `defect.ts`;
+  `core.ts` is what the run and the testing tools share, as pure functions of data (`docs/shared-core.md`);
   `engine.ts` is the runtime only (with `RunOptions`), and `run.ts` connects it to a renderer. `testing/` holds
   one module per testing tool (and `unexpected.ts`, the failure they share).
 - A piece of a program that may be missing (`runCommand` without commands, `subscriptions`) is read through
@@ -403,8 +404,9 @@ A lead no test can reach yet is listed here, with what would decide it. None is,
 - A test of the library is of one of five kinds, and a test of none of them is not added:
   - **the semantics of the pure pieces**: what a function that runs nothing returns, as a `Step` and `andThen`,
     `forEach` and `reject` over it, a parent's composition, how a child's message is wrapped, how the logs describe
-    a message, `defect`, `applyAll` and `dispatchViolations`. They lie in the test file of their module
-    (`compose.test.ts`, `dispatch.test.ts`, `log.test.ts`, `defect.test.ts`, `src/testing/`).
+    a message, `defect`, `applyAll` and `dispatchViolations`, what the core makes of a cause. They lie in the test
+    file of their module (`compose.test.ts`, `dispatch.test.ts`, `log.test.ts`, `defect.test.ts`, `core.test.ts`,
+    `src/testing/`).
   - **invariants under random histories**: fast-check draws clicks, answers, subscription messages and ends,
     releases, defects and self-interruptions, and the seed of the order the scheduler of the tests (`test/scheduled.ts`)
     runs them in, and each promise of the README's "Guarantees" that the scenario reaches is checked on every one

@@ -172,7 +172,7 @@ export const rehearse = Effect.fnUntraced(function*<
   const deadOr = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     Effect.suspend(() => {
       const dies = deaths()
-      return Arr.isArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : effect
+      return Arr.isReadonlyArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : effect
     })
   // A call that waits for a subscription or a command fails as soon as a fiber dies, whichever, as the run dies at
   // once: what it waits for would come in a run that died. One that waits for the loop waits for a release, which the
@@ -488,7 +488,7 @@ export const rehearse = Effect.fnUntraced(function*<
       Effect.tap(end),
       Effect.flatMap((exit) => {
         const dies = deaths()
-        if (!Arr.isArrayNonEmpty(dies)) return exit
+        if (!Arr.isReadonlyArrayNonEmpty(dies)) return exit
         const rest = Exit.isFailure(exit)
           ? exit.cause.reasons.filter((reason) => !(Cause.isDieReason(reason) && isRecorded(reason.defect)))
           : []

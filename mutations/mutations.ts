@@ -159,7 +159,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'a self-interruption is no defect',
     file: 'src/engine.ts',
-    from: 'Effect.catchCauseIf(self, (cause) => !diesOnly(cause),',
+    from: 'Effect.catchCauseIf(self, (cause) => !Core.diesOnly(cause),',
     to: 'Effect.catchCauseIf(self, () => false,',
     killedBy: [
       ['src/run.test.ts', 'a command that interrupts itself is a defect, where it happened'],
@@ -196,11 +196,13 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: 'a defect is recorded once for each fiber it ends',
-    file: 'src/engine.ts',
-    from: 'keeps(reason.defect) && !has(reason.defect)',
+    file: 'src/core.ts',
+    from: 'keeps(reason.defect) && !holds(deaths, reason.defect)',
     to: 'keeps(reason.defect)',
     // The rest of the suite: `rehearse.test.ts` hangs under it.
     killedBy: [
+      ['src/core.test.ts', 'keeps each defect once, by its identity, in the order the fibers died'],
+      ['src/core.test.ts', 'is the same register when nothing new died, so that the shell signals only a new death'],
       ['src/run.test.ts', 'every defect of the cause is kept, each with where it happened'],
       ['src/run.test.ts', 'a Logger that throws on what a command logs is a defect in the command'],
       ['src/run.test.ts', 'a renderer that dies before a command is the first defect of the cause'],
@@ -247,7 +249,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'the run ends with what it ended with, not with its defects first',
     file: 'src/run.ts',
-    from: 'if (!Arr.isArrayNonEmpty(dies)) return exit',
+    from: 'if (!Arr.isReadonlyArrayNonEmpty(dies)) return exit',
     to: 'if (true) return exit',
     killedBy: [
       [

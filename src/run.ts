@@ -35,7 +35,7 @@ export const runWith = Effect.fnUntraced(function*<State, Model, Message, Comman
     Effect.exit(restore(running(program, render, options, deaths))).pipe(
       Effect.flatMap((exit) => {
         const dies = deaths.all()
-        if (!Arr.isArrayNonEmpty(dies)) return exit
+        if (!Arr.isReadonlyArrayNonEmpty(dies)) return exit
         const rest = Exit.isFailure(exit)
           ? exit.cause.reasons.filter((reason) => !(Cause.isDieReason(reason) && deaths.has(reason.defect)))
           : []

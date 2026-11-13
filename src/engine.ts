@@ -18,7 +18,8 @@ import type * as Stream from 'effect/Stream'
 import * as SubscriptionRef from 'effect/SubscriptionRef'
 import * as Tracer from 'effect/Tracer'
 import type { RunCommand } from './command.ts'
-import { type DefectSite, ProgramDefect } from './defect.ts'
+import * as Core from './core.ts'
+import type { DefectSite } from './defect.ts'
 import { describeByTag } from './log.ts'
 import type { Subscription, Subscriptions } from './subscription.ts'
 import { isRejected, type Step, type Update } from './update.ts'
@@ -84,19 +85,12 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
 
 /**
  * Where a defect happened is known only where it is caught: the run dies with it, and with where, and leaves
- * reporting it to whoever runs the program. Every defect of the cause is wrapped, with its stack and span, and
- * the rest of the cause is kept as it is: `Effect.catchDefect` would keep only the first defect. An effect that
- * interrupts itself (`Effect.interrupt`, or the join of an interrupted fiber) is a defect too: the fibers of a
- * run ignore their interruptions, which would leave a command without its answer, or a subscription ended in
- * silence. So is any other failure, which the types rule out (an empty cause, a failure a cast let through): it would
- * end the run with no defect to report. Either is a defect beside the defects of the cause too, in the place it
- * happened: a release that interrupts itself after its effect died. An interruption by the run, or by whoever runs
- * it, is never taken for one: an interrupted fiber runs no handler while it is interruptible, as it is where the
- * effect runs. The defects are wrapped where it is not, so that those of an interrupted effect are too: what a
- * subscription the run stopped dies with while it releases what it holds.
+ * reporting it to whoever runs the program. Every defect of the cause is wrapped (`wrapDefects`), and a
+ * self-interruption, or a failure the types rule out, is a defect too (`otherwiseDefect`). An interruption by the
+ * run, or by whoever runs it, is never taken for one: an interrupted fiber runs no handler while it is
+ * interruptible, as it is where the effect runs. The defects are wrapped where it is not, so that those of an
+ * interrupted effect are too: what a subscription the run stopped dies with while it releases what it holds.
  */
-const diesOnly = (cause: Cause.Cause<unknown>) => Cause.hasDies(cause) && cause.reasons.every(Cause.isDieReason)
-
 // The details are made only when there is a defect to carry them: a message is described on every call otherwise.
 export const diesIn =
   (
@@ -107,35 +101,11 @@ export const diesIn =
   <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
     Effect.uninterruptibleMask((restore) =>
       restore(
-        // Beside a defect too: a release that interrupts itself after its effect died is a second defect.
-        Effect.catchCauseIf(self, (cause) => !diesOnly(cause), (cause) => {
-          const others = Cause.fromReasons(cause.reasons.filter((reason) => !Cause.isDieReason(reason)))
-          const defect = Cause.die(
-            new Error(
-              Cause.hasInterruptsOnly(others)
-                ? 'It interrupted itself, which only the run may do'
-                : 'It failed, which its type rules out',
-              { cause: others },
-            ),
-          ).reasons
-          // In the place of the first of them, so that the defects stay in the order they happened.
-          const first = cause.reasons.findIndex((reason) => !Cause.isDieReason(reason))
-          return Effect.failCause(Cause.fromReasons<never>(
-            first === -1 ? defect : cause.reasons.flatMap((reason, index) =>
-              Cause.isDieReason(reason) ? [reason] : index === first ? defect : []
-            ),
-          ))
-        }),
+        Effect.catchCauseIf(self, (cause) => !Core.diesOnly(cause), (cause) =>
+          Effect.failCause(Core.otherwiseDefect(cause))),
       ).pipe(
         Effect.catchCauseIf(Cause.hasDies, (cause) =>
-          Effect.failCause(Cause.fromReasons(cause.reasons.flatMap((reason): ReadonlyArray<Cause.Reason<E>> =>
-            Cause.isDieReason(reason) && !wrapped(reason.defect)
-              ? Cause.annotate(
-                Cause.die(new ProgramDefect({ where, cause: reason.defect, ...details() })),
-                Cause.reasonAnnotations(reason),
-              ).reasons
-              : [reason]
-          )))),
+          Effect.failCause(Core.wrapDefects(cause, where, details(), wrapped))),
       )
     )
 
@@ -213,28 +183,24 @@ export interface Deaths {
 }
 
 export const makeDeaths = Effect.fnUntraced(function*(keeps: (defect: unknown) => boolean) {
-  const deaths: Array<Cause.Die> = []
-  let reported = 0
+  let register = Core.noDeaths
   const died = yield* Deferred.make<void>()
-  const has = (defect: unknown) => deaths.some((death) => death.defect === defect)
   return {
     recorded: (self) =>
       Effect.onExit(self, (exit) =>
         Effect.suspend(() => {
           if (Exit.isSuccess(exit)) return Effect.void
-          const before = deaths.length
-          for (const reason of exit.cause.reasons) {
-            if (Cause.isDieReason(reason) && keeps(reason.defect) && !has(reason.defect)) deaths.push(reason)
-          }
-          return deaths.length > before ? Deferred.succeed(died, undefined) : Effect.void
+          const before = register
+          register = Core.record(register, exit.cause, keeps)
+          return register !== before ? Deferred.succeed(died, undefined) : Effect.void
         })),
     died: Deferred.await(died),
-    all: () => deaths,
-    has,
+    all: () => register.deaths,
+    has: (defect) => Core.hasDied(register, defect),
     report: Effect.suspend(() => {
-      const dies = deaths.slice(reported)
-      reported = deaths.length
-      return Arr.isArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : Effect.void
+      const [dies, after] = Core.report(register)
+      register = after
+      return Opt.match(dies, { onNone: () => Effect.void, onSome: Effect.failCause })
     }),
   } satisfies Deaths
 })

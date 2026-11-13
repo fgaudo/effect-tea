@@ -1,8 +1,8 @@
 # A core shared by the run and the testing tools
 
-**Status:** decided, November 2026; step 0 done, the core not written yet. It follows effect-tea-persistent's
-decision 0292 (`docs/decisions/0292-…` there), which moves that runtime's state into a pure core, and a reading of
-it by Fable 5.2 for this library.
+**Status:** decided, November 2026; steps 0 and 1 done. It follows effect-tea-persistent's decision 0292
+(`docs/decisions/0292-…` there), which moves that runtime's state into a pure core, and a reading of it by Fable 5.2
+for this library.
 
 ## Context
 
@@ -90,7 +90,8 @@ Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun ru
    Done: `bun run interleavings`, and `.github/workflows/interleavings.yml` every day.
 
 1. `src/core.ts` with the functions over `Cause` of `diesIn` and `makeDeaths`, tested on causes built by hand. It
-   touches no shell's logic, only where the functions are: the most isolated step, which settles the module.
+   touches no shell's logic, only where the functions are: the most isolated step, which settles the module. Done:
+   `otherwiseDefect`, `wrapDefects` and the `Register` of deaths, with `record` and `report`, in `src/core.test.ts`.
 2. `reconcile` and its tests; `simulate` on it (the smallest shell, already a fold). The mutation "simulate compares
    the keys of a state with none of the state before" goes, replaced by one of the core's.
 3. `init`, `arrive`, with the check of the register (`alive` moves into it), and `ended`; the engine on them. The
@@ -116,7 +117,8 @@ a change of either stops and asks.
 - That `HashMap` compares keys with `Equal` and calls them only within the call it is given them in: **already
   listed** under "What the invariants rest on", with its tests, which move with `reconcile`.
 - That `Cause` is a module of data, whose `fromReasons`, `reasons`, `annotate` and `reasonAnnotations` run nothing:
-  **to read** in its JSDoc at 4.1.4, in step 1; the functions moved use only what `diesIn` uses today.
+  **documented**, read in step 1: the module is `@stability stable` at 4.1.4, its JSDoc calls it the data types of a
+  cause and helpers that build and check them, and `fromReasons` and `annotate` return a new `Cause`.
 - That every rule of the three copies today is one of the core's, and each difference between the shells is policy:
   **open**. Steps 2 and 4 check it, by the tests of `contract.test.ts` that must stay green unchanged.
 - That the core's tests kill the mutations the scheduled tests kill today: **open**, checked step by step in 3 and 7.

@@ -12,7 +12,8 @@ Decided, and done before the rest, since it rewrites what several open problems 
   step written once, in pure transitions, which the run, `simulate` and `rehearse` perform as three shells. Its plan
   goes in seven steps, each a commit with every check green, after a step 0, done: `interleaving.test.ts` runs apart
   (`bun run interleavings`, and a daily job of the CI), so that the steps do not meet a suite that fails in about
-  one run of three. Next is step 1, the functions over `Cause` of `diesIn` and `makeDeaths`. The core's steps 5 and 6
+  one run of three. Step 1, the functions over `Cause` of `diesIn` and `makeDeaths`, is done; next is step 2,
+  `reconcile`, with `simulate` on it. The core's steps 5 and 6
   answer "`rehearse`'s `runAll` dies on a command another call took" and "the renderer may start after the first
   defect", and step 7 the interleavings' counterexamples, each by a test of the core, a gate or a primitive.
 
