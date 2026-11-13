@@ -35,9 +35,10 @@ export type Hearing<S, H, W, M> =
 /**
  * The commands `update` started that have not run yet, oldest first, those taken that have not answered, and those
  * whose run was interrupted before they answered: commands cannot be cancelled, so in the run each of them would still
- * answer. How each start of a key is heard, by its generation. And the calls of `hearNext` offered to the loop that it
+ * answer. How each start of a key is heard, by its generation. The calls of `hearNext` offered to the loop that it
  * has not made wait on a start yet: one that leaves before is no longer among them, and the loop makes it wait on
- * nothing.
+ * nothing. And every call of `hearNext` from its offer until it ends, whatever the loop has made of it: the end of
+ * the rehearsal tells them all, those a step it interrupted had taken out of their start included.
  */
 export type Ledger<Command, S, H, W, M> = Readonly<{
   pending: ReadonlyArray<Command>
@@ -46,6 +47,7 @@ export type Ledger<Command, S, H, W, M> = Readonly<{
   taken: Ticket
   hearings: ReadonlyMap<Generation, Hearing<S, H, W, M>>
   asking: ReadonlySet<W>
+  calls: ReadonlySet<W>
 }>
 
 export const start = <Command, S, H, W, M>(commands: ReadonlyArray<Command>): Ledger<Command, S, H, W, M> => ({
@@ -55,6 +57,7 @@ export const start = <Command, S, H, W, M>(commands: ReadonlyArray<Command>): Le
   taken: 0,
   hearings: new Map(),
   asking: new Set(),
+  calls: new Set(),
 })
 
 /** The ledger with the commands of a step applied after those pending. */
@@ -143,17 +146,6 @@ export const listened = <Command, S, H, W, M>(
   return [stopping, stopped, { ...ledger, hearings }]
 }
 
-/** The handles of the opened starts, to stop as the rehearsal ends, and the calls waiting on them, to tell. */
-export const opened = <Command, S, H, W, M>(
-  ledger: Ledger<Command, S, H, W, M>,
-): readonly [ReadonlyArray<H>, ReadonlyArray<W>] => {
-  const each = Arr.flatMap(
-    Arr.fromIterable(ledger.hearings.values()),
-    (hearing): ReadonlyArray<OpenedOf<S, H, W, M>> => hearing._tag === 'Opened' ? [hearing] : [],
-  )
-  return [each.map(({ handle }) => handle), each.flatMap(({ waiting }) => waiting)]
-}
-
 /**
  * What `hear` makes of the start `generation`: `Scripted`, with the ledger, unless `hearNext` runs it, and says so
  * (`Opened`), or has heard it end (`Ended`), until its key goes away and comes back.
@@ -174,10 +166,14 @@ export const script = <Command, S, H, W, M>(
   }
 }
 
-/** The ledger with `call`, a call of `hearNext` offered to the loop, among those it has not made wait yet. */
+/**
+ * The ledger with `call`, a call of `hearNext` offered to the loop, among those it has not made wait yet, and among
+ * its calls until it leaves.
+ */
 export const enter = <Command, S, H, W, M>(ledger: Ledger<Command, S, H, W, M>, call: W): Ledger<Command, S, H, W, M> => ({
   ...ledger,
   asking: new Set([...ledger.asking, call]),
+  calls: new Set([...ledger.calls, call]),
 })
 
 /**
@@ -295,7 +291,7 @@ export const hear = <Command, S, H, W, M>(
 
 /**
  * The call `call` of `hearNext` has ended, having heard a message or not: it is no longer offered, nor waiting on a
- * start, and what it asked for is the next call's.
+ * start, nor among the calls, and what it asked for is the next call's.
  */
 export const leave = <Command, S, H, W, M>(
   ledger: Ledger<Command, S, H, W, M>,
@@ -303,11 +299,13 @@ export const leave = <Command, S, H, W, M>(
 ): Ledger<Command, S, H, W, M> => {
   const asking = new Set(ledger.asking)
   asking.delete(call)
+  const calls = new Set(ledger.calls)
+  calls.delete(call)
   const hearings = new Map(ledger.hearings)
   for (const [generation, hearing] of hearings) {
     if (hearing._tag === 'Opened' && hearing.waiting.includes(call)) {
       hearings.set(generation, { ...hearing, waiting: hearing.waiting.filter((each) => each !== call) })
     }
   }
-  return { ...ledger, asking, hearings }
+  return { ...ledger, asking, calls, hearings }
 }

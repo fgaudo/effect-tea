@@ -50,7 +50,15 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   engine as it is called is interrupted by that end", "a subscription that begins the end of the engine as it starts
   is interrupted by that end" (`engine.test.ts`) fail with a fork and an add apart. Not documented: the JSDoc says the
   fiber is forked and added, with no word on a step between, and seen in those tests (the seventh review of the
-  premises, November 2026).
+  premises, November 2026). The end of `rehearse` finds the same way a subscription its loop was starting for
+  `hearNext`, whose fiber runs no code of the program before it waits to be asked, so that no test of `rehearse` can
+  begin the end there: those two hold it.
+- **A fiber forked with `FiberSet.run` is no child of the fiber that forks it, which ends without waiting for it**,
+  which is how the end of `rehearse` stops its loop at once, in a step that waits for a release, and then stops with
+  the run's mark the subscriptions the loop had started for `hearNext`, still running: "a scenario that failed stops
+  the loop at once, its step under way included" (`rehearse.test.ts`) never ends with a subscription forked as a
+  child of the loop. Not documented: read in the source (`FiberSet.run` forks with `forkUnsafe`, as a daemon), and
+  seen in that test.
 - **A scope runs its finalizers in the reverse order they were added**, which is how the end of the engine, added
   after its `FiberSet` and its `FiberMap` were made, stops their fibers with the run's mark before they close, and
   reports what those die of as they release: "a command that joins a fiber the fiber of the run interrupted, as the
@@ -138,17 +146,6 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   how the fiber of a command in `rehearse` offers its answer to the loop once its effect has answered, nothing
   interrupting it in between: a region that holds no code of the program, which no test reaches and no mutation names
   ("one thunk" in `invariants.md`). Documented.
-- **A fiber forked with `Effect.forkIn` is interrupted when its scope closes, and not when the fiber that forked it
-  ends, and the close waits for it to end, its release included**, which is how `rehearse` keeps its loop, and a
-  subscription that `hearNext` started for as long as its key stays, whichever fiber of the test's asked for them: "a
-  subscription first heard in a fiber that has ended since keeps running while its key stays", "a subscription it
-  started is released when whoever runs the rehearsal interrupts it"; and how its end reaches a release under way in
-  a step its loop was interrupted in, whose key has already left the state: "it returns once a release under way when
-  the scenario returns has ended, its key already gone", "a defect of a release still under way when the scenario
-  returns fails it" (`rehearse.test.ts`). That it is interrupted when its scope closes is documented
-  (`Effect.forkIn`); that it is not when the fiber that forked it ends is not, and "a subscription first heard in a
-  fiber that has ended since" fails without it; that the close waits is not either, and the last two fail with a
-  close that does not wait.
 - **`Effect.acquireUseRelease` lets nothing interrupt its acquisition, and runs its release however its use ends,
   once the acquisition has succeeded, while its use can be interrupted**, which is how `rehearse`'s `run` takes its
   command, calls `runCommand` and forks the effect it returned with nothing in between for an interruption to fall

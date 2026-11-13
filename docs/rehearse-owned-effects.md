@@ -7,6 +7,13 @@ that wrote none, which corrected it: "Alternatives" says how. The spikes are the
 `spike/rehearse-one-owner` (cb7dfd0, 74b271f, then db8309a, the one accepted here), deleted once the plan was done,
 and never for `main`.
 
+**Revised since:** where this note says a command or a subscription is forked with `Effect.forkIn`, each is now
+kept in a `FiberSet` of its own (`commands` and `listeners` in `rehearse.ts`), which the end reads to stop what
+still runs, with the run's mark: the seventh review found that the end, reading the ledger instead, skipped what a
+step it had interrupted was stopping. Only the loop is still forked with `Effect.forkIn`, and rests on nothing of it
+that Effect does not document: the tests of `src/testing/` pass with the loop forked as a child. The premise of
+`Effect.forkIn` went from `docs/premises.md`, and that of `FiberSet.run` came.
+
 ## Context
 
 The review left ten findings, seven of them in `rehearse`. All seven fail on the commit of the review before

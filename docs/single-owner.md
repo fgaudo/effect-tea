@@ -354,6 +354,8 @@ another fiber had recorded, handed to the program by a scenario of `rehearse`'s.
 that a run that died as it started calls the renderer, which the seventh review found untrue of a fiber of `init`
 that dies at once, the call being the first step of a fiber `Effect.forkChild` does not start at once. The promise
 went, not the fork: `render` is called at most once, and nothing is said of a run that died meanwhile
-(`docs/invariants.md`). Still open:
+(`docs/invariants.md`). And of the premises "AGENTS.md's premises" lists as remaining, that of `Effect.forkIn` and
+its scope went with the fix of the seventh review's finding in `rehearse`, which keeps its subscriptions in a
+`FiberSet` (`docs/rehearse-owned-effects.md`). Still open:
 
 - Whether step 2 was a change a consumer can notice, and so has a changelog entry.

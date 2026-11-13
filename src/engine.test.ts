@@ -682,6 +682,54 @@ describe('Engine end', () => {
     expect(defect instanceof ProgramDefect && [defect.where, defect.cause]).toEqual(['command', 'boom'])
   })
 
+  // The end of the engine stops its loop in a step that was waiting for the release of a key that went away. It reads
+  // the fibers that still run, never the keys of a state, so it stops that subscription too, with its mark: one that
+  // then joins a fiber the fiber that ends the engine interrupted interrupts itself, a defect, and the end dies of it.
+  // `rehearse` left such a subscription to the close of its scope (the seventh review of the premises).
+  test('a subscription interrupting itself as the end of the engine stops it, its key gone, is a defect', async () => {
+    // How many interruptions the fiber has received, asked where it is uninterruptible.
+    const received = Effect.map(
+      Effect.exit(Effect.interruptible(Effect.void)),
+      (exit) => Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isInterruptReason).length : 0,
+    )
+    // The gate is the fiber's own: it waits until it has received `count` interruptions, or gives up after a while.
+    const untilReceived = (count: number, tries = 10_000): Effect.Effect<void> =>
+      Effect.flatMap(
+        received,
+        (seen) =>
+          seen >= count || tries === 0 ? Effect.void : Effect.andThen(Effect.yieldNow, untilReceived(count, tries - 1)),
+      )
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const stopped = yield* Deferred.make<void>()
+      // Interrupted by the fiber that ends the engine.
+      const stale = yield* Effect.forkDetach(Effect.never)
+      yield* Fiber.interrupt(stale)
+      const scope = yield* Scope.make()
+      const engine = yield* Engine.make<Readonly<{ on: boolean }>, 'Stop', never, never, string>({
+        init: { state: { on: true } },
+        update: () => () => ({ state: { on: false } }),
+        runCommand: absurd,
+        subscriptions: ({ on }) =>
+          on
+            ? HashMap.make([
+              'a',
+              Channel.fromEffectDone(Effect.uninterruptible(Effect.gen(function*() {
+                yield* untilReceived(1)
+                yield* Deferred.succeed(stopped, undefined)
+                yield* untilReceived(2)
+                return yield* Fiber.join(stale)
+              }))),
+            ])
+            : HashMap.empty(),
+      }).pipe(Scope.provide(scope))
+      yield* engine.dispatch('Stop')
+      yield* Deferred.await(stopped)
+      return yield* Scope.close(scope, Exit.void)
+    }))
+    const defect = Exit.isFailure(exit) ? exit.cause.reasons.find(Cause.isDieReason)?.defect : undefined
+    expect(defect instanceof ProgramDefect && defect.where).toBe('subscription')
+  })
+
   // `FiberSet.run` starts the command's fiber at once, on the loop's stack, so `runCommand` is called before the fiber
   // is in the set. Called, it begins the end of the engine, which interrupts the loop there: had `FiberSet.run` a step
   // between the fork and the add for that interruption to fall into, the end would not find the command, and would

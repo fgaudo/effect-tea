@@ -63,8 +63,9 @@ README says). This is how they are kept, and what a change must not undo. What t
     is one the program can make too (`FiberMap`, `FiberSet` and `FiberHandle` interrupt as the fiber -1, and the fiber
     that ends the run may have interrupted another before). Never stop a fiber of the program otherwise. So do the
     testing tools, which run in their caller's fiber: `rehearse` stops a command whose `run` is interrupted, the keys
-    that went away and, as it ends, the commands under way, before it closes its scope, which would interrupt them as
-    the fiber that ends it; `simulate` runs each command in a fiber of its own, which it stops when it is interrupted.
+    that went away and, as it ends, the subscriptions `hearNext` started and the commands under way, before it closes
+    its scope, which would interrupt them as the fiber that ends it; `simulate` runs each command in a fiber of its
+    own, which it stops when it is interrupted.
   - Each fiber of the run records what it dies of in one place (`makeDeaths` in `engine.ts`, made by `run` or `drive`
     and given through `runWith` to the engine; `rehearse` has its own, keeping only the program's defects): the engine's, the renderer, and the
     run's own as it starts the engine, as they end, and one with a scope of its own as it dies too, before the scope
@@ -173,7 +174,16 @@ README says). This is how they are kept, and what a change must not undo. What t
   dispatch. The end of a rehearsal reads the commands under way in the thunk that takes the scenario's exit, which
   is the one that marks the end of the loop (`end`, in `loop.ts`), which refuses what is asked after it; a scenario
   that returned lets the loop finish what it was offered, a release a step waits for included, before the end stops it
-  and reads the commands pending: never interrupt that step to end sooner. When the engine or one tool changes, keep
+  and reads the commands pending: never interrupt that step to end sooner. A scenario that failed, or was interrupted,
+  has the end interrupt the step under way, wherever it is: so the end stops what still runs by the fibers themselves,
+  kept as they are forked (`listeners` and `commands` in `rehearse.ts`, as the engine's end reads its `FiberSet` and
+  its `FiberMap`), and tells every call of `hearNext` that has not ended (`calls` in `ledger.ts`), never only what the
+  ledger still says of a start, which the step forgets in the transition that stops it: "a subscription that
+  interrupts itself as the end stops it, its key gone, is a defect", "a hearNext waiting on a start whose key went
+  away fails, though the scenario failed", "a hearNext whose message was stopping a subscription as the scenario
+  failed fails as one waiting" (`rehearse.test.ts`), and of the engine "a subscription interrupting itself as the end
+  of the engine stops it, its key gone, is a defect" (`engine.test.ts`). Never make what an end stops, or tells,
+  depend on what a step it may interrupt writes after its thunk. When the engine or one tool changes, keep
   the others in step. `src/testing/contract.test.ts` gives the same program and inputs to each tool and to the run;
   where they still differ, its `test.failing` cases say how, and `ROADMAP.md` lists them.
 - **Logs never carry message data by default** (`describeByTag` in `log.ts`): only tags, following a wrapped

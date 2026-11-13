@@ -140,7 +140,7 @@ describe('the starts heard', () => {
     expect(heardBy(Ledger.send(two, 1, { message: 'm', last: false })).ended).toEqual([])
     const last = heardBy(Ledger.send(two, 1, { message: 'm', last: true }))
     expect(last.ended).toEqual(['second'])
-    expect(Ledger.opened(last.ledger)[1]).toEqual([])
+    expect(last.ledger.hearings.get(1)).toMatchObject({ waiting: [] })
   })
 
   test('a call that left before the loop made it wait starts nothing, and waits on nothing', () => {
@@ -168,9 +168,16 @@ describe('the starts heard', () => {
     expect(Ledger.listened(listening(empty), [1], [])[0]).toEqual([])
   })
 
-  test('the opened starts are those to stop at the end, with the calls waiting on them', () => {
-    const [, waited] = Ledger.ask(entered(openedOne(empty), 'call'), 1, 'call')
-    expect(Ledger.opened(waited)).toEqual([['handle'], ['call']])
-    expect(Ledger.opened(listening(empty))).toEqual([[], []])
+  // What the end of the rehearsal tells: a call a step took out of its start, to tell it afterwards, is still one.
+  test('a call is among the calls from its offer until it leaves, whatever the loop has made of it', () => {
+    const offered = entered(openedOne(empty), 'call')
+    expect([...offered.calls]).toEqual(['call'])
+    const [, waited] = Ledger.ask(offered, 1, 'call')
+    expect([...waited.calls]).toEqual(['call'])
+    expect([...Ledger.listened(waited, [1], [])[2].calls]).toEqual(['call'])
+    const heard = heardBy(Ledger.send(waited, 1, { message: 'm', last: false })).ledger
+    expect([...heard.calls]).toEqual(['call'])
+    expect([...Ledger.leave(heard, 'call').calls]).toEqual([])
+    expect([...Ledger.leave(offered, 'call').calls]).toEqual([])
   })
 })

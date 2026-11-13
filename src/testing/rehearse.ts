@@ -188,16 +188,20 @@ export const rehearse = Effect.fnUntraced(function*<
         + 'message: its key went away, or the scenario ended',
     )
   // The calls still waiting on a start that was stopped would wait for ever: they fail, as a call made after the end
-  // does.
+  // does. One told already hears nothing of it.
   const tellStopped = (calls: ReadonlyArray<Call<Message>>) =>
     Effect.forEach(calls, ({ key, heard }) => Deferred.die(heard, stoppedWhileWaiting(key)), { discard: true })
-  // Where the loop and the subscriptions `hearNext` starts are forked, so that they outlive the fiber of the test's
-  // that asked for them, as the run's loop and subscriptions outlive whoever dispatched. Closed at the end, however
-  // the rehearsal ends, once what it holds is stopped.
+  // Where the loop is forked, and the commands and the subscriptions `hearNext` starts are kept, so that they outlive
+  // the fiber of the test's that asked for them, as the run's loop and subscriptions outlive whoever dispatched. Closed
+  // at the end, however the rehearsal ends, once what it holds is stopped.
   const forks = yield* Scope.make()
   // The commands under way, kept as they are forked, so that the end stops them as the run does, with its mark,
   // before it closes the scope, which would interrupt them as the fiber that ends the rehearsal.
   const commands = yield* FiberSet.make<Opt.Option<Deferred.Deferred<void>>, never>().pipe(Scope.provide(forks))
+  // The subscriptions `hearNext` started, kept likewise, until each has ended: the end stops those that still run by
+  // their fibers, as the end of the run does, never by what the ledger says of them, which forgets a start in the
+  // transition that stops it, while the step that stops it may be interrupted before its release has ended.
+  const listeners = yield* FiberSet.make<void, never>().pipe(Scope.provide(forks))
   // Interrupts them together, as the run stops the keys that went away, and waits for their release. A defect of what
   // they release is recorded by the fiber that dies of it, as in the run: the step goes on whole.
   const stop = (stopping: Iterable<Opened>) =>
@@ -372,7 +376,7 @@ export const rehearse = Effect.fnUntraced(function*<
       Effect.flatMap((last) => sends(key, generation, last, true)),
       Effect.asVoid,
       recorded,
-      Effect.forkIn(forks),
+      FiberSet.run(listeners),
     )
     return { fiber, asks }
   })
@@ -536,13 +540,14 @@ export const rehearse = Effect.fnUntraced(function*<
     ignored: Effect.sync(() => now.ignored),
   }
   // However the rehearsal ends, it stops the loop and what `hearNext` started, as the end of the run interrupts its
-  // fibers, and waits for them to release what they hold: only then does it read what they died of.
+  // fibers, and waits for them to release what they hold: only then does it read what they died of. The step it
+  // interrupted may have been stopping a subscription, or telling a call: the end reads the fibers that still run and
+  // the calls that have not ended, so that it leaves none of them out, whatever that step had done of its own.
   const end = Effect.gen(function*() {
     yield* loop.stop
     // What they die of is recorded as they end.
-    const [opened, waiting] = Ledger.opened(ledger)
-    yield* stop(opened)
-    yield* tellStopped(waiting)
+    yield* Effect.forEach(listeners, stopFiber, { concurrency: 'unbounded', discard: true })
+    yield* tellStopped(Arr.fromIterable(ledger.calls))
     yield* Effect.forEach(commands, stopFiber, { concurrency: 'unbounded', discard: true })
     yield* Scope.close(forks, Exit.void)
   })

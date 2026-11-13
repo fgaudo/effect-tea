@@ -474,6 +474,10 @@ export const mutations: ReadonlyArray<Mutation> = [
           + 'subscription',
       ],
       ['src/engine.test.ts', 'what a command dies of as the end of the engine interrupts it is what the end dies of'],
+      [
+        'src/engine.test.ts',
+        'a subscription interrupting itself as the end of the engine stops it, its key gone, is a defect',
+      ],
     ],
   },
   {
@@ -727,21 +731,83 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'rehearse leaves the subscriptions hearNext started to the close of its scope',
     file: 'src/testing/rehearse.ts',
-    from: '    yield* stop(opened)\n',
+    from: "    yield* Effect.forEach(listeners, stopFiber, { concurrency: 'unbounded', discard: true })\n",
     to: '',
     killedBy: [
       [
         'src/testing/contract.test.ts',
         'rehearse fails with a defect of a subscription joining, as its end stops it, a fiber its caller interrupted',
       ],
+      [
+        'src/testing/rehearse.test.ts',
+        'a subscription that interrupts itself as the end stops it, its key gone, is a defect',
+      ],
+    ],
+  },
+  {
+    name: 'the end of rehearse stops only the subscriptions its ledger still hears',
+    file: 'src/testing/rehearse.ts',
+    from: "Effect.forEach(listeners, stopFiber, { concurrency: 'unbounded', discard: true })",
+    to: 'stop(\n'
+      + '      Arr.fromIterable(ledger.hearings.values())\n'
+      + "        .flatMap((each) => each._tag === 'Opened' ? [each.handle] : []),\n"
+      + '    )',
+    killedBy: [
+      [
+        'src/testing/rehearse.test.ts',
+        'a subscription that interrupts itself as the end stops it, its key gone, is a defect',
+      ],
     ],
   },
   {
     name: 'rehearse leaves a hearNext waiting as its end stops the subscription',
     file: 'src/testing/rehearse.ts',
-    from: '    yield* tellStopped(waiting)\n',
+    from: '    yield* tellStopped(Arr.fromIterable(ledger.calls))\n',
     to: '',
     killedBy: [
+      [
+        'src/testing/rehearse.test.ts',
+        'a hearNext still waiting in a fiber the scenario did not join fails as the rehearsal ends',
+      ],
+      [
+        'src/testing/rehearse.test.ts',
+        'a hearNext waiting on a start whose key went away fails, though the scenario failed',
+      ],
+      [
+        'src/testing/rehearse.test.ts',
+        'a hearNext whose message was stopping a subscription as the scenario failed fails as one waiting',
+      ],
+    ],
+  },
+  {
+    name: 'the end of rehearse tells only the calls still waiting on a start',
+    file: 'src/testing/rehearse.ts',
+    from: 'tellStopped(Arr.fromIterable(ledger.calls))',
+    to: 'tellStopped(\n'
+      + '      Arr.fromIterable(ledger.hearings.values())\n'
+      + "        .flatMap((each) => each._tag === 'Opened' ? each.waiting : []),\n"
+      + '    )',
+    killedBy: [
+      [
+        'src/testing/rehearse.test.ts',
+        'a hearNext waiting on a start whose key went away fails, though the scenario failed',
+      ],
+      [
+        'src/testing/rehearse.test.ts',
+        'a hearNext whose message was stopping a subscription as the scenario failed fails as one waiting',
+      ],
+    ],
+  },
+  {
+    name: "a call of rehearse's hearNext is not among those its end tells",
+    file: 'src/testing/ledger.ts',
+    from: '  calls: new Set([...ledger.calls, call]),\n',
+    to: '',
+    killedBy: [
+      [
+        'src/testing/ledger.test.ts',
+        'a call is among the calls from its offer until it leaves, whatever the loop has made of it',
+      ],
       [
         'src/testing/rehearse.test.ts',
         'a hearNext still waiting in a fiber the scenario did not join fails as the rehearsal ends',
