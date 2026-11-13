@@ -6,7 +6,40 @@ when it is done or rejected, with the reason in the commit.
 
 ## Open problems
 
-None today.
+### Found by the seventh review of the premises (November 2026)
+
+Each is held by a `test.failing` case named after what should hold; its fix removes the mark and the item. The
+reports are the bodies of the commits of `claude/premise-review-7-engine-a13862` (`5e34644`, `531638b`) and of
+`claude/premise-review-7-testing-3485ba` (`5b88849`, `3299b61`).
+
+- **The renderer is not called in a run whose `init` fiber dies at once**: `rendering` is the first step of a fiber
+  `Effect.forkChild` forks, documented not to start at once, so a command or a subscription of `init` that dies as
+  `FiberSet.run` or `FiberMap.run` starts it ends the run before `render` is called, where `docs/invariants.md` says
+  the renderer is called once in a run that died meanwhile too. A death that comes later lets it be called: the call
+  depends on timing. The form: a function of the program called as the first step of a fiber forked for it, not where
+  the call is decided. `drive` goes through `runWith` and meets it as the run's own. `run.test.ts`, "the renderer is
+  called once in a run whose subscription of init dies as the engine starts", the same of a command.
+- **The end of `rehearse` skips the cleanup of a key its interrupted step was stopping**: `Ledger.listened` takes the
+  start, and the calls waiting on it, out of the ledger in the step's thunk, and the step stops and tells them after;
+  a scenario that fails meanwhile has the end interrupt the step, and `Ledger.opened` no longer holds them. The
+  subscription is then left to the close of the scope, unmarked, so a self-interruption of it is lost, and a
+  `hearNext` waiting on it in a fiber the scenario does not join waits for ever. The form: a cleanup skipped as a step
+  is interrupted; the engine's end, which stops its loop in a step that releases a gone key, is to be checked for it.
+  `rehearse.test.ts`, "a subscription that interrupts itself as the end stops it, its key gone, is a defect", "a
+  hearNext waiting on a start whose key went away fails, though the scenario failed".
+
+Places where the code or a document says otherwise than the other, from the same reports, each to be settled:
+
+- `core.ts` (the comment on a dropped message) and `engine.ts` (on `describeMessage`) promise that a run that died
+  describes no dropped message; a death recorded after the check of `Core.arrive` still lets the step describe one.
+- `docs/premises.md` names, for `Effect.forkIn`'s close that waits and for `Effect.raceFirst`'s wait for its loser,
+  tests that pass without them since rehearse finishes the step of a scenario that returned.
+- `docs/shared-core.md` cites a roadmap item that is gone; `loop.ts` stops the loop with `Fiber.interrupt`, unmarked.
+- Comments and names of tests that say more than they check: `run.test.ts`, "a run that died takes no message from
+  its queue while the renderer releases", and comments that still describe the run before its marks;
+  `contract.test.ts`, the comment on "rehearse fails with the defect alone, as the run dies, though a hearNext
+  waited"; `rehearse.test.ts`, "a command that answers while the end releases a subscription fails it, as one under
+  way", "a message its subscription sends after its key went away does not reach update".
 
 ## Possible improvements
 

@@ -45,6 +45,13 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   its commands" (`engine.test.ts`), and every other test that ends an engine, never end with a loop that inherits it.
   Not documented: read in the source (`FiberSet.run` forks with `forkUnsafe`, interruptible whatever its parent),
   and seen in those tests.
+- **`FiberSet.run` and `FiberMap.run` fork a fiber and add it in one step**, with nothing between for an interruption
+  to fall into, which is how the end of the engine, interrupting the loop wherever it is and then reading the fibers
+  to stop, finds a command or a subscription the loop was forking: "a command whose runCommand begins the end of the
+  engine as it is called is interrupted by that end", "a subscription that begins the end of the engine as it starts
+  is interrupted by that end" (`engine.test.ts`) fail with a fork and an add apart. Not documented: the JSDoc says the
+  fiber is forked and added, with no word on a step between, and seen in those tests (the seventh review of the
+  premises, November 2026).
 - **A scope runs its finalizers in the reverse order they were added**, which is how the end of the engine, added
   after its `FiberSet` and its `FiberMap` were made, stops their fibers with the run's mark before they close, and
   reports what those die of as they release: "a command that joins a fiber the fiber of the run interrupted, as the

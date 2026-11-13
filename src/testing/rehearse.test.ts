@@ -1756,3 +1756,103 @@ describe('rehearse, as a run is interrupted while its command runs', () => {
     expect(log).toEqual(['released', 'returned'])
   })
 })
+
+describe('rehearse, as a scenario that failed stops its loop in the release of a key that went away', () => {
+  type Listening = Readonly<{ listening: boolean }>
+  type Message = 'Stop' | 'Tick'
+
+  // How many interruptions the fiber has received, asked where it is uninterruptible.
+  const received = Effect.map(
+    Effect.exit(Effect.interruptible(Effect.void)),
+    (exit) => Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isInterruptReason).length : 0,
+  )
+  // The gate is the fiber's own: it waits until it has received `count` interruptions, or gives up after a while.
+  const untilReceived = (count: number, tries = 10_000): Effect.Effect<void> =>
+    Effect.flatMap(
+      received,
+      (seen) =>
+        seen >= count || tries === 0 ? Effect.void : Effect.andThen(Effect.yieldNow, untilReceived(count, tries - 1)),
+    )
+
+  // Its subscription, stopped as `Stop` takes its key away, waits for a second interruption, the close of the
+  // rehearsal's scope, then joins a fiber the scenario interrupted: it interrupts itself, a defect, as the run says.
+  const joining = (
+    stopped: Deferred.Deferred<void>,
+    stale: Deferred.Deferred<Fiber.Fiber<never>>,
+  ): Program<{ state: Listening; model: Listening; message: Message }> => ({
+    init: { state: { listening: true } },
+    update: (message) => (state) => message === 'Stop' ? { state: { listening: false } } : { state },
+    subscriptions: ({ listening }) =>
+      listening
+        ? HashMap.make([
+          'a',
+          Channel.fromEffectDone(Effect.uninterruptible(Effect.gen(function*() {
+            yield* untilReceived(1)
+            yield* Deferred.succeed(stopped, undefined)
+            yield* untilReceived(2)
+            return yield* Fiber.join(yield* Deferred.await(stale))
+          }))),
+        ])
+        : HashMap.empty(),
+    makeModel: (state) => state,
+  })
+
+  test.failing('a subscription that interrupts itself as the end stops it, its key gone, is a defect', async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const stopped = yield* Deferred.make<void>()
+      const stale = yield* Deferred.make<Fiber.Fiber<never>>()
+      return yield* rehearse(joining(stopped, stale), Effect.fnUntraced(function*(rehearsal) {
+        // Interrupted by the fiber the scenario runs in, which ends the rehearsal.
+        const fiber = yield* Effect.forkDetach(Effect.never)
+        yield* Fiber.interrupt(fiber)
+        yield* Deferred.succeed(stale, fiber)
+        yield* Effect.forkChild(rehearsal.hearNext('a'))
+        yield* Effect.sleep('10 millis')
+        yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>('Stop')))
+        yield* Deferred.await(stopped)
+        return yield* Effect.fail('boom')
+      }))
+    }))
+    const defect = Exit.isFailure(exit) ? exit.cause.reasons.find(Cause.isDieReason)?.defect : undefined
+    expect(defect instanceof ProgramDefect && defect.where).toBe('subscription')
+  })
+
+  // Its subscription sends nothing, and releases once the close of the rehearsal's scope has interrupted it too.
+  const lingering = (
+    stopped: Deferred.Deferred<void>,
+  ): Program<{ state: Listening; model: Listening; message: Message }> => ({
+    ...joining(stopped, Deferred.makeUnsafe()),
+    subscriptions: ({ listening }) =>
+      listening
+        ? HashMap.make([
+          'a',
+          Channel.fromEffectDone(Effect.uninterruptible(Effect.gen(function*() {
+            yield* untilReceived(1)
+            yield* Deferred.succeed(stopped, undefined)
+            yield* untilReceived(2)
+            return 'Tick' as const
+          }))),
+        ])
+        : HashMap.empty(),
+  })
+
+  test.failing('a hearNext waiting on a start whose key went away fails, though the scenario failed', async () => {
+    const outcome = await Effect.runPromise(Effect.gen(function*() {
+      const stopped = yield* Deferred.make<void>()
+      let call: Fiber.Fiber<Message> | undefined
+      yield* Effect.exit(rehearse(lingering(stopped), Effect.fnUntraced(function*(rehearsal) {
+        call = yield* Effect.forkDetach(rehearsal.hearNext('a'))
+        yield* Effect.sleep('10 millis')
+        yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>('Stop')))
+        yield* Deferred.await(stopped)
+        return yield* Effect.fail('boom')
+      })))
+      const ended = call === undefined ? Opt.none() : yield* Effect.timeoutOption(Fiber.await(call), '300 millis')
+      return Opt.match(ended, {
+        onNone: () => 'hung',
+        onSome: (exit) => Exit.isFailure(exit) ? String(Cause.squash(exit.cause)) : 'heard',
+      })
+    }))
+    expect(outcome).toContain('The subscription under a was stopped while hearNext waited for its message')
+  })
+})

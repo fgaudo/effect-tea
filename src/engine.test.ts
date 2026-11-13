@@ -681,4 +681,62 @@ describe('Engine end', () => {
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
     expect(defect instanceof ProgramDefect && [defect.where, defect.cause]).toEqual(['command', 'boom'])
   })
+
+  // `FiberSet.run` starts the command's fiber at once, on the loop's stack, so `runCommand` is called before the fiber
+  // is in the set. Called, it begins the end of the engine, which interrupts the loop there: had `FiberSet.run` a step
+  // between the fork and the add for that interruption to fall into, the end would not find the command, and would
+  // leave it running. Seen by the seventh review of the premises, with a fork and an add of the set apart.
+  test('a command whose runCommand begins the end of the engine as it is called is interrupted by that end', async () => {
+    const log = await Effect.runPromise(Effect.gen(function*() {
+      const log: Array<string> = []
+      const scope = yield* Scope.make()
+      const fork = Effect.runForkWith(yield* Effect.context<never>())
+      const engine = yield* Engine.make<number, 'Go', 'Hold', never, never>({
+        init: { state: 0 },
+        update: () => (n) => ({ state: n + 1, commands: ['Hold'] }),
+        runCommand: () => {
+          fork(Scope.close(scope, Exit.void))
+          return Effect.never.pipe(Effect.onInterrupt(() => Effect.sync(() => log.push('command interrupted'))))
+        },
+        subscriptions: () => HashMap.empty(),
+      }).pipe(Scope.provide(scope))
+      yield* engine.dispatch('Go')
+      // Long enough for the end to have stopped the command, if it found it.
+      yield* Effect.sleep('50 millis')
+      return log
+    }))
+    expect(log).toEqual(['command interrupted'])
+  })
+
+  // The same of `FiberMap.run`, which forks a subscription at once: its channel, made as it is first pulled, begins
+  // the end before the fiber is in the map.
+  test('a subscription that begins the end of the engine as it starts is interrupted by that end', async () => {
+    const log = await Effect.runPromise(Effect.gen(function*() {
+      const log: Array<string> = []
+      const scope = yield* Scope.make()
+      const fork = Effect.runForkWith(yield* Effect.context<never>())
+      const engine = yield* Engine.make<number, 'Go', never, never, string>({
+        init: { state: 0 },
+        update: () => (n) => ({ state: n + 1 }),
+        runCommand: absurd,
+        subscriptions: (n) =>
+          n === 1
+            ? HashMap.make([
+              'k',
+              Channel.unwrap(Effect.sync(() => {
+                fork(Scope.close(scope, Exit.void))
+                return Channel.fromEffectDrain(
+                  Effect.never.pipe(Effect.onInterrupt(() => Effect.sync(() => log.push('subscription interrupted')))),
+                ).pipe(Channel.concatWith(() => Channel.never))
+              })),
+            ])
+            : HashMap.empty(),
+      }).pipe(Scope.provide(scope))
+      yield* engine.dispatch('Go')
+      // Long enough for the end to have stopped the subscription, if it found it.
+      yield* Effect.sleep('50 millis')
+      return log
+    }))
+    expect(log).toEqual(['subscription interrupted'])
+  })
 })

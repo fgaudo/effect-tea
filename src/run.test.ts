@@ -1207,6 +1207,33 @@ describe('the end of the run', () => {
     expect(wheres(exit)).toEqual(['update', 'render'])
   })
 
+  // Found by the seventh review of the premises: the renderer's fiber is forked with `Effect.forkChild`, which does not
+  // wait for it to begin, and `render` is its first step. A fiber of `init` that dies at once, as `FiberSet.run` and
+  // `FiberMap.run` start it, is recorded before the engine is made: the run then finds `died` complete, ends, and
+  // interrupts the renderer before `render` is called.
+  const callsOfTheRenderer = (program: Counter) =>
+    Effect.gen(function*() {
+      let calls = 0
+      const exit = yield* Effect.exit(run(program, () =>
+        Effect.sync(() => {
+          calls += 1
+        }).pipe(Effect.andThen(Effect.never))))
+      return [wheres(exit), calls]
+    })
+
+  test.failing('the renderer is called once in a run whose subscription of init dies as the engine starts', async () => {
+    const dyingAtOnce: Counter = {
+      ...counter,
+      subscriptions: () => HashMap.make(['k', Channel.fromEffectDone(Effect.die('boom'))]),
+    }
+    expect(await Effect.runPromise(callsOfTheRenderer(dyingAtOnce))).toEqual([['subscription'], 1])
+  })
+
+  test.failing('the renderer is called once in a run whose command of init dies as the engine starts', async () => {
+    const dyingAtOnce: Counter = { ...counter, init: { state: { count: 0 }, commands: ['Boom'] } }
+    expect(await Effect.runPromise(callsOfTheRenderer(dyingAtOnce))).toEqual([['command'], 1])
+  })
+
   // A fiber that dies as the renderer releases what it holds, a step later than the release.
   const diesAfterTheRenderer = (renderEnded: Deferred.Deferred<void>) =>
     Deferred.await(renderEnded).pipe(Effect.andThen(Effect.yieldNow), Effect.andThen(Effect.die('late')))
