@@ -698,8 +698,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'rehearse stops a subscription with no mark of its own',
     file: 'src/testing/rehearse.ts',
-    from: 'Effect.andThen(stopFiber(fiber), Fiber.await(fiber))',
-    to: 'Effect.andThen(Fiber.interrupt(fiber), Fiber.await(fiber))',
+    from: '({ fiber }) => stopFiber(fiber)',
+    to: '({ fiber }) => Fiber.interrupt(fiber)',
     killedBy: [
       [
         'src/testing/contract.test.ts',
@@ -708,9 +708,26 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'rehearse fails a step on a defect of the release it awaited',
+    file: 'src/testing/rehearse.ts',
+    from: "Effect.forEach(stopping, ({ fiber }) => stopFiber(fiber), { concurrency: 'unbounded', discard: true })",
+    to: 'Effect.forEach(stopping, ({ fiber }) => Effect.andThen(stopFiber(fiber), Fiber.await(fiber)), {\n'
+      + "      concurrency: 'unbounded',\n"
+      + '    }).pipe(Effect.flatMap((exits) => {\n'
+      + '      const dies = exits.flatMap(Core.diesOf)\n'
+      + '      return Arr.isArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : Effect.void\n'
+      + '    }))',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'rehearse applies the message whose release dies whole, as the run does, its commands owed',
+      ],
+    ],
+  },
+  {
     name: 'rehearse leaves the subscriptions hearNext started to the close of its scope',
     file: 'src/testing/rehearse.ts',
-    from: '    yield* Effect.exit(stop(opened))\n',
+    from: '    yield* stop(opened)\n',
     to: '',
     killedBy: [
       [
@@ -927,8 +944,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse's hearNext leaves a call waiting on a start whose key went away",
     file: 'src/testing/rehearse.ts',
-    from: 'Effect.andThen(stop(stopping), tellStopped(stopped))',
-    to: 'stop(stopping)',
+    from: 'Effect.suspend(() => dead() ? Effect.void : tellStopped(stopped))',
+    to: 'Effect.void',
     killedBy: [
       [
         'src/testing/rehearse.test.ts',
@@ -939,8 +956,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'rehearse stops the gone keys one after the other',
     file: 'src/testing/rehearse.ts',
-    from: "      concurrency: 'unbounded',\n",
-    to: '',
+    from: "stopFiber(fiber), { concurrency: 'unbounded', discard: true }",
+    to: 'stopFiber(fiber), { discard: true }',
     killedBy: [
       [
         'src/testing/rehearse.test.ts',

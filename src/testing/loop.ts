@@ -27,7 +27,10 @@ export type Loop = Readonly<{
   ended: () => boolean
   /** Waits until the loop has done what it was offered before. */
   finish: Effect.Effect<void>
-  /** Stops the loop, its step under way included, and interrupts the result of every step not done. */
+  /**
+   * Stops the loop, its step under way included, and interrupts the result of every step not done. Follows `end`,
+   * which alone keeps anything from being offered afterwards.
+   */
   stop: Effect.Effect<void>
 }>
 
@@ -72,7 +75,6 @@ export const make = Effect.fnUntraced(function*(
     Effect.andThen(Queue.offer(requests, { step: Effect.void, done }), Deferred.await(done)))
   const stop = Effect.gen(function*() {
     yield* Fiber.interrupt(loop)
-    yield* Queue.shutdown(requests)
     yield* Effect.forEach(undelivered, Deferred.interrupt, { discard: true })
   })
   return {

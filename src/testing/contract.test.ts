@@ -373,6 +373,45 @@ describe('how a stopped subscription ends', () => {
     expect(reasonsOf(exit)).toEqual(['release'])
   })
 
+  // `Stop` starts `Note` too: the step whose release dies goes on whole, its state written and its commands started,
+  // until the end of the run stops its loop. The run's renderer is stopped first, so `onApplied` is what shows it.
+  const noting: Program<{ state: Listening; model: Listening; message: 'Tick' | 'Stop'; command: 'Note' }> = {
+    ...stopping,
+    update: (message) => (state) =>
+      message === 'Stop' ? { state: { listening: false }, commands: ['Note'] } : { state },
+    runCommand: () => Effect.succeedNone,
+  }
+
+  test('in the run, the message whose release dies is applied whole, with its commands', async () => {
+    const applied: Array<unknown> = []
+    const exit = await Effect.runPromiseExit(drive(
+      noting,
+      (driver) => Effect.andThen(driver.send(() => Opt.some('Stop')), Effect.never),
+      {
+        onApplied: ({ message, after, commands }) =>
+          Effect.sync(() => {
+            if (message === 'Stop') applied.push({ after, commands })
+          }),
+      },
+    ))
+    expect(reasonsOf(exit)).toEqual(['release'])
+    expect(applied).toEqual([{ after: { listening: false }, commands: ['Note'] }])
+  })
+
+  // The call that sent it returns, as the run's dispatch does; what is asked after it fails with the defect, and so
+  // does the rehearsal.
+  test('rehearse applies the message whose release dies whole, as the run does, its commands owed', async () => {
+    const seen: Array<unknown> = []
+    const exit = await Effect.runPromiseExit(rehearse(noting, Effect.fnUntraced(function*(rehearsal) {
+      yield* rehearsal.hearNext('ticks')
+      const sent = yield* Effect.exit(rehearsal.send(() => Opt.some('Stop')))
+      const after = yield* Effect.exit(rehearsal.send(() => Opt.some('Tick')))
+      seen.push(Exit.isSuccess(sent), yield* rehearsal.state, yield* rehearsal.pending, reasonsOf(after))
+    })))
+    expect(reasonsOf(exit)).toEqual(['release'])
+    expect(seen).toEqual([true, { listening: false }, ['Note'], ['release']])
+  })
+
   // A `hearNext` waiting when the key goes away fails with what its subscription ended with, the interruption by the
   // rehearsal included; the scenario that joins it fails with that, and the rehearsal's cause keeps the interruption
   // after the defect, where the run's holds the defect alone.

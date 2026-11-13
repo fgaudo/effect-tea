@@ -10,7 +10,10 @@ const withLoop = <A>(use: (loop: Loop.Loop) => Effect.Effect<A>) =>
   Effect.gen(function*() {
     const forks = yield* Scope.make()
     const loop = yield* Loop.make(forks, (step) => step)
-    return yield* Effect.ensuring(use(loop), Effect.andThen(loop.stop, Scope.close(forks, Exit.void)))
+    return yield* Effect.ensuring(
+      use(loop),
+      Effect.sync(loop.end).pipe(Effect.andThen(loop.stop), Effect.andThen(Scope.close(forks, Exit.void))),
+    )
   })
 
 describe('the loop of rehearse', () => {

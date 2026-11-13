@@ -29,6 +29,7 @@ version, and everything else, features included, the patch version.
   interruption when the key goes away, where it saw a failure, so a scenario awaiting it makes the key go away first.
 - **Breaking**: `rehearse` hears each start of a key with `hear` or with `hearNext`, never both.
   Upgrade: hear that start with one of the two, or make its key go away and come back in between.
+- `rehearse` applies whole, as the run does, a message whose stopped subscription dies as it releases.
 - **Breaking**: as the run ends, it stops applying messages first, then the renderer, then commands and subscriptions.
   Upgrade: a renderer that sent a message for the program to act on as it is released does that work itself.
 - "Commands" in the README says that commands run concurrently, with no bound, and answer in the order they end.

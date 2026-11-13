@@ -198,19 +198,14 @@ export const rehearse = Effect.fnUntraced(function*<
   // The commands under way, kept as they are forked, so that the end stops them as the run does, with its mark,
   // before it closes the scope, which would interrupt them as the fiber that ends the rehearsal.
   const commands = yield* FiberSet.make<Opt.Option<Deferred.Deferred<void>>, never>().pipe(Scope.provide(forks))
-  // Interrupts them together, as the run stops the keys that went away, and fails the step on a defect of what they
-  // release.
+  // Interrupts them together, as the run stops the keys that went away, and waits for their release. A defect of what
+  // they release is recorded by the fiber that dies of it, as in the run: the step goes on whole.
   const stop = (stopping: Iterable<Opened>) =>
-    Effect.forEach(stopping, ({ fiber }) => Effect.andThen(stopFiber(fiber), Fiber.await(fiber)), {
-      concurrency: 'unbounded',
-    }).pipe(Effect.flatMap((exits) => {
-      const dies = exits.flatMap(Core.diesOf)
-      return Arr.isArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : Effect.void
-    }))
+    Effect.forEach(stopping, ({ fiber }) => stopFiber(fiber), { concurrency: 'unbounded', discard: true })
   // Read on each new state and compared with the keys of the state before, as the run reconciles them, though only
   // `hear` and `hearNext` act on them: a state whose subscriptions are a defect ends the run, and so does a key
   // whose `Equal` throws against a key of the state before. The calls that waited on a start stopped are told once it
-  // is released: a defect of its release fails them first, as it ends the run.
+  // is released, unless its release died: then the death fails them, as it ends the run.
   const listen = (state: State) =>
     Effect.sync(() => {
       const { gone, fresh, active: next } = Core.reconcile(active, subscriptions(state))
@@ -224,7 +219,9 @@ export const rehearse = Effect.fnUntraced(function*<
       return [stopping, stopped] as const
     }).pipe(
       diesIn('subscriptions'),
-      Effect.flatMap(([stopping, stopped]) => Effect.andThen(stop(stopping), tellStopped(stopped))),
+      Effect.flatMap(([stopping, stopped]) =>
+        Effect.andThen(stop(stopping), Effect.suspend(() => dead() ? Effect.void : tellStopped(stopped)))
+      ),
     )
   yield* listen(from.state)
   // Written only by the loop.
@@ -546,7 +543,7 @@ export const rehearse = Effect.fnUntraced(function*<
     yield* loop.stop
     // What they die of is recorded as they end.
     const [opened, waiting] = Ledger.opened(ledger)
-    yield* Effect.exit(stop(opened))
+    yield* stop(opened)
     yield* tellStopped(waiting)
     yield* Effect.forEach(commands, stopFiber, { concurrency: 'unbounded', discard: true })
     yield* Scope.close(forks, Exit.void)
