@@ -16,8 +16,8 @@ Decided, and done before the rest, since it rewrites what several open problems 
   on it, `init` and `arrive` with the engine on them, `rehearse` on the core, with `ended`, and `rehearse`'s own
   bookkeeping as a pure module (`src/testing/ledger.ts`), which fixed its `runAll`, are done, and so is step 6, which
   left the model to the shells: the README says a frame read after a defect still makes it. Step 7, under way,
-  answers the interleavings' counterexamples, each by a test of the core, a gate or a primitive; those of "From the
-  first defect on" are answered.
+  answers the interleavings' counterexamples, each by a test of the core, a gate or a primitive: all those met so far
+  are answered.
 
 ## Open problems
 
@@ -39,24 +39,6 @@ where Effect 4.1.4 resumes it at once on the stack of the fiber that completes i
 AGENTS.md, since that inline resumption is read only in the source, unless it is added as a premise with a test
 that fails without it.
 
-- **The interleavings fail in about one run of three** (November 2026; `interleaving.test.ts` alone, 3 of 10 runs),
-  each on a seed drawn at random (`bun run interleavings`, which `bun run test` leaves out). The counterexamples met, each the `seed` and `path` to pass to
-  the test's `property` (whose options then take a `path`), and failing every time with them; fast-check names the
-  scenario but not the assertion, which a run with them prints:
-  - "The defects of the cause are those that happened, self-interruptions too, each where, in order":
-    `{ seed: 2065983806, path: '44:0:0:9:8:8:3:0:5:9:13:19:19:3:0:1:3:3:0:3:4:9:7:7:34:30:33:30:0:35:32:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:7' }`,
-    a subscription and a command that die, and a renderer that dies joining a fiber (`rendererDies: 'joins'`).
-  - "The subscriptions one message stops are released together, before the next message and any start":
-    `{ seed: -1243041135, path: '46:0:0:6:1:2:2:6:4:7:10:12:37:23:24:16:5:0:1:2:4:17:19:24:18:18:18:22:22:27:27:1:1:29:28:28:28:28:28:28:28:28:28:28:28:28:28:29:18:18:19:35:45:18:36:0:30:1:1:2:4:4:29:30:36:24:23' }`,
-    with no defect: a slow release, and a subscription that stays (`endings: ['stays']`); and
-    `{ seed: 1817263562, path: '14:0:0:0:8:1:2:2:7:6:5:5:5:7:6:5:9:6:7:5:5:11:11:15:15:19:20:23:19:0:0:24:24:26:29:11:12:23:24:26:10:11:20:20:0' }`,
-    the same (`endings: ['stays']`, `releases: ['slow']`), met after step 4 of the core, whose seeds drawn at random
-    fail this property as often before it.
-
-  Each is a finding until a fix, or a reading of the assertion, says otherwise: the last two, with no defect, may be
-  a scheduling the property does not allow for. The three of "From the first defect on" were readings of the
-  property's: it counted a release's defect from the finalizer's exit, where the README counts it once the scope has
-  released all it holds, and a command as started where its effect first ran, not where the run called `runCommand`.
 - **To verify: the renderer may start after the first defect.** `running` in `run.ts` calls `render(frames)` after
   `Engine.make`, with no check of the register, so a subscription of `init` that dies as the engine starts may let
   the renderer's code run after the defect. The fifth premise review ruled it out with one run under Effect's own

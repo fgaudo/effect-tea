@@ -1778,6 +1778,95 @@ describe('the end of the run', () => {
   })
 })
 
+// An effect that interrupts itself while the run is interrupting it ends with both interruptions in its cause, its
+// own first: Effect adds the ones the fiber received, which skip its handlers. The run tells them apart by asking the
+// fiber what it received, and its own is still a defect, as a defect in its place would be.
+describe('a self-interruption as the run interrupts', () => {
+  // A gate on the fiber's own state: uninterruptible, it waits until the run's interruption has reached it, then
+  // interrupts itself by joining a fiber it interrupted, as the README names it.
+  const untilInterrupted: Effect.Effect<void> = Effect.suspend(() =>
+    Effect.exit(Effect.interruptible(Effect.void)).pipe(
+      Effect.flatMap((exit) =>
+        Exit.isFailure(exit) ? Effect.void : Effect.yieldNow.pipe(Effect.andThen(untilInterrupted))
+      ),
+    )
+  )
+
+  const interruptsItselfOnceInterrupted = (started: Deferred.Deferred<void>) =>
+    Effect.uninterruptible(Effect.gen(function*() {
+      yield* Deferred.succeed(started, undefined)
+      yield* untilInterrupted
+      const interrupted = yield* Effect.forkChild(Effect.never)
+      yield* Fiber.interrupt(interrupted)
+      return yield* Fiber.join(interrupted)
+    }))
+
+  const selfInterruptions = (exit: Exit.Exit<unknown>) =>
+    Exit.isFailure(exit)
+      ? exit.cause.reasons.flatMap((reason) =>
+        Cause.isDieReason(reason) && reason.defect instanceof ProgramDefect && reason.defect.cause instanceof Error
+          ? [`${reason.defect.where}: ${reason.defect.cause.message}`]
+          : []
+      )
+      : []
+
+  const interruptedOnce = (running: (started: Deferred.Deferred<void>) => Effect.Effect<void>) =>
+    Effect.runPromiseExit(Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const fiber = yield* Effect.forkChild(running(started))
+      yield* Deferred.await(started)
+      yield* Fiber.interrupt(fiber)
+      return yield* Fiber.await(fiber)
+    })).then((outcome) => Exit.isSuccess(outcome) ? outcome.value : outcome)
+
+  test(
+    'a renderer that interrupts itself as whoever runs the run interrupts it is a defect in the renderer',
+    async () => {
+      const exit = await interruptedOnce((started) => run(counter, () => interruptsItselfOnceInterrupted(started)))
+      expect(selfInterruptions(exit)).toEqual(['render: It interrupted itself, which only the run may do'])
+    },
+  )
+
+  test(
+    'a command that interrupts itself as whoever runs the run interrupts it is a defect in the command',
+    async () => {
+      const exit = await interruptedOnce((started) =>
+        run(
+          {
+            ...counter,
+            init: { state: { count: 0 }, commands: ['Ping'] },
+            runCommand: () => interruptsItselfOnceInterrupted(started),
+          },
+          () => Effect.never,
+        )
+      )
+      expect(selfInterruptions(exit)).toEqual(['command: It interrupted itself, which only the run may do'])
+    },
+  )
+
+  test('a subscription that interrupts itself as the run stops it is a defect in the subscription', async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const stopping: Counter = {
+        ...counter,
+        subscriptions: ({ count }) =>
+          count === 0
+            ? HashMap.make(['k', Channel.fromEffectDone(interruptsItselfOnceInterrupted(started))])
+            : HashMap.empty(),
+      }
+      yield* run(stopping, (frames) =>
+        frames.pipe(
+          Stream.tap(({ model, dispatch }) =>
+            model.count === 0 ? Deferred.await(started).pipe(Effect.andThen(dispatch(model.increment))) : Effect.void
+          ),
+          Stream.takeUntil(({ model }) => model.count === 1),
+          Stream.runDrain,
+        ))
+    }))
+    expect(selfInterruptions(exit)).toEqual(['subscription: It interrupted itself, which only the run may do'])
+  })
+})
+
 describe('dispatch', () => {
   // The engine takes the message in its own fiber: a renderer's callback never runs `update` in its own stack.
   test('running a dispatch from a plain callback returns before update has seen the message', async () => {

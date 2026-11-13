@@ -8,9 +8,6 @@ import { isRejected, type Step, type Update } from './update.ts'
 // The semantics shared by the run and the testing tools, as pure functions of data (`docs/shared-core.md`): the
 // shells, `engine.ts` and `src/testing/`, decide when they run and perform what they return.
 
-/** Whether a cause holds defects, and nothing else. */
-export const diesOnly = (cause: Cause.Cause<unknown>) => Cause.hasDies(cause) && cause.reasons.every(Cause.isDieReason)
-
 /**
  * The cause with what is not a defect turned into one, in the place of the first of them, so that the defects stay
  * in the order they happened: an interruption the fiber made itself (`Effect.interrupt`, or the join of an
@@ -18,9 +15,20 @@ export const diesOnly = (cause: Cause.Cause<unknown>) => Cause.hasDies(cause) &&
  * answer, or a subscription ended in silence; or any other failure, which the types rule out (an empty cause, a
  * failure a cast let through), which would end the run with no defect to report. Beside the defects of the cause
  * too: a release that interrupts itself after its effect died is a second defect.
+ *
+ * `received` holds the interruptions the fiber received from outside, by the run or by whoever runs it: those of
+ * the cause made by the same fibers are kept as they are, beside the defect, and are no defect themselves. A cause
+ * with nothing else is returned as it is.
  */
-export const otherwiseDefect = (cause: Cause.Cause<unknown>): Cause.Cause<never> => {
-  const others = Cause.fromReasons(cause.reasons.filter((reason) => !Cause.isDieReason(reason)))
+export const otherwiseDefect = (
+  cause: Cause.Cause<unknown>,
+  received: Cause.Cause<never> = Cause.empty,
+): Cause.Cause<never> => {
+  const interrupters = received.reasons.flatMap((reason) => Cause.isInterruptReason(reason) ? [reason.fiberId] : [])
+  const own = (reason: Cause.Reason<unknown>) =>
+    !Cause.isDieReason(reason) && !(Cause.isInterruptReason(reason) && interrupters.includes(reason.fiberId))
+  const others = Cause.fromReasons(cause.reasons.filter(own))
+  if (others.reasons.length === 0 && cause.reasons.length > 0) return cause as Cause.Cause<never>
   const defect = Cause.die(
     new Error(
       Cause.hasInterruptsOnly(others)
@@ -29,10 +37,10 @@ export const otherwiseDefect = (cause: Cause.Cause<unknown>): Cause.Cause<never>
       { cause: others },
     ),
   ).reasons
-  const first = cause.reasons.findIndex((reason) => !Cause.isDieReason(reason))
+  const first = cause.reasons.findIndex(own)
   return Cause.fromReasons<never>(
     first === -1 ? defect : cause.reasons.flatMap((reason, index) =>
-      Cause.isDieReason(reason) ? [reason] : index === first ? defect : []
+      !own(reason) ? [reason as Cause.Reason<never>] : index === first ? defect : []
     ),
   )
 }

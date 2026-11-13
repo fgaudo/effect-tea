@@ -598,8 +598,8 @@ const given = (events: ReadonlyArray<Event>) =>
 
 /**
  * The subscriptions that the accepted message of event `index` stops while they hold what they acquired, and those
- * of them whose release waits: a quick one ends before the next fiber runs, so only those that wait tell releases
- * made together from releases made in turn.
+ * of them whose release waits: a quick one ends before the next fiber runs, so only those that wait tell whether the
+ * next message waits for the slowest.
  */
 const stoppedAt = (events: ReadonlyArray<Event>, index: number, applied: Applied<ListState, Message, unknown>) => {
   const held = holding(events, index)
@@ -805,7 +805,11 @@ describe('interleavings of the user, commands and subscriptions', () => {
     })
   }, 120_000)
 
-  test('the subscriptions one message stops are released together, before the next message and any start', () => {
+  // That they are released together is not checked here: a release waits by yielding, and a schedule may run one to
+  // its end before the fiber that interrupts the other first runs, which releases in turn would do too. The run's
+  // interruptions are concurrent ("keys that go away together release their subscriptions together, not one after
+  // the other", `engine.test.ts`); what any order must keep is that the next message waits for the slowest.
+  test('the subscriptions one message stops are released before the next message and any start', () => {
     property(({ events }) => {
       const broken: Array<string> = []
       events.forEach((event, index) => {
@@ -818,19 +822,13 @@ describe('interleavings of the user, commands and subscriptions', () => {
           for (const key of before) if (!done.has(key)) broken.push(`${event.listener} started before ${key} ended`)
         }
         if (event._tag !== 'Applied') return
-        const { stopped, waiting } = stoppedAt(events, index, event.applied)
+        const { stopped } = stoppedAt(events, index, event.applied)
         const rest = events.slice(index + 1)
         const next = rest.findIndex(({ _tag }) => _tag === 'Applied' || _tag === 'Ignored')
         if (next !== -1) {
           const done = released(rest, next)
           for (const key of stopped) if (!done.has(key)) broken.push(`a message came before ${key} ended`)
         }
-        const firstEnd = rest.findIndex((later) => later._tag === 'Released' && waiting.has(later.listener))
-        if (firstEnd === -1) return
-        const begun = new Set(rest.slice(0, firstEnd).flatMap((later) =>
-          later._tag === 'Releasing' ? [later.listener] : []
-        ))
-        for (const key of waiting) if (!begun.has(key)) broken.push(`${key} began releasing after another ended`)
       })
       expect(broken).toEqual([])
     })

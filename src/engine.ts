@@ -83,9 +83,11 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
  * Where a defect happened is known only where it is caught: the run dies with it, and with where, and leaves
  * reporting it to whoever runs the program. Every defect of the cause is wrapped (`wrapDefects`), and a
  * self-interruption, or a failure the types rule out, is a defect too (`otherwiseDefect`). An interruption by the
- * run, or by whoever runs it, is never taken for one: an interrupted fiber runs no handler while it is
- * interruptible, as it is where the effect runs. The defects are wrapped where it is not, so that those of an
- * interrupted effect are too: what a subscription the run stopped dies with while it releases what it holds.
+ * run, or by whoever runs it, is never taken for one: the fiber is asked, where it is uninterruptible, which
+ * interruptions it received, and those are kept as they are. An effect that interrupts itself as the run interrupts
+ * it ends with both in its cause (Effect adds what the fiber received to a failure that skips its handlers), and its
+ * own is still a defect, as a defect would be. The defects are wrapped there too, so that those of an interrupted
+ * effect are: what a subscription the run stopped dies with while it releases what it holds.
  */
 // The details are made only when there is a defect to carry them: a message is described on every call otherwise.
 export const diesIn =
@@ -96,12 +98,13 @@ export const diesIn =
   ) =>
   <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
     Effect.uninterruptibleMask((restore) =>
-      restore(
-        Effect.catchCauseIf(self, (cause) => !Core.diesOnly(cause), (cause) =>
-          Effect.failCause(Core.otherwiseDefect(cause))),
-      ).pipe(
-        Effect.catchCauseIf(Cause.hasDies, (cause) =>
-          Effect.failCause(Core.wrapDefects(cause, where, details(), wrapped))),
+      restore(self).pipe(
+        Effect.catchCause((cause) =>
+          Effect.exit(Effect.interruptible(Effect.void)).pipe(Effect.flatMap((received) => {
+            const own = Core.otherwiseDefect(cause, Exit.isFailure(received) ? received.cause : Cause.empty)
+            return Effect.failCause(Cause.hasDies(own) ? Core.wrapDefects(own, where, details(), wrapped) : own)
+          }))
+        ),
       )
     )
 

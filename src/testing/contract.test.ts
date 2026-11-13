@@ -544,6 +544,88 @@ describe('what the run dies of, and the tools fail on', () => {
     expect(diedIn(exit)).toBe('subscription')
   })
 
+  // One that interrupts itself just as it is interrupted, with both interruptions in its cause, is still a defect
+  // (`diesIn`). The gate is the fiber's own: uninterruptible, it waits until the interruption has reached it, then
+  // joins a fiber it interrupted.
+  const untilInterrupted: Effect.Effect<void> = Effect.suspend(() =>
+    Effect.exit(Effect.interruptible(Effect.void)).pipe(
+      Effect.flatMap((exit) =>
+        Exit.isFailure(exit) ? Effect.void : Effect.yieldNow.pipe(Effect.andThen(untilInterrupted))
+      ),
+    )
+  )
+
+  const interruptsItselfOnceInterrupted = (started: Deferred.Deferred<void>) =>
+    Effect.uninterruptible(Effect.gen(function*() {
+      yield* Deferred.succeed(started, undefined)
+      yield* untilInterrupted
+      const interrupted = yield* Effect.forkChild(Effect.never)
+      yield* Fiber.interrupt(interrupted)
+      return yield* Fiber.join(interrupted)
+    }))
+
+  const lingering = (started: Deferred.Deferred<void>) =>
+    ({
+      ...quitting,
+      runCommand: () => interruptsItselfOnceInterrupted(started),
+    }) satisfies typeof quitting
+
+  const interruptedOnce = (running: (started: Deferred.Deferred<void>) => Effect.Effect<unknown>) =>
+    Effect.runPromiseExit(Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const fiber = yield* Effect.forkChild(running(started))
+      yield* Deferred.await(started)
+      yield* Fiber.interrupt(fiber)
+      return yield* Fiber.await(fiber)
+    })).then((outcome) => Exit.isSuccess(outcome) ? outcome.value : outcome)
+
+  test('the run dies with a defect of a command interrupting itself as whoever runs it interrupts it', async () => {
+    const exit = await interruptedOnce((started) =>
+      drive(lingering(started), (driver) => driver.send(() => Opt.some('Go')).pipe(Effect.andThen(Effect.never)))
+    )
+    expect(diedIn(exit)).toBe('command')
+  })
+
+  test('rehearse fails with a defect of a command interrupting itself as whoever runs it interrupts it', async () => {
+    const exit = await interruptedOnce((started) =>
+      rehearse(lingering(started), (rehearsal) =>
+        rehearsal.send(() => Opt.some('Go')).pipe(Effect.andThen(rehearsal.run(() => true))))
+    )
+    expect(diedIn(exit)).toBe('command')
+  })
+
+  const stopping = (started: Deferred.Deferred<void>): Program<{ state: Row; model: number; message: 'Seen' }> => ({
+    ...row,
+    subscriptions: ({ seen }) =>
+      seen === 0
+        ? HashMap.make(['ticks', Channel.fromEffectDone(interruptsItselfOnceInterrupted(started))])
+        : HashMap.empty(),
+  })
+
+  test('the run dies with a defect of a subscription interrupting itself as the run stops it', async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      return yield* drive(stopping(started), Effect.fnUntraced(function*(driver) {
+        yield* Deferred.await(started)
+        yield* driver.send(() => Opt.some('Seen'))
+        return yield* driver.waitFor(() => Opt.none())
+      }))
+    }))
+    expect(diedIn(exit)).toBe('subscription')
+  })
+
+  test('rehearse fails with a defect of a subscription interrupting itself as it stops it', async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      return yield* rehearse(stopping(started), Effect.fnUntraced(function*(rehearsal) {
+        yield* Effect.forkChild(rehearsal.hearNext('ticks'))
+        yield* Deferred.await(started)
+        yield* rehearsal.send(() => Opt.some('Seen'))
+      }))
+    }))
+    expect(diedIn(exit)).toBe('subscription')
+  })
+
   // Each function of the program that a tool calls fails it in the site the run dies in, with what the run says of
   // it: `update` with the message it was given, by its tags.
   const said = (exit: Exit.Exit<unknown>) => {

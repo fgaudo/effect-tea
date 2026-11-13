@@ -170,8 +170,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'a self-interruption is no defect',
     file: 'src/engine.ts',
-    from: 'Effect.catchCauseIf(self, (cause) => !Core.diesOnly(cause),',
-    to: 'Effect.catchCauseIf(self, () => false,',
+    from: 'const own = Core.otherwiseDefect(cause, Exit.isFailure(received) ? received.cause : Cause.empty)',
+    to: 'const own = cause as Cause.Cause<never>',
     killedBy: [
       ['src/run.test.ts', 'a command that interrupts itself is a defect, where it happened'],
       [
@@ -202,6 +202,53 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         'src/testing/rehearse.test.ts',
         'rehearse fails on a release that interrupts itself after its command died, with two defects',
+      ],
+    ],
+  },
+  {
+    name: 'an interruption the fiber received is taken for its own',
+    file: 'src/engine.ts',
+    from: 'Exit.isFailure(received) ? received.cause : Cause.empty',
+    to: 'Cause.empty',
+    killedBy: [
+      ['src/run.test.ts', 'a run interrupted by whoever runs it is no defect'],
+      ['src/run.test.ts', 'a subscription stopped inside an uninterruptible region is no defect'],
+    ],
+  },
+  {
+    name: 'a self-interruption beside one the fiber received is no defect',
+    file: 'src/core.ts',
+    from: '!(Cause.isInterruptReason(reason) && interrupters.includes(reason.fiberId))',
+    to: '!(Cause.isInterruptReason(reason) && interrupters.length > 0)',
+    killedBy: [
+      [
+        'src/core.test.ts',
+        'an interruption the fiber received is kept as it is, beside the defect its own interruption is',
+      ],
+      [
+        'src/run.test.ts',
+        'a renderer that interrupts itself as whoever runs the run interrupts it is a defect in the renderer',
+      ],
+      [
+        'src/run.test.ts',
+        'a command that interrupts itself as whoever runs the run interrupts it is a defect in the command',
+      ],
+      ['src/run.test.ts', 'a subscription that interrupts itself as the run stops it is a defect in the subscription'],
+      [
+        'src/testing/contract.test.ts',
+        'the run dies with a defect of a command interrupting itself as whoever runs it interrupts it',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails with a defect of a command interrupting itself as whoever runs it interrupts it',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'the run dies with a defect of a subscription interrupting itself as the run stops it',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails with a defect of a subscription interrupting itself as it stops it',
       ],
     ],
   },

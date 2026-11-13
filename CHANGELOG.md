@@ -103,6 +103,10 @@ version, and everything else, features included, the patch version.
   it belonged to had died, was lost: the run died of the first defect alone, and `rehearse` failed with a bare
   interruption after it. It is a second defect, where it happened, after the first, as "Nothing ends in silence" in
   the README promises.
+- A command, a subscription or the renderer that interrupted itself just as the run, or whoever runs it,
+  interrupted it was no defect: the run ended without it, and `rehearse` too. Both interruptions are in its cause,
+  and the run now asks the fiber which one it received: its own is a defect, where it happened, as a defect in its
+  place already was, and as "Nothing ends in silence" in the README promises.
 - `drive`, failing on a defect of the program after the scenario had failed, put what the scenario ended with first
   in the cause. The defect comes first, as the run and `rehearse` put it. "Testing" in the README says so.
 - `drive` waits, once the scenario ends, for the run it interrupts to release what it holds, and fails, as the run

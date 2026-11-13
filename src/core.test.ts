@@ -7,7 +7,6 @@ import fc from 'fast-check'
 import {
   type Active,
   arrive,
-  diesOnly,
   ended,
   hasDied,
   init,
@@ -31,13 +30,6 @@ const defects = (cause: Cause.Cause<unknown>) =>
 const message = (defect: unknown) => defect instanceof Error ? defect.message : defect
 
 describe('what a fiber dies of', () => {
-  test('dies of defects only when its cause holds defects and nothing else', () => {
-    expect(diesOnly(Cause.die('a'))).toBe(true)
-    expect(diesOnly(Cause.fromReasons([...Cause.die('a').reasons, ...Cause.interrupt(1).reasons]))).toBe(false)
-    expect(diesOnly(Cause.interrupt(1))).toBe(false)
-    expect(diesOnly(Cause.empty)).toBe(false)
-  })
-
   test('a self-interruption is a defect, holding the interruption', () => {
     const interruption = Cause.interrupt(1)
     const [defect] = defects(otherwiseDefect(interruption))
@@ -63,6 +55,21 @@ describe('what a fiber dies of', () => {
       'It failed, which its type rules out',
       'second',
     ])
+  })
+
+  test('an interruption the fiber received is kept as it is, beside the defect its own interruption is', () => {
+    const cause = Cause.fromReasons([...Cause.interrupt(1).reasons, ...Cause.interrupt(2).reasons])
+    expect(defects(otherwiseDefect(cause, Cause.interrupt(2))).map(message)).toEqual([
+      'It interrupted itself, which only the run may do',
+      'Interrupt',
+    ])
+  })
+
+  test('a cause of interruptions the fiber received, or of defects beside them, is no further defect', () => {
+    const received = Cause.interrupt(2)
+    expect(otherwiseDefect(received, received)).toBe(received)
+    const dying = Cause.fromReasons([...Cause.die('boom').reasons, ...Cause.interrupt(2).reasons])
+    expect(otherwiseDefect(dying, received)).toBe(dying)
   })
 
   test('each defect is wrapped where it happened, with its annotations, and the rest kept as it is', () => {

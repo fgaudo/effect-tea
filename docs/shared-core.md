@@ -136,8 +136,12 @@ Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun ru
    between". Under way: the rule is rewritten, and the scheduled tests of the engine's `update` and `runCommand` and
    of `rehearse`'s `send` are gone, each mutation killed by a deterministic test; `rehearse`'s `run`, `model` and
    `runAll` keep theirs, the only killers of their mutations. The counterexamples of "from the first defect on" were
-   readings of the property's, and the README now says when the defect of a release counts; those of the order of
-   the defects and of the releases together are open (ROADMAP).
+   readings of the property's, and the README now says when the defect of a release counts. Those of the releases
+   together were too: a release waits by yielding, and a schedule may run one to its end before the other's
+   interruption first runs, so the property checks only that the next message waits for the slowest, and the
+   deterministic test of `engine.test.ts` that they are interrupted together. That of the order of the defects was a
+   finding: a self-interruption the run's interruption met was lost, and `diesIn` now asks the fiber which
+   interruptions it received, with a gate in `run.test.ts` for each fiber of the run.
 
 No step changes what a consumer sees: the API stays as it is, and the README only says what the run already did (steps
 6 and 7). A step that turns out to need a change of either stops and asks.

@@ -245,6 +245,14 @@ after the list says. A change that rests on a new premise adds it here, with wha
   how `diesIn` turns a self-interruption into a defect even after a defect, never one by the run: "a defect in what
   a subscription the run stopped releases ends the run", "a subscription stopped as whoever runs the run interrupts
   it, which dies as it releases, is in the cause" (`run.test.ts`) fail with a handler that runs on them.
+- **A fiber that fails as it is interrupted keeps its own reasons and gets those it received added, and
+  `Effect.interruptible`, entered by an interrupted fiber where it is uninterruptible, fails with exactly those it
+  received**, which is how `diesIn` tells a self-interruption from the run's interruption that meets it, both in
+  the cause, by the fibers that made them: "a renderer that interrupts itself as whoever runs the run interrupts it
+  is a defect in the renderer", and the same of a command and of a subscription the run stops (`run.test.ts`), and of
+  `rehearse`: "rehearse fails with a defect of a command interrupting itself as whoever runs it interrupts it", and
+  the same of a subscription (`contract.test.ts`), whose gate waits on that very failure. Read only in the source (`exitFailCause` and `causeAddInterrupts` in
+  `internal/core.ts`), and seen in those tests.
 - **An unbounded `Queue` takes an offer at once, and a shut one refuses it without interrupting**: "a dispatch runs
   with Effect.runSync from a plain callback, and after the run has ended too" (`run.test.ts`). It wakes its taker
   through the scheduler of the fiber that made it, so a dispatch never runs `update` in its caller's stack:
