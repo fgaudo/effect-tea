@@ -356,7 +356,7 @@ export const rehearse = Effect.fnUntraced(function*<
   // `hear` plays the subscription of a start that `hearNext` has not run.
   const script = (key: unknown, generation: Core.Generation) =>
     Effect.suspend(() => {
-      const scripted = Ledger.script(ledger, active, generation)
+      const scripted = Ledger.script(ledger, generation)
       switch (scripted._tag) {
         case 'Scripted':
           ledger = scripted.ledger
@@ -374,9 +374,8 @@ export const rehearse = Effect.fnUntraced(function*<
     Effect.suspend(() => {
       const found = Ledger.hear(ledger, generation)
       if (Opt.isNone(found)) return Effect.void
-      const { call, sent: { message, last }, ended: told } = found.value
+      const { call, sent: { message }, ended: told } = found.value
       ledger = found.value.ledger
-      if (last) active = Core.ended(active, generation)
       return Effect.forEach(told, ({ heard }) => Deferred.succeed(heard, Opt.none()), { discard: true }).pipe(
         Effect.andThen(Effect.exit(arriveNow({ _tag: 'Subscription', key, generation }, message))),
         Effect.flatMap((exit) => Effect.andThen(Deferred.done(call.heard, Exit.map(exit, () => Opt.some(message))), exit)),
@@ -426,7 +425,7 @@ export const rehearse = Effect.fnUntraced(function*<
   const hearing = (key: unknown, call: Call<Message>) =>
     Effect.flatMap(startUnder(key), (generation) =>
       Effect.suspend(() => {
-        const found = Ledger.opening(ledger, active, generation, call)
+        const found = Ledger.opening(ledger, generation, call)
         switch (found._tag) {
           case 'Left':
             return Effect.void

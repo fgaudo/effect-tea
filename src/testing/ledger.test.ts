@@ -1,7 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
-import { type Active, ended, noneActive, reconcile } from '../core.ts'
 import * as Ledger from './ledger.ts'
 
 type Book = Ledger.Ledger<string, 'subscription', 'handle', string, string>
@@ -13,9 +11,6 @@ const taken = (ledger: Book, select: (command: string) => boolean) => {
   if (Opt.isNone(taking)) throw new Error('nothing taken')
   return taking.value
 }
-
-// One key listened to, under the first start.
-const one: Active<string> = reconcile(noneActive, HashMap.make(['k', 'subscription'])).active
 
 const listening = (ledger: Book): Book => Ledger.listened(ledger, [], [[1, 'subscription' as const]])[2]
 
@@ -71,26 +66,45 @@ describe('the commands', () => {
 
 describe('the starts heard', () => {
   test('a start that appears is unheard, and hearNext opens it with the subscription listed then', () => {
-    expect(Ledger.opening(entered(listening(empty), 'call'), one, 1, 'call')).toEqual({
+    expect(Ledger.opening(entered(listening(empty), 'call'), 1, 'call')).toEqual({
       _tag: 'Open',
       subscription: 'subscription',
     })
-    expect(Ledger.opening(entered(openedOne(empty), 'call'), one, 1, 'call')).toEqual({ _tag: 'Opened', handle: 'handle' })
-    expect(Ledger.opening(entered(empty, 'call'), one, 1, 'call')).toEqual({ _tag: 'Gone' })
+    expect(Ledger.opening(entered(openedOne(empty), 'call'), 1, 'call')).toEqual({ _tag: 'Opened', handle: 'handle' })
+    expect(Ledger.opening(entered(empty, 'call'), 1, 'call')).toEqual({ _tag: 'Gone' })
   })
 
   test('a start is heard one way: played with hear, or run by hearNext, never both', () => {
-    const scripted = Ledger.script(listening(empty), one, 1)
+    const scripted = Ledger.script(listening(empty), 1)
     if (scripted._tag !== 'Scripted') throw new Error('not scripted')
-    expect(Ledger.opening(entered(scripted.ledger, 'call'), one, 1, 'call')).toEqual({ _tag: 'Scripted' })
-    expect(Ledger.script(scripted.ledger, one, 1)).toEqual({ _tag: 'Scripted', ledger: scripted.ledger })
-    expect(Ledger.script(openedOne(empty), one, 1)).toEqual({ _tag: 'Opened' })
+    expect(Ledger.opening(entered(scripted.ledger, 'call'), 1, 'call')).toEqual({ _tag: 'Scripted' })
+    expect(Ledger.script(scripted.ledger, 1)).toEqual({ _tag: 'Scripted', ledger: scripted.ledger })
+    expect(Ledger.script(openedOne(empty), 1)).toEqual({ _tag: 'Opened' })
   })
 
-  test('an opened start that has ended says so, to hear and to hearNext', () => {
-    const over = ended(one, 1)
-    expect(Ledger.script(openedOne(empty), over, 1)).toEqual({ _tag: 'Ended' })
-    expect(Ledger.opening(entered(openedOne(empty), 'call'), over, 1, 'call')).toEqual({ _tag: 'Ended' })
+  test('an opened start whose last message is heard has ended, and says so to hear and to hearNext', () => {
+    const [, waited] = Ledger.ask(entered(openedOne(empty), 'first'), 1, 'first')
+    const before = heardBy(Ledger.send(waited, 1, { message: 'm', last: false })).ledger
+    expect(Ledger.script(before, 1)).toEqual({ _tag: 'Opened' })
+    expect(Ledger.opening(entered(before, 'call'), 1, 'call')).toEqual({ _tag: 'Opened', handle: 'handle' })
+    const [, again] = Ledger.ask(Ledger.enter(before, 'second'), 1, 'second')
+    const sentLast = Ledger.send(again, 1, { message: 'm', last: true })
+    expect(Ledger.script(sentLast, 1)).toEqual({ _tag: 'Opened' })
+    const over = heardBy(sentLast).ledger
+    expect(Ledger.script(over, 1)).toEqual({ _tag: 'Ended' })
+    expect(Ledger.opening(entered(over, 'call'), 1, 'call')).toEqual({ _tag: 'Ended' })
+  })
+
+  test('an ended start stays ended while its key stays, and its key comes back not ended', () => {
+    const [, waited] = Ledger.ask(entered(openedOne(empty), 'call'), 1, 'call')
+    const over = heardBy(Ledger.send(waited, 1, { message: 'm', last: true })).ledger
+    const [, , kept] = Ledger.listened(over, [], [[2, 'subscription' as const]])
+    expect(Ledger.script(kept, 1)).toEqual({ _tag: 'Ended' })
+    const [stopping, , gone] = Ledger.listened(kept, [1], [])
+    expect(stopping).toEqual(['handle'])
+    const [, , back] = Ledger.listened(gone, [], [[3, 'subscription' as const]])
+    expect(Ledger.opening(entered(back, 'call'), 3, 'call')).toEqual({ _tag: 'Open', subscription: 'subscription' })
+    expect(Ledger.script(Ledger.open(back, 3, 'handle'), 3)).toEqual({ _tag: 'Opened' })
   })
 
   test('a call asks for a message, unless one asked for by a call that left is not heard yet', () => {
@@ -131,8 +145,8 @@ describe('the starts heard', () => {
 
   test('a call that left before the loop made it wait starts nothing, and waits on nothing', () => {
     const left = Ledger.leave(entered(listening(empty), 'call'), 'call')
-    expect(Ledger.opening(left, one, 1, 'call')).toEqual({ _tag: 'Left' })
-    expect(Ledger.opening(listening(empty), one, 1, 'call')).toEqual({ _tag: 'Left' })
+    expect(Ledger.opening(left, 1, 'call')).toEqual({ _tag: 'Left' })
+    expect(Ledger.opening(listening(empty), 1, 'call')).toEqual({ _tag: 'Left' })
     const leftOpened = Ledger.leave(entered(openedOne(empty), 'call'), 'call')
     expect(Ledger.ask(leftOpened, 1, 'call')).toEqual([false, leftOpened])
     const [, waited] = Ledger.ask(entered(openedOne(empty), 'call'), 1, 'call')

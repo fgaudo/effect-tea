@@ -138,19 +138,18 @@ export const endedWith = <A, E>(deaths: ReadonlyArray<Cause.Die>, exit: Exit.Exi
 export type Generation = number
 
 /**
- * The keys a run listens to, each with its start, those starts, those of them whose last message has arrived, and the
- * last start made: a subscription's message applies exactly when its start is among them, which takes no comparison
- * of keys. An ended start keeps its key among the active ones: its subscription does not start again until its key
- * goes away and comes back. The engine marks no end, since it starts nothing on one.
+ * The keys a run listens to, each with its start, those starts, and the last start made: a subscription's message
+ * applies exactly when its start is among them, which takes no comparison of keys. An ended start keeps its key among
+ * the active ones: its subscription does not start again until its key goes away and comes back. Nothing here marks
+ * an end, since the run starts nothing on one; `rehearse`'s ledger marks the starts it hears end.
  */
 export type Active<K> = Readonly<{
   keys: HashMap.HashMap<K, Generation>
   starts: ReadonlySet<Generation>
-  ended: ReadonlySet<Generation>
   started: Generation
 }>
 
-export const noneActive: Active<never> = { keys: HashMap.empty(), starts: new Set(), ended: new Set(), started: 0 }
+export const noneActive: Active<never> = { keys: HashMap.empty(), starts: new Set(), started: 0 }
 
 /**
  * What the keys of a new state make of those active before: the starts whose key went away, the keys that appeared,
@@ -183,19 +182,8 @@ export const reconcile = <K, S>(active: Active<K>, listed: HashMap.HashMap<K, S>
     keys = HashMap.set(keys, key, started)
     fresh.push([key, subscription, started])
   }
-  const starts = new Set(HashMap.values(keys))
-  const ended = new Set(Arr.filter(Arr.fromIterable(active.ended), (generation) => starts.has(generation)))
-  return { gone, fresh, active: { keys, starts, ended, started } }
+  return { gone, fresh, active: { keys, starts: new Set(HashMap.values(keys)), started } }
 }
-
-/**
- * The keys active with `generation` marked as ended, once its last message has arrived; the same when that start is
- * no longer active, or has already ended.
- */
-export const ended = <K>(active: Active<K>, generation: Generation): Active<K> =>
-  active.starts.has(generation) && !active.ended.has(generation)
-    ? { ...active, ended: new Set([...active.ended, generation]) }
-    : active
 
 /** Counts the states a run produces: every message that changes the state creates a new revision. */
 export type Revision = number

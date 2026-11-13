@@ -56,7 +56,10 @@ What a core does not reach is said too. A defect of a release is recorded only o
 - **The end of a subscription is an event of the core.** `ended` takes the start that sent its last message: its key
   stays among the active ones, and does not start again until it goes away and comes back. The engine keeps this
   today by keeping nothing, `rehearse` by its `ended` of each start, which `hear` and `hearNext` fail on. In the core
-  the rule is stated once, and its tests draw ends among the arrivals.
+  the rule is stated once, and its tests draw ends among the arrivals. Reversed after step 7: the end of a start is
+  the ledger's (`ended` of an `Opened` hearing, set by `Ledger.hear` as it hears the last message, and forgotten with
+  the hearing by `Ledger.listened` when the key goes away). The engine keeps the rule by keeping nothing, so the mark
+  was state of the core that only `rehearse` wrote and read, and the core's histories never drew ends.
 - **What a fiber dies of is computed by pure functions over `Cause`.** The bodies of `diesIn` (each defect wrapped
   in a `ProgramDefect` with its site and annotations, a self-interruption or a failure the types rule out turned
   into a defect, in the place it happened) and the bookkeeping of `makeDeaths` (each defect kept once, by its
@@ -108,13 +111,16 @@ Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun ru
    the check of the register, of the generation and of a new revision point at `arrive`, each with a test of the core
    among its killers. `applyAlive` stays for `rehearse` until step 4, with a mutation of its own. `Ignored` and
    `Applied` carry only what the core decides: the origin and the state before are the shell's, which has them.
+   After step 7, `ended` left the core for `rehearse`'s ledger, for the same reason: see the decision above.
 4. `rehearse` on the core, its starts kept by generation, its `ended` the core's, which `Active` holds. Done:
    `rehearse` reconciles and applies through `reconcile` and `arrive`, so a message of a gone start is `Dropped` there,
    and `applyAlive` goes, with the mutations of `rehearse`'s own copies (a start for a kept key, a message of a gone
    start, a call of `update` after a death), whose tests now kill those of the core. `ended` marks a start whose last
    message `hearNext` heard, and `reconcile` keeps the mark only while the start does; the engine marks none. It is
    still marked by the fiber of `hearNext` that took the last message, in the thunk where it takes it, as `rehearse`
-   marked it before: step 5 makes it a transition of `rehearse`'s bookkeeping, with `waiting` and `asked`.
+   marked it before: step 5 makes it a transition of `rehearse`'s bookkeeping, with `waiting` and `asked`. After
+   step 7, `Active` no longer holds it, nor `reconcile` filters it: the ledger's `hear` marks the end in the transition
+   that hears the last message, and its tests are the ledger's (`ledger.test.ts`).
 5. `rehearse`'s own bookkeeping as a pure module, and `runAll` fixed by it, with a changelog entry. Done:
    `src/testing/ledger.ts`, tested in `ledger.test.ts`, holds `pending`, the commands under way and those cancelled,
    and for each start how it is heard (unheard, `Scripted`, or `Opened` with `waiting` and `asked`), by generation.
@@ -122,7 +128,7 @@ Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun ru
    and the queues of a start `hearNext` runs, opaque to the ledger. `runAll` ends on a `take` that finds nothing,
    in the thunk where it would take, with a test under `prioritizedSchedules` and a mutation that counts `pending`
    apart again. The end of a start stays in `Active`, marked in the thunk of `heard`, where its waiting calls are
-   counted. An opened start whose key went away is kept while calls wait on it, so that a last message it sent before
+   counted (until after step 7, when it moved into the ledger). An opened start whose key went away is kept while calls wait on it, so that a last message it sent before
    is still told to them, and forgotten when the last of them leaves.
 6. `model`, once the README says whether the check holds of `makeModel`: the renderer's frames and `rehearse`'s
    `model` make it through the core, with a changelog entry if the run's behaviour changes. Done, without a `model`:

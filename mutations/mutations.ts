@@ -784,14 +784,15 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: 'an ended start is heard again while its key stays',
-    file: 'src/core.ts',
-    from: 'active.starts.has(generation) && !active.ended.has(generation)',
-    to: 'false',
+    file: 'src/testing/ledger.ts',
+    from: 'ended: hearing.ended || sent.last,',
+    to: 'ended: hearing.ended,',
     killedBy: [
       [
-        'src/core.test.ts',
-        'an ended start keeps its key and stays ended while it stays, and its key comes back not ended',
+        'src/testing/ledger.test.ts',
+        'an opened start whose last message is heard has ended, and says so to hear and to hearNext',
       ],
+      ['src/testing/ledger.test.ts', 'an ended start stays ended while its key stays, and its key comes back not ended'],
       [
         'src/testing/contract.test.ts',
         "rehearse's hearNext hears it as the run does, and nothing more until its key comes back",
