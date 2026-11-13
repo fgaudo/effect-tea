@@ -106,24 +106,26 @@ type Current<State, Message, Event> = Readonly<{
 type Request = Readonly<{ step: Effect.Effect<unknown>; done: Deferred.Deferred<unknown> }>
 
 /**
- * Rehearses `program` without a runtime, step by step, and returns what `scenario` returns. As in `drive`, the
- * test acts through what the models show; unlike it, nothing runs by itself: each command waits until the test
- * runs it, through the program's `runCommand` with the services provided, and each subscription message is one
- * the test says was heard, or the next one its subscription sends when the test asks for it. So the test decides what happens while a command is under way, and when its answer
- * arrives. Since the test decides when each message arrives, a message it sends from the current model is applied
- * to the state that model shows, and a rejection is a control that does nothing: it fails the test, as an error
- * `update` throws does, being a defect of the program. A command's or a subscription's message may no longer
- * apply when it arrives: as when the program runs, it is ignored, and listed in `ignored`. A command still pending
- * or under way when `scenario` ends fails the test, and so does one whose `run` was interrupted before it answered:
- * commands cannot be cancelled, and its answer would still arrive. Subscriptions are read on each new state, as
- * the run reads them, so a state whose subscriptions are a defect fails the test, as it ends the run, a key whose
- * `Equal` throws against a key of the state before included; a command or a subscription that interrupts itself is
- * a defect too, as in the run. Messages that arrive together, from fibers of the test's, are applied one at a time,
- * as the run takes them: each waits for the state the one before left, the release of the subscriptions it stopped
- * included, and `send` selects on the model of that state. A message once sent is applied whole, even when the
- * fiber that sent it is interrupted meanwhile. A defect of the program fails the rehearsal as it ends the run,
- * whichever fiber of the test's it reached, one nobody joins included, and however the rehearsal ends: what the
- * test does after it fails with it, and so does a call waiting for a subscription or a command.
+ * Rehearses `program` without a runtime, step by step, and returns what `scenario` returns. As in `drive`, the test
+ * acts through what the models show; unlike it, nothing runs by itself: each command waits until the test runs it,
+ * through the program's `runCommand` with the services provided, and each subscription message is one the test says was
+ * heard, or the next one its subscription sends when the test asks for it. So the test decides what happens while a
+ * command is under way, and when its answer arrives. Since the test decides when each message arrives, a message it
+ * sends from the current model is applied to the state that model shows, and a rejection is a control that does
+ * nothing: it fails the test, as an error `update` throws does, being a defect of the program. A command's or a
+ * subscription's message may no longer apply when it arrives: as when the program runs, it is ignored, and listed in
+ * `ignored`. A command under way when `scenario` ends, or still pending once what the test sent before is applied,
+ * fails the test, and so does one whose `run` was interrupted before it answered: commands cannot be cancelled, and its
+ * answer would still arrive. Subscriptions are read on each new state, as the run reads them, so a state whose
+ * subscriptions are a defect fails the test, as it ends the run, a key whose `Equal` throws against a key of the state
+ * before included; a command or a subscription that interrupts itself is a defect too, as in the run. Messages that
+ * arrive together, from fibers of the test's, are applied one at a time, as the run takes them: each waits for the
+ * state the one before left, the release of the subscriptions it stopped included, and `send` selects on the model of
+ * that state. A message once sent is applied whole, even when the fiber that sent it is interrupted meanwhile, or
+ * `scenario` returns: what was sent before it returned is applied, and not when it failed or was interrupted. A defect
+ * of the program fails the rehearsal as it ends the run, whichever fiber of the test's it reached, one nobody joins
+ * included, and however the rehearsal ends: what the test does after it fails with it, and so does a call waiting for a
+ * subscription or a command.
  */
 export const rehearse = Effect.fnUntraced(function*<
   State,
@@ -220,6 +222,8 @@ export const rehearse = Effect.fnUntraced(function*<
   // splits a step.
   const requests = yield* Queue.unbounded<Request>()
   const undelivered = new Set<Deferred.Deferred<unknown>>()
+  // Set in the thunk that takes the scenario's exit: from then on the loop is offered nothing more.
+  let ended = false
   const loop = yield* Queue.take(requests).pipe(
     Effect.flatMap(({ step, done }) =>
       Effect.flatMap(Effect.exit(recorded(deadOr(step))), (exit) =>
@@ -228,18 +232,20 @@ export const rehearse = Effect.fnUntraced(function*<
     Effect.forever,
     Effect.forkIn(forks),
   )
-  // Once the rehearsal has ended, the queue refuses what a fiber of the test's still running asks, and the call is
-  // interrupted: nothing would apply it.
+  // Once the rehearsal has ended, what a fiber of the test's still running asks is refused, and the call is
+  // interrupted: nothing would apply it. The check and the offer are one thunk, so that nothing is offered once the
+  // scenario's exit is taken.
   const submit = <A, RA>(step: Effect.Effect<A, never, RA>) =>
     Effect.flatMap(Effect.context<RA>(), (context) =>
-      Effect.flatMap(Deferred.make<unknown>(), (done) => {
-        undelivered.add(done)
-        return Effect.flatMap(Queue.offer(requests, { step: Effect.provideContext(step, context), done }), (taken) => {
-          if (taken) return Effect.succeed(done as Deferred.Deferred<A>)
+      Effect.flatMap(Deferred.make<unknown>(), (done) =>
+        Effect.suspend(() => {
+          undelivered.add(done)
+          if (!ended && Queue.offerUnsafe(requests, { step: Effect.provideContext(step, context), done })) {
+            return Effect.succeed(done as Deferred.Deferred<A>)
+          }
           undelivered.delete(done)
           return Effect.interrupt
-        })
-      }))
+        })))
   const ask = <A, RA>(step: Effect.Effect<A, never, RA>) => Effect.flatMap(submit(step), Deferred.await)
   // A message of a start that is no longer active (`onDropped`) reaches nothing of the program, as in the run: only a
   // message of `hearNext`'s can be one, since `hear` looks its start up in the loop.
@@ -503,6 +509,10 @@ export const rehearse = Effect.fnUntraced(function*<
     events: Effect.sync(() => now.events),
     ignored: Effect.sync(() => now.ignored),
   }
+  // A scenario that returned lets the loop finish what it was offered before, in order: a message once sent is applied
+  // whole. The queue gives its items in order, so the loop has done them all once it has done this one.
+  const finish = Effect.flatMap(Deferred.make<unknown>(), (done) =>
+    Effect.andThen(Queue.offer(requests, { step: Effect.void, done }), Deferred.await(done)))
   // However the rehearsal ends, it closes the queue, stops the loop and what `hearNext` started, as the end of the run
   // interrupts its fibers, and waits for them to release what they hold: only then does it read what they died of.
   const end = Effect.gen(function*() {
@@ -516,9 +526,20 @@ export const rehearse = Effect.fnUntraced(function*<
   // A defect of the program comes first, as the run keeps first what ended it, then what the scenario ended with,
   // but for the defects already among them, by their identity. A rehearsal that died checks nothing more: its
   // commands are the run's, which died with it.
+  let owed = ledger
   const result = yield* Effect.uninterruptibleMask((restore) =>
     // Suspended, so that a scenario that throws before it returns its effect still meets the end.
     Effect.exit(restore(Effect.suspend(() => scenario(rehearsal)))).pipe(
+      // The commands under way and those cancelled are read as the exit is taken, before anything of the end: what
+      // happens while the end waits changes nothing of them.
+      Effect.tap(() =>
+        Effect.sync(() => {
+          ended = true
+          owed = ledger
+        })
+      ),
+      // One that failed, or was interrupted, stops the loop at once: its result is the failure.
+      Effect.tap((exit) => Exit.isSuccess(exit) ? Effect.exit(finish) : Effect.void),
       Effect.tap(end),
       Effect.flatMap((exit) => {
         const dies = deaths()
@@ -530,7 +551,9 @@ export const rehearse = Effect.fnUntraced(function*<
       }),
     )
   )
-  const { cancelled, underWay, pending } = ledger
+  // Pending once the loop has finished: a command that a message it finished starts fails the rehearsal too.
+  const { cancelled, underWay } = owed
+  const { pending } = ledger
   if (cancelled.length > 0) {
     return yield* Effect.die(
       new Error(

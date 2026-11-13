@@ -77,6 +77,8 @@ version, and everything else, features included, the patch version.
 - `rehearse`'s `runAll` no longer fails with "No pending command matches" when another fiber runs the last one.
 - A release that dies with a defect already among those of the run is a defect of its own, not lost.
 - A scenario that throws before it returns its effect fails `drive` and `rehearse`, which then stop the run as they end.
+- `rehearse` fails on a command under way as the scenario ends, though it answers while the end releases what it holds.
+- `rehearse` applies what the test sent before its scenario returned, where it dropped what its loop had not taken.
 
 ## 0.7.1 (2026-10-28)
 

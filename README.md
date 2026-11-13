@@ -865,7 +865,9 @@ there with `applyAll`, or with `update` itself.
 
   It fails when `send` finds nothing to send on the model, when `update` rejects what it sends (a control the
   model shows and its own state rejects), and when a command is still pending or under way at the end, or its
-  `run` was interrupted before it answered: commands cannot be cancelled, and its answer would still arrive. It
+  `run` was interrupted before it answered: commands cannot be cancelled, and its answer would still arrive. A
+  command is under way at the end if it is as the scenario ends, and pending if it is once what the test sent before
+  is applied. It
   also fails, as the run dies, on a state whose subscriptions are a defect, which it reads on each new state, a key
   whose `Equal` throws against a key of the state before included, and on a command or a subscription that
   interrupts itself. A defect of the program fails it whichever fiber of the test's it reached, one that nobody
@@ -880,8 +882,9 @@ there with `applyAll`, or with `update` itself.
   `ignored`. Messages that arrive together, from fibers of the test's, are applied one at a time, as the run takes
   them: each waits for the state the one before left, the release of the subscriptions it stopped included, and
   `send` selects on the model of that state. A message once sent is applied whole, even if the fiber that sent it
-  is interrupted meanwhile. It starts from the program's `init`, or from the step given as `from`; a program with
-  flags needs either `from` or its `flags`.
+  is interrupted meanwhile, or the scenario returns: a rehearsal whose scenario returned applies what was sent
+  before, and one whose scenario failed or was interrupted does not. It starts from the program's `init`, or from
+  the step given as `from`; a program with flags needs either `from` or its `flags`.
 - **`drive`** sends what the frames show, through the run's dispatch, and fails on a wait longer than
   `patience` (2 seconds). Its time is real: a frame may be past by the time its message arrives. So, as when
   the program runs, a rejected message is ignored, and a scenario checks what it expects to see. A program with

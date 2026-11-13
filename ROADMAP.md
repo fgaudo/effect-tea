@@ -15,12 +15,12 @@ reports are the bodies of the commits of `claude/premise-review-6-engine-8ac990`
 **Next, the findings of `rehearse`**: the second and third items below.
 [`docs/rehearse-owned-effects.md`](docs/rehearse-owned-effects.md) is their design, accepted, and its "Plan" the
 work, five steps, each one commit that leaves the suite green and removes the marks and the items it closes; the
-first is done. Read `change-engine` first. The local branch `spike/rehearse-one-owner` (`db8309a`) shows the design
-working in `src/testing/rehearse.ts`, and is to be read, not merged: it keeps in maps of the shell what the plan puts
-in the ledger as transitions, each with its test, and its two tests (`deadlock.test.ts`, `finish.test.ts`) belong in
-`rehearse.test.ts`. The note's "Open questions" say which conditions still need a test, and name three questions
-that are the author's: ask each before the step it names, and do not choose. Delete the branch once the plan is
-done. The first and the fourth items are not part of it.
+first two are done. Read `change-engine` first. The local branch `spike/rehearse-one-owner` (`db8309a`) shows the
+design working in `src/testing/rehearse.ts`, and is to be read, not merged: it keeps in maps of the shell what the
+plan puts in the ledger as transitions, each with its test, and its test `deadlock.test.ts` belongs in
+`rehearse.test.ts` (`finish.test.ts` is there already). The note's "Open questions" say which conditions still need a
+test, and name two questions that are the author's: ask each before the step it names, and do not choose. Delete the
+branch once the plan is done. The first and the fourth items are not part of it.
 
 - **An interruption the program makes with the fiber id of the one its effect received ends in silence**:
   `Core.otherwiseDefect` takes an interruption for the run's by the id of the fiber that made it, an id the program
@@ -32,13 +32,10 @@ done. The first and the fourth items are not part of it.
   interrupted, as the run stops it, is a defect in the subscription", the same of `FiberSet` and of `FiberHandle`,
   and "a command that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the command",
   the same of a renderer and of a subscription.
-- **Something of the program's is still owed as a rehearsal ends, and its ledger does not see it**: the end stops the
-  loop and what `hearNext` started, not the calls of the fibers of the test's that the scenario does not join, and
-  reads the ledger once it has waited for every release. A command that answers meanwhile is neither under way nor
-  cancelled; a `run` made after the end calls the program's `runCommand`; a `send` offered and not yet taken is
-  dropped. The last is to be weighed first: the README says what a rehearsal fails on at its end only of commands.
-  `rehearse.test.ts`, "a command that answers while the end releases a subscription fails it, as one under way", "a
-  run made once the rehearsal has ended calls no runCommand", "the message is applied, or fails the rehearsal".
+- **A `run` made once a rehearsal has ended calls the program's `runCommand`**: the end stops the loop and what
+  `hearNext` started, not the calls of the fibers of the test's that the scenario does not join, and such a call is
+  interrupted only once `runCommand` has run. `rehearse.test.ts`, "a run made once the rehearsal has ended calls no
+  runCommand".
 - **A call of `rehearse` interrupted between what it took and the loop loses it**: `run` and `hearNext` take inside
   `restore`, in a child of `Effect.raceFirst`, and give the loop what they took only once the caller resumes, so
   `Effect.uninterruptibleMask` does not hold what `docs/premises.md` rests on it, and no test fails with

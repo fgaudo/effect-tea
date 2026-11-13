@@ -1312,9 +1312,9 @@ describe('rehearse, as a fiber of the test\'s runs a command while it ends', () 
   type Counted = 'Go' | 'Tick' | 'Answered'
 
   // The command is under way when the scenario returns, and answers while the end waits for the release of the
-  // subscription `hearNext` started: the loop is gone, so its answer is refused, and it is no longer under way when
-  // the ledger is read. In the run its answer would arrive.
-  test.failing('a command that answers while the end releases a subscription fails it, as one under way', async () => {
+  // subscription `hearNext` started: its answer is refused, and it is no longer under way once the end has waited.
+  // In the run its answer would arrive, so it is counted as under way as the scenario's exit is taken.
+  test('a command that answers while the end releases a subscription fails it, as one under way', async () => {
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const started = yield* Deferred.make<void>()
       const releasing = yield* Deferred.make<void>()
@@ -1477,11 +1477,32 @@ describe('rehearse, as a call is interrupted between what it took and the loop',
 })
 
 // Found by the sixth premise review of November 2026, of the form of a command that answers while the rehearsal
-// ends: the request is in the loop's queue when the scenario returns, and the end interrupts it.
+// ends: the request is in the loop's queue when the scenario returns, and the end interrupted it. A scenario that
+// returned lets the loop finish what it was offered before.
 describe('rehearse, as a fiber of the test\'s has sent a message when the scenario returns', () => {
   type Count = Readonly<{ count: number }>
 
-  test.failing('the message is applied, or fails the rehearsal', async () => {
+  // The commands pending are read once the loop has finished, not as the scenario's exit is taken.
+  test('a message sent as the scenario returns is applied, and the command it starts fails the rehearsal', async () => {
+    let applied = 0
+    const program: Program<{ state: Count; model: Count; message: 'Go'; command: 'Fetch' }> = {
+      init: { state: { count: 0 } },
+      update: () => ({ count }) => {
+        applied += 1
+        return { state: { count: count + 1 }, commands: ['Fetch'] }
+      },
+      runCommand: () => Effect.succeedNone,
+      makeModel: (state) => state,
+    }
+    const exit = await Effect.runPromiseExit(rehearse(
+      program,
+      (rehearsal) => Effect.forkChild(rehearsal.send(() => Opt.some('Go')), { startImmediately: true }),
+    ))
+    expect(applied).toBe(1)
+    expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain('Commands still pending')
+  })
+
+  test('the message is applied, or fails the rehearsal', async () => {
     let applied = 0
     const program: Program<{ state: Count; model: Count; message: 'Tick' }> = {
       init: { state: { count: 0 } },

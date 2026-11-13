@@ -1,6 +1,6 @@
 # A rehearsal that owns what the test starts
 
-**Status:** accepted, November 2026, and not done: nothing of the library has changed. It follows the sixth review
+**Status:** accepted, November 2026, and under way: steps 1 and 2 of the "Plan" are done. It follows the sixth review
 of the premises, whose findings in `rehearse` are open problems of [`ROADMAP.md`](../ROADMAP.md), three spikes on a
 copy of the repository at 0ff58b4, on Effect 4.1.4 and Bun 1.4.4, and a second reading of the first by a session
 that wrote none, which corrected it: "Alternatives" says how. The spikes are the three commits of the local branch
@@ -79,7 +79,10 @@ of the library is replaced, never mutated.
   too: the rehearsal fails either way.
 
 `run` takes its command at once, as today, and waits for no step of the loop: a test whose release waits for what a
-command gives ends, as it does today.
+command gives ends, as it does today. A release that never ends keeps the rehearsal from ending, as today, and as it
+keeps the run and `drive`: the loop waits for it in the step, where today the end waits for it once it has interrupted
+the step. The README says that a message waits for the release of the subscriptions it stopped, and says no more of
+it: nothing is added, so that no rule forbids a bound on that wait later.
 
 ## Plan
 
@@ -97,7 +100,9 @@ Each step leaves the suite green, and removes the `test.failing` marks and the i
    "rehearse's loop applies a step after the first defect"), with one for each condition below, and a test for each
    of the four no test holds. `contract.test.ts` gets the cases of the end of a tool, which it has none of.
    `docs/premises.md` loses what it rests on `uninterruptibleMask` for `run` and `hearNext`, and says what the two
-   rest on now; `docs/invariants.md` and the README's "Testing" follow.
+   rest on now; `docs/invariants.md` and the README's "Testing" follow. `docs/invariants.md` says that the end of a
+   rehearsal whose scenario returned waits for the loop to finish what it was offered, a release a step waits for
+   included, before it stops it: that step is never interrupted to end sooner.
 
 ## What it rests on
 
@@ -154,7 +159,7 @@ untouched and the seven tests of `rehearse.test.ts` without their mark.
 
 ## Open questions
 
-The first three are the author's to answer: whoever does the plan asks, before the step named, and does not choose.
+The first two are the author's to answer: whoever does the plan asks, before the step named, and does not choose.
 
 - **Three conditions fail only under the scheduler of the tests**, which serves the search alone, so no mutation may
   name those tests as its killers. Each is a region nothing may interrupt, resting on the documented premise of
@@ -165,9 +170,6 @@ The first three are the author's to answer: whoever does the plan asks, before t
   spike keeps them in maps it mutates, beside the counts the ledger already has (`waiting`, `asked`), which say
   part of the same. Ask before step 4, with the transitions proposed: the spike shows what `rehearse` must do, not
   the shape of its data.
-- **A release that never ends** keeps a rehearsal whose scenario returned from ending, where the loop waits for it
-  in a step. Today the end waits for the same release once it has interrupted the step, so a test that hangs today
-  hangs then. Ask before step 2 whether that is to be said anywhere.
 - **Five conditions fail nothing.** One has its test above. Three need one: that a `hearNext` that left starts no
   subscription, so that a later `hear` of its key is not refused, with a gate that keeps the loop in a release
   while it leaves; that a fiber the scenario did not join is offered nothing once it returned; that a scenario that

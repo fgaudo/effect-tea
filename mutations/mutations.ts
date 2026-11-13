@@ -683,4 +683,41 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: 'scenario(rehearsal)',
     killedBy: [['src/testing/rehearse.test.ts', 'what a hearNext it started holds is released']],
   },
+  {
+    name: 'rehearse reads the commands under way once the end has waited',
+    file: 'src/testing/rehearse.ts',
+    from: 'const { cancelled, underWay } = owed',
+    to: 'const { cancelled, underWay } = ledger',
+    killedBy: [
+      [
+        'src/testing/rehearse.test.ts',
+        'a command that answers while the end releases a subscription fails it, as one under way',
+      ],
+    ],
+  },
+  {
+    name: 'rehearse stops the loop at once after a scenario that returned',
+    file: 'src/testing/rehearse.ts',
+    from: '      Effect.tap((exit) => Exit.isSuccess(exit) ? Effect.exit(finish) : Effect.void),\n',
+    to: '',
+    killedBy: [
+      ['src/testing/rehearse.test.ts', 'the message is applied, or fails the rehearsal'],
+      [
+        'src/testing/rehearse.test.ts',
+        'a message sent as the scenario returns is applied, and the command it starts fails the rehearsal',
+      ],
+    ],
+  },
+  {
+    name: 'rehearse reads the commands pending as the scenario ends',
+    file: 'src/testing/rehearse.ts',
+    from: 'const { pending } = ledger',
+    to: 'const { pending } = owed',
+    killedBy: [
+      [
+        'src/testing/rehearse.test.ts',
+        'a message sent as the scenario returns is applied, and the command it starts fails the rehearsal',
+      ],
+    ],
+  },
 ]
