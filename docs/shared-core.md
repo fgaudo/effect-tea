@@ -85,6 +85,9 @@ What a core does not reach is said too. A defect of a release is recorded only o
 
 Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun run mutations` green, and is a commit.
 
+0. `interleaving.test.ts` leaves `bun run test` ahead of step 7, for a script of its own and a scheduled job of the
+   CI, so that no step meets a suite that fails on a seed drawn at random. No mutation names it among its killers.
+
 1. `src/core.ts` with the functions over `Cause` of `diesIn` and `makeDeaths`, tested on causes built by hand. It
    touches no shell's logic, only where the functions are: the most isolated step, which settles the module.
 2. `reconcile` and its tests; `simulate` on it (the smallest shell, already a fold). The mutation "simulate compares

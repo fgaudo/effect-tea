@@ -4,6 +4,19 @@ Open problems and possible improvements, found in a review of the project (Novem
 promise: each item is decided before it is done, against the rules of [`AGENTS.md`](AGENTS.md). Remove an item
 when it is done or rejected, with the reason in the commit.
 
+## Priority
+
+Decided, and done before the rest, since it rewrites what several open problems below would fix one by one.
+
+- **A core shared by the run and the testing tools** ([`docs/shared-core.md`](docs/shared-core.md)): the semantics of a
+  step written once, in pure transitions, which the run, `simulate` and `rehearse` perform as three shells. Its plan
+  goes in seven steps, each a commit with every check green, after a step 0 taken from the seventh:
+  `interleaving.test.ts` leaves `bun run test` for a script of its own and a job of the CI on a schedule, from a
+  random seed, so that the steps do not meet a suite that fails in about one run of three. It stays runnable by
+  hand, and no mutation of `mutations/mutations.ts` names it among its killers. The core's steps 5 and 6 answer
+  "`rehearse`'s `runAll` dies on a command another call took" and "the renderer may start after the first defect",
+  and step 7 the interleavings' counterexamples, each by a test of the core, a gate or a primitive.
+
 ## Open problems
 
 An audit of November 2026 of every check of what another fiber may change against the act it guards (the rule
@@ -113,8 +126,6 @@ that fails without it.
 
 ## Ideas, to be decided
 
-- **A core shared by the run and the testing tools** ([`docs/shared-core.md`](docs/shared-core.md)): the semantics of a
-  step written once, in pure transitions, which the run, `simulate` and `rehearse` perform as three shells.
 - **Bridges as packages of their own** (`@fgaudo/effect-tea-snabbdom`, `@fgaudo/effect-tea-react`): the library
   stays free of renderers, and users stop copying `examples/snabbdom.ts` and `examples/react.ts`.
 - **A devtools bridge over `onApplied`** (e.g. Redux DevTools), with time travel through `init: { state }` and
