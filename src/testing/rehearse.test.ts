@@ -1043,9 +1043,12 @@ describe('rehearse, while a fiber of the test\'s waits for what nothing will sen
   // scenario would wait for ever.
   test('a hearNext still waiting in a fiber the scenario did not join fails as the rehearsal ends', async () => {
     const outcome = await Effect.runPromise(Effect.gen(function*() {
-      const call = yield* rehearse(waiting(Channel.never), Effect.fnUntraced(function*(rehearsal) {
+      const started = yield* Deferred.make<void>()
+      const silent = Channel.unwrap(Effect.as(Deferred.succeed(started, undefined), Channel.never))
+      const call = yield* rehearse(waiting(silent), Effect.fnUntraced(function*(rehearsal) {
         const call = yield* Effect.forkDetach(rehearsal.hearNext('k'))
-        yield* Effect.sleep('10 millis')
+        // Started by the call, which waits on it from then on.
+        yield* Deferred.await(started)
         return call
       }))
       return yield* Effect.timeoutOption(Fiber.await(call), '300 millis')

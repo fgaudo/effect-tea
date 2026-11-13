@@ -3,6 +3,7 @@ import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
+import * as Opt from 'effect/Option'
 import * as Scope from 'effect/Scope'
 import * as Loop from './loop.ts'
 
@@ -71,7 +72,7 @@ describe('the loop of rehearse', () => {
         yield* loop.submit(Deferred.await(gate), counted)
         const before = offered
         loop.end()
-        const refused = yield* Effect.exit(loop.submit(step, counted))
+        const refused = yield* Effect.timeoutOption(Effect.exit(loop.submit(step, counted)), '100 millis')
         const waiting = yield* Effect.forkChild(loop.submit(step, { ...counted, quiet: true }))
         yield* Effect.sleep('10 millis')
         const quiet = waiting.pollUnsafe()
@@ -82,7 +83,7 @@ describe('the loop of rehearse', () => {
       })
     ))
     expect(before).toBe(1)
-    expect(Exit.hasInterrupts(refused)).toBe(true)
+    expect(Opt.isSome(refused) && Exit.hasInterrupts(refused.value)).toBe(true)
     expect(quiet).toBeUndefined()
     expect(offered).toBe(1)
     expect(ran).toBe(false)
