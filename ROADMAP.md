@@ -24,14 +24,6 @@ where Effect 4.1.4 resumes it at once on the stack of the fiber that completes i
 AGENTS.md, since that inline resumption is read only in the source, unless it is added as a premise with a test
 that fails without it.
 
-- **A check of the engine that no test can hold, to keep or remove**, found as `mutations/mutations.ts` was
-  written: the start of a subscription's fiber after the first defect (`dead() ? Effect.void : runSubscription(…)` in
-  `reconcile`). The window it narrows is one the README promises nothing about, so it has no mutation. Under
-  `prioritizedSchedules` (2,000 seeds), three subscriptions started by the step whose command dies run their
-  channel's code after the defect in 59 runs at depth 3 and 127 at depth 4 with the check, 65 and 133 without: the
-  scheduler yields between the check and the channel's first step, as AGENTS.md says. Only the interleavings, under a
-  seed drawn at random, fail without it. Kept, it narrows a window at the cost of a check; removed, AGENTS.md's "one
-  thunk" names the start of a subscription's fiber among what is checked, and changes with it.
 - **`rehearse`'s loop checks the register before each step** (`recorded(deadOr(step))`), which hides the check of
   `Core.arrive` from every order but a scheduled one, as the engine's loop did: the check is held by `core.test.ts`,
   on `arrive` alone, and nothing holds that `rehearse` calls `update` through it. Unlike the engine's, it also keeps `hearNext` from starting a

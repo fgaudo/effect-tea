@@ -137,8 +137,8 @@ is how they are kept, and what a change must not undo:
   `run.ts` for the renderer, and nowhere else: a check of the loop's own would
   hide one left apart from its call from every test but a scheduled one), where no other fiber can run, since the scheduler may yield at any other operation, and
   a step may wait for a release or an option while another fiber dies. A subscription is a `Channel`, which the run
-  does not call: the start of its fiber is checked too, but its first step may still come after the defect, under the
-  scheduler of the tests with the check as without it. What an effect of the program does once started is its own,
+  does not call: `reconcile` forks none once a defect is recorded, and one forked before may take its first step after
+  the defect, which no check in its fiber could prevent, as the scheduler may yield before that step. What an effect of the program does once started is its own,
   until the end of the run interrupts it: no check can come between two of its operations. So is what the renderer
   reads: a frame's model is made in the renderer's own code, as it reads it, and `makeModel` is pure, so the run checks
   nothing there, and a frame read after the defect still makes its model, as the README says. Never

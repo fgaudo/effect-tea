@@ -274,13 +274,13 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   )
   const deaths = given ?? (yield* makeDeaths(() => true))
   const { recorded, died, report, dead } = deaths
-  // A run that died applies no message, and starts no command and no subscription, as nothing happens in a run that
-  // died, while whoever runs it stops it: the renderer, which it stops first, may take a while to release what it
-  // holds. Each is checked in the thunk that calls the program, `update` (`Core.arrive`) or `runCommand` (`alive`), or
-  // that starts the fiber of a subscription, where no other fiber can run: the scheduler may yield at any other
-  // operation. The loop checks nothing of its own, which would hide a check left apart from its call from any test. A
-  // step whose `update` was called before the death goes on, as it may wait for a release or an option; what the
-  // program's effects do once started is theirs, until the end of the run interrupts them.
+  // A run that died applies no message, and starts no command, as nothing happens in a run that died, while whoever
+  // runs it stops it: the renderer, which it stops first, may take a while to release what it holds. Each is checked in
+  // the thunk that calls the program, `update` (`Core.arrive`) or `runCommand` (`alive`), where no other fiber can run:
+  // the scheduler may yield at any other operation. The loop checks nothing of its own, which would hide a check left
+  // apart from its call from any test. A step whose `update` was called before the death goes on, as it may wait for a
+  // release or an option, and forks no subscription once a death is recorded; what the program's effects do once
+  // started, a subscription forked before the death included, is theirs, until the end of the run interrupts them.
   // The loop and the commands.
   const fibers = yield* FiberSet.make<unknown, never>()
   // Kept by their start, never by their key: `FiberMap` compares its keys, in a fiber's observer too, where
@@ -350,13 +350,9 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       if (dead()) break
       const send = enqueue({ _tag: 'Subscription', key, generation })
       yield* log('Subscription started', key)
-      // Checked again as its fiber starts, since another fiber may die before a forked one first runs.
-      yield* Effect.suspend(() =>
-        dead() ? Effect.void : runSubscription(subscription, send).pipe(
-          scopedIn(deaths, 'subscription', () => ({ key })),
-          Effect.flatMap((last) => log('Subscription ended', key).pipe(Effect.andThen(send(last)))),
-        )
-      ).pipe(
+      yield* runSubscription(subscription, send).pipe(
+        scopedIn(deaths, 'subscription', () => ({ key })),
+        Effect.flatMap((last) => log('Subscription ended', key).pipe(Effect.andThen(send(last)))),
         Effect.provideContext(context),
         recorded,
         FiberMap.run(subscriptionFibers, generation),
