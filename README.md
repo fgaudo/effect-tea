@@ -665,8 +665,9 @@ what it wraps around its own code (`Effect.ensuring`, `Effect.onExit`, an `Effec
 effect, runs before it ends, and may still catch the defect. From the defect on, the run applies no message, and so
 starts no command, while it releases what it holds: it calls neither `update` nor `runCommand`. A message whose
 `update` it called before goes on to its frame, and what a command started before does, or a subscription that state
-lists, is the program's, until the run interrupts it. A defect met meanwhile joins the cause, which keeps the defects
-in the order they happened. The run never recovers from it,
+lists, is the program's, until the run interrupts it. So is what the renderer does: a frame it reads meanwhile still
+makes its model, as `makeModel` is pure, and calling it changes nothing of the program. A defect met meanwhile joins
+the cause, which keeps the defects in the order they happened. The run never recovers from it,
 and does not log it: reporting it, and what the user sees next, are the app's, around the run. The screen keeps the
 last frame: show a crash screen, or run the program again. In a browser, start it with `Effect.runFork`, which
 reports nothing itself. An interruption of the fiber it returns, on `pagehide` for one, ends the run too, and is no

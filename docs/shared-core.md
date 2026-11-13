@@ -1,6 +1,6 @@
 # A core shared by the run and the testing tools
 
-**Status:** decided, November 2026; steps 0 to 5 done. It follows effect-tea-persistent's decision 0292
+**Status:** decided, November 2026; steps 0 to 6 done. It follows effect-tea-persistent's decision 0292
 (`docs/decisions/0292-…` there), which moves that runtime's state into a pure core, and a reading of it by Fable 5.2
 for this library.
 
@@ -47,12 +47,12 @@ What a core does not reach is said too. A defect of a release is recorded only o
 - **The start of a program is a transition too.** `init` calls `startOf(init, flags)` under `diesIn('init')`, and
   is followed by the first `reconcile`: the subscriptions of the first state start before its commands, one rule
   where `run.ts` and `rehearse` each start on their own today.
-- **So is the model of a state.** `model` calls `makeModel` under `diesIn('render')`, unless the run has died, as
-  `arrive` calls `update`. `rehearse` checks this today (`modelOf`) and the run does not: its renderer makes the
-  model lazily (`lazyFrame` in `run.ts`), with no check. The renderer's frames make their model through it, which
-  also answers the ROADMAP's "the renderer may start after the first defect" for what it calls of the program. The
-  README promises the check only of `update` and `runCommand`: it says it of `makeModel` too, or says that it does
-  not hold there, before this step is taken.
+- **The model of a state is the shells'.** `makeModel` is pure, and calling it after a defect changes nothing of the
+  program, so the core has no `model`: it would be `makeModel` under a name. When the model is made, and what a read
+  after a death gives, is policy: the run's frames make it lazily as the renderer reads them (`lazyFrame` in
+  `run.ts`), under `'render'`, with no check of the register, as the README says; `rehearse`'s `model` fails once the
+  run has died (`modelOf`), as its other calls do, the test being the renderer. Whether the renderer itself may start
+  after a defect is the ROADMAP's, apart: it is code with effects, not `makeModel`.
 - **The end of a subscription is an event of the core.** `ended` takes the start that sent its last message: its key
   stays among the active ones, and does not start again until it goes away and comes back. The engine keeps this
   today by keeping nothing, `rehearse` by its `ended` of each start, which `hear` and `hearNext` fail on. In the core
@@ -125,7 +125,10 @@ Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun ru
    counted. An opened start whose key went away is kept while calls wait on it, so that a last message it sent before
    is still told to them, and forgotten when the last of them leaves.
 6. `model`, once the README says whether the check holds of `makeModel`: the renderer's frames and `rehearse`'s
-   `model` make it through the core, with a changelog entry if the run's behaviour changes.
+   `model` make it through the core, with a changelog entry if the run's behaviour changes. Done, without a `model`:
+   the README says that a frame read after a defect still makes its model, `makeModel` being pure, and the model stays
+   the shells' (see "The model of a state is the shells'"), held by two tests of `run.test.ts` on a frame read as the
+   renderer releases. Nothing a consumer sees changes, so no changelog entry, and no check, so no mutation.
 7. The testing policy of decision 0292: a test under `prioritizedSchedules` goes once a deterministic test kills its
    mutation; `interleaving.test.ts` leaves `bun run test` for a search job of the CI, on a schedule, from a random
    seed, and an order it finds is fixed by a test of the core, a gate (program code held by a `Deferred`) or a
@@ -159,9 +162,6 @@ a change of either stops and asks.
   data written by its own pure functions, and a step only reads it.
 
 ## Open questions
-
-- Whether the README's "from the defect on, the run calls neither `update` nor `runCommand`" grows to `makeModel`
-  (step 6), and what the run then gives a renderer that reads a model after a death.
 
 - Whether `drive`, which runs the run itself, needs anything of it: likely not.
 - How AGENTS.md's sentence "the testing tools behave like the engine" is said once the core holds it by its form.

@@ -1035,6 +1035,51 @@ describe('the end of the run', () => {
     expect(wheres(exit)).toEqual(['update', 'render'])
   })
 
+  // The check of the register is the run's own, for `update` and `runCommand`: a frame read once the run has died,
+  // in what the renderer releases, still makes its model, of the state it was published with.
+  const readsAsItReleases = (program: Counter, read: (model: Model) => void) =>
+    run({ ...program, update: () => () => defect('update') }, (frames) =>
+      Stream.runHead(frames).pipe(
+        Effect.flatMap(Opt.match({
+          onNone: () => Effect.never,
+          // The frame's model is first read in the release, once `update` has died.
+          onSome: (frame) =>
+            Effect.addFinalizer(() => Effect.sync(() => read(frame.model))).pipe(
+              Effect.andThen(frame.dispatch('Increment')),
+              Effect.andThen(Effect.never),
+            ),
+        })),
+      ))
+
+  test('a frame the renderer reads as a run that died releases it still makes its model', async () => {
+    const read: Array<number> = []
+    let made = 0
+    const exit = await Effect.runPromiseExit(readsAsItReleases(
+      {
+        ...counter,
+        makeModel: (state) => {
+          made++
+          return counter.makeModel(state)
+        },
+      },
+      ({ count }) => read.push(count),
+    ))
+    expect([wheres(exit), made, read]).toEqual([['update'], 1, [0]])
+  })
+
+  test('a makeModel that dies as a run that died releases the renderer is the second defect, in render', async () => {
+    const exit = await Effect.runPromiseExit(readsAsItReleases(
+      {
+        ...counter,
+        makeModel: () => {
+          throw new Error('boom')
+        },
+      },
+      () => undefined,
+    ))
+    expect(wheres(exit)).toEqual(['update', 'render'])
+  })
+
   // A fiber that dies as the renderer releases what it holds, a step later than the release.
   const diesAfterTheRenderer = (renderEnded: Deferred.Deferred<void>) =>
     Deferred.await(renderEnded).pipe(Effect.andThen(Effect.yieldNow), Effect.andThen(Effect.die('late')))

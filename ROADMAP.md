@@ -14,9 +14,9 @@ Decided, and done before the rest, since it rewrites what several open problems 
   (`bun run interleavings`, and a daily job of the CI), so that the steps do not meet a suite that fails in about
   one run of three. Steps 1 to 4, the functions over `Cause` of `diesIn` and `makeDeaths`, `reconcile` with `simulate`
   on it, `init` and `arrive` with the engine on them, `rehearse` on the core, with `ended`, and `rehearse`'s own
-  bookkeeping as a pure module (`src/testing/ledger.ts`), which fixed its `runAll`, are done; next is step 6, `model`.
-  It answers "the renderer may start after the first defect", and step 7 the interleavings' counterexamples, each by a
-  test of the core, a gate or a primitive.
+  bookkeeping as a pure module (`src/testing/ledger.ts`), which fixed its `runAll`, are done, and so is step 6, which
+  left the model to the shells: the README says a frame read after a defect still makes it. Next is step 7, which
+  answers the interleavings' counterexamples, each by a test of the core, a gate or a primitive.
 
 ## Open problems
 
@@ -28,8 +28,8 @@ of `run` and `runAll` (`Ledger.take`, which finds the command or none in one thu
 `started`, and `rehearse`'s `now` and `active`, are read and written by one fiber only, the loop, but for the end of a
 start, which `hearNext` marks in the thunk where it counts the calls still waiting; `rehearse`'s ledger is written by
 every fiber of the test's, one transition per thunk, so no window opens on them. Beyond any check: the first step of
-a subscription, or of an effect already started, and a `makeModel` the renderer reads as it releases, which the README
-promises nothing about.
+a subscription, or of an effect already started, which the README promises nothing about, and a `makeModel` the
+renderer reads as it releases, which the README says still makes its model.
 
 A lead below is checked under `test/scheduled.ts` in both of its modes of resumption. A failure under `'inline'`
 is an order Effect's own scheduler gives, but for where it preempts, and so reachable when the program runs. One

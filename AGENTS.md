@@ -137,7 +137,9 @@ is how they are kept, and what a change must not undo:
   a step may wait for a release or an option while another fiber dies. A subscription is a `Channel`, which the run
   does not call: the start of its fiber is checked too, but its first step may still come after the defect, under the
   scheduler of the tests with the check as without it. What an effect of the program does once started is its own,
-  until the end of the run interrupts it: no check can come between two of its operations. Never
+  until the end of the run interrupts it: no check can come between two of its operations. So is what the renderer
+  reads: a frame's model is made in the renderer's own code, as it reads it, and `makeModel` is pure, so the run checks
+  nothing there, and a frame read after the defect still makes its model, as the README says. Never
   report a defect only through a `join`, or through a fiber that races: once nothing awaits it, or the race is lost, the
   defect is lost with it, and `FiberSet` and `FiberMap` discard the exits of the fibers they interrupt as they close.
   The renderer is one of them, interrupted and awaited first however the run ends (`runWith` in `run.ts`). `drive`
