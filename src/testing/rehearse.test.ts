@@ -825,24 +825,33 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
 
   // Nothing happens in a run that died: what the test asks the program for after a defect fails with it, though the
   // defect reached none of its calls, and what it reads of the state stays readable. The loop takes no step: a `hear`
-  // under a key nothing listens under fails with the defect, never with the key it did not look up.
+  // under a key nothing listens under fails with the defect, never with the key it did not look up. The `hearNext`
+  // that starts the subscription leaves once it has started, and before it dies: one that left before the loop took
+  // its step would start nothing.
   test('after a defect of the program, what the test asks for fails with it, and the state is still read', async () => {
     let after: Opt.Option<
       Readonly<{ sent: Exit.Exit<void>; heard: Exit.Exit<void>; model: Exit.Exit<Gated>; count: number }>
     > = Opt.none()
-    const exit = await Effect.runPromiseExit(rehearse(
-      counting(Effect.sleep('10 millis')),
-      Effect.fnUntraced(function*(rehearsal) {
-        yield* Effect.timeoutOption(rehearsal.hearNext('k'), '1 millis')
-        yield* Effect.sleep('30 millis')
-        after = Opt.some({
-          sent: yield* Effect.exit(rehearsal.send(() => Opt.some('Tick'))),
-          heard: yield* Effect.exit(rehearsal.hear('nobody', 'Tick')),
-          model: yield* Effect.exit(rehearsal.model),
-          count: (yield* rehearsal.state).count,
-        })
-      }),
-    ))
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const gate = yield* Deferred.make<void>()
+      return yield* rehearse(
+        counting(Effect.andThen(Deferred.succeed(started, undefined), Deferred.await(gate))),
+        Effect.fnUntraced(function*(rehearsal) {
+          const hearing = yield* Effect.forkChild(rehearsal.hearNext('k'))
+          yield* Deferred.await(started)
+          yield* Fiber.interrupt(hearing)
+          yield* Deferred.succeed(gate, undefined)
+          yield* Effect.sleep('30 millis')
+          after = Opt.some({
+            sent: yield* Effect.exit(rehearsal.send(() => Opt.some('Tick'))),
+            heard: yield* Effect.exit(rehearsal.hear('nobody', 'Tick')),
+            model: yield* Effect.exit(rehearsal.model),
+            count: (yield* rehearsal.state).count,
+          })
+        }),
+      )
+    }))
     const [died] = defectsOf(exit)
     expect(died).toBeInstanceOf(ProgramDefect)
     expect(
