@@ -26,14 +26,26 @@ that fails without it.
   run applies no message and starts no command" (`interleaving.test.ts`) fails, every time, under fast-check's
   `{ seed: -1159550533, path: '842:3:3:3:30:29:33:40:38:38:40:40:38:38:46:38:42:51:52:46:46:46:46:56:46:49:53:54:53:59:57:57:57:57:57:57:57:58:57:57:57:57:58:57:58:57:57:57:57:57:57:57:57:57:57:57:96:98:103:103:104:104:133' }`,
   passed to that test's `property` (whose options then take a `path`): the subscription of row 2, which has ended by
-  itself, releases slowly and dies there, and command `1.0` starts after the death. The seed is drawn at random,
-  and the whole suite met it, or another failure of the interleavings, in about one run of three in November 2026,
-  never the file alone in four: "the subscriptions one message stops are released together" and "the defects of the
-  cause are those that happened" each failed once too, their counterexamples not kept. The lead is the window
-  between the release's defect and its record (`scopedIn` in `engine.ts`): the operations of `diesIn` and of the
-  scope's close come between, and `dead()` in `runCommand` sees no death there. The fix starts from the
-  counterexample, names the form, and looks for it wherever `scopedIn` and `recorded` wrap a fiber, `rehearse`'s
-  included.
+  itself, releases slowly and dies there, and command `1.0` starts after the death. The lead is the window between
+  the release's defect and its record (`scopedIn` in `engine.ts`): the operations of `diesIn` and of the scope's
+  close come between, and `dead()` in `runCommand` sees no death there. The fix starts from the counterexample,
+  names the form, and looks for it wherever `scopedIn` and `recorded` wrap a fiber, `rehearse`'s included.
+- **The interleavings fail in about one run of three** (November 2026; `interleaving.test.ts` alone, 3 of 10 runs),
+  each on a seed drawn at random, so `bun run test` too. The counterexamples met, each the `seed` and `path` to pass to
+  the test's `property` (whose options then take a `path`), and failing every time with them; fast-check names the
+  scenario but not the assertion, which a run with them prints:
+  - "From the first defect on, the run applies no message and starts no command": the one above, and
+    `{ seed: 1253238301, path: '1008:0:1:5:10:14:14:18:19:38:28:34:36:32:41:32:34:32:32:32:37:39:39:40:39:42:43' }`,
+    a subscription that ends, releases slowly and dies there too (`endings: ['ends']`, `releases: ['slow']`).
+  - "The defects of the cause are those that happened, self-interruptions too, each where, in order":
+    `{ seed: 2065983806, path: '44:0:0:9:8:8:3:0:5:9:13:19:19:3:0:1:3:3:0:3:4:9:7:7:34:30:33:30:0:35:32:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:7' }`,
+    a subscription and a command that die, and a renderer that dies joining a fiber (`rendererDies: 'joins'`).
+  - "The subscriptions one message stops are released together, before the next message and any start":
+    `{ seed: -1243041135, path: '46:0:0:6:1:2:2:6:4:7:10:12:37:23:24:16:5:0:1:2:4:17:19:24:18:18:18:22:22:27:27:1:1:29:28:28:28:28:28:28:28:28:28:28:28:28:28:29:18:18:19:35:45:18:36:0:30:1:1:2:4:4:29:30:36:24:23' }`,
+    with no defect: a slow release, and a subscription that stays (`endings: ['stays']`).
+
+  Each is a finding until a fix, or a reading of the assertion, says otherwise: the last two may share the first's
+  form or have their own, and the last, with no defect, may be a scheduling the property does not allow for.
 - **`rehearse`'s `runAll` dies on a command another call took** (reproduced). It checks `pending.length` in one
   thunk (`runAll` in `rehearse.ts`) and takes the command in another, `run(() => true)`'s, and the scheduler may yield
   in between: a `run` of the test's that takes the last command there leaves `runAll` dying with "No pending command
