@@ -202,6 +202,9 @@ version, and everything else, features included, the patch version.
   pending command at the same time (a `run` alongside it): it counted the pending commands, then took one, and the
   scheduler may yield in between. It now takes the oldest pending command, or finds none and ends, in one step, so it
   runs the pending commands until none is left, as "Testing" in the README says.
+- A release that dies with a defect already among those of the run, one that a scenario of `rehearse` caught from a
+  call and handed to the program, is a defect of its own, in the cause after the first: the defect was taken for the
+  one already there, and lost.
 
 ## 0.7.1 (2026-10-28)
 

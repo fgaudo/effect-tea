@@ -109,10 +109,44 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'scopedIn wraps again what it wrapped',
+    file: 'src/engine.ts',
+    from: '(defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),',
+    to: '() => false,',
+    killedBy: [
+      ['src/run.test.ts', 'every defect of the cause is kept, each with where it happened'],
+      ['src/run.test.ts', 'after the command died, is a second defect of the command, after the first'],
+      [
+        'src/run.test.ts',
+        'a command that dies under a release of its own dies once it has released, applying messages meanwhile',
+      ],
+      [
+        'src/testing/rehearse.test.ts',
+        'a run whose command dies, then dies again as it slowly releases, fails with both',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'in the run, a defect of what a stopped subscription releases is all the cause holds',
+      ],
+    ],
+  },
+  {
+    name: 'scopedIn tells what it wrapped by the register',
+    file: 'src/engine.ts',
+    from: '(defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),',
+    to: 'deaths.has,',
+    killedBy: [
+      [
+        'src/testing/rehearse.test.ts',
+        'a release that dies with a defect already recorded elsewhere fails it with a second one',
+      ],
+    ],
+  },
+  {
     name: 'a defect is recorded after the release of its scope',
     file: 'src/engine.ts',
-    from: 'Effect.scoped(self.pipe(diesIn(where, details), deaths.recorded))',
-    to: 'Effect.scoped(self)',
+    from: '        deaths.recorded,\n      )).pipe(\n',
+    to: '      )).pipe(\n',
     killedBy: [
       ['src/run.test.ts', 'a renderer that dies before a command is the first defect of the cause'],
       [

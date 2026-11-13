@@ -341,7 +341,8 @@ Each was spiked, but for the last two.
 ## Open questions
 
 Answered with step 8: `rehearse` stays as it is, since nothing found needs it to change, and the engine keeps a stop
-of its own in its end, which the tests of `Engine.make` reach. Still open:
+of its own in its end, which the tests of `Engine.make` reach. Answered since: `scopedIn` tells what its own effect
+died of by what its fiber kept of it, not by the register, which lost the defect of a release that died with one
+another fiber had recorded, handed to the program by a scenario of `rehearse`'s. Still open:
 
-- Whether `scopedIn` should tell the defects its own fiber wrapped by a set of its own, rather than by the register.
 - Whether step 2 was a change a consumer can notice, and so has a changelog entry.

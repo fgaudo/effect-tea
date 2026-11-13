@@ -1148,6 +1148,44 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
     ))
     expect(defectsOf(exit)).toEqual(['first', 'release'])
   })
+
+  // The scenario catches the defect `run` fails with and hands it to the program, whose other command, interrupted
+  // as the rehearsal dies, dies with that very defect as it releases: its own, a second one, though the same object
+  // is already among the defects.
+  test('a release that dies with a defect already recorded elsewhere fails it with a second one', async () => {
+    let caught: unknown
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const handed = yield* Deferred.make<void>()
+      const program: Program<{
+        state: Still
+        model: Still
+        message: 'Done'
+        command: 'Held' | 'Dies'
+        services: Scope.Scope
+      }> = {
+        init: { state: { still: true }, commands: ['Held', 'Dies'] },
+        update: () => (state) => ({ state }),
+        runCommand: (command) =>
+          command === 'Held'
+            ? Effect.addFinalizer(() =>
+              Deferred.await(handed).pipe(Effect.andThen(Effect.suspend(() => Effect.die(caught))))
+            ).pipe(Effect.andThen(Effect.never))
+            : Effect.die('first'),
+        makeModel: (state) => state,
+      }
+      return yield* rehearse(program, Effect.fnUntraced(function*(rehearsal) {
+        yield* Effect.forkChild(rehearsal.run((command) => command === 'Held'))
+        yield* Effect.sleep('10 millis')
+        const failed = yield* Effect.exit(rehearsal.run((command) => command === 'Dies'))
+        caught = Exit.isFailure(failed)
+          ? failed.cause.reasons.find(Cause.isDieReason)?.defect
+          : undefined
+        yield* Deferred.succeed(handed, undefined)
+      }))
+    }))
+    expect(caught).toBeInstanceOf(ProgramDefect)
+    expect(defectsOf(exit)).toEqual(['first', caught])
+  })
 })
 
 describe('rehearse after the first defect', () => {

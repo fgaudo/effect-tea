@@ -128,7 +128,9 @@ is how they are kept, and what a change must not undo:
   program's defects): the engine's, the renderer, and the run's own as it starts the engine, as they end, and one with
   a scope of its own as it dies too, before the scope releases what it holds (`scopedIn`), a subscription's channel and
   the scopes of its own included (`runSubscription`), so that a defect is in the order it happened, though its release
-  lets another fiber die first. Each defect recorded is reported once, in that
+  lets another fiber die first; what the release dies of is wrapped apart, told from what the fiber died of by what
+  the fiber kept of it, never by the register, where a defect another fiber recorded may be the very one a release
+  dies with. Each defect recorded is reported once, in that
   order: by the run as soon as one dies, and by the end of the run, which stops the loop first and waits for it
   (`stop` in `engine.ts`), so that what is sent meanwhile is not applied and nothing forks a fiber while it reads them,
   then interrupts its other fibers itself, waits for them
@@ -255,8 +257,9 @@ after the list says. A change that rests on a new premise adds it here, with wha
   included, merging no causes there: "a defect of what a subscription releases fails it, in a fiber of the test's
   that nobody joins", "a defect of what a command the scenario interrupts releases fails it, alone"
   (`rehearse.test.ts`), "rehearse fails, as the run dies, on a command that dies in a fiber nobody joins"
-  (`contract.test.ts`). That the cleanup runs, and that the causes are merged, is documented; their order is read
-  only in the source.
+  (`contract.test.ts`); and how `scopedIn` keeps what its own effect died of, to wrap apart what the release dies
+  of: "a release that dies with a defect already recorded elsewhere fails it with a second one" (`rehearse.test.ts`).
+  That the cleanup runs, and that the causes are merged, is documented; their order is read only in the source.
 - **A fiber interrupted while interruptible runs no failure handler**, which is how `diesIn` tells an interruption
   by the run from one the program makes: "a run interrupted by whoever runs it is no defect", "a subscription
   stopped inside an uninterruptible region is no defect" (`run.test.ts`); and beside a defect of its release, which is
