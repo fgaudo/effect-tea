@@ -108,11 +108,12 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   state" (`compose.test.ts`), under a collection the test asks for (`test/gc.ts`), on Bun and on Node.
 - **A `Queue` gives its items in the order they were offered, and a fiber that awaits a `Deferred` is interrupted
   alone, never the fiber that completes it**, which is how `rehearse` applies one message at a time, as the run's
-  loop takes them, the fibers of the test's offering a step to one loop of its own and awaiting its result, and how
-  an interrupted caller never splits a step: "two messages that arrive together, one stopping a subscription, are
-  both applied", "a command run while a message waits for a release leaves pending once", "send selects on the model
-  of the state its message is applied to", "a send interrupted while its message stops a subscription leaves the
-  state that stopped it" (`rehearse.test.ts`). Documented.
+  loop takes them, the fibers of the test's offering a step to one loop of its own (`loop.ts`) and awaiting its
+  result, and how an interrupted caller never splits a step: "two messages that arrive together, one stopping a
+  subscription, are both applied", "a command run while a message waits for a release leaves pending once", "send
+  selects on the model of the state its message is applied to", "a send interrupted while its message stops a
+  subscription leaves the state that stopped it" (`rehearse.test.ts`), "runs its steps one at a time, in the order
+  they were offered", "does a step whole though whoever asked for it is interrupted" (`loop.test.ts`). Documented.
 - **What `Effect.uninterruptibleMask` runs outside `restore` cannot be interrupted**, which is how `drive` stops and
   awaits its run when whoever runs it interrupts it: "drive interrupted by whoever runs it" (`drive.test.ts`); and how
   the end of `rehearse` takes the scenario's exit however it ends, an interruption by whoever runs it included, and

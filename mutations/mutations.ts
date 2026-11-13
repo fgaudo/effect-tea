@@ -541,8 +541,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'rehearse runs a command after the first defect',
     file: 'src/testing/rehearse.ts',
-    from: '        if (dead()) return deadOr(Effect.never)\n        if (ended) return Effect.interrupt\n',
-    to: '        if (ended) return Effect.interrupt\n',
+    from: '        if (dead()) return deadOr(Effect.never)\n        if (loop.ended()) return Effect.interrupt\n',
+    to: '        if (loop.ended()) return Effect.interrupt\n',
     killedBy: [
       ['src/testing/rehearse.test.ts', 'run calls no runCommand once a command has died'],
     ],
@@ -550,7 +550,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'rehearse runs a command once it has ended',
     file: 'src/testing/rehearse.ts',
-    from: '        if (ended) return Effect.interrupt\n',
+    from: '        if (loop.ended()) return Effect.interrupt\n',
     to: '',
     killedBy: [
       ['src/testing/rehearse.test.ts', 'a run made once the rehearsal has ended calls no runCommand'],
@@ -653,18 +653,58 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: 'rehearse offers the loop a step once it has ended',
-    file: 'src/testing/rehearse.ts',
+    file: 'src/testing/loop.ts',
     from: 'if (!ended && Queue.offerUnsafe(',
     to: 'if (Queue.offerUnsafe(',
     killedBy: [
       ['src/testing/rehearse.test.ts', 'a fiber the scenario did not join is offered nothing once it returned'],
+      [
+        'src/testing/loop.test.ts',
+        'is offered nothing once its end is marked: the call is interrupted, or waits when quiet',
+      ],
+    ],
+  },
+  {
+    name: "rehearse's loop interrupts a quiet call refused once it has ended",
+    file: 'src/testing/loop.ts',
+    from: 'return quiet ? Effect.never : Effect.interrupt',
+    to: 'return Effect.interrupt',
+    killedBy: [
+      [
+        'src/testing/loop.test.ts',
+        'is offered nothing once its end is marked: the call is interrupted, or waits when quiet',
+      ],
+    ],
+  },
+  {
+    name: "rehearse's loop finishes before it has done what it was offered",
+    file: 'src/testing/loop.ts',
+    from: 'Effect.andThen(Queue.offer(requests, { step: Effect.void, done }), Deferred.await(done))',
+    to: 'Effect.void',
+    killedBy: [
+      ['src/testing/loop.test.ts', 'finishes once it has done what it was offered before'],
+      ['src/testing/rehearse.test.ts', 'the message is applied, or fails the rehearsal'],
+      [
+        'src/testing/rehearse.test.ts',
+        'a message sent as the scenario returns is applied, and the command it starts fails the rehearsal',
+      ],
+    ],
+  },
+  {
+    name: "rehearse's loop leaves what it did not deliver waiting once stopped",
+    file: 'src/testing/loop.ts',
+    from: '    yield* Effect.forEach(undelivered, Deferred.interrupt, { discard: true })\n',
+    to: '',
+    killedBy: [
+      ['src/testing/loop.test.ts', 'interrupts at its stop what it has not delivered, its step under way included'],
+      ['src/testing/rehearse.test.ts', 'a scenario that failed stops the loop at once, its step under way included'],
     ],
   },
   {
     name: 'rehearse lets the loop finish after a scenario that failed',
     file: 'src/testing/rehearse.ts',
-    from: 'Exit.isSuccess(exit) ? Effect.exit(finish) : Effect.void',
-    to: 'Effect.exit(finish)',
+    from: 'Exit.isSuccess(exit) ? Effect.exit(loop.finish) : Effect.void',
+    to: 'Effect.exit(loop.finish)',
     killedBy: [
       ['src/testing/rehearse.test.ts', 'a scenario that failed stops the loop at once, its step under way included'],
     ],
@@ -865,7 +905,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'rehearse stops the loop at once after a scenario that returned',
     file: 'src/testing/rehearse.ts',
-    from: '      Effect.tap((exit) => Exit.isSuccess(exit) ? Effect.exit(finish) : Effect.void),\n',
+    from: '      Effect.tap((exit) => Exit.isSuccess(exit) ? Effect.exit(loop.finish) : Effect.void),\n',
     to: '',
     killedBy: [
       ['src/testing/rehearse.test.ts', 'the message is applied, or fails the rehearsal'],

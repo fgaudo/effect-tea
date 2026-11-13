@@ -120,8 +120,8 @@ an example's and a document's too:
   dispatch), `program.ts` (the program and its types), `compose.ts` (`parent`), `log.ts`, `defect.ts`;
   `core.ts` is what the run and the testing tools share, as pure functions of data (`docs/shared-core.md`);
   `engine.ts` is the runtime only (with `RunOptions`), and `run.ts` connects it to a renderer. `testing/` holds
-  one module per testing tool (and `unexpected.ts`, the failure they share, and `ledger.ts`, what `rehearse` keeps of
-  its commands and starts, as pure transitions).
+  one module per testing tool (and `unexpected.ts`, the failure they share, `ledger.ts`, what `rehearse` keeps of
+  its commands and starts, as pure transitions, and `loop.ts`, the loop that applies its steps one at a time).
 - A piece of a program that may be missing (`runCommand` without commands, `subscriptions`) is read through
   `runCommandOf` and `subscriptionsOf`, never directly: the engine always gets the complete set. Likewise
   `init`, a step or a function of the flags, is read through `startOf`: a step is never a function, so `typeof`

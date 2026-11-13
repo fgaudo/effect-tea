@@ -128,12 +128,12 @@ is how they are kept, and what a change must not undo. What they rest on of Effe
 
   A region nothing may interrupt holds no code of the program, so no gate reaches it, and it has no mutation: one that
   took it out would fail only under the scheduler of the tests. It is written in one of three forms: a transition of
-  the ledger made in the thunk of an offer to `rehearse`'s loop (`submit`'s `offered`), held by the test of the
-  transition (`ledger.test.ts`); a fiber and how it stops as one primitive, above; what follows an effect of the
+  the ledger made in the thunk of an offer to `rehearse`'s loop (`offered`, of `submit` in `loop.ts`), held by the test
+  of the transition (`ledger.test.ts`); a fiber and how it stops as one primitive, above; what follows an effect of the
   program outside `restore` (a command's answer, offered to the loop). The last two are held by Effect's
-  documentation (`premises.md`). The checks beside them (`ended`, the register, a call that left) each have a
-  mutation with a deterministic killer, and the tests of `rehearse.test.ts` under the scheduler of the tests stay as
-  alarms of the search, killing none.
+  documentation (`premises.md`). The checks beside them (`ended` in `loop.ts`, the register, a call that left) each
+  have a mutation with a deterministic killer, and the tests of `rehearse.test.ts` under the scheduler of the tests
+  stay as alarms of the search, killing none.
 - **Commands are data; only `runCommand` runs them.** Never let a command carry its effect, or a description
   that must be kept in step with one: a test, `onApplied` and the logs read the command itself.
 - **Commands cannot be cancelled**, a deliberate choice: do not add cancellation without asking.
@@ -155,11 +155,11 @@ is how they are kept, and what a change must not undo. What they rest on of Effe
   ("Testing" in the README says what each one runs, fails on and ignores); `rehearse` fails on a command left
   pending, since its answer would arrive, and `drive` acts only as a user can, through `run` and the run's
   dispatch. The end of a rehearsal reads the commands under way in the thunk that takes the scenario's exit, which
-  is the one that refuses what is asked after it (`ended`); a scenario that returned lets the loop finish what it was
-  offered, a release a step waits for included, before the end stops it and reads the commands pending: never
-  interrupt that step to end sooner. When the engine or one tool changes, keep the others in step.
-  `src/testing/contract.test.ts` gives the same program and inputs to each tool and to the run; where they still
-  differ, its `test.failing` cases say how, and `ROADMAP.md` lists them.
+  is the one that marks the end of the loop (`end`, in `loop.ts`), which refuses what is asked after it; a scenario
+  that returned lets the loop finish what it was offered, a release a step waits for included, before the end stops it
+  and reads the commands pending: never interrupt that step to end sooner. When the engine or one tool changes, keep
+  the others in step. `src/testing/contract.test.ts` gives the same program and inputs to each tool and to the run;
+  where they still differ, its `test.failing` cases say how, and `ROADMAP.md` lists them.
 - **Logs never carry message data by default** (`describeByTag` in `log.ts`): only tags, following a wrapped
   `message` or `command` only when it is itself tagged, since a program's own field of that name may hold data.
   Level: `debug` for the message loop and for subscriptions starting, stopping and ending, nothing else. What

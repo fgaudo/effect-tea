@@ -18,6 +18,7 @@ import { runCommandOf, type Shape, startOf, subscriptionsOf } from '../program.t
 import type { Subscription } from '../subscription.ts'
 import type { Step } from '../update.ts'
 import * as Ledger from './ledger.ts'
+import * as Loop from './loop.ts'
 
 /**
  * A rehearsal of a program, without a runtime: nothing happens unless the test does it. The test acts on what the
@@ -99,9 +100,6 @@ type Current<State, Message, Event> = Readonly<{
   events: ReadonlyArray<Event>
   ignored: ReadonlyArray<Message>
 }>
-
-// A step of the loop, with the services of the fiber of the test's that asked for it, and where its result goes.
-type Request = Readonly<{ step: Effect.Effect<unknown>; done: Deferred.Deferred<unknown> }>
 
 /**
  * Rehearses `program` without a runtime, step by step, and returns what `scenario` returns. As in `drive`, the test
@@ -234,40 +232,10 @@ export const rehearse = Effect.fnUntraced(function*<
   // One loop applies every message, one at a time, as the run's loop takes them: the fibers of the test's only offer
   // it a step and wait for its result, so that a message that stops a subscription waits for its release before its
   // state is written, one that arrives meanwhile waits for that state, and an interruption of whoever asked never
-  // splits a step.
-  const requests = yield* Queue.unbounded<Request>()
-  const undelivered = new Set<Deferred.Deferred<unknown>>()
-  // Set in the thunk that takes the scenario's exit: from then on the loop is offered nothing more.
-  let ended = false
-  const loop = yield* Queue.take(requests).pipe(
-    Effect.flatMap(({ step, done }) =>
-      Effect.flatMap(Effect.exit(recorded(deadOr(step))), (exit) =>
-        Effect.andThen(Deferred.done(done, exit), Effect.sync(() => undelivered.delete(done))))
-    ),
-    Effect.forever,
-    Effect.forkIn(forks),
-  )
-  // Once the rehearsal has ended, what a fiber of the test's still running asks is refused, and the call is
-  // interrupted: nothing would apply it. A subscription's own fiber waits instead (`quiet`) for the end to stop it,
-  // since one that interrupts itself is a defect. The check and the offer are one thunk, so that nothing is offered
-  // once the scenario's exit is taken, and the transition of the ledger an offer makes (`offered`) is in it too.
-  type Transition = (ledger: LedgerOf) => LedgerOf
-  const submit = <A, RA>(
-    step: Effect.Effect<A, never, RA>,
-    { offered = (same) => same, quiet = false }: Readonly<{ offered?: Transition; quiet?: boolean }> = {},
-  ) =>
-    Effect.flatMap(Effect.context<RA>(), (context) =>
-      Effect.flatMap(Deferred.make<unknown>(), (done) =>
-        Effect.suspend(() => {
-          undelivered.add(done)
-          if (!ended && Queue.offerUnsafe(requests, { step: Effect.provideContext(step, context), done })) {
-            ledger = offered(ledger)
-            return Effect.succeed(done as Deferred.Deferred<A>)
-          }
-          undelivered.delete(done)
-          return quiet ? Effect.never : Effect.interrupt
-        })))
-  const ask = <A, RA>(step: Effect.Effect<A, never, RA>) => Effect.flatMap(submit(step), Deferred.await)
+  // splits a step. Once the rehearsal has ended, what a fiber of the test's still running asks is refused, and the call
+  // is interrupted: nothing would apply it.
+  const loop = yield* Loop.make(forks, (step) => recorded(deadOr(step)))
+  const { submit, ask } = loop
   // A message of a start that is no longer active reaches nothing of the program, as in the run. None comes here:
   // `hear` looks its start up in the loop, and the ledger forgets a start in the transition that stops it, so that
   // `hearNext` hears nothing more of it.
@@ -383,7 +351,8 @@ export const rehearse = Effect.fnUntraced(function*<
       )
     })
   // The subscription's own fiber gives the loop what it sends, as the run's gives it to the queue, and waits for the
-  // next ask: the loop keeps it until a call waits for it.
+  // next ask: the loop keeps it until a call waits for it. Refused once the rehearsal has ended, it waits (`quiet`) for
+  // the end to stop it, since one that interrupts itself is a defect.
   const sends = (key: unknown, generation: Core.Generation, message: Message, last: boolean) =>
     submit(
       Effect.suspend(() => {
@@ -455,7 +424,11 @@ export const rehearse = Effect.fnUntraced(function*<
   // in whichever fiber, ends the wait, as it ends the run.
   const hearNext = Effect.fnUntraced(function*(key: unknown) {
     const call: Call<Message> = { key, heard: yield* Deferred.make<Opt.Option<Message>>() }
-    const heard = yield* submit(hearing(key, call), { offered: (before) => Ledger.enter(before, call) }).pipe(
+    const heard = yield* submit(hearing(key, call), {
+      offered: () => {
+        ledger = Ledger.enter(ledger, call)
+      },
+    }).pipe(
       Effect.flatMap((done) => Effect.andThen(Deferred.await(done), orDead(Deferred.await(call.heard)))),
       Effect.ensuring(Effect.sync(() => {
         ledger = Ledger.leave(ledger, call)
@@ -473,7 +446,12 @@ export const rehearse = Effect.fnUntraced(function*<
       restore(effect.pipe(scopedIn(register, 'command'))).pipe(
         Effect.flatMap(Opt.match({
           onNone: () => Effect.succeedNone,
-          onSome: (message) => Effect.asSome(submit(arriveNow(fromCommand, message), { offered: settle })),
+          onSome: (message) =>
+            Effect.asSome(submit(arriveNow(fromCommand, message), {
+              offered: () => {
+                ledger = settle(ledger)
+              },
+            })),
         })),
         Effect.ensuring(Effect.sync(() => {
           ledger = settle(ledger)
@@ -500,7 +478,7 @@ export const rehearse = Effect.fnUntraced(function*<
     Effect.acquireUseRelease(
       Effect.suspend(() => {
         if (dead()) return deadOr(Effect.never)
-        if (ended) return Effect.interrupt
+        if (loop.ended()) return Effect.interrupt
         const taking = Ledger.take(ledger, select)
         if (Opt.isNone(taking)) return Effect.succeed<Taking>({ _tag: 'None', pending: ledger.pending })
         const [{ ticket, command }, taken] = taking.value
@@ -562,16 +540,10 @@ export const rehearse = Effect.fnUntraced(function*<
     events: Effect.sync(() => now.events),
     ignored: Effect.sync(() => now.ignored),
   }
-  // A scenario that returned lets the loop finish what it was offered before, in order: a message once sent is applied
-  // whole. The queue gives its items in order, so the loop has done them all once it has done this one.
-  const finish = Effect.flatMap(Deferred.make<unknown>(), (done) =>
-    Effect.andThen(Queue.offer(requests, { step: Effect.void, done }), Deferred.await(done)))
-  // However the rehearsal ends, it closes the queue, stops the loop and what `hearNext` started, as the end of the run
-  // interrupts its fibers, and waits for them to release what they hold: only then does it read what they died of.
+  // However the rehearsal ends, it stops the loop and what `hearNext` started, as the end of the run interrupts its
+  // fibers, and waits for them to release what they hold: only then does it read what they died of.
   const end = Effect.gen(function*() {
-    yield* Fiber.interrupt(loop)
-    yield* Queue.shutdown(requests)
-    yield* Effect.forEach(undelivered, Deferred.interrupt, { discard: true })
+    yield* loop.stop
     // What they die of is recorded as they end.
     const [opened, waiting] = Ledger.opened(ledger)
     yield* Effect.exit(stop(opened))
@@ -590,12 +562,13 @@ export const rehearse = Effect.fnUntraced(function*<
       // happens while the end waits changes nothing of them.
       Effect.tap(() =>
         Effect.sync(() => {
-          ended = true
+          loop.end()
           owed = ledger
         })
       ),
-      // One that failed, or was interrupted, stops the loop at once: its result is the failure.
-      Effect.tap((exit) => Exit.isSuccess(exit) ? Effect.exit(finish) : Effect.void),
+      // One that returned lets the loop finish what it was offered before, in order: a message once sent is applied
+      // whole. One that failed, or was interrupted, stops the loop at once: its result is the failure.
+      Effect.tap((exit) => Exit.isSuccess(exit) ? Effect.exit(loop.finish) : Effect.void),
       Effect.tap(end),
       Effect.flatMap((exit) => Core.endedWith(deaths(), exit)),
     )
