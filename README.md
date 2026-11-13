@@ -663,12 +663,14 @@ A command, a subscription or the renderer dies when its effect ends with a defec
 the run gives it (`Effect.acquireRelease`, `Effect.addFinalizer`, a channel's own scopes) is released after that;
 what it wraps around its own code (`Effect.ensuring`, `Effect.onExit`, an `Effect.scoped` of its own) is part of its
 effect, runs before it ends, and may still catch the defect. What that release dies of is a defect once the scope has
-released all it holds: until then, the run goes on. From the defect on, the run applies no message, and so starts no
-command, while it releases what it holds: it calls neither `update` nor `runCommand`, nor the renderer when it has
-not called it yet, as when a subscription of `init` dies while the run starts. A message whose
-`update` it called before goes on to its frame, and what a command started before does, or a subscription that state
-lists, is the program's, until the run interrupts it. So is what the renderer does: a frame it reads meanwhile still
-makes its model, as `makeModel` is pure, and calling it changes nothing of the program. A defect met meanwhile joins
+released all it holds: until then, the run goes on. From the defect on, the run applies no message: it does not call
+`update`. A message whose `update` it called before goes on until the run stops applying messages, which may be
+before its frame: it may still start its commands and the subscriptions of its new keys. What a command or a
+subscription does once started is the program's, until the run interrupts it. So is what the renderer does, in a run
+that died as it started too, as when a subscription of `init` dies: a frame it reads meanwhile still makes its model,
+as `makeModel` is pure, and calling it changes nothing of the program. As it ends, of a defect or of an interruption, the run stops applying messages first,
+then stops the renderer, then its commands and its subscriptions: what is sent meanwhile, by the renderer as it
+releases what it holds included, is not applied. A defect met meanwhile joins
 the cause, which keeps the defects in the order they happened. The run never recovers from it,
 and does not log it: reporting it, and what the user sees next, are the app's, around the run. The screen keeps the
 last frame: show a crash screen, or run the program again. In a browser, start it with `Effect.runFork`, which
@@ -726,7 +728,7 @@ a subscription, a command or the renderer acquires does not outlive it and the n
 release, that what the run logs is not kept by the span of whoever runs it, which stays the parent of the spans
 opened in it, that nothing ends in silence, and that a model is made only for the frames read and the very same
 state draws no new frame. It checks too that the run dies with each defect in the order it happened, and from the
-first one on applies no message and starts no command (see [running](#running)).
+first one on applies no message (see [running](#running)).
 
 ### Testing
 

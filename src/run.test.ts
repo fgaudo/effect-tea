@@ -23,7 +23,6 @@ import { reject, type Step, type Update } from './update.ts'
 import type { Program } from './program.ts'
 import type { Dispatch } from './dispatch.ts'
 import { type Frame, run } from './run.ts'
-import { prioritizedSchedules } from '../test/scheduled.ts'
 
 // A counter that accepts `Increment` and always rejects `Forbidden`; its model has `Increment`, and an input
 // that types either (a view that lets the user type `false` is buggy). Its commands only start where a test
@@ -1161,9 +1160,18 @@ describe('the end of the run', () => {
     expect(wheres(exit)).toEqual(['subscription'])
   })
 
-  test('a message the renderer sends as an interrupted run releases it, on which update dies, ends the run', async () => {
+  // The run stops the loop before it stops the renderer: what the renderer sends as it releases what it holds finds
+  // nothing that applies it.
+  test('a message the renderer sends as the run releases it does not reach update', async () => {
+    const calls = { n: 0 }
     const exit = await interrupted(run(
-      { ...counter, update: () => () => defect('update') },
+      {
+        ...counter,
+        update: (message) => (state) => {
+          calls.n += 1
+          return update(message)(state)
+        },
+      },
       (frames) =>
         Stream.runHead(frames).pipe(
           Effect.flatMap(Opt.match({
@@ -1176,7 +1184,8 @@ describe('the end of the run', () => {
           })),
         ),
     ))
-    expect(wheres(exit)).toEqual(['update'])
+    expect(calls.n).toBe(0)
+    expect(wheres(exit)).toEqual([])
   })
 
   test('a command that dies while a run that died elsewhere releases the renderer is in the cause', async () => {
@@ -1251,62 +1260,6 @@ describe('the end of the run', () => {
     expect(startedAfter).toBe(0)
   })
 
-  // A message applied before the defect, whose step goes on after it: it waits for the release of a subscription it
-  // stopped, which dies, or for `onApplied` while a command dies. From the defect on, the run starts nothing of it,
-  // however long the renderer takes to release what it holds: without a renderer that releases slowly, the end of the
-  // run would interrupt the step before it started anything. Found by the fourth premise review.
-  const sendsOnceThenReleasesSlowly = (frames: Stream.Stream<Frame<Model, Message>>) =>
-    Stream.runHead(frames).pipe(
-      Effect.flatMap(Opt.match({
-        onNone: () => Effect.never,
-        onSome: ({ model, dispatch }) => dispatch(model.increment).pipe(Effect.andThen(releasesSlowly)),
-      })),
-    )
-
-  const diesInItsRelease = Channel.fromEffectDone(
-    Effect.acquireRelease(Effect.void, () => Effect.die('release')).pipe(Effect.andThen(Effect.never)),
-  )
-
-  test('a message whose stopped subscription dies in its release starts none of its commands', async () => {
-    let started = 0
-    const exit = await Effect.runPromiseExit(run(
-      {
-        ...counter,
-        update: () => ({ count }) => ({ state: { count: count + 1 }, commands: ['Ping'] }),
-        runCommand: () =>
-          Effect.sync(() => {
-            started += 1
-            return Opt.none<Message>()
-          }),
-        subscriptions: ({ count }) => count === 0 ? HashMap.make(['a', diesInItsRelease]) : HashMap.empty(),
-      },
-      sendsOnceThenReleasesSlowly,
-    ))
-    expect(wheres(exit)).toEqual(['subscription'])
-    expect(started).toBe(0)
-  })
-
-  test('a message whose stopped subscription dies in its release starts none of its new keys', async () => {
-    let started = 0
-    const exit = await Effect.runPromiseExit(run(
-      {
-        ...counter,
-        subscriptions: ({ count }) =>
-          count === 0
-            ? HashMap.make(['a', diesInItsRelease])
-            : HashMap.make([
-              'b',
-              Channel.fromEffectDone(Effect.sync(() => {
-                started += 1
-              }).pipe(Effect.andThen(Effect.never))),
-            ]),
-      },
-      sendsOnceThenReleasesSlowly,
-    ))
-    expect(wheres(exit)).toEqual(['subscription'])
-    expect(started).toBe(0)
-  })
-
   // What a release dies of is a defect once the scope it is in has released all it holds: a subscription that ends
   // of itself, whose first finalizer dies while the next waits, applies the messages sent meanwhile.
   test('a subscription whose release dies applies messages until its scope has released all', async () => {
@@ -1340,34 +1293,6 @@ describe('the end of the run', () => {
       )
     }))
     expect([wheres(exit), drawn]).toEqual([['subscription'], [0, 1]])
-  })
-
-  test('a message whose onApplied waits while a command dies starts none of its commands', async () => {
-    let died = false
-    let startedAfter = 0
-    const exit = await Effect.runPromiseExit(run(
-      {
-        ...counter,
-        init: { state: { count: 0 }, commands: ['Boom'] },
-        update: () => ({ count }) => ({ state: { count: count + 1 }, commands: ['Ping'] }),
-        runCommand: (command) =>
-          command === 'Boom'
-            ? Effect.sleep('10 millis').pipe(
-              Effect.andThen(Effect.sync(() => {
-                died = true
-              })),
-              Effect.andThen(Effect.die('boom')),
-            )
-            : Effect.sync(() => {
-              if (died) startedAfter += 1
-              return Opt.none<Message>()
-            }),
-      },
-      sendsOnceThenReleasesSlowly,
-      { onApplied: () => Effect.sleep('30 millis') },
-    ))
-    expect(wheres(exit)).toEqual(['command'])
-    expect(startedAfter).toBe(0)
   })
 
   // The renderer, and the run's own fiber as it starts the engine, record what they die of where the engine's fibers
@@ -1622,76 +1547,6 @@ describe('the end of the run', () => {
         )))),
       )))
     expect(Exit.isSuccess(exit)).toBe(true)
-  })
-
-  test('a subscription that dies as the run starts keeps the keys after it from starting', async () => {
-    let died = false
-    let started = 0
-    const loggedOnceItDied: Array<unknown> = []
-    const logs = Logger.make(({ message }) => {
-      if (died) loggedOnceItDied.push(Array.isArray(message) ? message[0] : message)
-    })
-    const exit = await Effect.runPromiseExit(run(
-      {
-        ...counter,
-        subscriptions: () =>
-          HashMap.make(
-            [
-              'a',
-              Channel.fromEffectDone(Effect.sync(() => {
-                died = true
-              }).pipe(Effect.andThen(Effect.die('boom')))),
-            ],
-            [
-              'b',
-              Channel.fromEffectDone(Effect.sync(() => {
-                started += 1
-              }).pipe(Effect.andThen(Effect.never))),
-            ],
-          ),
-      },
-      () => Effect.never,
-    ).pipe(
-      Effect.provideService(References.MinimumLogLevel, 'Debug'),
-      Effect.provide(Logger.layer([logs])),
-    ))
-    expect(wheres(exit)).toEqual(['subscription'])
-    expect(started).toBe(0)
-    expect(loggedOnceItDied).not.toContain('Subscription started')
-  })
-
-  // No program code lies between the check and the call of `render`, which the fiber the run forks makes: no gate
-  // reaches it, so the scheduler of the tests orders the fibers. The channel's release runs once its defect is
-  // recorded, so a renderer called after it is one called after the first defect.
-  test('a renderer is not called once a subscription of init has died, under prioritized schedules', () => {
-    let released = false
-    let late = 0
-    const program: Program<{ state: Count; model: Count; message: never }> = {
-      init: { state: { count: 0 } },
-      update: () => (state) => ({ state }),
-      makeModel: (state) => state,
-      subscriptions: () =>
-        HashMap.make([
-          'dies',
-          Channel.unwrap(
-            Effect.addFinalizer(() =>
-              Effect.sync(() => {
-                released = true
-              })
-            ).pipe(Effect.as(Channel.fromEffectDone(Effect.die('boom')))),
-          ),
-        ]),
-    }
-    const once = Effect.suspend(() => {
-      released = false
-      return run(program, () =>
-        Effect.suspend(() => {
-          if (released) late += 1
-          return Effect.never
-        })).pipe(Effect.exit)
-    })
-    prioritizedSchedules(once, { runs: 500, depth: 2, resumptions: 'inline' }, () => {})
-    expect(late).toBe(0)
   })
 
   test('a log that dies as the run starts comes before what a subscription dies of as the end releases it', async () => {

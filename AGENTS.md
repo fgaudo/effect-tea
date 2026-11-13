@@ -129,22 +129,25 @@ is how they are kept, and what a change must not undo:
   a scope of its own as it dies too, before the scope releases what it holds (`scopedIn`), a subscription's channel and
   the scopes of its own included (`runSubscription`), so that a defect is in the order it happened, though its release
   lets another fiber die first. Each defect recorded is reported once, in that
-  order: by the run as soon as one dies, and by the end of the run, which interrupts its fibers itself, waits for them
+  order: by the run as soon as one dies, and by the end of the run, which stops the loop first and waits for it
+  (`stop` in `engine.ts`), so that what is sent meanwhile is not applied and nothing forks a fiber while it reads them,
+  then interrupts its other fibers itself, waits for them
   to release what they hold, and dies of the rest; the run's cause holds the defects first, then the rest of what it
-  ended with. From the first defect recorded on, the run calls neither `update` nor `runCommand`, a step under way
-  included, nor the renderer it has not called yet, while the renderer releases what it holds: each is checked in the
-  thunk that calls the program (`arrive` in `core.ts` for `update`, `alive` in `engine.ts` for `runCommand` and in
-  `run.ts` for the renderer, and nowhere else: a check of the loop's own would
-  hide one left apart from its call from every test but a scheduled one), where no other fiber can run, since the scheduler may yield at any other operation, and
-  a step may wait for a release or an option while another fiber dies. A subscription is a `Channel`, which the run
-  does not call: `reconcile` forks none once a defect is recorded, and one forked before may take its first step after
-  the defect, which no check in its fiber could prevent, as the scheduler may yield before that step. What an effect of the program does once started is its own,
+  ended with. From the first defect recorded on, the run applies no message, until its end stops the loop: it calls
+  no `update`, checked in the thunk that calls it (`arrive` in `core.ts`), where no other fiber can run, since the
+  scheduler may yield at any other operation. It is the only check. A step whose `update` was called before goes on
+  whole until the end stops the loop: it may still start its commands and the subscriptions of its new keys, and the
+  renderer is called once, as the run starts, in a run that died meanwhile too. Never add a check in the middle of a
+  step, nor before the renderer: it would leave a state whose commands never started, which `onApplied` heard of, and
+  protect nothing a correct program needs, since a command that died is, to `update`, one that has not answered yet
+  (`docs/single-owner.md`). What an effect of the program does once started is its own,
   until the end of the run interrupts it: no check can come between two of its operations. So is what the renderer
   reads: a frame's model is made in the renderer's own code, as it reads it, and `makeModel` is pure, so the run checks
   nothing there, and a frame read after the defect still makes its model, as the README says. Never
   report a defect only through a `join`, or through a fiber that races: once nothing awaits it, or the race is lost, the
   defect is lost with it, and `FiberSet` and `FiberMap` discard the exits of the fibers they interrupt as they close.
-  The renderer is one of them, interrupted and awaited first however the run ends (`runWith` in `run.ts`). `drive`
+  The renderer is one of them, interrupted and awaited however the run ends, once the loop has stopped and before the
+  engine's other fibers (`running` in `run.ts`). `drive`
   stops and awaits its run however it ends, interrupted too. A call of `rehearse`'s that waits for a subscription or a
   command races its wait with the death of any fiber (`orDead`), as the run dies at once.
 - **A subscription never ends in silence**: its end value is a message (or `never`), sent to `update`. An ended
@@ -229,14 +232,13 @@ after the list says. A change that rests on a new premise adds it here, with wha
 - **`Effect.acquireRelease` lets nothing interrupt its acquisition, and runs its release when its scope closes,
   however it closes**, which is how the run forks the renderer and sets how its end stops it with nothing between
   to leave the renderer to the end of the fiber the run is in, which would interrupt it as a child, unawaited, and
-  how it interrupts and awaits the renderer however the run ends, before the engine's fibers, acquired earlier in
+  how it stops the loop, then interrupts and awaits the renderer, however the run ends, before the engine's other
+  fibers, acquired earlier in
   the same scope: "a renderer that dies while an interrupted run releases it is in the cause", "a renderer that
   dies as a run that died elsewhere releases it is in the cause" (`run.test.ts`). Documented.
-- **`FiberSet.run` and `FiberMap.run` start their fiber at once**, so that the check before `runCommand`, the first
-  step of a command's fiber, is reached where the loop forks it, and a key the loop starts has started before the
-  next is looked at: "a message whose stopped subscription dies in its release starts none of its commands", "a
-  message whose onApplied waits while a command dies starts none of its commands", "a subscription that dies as the
-  run starts keeps the keys after it from starting" (`run.test.ts`). Documented.
+- **`Fiber.interrupt` completes only once the interrupted fiber has**, which is how the end of the run stops the loop
+  before it stops the renderer, and before it reads the fibers to interrupt: "a message the renderer sends as the run
+  releases it does not reach update" (`run.test.ts`). Documented.
 - **`Effect.onExit` runs its cleanup however the effect ends, and puts what the cleanup fails with after the cause
   of the effect**, which is how each fiber of the engine records what it dies of, interrupted or not. Interrupted: "a defect in what a subscription
   the run stopped releases ends the run", "a subscription stopped as whoever runs the run interrupts it, which dies

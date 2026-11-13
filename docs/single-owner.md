@@ -1,10 +1,13 @@
 # A run that needs no test of the order of yields
 
-**Status:** proposed, November 2026; steps 1 to 3 of its plan are done, and the rest waits for the open questions.
-What follows is the investigation as it was written, when no file of the library, of its tests or of its documents
-had changed: where it says "today", it is the code before those steps. It asks whether the run and the testing tools can be made, by construction, not to need the tests under
-`test/scheduled.ts`, which decide where every fiber yields. Its spikes ran on a copy of the repository, on Effect
-4.1.4 and Bun 1.4.4, and were deleted: "What it rests on" says what each one showed.
+**Status:** accepted, November 2026. Steps 1 to 5 of its plan are done. The decision was revised on 13 November 2026,
+after four more spikes: steps 4 to 8 below replace the steps 4 to 6 first written, and steps 6 to 8 wait for the open
+questions.
+"Context" is the investigation as it was written, when no file of the library, of its tests or of its documents had
+changed: where it says "today", it is the code before step 1. It asks whether the run and the testing tools can be
+made, by construction, not to need the tests under `test/scheduled.ts`, which decide where every fiber yields. Every
+spike ran on a copy of the repository, on Effect 4.1.4 and Bun 1.4.4, and was deleted: "What it rests on" says what
+each one showed.
 
 ## Context
 
@@ -40,8 +43,8 @@ check out is invisible to a deterministic test for one of two reasons, and neith
   a test with no schedule reaches: `deadOr` in front of `rehearse`'s `run` and `model`. The second check matters only
   when a death falls between the two.
 
-The engine's check before `runCommand` is neither, which is why two tests with a gate kill its mutation today: it is
-the first step of a fiber, but `FiberSet.run` starts that fiber at once, on the loop's stack, as its JSDoc says ("By
+The engine's check before `runCommand` is neither, which is why two tests with a gate kill its mutation: it is the
+first step of a fiber, but `FiberSet.run` starts that fiber at once, on the loop's stack, as its JSDoc says ("By
 default, the effect starts immediately").
 
 The fifth test, of the renderer's fork, has the form of the third rule. The fourth, of `runAll`, kills a mutation
@@ -70,8 +73,8 @@ three.
   subscriptions one message stops are released together" (`Effect.forEach`, unbounded); "Nothing outlives what
   acquired it" (`Effect.scoped`); "A message once sent is applied whole, even if the fiber that sent it is
   interrupted" and `drive`'s "it interrupts the run and waits for it" (`Effect.uninterruptibleMask`).
-- **Across fibers, in time.** Four sentences are worded this way. Each can be said in an order one fiber owns, with
-  the same strength as the code keeps it today:
+- **Across fibers, in time.** Four sentences are worded this way. Three can be said in an order one fiber owns, with
+  the same strength as the code keeps them:
   - "Their answers reach `update` in the order they end": the order their answers are queued, which each command does
     as it ends. The same.
   - "A subscription runs exactly while its key is in the state": it starts when the loop finds its key, and is
@@ -81,35 +84,35 @@ three.
     recorded, each by its fiber as its effect ends, or as its scope has closed for a release. The same, since
     "Running" already says when a defect counts.
   - "From the defect on, the run applies no message, and so starts no command, while it releases what it holds: it
-    calls neither `update` nor `runCommand`, nor the renderer when it has not called it yet", and `rehearse`'s "After
-    a defect, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail with it": each call is in a thunk that
-    reads the register, and a death is recorded in a thunk, so "from the defect on" is an order of thunks, whichever
-    fibers they run in. The same, for the calls. What the code keeps today beyond these words, and the decision below
-    would give up, is under "Where by construction stops".
-
-No sentence of the README has to become weaker.
+    calls neither `update` nor `runCommand`, nor the renderer when it has not called it yet". This is the one the
+    decision changes. Its first half is of the loop's order: the loop applies a message in one thunk, which reads the
+    register. Its second half is not: `runCommand` and the renderer are called in fibers of their own, or in the
+    middle of a step, and each needs a check of its own, in a thunk that is deferred or that splits the step.
 
 ### Where a fiber reads what another writes, and then acts
 
+- **`engine.ts`, the loop's `Core.arrive`**, which reads the register in the thunk that calls `update`. The loop's
+  own, with deterministic killers, of the core and of the engine. Kept: it is the one check of the decision.
 - **`engine.ts`, the command's `alive(dead, () => interpret(command))`**, in the command's fiber. The fiber starts at
-  the fork, by `FiberSet.run`'s documented default. Kept as it is: its mutation has deterministic killers.
+  the fork, by `FiberSet.run`'s documented default, and its mutation has deterministic killers. It is a check in the
+  middle of a step: decision 2 takes it out.
 - **`engine.ts`, `if (dead()) break` in `reconcile`**. The loop's own, or that of the fiber that makes the engine. The
   check and the fork are not one thunk, and the README promises nothing of the fork ("a subscription that state lists,
-  is the program's"). Its mutation has a deterministic killer. Kept.
+  is the program's"). In the middle of a step too: decision 2.
+- **`engine.ts`, `alive(dead, () => describeMessage(message))`**, for a message dropped before `update`, while debug
+  logs are enabled. An open question.
 - **`engine.ts`, `scopedIn`'s `deaths.has`**. A read by identity of a register that only grows, to wrap once a defect
   the same fiber recorded. It guards no call of the program. A set of `scopedIn`'s own would make it local to the
   fiber: an open question, which no test under a schedule depends on.
 - **`engine.ts`, the end of the run**, which reads `fibers` and `subscriptionFibers` in the fiber that closes the
-  scope, while the loop may still fork. Commit 784d681 found no fiber missed under prioritized schedules. No
-  deterministic test holds it: see "Where by construction stops".
-- **`run.ts`, the renderer's `alive(deaths.dead, () => render(frames))`**, deferred. Decision 1 below.
-- **`run.ts`, the fork of the renderer and the `onExit` that stops it**, under `uninterruptibleMask`. Decision 3.
+  scope, while the loop may still fork. Commit 784d681 found no fiber missed under prioritized schedules, and no
+  deterministic test holds it. Decision 4.
+- **`run.ts`, the renderer's `alive(deaths.dead, () => render(frames))`**, deferred. Decision 3.
+- **`run.ts`, the fork of the renderer and how the run stops it**. One acquisition since step 3.
 - **`run.ts` and the renderer's frames**: the renderer reads a state the loop wrote and dispatches from it. The README
   already answers it without any order: a message of the view may arrive in any state, and is rejected where it does
   not apply.
-- **`rehearse.ts`, `run`**: `deadOr`, then `Ledger.take`, then, in the fiber `orDead` forks, `dead()` and
-  `runCommand(command)`. Shadowed and deferred. Decisions 1 and 2.
-- **`rehearse.ts`, `model`**: `deadOr`, then `dead()` and `makeModel` in `modelOf`. Shadowed. Decision 2.
+- **`rehearse.ts`, `run` and `model`**: one check each, in the thunk that calls the program, since steps 1 and 2.
 - **`rehearse.ts`, `runAll`**: one transition, `Ledger.take`, which finds a command or none. Already by construction.
 - **`rehearse.ts`, `orDead`**: races a wait with `died`. It guards no call of the program, and both its uses have
   deterministic killers. Kept.
@@ -122,68 +125,97 @@ No sentence of the README has to become weaker.
 
 ## Decision
 
-Proposed. Three rules, beside AGENTS.md's "one thunk", and one of policy.
+Proposed. What the run owes after a defect is to stop, to report every defect and to release what it holds. The
+program owes the rest: an effect that cannot fail, an order between two effects said through a message, a command
+that may be interrupted at any point, as the end of the run interrupts it. `update` is pure and learns of the world
+through messages alone, so a command that died is, to it, one that has not answered yet: a step applied after a
+defect of another fiber cannot be told from one applied before it. A check in the middle of a step protects nothing a
+correct program needs, and splits the step: the state is written and the commands `onApplied` heard of never start.
 
-1. **A function of the program is called where the call is decided.** The thunk that holds the check calls the
-   function in the fiber that decides the call, at the place in its sequence where it decides. It is never the first
-   step of a fiber forked for it, unless the fork is documented to start at once, as `FiberSet.run` and
-   `FiberMap.run` are. What is forked is the effect the call returned. A throw of the function is turned into
-   `Effect.die` in the same thunk, so that it dies in the same site, in the scope it would have had.
-   - `run.ts`: `render(frames)` is called by the fiber of the run, with the check, and the effect it returns is
-     forked. A run that has died forks an effect that does nothing, as today.
-   - `rehearse.ts`: `run` checks, takes and calls `runCommand` in one thunk, and races the effect it returns.
-2. **One check for each call.** No earlier check of the same register stands in front of it in another thunk: it
-   would answer in its place in every order a deterministic test reaches. `rehearse`'s `run` and `model` lose their
-   `deadOr` in front. The check stays outside `diesIn`: inside it, the defects the check fails with were wrapped a
-   second time, in `'render'`.
-3. **A fiber and how it stops are one primitive.** `Effect.acquireRelease(fork, stop)`, in the scope that outlives
-   the fiber's use, never a fork and, after it, the registration of how to stop it. Taking the primitive out drops
-   the release, which a deterministic test sees; the window between the two is Effect's, documented ("acquisition is
-   protected by an uninterruptible region"). `run.ts` forks the renderer this way, in the scope `running` already
-   has: its release runs before the engine's, as the renderer is stopped first today.
-4. **A mutation takes a check out. A form is held by its construction.** A mutation that writes a second reader
-   apart from an act, as `runAll`'s does, restores a bug the structure rules out (`Ledger.take` finds none in the
-   transition that would take). No deterministic test can kill it, since no code of the program lies between the two
-   reads. It goes, with its test, or stays as the one test under a schedule: an open question.
+So the run keeps one check, where the loop decides, and stops the loop first as it ends. Four rules of the run, then
+three that steps 1 to 3 already applied.
 
-The hypothesis's first rule, in its letter, is dropped. Nothing found needs the loop to own a decision another fiber
-makes today in one thunk: `rehearse`'s callers stay as they are, a monitor of transitions, and the engine's commands
-keep their check in their own fiber.
+1. **One check, where the loop decides to apply a message.** `Core.arrive` reads the register in the thunk that calls
+   `update`: from the defect on, the run applies no message. The core holds it, the run and `rehearse` share it, and
+   its mutation has deterministic killers.
+2. **No check in the middle of a step.** A step under way when a defect is recorded is the loop's until the end of
+   the run interrupts it: it may still start its commands and the subscriptions of its new keys. The checks before
+   `runCommand` and in `reconcile` go.
+3. **`render` is called once, as the run starts.** No check stands before it: a run that died while it started, as a
+   subscription of `init` died, calls the renderer and interrupts it, as it interrupts any effect it started.
+4. **The end of the run stops the loop first.** It interrupts the loop and waits for it, then interrupts the
+   renderer, then the commands and the subscriptions, all at once. Nothing forks a fiber while the end reads the
+   run's fibers, and what is sent while the run ends is not applied.
+5. **A function of the program is called where the call is decided**, never as the first step of a fiber forked for
+   it, unless the fork is documented to start at once. `rehearse`'s `run` checks, takes and calls `runCommand` in one
+   thunk, and races the effect it returns (step 2).
+6. **One check for each call.** No earlier check of the same register stands in front of it in another thunk: it
+   would answer in its place in every order a deterministic test reaches (steps 1 and 2).
+7. **A fiber and how it stops are one primitive**, `Effect.acquireRelease(fork, stop)` (step 3).
+
+And one of policy: **a mutation takes a check out, and a form is held by its construction.** A mutation that writes a
+second reader apart from an act, as `runAll`'s does, restores a bug the structure rules out (`Ledger.take` finds none
+in the transition that would take). No deterministic test can kill it, since no code of the program lies between the
+two reads. It goes, with its test, or stays as the one test under a schedule: an open question.
+
+The hypothesis's first rule, in its letter, is dropped: see "Alternatives".
+
+### The README's sentence
+
+A draft, to be checked sentence by sentence against the one it replaces:
+
+> From the defect on, the run applies no message: it does not call `update`. A step under way may still start its
+> commands and the subscriptions of its new keys, until the run stops it. The run stops applying messages first, then
+> interrupts the renderer, the commands and the subscriptions, waits for them to release what they hold, and dies with
+> every defect, in the order they happened.
+
+"So starts no command", "nor `runCommand`" and "nor the renderer when it has not called it yet" go. "A message whose
+`update` it called before goes on to its frame" goes too: the end of the run may interrupt that step.
 
 ### What a consumer could notice
 
-- **`render` is called by the fiber of the run, before the renderer's fiber exists.** A `render` that only builds an
-  effect, as both bridges' do, shows no difference. One that does work before it returns its effect does it there.
-  Its defect is still in `'render'`.
-- **In `rehearse`, `runCommand` is called in the thunk that takes the command**, and no longer in a fiber of
-  `orDead`'s. Nothing changes for a `runCommand` that builds an effect.
-- Nothing else. The renderer under `acquireRelease`, and `model`'s single check, change no behaviour the suite sees.
+- **A step under way when a defect is recorded may start its commands and its new subscriptions.** Before, it
+  started none.
+- **`render` is called in a run that died as it started**, and its effect is interrupted as the run ends.
+- **A message sent while the run ends is not applied**, one the renderer sends as it is released included. Before,
+  the loop went on while the renderer released what it held.
+- **A step under way when the run ends may be interrupted before its frame.** Before, it went on for as long as the
+  renderer took to release what it held.
+- In `rehearse`, since step 2, `runCommand` is called in the thunk that takes the command, and no longer in a fiber
+  of `orDead`'s. Nothing changes for a `runCommand` that builds an effect.
 
 ### The five tests
 
-| Test under a schedule | Rule | What holds the mutation instead |
-| --- | --- | --- |
-| a renderer is not called once a subscription of init has died | 1 | a test of `run.test.ts` with no schedule: a subscription of `init` that dies as it starts, and a `render` that counts its calls |
-| a run interrupted as it starts the renderer stops it, and keeps its defects | 3 | the mutation becomes "the run does not stop the renderer", killed by at least seven tests of `run.test.ts` that exist, the first "a renderer that dies while an interrupted run releases it is in the cause" |
-| run calls no runCommand once a command has died | 1, 2 | a test of `rehearse.test.ts` with no schedule: run the command that dies, then another, and count the calls |
-| model calls no makeModel once a command has died | 2 | the same, with a read of `model` after the death |
-| runAll runs what is pending, though another call takes the last command | 4 | none can: `ledger.test.ts` holds that a take finds none on an empty `pending`, which is the check there is |
+| Test under a schedule | What holds its mutation instead |
+| --- | --- |
+| a renderer is not called once a subscription of init has died | nothing: the check goes, and its mutation with it (rule 3) |
+| a run interrupted as it starts the renderer stops it, and keeps its defects | done, step 3: "the run does not stop the renderer", killed by thirteen tests with no schedule |
+| run calls no runCommand once a command has died | done, step 2: a test of the same name with no schedule |
+| model calls no makeModel once a command has died | done, step 1: a test of the same name with no schedule |
+| runAll runs what is pending, though another call takes the last command | none can: `ledger.test.ts` holds that a take finds none on an empty `pending`, which is the check there is |
 
 `src/interleaving.test.ts` kills no mutation, so nothing has to replace it. Each guarantee it checks has
 deterministic tests, of the core or with a gate (`docs/shared-core.md`, step 7). What only it does is look for an
-order nobody thought of. Under these rules it is an alarm: an order it finds means a rule was broken, and is fixed by
-the rule, not by a test under a schedule. Whether it stays is an open question. If it goes, `test/scheduled.ts`, its
-two test files and its two modes go with it.
+order nobody thought of. Its property "from the first defect on, the run applies no message and starts no command"
+becomes "applies no message". Whether the search stays is an open question. If it goes, `test/scheduled.ts`, its two
+test files and its two modes go with it.
+
+### The mutations
+
+- **Go**, with their checks: "runCommand is called after the first defect", "the run calls render after the first
+  defect", "reconcile starts subscriptions after the first defect".
+- **Stays**: "update is called after the first defect", with its two killers.
+- **Comes**: "the end of the run stops the renderer before the loop", killed by a test with no schedule, "a message
+  the renderer sends as the run releases it does not reach update".
 
 ### AGENTS.md's premises
 
+- **Goes**: that `FiberSet.run` and `FiberMap.run` start their fiber at once. Its three tests are of the checks
+  rule 2 takes out.
 - **Would go**, with `test/scheduled.ts`: "Every fiber of a run asks the `Scheduler` it is given before each step",
   read in the source. It is the only premise about the order of yields that is the tests' alone.
-- **Would be reworded**: under `Effect.uninterruptibleMask`, "how the run forks the renderer and sets how its end
-  stops it" becomes `Effect.acquireRelease`, documented, and loses its test under a schedule. The rest of that
-  premise stays, for `drive` and `rehearse`.
-- **Would be added**, documented: that `FiberSet.run` and `FiberMap.run` start their fiber at once. The gates that
-  kill the engine's mutations of `runCommand` and of `reconcile` rest on it today, unlisted.
+- **Reworded**, step 3: under `Effect.uninterruptibleMask`, how the run forks the renderer and sets how its end stops
+  it became `Effect.acquireRelease`, documented.
 - **Remain, read only in the source, each with a deterministic test**: `HashMap`'s use of `Equal` and when it calls
   it; `FiberMap.remove` waiting for the release; the order `Effect.onExit` gives the causes; which interruptions a
   fiber received (`diesIn`); an unbounded `Queue` waking its taker through the run's scheduler; a `Logger` called in
@@ -194,43 +226,48 @@ two test files and its two modes go with it.
 
 ### Where by construction stops
 
-- **The first step of the renderer's effect.** Today the check and the call are that fiber's first step, so its
-  effect takes no step once a defect is recorded before it. With the call in the run's thunk, a defect recorded
-  between the call and the fiber's start leaves the effect to begin, until the run interrupts it. The README's words
-  hold either way ("nor the renderer when it has not called it yet"; "So is what the renderer does"), and a
-  subscription has had this window since AGENTS.md said so ("one forked before may take its first step after the
-  defect"). The spike measured it: no call after a recorded defect in either design, and a first step after it in
-  317 of 2,002 prioritized schedules with the call in the run's thunk, in none today. Keeping today's strength keeps
-  a test under a schedule for it, or rests on `forkChild`'s `startImmediately`, which its JSDoc does not describe.
-- **A mutation of form**, as `runAll`'s: rule 4.
+- **The end of the run.** With the loop stopped and awaited first, no fiber forks while the end reads the run's
+  fibers: the fiber that makes the engine is the one that closes its scope. This is argued, and no test fails
+  without it.
+- **A mutation of form**, as `runAll`'s: the rule of policy.
 - **What is delegated to Effect.** That `acquireRelease` leaves no window is read in its documentation and tested by
   nothing of the library's, as AGENTS.md's rule on documented premises accepts.
-- **The end of the run**, which reads the run's fibers while the loop may still fork one. A search found no order
-  that misses a fiber; no construction rules one out. Interrupting and awaiting the loop before the rest would: it
-  changes "all at once", and is not proposed here.
 - **What nobody has thought of.** The rules say where a window cannot be. Only a search finds one where they were not
   applied.
 
 ## Plan
 
 Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun run mutations` green, and is a commit.
-Steps 1 to 3 change nothing a consumer sees and need no decision: they are done. The mutation of step 3 has thirteen
-killers, twelve of `run.test.ts` and one of `contract.test.ts`, and takes the place of "the renderer is stopped only
-when the run succeeds" too, whose `Effect.onExit` the release replaced.
+Steps 1 to 3 change nothing a consumer sees and are done. Steps 4 and 5 change what the README promises, and are
+done, in one commit: with the loop stopped first, the two tests that killed the mutation of the check before
+`runCommand` pass without it, since the end interrupts the loop while it waits, so step 4 alone left that check held
+by no test.
 
-1. `rehearse`'s `model`: one check, in the thunk that calls `makeModel`, outside `diesIn('render')`. A test with no
-   schedule, "model calls no makeModel once a command has died", replaces the scheduled one as the killer of
+1. Done. `rehearse`'s `model`: one check, in the thunk that calls `makeModel`, outside `diesIn('render')`. A test
+   with no schedule, "model calls no makeModel once a command has died", replaced the scheduled one as the killer of
    "rehearse reads the model after the first defect".
-2. `rehearse`'s `run`: the check, `Ledger.take` and the call of `runCommand` in one thunk, the effect raced by
-   `orDead`. A test with no schedule replaces the scheduled one as the killer of "rehearse runs a command after the
+2. Done. `rehearse`'s `run`: the check, `Ledger.take` and the call of `runCommand` in one thunk, the effect raced by
+   `orDead`. A test with no schedule replaced the scheduled one as the killer of "rehearse runs a command after the
    first defect".
-3. The renderer under `Effect.acquireRelease` in `run.ts`. The mutation of the mask becomes "the run does not stop
-   the renderer", its killers the tests of the end of the run that exist. The scheduled test of seed 767 goes.
-   AGENTS.md's premise of `uninterruptibleMask` is reworded, and `FiberSet.run`'s immediate start is listed.
-4. `render` called in the run's thunk, once the question of the renderer's first step is decided. A test with no
-   schedule replaces the scheduled one. A changelog entry says where `render` is called.
-5. `runAll`'s mutation, once decided: gone with its test, or kept as the one test under a schedule.
-6. AGENTS.md: the three rules beside "one thunk", and the policy of mutations. `interleaving.test.ts` and
+3. Done. The renderer under `Effect.acquireRelease` in `run.ts`. The mutation of the mask became "the run does not
+   stop the renderer", with thirteen killers, twelve of `run.test.ts` and one of `contract.test.ts`. The scheduled
+   test of seed 767 went.
+4. Done. The end of the run stops the loop first: the engine gives the run a way to stop its loop, which the release
+   of the renderer runs before it interrupts the renderer, and the engine's own end runs before it reads its fibers.
+   The test "a message the renderer sends as the run releases it does not reach update" kills its mutation, "the end
+   of the run stops the renderer before the loop". "A message the renderer sends as an interrupted run releases it,
+   on which update dies, ends the run" went: that message is no longer applied. "Running" in the README says the
+   order of the end, and that a step under way may be interrupted before its frame.
+5. Done. The checks before `runCommand`, in `reconcile` and before `render` went, with their three mutations, the
+   scheduled test of the renderer and "a subscription that dies as the run starts keeps the keys after it from
+   starting". The three tests named "… starts none of its commands" and "… of its new keys" went too: they still
+   passed, since the end interrupts the loop while it waits, and promised what the run no longer does. The README's
+   sentence changed, with the changelog's unreleased entries that said the old one, the property of
+   `interleaving.test.ts`, AGENTS.md's invariant "Defects always die", and its premise of `FiberSet.run`, which
+   went.
+6. The check before `describeMessage` on a dropped message, once decided.
+7. `runAll`'s mutation, once decided: gone with its test, or kept as the one test under a schedule.
+8. AGENTS.md: the rules beside "one thunk", and the policy of mutations. `interleaving.test.ts` and
    `test/scheduled.ts`, once decided: kept as an alarm, or gone with the premise of the `Scheduler`.
 
 ## What it rests on
@@ -239,53 +276,70 @@ when the run succeeds" too, whose `Effect.onExit` the release replaced.
   evaluate theirs synchronously: **documented**, as in `docs/shared-core.md`.
 - That `Effect.acquireRelease` protects the acquisition from interruption and runs the release when its scope closes:
   **documented**, in its JSDoc at 4.1.4, `@stability stable`.
-- That `FiberSet.run` and `FiberMap.run` start their fiber at once: **documented**, in their JSDoc at 4.1.4.
-- That today's mutations of the renderer's check, of `rehearse`'s `run` and of its `model` survive a test with no
-  schedule: **checked**. Three such tests passed with each check taken out.
-- That `render` called in the run's thunk keeps every test, and its check has a deterministic killer: **checked**.
-  `run.test.ts` stayed green, the scheduled test included, and the test with no schedule failed with the check out.
-- That the renderer under `acquireRelease` keeps every test, and that dropping it is seen: **checked**. `run.test.ts`,
-  `drive.test.ts` and `contract.test.ts` stayed green, the test of seed 767 included, and at least seven tests of
-  `run.test.ts` failed with a bare fork (the output read was cut there).
-- That `rehearse`'s `run` and `model`, each with one check in the calling thunk, keep every test, and each check has
-  a deterministic killer: **checked**. The suite of `bun run test` stayed green with the three changes together, one
-  run of `bun run interleavings` too, and each test with no schedule failed with its check out.
+- That the mutations of the renderer's check, of `rehearse`'s `run` and of its `model` survived a test with no
+  schedule before steps 1 to 3: **checked**. Three such tests passed with each check taken out.
 - That a check inside `diesIn('render')` wraps the recorded defects again: **checked**. "after a defect of the
   program, what the test asks for fails with it" failed with it there.
-- That the renderer's effect may take its first step after a recorded defect once `render` is called in the run's
-  thunk, and never does today: **checked** under `prioritizedSchedules` (1,000 seeds at depth 3 in each mode), which
-  samples the orders. Under Effect's own scheduler the scenario showed no such step in either design.
-- That a `runCommand` or a `render` made with `Effect.fn` opens its span in the fiber that runs its effect, not where
-  it is called: **open**. The suite's tests of spans stayed green with the engine's `runCommand` called by the loop,
-  which is not proposed; no spike called an `Effect.fn` across two fibers on purpose.
-- That no bridge, example or user relies on `render` being called in the renderer's fiber: **open** for users; the
-  two bridges build an effect and do nothing else.
-- That the end of the run misses no fiber: **read in a search** (commit 784d681), not held by a test.
+- That the decision keeps the suite but for what it gives up: **checked**. 468 of 471 tests passed; the three that
+  failed are those step 4 and step 5 name. The typecheck passed.
+- That the run applies no message after a defect, with the one check and the loop stopped first: **checked**. No
+  call of `update` after the death in twelve scenarios (bursts of 1 to 200 messages before a subscription dies, a
+  subscription that goes on sending, a command that dies as its step starts two more, a renderer that dies, a
+  renderer that sends as it is released), under Effect's scheduler and with `MaxOpsBeforeYield` at 1; and the
+  property "from the first defect on, the run applies no message" of `interleaving.test.ts` passed three runs.
+- That a step under way may still start its commands, and no more than its own: **checked**. In the same scenarios,
+  none, one or two commands started after the death, those of the step under way; the property "… and starts no
+  command" failed three runs of three.
+- That the mutations hold: **checked**. `bun run mutations` killed forty of forty on the copy, the three of rule 2
+  and rule 3 taken out of the list and that of rule 4 added, killed by its test with no schedule.
+- That a release under way as the loop is interrupted is still awaited and reported: **checked** in one scenario (a
+  step that waits for a slow release, which dies, while a command dies: both defects are in the cause).
+- That the loop first breaks nothing the order was there for: **read**. The renderer was stopped first so that its
+  defect was not lost (commit bc5229d), and by the order of acquisition in the scope, not so that the loop went on.
+- That the end of the run misses no fiber once the loop is stopped first: **argued**, not held by a test. Before,
+  it was read in a search (commit 784d681).
+- That a step interrupted by the end of the run leaves nothing a consumer relies on: **open**. `onApplied` may have
+  heard a step whose frame is never drawn, as it may today when whoever runs the run interrupts it.
 
 ## Alternatives
 
-- **One owner in the letter: every fiber's outcome, a death included, a message in the loop's queue.** The purest
-  form. A message queued before a death would still be applied, so "from the defect on" would become weaker, and the
-  engine, `run.ts` and `rehearse` would all change. The spikes show the register, written in a thunk and read in a
-  thunk, needs no owner.
-- **The engine's `runCommand` called by the loop, as `subscriptions` is.** Spiked: the suite and three runs of the
-  search stayed green, and the two gates still killed its mutation. Not needed, since `FiberSet.run` starts the fiber
-  at once, and it would give commands the window the renderer gets. Worth it only for symmetry.
-- **`Effect.forkChild(rendering, { startImmediately: true })`.** The renderer's check would run at the fork, on the
-  run's stack, with no window between the call and the first step: today's strength, and a deterministic killer. The
-  option is in `forkChild`'s type and not in its JSDoc, so it is a premise read in the source, with a test that fails
-  without it. Not spiked.
-- **No read of `dead` outside `alive`**, so that a check apart from its call cannot be written. It rules out a split,
-  not a deferred thunk nor a shadowed check, which are what the scheduled tests are for.
+Each was spiked, but for the last two.
+
+- **A death is a message in the loop's queue**, queued in the thunk that records it, and the loop stops as it takes
+  it: one owner in the letter. 465 of 471 tests passed. What was queued before the death is applied, and starts its
+  commands, so the run goes on working after a defect for as long as its queue was; one check is left, with a
+  deterministic killer. `rehearse`, which refuses a request queued before a death, would differ from the run. A run
+  that ends only when its loop takes the death would not end while a step waits for ever: that form was not spiked.
+- **No check at all, and the loop stopped first.** 467 of 471 tests passed. Under Effect's scheduler a subscription
+  that queues 20 messages and dies sees all of them applied after its death, and one that queues 100 about half: the
+  loop runs before the fiber of the run interrupts it. A promise worded "may still apply a message" would hold in
+  ordinary runs, not in rare ones.
+- **No check at all, the renderer stopped first.** With a renderer that takes 60 ms to release what it holds, 38 to
+  40 messages of a subscription that sends one each millisecond were applied after the death, and 613 of 1,000
+  queued. Which end stops first is what bounds the work after a defect.
+- **The death interrupts the loop**, in the thunk that records it (`Fiber.interruptUnsafe`), with `init` and the
+  call of `runCommand` in the loop's fiber, and the loop stopped first. 469 of 471 tests passed, the search passed
+  three runs whole, and `bun run mutations` killed forty of forty: no call of `update` nor of `runCommand` after a
+  defect, with no read of the register in the engine. It rests on `interruptUnsafe`, `@stability stable`, whose
+  JSDoc says to prefer the module's functions, as the unsafe methods "do not provide the same Effect-based sequencing
+  guarantees"; it interrupts a step where it stands; and it leaves the renderer's clause to a check of its own.
+  The strongest promise, for the most mechanism.
+- **The engine's `runCommand` called by the loop, as `subscriptions` is.** Spiked before the revision: the suite and
+  three runs of the search stayed green. With no check before it, the question no longer arises.
+- **`Effect.forkChild(rendering, { startImmediately: true })`**, to keep the renderer's check with a deterministic
+  killer. The option is in `forkChild`'s type and not in its JSDoc. Not spiked, and not needed once the check goes.
 - **One mode of resumption in `test/scheduled.ts`**, with the first step of a resumed fiber a decision of the
-  strategy. It makes the model of Effect's scheduler cleaner, and leaves the tests resting on it.
+  strategy. It makes the model of Effect's scheduler cleaner, and leaves the tests resting on it. Not spiked.
 
 ## Open questions
 
-- Whether the renderer's effect may take its first step after a defect recorded between its call and its start, as
-  a subscription's may: step 4 rests on the answer, and the third alternative is the way to keep today's strength.
-- Whether a mutation of form stays in `mutations.ts` (rule 4, step 5).
-- Whether the search of `interleaving.test.ts` stays as an alarm, and `test/scheduled.ts` with it (step 6).
+- Whether a dropped message is described after a defect, while debug logs are enabled: the check stays, or `Core.arrive`
+  looks at the register first, which changes what `rehearse` tells a call whose start is gone (step 6).
+- Whether `rehearse` stays as it is. It fails a call made after a defect, and the test starts each command itself,
+  so no step of its is under way while a command dies: nothing found needs it to change.
+- Whether the engine keeps a stop of its own in its end, which only a test of `Engine.make` without `run` reaches.
+- Whether a mutation of form stays in `mutations.ts` (step 7).
+- Whether the search of `interleaving.test.ts` stays as an alarm, and `test/scheduled.ts` with it (step 8). It is
+  what watches the end of the run, which no test holds.
 - Whether `scopedIn` should tell the defects its own fiber wrapped by a set of its own, rather than by the register.
-- Whether the end of the run should stop the loop before the fibers it forks.
-- Whether step 2 is a change a consumer can notice, and so has a changelog entry.
+- Whether step 2 was a change a consumer can notice, and so has a changelog entry.

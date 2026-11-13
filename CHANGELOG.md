@@ -49,6 +49,12 @@ version, and everything else, features included, the patch version.
   until the key goes away and comes back. A test mixed them: `hear` added a message the running subscription never
   sent, and `hearNext` after `hear` started the subscription again from its start. A test that mixes them hears
   that start with one of the two, or makes its key go away and come back in between.
+- **Breaking**: as the run ends, of a defect or of an interruption, it stops applying messages first, then stops the
+  renderer, then its commands and its subscriptions. A message sent meanwhile is not applied, one the renderer sends
+  as it releases what it holds included, and a step under way may be interrupted before its frame. The run went on
+  applying messages while the renderer released what it held, so a message it sent then was applied, and the
+  commands it started were interrupted right after. A renderer that sent one for the program to act on does that
+  work itself as it is released. "Running" in the README says the order.
 - "Commands" in the README says that commands run concurrently, with no bound, and that their answers reach
   `update` in the order they end: the run always did so.
 - "Running" in the README says that the run waits for `onApplied` and `onIgnored` before the next message, as it
@@ -96,15 +102,12 @@ version, and everything else, features included, the patch version.
 - A run interrupted just as it forked the renderer left it running: the fiber the run ran in interrupted it as it
   ended, and ended with that interruption alone, a defect of the run lost. The run now forks the renderer and sets
   how its end stops it where nothing interrupts it in between.
-- The renderer could be called after the first defect, as a subscription of `init` died while the run started:
-  the run now checks in the thunk that calls it, and never calls it in a run that died. "Running" in the README
-  says so. `drive`, whose scenario then sees no frame, fails with the defect, as before.
-- A message the run took before a defect could reach `update` after it, and a command could start after it in a
-  program that lowers `Scheduler.MaxOpsBeforeYield`: the scheduler may yield between the run's check and the call.
-  The run now checks in the thunk that calls `update` or `runCommand`, and `rehearse` too, in `run` and `model` as
-  well. "Running" in the README says what stops at the defect: the calls of `update` and `runCommand`, while what a
-  command started before does, or a subscription the state of a step under way lists, runs until the run interrupts
-  it.
+- A message the run took before a defect could reach `update` after it in a program that lowers
+  `Scheduler.MaxOpsBeforeYield`: the scheduler may yield between the run's check and the call. The run now checks in
+  the thunk that calls `update`, and `rehearse` too, in `run` and `model` as well. "Running" in the README says what
+  stops at the defect: the calls of `update`, while a step under way may still start its commands and the
+  subscriptions of its new keys, and what a command or a subscription does once started runs until the run
+  interrupts it.
 - A release that interrupted itself, or failed though its type rules it out, after the command or the subscription
   it belonged to had died, was lost: the run died of the first defect alone, and `rehearse` failed with a bare
   interruption after it. It is a second defect, where it happened, after the first, as "Nothing ends in silence" in
@@ -177,11 +180,10 @@ version, and everything else, features included, the patch version.
   with it, and the checks of the commands at the end are skipped. A scenario that caught a defect with
   `Effect.exit` and went on passed: it now fails, and a test that expects a defect wraps `rehearse` instead.
   "Testing" in the README says so.
-- A run that died applies no message, and so starts no command, while it releases its renderer: it went on
-  applying what its subscriptions sent, and starting the commands of each step, until the renderer was released. A
-  step already under way, waiting for what a subscription it stopped releases or for `onApplied`, starts none of its
-  commands and subscriptions either, nor do the keys of the first state after one that dies as the run starts.
-  "Running" in the README says so.
+- A run that died applies no message, and so starts the commands of no later step: it went on applying what its
+  subscriptions sent, and starting the commands of each step, until the renderer was released. A step already under
+  way may still start its commands and the subscriptions of its new keys, until the run stops it. "Running" in the
+  README says so.
 - The defects a run dies of are in its cause in the order they happened: the renderer's, what the run dies of as it
   starts, and a command's or a subscription's before what its release lets another fiber die of. A later defect
   could come first, and `Cause.squash` gave it. `rehearse` orders a command's and a subscription's the same way.

@@ -145,10 +145,9 @@ export const applyIn = <State, Message, Command, Event>(
 ) => Effect.sync(() => update(message)(state)).pipe(diesIn('update', () => ({ on: describeByTag(message) })))
 
 /**
- * Calls `f` unless the run has died: `None`, with `f` not called, once `dead` says so. The only way the run and the
- * testing tools call the program's code that must not run after a death, but for `update`, which `Core.arrive` calls
- * with the same check: the check and the call are one synchronous function, where no other fiber can run, so that no
- * yield of the scheduler lets one die in between.
+ * Calls `f` unless the run has died: `None`, with `f` not called, once `dead` says so. The check and the call are
+ * one synchronous function, where no other fiber can run, so that no yield of the scheduler lets one die in between,
+ * as in `Core.arrive`, which calls `update` with the same check.
  */
 export const alive = <A>(dead: () => boolean, f: () => A): Opt.Option<A> => dead() ? Opt.none() : Opt.some(f())
 
@@ -234,6 +233,11 @@ export interface Engine<State, Message> {
    * `ProgramDefect`, in the order they died; succeeds when there is none. The end of the run reports the rest.
    */
   readonly report: Effect.Effect<void>
+  /**
+   * Interrupts the loop and waits for it to end: from then on the run applies no message. The end of the run does it
+   * first, before whoever runs the engine stops what sends to it.
+   */
+  readonly stop: Effect.Effect<void>
   /** Never succeeds: waits until a fiber of the run has died, and dies as `report` does. */
   readonly await: Effect.Effect<never>
 }
@@ -274,31 +278,38 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   )
   const deaths = given ?? (yield* makeDeaths(() => true))
   const { recorded, died, report, dead } = deaths
-  // A run that died applies no message, and starts no command, as nothing happens in a run that died, while whoever
-  // runs it stops it: the renderer, which it stops first, may take a while to release what it holds. Each is checked in
-  // the thunk that calls the program, `update` (`Core.arrive`) or `runCommand` (`alive`), where no other fiber can run:
-  // the scheduler may yield at any other operation. The loop checks nothing of its own, which would hide a check left
-  // apart from its call from any test. A step whose `update` was called before the death goes on, as it may wait for a
-  // release or an option, and forks no subscription once a death is recorded; what the program's effects do once
-  // started, a subscription forked before the death included, is theirs, until the end of the run interrupts them.
+  // A run that died applies no message, until whoever runs it stops the loop, which may run before the fiber that
+  // stops it: checked in the thunk that calls `update` (`Core.arrive`), where no other fiber can run, since the
+  // scheduler may yield at any other operation. It is the only check: a step whose `update` was called before the
+  // death goes on whole until then, so it may still start its commands and the subscriptions of its new keys. One
+  // check in the middle of it would leave a state whose commands never started. What the program's effects do once
+  // started is theirs, until the end of the run interrupts them.
   // The loop and the commands.
   const fibers = yield* FiberSet.make<unknown, never>()
   // Kept by their start, never by their key: `FiberMap` compares its keys, in a fiber's observer too, where
   // nothing could tell the defect of a key's `Equal` that throws.
   const subscriptionFibers = yield* FiberMap.make<Core.Generation, void, never>()
-  // Run before they close: the end of the run interrupts its fibers itself, all at once, waits for them to release
-  // what they hold, and dies of what they have died of and nobody has reported, which `diesIn` already says where.
+  // The loop, once it runs. Stopped first as the run ends, and awaited: what is sent meanwhile is not applied, and
+  // nothing forks a fiber while the end reads those to interrupt.
+  let loop: Fiber.Fiber<unknown, never> | undefined
+  const stop = Effect.suspend(() => loop === undefined ? Effect.void : Fiber.interrupt(loop))
+  // Run before they close: the end of the run stops the loop, interrupts its other fibers itself, all at once, waits
+  // for them to release what they hold, and dies of what they have died of and nobody has reported, which `diesIn`
+  // already says where.
   yield* Effect.addFinalizer(() =>
-    Effect.suspend(() => {
-      const running: ReadonlyArray<Fiber.Fiber<unknown, never>> = [
-        ...fibers,
-        ...Arr.map(Arr.fromIterable(subscriptionFibers), ([, fiber]) => fiber),
-      ]
-      return Fiber.interruptAll(running).pipe(
-        Effect.andThen(Effect.forEach(running, Fiber.await, { discard: true })),
-        Effect.andThen(report),
-      )
-    })
+    Effect.andThen(
+      stop,
+      Effect.suspend(() => {
+        const running: ReadonlyArray<Fiber.Fiber<unknown, never>> = [
+          ...fibers,
+          ...Arr.map(Arr.fromIterable(subscriptionFibers), ([, fiber]) => fiber),
+        ]
+        return Fiber.interruptAll(running).pipe(
+          Effect.andThen(Effect.forEach(running, Fiber.await, { discard: true })),
+          Effect.andThen(report),
+        )
+      }),
+    )
   )
   const started = Core.init(first)
   const stateRef = yield* SubscriptionRef.make(started.current)
@@ -318,7 +329,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   // The interpreter runs inside the command's fiber, so a defect in it is the command's. Its scope closes
   // before its message is queued, so that `update` never learns of a command whose resources are still open.
   const runCommand = (command: Command) =>
-    Effect.suspend(() => Opt.getOrElse(alive(dead, () => interpret(command)), () => Effect.succeedNone)).pipe(
+    Effect.suspend(() => interpret(command)).pipe(
       scopedIn(deaths, 'command'),
       Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: enqueue(fromCommand) })),
       Effect.provideContext(context),
@@ -347,7 +358,6 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       { concurrency: 'unbounded', discard: true },
     )
     for (const [key, subscription, generation] of fresh) {
-      if (dead()) break
       const send = enqueue({ _tag: 'Subscription', key, generation })
       yield* log('Subscription started', key)
       yield* runSubscription(subscription, send).pipe(
@@ -423,7 +433,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     Effect.provideContext(context),
     recorded,
   )
-  yield* Effect.gen(function*() {
+  loop = yield* Effect.gen(function*() {
     let active = initialActive
     while (true) {
       active = yield* step(active, yield* Queue.take(queue))
@@ -433,6 +443,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     await: died.pipe(Effect.andThen(report), Effect.andThen(Effect.never)),
     died,
     report,
+    stop,
     dispatch: enqueue(fromView),
     states: SubscriptionRef.changes(stateRef),
   } satisfies Engine<State, Message>

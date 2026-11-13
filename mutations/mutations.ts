@@ -25,37 +25,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
-    name: 'runCommand is called after the first defect',
-    file: 'src/engine.ts',
-    from: 'Effect.suspend(() => Opt.getOrElse(alive(dead, () => interpret(command)), () => Effect.succeedNone))',
-    to: 'Effect.suspend(() => interpret(command))',
-    killedBy: [
-      ['src/run.test.ts', 'a message whose stopped subscription dies in its release starts none of its commands'],
-      ['src/run.test.ts', 'a message whose onApplied waits while a command dies starts none of its commands'],
-    ],
-  },
-  {
-    name: 'the run calls render after the first defect',
-    file: 'src/run.ts',
-    from: 'Opt.getOrElse(Engine.alive(deaths.dead, () => render(frames)), () => Effect.void)',
-    to: 'render(frames)',
-    killedBy: [
-      [
-        'src/run.test.ts',
-        'a renderer is not called once a subscription of init has died, under prioritized schedules',
-      ],
-    ],
-  },
-  {
-    name: 'reconcile starts subscriptions after the first defect',
-    file: 'src/engine.ts',
-    from: '      if (dead()) break\n',
-    to: '',
-    killedBy: [
-      ['src/run.test.ts', 'a subscription that dies as the run starts keeps the keys after it from starting'],
-    ],
-  },
-  {
     name: 'a message of a stopped start reaches update',
     file: 'src/core.ts',
     from: "source._tag === 'Subscription' && !active.starts.has(source.generation)",
@@ -94,8 +63,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: 'Effect.andThen(Effect.forkDetach(FiberMap.remove(subscriptionFibers, generation)))',
     killedBy: [
       ['src/engine.test.ts', 'a key that changes stops the old subscription and starts the new one'],
-      ['src/run.test.ts', 'a message whose stopped subscription dies in its release starts none of its commands'],
-      ['src/run.test.ts', 'a message whose stopped subscription dies in its release starts none of its new keys'],
     ],
   },
   {
@@ -333,7 +300,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     file: 'src/run.ts',
     from: '    const renderer = yield* Effect.acquireRelease(\n'
       + '      Effect.forkChild(rendering),\n'
-      + '      (renderer) => Fiber.interrupt(renderer).pipe(Effect.andThen(Fiber.await(renderer))),\n'
+      + '      (renderer) =>\n'
+      + '        engine.stop.pipe(Effect.andThen(Fiber.interrupt(renderer)), Effect.andThen(Fiber.await(renderer))),\n'
       + '    )\n',
     to: '    const renderer = yield* Effect.forkChild(rendering)\n',
     killedBy: [
@@ -353,10 +321,6 @@ export const mutations: ReadonlyArray<Mutation> = [
         'src/run.test.ts',
         'a subscription that dies while an interrupted run releases the renderer ends the run with it',
       ],
-      [
-        'src/run.test.ts',
-        'a message the renderer sends as an interrupted run releases it, on which update dies, ends the run',
-      ],
       ['src/run.test.ts', 'a command that dies while a run that died elsewhere releases the renderer is in the cause'],
       [
         'src/run.test.ts',
@@ -371,6 +335,15 @@ export const mutations: ReadonlyArray<Mutation> = [
         'src/testing/contract.test.ts',
         'drive fails, as the run dies, on a defect of what a subscription releases when the scenario ends',
       ],
+    ],
+  },
+  {
+    name: 'the end of the run stops the renderer before the loop',
+    file: 'src/run.ts',
+    from: 'engine.stop.pipe(Effect.andThen(Fiber.interrupt(renderer)), Effect.andThen(Fiber.await(renderer)))',
+    to: 'Fiber.interrupt(renderer).pipe(Effect.andThen(Fiber.await(renderer)))',
+    killedBy: [
+      ['src/run.test.ts', 'a message the renderer sends as the run releases it does not reach update'],
     ],
   },
   {

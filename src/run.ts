@@ -3,7 +3,6 @@ import * as Cause from 'effect/Cause'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
-import * as Opt from 'effect/Option'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import type { Dispatch } from './dispatch.ts'
@@ -68,24 +67,24 @@ const running = Effect.fnUntraced(
       Stream.buffer({ capacity: 1, strategy: 'sliding' }),
       Stream.map(({ state }) => lazyFrame(() => program.makeModel(state), engine.dispatch)),
     )
-    // Started only in a run that has not died, checked in the thunk that calls it, as `runCommand` is: a subscription
-    // of `init` may die while the engine starts.
-    const rendering = Effect.suspend(() =>
-      Opt.getOrElse(Engine.alive(deaths.dead, () => render(frames)), () => Effect.void)
-    ).pipe(
+    // Called once, in a run that died as it started too, as a subscription of `init` may die while the engine starts:
+    // the end of the run interrupts it, as it does any effect of the program.
+    const rendering = Effect.suspend(() => render(frames)).pipe(
       // The model is made when the renderer reads it: a defect of `makeModel` is the renderer's.
       Engine.scopedIn(deaths, 'render'),
       Effect.updateContext(Engine.withExternalSpan<Exclude<RR, Scope.Scope>>),
     )
-    // However the run ends, the renderer is interrupted and awaited before the engine's fibers. Only signals race, so
-    // that no defect is lost with the loser: every fiber records what it dies of, the renderer too, and the run
-    // reports here what they have died of so far, and what they die of later, while the renderer releases what it
-    // holds too, by the end of the engine. The fork and how the run stops it are one acquisition, which nothing
-    // interrupts in between: forked apart, the run would leave the renderer to the end of whichever fiber runs it,
-    // unawaited. Its release comes before the engine's, acquired first in the same scope.
+    // However the run ends, it stops the loop first, then the renderer is interrupted and awaited, before the engine's
+    // other fibers: what the renderer sends as it releases what it holds is not applied, and the program does not go
+    // on while it does. Only signals race, so that no defect is lost with the loser: every fiber records what it dies
+    // of, the renderer too, and the run reports here what they have died of so far, and what they die of later, while
+    // the renderer releases what it holds too, by the end of the engine. The fork and how the run stops it are one
+    // acquisition, which nothing interrupts in between: forked apart, the run would leave the renderer to the end of
+    // whichever fiber runs it, unawaited. Its release comes before the engine's, acquired first in the same scope.
     const renderer = yield* Effect.acquireRelease(
       Effect.forkChild(rendering),
-      (renderer) => Fiber.interrupt(renderer).pipe(Effect.andThen(Fiber.await(renderer))),
+      (renderer) =>
+        engine.stop.pipe(Effect.andThen(Fiber.interrupt(renderer)), Effect.andThen(Fiber.await(renderer))),
     )
     yield* Effect.raceFirst(engine.died, Fiber.await(renderer)).pipe(Effect.andThen(engine.report))
   },

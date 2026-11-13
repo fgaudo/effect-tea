@@ -764,10 +764,10 @@ describe('interleavings of the user, commands and subscriptions', () => {
 
   // The windows between a check of the register of deaths and the call it guards are few among the orders, and this
   // fails only on one of them: taken out, the check in the thunk of `update` was found in 205 scenarios of four
-  // schedules on average, the one before `runCommand` in 62. 1,500 make a miss rare.
-  test('from the first defect on, the run applies no message and starts no command', () => {
+  // schedules on average. 1,500 make a miss rare. A step under way may still start its commands, so none is asked.
+  test('from the first defect on, the run applies no message', () => {
     property(
-      ({ events }) => expect(sinceFirstDefect(events, ['Updated', 'CommandStarted'])).toEqual([]),
+      ({ events }) => expect(sinceFirstDefect(events, ['Updated'])).toEqual([]),
       { numRuns: 1500, schedules: 4 },
     )
   }, 120_000)
