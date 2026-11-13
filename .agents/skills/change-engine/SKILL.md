@@ -40,7 +40,9 @@ under one. A test that fails only beside others of its file is no killer: the li
 runs before a release (`release`), and after a change of a file it mutates. A mutation takes a check out: one that
 writes a form the structure rules out (a second read of `pending` apart from `Ledger.take`) restores a bug that no
 code of the program could reach, and no deterministic test can kill it. Such a form is held by the test of the
-transition that rules it out (`ledger.test.ts`, `core.test.ts`), and has no mutation.
+transition that rules it out (`ledger.test.ts`, `core.test.ts`), and has no mutation. So has a region nothing may
+interrupt, which holds no code of the program for a gate to stop in: its three forms are under "one thunk" in
+`docs/invariants.md`, and the checks beside it keep their mutations.
 
 ### A lead of the search
 

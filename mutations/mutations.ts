@@ -56,10 +56,6 @@ export const mutations: ReadonlyArray<Mutation> = [
       ['src/engine.test.ts', 'a message left by an earlier start of a key that came back does not reach update'],
       ['src/run.test.ts', 'what a subscription leaves in the queue after its key went away does not reach update'],
       ['src/run.test.ts', 'a Logger that throws on the log of a dropped message is one defect, in the log'],
-      [
-        'src/testing/rehearse.test.ts',
-        'a message its subscription sends after its key went away does not reach update',
-      ],
     ],
   },
   {
@@ -551,10 +547,35 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse lets a command's interrupted run go unanswered",
     file: 'src/testing/rehearse.ts',
-    from: '                    ledger = Ledger.cancel(ledger, ticket)\n',
+    from: '              ledger = Ledger.cancel(ledger, taking.ticket)\n',
     to: '',
     killedBy: [
       ['src/testing/rehearse.test.ts', 'when a run interrupted while its command runs leaves the command unanswered'],
+    ],
+  },
+  {
+    name: 'rehearse leaves the command of an interrupted run running',
+    file: 'src/testing/rehearse.ts',
+    from: '            Fiber.interrupt(taking.fiber),\n',
+    to: '            Effect.void,\n',
+    killedBy: [['src/testing/rehearse.test.ts', 'the command is released before the interrupted call returns']],
+  },
+  {
+    name: 'rehearse offers the loop a step once it has ended',
+    file: 'src/testing/rehearse.ts',
+    from: 'if (!ended && Queue.offerUnsafe(',
+    to: 'if (Queue.offerUnsafe(',
+    killedBy: [
+      ['src/testing/rehearse.test.ts', 'a fiber the scenario did not join is offered nothing once it returned'],
+    ],
+  },
+  {
+    name: 'rehearse lets the loop finish after a scenario that failed',
+    file: 'src/testing/rehearse.ts',
+    from: 'Exit.isSuccess(exit) ? Effect.exit(finish) : Effect.void',
+    to: 'Effect.exit(finish)',
+    killedBy: [
+      ['src/testing/rehearse.test.ts', 'a scenario that failed stops the loop at once, its step under way included'],
     ],
   },
   {

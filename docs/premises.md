@@ -73,10 +73,10 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   program on the scheduler the run started with" (`run.test.ts`).
 - **A start's generation, not only its key, says whether its messages still apply**: "a message left by an earlier
   start of a key that came back does not reach update" (`engine.test.ts`), and "what a subscription leaves in the
-  queue after its key went away does not reach update" (`run.test.ts`); `rehearse` drops it by the same `arrive` of
-  the core: "a message its subscription sends after its key went away does not reach update" (`rehearse.test.ts`).
-  This one rests on nothing of Effect: it is the engine's own rule, tested where the fibers' order would otherwise
-  hide it.
+  queue after its key went away does not reach update" (`run.test.ts`). `rehearse` never gives `arrive` such a
+  message: its ledger forgets a start in the transition that stops it ("a start whose key went away is stopped and
+  forgotten, and the calls waiting on it are told", `ledger.test.ts`). This one rests on nothing of Effect: it is the
+  engine's own rule, tested where the fibers' order would otherwise hide it.
 - **Every fiber of a run asks the `Scheduler` it is given before each step, and every task it makes goes to that
   scheduler's dispatcher, or resumes inline where the scheduler of the tests makes it yield first**, so that
   `test/scheduled.ts` decides where each fiber yields and which runs next, needing nothing of the platform's: "driven
@@ -105,13 +105,13 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   state that stopped it" (`rehearse.test.ts`). Documented.
 - **What `Effect.uninterruptibleMask` runs outside `restore` cannot be interrupted**, which is how `drive` stops and
   awaits its run when whoever runs it interrupts it: "drive interrupted by whoever runs it" (`drive.test.ts`); and how
-  `rehearse`'s `run` and `hearNext` give the loop the message they took before anything interrupts them: "a run
-  interrupted while its answer stops a subscription has answered, and leaves its state", "a hearNext interrupted while
-  its message stops a subscription leaves the state the message made" (`rehearse.test.ts`). It is also how the end of
-  `rehearse` takes the scenario's exit however it ends, an interruption by whoever runs it included, and stops what it
-  started before it reads what its fibers died of, the defects first: "interrupted by whoever runs it, it fails on a
-  defect of what a subscription releases", "a defect of a release still under way when the scenario returns fails it",
-  "a defect the scenario catches fails it all the same, first, and once" (`rehearse.test.ts`). Documented.
+  the end of `rehearse` takes the scenario's exit however it ends, an interruption by whoever runs it included, and
+  stops what it started before it reads what its fibers died of, the defects first: "interrupted by whoever runs it, it
+  fails on a defect of what a subscription releases", "a defect of a release still under way when the scenario returns
+  fails it", "a defect the scenario catches fails it all the same, first, and once" (`rehearse.test.ts`). It is also
+  how the fiber of a command in `rehearse` offers its answer to the loop once its effect has answered, nothing
+  interrupting it in between: a region that holds no code of the program, which no test reaches and no mutation names
+  ("one thunk" in `invariants.md`). Documented.
 - **A fiber forked with `Effect.forkIn` is interrupted when its scope closes, and not when the fiber that forked it
   ends, and the close waits for it to end, its release included**, which is how `rehearse` keeps its loop, and a
   subscription that `hearNext` started for as long as its key stays, whichever fiber of the test's asked for them: "a
@@ -123,9 +123,13 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   (`Effect.forkIn`); that it is not when the fiber that forked it ends is not, and "a subscription first heard in a
   fiber that has ended since" fails without it; that the close waits is not either, and the last two fail with a
   close that does not wait.
-- **`Effect.onInterrupt` runs its finalizer when the effect is interrupted**, which is how `rehearse` fails on a
-  command whose `run` was interrupted before it answered: "when a run interrupted while its command runs leaves the
-  command unanswered" (`rehearse.test.ts`). Documented.
+- **`Effect.acquireUseRelease` lets nothing interrupt its acquisition, and runs its release however its use ends,
+  once the acquisition has succeeded, while its use can be interrupted**, which is how `rehearse`'s `run` takes its
+  command, calls `runCommand` and forks the effect it returned with nothing in between for an interruption to fall
+  into, and how an interrupted `run` cancels the command and stops its fiber, waiting for its release: "when a run
+  interrupted while its command runs leaves the command unanswered", "the command is released before the interrupted
+  call returns" (`rehearse.test.ts`). The first two are documented; that the use can be interrupted is read only in
+  the source, and both tests fail with a use made uninterruptible.
 - **`Effect.scoped` closes the scope once the effect has ended, and what an effect inside it does on its exit runs
   before the release**, which is how `scopedIn` records the defect of a command, a subscription or the renderer before
   its release lets another fiber die: "a renderer that dies before a command is the first defect of the cause", "a

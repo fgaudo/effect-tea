@@ -1383,6 +1383,8 @@ describe('rehearse, as a fiber of the test\'s runs a command while it ends', () 
 // subscription gives inside `restore`, in a child fiber of `Effect.raceFirst` (`orDead`), and give it to the loop only
 // once the call resumes: an interruption that reaches the call in between finds nothing to hold it. Each runs under
 // prioritized schedules, with the resumptions Effect's own scheduler makes (`inline`), and a failure names its seed.
+// What holds them now are regions that hold no code of the program, so these are alarms of the search, and no
+// mutation names them ("one thunk" in `docs/invariants.md`).
 describe('rehearse, as a call is interrupted between what it took and the loop', () => {
   type Answering = Readonly<{ answered: boolean }>
   type Answered = 'Answered' | 'Noop'
@@ -1628,5 +1630,101 @@ describe('rehearse and a scenario that throws before it returns its effect', () 
     await new Promise((resolve) => setTimeout(resolve, 30))
     expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain('boom')
     expect(log.filter((each) => each === 'acquire').length).toBe(log.filter((each) => each === 'release').length)
+  })
+})
+
+// What holds the loop in a step as the scenario ends: a message that stops a subscription whose release waits for a
+// gate. The test opens the gate only once a fiber of its own has seen what the end did, so that an end that waited for
+// the loop, or offered it a step, would wait for itself, and the test would never end.
+describe('rehearse, as the scenario ends while its loop waits for a release', () => {
+  type Listening = Readonly<{ listening: boolean; late: number }>
+  type Message = 'Stop' | 'Tick' | 'Late'
+
+  type Holding = Program<{ state: Listening; model: Listening; message: Message }>
+  const holding = (gate: Deferred.Deferred<void>): Holding => ({
+    init: { state: { listening: true, late: 0 } },
+    update: (message) => (state) =>
+      message === 'Stop' ? { state: { ...state, listening: false } }
+      : message === 'Late' ? { state: { ...state, late: state.late + 1 } }
+      : { state },
+    subscriptions: ({ listening }) =>
+      listening
+        ? HashMap.make(['a', Channel.succeed<Message>('Tick').pipe(
+          Channel.concatWith(() => Channel.never),
+          Channel.ensuring(Deferred.await(gate)),
+        )])
+        : HashMap.empty(),
+    makeModel: (state) => state,
+  })
+
+  // A `runAll` with nothing pending is interrupted once the rehearsal has ended, and does nothing before: the fiber
+  // asks until it is.
+  const untilEnded = (rehearsal: Rehearsal<Listening, Listening, Message, never, never, never>) =>
+    Effect.exit(rehearsal.runAll).pipe(
+      Effect.tap(() => Effect.yieldNow),
+      Effect.repeat({ until: Exit.isFailure }),
+    )
+
+  test('a fiber the scenario did not join is offered nothing once it returned', async () => {
+    let late: Exit.Exit<unknown> | undefined
+    const state = await Effect.runPromise(Effect.gen(function*() {
+      const gate = yield* Deferred.make<void>()
+      const program = holding(gate)
+      return yield* rehearse(program, Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.hearNext('a')
+        yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>('Stop')))
+        yield* Effect.sleep('10 millis')
+        yield* Effect.forkChild(Effect.gen(function*() {
+          yield* untilEnded(rehearsal)
+          late = yield* Effect.exit(rehearsal.send(() => Opt.some<Message>('Late')))
+          yield* Deferred.succeed(gate, undefined)
+        }))
+        return rehearsal
+      })).pipe(Effect.flatMap((rehearsal) => rehearsal.state))
+    }))
+    expect(late !== undefined && Exit.hasInterrupts(late)).toBe(true)
+    expect(state).toEqual({ listening: false, late: 0 })
+  })
+
+  test('a scenario that failed stops the loop at once, its step under way included', async () => {
+    let stopped: Exit.Exit<unknown> | undefined
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const gate = yield* Deferred.make<void>()
+      return yield* rehearse(holding(gate), Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.hearNext('a')
+        const stopping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>('Stop')))
+        yield* Effect.sleep('10 millis')
+        yield* Effect.forkChild(Effect.gen(function*() {
+          stopped = yield* Fiber.await(stopping)
+          yield* Deferred.succeed(gate, undefined)
+        }))
+        return yield* Effect.fail('boom')
+      }))
+    }))
+    expect(stopped !== undefined && Exit.hasInterrupts(stopped)).toBe(true)
+    expect(Exit.isFailure(exit) && Cause.squash(exit.cause)).toBe('boom')
+  })
+})
+
+describe('rehearse, as a run is interrupted while its command runs', () => {
+  type Count = Readonly<{ count: number }>
+
+  // The call stops the command's fiber and waits for it: what the command holds is released before the call returns,
+  // not at the end of the rehearsal.
+  test('the command is released before the interrupted call returns', async () => {
+    const log: Array<'released' | 'returned'> = []
+    const program: Program<{ state: Count; model: Count; message: 'Go'; command: 'Wait' }> = {
+      init: { state: { count: 0 }, commands: ['Wait'] },
+      update: () => (state) => ({ state }),
+      runCommand: () => Effect.never.pipe(Effect.ensuring(Effect.sync(() => log.push('released')))),
+      makeModel: (state) => state,
+    }
+    await Effect.runPromiseExit(rehearse(program, Effect.fnUntraced(function*(rehearsal) {
+      const running = yield* Effect.forkChild(rehearsal.run(() => true))
+      yield* Effect.sleep('10 millis')
+      yield* Fiber.interrupt(running)
+      log.push('returned')
+    })))
+    expect(log).toEqual(['released', 'returned'])
   })
 })

@@ -108,10 +108,20 @@ is how they are kept, and what a change must not undo. What they rest on of Effe
   - **One check for each call.** No earlier check of the same register stands in front of it in another thunk: it
     would answer in its place in every order a deterministic test reaches.
   - **A fiber and how it stops are one primitive**, `Effect.acquireRelease(fork, stop)`, with nothing in between for an
-    interruption to fall into (the renderer in `run.ts`).
+    interruption to fall into (the renderer in `run.ts`), or `Effect.acquireUseRelease` where a call waits for the
+    fiber (a command's in `rehearse`'s `run`).
 
   What cannot be one thunk with its check, as the first step of an effect of the program, is no act the README
   promises about.
+
+  A region nothing may interrupt holds no code of the program, so no gate reaches it, and it has no mutation: one that
+  took it out would fail only under the scheduler of the tests. It is written in one of three forms: a transition of
+  the ledger made in the thunk of an offer to `rehearse`'s loop (`submit`'s `offered`), held by the test of the
+  transition (`ledger.test.ts`); a fiber and how it stops as one primitive, above; what follows an effect of the
+  program outside `restore` (a command's answer, offered to the loop). The last two are held by Effect's
+  documentation (`premises.md`). The checks beside them (`ended`, the register, a call that left) each have a
+  mutation with a deterministic killer, and the tests of `rehearse.test.ts` under the scheduler of the tests stay as
+  alarms of the search, killing none.
 - **Commands are data; only `runCommand` runs them.** Never let a command carry its effect, or a description
   that must be kept in step with one: a test, `onApplied` and the logs read the command itself.
 - **Commands cannot be cancelled**, a deliberate choice: do not add cancellation without asking.

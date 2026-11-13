@@ -181,7 +181,8 @@ export const rehearse = Effect.fnUntraced(function*<
   let active: Core.Active<unknown> = Core.noneActive
   // The commands, and how each start is heard, by its generation, as the run keeps its fibers. Written by every fiber
   // of the test's, each time by one transition in one thunk.
-  let ledger = Ledger.start<Command, Subscription<Message, R>, Opened, Call<Message>, Message>(from.commands ?? [])
+  type LedgerOf = Ledger.Ledger<Command, Subscription<Message, R>, Opened, Call<Message>, Message>
+  let ledger: LedgerOf = Ledger.start(from.commands ?? [])
   const stoppedWhileWaiting = (key: unknown) =>
     new Error(
       `The subscription under ${Inspectable.toStringUnknown(key, 0)} was stopped while hearNext waited for its `
@@ -245,31 +246,28 @@ export const rehearse = Effect.fnUntraced(function*<
   // Once the rehearsal has ended, what a fiber of the test's still running asks is refused, and the call is
   // interrupted: nothing would apply it. A subscription's own fiber waits instead (`quiet`) for the end to stop it,
   // since one that interrupts itself is a defect. The check and the offer are one thunk, so that nothing is offered
-  // once the scenario's exit is taken, and `offered` runs in it too.
+  // once the scenario's exit is taken, and the transition of the ledger an offer makes (`offered`) is in it too.
+  type Transition = (ledger: LedgerOf) => LedgerOf
   const submit = <A, RA>(
     step: Effect.Effect<A, never, RA>,
-    { offered = () => {}, quiet = false }: Readonly<{ offered?: () => void; quiet?: boolean }> = {},
+    { offered = (same) => same, quiet = false }: Readonly<{ offered?: Transition; quiet?: boolean }> = {},
   ) =>
     Effect.flatMap(Effect.context<RA>(), (context) =>
       Effect.flatMap(Deferred.make<unknown>(), (done) =>
         Effect.suspend(() => {
           undelivered.add(done)
           if (!ended && Queue.offerUnsafe(requests, { step: Effect.provideContext(step, context), done })) {
-            offered()
+            ledger = offered(ledger)
             return Effect.succeed(done as Deferred.Deferred<A>)
           }
           undelivered.delete(done)
           return quiet ? Effect.never : Effect.interrupt
         })))
   const ask = <A, RA>(step: Effect.Effect<A, never, RA>) => Effect.flatMap(submit(step), Deferred.await)
-  // A message of a start that is no longer active (`onDropped`) reaches nothing of the program, as in the run: only a
-  // message of `hearNext`'s can be one, since `hear` looks its start up in the loop.
-  const applyNow = (
-    source: Core.Source<unknown>,
-    message: Message,
-    onRejected: () => Effect.Effect<void>,
-    onDropped: () => Effect.Effect<void> = () => Effect.void,
-  ) =>
+  // A message of a start that is no longer active reaches nothing of the program, as in the run. None comes here:
+  // `hear` looks its start up in the loop, and the ledger forgets a start in the transition that stops it, so that
+  // `hearNext` hears nothing more of it.
+  const applyNow = (source: Core.Source<unknown>, message: Message, onRejected: () => Effect.Effect<void>) =>
     Effect.suspend(() => {
       const before = now
       return Effect.sync(() => Core.arrive(program.update, before, active, source, message, dead)).pipe(
@@ -277,7 +275,7 @@ export const rehearse = Effect.fnUntraced(function*<
         Effect.flatMap((arrived) => {
           switch (arrived._tag) {
             case 'Dropped':
-              return onDropped()
+              return Effect.void
             case 'Dead':
               return deadOr(Effect.never)
             case 'Ignored':
@@ -297,11 +295,11 @@ export const rehearse = Effect.fnUntraced(function*<
       )
     })
   // From the world: it may arrive when it no longer applies.
-  const arriveNow = (source: Core.Source<unknown>, message: Message, onDropped?: () => Effect.Effect<void>) =>
+  const arriveNow = (source: Core.Source<unknown>, message: Message) =>
     applyNow(source, message, () =>
       Effect.sync(() => {
         now = { ...now, ignored: [...now.ignored, message] }
-      }), onDropped)
+      }))
   // There is no renderer: the test reads the model where the run's renderer would, and a defect of `makeModel` is
   // in `'render'` all the same. Its check is the only one before the call, and outside the site: the defects it fails
   // with were wrapped where they happened.
@@ -376,15 +374,7 @@ export const rehearse = Effect.fnUntraced(function*<
       ledger = found.value.ledger
       if (last) active = Core.ended(active, generation)
       return Effect.forEach(told, ({ heard }) => Deferred.succeed(heard, Opt.none()), { discard: true }).pipe(
-        // Applied only while its start is: what a start sends after its key went away does not reach `update`, as in
-        // the run.
-        Effect.andThen(Effect.exit(
-          arriveNow(
-            { _tag: 'Subscription', key, generation },
-            message,
-            () => Effect.die(stoppedWhileWaiting(call.key)),
-          ),
-        )),
+        Effect.andThen(Effect.exit(arriveNow({ _tag: 'Subscription', key, generation }, message))),
         Effect.flatMap((exit) => Effect.andThen(Deferred.done(call.heard, Exit.map(exit, () => Opt.some(message))), exit)),
         Effect.andThen(heardBy(key, generation)),
       )
@@ -462,11 +452,7 @@ export const rehearse = Effect.fnUntraced(function*<
   // in whichever fiber, ends the wait, as it ends the run.
   const hearNext = Effect.fnUntraced(function*(key: unknown) {
     const call: Call<Message> = { key, heard: yield* Deferred.make<Opt.Option<Message>>() }
-    const heard = yield* submit(hearing(key, call), {
-      offered: () => {
-        ledger = Ledger.enter(ledger, call)
-      },
-    }).pipe(
+    const heard = yield* submit(hearing(key, call), { offered: (before) => Ledger.enter(before, call) }).pipe(
       Effect.flatMap((done) => Effect.andThen(Deferred.await(done), orDead(Deferred.await(call.heard)))),
       Effect.ensuring(Effect.sync(() => {
         ledger = Ledger.leave(ledger, call)
@@ -476,56 +462,70 @@ export const rehearse = Effect.fnUntraced(function*<
   })
   // The effect of a command, in a fiber of the rehearsal's scope: once it answers, nothing interrupts it before its
   // answer is offered to the loop, and the command is no longer under way from the thunk of the offer on. Refused, as
-  // the rehearsal has ended, the answer is applied by nobody, and the command was under way when it ended.
+  // the rehearsal has ended, the answer is applied by nobody, and the command was under way when it ended. However
+  // the fiber ends, the command is no longer under way.
   const answering = <RC>(ticket: Ledger.Ticket, effect: Effect.Effect<Opt.Option<Message>, never, RC>) => {
-    const settle = () => {
-      ledger = Ledger.settle(ledger, ticket)
-    }
+    const settle = (before: LedgerOf) => Ledger.settle(before, ticket)
     return Effect.uninterruptibleMask((restore) =>
       restore(effect.pipe(scopedIn(register, 'command'))).pipe(
         Effect.flatMap(Opt.match({
           onNone: () => Effect.succeedNone,
           onSome: (message) => Effect.asSome(submit(arriveNow(fromCommand, message), { offered: settle })),
         })),
-        Effect.onExit((exit) => Exit.isSuccess(exit) && Opt.isSome(exit.value) ? Effect.void : Effect.sync(settle)),
+        Effect.ensuring(Effect.sync(() => {
+          ledger = settle(ledger)
+        })),
       )
     )
   }
-  // Checks that the rehearsal has not ended and the register, takes the oldest pending command `select` matches, or
-  // finds none (`Ledger.take`), and calls `runCommand`, all in one thunk, with no check in front of it; then forks the
-  // effect it returned in the rehearsal's scope, nothing interrupting the call in between, and waits for that fiber.
-  // Interrupted, the call cancels the command and interrupts its fiber, which may have offered its answer already.
   type Ran =
     | Readonly<{ _tag: 'None'; pending: ReadonlyArray<Command> }>
     | Readonly<{ _tag: 'Ran'; command: Command; answer: Opt.Option<Deferred.Deferred<void>> }>
+  type Taking =
+    | Readonly<{ _tag: 'None'; pending: ReadonlyArray<Command> }>
+    | Readonly<{
+      _tag: 'Running'
+      ticket: Ledger.Ticket
+      command: Command
+      fiber: Fiber.Fiber<Opt.Option<Deferred.Deferred<void>>>
+    }>
+  // Checks the register and that the rehearsal has not ended, takes the oldest pending command `select` matches, or
+  // finds none (`Ledger.take`), and calls `runCommand`, all in one thunk, with no check in front of it; then forks the
+  // effect it returned in the rehearsal's scope. The fiber and how an interrupted call stops it are one primitive: the
+  // call cancels the command and interrupts its fiber, which may have offered its answer already.
   const runFirst = (select: (command: Command) => boolean) =>
-    Effect.uninterruptibleMask((restore) =>
-      Effect.suspend((): Effect.Effect<Ran, never, Exclude<R, Scope.Scope>> => {
+    Effect.acquireUseRelease(
+      Effect.suspend(() => {
         if (dead()) return deadOr(Effect.never)
         if (ended) return Effect.interrupt
         const taking = Ledger.take(ledger, select)
-        if (Opt.isNone(taking)) return Effect.succeed({ _tag: 'None', pending: ledger.pending })
+        if (Opt.isNone(taking)) return Effect.succeed<Taking>({ _tag: 'None', pending: ledger.pending })
         const [{ ticket, command }, taken] = taking.value
         ledger = taken
         return answering(ticket, calling(() => runCommand(command))).pipe(
           Effect.forkIn(forks),
-          Effect.flatMap((fiber) =>
-            restore(orDead(Fiber.join(fiber))).pipe(
-              Effect.onInterrupt(() =>
-                Effect.andThen(
-                  Effect.sync(() => {
-                    ledger = Ledger.cancel(ledger, ticket)
-                  }),
-                  Fiber.interrupt(fiber),
-                )
-              ),
-            )
-          ),
-          Effect.map((answer): Ran => ({ _tag: 'Ran', command, answer })),
+          Effect.map((fiber): Taking => ({ _tag: 'Running', ticket, command, fiber })),
         )
-      })
+      }),
+      (taking): Effect.Effect<Ran> =>
+        taking._tag === 'None'
+          ? Effect.succeed(taking)
+          : Effect.map(orDead(Fiber.join(taking.fiber)), (answer) => ({
+            _tag: 'Ran',
+            command: taking.command,
+            answer,
+          })),
+      (taking, exit) =>
+        taking._tag === 'Running' && Exit.hasInterrupts(exit)
+          ? Effect.andThen(
+            Effect.sync(() => {
+              ledger = Ledger.cancel(ledger, taking.ticket)
+            }),
+            Fiber.interrupt(taking.fiber),
+          )
+          : Effect.void,
     ).pipe(
-      Effect.tap((ran: Ran) =>
+      Effect.tap((ran) =>
         ran._tag === 'Ran' && Opt.isSome(ran.answer) ? Deferred.await(ran.answer.value) : Effect.void
       ),
     )

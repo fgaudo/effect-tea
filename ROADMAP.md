@@ -12,13 +12,6 @@ Each is held by a `test.failing` case named after what should hold; its fix remo
 reports are the bodies of the commits of `claude/premise-review-6-engine-8ac990` (`ec3fe8c`, `d08d9d7`) and of
 `claude/premise-review-6-testing-d70db0` (`463159c`, `e4f4687`).
 
-**Next, the end of the plan of `rehearse`**: its findings are closed, and
-[`docs/rehearse-owned-effects.md`](docs/rehearse-owned-effects.md), their design, accepted, has one step of its "Plan"
-left of five, the fifth: the mutations of `rehearse.ts`, the tests of the conditions no test holds, and the documents.
-Read `change-engine` first. The note's "Open questions" say which conditions still need a test, and name a question
-that is the author's: ask it before step 5, and do not choose. The local branch `spike/rehearse-one-owner`
-(`db8309a`) is to be read, not merged, and deleted once the plan is done. Neither item below is part of it.
-
 - **An interruption the program makes with the fiber id of the one its effect received ends in silence**:
   `Core.otherwiseDefect` takes an interruption for the run's by the id of the fiber that made it, an id the program
   can make too. By key, a gone subscription is stopped by `FiberMap.remove`, as the fiber -1, as every `FiberMap`,

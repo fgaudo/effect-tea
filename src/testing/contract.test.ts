@@ -886,3 +886,52 @@ describe('a defect of makeModel that the scenario catches', () => {
     expect(diedIn(exit)).toBe('render')
   })
 })
+
+// The end of a tool, as the end of the run: once `drive` or `rehearse` has ended, what a fiber of the test's that the
+// scenario did not join sends reaches nothing of the program.
+describe('a fiber of the test\'s that sends once the tool has ended', () => {
+  type Count = Readonly<{ count: number }>
+  const counting = (applied: Array<'Go'>): Program<{ state: Count; model: Count; message: 'Go' }> => ({
+    init: { state: { count: 0 } },
+    update: (message) => ({ count }) => {
+      applied.push(message)
+      return { state: { count: count + 1 } }
+    },
+    makeModel: (state) => state,
+  })
+  // The fiber is forked in the test's own fiber, which outlives the tool: it sends once `ended` opens.
+  const late = <A>(tool: (ended: Deferred.Deferred<void>) => Effect.Effect<A, unknown>) =>
+    Effect.gen(function*() {
+      const ended = yield* Deferred.make<void>()
+      const exit = yield* Effect.exit(tool(ended))
+      yield* Deferred.succeed(ended, undefined)
+      yield* Effect.sleep('20 millis')
+      return exit
+    })
+
+  test('in drive, through the dispatch of its last frame, it reaches no update', async () => {
+    const applied: Array<'Go'> = []
+    const exit = await Effect.runPromise(late((ended) =>
+      drive(counting(applied), Effect.fnUntraced(function*(driver) {
+        const { dispatch } = yield* driver.latest
+        yield* Effect.forkDetach(Effect.andThen(Deferred.await(ended), dispatch('Go')))
+      }))
+    ))
+    expect(Exit.isSuccess(exit)).toBe(true)
+    expect(applied).toEqual([])
+  })
+
+  test('in rehearse, it reaches no update, and its call is interrupted', async () => {
+    const applied: Array<'Go'> = []
+    let sent: Fiber.Fiber<void> | undefined
+    const exit = await Effect.runPromise(late((ended) =>
+      rehearse(counting(applied), Effect.fnUntraced(function*(rehearsal) {
+        sent = yield* Effect.forkDetach(Effect.andThen(Deferred.await(ended), rehearsal.send(() => Opt.some('Go'))))
+      }))
+    ))
+    expect(Exit.isSuccess(exit)).toBe(true)
+    expect(applied).toEqual([])
+    const call = sent === undefined ? undefined : await Effect.runPromise(Fiber.await(sent))
+    expect(call !== undefined && Exit.hasInterrupts(call)).toBe(true)
+  })
+})
