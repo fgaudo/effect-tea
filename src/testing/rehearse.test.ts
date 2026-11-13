@@ -825,9 +825,12 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
     Exit.isFailure(exit) ? exit.cause.reasons.flatMap((reason) => Cause.isDieReason(reason) ? [reason.defect] : []) : []
 
   // Nothing happens in a run that died: what the test asks the program for after a defect fails with it, though the
-  // defect reached none of its calls, and what it reads of the state stays readable.
+  // defect reached none of its calls, and what it reads of the state stays readable. The loop takes no step: a `hear`
+  // under a key nothing listens under fails with the defect, never with the key it did not look up.
   test('after a defect of the program, what the test asks for fails with it, and the state is still read', async () => {
-    let after: Opt.Option<Readonly<{ sent: Exit.Exit<void>; model: Exit.Exit<Gated>; count: number }>> = Opt.none()
+    let after: Opt.Option<
+      Readonly<{ sent: Exit.Exit<void>; heard: Exit.Exit<void>; model: Exit.Exit<Gated>; count: number }>
+    > = Opt.none()
     const exit = await Effect.runPromiseExit(rehearse(
       counting(Effect.sleep('10 millis')),
       Effect.fnUntraced(function*(rehearsal) {
@@ -835,6 +838,7 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
         yield* Effect.sleep('30 millis')
         after = Opt.some({
           sent: yield* Effect.exit(rehearsal.send(() => Opt.some('Tick'))),
+          heard: yield* Effect.exit(rehearsal.hear('nobody', 'Tick')),
           model: yield* Effect.exit(rehearsal.model),
           count: (yield* rehearsal.state).count,
         })
@@ -842,9 +846,9 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
     ))
     const [died] = defectsOf(exit)
     expect(died).toBeInstanceOf(ProgramDefect)
-    expect(Opt.map(after, ({ sent, model, count }) => [defectsOf(sent), defectsOf(model), count])).toEqual(
-      Opt.some([[died], [died], 0]),
-    )
+    expect(
+      Opt.map(after, ({ sent, heard, model, count }) => [defectsOf(sent), defectsOf(heard), defectsOf(model), count]),
+    ).toEqual(Opt.some([[died], [died], [died], 0]))
   })
 
   // A test that asserts a defect wraps `rehearse`, never the call: caught by the scenario, it fails the rehearsal at
@@ -1179,13 +1183,39 @@ describe('rehearse after the first defect', () => {
     expect(late.n).toBe(0)
     expect(Exit.isFailure(exit)).toBe(true)
   })
+
+  // A read of the model has one check of the register, in the thunk that calls `makeModel`, and none in front of it:
+  // a read that follows the death reaches it with no schedule.
+  test('model calls no makeModel once a command has died', async () => {
+    type Count = Readonly<{ n: number }>
+    let died = false
+    let late = 0
+    const program: Program<{ state: Count; model: Count; message: 'Go'; command: 'Die' }> = {
+      init: { state: { n: 0 }, commands: ['Die'] },
+      update: () => (state) => ({ state }),
+      runCommand: () => Effect.die('boom'),
+      makeModel: (state) => {
+        if (died) late += 1
+        return state
+      },
+    }
+    const exit = await Effect.runPromiseExit(rehearse(
+      program,
+      Effect.fnUntraced(function*(rehearsal) {
+        died = Exit.isFailure(yield* Effect.exit(rehearsal.run(() => true)))
+        yield* Effect.exit(rehearsal.model)
+      }),
+    ))
+    expect(died).toBe(true)
+    expect(late).toBe(0)
+    expect(Exit.isFailure(exit)).toBe(true)
+  })
 })
 
 // The form of the engine's window between a check of its register and what it guards: `run` may yield before it calls
-// `runCommand`, and `model` before it calls `makeModel`, while another fiber dies. Each checks again in the thunk that
-// calls the program, which a scheduler the test controls reaches. That of `update` is the core's (`Core.arrive`),
-// held by `core.test.ts`, and called by `rehearse` as by the engine ("send calls no update once a read of the model has
-// died in its select").
+// `runCommand`, while another fiber dies. It checks again in the thunk that calls the program, which a scheduler the
+// test controls reaches. That of `update` is the core's (`Core.arrive`), held by `core.test.ts`, and called by
+// `rehearse` as by the engine ("send calls no update once a read of the model has died in its select").
 describe('rehearse, after the first defect, a yield of the scheduler in between', () => {
   type Count = Readonly<{ n: number }>
 
@@ -1225,7 +1255,7 @@ describe('rehearse, after the first defect, a yield of the scheduler in between'
       })).pipe(Effect.exit)
     })
 
-  for (const [what, called] of [['run', 'runCommand'], ['model', 'makeModel']] as const) {
+  for (const [what, called] of [['run', 'runCommand']] as const) {
     test(`${what} calls no ${called} once a command has died, under prioritized schedules`, () => {
       const late = { n: 0 }
       prioritizedSchedules(lateCalls(what, late), { runs: 2000, depth: 4 }, () => {})

@@ -482,10 +482,16 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'rehearse reads the model after the first defect',
     file: 'src/testing/rehearse.ts',
-    from: 'Effect.suspend(() => dead() ? deadOr(Effect.never) : Effect.succeed(program.makeModel(state)))',
-    to: 'Effect.suspend(() => Effect.succeed(program.makeModel(state)))',
+    from: '      dead()\n'
+      + '        ? deadOr(Effect.never)\n'
+      + "        : calling(() => Effect.succeed(program.makeModel(state))).pipe(diesIn('render'))\n",
+    to: "      calling(() => Effect.succeed(program.makeModel(state))).pipe(diesIn('render'))\n",
     killedBy: [
-      ['src/testing/rehearse.test.ts', 'model calls no makeModel once a command has died, under prioritized schedules'],
+      [
+        'src/testing/rehearse.test.ts',
+        'after a defect of the program, what the test asks for fails with it, and the state is still read',
+      ],
+      ['src/testing/rehearse.test.ts', 'model calls no makeModel once a command has died'],
     ],
   },
   {

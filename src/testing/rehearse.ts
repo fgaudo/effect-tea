@@ -154,13 +154,23 @@ export const rehearse = Effect.fnUntraced(function*<
   // alone, so only a `ProgramDefect` is recorded.
   const register = yield* makeDeaths((defect) => defect instanceof ProgramDefect)
   const { recorded, all: deaths, has: isRecorded, dead } = register
-  // Fails with the defects recorded so far, if any: else runs `effect`. A call to the program that must not follow a
-  // death checks it again in the thunk that calls it, since the scheduler may yield between this check and the call.
+  // Fails with the defects recorded so far, if any: else runs `effect`. It guards no call of the program: one that
+  // must not follow a death has its own check, the only one, in the thunk that calls it, since the scheduler may
+  // yield between this check and `effect`.
   const deadOr = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     Effect.suspend(() => {
       const dies = deaths()
       return Arr.isReadonlyArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : effect
     })
+  // Calls the program where the call is decided, in the thunk that checks the register: what it throws is a defect of
+  // the effect it would have returned, in the site and the scope that effect gets.
+  const calling = <A, E, R>(call: () => Effect.Effect<A, E, R>): Effect.Effect<A, E, R> => {
+    try {
+      return call()
+    } catch (defect) {
+      return Effect.die(defect)
+    }
+  }
   // A call that waits for a subscription or a command fails as soon as a fiber dies, whichever, as the run dies at
   // once: what it waits for would come in a run that died. One that waits for the loop waits for a release, which the
   // end of the rehearsal awaits all the same.
@@ -272,10 +282,13 @@ export const rehearse = Effect.fnUntraced(function*<
         now = { ...now, ignored: [...now.ignored, message] }
       }), onDropped)
   // There is no renderer: the test reads the model where the run's renderer would, and a defect of `makeModel` is
-  // in `'render'` all the same.
+  // in `'render'` all the same. Its check is the only one before the call, and outside the site: the defects it fails
+  // with were wrapped where they happened.
   const modelOf = (state: State) =>
-    Effect.suspend(() => dead() ? deadOr(Effect.never) : Effect.succeed(program.makeModel(state))).pipe(
-      diesIn('render'),
+    Effect.suspend(() =>
+      dead()
+        ? deadOr(Effect.never)
+        : calling(() => Effect.succeed(program.makeModel(state))).pipe(diesIn('render'))
     )
   // Selected on the model of the state it applies to, in the loop.
   const send = (select: (model: Model) => Opt.Option<Message>) =>
@@ -472,7 +485,7 @@ export const rehearse = Effect.fnUntraced(function*<
   // What the test reads of the state stays readable once the rehearsal died; what asks the program for more fails.
   const rehearsal: Rehearsal<State, Model, Message, Command, Event, R> = {
     state: Effect.sync(() => now.state),
-    model: deadOr(Effect.suspend(() => recorded(modelOf(now.state)))),
+    model: Effect.suspend(() => recorded(modelOf(now.state))),
     send: (select) => ask(Effect.suspend(() => send(select))),
     pending: Effect.sync(() => ledger.pending),
     run,
