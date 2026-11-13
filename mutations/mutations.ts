@@ -308,7 +308,10 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: 'Queue.unbounded<Envelope<Message, K>>()',
     to: 'Queue.bounded<Envelope<Message, K>>(1)',
     killedBy: [
-      ['src/engine.test.ts', 'a message left by an earlier start of a key that came back does not reach update'],
+      [
+        'src/run.test.ts',
+        'dispatches run one after the other in one callback, before the run takes any, are all applied in order',
+      ],
     ],
   },
   {
@@ -330,6 +333,27 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "        if (true) {\n          yield* log('Message',",
     killedBy: [
       ['src/run.test.ts', 'messages and commands are described only while debug logs are enabled'],
+    ],
+  },
+  {
+    name: 'an ignored message is described while debug logs are disabled',
+    file: 'src/engine.ts',
+    from: "        if (debugging) {\n          yield* log('Ignored a rejected message',",
+    to: "        if (true) {\n          yield* log('Ignored a rejected message',",
+    killedBy: [
+      ['src/run.test.ts', 'a message ignored as rejected is described only while debug logs are enabled'],
+    ],
+  },
+  {
+    name: 'a dropped message is described while debug logs are disabled',
+    file: 'src/engine.ts',
+    from: "if (debugging && source._tag === 'Subscription') {",
+    to: "if (source._tag === 'Subscription') {",
+    killedBy: [
+      [
+        'src/run.test.ts',
+        'a message dropped as its subscription stopped is described only while debug logs are enabled',
+      ],
     ],
   },
   {
@@ -857,6 +881,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: '() => false)',
     killedBy: [
       ['src/core.test.ts', 'a kept key keeps its start, and a gone key stops with its start'],
+      ['src/engine.test.ts', 'a key that goes away interrupts its subscription, which releases what it holds'],
       ['src/engine.test.ts', 'a key that changes stops the old subscription and starts the new one'],
       ['src/testing/contract.test.ts', 'in the run, the subscription whose key went away is interrupted'],
     ],

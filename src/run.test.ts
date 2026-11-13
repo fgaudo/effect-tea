@@ -281,6 +281,45 @@ describe('run', () => {
     expect(counts).toEqual([0, 1])
     expect(() => kept && Effect.runSync(kept('Increment'))).not.toThrow()
   })
+
+  // A queue that waits when full would make the second of them suspend, and `Effect.runSync` throw on it.
+  test('dispatches run one after the other in one callback, before the run takes any, are all applied in order', async () => {
+    const sent: ReadonlyArray<Message> = ['Increment', 'Forbidden', 'Increment']
+    const thrown: Array<unknown> = []
+    const arrived: Array<Message> = []
+    const dispatched = Deferred.makeUnsafe<void>()
+    await Effect.runPromise(run(
+      counter,
+      (frames) =>
+        frames.pipe(
+          Stream.tap(({ model, dispatch }) =>
+            Effect.sync(() => {
+              if (model.count > 0) return
+              setTimeout(() => {
+                for (const message of sent) {
+                  try {
+                    Effect.runSync(dispatch(message))
+                  } catch (error) {
+                    thrown.push(error)
+                  }
+                }
+                Effect.runSync(Deferred.succeed(dispatched, undefined))
+              }, 0)
+            })
+          ),
+          Stream.takeUntil(({ model }) => model.count === 2),
+          Stream.runDrain,
+          // Long enough for what was sent to be applied, if a dispatch threw before the second `Increment`.
+          Effect.raceFirst(Deferred.await(dispatched).pipe(Effect.andThen(Effect.sleep('50 millis')))),
+        ),
+      {
+        onApplied: ({ message }) => Effect.sync(() => arrived.push(message)),
+        onIgnored: ({ message }) => Effect.sync(() => arrived.push(message)),
+      },
+    ))
+    expect(thrown).toEqual([])
+    expect(arrived).toEqual([...sent])
+  })
 })
 
 describe('defects', () => {
@@ -669,6 +708,89 @@ describe('logs', () => {
     const atDebug = await descriptionsAt('Debug')
     expect(atDebug.messages).toBeGreaterThan(0)
     expect(atDebug.commands).toBeGreaterThan(0)
+  })
+
+  /** How many times the run describes a rejected message, which it ignores, sent before one it applies. */
+  const ignoredDescriptionsAt = async (level: 'Info' | 'Debug') => {
+    let forbidden = 0
+    await Effect.runPromise(run(
+      counter,
+      (frames) =>
+        frames.pipe(
+          Stream.tap(({ model, dispatch }) =>
+            model.count === 0 ? Effect.andThen(dispatch(model.type(false)), dispatch(model.increment)) : Effect.void
+          ),
+          // The queue keeps their order: once `Increment` is drawn, `Forbidden` has been ignored.
+          Stream.takeUntil(({ model }) => model.count === 1),
+          Stream.runDrain,
+        ),
+      {
+        describeMessage: (message) => {
+          if (message === 'Forbidden') forbidden += 1
+          return message
+        },
+      },
+    ).pipe(
+      Effect.provideService(References.MinimumLogLevel, level),
+      Effect.provide(Logger.layer([])),
+    ))
+    return forbidden
+  }
+
+  test('a message ignored as rejected is described only while debug logs are enabled', async () => {
+    expect(await ignoredDescriptionsAt('Info')).toBe(0)
+    expect(await ignoredDescriptionsAt('Debug')).toBe(1)
+  })
+
+  /**
+   * How many times the run describes a tick that a subscription left in the queue after its key went away, which the
+   * run drops: `onApplied` holds the loop on `Stop` until the tick is queued behind it.
+   */
+  const droppedDescriptionsAt = (level: 'Info' | 'Debug') =>
+    Effect.runPromise(Effect.gen(function*() {
+      const source = yield* Queue.unbounded<'Tick'>()
+      const sent = yield* Deferred.make<void>()
+      const stopped = yield* Deferred.make<void>()
+      let ticks = 0
+      // The engine asks for what follows the tick only once it has queued the tick: then `sent` completes.
+      const ticking = Channel.unwrap(Effect.map(Queue.take(source), (tick) => Channel.succeed(tick))).pipe(
+        Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never))),
+      )
+      yield* run(
+        {
+          init: { state: { isRunning: true } },
+          update: (message: 'Tick' | 'Stop') => (state: Readonly<{ isRunning: boolean }>) =>
+            message === 'Tick' ? { state } : { state: { isRunning: false } },
+          subscriptions: (state) => state.isRunning ? HashMap.make(['ticks', ticking]) : HashMap.empty(),
+          makeModel: ({ isRunning }) => ({ isRunning, stop: 'Stop' as const }),
+        },
+        (frames) =>
+          frames.pipe(
+            Stream.tap(({ model, dispatch }) =>
+              model.isRunning ? dispatch(model.stop) : Deferred.succeed(stopped, undefined)
+            ),
+            Stream.runDrain,
+            // Long enough for the loop to take the tick, once `onApplied` lets it go.
+            Effect.raceFirst(Deferred.await(stopped).pipe(Effect.andThen(Effect.sleep('20 millis')))),
+          ),
+        {
+          onApplied: ({ message }) =>
+            message === 'Stop' ? Queue.offer(source, 'Tick').pipe(Effect.andThen(Deferred.await(sent))) : Effect.void,
+          describeMessage: (message) => {
+            if (message === 'Tick') ticks += 1
+            return message
+          },
+        },
+      ).pipe(
+        Effect.provideService(References.MinimumLogLevel, level),
+        Effect.provide(Logger.layer([])),
+      )
+      return ticks
+    }))
+
+  test('a message dropped as its subscription stopped is described only while debug logs are enabled', async () => {
+    expect(await droppedDescriptionsAt('Info')).toBe(0)
+    expect(await droppedDescriptionsAt('Debug')).toBe(1)
   })
 })
 

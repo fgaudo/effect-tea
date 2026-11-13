@@ -147,11 +147,16 @@ describe('Engine subscriptions', () => {
     return log
   }
 
+  // Read while the engine runs, once the message after the one that took the key away is applied: the loop takes it
+  // only once the release is over, and the end of the engine, which stops every subscription, has not come yet.
   test('a key that goes away interrupts its subscription, which releases what it holds', async () => {
-    expect(await logOf([{ _tag: 'Listened', names: ['a'] }, { _tag: 'Listened', names: [] }])).toEqual([
-      'start a',
-      'stop a',
-    ])
+    const log: Array<string> = []
+    const whileRunning = await run(Effect.gen(function*() {
+      const engine = yield* listening(log)
+      yield* send(engine, [{ _tag: 'Listened', names: ['a'] }, { _tag: 'Listened', names: [] }, { _tag: 'Bumped' }])
+      return [...log]
+    }))
+    expect(whileRunning).toEqual(['start a', 'stop a'])
   })
 
   test('a key that comes back starts a new subscription', async () => {

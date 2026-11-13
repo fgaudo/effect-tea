@@ -76,7 +76,8 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   interrupting itself as the fiber that stops it" (`contract.test.ts`). That `Cause.annotate` keeps the keys a reason
   has is documented; that `interruptAs` puts its annotations on the reason is not, and seen in those tests.
 - **An unbounded `Queue` takes an offer at once, and a shut one refuses it without interrupting**: "a dispatch runs
-  with Effect.runSync from a plain callback, and after the run has ended too" (`run.test.ts`). It wakes its taker
+  with Effect.runSync from a plain callback, and after the run has ended too", and "dispatches run one after the
+  other in one callback, before the run takes any, are all applied in order" (`run.test.ts`). It wakes its taker
   through the scheduler of the fiber that made it, so a dispatch never runs `update` in its caller's stack:
   "running a dispatch from a plain callback returns before update has seen the message" (`run.test.ts`). That
   the scheduler is the run's own is read only in the source: "a dispatch run from a plain callback wakes the
