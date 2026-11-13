@@ -903,7 +903,7 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
 
   // The end interrupts the loop in the step that waits for the release, and the key has already left the state: only
   // the close of the scope the subscription was forked in reaches it, and the rehearsal returns once that close has
-  // waited for the release (the `Effect.forkIn` premise in AGENTS.md).
+  // waited for the release (the `Effect.forkIn` premise in docs/premises.md).
   test('it returns once a release under way when the scenario returns has ended, its key already gone', async () => {
     let released = false
     await Effect.runPromise(Effect.gen(function*() {

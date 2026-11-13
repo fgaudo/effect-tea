@@ -17,7 +17,7 @@ needs.
   exports it next to what it belongs with. A testing tool gets a module under `src/testing/`, exported from its
   index.
 - Keep the tools symmetric: what `drive` gets, `simulate` and `rehearse` are asked about, and the engine and
-  the three tools behave alike where the engine is deterministic ("Invariants the engine keeps").
+  the three tools behave alike where the engine is deterministic (`docs/invariants.md`).
 - Only stable Effect APIs, nothing deprecated, and no upgrade of Effect for a newer API without asking
   ([`upgrade-effect`](../upgrade-effect/SKILL.md)).
 - A new entrypoint beside `.` and `./testing` needs the three conditions of `exports` in `package.json`: `bun`

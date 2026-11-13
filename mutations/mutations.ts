@@ -1,4 +1,4 @@
-// One mutation for each check an invariant rests on (AGENTS.md, "Invariants the engine keeps"), each with the tests
+// One mutation for each check an invariant rests on (docs/invariants.md), each with the tests
 // that must fail under it. `mutate.ts` applies them one at a time.
 
 export type Mutation = Readonly<{

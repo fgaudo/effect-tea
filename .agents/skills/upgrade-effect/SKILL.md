@@ -24,8 +24,8 @@ is preferred, and the upgrade is the author's call.
 
 1. `bun add --dev effect@^4.<minor>.<patch>`, so that `devDependencies` and the lockfile name the new version.
 2. Set `peerDependencies.effect` to the same caret range, and the version in the README's "Installation".
-3. Read what changed in Effect's source between the two versions, in the modules the premises of `AGENTS.md`
-   ("What the invariants rest on") name and in the runtime (`internal/effect.ts`), and the JSDoc of every premise
+3. Read what changed in Effect's source between the two versions, in the modules the premises of
+   `docs/premises.md` name and in the runtime (`internal/effect.ts`), and the JSDoc of every premise
    that rests on documentation; run every test the premises name, which `bun run test` does.
 4. A raised peer range is a change a consumer can notice: a `Changed` entry in `CHANGELOG.md` that names the new
    minimum, and the version a breaking change raises ([`release`](../release/SKILL.md)).
@@ -49,7 +49,7 @@ is preferred, and the upgrade is the author's call.
 - `typescript` 7 at the root. `site/` is a package of its own with its own `typescript` 6, used only by TypeDoc
   to read the sources, because TypeDoc does not support TypeScript 7 yet: when it does, move TypeDoc to the root
   and drop the site's own TypeScript.
-- An upgrade of Effect is checked against what the invariants rest on, as `AGENTS.md` lists it: the tests named
+- An upgrade of Effect is checked against what the invariants rest on, as `docs/premises.md` lists it: the tests named
   there are what keeps each premise, and one read only in Effect's source is read again in the new version. A move
   to a new major checks every premise again, the documented ones included. An upgrade of React or snabbdom does the
   same for the bridges' premises, and updates the versions their opening comments name.

@@ -13,8 +13,8 @@ when it is done or rejected, with the reason in the commit.
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is
   drawn" from regressing. `bun run bench` (`bench/subscriptions.ts`) measures a parent's subscriptions only.
 - **The tests on Node too**, where V8 runs them as Chrome and Edge do: every test runs on Bun, whose engine is
-  JavaScriptCore, and `smoke/` runs on Node only what a consumer does with the package. What AGENTS.md lists under
-  "What the invariants rest on" of the JavaScript engine (`WeakRef`, `FinalizationRegistry`, the order of callbacks)
+  JavaScriptCore, and `smoke/` runs on Node only what a consumer does with the package. What `docs/premises.md` lists
+  of the JavaScript engine (`WeakRef`, `FinalizationRegistry`, the order of callbacks)
   is checked on Bun alone. Every test file imports `bun:test`, and the tests of what is let go call `Bun.gc`
   (`dispatch.test.ts`, `compose.test.ts`): the boundary tests and the premises first, on a runner both run, or with
   `--expose-gc` in place of `Bun.gc`.

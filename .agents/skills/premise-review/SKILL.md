@@ -1,16 +1,17 @@
 ---
 name: premise-review
-description: How a review of the premises of @fgaudo/effect-tea is done: a reviewer that wrote none of the changes reads the invariants of AGENTS.md, what they rest on and the README's "Guarantees" against the code, and reproduces what it finds with a failing test; then what becomes of its findings, its leads and what it ruled out, and how a finding is fixed by its form. Use before a release, over the changes of the engine and of the testing tools since the last review, before 1.0, or when the author asks whether an invariant still holds.
+description: How a review of the premises of @fgaudo/effect-tea is done: a reviewer that wrote none of the changes reads the invariants of docs/invariants.md, what they rest on (docs/premises.md) and the README's "Guarantees" against the code, and reproduces what it finds with a failing test; then what becomes of its findings, its leads and what it ruled out, and how a finding is fixed by its form. Use before a release, over the changes of the engine and of the testing tools since the last review, before 1.0, or when the author asks whether an invariant still holds.
 ---
 
 # A review of the premises
 
-An invariant of [`AGENTS.md`](../../../AGENTS.md) holds only while what it rests on does: the purity of the
-program's code, states never mutated, and the behaviour of Effect's runtime and of the JavaScript engine. A change
+An invariant of [`docs/invariants.md`](../../../docs/invariants.md) holds only while what it rests on does: the
+purity of the program's code, states never mutated, and the behaviour of Effect's runtime and of the JavaScript
+engine. A change
 of the engine, or of a testing tool, may take a premise away without a test failing, until a run meets the case: the
 review of November 2026 found that a defect while the end of the run releases a subscription or a command was lost,
 since `FiberMap` and `FiberSet` discard the exits of the fibers they interrupt as they close (f415d46). This review
-looks for the same. Its rule is in `AGENTS.md`, under "What the invariants rest on": a reading of the code alone
+looks for the same. Its rule is in [`docs/premises.md`](../../../docs/premises.md): a reading of the code alone
 gives a lead, and a finding is reproduced by a test that fails, or ruled out by what that rule asks of the premise:
 the documentation of a stable API, or a test for what is not documented.
 
@@ -27,14 +28,15 @@ the documentation of a stable API, or a test for what is not documented.
    `run.ts`, `compose.ts`, `dispatch.ts`, `log.ts`) and the testing tools (`src/testing/`).
 3. Fill the brief's two places: what to read, and what is already known (the open problems of
    [`ROADMAP.md`](../../../ROADMAP.md), the `test.failing` cases of `src/testing/contract.test.ts`, and the premises
-   that no test reaches yet, listed in `AGENTS.md`), so that the reviewer does not report them again.
+   that no test reaches yet, listed in `docs/premises.md`), so that the reviewer does not report them again.
 
 ## The reviewer's brief
 
 Start the reviewer with this brief, with its two places filled in:
 
 ```text
-Read AGENTS.md first: its invariants, what they rest on and its rules bind you. The README's "Guarantees", and
+Read AGENTS.md, docs/invariants.md and docs/premises.md first: the rules, the invariants and what they rest on bind
+you. The README's "Guarantees", and
 "Testing" for the testing tools, say what the library promises a user.
 
 THE KIND OF BUG: a change takes away a condition an invariant or a guarantee needs, written or unwritten, and no
@@ -47,12 +49,12 @@ fixed, a defect lost as FiberMap closes: read it as the example, and do not repo
 WHAT TO READ: <the invariants, premises and guarantees, and the modules of src/ that keep them>.
 
 ALREADY KNOWN, not to report again: <the open problems of ROADMAP.md, the test.failing cases of
-src/testing/contract.test.ts, and the premises that no test reaches yet of AGENTS.md, one line each>. A bug of the
-same form under another sequence is a new finding.
+src/testing/contract.test.ts, and the premises that no test reaches yet of docs/premises.md, one line each>. A bug
+of the same form under another sequence is a new finding.
 
 HOW:
 1. List what you read before you read any of it: each invariant, premise and guarantee, with the declarations of
-   src/ that keep it (found by the names the invariant cites and by `grep`), and the test AGENTS.md names for it.
+   src/ that keep it (found by the names the invariant cites and by `grep`), and the test docs/premises.md names for it.
    Write the list as the table of your report, one row each, before step 2.
 2. For each row, read the code that keeps it and its test. Write down every condition it needs to hold, the unwritten
    ones too: an order of two fibers, a scope still open, a key compared only inside one call, a state never mutated,
@@ -62,13 +64,13 @@ HOW:
    tests, through behaviour (`run`, `Engine.make`, the public functions). A reading of the code alone, or of Effect's
    source, gives a lead and no finding: report it as a lead, with the test that would reproduce it. Run only the
    tests you need.
-4. A suspect is ruled out as AGENTS.md says under "What the invariants rest on": by the documentation of a stable
+4. A suspect is ruled out as docs/premises.md says: by the documentation of a stable
    API (for Effect, the JSDoc of the declarations in the version of the lockfile, where the peer range starts; for
    the JavaScript engine, the ECMAScript specification), or by a test that passes for what is not documented.
    Effect's source, effect.website and its maintainers' answers rule out nothing. A property of src/interleaving.test.ts rules a
    suspect out only under the runs it made: run it with `numRuns` of a thousand at least, and name the seeds.
-5. While you read the code that keeps a row, note each place where it does otherwise than AGENTS.md or the README
-   says, and each test whose name promises more than its assertions check.
+5. While you read the code that keeps a row, note each place where it does otherwise than AGENTS.md,
+   docs/invariants.md or the README says, and each test whose name promises more than its assertions check.
 
 RULES: fix nothing, and change no file other than the tests that reproduce a finding. Mark each such test
 `test.failing`, with a name that says what should hold, so that the suite stays green until the fix. Commit the tests
@@ -82,8 +84,8 @@ YOUR REPORT, the deliverable, in this order:
 - The suspects you ruled out, each with its reason in a line: the test (with its runs and seeds), or the
   documentation, with the declaration or the section of the specification.
 - Every suspect you noticed and did not check, with the sequence you suspect, and why it is left.
-- Each place where the code does otherwise than AGENTS.md or the README says, and each test whose name says more than
-  it checks, with the file and line.
+- Each place where the code does otherwise than AGENTS.md, docs/invariants.md or the README says, and each test
+  whose name says more than it checks, with the file and line.
 Your last message says the branch, the commit and the findings in a few lines.
 ```
 
@@ -98,18 +100,18 @@ Your last message says the branch, the commit and the findings in a few lines.
   proves nothing. Run each again on the last commit of `main` where the branch was cut before it.
 - A finding is an open problem of `ROADMAP.md` until it is fixed, and its test may come to `main` with its
   `test.failing` mark, as those of the November review did. Its fix removes the mark and the item, in one commit.
-- A finding is fixed by its form, as `AGENTS.md` says after the rule of a review. Before the fix, write the form in a
-  line (a cleanup skipped, or an exit discarded, as a scope closes; a step applied by two actors at once; a window
+- A finding is fixed by its form, as `docs/premises.md` says after the rule of a review. Before the fix, write the
+  form in a line (a cleanup skipped, or an exit discarded, as a scope closes; a step applied by two actors at once; a window
   between two fibers that nobody watches), and list each place of the engine and of the testing tools that ends a
   run, applies a message or releases what a fiber holds: `runWith`, the engine's finalizer, `drive`, `simulate`,
   `rehearse`, and any added since. Each place the form can reach gets a test, failing where the form is and passing
   where it is not; the fix's commit names the form and the places it checked. Findings of one form are fixed
   together, by one mechanism where one can hold them all, rather than one place at a time.
-- A suspect ruled out that rests on Effect or on the JavaScript engine is a premise, added to "What the invariants
-  rest on" with what ruled it out: the declaration that documents it, or the test, which comes to `main`.
+- A suspect ruled out that rests on Effect or on the JavaScript engine is a premise, added to
+  `docs/premises.md` with what ruled it out: the declaration that documents it, or the test, which comes to `main`.
 - A lead, and a suspect left unchecked, are no findings yet. Write the test that would reproduce each, here or in a
   session of its own, and run it: a test that fails makes it a finding, one that passes rules it out. A lead no test
-  can reach yet goes under "Premises that no test reaches yet" in `AGENTS.md`, with what would decide it.
-- A place where the code does otherwise than `AGENTS.md` or the README says is a bug of the one or of the other: the
-  README is a specification, and its prose changes as `AGENTS.md` says.
+  can reach yet goes under "Premises that no test reaches yet" in `docs/premises.md`, with what would decide it.
+- A place where the code does otherwise than `AGENTS.md`, `docs/invariants.md` or the README says is a bug of the
+  one or of the other: the README is a specification, and its prose changes as `AGENTS.md` says.
 - Do not merge the reviewer's branch whole: take what the points above bring to `main`, and nothing else.
