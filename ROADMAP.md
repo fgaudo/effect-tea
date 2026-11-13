@@ -7,35 +7,23 @@ when it is done or rejected, with the reason in the commit.
 ## Open problems
 
 An audit of November 2026 of every check of what another fiber may change against the act it guards (the rule
-"one thunk" of AGENTS.md) found these. Covered, each check in the thunk of its act: the calls of `update` by the
-engine's loop and by `rehearse`'s (`Core.arrive`, for both), of `runCommand` by the engine (`alive` around
-`interpret(command)`) and by `rehearse`'s `run`, of `makeModel` by `rehearse`'s `model`, and the take from `pending`
-of `run` and `runAll` (`Ledger.take`, which finds the command or none in one thunk). The engine's `active` and
+"one thunk" of AGENTS.md) found that the run's tests rested on the order of Effect's yields, which Effect does not
+promise. [`docs/single-owner.md`](docs/single-owner.md) closed it: the run keeps one check, where its loop applies a
+message (`Core.arrive`, shared with `rehearse`), `rehearse` one in the thunk of each call of the program and of each
+take from `pending` (`Ledger.take`), and no test under a schedule kills a mutation. The engine's `active` and
 `started`, and `rehearse`'s `now` and `active`, are read and written by one fiber only, the loop, but for the end of a
 start, which `hearNext` marks in the thunk where it counts the calls still waiting; `rehearse`'s ledger is written by
 every fiber of the test's, one transition per thunk, so no window opens on them. Beyond any check: the first step of
 a subscription, or of an effect already started, which the README promises nothing about, and a `makeModel` the
 renderer reads as it releases, which the README says still makes its model.
 
-A lead below is checked under `test/scheduled.ts` in both of its modes of resumption. A failure under `'inline'`
-is an order Effect's own scheduler gives, but for where it preempts, and so reachable when the program runs. One
-under `'queued'` alone (the default) rests on a fiber resumed by a `Deferred` or a `Fiber.join` waiting for its turn,
-where Effect 4.1.4 resumes it at once on the stack of the fiber that completes it: still a finding by the rules of
-AGENTS.md, since that inline resumption is read only in the source, unless it is added as a premise with a test
-that fails without it.
+A lead the search of `interleaving.test.ts` finds is checked under `test/scheduled.ts` in both of its modes of
+resumption. A failure under `'inline'` is an order Effect's own scheduler gives, but for where it preempts, and so
+reachable when the program runs. One under `'queued'` alone (the default) rests on a fiber resumed by a `Deferred` or
+a `Fiber.join` waiting for its turn, where Effect 4.1.4 resumes it at once on the stack of the fiber that completes
+it: still a finding by the rules of AGENTS.md, since that inline resumption is read only in the source, unless it is
+added as a premise with a test that fails without it.
 
-- **The run's tests rest on the order of Effect's yields**, which Effect does not promise: the search of
-  `interleaving.test.ts` runs under `test/scheduled.ts`, which models that order from Effect's source, in two modes
-  neither of which reaches every order of the other. First, before the rest of this list.
-  [`docs/single-owner.md`](docs/single-owner.md) holds the first by construction, with a plan. Its steps 1 to 3,
-  which change nothing a consumer sees, are done (a function of the program is called where the call is decided, one
-  check for each call, a fiber and how it stops are one primitive), and so are steps 4 and 5: the run stops the loop
-  first as it ends, keeps one check, where the loop applies a message, has none in the middle of a step, and calls
-  `render` once as it starts, so that a step under way when a defect is recorded may start its commands. The
-  scheduled test of the renderer went with its check. Step 6 is done too: `Core.arrive` reads the register first, so
-  a dropped message is never described after a defect, and so is step 7: `runAll`'s mutation, of a form the ledger
-  rules out, went with its scheduled test, so no test under a schedule kills a mutation. To decide: whether the search
-  of `interleaving.test.ts` stays as an alarm, or goes with `test/scheduled.ts` and its two modes (step 8).
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
 
 ## Possible improvements

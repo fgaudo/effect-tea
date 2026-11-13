@@ -168,12 +168,20 @@ is how they are kept, and what a change must not undo:
   any other operation, and another fiber die or write meanwhile. The check is a transition of the core (`core.ts`,
   `testing/ledger.ts`), tested on its own; where program code lies between the check and what the test watches, a gate
   (program code held by a `Deferred`) makes the order deterministic. A change of the engine or of a testing tool lists
-  the points where another fiber can run between a check and its act, and leaves a test that fails without the check:
-  deterministic, of the core or with a gate, and under the scheduler of the tests (`test/scheduled.ts`) only where
-  neither reaches the act, since a budget of operations samples the interleavings, and reaches only some. Such a test
-  goes once a deterministic one kills the check's mutation. The check also gets a mutation that takes it out, naming
-  that test (`mutations/`, under "Tests"). What cannot be one thunk with its check, as the first step of an effect of
-  the program, is no act the README promises about.
+  the points where another fiber can run between a check and its act, and leaves a test that fails without the check,
+  deterministic, of the core or with a gate, and a mutation that takes the check out, naming that test (`mutations/`,
+  under "Tests"). No test of a check runs under the scheduler of the tests (`test/scheduled.ts`): a check whose mutation
+  no deterministic test kills is moved until one does, or goes. Three rules keep a check where such a test reaches it
+  (`docs/single-owner.md`):
+  - **A function of the program is called where the call is decided**, never as the first step of a fiber forked for
+    it, which starts when the scheduler says, unless the fork is documented to start at once (`FiberSet.run`).
+  - **One check for each call.** No earlier check of the same register stands in front of it in another thunk: it
+    would answer in its place in every order a deterministic test reaches.
+  - **A fiber and how it stops are one primitive**, `Effect.acquireRelease(fork, stop)`, with nothing in between for an
+    interruption to fall into (the renderer in `run.ts`).
+
+  What cannot be one thunk with its check, as the first step of an effect of the program, is no act the README
+  promises about.
 - **Commands are data; only `runCommand` runs them.** Never let a command carry its effect, or a description
   that must be kept in step with one: a test, `onApplied` and the logs read the command itself.
 - **Commands cannot be cancelled**, a deliberate choice: do not add cancellation without asking.
@@ -282,7 +290,9 @@ after the list says. A change that rests on a new premise adds it here, with wha
   inline run in the order the test picks", "a fiber that yielded and is interrupted waits for its turn, as one resumed
   inline does" (`test/effect-scheduler.test.ts`), and the rules of the scheduler built on them
   (`test/scheduled.test.ts`). Read in the source (`runLoop` in `internal/effect.ts`, unchanged from 4.1.3, where
-  effect-tea-persistent's decision 0104 found them), and seen in those tests.
+  effect-tea-persistent's decision 0104 found them), and seen in those tests. Only the search of
+  `interleaving.test.ts` rests on it, and no mutation's killer does: a model of the scheduler gone wrong costs a false
+  alarm, or a missed one, never a test that passes where it should fail.
 - **`SubscriptionRef.changes` replays the latest state to a new subscriber**, so a renderer that subscribes late,
   or skips frames, still draws the last state: "a renderer slower than the program gets only the latest frame"
   (`run.test.ts`).
@@ -449,7 +459,8 @@ A lead no test can reach yet is listed here, with what would decide it. None is,
     it holds and lets go, what a tool fails on (`run.test.ts`, `engine.test.ts`, the cache of `dispatchTo` in
     `dispatch.test.ts`, a parent's subscriptions in a run in `compose.test.ts`, each tool's own file in
     `src/testing/`, a bridge's `renderInto`). A test of a premise ("What the invariants rest on") is of this kind,
-    and so is one under the scheduler of the tests, `test/scheduled.ts`, which is no part of the package.
+    and so is one of the scheduler of the tests, `test/scheduled.ts`, which is no part of the package and serves the
+    search alone.
   - **the types**: what the compiler refuses (`@ts-expect-error`), or infers (`expectTypeOf`), next to the tests
     of the function whose types they are.
 
@@ -464,7 +475,10 @@ A lead no test can reach yet is listed here, with what would decide it. None is,
   removed, or the code it replaces rewritten, updates the list, which the script refuses otherwise (a name that runs
   no test, or a text not found exactly once); `bun run mutations --discover <name>` lists every test that fails
   under one. A test that fails only beside others of its file is no killer: the list names those that fail alone. It
-  runs before a release (`release`), and after a change of a file it mutates.
+  runs before a release (`release`), and after a change of a file it mutates. A mutation takes a check out: one that
+  writes a form the structure rules out (a second read of `pending` apart from `Ledger.take`) restores a bug that no
+  code of the program could reach, and no deterministic test can kill it. Such a form is held by the test of the
+  transition that rules it out (`ledger.test.ts`, `core.test.ts`), and has no mutation.
 - A test's name says what it checks. When a change touches a test, or what it tests, check that its name, its
   `describe` and its comments still say what the assertions check: a test adapted to a new design keeps an old
   name that promises what it no longer proves.

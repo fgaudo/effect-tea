@@ -1,8 +1,7 @@
 # A run that needs no test of the order of yields
 
-**Status:** accepted, November 2026. Steps 1 to 7 of its plan are done. The decision was revised on 13 November 2026,
-after four more spikes: steps 4 to 8 below replace the steps 4 to 6 first written, and steps 6 to 8 wait for the open
-questions.
+**Status:** accepted, November 2026, and done: the eight steps of its plan are. The decision was revised on 13
+November 2026, after four more spikes: steps 4 to 8 below replace the steps 4 to 6 first written.
 "Context" is the investigation as it was written, when no file of the library, of its tests or of its documents had
 changed: where it says "today", it is the code before step 1. It asks whether the run and the testing tools can be
 made, by construction, not to need the tests under `test/scheduled.ts`, which decide where every fiber yields. Every
@@ -272,8 +271,11 @@ by no test.
    would have dropped fails with the defect, as the README says of every call after one.
 7. Done. `runAll`'s mutation went, with its test under `prioritizedSchedules`, the last test under a schedule to
    kill a mutation: `ledger.test.ts` holds the take that rules its form out.
-8. AGENTS.md: the rules beside "one thunk", and the policy of mutations. `interleaving.test.ts` and
-   `test/scheduled.ts`, once decided: kept as an alarm, or gone with the premise of the `Scheduler`.
+8. Done. AGENTS.md says the three rules beside "one thunk", that no test of a check runs under a schedule, and that a
+   form the structure rules out is held by the test of its transition, with no mutation. The search of
+   `interleaving.test.ts` stays as an alarm, run apart, and `test/scheduled.ts` with it: it is what watches the end of
+   the run, which no test holds, and the premise of the `Scheduler` is its alone, so a model gone wrong costs a false
+   alarm or a missed one, never a test that passes where it should fail.
 
 ## What it rests on
 
@@ -338,10 +340,8 @@ Each was spiked, but for the last two.
 
 ## Open questions
 
-- Whether `rehearse` stays as it is. It fails a call made after a defect, and the test starts each command itself,
-  so no step of its is under way while a command dies: nothing found needs it to change.
-- Whether the engine keeps a stop of its own in its end, which only a test of `Engine.make` without `run` reaches.
-- Whether the search of `interleaving.test.ts` stays as an alarm, and `test/scheduled.ts` with it (step 8). It is
-  what watches the end of the run, which no test holds.
+Answered with step 8: `rehearse` stays as it is, since nothing found needs it to change, and the engine keeps a stop
+of its own in its end, which the tests of `Engine.make` reach. Still open:
+
 - Whether `scopedIn` should tell the defects its own fiber wrapped by a set of its own, rather than by the register.
 - Whether step 2 was a change a consumer can notice, and so has a changelog entry.
