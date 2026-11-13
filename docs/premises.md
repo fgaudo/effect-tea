@@ -91,7 +91,7 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   (`run.test.ts`). That it runs in the fiber that logs is read only in the source.
 - **A `WeakRef` is cleared before the `FinalizationRegistry` callback of its target runs**, and a `WeakMap` lets go
   of a value with its key: the tests of `dispatchTo` (`dispatch.test.ts`) and "a child's model is let go with its
-  state" (`compose.test.ts`), under `Bun.gc`.
+  state" (`compose.test.ts`), under a collection the test asks for (`test/gc.ts`), on Bun and on Node.
 - **A `Queue` gives its items in the order they were offered, and a fiber that awaits a `Deferred` is interrupted
   alone, never the fiber that completes it**, which is how `rehearse` applies one message at a time, as the run's
   loop takes them, the fibers of the test's offering a step to one loop of its own and awaiting its result, and how
@@ -162,8 +162,9 @@ only reasoned:
   by no test is a risk the rule accepts.
 - **Not documented** (read only in the source, or seen in a run): a test that fails without it. For Effect, what is
   not promised may change in a minor version: an upgrade of Effect runs every such test before it raises the peer
-  range. For the JavaScript engine, the test runs on Bun only, and says so: what Node or a browser could do
-  otherwise goes under "Premises that no test reaches yet", unless `smoke/` runs it on Node.
+  range. For the JavaScript engine, the test runs on Bun, whose engine is JavaScriptCore, and on Node, whose engine
+  is V8 (`bun run test:node`, every test of `src/` and `test/` but the search): what a browser could do otherwise
+  goes under "Premises that no test reaches yet".
 
 What the dependencies of development do (fast-check, happy-dom, the renderers of the examples) is no premise of the
 library, and the rule leaves it out, with two exceptions. The bridges, `examples/snabbdom.ts` and

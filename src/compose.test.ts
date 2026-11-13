@@ -9,6 +9,7 @@ import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import * as Stream from 'effect/Stream'
+import { collectGarbage } from '../test/gc.ts'
 import type { Subscription } from './subscription.ts'
 import { andThen, forEach, isRejected, raise, reject, type Step } from './update.ts'
 import { type Dispatch, dispatchTo } from './dispatch.ts'
@@ -419,16 +420,16 @@ describe('children by id', () => {
     // conservatively, until the job after it: each collection gets a job of its own.
     for (let collection = 0; collection < 10 && released.deref() !== undefined; collection++) {
       await new Promise((resolve) => setTimeout(resolve, 0))
-      Bun.gc(true)
+      collectGarbage()
     }
     expect(released.deref()).toBeUndefined()
   })
 
   test('the models of ids shown once each, under one shared state, do not pile up', () => {
-    Bun.gc(true)
+    collectGarbage()
     const before = process.memoryUsage().heapUsed
     for (let id = 0; id < 50_000; id++) list.makeModel(rows(id))
-    Bun.gc(true)
+    collectGarbage()
     expect(process.memoryUsage().heapUsed - before).toBeLessThan(5_000_000)
   })
 

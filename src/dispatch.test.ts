@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
 import * as Hash from 'effect/Hash'
+import { collectGarbage } from '../test/gc.ts'
 import { type Dispatch, dispatchTo, entriesOf } from './dispatch.ts'
 
 type Row = Readonly<{ _tag: 'Row'; id: number | readonly [string, number]; message: 'Inc' }>
@@ -20,7 +21,7 @@ const recording = () => {
 /** Ends the current job and collects: a weak reference keeps its target until its job ends. */
 const collect = async () => {
   await new Promise((resolve) => setTimeout(resolve, 0))
-  Bun.gc(true)
+  collectGarbage()
   await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
@@ -87,7 +88,7 @@ describe('dispatchTo', () => {
     const { dispatch } = recording()
     draw(dispatch, [1])
     await new Promise((resolve) => setTimeout(resolve, 0))
-    Bun.gc(true)
+    collectGarbage()
     const row = dispatchTo(dispatch, 'Row', 1)
     await collect()
     await collect()
@@ -102,7 +103,10 @@ describe('dispatchTo', () => {
     const compared: Array<string> = []
     let collecting = false
     class Colliding implements Equal.Equal {
-      constructor(readonly name: string) {}
+      readonly name: string
+      constructor(name: string) {
+        this.name = name
+      }
       [Equal.symbol](that: Equal.Equal): boolean {
         if (collecting) compared.push(`${this.name}=${(that as Colliding).name}`)
         return this === that

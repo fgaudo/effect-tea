@@ -65,5 +65,5 @@ a review.
 
 ## Checks
 
-`bun run typecheck`, `bun run lint`, `bun run test` and `bun run interleavings`; `bun run mutations` after a change
-of a file it mutates.
+`bun run typecheck`, `bun run lint`, `bun run test`, `bun run test:node` and `bun run interleavings`;
+`bun run mutations` after a change of a file it mutates.

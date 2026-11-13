@@ -182,6 +182,12 @@ an example's and a document's too:
   mutation; a test of one renamed or removed, or the code it replaces rewritten, updates the list. It runs before a
   release (`release`), and after a change of a file it mutates; what a mutation is, and is not, is in
   `change-engine`.
+- **The tests of `src/` and `test/` run on Node too**, on V8 as Chrome and Edge run the library: `bun run test:node`
+  makes Node resolve `bun:test` to `test/node/bun-test.ts`, which gives what the tests use of it over Node's own
+  runner, with Jest's `expect`. A test that needs more of `bun:test` adds it there, and one that asks for a
+  collection calls `test/gc.ts`, never `Bun.gc`. Node strips the types itself, so the TypeScript is erasable
+  (`erasableSyntaxOnly`: no enum, namespace or parameter property). The search is left out, since Node's runner
+  cannot hold it (`ROADMAP.md`), and so are the examples' tests.
 - A test's name says what it checks. When a change touches a test, or what it tests, check that its name, its
   `describe` and its comments still say what the assertions check: a test adapted to a new design keeps an old
   name that promises what it no longer proves.
@@ -192,6 +198,6 @@ an example's and a document's too:
 
 Before finishing, from the repository root: `bun run typecheck` (`tsc` with the Effect language service, on the
 library and on the examples), `bun run lint` (Biome and Oxlint) and `bun run test`; after a change of the engine or of
-a testing tool, `bun run interleavings` too. `bun run build` compiles `src/` into `dist/` (ignored by git) and runs
-before `bun pm pack`. An API change is also checked as a consumer
+a testing tool, or of their tests, `bun run test:node` and `bun run interleavings` too. `bun run build` compiles
+`src/` into `dist/` (ignored by git) and runs before `bun pm pack`. An API change is also checked as a consumer
 would see it (`change-api`).
