@@ -3,9 +3,15 @@
 The README's "Guarantees" says what a user may rely on, and the library's tests check each one
 (`src/interleaving.test.ts` checks all but that of the order, and what the run does from the first defect on, under
 random orders of clicks, answers, subscription messages and ends, releases, defects and self-interruptions, as the
-README says). This is how they are kept, and what a change must not undo. What they rest on of Effect and of the JavaScript engine is in
-[`premises.md`](premises.md), and how a change of the engine or of a testing tool is made in
-[`change-engine`](../.agents/skills/change-engine/SKILL.md).
+README says). This is how they are kept, and what a change must not undo. What they rest on of Effect and of the
+JavaScript engine is in [`premises.md`](premises.md), and how a change of the engine or of a testing tool is made
+in [`change-engine`](../.agents/skills/change-engine/SKILL.md).
+
+The entries are in three parts: what a program may rely on, with how the engine keeps it; what the engine keeps for
+itself, so that the first part costs what it should; and how a check is built and tested, in the engine and in the
+testing tools.
+
+## What a program may rely on
 
 - **`update` is pure and called freely.** Tests call it more than once per message (`dispatchViolations` sends
   each one twice): never assume it runs once per message.
@@ -30,23 +36,49 @@ README says). This is how they are kept, and what a change must not undo. What t
   child has events, a handle's `update` only with a child's `external` messages, no own message or command
   named like a child. A program written without `Program<…>` has `unknown` types, read as `never` (`Known` in
   `program.ts`), so that it does not open these checks.
-- **A child's model, and its lifted subscriptions, are kept by its state object** (`modelsOf` and `lifted` in
-  `compose.ts`) for as long as that object lives: they rely on `makeModel` and `subscriptions` being pure and on
-  states being replaced, never mutated, and hold nothing of the run, so runs that share a state share them. A
-  model holds nothing of its place either, so children that share a state share its model; lifted subscriptions
-  carry their place, which is checked rather than kept, one per state, so that ids never pile up under a shared
-  state. That is why every program
-  keeps its state in an object (`ObjectState` in `program.ts`, checked by `Program`, `parent`, `child`, `each`,
-  `run` and the testing tools): never add a cache for primitive states, which nothing could let go of.
-- **A child's dispatch is the same while anyone holds it** (`dispatchTo` in `dispatch.ts`): kept weakly by its
-  parent's dispatch, its name and its id (compared with `Equal`, as subscription keys are), and removed by a
-  `FinalizationRegistry` once collected. Never hold them strongly: ids that are never reused, as the README
-  advises, would pile up for as long as the run lasts.
 - **Running a dispatch needs no services and completes synchronously**: it only offers the message to the
   engine's unbounded queue, which wakes the engine on the scheduler of the run that made it, so that renderers
   send from plain callbacks with `Effect.runSync`. Keep the queue unbounded (one that waits when full would make
   every such call throw, one that drops would lose what the user did) and the dispatch free of services.
   Running a dispatch is the renderer's business: the library exports no helper for it.
+- **A subscription never ends in silence**: its end value is a message (or `never`), sent to `update`. An ended
+  subscription keeps its key among the active ones until the key goes away and comes back: never restart it
+  automatically, which would loop on one that ends at once. What the end of a library's stream means is the
+  caller's decision: no helper takes it for them, and the type of a subscription asks for it (`Channel.mapDone`).
+- **Subscriptions are reconciled by key**: a new key starts, a kept key leaves running, a gone key interrupts.
+  The gone keys are interrupted together, and awaited before any key starts: the loop waits for the slowest
+  release rather than for their sum, and a key that comes back finds its old subscription released. A parent
+  lifts its children's keys under their names, and dies on an own key equal to a lifted one.
+  Each start has a generation that its messages carry, and a message whose key is gone, or came back with a new
+  start, is dropped before `update`, however the fibers were scheduled: "a message left by an earlier start of a key
+  that came back does not reach update" (`engine.test.ts`), "what a subscription leaves in the queue after its key
+  went away does not reach update" (`run.test.ts`). `rehearse` never gives `arrive` such a message: its ledger
+  forgets a start in the transition that stops it ("a start whose key went away is stopped and forgotten, and the
+  calls waiting on it are told", `ledger.test.ts`). The rule rests on nothing of Effect: it is the engine's own,
+  tested where the fibers' order would otherwise hide it. Keys are the program's, and so are their
+  `Equal` and `Hash`: the run compares them only in `'subscriptions'` (`reconcile` in `core.ts`), and keeps its
+  fibers, and tells a message that still applies, by their start, which compares no keys.
+- **Commands are data; only `runCommand` runs them.** Never let a command carry its effect, or a description
+  that must be kept in step with one: a test, `onApplied` and the logs read the command itself.
+- **Commands cannot be cancelled**, a deliberate choice: do not add cancellation without asking.
+- **Each command, each subscription and the renderer has a scope of its own** (`Effect.scoped` where the
+  library starts them; a command's closes before its message is queued), and `simulate` scopes each command the
+  same way. Never let them acquire into the run's scope: what they hold would outlive them, and be released
+  before their fibers are interrupted.
+- **Frames cost only what is drawn**: a frame's model is made when first read, and a message that returns the
+  very same state makes no new frame (a parent keeps its own state when a child's message leaves the child's as
+  it is). Do not compute models eagerly in `run`.
+- **`onApplied` and `onIgnored` watch, never steer**: they hear each accepted, or rejected, message in order,
+  with where it came from, before its frame is published, with no way to send messages or change the state. A
+  defect in them is a bug like any other. Neither hears a message dropped before `update` (one left by a
+  stopped subscription): that is the engine's, not the program's.
+- **Logs never carry message data by default** (`describeByTag` in `log.ts`): only tags, following a wrapped
+  `message` or `command` only when it is itself tagged, since a program's own field of that name may hold data.
+  A subscription's key is logged as it is, and may hold data, as the README says ("Running"): the rule is of
+  messages and commands.
+  Level: `debug` for the message loop and for subscriptions starting, stopping and ending, nothing else. What
+  is computed only to be logged (`describeMessage`, `describeCommand`) is computed only while debug logs are
+  enabled (`LogLevel.isEnabled`).
 - **Defects always die, and the run dies with them.** Nothing in the library may retry, swallow, log or turn them into
   messages: reporting is the job of whoever runs the program.
   - A fiber of the program dies when its effect ends with a defect: what the program wraps around its own code
@@ -73,6 +105,9 @@ README says). This is how they are kept, and what a change must not undo. What t
     (`runSubscription`), so that a defect is in the order it happened, though its release lets another fiber die first;
     what the release dies of is wrapped apart, told from what the fiber died of by what the fiber kept of it, never by
     the register, where a defect another fiber recorded may be the very one a release dies with.
+  - The order of the defects is the engine's to keep, and its tests', and no promise of the README, which describes
+    it: what a user relies on is that every defect is in the cause, each with where. No promise of the library's
+    rests on what a function of Effect makes of a cause (`Cause.squash` gives the first defect).
   - Each defect recorded is reported once, in that order: by the run as soon as one dies, and by the end of the run,
     which stops the loop first and waits for it (`stop` in `engine.ts`), so that what is sent meanwhile is not applied
     and nothing forks a fiber while it reads them, then interrupts its other fibers itself, waits for them to release
@@ -102,23 +137,27 @@ README says). This is how they are kept, and what a change must not undo. What t
     `run.ts`), so that the run dies of it as of any other, and the scenario races only the end of the run: `drive`
     fails on it, in the order the defects happened, though the scenario caught it. A call of `rehearse`'s that waits for a subscription or
     a command races its wait with the death of any fiber (`orDead`), as the run dies at once.
-- **A subscription never ends in silence**: its end value is a message (or `never`), sent to `update`. An ended
-  subscription keeps its key among the active ones until the key goes away and comes back: never restart it
-  automatically, which would loop on one that ends at once. What the end of a library's stream means is the
-  caller's decision: no helper takes it for them, and the type of a subscription asks for it (`Channel.mapDone`).
-- **Subscriptions are reconciled by key**: a new key starts, a kept key leaves running, a gone key interrupts.
-  The gone keys are interrupted together, and awaited before any key starts: the loop waits for the slowest
-  release rather than for their sum, and a key that comes back finds its old subscription released. A parent
-  lifts its children's keys under their names, and dies on an own key equal to a lifted one.
-  Each start has a generation that its messages carry, and a message whose key is gone, or came back with a new
-  start, is dropped before `update`, however the fibers were scheduled: "a message left by an earlier start of a key
-  that came back does not reach update" (`engine.test.ts`), "what a subscription leaves in the queue after its key
-  went away does not reach update" (`run.test.ts`). `rehearse` never gives `arrive` such a message: its ledger
-  forgets a start in the transition that stops it ("a start whose key went away is stopped and forgotten, and the
-  calls waiting on it are told", `ledger.test.ts`). The rule rests on nothing of Effect: it is the engine's own,
-  tested where the fibers' order would otherwise hide it. Keys are the program's, and so are their
-  `Equal` and `Hash`: the run compares them only in `'subscriptions'` (`reconcile` in `core.ts`), and keeps its
-  fibers, and tells a message that still applies, by their start, which compares no keys.
+
+## What the engine keeps for itself
+
+- **A child's model, and its lifted subscriptions, are kept by its state object** (`modelsOf` and `lifted` in
+  `compose.ts`) for as long as that object lives: they rely on `makeModel` and `subscriptions` being pure and on
+  states being replaced, never mutated, and hold nothing of the run, so runs that share a state share them. A
+  model holds nothing of its place either, so children that share a state share its model; lifted subscriptions
+  carry their place, which is checked rather than kept, one per state, so that ids never pile up under a shared
+  state. That is why every program
+  keeps its state in an object (`ObjectState` in `program.ts`, checked by `Program`, `parent`, `child`, `each`,
+  `run` and the testing tools): never add a cache for primitive states, which nothing could let go of.
+- **A child's dispatch is the same while anyone holds it** (`dispatchTo` in `dispatch.ts`): kept weakly by its
+  parent's dispatch, its name and its id (compared with `Equal`, as subscription keys are), and removed by a
+  `FinalizationRegistry` once collected. Never hold them strongly: ids that are never reused, as the README
+  advises, would pile up for as long as the run lasts.
+- **No span lives as long as the run**: `run` and `Engine.make` are untraced, and the run's fibers see the span
+  of whoever runs it as an external one (`withExternalSpan`), since Effect keeps every log as an event of the
+  current span until it ends.
+
+## How a check is built, and how the testing tools follow
+
 - **A check of what another fiber may change, and the act it guards, are one thunk.** Where the engine or a testing tool
   decides from what another fiber may change (the register of deaths, the keys of a state, `pending`), the check and the
   act it guards, a call of the program or the start of a fiber, are in one synchronous thunk: the scheduler may yield at
@@ -151,23 +190,6 @@ README says). This is how they are kept, and what a change must not undo. What t
   (`premises.md`). The checks beside them (`ended` in `loop.ts`, the register, a call that left) each
   have a mutation with a deterministic killer, and the tests of `rehearse.test.ts` under the scheduler of the tests
   stay as alarms of the search, killing none.
-- **Commands are data; only `runCommand` runs them.** Never let a command carry its effect, or a description
-  that must be kept in step with one: a test, `onApplied` and the logs read the command itself.
-- **Commands cannot be cancelled**, a deliberate choice: do not add cancellation without asking.
-- **Each command, each subscription and the renderer has a scope of its own** (`Effect.scoped` where the
-  library starts them; a command's closes before its message is queued), and `simulate` scopes each command the
-  same way. Never let them acquire into the run's scope: what they hold would outlive them, and be released
-  before their fibers are interrupted.
-- **No span lives as long as the run**: `run` and `Engine.make` are untraced, and the run's fibers see the span
-  of whoever runs it as an external one (`withExternalSpan`), since Effect keeps every log as an event of the
-  current span until it ends.
-- **Frames cost only what is drawn**: a frame's model is made when first read, and a message that returns the
-  very same state makes no new frame (a parent keeps its own state when a child's message leaves the child's as
-  it is). Do not compute models eagerly in `run`.
-- **`onApplied` and `onIgnored` watch, never steer**: they hear each accepted, or rejected, message in order,
-  with where it came from, before its frame is published, with no way to send messages or change the state. A
-  defect in them is a bug like any other. Neither hears a message dropped before `update` (one left by a
-  stopped subscription): that is the engine's, not the program's.
 - **The testing tools behave like the engine** where it is deterministic, with the test as the scheduler
   ("Testing" in the README says what each one runs, fails on and ignores); `rehearse` fails on a command left
   pending, since its answer would arrive, and `drive` acts only as a user can, through `run` and the run's
@@ -186,10 +208,3 @@ README says). This is how they are kept, and what a change must not undo. What t
   depend on what a step it may interrupt writes after its thunk. When the engine or one tool changes, keep
   the others in step. `src/testing/contract.test.ts` gives the same program and inputs to each tool and to the run;
   where they still differ, its `test.failing` cases say how, and `ROADMAP.md` lists them.
-- **Logs never carry message data by default** (`describeByTag` in `log.ts`): only tags, following a wrapped
-  `message` or `command` only when it is itself tagged, since a program's own field of that name may hold data.
-  A subscription's key is logged as it is, and may hold data, as the README says ("Running"): the rule is of
-  messages and commands.
-  Level: `debug` for the message loop and for subscriptions starting, stopping and ending, nothing else. What
-  is computed only to be logged (`describeMessage`, `describeCommand`) is computed only while debug logs are
-  enabled (`LogLevel.isEnabled`).

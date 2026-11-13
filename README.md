@@ -676,7 +676,9 @@ that died as it started too, as when a subscription of `init` dies: a frame it r
 as `makeModel` is pure, and calling it changes nothing of the program. As it ends, of a defect or of an interruption, the run stops applying messages first,
 then stops the renderer, then its commands and its subscriptions: what is sent meanwhile, by the renderer as it
 releases what it holds included, is not applied. A defect met meanwhile joins
-the cause, which keeps the defects in the order they happened. The run never recovers from it,
+the cause: every defect is in it, each with where it happened. The cause lists them in the order they happened,
+which is how the run is made today, and no promise: rely on each being there, not on its place. The run never
+recovers from it,
 and does not log it: reporting it, and what the user sees next, are the app's, around the run. The screen keeps the
 last frame: show a crash screen, or run the program again. In a browser, start it with `Effect.runFork`, which
 reports nothing itself. An interruption of the fiber it returns, on `pagehide` for one, ends the run too, and is no
@@ -741,8 +743,8 @@ self-interruptions: that outdated clicks leave the state as it was, that subscri
 a subscription, a command or the renderer acquires does not outlive it and the next message waits for the slowest
 release, that what the run logs is not kept by the span of whoever runs it, which stays the parent of the spans
 opened in it, that nothing ends in silence, and that a model is made only for the frames read and the very same
-state draws no new frame. It checks too that the run dies with each defect in the order it happened, and from the
-first one on applies no message (see [running](#running)).
+state draws no new frame. It checks too that the run dies with each defect, in the order it happened as the run
+is made today, and from the first one on applies no message (see [running](#running)).
 
 ### Testing
 

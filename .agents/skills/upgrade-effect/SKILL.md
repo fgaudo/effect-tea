@@ -10,9 +10,11 @@ description: How @fgaudo/effect-tea depends on Effect: the peer range starts at 
 `peerDependencies.effect` (`^4.1.4` today) is the version of `devDependencies.effect` with a caret, and the lockfile
 holds exactly that version: the library supports no older Effect, so that it is checked, and what it rests on of
 Effect read and tested, at one version only. The CI's `check` job runs the library at it, and the `package` job the
-packed package (`bun run smoke`, with the Effect of the lockfile). The oldest TypeScript the package supports is
-Effect's (5.9 for Effect 4): the README's "Installation" states it, and `smoke/smoke.ts` checks it by default. An
-upgrade that raises Effect's raises both, with a changelog entry.
+packed package (`bun run smoke`, with the Effect of the lockfile). The range accepts every later Effect 4 too,
+where what Effect does not document may have changed: a daily job (`.github/workflows/effect-latest.yml`) runs
+the typecheck and the tests at the newest version the range accepts, and a failure there is a lead for an upgrade.
+The oldest TypeScript the package supports is Effect's (5.9 for Effect 4): the README's "Installation" states it,
+and `smoke/smoke.ts` checks it by default. An upgrade that raises Effect's raises both, with a changelog entry.
 
 ## An API of a newer Effect
 

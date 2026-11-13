@@ -194,9 +194,10 @@ only reasoned:
   by no test is a risk the rule accepts.
 - **Not documented** (read only in the source, or seen in a run): a test that fails without it. For Effect, what is
   not promised may change in a minor version: an upgrade of Effect runs every such test before it raises the peer
-  range. For the JavaScript engine, the test runs on Bun, whose engine is JavaScriptCore, and on Node, whose engine
-  is V8 (`bun run test:node`, every test of `src/` and `test/` but the search): what a browser could do otherwise
-  goes under "Premises that no test reaches yet".
+  range, and a daily job of the CI (`.github/workflows/effect-latest.yml`) runs them at the newest Effect the peer
+  range accepts, which a consumer may already have. For the JavaScript engine, the test runs on Bun, whose engine
+  is JavaScriptCore, and on Node, whose engine is V8 (`bun run test:node`, every test of `src/` and `test/` but the
+  search): what a browser could do otherwise goes under "Premises that no test reaches yet".
 
 What the dependencies of development do (fast-check, happy-dom, the renderers of the examples) is no premise of the
 library, and the rule leaves it out, with two exceptions. The bridges, `examples/snabbdom.ts` and

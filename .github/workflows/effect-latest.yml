@@ -1,0 +1,29 @@
+name: Effect latest
+
+# The peer range (`^4.1.4`) accepts every later Effect 4, and the library is developed, and what it rests on of
+# Effect tested, at the version of the lockfile alone (`docs/premises.md`): what Effect does not document may change
+# in a minor version. This runs the tests at the newest Effect the range accepts, so that a premise a new version
+# breaks is known the day after it is published, not at the next upgrade. A failure here is a lead for an upgrade
+# (`.agents/skills/upgrade-effect/SKILL.md`), not a red commit.
+on:
+  schedule:
+    - cron: '47 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  newest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      # Node runs the tests' TypeScript as it is, which needs Node 22.18 or newer.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      # The newest version within the range of `package.json`, which is the peer range.
+      - run: bun update effect
+      - run: bun pm ls | grep effect
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run test:node
