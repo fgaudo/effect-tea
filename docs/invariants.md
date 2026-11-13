@@ -55,7 +55,10 @@ is how they are kept, and what a change must not undo. What they rest on of Effe
     (`stopping` in `engine.ts`, `Stopped` in `core.ts`), and `diesIn` takes an interruption of the cause for one the
     fiber received only when it has the fiber id and the mark, or the lack of one, of a received one: a fiber id alone
     is one the program can make too (`FiberMap`, `FiberSet` and `FiberHandle` interrupt as the fiber -1, and the fiber
-    that ends the run may have interrupted another before). Never stop a fiber of the program otherwise.
+    that ends the run may have interrupted another before). Never stop a fiber of the program otherwise. So do the
+    testing tools, which run in their caller's fiber: `rehearse` stops a command whose `run` is interrupted, the keys
+    that went away and, as it ends, the commands under way, before it closes its scope, which would interrupt them as
+    the fiber that ends it; `simulate` runs each command in a fiber of its own, which it stops when it is interrupted.
   - Each fiber of the run records what it dies of in one place (`makeDeaths` in `engine.ts`, made by `runWith` and given
     to the engine; `rehearse` has its own, keeping only the program's defects): the engine's, the renderer, and the
     run's own as it starts the engine, as they end, and one with a scope of its own as it dies too, before the scope

@@ -71,8 +71,10 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   in `engine.ts`): "a renderer that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the
   renderer" fails without the mark, and "a subscription stopped inside an uninterruptible region, which then enters a
   traced function, is no defect" (`run.test.ts`) with a copy of the reason that drops it, as one compared by identity
-  does. That `Cause.annotate` keeps the keys a reason has is documented; that `interruptAs` puts its annotations on
-  the reason is not, and seen in those tests.
+  does; and so do the testing tools: "rehearse fails with a defect of a command joining, as its run is stopped, a
+  fiber its caller interrupted", the same as its end stops it, "rehearse fails with a defect of a subscription
+  interrupting itself as the fiber that stops it" (`contract.test.ts`). That `Cause.annotate` keeps the keys a reason
+  has is documented; that `interruptAs` puts its annotations on the reason is not, and seen in those tests.
 - **An unbounded `Queue` takes an offer at once, and a shut one refuses it without interrupting**: "a dispatch runs
   with Effect.runSync from a plain callback, and after the run has ended too" (`run.test.ts`). It wakes its taker
   through the scheduler of the fiber that made it, so a dispatch never runs `update` in its caller's stack:

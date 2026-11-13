@@ -4,6 +4,7 @@ import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
+import * as FiberSet from 'effect/FiberSet'
 import * as HashMap from 'effect/HashMap'
 import * as Inspectable from 'effect/Inspectable'
 import * as Opt from 'effect/Option'
@@ -11,7 +12,7 @@ import * as Queue from 'effect/Queue'
 import * as Scope from 'effect/Scope'
 import * as Core from '../core.ts'
 import { ProgramDefect } from '../defect.ts'
-import { diesIn, makeDeaths, runSubscription, scopedIn } from '../engine.ts'
+import { diesIn, makeDeaths, runSubscription, scopedIn, stopping as stopFiber } from '../engine.ts'
 import { describeByTag } from '../log.ts'
 import { runCommandOf, type Shape, startOf, subscriptionsOf } from '../program.ts'
 import type { Subscription } from '../subscription.ts'
@@ -196,10 +197,13 @@ export const rehearse = Effect.fnUntraced(function*<
   // that asked for them, as the run's loop and subscriptions outlive whoever dispatched. Closed at the end, however
   // the rehearsal ends, once what it holds is stopped.
   const forks = yield* Scope.make()
+  // The commands under way, kept as they are forked, so that the end stops them as the run does, with its mark,
+  // before it closes the scope, which would interrupt them as the fiber that ends the rehearsal.
+  const commands = yield* FiberSet.make<Opt.Option<Deferred.Deferred<void>>, never>().pipe(Scope.provide(forks))
   // Interrupts them together, as the run stops the keys that went away, and fails the step on a defect of what they
   // release.
   const stop = (stopping: Iterable<Opened>) =>
-    Effect.forEach(stopping, ({ fiber }) => Effect.andThen(Fiber.interrupt(fiber), Fiber.await(fiber)), {
+    Effect.forEach(stopping, ({ fiber }) => Effect.andThen(stopFiber(fiber), Fiber.await(fiber)), {
       concurrency: 'unbounded',
     }).pipe(Effect.flatMap((exits) => {
       const dies = exits.flatMap((exit) => Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isDieReason) : [])
@@ -503,7 +507,7 @@ export const rehearse = Effect.fnUntraced(function*<
         const [{ ticket, command }, taken] = taking.value
         ledger = taken
         return answering(ticket, calling(() => runCommand(command))).pipe(
-          Effect.forkIn(forks),
+          FiberSet.run(commands),
           Effect.map((fiber): Taking => ({ _tag: 'Running', ticket, command, fiber })),
         )
       }),
@@ -521,7 +525,7 @@ export const rehearse = Effect.fnUntraced(function*<
             Effect.sync(() => {
               ledger = Ledger.cancel(ledger, taking.ticket)
             }),
-            Fiber.interrupt(taking.fiber),
+            stopFiber(taking.fiber),
           )
           : Effect.void,
     ).pipe(
@@ -573,6 +577,7 @@ export const rehearse = Effect.fnUntraced(function*<
     const [opened, waiting] = Ledger.opened(ledger)
     yield* Effect.exit(stop(opened))
     yield* tellStopped(waiting)
+    yield* Effect.forEach(commands, stopFiber, { concurrency: 'unbounded', discard: true })
     yield* Scope.close(forks, Exit.void)
   })
   // A defect of the program comes first, as the run keeps first what ended it, then what the scenario ended with,

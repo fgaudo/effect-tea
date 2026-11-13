@@ -581,9 +581,57 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'rehearse leaves the command of an interrupted run running',
     file: 'src/testing/rehearse.ts',
-    from: '            Fiber.interrupt(taking.fiber),\n',
+    from: '            stopFiber(taking.fiber),\n',
     to: '            Effect.void,\n',
     killedBy: [['src/testing/rehearse.test.ts', 'the command is released before the interrupted call returns']],
+  },
+  {
+    name: 'rehearse stops the command of an interrupted run with no mark of its own',
+    file: 'src/testing/rehearse.ts',
+    from: '            stopFiber(taking.fiber),\n',
+    to: '            Fiber.interrupt(taking.fiber),\n',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails with a defect of a command joining, as its run is stopped, a fiber its caller interrupted',
+      ],
+    ],
+  },
+  {
+    name: 'rehearse stops a subscription with no mark of its own',
+    file: 'src/testing/rehearse.ts',
+    from: 'Effect.andThen(stopFiber(fiber), Fiber.await(fiber))',
+    to: 'Effect.andThen(Fiber.interrupt(fiber), Fiber.await(fiber))',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails with a defect of a subscription interrupting itself as the fiber that stops it',
+      ],
+    ],
+  },
+  {
+    name: 'rehearse leaves the commands under way to the close of its scope',
+    file: 'src/testing/rehearse.ts',
+    from: "    yield* Effect.forEach(commands, stopFiber, { concurrency: 'unbounded', discard: true })\n",
+    to: '',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails with a defect of a command joining, as its end stops it, a fiber its caller interrupted',
+      ],
+    ],
+  },
+  {
+    name: 'simulate runs a command in the fiber of whoever runs it',
+    file: 'src/testing/simulate.ts',
+    from: 'const message = yield* runOne(command)',
+    to: "const message = yield* Effect.suspend(() => runCommand(command)).pipe(Effect.scoped, diesIn('command'))",
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails with a defect of a command joining, as it is stopped, a fiber its interrupter interrupted',
+      ],
+    ],
   },
   {
     name: 'rehearse offers the loop a step once it has ended',

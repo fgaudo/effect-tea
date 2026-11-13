@@ -1,8 +1,11 @@
+import * as Cause from 'effect/Cause'
 import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
 import * as Opt from 'effect/Option'
 import type * as Scope from 'effect/Scope'
 import * as Core from '../core.ts'
-import { applyIn, diesIn } from '../engine.ts'
+import { applyIn, diesIn, stopping } from '../engine.ts'
 import { type Interpreter, type ObjectState, runCommandOf, subscriptionsOf } from '../program.ts'
 import type { Subscriptions } from '../subscription.ts'
 import { appendStep, isRejected, type Step, type Update } from '../update.ts'
@@ -69,6 +72,25 @@ export const simulate = <State, Message, Command, Event, R = never>(
         ? Effect.succeedSome(applied)
         : Effect.as(listen(listening, result.state), Opt.some(applied))
     })
+  // A command runs in a fiber of its own, called where it is decided, and joined: interrupted, the simulation stops it
+  // as the run does, with its mark, and fails with what it dies of as it releases, first. Run in the fiber of whoever
+  // interrupts the simulation, it would be stopped as that fiber, which may have interrupted a fiber before.
+  const runOne = (command: Command) =>
+    Effect.uninterruptibleMask((restore) =>
+      Effect.sync(() => runCommand(command)).pipe(
+        diesIn('command'),
+        Effect.flatMap((effect) => Effect.forkChild(effect.pipe(Effect.scoped, diesIn('command')))),
+        Effect.flatMap((fiber) =>
+          Effect.flatMap(Effect.exit(restore(Fiber.join(fiber))), (joined) =>
+            Exit.isFailure(joined) && Cause.hasInterrupts(joined.cause)
+              ? Effect.flatMap(Effect.andThen(stopping(fiber), Fiber.await(fiber)), (stopped) => {
+                const dies = Exit.isFailure(stopped) ? stopped.cause.reasons.filter(Cause.isDieReason) : []
+                return Effect.failCause(Cause.combine(Cause.fromReasons<never>(dies), joined.cause))
+              })
+              : joined)
+        ),
+      )
+    )
   // Runs the commands from `ran` on, oldest first, as the run starts them: those a command's answer starts wait
   // behind those started before it.
   const runFrom = Effect.fnUntraced(function*(
@@ -79,7 +101,7 @@ export const simulate = <State, Message, Command, Event, R = never>(
     let current = simulation
     for (let index = ran; index < current.commands.length; index++) {
       const command = current.commands[index] as Command
-      const message = yield* Effect.suspend(() => runCommand(command)).pipe(Effect.scoped, diesIn('command'))
+      const message = yield* runOne(command)
       if (Opt.isNone(message)) continue
       const applied = yield* apply(message.value, current, listening)
       current = Opt.isSome(applied) ? applied.value : { ...current, ignored: [...current.ignored, message.value] }
