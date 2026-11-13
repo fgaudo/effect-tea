@@ -33,8 +33,8 @@ that fails without it.
   check for each call, a fiber and how it stops are one primitive), and so are steps 4 and 5: the run stops the loop
   first as it ends, keeps one check, where the loop applies a message, has none in the middle of a step, and calls
   `render` once as it starts, so that a step under way when a defect is recorded may start its commands. The
-  scheduled test of the renderer went with its check. To decide:
-  whether a dropped message is described after a defect (step 6); whether `runAll`'s mutation, of a form the ledger
+  scheduled test of the renderer went with its check. Step 6 is done too: `Core.arrive` reads the register first, so
+  a dropped message is never described after a defect. To decide: whether `runAll`'s mutation, of a form the ledger
   rules out, stays with its scheduled test (step 7); whether the search of `interleaving.test.ts` stays as an alarm,
   or goes with `test/scheduled.ts` and its two modes (step 8).
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.

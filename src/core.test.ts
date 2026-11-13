@@ -302,13 +302,13 @@ describe('a message against the state', () => {
     expect(calls.count).toBe(0)
   })
 
-  test('a message of an earlier start of a key that came back is dropped, alive or dead, and calls nothing', () => {
+  test('a message of an earlier start of a key that came back is dropped, dead after a death, calling nothing', () => {
     const { calls, update } = counting()
     const first = reconcile(noneActive, listing('a')).active
     const back = reconcile(reconcile(first, listing()).active, listing('a')).active
     const earlier: Source<string> = { _tag: 'Subscription', key: 'a', generation: 1 }
     expect(arrive(update, current, back, earlier, 'Bump', alive)).toEqual({ _tag: 'Dropped' })
-    expect(arrive(update, current, back, earlier, 'Bump', () => true)).toEqual({ _tag: 'Dropped' })
+    expect(arrive(update, current, back, earlier, 'Bump', () => true)).toEqual({ _tag: 'Dead' })
     expect(calls.count).toBe(0)
     const now: Source<string> = { _tag: 'Subscription', key: 'a', generation: 2 }
     expect(arrive(update, current, back, now, 'Bump', alive)._tag).toBe('Applied')
@@ -350,7 +350,7 @@ describe('a message against the state', () => {
           const applies = start === undefined || HashMap.get(active.keys, start[0]).pipe(Opt.contains(start[1]))
           const before = calls.count
           const arrived = arrive(update, state, active, source, 'Bump', () => died)
-          expect(arrived._tag).toBe(!applies ? 'Dropped' : died ? 'Dead' : 'Applied')
+          expect(arrived._tag).toBe(died ? 'Dead' : !applies ? 'Dropped' : 'Applied')
           expect(calls.count - before).toBe(applies && !died ? 1 : 0)
           if (arrived._tag === 'Applied') state = arrived.next
         }

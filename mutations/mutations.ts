@@ -25,6 +25,25 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'a message is dropped before the register is read',
+    file: 'src/core.ts',
+    from: '  if (died()) return dead\n'
+      + "  if (source._tag === 'Subscription' && !active.starts.has(source.generation)) return dropped\n",
+    to: "  if (source._tag === 'Subscription' && !active.starts.has(source.generation)) return dropped\n"
+      + '  if (died()) return dead\n',
+    killedBy: [
+      [
+        'src/core.test.ts',
+        'a message of an earlier start of a key that came back is dropped, dead after a death, calling nothing',
+      ],
+      [
+        'src/core.test.ts',
+        'under any history of listings, arrivals and a death, update is called exactly when it applies',
+      ],
+      ['src/engine.test.ts', 'a message of a stopped subscription, taken once a command has died, is not described'],
+    ],
+  },
+  {
     name: 'a message of a stopped start reaches update',
     file: 'src/core.ts',
     from: "source._tag === 'Subscription' && !active.starts.has(source.generation)",
@@ -32,7 +51,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         'src/core.test.ts',
-        'a message of an earlier start of a key that came back is dropped, alive or dead, and calls nothing',
+        'a message of an earlier start of a key that came back is dropped, dead after a death, calling nothing',
       ],
       ['src/engine.test.ts', 'a message left by an earlier start of a key that came back does not reach update'],
       ['src/run.test.ts', 'what a subscription leaves in the queue after its key went away does not reach update'],
@@ -51,7 +70,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         'src/core.test.ts',
-        'a message of an earlier start of a key that came back is dropped, alive or dead, and calls nothing',
+        'a message of an earlier start of a key that came back is dropped, dead after a death, calling nothing',
       ],
       ['src/engine.test.ts', 'a message left by an earlier start of a key that came back does not reach update'],
     ],

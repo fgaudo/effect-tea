@@ -4,8 +4,10 @@ import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import { absurd, identity } from 'effect/Function'
 import * as HashMap from 'effect/HashMap'
+import * as Logger from 'effect/Logger'
 import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
+import * as References from 'effect/References'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import * as Engine from './engine.ts'
@@ -519,5 +521,49 @@ describe('Engine after the first defect', () => {
       yield* Effect.sleep('20 millis')
     }).pipe(Effect.scoped))
     expect(calls.n).toBe(0)
+  })
+
+  // `onApplied` holds the loop as `Stop` takes the key away: a tick of its start is queued behind it, and a command
+  // dies, before the key's subscription is released and the loop takes the tick.
+  test('a message of a stopped subscription, taken once a command has died, is not described', async () => {
+    const described: Array<string> = []
+    await Effect.runPromiseExit(Effect.gen(function*() {
+      const deaths = yield* Engine.makeDeaths(() => true)
+      const go = yield* Deferred.make<void>()
+      const source = yield* Queue.unbounded<'Tick'>()
+      const sent = yield* Deferred.make<void>()
+      // The engine asks for what follows the tick only once it has queued the tick: then `sent` completes.
+      const ticking = Channel.unwrap(Effect.map(Queue.take(source), (tick) => Channel.succeed(tick))).pipe(
+        Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never))),
+      )
+      const engine = yield* Engine.make<Readonly<{ on: boolean }>, 'Stop' | 'Tick', 'Die', never, string>({
+        deaths,
+        init: { state: { on: true }, commands: ['Die'] },
+        runCommand: () => Deferred.await(go).pipe(Effect.andThen(Effect.die('boom'))),
+        update: (message) => (state) => message === 'Stop' ? { state: { on: false } } : { state },
+        subscriptions: ({ on }) => on ? HashMap.make(['ticks', ticking]) : HashMap.empty(),
+        onApplied: ({ message }) =>
+          message === 'Stop'
+            ? Queue.offer(source, 'Tick').pipe(
+              Effect.andThen(Deferred.await(sent)),
+              Effect.andThen(Deferred.succeed(go, undefined)),
+              Effect.andThen(deaths.died),
+            )
+            : Effect.void,
+        describeMessage: (message) => {
+          described.push(message)
+          return message
+        },
+      })
+      yield* engine.dispatch('Stop')
+      yield* engine.died
+      // Long enough for the loop to take the tick, once `onApplied` lets it go.
+      yield* Effect.sleep('20 millis')
+    }).pipe(
+      Effect.scoped,
+      Effect.provideService(References.MinimumLogLevel, 'Debug'),
+      Effect.provide(Logger.layer([])),
+    ))
+    expect(described).toEqual(['Stop'])
   })
 })

@@ -207,10 +207,11 @@ const dead: Arrived<never, never, never> = { _tag: 'Dead' }
 const ignored: Arrived<never, never, never> = { _tag: 'Ignored' }
 
 /**
- * Applies `message` to the current state, calling `update` unless its start is gone or `died` says the run has died:
+ * Applies `message` to the current state, calling `update` unless `died` says the run has died or its start is gone:
  * whoever calls it calls it in one synchronous thunk, where no other fiber can die between the check and the call, and
- * where a defect of `update` dies in `update`. A dropped message reaches nothing of the program, whether the run has
- * died or not.
+ * where a defect of `update` dies in `update`. The register is read first, so that a message taken once the run has
+ * died is dead, never dropped: a dropped one reaches nothing of the program but its description in the logs, which a
+ * run that has died never writes.
  */
 export const arrive = <State, Message, Command, Event, K>(
   update: Update<State, Message, Command, Event>,
@@ -220,8 +221,8 @@ export const arrive = <State, Message, Command, Event, K>(
   message: Message,
   died: () => boolean,
 ): Arrived<State, Command, Event> => {
-  if (source._tag === 'Subscription' && !active.starts.has(source.generation)) return dropped
   if (died()) return dead
+  if (source._tag === 'Subscription' && !active.starts.has(source.generation)) return dropped
   const result = update(message)(current.state)
   if (isRejected(result)) return ignored
   const changed = result.state !== current.state

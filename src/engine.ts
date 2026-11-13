@@ -145,13 +145,6 @@ export const applyIn = <State, Message, Command, Event>(
 ) => Effect.sync(() => update(message)(state)).pipe(diesIn('update', () => ({ on: describeByTag(message) })))
 
 /**
- * Calls `f` unless the run has died: `None`, with `f` not called, once `dead` says so. The check and the call are
- * one synchronous function, where no other fiber can run, so that no yield of the scheduler lets one die in between,
- * as in `Core.arrive`, which calls `update` with the same check.
- */
-export const alive = <A>(dead: () => boolean, f: () => A): Opt.Option<A> => dead() ? Opt.none() : Opt.some(f())
-
-/**
  * Where the fibers of a run, or of a rehearsal, record what they die of, as they end, however they end: nothing is
  * lost to a `join` that nobody awaits any more, or to a `FiberSet` or a `FiberMap` that discards the exits of the
  * fibers it interrupts as it closes. Each defect is kept once, by its identity, in the order the fibers died: a
@@ -379,14 +372,11 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     )
     switch (arrived._tag) {
       // Left in the queue by a subscription whose key has gone away since: it was produced after the program
-      // stopped listening, so it does not reach `update`.
+      // stopped listening, so it does not reach `update`. `Core.arrive` reads the register first: once a fiber has
+      // died, no message is dropped, so `describeMessage` is called on none.
       case 'Dropped': {
-        // The loop takes messages after a death too, and calls nothing of the program on them.
-        const description = debugging
-          ? yield* call('describeMessage', () => alive(dead, () => describeMessage(message)))
-          : Opt.none()
-        if (Opt.isSome(description) && source._tag === 'Subscription') {
-          yield* log('Dropped a message of a stopped subscription', source.key, description.value)
+        if (debugging && source._tag === 'Subscription') {
+          yield* log('Dropped a message of a stopped subscription', source.key, yield* described(message))
         }
         return active
       }

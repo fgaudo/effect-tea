@@ -177,7 +177,8 @@ version, and everything else, features included, the patch version.
   the second never heard. A defect of the program now fails the rehearsal however it ends, whichever fiber it
   reached, first in the cause: one that only a fiber nobody joins met, or that what a subscription releases as an
   interrupted rehearsal stops it, was lost. After it, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail
-  with it, and the checks of the commands at the end are skipped. A scenario that caught a defect with
+  with it, a `hearNext` whose message its key, gone meanwhile, would have dropped included, and the checks of the
+  commands at the end are skipped. A scenario that caught a defect with
   `Effect.exit` and went on passed: it now fails, and a test that expects a defect wraps `rehearse` instead.
   "Testing" in the README says so.
 - A run that died applies no message, and so starts the commands of no later step: it went on applying what its
