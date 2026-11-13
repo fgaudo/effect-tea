@@ -117,4 +117,25 @@ describe('the loop of rehearse', () => {
     ))
     expect(exits.map((exit) => Exit.isExit(exit) && Exit.hasInterrupts(exit))).toEqual([true, true])
   })
+
+  // What closes the scope it is forked in would interrupt it too, but only after what the stop is followed by.
+  test('interrupts its step under way before its stop returns', async () => {
+    let interrupted = false
+    const atStop = await Effect.runPromise(withLoop((loop) =>
+      Effect.gen(function*() {
+        const started = yield* Deferred.make<void>()
+        yield* loop.submit(Effect.andThen(Deferred.succeed(started, undefined), Effect.never).pipe(
+          Effect.onInterrupt(() =>
+            Effect.sync(() => {
+              interrupted = true
+            })
+          ),
+        ))
+        yield* Deferred.await(started)
+        yield* loop.stop
+        return interrupted
+      })
+    ))
+    expect(atStop).toBe(true)
+  })
 })

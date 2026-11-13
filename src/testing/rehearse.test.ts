@@ -1038,6 +1038,22 @@ describe('rehearse, while a fiber of the test\'s waits for what nothing will sen
       true,
     ])
   })
+
+  // The end stops the subscription, which sends nothing more: a call still waiting in a fiber that outlives the
+  // scenario would wait for ever.
+  test('a hearNext still waiting in a fiber the scenario did not join fails as the rehearsal ends', async () => {
+    const outcome = await Effect.runPromise(Effect.gen(function*() {
+      const call = yield* rehearse(waiting(Channel.never), Effect.fnUntraced(function*(rehearsal) {
+        const call = yield* Effect.forkDetach(rehearsal.hearNext('k'))
+        yield* Effect.sleep('10 millis')
+        return call
+      }))
+      return yield* Effect.timeoutOption(Fiber.await(call), '300 millis')
+    }))
+    expect(Opt.isSome(outcome) && Exit.isFailure(outcome.value) && String(Cause.squash(outcome.value.cause))).toContain(
+      'The subscription under k was stopped while hearNext waited for its message',
+    )
+  })
 })
 
 describe('rehearse, as the release of what died lets another fiber die', () => {

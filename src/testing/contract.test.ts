@@ -734,6 +734,43 @@ describe('what the run dies of, and the tools fail on', () => {
     expect(diedIn(exit)).toBe('command')
   })
 
+  // Likewise a subscription still running at the end, which the close of the tool's scope would interrupt as the fiber
+  // that ends it.
+  const listensOnceInterrupted = (
+    started: Deferred.Deferred<void>,
+    stale: Fiber.Fiber<never>,
+  ): Program<{ state: Row; model: number; message: 'Seen' }> => ({
+    ...row,
+    subscriptions: () =>
+      HashMap.make([
+        'ticks',
+        Channel.fromEffectDone(Effect.uninterruptible(Effect.gen(function*() {
+          yield* Deferred.succeed(started, undefined)
+          yield* untilInterrupted
+          return yield* Fiber.join(stale)
+        }))),
+      ]),
+  })
+
+  test('the run dies with a defect of a subscription joining, as its end stops it, a fiber its caller interrupted', async () => {
+    const exit = await underWayAtTheEnd((stale) =>
+      Effect.flatMap(Deferred.make<void>(), (started) =>
+        drive(listensOnceInterrupted(started, stale), () => Deferred.await(started)))
+    )
+    expect(diedIn(exit)).toBe('subscription')
+  })
+
+  test('rehearse fails with a defect of a subscription joining, as its end stops it, a fiber its caller interrupted', async () => {
+    const exit = await underWayAtTheEnd((stale) =>
+      Effect.flatMap(Deferred.make<void>(), (started) =>
+        rehearse(listensOnceInterrupted(started, stale), Effect.fnUntraced(function*(rehearsal) {
+          yield* Effect.forkDetach(rehearsal.hearNext('ticks'))
+          yield* Deferred.await(started)
+        })))
+    )
+    expect(diedIn(exit)).toBe('subscription')
+  })
+
   // A subscription may read the fiber id of the interruption it received, and interrupt a fiber of its own as that id:
   // the join of that fiber is its own interruption, which only the mark of the run's tells from the one it received.
   const forgesTheIdItReceived = (started: Deferred.Deferred<void>) =>

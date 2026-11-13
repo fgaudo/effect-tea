@@ -708,6 +708,30 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'rehearse leaves the subscriptions hearNext started to the close of its scope',
+    file: 'src/testing/rehearse.ts',
+    from: '    yield* Effect.exit(stop(opened))\n',
+    to: '',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails with a defect of a subscription joining, as its end stops it, a fiber its caller interrupted',
+      ],
+    ],
+  },
+  {
+    name: 'rehearse leaves a hearNext waiting as its end stops the subscription',
+    file: 'src/testing/rehearse.ts',
+    from: '    yield* tellStopped(waiting)\n',
+    to: '',
+    killedBy: [
+      [
+        'src/testing/rehearse.test.ts',
+        'a hearNext still waiting in a fiber the scenario did not join fails as the rehearsal ends',
+      ],
+    ],
+  },
+  {
     name: 'rehearse leaves the commands under way to the close of its scope',
     file: 'src/testing/rehearse.ts',
     from: "    yield* Effect.forEach(commands, stopFiber, { concurrency: 'unbounded', discard: true })\n",
@@ -745,6 +769,19 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: "rehearse's loop lets a call refused once it has ended wait",
+    file: 'src/testing/loop.ts',
+    from: 'return quiet ? Effect.never : Effect.interrupt',
+    to: 'return Effect.never',
+    killedBy: [
+      [
+        'src/testing/loop.test.ts',
+        'is offered nothing once its end is marked: the call is interrupted, or waits when quiet',
+      ],
+      ['src/testing/contract.test.ts', 'in rehearse, it reaches no update, and its call is interrupted'],
+    ],
+  },
+  {
     name: "rehearse's loop interrupts a quiet call refused once it has ended",
     file: 'src/testing/loop.ts',
     from: 'return quiet ? Effect.never : Effect.interrupt',
@@ -769,6 +806,13 @@ export const mutations: ReadonlyArray<Mutation> = [
         'a message sent as the scenario returns is applied, and the command it starts fails the rehearsal',
       ],
     ],
+  },
+  {
+    name: "rehearse's loop leaves its step under way to the close of its scope",
+    file: 'src/testing/loop.ts',
+    from: '    yield* Fiber.interrupt(loop)\n',
+    to: '',
+    killedBy: [['src/testing/loop.test.ts', 'interrupts its step under way before its stop returns']],
   },
   {
     name: "rehearse's loop leaves what it did not deliver waiting once stopped",
@@ -863,6 +907,33 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: '    if (false) {',
     killedBy: [
       ['src/testing/ledger.test.ts', 'a message is heard by the first call waiting, and waits for a call when none does'],
+    ],
+  },
+  {
+    name: "rehearse's hearNext lets no call leave as it ends",
+    file: 'src/testing/rehearse.ts',
+    from: '      Effect.ensuring(Effect.sync(() => {\n'
+      + '        ledger = Ledger.leave(ledger, call)\n'
+      + '      })),\n',
+    to: '',
+    killedBy: [
+      ['src/testing/rehearse.test.ts', 'a call interrupted while the subscription waits leaves its message to the next one'],
+      [
+        'src/testing/rehearse.test.ts',
+        'a hearNext that left before the loop took its step starts nothing, and hear plays its key',
+      ],
+    ],
+  },
+  {
+    name: "rehearse's hearNext leaves a call waiting on a start whose key went away",
+    file: 'src/testing/rehearse.ts',
+    from: 'Effect.andThen(stop(stopping), tellStopped(stopped))',
+    to: 'stop(stopping)',
+    killedBy: [
+      [
+        'src/testing/rehearse.test.ts',
+        'a call waiting when its key goes away fails the test, since nothing more arrives under it',
+      ],
     ],
   },
   {
