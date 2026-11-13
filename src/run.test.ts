@@ -744,13 +744,14 @@ describe('logs', () => {
 
   /**
    * How many times the run describes a tick that a subscription left in the queue after its key went away, which the
-   * run drops: `onApplied` holds the loop on `Stop` until the tick is queued behind it.
+   * run drops: `onApplied` holds the loop on `Stop` until the tick is queued behind it, and the frame of the stopped
+   * state sends `Done` behind the tick. The run ends once `Done` is applied, so the loop has taken the tick by then.
    */
   const droppedDescriptionsAt = (level: 'Info' | 'Debug') =>
     Effect.runPromise(Effect.gen(function*() {
       const source = yield* Queue.unbounded<'Tick'>()
       const sent = yield* Deferred.make<void>()
-      const stopped = yield* Deferred.make<void>()
+      const done = yield* Deferred.make<void>()
       let ticks = 0
       // The engine asks for what follows the tick only once it has queued the tick: then `sent` completes.
       const ticking = Channel.unwrap(Effect.map(Queue.take(source), (tick) => Channel.succeed(tick))).pipe(
@@ -759,23 +760,24 @@ describe('logs', () => {
       yield* run(
         {
           init: { state: { isRunning: true } },
-          update: (message: 'Tick' | 'Stop') => (state: Readonly<{ isRunning: boolean }>) =>
-            message === 'Tick' ? { state } : { state: { isRunning: false } },
+          update: (message: 'Tick' | 'Stop' | 'Done') => (state: Readonly<{ isRunning: boolean }>) =>
+            message === 'Stop' ? { state: { isRunning: false } } : { state },
           subscriptions: (state) => state.isRunning ? HashMap.make(['ticks', ticking]) : HashMap.empty(),
-          makeModel: ({ isRunning }) => ({ isRunning, stop: 'Stop' as const }),
+          makeModel: ({ isRunning }) => ({ isRunning, stop: 'Stop' as const, done: 'Done' as const }),
         },
         (frames) =>
           frames.pipe(
-            Stream.tap(({ model, dispatch }) =>
-              model.isRunning ? dispatch(model.stop) : Deferred.succeed(stopped, undefined)
-            ),
+            Stream.tap(({ model, dispatch }) => dispatch(model.isRunning ? model.stop : model.done)),
             Stream.runDrain,
-            // Long enough for the loop to take the tick, once `onApplied` lets it go.
-            Effect.raceFirst(Deferred.await(stopped).pipe(Effect.andThen(Effect.sleep('20 millis')))),
+            Effect.raceFirst(Deferred.await(done)),
           ),
         {
           onApplied: ({ message }) =>
-            message === 'Stop' ? Queue.offer(source, 'Tick').pipe(Effect.andThen(Deferred.await(sent))) : Effect.void,
+            message === 'Stop'
+              ? Queue.offer(source, 'Tick').pipe(Effect.andThen(Deferred.await(sent)))
+              : message === 'Done'
+              ? Deferred.succeed(done, undefined)
+              : Effect.void,
           describeMessage: (message) => {
             if (message === 'Tick') ticks += 1
             return message
