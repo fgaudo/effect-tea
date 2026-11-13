@@ -154,12 +154,20 @@ untouched and the seven tests of `rehearse.test.ts` without their mark.
 
 ## Open questions
 
+The first three are the author's to answer: whoever does the plan asks, before the step named, and does not choose.
+
+- **Three conditions fail only under the scheduler of the tests**, which serves the search alone, so no mutation may
+  name those tests as its killers. Each is a region nothing may interrupt, resting on the documented premise of
+  `uninterruptibleMask`. Ask before step 5: either they are forms held by their construction, with no mutation, as
+  the policy of `docs/single-owner.md` says of `Ledger.take`, and a change that takes one out fails no test until
+  the search meets it; or a test with a gate must reach each one first, which was not tried.
+- **What the ledger keeps of the messages sent, of the calls waiting and of those that left** is not designed. The
+  spike keeps them in maps it mutates, beside the counts the ledger already has (`waiting`, `asked`), which say
+  part of the same. Ask before step 4, with the transitions proposed: the spike shows what `rehearse` must do, not
+  the shape of its data.
 - **A release that never ends** keeps a rehearsal whose scenario returned from ending, where the loop waits for it
-  in a step. Today the end waits for the same release once it has interrupted the step.
-- **Three conditions fail only under the scheduler of the tests**, which serves the search alone. Each is a region
-  nothing may interrupt, resting on the documented premise of `uninterruptibleMask`: a form held by its
-  construction, as the policy of `docs/single-owner.md` says of `Ledger.take`, unless a test with a gate reaches it.
-  Not tried.
+  in a step. Today the end waits for the same release once it has interrupted the step, so a test that hangs today
+  hangs then. Ask before step 2 whether that is to be said anywhere.
 - **Five conditions fail nothing.** One has its test above. Three need one: that a `hearNext` that left starts no
   subscription, so that a later `hear` of its key is not refused, with a gate that keeps the loop in a release
   while it leaves; that a fiber the scenario did not join is offered nothing once it returned; that a scenario that

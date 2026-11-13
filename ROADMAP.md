@@ -18,9 +18,9 @@ work, five steps, each one commit that leaves the suite green and removes the ma
 `change-engine` first. The local branch `spike/rehearse-one-owner` (`db8309a`) shows the design working in
 `src/testing/rehearse.ts`, and is to be read, not merged: it keeps in maps of the shell what the plan puts in the
 ledger as transitions, each with its test, and its two tests (`deadlock.test.ts`, `finish.test.ts`) belong in
-`rehearse.test.ts`. The note's "Open questions" say which conditions still need a test, and which a mutation cannot
-hold without the scheduler of the tests. Delete the branch once the plan is done. The first and the fifth items are
-not part of it.
+`rehearse.test.ts`. The note's "Open questions" say which conditions still need a test, and name three questions
+that are the author's: ask each before the step it names, and do not choose. Delete the branch once the plan is
+done. The first and the fifth items are not part of it.
 
 - **An interruption the program makes with the fiber id of the one its effect received ends in silence**:
   `Core.otherwiseDefect` takes an interruption for the run's by the id of the fiber that made it, an id the program
