@@ -222,8 +222,9 @@ library does not mind, but a program reads more easily when it does one or the o
 
 A view is `(model, dispatch) => Node`, and `dispatch` takes the program's messages. Sending returns an
 `Effect<void>` that needs no services and completes synchronously. It only hands the message to the run, which
-handles it with its own services. A renderer whose handlers are plain callbacks, like snabbdom's, runs it at
-once with `Effect.runSync(dispatch(message))`, or with a runtime of its own: either is right.
+handles it in its own fiber, with its own services: a handler returns before `update` has seen its message. A
+renderer whose handlers are plain callbacks, like snabbdom's, runs it at once with
+`Effect.runSync(dispatch(message))`, or with a runtime of its own: either is right.
 
 The library ships no renderer. A bridge to one does three things: it draws each frame, runs `dispatch` in the
 handlers, and, for tests, finds what a view sends (`messagesSentBy`).
@@ -625,7 +626,7 @@ Options:
   (`References.MinimumLogLevel`), so they cost nothing otherwise. The debug logs of subscriptions show their
   keys, which may hold data (an id, a search's text).
 - **`onApplied`**: hears every accepted message with where it came from (`origin`: the view, a command, or a
-  subscription with its key), the state before and after it, and the commands it started, for devtools or
+  subscription with its key), the state before and after it, and the commands it decided, for devtools or
   session recording.
 - **`onIgnored`**: hears every message `update` rejected, with where it came from and the state it did not
   apply in. It only watches: the message stays ignored. For devtools, or to count the taps that did nothing.
@@ -667,19 +668,21 @@ the run gives it (`Effect.acquireRelease`, `Effect.addFinalizer`, a channel's ow
 what it wraps around its own code (`Effect.ensuring`, `Effect.onExit`, an `Effect.scoped` of its own) is part of its
 effect, runs before it ends, and may still catch the defect. What that release dies of is a defect once the scope has
 released all it holds: until then, the run goes on. From the defect on, the run applies no message: it does not call
-`update`. It is a bound on what the run still does, at most the step under way, and nothing `update` can count on: to
-`update`, a command that died is one that has not answered yet. A message whose `update` it called before goes on
-until the run stops applying messages, which may be before its frame: it may still start its commands and the
-subscriptions of its new keys, and `onApplied` may have heard a step whose frame is never drawn. What a command or a
+`update`. A message it does not apply starts no command and no subscription, and `onApplied` does not hear it: a
+session recorded there ends with the step under way at the defect, at the latest. It is a bound on what the run
+still does, at most the step under way, and nothing `update` can count on: to `update`, a command that died is one
+that has not answered yet. A message whose `update` it called before goes on until the run stops applying messages,
+which may be before its frame: it may still start its commands and the subscriptions of its new keys, and
+`onApplied` may have heard a step whose frame is never drawn and whose commands never start. What a command or a
 subscription does once started is the program's, until the run interrupts it. So is what the renderer does, in a run
 that died as it started too, as when a subscription of `init` dies: a frame it reads meanwhile still makes its model,
-as `makeModel` is pure, and calling it changes nothing of the program. As it ends, of a defect or of an interruption, the run stops applying messages first,
-then stops the renderer, then its commands and its subscriptions: what is sent meanwhile, by the renderer as it
-releases what it holds included, is not applied. A defect met meanwhile joins
-the cause: every defect is in it, each with where it happened. The cause lists them in the order they happened,
-which is how the run is made today, and no promise: rely on each being there, not on its place. The run never
-recovers from it,
-and does not log it: reporting it, and what the user sees next, are the app's, around the run. The screen keeps the
+as `makeModel` is pure, and calling it changes nothing of the program. As it ends, of a defect or of an
+interruption, the run stops applying messages first, then stops the renderer, then its commands and its
+subscriptions: what is sent meanwhile, by the renderer as it releases what it holds included, is not applied. A
+defect met meanwhile joins the cause: every defect is in it, each with where it happened. The cause lists them in
+the order they happened, which is how the run is made today, and no promise: rely on each being there, not on its
+place. The run never recovers from it, and does not log it: reporting it, and what the user sees next, are the
+app's, around the run. The screen keeps the
 last frame: show a crash screen, or run the program again. In a browser, start it with `Effect.runFork`, which
 reports nothing itself. An interruption of the fiber it returns, on `pagehide` for one, ends the run too, and is no
 crash:

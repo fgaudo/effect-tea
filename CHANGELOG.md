@@ -40,6 +40,9 @@ version, and everything else, features included, the patch version.
 - "Guarantees" in the README says that messages are applied one at a time, in the order they were queued.
 - "Guarantees" in the README says that nothing is bounded or times out: a release that never ends holds the program.
 - "Running" in the README says that `onApplied` may hear a step whose frame is never drawn, as the run ends.
+- "Running" in the README says that a message the run does not apply starts no command and is not heard by
+  `onApplied`, and that `onApplied` hears the commands a message decided, which may never start as the run ends.
+- "View" in the README says that a handler returns before `update` has seen the message it sent.
 - "Running" in the README describes the order of the defects in the cause, and no longer promises it.
 - **Breaking**: `DefectSite` gains `'init'` and `'log'`, for an `init` or a `Logger` that throws.
   Upgrade: a `switch` over `where` that must be exhaustive adds a `case 'init'` and a `case 'log'`.

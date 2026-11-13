@@ -33,7 +33,7 @@ export type Origin =
 
 /**
  * A message that `update` accepted: where it came from, the state before and after it, the revision of `after`
- * (unchanged when the state is the same), and the commands it started.
+ * (unchanged when the state is the same), and the commands it decided.
  */
 export type Applied<State, Message, Command> = Readonly<{
   message: Message
@@ -65,9 +65,10 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
   readonly describeCommand?: (command: Command) => unknown
   /**
    * Hears every message `update` accepts, in order, with the state before and after it and the commands it
-   * started (e.g. for devtools, or to record a session), before its frame is drawn and its commands start.
-   * The next message waits for it, so a slow one holds the program: it hands slow work off to a queue (the
-   * README's "Running" shows how). A defect in it ends the run like any other.
+   * decided (e.g. for devtools, or to record a session), before its frame is drawn and its commands start: a
+   * run that ends meanwhile may do neither. The next message waits for it, so a slow one holds the program: it
+   * hands slow work off to a queue (the README's "Running" shows how). A defect in it ends the run like any
+   * other.
    */
   readonly onApplied?: (applied: Applied<State, Message, Command>) => Effect.Effect<void>
   /**
