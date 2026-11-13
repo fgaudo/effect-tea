@@ -70,21 +70,23 @@ const running = Effect.fnUntraced(
     )
     // Started only in a run that has not died, checked in the thunk that calls it, as `runCommand` is: a subscription
     // of `init` may die while the engine starts.
-    const renderer = yield* Effect.suspend(() =>
+    const rendering = Effect.suspend(() =>
       Opt.getOrElse(Engine.alive(deaths.dead, () => render(frames)), () => Effect.void)
     ).pipe(
       // The model is made when the renderer reads it: a defect of `makeModel` is the renderer's.
       Engine.scopedIn(deaths, 'render'),
       Effect.updateContext(Engine.withExternalSpan<Exclude<RR, Scope.Scope>>),
-      Effect.forkChild,
     )
     // However the run ends, the renderer is interrupted and awaited before the engine's fibers. Only signals race, so
     // that no defect is lost with the loser: every fiber records what it dies of, the renderer too, and the run
     // reports here what they have died of so far, and what they die of later, while the renderer releases what it
-    // holds too, by the end of the engine.
-    yield* Effect.raceFirst(engine.died, Fiber.await(renderer)).pipe(
-      Effect.andThen(engine.report),
-      Effect.onExit(() => Effect.asVoid(Fiber.interrupt(renderer).pipe(Effect.andThen(Fiber.await(renderer))))),
+    // holds too, by the end of the engine. Forked where nothing interrupts the run before its end is set: interrupted
+    // in between, the run would leave the renderer to the end of whichever fiber runs it, unawaited.
+    yield* Effect.uninterruptibleMask((restore) =>
+      Effect.flatMap(Effect.forkChild(rendering), (renderer) =>
+        restore(Effect.raceFirst(engine.died, Fiber.await(renderer)).pipe(Effect.andThen(engine.report))).pipe(
+          Effect.onExit(() => Effect.asVoid(Fiber.interrupt(renderer).pipe(Effect.andThen(Fiber.await(renderer))))),
+        ))
     )
   },
   Effect.scoped,

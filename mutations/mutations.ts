@@ -47,6 +47,18 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'the run may be interrupted between forking the renderer and setting how it stops it',
+    file: 'src/run.ts',
+    from: 'Effect.uninterruptibleMask((restore) =>\n      Effect.flatMap(Effect.forkChild(rendering)',
+    to: 'Effect.interruptibleMask((restore) =>\n      Effect.flatMap(Effect.forkChild(rendering)',
+    killedBy: [
+      [
+        'src/run.test.ts',
+        'a run interrupted as it starts the renderer stops it, and keeps its defects, under prioritized schedules',
+      ],
+    ],
+  },
+  {
     name: 'reconcile starts subscriptions after the first defect',
     file: 'src/engine.ts',
     from: '      if (dead()) break\n',

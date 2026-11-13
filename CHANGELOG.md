@@ -93,6 +93,9 @@ version, and everything else, features included, the patch version.
 
 ### Fixed
 
+- A run interrupted just as it forked the renderer left it running: the fiber the run ran in interrupted it as it
+  ended, and ended with that interruption alone, a defect of the run lost. The run now forks the renderer and sets
+  how its end stops it where nothing interrupts it in between.
 - The renderer could be called after the first defect, as a subscription of `init` died while the run started:
   the run now checks in the thunk that calls it, and never calls it in a run that died. "Running" in the README
   says so. `drive`, whose scenario then sees no frame, fails with the defect, as before.
