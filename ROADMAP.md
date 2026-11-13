@@ -4,10 +4,6 @@ Open problems and possible improvements, found in a review of the project (Novem
 promise: each item is decided before it is done, against the rules of [`AGENTS.md`](AGENTS.md). Remove an item
 when it is done or rejected, with the reason in the commit.
 
-## Open problems
-
-- **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
-
 ## Possible improvements
 
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is

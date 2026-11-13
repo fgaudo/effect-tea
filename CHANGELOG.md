@@ -7,485 +7,228 @@ version, and everything else, features included, the patch version.
 
 ### Added
 
-- `forEach(step, items, (item) => (state) => step)`, the `andThen` of many: one step for each item, in order,
-  each made from the state the previous one left, with every step's commands and events. With it, a parent tells
-  each of its children by id the same thing: `forEach({ state }, state.rows, ({ id }) => children.Row.update(id,
-  Cleared()))`. The `list` example stops all its stopwatches with it.
-- `andThen` and `forEach` are dual: `andThen(next)` and `forEach(items, next)` take the step last, for a chain of
-  steps written with `pipe`. The spelling with the step first is unchanged.
-- A `CompositionDefect` for an external message, rejected or sent to a child that is not there, or for an event
-  nothing handles, says which one in `on`, by its tags as `ProgramDefect`'s `on` does, never its data, and so
-  does its `message`. Where a parent tells several things to its children in one step, the child alone did not
-  say which one broke the rule.
+- `forEach(step, items, (item) => (state) => step)`, the `andThen` of many: one step per item, in order.
+- `andThen` and `forEach` are dual: `andThen(next)` and `forEach(items, next)` take the step last, for a `pipe`.
+- A `CompositionDefect` says in `on`, by its tags, which external message or event broke the parent's rule.
 
 ### Changed
 
-- The peer dependency on `effect` is `^4.1.4`, where it was `^4.0.0`: the library is developed and tested with
-  Effect 4.1.4, and no longer checked against an older Effect. From now on its range starts at the Effect it is
-  developed with, raised with each upgrade.
-- `simulate` and `rehearse` read a program's `subscriptions` on each new state, as the run does, and fail where
-  the run dies of them: a parent's `subscribed` that lists an id twice, an own key equal to a lifted one, a
-  `subscriptions` that throws. `simulate` accepts a program's `subscriptions` for this. A command, or a
-  subscription that `hearNext` runs, that interrupts itself, or fails though its type rules it out, fails the test
-  with a `ProgramDefect` in `'command'` or `'subscription'`, as the run dies, where it interrupted the test.
-- `simulate`, `rehearse` and `drive` fail with a `ProgramDefect` in the site the run dies in, wherever they call the
-  program: an `update` that throws (a parent's `onEvent` and its `CompositionDefect` included) in `'update'`, with
-  the message as `on`; a `makeModel` that throws, as `rehearse` and `drive` read the model, in `'render'`; an `init`
-  that throws on its flags, in `rehearse`, in `'init'`. They failed with the defect alone.
-- **Breaking**: `simulate` runs each command after those started before it, as the run does: the commands of one step all
-  answer before those their answers start. It ran the commands a command's answer started before the next
-  command of the same step, so a step starting `A` and `B`, with `A`'s answer starting `C`, was heard `A, C, B`
-  where the run hears `A, B, C`. A test that asserts the old order sees the new one.
-- **Breaking**: `rehearse`'s `hearNext` keeps the subscription it starts for as long as its key stays, as the run
-  does, and each call hears its next message, the last one being its end value. It ran the subscription again
-  from its start on every call, so a subscription sending `A` then ending with `B` was heard `A, A, A` where the
-  run hears `A, B`. After the end, `hearNext` and `hear` fail the test until the key goes away and comes back. The
-  subscription is interrupted when its key goes away, or when the scenario ends, as the run stops it; it was
-  stopped once its first message was in, with a failure, so a release that read its exit (`Channel.onExit`,
-  `Effect.acquireRelease`) saw a failure where the run gives an interruption. A scenario that awaits what the
-  subscription releases right after `hearNext` makes its key go away first.
-- **Breaking**: `rehearse` hears each start of a key one way, as the run hears one subscription for each. Once
-  `hearNext` runs a subscription, `hear` fails the test on its key, and once `hear` has played one, `hearNext` does,
-  until the key goes away and comes back. A test mixed them: `hear` added a message the running subscription never
-  sent, and `hearNext` after `hear` started the subscription again from its start. A test that mixes them hears
-  that start with one of the two, or makes its key go away and come back in between.
-- **Breaking**: as the run ends, of a defect or of an interruption, it stops applying messages first, then stops the
-  renderer, then its commands and its subscriptions. A message sent meanwhile is not applied, one the renderer sends
-  as it releases what it holds included, and a step under way may be interrupted before its frame. The run went on
-  applying messages while the renderer released what it held, so a message it sent then was applied, and the
-  commands it started were interrupted right after. A renderer that sent one for the program to act on does that
-  work itself as it is released. "Running" in the README says the order.
-- "Commands" in the README says that commands run concurrently, with no bound, and that their answers reach
-  `update` in the order they end: the run always did so.
-- "Running" in the README says that the run waits for `onApplied` and `onIgnored` before the next message, as it
-  always did, and shows how a slow observer hands its work off to a queue and a fiber raced with the run.
-- **Breaking**: `DefectSite` gains `'init'` and `'log'`. An `init` that throws on its flags ended the run with
-  the error itself: the run now dies with a `ProgramDefect` in `'init'`. A `Logger` that throws on one of the
-  run's own debug logs ended it with the error itself, or in `'subscription'` on a subscription's end: the run
-  now dies in `'log'`. What a program logs itself stays in the site it logs from. A `switch` over `where` that
-  must be exhaustive needs a `case 'init'` and a `case 'log'`.
-- A parent's subscriptions are kept by each child's state object, as its models are: a child whose state is the
-  same object is not asked again, and its subscriptions are not lifted again. On a list of a thousand children
-  that change one at a time, a parent's subscriptions cost about a fifth of what they did.
-  "Guarantees" in the README now asks that `subscriptions` be pure, as `update` and `makeModel` are.
-- The README is reorganized and corrected. A diagram of the loop opens it. The "Guide" starts with the anatomy
-  of a program, and has sections for the view, for rejections and defects (who promises that a message cannot
-  arrive: the state, never the view), for composition, and for structuring a program, which gathers the rules
-  the library does not enforce. "Running" says that the run never recovers from a defect. "Testing" says which
-  rejections fail which tool.
-- The README's "Installation" states the oldest TypeScript the package supports, 5.9, as Effect 4's. The CI now
-  runs the packed package with Node, and typechecks it under TypeScript 5.9, 6 and 7.
-- The README's opening, and the site's navigation, link effect-tea-persistent, the same architecture for
-  long-lived entities on a server.
-- "Running" in the README starts a program in a browser with `Effect.runFork`, through a `tapCause` that reports
-  its failure, where it used `BrowserRuntime.runMain` of `@effect/platform-browser`, an unstable API. So do the
-  examples and the tutorial, and the typecheck now refuses an unstable API in the examples too.
-- The `counter-react` and `form-react` examples draw the programs of `counter` and `form` with React, through
-  `examples/react.ts`, a bridge to copy as `examples/snabbdom.ts` is.
-- "Testing" in the README states what a bridge's `messagesSentBy` must do, for a renderer of your own. Both
-  example bridges keep it: snabbdom's calls every listener of a list, and React's draws `memo` components.
-- The site has a tutorial that builds an application, the new `timer` example, in four steps, and the README's
-  opening links it.
-- **Breaking**: `child` and `each` refuse a program with commands and no `runCommand`, which a program written
-  without `Program<…>` can be: its parent compiled, and the run died of a plain `Error` naming no child when the
-  command ran. Give the child the `runCommand` its commands need. One that gets there through a cast is a
-  `CompositionDefect` naming the child, with its id and the command in `on`, as the README's "Declaring children"
-  says.
-- The README says when a command, a subscription or the renderer dies: when its effect ends with a defect. What it
-  wraps around its own code (`Effect.ensuring`, an `Effect.scoped` of its own) runs before, and may still catch the
-  defect, so messages apply meanwhile; what it acquires in the scope the run gives it is released after, while the
-  run applies none. It said that the run applies no message from the defect on, which a release of the program's own
-  never kept. The run behaves as before.
+- The peer dependency on `effect` is `^4.1.4`, where it was `^4.0.0`, and starts at the Effect it is developed with.
+- `simulate` and `rehearse` read `subscriptions` on each new state, as the run does, and fail where it dies of them.
+- `simulate` and `rehearse` fail with a `ProgramDefect` on a command or subscription that interrupts itself.
+- `simulate`, `rehearse` and `drive` fail with a `ProgramDefect` in the run's site, where they failed with the defect.
+- **Breaking**: `simulate` runs each command after those started before it, as the run does.
+  Upgrade: a step starting `A` and `B`, with `A`'s answer starting `C`, is heard `A, B, C`, where it was `A, C, B`.
+- **Breaking**: `rehearse`'s `hearNext` keeps its subscription while its key stays, each call hearing its next message.
+  Upgrade: after its end value, `hearNext` and `hear` fail until the key goes away and comes back; a release sees an
+  interruption when the key goes away, where it saw a failure, so a scenario awaiting it makes the key go away first.
+- **Breaking**: `rehearse` hears each start of a key with `hear` or with `hearNext`, never both.
+  Upgrade: hear that start with one of the two, or make its key go away and come back in between.
+- **Breaking**: as the run ends, it stops applying messages first, then the renderer, then commands and subscriptions.
+  Upgrade: a renderer that sent a message for the program to act on as it is released does that work itself.
+- "Commands" in the README says that commands run concurrently, with no bound, and answer in the order they end.
+- "Running" in the README says that the run waits for `onApplied` and `onIgnored`, and how a slow observer hands off.
+- **Breaking**: `DefectSite` gains `'init'` and `'log'`, for an `init` or a `Logger` that throws.
+  Upgrade: a `switch` over `where` that must be exhaustive adds a `case 'init'` and a `case 'log'`.
+- A parent's subscriptions are kept by each child's state object, as its models are.
+- "Guarantees" in the README asks that `subscriptions` be pure, as `update` and `makeModel` are.
+- The README is reorganized: a diagram of the loop, and a "Guide" from a program's anatomy to its structure.
+- "Installation" in the README states the oldest TypeScript supported, 5.9, as Effect 4's.
+- The README and the site link effect-tea-persistent, the same architecture for long-lived entities on a server.
+- "Running" in the README, the examples and the tutorial start a program with `Effect.runFork`, an API that is stable.
+- The `counter-react` and `form-react` examples draw with React, through `examples/react.ts`, a bridge to copy.
+- "Testing" in the README states what a bridge's `messagesSentBy` must do, and both example bridges keep it.
+- The site has a tutorial that builds the new `timer` example in four steps.
+- **Breaking**: `child` and `each` refuse a program with commands and no `runCommand`.
+  Upgrade: give the child the `runCommand` its commands need; one that gets there through a cast is a
+  `CompositionDefect` naming the child.
+- The README says that a command, a subscription or the renderer dies once its effect ends with a defect.
 
 ### Fixed
 
-- A run interrupted just as it forked the renderer left it running: the fiber the run ran in interrupted it as it
-  ended, and ended with that interruption alone, a defect of the run lost. The run now forks the renderer and sets
-  how its end stops it where nothing interrupts it in between.
-- A message the run took before a defect could reach `update` after it in a program that lowers
-  `Scheduler.MaxOpsBeforeYield`: the scheduler may yield between the run's check and the call. The run now checks in
-  the thunk that calls `update`, and `rehearse` too, in `run` and `model` as well. "Running" in the README says what
-  stops at the defect: the calls of `update`, while a step under way may still start its commands and the
-  subscriptions of its new keys, and what a command or a subscription does once started runs until the run
-  interrupts it.
-- A release that interrupted itself, or failed though its type rules it out, after the command or the subscription
-  it belonged to had died, was lost: the run died of the first defect alone, and `rehearse` failed with a bare
-  interruption after it. It is a second defect, where it happened, after the first, as "Nothing ends in silence" in
-  the README promises.
-- A command, a subscription or the renderer that interrupted itself just as the run, or whoever runs it,
-  interrupted it was no defect: the run ended without it, and `rehearse` too. Both interruptions are in its cause,
-  and the run now asks the fiber which one it received: its own is a defect, where it happened, as a defect in its
-  place already was, and as "Nothing ends in silence" in the README promises.
-- `drive`, failing on a defect of the program after the scenario had failed, put what the scenario ended with first
-  in the cause. The defect comes first, as the run and `rehearse` put it. "Testing" in the README says so.
-- `drive` waits, once the scenario ends, for the run it interrupts to release what it holds, and fails, as the run
-  dies, on a defect of that release (a subscription's, say): it discarded the run's exit, and the scenario passed.
-  "Testing" in the README says so.
-- A subscription or a command that dies while the end of the run releases what it holds ends the run with that
-  defect, a `ProgramDefect` that says where, as the README's "Guarantees" promise. The defect was lost: a run whose
-  renderer ended succeeded, and an interrupted one ended with its interruption alone.
-- A renderer that dies while it releases what it holds, in a run that whoever runs it interrupts or that dies of
-  a defect elsewhere, ends the run with that defect too, after what ended the run. It was lost.
-- A command, a subscription, or a message the renderer sends, that dies while the run releases the renderer, in a
-  run that whoever runs it interrupts or that dies of a defect elsewhere, ends the run with that defect too, after
-  what ended the run. It was lost: nothing watched the engine's fibers once the run had begun to end.
-- `drive` interrupted by whoever runs it stops the run, waits for it to release what it holds, and fails on a
-  defect of that release, as the run interrupted by whoever runs it dies: it discarded the run's exit.
-  "Testing" in the README says so.
-- A command, a subscription, the renderer, `onApplied` or `onIgnored` that interrupted itself (with
-  `Effect.interrupt`, or by joining an interrupted fiber) ended without a word: a command never answered, a
-  subscription stopped without its last message and was not started again, and the run went on. It is now a
-  defect: the run dies with a `ProgramDefect` that says where, whose `cause` is an `Error` holding the
-  interruption. "Guarantees" in the README says so.
-- Three defects ended the run with the error itself, not with a `ProgramDefect` that says where: `onApplied`,
-  `onIgnored` or the renderer throwing before returning its effect, and a subscription the run stopped dying
-  while it released what it held. They now die in `'onApplied'`, `'onIgnored'`, `'render'` and `'subscription'`,
-  the last with its `key`.
-- A subscription key whose `Equal` or `Hash` throws ended the run with the error itself, when the run compared it
-  with the keys of another state, or with the key of a message: it now dies in `'subscriptions'`, as `rehearse`'s
-  `hear` and `hearNext` do when they look the test's key up. "Running" in the README says so.
-- A command, a subscription, the renderer or an option that failed without a defect, which their types rule out
-  (an empty cause, a failure a cast let through), ended the run with that failure. It is now a defect, where it
-  happened, as one that interrupts itself is.
-- A parent whose `subscribed` lists one id of its children twice died with a `CompositionDefect` saying that an
-  own subscription key took a child's: it now says that the id is listed twice.
-- `rehearse` applies messages that arrive together, from fibers of the test's, one at a time, as the run takes
-  them. A message that stopped a subscription waited for its release before it wrote its state, and wrote it over
-  what arrived meanwhile: a command's answer was lost, and a command run meanwhile was pending again. "Testing" in
-  the README says so.
-- `simulate` and `rehearse` compare the keys of a new state's subscriptions with those of the state before, as the
-  run does, and fail where the run dies of a key whose `Equal` throws against one of them, in `'subscriptions'`.
-  They compared only the keys of one state, and passed. "Testing" in the README says so.
-- `rehearse`'s `hearNext` runs the subscription listed when its key appeared, as the run starts that one, where it
-  ran the one listed at its first call: a subscription that sees more of the state than its key heard a later
-  state than the run's. "Testing" in the README says so.
-- A subscription that `rehearse`'s `hearNext` started keeps running while its key stays, whichever fiber of the
-  test's first heard it, as the README's "Testing" says. It was interrupted with that fiber (one of `timeoutOption`,
-  say), and its key stayed with nothing running under it. It is released when the rehearsal is interrupted too.
-- What a subscription that `rehearse`'s `hearNext` runs sends after its key went away no longer reaches `update`,
-  as in the run: a `hearNext` waiting in a fiber of the test's applied it to the state that had stopped it. A
-  `hearNext` still waiting when the key goes away fails the test, where it was interrupted, or applied the message.
-  "Testing" in the README says so.
-- `rehearse` fails the test on a command whose `run` was interrupted before it answered (a `timeoutOption` around
-  it), and on one still under way when the scenario ends (a `run` in a fiber of the test's), as on one still
-  pending: commands cannot be cancelled, and in the run its answer would still arrive. The scenario passed, the
-  command dropped. "Testing" in the README says so.
-- `rehearse` applies every message in one loop of its own, as the run does, whichever fiber of the test's sent it.
-  A `send` that waited for the message before it selected on the model of the state that message found, and could
-  fail saying that `update` rejected what the same state shows; one interrupted while its message stopped a
-  subscription left that subscription stopped and the state unwritten; of two `hearNext` calls at once on one key,
-  the second never heard. A defect of the program now fails the rehearsal however it ends, whichever fiber it
-  reached, first in the cause: one that only a fiber nobody joins met, or that what a subscription releases as an
-  interrupted rehearsal stops it, was lost. After it, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail
-  with it, a `hearNext` whose message its key, gone meanwhile, would have dropped included, and the checks of the
-  commands at the end are skipped. A scenario that caught a defect with
-  `Effect.exit` and went on passed: it now fails, and a test that expects a defect wraps `rehearse` instead.
-  "Testing" in the README says so.
-- A run that died applies no message, and so starts the commands of no later step: it went on applying what its
-  subscriptions sent, and starting the commands of each step, until the renderer was released. A step already under
-  way may still start its commands and the subscriptions of its new keys, until the run stops it. "Running" in the
-  README says so.
-- The defects a run dies of are in its cause in the order they happened: the renderer's, what the run dies of as it
-  starts, and a command's or a subscription's before what its release lets another fiber die of. A later defect
-  could come first, and `Cause.squash` gave it. `rehearse` orders a command's and a subscription's the same way.
-- `rehearse`'s `hearNext` waiting on its subscription, or its `run` waiting for its command, fails as soon as a
-  defect of the program reaches another fiber of the test's, as the run dies at once: it waited until whoever ran
-  the rehearsal interrupted it. Of two `hearNext` waiting on one key as its subscription ends, the one that does not
-  hear the end fails, as a call made after it does, where it waited for ever. A `hearNext` waiting as its key goes
-  away leaves the defect of what the subscription releases alone in the cause, as the run does, where an
-  interruption followed it. "Testing" in the README says so.
-- A subscription that dies while its channel holds what it acquired in a scope of its own (`Channel.unwrap` around
-  an `Effect.acquireRelease`) ends the run as it dies, before that release: the run learnt of the defect only once
-  the release had ended, applied what other subscriptions sent meanwhile, and put a defect that release let another
-  fiber die of first. `rehearse`'s `hearNext` orders its defects the same way.
-- `rehearse`'s `runAll` could fail with "No pending command matches" when another fiber of the test's ran the last
-  pending command at the same time (a `run` alongside it): it counted the pending commands, then took one, and the
-  scheduler may yield in between. It now takes the oldest pending command, or finds none and ends, in one step, so it
-  runs the pending commands until none is left, as "Testing" in the README says.
-- A release that dies with a defect already among those of the run, one that a scenario of `rehearse` caught from a
-  call and handed to the program, is a defect of its own, in the cause after the first: the defect was taken for the
-  one already there, and lost.
+- A run interrupted just as it forked the renderer left the renderer running, and lost a defect.
+- A message taken before a defect could reach `update` after it, under a lowered `Scheduler.MaxOpsBeforeYield`.
+- A release that interrupts itself, or fails against its type, after its command or subscription died, is a defect.
+- A command, subscription or renderer that interrupts itself as the run is interrupted is a defect.
+- `drive` puts a defect of the program before the scenario's failure in the cause, as the run and `rehearse` do.
+- `drive` waits for the run to release what it holds once the scenario ends, and fails on a defect of that release.
+- A command or subscription that dies as the end of the run releases what it holds ends the run with that defect.
+- A renderer that dies as it is released, in a run interrupted or dead of a defect elsewhere, ends the run with it.
+- A command, subscription or message of the renderer that dies as the run releases the renderer ends the run with it.
+- `drive` interrupted by whoever runs it waits for the run to release what it holds, and fails on its defect.
+- A command, subscription, renderer, `onApplied` or `onIgnored` that interrupts itself is a defect, not a silent end.
+- Four defects that ended the run with the error itself die in `'onApplied'`, `'onIgnored'`, `'render'` or
+  `'subscription'`.
+- A subscription key whose `Equal` or `Hash` throws dies in `'subscriptions'`, where the run ended with the error.
+- A command, subscription, renderer or option that fails against its type (an empty cause, a cast) is a defect.
+- A parent whose `subscribed` lists an id twice says so, not that an own key took a child's.
+- `rehearse` applies messages that arrive together one at a time: a command's answer could be lost.
+- `simulate` and `rehearse` compare a new state's keys with those of the state before, as the run does.
+- `rehearse`'s `hearNext` runs the subscription listed when its key appeared, not the one listed at its first call.
+- A subscription that `hearNext` started keeps running while its key stays, whichever fiber of the test's heard it.
+- What a subscription that `hearNext` runs sends after its key went away no longer reaches `update`.
+- `rehearse` fails on a command whose `run` was interrupted before it answered, or still under way at the end.
+- **Breaking**: `rehearse` applies every message in one loop, and fails on a defect of the program in any fiber.
+  Upgrade: a test that expects a defect wraps `rehearse`, where its scenario caught it with `Effect.exit`.
+- A run that died applies no message, and so starts the commands of no later step.
+- The defects a run dies of are in its cause in the order they happened, and so in `rehearse`.
+- `rehearse`'s `hearNext` or `run`, waiting, fails as soon as another fiber of the test's dies, as the run dies.
+- A subscription that dies while its channel holds a scope of its own ends the run before that release.
+- `rehearse`'s `runAll` no longer fails with "No pending command matches" when another fiber runs the last one.
+- A release that dies with a defect already among those of the run is a defect of its own, not lost.
 
 ## 0.7.1 (2026-10-28)
 
 ### Added
 
-- `andThen(step, (state) => step)`, which adds up a step and the next one made from its state: the second's
-  state, and both steps' commands and events, in order. A parent that took a step's `state` by hand to give a
-  child's handle dropped that step's commands and events.
-- `raise(event)`, a step that raises an event as the parent's own, the state unchanged: `onEvent: { Products:
-  raise }` for an event a parent has nothing to say about and its own parent handles, where it rewrote the
-  event by hand. It compiles only where the parent's `Event` includes the child's.
-- `defect(reason)`, the twin of `reject` for a message that cannot arrive: it throws an `InvariantDefect` that
-  holds the reason, so that the `cause` of the `ProgramDefect` a run dies with tells a broken rule of the
-  program apart from any other error. It is an expression, for a branch of a ternary or a `Match`, where `throw`
-  is not. The `form` and `list` examples use it where they threw by hand.
+- `andThen(step, (state) => step)`, a step and the next one made from its state, with both commands and events.
+- `raise(event)`, a step that raises a child's event as the parent's own: `onEvent: { Products: raise }`.
+- `defect(reason)`, the twin of `reject` for a message that cannot arrive: it throws an `InvariantDefect`.
 
 ### Changed
 
-- The README's "Guide" says how a program is structured, which it left to its readers: one state machine per
-  concern, as a tagged union, no flags and no derived data; a view that draws and never decides, what it would
-  decide being a case of the model; `reject` for a message that may arrive and does not apply, and a thrown
-  error for one that cannot arrive (a completion outside the state that only it leaves, a subscription's message
-  in a state that does not list its key); when a program splits into children, and by what; and how a program's
-  tests are written. The `form` and `list` examples follow it: the save and the stopwatch are tagged unions
-  where they were flags, a failed save says which name it could not save, and a completion, or a tick, that
-  cannot arrive is a defect where it was rejected. The introduction says which of its points hold on their own
-  and which hold when the Guide is followed: harmless double taps need an action that moves to a state that
-  rejects it, a memoizable view a pure `makeModel`, states never mutated and `dispatchTo`, and the testing
-  tools check what a test asks of them, for the states it generates. `applyAll`, `simulate` and `rehearse` say
-  that an error `update` throws fails the test, as `drive` did. "Commands" says where a program's effects live,
-  in the algebraic sense: a command's services are its operations and the layer around `run` their handlers;
-  `update` performs none, and what a child asks of its parent is an event, never an operation it resumes from.
+- The README's "Guide" says how a program is structured, and the `form` and `list` examples follow it.
 
 ## 0.7.0 (2026-10-26)
 
 ### Changed
 
-- The run no longer logs its defects at the error level, which reported each crash once more than whoever runs the
-  program does. It dies with a `ProgramDefect` instead: the defect itself as its `cause`, and where it happened as
-  `where` (with the key of a subscription as `key`), which the log said before; every defect of the cause is
-  wrapped, and the rest of the cause is kept. To upgrade, read `defect.cause` where you inspected the defect the
-  run died with, e.g. with `Cause.squash`; a crash report made with `Effect.tapCause` around `run` needs no change,
-  and now shows where the defect happened.
-- `describeMessage` and `describeCommand` are called only while debug logs are enabled
-  (`References.MinimumLogLevel`): a run that does not log at the debug level no longer describes every message,
-  and a defect in one of them ends the run only when it is called.
-- The subscriptions one message stops are interrupted together, where they were stopped one after the other, each
-  awaited before the next: the next message waits for the slowest release rather than for their sum. They are
-  still all released before any subscription starts.
-- A parent breaking what it declared of a child (an external message to a child that is not there, or that
-  rejects it; the model of a child that is not there; an event nothing handles) throws a `CompositionDefect`, a
-  tagged error naming the child (`child`) and its id (`id`, for a child by id), where it threw a plain `Error`:
-  crash reports can group them, and tests match them by `_tag`. The messages begin with a capital letter: a test
-  that matched `compose: …` reads the `CompositionDefect` instead.
-- A parent's own subscription key equal to the lifted key of a child's (`['Clock', 'ticks']`) is a
-  `CompositionDefect`, where it silently replaced the child's subscription.
-- `Applied` says where its message came from, as `origin`: the view, a command, or a subscription with its key.
-  `DefectSite` gains `'onIgnored'`.
-- `attempt` is removed: it only named two combinators of Effect, and the type of an execution already demands
-  that an expected failure become a message. Write `Effect.match(effect, { onSuccess, onFailure })` followed by
-  `Effect.asSome` where you wrote `attempt(effect, { onSuccess, onFailure })`, and the two as steps of an
-  `Effect.fn` or a `pipe`, `Effect.match({ onSuccess, onFailure }), Effect.asSome`, where you wrote
-  `attempt({ onSuccess, onFailure })`.
+- **Breaking**: the run dies with a `ProgramDefect` that says where, and no longer logs its defects at the error level.
+  Upgrade: read `defect.cause` where you inspected the defect the run died with, e.g. with `Cause.squash`.
+- `describeMessage` and `describeCommand` are called only while debug logs are enabled.
+- The subscriptions one message stops are interrupted together, not one after the other.
+- **Breaking**: a parent breaking what it declared throws a `CompositionDefect` naming the child, not an `Error`.
+  Upgrade: a test that matched `compose: …` matches the `CompositionDefect` by its `_tag`.
+- A parent's own subscription key equal to a child's lifted key is a `CompositionDefect`, where it replaced it.
+- `Applied` says where its message came from, as `origin`, and `DefectSite` gains `'onIgnored'`.
+- **Breaking**: `attempt` is removed: it only named two combinators of Effect.
+  Upgrade: write `Effect.match(effect, { onSuccess, onFailure })` and `Effect.asSome` for `attempt(effect, { … })`,
+  and `Effect.match({ onSuccess, onFailure }), Effect.asSome` in a `pipe` for `attempt({ onSuccess, onFailure })`.
 
 ### Added
 
-- `ProgramDefect`, `DefectSite` and `CompositionDefect`. A `ProgramDefect` of `update` says which message
-  `update` was given, as `on` and in its `message` (`A defect in update on Home › Products › Deleted`), by its
-  tags as the logs describe it by default, never its data: the reason an `update` dies with needs only to name
-  the invariant.
-- A child may be placed with an optic, `at`, in place of `get` and `set`: `child(clock, { at:
-  Optic.id<State>().key('clock') })`, with `.compose(Optic.some())` for a child that may not be there, and
-  `at: (id) => …` for children by id.
-- `onIgnored`, an option of `run`: hears every message `update` rejects, with where it came from and the state it
-  did not apply in (`Ignored`), for devtools or analytics. It only watches: the message stays ignored. `Origin`
-  names where a message came from, for `Applied` and `Ignored`.
-- `hearNext(key)` in `rehearse`: runs the subscription under `key`, with the services provided, until its first
-  message (or its last, if it ends first), applies it as `hear` would, and returns it.
-- The README says how to start a program from a state other than its `init`'s (`{ ...program, init: { state } }`),
-  and that `dispatchViolations` compares states by `Equal`, so that states stay data.
+- `ProgramDefect`, `DefectSite` and `CompositionDefect`; a `ProgramDefect` of `update` names its message as `on`.
+- `at`, an optic that places a child in place of `get` and `set`: `child(clock, { at: Optic.id<State>().key(…) })`.
+- `onIgnored`, an option of `run` that hears every message `update` rejects (`Ignored`, `Origin`).
+- `hearNext(key)` in `rehearse`, which runs the subscription under `key` until its first message, and applies it.
+- The README says how to start a program from another state, and that `dispatchViolations` compares by `Equal`.
 
 ### Fixed
 
-- The README says why a child's view takes its dispatch from `dispatchTo` rather than from a lambda that wraps
-  the message: the lambda sends the same messages, but is a new function in every frame, so that a view memoized
-  on it is drawn every time.
+- The README says why a child's view takes its dispatch from `dispatchTo`, not from a lambda.
 
 ## 0.6.0 (2026-10-23)
 
 ### Changed
 
-- Models hold plain data, and views send messages: the offers are gone, and with them every check of a model
-  against `update` while the program runs. A message `update` rejects is ignored, wherever it comes from, and
-  logged at the debug level; a control shown where `update` rejects its message is found by the tests, as
-  before, with `dispatchViolations`. To upgrade:
+- **Breaking**: models hold plain data, and views send messages: offers are gone, and so is every check of a model.
+  Upgrade:
   - `makeModel: (state, { offer, offerInput }) =>` becomes `makeModel: (state) =>`: write `Message` where you
     wrote `offer(Message)`, and `(value) => Message` where you wrote `offerInput((value) => Message, current)`;
     `Offered<Message>` becomes `Message` in a model's type. A parent's `makeModel: (state, { children })`
-    becomes `makeModel: (state, children)`, as its `init`, `update` and `onEvent` take them.
+    becomes `makeModel: (state, children)`.
   - `Dispatch` and `View` take the program's messages: `Dispatch<Message>`, `View<Model, Message, Node>`, and
     `Frame<Model, Message>`. A child's view gets its own dispatch, `dispatchTo(dispatch, '<child>')`, or
     `dispatchTo(dispatch, '<child>', id)` for children by id, where it got the parent's.
-  - `run` takes no `onRejectedInput`, and its options are optional for a program without flags.
-    `RejectedInput`, `RejectedOffer` and `OnRejectedInput` are gone.
+  - `run` takes no `onRejectedInput`. `RejectedInput`, `RejectedOffer` and `OnRejectedInput` are gone.
   - `modelOf(program)(state)` becomes `program.makeModel(state)`.
-  - In `drive` and `rehearse`, `send` takes the message to send, where it took an action: write `model.save`
-    where you wrote `tap(model.save)`, and `model.changeName('Ada')` for `input(model.changeName, 'Ada')`.
-    `Action`, `tap`, `input` and `messageOf` are gone, and `Driver` takes the program's messages again:
-    `Driver<Model, Message>`. `rehearse`'s `send` fails when `update` rejects the message, where only a typed
-    value rejected in its own state failed: a tap on an older frame is tested with `applyAll`, or with `update`
-    itself. `ignored` lists only the messages of commands and subscriptions.
-  - `missingOffers` is gone: `dispatchViolations` checks both ways. Write
-    `dispatchViolations(update, { repeatable, withheld })(state, sent, candidates)` where you wrote
-    `dispatchViolations(update, { repeatable })(state, sent)` and `missingOffers(update, { withheld })(state, sent,
-    candidates)`: a message `update` accepts and the view leaves out is a `DispatchViolation` tagged `Missing`.
-  - `dispatchUnsafe` is gone: sending from a plain callback is the renderer's business. A dispatch needs no
-    services and completes synchronously, so write `Effect.runSync(dispatch(message))` where you wrote
-    `dispatchUnsafe(dispatch)(message)`, or run it with a runtime of your own.
-- A child's model is kept while its state object lives, whichever parent, place or run shows it, where it was
-  kept for the root's last two frames: children that share a state share its model.
-- A parent's handle gives its child an external message and returns a step, never a rejection
-  (`children.<child>.update(message)`): a parent and its children talk only through external messages and
-  events, and `reject` means one thing everywhere. A child that rejects an external message, or a parent that
-  gives one to a child that is not there, is a defect. To upgrade, a child that rejected to let its parent act
-  raises an event instead, handled in `onEvent`, and the parent drops its `isRejected` check:
-  `update: (_, children) => children.Page.update(message)`, with `onEvent: { Page: … }`.
-- A program keeps its state in an object, the root's included: a number or a string has no identity to keep a
-  child's model by, and any program can then become a child as it is. A program whose state is a primitive or
-  `null` no longer compiles (`Program`, `parent`, `child`, `each`, `run`, `simulate`, `rehearse`, `drive`). To
-  upgrade, wrap the state: `{ count }` where it was `count`, `update: (message) => ({ count }) => ({ state: {
-  count: count + 1 } })`.
+  - In `drive` and `rehearse`, `send` takes the message: `model.save` for `tap(model.save)`, and
+    `model.changeName('Ada')` for `input(model.changeName, 'Ada')`. `Action`, `tap`, `input` and `messageOf` are
+    gone, and `Driver<Model, Message>` takes the messages again.
+  - `missingOffers` is gone: write `dispatchViolations(update, { repeatable, withheld })(state, sent, candidates)`
+    where you wrote `dispatchViolations(update, { repeatable })(state, sent)` and `missingOffers(update, { withheld
+    })(state, sent, candidates)`.
+  - `dispatchUnsafe` is gone: write `Effect.runSync(dispatch(message))` where you wrote
+    `dispatchUnsafe(dispatch)(message)`.
+- A child's model is kept while its state object lives, where it was kept for the root's last two frames.
+- **Breaking**: a parent's handle gives its child an external message and returns a step, never a rejection.
+  Upgrade: a child that rejected to let its parent act raises an event, handled in `onEvent`, and the parent drops its
+  `isRejected` check: `update: (_, children) => children.Page.update(message)`, with `onEvent: { Page: … }`.
+- **Breaking**: a program keeps its state in an object, the root's included: a primitive or `null` no longer compiles.
+  Upgrade: wrap the state, `{ count }` where it was `count`.
 
 ### Added
 
-- `dispatchTo(dispatch, name, id?)`, the dispatch of a child for its view: it wraps the child's messages as the
-  parent receives them, and is the same function every time it is asked for, so that a view memoized on its
-  dispatch is drawn again only when its model changes. Ids are compared by value, with `Equal`, as in
-  subscription keys. It keeps nothing for the children nobody holds a dispatch of, so that a list whose ids are
-  never reused does not pile them up.
+- `dispatchTo(dispatch, name, id?)`, the dispatch of a child for its view, the same function every time.
 
 ### Fixed
 
-- A parent's own command named like one of its children compiled, and was given to that child's `runCommand`.
-  It is now a type error, as an own message with a child's name already was.
-- `CommandOf` read a program's commands from its `init` alone: a program written without `Program<…>` that
-  starts with no command had none, and its parent's commands left out the ones its `update` returns.
-- A defect in `subscriptions`, `describeMessage`, `describeCommand`, the renderer, its view or `makeModel` is
-  logged with where it happened, as one in `update`, a command or a subscription already was.
-- `rehearse`'s `hear` failed with a JSON error, rather than saying that nothing listens, for a key that holds a
-  `bigint`.
+- A parent's own command named like one of its children is a type error, where it went to that child's `runCommand`.
+- `CommandOf` reads a program's commands from its `update` too, not from its `init` alone.
+- A defect in `subscriptions`, `describeMessage`, `describeCommand`, the renderer or `makeModel` says where.
+- `rehearse`'s `hear` says that nothing listens for a key that holds a `bigint`, where it failed with a JSON error.
 
 ## 0.5.1 (2026-10-22)
 
 ### Added
 
-- A program may start from `flags`, as in Elm, given by whoever starts it: declared in its type
-  (`Program<{ …; flags: Flags }>`, `parent<{ …; flags: Flags }>()`), they make `init` a function of them,
-  `init: (flags) => ({ state, commands })`, and a parent's `init: (children) => (flags) => …`. A parent starts
-  such a child with `children.<child>.init(flags)` (`init(id, flags)` for children by id), `run` and `drive` take
-  the root's in their options (`flags`), and `rehearse` takes them or a step to start `from`. `FlagsOf` reads them
-  back from a program. A page can then start from what it was opened for, rather than from a state that waits
-  for it.
+- `flags`, as in Elm: a program that declares them has `init: (flags) => step`, given by whoever starts it.
+- `run` and `drive` take the root's `flags`, `rehearse` them or a step to start `from`, and `FlagsOf` reads them.
 
 ### Fixed
 
-- `run`, `drive` and `rehearse` rejected a program written as a plain object, without `Program<…>`, that has no
-  commands: with nothing to infer them from, its commands were `unknown`, so a `runCommand` was required. What
-  nothing names (commands, services, events) is now `never`, as for a program whose type names none.
+- `run`, `drive` and `rehearse` accept a program written without `Program<…>` that has no commands.
 
 ## 0.5.0 (2026-10-22)
 
 ### Changed
 
-- A parent's `init` is a function of its `children`, as `update` and `onEvent` are, so that a child there from the
-  start is started with `children.<child>.init`, its commands lifted. Reading the child program's `init.state`
-  left its commands behind, with no error. Write `init: () => ({ … })` where you wrote `init: { … }`, and start
-  each child there from the start with its handle's `init` (`state` and `commands`).
+- **Breaking**: a parent's `init` is a function of its `children`, so that a child's first commands are not lost.
+  Upgrade: write `init: () => ({ … })` where you wrote `init: { … }`, and start each child with its handle's `init`.
 
 ## 0.4.0 (2026-10-22)
 
 ### Changed
 
-- `onRejectedInput`'s function gets the `RejectedInput` itself, the very defect `'die'` raises, so that it can go
-  to a crash-reporting service as an error. `InputRejection` is gone: replace `InputRejection<Message>` with
-  `RejectedInput`.
-- `RejectedInput` and `RejectedOffer` hold the program's message in `rejected` (typed as the program's in
-  `onRejectedInput`), no longer in `message`: an error's `message` is now a string that names only the message's
-  tags, as a report's title expects, where it was the message itself (shown as `[object Object]`). Read
-  `rejection.rejected` where you read `rejection.message`.
+- **Breaking**: `onRejectedInput`'s function gets the `RejectedInput` itself, and `InputRejection` is gone.
+  Upgrade: replace `InputRejection<Message>` with `RejectedInput`.
+- **Breaking**: `RejectedInput` and `RejectedOffer` hold the message in `rejected`, and `message` names its tags.
+  Upgrade: read `rejection.rejected` where you read `rejection.message`.
 
 ### Added
 
-- `rehearse(program, scenario, { from })`, a testing tool between `simulate` and `drive`: it acts on what the
-  current model offers, as `drive` does, but without a runtime, and each command waits until the test runs it
-  (`run`, `runAll`), so that a test decides what the user does while a command is under way and when its answer
-  arrives. A subscription's message is one the test says was heard (`hear`), while its key is in the state. It
-  fails on a command still pending at the end.
+- `rehearse(program, scenario, { from })`, between `simulate` and `drive`: each command waits for the test to run it.
 - `Action`, `tap` and `input` serve `rehearse` as well as `drive`.
-- `subscriptionsOf(program)(state)`, what a program listens to in a state, by key, as `run` reconciles it: empty
-  for a program without `subscriptions`, so that a test reads them as it reads a model with `modelOf`. A child's
-  subscriptions are under `[<child>, key]`, or `[<child>, id, key]` for children by id, as the README now says.
+- `subscriptionsOf(program)(state)`, what a program listens to in a state, by key, as `run` reconciles it.
 
 ### Fixed
 
-- A parent made a new state of its own for a child's message that left the child's state as it was, so that the
-  very same state drew a new frame, made a new revision and reconciled the subscriptions again. It now keeps its
-  state, while the child's commands and events still go through.
-- The README says what a rejection holds (the message, with what the user typed) and that the debug logs of
-  subscriptions show their keys. It no longer suggests turning a stream that ends into a subscription that never
-  does, and shows how to keep a connection open while a value it uses changes: a service, a subscription under a
-  key that stays the same, and a command.
+- A parent keeps its state for a child's message that leaves the child's state as it was.
+- The README says what a rejection holds, and how to keep a connection open while a value it uses changes.
 
 ## 0.3.1 (2026-10-22)
 
 ### Added
 
-- `attempt({ onSuccess, onFailure })`, with the handlers alone, returns the function that takes the effect, to
-  end a `pipe` or an `Effect.fn`: `Effect.fn('Save')(function*() { … }, attempt({ onSuccess, onFailure }))`.
+- `attempt({ onSuccess, onFailure })`, with the handlers alone, returns the function that takes the effect.
 
 ### Fixed
 
-- Each command and each subscription has a scope of its own. What they acquired with the `Scope` service
-  (`Effect.acquireRelease`, `Effect.forkScoped`, `Stream.fromEffect` of a scoped effect) was kept in the run's
-  scope: released only when the run ended, after a command had answered or a subscription's key had gone
-  away, and even before the command or subscription still running then was interrupted. A command's scope now
-  closes before its message reaches `update`, a subscription's when it ends or its key goes away. `simulate`
-  gives each command its own scope as well. `run`, `simulate` and `drive` therefore no longer require a
-  `Scope` for the program's services; the renderer has one of its own too. A fiber that a command forks with
-  `forkScoped` now stops when the command ends: work that should go on is a subscription.
-- What commands, subscriptions, the renderer, `onApplied` and `onRejectedInput` logged piled up for as long as
-  the run lasted, as events of a span that lives as long as the run (Effect keeps every log as an event of the
-  current span, even one that has ended). The run's fibers now see the span of whoever runs it as an external
-  span, which keeps no events and is still the parent of the spans they open.
-- The models of children by id under a shared state object (e.g. the program's initial state) were kept for
-  as long as that object lived, one for every id it was ever shown under. Only the models of the last two
-  frames are kept now, enough for a renderer to skip what did not change.
-- A parent used as a child by id is one program for all its instances: two of them whose children had the same
-  id and state object got the same models, whose offers sent to the first one. A child's model is now kept by
-  its place from the root as well.
+- Each command and each subscription has a scope of its own, where what they acquired was kept in the run's.
+- A fiber that a command forks with `forkScoped` stops when the command ends: work that should go on is a subscription.
+- What the run's fibers log no longer piles up as events of a span that lives as long as the run.
+- The models of children by id under a shared state object are kept for the last two frames, not for every id.
+- A parent used as a child by id keeps its children's models by their place too, where two instances shared them.
 
 ## 0.3.0 (2026-10-21)
 
 ### Added
 
-- `parent<{ state; command?; event?; external? }>()`, which makes a parent from declared children: `child` for
-  one, `each` for children by id, and `compose`. The library routes the children's messages
-  (`{ _tag: <child>, message }`, with `id` for `each`), commands, subscriptions (keyed under the child's name
-  and id) and models; the parent writes only where each child lives (`get`, `set`, `subscribed`), what their
-  events mean (`onEvent`, required exactly when a child has events), and its own `update`, `runCommand` and
-  `subscriptions`. Its `update` and `onEvent` get handles to the children: `init` starts one, and `update`
-  applies to it one of the messages its type names as `external`, returning the parent's transition. Its `makeModel` gets `children`, the children's models.
-  An own message named like a child does not compile.
-- `StateOf`, `ModelOf`, `MessageOf`, `CommandOf`, `EventOf`, `ExternalOf` and `ServicesOf` read a program's
-  types back from it, e.g. `MessageOf<typeof app>` for a parent's messages.
-- `messageOf` in `@fgaudo/effect-tea/testing`: the message an offer sends, as the root of its program receives
-  it, for tests that collect what a view sends.
+- `parent<{ state; command?; event?; external? }>()`, a parent of declared children: `child`, `each` and `compose`.
+- `StateOf`, `ModelOf`, `MessageOf`, `CommandOf`, `EventOf`, `ExternalOf` and `ServicesOf` read a program's types.
+- `messageOf` in `@fgaudo/effect-tea/testing`: the message an offer sends, as the root of its program receives it.
 
 ### Changed
 
-- An offer is an opaque token that carries its message as the root of the program receives it, and there is
-  one `dispatch` per run, the same function for every frame and every child: `Dispatch` and `Frame` lose their
-  `Message` parameter (`Dispatch`, `Frame<Model>`, `View<Model, Node>`), and `dispatch` takes an offer of any
-  level of the program. A renderer can therefore memoize a child's view on its model and the dispatch (e.g.
-  snabbdom's `thunk`).
-- Rejections are judged by the offer, no longer by the frame's state: every offer was checked when its model
-  was made, so a rejected one is stale and ignored, except a value typed into an `offerInput` that `update`
-  rejected in the state the offer was made in: a bug, handled as `onRejectedInput` says (the revision of an
-  `InputRejection` is that state's). An offer made by another run (e.g. by `modelOf`) is a defect.
-- The names of that bug say what it is: `onRejected` is `onRejectedInput`, `OnRejected` is `OnRejectedInput`,
-  `Rejection` is `InputRejection`, and the defect `RejectedMessage` is `RejectedInput`.
-- `Program` names its types: `Program<{ state: State; model: Model; message: Message }>`, with `command`,
-  `services`, `event` and `external` when the program has them, instead of
-  `Program<State, Model, Message, Command, R, Event, K>`.
-- `offerInput(toMessage, current)` takes its value type from `current`, widened: a literal `current` such as `true`
-  no longer narrows it to `true`, and `toMessage` still needs no annotation.
-- By default the logs describe a child's message or command by the tags on its way
-  (`Home › Products › Deleted`), no longer by the outermost tag alone; still never by its data.
-- `drive`'s `Action`, `tap` and `input` take offers of any level (`Action`, no longer `Action<Message>`), and
-  `Driver<Model>` loses its `Message` parameter.
-- `embed`, `embedEach` and `mapDispatch` are removed: `parent` replaces them, and a child's offers need no
-  wrapping.
+- **Breaking**: an offer is an opaque token, and one `dispatch` per run takes the offers of any level.
+- Rejections are judged by the offer, no longer by the frame's state, and an offer made by another run is a defect.
+- **Breaking**: `onRejected` is `onRejectedInput`, `OnRejected` is `OnRejectedInput`, `Rejection` is
+  `InputRejection`, and `RejectedMessage` is `RejectedInput`.
+- **Breaking**: `Program` names its types: `Program<{ state: State; model: Model; message: Message }>`.
+- `offerInput(toMessage, current)` widens its value type from `current`: a literal `true` no longer narrows it.
+- The logs describe a child's message or command by the tags on its way (`Home › Products › Deleted`).
+- **Breaking**: `drive`'s `Action`, `tap` and `input` take offers of any level, and `Driver<Model>` loses `Message`.
+- **Breaking**: `embed`, `embedEach` and `mapDispatch` are removed: `parent` replaces them.
 
 To upgrade:
 
@@ -507,94 +250,44 @@ To upgrade:
 
 ### Added
 
-- `onApplied`, an option of `run`: hears every message `update` accepts, in order, with the states before and
-  after it, its revision and how many commands it started, before its frame is drawn. For devtools, session
-  recording or analytics. A defect in it ends the run, like any other.
-- `simulate` in `@fgaudo/effect-tea/testing`: runs a flow without a runtime, commands included, and returns
-  the final state, every accepted message, every event, and the messages of commands that `update` rejected
-  (`ignored`), so that a test can catch a completion its state machine drops.
-- `drive` in `@fgaudo/effect-tea/testing`: runs a program with `run`, subscriptions included, and lets a
-  scenario act as its user through a `Driver` (`waitFor`, `send`, `latest`), with the actions `tap` and
-  `input`. A rejected message is always fatal; a wait fails after `patience`, measured with the real clock.
-- `missingOffers` in `@fgaudo/effect-tea/testing`: of the messages a user could ask for in a state, those that
-  `update` accepts and the view does not send, i.e. the actions a model leaves out by mistake. `withheld`
-  excludes what a model hides on purpose.
+- `onApplied`, an option of `run` that hears every accepted message, in order, before its frame is drawn.
+- `simulate` in `@fgaudo/effect-tea/testing`, which runs a flow without a runtime, commands included.
+- `drive` in `@fgaudo/effect-tea/testing`, which runs a program with `run` and acts as its user through a `Driver`.
+- `missingOffers` in `@fgaudo/effect-tea/testing`: the messages `update` accepts in a state and the view leaves out.
 - `applyAll` also returns the `events`, in order.
-- The `makeModel` of `embed` and `embedEach` keeps a child's model while the child's state is the same object,
-  so that a renderer can memoize the child's view on it.
-- The step that `onEvent` returns, in `embed` and `embedEach`, may emit events of the parent's own, which come
-  out of the returned `update`: a child's event can now lead to an event for the parent's parent, in the same
-  transition.
+- The `makeModel` of `embed` and `embedEach` keeps a child's model while the child's state is the same object.
+- The step that `onEvent` returns, in `embed` and `embedEach`, may emit events of the parent's own.
 
 ### Changed
 
-- The README clarifies immutable state and gives direct guidance on choosing a testing tool, with shorter
-  explanations of the advanced concepts.
-- An offer is an `Offered<Message>`, no longer an `Option`: `offer(message)` returns the offered message and
-  throws `RejectedOffer` when `update` rejects it, and `offerInput(toMessage, current)` returns the function
-  that makes the message. Which actions exist in a state is said by the model's shape, a case for each state
-  the view distinguishes, so the view never checks an `Option`, and a model that promises an action the state
-  does not allow dies as it is made instead of drawing a control that does nothing. `Offer` and `InputOffer`
-  are gone; `tap(message)` and `input(toMessage, value)` in `testing` take the offered values and return an
-  `Action`. To upgrade, turn each model whose actions depend on the state into a union with a case per state,
-  holding only the actions of that case, pick the case from the state, and, in scenarios, return
-  `Opt.some(tap(...))` from `send` where the case has the action.
-- `makeModel` receives the offers: `makeModel(state, { offer, offerInput })`. The library makes them from the
-  program's own `update` and the very state it passes, so a model can no longer ask another `update`, or
-  about another state, and `offers` is no longer exported. `modelOf(program)(state)` makes a program's model
-  outside `run` (e.g. in a test), and `embed` and `embedEach` return `makeModel(childState)`, the child's
-  model with the child's offers, for the parent's model. To upgrade, take `{ offer, offerInput }` as
-  `makeModel`'s second argument instead of calling `offers(update, state)`, call the `makeModel` that
-  `embed` returns instead of the child's, and replace `program.makeModel(state)` with
-  `modelOf(program)(state)`.
-- Commands are data. `update` returns values of the program's own `Command` type, and a new piece of the
-  program, `runCommand`, turns each one into an `Execution<Message, R>` (the effect that used to be called
-  `Command`). Tests assert the commands themselves instead of counting them, and `onApplied` receives them:
-  `Applied.commands` is the list, no longer a count, and `describeCommand` says how they appear in the logs.
-  `Step` and `Update` lose their services (`Step<State, Command, Event>`, `Update<State, Message, Command,
-  Event>`), which only `runCommand` needs; `Program` gains a `Command` parameter
-  (`Program<State, Model, Message, Command, R, Event, K>`). `embed` and `embedEach` take a `wrapCommand`
-  when the child has commands, and return the child's `runCommand` with its messages wrapped, for the
-  parent's interpreter. `simulate` takes the program (or its `update` and `runCommand`), so a test can pass
-  an interpreter of its own, and its result lists the commands it ran. To upgrade: declare a command union,
-  move each command's effect into `runCommand` (a program without commands has none, see below),
-  return the union's values from `update`, rename `Command` to `Execution`, add `wrapCommand` to
-  the `embed` of a child with commands and delegate to the `runCommand` it returns, and pass the program to
-  `simulate`.
-- `Dispatch` returns an `Effect<void>` instead of sending at once, so a view or renderer built on Effect sends
-  with `yield* dispatch(message)`. `dispatchUnsafe(dispatch)` is the callback that sends at once, for a
-  renderer whose handlers are plain functions. To upgrade, wrap the dispatch your renderer's callbacks call
-  with `dispatchUnsafe`, and yield it where you called it inside an Effect. `Action`s in `testing` return
-  the effect too.
-- `embed` and `embedEach` return `liftCommands` instead of `init`. `init(step)` returned the child's state
-  as it was given, with its commands wrapped: the parent only needs the commands. To upgrade, put the child's
-  initial state in the parent's state yourself, and replace `init(step).commands` with
-  `liftCommands(step.commands)` (`liftCommands(id, step.commands)` for `embedEach`).
-- A renderer slower than the program gets only the latest frame, instead of every frame in turn: a burst of N
-  messages was drawn N times. The README explains why a view should not write the model's text into an input
-  the user is typing into ("Inputs the user types into"), and the rule that `update` accepts typing in every
-  state where the field exists.
-- Defects are no longer reported through an option: the run fails with them, wherever they happen, and whoever
-  runs it reports them. `onBug` heard only the defects of `update`, the commands, the subscriptions and
-  `onApplied`, not those of `makeModel`, the view, the renderer or `subscriptions`. `onRejected` is `'die'` or
-  the function that reports a rejection while the program goes on, in place of `'ignore'` with `onBug`; `Bug`,
-  `BugReporter`, `DefectSource` and `RejectionOptions` are gone, and `Rejection` and `OnRejected` are new.
-  `RunOptions` and `DriveOptions` lose their `K` parameter. To upgrade, report defects with `Effect.tapCause`
-  around `run`, replace `{ onRejected: 'ignore', onBug }` with `{ onRejected: (rejection) => ... }`, and drop
-  `onBug` where `onRejected` is `'die'`.
-- When a subscription's key goes away, what it had sent that `update` has not received yet is dropped:
-  nothing arrives from it after the message that stopped it. Before, such messages reached `update`, and how
-  many depended on how the fibers were scheduled. A message that must not be lost belongs to a command.
-- A program has a `runCommand` exactly when it has commands, and `subscriptions` only when it listens to
-  something: the types require `runCommand` when `Command` is not `never`, and reject it otherwise.
-  `Program`'s `Command` and `R`, and `Update`, `Step` and `Transition`'s `Command`, default to `never`, so a
-  program without commands nor services is a `Program<State, Model, Message>`. `simulate` follows the same
-  rule. To upgrade, remove `runCommand: absurd` and `subscriptions: () => HashMap.empty()`, and read a
-  program's subscriptions from the function you give it rather than from the program.
-- `Subscribe` is renamed `Subscriptions`, the type of a program's `subscriptions`, and the former
-  `Subscriptions` (the `HashMap` it returns) is no longer exported. To upgrade, rename `Subscribe` to
-  `Subscriptions`, and write `HashMap<K, Subscription<Message, R>>` where you used the old `Subscriptions`.
-- `embed`'s `getSubscribed` is renamed `subscribed`, as in `embedEach`.
+- The README clarifies immutable state, and how to choose a testing tool.
+- **Breaking**: an offer is an `Offered<Message>`, no longer an `Option`, and `offer` throws `RejectedOffer`.
+  Upgrade: turn each model whose actions depend on the state into a union with a case per state, holding only the
+  actions of that case, and return `Opt.some(tap(...))` from `send` in scenarios, where the case has the action.
+- **Breaking**: `makeModel` receives the offers, `makeModel(state, { offer, offerInput })`, and `offers` is gone.
+  Upgrade: take `{ offer, offerInput }` as `makeModel`'s second argument instead of calling `offers(update, state)`,
+  call the `makeModel` that `embed` returns instead of the child's, and write `modelOf(program)(state)` for
+  `program.makeModel(state)`.
+- **Breaking**: commands are data, which `runCommand` turns into an `Execution<Message, R>`, the former `Command`.
+  Upgrade: declare a command union, move each command's effect into `runCommand`, return the union's values from
+  `update`, rename `Command` to `Execution`, add `wrapCommand` to the `embed` of a child with commands and delegate
+  to the `runCommand` it returns, and pass the program to `simulate`.
+- **Breaking**: `Dispatch` returns an `Effect<void>`, and `dispatchUnsafe(dispatch)` sends at once.
+  Upgrade: wrap the dispatch your renderer's callbacks call with `dispatchUnsafe`, and yield it inside an Effect.
+- **Breaking**: `embed` and `embedEach` return `liftCommands` instead of `init`.
+  Upgrade: put the child's initial state in the parent's state yourself, and write `liftCommands(step.commands)`
+  (`liftCommands(id, step.commands)` for `embedEach`) for `init(step).commands`.
+- A renderer slower than the program gets only the latest frame, instead of every frame in turn.
+- The README says why a view should not write the model's text into an input the user types into.
+- **Breaking**: the run fails with its defects, which whoever runs it reports, and `onBug` is gone.
+  Upgrade: report defects with `Effect.tapCause` around `run`, replace `{ onRejected: 'ignore', onBug }` with
+  `{ onRejected: (rejection) => ... }`, and drop `onBug` where `onRejected` is `'die'`.
+- What a subscription sent before its key went away, and `update` has not received yet, is dropped.
+- **Breaking**: a program has a `runCommand` exactly when it has commands, and `subscriptions` only when it listens.
+  Upgrade: remove `runCommand: absurd` and `subscriptions: () => HashMap.empty()`.
+- **Breaking**: `Subscribe` is renamed `Subscriptions`, and the former `Subscriptions` is no longer exported.
+  Upgrade: write `HashMap<K, Subscription<Message, R>>` where you used the old `Subscriptions`.
+- **Breaking**: `embed`'s `getSubscribed` is renamed `subscribed`, as in `embedEach`.
 - Every accepted message is logged at `debug`, also when it leaves the state as it was and starts nothing.
 - `DriveOptions` is `RunOptions` without `onRejected`, plus `patience`.
 

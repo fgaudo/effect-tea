@@ -13,8 +13,11 @@ A change a consumer can notice adds an entry to [`CHANGELOG.md`](../../../CHANGE
 under the `(unreleased)` version: `Changed`, `Added` or `Fixed`, and a breaking change says how to upgrade, with
 the old and the new spelling. Changes only to tests, tooling or internals add none.
 
-An entry says what changes for whoever upgrades, in a few lines. A change to the README or the examples is one
-entry of a line or two, naming the sections: what they now say is read in the README, not retold here.
+An entry is one line, which says what changes for whoever upgrades, so that a reader scans a section a line each:
+the why, the details and the examples are read in the README and the doc comments, not retold here. A breaking
+change starts with `**Breaking**:`, and adds below it, indented, `Upgrade:` with the old and the new spelling, in as
+few lines as that takes. A change to the README or the examples names the sections: what they now say is read in
+the README.
 
 ## The version
 
