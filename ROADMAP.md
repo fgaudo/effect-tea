@@ -113,6 +113,8 @@ that fails without it.
 
 ## Ideas, to be decided
 
+- **A core shared by the run and the testing tools** ([`docs/shared-core.md`](docs/shared-core.md)): the semantics of a
+  step written once, in pure transitions, which the run, `simulate` and `rehearse` perform as three shells.
 - **Bridges as packages of their own** (`@fgaudo/effect-tea-snabbdom`, `@fgaudo/effect-tea-react`): the library
   stays free of renderers, and users stop copying `examples/snabbdom.ts` and `examples/react.ts`.
 - **A devtools bridge over `onApplied`** (e.g. Redux DevTools), with time travel through `init: { state }` and
