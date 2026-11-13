@@ -153,7 +153,7 @@ is how they are kept, and what a change must not undo:
   lifts its children's keys under their names, and dies on an own key equal to a lifted one.
   Each start has a generation that its messages carry, and a message whose key is gone, or came back with a new
   start, is dropped before `update`, however the fibers were scheduled. Keys are the program's, and so are their
-  `Equal` and `Hash`: the run compares them only in `'subscriptions'` (`reconcile` in `engine.ts`), and keeps its
+  `Equal` and `Hash`: the run compares them only in `'subscriptions'` (`reconcile` in `core.ts`), and keeps its
   fibers, and tells a message that still applies, by their start, which compares no keys.
 - **A check of what another fiber may change, and the act it guards, are one thunk.** Where the engine or a testing
   tool decides from what another fiber may change (the register of deaths, the keys of a state, `pending`), the
@@ -404,9 +404,9 @@ A lead no test can reach yet is listed here, with what would decide it. None is,
 - A test of the library is of one of five kinds, and a test of none of them is not added:
   - **the semantics of the pure pieces**: what a function that runs nothing returns, as a `Step` and `andThen`,
     `forEach` and `reject` over it, a parent's composition, how a child's message is wrapped, how the logs describe
-    a message, `defect`, `applyAll` and `dispatchViolations`, what the core makes of a cause. They lie in the test
-    file of their module (`compose.test.ts`, `dispatch.test.ts`, `log.test.ts`, `defect.test.ts`, `core.test.ts`,
-    `src/testing/`).
+    a message, `defect`, `applyAll` and `dispatchViolations`, what the core makes of a cause and of the keys of a
+    state. They lie in the test file of their module (`compose.test.ts`, `dispatch.test.ts`, `log.test.ts`,
+    `defect.test.ts`, `core.test.ts`, `src/testing/`).
   - **invariants under random histories**: fast-check draws clicks, answers, subscription messages and ends,
     releases, defects and self-interruptions, and the seed of the order the scheduler of the tests (`test/scheduled.ts`)
     runs them in, and each promise of the README's "Guarantees" that the scenario reaches is checked on every one

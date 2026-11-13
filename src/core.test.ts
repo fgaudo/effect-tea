@@ -1,8 +1,21 @@
 import { describe, expect, test } from 'bun:test'
 import * as Cause from 'effect/Cause'
 import * as Context from 'effect/Context'
+import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
-import { diesOnly, hasDied, noDeaths, otherwiseDefect, record, report, wrapDefects } from './core.ts'
+import fc from 'fast-check'
+import {
+  type Active,
+  diesOnly,
+  hasDied,
+  noDeaths,
+  noneActive,
+  otherwiseDefect,
+  reconcile,
+  record,
+  report,
+  wrapDefects,
+} from './core.ts'
 import { ProgramDefect } from './defect.ts'
 
 class Request extends Context.Service<Request, string>()('Request') {}
@@ -117,5 +130,76 @@ describe('the register of deaths', () => {
     expect(report(after)[0]).toEqual(Opt.none())
     const [later] = report(record(after, Cause.die('c'), () => true))
     expect(Opt.map(later, defects)).toEqual(Opt.some(['c']))
+  })
+})
+
+const listing = <K>(...keys: ReadonlyArray<K>) =>
+  HashMap.fromIterable(keys.map((key) => [key, `of ${String(key)}`] as const))
+
+const startsOf = <K>(active: Active<K>): Readonly<Record<string, number>> =>
+  Object.fromEntries(Array.from(active.keys, ([key, start]) => [String(key), start]))
+
+describe('the keys of a new state, against those before', () => {
+  test('a new key starts, with a start of its own, in the order the listing gives them', () => {
+    const listed = listing('a', 'b')
+    const [first, second] = Array.from(HashMap.keys(listed)) as [string, string]
+    const { gone, fresh, active } = reconcile(noneActive, listed)
+    expect(gone).toEqual([])
+    expect(fresh).toEqual([[first, `of ${first}`, 1], [second, `of ${second}`, 2]])
+    expect(startsOf(active)).toEqual({ [String(first)]: 1, [String(second)]: 2 })
+    expect(active.starts).toEqual(new Set([1, 2]))
+  })
+
+  test('a kept key keeps its start, and a gone key stops with its start', () => {
+    const first = reconcile(noneActive, listing('a', 'b')).active
+    const { gone, fresh, active } = reconcile(first, listing('a', 'c'))
+    expect(gone).toEqual([['b', 2]])
+    expect(fresh).toEqual([['c', 'of c', 3]])
+    expect(startsOf(active)).toEqual({ a: 1, c: 3 })
+    expect(active.starts).toEqual(new Set([1, 3]))
+  })
+
+  test('a key that comes back gets a new start', () => {
+    const first = reconcile(noneActive, listing('a')).active
+    const without = reconcile(first, listing()).active
+    const { fresh, active } = reconcile(without, listing('a'))
+    expect(fresh).toEqual([['a', 'of a', 2]])
+    expect(active.starts).toEqual(new Set([2]))
+  })
+
+  test('a key equal by value, made anew, keeps its start', () => {
+    const first = reconcile(noneActive, listing(['row', 1])).active
+    const { gone, fresh, active } = reconcile(first, listing(['row', 1]))
+    expect(gone).toEqual([])
+    expect(fresh).toEqual([])
+    expect(active.starts).toEqual(new Set([1]))
+  })
+
+  test('under any history of listings, starts follow the keys', () => {
+    const keys = fc.uniqueArray(fc.constantFrom<string>('a', 'b', 'c', 'd', 'e'), { maxLength: 5 })
+    fc.assert(fc.property(fc.array(keys, { maxLength: 20 }), (history) => {
+      let active: Active<string> = noneActive
+      const used = new Set<number>()
+      for (const listed of history) {
+        const before = active
+        const map = listing(...listed)
+        const { gone, fresh, active: after } = reconcile(before, map)
+        const previous = startsOf(before)
+        const now = startsOf(after)
+        expect(Object.keys(now).sort()).toEqual([...listed].sort())
+        expect(gone).toEqual(Object.entries(previous).filter(([key]) => !listed.includes(key)))
+        for (const key of listed) {
+          if (key in previous) expect(now[key]).toBe(previous[key])
+        }
+        expect(fresh.map(([key]) => key)).toEqual(Array.from(HashMap.keys(map)).filter((key) => !(key in previous)))
+        for (const [key, , start] of fresh) {
+          expect(used.has(start)).toBe(false)
+          expect(now[key]).toBe(start)
+          used.add(start)
+        }
+        expect(after.starts).toEqual(new Set(Object.values(now)))
+        active = after
+      }
+    }))
   })
 })

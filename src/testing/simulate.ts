@@ -1,7 +1,7 @@
 import * as Effect from 'effect/Effect'
-import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import type * as Scope from 'effect/Scope'
+import * as Core from '../core.ts'
 import { applyIn, diesIn } from '../engine.ts'
 import { type Interpreter, type ObjectState, runCommandOf, subscriptionsOf } from '../program.ts'
 import type { Subscriptions } from '../subscription.ts'
@@ -47,16 +47,13 @@ export const simulate = <State, Message, Command, Event, R = never>(
   const runCommand = runCommandOf(program)
   const subscriptions = subscriptionsOf(program)
   // The keys of the state before, which a new state's are compared with.
-  type Listening = { listed: ReturnType<typeof subscriptions> }
-  // Read, never run, as the run reads them on each new state, and their keys compared with those of the state
-  // before, as the run reconciles them: a state whose subscriptions are a defect ends it, and so does a key whose
-  // `Equal` throws against a key of the state before.
+  type Listening = { active: Core.Active<unknown> }
+  // Read, never run, as the run reads them on each new state, and reconciled with those of the state before as the
+  // run reconciles them: a state whose subscriptions are a defect ends it, and so does a key whose `Equal` throws
+  // against a key of the state before.
   const listen = (listening: Listening, state: State) =>
     Effect.sync(() => {
-      const listed = subscriptions(state)
-      for (const [key] of listening.listed) void HashMap.has(listed, key)
-      for (const [key] of listed) void HashMap.has(listening.listed, key)
-      listening.listed = listed
+      listening.active = Core.reconcile(listening.active, subscriptions(state)).active
     }).pipe(diesIn('subscriptions'))
   // A message `update` accepts, folded with its step: the commands it starts join `commands`, after those already
   // started, and `runFrom` runs them in that order.
@@ -93,7 +90,7 @@ export const simulate = <State, Message, Command, Event, R = never>(
     messages: ReadonlyArray<Message>,
     from: Step<State, Command>,
   ): Effect.fn.Return<Current, never, Exclude<R, Scope.Scope>> {
-    const listening: Listening = { listed: HashMap.empty() }
+    const listening: Listening = { active: Core.noneActive }
     yield* listen(listening, from.state)
     let current = yield* runFrom({
       state: from.state,

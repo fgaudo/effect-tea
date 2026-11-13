@@ -60,7 +60,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: 'a message applies by its key, not by its start',
     file: 'src/engine.ts',
     from: "source._tag === 'Subscription' && !active.starts.has(source.generation)",
-    to: "source._tag === 'Subscription' && !HashMap.has(active.keys, source.key)",
+    // By identity, which the test's keys, strings, are equal by: the engine imports no `HashMap` of its own.
+    to: "source._tag === 'Subscription' && ![...active.keys].some(([key]) => key === source.key)",
     killedBy: [
       ['src/engine.test.ts', 'a message left by an earlier start of a key that came back does not reach update'],
     ],
@@ -467,11 +468,34 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
-    name: 'simulate compares the keys of a state with none of the state before',
+    name: 'a kept key starts again',
+    file: 'src/core.ts',
+    from: 'if (Opt.isSome(running)) {',
+    to: 'if (false) {',
+    // The rest of the suite hangs under it.
+    killedBy: [
+      ['src/core.test.ts', 'a kept key keeps its start, and a gone key stops with its start'],
+      ['src/core.test.ts', 'a key equal by value, made anew, keeps its start'],
+      ['src/engine.test.ts', 'a key equal by value keeps its subscription running, untouched'],
+      ['src/compose.test.ts', 'a child whose state changes, under the same key, keeps its subscription running'],
+    ],
+  },
+  {
+    name: 'a gone key keeps running',
+    file: 'src/core.ts',
+    from: '([key]) => !HashMap.has(listed, key))',
+    to: '() => false)',
+    killedBy: [
+      ['src/core.test.ts', 'a kept key keeps its start, and a gone key stops with its start'],
+      ['src/engine.test.ts', 'a key that changes stops the old subscription and starts the new one'],
+      ['src/testing/contract.test.ts', 'in the run, the subscription whose key went away is interrupted'],
+    ],
+  },
+  {
+    name: 'simulate reconciles the keys of a state with none of the state before',
     file: 'src/testing/simulate.ts',
-    from: '      for (const [key] of listening.listed) void HashMap.has(listed, key)\n'
-      + '      for (const [key] of listed) void HashMap.has(listening.listed, key)\n',
-    to: '',
+    from: 'Core.reconcile(listening.active, subscriptions(state))',
+    to: 'Core.reconcile(Core.noneActive, subscriptions(state))',
     killedBy: [
       [
         'src/testing/contract.test.ts',

@@ -8,7 +8,6 @@ import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
 import * as FiberMap from 'effect/FiberMap'
 import * as FiberSet from 'effect/FiberSet'
-import * as HashMap from 'effect/HashMap'
 import * as LogLevel from 'effect/LogLevel'
 import * as Opt from 'effect/Option'
 import * as Pull from 'effect/Pull'
@@ -205,15 +204,6 @@ export const makeDeaths = Effect.fnUntraced(function*(keeps: (defect: unknown) =
   } satisfies Deaths
 })
 
-/** Counts the starts of subscriptions: each start of a key gets a new one. */
-type Generation = number
-
-/**
- * The keys a run listens to, each with its start, and those starts: a subscription's message applies exactly when
- * its start is among them, which takes no comparison of keys.
- */
-type Active<K> = Readonly<{ keys: HashMap.HashMap<K, Generation>; starts: ReadonlySet<Generation> }>
-
 /**
  * Where a message comes from, as the engine knows it: a subscription's message carries the start it comes from,
  * so that once its key goes away, what it left in the queue is dropped.
@@ -221,7 +211,7 @@ type Active<K> = Readonly<{ keys: HashMap.HashMap<K, Generation>; starts: Readon
 type Source<K> =
   | Readonly<{ _tag: 'View' }>
   | Readonly<{ _tag: 'Command' }>
-  | Readonly<{ _tag: 'Subscription'; key: K; generation: Generation }>
+  | Readonly<{ _tag: 'Subscription'; key: K; generation: Core.Generation }>
 
 type Envelope<Message, K> = Readonly<{ message: Message; source: Source<K> }>
 
@@ -310,7 +300,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   const fibers = yield* FiberSet.make<unknown, never>()
   // Kept by their start, never by their key: `FiberMap` compares its keys, in a fiber's observer too, where
   // nothing could tell the defect of a key's `Equal` that throws.
-  const subscriptionFibers = yield* FiberMap.make<Generation, void, never>()
+  const subscriptionFibers = yield* FiberMap.make<Core.Generation, void, never>()
   // Run before they close: the end of the run interrupts its fibers itself, all at once, waits for them to release
   // what they hold, and dies of what they have died of and nobody has reported, which `diesIn` already says where.
   yield* Effect.addFinalizer(() =>
@@ -327,8 +317,6 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   )
   const stateRef = yield* SubscriptionRef.make<Revisioned<State>>({ state: initState, revision: 0 })
   const enqueue = (source: Source<K>) => (message: Message) => Effect.asVoid(Queue.offer(queue, { message, source }))
-  // Only the loop starts subscriptions, one step at a time.
-  let started: Generation = 0
   // Each function of the program or of the options, called where its defect can be told apart from the others'.
   const call = <A>(where: DefectSite, f: () => A) => Effect.sync(f).pipe(diesIn(where))
   // The run's own logs belong to no function of the program: a `Logger` that throws, or that cannot format what
@@ -359,27 +347,13 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
    * next message waits for the slowest release rather than for all of them, and still before any start: a key
    * that comes back finds its old subscription released.
    */
-  const reconcile = Effect.fnUntraced(function*(active: Active<K>, state: State) {
+  const reconcile = Effect.fnUntraced(function*(active: Core.Active<K>, state: State) {
     // The keys are the program's, and so are their `Equal` and `Hash`: they are compared here, in `subscriptions`,
     // and nowhere else in the run.
-    const { gone, fresh, next } = yield* call('subscriptions', () => {
-      const listed = subscriptions(state)
-      const gone = Arr.filter(Arr.fromIterable(active.keys), ([key]) => !HashMap.has(listed, key))
-      const fresh: Array<readonly [K, Subscription<Message, R>, Generation]> = []
-      let keys = HashMap.empty<K, Generation>()
-      for (const [key, subscription] of listed) {
-        const running = HashMap.get(active.keys, key)
-        if (Opt.isSome(running)) {
-          keys = HashMap.set(keys, key, running.value)
-          continue
-        }
-        started += 1
-        keys = HashMap.set(keys, key, started)
-        fresh.push([key, subscription, started])
-      }
-      const next: Active<K> = { keys, starts: new Set(HashMap.values(keys)) }
-      return { gone, fresh, next }
-    })
+    const { gone, fresh, active: next } = yield* call(
+      'subscriptions',
+      () => Core.reconcile(active, subscriptions(state)),
+    )
     yield* Effect.forEach(
       gone,
       ([key, generation]) =>
@@ -404,7 +378,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     }
     return next
   })
-  const step = Effect.fnUntraced(function*(active: Active<K>, { message, source }: Envelope<Message, K>) {
+  const step = Effect.fnUntraced(function*(active: Core.Active<K>, { message, source }: Envelope<Message, K>) {
     // `describeMessage` and `describeCommand` run for every message, and only to be logged.
     const debugging = yield* LogLevel.isEnabled('Debug')
     // Left in the queue by a subscription whose key has gone away since: it was produced after the program
@@ -451,7 +425,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   })
   // Run in the fiber that makes the engine, which records what it dies of here, among what the subscriptions it starts
   // die of meanwhile.
-  const initialActive = yield* reconcile({ keys: HashMap.empty(), starts: new Set() }, initState).pipe(
+  const initialActive = yield* reconcile(Core.noneActive, initState).pipe(
     Effect.tap(() => Effect.forEach(initCommands, runCommand, { discard: true })),
     Effect.provideContext(context),
     recorded,

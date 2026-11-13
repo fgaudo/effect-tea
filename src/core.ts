@@ -1,5 +1,6 @@
 import * as Arr from 'effect/Array'
 import * as Cause from 'effect/Cause'
+import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import { type DefectSite, ProgramDefect } from './defect.ts'
 
@@ -84,4 +85,53 @@ export const report = (register: Register): readonly [Opt.Option<Cause.Cause<nev
   return Arr.isArrayNonEmpty(dies)
     ? [Opt.some(Cause.fromReasons<never>(dies)), { ...register, reported: register.deaths.length }]
     : [Opt.none(), register]
+}
+
+/** Counts the starts of subscriptions: each start of a key gets a new one. */
+export type Generation = number
+
+/**
+ * The keys a run listens to, each with its start, those starts, and the last start made: a subscription's message
+ * applies exactly when its start is among them, which takes no comparison of keys.
+ */
+export type Active<K> = Readonly<{
+  keys: HashMap.HashMap<K, Generation>
+  starts: ReadonlySet<Generation>
+  started: Generation
+}>
+
+export const noneActive: Active<never> = { keys: HashMap.empty(), starts: new Set(), started: 0 }
+
+/**
+ * What the keys of a new state make of those active before: the starts whose key went away, the keys that appeared,
+ * each with its subscription and a new start, in the order the listing gives them, and the keys now active. A key
+ * listed again keeps its start, so its subscription keeps running, ended or not: one that has ended does not start
+ * again until its key goes away and comes back.
+ */
+export type Reconciled<K, S> = Readonly<{
+  gone: ReadonlyArray<readonly [K, Generation]>
+  fresh: ReadonlyArray<readonly [K, S, Generation]>
+  active: Active<K>
+}>
+
+/**
+ * Compares the keys `listed` with those `active`, by their `Equal` and `Hash`, which are the program's: whoever calls
+ * it calls it where a defect of theirs dies in `subscriptions`, the only place where the keys are compared.
+ */
+export const reconcile = <K, S>(active: Active<K>, listed: HashMap.HashMap<K, S>): Reconciled<K, S> => {
+  const gone = Arr.filter(Arr.fromIterable(active.keys), ([key]) => !HashMap.has(listed, key))
+  const fresh: Array<readonly [K, S, Generation]> = []
+  let keys = HashMap.empty<K, Generation>()
+  let started = active.started
+  for (const [key, subscription] of listed) {
+    const running = HashMap.get(active.keys, key)
+    if (Opt.isSome(running)) {
+      keys = HashMap.set(keys, key, running.value)
+      continue
+    }
+    started += 1
+    keys = HashMap.set(keys, key, started)
+    fresh.push([key, subscription, started])
+  }
+  return { gone, fresh, active: { keys, starts: new Set(HashMap.values(keys)), started } }
 }

@@ -1,6 +1,6 @@
 # A core shared by the run and the testing tools
 
-**Status:** decided, November 2026; steps 0 and 1 done. It follows effect-tea-persistent's decision 0292
+**Status:** decided, November 2026; steps 0 to 2 done. It follows effect-tea-persistent's decision 0292
 (`docs/decisions/0292-…` there), which moves that runtime's state into a pure core, and a reading of it by Fable 5.2
 for this library.
 
@@ -93,7 +93,11 @@ Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun ru
    touches no shell's logic, only where the functions are: the most isolated step, which settles the module. Done:
    `otherwiseDefect`, `wrapDefects` and the `Register` of deaths, with `record` and `report`, in `src/core.test.ts`.
 2. `reconcile` and its tests; `simulate` on it (the smallest shell, already a fold). The mutation "simulate compares
-   the keys of a state with none of the state before" goes, replaced by one of the core's.
+   the keys of a state with none of the state before" goes, replaced by one of the core's. Done: `reconcile` takes the
+   listing rather than `subscriptions`, which the shell calls in the same thunk, under `diesIn('subscriptions')`, so
+   that its tests build listings by hand; `Active` holds the count of starts. The core's mutations are "a kept key
+   starts again" and "a gone key keeps running"; `simulate`'s stays, as "simulate reconciles the keys of a state with
+   none of the state before", since what it takes out is the shell's: which `Active` it reconciles against.
 3. `init`, `arrive`, with the check of the register (`alive` moves into it), and `ended`; the engine on them. The
    engine's mutations of `alive`, of the generation and of the order of stops and starts point at the core, each with
    a deterministic test of the core among its killers.
