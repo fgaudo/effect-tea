@@ -27,7 +27,8 @@ version never goes down. `package.json` and the changelog's section always agree
 ## Releasing
 
 1. The checks pass (`bun run typecheck`, `bun run lint`, `bun run test`), every mutation is killed
-   (`bun run mutations`, AGENTS.md's "Tests"), and the site builds without warnings (below).
+   (`bun run mutations`, AGENTS.md's "Tests"), and the site builds without warnings (below). `bun run interleavings`
+   is run too: an order it finds goes in `ROADMAP.md`, and is weighed before the release.
 2. In `CHANGELOG.md`, replace `(unreleased)` with the date: `## 0.6.0 (2026-10-23)`.
 3. Commit that change alone, with the subject `release <version>`, and tag the commit `v<version>` (a
    lightweight tag, as the existing ones). Push the commit and the tag.

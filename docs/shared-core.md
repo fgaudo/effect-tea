@@ -1,8 +1,8 @@
 # A core shared by the run and the testing tools
 
-**Status:** proposed, November 2026. Nothing of it is written yet. It follows effect-tea-persistent's decision 0292
-(`docs/decisions/0292-…` there), which moves that runtime's state into a pure core, and a reading of it by Fable 5.2
-for this library.
+**Status:** decided, November 2026; step 0 done, the core not written yet. It follows effect-tea-persistent's
+decision 0292 (`docs/decisions/0292-…` there), which moves that runtime's state into a pure core, and a reading of
+it by Fable 5.2 for this library.
 
 ## Context
 
@@ -87,6 +87,7 @@ Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun ru
 
 0. `interleaving.test.ts` leaves `bun run test` ahead of step 7, for a script of its own and a scheduled job of the
    CI, so that no step meets a suite that fails on a seed drawn at random. No mutation names it among its killers.
+   Done: `bun run interleavings`, and `.github/workflows/interleavings.yml` every day.
 
 1. `src/core.ts` with the functions over `Cause` of `diesIn` and `makeDeaths`, tested on causes built by hand. It
    touches no shell's logic, only where the functions are: the most isolated step, which settles the module.

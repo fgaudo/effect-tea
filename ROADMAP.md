@@ -10,12 +10,11 @@ Decided, and done before the rest, since it rewrites what several open problems 
 
 - **A core shared by the run and the testing tools** ([`docs/shared-core.md`](docs/shared-core.md)): the semantics of a
   step written once, in pure transitions, which the run, `simulate` and `rehearse` perform as three shells. Its plan
-  goes in seven steps, each a commit with every check green, after a step 0 taken from the seventh:
-  `interleaving.test.ts` leaves `bun run test` for a script of its own and a job of the CI on a schedule, from a
-  random seed, so that the steps do not meet a suite that fails in about one run of three. It stays runnable by
-  hand, and no mutation of `mutations/mutations.ts` names it among its killers. The core's steps 5 and 6 answer
-  "`rehearse`'s `runAll` dies on a command another call took" and "the renderer may start after the first defect",
-  and step 7 the interleavings' counterexamples, each by a test of the core, a gate or a primitive.
+  goes in seven steps, each a commit with every check green, after a step 0, done: `interleaving.test.ts` runs apart
+  (`bun run interleavings`, and a daily job of the CI), so that the steps do not meet a suite that fails in about
+  one run of three. Next is step 1, the functions over `Cause` of `diesIn` and `makeDeaths`. The core's steps 5 and 6
+  answer "`rehearse`'s `runAll` dies on a command another call took" and "the renderer may start after the first
+  defect", and step 7 the interleavings' counterexamples, each by a test of the core, a gate or a primitive.
 
 ## Open problems
 
@@ -49,7 +48,7 @@ that fails without it.
   end of that release, and the property moves its `Died` there; or the run learns of it earlier, which no API of
   Effect offers but a `Supervisor`.
 - **The interleavings fail in about one run of three** (November 2026; `interleaving.test.ts` alone, 3 of 10 runs),
-  each on a seed drawn at random, so `bun run test` too. The counterexamples met, each the `seed` and `path` to pass to
+  each on a seed drawn at random (`bun run interleavings`, which `bun run test` leaves out). The counterexamples met, each the `seed` and `path` to pass to
   the test's `property` (whose options then take a `path`), and failing every time with them; fast-check names the
   scenario but not the assertion, which a run with them prints:
   - "From the first defect on, the run applies no message and starts no command": the one above, and

@@ -408,7 +408,10 @@ A lead no test can reach yet is listed here, with what would decide it. None is,
   - **invariants under random histories**: fast-check draws clicks, answers, subscription messages and ends,
     releases, defects and self-interruptions, and the seed of the order the scheduler of the tests (`test/scheduled.ts`)
     runs them in, and each promise of the README's "Guarantees" that the scenario reaches is checked on every one
-    (`interleaving.test.ts`).
+    (`interleaving.test.ts`). It is a search, from a seed drawn on each run, and runs apart: `bun run interleavings`,
+    and a daily job of the CI (`.github/workflows/interleavings.yml`), never `bun run test`. An order it finds is a
+    finding, listed in `ROADMAP.md` with its seed and path until a fix leaves a deterministic test of it; no
+    mutation names it among its killers.
   - **contracts**: one program and its inputs given alike to each testing tool and to the run
     (`src/testing/contract.test.ts`, where a `test.failing` says how they still differ), and one view to each
     bridge (the same tests, `messagesSentBy`'s included, in `examples/snabbdom.test.ts` and
@@ -442,6 +445,7 @@ A lead no test can reach yet is listed here, with what would decide it. None is,
 ## Checks
 
 Before finishing, from the repository root: `bun run typecheck` (`tsc` with the Effect language service, on the
-library and on the examples), `bun run lint` (Biome and Oxlint) and `bun run test`. `bun run build` compiles
-`src/` into `dist/` (ignored by git) and runs before `bun pm pack`. An API change is also checked as a consumer
+library and on the examples), `bun run lint` (Biome and Oxlint) and `bun run test`; after a change of the engine or of
+a testing tool, `bun run interleavings` too. `bun run build` compiles `src/` into `dist/` (ignored by git) and runs
+before `bun pm pack`. An API change is also checked as a consumer
 would see it (`change-api`).
