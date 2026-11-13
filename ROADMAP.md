@@ -22,10 +22,6 @@ reports are the bodies of the commits of `claude/premise-review-6-engine-8ac990`
   interrupted, as the run stops it, is a defect in the subscription", the same of `FiberSet` and of `FiberHandle`,
   and "a command that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the command",
   the same of a renderer and of a subscription.
-- **A defect of `makeModel` that the scenario catches fails `rehearse` and not `drive`**, where the README says a
-  defect of the program fails each tool as it ends the run: in `drive` the scenario reads the model, and the run
-  does not die of it. To be decided which of the two is right. `contract.test.ts`, "drive fails in render all the
-  same, as rehearse does".
 
 Conditions the review took out with every test still passing, each to get a test and, where it is a check, a
 mutation:

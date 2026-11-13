@@ -17,6 +17,7 @@ version, and everything else, features included, the patch version.
 - `simulate` and `rehearse` read `subscriptions` on each new state, as the run does, and fail where it dies of them.
 - `simulate` and `rehearse` fail with a `ProgramDefect` on a command or subscription that interrupts itself.
 - `simulate`, `rehearse` and `drive` fail with a `ProgramDefect` in the run's site, where they failed with the defect.
+- `drive` fails on a defect of `makeModel` that the scenario catches, as `rehearse` does, and ends the scenario.
 - **Breaking**: `simulate` runs each command after those started before it, as the run does.
   Upgrade: a step starting `A` and `B`, with `A`'s answer starting `C`, is heard `A, B, C`, where it was `A, C, B`.
 - **Breaking**: `rehearse`'s `hearNext` keeps its subscription while its key stays, each call hearing its next message.

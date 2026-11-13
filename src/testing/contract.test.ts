@@ -860,8 +860,8 @@ describe('a defect of the program, then a failure of the scenario', () => {
 })
 
 // Found by the sixth premise review of November 2026. The run dies of a `makeModel` that throws as its renderer reads
-// the frame, and `rehearse` fails on it however the scenario ends; `drive` reads the model in the scenario, where the
-// defect fails that call alone, and its run goes on.
+// the frame, and `rehearse` fails on it however the scenario ends; `drive` reads the model in the scenario, and ends
+// its run on it as the run would, the scenario catching it or not.
 describe('a defect of makeModel that the scenario catches', () => {
   type Count = Readonly<{ count: number }>
   const modeling: Program<{ state: Count; model: number; message: 'Go' }> = {
@@ -881,9 +881,26 @@ describe('a defect of makeModel that the scenario catches', () => {
     expect(diedIn(exit)).toBe('render')
   })
 
-  test.failing('drive fails in render all the same, as rehearse does', async () => {
+  test('drive fails in render all the same, as rehearse does', async () => {
     const exit = await Effect.runPromiseExit(drive(modeling, (driver) => Effect.exit(driver.waitFor(Opt.some))))
     expect(diedIn(exit)).toBe('render')
+  })
+
+  const reasons = (exit: Exit.Exit<unknown>) =>
+    Exit.isFailure(exit)
+      ? exit.cause.reasons.map((reason) =>
+        Cause.isDieReason(reason)
+          ? reason.defect instanceof ProgramDefect ? reason.defect.where : reason.defect
+          : reason._tag
+      )
+      : []
+
+  // As the run's death interrupts the scenario, so does this one.
+  test('drive ends on the defect a scenario that goes on caught', async () => {
+    const exit = await Effect.runPromiseExit(
+      drive(modeling, (driver) => Effect.andThen(Effect.exit(driver.waitFor(Opt.some)), Effect.never)),
+    )
+    expect(reasons(exit)).toEqual(['render'])
   })
 })
 

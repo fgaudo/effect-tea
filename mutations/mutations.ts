@@ -738,6 +738,20 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [['src/testing/drive.test.ts', 'nothing of the program happens once drive has ended']],
   },
   {
+    name: 'drive keeps no defect of makeModel the scenario caught',
+    file: 'src/testing/drive.ts',
+    from: 'Cause.hasDies(cause) && modeled.reasons.length === 0',
+    to: 'false',
+    killedBy: [['src/testing/contract.test.ts', 'drive fails in render all the same, as rehearse does']],
+  },
+  {
+    name: 'drive goes on after a defect of makeModel until the scenario ends',
+    file: 'src/testing/drive.ts',
+    from: 'Effect.raceFirst(Fiber.await(fiber), Deferred.await(modelDied))',
+    to: 'Fiber.await(fiber)',
+    killedBy: [['src/testing/contract.test.ts', 'drive ends on the defect a scenario that goes on caught']],
+  },
+  {
     name: 'rehearse calls the scenario outside the effect whose end is guarded',
     file: 'src/testing/rehearse.ts',
     from: 'Effect.suspend(() => scenario(rehearsal))',

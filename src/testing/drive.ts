@@ -1,6 +1,7 @@
 import * as Arr from 'effect/Array'
 import * as Cause from 'effect/Cause'
 import * as Clock from 'effect/Clock'
+import * as Deferred from 'effect/Deferred'
 import type * as Duration from 'effect/Duration'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
@@ -81,8 +82,19 @@ export const drive = Effect.fnUntraced(function*<
       Effect.orDie,
     )
   // The model is made when the scenario first reads it, where the run makes it when its renderer does: a defect of
-  // `makeModel` is in `'render'` all the same.
-  const shown = (frame: Frame<Model, Message>) => Effect.sync(() => frame.model).pipe(diesIn('render'))
+  // `makeModel` is in `'render'` all the same, and ends the run as the renderer's would, though the scenario catches
+  // it. The first is kept, and comes first in the cause.
+  let modeled: Cause.Cause<never> = Cause.empty
+  const modelDied = yield* Deferred.make<void>()
+  const shown = (frame: Frame<Model, Message>) =>
+    Effect.sync(() => frame.model).pipe(
+      diesIn('render'),
+      Effect.onError((cause) =>
+        Cause.hasDies(cause) && modeled.reasons.length === 0
+          ? Effect.andThen(Effect.sync(() => (modeled = cause)), Deferred.succeed(modelDied, undefined))
+          : Effect.void
+      ),
+    )
   const driver: Driver<Model, Message> = {
     waitFor: (select) => first((frame) => Effect.map(shown(frame), select)),
     send: (select) =>
@@ -102,18 +114,23 @@ export const drive = Effect.fnUntraced(function*<
     const ended = yield* Effect.exit(restore(Effect.raceFirst(
       // Suspended, so that a scenario that throws before it returns its effect fails here, past nothing of the end.
       Effect.asSome(Effect.exit(Effect.suspend(() => scenario(driver)))),
-      Effect.as(Fiber.await(fiber), Opt.none()),
+      Effect.as(Effect.raceFirst(Fiber.await(fiber), Deferred.await(modelDied)), Opt.none()),
     )))
     yield* Fiber.interrupt(fiber)
     const stopped = yield* Fiber.await(fiber)
+    // Interrupted, the run dies of what its fibers die of as they release what they hold, as when whoever runs it
+    // interrupts it.
+    const dies = Exit.isFailure(stopped) ? stopped.cause.reasons.filter(Cause.isDieReason) : []
+    // The run died in its renderer, as it dies when its renderer reads the model: what the scenario ended with is
+    // dropped as when the run dies first, whichever of the two the race saw end first, and the defect is the first.
+    if (modeled.reasons.length > 0) {
+      return yield* Effect.failCause(Cause.fromReasons<never>([...modeled.reasons, ...dies]))
+    }
     // What the scenario ended with, or how `drive` was interrupted; none when the run ended first.
     const outcome = Exit.isSuccess(ended) ? ended.value : Opt.some(Exit.failCause(ended.cause))
     if (Opt.isNone(outcome)) {
       return yield* stopped
     }
-    // Interrupted, the run dies of what its fibers die of as they release what they hold, as when whoever runs it
-    // interrupts it.
-    const dies = Exit.isFailure(stopped) ? stopped.cause.reasons.filter(Cause.isDieReason) : []
     if (!Arr.isArrayNonEmpty(dies)) {
       return yield* outcome.value
     }
