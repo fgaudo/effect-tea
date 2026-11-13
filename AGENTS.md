@@ -110,7 +110,7 @@ an example's and a document's too:
 - **`onApplied` and `onIgnored` watch, never steer.**
 - **The testing tools behave like the engine** where it is deterministic: when the engine or one tool changes, keep
   the others in step.
-- **Logs never carry message data by default**: only tags, at `debug`.
+- **Logs never carry message data by default**: only tags, at `debug`. A subscription's key is logged as it is.
 - **A premise about what code does when it runs is checked before the change that rests on it is written**, and
   never only reasoned: by the documentation of a stable API, or by a test that fails without it.
 

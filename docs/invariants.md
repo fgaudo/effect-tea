@@ -1,14 +1,20 @@
 # Invariants the engine keeps
 
 The README's "Guarantees" says what a user may rely on, and the library's tests check each one
-(`src/interleaving.test.ts` checks all six, and what the run does from the first defect on, under random orders of
-clicks, answers, subscription messages and ends, releases, defects and self-interruptions, as the README says). This
-is how they are kept, and what a change must not undo. What they rest on of Effect and of the JavaScript engine is in
+(`src/interleaving.test.ts` checks all but that of the order, and what the run does from the first defect on, under
+random orders of clicks, answers, subscription messages and ends, releases, defects and self-interruptions, as the
+README says). This is how they are kept, and what a change must not undo. What they rest on of Effect and of the JavaScript engine is in
 [`premises.md`](premises.md), and how a change of the engine or of a testing tool is made in
 [`change-engine`](../.agents/skills/change-engine/SKILL.md).
 
 - **`update` is pure and called freely.** Tests call it more than once per message (`dispatchViolations` sends
   each one twice): never assume it runs once per message.
+- **Messages are applied one at a time, in the order they were queued**: one loop takes them from one queue
+  (`engine.ts`), and takes the next only once the step of the one before is over, its observer, its frame, its
+  subscriptions stopped and started and its commands started. Never apply a message from another fiber, nor start a
+  step's commands apart from it. That a `Queue` gives its items in the order they were offered is in `premises.md`:
+  "dispatches run one after the other in one callback, before the run takes any, are all applied in order", "hears
+  every accepted message in order, with the states around it, before its frame" (`run.test.ts`).
 - **`reject` means one thing: the message does not apply in the state.** The run ignores every rejection, and
   whether the view sends only what applies is for the tests ("Rejections and defects" in the README). Never add
   a runtime check of the model against `update`, nor a way for a model to ask `update` what it accepts: the
@@ -75,8 +81,10 @@ is how they are kept, and what a change must not undo. What they rest on of Effe
   - From the first defect recorded on, the run applies no message, until its end stops the loop: it calls no `update`,
     checked in the thunk that calls it (`arrive` in `core.ts`), where no other fiber can run, since the scheduler may
     yield at any other operation. It is the only check. A step whose `update` was called before goes on whole until the
-    end stops the loop: it may still start its commands and the subscriptions of its new keys, and the renderer is
-    called once, as the run starts, in a run that died meanwhile too. Never add a check in the middle of a step, nor
+    end stops the loop: it may still start its commands and the subscriptions of its new keys. The renderer is called
+    at most once, as the run starts, with no check before it: a run that died meanwhile may end before the call, which
+    is the first step of a fiber `Effect.forkChild` does not start at once, or make it and interrupt its effect, and
+    nothing is promised of which. Never add a check in the middle of a step, nor
     before the renderer: it would leave a state whose commands never started, which `onApplied` heard of, and protect
     nothing a correct program needs, since a command that died is, to `update`, one that has not answered yet
     (`docs/single-owner.md`).
@@ -102,7 +110,12 @@ is how they are kept, and what a change must not undo. What they rest on of Effe
   release rather than for their sum, and a key that comes back finds its old subscription released. A parent
   lifts its children's keys under their names, and dies on an own key equal to a lifted one.
   Each start has a generation that its messages carry, and a message whose key is gone, or came back with a new
-  start, is dropped before `update`, however the fibers were scheduled. Keys are the program's, and so are their
+  start, is dropped before `update`, however the fibers were scheduled: "a message left by an earlier start of a key
+  that came back does not reach update" (`engine.test.ts`), "what a subscription leaves in the queue after its key
+  went away does not reach update" (`run.test.ts`). `rehearse` never gives `arrive` such a message: its ledger
+  forgets a start in the transition that stops it ("a start whose key went away is stopped and forgotten, and the
+  calls waiting on it are told", `ledger.test.ts`). The rule rests on nothing of Effect: it is the engine's own,
+  tested where the fibers' order would otherwise hide it. Keys are the program's, and so are their
   `Equal` and `Hash`: the run compares them only in `'subscriptions'` (`reconcile` in `core.ts`), and keeps its
   fibers, and tells a message that still applies, by their start, which compares no keys.
 - **A check of what another fiber may change, and the act it guards, are one thunk.** Where the engine or a testing tool
@@ -165,6 +178,8 @@ is how they are kept, and what a change must not undo. What they rest on of Effe
   where they still differ, its `test.failing` cases say how, and `ROADMAP.md` lists them.
 - **Logs never carry message data by default** (`describeByTag` in `log.ts`): only tags, following a wrapped
   `message` or `command` only when it is itself tagged, since a program's own field of that name may hold data.
+  A subscription's key is logged as it is, and may hold data, as the README says ("Running"): the rule is of
+  messages and commands.
   Level: `debug` for the message loop and for subscriptions starting, stopping and ending, nothing else. What
   is computed only to be logged (`describeMessage`, `describeCommand`) is computed only while debug logs are
   enabled (`LogLevel.isEnabled`).

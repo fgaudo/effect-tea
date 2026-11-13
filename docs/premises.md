@@ -21,10 +21,12 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   whose Equal throws against the key of the state before" (`contract.test.ts`). `FiberMap` compares its keys in a
   fiber's observer as well, which is why the run keeps its fibers by their start, never by their key. Both are read
   only in the source.
-- **`Fiber.interruptAs` waits for the interrupted fiber to end**, its release included, which is what makes the
-  gone keys released before any key starts: "a key that changes stops the old subscription and starts the new
-  one", "keys that go away together release their subscriptions together, not one after the other"
-  (`engine.test.ts`). Documented.
+- **`Fiber.interruptAs` completes only once the interrupted fiber has ended**, its release included, which is what
+  makes the gone keys released before any key starts: "a key that changes stops the old subscription and starts the
+  new one", "keys that go away together release their subscriptions together, not one after the other"
+  (`engine.test.ts`); and how the end of the run stops the loop before it stops the renderer, and before it reads the
+  fibers to interrupt: "a message the renderer sends as the run releases it does not reach update" (`run.test.ts`).
+  Documented.
 - **`Effect.acquireRelease` lets nothing interrupt its acquisition, and runs its release when its scope closes,
   however it closes**, which is how the run forks the renderer and sets how its end stops it with nothing between
   to leave the renderer to the end of the fiber the run is in, which would interrupt it as a child, unawaited, and
@@ -36,9 +38,6 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   how the run forks the renderer inside that acquisition and still stops it: "a run interrupted by whoever runs it is
   no defect", "a renderer that dies while an interrupted run releases it is in the cause" (`run.test.ts`) never end
   with a renderer that inherits it (`{ uninterruptible: 'inherit' }`). Not documented, and seen in those tests.
-- **`Fiber.interruptAs` completes only once the interrupted fiber has**, which is how the end of the run stops the loop
-  before it stops the renderer, and before it reads the fibers to interrupt: "a message the renderer sends as the run
-  releases it does not reach update" (`run.test.ts`). Documented.
 - **A fiber forked with `FiberSet.run` where its parent is uninterruptible can still be interrupted**, which is how
   the engine forks its loop and keeps it for `stop` in one region nothing interrupts, and still stops it: "a message
   update rejects is ignored, and the program goes on", "the end of the engine lets its loop end before it interrupts
@@ -75,7 +74,9 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   stopped inside an uninterruptible region is no defect" (`run.test.ts`); and beside a defect of its release, which is
   how `diesIn` turns a self-interruption into a defect even after a defect, never one by the run: "a defect in what
   a subscription the run stopped releases ends the run", "a subscription stopped as whoever runs the run interrupts
-  it, which dies as it releases, is in the cause" (`run.test.ts`) fail with a handler that runs on them.
+  it, which dies as it releases, is in the cause" (`run.test.ts`) fail with a handler that runs on them. Not
+  documented: read in the source (a failure, as it is evaluated in `internal/core.ts`, takes no handler of an
+  interrupted fiber while it is interruptible), and seen in those tests.
 - **A fiber that fails as it is interrupted keeps its own reasons and gets those it received added, and
   `Effect.interruptible`, entered by an interrupted fiber where it is uninterruptible, fails with exactly those it
   received**, which is how `diesIn` tells a self-interruption from the run's interruption that meets it, both in
@@ -101,12 +102,6 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   "running a dispatch from a plain callback returns before update has seen the message" (`run.test.ts`). That
   the scheduler is the run's own is read only in the source: "a dispatch run from a plain callback wakes the
   program on the scheduler the run started with" (`run.test.ts`).
-- **A start's generation, not only its key, says whether its messages still apply**: "a message left by an earlier
-  start of a key that came back does not reach update" (`engine.test.ts`), and "what a subscription leaves in the
-  queue after its key went away does not reach update" (`run.test.ts`). `rehearse` never gives `arrive` such a
-  message: its ledger forgets a start in the transition that stops it ("a start whose key went away is stopped and
-  forgotten, and the calls waiting on it are told", `ledger.test.ts`). This one rests on nothing of Effect: it is the
-  engine's own rule, tested where the fibers' order would otherwise hide it.
 - **Every fiber of a run asks the `Scheduler` it is given before each step, and every task it makes goes to that
   scheduler's dispatcher, or resumes inline where the scheduler of the tests makes it yield first**, so that
   `test/scheduled.ts` decides where each fiber yields and which runs next, needing nothing of the platform's: "driven

@@ -285,10 +285,13 @@ expect(commands).toEqual([Command.Save({ name: 'Ada' })])
   on how many run at once, and the loop goes on without waiting for it. Their answers reach `update` in the
   order they end, not the order they started: `update` handles them in any order.
 - **Commands cannot be cancelled.** Once started, a command runs to its end and its message arrives, even if
-  the state has moved on. `update` then decides whether the answer still applies (see
-  [rejections and defects](#rejections-and-defects)). An operation that is a state only its completion leaves
-  has no outdated answer (see [structuring a program](#structuring-a-program)). This keeps commands plain data,
-  and a save is never cut in half. Work that should stop is a [subscription](#subscriptions).
+  the state has moved on: nothing the program does stops it. `update` then decides whether the answer still
+  applies (see [rejections and defects](#rejections-and-defects)). An operation that is a state only its
+  completion leaves has no outdated answer (see [structuring a program](#structuring-a-program)). This keeps
+  commands plain data, and no change of state cuts a save in half. Only the end of the run does: it interrupts
+  the commands under way, whether a defect, an interruption or a renderer that ends brings it (see
+  [running](#running)), so a command bears being interrupted at any point. Work that should stop is a
+  [subscription](#subscriptions).
 
 A command's services are its operations, and the layer around `run` their handlers. This is where a program
 performs effects, in the algebraic sense, and where a handler lives. `update` performs none. What a child asks
@@ -664,8 +667,10 @@ the run gives it (`Effect.acquireRelease`, `Effect.addFinalizer`, a channel's ow
 what it wraps around its own code (`Effect.ensuring`, `Effect.onExit`, an `Effect.scoped` of its own) is part of its
 effect, runs before it ends, and may still catch the defect. What that release dies of is a defect once the scope has
 released all it holds: until then, the run goes on. From the defect on, the run applies no message: it does not call
-`update`. A message whose `update` it called before goes on until the run stops applying messages, which may be
-before its frame: it may still start its commands and the subscriptions of its new keys. What a command or a
+`update`. It is a bound on what the run still does, at most the step under way, and nothing `update` can count on: to
+`update`, a command that died is one that has not answered yet. A message whose `update` it called before goes on
+until the run stops applying messages, which may be before its frame: it may still start its commands and the
+subscriptions of its new keys, and `onApplied` may have heard a step whose frame is never drawn. What a command or a
 subscription does once started is the program's, until the run interrupts it. So is what the renderer does, in a run
 that died as it started too, as when a subscription of `init` dies: a frame it reads meanwhile still makes its model,
 as `makeModel` is pure, and calling it changes nothing of the program. As it ends, of a defect or of an interruption, the run stops applying messages first,
@@ -691,6 +696,10 @@ Effect.runFork(
 
 What you can rely on:
 
+- **One message at a time, in the order they were queued.** The run takes the next message only once the step
+  of the one before is over: its `update`, then `onApplied` or `onIgnored`, its frame, the subscriptions it
+  stops and starts, and the start of its commands. What the view sends is queued as it is sent, a subscription's
+  message as it is emitted, and a command's answer as the command ends.
 - **Outdated clicks are harmless.** A message `update` rejects is ignored: the state stays as it was, however
   many messages came in between.
 - **Subscriptions follow their keys.** A subscription runs exactly while its key is in the state. When the key
@@ -712,17 +721,22 @@ What you can rely on:
 
 What is left to you:
 
-- **Commands run to their end**, and their answer goes where it is addressed, even if the state has moved on.
-  `update` decides whether it still applies (see [commands](#commands), and ids that come back in
-  [children by id](#children-by-id)).
+- **Commands run to their end, or to the end of the run**, which interrupts those under way. Until then their
+  answer goes where it is addressed, even if the state has moved on. `update` decides whether it still applies
+  (see [commands](#commands), and ids that come back in [children by id](#children-by-id)).
+- **Nothing is bounded, and nothing times out.** The run queues every message as it is sent, however many wait,
+  and starts every command, however many run. It waits for `onApplied`, for `onIgnored` and for each release for
+  as long as they take: one that never ends holds the program, and no defect says so. As it ends, the run waits
+  for every release before it dies, so one that never ends holds the defects the run would die with too.
 - **A slow renderer skips frames**: it gets only the latest one.
 - **The view sends what `update` accepts, all of it but what it withholds on purpose.** The run does not check
   it: `dispatchViolations` does, in tests (see [testing](#testing)).
 - **`update`, `makeModel` and `subscriptions` are pure, and states are never mutated.** The library reuses a
   child's model, and its subscriptions, while its state is the same object.
 
-The library's tests check each guarantee. [`src/interleaving.test.ts`](src/interleaving.test.ts) checks all six
-under random orders of clicks, command answers, subscription messages and ends, releases, defects and
+The library's tests check each guarantee. That of the order is the run's one loop over one queue, checked by the
+tests of the run. [`src/interleaving.test.ts`](src/interleaving.test.ts) checks the other six under random orders
+of clicks, command answers, subscription messages and ends, releases, defects and
 self-interruptions: that outdated clicks leave the state as it was, that subscriptions follow their keys, that what
 a subscription, a command or the renderer acquires does not outlive it and the next message waits for the slowest
 release, that what the run logs is not kept by the span of whoever runs it, which stays the parent of the spans

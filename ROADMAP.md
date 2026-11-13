@@ -12,13 +12,6 @@ Each is held by a `test.failing` case named after what should hold; its fix remo
 reports are the bodies of the commits of `claude/premise-review-7-engine-a13862` (`5e34644`, `531638b`) and of
 `claude/premise-review-7-testing-3485ba` (`5b88849`, `3299b61`).
 
-- **The renderer is not called in a run whose `init` fiber dies at once**: `rendering` is the first step of a fiber
-  `Effect.forkChild` forks, documented not to start at once, so a command or a subscription of `init` that dies as
-  `FiberSet.run` or `FiberMap.run` starts it ends the run before `render` is called, where `docs/invariants.md` says
-  the renderer is called once in a run that died meanwhile too. A death that comes later lets it be called: the call
-  depends on timing. The form: a function of the program called as the first step of a fiber forked for it, not where
-  the call is decided. `drive` goes through `runWith` and meets it as the run's own. `run.test.ts`, "the renderer is
-  called once in a run whose subscription of init dies as the engine starts", the same of a command.
 - **The end of `rehearse` skips the cleanup of a key its interrupted step was stopping**: `Ledger.listened` takes the
   start, and the calls waiting on it, out of the ledger in the step's thunk, and the step stops and tells them after;
   a scenario that fails meanwhile has the end interrupt the step, and `Ledger.opened` no longer holds them. The
