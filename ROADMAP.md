@@ -24,16 +24,16 @@ where Effect 4.1.4 resumes it at once on the stack of the fiber that completes i
 AGENTS.md, since that inline resumption is read only in the source, unless it is added as a premise with a test
 that fails without it.
 
-- **To verify: the end of the run may miss a fiber started after it looked.** The engine's finalizer
-  (`Effect.addFinalizer` in `Engine.make`, `engine.ts`) takes `fibers` and `subscriptionFibers` in one thunk, then
-  interrupts and awaits those alone. A step the loop is in when the run is interrupted, held by an uninterruptible
-  `onApplied`, may start a command after that snapshot: the run then ends without awaiting it, or without the defect
-  it dies of. Not a death, so the check of `runCommand` lets it start. The fifth review ruled it out with "a step held
-  by an uninterruptible onApplied as the run is interrupted starts nothing the run does not await" (`run.test.ts`),
-  under Effect's own scheduler. To check: that test's scenario under `prioritizedSchedules`, with a command that
-  dies as it releases: the run's cause must hold that defect, and the command's release must have ended when the
-  run returns. If one is missed, the form is a snapshot taken while another fiber may still add to the set: look for
-  it in `rehearse`'s end too (`forks`, `underWay`).
+- **A defect the run returns, lost by the fiber it runs in, under `'queued'` alone.** The scenario of "a step held by an
+  uninterruptible onApplied as the run is interrupted starts nothing the run does not await" (`run.test.ts`), with a
+  command that dies as it releases, under `prioritizedSchedules` (2,000 seeds, depths 2 to 4, both modes): every command
+  that acquired was released before the run returned, and its defect was in the cause `runWith` returned, so the end of
+  the run misses no fiber. Once, at seed 767, depth 3, `'queued'` (path `prioritized(767, 3, …)`), the forked fiber the
+  test ran `run` in ended with the interruption alone, though an `Effect.onExit` around `run`, in that fiber, saw the
+  defect and the interruption: the defect is lost as the fiber ends, after the library's code (a reading of Effect's
+  `evaluate` points at the interruption of the fiber's children, unchecked). To decide: whether Effect's own scheduler
+  reaches it (none in `'inline'`), and whether the tests that read a run's exit through `Fiber.await` of a forked fiber
+  should read it inside that fiber instead.
 - **A check of the engine that no test can hold, to keep or remove**, found as `mutations/mutations.ts` was
   written: the start of a subscription's fiber after the first defect (`dead() ? Effect.void : runSubscription(…)` in
   `reconcile`). The window it narrows is one the README promises nothing about, so it has no mutation. Under
