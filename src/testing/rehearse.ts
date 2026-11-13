@@ -205,7 +205,7 @@ export const rehearse = Effect.fnUntraced(function*<
   // Read on each new state and compared with the keys of the state before, as the run reconciles them, though only
   // `hear` and `hearNext` act on them: a state whose subscriptions are a defect ends the run, and so does a key
   // whose `Equal` throws against a key of the state before. The calls that waited on a start stopped are told once it
-  // is released, unless its release died: then the death fails them, as it ends the run.
+  // is released: a defect of its release fails them first, as it ends the run.
   const listen = (state: State) =>
     Effect.sync(() => {
       const { gone, fresh, active: next } = Core.reconcile(active, subscriptions(state))
@@ -219,9 +219,7 @@ export const rehearse = Effect.fnUntraced(function*<
       return [stopping, stopped] as const
     }).pipe(
       diesIn('subscriptions'),
-      Effect.flatMap(([stopping, stopped]) =>
-        Effect.andThen(stop(stopping), Effect.suspend(() => dead() ? Effect.void : tellStopped(stopped)))
-      ),
+      Effect.flatMap(([stopping, stopped]) => Effect.andThen(stop(stopping), tellStopped(stopped))),
     )
   yield* listen(from.state)
   // Written only by the loop.

@@ -128,9 +128,9 @@ untouched and the seven tests of `rehearse.test.ts` without their mark.
   written for the third, "a message sent as the scenario returns is applied, and the command it starts fails the
   rehearsal", passes, and fails with the commands pending read as the exit is taken.
 - The premises it uses are in `docs/premises.md` already, each documented: what `Effect.uninterruptibleMask` runs
-  outside `restore` cannot be interrupted; an unbounded `Queue` takes an offer at once, and a shut one refuses it (the loop no longer shuts its queue: once
-  `end` is marked, nothing is offered to it); a
-  `Queue` gives its items in order, and a fiber that awaits a `Deferred` is interrupted alone; a fiber forked with
+  outside `restore` cannot be interrupted; an unbounded `Queue` takes an offer at once, and a shut one refuses it
+  (the loop no longer shuts its queue: once `end` is marked, nothing is offered to it); a `Queue` gives its items in
+  order, and a fiber that awaits a `Deferred` is interrupted alone; a fiber forked with
   `Effect.forkIn` ends with its scope; `Effect.onInterrupt`. It adds none. That `Effect.raceFirst` waits for the
   effect it interrupts, not documented, is no longer what makes a `run` fail with both defects of a command that
   dies as it releases: the call reads the exit of the command's fiber.

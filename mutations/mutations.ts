@@ -944,8 +944,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse's hearNext leaves a call waiting on a start whose key went away",
     file: 'src/testing/rehearse.ts',
-    from: 'Effect.suspend(() => dead() ? Effect.void : tellStopped(stopped))',
-    to: 'Effect.void',
+    from: 'Effect.andThen(stop(stopping), tellStopped(stopped))',
+    to: 'stop(stopping)',
     killedBy: [
       [
         'src/testing/rehearse.test.ts',
