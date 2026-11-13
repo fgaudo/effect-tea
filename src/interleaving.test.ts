@@ -175,7 +175,9 @@ type Event =
   | Readonly<{ _tag: 'Interrupted'; holder: Holder }>
   | Readonly<{ _tag: 'Drew'; frame: Frame<Model, Message> }>
   | Readonly<{ _tag: 'Spanned'; parent: Opt.Option<string> }>
-  | Readonly<{ _tag: 'Died'; where: Where; how: Death; defect: string }>
+  // `released`: what died is a release, whose defect counts only once the scope it is in has closed (README), which
+  // the scenario does not see.
+  | Readonly<{ _tag: 'Died'; where: Where; how: Death; defect: string; released: boolean }>
 
 const listener = (born: number, session: number) => `${born}.${session}`
 
@@ -239,7 +241,13 @@ const endsAs = (events: Array<Event>, name: string) => <A, E>(exit: Exit.Exit<A,
     )
     if (!died) return Effect.void
     return unpreempted.pipe(Effect.andThen(Effect.sync(() => {
-      events.push({ _tag: 'Died', where, how, defect: how === 'defect' ? name : interruptedItself })
+      events.push({
+        _tag: 'Died',
+        where,
+        how,
+        defect: how === 'defect' ? name : interruptedItself,
+        released: name.startsWith('release of '),
+      })
     })))
   })
 
@@ -357,11 +365,13 @@ const makeList = (fates: Fates, events: Array<Event>) => {
           return { state: { ...state, finished: true } }
       }
     },
-    runCommand: (command) =>
-      Effect.suspend(() => {
-        const name = `${command.born}.${command.attempt}`
+    // Recorded as the run calls it, which it may do only while it has not died: what the effect it returns does is the
+    // program's, and may come after a death.
+    runCommand: (command) => {
+      const name = `${command.born}.${command.attempt}`
+      events.push({ _tag: 'CommandStarted', command: name })
+      return Effect.suspend(() => {
         const holder: Holder = `command ${name}`
-        events.push({ _tag: 'CommandStarted', command: name })
         const answer = fateOf(fates.answers, command.born * 7 + command.attempt)
         return holds(events, holder).pipe(
           Effect.andThen(Effect.logDebug('Working', name)),
@@ -375,7 +385,8 @@ const makeList = (fates: Fates, events: Array<Event>) => {
           Effect.onInterrupt(() => Effect.sync(() => events.push({ _tag: 'Interrupted', holder }))),
           Effect.onExit(endsAs(events, holder)),
         )
-      }),
+      })
+    },
     // The same key in every session: only the engine tells a session from the one before.
     subscriptions: (state) =>
       state.listening ? HashMap.make(['ticks', ticking(state.id, state.born, state.session)]) : HashMap.empty(),
@@ -742,9 +753,12 @@ describe('interleavings of the user, commands and subscriptions', () => {
     })
   }, 120_000)
 
-  /** What the run did, of the events `tags` name, from the first defect on. */
+  /**
+   * What the run did, of the events `tags` name, from the first defect on. A release that dies is left out: it counts
+   * once its scope has closed, which the scenario does not see.
+   */
   const sinceFirstDefect = (events: ReadonlyArray<Event>, tags: ReadonlyArray<Event['_tag']>) => {
-    const first = events.findIndex(({ _tag }) => _tag === 'Died')
+    const first = events.findIndex((event) => event._tag === 'Died' && !event.released)
     return first === -1 ? [] : events.slice(first).filter(({ _tag }) => tags.includes(_tag)).map(({ _tag }) => _tag)
   }
 

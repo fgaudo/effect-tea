@@ -15,8 +15,9 @@ Decided, and done before the rest, since it rewrites what several open problems 
   one run of three. Steps 1 to 4, the functions over `Cause` of `diesIn` and `makeDeaths`, `reconcile` with `simulate`
   on it, `init` and `arrive` with the engine on them, `rehearse` on the core, with `ended`, and `rehearse`'s own
   bookkeeping as a pure module (`src/testing/ledger.ts`), which fixed its `runAll`, are done, and so is step 6, which
-  left the model to the shells: the README says a frame read after a defect still makes it. Next is step 7, which
-  answers the interleavings' counterexamples, each by a test of the core, a gate or a primitive.
+  left the model to the shells: the README says a frame read after a defect still makes it. Step 7, under way,
+  answers the interleavings' counterexamples, each by a test of the core, a gate or a primitive; those of "From the
+  first defect on" are answered.
 
 ## Open problems
 
@@ -38,29 +39,10 @@ where Effect 4.1.4 resumes it at once on the stack of the fiber that completes i
 AGENTS.md, since that inline resumption is read only in the source, unless it is added as a premise with a test
 that fails without it.
 
-- **The run starts a command after a subscription's release has died** (reproduced). "From the first defect on, the
-  run applies no message and starts no command" (`interleaving.test.ts`) fails, every time, under fast-check's
-  `{ seed: -1159550533, path: '842:3:3:3:30:29:33:40:38:38:40:40:38:38:46:38:42:51:52:46:46:46:46:56:46:49:53:54:53:59:57:57:57:57:57:57:57:58:57:57:57:57:58:57:58:57:57:57:57:57:57:57:57:57:57:57:96:98:103:103:104:104:133' }`,
-  passed to that test's `property` (whose options then take a `path`): the subscription of row 2, which has ended by
-  itself, releases slowly and dies there, and command `1.0` starts after the death. It needs no yield of the
-  scheduler: under Effect's own, a subscription that ends with two finalizers in the run's scope, the first of which
-  dies while the second waits on a `Deferred`, lets a message dispatched meanwhile reach `update` and start its
-  command (a probe, November 2026, not committed). The defect is recorded only as the scope's close ends
-  (`scopedIn`), and the engine can learn of it no earlier, with no `Supervisor`. So the README says nothing of when a
-  release dies ("dies when its effect ends with a defect" says it of the effect alone), and the property counts the
-  death from the finalizer's own exit. To decide: the README says a defect of what the run releases counts from the
-  end of that release, and the property moves its `Died` there; or the run learns of it earlier, which no API of
-  Effect offers but a `Supervisor`.
 - **The interleavings fail in about one run of three** (November 2026; `interleaving.test.ts` alone, 3 of 10 runs),
   each on a seed drawn at random (`bun run interleavings`, which `bun run test` leaves out). The counterexamples met, each the `seed` and `path` to pass to
   the test's `property` (whose options then take a `path`), and failing every time with them; fast-check names the
   scenario but not the assertion, which a run with them prints:
-  - "From the first defect on, the run applies no message and starts no command": the one above, and
-    `{ seed: 1253238301, path: '1008:0:1:5:10:14:14:18:19:38:28:34:36:32:41:32:34:32:32:32:37:39:39:40:39:42:43' }`,
-    a subscription that ends, releases slowly and dies there too (`endings: ['ends']`, `releases: ['slow']`), and
-    `{ seed: 163470521, path: '993:1:1:9:15:16:24:23:24:31:30:57:34:46:9:48:51:18:0:45:50:52:53:72:14:69' }`, the same
-    with a release that dies (`releases: ['slow', 'quick', 'quick', 'dies', 'quick']`), failing before step 3 of the
-    core as after it.
   - "The defects of the cause are those that happened, self-interruptions too, each where, in order":
     `{ seed: 2065983806, path: '44:0:0:9:8:8:3:0:5:9:13:19:19:3:0:1:3:3:0:3:4:9:7:7:34:30:33:30:0:35:32:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:4:7' }`,
     a subscription and a command that die, and a renderer that dies joining a fiber (`rendererDies: 'joins'`).
@@ -71,8 +53,10 @@ that fails without it.
     the same (`endings: ['stays']`, `releases: ['slow']`), met after step 4 of the core, whose seeds drawn at random
     fail this property as often before it.
 
-  Each is a finding until a fix, or a reading of the assertion, says otherwise: the last two may share the first's
-  form or have their own, and the last, with no defect, may be a scheduling the property does not allow for.
+  Each is a finding until a fix, or a reading of the assertion, says otherwise: the last two, with no defect, may be
+  a scheduling the property does not allow for. The three of "From the first defect on" were readings of the
+  property's: it counted a release's defect from the finalizer's exit, where the README counts it once the scope has
+  released all it holds, and a command as started where its effect first ran, not where the run called `runCommand`.
 - **To verify: the renderer may start after the first defect.** `running` in `run.ts` calls `render(frames)` after
   `Engine.make`, with no check of the register, so a subscription of `init` that dies as the engine starts may let
   the renderer's code run after the defect. The fifth premise review ruled it out with one run under Effect's own

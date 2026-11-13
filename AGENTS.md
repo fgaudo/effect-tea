@@ -118,7 +118,8 @@ is how they are kept, and what a change must not undo:
   them into messages: reporting is the job of whoever runs the program. A fiber of the program dies when its effect
   ends with a defect: what the program wraps around its own code (`Effect.ensuring`, an `Effect.scoped` of its own)
   runs before, and may still catch it, so never add a way to learn of a defect earlier (a `Supervisor`, a look at a
-  fiber's state); what it acquires in the scope the library gives it is released after. Where the engine knows
+  fiber's state); what it acquires in the scope the library gives it is released after, and what that release dies of
+  is a defect once the scope has closed. Where the engine knows
   where a defect happened, it wraps each defect of the cause in a `ProgramDefect` (`diesIn` in `engine.ts`) that holds it as
   its `cause` and says where, and keeps the rest of the cause. The run's own logs die in `'log'`, each outside
   any other site, so that a `Logger` that throws is never taken for the subscription or the step that logs; what

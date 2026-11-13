@@ -1306,6 +1306,41 @@ describe('the end of the run', () => {
     expect(started).toBe(0)
   })
 
+  // What a release dies of is a defect once the scope it is in has released all it holds: a subscription that ends
+  // of itself, whose first finalizer dies while the next waits, applies the messages sent meanwhile.
+  test('a subscription whose release dies applies messages until its scope has released all', async () => {
+    const drawn: Array<number> = []
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const releasing = yield* Deferred.make<void>()
+      const go = yield* Deferred.make<void>()
+      yield* run(
+        {
+          ...counter,
+          subscriptions: () =>
+            HashMap.make([
+              'a',
+              Channel.unwrap(
+                Effect.addFinalizer(() => Deferred.succeed(releasing, undefined).pipe(Effect.andThen(Deferred.await(go))))
+                  .pipe(
+                    // Added last, so run first.
+                    Effect.andThen(Effect.addFinalizer(() => Effect.die('release'))),
+                    Effect.as(Channel.fromEffectDone(Effect.succeed<Message>('Forbidden'))),
+                  ),
+              ),
+            ]),
+        },
+        (frames) =>
+          Stream.runForEach(frames, ({ model, dispatch }) => {
+            drawn.push(model.count)
+            return model.count === 0
+              ? Deferred.await(releasing).pipe(Effect.andThen(dispatch(model.increment)))
+              : Deferred.succeed(go, undefined)
+          }),
+      )
+    }))
+    expect([wheres(exit), drawn]).toEqual([['subscription'], [0, 1]])
+  })
+
   test('a message whose onApplied waits while a command dies starts none of its commands', async () => {
     let died = false
     let startedAfter = 0
