@@ -1148,10 +1148,44 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
   })
 })
 
+describe('rehearse after the first defect', () => {
+  // The order no yield of the scheduler needs: the loop checks the register as it takes the step of `send`, and the
+  // death is recorded after, in the step, by a read of the model that the test's `select` makes, before `update`.
+  test('send calls no update once a read of the model has died in its select', async () => {
+    type Count = Readonly<{ n: number }>
+    const late = { n: 0 }
+    let dying = false
+    let died = false
+    const exit = await Effect.runPromiseExit(rehearse(
+      {
+        init: { state: { n: 0 } },
+        update: () => ({ n }: Count) => {
+          if (died) late.n += 1
+          return { state: { n: n + 1 } }
+        },
+        makeModel: (state: Count) => {
+          if (dying) throw new Error('boom')
+          return state
+        },
+      },
+      (rehearsal) =>
+        rehearsal.send(() => {
+          dying = true
+          died = Exit.isFailure(Effect.runSync(Effect.exit(rehearsal.model)))
+          return Opt.some('Go')
+        }),
+    ))
+    expect(died).toBe(true)
+    expect(late.n).toBe(0)
+    expect(Exit.isFailure(exit)).toBe(true)
+  })
+})
+
 // The form of the engine's window between a check of its register and what it guards: `run` may yield before it calls
 // `runCommand`, and `model` before it calls `makeModel`, while another fiber dies. Each checks again in the thunk that
 // calls the program, which a scheduler the test controls reaches. That of `update` is the core's (`Core.arrive`),
-// held by `core.test.ts`.
+// held by `core.test.ts`, and called by `rehearse` as by the engine ("send calls no update once a read of the model has
+// died in its select").
 describe('rehearse, after the first defect, a yield of the scheduler in between', () => {
   type Count = Readonly<{ n: number }>
 

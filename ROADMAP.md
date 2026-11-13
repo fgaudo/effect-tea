@@ -24,10 +24,6 @@ where Effect 4.1.4 resumes it at once on the stack of the fiber that completes i
 AGENTS.md, since that inline resumption is read only in the source, unless it is added as a premise with a test
 that fails without it.
 
-- **`rehearse`'s loop checks the register before each step** (`recorded(deadOr(step))`), which hides the check of
-  `Core.arrive` from every order but a scheduled one, as the engine's loop did: the check is held by `core.test.ts`,
-  on `arrive` alone, and nothing holds that `rehearse` calls `update` through it. Unlike the engine's, it also keeps `hearNext` from starting a
-  subscription after a death (`opening`): taken out, that start needs a check of its own, in the thunk that forks it.
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
 
 ## Possible improvements

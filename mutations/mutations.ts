@@ -462,6 +462,15 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'rehearse calls update after the first defect',
+    file: 'src/testing/rehearse.ts',
+    from: 'Core.arrive(program.update, before, active, source, message, dead)',
+    to: 'Core.arrive(program.update, before, active, source, message, () => false)',
+    killedBy: [
+      ['src/testing/rehearse.test.ts', 'send calls no update once a read of the model has died in its select'],
+    ],
+  },
+  {
     name: 'rehearse runs a command after the first defect',
     file: 'src/testing/rehearse.ts',
     from: 'Effect.suspend(() => dead() ? deadOr(Effect.never) : runCommand(command))',
