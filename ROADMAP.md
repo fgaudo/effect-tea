@@ -6,28 +6,7 @@ when it is done or rejected, with the reason in the commit.
 
 ## Open problems
 
-### Found by the sixth review of the premises (November 2026)
-
-The reports are the bodies of the commits of `claude/premise-review-6-engine-8ac990` (`ec3fe8c`, `d08d9d7`) and of
-`claude/premise-review-6-testing-d70db0` (`463159c`, `e4f4687`). Its open problems are closed.
-
-Conditions the review took out with every test still passing, each to get a test and, where it is a check, a
-mutation:
-
-- **The engine's own end** (`engine.ts`, the finalizer of `make`, the fix of f415d46): with nothing after `stop`,
-  `bun run test` and the search pass. What it still gives is read only: the fibers interrupted with the run's mark,
-  and the commands and the subscriptions together.
-- **The end of `rehearse`**: that it interrupts the loop, shuts the queue (and that a refused `submit` interrupts the
-  call), interrupts what was offered and not delivered, and stops the opened starts itself; that a step fails on a
-  defect of the release it awaited; that the shell makes `Ledger.leave` as a call ends; that a message of `hearNext`
-  the loop dropped fails the call.
-- **Smaller ones**: the first of the two checks of an own key in `compose.ts`, which the second hides; the run's
-  queue unbounded, killed only by a test that hangs; `debugging` before the log of a dropped message;
-  `dispatchViolations` on a second send that only raises an event; `simulate`'s `diesIn('command')` outside
-  `Effect.scoped`. "a key that goes away interrupts its subscription, which releases what it holds"
-  (`engine.test.ts`) passes with a gone key that keeps running: two other tests hold the condition.
-- **A lead no test reaches yet**: the loop forked and not yet known to `stop`, under "Premises that no test reaches
-  yet" in `docs/premises.md`.
+None today.
 
 ## Possible improvements
 
