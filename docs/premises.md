@@ -39,6 +39,18 @@ The invariants themselves are in [`invariants.md`](invariants.md).
 - **`Fiber.interruptAs` completes only once the interrupted fiber has**, which is how the end of the run stops the loop
   before it stops the renderer, and before it reads the fibers to interrupt: "a message the renderer sends as the run
   releases it does not reach update" (`run.test.ts`). Documented.
+- **A fiber forked with `FiberSet.run` where its parent is uninterruptible can still be interrupted**, which is how
+  the engine forks its loop and keeps it for `stop` in one region nothing interrupts, and still stops it: "a message
+  update rejects is ignored, and the program goes on", "the end of the engine lets its loop end before it interrupts
+  its commands" (`engine.test.ts`), and every other test that ends an engine, never end with a loop that inherits it.
+  Not documented: read in the source (`FiberSet.run` forks with `forkUnsafe`, interruptible whatever its parent),
+  and seen in those tests.
+- **A scope runs its finalizers in the reverse order they were added**, which is how the end of the engine, added
+  after its `FiberSet` and its `FiberMap` were made, stops their fibers with the run's mark before they close, and
+  reports what those die of as they release: "a command that joins a fiber the fiber of the run interrupted, as the
+  run ends, is a defect in the command" (`run.test.ts`), "the end of the engine interrupts its commands and its
+  subscriptions at once", "what a command dies of as the end of the engine interrupts it is what the end dies of"
+  (`engine.test.ts`) fail with the sets made after it. Not documented, and seen in those tests.
 - **`Effect.onExit` runs its cleanup however the effect ends, and puts what the cleanup fails with after the cause
   of the effect**, which is how each fiber of the engine records what it dies of, interrupted or not. Interrupted: "a defect in what a subscription
   the run stopped releases ends the run", "a subscription stopped as whoever runs the run interrupts it, which dies
@@ -216,10 +228,5 @@ releases what a fiber holds, and leaves a test at each place the form can reach.
 
 A lead no test can reach yet is listed here, with what would decide it.
 
-- **The loop forked and not yet known to `stop`** (the sixth review, November 2026). The engine forks its loop with
-  `FiberSet.run`, which starts it at once, and keeps it for `stop` only when its own fiber resumes. A run interrupted
-  between the two closes its scope with no loop to stop first: the loop is then interrupted with the engine's other
-  fibers, not before them. By reading, nothing is lost, since the loop is among those fibers and `runWith` reads the
-  register once the scope has closed. What would decide it: a run interrupted at the yield between the fork and the
-  assignment, with the answer of a command of `init` queued, in which no command starts once the end has read its
-  fibers. Only the scheduler of the tests reaches that yield, and no test of a check runs under it.
+None today. The last, the loop forked and not yet known to `stop` (the sixth review, November 2026), went once
+the fork and its assignment were made one region nothing interrupts (`make` in `engine.ts`).

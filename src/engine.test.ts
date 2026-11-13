@@ -1,15 +1,19 @@
 import { describe, expect, test } from 'bun:test'
+import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
 import { absurd, identity } from 'effect/Function'
 import * as HashMap from 'effect/HashMap'
 import * as Logger from 'effect/Logger'
 import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import * as References from 'effect/References'
-import type * as Scope from 'effect/Scope'
+import * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
+import { ProgramDefect } from './defect.ts'
 import * as Engine from './engine.ts'
 import type { Execution } from './command.ts'
 import type { Subscription } from './subscription.ts'
@@ -570,5 +574,111 @@ describe('Engine after the first defect', () => {
       Effect.provide(Logger.layer([])),
     ))
     expect(described).toEqual(['Stop'])
+  })
+})
+
+describe('Engine end', () => {
+  // The engine used without `run`, whose renderer's release stops the loop first already: the end of the engine is
+  // all there is. Its command, started by `init`, is the one each test gives.
+  const ending = (
+    hold: Execution<'Go', Scope.Scope>,
+    options: Readonly<{ subscription?: Subscription<'Go', Scope.Scope>; onApplied?: Effect.Effect<void> }> = {},
+  ) =>
+    Engine.make<number, 'Go', 'Hold', Scope.Scope, string>({
+      init: { state: 0, commands: ['Hold'] },
+      update: () => (n) => ({ state: n + 1 }),
+      runCommand: () => hold,
+      subscriptions: () =>
+        options.subscription === undefined ? HashMap.empty() : HashMap.make(['subscription', options.subscription]),
+      onApplied: () => options.onApplied ?? Effect.void,
+    })
+
+  test('the end of the engine lets its loop end before it interrupts its commands', async () => {
+    const log = await Effect.runPromise(Effect.gen(function*() {
+      const log: Array<string> = []
+      const holding = yield* Deferred.make<void>()
+      const busy = yield* Deferred.make<void>()
+      const go = yield* Deferred.make<void>()
+      const scope = yield* Scope.make()
+      const engine = yield* ending(
+        Deferred.succeed(holding, undefined).pipe(
+          Effect.andThen(Effect.never),
+          Effect.onInterrupt(() => Effect.sync(() => log.push('command interrupted'))),
+        ),
+        {
+          // Uninterruptible, so that the loop still runs once the end has begun.
+          onApplied: Effect.uninterruptible(
+            Deferred.succeed(busy, undefined).pipe(
+              Effect.andThen(Deferred.await(go)),
+              Effect.andThen(Effect.sync(() => log.push('applied Go'))),
+            ),
+          ),
+        },
+      ).pipe(Scope.provide(scope))
+      yield* Deferred.await(holding)
+      yield* engine.dispatch('Go')
+      yield* Deferred.await(busy)
+      const closing = yield* Effect.forkChild(Scope.close(scope, Exit.void))
+      // Long enough for the end to interrupt the command, were it not waiting for the loop.
+      yield* Effect.sleep('20 millis')
+      yield* Deferred.succeed(go, undefined)
+      yield* Fiber.join(closing)
+      return log
+    }))
+    expect(log).toEqual(['applied Go', 'command interrupted'])
+  })
+
+  test('the end of the engine interrupts its commands and its subscriptions at once', async () => {
+    const log = await Effect.runPromise(Effect.gen(function*() {
+      const log: Array<string> = []
+      const holding = yield* Deferred.make<void>()
+      const listening = yield* Deferred.make<void>()
+      const interrupted = yield* Deferred.make<void>()
+      const scope = yield* Scope.make()
+      // The command's release waits for the subscription to be interrupted: interrupted one after the other, it would
+      // wait in vain, until its patience runs out.
+      yield* ending(
+        Effect.acquireRelease(Effect.void, () =>
+          Deferred.await(interrupted).pipe(
+            Effect.timeoutOption('200 millis'),
+            Effect.flatMap((waited) =>
+              Effect.sync(() =>
+                log.push(Opt.isSome(waited) ? 'released once the subscription was interrupted' : 'released alone')
+              )
+            ),
+          )).pipe(
+            Effect.andThen(Deferred.succeed(holding, undefined)),
+            Effect.andThen(Effect.never),
+          ),
+        {
+          subscription: Channel.fromEffectDrain(
+            Deferred.succeed(listening, undefined).pipe(
+              Effect.andThen(Effect.never),
+              Effect.onInterrupt(() => Deferred.succeed(interrupted, undefined)),
+            ),
+          ).pipe(Channel.concatWith(() => Channel.never)),
+        },
+      ).pipe(Scope.provide(scope))
+      yield* Deferred.await(holding)
+      yield* Deferred.await(listening)
+      yield* Scope.close(scope, Exit.void)
+      return log
+    }))
+    expect(log).toEqual(['released once the subscription was interrupted'])
+  })
+
+  test('what a command dies of as the end of the engine interrupts it is what the end dies of', async () => {
+    const exit = await Effect.runPromiseExit(Effect.scoped(Effect.gen(function*() {
+      const holding = yield* Deferred.make<void>()
+      yield* ending(
+        Deferred.succeed(holding, undefined).pipe(
+          Effect.andThen(Effect.never),
+          Effect.onInterrupt(() => Effect.die('boom')),
+        ),
+      )
+      yield* Deferred.await(holding)
+    })))
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    expect(defect instanceof ProgramDefect && [defect.where, defect.cause]).toEqual(['command', 'boom'])
   })
 })

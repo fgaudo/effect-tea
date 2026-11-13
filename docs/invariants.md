@@ -122,7 +122,8 @@ is how they are kept, and what a change must not undo. What they rest on of Effe
     would answer in its place in every order a deterministic test reaches.
   - **A fiber and how it stops are one primitive**, `Effect.acquireRelease(fork, stop)`, with nothing in between for an
     interruption to fall into (the renderer in `run.ts`), or `Effect.acquireUseRelease` where a call waits for the
-    fiber (a command's in `rehearse`'s `run`).
+    fiber (a command's in `rehearse`'s `run`), or the fork and what keeps it for the stop in one region nothing
+    interrupts, where the stop is the end's (the loop in `engine.ts`, for `stop`).
 
   What cannot be one thunk with its check, as the first step of an effect of the program, is no act the README
   promises about.
@@ -130,9 +131,10 @@ is how they are kept, and what a change must not undo. What they rest on of Effe
   A region nothing may interrupt holds no code of the program, so no gate reaches it, and it has no mutation: one that
   took it out would fail only under the scheduler of the tests. It is written in one of three forms: a transition of
   the ledger made in the thunk of an offer to `rehearse`'s loop (`offered`, of `submit` in `loop.ts`), held by the test
-  of the transition (`ledger.test.ts`); a fiber and how it stops as one primitive, above; what follows an effect of the
-  program outside `restore` (a command's answer, offered to the loop). The last two are held by Effect's
-  documentation (`premises.md`). The checks beside them (`ended` in `loop.ts`, the register, a call that left) each
+  of the transition (`ledger.test.ts`); a fiber and how it stops as one primitive or one region, above; what follows
+  an effect of the program outside `restore` (a command's answer, offered to the loop). The last two are held by
+  Effect's documentation, and the region of the loop by the tests of a premise Effect does not document
+  (`premises.md`). The checks beside them (`ended` in `loop.ts`, the register, a call that left) each
   have a mutation with a deterministic killer, and the tests of `rehearse.test.ts` under the scheduler of the tests
   stay as alarms of the search, killing none.
 - **Commands are data; only `runCommand` runs them.** Never let a command carry its effect, or a description

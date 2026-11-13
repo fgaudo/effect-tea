@@ -441,12 +441,23 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     Effect.provideContext(context),
     recorded,
   )
-  loop = yield* Effect.gen(function*() {
+  // The fork and its assignment are one step nothing interrupts: interrupted between them, the fiber that makes the
+  // engine would close its scope with a loop `stop` does not know of. The loop is interruptible all the same:
+  // `FiberSet.run` forks every fiber interruptible, whatever its parent (`docs/premises.md`).
+  yield* Effect.gen(function*() {
     let active = initialActive
     while (true) {
       active = yield* step(active, yield* Queue.take(queue))
     }
-  }).pipe(Effect.provideContext(context), recorded, FiberSet.run(fibers))
+  }).pipe(
+    Effect.provideContext(context),
+    recorded,
+    FiberSet.run(fibers),
+    Effect.map((fiber) => {
+      loop = fiber
+    }),
+    Effect.uninterruptible,
+  )
   return {
     await: died.pipe(Effect.andThen(report), Effect.andThen(Effect.never)),
     died,

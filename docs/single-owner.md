@@ -226,8 +226,12 @@ test files and its two modes go with it.
 ### Where by construction stops
 
 - **The end of the run.** With the loop stopped and awaited first, no fiber forks while the end reads the run's
-  fibers: the fiber that makes the engine is the one that closes its scope. This is argued, and no test fails
-  without it.
+  fibers: the fiber that makes the engine is the one that closes its scope, and the fork of the loop and its
+  assignment are one region nothing interrupts, so `stop` always knows of it. Argued when this was written; since the
+  sixth review (November 2026) each part of the engine's end has a test with no schedule that fails without it, and a
+  mutation: "the end of the engine lets its loop end before it interrupts its commands", "… interrupts its commands
+  and its subscriptions at once", "what a command dies of as the end of the engine interrupts it is what the end
+  dies of" (`engine.test.ts`).
 - **A mutation of form**, as `runAll`'s: the rule of policy.
 - **What is delegated to Effect.** That `acquireRelease` leaves no window is read in its documentation and tested by
   nothing of the library's, as AGENTS.md's rule on documented premises accepts.
@@ -274,8 +278,9 @@ by no test.
 8. Done. AGENTS.md says the three rules beside "one thunk", that no test of a check runs under a schedule, and that a
    form the structure rules out is held by the test of its transition, with no mutation. The search of
    `interleaving.test.ts` stays as an alarm, run apart, and `test/scheduled.ts` with it: it is what watches the end of
-   the run, which no test holds, and the premise of the `Scheduler` is its alone, so a model gone wrong costs a false
-   alarm or a missed one, never a test that passes where it should fail.
+   the run, which no test held until the sixth review gave it tests with no schedule, and the premise of the
+   `Scheduler` is its alone, so a model gone wrong costs a false alarm or a missed one, never a test that passes
+   where it should fail.
 
 ## What it rests on
 
@@ -304,7 +309,9 @@ by no test.
 - That the loop first breaks nothing the order was there for: **read**. The renderer was stopped first so that its
   defect was not lost (commit bc5229d), and by the order of acquisition in the scope, not so that the loop went on.
 - That the end of the run misses no fiber once the loop is stopped first: **argued**, not held by a test. Before,
-  it was read in a search (commit 784d681).
+  it was read in a search (commit 784d681). Since the sixth review, **checked**: the loop ends before the end
+  interrupts any other fiber, and a fiber the end left to the close of its set would be interrupted with no mark,
+  which the tests of the engine's end and of a self-interruption as the run interrupts kill.
 - That a step interrupted by the end of the run leaves nothing a consumer relies on: **open**. `onApplied` may have
   heard a step whose frame is never drawn, as it may today when whoever runs the run interrupts it.
 

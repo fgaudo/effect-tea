@@ -450,6 +450,51 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'the end of the engine does not stop its loop first',
+    file: 'src/engine.ts',
+    from: '    Effect.andThen(\n      stop,\n',
+    to: '    Effect.andThen(\n      Effect.void,\n',
+    killedBy: [
+      ['src/engine.test.ts', 'the end of the engine lets its loop end before it interrupts its commands'],
+    ],
+  },
+  {
+    name: 'the end of the engine leaves its fibers to the close of their sets',
+    file: 'src/engine.ts',
+    from: "return Effect.forEach(running, stopping, { concurrency: 'unbounded', discard: true }).pipe(",
+    to: 'return Effect.void.pipe(',
+    killedBy: [
+      [
+        'src/run.test.ts',
+        'a command that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the command',
+      ],
+      [
+        'src/run.test.ts',
+        'a subscription that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the '
+          + 'subscription',
+      ],
+      ['src/engine.test.ts', 'what a command dies of as the end of the engine interrupts it is what the end dies of'],
+    ],
+  },
+  {
+    name: 'the end of the engine stops its fibers one after the other',
+    file: 'src/engine.ts',
+    from: "Effect.forEach(running, stopping, { concurrency: 'unbounded', discard: true })",
+    to: 'Effect.forEach(running, stopping, { discard: true })',
+    killedBy: [
+      ['src/engine.test.ts', 'the end of the engine interrupts its commands and its subscriptions at once'],
+    ],
+  },
+  {
+    name: 'the end of the engine does not report what its fibers died of',
+    file: 'src/engine.ts',
+    from: '          Effect.andThen(report),\n',
+    to: '',
+    killedBy: [
+      ['src/engine.test.ts', 'what a command dies of as the end of the engine interrupts it is what the end dies of'],
+    ],
+  },
+  {
     name: 'the end of the run stops the renderer before the loop',
     file: 'src/run.ts',
     from: 'engine.stop.pipe(Effect.andThen(Engine.stopping(renderer)))',
