@@ -872,15 +872,18 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'drive keeps no defect of makeModel the scenario caught',
     file: 'src/testing/drive.ts',
-    from: 'Cause.hasDies(cause) && modeled.reasons.length === 0',
-    to: 'false',
-    killedBy: [['src/testing/contract.test.ts', 'drive fails in render all the same, as rehearse does']],
+    from: "diesIn('render'), deaths.recorded)",
+    to: "diesIn('render'))",
+    killedBy: [
+      ['src/testing/contract.test.ts', 'drive fails in render all the same, as rehearse does'],
+      ['src/testing/drive.test.ts', 'fails with the defects in the order they happened'],
+    ],
   },
   {
     name: 'drive goes on after a defect of makeModel until the scenario ends',
     file: 'src/testing/drive.ts',
-    from: 'Effect.raceFirst(Fiber.await(fiber), Deferred.await(modelDied))',
-    to: 'Fiber.await(fiber)',
+    from: '    deaths,\n  ).pipe(',
+    to: '    { ...deaths, died: Effect.never },\n  ).pipe(',
     killedBy: [['src/testing/contract.test.ts', 'drive ends on the defect a scenario that goes on caught']],
   },
   {

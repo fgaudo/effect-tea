@@ -1,6 +1,4 @@
-import * as Cause from 'effect/Cause'
 import * as Clock from 'effect/Clock'
-import * as Deferred from 'effect/Deferred'
 import type * as Duration from 'effect/Duration'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
@@ -10,7 +8,7 @@ import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import * as SubscriptionRef from 'effect/SubscriptionRef'
 import * as Core from '../core.ts'
-import { diesIn, type RunOptions } from '../engine.ts'
+import { diesIn, makeDeaths, type RunOptions } from '../engine.ts'
 import type { Shape } from '../program.ts'
 import { type FlagsOption, type Frame, runWith } from '../run.ts'
 
@@ -82,19 +80,11 @@ export const drive = Effect.fnUntraced(function*<
       Effect.orDie,
     )
   // The model is made when the scenario first reads it, where the run makes it when its renderer does: a defect of
-  // `makeModel` is in `'render'` all the same, and ends the run as the renderer's would, though the scenario catches
-  // it. The first is kept, and comes first in the cause.
-  let modeled: Cause.Cause<never> = Cause.empty
-  const modelDied = yield* Deferred.make<void>()
+  // `makeModel` is in `'render'` all the same, and is recorded with what the run's fibers die of, as the renderer's
+  // would be, though the scenario catches it. So the run dies of it, as of any other, and the race ends with the run.
+  const deaths = yield* makeDeaths(() => true)
   const shown = (frame: Frame<Model, Message>) =>
-    Effect.sync(() => frame.model).pipe(
-      diesIn('render'),
-      Effect.onError((cause) =>
-        Cause.hasDies(cause) && modeled.reasons.length === 0
-          ? Effect.andThen(Effect.sync(() => (modeled = cause)), Deferred.succeed(modelDied, undefined))
-          : Effect.void
-      ),
-    )
+    Effect.sync(() => frame.model).pipe(diesIn('render'), deaths.recorded)
   const driver: Driver<Model, Message> = {
     waitFor: (select) => first((frame) => Effect.map(shown(frame), select)),
     send: (select) =>
@@ -106,6 +96,7 @@ export const drive = Effect.fnUntraced(function*<
     (rendered) => Stream.runForEach(rendered, (frame) => SubscriptionRef.set(frames, Opt.some(frame))),
     // The rest of the options keeps the flags the parameter's type requires.
     options as RunOptions<Message, State, Command>,
+    deaths,
   ).pipe(Effect.andThen(Effect.die(new Error('The program ended before the scenario'))))
   // Stopped and awaited however `drive` ends, interrupted by whoever runs it too: its exit holds what the program
   // dies of as it releases what it holds.
@@ -114,24 +105,14 @@ export const drive = Effect.fnUntraced(function*<
     const ended = yield* Effect.exit(restore(Effect.raceFirst(
       // Suspended, so that a scenario that throws before it returns its effect fails here, past nothing of the end.
       Effect.asSome(Effect.exit(Effect.suspend(() => scenario(driver)))),
-      Effect.as(Effect.raceFirst(Fiber.await(fiber), Deferred.await(modelDied)), Opt.none()),
+      Effect.as(Fiber.await(fiber), Opt.none()),
     )))
     yield* Fiber.interrupt(fiber)
     const stopped = yield* Fiber.await(fiber)
-    // Interrupted, the run dies of what its fibers die of as they release what they hold, as when whoever runs it
-    // interrupts it.
-    const dies = Core.diesOf(stopped)
-    // The run died in its renderer, as it dies when its renderer reads the model: what the scenario ended with is
-    // dropped as when the run dies first, whichever of the two the race saw end first, and the defect is the first.
-    if (modeled.reasons.length > 0) {
-      return yield* Effect.failCause(Cause.fromReasons<never>([...modeled.reasons, ...dies]))
-    }
-    // What the scenario ended with, or how `drive` was interrupted; none when the run ended first.
+    // What the scenario ended with, or how `drive` was interrupted. Once the run has ended, of a defect as of
+    // anything else, what the scenario ended with is dropped. Interrupted, the run dies of what its fibers die of as
+    // they release what they hold, as when whoever runs it interrupts it: the defects first, in the order they died.
     const outcome = Exit.isSuccess(ended) ? ended.value : Opt.some(Exit.failCause(ended.cause))
-    if (Opt.isNone(outcome)) {
-      return yield* stopped
-    }
-    // The defects first, as the run puts them before the rest of what it ended with.
-    return yield* Core.endedWith(dies, outcome.value)
+    return yield* Core.endedWith(deaths.all(), Opt.getOrElse(outcome, () => stopped))
   }))
 })

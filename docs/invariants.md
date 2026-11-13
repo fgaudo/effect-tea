@@ -59,8 +59,8 @@ is how they are kept, and what a change must not undo. What they rest on of Effe
     testing tools, which run in their caller's fiber: `rehearse` stops a command whose `run` is interrupted, the keys
     that went away and, as it ends, the commands under way, before it closes its scope, which would interrupt them as
     the fiber that ends it; `simulate` runs each command in a fiber of its own, which it stops when it is interrupted.
-  - Each fiber of the run records what it dies of in one place (`makeDeaths` in `engine.ts`, made by `runWith` and given
-    to the engine; `rehearse` has its own, keeping only the program's defects): the engine's, the renderer, and the
+  - Each fiber of the run records what it dies of in one place (`makeDeaths` in `engine.ts`, made by `run` or `drive`
+    and given through `runWith` to the engine; `rehearse` has its own, keeping only the program's defects): the engine's, the renderer, and the
     run's own as it starts the engine, as they end, and one with a scope of its own as it dies too, before the scope
     releases what it holds (`scopedIn`), a subscription's channel and the scopes of its own included
     (`runSubscription`), so that a defect is in the order it happened, though its release lets another fiber die first;
@@ -89,8 +89,9 @@ is how they are kept, and what a change must not undo. What they rest on of Effe
     they close. The renderer is one of them, interrupted and awaited however the run ends, once the loop has stopped and
     before the engine's other fibers (`running` in `run.ts`).
   - `drive` stops and awaits its run however it ends, interrupted too. A defect of `makeModel`, which the scenario
-    meets where the run's renderer would, is kept as it happens, and the race with the scenario only ends it early:
-    `drive` fails on it, first, though the scenario caught it. A call of `rehearse`'s that waits for a subscription or
+    meets where the run's renderer would, is recorded as it happens in the register of the run (`runWith` in
+    `run.ts`), so that the run dies of it as of any other, and the scenario races only the end of the run: `drive`
+    fails on it, in the order the defects happened, though the scenario caught it. A call of `rehearse`'s that waits for a subscription or
     a command races its wait with the death of any fiber (`orDead`), as the run dies at once.
 - **A subscription never ends in silence**: its end value is a message (or `never`), sent to `update`. An ended
   subscription keeps its key among the active ones until the key goes away and comes back: never restart it

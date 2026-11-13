@@ -18,23 +18,25 @@ export type Frame<Model, Message> = Readonly<{ model: Model; dispatch: Dispatch<
 export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: never }>
   : Readonly<{ flags: Flags }>
 
-/** `run`, with its options as one value: for `drive`, which passes them on as it got them. */
-// Untraced: a span of its own would be the one the renderer logs into (see `Engine.withExternalSpan`).
-export const runWith = Effect.fnUntraced(function*<State, Model, Message, Command, R, RR, Flags>(
+/**
+ * `run`, with its options as one value, recording what its fibers die of in `deaths`: for `drive`, which passes the
+ * options on as it got them, and records there what the scenario meets of `makeModel`.
+ */
+// Not an `Effect.fn`: a span of its own would be the one the renderer logs into (see `Engine.withExternalSpan`).
+export const runWith = <State, Model, Message, Command, R, RR, Flags>(
   program: Shape<State, Model, Message, Command, R, never, unknown, Flags>,
   render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
   options: Engine.RunOptions<Message, State, Command> & Readonly<{ flags?: unknown }>,
-): Effect.fn.Return<void, never, Exclude<R | RR, Scope.Scope>> {
+  deaths: Engine.Deaths,
+): Effect.Effect<void, never, Exclude<R | RR, Scope.Scope>> =>
   // The renderer, the fiber of the run as it starts the engine, and the engine's fibers record what they die of in
   // one place: the defects come first in the cause, in the order they died, then the rest of what the run ended with
   // (an interruption by whoever runs it), but for the defects already among them, by their identity.
-  const deaths = yield* Engine.makeDeaths(() => true)
-  return yield* Effect.uninterruptibleMask((restore) =>
+  Effect.uninterruptibleMask((restore) =>
     Effect.exit(restore(running(program, render, options, deaths))).pipe(
       Effect.flatMap((exit) => Core.endedWith(deaths.all(), exit)),
     )
   )
-})
 
 const running = Effect.fnUntraced(
   function*<State, Model, Message, Command, R, RR, Flags>(
@@ -92,7 +94,8 @@ export const run = <State, Model, Message, Command = never, R = never, RR = neve
   ...[options = {}]: [Flags] extends [never]
     ? [options?: Engine.RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>]
     : [options: Engine.RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
-): Effect.Effect<void, never, Exclude<R | RR, Scope.Scope>> => runWith(program, render, options)
+): Effect.Effect<void, never, Exclude<R | RR, Scope.Scope>> =>
+  Effect.flatMap(Engine.makeDeaths(() => true), (deaths) => runWith(program, render, options, deaths))
 
 const lazyFrame = <Model, Message>(makeModel: () => Model, dispatch: Dispatch<Message>): Frame<Model, Message> => {
   let made: Readonly<{ model: Model }> | undefined

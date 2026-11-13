@@ -331,3 +331,50 @@ describe('drive and a scenario that throws before it returns its effect', () => 
     expect(log.filter((each) => each === 'started').length).toBe(log.filter((each) => each === 'released').length)
   })
 })
+
+// The run keeps its defects in the order they happened: a defect of `makeModel` that the scenario meets once another
+// fiber has died comes after that one.
+describe('drive and a defect of makeModel after another defect', () => {
+  type Still = Readonly<{ still: true }>
+
+  test('fails with the defects in the order they happened', async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const stopping = yield* Deferred.make<void>()
+      const read = yield* Deferred.make<void>()
+      // Its release holds the run, which has died, until the scenario has read the model.
+      const program: Program<{ state: Still; model: Still; message: 'Boom' }> = {
+        init: { state: { still: true } },
+        update: () => () => {
+          throw new Error('update')
+        },
+        subscriptions: () =>
+          HashMap.make([
+            'k',
+            Channel.unwrap(
+              Effect.acquireRelease(
+                Effect.void,
+                () => Effect.andThen(Deferred.succeed(stopping, undefined), Deferred.await(read)),
+              ).pipe(Effect.as(Channel.never)),
+            ),
+          ]),
+        makeModel: () => {
+          throw new Error('makeModel')
+        },
+      }
+      return yield* drive(program, Effect.fnUntraced(function*(driver) {
+        const { dispatch } = yield* driver.latest
+        yield* dispatch('Boom')
+        yield* Deferred.await(stopping)
+        // Read, however the scenario goes on: the end of the race may interrupt it there.
+        yield* Effect.exit(driver.waitFor(Opt.some)).pipe(Effect.ensuring(Deferred.succeed(read, undefined)))
+        return yield* Effect.never
+      }))
+    }))
+    const where = Exit.isFailure(exit)
+      ? exit.cause.reasons.map((reason) =>
+        Cause.isDieReason(reason) && reason.defect instanceof ProgramDefect ? reason.defect.where : reason._tag
+      )
+      : []
+    expect(where).toEqual(['update', 'render'])
+  })
+})
