@@ -186,8 +186,10 @@ an example's and a document's too:
   makes Node resolve `bun:test` to `test/node/bun-test.ts`, which gives what the tests use of it over Node's own
   runner, with Jest's `expect`. A test that needs more of `bun:test` adds it there, and one that asks for a
   collection calls `test/gc.ts`, never `Bun.gc`. Node strips the types itself, so the TypeScript is erasable
-  (`erasableSyntaxOnly`: no enum, namespace or parameter property). The search is left out, since Node's runner
-  cannot hold it (`ROADMAP.md`), and so are the examples' tests.
+  (`erasableSyntaxOnly`: no enum, namespace or parameter property). The search runs on Bun alone: the scheduler of
+  the tests decides the order its fibers run in, whatever the engine, so V8 would run the same histories. So do the
+  examples' tests: their programs are pure, and their bridges are tested against a renderer and happy-dom, not
+  against the engine.
 - A test's name says what it checks. When a change touches a test, or what it tests, check that its name, its
   `describe` and its comments still say what the assertions check: a test adapted to a new design keeps an old
   name that promises what it no longer proves.

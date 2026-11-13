@@ -8,10 +8,6 @@ when it is done or rejected, with the reason in the commit.
 
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is
   drawn" from regressing. `bun run bench` (`bench/subscriptions.ts`) measures a parent's subscriptions only.
-- **The search of interleavings on Node too**: `bun run test:node` runs every other test of `src/` and `test/` on
-  V8, and leaves `src/interleaving.test.ts` out. Under Node's own runner it ends in a `RangeError` ("Map maximum
-  size exceeded"): the runner keeps an entry for each asynchronous resource a test file makes, and Effect makes one
-  for each run of a fiber. It needs a runner on Node that keeps none, or a search split over more processes.
 - **A report of the public API**, generated from the declarations of `dist/` and committed, so that a change of
   what `src/index.ts` and `src/testing/index.ts` export shows in the diff, and a breaking one is not made by
   accident (as api-extractor does), with a check that the package's types resolve for each kind of consumer.
