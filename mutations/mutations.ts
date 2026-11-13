@@ -245,6 +245,18 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'the run ends with what it ended with, not with its defects first',
+    file: 'src/run.ts',
+    from: 'if (!Arr.isArrayNonEmpty(dies)) return exit',
+    to: 'if (true) return exit',
+    killedBy: [
+      [
+        'src/run.test.ts',
+        'an interrupted run whose renderer dies as it releases has the defect first, then the interruption',
+      ],
+    ],
+  },
+  {
     name: 'the renderer is stopped only when the run succeeds',
     file: 'src/run.ts',
     from: 'Effect.onExit(() => Effect.asVoid(Fiber.interrupt(renderer)',
@@ -418,6 +430,18 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: '',
     killedBy: [
       ['src/testing/rehearse.test.ts', 'when a run interrupted while its command runs leaves the command unanswered'],
+    ],
+  },
+  {
+    name: 'rehearse stops the gone keys one after the other',
+    file: 'src/testing/rehearse.ts',
+    from: "      concurrency: 'unbounded',\n",
+    to: '',
+    killedBy: [
+      [
+        'src/testing/rehearse.test.ts',
+        'keys that go away together release the subscriptions hearNext started together, as the run does',
+      ],
     ],
   },
   {

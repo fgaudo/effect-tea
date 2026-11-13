@@ -22,6 +22,18 @@ where Effect 4.1.4 resumes it at once on the stack of the fiber that completes i
 AGENTS.md, since that inline resumption is read only in the source, unless it is added as a premise with a test
 that fails without it.
 
+- **The run starts a command after a subscription's release has died** (reproduced). "From the first defect on, the
+  run applies no message and starts no command" (`interleaving.test.ts`) fails, every time, under fast-check's
+  `{ seed: -1159550533, path: '842:3:3:3:30:29:33:40:38:38:40:40:38:38:46:38:42:51:52:46:46:46:46:56:46:49:53:54:53:59:57:57:57:57:57:57:57:58:57:57:57:57:58:57:58:57:57:57:57:57:57:57:57:57:57:57:96:98:103:103:104:104:133' }`,
+  passed to that test's `property` (whose options then take a `path`): the subscription of row 2, which has ended by
+  itself, releases slowly and dies there, and command `1.0` starts after the death. The seed is drawn at random,
+  and the whole suite met it, or another failure of the interleavings, in about one run of three in November 2026,
+  never the file alone in four: "the subscriptions one message stops are released together" and "the defects of the
+  cause are those that happened" each failed once too, their counterexamples not kept. The lead is the window
+  between the release's defect and its record (`scopedIn` in `engine.ts`): the operations of `diesIn` and of the
+  scope's close come between, and `dead()` in `runCommand` sees no death there. The fix starts from the
+  counterexample, names the form, and looks for it wherever `scopedIn` and `recorded` wrap a fiber, `rehearse`'s
+  included.
 - **`rehearse`'s `runAll` dies on a command another call took** (reproduced). It checks `pending.length` in one
   thunk (`runAll` in `rehearse.ts`) and takes the command in another, `run(() => true)`'s, and the scheduler may yield
   in between: a `run` of the test's that takes the last command there leaves `runAll` dying with "No pending command
@@ -53,23 +65,19 @@ that fails without it.
   dies as it releases: the run's cause must hold that defect, and the command's release must have ended when the
   run returns. If one is missed, the form is a snapshot taken while another fiber may still add to the set: look for
   it in `rehearse`'s end too (`forks`, `underWay`).
-- **Four checks whose removal no deterministic test notices**, found as `mutations/mutations.ts` was written: each
-  is a lead, to be held by a test that fails without the check, and given its mutation, or found equivalent and
-  dropped. `bun run mutations --discover` was run on each over the whole suite.
-  - The loop's `if (dead()) return` after `Queue.take` (`engine.ts`): no test fails, since `applyAlive` checks the
-    same in the thunk that calls `update`. What it still guards is the drop of a stopped start's message and its
-    debug log after the first defect, which the README promises nothing about: likely equivalent, and then the
-    check is the one to weigh.
+- **Two checks of the engine that no test can hold, to keep or remove**, found as `mutations/mutations.ts` was
+  written: the window each narrows is one the README promises nothing about, so neither has a mutation.
   - The start of a subscription's fiber after the first defect (`dead() ? Effect.void : runSubscription(…)` in
-    `reconcile`): only the interleavings fail, under a seed drawn at random, and a test of `run.test.ts` that hears
-    rejections fails when its whole file runs, not alone, so through another test. AGENTS.md says that first step may
-    come after the defect anyway: what a test can hold is that the fiber's code does not start.
-  - `runWith`'s defects first (`if (!Arr.isArrayNonEmpty(dies)) return exit` in `run.ts`, made `if (true)`): no test
-    fails, though AGENTS.md says the run's cause holds the defects first, then the rest. A run interrupted by whoever
-    runs it, whose renderer dies as it releases, is the scenario to try: its order is asserted nowhere.
-  - `rehearse`'s stops together (`concurrency: 'unbounded'` in `stop`): no test fails when the keys that go away are
-    released one after the other, where the run's are released together ("keys that go away together release their
-    subscriptions together", `engine.test.ts`). A contract case would hold both.
+    `reconcile`). Under `prioritizedSchedules` (2,000 seeds), three subscriptions started by the step whose command
+    dies run their channel's code after the defect in 59 runs at depth 3 and 127 at depth 4 with the check, 65 and
+    133 without: the scheduler yields between the check and the channel's first step, as AGENTS.md says. Only the
+    interleavings, under a seed drawn at random, fail without it.
+  - The loop's `if (dead()) return` after `Queue.take`: `applyAlive` checks the same in the thunk that calls
+    `update`. What it still spares, after the first defect, is the drop of a stopped start's message, with
+    `describeMessage` and its debug log, in a thunk of its own as well.
+
+  Kept, each narrows a window at the cost of a check; removed, AGENTS.md's "one thunk" names the start of a
+  subscription's fiber among what is checked, and changes with it.
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
 
 ## Possible improvements

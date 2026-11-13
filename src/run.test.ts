@@ -1018,6 +1018,11 @@ describe('the end of the run', () => {
     expect(wheres(await interrupted(run(counter, () => holdsWhatDies)))).toEqual(['render'])
   })
 
+  test('an interrupted run whose renderer dies as it releases has the defect first, then the interruption', async () => {
+    const exit = await interrupted(run(counter, () => holdsWhatDies))
+    expect(Exit.isFailure(exit) ? exit.cause.reasons.map(({ _tag }) => _tag) : []).toEqual(['Die', 'Interrupt'])
+  })
+
   test('a renderer that dies as a run that died elsewhere releases it is in the cause', async () => {
     const exit = await Effect.runPromiseExit(run(
       { ...counter, update: () => () => defect('update') },

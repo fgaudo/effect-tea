@@ -577,6 +577,50 @@ describe('rehearse', () => {
       expect(String(failure)).toContain('Commands still under way when the scenario ended: Store')
     })
   })
+
+  // Each release waits a while for the other to have begun, as the run's do ("keys that go away together release
+  // their subscriptions together", `engine.test.ts`): released one after the other, the first would wait in vain.
+  test('keys that go away together release the subscriptions hearNext started together, as the run does', async () => {
+    type Listening = Readonly<{ names: ReadonlyArray<string> }>
+    const waited: Array<'together' | 'alone'> = []
+    const released = await Effect.runPromise(Effect.gen(function*() {
+      const releasing = yield* Deferred.make<void>()
+      let begun = 0
+      const release = Effect.suspend(() => {
+        begun += 1
+        return begun === 2
+          ? Effect.asVoid(Deferred.succeed(releasing, undefined))
+          : Deferred.await(releasing).pipe(
+            Effect.timeoutOption('500 millis'),
+            Effect.map((met) => {
+              waited.push(Opt.isSome(met) ? 'together' : 'alone')
+            }),
+          )
+      })
+      const holding = Channel.unwrap(
+        Effect.acquireRelease(Effect.void, () => release).pipe(
+          Effect.as(Channel.succeed<'Tick'>('Tick').pipe(Channel.concatWith(() => Channel.never))),
+        ),
+      )
+      const listening: Program<{ state: Listening; model: Listening; message: 'Tick' | 'Clear' }> = {
+        init: { state: { names: ['a', 'b'] } },
+        update: (message) => (state) => message === 'Clear' ? { state: { names: [] } } : { state },
+        subscriptions: ({ names }) => HashMap.fromIterable(names.map((name) => [name, holding] as const)),
+        makeModel: (state) => state,
+      }
+      return yield* rehearse(
+        listening,
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.hearNext('a')
+          yield* rehearsal.hearNext('b')
+          yield* rehearsal.send(() => Opt.some('Clear'))
+          return begun
+        }),
+      )
+    }))
+    expect(released).toBe(2)
+    expect(waited).toEqual(['together'])
+  })
 })
 
 // The run has one loop, which applies each message whole, whoever sent it: so does `rehearse`, however the fibers of
