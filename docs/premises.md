@@ -32,6 +32,10 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   fibers, acquired earlier in
   the same scope: "a renderer that dies while an interrupted run releases it is in the cause", "a renderer that
   dies as a run that died elsewhere releases it is in the cause" (`run.test.ts`). Documented.
+- **A fiber forked with `Effect.forkChild` where its parent is uninterruptible can still be interrupted**, which is
+  how the run forks the renderer inside that acquisition and still stops it: "a run interrupted by whoever runs it is
+  no defect", "a renderer that dies while an interrupted run releases it is in the cause" (`run.test.ts`) never end
+  with a renderer that inherits it (`{ uninterruptible: 'inherit' }`). Not documented, and seen in those tests.
 - **`Fiber.interrupt` completes only once the interrupted fiber has**, which is how the end of the run stops the loop
   before it stops the renderer, and before it reads the fibers to interrupt: "a message the renderer sends as the run
   releases it does not reach update" (`run.test.ts`). Documented.
@@ -193,4 +197,12 @@ releases what a fiber holds, and leaves a test at each place the form can reach.
 
 ## Premises that no test reaches yet
 
-A lead no test can reach yet is listed here, with what would decide it. None is, today.
+A lead no test can reach yet is listed here, with what would decide it.
+
+- **The loop forked and not yet known to `stop`** (the sixth review, November 2026). The engine forks its loop with
+  `FiberSet.run`, which starts it at once, and keeps it for `stop` only when its own fiber resumes. A run interrupted
+  between the two closes its scope with no loop to stop first: the loop is then interrupted with the engine's other
+  fibers, not before them. By reading, nothing is lost, since the loop is among those fibers and `runWith` reads the
+  register once the scope has closed. What would decide it: a run interrupted at the yield between the fork and the
+  assignment, with the answer of a command of `init` queued, in which no command starts once the end has read its
+  fibers. Only the scheduler of the tests reaches that yield, and no test of a check runs under it.

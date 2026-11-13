@@ -11,6 +11,7 @@ import * as Hash from 'effect/Hash'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import type * as Scope from 'effect/Scope'
+import { prioritizedSchedules } from '../../test/scheduled.ts'
 import { ProgramDefect } from '../defect.ts'
 import type { Program } from '../program.ts'
 import { reject, type Update } from '../update.ts'
@@ -1301,4 +1302,229 @@ test(quitting, async () => {
     )
     : []
   expect(said).toEqual(['boom', 'It interrupted itself, which only the run may do'])
+})
+
+// Found by the sixth premise review of November 2026: the end of the rehearsal stops its loop and what `hearNext`
+// started, but not the calls of `run` in fibers of the test's that the scenario does not join, which go on while it
+// ends and after it. The ledger is read only once the end has waited for every release.
+describe('rehearse, as a fiber of the test\'s runs a command while it ends', () => {
+  type Count = Readonly<{ count: number }>
+  type Counted = 'Go' | 'Tick' | 'Answered'
+
+  // The command is under way when the scenario returns, and answers while the end waits for the release of the
+  // subscription `hearNext` started: the loop is gone, so its answer is refused, and it is no longer under way when
+  // the ledger is read. In the run its answer would arrive.
+  test.failing('a command that answers while the end releases a subscription fails it, as one under way', async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const releasing = yield* Deferred.make<void>()
+      let running: Fiber.Fiber<unknown, unknown> | undefined
+      const program: Program<{ state: Count; model: Count; message: Counted; command: 'Answer' }> = {
+        init: { state: { count: 0 }, commands: ['Answer'] },
+        update: () => ({ count }) => ({ state: { count: count + 1 } }),
+        runCommand: () =>
+          Deferred.succeed(started, undefined).pipe(
+            Effect.andThen(Deferred.await(releasing)),
+            Effect.as(Opt.some<Counted>('Answered')),
+          ),
+        subscriptions: () =>
+          HashMap.make([
+            'k',
+            Channel.succeed<Counted>('Tick').pipe(
+              Channel.concatWith(() => Channel.never),
+              // Lets the command answer, and waits for the call that ran it to end.
+              Channel.ensuring(Effect.suspend(() =>
+                Effect.andThen(
+                  Deferred.succeed(releasing, undefined),
+                  running === undefined ? Effect.void : Fiber.await(running),
+                )
+              )),
+            ),
+          ]),
+        makeModel: (state) => state,
+      }
+      return yield* rehearse(program, Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.hearNext('k')
+        running = yield* Effect.forkChild(rehearsal.run(() => true))
+        yield* Deferred.await(started)
+      }))
+    }))
+    expect(Exit.isFailure(exit)).toBe(true)
+  })
+
+  // The rehearsal has ended, failing on its pending command, when a fiber the scenario did not join asks to run it:
+  // the call is interrupted only once the program's `runCommand` has run, with nothing left to apply its answer.
+  test.failing('a run made once the rehearsal has ended calls no runCommand', async () => {
+    const ran: Array<'Answer'> = []
+    await Effect.runPromise(Effect.gen(function*() {
+      const ended = yield* Deferred.make<void>()
+      let late: Fiber.Fiber<unknown, unknown> | undefined
+      const program: Program<{ state: Count; model: Count; message: Counted; command: 'Answer' }> = {
+        init: { state: { count: 0 }, commands: ['Answer'] },
+        update: () => ({ count }) => ({ state: { count: count + 1 } }),
+        runCommand: (command) =>
+          Effect.sync(() => {
+            ran.push(command)
+            return Opt.some<Counted>('Answered')
+          }),
+        makeModel: (state) => state,
+      }
+      yield* Effect.exit(rehearse(program, Effect.fnUntraced(function*(rehearsal) {
+        late = yield* Effect.forkChild(Effect.andThen(Deferred.await(ended), rehearsal.run(() => true)))
+      })))
+      yield* Deferred.succeed(ended, undefined)
+      if (late !== undefined) yield* Fiber.await(late)
+    }))
+    expect(ran).toEqual([])
+  })
+})
+
+// Found by the sixth premise review of November 2026. `run` and `hearNext` take what their command or their
+// subscription gives inside `restore`, in a child fiber of `Effect.raceFirst` (`orDead`), and give it to the loop only
+// once the call resumes: an interruption that reaches the call in between finds nothing to hold it. Each runs under
+// prioritized schedules, with the resumptions Effect's own scheduler makes (`inline`), and a failure names its seed.
+describe('rehearse, as a call is interrupted between what it took and the loop', () => {
+  type Answering = Readonly<{ answered: boolean }>
+  type Answered = 'Answered' | 'Noop'
+  // The command answers once `gate` opens; a fiber opens it and interrupts the `run`, wherever the schedule lets it.
+  // `Noop` goes through the loop after whatever the `run` gave it, so that the state read is the one it left.
+  const interrupted = Effect.gen(function*() {
+    const gate = yield* Deferred.make<void>()
+    const seen: Array<'called' | 'started' | 'answered'> = []
+    const program: Program<{ state: Answering; model: Answering; message: Answered; command: 'Answer' }> = {
+      init: { state: { answered: false }, commands: ['Answer'] },
+      update: (message) => (state) => message === 'Noop' ? { state } : { state: { answered: true } },
+      runCommand: () => {
+        seen.push('called')
+        return Effect.sync(() => seen.push('started')).pipe(
+          Effect.andThen(Deferred.await(gate)),
+          Effect.andThen(Effect.sync(() => seen.push('answered'))),
+          Effect.as(Opt.some<Answered>('Answered')),
+        )
+      },
+      makeModel: (state) => state,
+    }
+    const exit = yield* Effect.exit(rehearse(program, Effect.fnUntraced(function*(rehearsal) {
+      const running = yield* Effect.forkChild(rehearsal.run(() => true))
+      const interrupting = yield* Effect.forkChild(
+        Effect.andThen(Deferred.succeed(gate, undefined), Fiber.interrupt(running)),
+      )
+      yield* Fiber.await(running)
+      yield* Fiber.await(interrupting)
+      yield* rehearsal.send(() => Opt.some('Noop'))
+      return (yield* rehearsal.state).answered
+    })))
+    return { seen, unanswered: Exit.isSuccess(exit) && !exit.value }
+  })
+
+  const runs = { runs: 1000, depth: 3, first: 1, resumptions: 'inline' } as const
+
+  // The command has answered when the interruption reaches the call: its answer is given to nobody, and it is
+  // neither under way nor cancelled.
+  test.failing('a run interrupted once its command has answered applies the answer, or fails the rehearsal', () => {
+    prioritizedSchedules(interrupted, { ...runs, pinned: [10, 11, 14, 26] }, (exit) => {
+      if (Exit.isFailure(exit)) throw new Error(Cause.pretty(exit.cause))
+      expect(exit.value.unanswered && exit.value.seen.includes('answered')).toBe(false)
+    })
+  })
+
+  // `runCommand` has been called, and its effect has not begun when the interruption reaches the call: the fiber
+  // that would run it ends before `Effect.onInterrupt` is entered, so nothing cancels the command.
+  test.failing('a run interrupted before the effect of its command begins fails the rehearsal', () => {
+    prioritizedSchedules(interrupted, { ...runs, pinned: [8, 17, 29, 44] }, (exit) => {
+      if (Exit.isFailure(exit)) throw new Error(Cause.pretty(exit.cause))
+      expect(exit.value.unanswered && !exit.value.seen.includes('started')).toBe(false)
+    })
+  })
+
+  type Count = Readonly<{ count: number }>
+  type Counted = 'Tick' | 'Noop'
+  // The subscription sends `Tick` once `gate` opens, and nothing more. The call interrupted applied it, or left it
+  // to the next call: lost, the next call waits for a message nobody asked for, and the run under the schedule
+  // does not end.
+  const heard = Effect.gen(function*() {
+    const gate = yield* Deferred.make<void>()
+    const program: Program<{ state: Count; model: Count; message: Counted }> = {
+      init: { state: { count: 0 } },
+      update: (message) => (state) => message === 'Noop' ? { state } : { state: { count: state.count + 1 } },
+      subscriptions: () =>
+        HashMap.make([
+          'k',
+          Channel.unwrap(Effect.as(Deferred.await(gate), Channel.succeed<Counted>('Tick'))).pipe(
+            Channel.concatWith(() => Channel.never),
+          ),
+        ]),
+      makeModel: (state) => state,
+    }
+    return yield* rehearse(program, Effect.fnUntraced(function*(rehearsal) {
+      const hearing = yield* Effect.forkChild(rehearsal.hearNext('k'))
+      const interrupting = yield* Effect.forkChild(
+        Effect.andThen(Deferred.succeed(gate, undefined), Fiber.interrupt(hearing)),
+      )
+      yield* Fiber.await(hearing)
+      yield* Fiber.await(interrupting)
+      yield* rehearsal.send(() => Opt.some('Noop'))
+      if ((yield* rehearsal.state).count === 0) yield* rehearsal.hearNext('k')
+      return (yield* rehearsal.state).count
+    }))
+  })
+
+  test.failing('a message hearNext took is applied, or heard by the next call, though the call is interrupted', () => {
+    prioritizedSchedules(heard, { ...runs, pinned: [35, 52, 98, 158] }, (exit) => {
+      expect(exit).toEqual(Exit.succeed(1))
+    })
+  })
+})
+
+// Found by the sixth premise review of November 2026, of the form of a command that answers while the rehearsal
+// ends: the request is in the loop's queue when the scenario returns, and the end interrupts it.
+describe('rehearse, as a fiber of the test\'s has sent a message when the scenario returns', () => {
+  type Count = Readonly<{ count: number }>
+
+  test.failing('the message is applied, or fails the rehearsal', async () => {
+    let applied = 0
+    const program: Program<{ state: Count; model: Count; message: 'Tick' }> = {
+      init: { state: { count: 0 } },
+      update: () => ({ count }) => {
+        applied += 1
+        return { state: { count: count + 1 } }
+      },
+      makeModel: (state) => state,
+    }
+    const exit = await Effect.runPromiseExit(rehearse(
+      program,
+      (rehearsal) => Effect.forkChild(rehearsal.send(() => Opt.some('Tick')), { startImmediately: true }),
+    ))
+    expect(Exit.isFailure(exit) || applied === 1).toBe(true)
+  })
+})
+
+// Found by the sixth premise review of November 2026, of the form of `drive` and a scenario that throws: the throw
+// skips the end of the rehearsal, which leaves its loop running and the scope of what `hearNext` starts open.
+describe('rehearse and a scenario that throws before it returns its effect', () => {
+  type Count = Readonly<{ count: number }>
+
+  test.failing('what a hearNext it started holds is released', async () => {
+    const log: Array<'acquire' | 'release'> = []
+    const program: Program<{ state: Count; model: Count; message: 'Tick' }> = {
+      init: { state: { count: 0 } },
+      update: () => ({ count }) => ({ state: { count: count + 1 } }),
+      subscriptions: () =>
+        HashMap.make([
+          'k',
+          Channel.unwrap(
+            Effect.acquireRelease(Effect.sync(() => log.push('acquire')), () => Effect.sync(() => log.push('release')))
+              .pipe(Effect.as(Channel.succeed<'Tick'>('Tick').pipe(Channel.concatWith(() => Channel.never)))),
+          ),
+        ]),
+      makeModel: (state) => state,
+    }
+    const exit = await Effect.runPromiseExit(rehearse(program, (rehearsal) => {
+      Effect.runFork(rehearsal.hearNext('k'))
+      throw new Error('boom')
+    }))
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain('boom')
+    expect(log.filter((each) => each === 'acquire').length).toBe(log.filter((each) => each === 'release').length)
+  })
 })

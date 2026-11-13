@@ -858,3 +858,31 @@ describe('a defect of the program, then a failure of the scenario', () => {
     expect(said(exit)).toEqual(['update', 'after'])
   })
 })
+
+// Found by the sixth premise review of November 2026. The run dies of a `makeModel` that throws as its renderer reads
+// the frame, and `rehearse` fails on it however the scenario ends; `drive` reads the model in the scenario, where the
+// defect fails that call alone, and its run goes on.
+describe('a defect of makeModel that the scenario catches', () => {
+  type Count = Readonly<{ count: number }>
+  const modeling: Program<{ state: Count; model: number; message: 'Go' }> = {
+    init: { state: { count: 0 } },
+    update: () => ({ count }) => ({ state: { count: count + 1 } }),
+    makeModel: () => {
+      throw new Error('boom')
+    },
+  }
+  const diedIn = (exit: Exit.Exit<unknown>) => {
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    return defect instanceof ProgramDefect ? defect.where : undefined
+  }
+
+  test('rehearse fails in render all the same', async () => {
+    const exit = await Effect.runPromiseExit(rehearse(modeling, (rehearsal) => Effect.exit(rehearsal.model)))
+    expect(diedIn(exit)).toBe('render')
+  })
+
+  test.failing('drive fails in render all the same, as rehearse does', async () => {
+    const exit = await Effect.runPromiseExit(drive(modeling, (driver) => Effect.exit(driver.waitFor(Opt.some))))
+    expect(diedIn(exit)).toBe('render')
+  })
+})

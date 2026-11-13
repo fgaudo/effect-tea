@@ -296,3 +296,38 @@ describe('drive interrupted by whoever runs it', () => {
     ).toBe(true)
   })
 })
+
+// Found by the sixth premise review of November 2026: `drive` forks the run, then calls `scenario`. One that throws
+// before it returns its effect ends `drive` there, past the lines that stop the run and await it: the run starts
+// after `drive` has ended, and goes on until the fiber of whoever ran `drive` ends.
+describe('drive and a scenario that throws before it returns its effect', () => {
+  type Still = Readonly<{ still: boolean }>
+
+  test.failing('nothing of the program happens once drive has ended', async () => {
+    const log: Array<'started' | 'released' | 'drive ended'> = []
+    const program: Program<{ state: Still; model: Still; message: 'Tick' }> = {
+      init: { state: { still: true } },
+      update: () => (state) => ({ state }),
+      subscriptions: () =>
+        HashMap.make([
+          'ticks',
+          Channel.unwrap(Effect.sync(() => {
+            log.push('started')
+            return Channel.never
+          })).pipe(Channel.ensuring(Effect.sync(() => log.push('released')))),
+        ]),
+      makeModel: (state) => state,
+    }
+    const exit = await Effect.runPromise(Effect.gen(function*() {
+      const exit = yield* Effect.exit(drive(program, () => {
+        throw new Error('boom')
+      }))
+      log.push('drive ended')
+      yield* Effect.sleep('30 millis')
+      return exit
+    }))
+    expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain('boom')
+    expect(log.slice(log.indexOf('drive ended') + 1)).toEqual([])
+    expect(log.filter((each) => each === 'started').length).toBe(log.filter((each) => each === 'released').length)
+  })
+})

@@ -7,6 +7,9 @@ import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
 import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
+import * as FiberHandle from 'effect/FiberHandle'
+import * as FiberMap from 'effect/FiberMap'
+import * as FiberSet from 'effect/FiberSet'
 import * as Hash from 'effect/Hash'
 import * as HashMap from 'effect/HashMap'
 import * as Logger from 'effect/Logger'
@@ -1755,6 +1758,162 @@ describe('a self-interruption as the run interrupts', () => {
     }))
     expect(selfInterruptions(exit)).toEqual(['subscription: It interrupted itself, which only the run may do'])
   })
+
+  // The run stops a subscription whose key went away with `FiberMap.remove`, which interrupts as the fiber -1, and so
+  // does every `FiberMap`, `FiberSet` and `FiberHandle`: the interruption a subscription makes itself, by joining a
+  // fiber that a map of its own interrupted, is taken for the one it received, and it ends in silence. With no
+  // interruption by the run, or with `Fiber.interrupt` as above, the same join is a defect.
+  const joinsWhatItsMapInterrupted = (started: Deferred.Deferred<void>) =>
+    Effect.uninterruptible(Effect.gen(function*() {
+      const map = yield* FiberMap.make<string>()
+      const work = yield* FiberMap.run(map, 'work', Effect.never)
+      yield* Deferred.succeed(started, undefined)
+      yield* untilInterrupted
+      yield* FiberMap.remove(map, 'work')
+      return yield* Fiber.join(work)
+    })).pipe(Effect.scoped)
+
+  test.failing(
+    'a subscription that joins a fiber its own FiberMap interrupted, as the run stops it, is a defect in the subscription',
+    async () => {
+      const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+        const started = yield* Deferred.make<void>()
+        const stopping: Counter = {
+          ...counter,
+          subscriptions: ({ count }) =>
+            count === 0
+              ? HashMap.make(['k', Channel.fromEffectDone(joinsWhatItsMapInterrupted(started))])
+              : HashMap.empty(),
+        }
+        yield* run(stopping, (frames) =>
+          frames.pipe(
+            Stream.tap(({ model, dispatch }) =>
+              model.count === 0 ? Deferred.await(started).pipe(Effect.andThen(dispatch(model.increment))) : Effect.void
+            ),
+            Stream.takeUntil(({ model }) => model.count === 1),
+            Stream.runDrain,
+          ))
+      }))
+      expect(selfInterruptions(exit)).toEqual(['subscription: It interrupted itself, which only the run may do'])
+    },
+  )
+
+  // The same through a `FiberSet` and a `FiberHandle` of the subscription's: both interrupt as the fiber -1 too.
+  const joinsWhatItsSetInterrupted = (started: Deferred.Deferred<void>) =>
+    Effect.uninterruptible(Effect.gen(function*() {
+      const set = yield* FiberSet.make()
+      const work = yield* FiberSet.run(set, Effect.never)
+      yield* Deferred.succeed(started, undefined)
+      yield* untilInterrupted
+      yield* FiberSet.clear(set)
+      return yield* Fiber.join(work)
+    })).pipe(Effect.scoped)
+
+  const joinsWhatItsHandleInterrupted = (started: Deferred.Deferred<void>) =>
+    Effect.uninterruptible(Effect.gen(function*() {
+      const handle = yield* FiberHandle.make()
+      const work = yield* FiberHandle.run(handle, Effect.never)
+      yield* Deferred.succeed(started, undefined)
+      yield* untilInterrupted
+      yield* FiberHandle.clear(handle)
+      return yield* Fiber.join(work)
+    })).pipe(Effect.scoped)
+
+  for (
+    const [name, joins] of [
+      ['FiberSet', joinsWhatItsSetInterrupted],
+      ['FiberHandle', joinsWhatItsHandleInterrupted],
+    ] as const
+  ) {
+    test.failing(
+      `a subscription that joins a fiber its own ${name} interrupted, as the run stops it, is a defect in the subscription`,
+      async () => {
+        const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+          const started = yield* Deferred.make<void>()
+          const stopping: Counter = {
+            ...counter,
+            subscriptions: ({ count }) =>
+              count === 0 ? HashMap.make(['k', Channel.fromEffectDone(joins(started))]) : HashMap.empty(),
+          }
+          yield* run(stopping, (frames) =>
+            frames.pipe(
+              Stream.tap(({ model, dispatch }) =>
+                model.count === 0 ? Deferred.await(started).pipe(Effect.andThen(dispatch(model.increment))) : Effect.void
+              ),
+              Stream.takeUntil(({ model }) => model.count === 1),
+              Stream.runDrain,
+            ))
+        }))
+        expect(selfInterruptions(exit)).toEqual(['subscription: It interrupted itself, which only the run may do'])
+      },
+    )
+  }
+
+  // The end of the run interrupts the renderer, the commands and the subscriptions as the fiber the run is in. A fiber
+  // that very fiber interrupted before, which an effect of the program joins as the run ends, fails with an
+  // interruption of the same fiber id: it is taken for the one the effect received, and the effect ends in silence.
+  // Joined in a run that goes on, it is a defect.
+  const joinsOnceInterrupted = (started: Deferred.Deferred<void>, stale: Fiber.Fiber<never>) =>
+    Effect.uninterruptible(Effect.gen(function*() {
+      yield* Deferred.succeed(started, undefined)
+      yield* untilInterrupted
+      return yield* Fiber.join(stale)
+    }))
+
+  /** Runs what `running` gives in a fiber that interrupted `stale` itself, and interrupts that fiber once started. */
+  const endedByTheFiberThatInterrupted = (
+    running: (started: Deferred.Deferred<void>, stale: Fiber.Fiber<never>) => Effect.Effect<void>,
+  ) =>
+    interruptedOnce((started) =>
+      Effect.gen(function*() {
+        const stale = yield* Effect.forkDetach(Effect.never)
+        yield* Fiber.interrupt(stale)
+        yield* running(started, stale)
+      })
+    )
+
+  test.failing(
+    'a command that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the command',
+    async () => {
+      const exit = await endedByTheFiberThatInterrupted((started, stale) =>
+        run(
+          {
+            ...counter,
+            init: { state: { count: 0 }, commands: ['Ping'] },
+            runCommand: () => joinsOnceInterrupted(started, stale),
+          },
+          () => Effect.never,
+        )
+      )
+      expect(selfInterruptions(exit)).toEqual(['command: It interrupted itself, which only the run may do'])
+    },
+  )
+
+  test.failing(
+    'a renderer that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the renderer',
+    async () => {
+      const exit = await endedByTheFiberThatInterrupted((started, stale) =>
+        run(counter, () => joinsOnceInterrupted(started, stale))
+      )
+      expect(selfInterruptions(exit)).toEqual(['render: It interrupted itself, which only the run may do'])
+    },
+  )
+
+  test.failing(
+    'a subscription that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the subscription',
+    async () => {
+      const exit = await endedByTheFiberThatInterrupted((started, stale) =>
+        run(
+          {
+            ...counter,
+            subscriptions: () => HashMap.make(['k', Channel.fromEffectDone(joinsOnceInterrupted(started, stale))]),
+          },
+          () => Effect.never,
+        )
+      )
+      expect(selfInterruptions(exit)).toEqual(['subscription: It interrupted itself, which only the run may do'])
+    },
+  )
 })
 
 describe('dispatch', () => {

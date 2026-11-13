@@ -14,6 +14,14 @@ const test = (name: string, body: Body<[]>, timeout?: number): void => {
   })
 }
 
+// A test that reproduces an open finding: it passes while its body fails, and fails once the body passes, as
+// `bun:test`'s does.
+test.failing = (name: string, body: Body<[]>, timeout?: number): void =>
+  test(name, async () => {
+    const failed = await Promise.resolve().then(body).then(() => false, () => true)
+    if (!failed) throw new Error('This test is marked as failing, and it passed: remove the mark')
+  }, timeout)
+
 const placeholders = /%[sdifjoOp#]/g
 
 // A row that is an array is spread into the body's arguments, as `bun:test` does, and a name takes only as many
