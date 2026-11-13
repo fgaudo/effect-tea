@@ -81,6 +81,7 @@ version, and everything else, features included, the patch version.
 - `rehearse` applies what the test sent before its scenario returned, where it dropped what its loop had not taken.
 - `rehearse` runs a command's effect in its own scope: an interrupted `run` no longer loses its answer or its count.
 - A `run` made once a rehearsal has ended no longer calls `runCommand`.
+- A message that `hearNext`'s subscription sent to a call interrupted meanwhile is heard by the next call, not lost.
 
 ## 0.7.1 (2026-10-28)
 

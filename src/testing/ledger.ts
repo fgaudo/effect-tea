@@ -9,41 +9,48 @@ import type { Active, Generation } from '../core.ts'
 /** Counts the commands taken from `pending`, so that two runs of equal commands stay apart. */
 export type Ticket = number
 
+/** A message an opened start sent, and whether it was its last, its end value. */
+export type Sent<M> = Readonly<{ message: M; last: boolean }>
+
 /**
  * How the test hears a start: not yet, by playing it with `hear` (`Scripted`), or by running its subscription under
- * `hearNext` (`Opened`), never both, since the run hears one subscription per start. `waiting` counts the calls
- * waiting for a message, `asked` the messages asked for and not heard yet: a call interrupted while it waits leaves
- * what it asked for to the next one. An opened start whose key went away (`gone`) is kept while calls wait on it,
- * since the last message it sent may still be heard, and those calls told that it has ended.
+ * `hearNext` (`Opened`), never both, since the run hears one subscription per start. An opened start keeps the calls
+ * of `hearNext` waiting on it, in order, the messages it sent that no call has heard yet, in order, and how many
+ * messages were asked for and not heard: a call that leaves while it waits leaves what it asked for to the next one,
+ * so a message is asked for once, and heard by whichever call waits when it comes.
  */
-export type Hearing<S, H> =
+export type Hearing<S, H, W, M> =
   | Readonly<{ _tag: 'Unheard'; subscription: S }>
   | Readonly<{ _tag: 'Scripted' }>
-  | Readonly<{ _tag: 'Opened'; handle: H; waiting: number; asked: number; gone: boolean }>
+  | Readonly<{ _tag: 'Opened'; handle: H; waiting: ReadonlyArray<W>; sent: ReadonlyArray<Sent<M>>; asked: number }>
 
 /**
  * The commands `update` started that have not run yet, oldest first, those taken that have not answered, and those
  * whose run was interrupted before they answered: commands cannot be cancelled, so in the run each of them would still
- * answer. And how each start of a key is heard, by its generation.
+ * answer. How each start of a key is heard, by its generation. And the calls of `hearNext` offered to the loop that it
+ * has not made wait on a start yet: one that leaves before is no longer among them, and the loop makes it wait on
+ * nothing.
  */
-export type Ledger<Command, S, H> = Readonly<{
+export type Ledger<Command, S, H, W, M> = Readonly<{
   pending: ReadonlyArray<Command>
   underWay: ReadonlyMap<Ticket, Command>
   cancelled: ReadonlyArray<Command>
   taken: Ticket
-  hearings: ReadonlyMap<Generation, Hearing<S, H>>
+  hearings: ReadonlyMap<Generation, Hearing<S, H, W, M>>
+  asking: ReadonlySet<W>
 }>
 
-export const start = <Command, S, H>(commands: ReadonlyArray<Command>): Ledger<Command, S, H> => ({
+export const start = <Command, S, H, W, M>(commands: ReadonlyArray<Command>): Ledger<Command, S, H, W, M> => ({
   pending: commands,
   underWay: new Map(),
   cancelled: [],
   taken: 0,
   hearings: new Map(),
+  asking: new Set(),
 })
 
 /** The ledger with the commands of a step applied after those pending. */
-export const owe = <Command, S, H>(ledger: Ledger<Command, S, H>, commands: ReadonlyArray<Command>) =>
+export const owe = <Command, S, H, W, M>(ledger: Ledger<Command, S, H, W, M>, commands: ReadonlyArray<Command>) =>
   commands.length === 0 ? ledger : { ...ledger, pending: [...ledger.pending, ...commands] }
 
 export type Taken<Command> = Readonly<{ ticket: Ticket; command: Command }>
@@ -53,10 +60,10 @@ export type Taken<Command> = Readonly<{ ticket: Ticket; command: Command }>
  * command leaves `pending`, so that two calls never take the same command, and a call that finds none finds it in the
  * same transition as the take it does not make.
  */
-export const take = <Command, S, H>(
-  ledger: Ledger<Command, S, H>,
+export const take = <Command, S, H, W, M>(
+  ledger: Ledger<Command, S, H, W, M>,
   select: (command: Command) => boolean,
-): Opt.Option<readonly [Taken<Command>, Ledger<Command, S, H>]> => {
+): Opt.Option<readonly [Taken<Command>, Ledger<Command, S, H, W, M>]> => {
   const index = ledger.pending.findIndex(select)
   if (index === -1) return Opt.none()
   const command = ledger.pending[index] as Command
@@ -70,24 +77,32 @@ export const take = <Command, S, H>(
 }
 
 /** The ledger with the command taken under `ticket` among those whose run was interrupted before they answered. */
-export const cancel = <Command, S, H>(ledger: Ledger<Command, S, H>, ticket: Ticket): Ledger<Command, S, H> => {
+export const cancel = <Command, S, H, W, M>(
+  ledger: Ledger<Command, S, H, W, M>,
+  ticket: Ticket,
+): Ledger<Command, S, H, W, M> => {
   const command = ledger.underWay.get(ticket)
   return command === undefined ? ledger : { ...ledger, cancelled: [...ledger.cancelled, command] }
 }
 
 /** The ledger with the command taken under `ticket` no longer under way: it answered, or its run ended otherwise. */
-export const settle = <Command, S, H>(ledger: Ledger<Command, S, H>, ticket: Ticket): Ledger<Command, S, H> => {
+export const settle = <Command, S, H, W, M>(
+  ledger: Ledger<Command, S, H, W, M>,
+  ticket: Ticket,
+): Ledger<Command, S, H, W, M> => {
   if (!ledger.underWay.has(ticket)) return ledger
   const underWay = new Map(ledger.underWay)
   underWay.delete(ticket)
   return { ...ledger, underWay }
 }
 
-const withHearing = <Command, S, H>(
-  ledger: Ledger<Command, S, H>,
+type OpenedOf<S, H, W, M> = Extract<Hearing<S, H, W, M>, { _tag: 'Opened' }>
+
+const withHearing = <Command, S, H, W, M>(
+  ledger: Ledger<Command, S, H, W, M>,
   generation: Generation,
-  hearing: Opt.Option<Hearing<S, H>>,
-): Ledger<Command, S, H> => {
+  hearing: Opt.Option<Hearing<S, H, W, M>>,
+): Ledger<Command, S, H, W, M> => {
   const hearings = new Map(ledger.hearings)
   if (Opt.isSome(hearing)) hearings.set(generation, hearing.value)
   else hearings.delete(generation)
@@ -96,48 +111,51 @@ const withHearing = <Command, S, H>(
 
 /**
  * What the keys of a new state make of the hearings: the starts that appeared are unheard, with the subscription
- * listed when their key appeared, and those whose key went away are forgotten, but for an opened one that calls wait
- * on. Returns the handles of the opened ones that went away, to stop.
+ * listed when their key appeared, and those whose key went away are forgotten, with what they sent. Returns the
+ * handles of the opened ones that went away, to stop, and the calls that waited on them, to tell that they were
+ * stopped.
  */
-export const listened = <Command, S, H>(
-  ledger: Ledger<Command, S, H>,
+export const listened = <Command, S, H, W, M>(
+  ledger: Ledger<Command, S, H, W, M>,
   gone: ReadonlyArray<Generation>,
   fresh: ReadonlyArray<readonly [Generation, S]>,
-): readonly [ReadonlyArray<H>, Ledger<Command, S, H>] => {
+): readonly [ReadonlyArray<H>, ReadonlyArray<W>, Ledger<Command, S, H, W, M>] => {
   const hearings = new Map(ledger.hearings)
   const stopping: Array<H> = []
+  const stopped: Array<W> = []
   for (const generation of gone) {
     const hearing = hearings.get(generation)
     if (hearing?._tag === 'Opened') {
       stopping.push(hearing.handle)
-      if (hearing.waiting > 0) {
-        hearings.set(generation, { ...hearing, gone: true })
-        continue
-      }
+      stopped.push(...hearing.waiting)
     }
     hearings.delete(generation)
   }
   for (const [generation, subscription] of fresh) hearings.set(generation, { _tag: 'Unheard', subscription })
-  return [stopping, { ...ledger, hearings }]
+  return [stopping, stopped, { ...ledger, hearings }]
 }
 
-/** The handles of the opened starts whose key stays, to stop as the rehearsal ends. */
-export const opened = <Command, S, H>(ledger: Ledger<Command, S, H>): ReadonlyArray<H> =>
-  Arr.flatMap(
+/** The handles of the opened starts, to stop as the rehearsal ends, and the calls waiting on them, to tell. */
+export const opened = <Command, S, H, W, M>(
+  ledger: Ledger<Command, S, H, W, M>,
+): readonly [ReadonlyArray<H>, ReadonlyArray<W>] => {
+  const each = Arr.flatMap(
     Arr.fromIterable(ledger.hearings.values()),
-    (hearing) => hearing._tag === 'Opened' && !hearing.gone ? [hearing.handle] : [],
+    (hearing): ReadonlyArray<OpenedOf<S, H, W, M>> => hearing._tag === 'Opened' ? [hearing] : [],
   )
+  return [each.map(({ handle }) => handle), each.flatMap(({ waiting }) => waiting)]
+}
 
 /**
  * What `hear` makes of the start `generation`: `Scripted`, with the ledger, unless `hearNext` runs it, and says so
  * (`Opened`), or has heard it end (`Ended`), until its key goes away and comes back.
  */
-export const script = <Command, S, H, K>(
-  ledger: Ledger<Command, S, H>,
+export const script = <Command, S, H, W, M, K>(
+  ledger: Ledger<Command, S, H, W, M>,
   active: Active<K>,
   generation: Generation,
 ):
-  | Readonly<{ _tag: 'Scripted'; ledger: Ledger<Command, S, H> }>
+  | Readonly<{ _tag: 'Scripted'; ledger: Ledger<Command, S, H, W, M> }>
   | Readonly<{ _tag: 'Opened' }>
   | Readonly<{ _tag: 'Ended' }> =>
 {
@@ -149,22 +167,32 @@ export const script = <Command, S, H, K>(
   }
 }
 
+/** The ledger with `call`, a call of `hearNext` offered to the loop, among those it has not made wait yet. */
+export const enter = <Command, S, H, W, M>(ledger: Ledger<Command, S, H, W, M>, call: W): Ledger<Command, S, H, W, M> => ({
+  ...ledger,
+  asking: new Set([...ledger.asking, call]),
+})
+
 /**
- * What `hearNext` makes of the start `generation`: the subscription to run (`Open`), or the handle of the one it runs
+ * What the call `call` of `hearNext` makes of the start `generation`: nothing, when it has left (`Left`), so that a
+ * call that left starts no subscription; else the subscription to run (`Open`), or the handle of the one it runs
  * (`Opened`), unless the test plays it with `hear` (`Scripted`), or `hearNext` has heard it end (`Ended`), until its
  * key goes away and comes back. `Gone` for a start the ledger does not hear, which an active key never is.
  */
-export const opening = <Command, S, H, K>(
-  ledger: Ledger<Command, S, H>,
+export const opening = <Command, S, H, W, M, K>(
+  ledger: Ledger<Command, S, H, W, M>,
   active: Active<K>,
   generation: Generation,
+  call: W,
 ):
+  | Readonly<{ _tag: 'Left' }>
   | Readonly<{ _tag: 'Open'; subscription: S }>
   | Readonly<{ _tag: 'Opened'; handle: H }>
   | Readonly<{ _tag: 'Scripted' }>
   | Readonly<{ _tag: 'Ended' }>
   | Readonly<{ _tag: 'Gone' }> =>
 {
+  if (!ledger.asking.has(call)) return { _tag: 'Left' }
   const hearing = ledger.hearings.get(generation)
   if (hearing === undefined) return { _tag: 'Gone' }
   switch (hearing._tag) {
@@ -178,15 +206,15 @@ export const opening = <Command, S, H, K>(
 }
 
 /** The ledger with the start `generation` run by `hearNext` under `handle`, no call waiting on it yet. */
-export const open = <Command, S, H>(ledger: Ledger<Command, S, H>, generation: Generation, handle: H) =>
-  withHearing(ledger, generation, Opt.some({ _tag: 'Opened', handle, waiting: 0, asked: 0, gone: false }))
+export const open = <Command, S, H, W, M>(ledger: Ledger<Command, S, H, W, M>, generation: Generation, handle: H) =>
+  withHearing(ledger, generation, Opt.some({ _tag: 'Opened', handle, waiting: [], sent: [], asked: 0 }))
 
-const updateOpened = <Command, S, H, A>(
-  ledger: Ledger<Command, S, H>,
+const updateOpened = <Command, S, H, W, M, A>(
+  ledger: Ledger<Command, S, H, W, M>,
   generation: Generation,
   otherwise: A,
-  f: (hearing: Extract<Hearing<S, H>, { _tag: 'Opened' }>) => readonly [A, Opt.Option<Hearing<S, H>>],
-): readonly [A, Ledger<Command, S, H>] => {
+  f: (hearing: OpenedOf<S, H, W, M>) => readonly [A, Opt.Option<Hearing<S, H, W, M>>],
+): readonly [A, Ledger<Command, S, H, W, M>] => {
   const hearing = ledger.hearings.get(generation)
   if (hearing?._tag !== 'Opened') return [otherwise, ledger]
   const [result, next] = f(hearing)
@@ -194,34 +222,80 @@ const updateOpened = <Command, S, H, A>(
 }
 
 /**
- * A call of `hearNext` waits on the start `generation`, and asks its subscription for a message unless one asked for
- * is not heard yet: whether it asks (`true`), and the ledger.
+ * The call `call` of `hearNext` waits on the start `generation`, after the calls waiting already, and asks its
+ * subscription for a message unless one asked for is not heard yet: whether it asks (`true`), and the ledger. A call
+ * that has left waits on nothing, and asks for nothing.
  */
-export const ask = <Command, S, H>(ledger: Ledger<Command, S, H>, generation: Generation) =>
-  updateOpened(ledger, generation, false, (hearing) => {
-    const waiting = hearing.waiting + 1
-    return hearing.asked >= waiting
+export const ask = <Command, S, H, W, M>(
+  ledger: Ledger<Command, S, H, W, M>,
+  generation: Generation,
+  call: W,
+): readonly [boolean, Ledger<Command, S, H, W, M>] => {
+  if (!ledger.asking.has(call)) return [false, ledger]
+  const asking = new Set(ledger.asking)
+  asking.delete(call)
+  const [asks, next] = updateOpened(ledger, generation, false, (hearing) => {
+    const waiting = [...hearing.waiting, call]
+    return hearing.asked >= waiting.length
       ? [false, Opt.some({ ...hearing, waiting })]
       : [true, Opt.some({ ...hearing, waiting, asked: hearing.asked + 1 })]
   })
+  return [asks, { ...next, asking }]
+}
 
 /**
- * A call of `hearNext` no longer waits on the start `generation`, having heard a message or not: a start whose key
- * went away is forgotten once no call waits on it.
+ * The ledger with a message the start `generation` sent after the others it sent, to be heard by the next call that
+ * waits on it; a start no longer opened, its key gone, hears nothing more, as in the run.
  */
-export const leave = <Command, S, H>(ledger: Ledger<Command, S, H>, generation: Generation) =>
-  updateOpened(ledger, generation, undefined, (hearing) => {
-    const waiting = hearing.waiting - 1
-    return [undefined, hearing.gone && waiting === 0 ? Opt.none() : Opt.some({ ...hearing, waiting })]
-  })[1]
+export const send = <Command, S, H, W, M>(ledger: Ledger<Command, S, H, W, M>, generation: Generation, sent: Sent<M>) =>
+  updateOpened(ledger, generation, undefined, (hearing) => [
+    undefined,
+    Opt.some({ ...hearing, sent: [...hearing.sent, sent] }),
+  ])[1]
 
 /**
- * A call of `hearNext` that has left heard a message of the start `generation`, asked for by it or by a call before:
- * how many calls still wait on it, to tell that it has ended when the message was its last (none otherwise), and the
- * ledger.
+ * The first call waiting on the start `generation` hears the first message it sent, or nothing is heard, when either
+ * is missing. When the message was its last, the calls still waiting are told that it has ended, and none waits on
+ * it any more.
  */
-export const heard = <Command, S, H>(ledger: Ledger<Command, S, H>, generation: Generation, last: boolean) =>
-  updateOpened(ledger, generation, 0, (hearing) => [
-    last ? hearing.waiting : 0,
-    Opt.some({ ...hearing, asked: hearing.asked - 1 }),
-  ])
+export const hear = <Command, S, H, W, M>(
+  ledger: Ledger<Command, S, H, W, M>,
+  generation: Generation,
+): Opt.Option<
+  Readonly<{ call: W; sent: Sent<M>; ended: ReadonlyArray<W>; ledger: Ledger<Command, S, H, W, M> }>
+> => {
+  const hearing = ledger.hearings.get(generation)
+  if (hearing?._tag !== 'Opened') return Opt.none()
+  const [call, ...waiting] = hearing.waiting
+  const [sent, ...rest] = hearing.sent
+  if (call === undefined || sent === undefined) return Opt.none()
+  return Opt.some({
+    call,
+    sent,
+    ended: sent.last ? waiting : [],
+    ledger: withHearing(
+      ledger,
+      generation,
+      Opt.some({ ...hearing, waiting: sent.last ? [] : waiting, sent: rest, asked: hearing.asked - 1 }),
+    ),
+  })
+}
+
+/**
+ * The call `call` of `hearNext` has ended, having heard a message or not: it is no longer offered, nor waiting on a
+ * start, and what it asked for is the next call's.
+ */
+export const leave = <Command, S, H, W, M>(
+  ledger: Ledger<Command, S, H, W, M>,
+  call: W,
+): Ledger<Command, S, H, W, M> => {
+  const asking = new Set(ledger.asking)
+  asking.delete(call)
+  const hearings = new Map(ledger.hearings)
+  for (const [generation, hearing] of hearings) {
+    if (hearing._tag === 'Opened' && hearing.waiting.includes(call)) {
+      hearings.set(generation, { ...hearing, waiting: hearing.waiting.filter((each) => each !== call) })
+    }
+  }
+  return { ...ledger, asking, hearings }
+}

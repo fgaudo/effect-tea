@@ -1469,10 +1469,91 @@ describe('rehearse, as a call is interrupted between what it took and the loop',
     }))
   })
 
-  test.failing('a message hearNext took is applied, or heard by the next call, though the call is interrupted', () => {
+  test('a message hearNext took is applied, or heard by the next call, though the call is interrupted', () => {
     prioritizedSchedules(heard, { ...runs, pinned: [35, 52, 98, 158] }, (exit) => {
       expect(exit).toEqual(Exit.succeed(1))
     })
+  })
+})
+
+// The loop is kept in a release, of `a`, by a gate: what a fiber of the test's asks meanwhile waits in its queue.
+describe('rehearse, as a call leaves while the loop is in a release', () => {
+  type Listening = Readonly<{ listening: boolean; count: number }>
+  type Message = 'Stop' | 'Tick' | 'Done'
+
+  test('a hearNext that left before the loop took its step starts nothing, and hear plays its key', async () => {
+    let started = 0
+    const state = await Effect.runPromise(Effect.gen(function*() {
+      const gate = yield* Deferred.make<void>()
+      const program: Program<{ state: Listening; model: Listening; message: Message }> = {
+        init: { state: { listening: true, count: 0 } },
+        update: (message) => (state) =>
+          message === 'Stop' ? { state: { ...state, listening: false } } : { state: { ...state, count: state.count + 1 } },
+        subscriptions: ({ listening }) =>
+          HashMap.make(
+            [
+              'k',
+              Channel.unwrap(Effect.sync(() => {
+                started += 1
+                return Channel.never
+              })),
+            ],
+            ...(listening
+              ? [['a', Channel.succeed<Message>('Tick').pipe(
+                Channel.concatWith(() => Channel.never),
+                Channel.ensuring(Deferred.await(gate)),
+              )] as const]
+              : []),
+          ),
+        makeModel: (state) => state,
+      }
+      return yield* rehearse(program, Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.hearNext('a')
+        const stopping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>('Stop')))
+        yield* Effect.sleep('10 millis')
+        const hearing = yield* Effect.forkChild(rehearsal.hearNext('k'))
+        yield* Effect.sleep('10 millis')
+        yield* Fiber.interrupt(hearing)
+        yield* Deferred.succeed(gate, undefined)
+        yield* Fiber.join(stopping)
+        yield* rehearsal.hear('k', 'Tick')
+        return yield* rehearsal.state
+      }))
+    }))
+    expect(started).toBe(0)
+    expect(state).toEqual({ listening: false, count: 2 })
+  })
+
+  // The command's effect runs in a fiber of the rehearsal's scope, not in the loop: the release it opens ends.
+  test('a command run while a release waits for what the command gives ends', async () => {
+    const state = await Effect.runPromise(Effect.gen(function*() {
+      const gate = yield* Deferred.make<void>()
+      const program: Program<{ state: Listening; model: Listening; message: Message; command: 'Open' }> = {
+        init: { state: { listening: true, count: 0 }, commands: ['Open'] },
+        update: (message) => (state) =>
+          message === 'Stop' ? { state: { ...state, listening: false } }
+          : message === 'Done' ? { state: { ...state, count: -1 } }
+          : { state: { ...state, count: state.count + 1 } },
+        runCommand: () => Effect.as(Deferred.succeed(gate, undefined), Opt.some<Message>('Done')),
+        subscriptions: ({ listening }) =>
+          listening
+            ? HashMap.make(['a', Channel.succeed<Message>('Tick').pipe(
+              Channel.concatWith(() => Channel.never),
+              Channel.ensuring(Deferred.await(gate)),
+            )])
+            : HashMap.empty(),
+        makeModel: (state) => state,
+      }
+      return yield* rehearse(program, Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.hearNext('a')
+        const stopping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>('Stop')))
+        yield* Effect.sleep('10 millis')
+        yield* rehearsal.run(() => true)
+        yield* Fiber.join(stopping)
+        return yield* rehearsal.state
+      }))
+    }))
+    expect(state).toEqual({ listening: false, count: -1 })
   })
 })
 

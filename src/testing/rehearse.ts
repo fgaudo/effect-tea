@@ -83,17 +83,14 @@ export type RehearseOptions<State, Command, Flags = never> = [Flags] extends [ne
   ? Readonly<{ from?: Step<State, Command> }>
   : Readonly<{ from: Step<State, Command>; flags?: never }> | Readonly<{ flags: Flags; from?: never }>
 
-// A message of the subscription, or, to each call still waiting once another heard its last one, that it has ended.
-type Heard<Message> = Readonly<{ message: Message; last: boolean }> | 'ended'
+// A call of `hearNext`, by its identity, and what the loop tells it: the message it heard, once applied, or none once
+// its start has ended.
+type Call<Message> = Readonly<{ key: unknown; heard: Deferred.Deferred<Opt.Option<Message>> }>
 
-// What `hearNext` holds of a subscription it started; what it counts of it is the ledger's (`Ledger.Hearing`). A
-// message the test adds to a start that runs, or a subscription run from its start after the test heard it, is a
-// history no run makes.
-type Opened<Message> = Readonly<{
-  fiber: Fiber.Fiber<void>
-  asks: Queue.Queue<void>
-  heard: Queue.Queue<Heard<Message>>
-}>
+// What `hearNext` holds of a subscription it started; what it sent and who waits on it are the ledger's
+// (`Ledger.Hearing`). A message the test adds to a start that runs, or a subscription run from its start after the
+// test heard it, is a history no run makes.
+type Opened = Readonly<{ fiber: Fiber.Fiber<void>; asks: Queue.Queue<void> }>
 
 type Current<State, Message, Event> = Readonly<{
   state: State
@@ -180,18 +177,27 @@ export const rehearse = Effect.fnUntraced(function*<
     Effect.raceFirst(waiting, Effect.andThen(register.died, deadOr(Effect.never)))
   // The keys of the current state, each with its start, as the run keeps them (`Core.reconcile`): a key that stays
   // keeps its start as it is, and one that went away takes it with it. Keys are compared only in `subscriptions`, as
-  // in the run. Written by the loop, but for the end of a start, which `hearNext` marks as it hears the last message.
+  // in the run. Written only by the loop.
   let active: Core.Active<unknown> = Core.noneActive
   // The commands, and how each start is heard, by its generation, as the run keeps its fibers. Written by every fiber
   // of the test's, each time by one transition in one thunk.
-  let ledger = Ledger.start<Command, Subscription<Message, R>, Opened<Message>>(from.commands ?? [])
+  let ledger = Ledger.start<Command, Subscription<Message, R>, Opened, Call<Message>, Message>(from.commands ?? [])
+  const stoppedWhileWaiting = (key: unknown) =>
+    new Error(
+      `The subscription under ${Inspectable.toStringUnknown(key, 0)} was stopped while hearNext waited for its `
+        + 'message: its key went away, or the scenario ended',
+    )
+  // The calls still waiting on a start that was stopped would wait for ever: they fail, as a call made after the end
+  // does.
+  const tellStopped = (calls: ReadonlyArray<Call<Message>>) =>
+    Effect.forEach(calls, ({ key, heard }) => Deferred.die(heard, stoppedWhileWaiting(key)), { discard: true })
   // Where the loop and the subscriptions `hearNext` starts are forked, so that they outlive the fiber of the test's
   // that asked for them, as the run's loop and subscriptions outlive whoever dispatched. Closed at the end, however
   // the rehearsal ends, once what it holds is stopped.
   const forks = yield* Scope.make()
   // Interrupts them together, as the run stops the keys that went away, and fails the step on a defect of what they
   // release.
-  const stop = (stopping: Iterable<Opened<Message>>) =>
+  const stop = (stopping: Iterable<Opened>) =>
     Effect.forEach(stopping, ({ fiber }) => Effect.andThen(Fiber.interrupt(fiber), Fiber.await(fiber)), {
       concurrency: 'unbounded',
     }).pipe(Effect.flatMap((exits) => {
@@ -200,19 +206,23 @@ export const rehearse = Effect.fnUntraced(function*<
     }))
   // Read on each new state and compared with the keys of the state before, as the run reconciles them, though only
   // `hear` and `hearNext` act on them: a state whose subscriptions are a defect ends the run, and so does a key
-  // whose `Equal` throws against a key of the state before.
+  // whose `Equal` throws against a key of the state before. The calls that waited on a start stopped are told once it
+  // is released: a defect of its release fails them first, as it ends the run.
   const listen = (state: State) =>
     Effect.sync(() => {
       const { gone, fresh, active: next } = Core.reconcile(active, subscriptions(state))
       active = next
-      const [stopping, listening] = Ledger.listened(
+      const [stopping, stopped, listening] = Ledger.listened(
         ledger,
         gone.map(([, generation]) => generation),
         fresh.map(([, subscription, generation]) => [generation, subscription] as const),
       )
       ledger = listening
-      return stopping
-    }).pipe(diesIn('subscriptions'), Effect.flatMap(stop))
+      return [stopping, stopped] as const
+    }).pipe(
+      diesIn('subscriptions'),
+      Effect.flatMap(([stopping, stopped]) => Effect.andThen(stop(stopping), tellStopped(stopped))),
+    )
   yield* listen(from.state)
   // Written only by the loop.
   let now: Now = { state: from.state, revision: 0, events: [], ignored: [] }
@@ -233,9 +243,13 @@ export const rehearse = Effect.fnUntraced(function*<
     Effect.forkIn(forks),
   )
   // Once the rehearsal has ended, what a fiber of the test's still running asks is refused, and the call is
-  // interrupted: nothing would apply it. The check and the offer are one thunk, so that nothing is offered once the
-  // scenario's exit is taken, and `offered` runs in it too.
-  const submit = <A, RA>(step: Effect.Effect<A, never, RA>, offered: () => void = () => {}) =>
+  // interrupted: nothing would apply it. A subscription's own fiber waits instead (`quiet`) for the end to stop it,
+  // since one that interrupts itself is a defect. The check and the offer are one thunk, so that nothing is offered
+  // once the scenario's exit is taken, and `offered` runs in it too.
+  const submit = <A, RA>(
+    step: Effect.Effect<A, never, RA>,
+    { offered = () => {}, quiet = false }: Readonly<{ offered?: () => void; quiet?: boolean }> = {},
+  ) =>
     Effect.flatMap(Effect.context<RA>(), (context) =>
       Effect.flatMap(Deferred.make<unknown>(), (done) =>
         Effect.suspend(() => {
@@ -245,7 +259,7 @@ export const rehearse = Effect.fnUntraced(function*<
             return Effect.succeed(done as Deferred.Deferred<A>)
           }
           undelivered.delete(done)
-          return Effect.interrupt
+          return quiet ? Effect.never : Effect.interrupt
         })))
   const ask = <A, RA>(step: Effect.Effect<A, never, RA>) => Effect.flatMap(submit(step), Deferred.await)
   // A message of a start that is no longer active (`onDropped`) reaches nothing of the program, as in the run: only a
@@ -351,36 +365,85 @@ export const rehearse = Effect.fnUntraced(function*<
           return hasEnded(key)
       }
     })
+  // In the loop: while a call waits on the start and a message it sent is not heard, the first call hears the first
+  // message, applied as `hear` would apply it, and its last one tells the calls still waiting that it has ended. A
+  // call interrupted once it is told is told all the same: what the message applies, it applies whole.
+  const heardBy = (key: unknown, generation: Core.Generation): Effect.Effect<void> =>
+    Effect.suspend(() => {
+      const found = Ledger.hear(ledger, generation)
+      if (Opt.isNone(found)) return Effect.void
+      const { call, sent: { message, last }, ended: told } = found.value
+      ledger = found.value.ledger
+      if (last) active = Core.ended(active, generation)
+      return Effect.forEach(told, ({ heard }) => Deferred.succeed(heard, Opt.none()), { discard: true }).pipe(
+        // Applied only while its start is: what a start sends after its key went away does not reach `update`, as in
+        // the run.
+        Effect.andThen(Effect.exit(
+          arriveNow(
+            { _tag: 'Subscription', key, generation },
+            message,
+            () => Effect.die(stoppedWhileWaiting(call.key)),
+          ),
+        )),
+        Effect.flatMap((exit) => Effect.andThen(Deferred.done(call.heard, Exit.map(exit, () => Opt.some(message))), exit)),
+        Effect.andThen(heardBy(key, generation)),
+      )
+    })
+  // The subscription's own fiber gives the loop what it sends, as the run's gives it to the queue, and waits for the
+  // next ask: the loop keeps it until a call waits for it.
+  const sends = (key: unknown, generation: Core.Generation, message: Message, last: boolean) =>
+    submit(
+      Effect.suspend(() => {
+        ledger = Ledger.send(ledger, generation, { message, last })
+        return heardBy(key, generation)
+      }),
+      { quiet: true },
+    )
   // Started as the run starts a subscription, but held after each message until a `hearNext` asks for one: between
   // two of them, it waits where the run's would wait for the loop to take its message. Its last message follows the
   // end of its scope, as in the run.
-  const open = Effect.fnUntraced(function*(key: unknown, subscription: Subscription<Message, R>) {
+  const open = Effect.fnUntraced(function*(
+    key: unknown,
+    generation: Core.Generation,
+    subscription: Subscription<Message, R>,
+  ) {
     const asks = yield* Queue.unbounded<void>()
-    const heard = yield* Queue.unbounded<Heard<Message>>()
     const fiber = yield* Queue.take(asks).pipe(
       Effect.andThen(runSubscription(subscription, (message: Message) =>
-        Queue.offer(heard, { message, last: false }).pipe(Effect.andThen(Queue.take(asks))))),
+        sends(key, generation, message, false).pipe(Effect.andThen(Queue.take(asks))))),
       scopedIn(register, 'subscription', () => ({ key })),
-      Effect.flatMap((last) => Queue.offer(heard, { message: last, last: true })),
+      Effect.flatMap((last) => sends(key, generation, last, true)),
       Effect.asVoid,
       recorded,
       Effect.forkIn(forks),
     )
-    return { fiber, asks, heard }
+    return { fiber, asks }
   })
-  // Looked up, and started, in the loop, so that the key is the current state's and two calls start it once.
-  const opening = (key: unknown) =>
+  // The call waits on the start, after the calls waiting already, and asks its subscription for a message unless one
+  // asked for is not heard yet; one that left meanwhile waits on nothing.
+  const waitOn = (key: unknown, generation: Core.Generation, each: Opened, call: Call<Message>) =>
+    Effect.suspend(() => {
+      const [asks, asked] = Ledger.ask(ledger, generation, call)
+      ledger = asked
+      return Effect.andThen(asks ? Queue.offer(each.asks, undefined) : Effect.void, heardBy(key, generation))
+    })
+  // In the loop, so that the key is the current state's and two calls start it once. A call that left before the
+  // loop took its step starts nothing: the test no longer asks for it.
+  const hearing = (key: unknown, call: Call<Message>) =>
     Effect.flatMap(startUnder(key), (generation) =>
       Effect.suspend(() => {
-        const found = Ledger.opening(ledger, active, generation)
+        const found = Ledger.opening(ledger, active, generation, call)
         switch (found._tag) {
+          case 'Left':
+            return Effect.void
           case 'Open':
-            return Effect.map(open(key, found.subscription), (each) => {
-              ledger = Ledger.open(ledger, generation, each)
-              return { generation, each }
-            })
+            return Effect.flatMap(open(key, generation, found.subscription), (each) =>
+              Effect.suspend(() => {
+                ledger = Ledger.open(ledger, generation, each)
+                return waitOn(key, generation, each, call)
+              }))
           case 'Opened':
-            return Effect.succeed({ generation, each: found.handle })
+            return waitOn(key, generation, found.handle, call)
           case 'Scripted':
             return Effect.die(
               new Error(
@@ -394,54 +457,22 @@ export const rehearse = Effect.fnUntraced(function*<
             return Effect.die(nothingListensUnder(key))
         }
       }))
+  // The call is among those offered from the thunk of its offer on, and leaves however it ends: what the loop tells
+  // it meanwhile is what it hears, and what it asked for and did not hear is the next call's. A defect of the program,
+  // in whichever fiber, ends the wait, as it ends the run.
   const hearNext = Effect.fnUntraced(function*(key: unknown) {
-    const { generation, each } = yield* ask(opening(key))
-    // The subscription stopped, its key gone or the scenario ended, sends nothing more to wait for; a defect of it
-    // ends the wait, as it ends the run, and so does a defect of what it releases, alone, as the run dies of it.
-    const stopped = () =>
-      Effect.die(
-        new Error(
-          `The subscription under ${Inspectable.toStringUnknown(key, 0)} was stopped while hearNext waited for its `
-            + 'message: its key went away, or the scenario ended',
-        ),
-      )
-    const ends = Effect.flatMap(Fiber.await(each.fiber), (exit) => {
-      if (Exit.isSuccess(exit)) return Effect.never
-      const dies = exit.cause.reasons.filter(Cause.isDieReason)
-      return Arr.isArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : stopped()
-    })
-    // A message once taken is given to the loop before anything can interrupt the call: what it applies, it applies
-    // whole.
-    const applied = yield* Effect.uninterruptibleMask((restore) =>
-      Effect.suspend(() => {
-        const [asks, asked] = Ledger.ask(ledger, generation)
-        ledger = asked
-        return asks ? Queue.offer(each.asks, undefined) : Effect.void
-      }).pipe(
-        Effect.andThen(restore(orDead(Effect.raceFirst(Queue.take(each.heard), ends)))),
-        Effect.ensuring(Effect.sync(() => {
-          ledger = Ledger.leave(ledger, generation)
-        })),
-        Effect.flatMap((heard) => {
-          if (heard === 'ended') return hasEnded(key)
-          const { message, last } = heard
-          const [waiting, next] = Ledger.heard(ledger, generation, last)
-          ledger = next
-          if (last) active = Core.ended(active, generation)
-          // The calls still waiting would wait for ever: they fail, as a call made after the end does.
-          const ending = last
-            ? Effect.forEach(Arr.makeBy(waiting, () => 'ended' as const), (ended) => Queue.offer(each.heard, ended))
-            : Effect.void
-          // Applied only while its start is: what a start sends after its key went away does not reach `update`,
-          // as in the run.
-          return Effect.andThen(
-            ending,
-            submit(Effect.as(arriveNow({ _tag: 'Subscription', key, generation }, message, stopped), message)),
-          )
-        }),
-      )
+    const call: Call<Message> = { key, heard: yield* Deferred.make<Opt.Option<Message>>() }
+    const heard = yield* submit(hearing(key, call), {
+      offered: () => {
+        ledger = Ledger.enter(ledger, call)
+      },
+    }).pipe(
+      Effect.flatMap((done) => Effect.andThen(Deferred.await(done), orDead(Deferred.await(call.heard)))),
+      Effect.ensuring(Effect.sync(() => {
+        ledger = Ledger.leave(ledger, call)
+      })),
     )
-    return yield* Deferred.await(applied)
+    return Opt.isSome(heard) ? heard.value : yield* hasEnded(key)
   })
   // The effect of a command, in a fiber of the rehearsal's scope: once it answers, nothing interrupts it before its
   // answer is offered to the loop, and the command is no longer under way from the thunk of the offer on. Refused, as
@@ -454,7 +485,7 @@ export const rehearse = Effect.fnUntraced(function*<
       restore(effect.pipe(scopedIn(register, 'command'))).pipe(
         Effect.flatMap(Opt.match({
           onNone: () => Effect.succeedNone,
-          onSome: (message) => Effect.asSome(submit(arriveNow(fromCommand, message), settle)),
+          onSome: (message) => Effect.asSome(submit(arriveNow(fromCommand, message), { offered: settle })),
         })),
         Effect.onExit((exit) => Exit.isSuccess(exit) && Opt.isSome(exit.value) ? Effect.void : Effect.sync(settle)),
       )
@@ -539,7 +570,9 @@ export const rehearse = Effect.fnUntraced(function*<
     yield* Queue.shutdown(requests)
     yield* Effect.forEach(undelivered, Deferred.interrupt, { discard: true })
     // What they die of is recorded as they end.
-    yield* Effect.exit(stop(Ledger.opened(ledger)))
+    const [opened, waiting] = Ledger.opened(ledger)
+    yield* Effect.exit(stop(opened))
+    yield* tellStopped(waiting)
     yield* Scope.close(forks, Exit.void)
   })
   // A defect of the program comes first, as the run keeps first what ended it, then what the scenario ended with,

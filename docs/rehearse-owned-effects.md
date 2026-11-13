@@ -1,6 +1,6 @@
 # A rehearsal that owns what the test starts
 
-**Status:** accepted, November 2026, and under way: steps 1 to 3 of the "Plan" are done. It follows the sixth review
+**Status:** accepted, November 2026, and under way: steps 1 to 4 of the "Plan" are done. It follows the sixth review
 of the premises, whose findings in `rehearse` are open problems of [`ROADMAP.md`](../ROADMAP.md), three spikes on a
 copy of the repository at 0ff58b4, on Effect 4.1.4 and Bun 1.4.4, and a second reading of the first by a session
 that wrote none, which corrected it: "Alternatives" says how. The spikes are the three commits of the local branch
@@ -159,26 +159,30 @@ untouched and the seven tests of `rehearse.test.ts` without their mark.
 
 ## Open questions
 
-The first two are the author's to answer: whoever does the plan asks, before the step named, and does not choose.
+The first is the author's to answer: whoever does the plan asks, before the step named, and does not choose.
 
 - **Three conditions fail only under the scheduler of the tests**, which serves the search alone, so no mutation may
   name those tests as its killers. Each is a region nothing may interrupt, resting on the documented premise of
   `uninterruptibleMask`. Ask before step 5: either they are forms held by their construction, with no mutation, as
   the policy of `docs/single-owner.md` says of `Ledger.take`, and a change that takes one out fails no test until
   the search meets it; or a test with a gate must reach each one first, which was not tried.
-- **What the ledger keeps of the messages sent, of the calls waiting and of those that left** is not designed. The
-  spike keeps them in maps it mutates, beside the counts the ledger already has (`waiting`, `asked`), which say
-  part of the same. Ask before step 4, with the transitions proposed: the spike shows what `rehearse` must do, not
-  the shape of its data.
+- **What the ledger keeps of the messages sent, of the calls waiting and of those that left**: answered before step
+  4. An opened start keeps the calls waiting on it and the messages it sent, as lists in order, and `asked`, which
+  they do not give: a call that asked and left leaves both empty. `gone` went, since the loop tells the calls waiting
+  on a start stopped, which then has nothing they could still hear. The ledger keeps the calls offered and not yet
+  made to wait (`asking`), which a call takes itself out of as it ends, so that the loop makes one that left wait on
+  nothing and start nothing (`Ledger.opening`, `Ledger.ask`); nothing is kept of a call once it has ended. A call is
+  its identity, as a handle is: numbered, it would need a map from the number to it in the shell.
 - **The answer of a command and its settling are one thunk with the offer** in `main`, where the spike settled
   before it: a scenario that returns in between would find the command no longer under way, its answer refused. Like
   the three above, no test without the scheduler reaches it; it is a fourth such region for the question of step 5.
-- **Five conditions fail nothing.** One has its test above. Three need one: that a `hearNext` that left starts no
-  subscription, so that a later `hear` of its key is not refused, with a gate that keeps the loop in a release
-  while it leaves; that a fiber the scenario did not join is offered nothing once it returned; that a scenario that
-  failed does not wait for the loop. The last may go: a cancelled command fails the rehearsal whether or not its
+- **Five conditions fail nothing.** Two have their tests: the one above, and "a hearNext that left before the loop
+  took its step starts nothing, and hear plays its key", with a gate that keeps the loop in a release while it
+  leaves. Two need one: that a fiber the scenario did not join is offered nothing once it returned; that a scenario
+  that failed does not wait for the loop. The last may go: a cancelled command fails the rehearsal whether or not its
   answer is applied.
 - **A `hearNext` that leaves while the loop starts its subscription** leaves the start opened with no call hearing
-  it. Read in the spike, not reproduced.
+  it, as it stays while its key does: the step is not split by whoever asked for it, and nothing of the program has
+  run, the subscription waiting for an ask. Accepted at step 4.
 - Out of this note: the engine's finding (an interruption told by a fiber id the program can make), which is a
   local change of `diesIn`, and a defect of `makeModel` under `drive`, which is a decision of contract.

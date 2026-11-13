@@ -572,34 +572,65 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse's hearNext asks again for a message asked for and not heard",
     file: 'src/testing/ledger.ts',
-    from: 'return hearing.asked >= waiting',
+    from: 'return hearing.asked >= waiting.length',
     to: 'return false',
     killedBy: [
       [
         'src/testing/ledger.test.ts',
-        'each call asks for a message, unless one asked for by a call that left is not heard yet',
+        'a call asks for a message, unless one asked for by a call that left is not heard yet',
       ],
     ],
   },
   {
     name: "rehearse's hearNext tells no call waiting as its start ends",
     file: 'src/testing/ledger.ts',
-    from: 'last ? hearing.waiting : 0',
-    to: '0',
+    from: 'ended: sent.last ? waiting : []',
+    to: 'ended: []',
     killedBy: [
       ['src/testing/ledger.test.ts', 'the last message tells the calls still waiting, and only the last'],
     ],
   },
   {
-    name: 'rehearse forgets an opened start whose key went away while calls wait on it',
+    name: "rehearse's hearNext tells no call waiting on a start whose key went away",
     file: 'src/testing/ledger.ts',
-    from: '      if (hearing.waiting > 0) {',
-    to: '      if (false) {',
+    from: '      stopped.push(...hearing.waiting)\n',
+    to: '',
     killedBy: [
       [
         'src/testing/ledger.test.ts',
-        'a start whose key went away is stopped, and kept only while calls wait on it',
+        'a start whose key went away is stopped and forgotten, and the calls waiting on it are told',
       ],
+    ],
+  },
+  {
+    name: "rehearse's hearNext starts a subscription for a call that left",
+    file: 'src/testing/ledger.ts',
+    from: "  if (!ledger.asking.has(call)) return { _tag: 'Left' }\n",
+    to: '',
+    killedBy: [
+      ['src/testing/ledger.test.ts', 'a call that left before the loop made it wait starts nothing, and waits on nothing'],
+      [
+        'src/testing/rehearse.test.ts',
+        'a hearNext that left before the loop took its step starts nothing, and hear plays its key',
+      ],
+    ],
+  },
+  {
+    name: "rehearse's hearNext makes a call that left wait",
+    file: 'src/testing/ledger.ts',
+    from: '  if (!ledger.asking.has(call)) return [false, ledger]\n',
+    to: '',
+    killedBy: [
+      ['src/testing/ledger.test.ts', 'a call that left before the loop made it wait starts nothing, and waits on nothing'],
+    ],
+  },
+  {
+    name: "rehearse's hearNext keeps a call that left waiting",
+    file: 'src/testing/ledger.ts',
+    from: "    if (hearing._tag === 'Opened' && hearing.waiting.includes(call)) {",
+    to: '    if (false) {',
+    killedBy: [
+      ['src/testing/ledger.test.ts', 'a message is heard by the first call waiting, and waits for a call when none does'],
     ],
   },
   {

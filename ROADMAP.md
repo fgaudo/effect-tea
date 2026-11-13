@@ -12,15 +12,12 @@ Each is held by a `test.failing` case named after what should hold; its fix remo
 reports are the bodies of the commits of `claude/premise-review-6-engine-8ac990` (`ec3fe8c`, `d08d9d7`) and of
 `claude/premise-review-6-testing-d70db0` (`463159c`, `e4f4687`).
 
-**Next, the findings of `rehearse`**: the second item below.
-[`docs/rehearse-owned-effects.md`](docs/rehearse-owned-effects.md) is their design, accepted, and its "Plan" the
-work, five steps, each one commit that leaves the suite green and removes the marks and the items it closes; the
-first three are done. Read `change-engine` first. The local branch `spike/rehearse-one-owner` (`db8309a`) shows the
-design working in `src/testing/rehearse.ts`, and is to be read, not merged: it keeps in maps of the shell what the
-plan puts in the ledger as transitions, each with its test, and its test `deadlock.test.ts` belongs in
-`rehearse.test.ts` (`finish.test.ts` is there already). The note's "Open questions" say which conditions still need a
-test, and name two questions that are the author's: ask each before the step it names, and do not choose. Delete the
-branch once the plan is done. The first and the fourth items are not part of it.
+**Next, the end of the plan of `rehearse`**: its findings are closed, and
+[`docs/rehearse-owned-effects.md`](docs/rehearse-owned-effects.md), their design, accepted, has one step of its "Plan"
+left of five, the fifth: the mutations of `rehearse.ts`, the tests of the conditions no test holds, and the documents.
+Read `change-engine` first. The note's "Open questions" say which conditions still need a test, and name a question
+that is the author's: ask it before step 5, and do not choose. The local branch `spike/rehearse-one-owner`
+(`db8309a`) is to be read, not merged, and deleted once the plan is done. Neither item below is part of it.
 
 - **An interruption the program makes with the fiber id of the one its effect received ends in silence**:
   `Core.otherwiseDefect` takes an interruption for the run's by the id of the fiber that made it, an id the program
@@ -32,13 +29,6 @@ branch once the plan is done. The first and the fourth items are not part of it.
   interrupted, as the run stops it, is a defect in the subscription", the same of `FiberSet` and of `FiberHandle`,
   and "a command that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the command",
   the same of a renderer and of a subscription.
-- **A call of `hearNext` interrupted between what it took and the loop loses it**: it takes inside `restore`, in a
-  child of `Effect.raceFirst`, and gives the loop what it took only once the caller resumes, so
-  `Effect.uninterruptibleMask` does not hold what `docs/premises.md` rests on it, and no test fails with
-  `interruptibleMask` in its place. A message taken leaves the next `hearNext` waiting for ever. It fails only under the
-  scheduler of the tests (`prioritized`, `'inline'` and `'queued'`), with its seeds: a fix leaves a deterministic test
-  of it, since `test/scheduled.ts` serves the search alone. `rehearse.test.ts`, "a message hearNext took is applied,
-  or heard by the next call, though the call is interrupted".
 - **A defect of `makeModel` that the scenario catches fails `rehearse` and not `drive`**, where the README says a
   defect of the program fails each tool as it ends the run: in `drive` the scenario reads the model, and the run
   does not die of it. To be decided which of the two is right. `contract.test.ts`, "drive fails in render all the
