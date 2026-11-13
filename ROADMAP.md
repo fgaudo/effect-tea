@@ -24,14 +24,6 @@ where Effect 4.1.4 resumes it at once on the stack of the fiber that completes i
 AGENTS.md, since that inline resumption is read only in the source, unless it is added as a premise with a test
 that fails without it.
 
-- **To verify: the renderer may start after the first defect.** `running` in `run.ts` calls `render(frames)` after
-  `Engine.make`, with no check of the register, so a subscription of `init` that dies as the engine starts may let
-  the renderer's code run after the defect. The fifth premise review ruled it out with one run under Effect's own
-  scheduler (an `init` subscription that dies at once, a renderer that counts its starts: none), never under the
-  scheduler of the tests. To check: that scenario under `prioritizedSchedules` (depth 4, 2,000 seeds), counting the
-  calls of `render` made once `deaths.all()` is not empty. The README promises only of `update` and `runCommand`, so
-  a call found is a decision before it is a bug: check in the thunk that calls `render`, as for `runCommand`, or say
-  in "Running" that the renderer may still start.
 - **To verify: the end of the run may miss a fiber started after it looked.** The engine's finalizer
   (`Effect.addFinalizer` in `Engine.make`, `engine.ts`) takes `fibers` and `subscriptionFibers` in one thunk, then
   interrupts and awaits those alone. A step the loop is in when the run is interrupted, held by an uninterruptible

@@ -93,6 +93,9 @@ version, and everything else, features included, the patch version.
 
 ### Fixed
 
+- The renderer could be called after the first defect, as a subscription of `init` died while the run started:
+  the run now checks in the thunk that calls it, and never calls it in a run that died. "Running" in the README
+  says so. `drive`, whose scenario then sees no frame, fails with the defect, as before.
 - A message the run took before a defect could reach `update` after it, and a command could start after it in a
   program that lowers `Scheduler.MaxOpsBeforeYield`: the scheduler may yield between the run's check and the call.
   The run now checks in the thunk that calls `update` or `runCommand`, and `rehearse` too, in `run` and `model` as

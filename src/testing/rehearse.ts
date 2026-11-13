@@ -153,8 +153,7 @@ export const rehearse = Effect.fnUntraced(function*<
   // that died. The tool's own failures of a call (nothing to send, a control that does nothing) are the caller's
   // alone, so only a `ProgramDefect` is recorded.
   const register = yield* makeDeaths((defect) => defect instanceof ProgramDefect)
-  const { recorded, all: deaths, has: isRecorded } = register
-  const dead = () => deaths().length > 0
+  const { recorded, all: deaths, has: isRecorded, dead } = register
   // Fails with the defects recorded so far, if any: else runs `effect`. A call to the program that must not follow a
   // death checks it again in the thunk that calls it, since the scheduler may yield between this check and the call.
   const deadOr = <A, E, R>(effect: Effect.Effect<A, E, R>) =>

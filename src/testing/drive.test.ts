@@ -156,6 +156,22 @@ describe('drive', () => {
     expect(defect instanceof ProgramDefect && String(defect.cause)).toContain('boom')
   })
 
+  // The run may not start the renderer at all, which `drive` gives the scenario its frames through.
+  test('a subscription of init that dies fails a scenario waiting for a frame, before its patience', async () => {
+    type Still = Readonly<{ still: boolean }>
+    const program: Program<{ state: Still; model: Still; message: never }> = {
+      init: { state: { still: true } },
+      update: () => (state) => ({ state }),
+      makeModel: (state) => state,
+      subscriptions: () => HashMap.make(['dies', Channel.fromEffectDone(Effect.die('boom'))]),
+    }
+    const exit = await Effect.runPromiseExit(
+      drive(program, (driver) => Effect.andThen(driver.latest, Effect.never), { patience: '1 hour' }),
+    )
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    expect(defect instanceof ProgramDefect && defect.where).toBe('subscription')
+  })
+
   test('a wait longer than the patience fails, measured with the real clock even under a TestClock', async () => {
     const exit = await Effect.runPromiseExit(
       drive(

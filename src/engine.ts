@@ -165,6 +165,8 @@ export interface Deaths {
   readonly died: Effect.Effect<void>
   /** The defects recorded so far, in the order they died. */
   readonly all: () => ReadonlyArray<Cause.Die>
+  /** Whether a defect has been recorded. */
+  readonly dead: () => boolean
   /** Whether `defect` has been recorded, by its identity, never by `Equal`. */
   readonly has: (defect: unknown) => boolean
   /** Dies with the defects recorded since it last ran, in the order they died; succeeds when there is none. */
@@ -185,6 +187,7 @@ export const makeDeaths = Effect.fnUntraced(function*(keeps: (defect: unknown) =
         })),
     died: Deferred.await(died),
     all: () => register.deaths,
+    dead: () => register.deaths.length > 0,
     has: (defect) => Core.hasDied(register, defect),
     report: Effect.suspend(() => {
       const [dies, after] = Core.report(register)
@@ -270,7 +273,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     Queue.shutdown,
   )
   const deaths = given ?? (yield* makeDeaths(() => true))
-  const { recorded, died, report, all } = deaths
+  const { recorded, died, report, dead } = deaths
   // A run that died applies no message, and starts no command and no subscription, as nothing happens in a run that
   // died, while whoever runs it stops it: the renderer, which it stops first, may take a while to release what it
   // holds. Each is checked in the thunk that calls the program, `update` (`Core.arrive`) or `runCommand` (`alive`), or
@@ -278,7 +281,6 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   // operation. The loop checks nothing of its own, which would hide a check left apart from its call from any test. A
   // step whose `update` was called before the death goes on, as it may wait for a release or an option; what the
   // program's effects do once started is theirs, until the end of the run interrupts them.
-  const dead = () => all().length > 0
   // The loop and the commands.
   const fibers = yield* FiberSet.make<unknown, never>()
   // Kept by their start, never by their key: `FiberMap` compares its keys, in a fiber's observer too, where

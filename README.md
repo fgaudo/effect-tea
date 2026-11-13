@@ -664,7 +664,8 @@ the run gives it (`Effect.acquireRelease`, `Effect.addFinalizer`, a channel's ow
 what it wraps around its own code (`Effect.ensuring`, `Effect.onExit`, an `Effect.scoped` of its own) is part of its
 effect, runs before it ends, and may still catch the defect. What that release dies of is a defect once the scope has
 released all it holds: until then, the run goes on. From the defect on, the run applies no message, and so starts no
-command, while it releases what it holds: it calls neither `update` nor `runCommand`. A message whose
+command, while it releases what it holds: it calls neither `update` nor `runCommand`, nor the renderer when it has
+not called it yet, as when a subscription of `init` dies while the run starts. A message whose
 `update` it called before goes on to its frame, and what a command started before does, or a subscription that state
 lists, is the program's, until the run interrupts it. So is what the renderer does: a frame it reads meanwhile still
 makes its model, as `makeModel` is pure, and calling it changes nothing of the program. A defect met meanwhile joins

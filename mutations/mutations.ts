@@ -35,6 +35,18 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'the run calls render after the first defect',
+    file: 'src/run.ts',
+    from: 'Opt.getOrElse(Engine.alive(deaths.dead, () => render(frames)), () => Effect.void)',
+    to: 'render(frames)',
+    killedBy: [
+      [
+        'src/run.test.ts',
+        'a renderer is not called once a subscription of init has died, under prioritized schedules',
+      ],
+    ],
+  },
+  {
     name: 'reconcile starts subscriptions after the first defect',
     file: 'src/engine.ts',
     from: '      if (dead()) break\n',

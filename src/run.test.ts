@@ -23,6 +23,7 @@ import { reject, type Step, type Update } from './update.ts'
 import type { Program } from './program.ts'
 import type { Dispatch } from './dispatch.ts'
 import { type Frame, run } from './run.ts'
+import { prioritizedSchedules } from '../test/scheduled.ts'
 
 // A counter that accepts `Increment` and always rejects `Forbidden`; its model has `Increment`, and an input
 // that types either (a view that lets the user type `false` is buggy). Its commands only start where a test
@@ -1657,6 +1658,40 @@ describe('the end of the run', () => {
     expect(wheres(exit)).toEqual(['subscription'])
     expect(started).toBe(0)
     expect(loggedOnceItDied).not.toContain('Subscription started')
+  })
+
+  // No program code lies between the check and the call of `render`, which the fiber the run forks makes: no gate
+  // reaches it, so the scheduler of the tests orders the fibers. The channel's release runs once its defect is
+  // recorded, so a renderer called after it is one called after the first defect.
+  test('a renderer is not called once a subscription of init has died, under prioritized schedules', () => {
+    let released = false
+    let late = 0
+    const program: Program<{ state: Count; model: Count; message: never }> = {
+      init: { state: { count: 0 } },
+      update: () => (state) => ({ state }),
+      makeModel: (state) => state,
+      subscriptions: () =>
+        HashMap.make([
+          'dies',
+          Channel.unwrap(
+            Effect.addFinalizer(() =>
+              Effect.sync(() => {
+                released = true
+              })
+            ).pipe(Effect.as(Channel.fromEffectDone(Effect.die('boom')))),
+          ),
+        ]),
+    }
+    const once = Effect.suspend(() => {
+      released = false
+      return run(program, () =>
+        Effect.suspend(() => {
+          if (released) late += 1
+          return Effect.never
+        })).pipe(Effect.exit)
+    })
+    prioritizedSchedules(once, { runs: 500, depth: 2, resumptions: 'inline' }, () => {})
+    expect(late).toBe(0)
   })
 
   test('a log that dies as the run starts comes before what a subscription dies of as the end releases it', async () => {

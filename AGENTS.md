@@ -132,8 +132,9 @@ is how they are kept, and what a change must not undo:
   order: by the run as soon as one dies, and by the end of the run, which interrupts its fibers itself, waits for them
   to release what they hold, and dies of the rest; the run's cause holds the defects first, then the rest of what it
   ended with. From the first defect recorded on, the run calls neither `update` nor `runCommand`, a step under way
-  included, while the renderer releases what it holds: each is checked in the thunk that calls the program (`arrive` in
-  `core.ts` for `update`, `alive` in `engine.ts` for `runCommand`, and nowhere else: a check of the loop's own would
+  included, nor the renderer it has not called yet, while the renderer releases what it holds: each is checked in the
+  thunk that calls the program (`arrive` in `core.ts` for `update`, `alive` in `engine.ts` for `runCommand` and in
+  `run.ts` for the renderer, and nowhere else: a check of the loop's own would
   hide one left apart from its call from every test but a scheduled one), where no other fiber can run, since the scheduler may yield at any other operation, and
   a step may wait for a release or an option while another fiber dies. A subscription is a `Channel`, which the run
   does not call: the start of its fiber is checked too, but its first step may still come after the defect, under the

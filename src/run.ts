@@ -3,6 +3,7 @@ import * as Cause from 'effect/Cause'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
+import * as Opt from 'effect/Option'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import type { Dispatch } from './dispatch.ts'
@@ -67,7 +68,11 @@ const running = Effect.fnUntraced(
       Stream.buffer({ capacity: 1, strategy: 'sliding' }),
       Stream.map(({ state }) => lazyFrame(() => program.makeModel(state), engine.dispatch)),
     )
-    const renderer = yield* Effect.suspend(() => render(frames)).pipe(
+    // Started only in a run that has not died, checked in the thunk that calls it, as `runCommand` is: a subscription
+    // of `init` may die while the engine starts.
+    const renderer = yield* Effect.suspend(() =>
+      Opt.getOrElse(Engine.alive(deaths.dead, () => render(frames)), () => Effect.void)
+    ).pipe(
       // The model is made when the renderer reads it: a defect of `makeModel` is the renderer's.
       Engine.scopedIn(deaths, 'render'),
       Effect.updateContext(Engine.withExternalSpan<Exclude<RR, Scope.Scope>>),
