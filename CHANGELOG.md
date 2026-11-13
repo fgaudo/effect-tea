@@ -76,6 +76,7 @@ version, and everything else, features included, the patch version.
 - A subscription that dies while its channel holds a scope of its own ends the run before that release.
 - `rehearse`'s `runAll` no longer fails with "No pending command matches" when another fiber runs the last one.
 - A release that dies with a defect already among those of the run is a defect of its own, not lost.
+- A scenario that throws before it returns its effect fails `drive` and `rehearse`, which then stop the run as they end.
 
 ## 0.7.1 (2026-10-28)
 

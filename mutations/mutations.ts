@@ -669,4 +669,18 @@ export const mutations: ReadonlyArray<Mutation> = [
       ],
     ],
   },
+  {
+    name: 'drive calls the scenario outside the effect whose end is guarded',
+    file: 'src/testing/drive.ts',
+    from: 'Effect.suspend(() => scenario(driver))',
+    to: 'scenario(driver)',
+    killedBy: [['src/testing/drive.test.ts', 'nothing of the program happens once drive has ended']],
+  },
+  {
+    name: 'rehearse calls the scenario outside the effect whose end is guarded',
+    file: 'src/testing/rehearse.ts',
+    from: 'Effect.suspend(() => scenario(rehearsal))',
+    to: 'scenario(rehearsal)',
+    killedBy: [['src/testing/rehearse.test.ts', 'what a hearNext it started holds is released']],
+  },
 ]

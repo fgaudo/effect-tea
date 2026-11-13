@@ -100,7 +100,8 @@ export const drive = Effect.fnUntraced(function*<
   return yield* Effect.uninterruptibleMask(Effect.fnUntraced(function*(restore) {
     const fiber = yield* Effect.forkChild(restore(running))
     const ended = yield* Effect.exit(restore(Effect.raceFirst(
-      Effect.asSome(Effect.exit(scenario(driver))),
+      // Suspended, so that a scenario that throws before it returns its effect fails here, past nothing of the end.
+      Effect.asSome(Effect.exit(Effect.suspend(() => scenario(driver)))),
       Effect.as(Fiber.await(fiber), Opt.none()),
     )))
     yield* Fiber.interrupt(fiber)

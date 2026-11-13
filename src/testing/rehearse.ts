@@ -517,7 +517,8 @@ export const rehearse = Effect.fnUntraced(function*<
   // but for the defects already among them, by their identity. A rehearsal that died checks nothing more: its
   // commands are the run's, which died with it.
   const result = yield* Effect.uninterruptibleMask((restore) =>
-    Effect.exit(restore(scenario(rehearsal))).pipe(
+    // Suspended, so that a scenario that throws before it returns its effect still meets the end.
+    Effect.exit(restore(Effect.suspend(() => scenario(rehearsal)))).pipe(
       Effect.tap(end),
       Effect.flatMap((exit) => {
         const dies = deaths()

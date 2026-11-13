@@ -303,7 +303,7 @@ describe('drive interrupted by whoever runs it', () => {
 describe('drive and a scenario that throws before it returns its effect', () => {
   type Still = Readonly<{ still: boolean }>
 
-  test.failing('nothing of the program happens once drive has ended', async () => {
+  test('nothing of the program happens once drive has ended', async () => {
     const log: Array<'started' | 'released' | 'drive ended'> = []
     const program: Program<{ state: Still; model: Still; message: 'Tick' }> = {
       init: { state: { still: true } },

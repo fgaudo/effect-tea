@@ -12,15 +12,15 @@ Each is held by a `test.failing` case named after what should hold; its fix remo
 reports are the bodies of the commits of `claude/premise-review-6-engine-8ac990` (`ec3fe8c`, `d08d9d7`) and of
 `claude/premise-review-6-testing-d70db0` (`463159c`, `e4f4687`).
 
-**Next, the findings of `rehearse` and `drive`'s scenario that throws**: the second, third and fourth items below.
+**Next, the findings of `rehearse`**: the second and third items below.
 [`docs/rehearse-owned-effects.md`](docs/rehearse-owned-effects.md) is their design, accepted, and its "Plan" the
-work, five steps, each one commit that leaves the suite green and removes the marks and the items it closes. Read
-`change-engine` first. The local branch `spike/rehearse-one-owner` (`db8309a`) shows the design working in
-`src/testing/rehearse.ts`, and is to be read, not merged: it keeps in maps of the shell what the plan puts in the
-ledger as transitions, each with its test, and its two tests (`deadlock.test.ts`, `finish.test.ts`) belong in
+work, five steps, each one commit that leaves the suite green and removes the marks and the items it closes; the
+first is done. Read `change-engine` first. The local branch `spike/rehearse-one-owner` (`db8309a`) shows the design
+working in `src/testing/rehearse.ts`, and is to be read, not merged: it keeps in maps of the shell what the plan puts
+in the ledger as transitions, each with its test, and its two tests (`deadlock.test.ts`, `finish.test.ts`) belong in
 `rehearse.test.ts`. The note's "Open questions" say which conditions still need a test, and name three questions
 that are the author's: ask each before the step it names, and do not choose. Delete the branch once the plan is
-done. The first and the fifth items are not part of it.
+done. The first and the fourth items are not part of it.
 
 - **An interruption the program makes with the fiber id of the one its effect received ends in silence**:
   `Core.otherwiseDefect` takes an interruption for the run's by the id of the fiber that made it, an id the program
@@ -48,11 +48,6 @@ done. The first and the fifth items are not part of it.
   `test/scheduled.ts` serves the search alone. `rehearse.test.ts`, "a run interrupted once its command has answered
   applies the answer, or fails the rehearsal", "a run interrupted before the effect of its command begins fails the
   rehearsal", "a message hearNext took is applied, or heard by the next call, though the call is interrupted".
-- **A scenario that throws before it returns its effect skips the end of `drive` and of `rehearse`**: it is called
-  as an argument, outside the effect whose end is guarded. `drive`'s run starts once `drive` has ended, and is
-  interrupted, unawaited, when the fiber that ran it ends; what a `hearNext` the scenario started with
-  `Effect.runFork` holds is never released. `drive.test.ts`, "nothing of the program happens once drive has ended";
-  `rehearse.test.ts`, "what a hearNext it started holds is released".
 - **A defect of `makeModel` that the scenario catches fails `rehearse` and not `drive`**, where the README says a
   defect of the program fails each tool as it ends the run: in `drive` the scenario reads the model, and the run
   does not die of it. To be decided which of the two is right. `contract.test.ts`, "drive fails in render all the

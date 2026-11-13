@@ -1504,7 +1504,7 @@ describe('rehearse, as a fiber of the test\'s has sent a message when the scenar
 describe('rehearse and a scenario that throws before it returns its effect', () => {
   type Count = Readonly<{ count: number }>
 
-  test.failing('what a hearNext it started holds is released', async () => {
+  test('what a hearNext it started holds is released', async () => {
     const log: Array<'acquire' | 'release'> = []
     const program: Program<{ state: Count; model: Count; message: 'Tick' }> = {
       init: { state: { count: 0 } },
