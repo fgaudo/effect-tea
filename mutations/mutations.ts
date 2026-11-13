@@ -398,10 +398,6 @@ export const mutations: ReadonlyArray<Mutation> = [
         'src/run.test.ts',
         'a renderer that interrupts itself as whoever runs the run interrupts it is a defect in the renderer',
       ],
-      [
-        'src/testing/contract.test.ts',
-        'drive fails, as the run dies, on a defect of what a subscription releases when the scenario ends',
-      ],
     ],
   },
   {

@@ -19,6 +19,7 @@ version, and everything else, features included, the patch version.
 - `simulate`, `rehearse` and `drive` fail with a `ProgramDefect` in the run's site, where they failed with the defect.
 - `drive` fails on a defect of `makeModel` that the scenario catches, as `rehearse` does, and ends the scenario.
 - `drive` keeps a defect of `makeModel` among the program's in the order they happened, as the run does, not first.
+- `drive` keeps what a scenario that caught a defect of `makeModel` ended with, after the defects, as `rehearse` does.
 - The run dies of an effect that interrupts itself with the fiber id of the run's interruption, as the run stops it.
 - `rehearse` and `simulate` fail, as the run dies, on such an effect, and stop a command as the run does.
 - **Breaking**: `simulate` runs each command after those started before it, as the run does.

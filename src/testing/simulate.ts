@@ -46,7 +46,8 @@ export const simulate = <State, Message, Command, Event, R = never>(
     & Readonly<{ subscriptions?: Subscriptions<State, Message, unknown, unknown> }>
     & ObjectState<State>,
 ) => {
-  type Current = Simulation<State, Message, Command, Event>
+  // What a simulation has made so far, but for its state, which `Listening` holds.
+  type Current = Omit<Simulation<State, Message, Command, Event>, 'state'>
   const { update } = program
   const runCommand = runCommandOf(program)
   const subscriptions = subscriptionsOf(program)
@@ -75,7 +76,6 @@ export const simulate = <State, Message, Command, Event, R = never>(
         listening.current = arrived.next
         const applied: Current = {
           ...simulation,
-          state: arrived.next.state,
           messages: [...simulation.messages, message],
           commands: [...simulation.commands, ...arrived.commands],
           events: [...simulation.events, ...arrived.events],
@@ -120,22 +120,16 @@ export const simulate = <State, Message, Command, Event, R = never>(
   return Effect.fnUntraced(function*(
     messages: ReadonlyArray<Message>,
     from: Step<State, Command>,
-  ): Effect.fn.Return<Current, never, Exclude<R, Scope.Scope>> {
+  ): Effect.fn.Return<Simulation<State, Message, Command, Event>, never, Exclude<R, Scope.Scope>> {
     const started = Core.init(from)
     const listening: Listening = { current: started.current, active: Core.noneActive }
     yield* listen(listening)
-    let current = yield* runFrom({
-      state: started.current.state,
-      messages: [],
-      commands: started.commands,
-      events: [],
-      ignored: [],
-    }, 0, listening)
+    let current = yield* runFrom({ messages: [], commands: started.commands, events: [], ignored: [] }, 0, listening)
     for (const [index, message] of messages.entries()) {
       const applied = yield* apply(Core.fromView, message, current, listening)
       if (Opt.isNone(applied)) return yield* Effect.die(unexpectedRejection(index, message))
       current = yield* runFrom(applied.value, current.commands.length, listening)
     }
-    return current
+    return { state: listening.current.state, ...current }
   })
 }

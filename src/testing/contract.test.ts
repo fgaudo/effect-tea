@@ -1035,7 +1035,7 @@ describe('a defect of makeModel that the scenario catches', () => {
     expect(diedIn(exit)).toBe('render')
   })
 
-  const reasons = (exit: Exit.Exit<unknown>) =>
+  const reasons = (exit: Exit.Exit<unknown, unknown>) =>
     Exit.isFailure(exit)
       ? exit.cause.reasons.map((reason) =>
         Cause.isDieReason(reason)
@@ -1050,6 +1050,18 @@ describe('a defect of makeModel that the scenario catches', () => {
       drive(modeling, (driver) => Effect.andThen(Effect.exit(driver.waitFor(Opt.some)), Effect.never)),
     )
     expect(reasons(exit)).toEqual(['render'])
+  })
+
+  test('drive fails, as rehearse does, in render first, then with what a scenario that caught it ended with', async () => {
+    const failing = <R>(caught: Effect.Effect<unknown, never, R>) => Effect.andThen(caught, Effect.fail('oops'))
+    const rehearsed = await Effect.runPromiseExit(
+      rehearse(modeling, (rehearsal) => failing(Effect.exit(rehearsal.model))),
+    )
+    const driven = await Effect.runPromiseExit(
+      drive(modeling, (driver) => failing(Effect.exit(driver.waitFor(Opt.some)))),
+    )
+    expect(reasons(rehearsed)).toEqual(['render', 'Fail'])
+    expect(reasons(driven)).toEqual(['render', 'Fail'])
   })
 })
 

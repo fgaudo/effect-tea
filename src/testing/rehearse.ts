@@ -287,7 +287,7 @@ export const rehearse = Effect.fnUntraced(function*<
       Opt.match(select(shown), {
         onNone: () => Effect.die(new Error('The model does not show what the test sends', { cause: shown })),
         onSome: (message) =>
-          applyNow(fromView, message, () =>
+          applyNow(Core.fromView, message, () =>
             Effect.die(
               new Error(
                 `update rejected ${
@@ -447,7 +447,7 @@ export const rehearse = Effect.fnUntraced(function*<
         Effect.flatMap(Opt.match({
           onNone: () => Effect.succeedNone,
           onSome: (message) =>
-            Effect.asSome(submit(arriveNow(fromCommand, message), {
+            Effect.asSome(submit(arriveNow(Core.fromCommand, message), {
               offered: () => {
                 ledger = settle(ledger)
               },
@@ -593,10 +593,6 @@ export const rehearse = Effect.fnUntraced(function*<
   }
   return result
 })
-
-const fromView: Core.Source<never> = { _tag: 'View' }
-
-const fromCommand: Core.Source<never> = { _tag: 'Command' }
 
 const nothingListensUnder = (key: unknown) =>
   new Error(`Nothing listens under ${Inspectable.toStringUnknown(key, 0)} in the current state`)
