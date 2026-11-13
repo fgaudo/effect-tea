@@ -473,10 +473,10 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'rehearse runs a command after the first defect',
     file: 'src/testing/rehearse.ts',
-    from: 'Effect.suspend(() => dead() ? deadOr(Effect.never) : runCommand(command))',
-    to: 'Effect.suspend(() => runCommand(command))',
+    from: '        if (dead()) return deadOr(Effect.never)\n        const taking = Ledger.take(ledger, select)\n',
+    to: '        const taking = Ledger.take(ledger, select)\n',
     killedBy: [
-      ['src/testing/rehearse.test.ts', 'run calls no runCommand once a command has died, under prioritized schedules'],
+      ['src/testing/rehearse.test.ts', 'run calls no runCommand once a command has died'],
     ],
   },
   {

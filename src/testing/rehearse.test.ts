@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test'
-import * as Arr from 'effect/Array'
 import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Context from 'effect/Context'
@@ -1210,58 +1209,36 @@ describe('rehearse after the first defect', () => {
     expect(late).toBe(0)
     expect(Exit.isFailure(exit)).toBe(true)
   })
-})
 
-// The form of the engine's window between a check of its register and what it guards: `run` may yield before it calls
-// `runCommand`, while another fiber dies. It checks again in the thunk that calls the program, which a scheduler the
-// test controls reaches. That of `update` is the core's (`Core.arrive`), held by `core.test.ts`, and called by
-// `rehearse` as by the engine ("send calls no update once a read of the model has died in its select").
-describe('rehearse, after the first defect, a yield of the scheduler in between', () => {
-  type Count = Readonly<{ n: number }>
-
-  const lateCalls = (what: 'run' | 'model', late: { n: number }) =>
-    Effect.suspend(() => {
-      let probing = false
-      let rehearsing: Rehearsal<Count, Count, 'Go', 'Die' | 'Start'> | undefined
-      // `model` reads `makeModel`, which this probe is called from.
-      const dead = () => {
-        if (rehearsing === undefined || probing) return false
-        probing = true
-        const died = Exit.isFailure(Effect.runSync(Effect.exit(rehearsing.model)))
-        probing = false
-        return died
-      }
-      const program: Program<{ state: Count; model: Count; message: 'Go'; command: 'Die' | 'Start' }> = {
-        init: { state: { n: 0 } },
-        update: () => ({ n }) => ({ state: { n: n + 1 }, commands: ['Die', 'Start', 'Start'] }),
-        runCommand: (command) => {
-          if (command === 'Start' && dead()) late.n += 1
-          return command === 'Die' ? Effect.die('boom') : Effect.succeedNone
-        },
-        makeModel: (state) => {
-          if (what === 'model' && !probing && dead()) late.n += 1
-          return state
-        },
-      }
-      return rehearse(program, Effect.fnUntraced(function*(rehearsal) {
-        rehearsing = rehearsal
-        yield* rehearsal.send(() => Opt.some('Go'))
-        const dying = yield* Effect.forkChild(Effect.exit(rehearsal.run((command) => command === 'Die')))
-        const call: Effect.Effect<unknown> = what === 'run'
-          ? rehearsal.run((command) => command === 'Start')
-          : rehearsal.model
-        yield* Effect.all(Arr.makeBy(2, () => Effect.exit(call)), { concurrency: 'unbounded', discard: true })
-        yield* Fiber.await(dying)
-      })).pipe(Effect.exit)
-    })
-
-  for (const [what, called] of [['run', 'runCommand']] as const) {
-    test(`${what} calls no ${called} once a command has died, under prioritized schedules`, () => {
-      const late = { n: 0 }
-      prioritizedSchedules(lateCalls(what, late), { runs: 2000, depth: 4 }, () => {})
-      expect(late.n).toBe(0)
-    })
-  }
+  // `run` checks the register, takes its command and calls `runCommand` in one thunk, with no check in front of it:
+  // a run that follows the death reaches the check with no schedule, and leaves its command pending.
+  test('run calls no runCommand once a command has died', async () => {
+    type Count = Readonly<{ n: number }>
+    let died = false
+    let late = 0
+    let left: ReadonlyArray<'Die' | 'Start'> = []
+    const program: Program<{ state: Count; model: Count; message: 'Go'; command: 'Die' | 'Start' }> = {
+      init: { state: { n: 0 }, commands: ['Die', 'Start'] },
+      update: () => (state) => ({ state }),
+      runCommand: (command) => {
+        if (died) late += 1
+        return command === 'Die' ? Effect.die('boom') : Effect.succeedNone
+      },
+      makeModel: (state) => state,
+    }
+    const exit = await Effect.runPromiseExit(rehearse(
+      program,
+      Effect.fnUntraced(function*(rehearsal) {
+        died = Exit.isFailure(yield* Effect.exit(rehearsal.run((command) => command === 'Die')))
+        yield* Effect.exit(rehearsal.run((command) => command === 'Start'))
+        left = yield* rehearsal.pending
+      }),
+    ))
+    expect(died).toBe(true)
+    expect(late).toBe(0)
+    expect(left).toEqual(['Start'])
+    expect(Exit.isFailure(exit)).toBe(true)
+  })
 })
 
 // A release that interrupts itself after its command died is a second defect, as in the run ("a release that

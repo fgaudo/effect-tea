@@ -436,19 +436,21 @@ export const rehearse = Effect.fnUntraced(function*<
     )
     return yield* Deferred.await(applied)
   })
-  // Takes the oldest pending command `select` matches, or finds none, in one thunk (`Ledger.take`), runs it and
-  // applies its message.
+  // Checks the register, takes the oldest pending command `select` matches, or finds none (`Ledger.take`), and calls
+  // `runCommand`, all in one thunk, with no check in front of it; then runs the effect it returned and applies its
+  // message.
   type Ran =
     | Readonly<{ _tag: 'None'; pending: ReadonlyArray<Command> }>
     | Readonly<{ _tag: 'Ran'; command: Command; answer: Opt.Option<Deferred.Deferred<void>> }>
   const runFirst = (select: (command: Command) => boolean) =>
     Effect.uninterruptibleMask((restore) =>
-      deadOr(Effect.suspend((): Effect.Effect<Ran, never, Exclude<R, Scope.Scope>> => {
+      Effect.suspend((): Effect.Effect<Ran, never, Exclude<R, Scope.Scope>> => {
+        if (dead()) return deadOr(Effect.never)
         const taking = Ledger.take(ledger, select)
         if (Opt.isNone(taking)) return Effect.succeed({ _tag: 'None', pending: ledger.pending })
         const [{ ticket, command }, taken] = taking.value
         ledger = taken
-        return restore(orDead(Effect.suspend(() => dead() ? deadOr(Effect.never) : runCommand(command)).pipe(
+        return restore(orDead(calling(() => runCommand(command)).pipe(
           scopedIn(register, 'command'),
           Effect.onInterrupt(() =>
             Effect.sync(() => {
@@ -465,7 +467,7 @@ export const rehearse = Effect.fnUntraced(function*<
           })),
           Effect.map((answer): Ran => ({ _tag: 'Ran', command, answer })),
         )
-      }))
+      })
     ).pipe(
       Effect.tap((ran: Ran) =>
         ran._tag === 'Ran' && Opt.isSome(ran.answer) ? Deferred.await(ran.answer.value) : Effect.void
