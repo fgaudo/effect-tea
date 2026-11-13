@@ -9,6 +9,7 @@ import * as Fiber from 'effect/Fiber'
 import * as Hash from 'effect/Hash'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
+import type * as Scope from 'effect/Scope'
 import { parent } from '../compose.ts'
 import { CompositionDefect, ProgramDefect } from '../defect.ts'
 import type { Applied, Ignored } from '../engine.ts'
@@ -921,6 +922,38 @@ describe('what the run dies of, and the tools fail on', () => {
         Effect.andThen(rehearsal.model),
       )))
     expect(seen).toBe(1)
+  })
+
+  // A command that answers, and whose scope, released as it ends, dies: the defect is the command's, not the
+  // renderer's nor the run's own, wherever its scope is released.
+  const releasing: Program<
+    { state: Row; model: number; message: 'Go' | 'Saved'; command: 'Save'; services: Scope.Scope }
+  > = {
+    init: { state: { seen: 0 } },
+    update: (message) => (state) =>
+      message === 'Go' ? { state, commands: ['Save'] } : { state: { seen: state.seen + 1 } },
+    runCommand: () =>
+      Effect.addFinalizer(() => Effect.die(new Boom())).pipe(Effect.as(Opt.some<'Go' | 'Saved'>('Saved'))),
+    makeModel: ({ seen }) => seen,
+  }
+
+  test('the run dies in a command on a release of a command that dies', async () => {
+    const exit = await Effect.runPromiseExit(drive(releasing, Effect.fnUntraced(function*(driver) {
+      yield* driver.send(() => Opt.some<'Go' | 'Saved'>('Go'))
+      return yield* driver.waitFor(() => Opt.none())
+    })))
+    expect(diedIn(exit)).toBe('command')
+  })
+
+  test('simulate fails, as the run dies, in a command on a release of a command that dies', async () => {
+    const exit = await Effect.runPromiseExit(simulate(releasing)(['Go'], releasing.init))
+    expect(diedIn(exit)).toBe('command')
+  })
+
+  test('rehearse fails, as the run dies, in a command on a release of a command that dies', async () => {
+    const exit = await Effect.runPromiseExit(rehearse(releasing, (rehearsal) =>
+      rehearsal.send(() => Opt.some<'Go' | 'Saved'>('Go')).pipe(Effect.andThen(rehearsal.runAll))))
+    expect(diedIn(exit)).toBe('command')
   })
 
   // A `runCommand` that throws before it returns its effect: the run suspends it, so the defect is the command's.

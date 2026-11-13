@@ -775,7 +775,11 @@ describe('what a parent can do with a child', () => {
       subscriptions: () => HashMap.make([['Ticker', 'ticks'] as const, ticks]),
       makeModel: () => null,
     })
-    expect(() => subscriptionsOf(clashing)(noTicks)).toThrow(CompositionDefect)
+    expect(() => subscriptionsOf(clashing)(noTicks))
+      .toThrow(new CompositionDefect({
+        message: 'An own subscription key is the key of a subscription of "Ticker"',
+        child: 'Ticker',
+      }))
   })
 })
 

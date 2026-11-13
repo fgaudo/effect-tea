@@ -514,6 +514,21 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    // The first check alone: the second still dies on an own key, but says that a list names one id twice.
+    name: 'an own key equal to a lifted one is the defect of an id listed twice',
+    file: 'src/compose.ts',
+    from: '                if (HashMap.has(own, key)) {\n'
+      + '                  throw defectAt(place, `An own subscription key is the key of a subscription of "${name}"`)\n'
+      + '                }\n',
+    to: '',
+    killedBy: [
+      [
+        'src/compose.test.ts',
+        "an own subscription key that is the lifted key of a child's is a defect, never a silent replacement",
+      ],
+    ],
+  },
+  {
     name: "rehearse's loop applies a step after the first defect",
     file: 'src/testing/rehearse.ts',
     from: 'recorded(deadOr(step))',
@@ -868,6 +883,51 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         'src/testing/contract.test.ts',
         'simulate fails, as the run dies, on a key whose Equal throws against the key of the state before',
+      ],
+    ],
+  },
+  {
+    name: "simulate takes a defect of what a command's scope releases for one of its own",
+    file: 'src/testing/simulate.ts',
+    from: "effect.pipe(Effect.scoped, diesIn('command'))",
+    to: "effect.pipe(diesIn('command'), Effect.scoped)",
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails, as the run dies, in a command on a release of a command that dies',
+      ],
+    ],
+  },
+  {
+    name: 'dispatchViolations takes a message that changes the state again for one that acts once',
+    file: 'src/testing/dispatch-violations.ts',
+    from: '(!Equal.equals(second.state, first.state)\n        || ',
+    to: '(',
+    killedBy: [
+      ['src/testing/dispatch-violations.test.ts', 'reports a message that changes the state again when sent twice'],
+    ],
+  },
+  {
+    name: 'dispatchViolations takes a message that starts a command again for one that acts once',
+    file: 'src/testing/dispatch-violations.ts',
+    from: '\n        || (second.commands?.length ?? 0) > 0',
+    to: '',
+    killedBy: [
+      [
+        'src/testing/dispatch-violations.test.ts',
+        'reports a message that starts a command again when sent twice, though the state stays the same',
+      ],
+    ],
+  },
+  {
+    name: 'dispatchViolations takes a message that raises an event again for one that acts once',
+    file: 'src/testing/dispatch-violations.ts',
+    from: '\n        || (second.events?.length ?? 0) > 0)',
+    to: ')',
+    killedBy: [
+      [
+        'src/testing/dispatch-violations.test.ts',
+        'reports a message that raises an event again when sent twice, unless it repeats on purpose',
       ],
     ],
   },

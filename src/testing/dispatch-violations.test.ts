@@ -1,14 +1,15 @@
 import { describe, expect, test } from 'bun:test'
-import { reject, type Update } from '../update.ts'
+import { raise, reject, type Update } from '../update.ts'
 import { dispatchViolations } from './dispatch-violations.ts'
 
 type State = Readonly<{ count: number; isOpen: boolean }>
 
-// `Increment` repeats on purpose, `Opened` happens once, `Pinged` starts `Ping` every time, `Forbidden` never
-// applies, and `Closed` changes nothing when sent again.
-type Message = 'Increment' | 'Opened' | 'Closed' | 'Pinged' | 'Forbidden'
+// `Increment` repeats on purpose, `Opened` happens once, `Pinged` starts `Ping` every time, `Notified` raises
+// `Notify` every time and changes nothing else, `Forbidden` never applies, and `Closed` changes nothing when sent
+// again.
+type Message = 'Increment' | 'Opened' | 'Closed' | 'Pinged' | 'Notified' | 'Forbidden'
 
-const update: Update<State, Message, 'Ping'> = (message) => (state) => {
+const update: Update<State, Message, 'Ping', 'Notify'> = (message) => (state) => {
   switch (message) {
     case 'Increment':
       return { state: { ...state, count: state.count + 1 } }
@@ -18,6 +19,8 @@ const update: Update<State, Message, 'Ping'> = (message) => (state) => {
       return { state: { ...state, isOpen: false } }
     case 'Pinged':
       return { state, commands: ['Ping'] }
+    case 'Notified':
+      return raise('Notify' as const)(state)
     case 'Forbidden':
       return reject
   }
@@ -36,9 +39,18 @@ describe('dispatchViolations', () => {
     expect(check(closed, ['Forbidden'])).toEqual([{ _tag: 'Rejected', message: 'Forbidden' }])
   })
 
-  test('reports a message that acts again when sent twice', () => {
-    expect(check(closed, ['Pinged'])).toEqual([{ _tag: 'ActsTwice', message: 'Pinged' }])
+  test('reports a message that changes the state again when sent twice', () => {
     expect(dispatchViolations(update)(closed, ['Increment'])).toEqual([{ _tag: 'ActsTwice', message: 'Increment' }])
+  })
+
+  test('reports a message that starts a command again when sent twice, though the state stays the same', () => {
+    expect(check(closed, ['Pinged'])).toEqual([{ _tag: 'ActsTwice', message: 'Pinged' }])
+  })
+
+  test('reports a message that raises an event again when sent twice, unless it repeats on purpose', () => {
+    expect(check(closed, ['Notified'])).toEqual([{ _tag: 'ActsTwice', message: 'Notified' }])
+    expect(dispatchViolations(update, { repeatable: (message) => message === 'Notified' })(closed, ['Notified']))
+      .toEqual([])
   })
 })
 
