@@ -451,8 +451,13 @@ A lead no test can reach yet is listed here, with what would decide it. None is,
     releases, defects and self-interruptions, and the seed of the order the scheduler of the tests (`test/scheduled.ts`)
     runs them in, and each promise of the README's "Guarantees" that the scenario reaches is checked on every one
     (`interleaving.test.ts`). It is a search, from a seed drawn on each run, and runs apart: `bun run interleavings`,
-    and a daily job of the CI (`.github/workflows/interleavings.yml`), never `bun run test`. An order it finds is a
-    finding, listed in `ROADMAP.md` with its seed and path until a fix leaves a deterministic test of it; no
+    and a daily job of the CI (`.github/workflows/interleavings.yml`), never `bun run test`. A lead it finds is
+    checked under `test/scheduled.ts` in both of its modes of resumption. A failure under `'inline'` is an order
+    Effect's own scheduler gives, but for where it preempts, and so reachable when the program runs. One under
+    `'queued'` alone (the default) rests on a fiber resumed by a `Deferred` or a `Fiber.join` waiting for its turn,
+    where Effect 4.1.4 resumes it at once on the stack of the fiber that completes it: still a finding, since that
+    inline resumption is read only in the source, unless it is added as a premise with a test that fails without it.
+    A finding is listed in `ROADMAP.md` with its seed and path until a fix leaves a deterministic test of it; no
     mutation names it among its killers.
   - **contracts**: one program and its inputs given alike to each testing tool and to the run
     (`src/testing/contract.test.ts`, where a `test.failing` says how they still differ), and one view to each

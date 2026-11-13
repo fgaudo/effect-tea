@@ -6,24 +6,6 @@ when it is done or rejected, with the reason in the commit.
 
 ## Open problems
 
-An audit of November 2026 of every check of what another fiber may change against the act it guards (the rule
-"one thunk" of AGENTS.md) found that the run's tests rested on the order of Effect's yields, which Effect does not
-promise. [`docs/single-owner.md`](docs/single-owner.md) closed it: the run keeps one check, where its loop applies a
-message (`Core.arrive`, shared with `rehearse`), `rehearse` one in the thunk of each call of the program and of each
-take from `pending` (`Ledger.take`), and no test under a schedule kills a mutation. The engine's `active` and
-`started`, and `rehearse`'s `now` and `active`, are read and written by one fiber only, the loop, but for the end of a
-start, which `hearNext` marks in the thunk where it counts the calls still waiting; `rehearse`'s ledger is written by
-every fiber of the test's, one transition per thunk, so no window opens on them. Beyond any check: the first step of
-a subscription, or of an effect already started, which the README promises nothing about, and a `makeModel` the
-renderer reads as it releases, which the README says still makes its model.
-
-A lead the search of `interleaving.test.ts` finds is checked under `test/scheduled.ts` in both of its modes of
-resumption. A failure under `'inline'` is an order Effect's own scheduler gives, but for where it preempts, and so
-reachable when the program runs. One under `'queued'` alone (the default) rests on a fiber resumed by a `Deferred` or
-a `Fiber.join` waiting for its turn, where Effect 4.1.4 resumes it at once on the stack of the fiber that completes
-it: still a finding by the rules of AGENTS.md, since that inline resumption is read only in the source, unless it is
-added as a premise with a test that fails without it.
-
 - **The changelog's entries are paragraphs**, where a reader looking for what changed would scan a line each.
 
 ## Possible improvements
