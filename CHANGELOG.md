@@ -38,6 +38,7 @@ version, and everything else, features included, the patch version.
 - "Commands" in the README says that commands run concurrently, with no bound, and answer in the order they end.
 - "Running" in the README says that the run waits for `onApplied` and `onIgnored`, and how a slow observer hands off.
 - "Commands" and "Guarantees" in the README say that the end of the run interrupts the commands under way.
+- "Running" in the README says that a string message is logged whole, and that a defect's `key` and `id` are as is.
 - "Guarantees" in the README says that messages are applied one at a time, in the order they were queued.
 - "Guarantees" in the README says that nothing is bounded or times out: a release that never ends holds the program.
 - "Running" in the README says that `onApplied` may hear a step whose frame is never drawn, as the run ends.

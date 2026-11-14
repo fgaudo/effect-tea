@@ -54,13 +54,13 @@ export type Ignored<State, Message> = Readonly<{
 /** How a program runs: how messages and commands appear in the logs, and who observes the transitions. */
 export interface RunOptions<Message, State = unknown, Command = unknown> {
   /**
-   * How a message appears in the logs; by default its `_tag`, never its data. Called only while debug logs are
-   * enabled.
+   * How a message appears in the logs; by default its `_tag`, never its data, and one that is a string whole.
+   * Called only while debug logs are enabled.
    */
   readonly describeMessage?: (message: Message) => unknown
   /**
-   * How a command appears in the logs; by default its `_tag`, never its data. Called only while debug logs are
-   * enabled.
+   * How a command appears in the logs; by default its `_tag`, never its data, and one that is a string whole.
+   * Called only while debug logs are enabled.
    */
   readonly describeCommand?: (command: Command) => unknown
   /**

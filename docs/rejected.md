@@ -106,6 +106,17 @@ answer, and saying so in the proposal.
   The run then ignored every rejection, and the testing tools held the view (since item 1 of `boundary.md`, the
   model) to what `update` accepts. Shipped and used, then reasoned out. A related form, offers as data with no
   check at run time, is in a suspended proposal (below), not here.
+- **`describeKey`, an option for how a subscription's key appears in the logs and in a `ProgramDefect`.** Reasoned,
+  13 and 14 November 2026. Proposed by a review of the invariants, since a key, a string message and a child's id
+  reach a crash report as they are. Deferred on the 13th, then rejected on the 14th after a second opinion: a key is
+  the identity its author chose, as a tag is, not data; reporting is the job of whoever runs the program, whose
+  reporter already filters the `cause`, any thrown value the library cannot scrub, and with it `key` and `on`; and an
+  option would only name code around `run`. An option for the logs alone leaves out the crash report; one for the
+  defect too runs the program's code as the run dies, or costs at every start outside debug, makes the key differ
+  from `onApplied`'s `origin`, and leaves a child's `id` undefined. The README says instead that the key and the id
+  are carried as they are, and a string message whole. Source: the sessions "Analisi invarianti progetto" and
+  "Parere Fable sulle invarianti", and this one. *Reopen if* a program needs a key that must hold private data and
+  cannot be built otherwise.
 - **Input through a subscription**, a keystroke sent through a key in place of a dispatch. Reasoned, November 2026,
   before the proposal of declared inputs: typed-then-Save would rest on scheduling, a typed message would be checked
   by nothing, a key that goes away drops what it sent, and the renderer would feed the run by a service.

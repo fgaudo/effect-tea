@@ -42,7 +42,7 @@ type Fields = Readonly<{
   key?: unknown
   /**
    * The message `update` was given, for a defect in `update`, by its tags as the logs describe it by default
-   * (`Home › Products › Deleted`): never its data.
+   * (`Home › Products › Deleted`): never its data. One that is a string is its own tag, whole.
    */
   on?: unknown
 }>
@@ -65,7 +65,7 @@ export class ProgramDefect extends Data.TaggedError('ProgramDefect')<Fields & Re
  * A parent breaking what it declared of a child, raised as it happens (in `update`, `makeModel`, `subscriptions`
  * or `runCommand`, which the run then dies in): an external message to a child that is not there, or that
  * rejects it; the model of a child that is not there; an event, a command or a subscription key that nothing
- * handles. `child` names the child, and `id` its id for a child by id.
+ * handles. `child` names the child, and `id` its id for a child by id, as it is: it may hold data, as an id may.
  */
 export class CompositionDefect extends Data.TaggedError('CompositionDefect')<
   Readonly<{
@@ -74,7 +74,7 @@ export class CompositionDefect extends Data.TaggedError('CompositionDefect')<
     id?: unknown
     /**
      * The external message, or the event, it happened on, for one that has one, by its tags as the logs describe
-     * it by default (`Cleared`): never its data.
+     * it by default (`Cleared`): never its data. One that is a string is its own tag, whole.
      */
     on?: unknown
   }>

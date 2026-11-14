@@ -43,11 +43,6 @@ it proposed that was already decided (the flag for each fiber, the order of the 
 [`docs/rejected.md`](docs/rejected.md). The rest, each to be settled; "checked" is read again in the code by the
 session that wrote this, "reported" is a reviewer's claim that was not:
 
-- **A defect may carry data.** `describeByTag` gives a message that is a string whole, as its comment says, and it
-  fills `ProgramDefect`'s `on`; a subscription's `ProgramDefect` carries its key as it is. "Logs never carry message
-  data" is of the logs, and a crash report leaves the device more often than a debug log. An option `describeKey`,
-  beside `describeMessage`, was proposed; a tag of the key's is not one, since a key is a string or a tuple.
-  Checked.
 - **The peer range is wider than what is tested.** About seventeen entries of `docs/premises.md` rest, in some
   part, on what Effect does not document, and `^4.1.4` accepts minors no test has run on. The daily job tells of a
   break, and does not protect a consumer already there. A range that stops at the minors tested, widened on each

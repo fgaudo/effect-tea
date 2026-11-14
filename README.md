@@ -621,7 +621,8 @@ Options:
 - **`flags`**: what the program starts from, required exactly when it has them, e.g. the product a
   notification opened the app for.
 - **`describeMessage`**, **`describeCommand`**: how messages and commands appear in the logs. By default only
-  their tags, never their data: `Home › Products › Deleted`. They are called only while debug logs are enabled
+  their tags, never their data: `Home › Products › Deleted`. One that is a string is its own tag, and appears
+  whole: data goes in a field of a tagged value. They are called only while debug logs are enabled
   (`References.MinimumLogLevel`), so they cost nothing otherwise. The debug logs of subscriptions show their
   keys, which may hold data (an id, a search's text).
 - **`onApplied`**: hears every accepted message with where it came from (`origin`: the view, a command, or a
@@ -658,9 +659,9 @@ A defect anywhere ends the run, which dies with a `ProgramDefect`:
 - its `cause` is the defect itself, an `InvariantDefect` for one thrown with `defect`;
 - `where` says where it happened, which only the run knows: `'init'`, for a program that starts from flags;
   `'update'` (`onEvent` included), with the message it was given as `on`, by its tags; `'subscriptions'` (the
-  `Equal` and `Hash` of its keys included); `'subscription'`, with its `key`; `'command'`; `'render'` (the view and `makeModel` included); one of the
-  options, by name; or `'log'`, for one of the run's own debug logs (a `Logger` that throws). What the program
-  logs itself is in the place it logs from.
+  `Equal` and `Hash` of its keys included); `'subscription'`, with its `key` as it is, as the logs show it;
+  `'command'`; `'render'` (the view and `makeModel` included); one of the options, by name; or `'log'`, for one of
+  the run's own debug logs (a `Logger` that throws). What the program logs itself is in the place it logs from.
 
 A command, a subscription or the renderer dies when its effect ends with a defect. What it acquired in the scope
 the run gives it (`Effect.acquireRelease`, `Effect.addFinalizer`, a channel's own scopes) is released after that;
@@ -695,6 +696,9 @@ Effect.runFork(
   ),
 )
 ```
+
+What leaves the device is chosen there: the `cause` is whatever was thrown, and a `ProgramDefect`'s `key`, as a
+`CompositionDefect`'s `id`, is the program's own value, as it is.
 
 ### Guarantees
 
