@@ -119,13 +119,25 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   (`test/scheduled.test.ts`). Read in the source (`runLoop` in `internal/effect.ts`), and seen in those tests. Only
   the search of `interleaving.test.ts` rests on it, and no mutation's killer does: a model of the scheduler gone
   wrong costs a false alarm, or a missed one, never a test that passes where it should fail.
-- **`SubscriptionRef.changes` replays the latest state to a new subscriber**, so a renderer that subscribes late,
-  or skips frames, still draws the last state: "a renderer slower than the program gets only the latest frame"
-  (`run.test.ts`).
+- **`SubscriptionRef.changes` replays the latest state to a new subscriber, and a `Stream.buffer` of capacity one,
+  `'sliding'`, keeps the latest element when its consumer is slow**, so a renderer that subscribes late, or skips
+  frames, still draws the last state: "a renderer slower than the program gets only the latest frame"
+  (`run.test.ts`). That the buffer discards elements when full is documented (`Stream.buffer`), and that it discards
+  the oldest is the documented strategy of `Queue.sliding`.
 - **Effect calls each `Logger` synchronously, in the fiber that logs**, so that what it throws is a defect of
   that fiber, which `diesIn` wraps where the log is written: "a Logger that throws on the log of an accepted
   message is one defect, in the log", "a Logger that throws on what a command logs is a defect in the command"
   (`run.test.ts`). That it runs in the fiber that logs is read only in the source.
+- **`LogLevel.isEnabled` decides by `References.MinimumLogLevel`, as the logs themselves are kept or dropped**, which
+  is how the run calls `describeMessage` and `describeCommand` only while debug logs are enabled: "messages and
+  commands are described only while debug logs are enabled", and the same of a message ignored as rejected and of one
+  dropped as its subscription stopped (`run.test.ts`). Documented.
+- **A log is an event of the current span, an external span keeps none, and a span opened under an external one has
+  it as its parent**, which is how no span lives as long as the run, the fibers of the run seeing the span of whoever
+  runs it as an external one (`withExternalSpan` in `engine.ts`): "what runs in a run logs nothing into the span of
+  whoever runs it, which stays the parent of their spans" (`run.test.ts`). That a log is an event of the current span
+  is documented (`Logger.tracerLogger`), and so is a span with an external parent (`Tracer.externalSpan`); that an
+  external span keeps no event is not, and seen in that test.
 - **A `WeakRef` is cleared before the `FinalizationRegistry` callback of its target runs**, and a `WeakMap` lets go
   of a value with its key: the tests of `dispatchTo` (`dispatch.test.ts`) and "a child's model is let go with its
   state" (`compose.test.ts`), under a collection the test asks for (`test/gc.ts`), on Bun and on Node.
