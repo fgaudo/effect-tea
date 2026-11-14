@@ -10,7 +10,9 @@ asked what to adopt, with a spike of its own ("An independent opinion"), and a f
 revision ("A second opinion"), and a spike of the three ways to keep the revision a program did not write ("The revision
 a program did not write, spiked"), and a spike of the subscriptions of a program with an input ("The subscriptions with
 an input, checked"), and a fifth review by Fable 5.2, on what may write into an input ("Only what is drawn writes"),
-and a sixth, on the name of `parent` ("The name"), and the bridges tested in happy-dom ("The bridges, in happy-dom").
+and a sixth, on the name of `parent` ("The name"), and the bridges tested in happy-dom ("The bridges, in happy-dom"),
+and a recipe of a bridge for a source that belongs to the control, tested there too ("A source that belongs to the
+control").
 What the spikes ran is marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued,
 **reasoned**. It reopens the aim of [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way,
 and leans on [`inert-steps.md`](inert-steps.md), which it would simplify.
@@ -41,7 +43,10 @@ not of the shape of the API.
 a source that exists whatever is drawn (a scanner, a dictation) is a message of the program, and its `update`
 replaces the field or holds the value until it chooses to. A drag the program draws follows: its start is a fixed
 message of the model, its moves are messages of a subscription keyed by the state of dragging, and no input is
-involved; a native range stays an input.
+involved; a native range stays an input. A source that streams while the user types, as a dictation sending partial
+results, may belong to the control instead, which writes what it hears as the user types it, at the revision of the
+frame on screen: a recipe of the bridges' tests, not of the examples nor of the README ("A source that belongs to the
+control").
 
 **The name: decided, `composition`.** The owner chose, after a sixth review by Fable 5.2 ("The name"), to rename
 `parent` to `composition` (and `ParentTypes` to `CompositionTypes`), since a program with inputs and no children is
@@ -71,7 +76,8 @@ an input's revision, which no rule of before and after closes; a `File`; a react
 explore", and, for the subscriptions, "What is to be checked of them, with an input declared in `compose`".
 
 **Next**, with the implementation on `main` ("The implementation") and `parent` renamed `composition` ("The name"),
-and the bridges tested in happy-dom ("The bridges, in happy-dom"), what it left undone: a slider in an example, with
+and the bridges tested in happy-dom ("The bridges, in happy-dom"), with a source that belongs to the control ("A
+source that belongs to the control"), what it left undone: a slider in an example, with
 `renewed` for bounds that narrow; `bench/keystrokes.ts` of the subscriptions' spike, ported or dropped; then the ideas
 of "To explore", each spiked or measured before it is proposed.
 
@@ -940,7 +946,8 @@ file. Its verdict, which the owner accepted: keep it, and refuse a command's ans
 - **Against, by the review itself**: a replacement is harsh on a source that streams, such as a dictation sending
   partial results while the user types: each one makes a new element, and focus, caret, selection and an IME
   composition are lost with what was in flight. Such a source belongs to the control (the component listens, the
-  element changes, and it writes at the frame's revision), a recipe of a bridge not yet written or tested.
+  element changes, and it writes at the frame's revision), a recipe of a bridge, tested since ("A source that belongs
+  to the control").
 - **To be tested in the implementation**: the screen and the state parting in a bridge, in happy-dom; whether a
   replacement loses focus in snabbdom and in React, which weighs the argument against; narrowing `runCommand`'s
   answers breaking nothing in the examples and tests. The first two are tested since ("The bridges, in happy-dom").
@@ -994,7 +1001,40 @@ patch, React's `value` in place of `defaultValue`).
 - **A replacement loses all three**: the new input has no focus, and its caret and selection are at 0. The argument
   against the rule holds as the review put it, for a source that replaces while the user types.
 - **Not checked**: a real browser, where focus and selection are the browser's and not happy-dom's; an IME
-  composition, which happy-dom does not model; a recipe of a bridge for a source that belongs to the control.
+  composition, which happy-dom does not model. A recipe of a bridge for a source that belongs to the control is
+  tested since ("A source that belongs to the control").
+
+## A source that belongs to the control
+
+The recipe the fifth review left unwritten ("Only what is drawn writes"), for a source that streams while the user
+types, such as a dictation sending partial results: the control listens to it, not the program, puts each result
+into the element on screen, and writes it into the input at the revision of the frame drawn, so that the element
+stays and nothing is replaced. Tested in the bridges' tests (`examples/snabbdom.test.ts` and `examples/react.test.ts`,
+the same two tests in each), on the note of "The bridges, in happy-dom", with a stand-in for the source that calls
+its listeners at once. **Run**, on happy-dom, snabbdom 3.6.4 and React 19.3.1. By the owner's choice, it stays in the
+tests of the bridges: neither the examples nor the README show it.
+
+- **The recipe, in each renderer**, a view's code that changes neither the bridge nor the library. With snabbdom, the
+  input starts listening in its `insert` hook and stops in its `destroy`, and each result sets the element's `value`
+  and dispatches an `input` event, which `onWrite`, the listener of the frame on screen, writes at its revision. With
+  React, a component listens in a `useEffect`, through a `useEffectEvent` that reads the latest field: each result
+  sets the element's `value` through a ref and sends `write(field, text)`, and the input inside it is keyed by the
+  revision.
+- **The element stays, and the screen and the state never part**: two results, one after the other, are shown by the
+  same element, which keeps the focus, and are stored; a key the user types next is stored over them.
+- **After a replacement**, the results go to the new input, at its revision, and none to the one replaced.
+- **Seen to fail**, each test, on a recipe that breaks what it checks: the element's text set and nothing written, or
+  written and the text not set; in snabbdom, a listener never stopped, which writes into the element replaced; in
+  React, the field captured when the component starts listening, whose writes are rejected after a replacement.
+- **Not checked**: the caret, which a `value` set moves to the end in a browser, so that a source that inserts at
+  the caret, rather than giving the whole text, needs more than this recipe; a real browser; an IME composition while
+  a result arrives.
+- **Found in passing, and no fault**: a refresh right after a dispatch, in the same turn, draws the state before
+  it, and the next refresh the state after. A dispatch only queues its message, which the program applies in a later
+  step of the scheduler: the refresh draws the latest state applied, as each `renderInto` says (**run**, by a session
+  of its own, with a renderer gated by hand and without a DOM, and with the frames rebuilt in plain Effect, which
+  behave alike). In a browser a screen refresh can land there too. The tests of the dictation let the program settle
+  before they refresh.
 
 ## What a consumer could notice
 

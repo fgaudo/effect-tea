@@ -2,7 +2,7 @@
 // tests cannot see: how often `renderInto` draws, that a click on a drawn button reaches the program, and that
 // what the user types into an uncontrolled input survives the frames drawn while they type, with its focus, caret
 // and selection, which a replacement loses, and that a write the input on screen did not make parts the state from
-// the screen.
+// the screen, which a source that belongs to the control, writing into the input on screen, does not.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import {
@@ -18,6 +18,7 @@ import {
   run,
   type View,
   write,
+  type Written,
 } from '@fgaudo/effect-tea'
 import * as Cause from 'effect/Cause'
 import * as Effect from 'effect/Effect'
@@ -25,7 +26,7 @@ import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
 import * as Optic from 'effect/Optic'
 import type * as Stream from 'effect/Stream'
-import { createElement, type ReactNode } from 'react'
+import { createElement, type ReactNode, useEffect, useEffectEvent, useRef } from 'react'
 import { counter } from './counter/counter.ts'
 import { form } from './form/form.ts'
 import { Storage } from './form/storage.ts'
@@ -234,11 +235,11 @@ describe('what a replacement loses, and what a write the input did not make does
         onChange: bridge.onWrite(model, dispatchTo(dispatch, 'Note')),
       }),
     )
-  const mountNote = () => {
+  const mountNote = (view = noteView) => {
     let drawn: Readonly<{ model: Model; dispatch: Dispatch<Message> }> | undefined
     mount<Model, Message>((model, dispatch) => {
       drawn = { model, dispatch }
-      return noteView(model, dispatch)
+      return view(model, dispatch)
     }, (render) => run(note, render))
     const last = () => {
       if (drawn === undefined) throw new Error('No frame is drawn')
@@ -295,5 +296,88 @@ describe('what a replacement loses, and what a write the input did not make does
     type(typed, 'Help')
     await paint()
     expect(app.field().value).toBe('Help')
+  })
+
+  describe('a source that belongs to the control, as a dictation that streams partial results, with React', () => {
+    // The control listens to the source, not the program: each result is put into the element on screen, and
+    // written into the field of the latest frame, at its revision.
+    const dictation = () => {
+      const listeners = new Set<(text: string) => void>()
+      return {
+        listen: (listener: (text: string) => void) => {
+          listeners.add(listener)
+          return () => {
+            listeners.delete(listener)
+          }
+        },
+        say: (text: string) => {
+          for (const listener of [...listeners]) listener(text)
+        },
+      }
+    }
+    type Dictation = ReturnType<typeof dictation>
+    type DictatedProps = Readonly<{ field: Field<string>; dispatch: Dispatch<Written<string>>; source: Dictation }>
+    const Dictated = ({ field, dispatch, source }: DictatedProps): ReactNode => {
+      const element = useRef<HTMLInputElement>(null)
+      const heard = useEffectEvent((text: string) => {
+        if (element.current === null) return
+        element.current.value = text
+        Effect.runSync(dispatch(write(field, text)))
+      })
+      useEffect(() => source.listen(heard), [source])
+      return createElement('input', {
+        key: field.revision,
+        ref: element,
+        defaultValue: field.value,
+        onChange: bridge.onWrite(field, dispatch),
+      })
+    }
+    const dictatedView = (source: Dictation): typeof noteView => (model, dispatch) =>
+      createElement(
+        'main',
+        null,
+        createElement(Dictated, { field: model, dispatch: dispatchTo(dispatch, 'Note'), source }),
+      )
+
+    test('each result is shown by the input on screen, which keeps the focus, and is stored', async () => {
+      const source = dictation()
+      const app = mountNote(dictatedView(source))
+      await settle()
+      const typed = element<HTMLInputElement>('input')
+      type(typed, 'Note: ')
+      typed.focus()
+      await paint()
+      source.say('Note: hel')
+      await settle()
+      source.say('Note: hello')
+      // A dispatch only queues the message: the program applies it in a later step of the scheduler.
+      await settle()
+      await paint()
+      expect(element('input')).toBe(typed)
+      expect(document.activeElement).toBe(typed)
+      expect(typed.value).toBe('Note: hello')
+      expect(app.field().value).toBe('Note: hello')
+      type(typed, 'Note: hello!')
+      await paint()
+      expect(app.field().value).toBe('Note: hello!')
+    })
+
+    test('after a replacement, the results go to the new input, and none to the one replaced', async () => {
+      const source = dictation()
+      const app = mountNote(dictatedView(source))
+      await settle()
+      const typed = element<HTMLInputElement>('input')
+      source.say('Ada')
+      await paint()
+      app.send('Cleared')
+      await paint()
+      source.say('Bob')
+      await paint()
+      const replaced = element<HTMLInputElement>('input')
+      expect(replaced).not.toBe(typed)
+      expect(typed.value).toBe('Ada')
+      expect(replaced.value).toBe('Bob')
+      expect(app.field().value).toBe('Bob')
+    })
   })
 })
