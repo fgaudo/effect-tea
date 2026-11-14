@@ -53,7 +53,9 @@ version, and everything else, features included, the patch version.
 - The README and the site link effect-tea-persistent, the same architecture for long-lived entities on a server.
 - "Running" in the README, the examples and the tutorial start a program with `Effect.runFork`, an API that is stable.
 - The `counter-react` and `form-react` examples draw with React, through `examples/react.ts`, a bridge to copy.
-- "Testing" in the README states what a bridge's `messagesSentBy` must do, and both example bridges keep it.
+- "Model", "Guarantees" and "Testing" in the README say that the model holds what `update` accepts, as a test reads it.
+- "Model" in the README says that messages live in the model, and no longer offers a view that builds its own.
+- "View" and "Testing" in the README ask no `messagesSentBy` of a bridge, and the examples' React bridge has none.
 - The site has a tutorial that builds the new `timer` example in four steps.
 - **Breaking**: `child` and `each` refuse a program with commands and no `runCommand`.
   Upgrade: give the child the `runCommand` its commands need; one that gets there through a cast is a

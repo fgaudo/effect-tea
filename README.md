@@ -13,7 +13,7 @@ entities on a server, whose state a database keeps. It is experimental, and not 
 
 You keep one **state**. A pure **`update`** changes it in response to messages. Effects are described as
 data (**commands**) or listened to (**subscriptions**), never run inside `update`. The view draws a
-**model**, made from the state, and sends messages.
+**model**, made from the state, and sends the messages it holds.
 
 ```mermaid
 flowchart LR
@@ -34,8 +34,8 @@ What it adds to plain Elm:
 - **A bug is loud.** A message that cannot arrive is a bug. `update` throws `defect` on it, and the run dies
   instead of hiding it. The app, around the run, decides what the user sees next: a crash screen, or the
   program started again (see [running](#running)).
-- **The view is checked against `update`.** The testing tools check, for any state a test generates, that the
-  view sends only what `update` accepts, and leaves out only what the test says it withholds.
+- **The model is checked against `update`.** The testing tools check, for any state a test generates, that the
+  model holds only what `update` accepts, and leaves out only what the test says it withholds.
 - **Commands are your own data.** Elm's `Cmd` is opaque: a test cannot see what `update` decided. Here a command
   is a value of your own type, which `runCommand` turns into an Effect, so a test asserts it by value.
 - **Composition is declared, not wired.** A parent says where each child lives in its state, and the library
@@ -138,11 +138,12 @@ with `bun run build`, then `bun examples/<name>/index.html`.
 | [`timer`](examples/timer)                 | the tutorial's application   | timers by id, each ticking only while it runs, and a bell as a command; `rehearse` with `hear`                      | [live](https://fgaudo.github.io/effect-tea/examples/timer/)         |
 
 [`examples/snabbdom.ts`](examples/snabbdom.ts) and [`examples/react.ts`](examples/react.ts) are the small
-bridges to the two renderers, worth copying for your own: `renderInto` for `run`, handlers, and
-`messagesSentBy` for tests. Their tests, [`examples/snabbdom.test.ts`](examples/snabbdom.test.ts) and
-[`examples/react.test.ts`](examples/react.test.ts), run them in a DOM, with
-[happy-dom](https://github.com/capricorn86/happy-dom). They check how often a bridge draws, that a click reaches
-the program, and that what the user types survives the frames drawn meanwhile.
+bridges to the two renderers, worth copying for your own: `renderInto` for `run`, and handlers. Their tests,
+[`examples/snabbdom.test.ts`](examples/snabbdom.test.ts) and [`examples/react.test.ts`](examples/react.test.ts),
+run them in a DOM, with [happy-dom](https://github.com/capricorn86/happy-dom). They check how often a bridge
+draws, that a click reaches the program, and that what the user types survives the frames drawn meanwhile. The
+first has `messagesSentBy` too, which finds what a view sends without a DOM: one way to check that a view draws
+what its model holds, which the library asks of no bridge (see [testing](#testing)).
 
 ## Guide
 
@@ -214,9 +215,11 @@ const makeModel = (state: State): Editor => {
 
 What a model shows, and what a view may decide, is in [structuring a program](#structuring-a-program).
 
-With its messages in the model, as here, a view sends only what the model holds. Export `Message` as a type
-only, and no view can build one. A view may also build its messages itself, from a model of data alone. The
-library does not mind, but a program reads more easily when it does one or the other.
+**Messages live in the model.** Every message a view can send is in the model it draws: a value for a control
+that sends one thing, a function of what the user gives for one that carries it (`changeName`). A view sends
+only what the model holds, and builds no message itself: export `Message` as a type only, and no view can build
+one. The library does not enforce it, and what it says of a model rests on it: a test reads a program's messages
+from its model (see [testing](#testing)), so a message a view built is one no test has seen.
 
 ### View
 
@@ -226,10 +229,9 @@ handles it in its own fiber, with its own services: a handler returns before `up
 renderer whose handlers are plain callbacks, like snabbdom's, runs it at once with
 `Effect.runSync(dispatch(message))`, or with a runtime of its own: either is right.
 
-The library ships no renderer. A bridge to one does three things: it draws each frame, runs `dispatch` in the
-handlers, and, for tests, finds what a view sends (`messagesSentBy`).
-[`examples/snabbdom.ts`](examples/snabbdom.ts) and [`examples/react.ts`](examples/react.ts) are two, each small
-enough to copy. [`counter-react`](examples/counter-react) and [`form-react`](examples/form-react) draw the
+The library ships no renderer. A bridge to one does two things: it draws each frame, and runs `dispatch` in the
+handlers. [`examples/snabbdom.ts`](examples/snabbdom.ts) and [`examples/react.ts`](examples/react.ts) are two,
+each small enough to copy. [`counter-react`](examples/counter-react) and [`form-react`](examples/form-react) draw the
 programs of [`counter`](examples/counter) and [`form`](examples/form) with the second. In React, a view stays a
 function of its model, called by the bridge, never a component with state or hooks; React only draws what it
 returns. React Native's bridge is written the same way.
@@ -396,7 +398,7 @@ To tell them apart, ask whether the message could reach that state while the pro
 are right. If a fast finger, a slow frame or another device is enough, it is a `reject`. If only a bug can
 bring it there, it is a `defect`.
 
-Whether the view sends only what applies, and all of it, is for the tests (see [testing](#testing)).
+Whether the model holds only what applies, and all of it, is for the tests (see [testing](#testing)).
 
 ### Composition
 
@@ -734,8 +736,9 @@ What is left to you:
   as long as they take: one that never ends holds the program, and no defect says so. As it ends, the run waits
   for every release before it dies, so one that never ends holds the defects the run would die with too.
 - **A slow renderer skips frames**: it gets only the latest one.
-- **The view sends what `update` accepts, all of it but what it withholds on purpose.** The run does not check
-  it: `dispatchViolations` does, in tests (see [testing](#testing)).
+- **The model holds what `update` accepts, all of it but what it withholds on purpose.** The run does not check
+  it: `dispatchViolations` does, in tests, on the messages a test reads from the model (see
+  [testing](#testing)). That the view draws what its model holds is checked with your renderer's tools.
 - **`update`, `makeModel` and `subscriptions` are pure, and states are never mutated.** The library reuses a
   child's model, and its subscriptions, while its state is the same object.
 
@@ -760,7 +763,7 @@ A program's tests follow its shape:
 1. **Generate its states** with a property-testing library (fast-check in the examples): one arbitrary that
    produces only valid states, every case of each state machine among them.
 2. **Check, for any of them,** that `update` answers every message with a step or `reject`, the same each time,
-   that the view sends what `update` accepts (`dispatchViolations`), and what the program listens to
+   that the model holds what `update` accepts (`dispatchViolations`), and what the program listens to
    (`subscriptionsOf`).
 3. **Write one test per message**, asserting the next state, the commands and the events by value. Assert a
    rejection with `isRejected`, never as "the state did not change", which a step that keeps the state would
@@ -778,32 +781,38 @@ test('counts up and down', () => {
     .toEqual({ count: 1 })
 })
 
-// For any count, the real view and `update` agree both ways.
-test('the view sends what update accepts, all of it', () => {
+// What the model holds: the messages of its controls, a case at a time.
+const messagesOf = (model: Model): ReadonlyArray<Message> =>
+  model._tag === 'Counting'
+    ? [model.increment, model.decrement]
+    : [model.increment]
+
+// For any count, the model and `update` agree both ways.
+test('the model holds what update accepts, all of it', () => {
   fc.assert(fc.property(fc.nat(1_000), (count) => {
-    const sent = messagesSentBy<Model, Message>(
-      view,
-      counter.makeModel({ count }),
-    )
+    const held = messagesOf(counter.makeModel({ count }))
     const check = dispatchViolations(update, { repeatable: () => true })
-    expect(check({ count }, sent, ['Increment', 'Decrement'])).toEqual([])
+    expect(check({ count }, held, ['Increment', 'Decrement'])).toEqual([])
   }))
 })
 ```
 
-- `program.makeModel(state)` makes a model as `run` does, so a property test can draw the view in any state,
+- `program.makeModel(state)` makes a model as `run` does, so a property test can read the model of any state,
   and `subscriptionsOf(program)(state)` says what the program listens to there.
-- `messagesSentBy` is not in the package: each bridge writes its own
-  ([`examples/snabbdom.ts`](examples/snabbdom.ts), [`examples/react.ts`](examples/react.ts)), since only the
-  renderer knows what a handler is. One for a renderer of your own takes the view, a model and the text typed,
-  and:
-  - draws the view once, with a dispatch that records each message it is given, in order, and completes at
-    once. A child's dispatch from `dispatchTo` wraps that one, so a child's messages are recorded as the root of
-    the program receives them;
-  - draws every part of the tree that the renderer would draw for that model, memoized parts included;
-  - calls every handler in that tree once, with a stand-in for its event that holds only what the handlers
-    read, and the text typed as the text of every input;
-  - returns every message recorded, and needs no DOM, no run and no services.
+- **The reader is the test's own**: a function from a model to the messages it holds (`messagesOf` above), a
+  case of the model at a time, with the text typed for a message that carries one (`editor.changeName(typed)`).
+  A parent's reader calls its children's, and wraps what they return as the parent receives it
+  (`{ _tag: 'Clock', message }`, with the `id` for children by id), as [`pages`](examples/pages/app.test.ts)
+  and [`list`](examples/list/list.test.ts) do. The library cannot write it: a message in a model is a value like
+  any other.
+- **The reader is complete only as far as the candidates go.** One that forgets a field of the model passes
+  `Rejected` and `ActsTwice`, which judge only what it returns. `Missing` finds the field, in a state where
+  `update` accepts its message and the test lists it among the `candidates`.
+- **That the view draws what its model holds is not checked here**: each control once, through the right
+  dispatch. It is checked with your renderer's tools. For snabbdom,
+  [`examples/snabbdom.ts`](examples/snabbdom.ts) has one, `messagesSentBy`, which finds what a view sends
+  without a DOM, for a test to compare with what its reader returns, as [`list`](examples/list/list.test.ts)
+  does. It is an example, and nothing a bridge must have.
 
 #### The tools
 
