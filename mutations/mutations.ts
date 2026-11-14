@@ -614,6 +614,111 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'a write into an input is stored at any revision',
+    file: 'src/input.ts',
+    from: 'message.revision !== held.revision\n    ? reject',
+    to: 'false\n    ? reject',
+    killedBy: [
+      ['src/input.test.ts', 'is rejected once the program has replaced the field it was written into'],
+      [
+        'src/input.test.ts',
+        'rejects what was written before the note replaced it, and what was written into a note that is gone',
+      ],
+      [
+        'src/input-subscriptions.test.ts',
+        'is a replacement: the input on screen is a new one, and what the user typed into the old is rejected',
+      ],
+    ],
+  },
+  {
+    name: 'a write of the value an input holds makes a new field',
+    file: 'src/input.ts',
+    from: '    : Equal.equals(message.value, held.value)\n    ? { state: held }\n',
+    to: '',
+    killedBy: [
+      ['src/input.test.ts', 'leaves the very same state when the field holds it already'],
+    ],
+  },
+  {
+    name: 'a replacement keeps the revision the program wrote',
+    file: 'src/input.ts',
+    from: '    : { value: after.value, revision: before.revision + 1 }',
+    to: '    : after',
+    killedBy: [
+      ['src/input.test.ts', 'that leaves another value in the place of an input replaces it, at the next revision'],
+      [
+        'src/input.test.ts',
+        'cannot take the revision back: a field written by hand at a lower one is the next one too',
+      ],
+      [
+        'src/input.test.ts',
+        "the update given to compose and the program's differ in the revision of an input whose value changed",
+      ],
+    ],
+  },
+  {
+    name: 'a revision stands still under a value the program changed',
+    file: 'src/input.ts',
+    from: 'after === before || after.revision > before.revision',
+    to: 'after === before || after.revision >= before.revision',
+    killedBy: [
+      [
+        'src/input-subscriptions.test.ts',
+        'is a replacement: the input on screen is a new one, and what the user typed into the old is rejected',
+      ],
+    ],
+  },
+  {
+    name: 'a revision the program lowered comes back',
+    file: 'src/input.ts',
+    from: 'after === before || after.revision > before.revision',
+    to: 'after === before || after.revision !== before.revision',
+    killedBy: [
+      [
+        'src/input.test.ts',
+        'cannot take the revision back: a field written by hand at a lower one is the next one too',
+      ],
+      [
+        'src/input.test.ts',
+        'a revision never comes back: the value held in a field of an older revision is the same input',
+      ],
+    ],
+  },
+  {
+    name: "an input's value is compared by identity, not by Equal",
+    file: 'src/input.ts',
+    from: '    : Equal.equals(after.value, before.value)\n    ? before\n',
+    to: '    : after.value === before.value\n    ? before\n',
+    killedBy: [
+      ['src/input.test.ts', 'a value compares by Equal, whatever it is made of'],
+    ],
+  },
+  {
+    name: 'a write into an input is a replacement of it',
+    file: 'src/compose.ts',
+    from: "    if (Record.has(inputs, place.name)) return updateAt(place, field(message, 'message'))(state)\n",
+    to: '',
+    killedBy: [
+      ['src/input.test.ts', 'is stored, whatever it is, at the revision of the field it was written into'],
+      ['src/input.test.ts', "is written into through the child's place, and no other note changes"],
+      [
+        'src/input-subscriptions.test.ts',
+        'by its revision: writes start nothing, and each new input, `renewed` included, starts it anew',
+      ],
+    ],
+  },
+  {
+    name: "a child's step, and what the parent makes of its events, replace no input",
+    file: 'src/compose.ts',
+    from: 'if (isRejected(result) || result.state === state || inputNames.length === 0) return result',
+    to: 'if (isRejected(result) || result.state === state || inputNames.length === 0 || isChildName(place.name)) {\n'
+      + '      return result\n'
+      + '    }',
+    killedBy: [
+      ['src/input.test.ts', "of a child, or of what the parent makes of its event, replaces the parent's inputs alike"],
+    ],
+  },
+  {
     name: "rehearse's loop applies a step after the first defect",
     file: 'src/testing/rehearse.ts',
     from: 'recorded(deadOr(step))',
