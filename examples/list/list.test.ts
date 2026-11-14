@@ -28,6 +28,19 @@ const state: fc.Arbitrary<State> = fc
   )
   .map((entries) => ({ nextId: 21, entries }))
 
+// What a stopwatch's model holds, then the list's: its own messages, and each stopwatch's with its id, wrapped as
+// the list receives them. In the order the view draws them, for the test of the view below.
+const stopwatchMessages = ({ watch, remove }: Stopwatch.Model): ReadonlyArray<Stopwatch.Message> => [
+  watch._tag === 'Running' ? watch.stop : watch.start,
+  remove,
+]
+
+const messagesOf = (model: Model): ReadonlyArray<Message> => [
+  model.add,
+  model.stopAll,
+  ...model.stopwatches.flatMap(({ id, model }) => stopwatchMessages(model).map((message) => to(id, message))),
+]
+
 // What a user can ask of the list in `state`: adding, stopping all, and starting, stopping or removing each
 // stopwatch.
 const userMessages = (state: State) => [
@@ -78,11 +91,20 @@ describe('list', () => {
     })
   })
 
-  test('the view sends what update accepts, all of it, and acts once when sent twice', () => {
+  test('the model holds what update accepts, all of it, and each acts once when sent twice', () => {
     const violations = dispatchViolations(list.update, { repeatable: (message) => message._tag === 'AddClicked' })
     fc.assert(fc.property(state, (before) => {
-      const sent = messagesSentBy<Model, Message>(view, list.makeModel(before))
-      expect(violations(before, sent, userMessages(before))).toEqual([])
+      const held = messagesOf(list.makeModel(before))
+      expect(violations(before, held, userMessages(before))).toEqual([])
+    }))
+  })
+
+  // Beyond what the library asks: that the view draws what its model holds, each control once and each
+  // stopwatch through its own dispatch. `messagesSentBy` is the snabbdom bridge's way to see it without a DOM.
+  test('the view sends what its model holds', () => {
+    fc.assert(fc.property(state, (before) => {
+      const model = list.makeModel(before)
+      expect(messagesSentBy<Model, Message>(view, model)).toEqual(messagesOf(model))
     }))
   })
 

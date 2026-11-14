@@ -4,9 +4,11 @@ import { applyAll, dispatchViolations, drive } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
-import { messagesSentBy } from '../snabbdom.ts'
 import { counter, type Message, type Model, update } from './counter.ts'
-import { view } from './view.ts'
+
+// What the model holds: the messages of its controls, a case at a time.
+const messagesOf = (model: Model): ReadonlyArray<Message> =>
+  model._tag === 'Counting' ? [model.increment, model.decrement] : [model.increment]
 
 describe('counter', () => {
   // `update` alone: pure, no runtime.
@@ -18,14 +20,14 @@ describe('counter', () => {
     expect(isRejected(update('Decrement')({ count: 0 }))).toBe(true)
   })
 
-  // The real view, for any count: everything it can send is accepted, and nothing `update` accepts is
-  // missing from it. Both buttons are meant to repeat.
-  test('the view sends what update accepts, all of it', () => {
+  // The model, for any count: every message it holds is accepted, and nothing `update` accepts is missing from
+  // it. Both buttons are meant to repeat.
+  test('the model holds what update accepts, all of it', () => {
     const violations = dispatchViolations(update, { repeatable: () => true })
     fc.assert(fc.property(fc.nat(1_000), (count) => {
       const state = { count }
-      const sent = messagesSentBy<Model, Message>(view, counter.makeModel(state))
-      expect(violations(state, sent, ['Increment', 'Decrement'])).toEqual([])
+      const held = messagesOf(counter.makeModel(state))
+      expect(violations(state, held, ['Increment', 'Decrement'])).toEqual([])
     }))
   })
 

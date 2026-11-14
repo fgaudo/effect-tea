@@ -8,11 +8,9 @@ import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Stream from 'effect/Stream'
 import * as fc from 'fast-check'
-import { messagesSentBy } from '../snabbdom.ts'
 import * as About from './about.ts'
 import { app, type Message, type Model, type State } from './app.ts'
 import * as Clock from './clock.ts'
-import { view } from './view.ts'
 
 const aboutClicked: Message = { _tag: 'Clock', message: Clock.Message.AboutClicked() }
 const backClicked: Message = { _tag: 'About', message: About.Message.BackClicked() }
@@ -30,6 +28,12 @@ const state: fc.Arbitrary<State> = fc.record({
   clock: fc.record({ maybeNow: maybe(time) }),
   maybeAbout: maybe(fc.record({ openedAt: maybe(time), maybeSaying: maybe(fc.string()) })),
 })
+
+// What the model holds: the message of the page on top, wrapped as the parent receives it.
+const messagesOf = ({ page }: Model): ReadonlyArray<Message> =>
+  page._tag === 'Clock'
+    ? [{ _tag: 'Clock', message: page.model.openAbout }]
+    : [{ _tag: 'About', message: page.model.back }]
 
 /** The pages whose subscriptions run, from the keys the library namespaces (`['Clock', 'ticks']`). */
 const listening = (state: State) =>
@@ -59,13 +63,13 @@ describe('pages', () => {
     })
   })
 
-  test('the view sends what update accepts, all of it, and acts once when sent twice', () => {
+  test('the model holds what update accepts, all of it, and each acts once when sent twice', () => {
     const violations = dispatchViolations(app.update, {
       withheld: (message, state) => message._tag === 'Clock' && Opt.isSome(state.maybeAbout),
     })
     fc.assert(fc.property(state, (before) => {
-      const sent = messagesSentBy<Model, Message>(view, app.makeModel(before))
-      expect(violations(before, sent, [aboutClicked, backClicked])).toEqual([])
+      const held = messagesOf(app.makeModel(before))
+      expect(violations(before, held, [aboutClicked, backClicked])).toEqual([])
     }))
   })
 

@@ -6,9 +6,8 @@ import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
-import { messagesSentBy } from '../snabbdom.ts'
-import { Bell, Command, Message, type Model, Phase, type State, timer, update } from './timer.ts'
-import { timerView } from './view.ts'
+import { timerMessages } from './reader.ts'
+import { Bell, Command, Message, Phase, type State, timer, update } from './timer.ts'
 // #endregion imports
 
 // #region states
@@ -79,18 +78,18 @@ describe('timer', () => {
   })
   // #endregion subscriptions
 
-  // #region view
-  // For any state, the real view sends only what `update` accepts, and all of it. "+" and "−" are meant to repeat.
-  test('the view sends what update accepts, all of it, and acts once when sent twice', () => {
+  // #region model
+  // For any state, the model holds only what `update` accepts, and all of it. "+" and "−" are meant to repeat.
+  test('the model holds what update accepts, all of it, and each acts once when sent twice', () => {
     const violations = dispatchViolations(update, {
       repeatable: (message) => message._tag === 'MoreClicked' || message._tag === 'LessClicked',
     })
     fc.assert(fc.property(state, (before) => {
-      const sent = messagesSentBy<Model, Message>(timerView, timer.makeModel(before))
-      expect(violations(before, sent, userMessages)).toEqual([])
+      const held = timerMessages(timer.makeModel(before))
+      expect(violations(before, held, userMessages)).toEqual([])
     }))
   })
-  // #endregion view
+  // #endregion model
 
   // #region rehearse
   // The last second, step by step: the test says when the tick is heard and when the bell rings.

@@ -5,10 +5,8 @@ import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
 import * as Field from '../field.ts'
-import { messagesSentBy } from '../snabbdom.ts'
 import { Command, form, Message, type Model, Save, type State, update } from './form.ts'
 import { Storage, StorageError } from './storage.ts'
-import { view } from './view.ts'
 
 const empty = form.init.state
 
@@ -21,6 +19,18 @@ const state: fc.Arbitrary<State> = fc.record({
   ),
   saved: fc.array(fc.string({ minLength: 1 }), { maxLength: 3 }),
 })
+
+// What the model holds, with `typed` in its input: the messages of its controls, a case at a time.
+const messagesOf = ({ editor }: Model, typed: string): ReadonlyArray<Message> => {
+  switch (editor._tag) {
+    case 'Saving':
+      return []
+    case 'Blank':
+      return [editor.changeName(typed)]
+    case 'Named':
+      return [editor.changeName(typed), editor.save]
+  }
+}
 
 const working = Storage.of({ save: () => Effect.void })
 const failing = Storage.of({ save: (name) => Effect.fail(new StorageError({ cause: name })) })
@@ -83,16 +93,16 @@ describe('form', () => {
     })
   })
 
-  // The real view, for any state and anything typed: every message it can send is accepted, a double click
-  // saves once, and nothing `update` accepts is missing, but typing while saving, which the model withholds.
-  test('the view sends what update accepts, all of it, and acts once when sent twice', () => {
+  // The model, for any state and anything typed: every message it holds is accepted, a double click saves
+  // once, and nothing `update` accepts is missing, but typing while saving, which the model withholds.
+  test('the model holds what update accepts, all of it, and each acts once when sent twice', () => {
     const violations = dispatchViolations(update, {
       withheld: (message, state) => message._tag === 'NameChanged' && state.save._tag === 'Saving',
     })
     fc.assert(fc.property(state, fc.string(), (before, typed) => {
-      const sent = messagesSentBy<Model, Message>(view, form.makeModel(before), typed)
+      const held = messagesOf(form.makeModel(before), typed)
       const candidates = [Message.NameChanged({ name: typed }), Message.SaveClicked()]
-      expect(violations(before, sent, candidates)).toEqual([])
+      expect(violations(before, held, candidates)).toEqual([])
     }))
   })
 

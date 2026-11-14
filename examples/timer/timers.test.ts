@@ -3,16 +3,26 @@ import { isRejected, subscriptionsOf } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations } from '@fgaudo/effect-tea/testing'
 import * as HashMap from 'effect/HashMap'
 import * as fc from 'fast-check'
-import { messagesSentBy } from '../snabbdom.ts'
+import { timerMessages } from './reader.ts'
 import * as Timer from './timer.ts'
 import { type Message, type Model, type State, timers } from './timers.ts'
-import { view } from './view.ts'
 
 // #region messages
 const added: Message = { _tag: 'AddClicked' }
 const removed = (id: number): Message => ({ _tag: 'RemoveClicked', id })
 const to = (id: number, message: Timer.Message): Message => ({ _tag: 'Timer', id, message })
 // #endregion messages
+
+// #region reader
+// What the model holds: the list's own messages, and each timer's with its id, wrapped as the list receives them.
+const messagesOf = (model: Model): ReadonlyArray<Message> => [
+  model.add,
+  ...model.timers.flatMap(({ id, model, remove }) => [
+    ...timerMessages(model).map((message) => to(id, message)),
+    remove,
+  ]),
+]
+// #endregion reader
 
 const state: fc.Arbitrary<State> = fc
   .uniqueArray(
@@ -68,7 +78,7 @@ describe('timers', () => {
   })
   // #endregion update
 
-  test('the view sends what update accepts, all of it, and acts once when sent twice', () => {
+  test('the model holds what update accepts, all of it, and each acts once when sent twice', () => {
     const violations = dispatchViolations(timers.update, {
       repeatable: (message) =>
         message._tag === 'AddClicked'
@@ -76,8 +86,8 @@ describe('timers', () => {
           && (message.message._tag === 'MoreClicked' || message.message._tag === 'LessClicked')),
     })
     fc.assert(fc.property(state, (before) => {
-      const sent = messagesSentBy<Model, Message>(view, timers.makeModel(before))
-      expect(violations(before, sent, userMessages(before))).toEqual([])
+      const held = messagesOf(timers.makeModel(before))
+      expect(violations(before, held, userMessages(before))).toEqual([])
     }))
   })
 })
