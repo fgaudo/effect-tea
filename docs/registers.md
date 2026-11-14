@@ -77,9 +77,9 @@ explore", and, for the subscriptions, "What is to be checked of them, with an in
 
 **Next**, with the implementation on `main` ("The implementation") and `parent` renamed `composition` ("The name"),
 and the bridges tested in happy-dom ("The bridges, in happy-dom"), with a source that belongs to the control ("A
-source that belongs to the control"), and a slider in `examples/volume` ("A slider, in an example"), what it left
-undone: `bench/keystrokes.ts` of the subscriptions' spike, ported or dropped; then the ideas of "To explore", each
-spiked or measured before it is proposed.
+source that belongs to the control"), and a slider in `examples/volume` ("A slider, in an example"), and
+`bench/keystrokes.ts` dropped ("The implementation"): the ideas of "To explore", each spiked or measured before it is
+proposed.
 
 **The branches**, local to this machine and never pushed, none to be merged: `spike/field-register`,
 `claude/spike-register-checks-fd58e1` (no commit of its own), `claude/spike-register-late-key-6cb914`,
@@ -110,7 +110,10 @@ the subscriptions (`d686ddf`) and `late-key.test.ts`, on a branch cut from `main
   `form-react`; `examples/field.ts` removed.
 - Not done: a slider in an example, done since ("A slider, in an example"); the bridge's parting of screen and
   state, and the focus a replacement loses in snabbdom and React, which "Only what is drawn writes" asks to test,
-  done since ("The bridges, in happy-dom"); `bench/keystrokes.ts` of the subscriptions' spike, not ported.
+  done since ("The bridges, in happy-dom"); `bench/keystrokes.ts` of the subscriptions' spike, not ported, and
+  dropped: what it measures is the cost `bench/subscriptions.ts` measures, a `HashMap` of every key built on each
+  change of state, since an input lifts no key, and the write itself is constant ("The subscriptions with an input,
+  checked").
 
 ## Context
 
