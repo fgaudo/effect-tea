@@ -28,7 +28,8 @@ the documentation of a stable API, or a test for what is not documented.
    `run.ts`, `compose.ts`, `dispatch.ts`, `log.ts`) and the testing tools (`src/testing/`).
 3. Fill the brief's two places: what to read, and what is already known (the open problems of
    [`ROADMAP.md`](../../../ROADMAP.md), the `test.failing` cases of `src/testing/contract.test.ts`, and the premises
-   that no test reaches yet, listed in `docs/premises.md`), so that the reviewer does not report them again.
+   that no test reaches yet, listed in `docs/premises.md`), so that the reviewer does not report them again, and
+   what was rejected ([`docs/rejected.md`](../../../docs/rejected.md)), so that it does not propose one again.
 
 ## The reviewer's brief
 
@@ -50,7 +51,9 @@ WHAT TO READ: <the invariants, premises and guarantees, and the modules of src/ 
 
 ALREADY KNOWN, not to report again: <the open problems of ROADMAP.md, the test.failing cases of
 src/testing/contract.test.ts, and the premises that no test reaches yet of docs/premises.md, one line each>. A bug
-of the same form under another sequence is a new finding.
+of the same form under another sequence is a new finding. ALREADY REJECTED, not to propose again: read
+docs/rejected.md before you propose any fix or change of design; one you propose that is listed there says what its
+entry names under "Reopen if", or what reason the entry does not answer.
 
 HOW:
 1. List what you read before you read any of it: each invariant, premise and guarantee, with the declarations of
@@ -100,6 +103,9 @@ Your last message says the branch, the commit and the findings in a few lines.
   proves nothing. Run each again on the last commit of `main` where the branch was cut before it.
 - A finding is an open problem of `ROADMAP.md` until it is fixed, and its test may come to `main` with its
   `test.failing` mark, as those of the November review did. Its fix removes the mark and the item, in one commit.
+- A fix or a change of design the report proposes is read against `docs/rejected.md` before it is put to the
+  author; one rejected there and proposed again without what its entry asks is no proposal. One the author rejects
+  is added there.
 - A finding is fixed by its form, as `docs/premises.md` says after the rule of a review. Before the fix, write the
   form in a line (a cleanup skipped, or an exit discarded, as a scope closes; a step applied by two actors at once; a window
   between two fibers that nobody watches), and list each place of the engine and of the testing tools that ends a

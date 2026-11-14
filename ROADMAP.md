@@ -2,7 +2,8 @@
 
 Open problems and possible improvements, found in a review of the project (November 2026). Nothing here is a
 promise: each item is decided before it is done, against the rules of [`AGENTS.md`](AGENTS.md). Remove an item
-when it is done or rejected, with the reason in the commit.
+when it is done, with the reason in the commit. An item rejected is removed and added to
+[`docs/rejected.md`](docs/rejected.md), with why and on what evidence, in the same commit: read it before adding one.
 
 ## Proposals recorded, to be decided
 
@@ -57,9 +58,10 @@ document says otherwise than the other, from the same reports, each to be settle
 
 Three models read `docs/invariants.md`, `docs/premises.md` and the README's "Guarantees" against the code, each
 attacking the others' claims. What it found of a step that does nothing, and of `reject` in `onEvent`, is in
-[`docs/inert-steps.md`](docs/inert-steps.md), a decision proposed and not done, with open questions of its own. The
-rest, each to be settled; "checked" is read again in the code by the session that wrote this, "reported" is a
-reviewer's claim that was not:
+[`docs/inert-steps.md`](docs/inert-steps.md), a decision proposed and not done, with open questions of its own. What
+it proposed that was already decided (the flag for each fiber, the order of the defects) is in
+[`docs/rejected.md`](docs/rejected.md). The rest, each to be settled; "checked" is read again in the code by the
+session that wrote this, "reported" is a reviewer's claim that was not:
 
 - **A defect may carry data.** `describeByTag` gives a message that is a string whole, as its comment says, and it
   fills `ProgramDefect`'s `on`; a subscription's `ProgramDefect` carries its key as it is. "Logs never carry message
@@ -74,15 +76,6 @@ reviewer's claim that was not:
   part, on what Effect does not document, and `^4.1.4` accepts minors no test has run on. The daily job tells of a
   break, and does not protect a consumer already there. A range that stops at the minors tested, widened on each
   green run, was proposed. Reported.
-- **Telling a self-interruption from the run's own, while the run stops the fiber**, costs three premises read
-  only in Effect's source (the handlers of an interrupted fiber, the reasons it received, the annotations of
-  `interruptAs`). A flag for each fiber, set where the run stops it, would tell "interrupted without being asked"
-  with none of them, and give up only the case of a fiber that interrupts itself as the run stops it. Both
-  reviewers proposed it, and neither tried it, nor read it against the testing tools.
-- **The order of the defects is described and not promised**, while the tests check it and a crash reporter reads
-  the first. What keeps it serves other promises mostly (no defect lost, no message applied from the first one on),
-  so dropping the order would save little. Whether to promise it, or that the first defect of the cause is the first
-  that happened. Reported.
 - **"Every program keeps its state in an object"** is under "What the engine keeps for itself" in
   `docs/invariants.md`, and binds whoever writes a program. A primitive state that gets past the types dies of the
   `WeakMap`'s own `TypeError`, not of a `CompositionDefect` (reported).

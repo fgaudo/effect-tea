@@ -3,7 +3,8 @@
 How the library is used is in [`README.md`](README.md): its "Guide" and "Testing" are the user documentation, and
 "Development" names the checks. This file holds the rules that apply to every change; how the engine keeps its
 invariants is in [`docs/invariants.md`](docs/invariants.md), and what they rest on in
-[`docs/premises.md`](docs/premises.md).
+[`docs/premises.md`](docs/premises.md). What was tried or weighed and rejected is in
+[`docs/rejected.md`](docs/rejected.md): read it before proposing a change of design.
 
 Procedures live in skills, plain Markdown that any agent or person reads, under `.agents/skills/`. Read the one
 for the task before starting it:

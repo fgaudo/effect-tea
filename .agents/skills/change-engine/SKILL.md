@@ -13,7 +13,9 @@ JavaScript engine, each with what checks it, is [`docs/premises.md`](../../../do
 ## Before the change
 
 1. Read `docs/invariants.md` whole, and in `docs/premises.md` the rule after the list and the premises of what the
-   change touches (found by the names they cite: `reconcile`, `diesIn`, `scopedIn`, `dispatchTo`, `modelsOf`).
+   change touches (found by the names they cite: `reconcile`, `diesIn`, `scopedIn`, `dispatchTo`, `modelsOf`). Read
+   [`docs/rejected.md`](../../../docs/rejected.md) too: a change of design listed there is not proposed again
+   without what its entry names under "Reopen if".
 2. List the premises the change rests on. Each is checked before the change is written, and never only reasoned:
    the documentation of a stable API, or a test that fails without it, as the rule of `docs/premises.md` says. A new
    one is added there, with what checks it; one that cannot be checked yet holds the change up.

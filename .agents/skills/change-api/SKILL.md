@@ -9,7 +9,8 @@ The API is exactly what [`src/index.ts`](../../../src/index.ts) and
 [`src/testing/index.ts`](../../../src/testing/index.ts) export, grouped by concept with a comment per group;
 every other module is internal. It is judged on its own terms ("What belongs here" in `AGENTS.md`): argue a
 change from the library's concepts, its examples and its users in general, never from what one application
-needs.
+needs. An export removed or refused before is in [`docs/rejected.md`](../../../docs/rejected.md): read it before
+proposing one.
 
 ## Shape it
 
