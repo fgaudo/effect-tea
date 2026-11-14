@@ -32,7 +32,8 @@ that a program does not change with its renderer (each imports the program of `c
 [`react.test.ts`](../../../examples/react.test.ts), its test in a DOM;
 [`field.ts`](../../../examples/field.ts), a text the user types into and the program may replace;
 [`style.css`](../../../examples/style.css); [`preload.ts`](../../../examples/preload.ts), which `bun test`
-loads first (`bunfig.toml`); [`snabbdom.test.ts`](../../../examples/snabbdom.test.ts), the bridge's own test;
+loads first (`bunfig.toml`); [`snabbdom.test.ts`](../../../examples/snabbdom.test.ts), the bridge's own test,
+an example's test like the others and none of the library's five kinds (`AGENTS.md`, "Tests");
 and [`tsconfig.json`](../../../examples/tsconfig.json).
 
 ## The rules

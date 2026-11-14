@@ -160,13 +160,11 @@ an example's and a document's too:
     weighed is in `change-engine`; a finding is listed in `ROADMAP.md` with its seed and path until a fix leaves a
     deterministic test of it.
   - **contracts**: one program and its inputs given alike to each testing tool and to the run
-    (`src/testing/contract.test.ts`, where a `test.failing` says how they still differ), and one view to each
-    bridge (the same tests in `examples/snabbdom.test.ts` and `examples/react.test.ts`; those of
-    `messagesSentBy` are the snabbdom bridge's alone, which has one as an example).
+    (`src/testing/contract.test.ts`, where a `test.failing` says how they still differ).
   - **the boundary of a run**, the run's or a testing tool's: its lifecycle, scopes, interruption and defects, what
     it holds and lets go, what a tool fails on (`run.test.ts`, `engine.test.ts`, the cache of `dispatchTo` in
     `dispatch.test.ts`, a parent's subscriptions in a run in `compose.test.ts`, each tool's own file in
-    `src/testing/`, a bridge's `renderInto`). A test of a premise (`docs/premises.md`) is of this kind,
+    `src/testing/`). A test of a premise (`docs/premises.md`) is of this kind,
     and so is one of the scheduler of the tests, `test/scheduled.ts`, which is no part of the package and serves the
     search alone.
   - **the types**: what the compiler refuses (`@ts-expect-error`), or infers (`expectTypeOf`), next to the tests
@@ -174,7 +172,9 @@ an example's and a document's too:
 
   A bug found is held by a case of one of them: a rule of a pure piece, an invariant, a contract, a boundary or a
   type, and gets a scenario of its own only where none can hold it. The examples' own tests show users how to test
-  a program, and the smoke test (`smoke/`) and the benchmark (`bench/`) check the package and its speed: none of
+  a program. So do the bridges' (`examples/snabbdom.test.ts`, `examples/react.test.ts`), for a bridge: the same
+  tests of `renderInto` and of an input for each renderer, in a DOM, and those of the snabbdom bridge's
+  `messagesSentBy`. The smoke test (`smoke/`) and the benchmark (`bench/`) check the package and its speed. None of
   them is a test of the library's correctness, and they are kept apart from the five.
 - **Each check an invariant rests on has a mutation** in `mutations/mutations.ts` that takes it out, with the tests
   that must fail under it: `bun run mutations` applies them one at a time to a copy of the repository (`.mutants/`),
