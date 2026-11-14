@@ -1586,21 +1586,26 @@ describe('the end of the run', () => {
   // What a command, a subscription or the renderer wraps around its own code (`Effect.ensuring`, an `Effect.scoped` of
   // its own) is part of its effect, which ends with the defect only once that has run: until then the defect is the
   // program's, which may still catch it, and messages apply as they do while the effect runs. Here `a` releases slowly
-  // around its defect, and `b` sends once the release has begun.
-  const behindItsOwnRelease = (where: 'command' | 'subscription' | 'render') =>
+  // around its defect, and `b` sends once the release has begun. A subscription's channel may wrap the release around
+  // it too (`Channel.onExit`, `Channel.acquireUseRelease`), which closes a scope of the channel's own as its pull
+  // fails, before the defect leaves it.
+  const behindItsOwnRelease = (
+    where: 'command' | 'subscription' | 'render',
+    channel: (release: Effect.Effect<void>) => Channel.Channel<never, never, Message> = (release) =>
+      Channel.fromEffectDone(Effect.die('boom').pipe(Effect.ensuring(release))),
+  ) =>
     Effect.gen(function*() {
       let applied = 0
       const releasing = yield* Deferred.make<void>()
       const heard = yield* Deferred.make<void>()
-      const dies = Effect.die('boom').pipe(
-        Effect.ensuring(Deferred.succeed(releasing, undefined).pipe(
-          // Bounded, so that a run that applies nothing still ends.
-          Effect.andThen(Effect.timeoutOrElse(Deferred.await(heard), {
-            duration: '50 millis',
-            orElse: () => Effect.void,
-          })),
-        )),
+      const release = Deferred.succeed(releasing, undefined).pipe(
+        // Bounded, so that a run that applies nothing still ends.
+        Effect.andThen(Effect.timeoutOrElse(Deferred.await(heard), {
+          duration: '50 millis',
+          orElse: () => Effect.void,
+        })),
       )
+      const dies = Effect.die('boom').pipe(Effect.ensuring(release))
       const b = Channel.fromEffect(Effect.as(Deferred.await(releasing), 'Increment' as const)).pipe(
         Channel.concatWith(() => Channel.never),
       )
@@ -1611,7 +1616,7 @@ describe('the end of the run', () => {
           runCommand: () => dies,
           subscriptions: () =>
             where === 'subscription'
-              ? HashMap.make(['a', Channel.fromEffectDone(dies)], ['b', b])
+              ? HashMap.make(['a', channel(release)], ['b', b])
               : HashMap.make(['b', b]),
         },
         () => where === 'render' ? dies : Effect.never,
@@ -1631,6 +1636,23 @@ describe('the end of the run', () => {
 
   test('a subscription that dies under a release of its own dies once it has released, applying messages meanwhile', async () => {
     expect(await Effect.runPromise(behindItsOwnRelease('subscription'))).toEqual([['subscription'], 1])
+  })
+
+  test('a subscription that dies under an onExit of its channel dies once it has released, applying messages meanwhile', async () => {
+    const exit = behindItsOwnRelease(
+      'subscription',
+      (release) => Channel.onExit(Channel.fromEffectDone(Effect.die('boom')), () => release),
+    )
+    expect(await Effect.runPromise(exit)).toEqual([['subscription'], 1])
+  })
+
+  test('a subscription that dies in an acquireUseRelease of its channel dies once it has released, applying messages meanwhile', async () => {
+    const exit = behindItsOwnRelease(
+      'subscription',
+      (release) =>
+        Channel.acquireUseRelease(Effect.void, () => Channel.fromEffectDone(Effect.die('boom')), () => release),
+    )
+    expect(await Effect.runPromise(exit)).toEqual([['subscription'], 1])
   })
 
   test('a renderer that dies under a release of its own dies once it has released, applying messages meanwhile', async () => {

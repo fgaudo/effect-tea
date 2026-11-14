@@ -179,15 +179,21 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   "a command that catches the defect of a scope of its own answers, and the run goes on", and the same of a
   subscription and of a renderer (`run.test.ts`), "simulate applies, as the run does, the answer of a command that
   catches the defect of a scope of its own", and the same of `rehearse` (`contract.test.ts`). Documented.
-- **`Channel.toPull` keeps what a channel acquires, in scopes of its own too, in the scope it is given, and releases
-  none of it as the pull fails**, which is how `runSubscription` leaves a subscription's channel to release what it
-  holds as the scope of `scopedIn` closes, once its defect is recorded, and how the loop applies nothing meanwhile: "a
-  subscription dying in a scope of its channel, before one its release lets die, is the first defect", "a subscription
-  dying in a scope of its channel lets no message apply as the channel releases" (`run.test.ts`), "a subscription
-  dying in a scope of its channel, before one its release lets die, fails it first" (`rehearse.test.ts`). That it
-  takes the scope it is run in, and its pull is used while that scope is open, is documented; that a failing pull
-  releases nothing is not, and the three fail with `Channel.runForEach`, which closes a scope of its own before the
-  defect leaves it.
+- **`Channel.toPull` keeps what a channel adds to the scope it is given, and releases none of it as the pull fails,
+  while a release the channel wraps around itself (`Channel.onExit`, `Channel.acquireUseRelease`, and every operator
+  that makes a scope of its own) runs as its pull fails, before the failure leaves it**. The first is how
+  `runSubscription` leaves a subscription's channel to release what it holds as the scope of `scopedIn` closes, once its
+  defect is recorded, and how the loop applies nothing meanwhile: "a subscription dying in a scope of its channel,
+  before one its release lets die, is the first defect", "a subscription dying in a scope of its channel lets no message
+  apply as the channel releases" (`run.test.ts`), "a subscription dying in a scope of its channel, before one its
+  release lets die, fails it first" (`rehearse.test.ts`). The second makes such a release the subscription's own, as
+  `Effect.ensuring` is a command's, which ends with its defect once the release has run, as Effect documents: the defect
+  leaves the pull once the release has run, and messages apply meanwhile: "a subscription that dies under an onExit of
+  its channel dies once it has released, applying messages meanwhile", and the same in an `acquireUseRelease` of its
+  channel (`run.test.ts`). That it takes the scope it is run in, and its pull is used while that scope is open, is
+  documented; what a failing pull releases is not, and is read in the source (`fromTransformBracket` in `Channel.ts`
+  closes its own scope as the pull fails). The first three fail with `Channel.runForEach`, which closes a scope of its
+  own before the defect leaves it, and the last two with a channel that adds its release to the scope it is given.
 - **`Effect.raceFirst` ends with the first of its effects to end, and interrupts the other, and waits for it to end,
   its release included**, which is how a call of `rehearse`'s that waits for a subscription or a command fails as soon
   as another fiber dies: "a hearNext waiting on its subscription fails as soon as another fiber of the test's dies", "a
