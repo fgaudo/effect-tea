@@ -10,6 +10,55 @@ code at `beaba6f`, **checked**; what was only argued, **reasoned**. It reopens t
 [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way, and leans on
 [`inert-steps.md`](inert-steps.md), which it would simplify.
 
+The document is in the order things happened: what stands now is in the next section, and a section older than a
+later one may be superseded by it ("Open questions" and "The ways forward" by the checks and the two opinions).
+
+## Where it stands
+
+**The direction that came out**, not yet decided: an input declared in `compose`, beside the children (`inputs: {
+Name: input(at) }`), whose field `Field<A>`, `{ value, revision }`, lives in the program's own state; the view sends
+`write(field, value)` through `dispatchTo(dispatch, 'Name')`; `compose` stores a write at the revision held and
+rejects any other, so the late keystroke is closed for every input; no function is left in a model. Neither the
+engine nor the testing tools change. See "An independent opinion" and "A second opinion".
+
+**The choice left to the owner**: who keeps the revision.
+
+| | (A) Derived by value, with `renewed` | (B) Kept by the program, under a check |
+| --- | --- | --- |
+| Spiked | yes, `spike/register-input-by-value` | no: about ten lines in the same place of `compose`, **reasoned** |
+| The state stored is the state written | not in the revision, when the value changes | always |
+| Emptying after a save | `name: field('')` | `name: replace(state.name, '')` |
+| A Clear on an empty field | changes nothing: it may stay shown | acts twice: rejected, and left out of the model |
+| An undo by snapshot | the old state as it is | each input rebuilt with `replace`, or a `CompositionDefect` |
+| A new input for the same value | `renewed(state.level)`, to be remembered | `replace(state.level, state.level.value)`, as always |
+| A field written by hand, or an old one | corrected in silence | a `CompositionDefect`, perhaps first in production |
+
+`replace` is a name of this sketch: no spike has it. Identity, the rule of the first spike, is refuted by the
+second opinion: a copy equal by value would draw a new input and reject what is being typed.
+
+**A decision apart**: whether to fix the late keystroke on `main` now, in `examples/form` (a `NameChanged` that
+carries the revision it was typed at), or leave it to the implementation. It is a bug of an example users copy;
+`examples/form/late-key.test.ts` on `claude/spike-register-late-key-6cb914` holds it.
+
+**Open whatever the choice**: a child re-initialised by its parent, and an optional place that comes back, restart
+an input's revision, which no rule of before and after closes; a `File`; a reaction to every keystroke; the name of
+a program that has inputs and no children. See "To explore".
+
+**Once decided**, an implementation on a branch of its own, from `main`, following `change-api` and
+`change-engine`: the design ported from its spike; the checks of `compose` as mutations (`mutations/mutations.ts`);
+the report of the API, `build` and `smoke`; the README rewritten one section at a time ("Messages live in the
+model", "Inputs the user types into", "Structuring a program", "Testing"), each sentence against the old one, with
+"a model is data"; a new entry of `docs/invariants.md`, and `docs/boundary.md` item 4 reopened; `examples/field.ts`
+removed and the examples converted (`form`, `form-react`, and the slider and the notes of the spikes if kept); a
+changelog entry and the version `release` asks for.
+
+**The branches**, local to this machine and never pushed, none to be merged: `spike/field-register`,
+`claude/spike-register-checks-fd58e1` (no commit of its own), `claude/spike-register-late-key-6cb914`,
+`claude/spike-register-model-data-52ba83`, `claude/spike-register-shapes-ea38c5`,
+`claude/spike-register-opaque-3fc182`, `claude/spike-register-slider-f36368`, `spike/register-input-compose` and
+`spike/register-input-by-value`. The first spike and the six checks are cut from `spike/field-register` or `main`
+before this document; the two opinions from `c263478`.
+
 ## Context
 
 A model holds a function for every control that carries a value the user gives: `changeName: (name: string) =>
@@ -436,7 +485,7 @@ without the check of the revision and without the `replace` described next.
 
 After the checks, a third review by Fable 5.2 was asked which design to adopt, free to change the invariants, with
 the owner's aim: elegant, pure, coherent, and confined to what the library should give its users. It spiked its
-answer on the branch `worktree-agent-a999dbf34f0675ed0` (commit `6b97cb6`, cut from `c263478`, never to be merged).
+answer on the branch `spike/register-input-compose` (commit `6b97cb6`, cut from `c263478`, never to be merged).
 It reports `bun run typecheck`, `lint`, `test` (556), `test:node` (496) and `interleavings` (14) green, and
 `mutations` printing 88 of 88 killed with its exit code not captured; typecheck and the 31 tests of `src/input.test.ts`
 and `examples/form` were run again apart, green. **Run.**
@@ -546,8 +595,9 @@ A field in a child by id is an input of the child's own `compose`, reached by ne
 The owner asked whether `compose` may alter the state a parent's `update` returns, by deriving the revision from the
 identity of the object in the input's place. A fourth review by Fable 5.2 was given three concerns to test, not to
 accept, and three alternatives: (a) the program raises the revision itself, under a check; (b) a replacement asked as
-data in the `Step`; (c) a derivation by `Equal`. It worked on the branch `review-input-identity`, cut from `6b97cb6`
-(commits `11ea804`, the concerns on the spike as it was, and `c445a5b`, its answer, never to be merged). It reports
+data in the `Step`; (c) a derivation by `Equal`. It worked on the branch `spike/register-input-by-value`, cut from
+`6b97cb6` (commits `11ea804`, the concerns on the spike as it was, and `c445a5b`, its answer, never to be merged). It
+reports
 `bun run typecheck`, `lint`, `test` (570), `test:node` (510) and `interleavings` (14) green on `c445a5b`;
 `mutations` was not run. Typecheck and the 45 tests of `src/input-identity.test.ts`, `src/input.test.ts` and
 `examples/form` were run again apart, green. **Run.**
@@ -661,7 +711,17 @@ checked: each is **reasoned**, and is spiked or measured before it is proposed.
 
 ## What a consumer could notice
 
-Nothing, while it stays in the examples (way 1), but the two sentences of the README, which applications cite as
-rules. With way 3, new exports and a changelog entry; with the sentence "a model is data", a rule that a model
-holding `changeName` breaks, so every program with an input changes: a breaking change of what the README promises,
-with the version `release` asks for.
+With an input declared in `compose`, either way of keeping its revision:
+
+- **New exports**: `Field`, `field`, `write`, `input` and `inputs` in `compose`, and `renewed` (A) or `replace` (B);
+  `children` becomes optional. Additive as API, with a changelog entry.
+- **A breaking change of what the README promises**: "a model is data" is a rule that a model holding `changeName`
+  breaks, so every program with an input changes, with the version `release` asks for.
+- **Removed from what users copy**: `examples/field.ts`; in the bridges, `onInput` with a function of the model
+  gives way to a writer of a field.
+- **What a program's code loses**: a message and a case of `update` for each input, the function in its model, and,
+  in its tests, the text drawn for the reader and the candidates, `withheld` for typing, and the property that
+  what is typed is accepted in every state.
+- **With (A) only**, a state stored that differs from the one written in the revision ("To explore").
+
+While it stays in the examples (way 1), nothing but the sentences of the README, which applications cite as rules.
