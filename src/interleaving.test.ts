@@ -9,6 +9,7 @@ import * as Fiber from 'effect/Fiber'
 import * as HashMap from 'effect/HashMap'
 import * as Logger from 'effect/Logger'
 import * as Opt from 'effect/Option'
+import * as Optic from 'effect/Optic'
 import * as References from 'effect/References'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
@@ -19,6 +20,7 @@ import { parent } from './compose.ts'
 import { type DefectSite, ProgramDefect } from './defect.ts'
 import { type Dispatch, dispatchTo } from './dispatch.ts'
 import type { Applied, Ignored } from './engine.ts'
+import { type Field, field, write } from './input.ts'
 import type { Program } from './program.ts'
 import { type Frame, run } from './run.ts'
 import type { Subscription } from './subscription.ts'
@@ -29,13 +31,15 @@ import { reject } from './update.ts'
 // step both stops a subscription and starts a command), can be poked, which leaves it as it is, and, while it
 // listens, hears two ticks from a subscription that then stays open, ends with a last message, or dies; each time it
 // starts listening again is a new session. The list can clear all its rows at once, stopping their subscriptions
-// together. What the user does, when commands complete, when ticks arrive and when releases end is all in the hands
-// of the scheduler of the tests (`test/scheduled.ts`), which may also make any fiber yield between two of its steps;
-// what is drawn beside it (`Fates`) says which subscriptions end or die, which releases take time
-// or die, which commands die, which steps `onApplied` and `onIgnored` hold or die in, and whether the renderer, which
-// acquires something too, dies, and takes time to release what it holds, which is when a run that died still has
-// fibers under way. To die is to die of a defect, or to interrupt oneself, which the run takes for one. The run runs
-// in a span of whoever runs it, with debug logs enabled, and the program logs and opens spans of its own.
+// together. The list has a note, an input the user writes into from the frame on screen or from an older one, which
+// clearing replaces, and while the note holds a text it searches for it, under a key of that text, so that a write
+// stops one search and starts another. What the user does, when commands complete, when ticks arrive and when
+// releases end is all in the hands of the scheduler of the tests (`test/scheduled.ts`), which may also make any fiber
+// yield between two of its steps; what is drawn beside it (`Fates`) says which subscriptions end or die, which
+// releases take time or die, which commands die, which steps `onApplied` and `onIgnored` hold or die in, and whether
+// the renderer, which acquires something too, dies, and takes time to release what it holds, which is when a run that
+// died still has fibers under way. To die is to die of a defect, or to interrupt oneself, which the run takes for one.
+// The run runs in a span of whoever runs it, with debug logs enabled, and the program logs and opens spans of its own.
 type Id = 1 | 2
 const ids: ReadonlyArray<Id> = [1, 2]
 
@@ -69,7 +73,7 @@ type RowModel = Readonly<{
   poke: RowMessage
 }>
 
-type ListState = Readonly<{ rows: ReadonlyArray<Readonly<{ id: Id; row: Row }>>; born: number }>
+type ListState = Readonly<{ rows: ReadonlyArray<Readonly<{ id: Id; row: Row }>>; born: number; note: Field<string> }>
 type Own = Readonly<{ _tag: 'Add'; id: Id }> | Readonly<{ _tag: 'Remove'; id: Id }> | Readonly<{ _tag: 'Clear' }>
 
 /** How a fiber of the program dies: of a defect, or interrupting itself, at once or by joining an interrupted fiber. */
@@ -175,6 +179,8 @@ type Event =
   | Readonly<{ _tag: 'Interrupted'; holder: Holder }>
   | Readonly<{ _tag: 'Drew'; frame: Frame<Model, Message> }>
   | Readonly<{ _tag: 'Spanned'; parent: Opt.Option<string> }>
+  | Readonly<{ _tag: 'Searching'; text: string }>
+  | Readonly<{ _tag: 'SearchStopped'; text: string }>
   // `released`: what died is a release, whose defect counts only once the scope it is in has closed (README), which
   // the scenario does not see.
   | Readonly<{ _tag: 'Died'; where: Where; how: Death; defect: string; released: boolean }>
@@ -398,9 +404,17 @@ const makeList = (fates: Fates, events: Array<Event>) => {
       poke: RowMessage.Poked(),
     }),
   }
+  // It sends nothing and holds nothing: what it shows is when it starts and stops.
+  const searching = (text: string): Subscription<Own, never> =>
+    Channel.fromEffectDone(
+      Effect.sync(() => events.push({ _tag: 'Searching', text })).pipe(
+        Effect.andThen(Effect.never),
+        Effect.onInterrupt(() => Effect.sync(() => events.push({ _tag: 'SearchStopped', text }))),
+      ),
+    )
   const List = parent<{ state: ListState }>()
   return List.compose({
-    init: () => ({ state: { rows: [], born: 0 } }),
+    init: () => ({ state: { rows: [], born: 0, note: field('') } }),
     children: {
       Rows: List.each(row, {
         get: (state, id: Id) => Opt.map(Arr.findFirst(state.rows, (entry) => entry.id === id), (entry) => entry.row),
@@ -414,17 +428,22 @@ const makeList = (fates: Fates, events: Array<Event>) => {
           if (state.rows.some((entry) => entry.id === message.id)) return reject
           const born = state.born + 1
           const added = { id: message.id, row: { ...initial, id: message.id, born } }
-          return { state: { rows: [...state.rows, added], born } }
+          return { state: { ...state, rows: [...state.rows, added], born } }
         }
         case 'Remove':
           return state.rows.some((entry) => entry.id === message.id)
             ? { state: { ...state, rows: state.rows.filter((entry) => entry.id !== message.id) } }
             : reject
+        // Another text in the note's place is a new input, which rejects what was written into the old one.
         case 'Clear':
-          return state.rows.length > 0 ? { state: { ...state, rows: [] } } : reject
+          return state.rows.length > 0 ? { state: { ...state, rows: [], note: field('') } } : reject
       }
     },
+    inputs: { Note: List.input(Optic.id<ListState>().key('note')) },
+    subscriptions: ({ note }) =>
+      note.value === '' ? HashMap.empty() : HashMap.make([['search', note.value], searching(note.value)]),
     makeModel: (state, children) => ({
+      note: state.note,
       add: ids.filter((id) => !state.rows.some((entry) => entry.id === id)).map((id): Own => ({ _tag: 'Add', id })),
       clear: state.rows.length > 0 ? Opt.some<Own>({ _tag: 'Clear' }) : Opt.none<Own>(),
       rows: state.rows.map(({ id }) => ({ id, remove: { _tag: 'Remove', id } as Own, row: children.Rows(state, id) })),
@@ -441,15 +460,28 @@ type Message = Parameters<List['update']>[0]
  * controls drawn, so that every act does something; `twice` is a double tap; `pause` is how many turns of the
  * scheduler the user waits before, so that a frame may catch up with the last act, or not.
  */
-type Act = Readonly<{ pick: number; twice: boolean; pause: number }>
+type Act = Readonly<{ pick: number; twice: boolean; pause: number; stale: Opt.Option<number> }>
 
-const act: fc.Arbitrary<Act> = fc.record({ pick: fc.nat(), twice: fc.boolean(), pause: fc.integer({ min: 1, max: 4 }) })
+const act: fc.Arbitrary<Act> = fc.record({
+  pick: fc.nat(),
+  twice: fc.boolean(),
+  pause: fc.integer({ min: 1, max: 4 }),
+  // A write into the note of a frame drawn before, as the input of that frame would send it, now and then.
+  stale: fc.oneof({ arbitrary: fc.constant(Opt.none()), weight: 5 }, { arbitrary: fc.nat().map(Opt.some), weight: 1 }),
+})
+
+/** What the user types into the note drawn in `model`: a letter more, or one less. */
+const typing = (model: Model, pick: number): Control => (dispatch) =>
+  dispatchTo(dispatch, 'Note')(
+    write(model.note, pick % 3 === 0 ? model.note.value.slice(0, -1) : `${model.note.value}${'ab'[pick % 2]}`),
+  )
 
 /** What a control does with the frame's dispatch: a row's sends through the row's own dispatch, as its view would. */
 type Control = (dispatch: Dispatch<Message>) => Effect.Effect<void>
 
 /** Every control the frame shows: a user can only use what is drawn. */
-const controls = (model: Model): ReadonlyArray<Control> => [
+const controls = (model: Model, pick: number): ReadonlyArray<Control> => [
+  typing(model, pick),
   ...model.add.map((add): Control => (dispatch) => dispatch(add)),
   ...Opt.toArray(model.clear).map((clear): Control => (dispatch) => dispatch(clear)),
   ...model.rows.flatMap(({ id, remove, row }) => [
@@ -461,7 +493,7 @@ const controls = (model: Model): ReadonlyArray<Control> => [
 ]
 
 const controlFor = (model: Model, { pick }: Act): Opt.Option<Control> => {
-  const drawn = controls(model)
+  const drawn = controls(model, pick)
   return Arr.get(drawn, pick % Math.max(drawn.length, 1))
 }
 
@@ -489,6 +521,7 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
     },
   }
   let latest: Frame<Model, Message> | undefined
+  const shown: Array<Frame<Model, Message>> = []
   const read = new Set<Frame<Model, Message>>()
   const modelOf = (frame: Frame<Model, Message>) => {
     read.add(frame)
@@ -517,6 +550,7 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
     Stream.runForEach(frames, (frame) =>
       Effect.sync(() => {
         events.push({ _tag: 'Drew', frame })
+        shown.push(frame)
         latest = frame
       }))
   const renderer = (frames: Stream.Stream<Frame<Model, Message>>) =>
@@ -552,7 +586,12 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
   while (latest === undefined && fiber.pollUnsafe() === undefined) yield* later(undefined)
   for (const act of acts) {
     for (let turn = 0; turn < act.pause; turn++) yield* later(undefined)
-    const control = latest === undefined ? Opt.none() : controlFor(modelOf(latest), act)
+    const older = Opt.flatMap(act.stale, (nth) => Arr.get(shown, nth % Math.max(shown.length, 1)))
+    const control = latest === undefined
+      ? Opt.none()
+      : Opt.isSome(older)
+      ? Opt.some(typing(modelOf(older.value), act.pick))
+      : controlFor(modelOf(latest), act)
     if (latest === undefined || Opt.isNone(control)) continue
     yield* control.value(latest.dispatch)
     if (act.twice) yield* control.value(latest.dispatch)
@@ -571,7 +610,17 @@ const applied = (events: ReadonlyArray<Event>) =>
   events.flatMap((event) => event._tag === 'Applied' ? [event.applied] : [])
 
 const finalState = (events: ReadonlyArray<Event>): ListState =>
-  applied(events).at(-1)?.after ?? { rows: [], born: 0 }
+  applied(events).at(-1)?.after ?? { rows: [], born: 0, note: field('') }
+
+/** The searches running after the first `count` events, by their text. */
+const searches = (events: ReadonlyArray<Event>, count = events.length) => {
+  const running: Array<string> = []
+  for (const event of events.slice(0, count)) {
+    if (event._tag === 'Searching') running.push(event.text)
+    if (event._tag === 'SearchStopped') running.splice(running.indexOf(event.text), 1)
+  }
+  return running
+}
 
 const listeners = (state: ListState) =>
   state.rows.filter(({ row }) => row.listening).map(({ row }) => listener(row.born, row.session)).sort()
@@ -689,11 +738,18 @@ describe('interleavings of the user, commands and subscriptions', () => {
         if (event._tag !== 'Applied') return
         const { message } = event.applied
         reached.add(message._tag === 'Rows' ? message.message._tag : message._tag)
+        if (message._tag !== 'Note' && event.applied.before.note.value !== event.applied.after.note.value) {
+          reached.add('a note replaced')
+        }
         if (event.applied.before === event.applied.after) reached.add('the very same state')
         if (stoppedAt(events, index, event.applied).waiting.size > 1) reached.add('two waiting releases')
       })
       for (const event of events) if (event._tag === 'Died') reached.add(`${event.where} ${event.how}`)
       if (events.some(({ _tag }) => _tag === 'Ignored')) reached.add('rejected')
+      if (events.some((event) => event._tag === 'Ignored' && event.ignored.message._tag === 'Note')) {
+        reached.add('a stale write')
+      }
+      if (events.some(({ _tag }) => _tag === 'SearchStopped')) reached.add('a search stopped')
       const renderer = events.flatMap((event, index) =>
         event._tag === 'Interrupted' && event.holder === 'renderer' ? [index] : []
       )
@@ -711,12 +767,16 @@ describe('interleavings of the user, commands and subscriptions', () => {
       'Finished',
       'ListenClicked',
       'MuteClicked',
+      'Note',
       'Poked',
       'Remove',
       'Tick',
       'WorkClicked',
       ...places.flatMap((where) => (['defect', 'interrupts', 'joins'] as const).map((how) => `${where} ${how}`)),
       'rejected',
+      'a stale write',
+      'a note replaced',
+      'a search stopped',
       'two waiting releases',
       'the very same state',
       'an answer after its release',
@@ -783,6 +843,55 @@ describe('interleavings of the user, commands and subscriptions', () => {
         return !(row?.listening === true && row.born === born && row.session === session)
       })
       expect(late).toEqual([])
+    })
+  }, 120_000)
+
+  // A stale write needs a write, a row, a clear and a write from a frame before it: taken out, the check of the
+  // revision was found after 20 to 532 scenarios, in four searches. 1,000 make a miss rare.
+  test('a write into the note is stored exactly at the revision it was drawn at, whatever it holds', () => {
+    property(({ events }) => {
+      const broken: Array<string> = []
+      for (const event of events) {
+        if (event._tag === 'Applied' && event.applied.message._tag === 'Note') {
+          const { before, after, message } = event.applied
+          if (message.message.revision !== before.note.revision) broken.push('a stale write was stored')
+          const same = message.message.value === before.note.value
+          if (same ? after !== before : after.note.value !== message.message.value) broken.push('not as written')
+          if (after.note.revision !== before.note.revision) broken.push('a write made a new input')
+        }
+        if (event._tag === 'Ignored' && event.ignored.message._tag === 'Note') {
+          if (event.ignored.message.message.revision === event.ignored.state.note.revision) {
+            broken.push('a current write was rejected')
+          }
+        }
+      }
+      expect(broken).toEqual([])
+    }, { numRuns: 1000 })
+  }, 120_000)
+
+  test('a step that changes the value of the note gives it the next revision, and one that keeps it keeps the field', () => {
+    property(({ events }) => {
+      const broken = applied(events).flatMap(({ message, before, after }) => {
+        if (message._tag === 'Note') return []
+        if (before.note.value === after.note.value) return after.note === before.note ? [] : ['a new field, same value']
+        return after.note.revision === before.note.revision + 1 ? [] : [`revision ${after.note.revision}`]
+      })
+      expect(broken).toEqual([])
+    })
+  }, 120_000)
+
+  // A write is a message of the list like any other: the search it starts and the one it stops follow the key.
+  test('a search runs for the text of the note while it holds one, and starts once for each text it holds', () => {
+    property(({ events, settled }) => {
+      const broken: Array<string> = []
+      events.forEach((event, index) => {
+        if (event._tag !== 'Searching') return
+        if (searches(events, index).includes(event.text)) broken.push(`${event.text} started twice`)
+      })
+      expect(broken).toEqual([])
+      if (deaths(events).length > 0) return
+      const { note } = finalState(events)
+      expect(searches(events, settled)).toEqual(note.value === '' ? [] : [note.value])
     })
   }, 120_000)
 
@@ -885,6 +994,7 @@ describe('interleavings of the user, commands and subscriptions', () => {
       expect(drawn?.rows.map(({ id, row }) => [id, row.working])).toEqual(
         final.rows.map(({ id, row }) => [id, row.working]),
       )
+      expect(drawn?.note).toEqual(final.note)
     })
   }, 120_000)
 
