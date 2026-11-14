@@ -1,7 +1,8 @@
 # Where the library ends: an inventory of what lies before, across and after the model
 
-**Status:** proposed, 14 November 2026, and item 1 of section 4 done on the branch `claude/model-contract-c0da5a`
-(see "Item 1, as done"). Nothing else of it is done, and nothing is designed. It is an inventory for the owner to
+**Status:** proposed, 14 November 2026, and items 1 to 5 of section 4 done on the branch
+`claude/model-contract-c0da5a` (see "Item 1, as done" and "Items 2 to 5, as done"). Items 6 to 9 are not done, and
+nothing of them is designed. It is an inventory for the owner to
 strike lines from, made by one model (Fable 5.2) on Effect 4.1.4 and Bun 1.4.4. Sections 1 to 3 describe the
 repository as it was before item 1. "What it rests on" says what was run and what was only read.
 
@@ -272,13 +273,47 @@ What the inventory did not have:
 - **The changelog** has three entries under 0.8.0, which was already open, and no new version, as the inventory
   judged. They replace the unreleased entry that said what a bridge's `messagesSentBy` must do.
 
-Left as it was, for the items it belongs to: the README's table of the tools, the bullet of `dispatchViolations`
-and the comment of `DispatchViolation`, which still say what "the view sends" (item 3); the sentence of "View" on
-React views and the head of `examples/react.ts` (item 2); `reject`'s comment, `Origin`'s `'View'` and "what the
-view sends" in "Guarantees" (item 8); the bridges' tests among the contracts of `AGENTS.md`, less the clause on
-`messagesSentBy` (item 5).
+Left as it was then, for the items it belonged to: what items 2, 3 and 5 have since changed (below), and
+`reject`'s comment, `Origin`'s `'View'` and "what the view sends" in "Guarantees" (item 8).
 
 Run at the end: `bun run typecheck`, `bun run lint`, `bun run test`, `bun run mutations` and the site's build.
+
+## Items 2 to 5, as done
+
+On the same branch, a commit each, as the owner asked them.
+
+- **Item 2.** "View" loses its sentence on React views, and "Model and view", in "Structuring a program", gains
+  the advice: what is only the screen's (a hover, an animation, the focus) may stay in a component of the
+  renderer's, and what the program decides stays in its state. The head of `examples/react.ts` follows. Not in
+  the inventory: one fact of the old rule is no advice and stays, in that comment alone. The bridge calls a view
+  outside React, so the view function itself can use no hook; a component in the tree it returns can. No example
+  has such a component, and no test shows one keeping its state across frames: it is React's own behaviour for a
+  component of the same type at the same place, read and not run here.
+- **Item 3.** The comments of `dispatchViolations` and of `DispatchViolation`, the README's table of the tools
+  and its bullet speak of the messages a model holds. No name changed: the parameter is still `sent`, which the
+  comment now introduces as those messages. Not in the inventory: four tests of
+  `src/testing/dispatch-violations.test.ts` named the view, and are renamed, as `AGENTS.md` asks of a test whose
+  subject changes; no mutation names them. "Control", "frame" and "double tap" stay: they say what a violation
+  means on the screen.
+- **Item 4.** "Inputs the user types into" keeps the cause, and says what `update` owes an input, that it accepts
+  its messages in every state where the input exists; it sends to `examples/field.ts`, `form` and `form-react`
+  for the remedy. The two rules of the remedy (the input owns the text while the user types; a new `key` when the
+  program replaces it) are now the head of `field.ts`, which the comments of both bridges send to. "Input is
+  never a reason to reject", in "Structuring a program", is untouched. Not in the inventory: the section had no
+  link to that rule, and has one now; and `update`'s rule was stated only inside the remedy's first bullet, so
+  it had to be lifted out of it to stay in the README.
+- **Item 5.** `AGENTS.md` takes the bridges' tests out of "contracts" and of "the boundary of a run", and names
+  them with the examples' tests, which it already kept apart. Not in the inventory: nothing else named them among
+  the library's tests. `mutations/mutations.ts` mutates no file of `examples/` and names no test of theirs,
+  `change-engine` only sends to `AGENTS.md` for the five kinds, and the CI runs them with `bun run test` as
+  before, never on Node (`test:node` globs `src/` and `test/`).
+
+Still saying "the view" of what is a dispatch, for item 8: `Origin`'s `'View'`, "what the view sends is queued" in
+"Guarantees", "a message the test or the view sends" in the table of rejections, `reject`'s comment, and
+"what the view draws never does" in "Rejections and defects".
+
+Run at the end: `bun run typecheck`, `bun run lint`, `bun run test`, `bun run test:node`, `bun run interleavings`,
+`bun run mutations` and the site's build.
 
 ## What it rests on
 
