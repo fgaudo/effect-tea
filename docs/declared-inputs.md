@@ -35,7 +35,7 @@ supplies.** The transport stays: `dispatch` for a view, a key for a subscription
 5. **The tools read the declarations**: `Rejected`, `Missing` and `Inert` judge every message offered in a state,
    and `Inert` and `ActsTwice` judge the control, never the value.
 6. **A tool explores the program from `init`** by what each state offers. It was since spiked alone, on the API as
-   it is: [`exploration.md`](exploration.md).
+   it is, and rejected: [`exploration.md`](exploration.md).
 
 Weighed before it and refused, in three forms: **input through a subscription**. A keystroke through a
 subscription is queued when its fiber resumes and a click at once, so "typed, then Save" would rest on scheduling;

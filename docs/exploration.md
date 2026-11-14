@@ -1,8 +1,9 @@
 # Exploring a program from `init`
 
-**Status:** proposed, 14 November 2026. Nothing of it is done, and nothing here is decided. It records one spike
-(Fable 5.2), on Effect 4.1.4, Bun 1.4.4 and Node 24.14.1, kept on the branch `spike/explore` (commit `5476871`, cut
-from `7403044`, never to be merged). Rewritten the same day for the contract of the model
+**Status:** rejected by the owner, 14 November 2026, the day it was proposed, as neither practicable nor useful; why,
+and what would reopen it, is in [`rejected.md`](rejected.md), "The testing tools". Nothing of it is done. It records
+one spike (Fable 5.2), on Effect 4.1.4, Bun 1.4.4 and Node 24.14.1, kept on the branch `spike/explore` (commit
+`5476871`, cut from `7403044`, never to be merged). Rewritten the same day for the contract of the model
 ([`boundary.md`](boundary.md), item 1): the spike was written before it, and **asked a view, through snabbdom's
 bridge, what each state offers**; today a test reads that from the model. Its measures and findings are what it
 ran, with the bridge, and were not run again. What changes with the contract was read, at `1d0ccc9`, and is marked.

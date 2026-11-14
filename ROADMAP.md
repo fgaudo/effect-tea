@@ -28,9 +28,6 @@ that each leans only on those above it.
 - **Who checks a test's reader**: one that forgets a field of its model is found only by `Missing`. Whether that is
   enough, or worth a mark on a model's messages. `docs/declared-inputs.md`, and `docs/boundary.md`, "Open
   questions".
-- **A tool that explores a program from `init`**, by what each state offers, to a bound. Spiked on the API as it
-  is; not shown to be worth a place. [`docs/exploration.md`](docs/exploration.md); its `Inert` waits for the first
-  item.
 - **What reaches `update`, declared as data** (offers with a schema, a `dispatch` that takes one). Suspended by the
   owner, with three spikes and his decisions, which stand only if it is taken up again.
   `docs/declared-inputs.md`.

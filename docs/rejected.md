@@ -74,6 +74,21 @@ answer, and saying so in the proposal.
   - A constant `unchanged`, frames with a version, a child that removes its own duplicates, events with an answer
     from the parent. Reasoned, 26 October 2026, in a discussion in an application that uses the library, not in
     this repository; the reasons are the document's, and that discussion was not read again for this index.
+- **A tool that explores a program from `init`**, breadth first, by what each state offers, to a bound. Spiked, 14
+  November 2026: `spike/explore` (`5476871`), never to be merged; the account is
+  [`exploration.md`](exploration.md). Rejected by the owner the same day, as neither practicable nor useful. Its
+  measures (the spike's, not run again): one timer of twenty-five minutes from `init` is 39,050 states in 0.9 s, and
+  children multiply, so two would be the square (reasoned, not run): a composed program, the usual one, is walked
+  only within a bound so tight that the test chooses the states again, as a generator does. What it found on the
+  five examples: one control already known (`StopAllClicked` over an empty list), two behaviours that are meant and
+  two false alarms of `Inert`; nothing their tests should have caught. It replaces no generator, since it does not
+  reach messages from older frames, ended subscriptions or values beyond its samples; what it adds to
+  `dispatchViolations` over a generator's states is `Outdated`, `Stuck` and `Ignored`, the last two often meant. And
+  it would be one more tool to keep in step with the engine, with concepts of its own (`within`, `heard`,
+  `answers`, nodes with the commands under way, eight findings). Not measured: what it finds when a bug is put into
+  an example. *Reopen if* a walk keeps a composed program tractable without the test choosing its states (a child
+  walked alone, ids told as names), or a bug put into an example is found by it and by no test the library's tools
+  already make possible.
 
 ## The API
 
@@ -102,7 +117,6 @@ What is open, proposed or suspended is not rejected, and is listed in `ROADMAP.m
 
 - **What reaches `update`, declared as data** ([`declared-inputs.md`](declared-inputs.md)): suspended by the owner,
   not revoked. The decisions taken in it stand only if it is taken up again, and what its spikes refuted is there.
-- **The proposal of [`inert-steps.md`](inert-steps.md)** and **the exploration from `init`**
-  ([`exploration.md`](exploration.md)): proposed, not decided.
+- **The proposal of [`inert-steps.md`](inert-steps.md)**: proposed, not decided.
 - **The wrapping of a child's message as a public function** ([`boundary.md`](boundary.md), "A question"), and its
   items 6 to 8: questions and candidates, not decided.
