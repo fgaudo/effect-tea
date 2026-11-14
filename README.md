@@ -232,9 +232,8 @@ renderer whose handlers are plain callbacks, like snabbdom's, runs it at once wi
 The library ships no renderer. A bridge to one does two things: it draws each frame, and runs `dispatch` in the
 handlers. [`examples/snabbdom.ts`](examples/snabbdom.ts) and [`examples/react.ts`](examples/react.ts) are two,
 each small enough to copy. [`counter-react`](examples/counter-react) and [`form-react`](examples/form-react) draw the
-programs of [`counter`](examples/counter) and [`form`](examples/form) with the second. In React, a view stays a
-function of its model, called by the bridge, never a component with state or hooks; React only draws what it
-returns. React Native's bridge is written the same way.
+programs of [`counter`](examples/counter) and [`form`](examples/form) with the second. React Native's bridge is
+written the same way.
 
 #### Inputs the user types into
 
@@ -595,6 +594,9 @@ holds, and its tests can check it. The library does not enforce them; the exampl
   no fallback. What a view would decide, `makeModel` decides, as a case named for the state the screen tells
   apart (`Empty | Listed`, `Loading | Loaded`), never a boolean. An `Option` is such a case only when
   "missing" is all the screen tells apart.
+- **What is only the screen's may stay in the renderer.** A hover, an animation, the focus: state of the
+  interface that no rule of the program reads may live in a component of the renderer's, with state or hooks
+  of its own. What the program decides stays in its state, and reaches the view as its model.
 - **Input is never a reason to reject.** The input keeps what the user typed whatever `update` says (see
   [view](#view)), so a value `update` rejects would leave on screen a text the state does not have. Store what
   is typed, and make its validity model data: show "Save" only for a name that is not blank.

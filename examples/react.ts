@@ -1,8 +1,10 @@
 // The examples' second renderer, React's. With it, `counter-react` and `form-react` draw the programs of
 // `counter` and `form`: only the view, `main.ts` and this bridge change with the renderer, and the program and
 // its tests stay as they are.
-// A view is a plain function of its model, called here on each frame, and so are its children's views: React
-// only draws the tree it returns. No component holds state or uses hooks, so the frames are the only truth.
+// A view is a plain function of its model, called here on each frame, outside React, so it uses no hooks
+// itself: React draws the tree it returns. A component in that tree may keep what is only the screen's (a hover,
+// an animation, the focus); what the program decides stays in its state, and reaches the view as its model (the
+// README's "Structuring a program").
 // Checked with react and react-dom 19.3.1.
 import type { Dispatch, Frame, View } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
