@@ -1,14 +1,14 @@
 # Registers: what the outside writes into a program's state
 
-**Status:** being explored, 14 November 2026. Nothing of it is decided, and no file of the library has changed. It
-records a discussion with the owner, two reviews by Fable 5.2 (one of a design, one asked for ideas), and one spike,
-kept on the branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never to be merged), on Effect
-4.1.4 and Bun 1.4.4, the six checks that followed, each on a branch of its own ("What the checks found"), and a
-third review by Fable 5.2, asked what to adopt, with a spike of its own ("An independent opinion"), and a fourth, on
-how that spike derives a revision ("A second opinion"), and a spike of the three ways to keep the revision a program
-did not write ("The revision a program did not write, spiked"). What the spikes ran is marked **run**; what was read
-in the code at `beaba6f`, **checked**; what was only argued, **reasoned**. It reopens the aim of
-[`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way, and leans on
+**Status:** being explored, 14 November 2026. Only who keeps an input's revision is decided ("Where it stands"), and no
+file of the library has changed. It records a discussion with the owner, two reviews by Fable 5.2 (one of a design, one
+asked for ideas), and one spike, kept on the branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never
+to be merged), on Effect 4.1.4 and Bun 1.4.4, the six checks that followed, each on a branch of its own ("What the
+checks found"), and a third review by Fable 5.2, asked what to adopt, with a spike of its own ("An independent
+opinion"), and a fourth, on how that spike derives a revision ("A second opinion"), and a spike of the three ways to
+keep the revision a program did not write ("The revision a program did not write, spiked"). What the spikes ran is
+marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued, **reasoned**. It reopens the
+aim of [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way, and leans on
 [`inert-steps.md`](inert-steps.md), which it would simplify.
 
 The document is in the order things happened: what stands now is in the next section, and a section older than a
@@ -22,15 +22,16 @@ Name: input(at) }`), whose field `Field<A>`, `{ value, revision }`, lives in the
 rejects any other, so the late keystroke is closed for every input; no function is left in a model. Neither the
 engine nor the testing tools change. See "An independent opinion" and "A second opinion".
 
-**Who keeps the revision.** The owner prefers (A), a derivation by value with `renewed`, the one the second opinion
-recommends: a preference, not yet a decision, which waits for the checks of "To explore" and of the subscriptions.
-Of the three ways to keep the revision a program did not write, the spike recommends (A) with the sentences that say
-the revision is the library's and a test compares `value`, and neither a placeholder nor a brand; (B), with the brand,
-if the state stored being the state written ranks above the rest ("The revision a program did not write, spiked").
+**Who keeps the revision: decided, (A).** The owner chose, after the spike of the revision a program did not write,
+a derivation by value with `renewed`, the one the second opinion recommends, with the sentences of way 1: the
+revision is the library's, a key and nothing else, and a test compares `value`; neither a placeholder nor a brand
+("The revision a program did not write, spiked"). Accepted with it: the state stored differs from the state written
+in the revision once a value changed, and a `toEqual(field(''))` fails after the first replacement. The direction as
+a whole still waits for the checks of "To explore" and of the subscriptions.
 
-| | (A) Derived by value, with `renewed` | (B) Kept by the program, under a check |
+| | (A) Derived by value, with `renewed`: chosen | (B) Kept by the program, under a check |
 | --- | --- | --- |
-| Spiked | yes, `spike/register-input-by-value` | no: about ten lines in the same place of `compose`, **reasoned** |
+| Spiked | yes, `spike/register-input-by-value` | yes, `2c4f3b5` on `claude/spike-revision-unwritten-b1e290` |
 | The state stored is the state written | not in the revision, when the value changes | always |
 | Emptying after a save | `name: field('')` | `name: replace(state.name, '')` |
 | A Clear on an empty field | changes nothing: it may stay shown | acts twice: rejected, and left out of the model |
@@ -38,8 +39,8 @@ if the state stored being the state written ranks above the rest ("The revision 
 | A new input for the same value | `renewed(state.level)`, to be remembered | `replace(state.level, state.level.value)`, as always |
 | A field written by hand, or an old one | corrected in silence | a `CompositionDefect`, perhaps first in production |
 
-`replace` is a name of this sketch: no spike has it. Identity, the rule of the first spike, is refuted by the
-second opinion: a copy equal by value would draw a new input and reject what is being typed.
+The column (B) is the sketch written before its spike, which confirmed it. Identity, the rule of the first spike, is
+refuted by the second opinion: a copy equal by value would draw a new input and reject what is being typed.
 
 **A decision apart**: whether to fix the late keystroke on `main` now, in `examples/form` (a `NameChanged` that
 carries the revision it was typed at), or leave it to the implementation. It is a bug of an example users copy;
