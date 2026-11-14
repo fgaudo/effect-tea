@@ -1,12 +1,14 @@
 # Registers: what the outside writes into a program's state
 
-**Status:** being explored, 14 November 2026. Only who keeps an input's revision is decided ("Where it stands"), and no
-file of the library has changed. It records a discussion with the owner, two reviews by Fable 5.2 (one of a design, one
+**Status:** being explored, 14 November 2026. Who keeps an input's revision, and what may write into an input, are
+decided ("Where it stands"), and no file of the library has changed. It records a discussion with the owner, two reviews by Fable 5.2 (one of a design, one
 asked for ideas), and one spike, kept on the branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never
 to be merged), on Effect 4.1.4 and Bun 1.4.4, the six checks that followed, each on a branch of its own ("What the
 checks found"), and a third review by Fable 5.2, asked what to adopt, with a spike of its own ("An independent
 opinion"), and a fourth, on how that spike derives a revision ("A second opinion"), and a spike of the three ways to
-keep the revision a program did not write ("The revision a program did not write, spiked"). What the spikes ran is
+keep the revision a program did not write ("The revision a program did not write, spiked"), and a spike of the
+subscriptions of a program with an input ("The subscriptions with an input, checked"), and a fifth review by Fable
+5.2, on what may write into an input ("Only what is drawn writes"). What the spikes ran is
 marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued, **reasoned**. It reopens the
 aim of [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way, and leans on
 [`inert-steps.md`](inert-steps.md), which it would simplify.
@@ -27,7 +29,15 @@ a derivation by value with `renewed`, the one the second opinion recommends, wit
 revision is the library's, a key and nothing else, and a test compares `value`; neither a placeholder nor a brand
 ("The revision a program did not write, spiked"). Accepted with it: the state stored differs from the state written
 in the revision once a value changed, and a `toEqual(field(''))` fails after the first replacement. The direction as
-a whole still waits for the checks of "To explore" and of the subscriptions.
+a whole still waits for the checks of "To explore", and for one of the subscriptions: the writes in the search of
+interleavings ("The subscriptions with an input, checked").
+
+**Only what is drawn writes into an input: decided.** The owner accepted the rule of a fifth review by Fable 5.2
+("Only what is drawn writes"): a subscription never writes into an input, nor does a command's answer. A value from
+a source that exists whatever is drawn (a scanner, a dictation) is a message of the program, and its `update`
+replaces the field or holds the value until it chooses to. A drag the program draws follows: its start is a fixed
+message of the model, its moves are messages of a subscription keyed by the state of dragging, and no input is
+involved; a native range stays an input.
 
 | | (A) Derived by value, with `renewed`: chosen | (B) Kept by the program, under a check |
 | --- | --- | --- |
@@ -42,9 +52,9 @@ a whole still waits for the checks of "To explore" and of the subscriptions.
 The column (B) is the sketch written before its spike, which confirmed it. Identity, the rule of the first spike, is
 refuted by the second opinion: a copy equal by value would draw a new input and reject what is being typed.
 
-**A decision apart**: whether to fix the late keystroke on `main` now, in `examples/form` (a `NameChanged` that
-carries the revision it was typed at), or leave it to the implementation. It is a bug of an example users copy;
-`examples/form/late-key.test.ts` on `claude/spike-register-late-key-6cb914` holds it.
+**The late keystroke on `main`: decided, left to the implementation.** The owner chose not to fix it now in
+`examples/form`, since the implementation rewrites the form and its inputs; `examples/form/late-key.test.ts` on
+`claude/spike-register-late-key-6cb914` holds it, and is ported with the design.
 
 **Open whatever the choice**: a child re-initialised by its parent, and an optional place that comes back, restart
 an input's revision, which no rule of before and after closes; a `File`; a reaction to every keystroke; the name of
@@ -63,9 +73,10 @@ changelog entry and the version `release` asks for.
 `claude/spike-register-checks-fd58e1` (no commit of its own), `claude/spike-register-late-key-6cb914`,
 `claude/spike-register-model-data-52ba83`, `claude/spike-register-shapes-ea38c5`,
 `claude/spike-register-opaque-3fc182`, `claude/spike-register-slider-f36368`, `spike/register-input-compose`,
-`spike/register-input-by-value` and `claude/spike-revision-unwritten-b1e290`. The first spike and the six checks are
+`spike/register-input-by-value`, `claude/spike-revision-unwritten-b1e290` and
+`claude/spike-register-subscriptions`. The first spike and the six checks are
 cut from `spike/field-register` or `main` before this document; the two opinions from `c263478`; the spike of the
-revision a program did not write from `c445a5b`.
+revision a program did not write, and that of the subscriptions, from `c445a5b`.
 
 ## Context
 
@@ -261,7 +272,8 @@ sends is not data"). It now concerns only sources that exist whatever is drawn.
 
 ### What is to be checked of them, with an input declared in `compose`
 
-Added after the two opinions. None is run; each is a test before it is a sentence.
+Added after the two opinions. None is run; each is a test before it is a sentence. Five were checked since ("The
+subscriptions with an input, checked").
 
 - **An input lifts no subscription.** In `spike/register-input-by-value`, `compose` lifts the subscriptions of the
   names of `children` only, and an input's program has none (`src/compose.ts`, **checked**). A test is to hold it: a
@@ -818,6 +830,92 @@ changes a value at the revision it held.
 - **Against it**: concern 1 stays. A user's natural `toEqual(field(''))` fails after the first replacement, and the
   recipe on `value` that replaces it is weaker. If concern 1 ranks above the rest, (B) with the brand is the way, and
   the brand earns its place there.
+
+## The subscriptions with an input, checked
+
+The points of "What is to be checked of them" were taken on the branch `claude/spike-register-subscriptions`, cut
+from `c445a5b` (commit `d686ddf`, never to be merged): `src/input-subscriptions.test.ts` (6 tests) and
+`bench/keystrokes.ts`. It reports `typecheck`, `lint` and `test` (576) green; `test:node`, `interleavings` and
+`mutations` were not run, since no file of `src/` but a test changed. Each **run** finding that rests on a check has
+a test seen to fail with the check taken out by hand.
+
+- **An input lifts no key**, **run**: a program with an input, a child that listens and a subscription of its own
+  lists two keys, its own and `['Ticking', 'ticks']`. It holds by construction, not by a check: lifting the inputs
+  too (`names` over every place) leaves the test green, since an input's program has no subscriptions, so it has no
+  mutation. A write into the input leaves the child's state, and its lifted subscription, the same objects.
+- **A reaction to every keystroke**, **run**, through a run, with a subscription that logs its starts and stops:
+  - keyed by the value: each write that changes it stops the subscription before and starts one, a debounce by
+    interruption; a value typed back (`'a'`, `'ab'`, `'a'`) starts one anew. That keeps "an ended one is never
+    restarted automatically": the key went away between, which is when the README says a subscription starts again.
+    `field(v)` over the value held, and `renewed`, start nothing;
+  - keyed by the revision: writes start nothing, and each new input does, `renewed` included. Under identity in place
+    of value (the first opinion's rule), `field(v)` over the value held starts it again: the test fails.
+  - So the key says what the subscription reacts to: the value, for what is typed (a search, an autosave); the
+    revision, for the input itself. It is the program's choice, as every key is, and the library adds nothing:
+    **reasoned**.
+- **A subscription cannot write into an input**, **run** as types: a parent's own subscriptions send its own messages
+  (`Subscriptions<State, Own>` in `compose`), and an own message named as an input is refused (`NoClash`), so a
+  `write` from a subscription does not compile. A dictation sends a message of the program, whose `update` puts the
+  value in the place. That is a replacement, **run**: even a field written at the revision held gets the next, and
+  what the user types into the old input at that moment is rejected (the test fails if the revision may stand still).
+  Whether that is right (a scanner while the user types), or a subscription should write as the view does, which
+  would widen what an own subscription sends, was decided since ("Only what is drawn writes").
+- **The cost of a keystroke**, **run** with `bun bench/keystrokes.ts`: a list of children by id that each tick, and an
+  input in the parent's state, on one machine (Bun 1.4.4, Windows):
+
+  | Children | `subscriptions`, per tick | per keystroke | `update`, per tick | per keystroke |
+  | --- | --- | --- | --- | --- |
+  | 10 | 2.4 µs | 1.9 µs | 1.1 µs | 0.4 µs |
+  | 1000 | 219 µs | 215 µs | 8.5 µs | 0.3 µs |
+  | 10000 | 2490 µs | 2591 µs | 40.6 µs | 0.6 µs |
+
+  A keystroke costs `subscriptions` what any change of state costs: linear in the children, each lifted from the
+  cache of its state object, and the same as on `main` (`bench/subscriptions.ts`: 218 µs and 2266 µs there, 222 µs
+  and 2274 µs on the spike). The write itself is constant. So the input adds nothing against "frames cost only what
+  is drawn": what a keystroke pays is today's cost of building the `HashMap` of every key on each change, which a
+  list of ten thousand children pays on a tick too.
+- **No control drawn goes through a key**, **checked**: the examples' subscriptions are clocks (`list/stopwatch.ts`,
+  `pages/clock.ts`, `timer/timer.ts`), which `pages/app.ts` and `timer/timers.ts` lift. None is fed by a control, so
+  "What a key sends is not data" (`ROADMAP.md`) is left with sources that exist whatever is drawn.
+- **Not done**: the writes in the search of interleavings, a change of `interleaving.test.ts` that follows
+  `change-engine` and is a step of its own; and a drag, which no example draws, settled since by the rule of "Only
+  what is drawn writes".
+
+## Only what is drawn writes
+
+A fifth review by Fable 5.2 was asked whether a subscription should write into an input as the view does, or send a
+message of the program, which replaces the field, as the spike has it. It read the spike at `d686ddf` and left no
+file. Its verdict, which the owner accepted: keep it, and refuse a command's answer too.
+
+- **A write from elsewhere than the element breaks the premise the rule of a write rests on**, that the input on
+  screen already shows it. The bridge sets an element's value only when it makes it (`initialValue`, keyed by the
+  revision), so a write at the revision held from a subscription changes the state and not the screen, and the next
+  keystroke sends what the element shows and erases the value in silence: **run** at the level of `update` (a write
+  of `'SCAN'` over `'Hel'` stored at revision 0, then `'Help'` over it), **reasoned** in a DOM. To show it, the
+  bridge would push the state's value into a live element, the controlled input the design avoids: "last write
+  wins" is not on offer, only a new input or a value unseen until overwritten.
+- **A write carries the revision of the frame its control was drawn in**; a subscription has no frame, so no honest
+  revision: the one it started with is a stale capture, and one keyed by the revision restarts the source on each
+  replacement to fake it (**reasoned**).
+- **A program already gets what it wants without the library**: a pending value in the state, which a `Scanned`
+  message sets while the field stays the very same object, so that what the user types is still stored, and a
+  replacement with `field(pending)` when the program chooses (**run**). Widening what an own subscription sends
+  would do nothing Effect cannot, for the sake of one kind of application, and add a kind of message `simulate` and
+  `rehearse` would be asked about (**reasoned**).
+- **`reject` keeps one meaning**: the keystroke rejected after a replacement was written into an input no longer on
+  screen (**checked**, `src/input-subscriptions.test.ts`).
+- **A finding**: in the spike, `runCommand`'s answers include the inputs' messages (`RunCommandOf<OwnCommand, Own |
+  ChildMessages<C> | InputMessages<I>, R>`, `src/compose.ts:247`, **checked**, and **run** as types), so a
+  subscription reaches an input in two hops, an own message and a command whose answer is a `write`, with the same
+  fault. The implementation narrows it to `Own | ChildMessages<C>`, with a `@ts-expect-error` beside the
+  subscription's.
+- **Against, by the review itself**: a replacement is harsh on a source that streams, such as a dictation sending
+  partial results while the user types: each one makes a new element, and focus, caret, selection and an IME
+  composition are lost with what was in flight. Such a source belongs to the control (the component listens, the
+  element changes, and it writes at the frame's revision), a recipe of a bridge not yet written or tested.
+- **To be tested in the implementation**: the screen and the state parting in a bridge, in happy-dom; whether a
+  replacement loses focus in snabbdom and in React, which weighs the argument against; narrowing `runCommand`'s
+  answers breaking nothing in the examples and tests.
 
 ## What a consumer could notice
 
