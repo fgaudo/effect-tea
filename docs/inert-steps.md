@@ -4,7 +4,9 @@
 has changed. It records a review of the invariants by three models (Fable 5.2 twice, Opus 5.5 once), an earlier
 discussion in an application that uses the library (26 October 2026), and two spikes, each on a worktree of its own,
 on Effect 4.1.4 and Bun 1.4.4, which are not kept: "What it rests on" says what each one showed, and what was
-checked again and what was only reported.
+checked again and what was only reported. Its words were aligned, the same day, with the contract of the model
+([`boundary.md`](boundary.md), item 1): the tool judges the messages a model holds, where it said those a view
+sends. The decision is as it was.
 
 ## Context
 
@@ -17,9 +19,9 @@ What the status quo costs, as the code has it:
 
 - **A view's message whose only effect is such an event is applied, and does nothing.** `onIgnored` does not hear
   it; `onApplied` does, with `before === after` and no commands. `dispatchViolations` counts it as accepted.
-- **`Missing` asks the view for a message that would do nothing.** The check reads only whether `update` rejects,
+- **`Missing` asks the model for a message that would do nothing.** The check reads only whether `update` rejects,
   so `pages` lists the Clock's messages under About as `withheld`, an option meant for what `update` would act on
-  and the view hides on purpose.
+  and the model withholds on purpose.
 - **A control a parent makes dead goes unseen.** In a program without children the author writes `reject`, and
   `Rejected` makes the model stop showing the control. A parent can only answer `{ state }`, so the same mistake
   passes every check of the tool made to find it.
@@ -56,7 +58,8 @@ Three things decide it:
   program that does not. "`reject` means the message does not apply in the state" would become "in the state of
   every ancestor".
 - **The tool would blame the child.** Where the child is drawn while the parent rejects, `dispatchViolations` reports
-  `Rejected` for the child's own control, which the child's view cannot avoid: it does not see the parent's state.
+  `Rejected` for the child's own control, which the child's model cannot avoid: it is made of the child's state
+  alone.
 - **One answer, two outcomes the handler cannot tell apart.** A handler does not know what caused its event. The
   same `reject` would be an ignored message by one way and a defect by the other, and no type says which.
 
@@ -76,7 +79,7 @@ Proposed. Composition stays as it is, and the testing tool learns to see a step 
    needless copy of the state would silence the check.
 3. **`Missing` leaves out a candidate whose step does nothing.** A control that would do nothing is no control
    missing from the screen. `pages` loses its `withheld`, which goes back to meaning one thing.
-4. **`Inert`, a new violation: a message the view sends whose step does nothing**, judged on the first send (the
+4. **`Inert`, a new violation: a message the model holds whose step does nothing**, judged on the first send (the
    second, from the same frame, is `ActsTwice`'s, which admits a step that does nothing). An option `inert`, of the
    message and the state, as `withheld` is, lists what does nothing on purpose. It is always on.
 5. **The README says why a handler has no `reject`**, and that a tap without effect is told in `onApplied` by
@@ -90,8 +93,8 @@ Points 3 and 4 are two halves of one rule: a message that does nothing in a stat
 | The tool asks | The test answers with |
 | --- | --- |
 | "This message acts twice" (`ActsTwice`) | `repeatable`: it is meant to |
-| "`update` accepts it, and the view does not send it" (`Missing`) | `withheld`: hidden on purpose |
-| "The view sends it, and it does nothing" (`Inert`) | `inert`: on purpose |
+| "`update` accepts it, and the model does not hold it" (`Missing`) | `withheld`: withheld on purpose |
+| "The model holds it, and it does nothing" (`Inert`) | `inert`: on purpose |
 
 A step that does nothing is a mistake when whoever makes the model could tell, from its own state, that it would do
 nothing, and showed the control all the same: a "Save" over a document the parent holds locked, a "Stop all" over an
@@ -116,6 +119,7 @@ return to say "nothing, on purpose" is `{ state }` under another name, and was d
   `Missing`'s change adds no violation, as it only takes some out. `Inert` adds `StopAllClicked` in `list` (769 of
   2,000 states by identity, 756 by `Equal`) and, by `Equal` alone, `NameChanged` with the text the field has in `form`
   and `form-react` (4 and 7 of 2,000: few enough to fail a test at random, so its exemption is written at once).
+  The test of `form-react` is gone since: it had become a copy of `form`'s.
 - That those are not all false alarms: **read**. The spike counted every one as such. The smallest state of
   `StopAllClicked` has no entries, which the parent's own state tells, so the model could leave the control out; with
   entries, all stopped, only the children know, and the README forbids a parent to read them. The spike did not
@@ -154,8 +158,8 @@ return to say "nothing, on purpose" is `{ state }` under another name, and was d
 
 ## What a consumer could notice
 
-- **A view's test fails where a control it shows does nothing**, until the model leaves it out, `update` rejects it,
-  or the test lists it as `inert`.
+- **A test of a model against `update` fails where a control the model holds does nothing**, until the model leaves
+  it out, `update` rejects it, or the test lists it as `inert`.
 - **`'Inert'` is a new case of `DispatchViolation`**: a `switch` over its tags that was exhaustive no longer
   compiles.
 - **`Missing` reports less**: a candidate whose step does nothing is no longer one. A `withheld` that listed such
@@ -171,11 +175,12 @@ It is a breaking change, with a changelog entry and the version `release` asks f
 - **`rehearse`.** It fails on a `send` that `update` rejects, as a control that does nothing. Whether it fails on one
   whose step does nothing too: the run applies such a message, and `rehearse` follows the run, but the tools are
   meant to be asked about the same things.
-- **A key whose message does nothing.** `Inert` is of what a view sends. A subscription has the same mistake, and its
+- **A key whose message does nothing.** `Inert` is of what a model holds. A subscription has the same mistake, and its
   own way to leave a control out: a state that does not list the key (a "back" button of the device, not listened
   to at the root, is left to the system). A key that is listed and whose message does nothing is found by no tool:
-  the tool cannot ask a subscription what it will send, as it asks a view, so a test would have to list the messages
-  of each key. Until then a property written by hand holds it.
+  no test can read from a subscription what it will send, as it reads a model, so a test would have to list the
+  messages of each key (see [`declared-inputs.md`](declared-inputs.md), "What still makes sense"). Until then a
+  property written by hand holds it.
 - **`Field.typed`** builds a new field for the text it has, so the same text draws a frame for nothing. Whether the
   example returns the same state there, which `Inert` would then report and the input's exemption cover.
 - **The comment of `dispatchViolations`** says an instance of a class that does not implement `Equal` compares by
