@@ -12,7 +12,8 @@ a program did not write, spiked"), and a spike of the subscriptions of a program
 an input, checked"), and a fifth review by Fable 5.2, on what may write into an input ("Only what is drawn writes"),
 and a sixth, on the name of `parent` ("The name"), and the bridges tested in happy-dom ("The bridges, in happy-dom"),
 and a recipe of a bridge for a source that belongs to the control, tested there too ("A source that belongs to the
-control"), and a slider in an example ("A slider, in an example").
+control"), and a slider in an example ("A slider, in an example"), and a seventh review by Fable 5.2, with a spike,
+on how to close concern 3 ("Whoever steps replaces what is below"), not yet decided.
 What the spikes ran is marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued,
 **reasoned**. It reopens the aim of [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way,
 and leans on [`inert-steps.md`](inert-steps.md), which it would simplify.
@@ -71,24 +72,26 @@ refuted by the second opinion: a copy equal by value would draw a new input and 
 before the implementation, which rewrote the form and its inputs; `examples/form/late-key.test.ts`, ported from
 `claude/spike-register-late-key-6cb914`, holds it.
 
-**Open whatever the choice**: a child re-initialised by its parent, and an optional place that comes back, restart
-an input's revision, which no rule of before and after closes; a `File`; a reaction to every keystroke. See "To
-explore", and, for the subscriptions, "What is to be checked of them, with an input declared in `compose`".
+**Open whatever the choice**: a child re-initialised by its parent, an optional place that comes back, and an undo
+by snapshot above a child, which bring an input's revision back. A seventh review proposes to close the first and the
+third with the rule of a replacement applied by whoever steps to every input below it, the second with an input's
+place made a lens, and to leave the rest to an id ("Whoever steps replaces what is below"): not yet decided. Open too:
+a `File`; a reaction to every keystroke. See "To explore".
 
 **Next**, with the implementation on `main` ("The implementation") and `parent` renamed `composition` ("The name"),
 and the bridges tested in happy-dom ("The bridges, in happy-dom"), with a source that belongs to the control ("A
 source that belongs to the control"), and a slider in `examples/volume` ("A slider, in an example"), and
-`bench/keystrokes.ts` dropped ("The implementation"): the ideas of "To explore", each spiked or measured before it is
-proposed.
+`bench/keystrokes.ts` dropped ("The implementation"): the decision on the seventh review ("Whoever steps replaces
+what is below"), and the ideas of "To explore", each spiked or measured before it is proposed.
 
 **The branches**, local to this machine and never pushed, none to be merged: `spike/field-register`,
 `claude/spike-register-checks-fd58e1` (no commit of its own), `claude/spike-register-late-key-6cb914`,
 `claude/spike-register-model-data-52ba83`, `claude/spike-register-shapes-ea38c5`,
 `claude/spike-register-opaque-3fc182`, `claude/spike-register-slider-f36368`, `spike/register-input-compose`,
-`spike/register-input-by-value`, `claude/spike-revision-unwritten-b1e290` and
-`claude/spike-register-subscriptions`. The first spike and the six checks are
-cut from `spike/field-register` or `main` before this document; the two opinions from `c263478`; the spike of the
-revision a program did not write, and that of the subscriptions, from `c445a5b`.
+`spike/register-input-by-value`, `claude/spike-revision-unwritten-b1e290`, `claude/spike-register-subscriptions`
+and `worktree-agent-a144664c3ddf8f27a`. The first spike and the six checks are cut from `spike/field-register` or
+`main` before this document; the two opinions from `c263478`; the spike of the revision a program did not write, and
+that of the subscriptions, from `c445a5b`; the seventh review's from `9a58662`.
 
 ## The implementation
 
@@ -1066,6 +1069,128 @@ snabbdom 3.6.4 and React 19.3.1.
   stand-in of the event has only the text, so a slider's write holds `undefined` (**run**, on the views of `form` and
   `volume`). No test compares the messages of a view with inputs: a number for a slider, by an argument beside
   `typed`, waits for one that does.
+
+## Whoever steps replaces what is below
+
+A seventh review by Fable 5.2 was asked how to close concern 3 ("Open whatever the choice"), with a free hand to
+change the design or the invariants, for a solution that is pure, clean, coherent and elegant. Its spike is on the
+branch `worktree-agent-a144664c3ddf8f27a` (commit `2d2e77b`, cut from `9a58662`, never to be merged):
+`src/compose.ts`, `src/input.test.ts` and `src/input-below.test.ts`. It reports `typecheck`, `lint`, `test` (589),
+`test:node` (528) and `interleavings` (17) green; `typecheck` and `test` were run again on its commit, and its six
+tests of a child replaced were seen to fail on the `compose.ts` of `9a58662` (**run**). `mutations` was not run, and
+would fail: the mutation at `mutations/mutations.ts:711` names a line the spike rewrote. Not decided.
+
+### The proposal
+
+One idea in three parts: an input's history is never cut where the library can see it, and where it is cut, the
+instance has a name.
+
+1. **The rule of a replacement is applied by whoever steps, to every input below it.** After a step a program's own
+   code makes (its `update`, or what its `onEvent` makes of a child's event), every input in its state that holds
+   another value gets the next revision, its children's included, at any depth. What the library routes to a child
+   is the child's step, and the child applies the rule to itself. It is rule (A) with its quantifier corrected: today
+   it holds only for the inputs of the program that steps, because that is where `replacing` was written.
+2. **An input's place is always there**: `input(at)` takes an `Optic.Lens`, stable in Effect 4.1.4 (**checked**),
+   not an `Optional`. A value that may be missing is a `Field<Option<A>>`, and an input that may be missing is an
+   input of a child that may be missing.
+3. **What is left is one class, said once**: a message names a place, not an instance. A child that leaves and
+   another that comes to its place are told apart by an id, as children by id already are: `each` keyed by a
+   generation the parent keeps in its own state, with no new API.
+
+Why, by the review:
+
+- **Who stepped tells a restart from typing**, which "A second opinion" held no rule of before and after can: a write
+  reaches a child as a routed message only, never through its parent's own code, so on a parent's own step another
+  value below is always a replacement. Applied to routed steps too, the rule fails 12 tests, writes among them
+  (**run**).
+- **The premise holds by the types already**: a handle takes a child's external messages, which for a composed child
+  are its own and none of its inputs', so a parent's own step cannot write into a child's input (**run**, a
+  `@ts-expect-error`). A command's answer is routed, not a parent's own step, and does not confuse the rule.
+- **No memory is added**: `update` stays pure, the state stays the fold of `update` over messages, the engine and the
+  testing tools do not change, and `Field` stays the only state the library shapes (**reasoned**).
+- **The residue is a theorem, not a gap of the design**: a revision survives only where a `Field` survives, a place
+  that was empty has no before, and the library keeps nothing outside the state; so an instance across a gap can be
+  named only by state the parent holds, and the id is that name (**reasoned**).
+
+### What it found
+
+- **A third hole, not in this record**: an undo by snapshot kept by a parent brings a child's revision back. Kept at
+  `('Ada', 0)`, the child discards to `('', 1)`, the parent undoes to `('Ada', 0)`, and the element of revision 0 may
+  still be on screen, showing a keystroke that was rejected: **run** in the state, **reasoned** on screen. It is the
+  likeliest of the three, and "a revision never comes back" is false for it today.
+- **Six tests red on `9a58662` and green on the spike** (**run**): a child restarted by its parent's `update`;
+  restarted with the value it held; restarted by what `onEvent` makes of its event; the undo above; two levels down;
+  a child by id restarted under its id, the other rows left the same objects.
+- **Each check taken out by hand** (**run**): no recursion below fails 7 tests, `onEvent` left out 2, a child by id
+  not looked up 1.
+- **The recipe of a generation passes on `main` as it is** (**run**): a child placed with `each`, its `get` answering
+  only for `state.generation`; a late write and a late fixed message for the old instance are both rejected.
+- **A lens only** (**run**, as types): an input under `Optic.some()` does not compile; the form is unchanged.
+- **The cost**, measured once (Bun 1.4.4, Windows): a parent's own step over children by id that hold inputs costs
+  4 µs at 10, 53 µs at 1000 and 611 µs at 10000; with no input below, 0.1 µs, as before. A write into one child does
+  not pay it, and `subscriptions` costs about 2.5 ms per change at 10000 already ("The subscriptions with an input,
+  checked").
+
+### What it would change
+
+- **API**: `input(at)` takes a `Lens`, a breaking change. `each` must list every child: the spike adds `all?`, which
+  defaults to `subscribed`; the clean form is `all` required and `subscribed` optional, defaulting to it, as `child`
+  has it, which breaks every `each`.
+- **Internal**: a composed program carries how it replaces its inputs under a hidden symbol, which its parent reads;
+  about 70 lines of `compose.ts`.
+- **One behaviour dropped**: a child's routed step no longer replaces its parent's own inputs; what `onEvent` makes
+  of its events still does. Only a `set` that touches an input could notice; no test does.
+- **README**: "Its inputs' revisions" and the sentence that rejects what was written into an input "since replaced"
+  say "by the program, or one above it"; `at` is a lens; "Structuring a program" gives the rule of the id.
+- **`docs/invariants.md`**: the sentence that a child its parent starts again, and an optional place that comes
+  back, restart an input's revision gives way to the rule and its residue.
+- **Mutations**: three new (below, `onEvent`, the lookup by id), and the one at line 711 retargeted. A changelog
+  entry and a version.
+
+### What it does not close
+
+- **A child that leaves and comes back** (an optional child, an id reused) and **the class of fixed messages**: by
+  the recipe only, which the library does not enforce.
+- **A child by id that neither `all` nor `subscribed` lists** is skipped in silence: an argument for `all` required.
+- **A command's answer that writes into a child's input**: `ChildMessages<C>` includes a child's writes (**checked**,
+  in the types); the review's two attempts to compile one failed on the inference of `Own`, not on the write. It
+  compiled on `main`, with the state of `update` annotated (**run**), against "Only what is drawn writes", and a
+  child's own message did too, against "a parent and its children talk only through external messages and events".
+  Closed since, apart from this proposal: a parent's command answers with its own messages or its children's
+  external ones (`ChildExternals<C>`), as its handles send them, held by a `@ts-expect-error` in
+  `src/input-subscriptions.test.ts` and one in `src/compose.test.ts`, each seen to pass on `main`.
+- A wrong `dispatchTo`, `init`, a `File`: as before. Nothing of it ran in a bridge.
+
+### Refused, by the review
+
+- **Revisions that cannot collide**: a global counter makes `field` impure; one stamped by the engine breaks
+  `applyAll` and the tools; one hidden in the state is the cache `AGENTS.md` forbids.
+- **A generation of instances as a concept of the library**: it duplicates the id, and puts a shape of the library
+  around every child's state.
+- **A write that carries the value the input showed**, a compare and swap: it closes the late write with no memory,
+  but not the key; the stale element stays, then rejects every keystroke, and `renewed` cannot be said.
+- **A rule that a parent restarts a child only through a message of the child's**: unenforceable, since a parent
+  returns its state whole, and an undo by snapshot is legitimate.
+- **The recipe alone, or the lens alone**: either leaves the undo above a child open, in silence.
+- Frame identity, and inputs outside the state: as weighed earlier in this record.
+
+### Against, by the review itself
+
+- **Concern 1 widens**: a parent that writes `children.Note.init.state` stores a child at revision 1; for the first
+  time, a parent's `compose` rewrites a child's state.
+- **It is still partial**: the recipe alone closes all three classes with no change, and the recursion may give a
+  false sense of completeness.
+- **By value across a restart**: a child restarted with the value it held keeps its element, its focus and its
+  caret, and a parent cannot ask `renewed` for a child's field.
+- **The symbol is lost in silence** by a program rebuilt by hand rather than spread.
+- **A lens only** refuses a legitimate optional input, such as a search box that may not exist.
+- **A linear cost** on a parent's own steps, for a list whose rows hold inputs.
+
+### What is left to decide
+
+Whether to adopt it; then `all` required or optional in `each`; and whether a lens only is worth the optional input it
+refuses. If adopted, the port is written from `main`, following `change-engine`: the spike is seven commits behind it,
+before `parent` was renamed `composition` and before `examples/volume`, and the mutations are run on the port.
 
 ## What a consumer could notice
 
