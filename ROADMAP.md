@@ -79,6 +79,10 @@ reviewer's claim that was not:
 
 ## Ideas, to be decided
 
+- **What reaches `update`, declared as data**: the messages a view, a key and a command can send in a state, each
+  with the schema of what the outside supplies, so that the tools judge every one of them and explore a program from
+  `init`. Proposed and not done, with what was weighed and left (an input through a subscription), in
+  [`docs/declared-inputs.md`](docs/declared-inputs.md).
 - **Bridges as packages of their own** (`@fgaudo/effect-tea-snabbdom`, `@fgaudo/effect-tea-react`): the library
   stays free of renderers, and users stop copying `examples/snabbdom.ts` and `examples/react.ts`.
 - **A devtools bridge over `onApplied`** (e.g. Redux DevTools), with time travel through `init: { state }` and
