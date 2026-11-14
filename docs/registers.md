@@ -5,8 +5,9 @@ records a discussion with the owner, two reviews by Fable 5.2 (one of a design, 
 kept on the branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never to be merged), on Effect
 4.1.4 and Bun 1.4.4, the six checks that followed, each on a branch of its own ("What the checks found"), and a
 third review by Fable 5.2, asked what to adopt, with a spike of its own ("An independent opinion"), and a fourth, on
-how that spike derives a revision ("A second opinion"). What the spikes ran is marked **run**; what was read in the
-code at `beaba6f`, **checked**; what was only argued, **reasoned**. It reopens the aim of
+how that spike derives a revision ("A second opinion"), and a spike of the three ways to keep the revision a program
+did not write ("The revision a program did not write, spiked"). What the spikes ran is marked **run**; what was read
+in the code at `beaba6f`, **checked**; what was only argued, **reasoned**. It reopens the aim of
 [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way, and leans on
 [`inert-steps.md`](inert-steps.md), which it would simplify.
 
@@ -23,6 +24,9 @@ engine nor the testing tools change. See "An independent opinion" and "A second 
 
 **Who keeps the revision.** The owner prefers (A), a derivation by value with `renewed`, the one the second opinion
 recommends: a preference, not yet a decision, which waits for the checks of "To explore" and of the subscriptions.
+Of the three ways to keep the revision a program did not write, the spike recommends (A) with the sentences that say
+the revision is the library's and a test compares `value`, and neither a placeholder nor a brand; (B), with the brand,
+if the state stored being the state written ranks above the rest ("The revision a program did not write, spiked").
 
 | | (A) Derived by value, with `renewed` | (B) Kept by the program, under a check |
 | --- | --- | --- |
@@ -57,9 +61,10 @@ changelog entry and the version `release` asks for.
 **The branches**, local to this machine and never pushed, none to be merged: `spike/field-register`,
 `claude/spike-register-checks-fd58e1` (no commit of its own), `claude/spike-register-late-key-6cb914`,
 `claude/spike-register-model-data-52ba83`, `claude/spike-register-shapes-ea38c5`,
-`claude/spike-register-opaque-3fc182`, `claude/spike-register-slider-f36368`, `spike/register-input-compose` and
-`spike/register-input-by-value`. The first spike and the six checks are cut from `spike/field-register` or `main`
-before this document; the two opinions from `c263478`.
+`claude/spike-register-opaque-3fc182`, `claude/spike-register-slider-f36368`, `spike/register-input-compose`,
+`spike/register-input-by-value` and `claude/spike-revision-unwritten-b1e290`. The first spike and the six checks are
+cut from `spike/field-register` or `main` before this document; the two opinions from `c263478`; the spike of the
+revision a program did not write from `c445a5b`.
 
 ## Context
 
@@ -732,7 +737,7 @@ checked: each is **reasoned**, and is spiked or measured before it is proposed.
   and its state holds another: `expect(state.name).toEqual(field(''))` fails on a revision of 4. It harms no
   determinism and no replay; it surprises whoever compares whole states, or reads an `update` as "it returns exactly
   this". It is unseen in the view, which keys the input by the revision stored, and in the program's logic, which
-  reads `value` only. Three ways, to be tried:
+  reads `value` only. Three ways, tried since ("The revision a program did not write, spiked"):
   - **document it**: the revision is the library's, a key and nothing else, and a test compares `value`. The
     cheapest;
   - **hide it from whoever makes a field**: `field(v)` returns a type of its own, which says "a new value here, its
@@ -740,6 +745,78 @@ checked: each is **reasoned**, and is spiked or measured before it is proposed.
     it is to be checked;
   - **the program keeps the revision under a check** ("A second opinion", way (a)), where the state stored is always
     the state written, at the cost of a `replace` at every change of value and of a defect on an undo by snapshot.
+
+## The revision a program did not write, spiked
+
+The three ways of "To explore" were spiked on the branch `claude/spike-revision-unwritten-b1e290`, cut from
+`c445a5b`, one commit each (never to be merged). It reports `typecheck`, `lint` and `test` green on each; `test:node`
+and `interleavings` on the two that change `compose.ts`; `mutations` on none. Each **run** finding has a test seen to
+fail with its change taken out by hand. Typecheck and `test` (579) were run again apart on the last commit, green.
+
+| Way | Commit | `test` | `test:node` | `interleavings` |
+| --- | --- | --- | --- | --- |
+| 1. Document it | `50d5561` | 571 | not run: `compose.ts` unchanged | not run |
+| 2. Hide it from whoever makes a field | `6660965` | 576 | 515 | 14 |
+| 3. The program keeps it, under a check | `2c4f3b5` | 579 | 518 | 14 |
+
+### 1. Document it
+
+- **Run**: the form's tests compare a whole field in three places. The two after a save, written as a user would
+  (`field('')`), fail, with a diff of `revision: 0` against `1` that says why; the third, after a failed save, passes
+  only because nothing replaced the input. The trap is met at the first replacement, not before.
+- The sentences are written in the README and in `Field`'s doc comment: the revision is the library's, a key and
+  nothing else, and a test compares `value`.
+- **Reasoned**: `toMatchObject`, the recipe for a whole state, is weaker than `toEqual`: an extra key passes.
+
+### 2. Hide it from whoever makes a field
+
+`Revision` is a branded number no program can write; `field(v)` carries an unwritten revision (−1 at run time), which
+`compose` stamps in `init`, where an input appears, and after each step.
+
+- **Run**: the state keeps one type, written and read: nothing leaks into `parent`, `makeModel`, the bridges,
+  `simulate`, `rehearse`, `drive` or `dispatchViolations`.
+- **Run**: the leak is in the tests, 46 type errors: Bun types `toEqual` and `toBe` against the value received, so a
+  literal revision in an assertion no longer compiles.
+- **Run**: the trap moves and stays. `toEqual(field(''))` fails from `init` on, and still passes on a state a test
+  built by hand with `field` and never replaced.
+
+### 3. The program keeps it, under a check
+
+`replace(field, value)` raises the revision; `compose` raises a `CompositionDefect` when a step lowers a revision, or
+changes a value at the revision it held.
+
+- **Run**: the state stored is the state written, so concern 1 is closed; the form and the late key port with one
+  word.
+- **Run**: the form left unported dies at its first save, and only the three tests that reach a save find it:
+  `dispatchViolations` passes, since a command's answer is none of the model's messages.
+- **Run**: an undo by snapshot is a defect; rebuilt, a line per input.
+- **Run**: a Clear always shown acts twice again (`ActsTwice`).
+- **Run**: a copy of a field equal by value is stored as a new object, so a renderer that skips by reference draws it
+  again.
+
+### Against "Where it stands"
+
+| | (A), way 1 | (A), way 2 | (B), way 3 |
+| --- | --- | --- | --- |
+| The state stored is the state written | not in the revision, once a value changed | never, for a field made with `field` | always |
+| `toEqual(field(v))` | passes until the first replacement | fails from `init` on; passes on a state built by hand | holds wherever the program wrote `field(v)` |
+| A Clear on an empty field | changes nothing | changes nothing | acts twice |
+| An undo by snapshot | the old state as it is | the same | a defect; rebuilt, a line per input |
+| A field written by hand | corrected in silence | does not compile | does not compile |
+| An old field, or `field()` in a step | corrected in silence | corrected in silence | a defect, found only by a test that reaches the step |
+| Concern 3 (a place that comes back, a child restarted) | open | open | open |
+
+### Recommendation, by the spike
+
+(A) with the sentences of way 1, and neither the placeholder nor the brand of way 2:
+
+- **Not way 2**: it moves the trap without removing it, and costs a stamp and a brand that breaks every literal
+  revision in the tests. Under (A) the brand protects nothing, since a field written by hand is corrected anyway.
+- **Not (B)**: it is the honest way, but a forgotten `replace` is a defect the tools of the model cannot find, and the
+  Clear that acts twice comes back.
+- **Against it**: concern 1 stays. A user's natural `toEqual(field(''))` fails after the first replacement, and the
+  recipe on `value` that replaces it is weaker. If concern 1 ranks above the rest, (B) with the brand is the way, and
+  the brand earns its place there.
 
 ## What a consumer could notice
 
