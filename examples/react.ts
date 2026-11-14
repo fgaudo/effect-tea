@@ -53,7 +53,7 @@ export const onClick = <Message>(message: Message, dispatch: Dispatch<Message>) 
 
 /**
  * React's `onChange` for a text input, whose text `toMessage` turns into a message. The input is uncontrolled,
- * as the README's "Inputs the user types into" says: the view gives it a `defaultValue`, never a `value`, and a
+ * as `field.ts` says of an input the user types into: the view gives it a `defaultValue`, never a `value`, and a
  * new `key` to replace its text. A controlled input would be rewritten from every frame, and a frame older than
  * the last key would take it back.
  */

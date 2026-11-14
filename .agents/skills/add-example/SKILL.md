@@ -55,9 +55,10 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
   only it leaves, a tick while stopped), which the test checks as a defect.
 - **The view** follows the README's "Guide", and is drawn with snabbdom: React is for `counter-react` and
   `form-react` alone, so that the examples share one bridge. snabbdom's props module never removes a prop, so a
-  view sets a prop such as `disabled` in every case of an element (`counter/view.ts`). An input follows "Inputs the user
-  types into": `update` accepts typing in every state the input exists in, and the view writes a text only
-  into a new input (`initialValue`, with a `Field`'s `revision` as the input's `key`). A child's view is
+  view sets a prop such as `disabled` in every case of an element (`counter/view.ts`). An input follows
+  `field.ts`, where the README's "Inputs the user types into" sends for the remedy: `update` accepts typing in
+  every state the input exists in, and the view writes a text only into a new input (`initialValue`, with a
+  `Field`'s `revision` as the input's `key`). A child's view is
   memoized with snabbdom's `thunk`, its dispatch from `dispatchTo` among the arguments (`pages/view.ts`).
 - **Messages live in the model** (the README's "Model"): a view builds none, and a test reads them from the
   model with a reader of its own, `messagesOf(model)`, a case of the model at a time. A parent's reader calls

@@ -238,15 +238,10 @@ written the same way.
 #### Inputs the user types into
 
 A frame may be older than the user's last keystroke, so rewriting an input from every frame can eat what was
-just typed. Let one side own the text at a time:
-
-- **While the user types, the input owns it.** The view writes the text only when the input is created. The
-  program learns it from the input's messages, which `update` accepts in every state where the input exists.
-- **When the program replaces it** (e.g. clears the form after saving), it changes the input's `key`, so that
-  the renderer creates a new input with the new text.
-
-[`examples/field.ts`](examples/field.ts) packages this, and [`form`](examples/form) uses it. React and React
-Native do the same with `defaultValue` and `key`, never `value`, as [`form-react`](examples/form-react) does.
+just typed. What the program owes the input is one rule of `update`: it accepts the input's messages in every
+state where the input exists (see [model and view](#model-and-view)). How a view keeps the text meanwhile is the
+renderer's. The examples show one way, to copy: [`examples/field.ts`](examples/field.ts) says it, and
+[`form`](examples/form) and [`form-react`](examples/form-react) use it, with snabbdom and with React.
 
 ### Commands
 
