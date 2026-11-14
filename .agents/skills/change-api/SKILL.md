@@ -56,6 +56,16 @@ In the same change:
 - **`CHANGELOG.md`**, under the unreleased version, with the version the change needs
   ([`release`](../release/SKILL.md)): a breaking change says how to upgrade, with the old and the new spelling.
 
+## Report it
+
+`api/effect-tea.api.md` and `api/effect-tea-testing.api.md` are the report of the API, one for each entrypoint,
+written by API Extractor from the declarations of `dist/`: what the index exports, and every type of the library it
+reaches without exporting it, since a change of one changes what a consumer writes too. `bun run build && bun run
+api` rewrites them, and the commit that changes the API commits them: the CI runs `bun run api --check`, which fails
+when they differ from the declarations. Read their diff as a consumer would: a line removed or narrowed is a
+breaking change, and needs the changelog's `**Breaking**:` (`release`). A diff of the reports that the change did
+not mean to make is a change of the API all the same.
+
 ## Check it as a consumer
 
 Besides `bun run typecheck`, `bun run lint` and `bun run test`, check the change as a consumer outside Bun

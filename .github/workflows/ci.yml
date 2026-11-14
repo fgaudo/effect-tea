@@ -16,6 +16,9 @@ jobs:
       - run: bun run lint
       - run: bun run test
       - run: bun run build
+      # The report of the public API (`api/`) is committed: a change of what the package exports, or of a type it
+      # reaches, must show in the diff of the commit that makes it.
+      - run: bun run api --check
       - run: bun install --frozen-lockfile
         working-directory: site
       # TypeDoc 0.28.20 needs minimatch 10, and the fix of this advisory is in minimatch 11 alone. The site's globs

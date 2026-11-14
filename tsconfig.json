@@ -27,5 +27,5 @@
     "skipLibCheck": true,
     "types": ["bun"]
   },
-  "include": ["src", "test", "bench", "mutations", "build.ts", "smoke/smoke.ts"]
+  "include": ["src", "test", "bench", "mutations", "build.ts", "smoke/smoke.ts", "api/report.ts"]
 }

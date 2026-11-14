@@ -958,6 +958,8 @@ From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `rehear
 
 `bun run typecheck`, `bun run lint` and `bun run test` check the package and the examples; `bun run build`
 compiles it into `dist/`, and `bun run smoke` checks the packed package as Node and TypeScript consumers get it.
+`bun run api` writes the report of the public API into `api/`, from `dist/`: it is committed, and the CI fails when
+it differs from the declarations.
 `bun run test:node` runs the library's tests on Node, whose engine is V8, where `bun run test` runs them on
 JavaScriptCore.
 `bun run mutations` takes out each check the engine's invariants rest on, one at a time, and fails when a test that

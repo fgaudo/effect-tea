@@ -66,10 +66,6 @@ session that wrote this, "reported" is a reviewer's claim that was not:
 
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is
   drawn" from regressing. `bun run bench` (`bench/subscriptions.ts`) measures a parent's subscriptions only.
-- **A report of the public API**, generated from the declarations of `dist/` and committed, so that a change of
-  what `src/index.ts` and `src/testing/index.ts` export shows in the diff, and a breaking one is not made by
-  accident (as api-extractor does), with a check that the package's types resolve for each kind of consumer.
-  `change-api` asks for this by hand today.
 
 ## Ideas, to be decided
 
