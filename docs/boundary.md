@@ -1,9 +1,9 @@
 # Where the library ends: an inventory of what lies before, across and after the model
 
-**Status:** proposed, 14 November 2026. Nothing of it is done, and nothing is designed: no file of the library, of its
-tests, of its examples, of `AGENTS.md` or of the README has changed. It is an inventory for the owner to strike lines
-from, made by one model (Fable 5.2) on Effect 4.1.4 and Bun 1.4.4. "What it rests on" says what was run and what was
-only read.
+**Status:** proposed, 14 November 2026, and item 1 of section 4 done on the branch `claude/model-contract-c0da5a`
+(see "Item 1, as done"). Nothing else of it is done, and nothing is designed. It is an inventory for the owner to
+strike lines from, made by one model (Fable 5.2) on Effect 4.1.4 and Bun 1.4.4. Sections 1 to 3 describe the
+repository as it was before item 1. "What it rests on" says what was run and what was only read.
 
 ## Context
 
@@ -204,7 +204,8 @@ advice today, becomes what the promise rests on.
 
 Ordered by how much each removes for how little it costs. Each can be struck alone, but 2 and 3 lean on 1.
 
-1. **State the contract of the model, not of the view.** Removes: the duty of a bridge to write `messagesSentBy`
+1. **State the contract of the model, not of the view.** Done, with two changes the owner asked for (below).
+   Removes: the duty of a bridge to write `messagesSentBy`
    (README l. 229–230, 796–806), both implementations and their tests (some 95 lines of the bridges, two
    `describe`s), a clause of the contracts kind in `AGENTS.md`, a section of `add-example`, a page of the tutorial.
    Adds a reader in each example's test (4 to 12 lines). README as specification: the left-to-you guarantee and the
@@ -234,6 +235,50 @@ Ordered by how much each removes for how little it costs. Each can be struck alo
 
 Not on the list, since the principle does not reach them: the renderer as an effect of the run, the sliding buffer, the
 child's model kept by its state, and the state as an object.
+
+## Item 1, as done
+
+On `claude/model-contract-c0da5a`, in four commits: the examples' tests, the bridges, the README with its changelog
+entries, and the rest. Two changes to the item as written above, agreed with the owner: `messagesSentBy` stays in
+`examples/snabbdom.ts`, with its tests, as an example of how to check the drawing and no duty of a bridge, and only
+React's is removed; and the README no longer offers a view that builds its messages ("Messages live in the model").
+
+What the inventory did not have:
+
+- **No example had to change its model.** `counter`, `duration`, `pages` and the others already hold every message
+  of their controls: the rule was kept before it was one.
+- **A reader belongs to a program, not to a view.** `counter-react` and `form-react` draw the programs of `counter`
+  and `form`: their tests became copies of those, and are removed. React's bridge is still tested in a DOM.
+- **Readers compose as models do, so a child's reader is shared.** `timers`' reader calls the timer's, which two
+  test files then need: it lies in `examples/timer/reader.ts`. The scratch test, being one file, did not show it.
+  `list` keeps the stopwatch's in its test, the only one that needs it.
+- **The wrapping by hand was already there.** `list`, `timers` and `pages` wrapped their candidates by hand
+  before (`to(id, message)`), and the readers use the same function. A reader that wraps with a wrong id fails
+  (`Rejected`, and `Missing` for the right one), since the candidates come from the state, not from the reader.
+- **The readers, as they stand**: `counter` 2 lines, `duration` 1, `timer` 12, `timers` 7, `form` 10, `list` 9 with
+  the stopwatch's, `pages` 4. A reader's order means nothing to `dispatchViolations`; `list`'s follows its view,
+  for the one test that compares the two.
+- **Seen to fail**, each in its own test and then restored: for every example, a model that holds what `update`
+  rejects (or, for `pages`, whose `update` rejects nothing of a page that is there, a reader that wraps a message
+  for the wrong page), and a reader that forgets a field; for `list` and `timers`, a reader that wraps with a wrong
+  id; for `list`, a view that gives a stopwatch another's dispatch, which only the test of the view finds.
+- **A forgotten field hides a `Rejected` too.** A reader that forgets a field does not show a control the model
+  holds where `update` rejects it. `Missing` finds the field in the states where `update` accepts it, which is
+  how the README's "Testing" now words it.
+- **Six of the seven tests no longer load a view or a renderer.** Only `list`'s does, for the optional test of
+  its view.
+- **One clause of `src/` changed**, in the comment of `dispatchViolations`: the messages are "as a test reads them
+  from the model", where they were "collected from what the renderer draws". Nothing else of `src/`.
+- **The changelog** has three entries under 0.8.0, which was already open, and no new version, as the inventory
+  judged. They replace the unreleased entry that said what a bridge's `messagesSentBy` must do.
+
+Left as it was, for the items it belongs to: the README's table of the tools, the bullet of `dispatchViolations`
+and the comment of `DispatchViolation`, which still say what "the view sends" (item 3); the sentence of "View" on
+React views and the head of `examples/react.ts` (item 2); `reject`'s comment, `Origin`'s `'View'` and "what the
+view sends" in "Guarantees" (item 8); the bridges' tests among the contracts of `AGENTS.md`, less the clause on
+`messagesSentBy` (item 5).
+
+Run at the end: `bun run typecheck`, `bun run lint`, `bun run test`, `bun run mutations` and the site's build.
 
 ## What it rests on
 

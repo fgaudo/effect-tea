@@ -29,14 +29,22 @@ data:
 
 {@includeCode ../../examples/timer/timer.test.ts#subscriptions}
 
-## The view
+## The model
 
-The run does not check that the view offers only what `update` accepts. `dispatchViolations` does, for the real
-view in any state: each message the view sends must be accepted, and act once when sent twice unless it is meant to
-repeat (`repeatable`), and each of the messages a user could send that `update` accepts must be among those the
-view sends. `messagesSentBy` comes from the bridge: it draws the view and fires every handler.
+The run does not check that the model holds only what `update` accepts. A test does, for any state. It reads the
+messages a model holds with a function of its own, a case of the model at a time
+([`examples/timer/reader.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/reader.ts)):
 
-{@includeCode ../../examples/timer/timer.test.ts#view}
+{@includeCode ../../examples/timer/reader.ts#reader}
+
+and gives them to `dispatchViolations`: each message the model holds must be accepted, and act once when sent twice
+unless it is meant to repeat (`repeatable`), and each of the messages a user could send that `update` accepts must
+be among those the model holds. That last check is what finds a reader that forgot a field of the model.
+
+{@includeCode ../../examples/timer/timer.test.ts#model}
+
+That the view draws what its model holds is not checked here: it is checked with the renderer's own tools (see
+[testing](https://fgaudo.github.io/effect-tea/#testing)).
 
 ## A scenario
 
@@ -62,8 +70,11 @@ and check its own rules, each timer's state, and the keys of the timers that tic
 
 {@includeCode ../../examples/timer/timers.test.ts#update}
 
-`dispatchViolations` checks the parent's view the same way, with candidates for every timer, each wrapped with its
-id.
+`dispatchViolations` checks the parent's model the same way, with candidates for every timer, each wrapped with its
+id. The parent's reader calls the timer's, which is why that one lies in a module of its own, and wraps what it
+returns as the parent receives it:
+
+{@includeCode ../../examples/timer/timers.test.ts#reader}
 
 ## Where next
 

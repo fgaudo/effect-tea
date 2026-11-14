@@ -161,8 +161,8 @@ an example's and a document's too:
     deterministic test of it.
   - **contracts**: one program and its inputs given alike to each testing tool and to the run
     (`src/testing/contract.test.ts`, where a `test.failing` says how they still differ), and one view to each
-    bridge (the same tests, `messagesSentBy`'s included, in `examples/snabbdom.test.ts` and
-    `examples/react.test.ts`).
+    bridge (the same tests in `examples/snabbdom.test.ts` and `examples/react.test.ts`; those of
+    `messagesSentBy` are the snabbdom bridge's alone, which has one as an example).
   - **the boundary of a run**, the run's or a testing tool's: its lifecycle, scopes, interruption and defects, what
     it holds and lets go, what a tool fails on (`run.test.ts`, `engine.test.ts`, the cache of `dispatchTo` in
     `dispatch.test.ts`, a parent's subscriptions in a run in `compose.test.ts`, each tool's own file in

@@ -23,12 +23,13 @@ examples/<name>/
 ```
 
 What the examples share, in `examples/`: [`snabbdom.ts`](../../../examples/snabbdom.ts), the bridge to the
-renderer (`renderInto` for `run`, `onClick`, `onInput`, `initialValue`, and `messagesSentBy` for tests);
-[`react.ts`](../../../examples/react.ts), the same bridge for React, which only
+renderer (`renderInto` for `run`, `onClick`, `onInput`, `initialValue`, and `messagesSentBy`, an example of how
+to check that a view draws what its model holds);
+[`react.ts`](../../../examples/react.ts), the same bridge for React, without `messagesSentBy`, which only
 [`counter-react`](../../../examples/counter-react) and [`form-react`](../../../examples/form-react) use, to show
 that a program does not change with its renderer (each imports the program of `counter` or `form`, and has a
-`view.tsx` and its own test of the view only), with [`react.test.ts`](../../../examples/react.test.ts), its test
-in a DOM;
+`view.tsx` and no test: the program's tests are those of `counter` and `form`), with
+[`react.test.ts`](../../../examples/react.test.ts), its test in a DOM;
 [`field.ts`](../../../examples/field.ts), a text the user types into and the program may replace;
 [`style.css`](../../../examples/style.css); [`preload.ts`](../../../examples/preload.ts), which `bun test`
 loads first (`bunfig.toml`); [`snabbdom.test.ts`](../../../examples/snabbdom.test.ts), the bridge's own test;
@@ -58,12 +59,18 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
   types into": `update` accepts typing in every state the input exists in, and the view writes a text only
   into a new input (`initialValue`, with a `Field`'s `revision` as the input's `key`). A child's view is
   memoized with snabbdom's `thunk`, its dispatch from `dispatchTo` among the arguments (`pages/view.ts`).
-- **A bridge's `messagesSentBy`** keeps the contract the README's "Testing" sets for one, the same in both
-  bridges, and each bridge's test checks every point of it (`describe('messagesSentBy')`): a change to one
-  bridge is made to the other, and to the contract only one sentence at a time.
+- **Messages live in the model** (the README's "Model"): a view builds none, and a test reads them from the
+  model with a reader of its own, `messagesOf(model)`, a case of the model at a time. A parent's reader calls
+  its children's and wraps what they return as the parent receives it; a child's reader that two tests need
+  lies in a module of its own (`timer/reader.ts`).
+- **A bridge owes no `messagesSentBy`.** The snabbdom bridge has one as an example of how to check that a view
+  draws what its model holds, with its own tests (`describe('messagesSentBy')`), and `list`'s test shows its
+  use: `messagesSentBy(view, model)` equals `messagesOf(model)`. A change to the two renderers' bridges is
+  made to both for `renderInto` and the handlers alone.
 - **The test** shows the testing tools on the example, from the cheapest that proves the point: `applyAll` and
-  `dispatchViolations` always (with `messagesSentBy(view, model)`, which renders the view and fires every
-  handler, for what the view sends), then `simulate`, `rehearse` or `drive` for what needs them. It runs
+  `dispatchViolations` always (with the reader, for what the model holds, and the candidates that keep the
+  reader complete), then `simulate`, `rehearse` or `drive` for what needs them. A new check of this kind is
+  seen to fail on a model that shows what `update` rejects, and on a reader that forgets a field. It runs
   without a DOM: `preload.ts` sets `window` to `undefined` so that snabbdom loads, and only the bridges' tests
   register happy-dom. A check that needs a DOM (how often the bridge draws, a click on a drawn button, typing
   while frames are drawn) goes into the test of the bridge the example uses.

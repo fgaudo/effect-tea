@@ -22,7 +22,7 @@ specification, and each page links to the rules it uses there.
 2. [Commands and subscriptions](./2-commands-and-subscriptions.md): the timer itself, which ticks while it runs
    and rings a bell when it finishes.
 3. [Children](./3-children.md): many timers, each the program of step 2 as it is, under a parent.
-4. [Testing](./4-testing.md): `update`, the view and a scenario, tested without a runtime.
+4. [Testing](./4-testing.md): `update`, the model and a scenario, tested without a runtime.
 
 ## Before you start
 
@@ -36,5 +36,4 @@ bun add @fgaudo/effect-tea effect
 The library draws nothing: a view is a function of its model, and a small bridge draws it with a renderer. The
 tutorial draws with [snabbdom](https://github.com/snabbdom/snabbdom), through the examples' bridge,
 [`examples/snabbdom.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/snabbdom.ts), which you can copy:
-`renderInto` draws each frame, `onClick` sends a message from a click, and `messagesSentBy` finds, in a test, what
-a view sends.
+`renderInto` draws each frame, and `onClick` sends a message from a click.

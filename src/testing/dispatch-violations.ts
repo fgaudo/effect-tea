@@ -13,8 +13,8 @@ import { isRejected, type Update } from '../update.ts'
 export type DispatchViolation<Message> = Readonly<{ _tag: 'Rejected' | 'ActsTwice' | 'Missing'; message: Message }>
 
 /**
- * Checks a view against `update` in `state`, both ways, from the messages it sends there, as collected from what
- * the renderer draws for `program.makeModel(state)`. Each message `sent` must be accepted, and, sent again from
+ * Checks a view against `update` in `state`, both ways, from the messages it sends there, as a test reads them
+ * from the model, `program.makeModel(state)`. Each message `sent` must be accepted, and, sent again from
  * that frame, rejected (so it is ignored) or change nothing (same state by `Equal`, no commands, no events);
  * actions meant to repeat (a "+1") are excluded with `repeatable`. States compare by value, so keep them data: a
  * state holding a value without structural equality (an instance of a class that does not implement `Equal`, a
