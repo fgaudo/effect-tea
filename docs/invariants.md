@@ -69,9 +69,12 @@ testing tools.
   very same state makes no new frame (a parent keeps its own state when a child's message leaves the child's as
   it is). Do not compute models eagerly in `run`.
 - **`onApplied` and `onIgnored` watch, never steer**: they hear each accepted, or rejected, message in order,
-  with where it came from, before its frame is published, with no way to send messages or change the state. A
-  defect in them is a bug like any other. Neither hears a message dropped before `update` (one left by a
-  stopped subscription): that is the engine's, not the program's.
+  with where it came from, before its frame is published. The run gives them no dispatch and keeps nothing of what
+  they return (an `Effect<void>`): they send no message and change no state, and that is all the rule means.
+  They do hold the program while they run, since the next message waits for them so that they hear every one in
+  order, and one that never ends holds it, as the README says ("Running"). A defect in them is a bug like any
+  other. Neither hears a message dropped before `update` (one left by a stopped subscription): that is the
+  engine's, not the program's.
 - **Logs never carry message data by default** (`describeByTag` in `log.ts`): only tags, following a wrapped
   `message` or `command` only when it is itself tagged, since a program's own field of that name may hold data.
   A subscription's key is logged as it is, and may hold data, as the README says ("Running"): the rule is of

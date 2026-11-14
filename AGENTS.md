@@ -108,7 +108,8 @@ an example's and a document's too:
 - **Each command, each subscription and the renderer has a scope of its own**: never let them acquire into the
   run's scope.
 - **Frames cost only what is drawn**, and no span lives as long as the run.
-- **`onApplied` and `onIgnored` watch, never steer.**
+- **`onApplied` and `onIgnored` watch, never steer**: they are given no dispatch and change no state, though the run
+  waits for them.
 - **The testing tools behave like the engine** where it is deterministic: when the engine or one tool changes, keep
   the others in step.
 - **Logs never carry message data by default**: only tags, at `debug`. A subscription's key is logged as it is.
