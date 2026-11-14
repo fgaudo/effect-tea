@@ -23,6 +23,51 @@ document says otherwise than the other, from the same reports, each to be settle
   waited"; `rehearse.test.ts`, "a command that answers while the end releases a subscription fails it, as one under
   way", "a message its subscription sends after its key went away does not reach update".
 
+### Found by a review of the invariants (November 2026)
+
+Three models read `docs/invariants.md`, `docs/premises.md` and the README's "Guarantees" against the code, each
+attacking the others' claims. What it found of a step that does nothing, and of `reject` in `onEvent`, is in
+[`docs/inert-steps.md`](docs/inert-steps.md), a decision proposed and not done, with open questions of its own. The
+rest, each to be settled; "checked" is read again in the code by the session that wrote this, "reported" is a
+reviewer's claim that was not:
+
+- **A defect may carry data.** `describeByTag` gives a message that is a string whole, as its comment says, and it
+  fills `ProgramDefect`'s `on`; a subscription's `ProgramDefect` carries its key as it is. "Logs never carry message
+  data" is of the logs, and a crash report leaves the device more often than a debug log. An option `describeKey`,
+  beside `describeMessage`, was proposed; a tag of the key's is not one, since a key is a string or a tuple.
+  Checked.
+- **"A subscription runs exactly while its key is in the state"** (README, "Guarantees") says more than the run
+  does: the frame of a state without the key is published before the key's subscription is interrupted, and one
+  that ended does not run while its key is listed. Nothing reaches `update` meanwhile. Checked for the order of the
+  step; `docs/single-owner.md` says the first.
+- **The peer range is wider than what is tested.** About seventeen entries of `docs/premises.md` rest, in some
+  part, on what Effect does not document, and `^4.1.4` accepts minors no test has run on. The daily job tells of a
+  break, and does not protect a consumer already there. A range that stops at the minors tested, widened on each
+  green run, was proposed. Reported.
+- **Telling a self-interruption from the run's own, while the run stops the fiber**, costs three premises read
+  only in Effect's source (the handlers of an interrupted fiber, the reasons it received, the annotations of
+  `interruptAs`). A flag for each fiber, set where the run stops it, would tell "interrupted without being asked"
+  with none of them, and give up only the case of a fiber that interrupts itself as the run stops it. Both
+  reviewers proposed it, and neither tried it, nor read it against the testing tools.
+- **The order of the defects is described and not promised**, while the tests check it and a crash reporter reads
+  the first. What keeps it serves other promises mostly (no defect lost, no message applied from the first one on),
+  so dropping the order would save little. Whether to promise it, or that the first defect of the cause is the first
+  that happened. Reported.
+- **"Every program keeps its state in an object"** is under "What the engine keeps for itself" in
+  `docs/invariants.md`, and binds whoever writes a program. A primitive state that gets past the types dies of the
+  `WeakMap`'s own `TypeError`, not of a `CompositionDefect` (reported).
+- **"`onApplied` and `onIgnored` watch, never steer"**: the run waits for them, before the frame, and one that never
+  ends holds the program, as the README says. They cannot send a message nor change the state, which is what the
+  rule means and could say. Checked.
+- **Two ways for what arrives too late.** The run drops a message of a subscription whose key is gone; `update`
+  rejects the answer of a command for what has since changed, with the care for ids that come back the README asks.
+  It is what commands that cannot be cancelled cost, and is said in two places and not as one choice. Reported.
+- **The comment on `Dead`, in `step` of `engine.ts`**, says the loop takes no other message; it takes each one, and
+  applies none, until its end stops it. Checked.
+- **A parent's lifted subscriptions** are kept one for each state of a child, with the place checked, so children
+  that share one state object would lift again on every change. Of speed, not of what is right. Reported, read in
+  the code and not measured.
+
 ## Possible improvements
 
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is
