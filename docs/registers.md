@@ -646,6 +646,18 @@ checked: each is **reasoned**, and is spiked or measured before it is proposed.
   since it stays in the API.
 - **`withheld` reviewed.** With typing gone from the candidates, what is left of its uses (the clock of `pages`) is
   counted in the tests, and whether it still earns its place is asked.
+- **The revision a program did not write.** With a derivation, a program writes `field('')`, whose revision reads 0,
+  and its state holds another: `expect(state.name).toEqual(field(''))` fails on a revision of 4. It harms no
+  determinism and no replay; it surprises whoever compares whole states, or reads an `update` as "it returns exactly
+  this". It is unseen in the view, which keys the input by the revision stored, and in the program's logic, which
+  reads `value` only. Three ways, to be tried:
+  - **document it**: the revision is the library's, a key and nothing else, and a test compares `value`. The
+    cheapest;
+  - **hide it from whoever makes a field**: `field(v)` returns a type of its own, which says "a new value here, its
+    revision the library's", so that no program seems to have written 0. Whether the state stays plain to type with
+    it is to be checked;
+  - **the program keeps the revision under a check** ("A second opinion", way (a)), where the state stored is always
+    the state written, at the cost of a `replace` at every change of value and of a defect on an undo by snapshot.
 
 ## What a consumer could notice
 
