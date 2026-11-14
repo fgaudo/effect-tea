@@ -25,6 +25,8 @@ version, and everything else, features included, the patch version.
   Upgrade: `parent<{ state: State }>()` becomes `composition<{ state: State }>()`, and its import likewise.
 - "Inputs the user types into", "Declaring children", "Model and view", "Splitting a program", "Guarantees" and
   "Testing" in the README describe inputs; `examples/field.ts` is removed, and `form` and `form-react` declare one.
+- The `volume` example declares a slider as an input, with `renewed` for a new slider when its bounds narrow; the
+  examples' bridges have `onSlide`, for a slider drawn from a field.
 - The peer dependency on `effect` is `^4.1.4`, where it was `^4.0.0`, and starts at the Effect it is developed with.
 - A child whose state is not an object, past the types, is a `CompositionDefect` that names it, not a `TypeError`.
 - `simulate` and `rehearse` read `subscriptions` on each new state, as the run does, and fail where it dies of them.

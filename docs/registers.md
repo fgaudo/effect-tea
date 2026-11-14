@@ -12,7 +12,7 @@ a program did not write, spiked"), and a spike of the subscriptions of a program
 an input, checked"), and a fifth review by Fable 5.2, on what may write into an input ("Only what is drawn writes"),
 and a sixth, on the name of `parent` ("The name"), and the bridges tested in happy-dom ("The bridges, in happy-dom"),
 and a recipe of a bridge for a source that belongs to the control, tested there too ("A source that belongs to the
-control").
+control"), and a slider in an example ("A slider, in an example").
 What the spikes ran is marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued,
 **reasoned**. It reopens the aim of [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way,
 and leans on [`inert-steps.md`](inert-steps.md), which it would simplify.
@@ -77,9 +77,9 @@ explore", and, for the subscriptions, "What is to be checked of them, with an in
 
 **Next**, with the implementation on `main` ("The implementation") and `parent` renamed `composition` ("The name"),
 and the bridges tested in happy-dom ("The bridges, in happy-dom"), with a source that belongs to the control ("A
-source that belongs to the control"), what it left undone: a slider in an example, with
-`renewed` for bounds that narrow; `bench/keystrokes.ts` of the subscriptions' spike, ported or dropped; then the ideas
-of "To explore", each spiked or measured before it is proposed.
+source that belongs to the control"), and a slider in `examples/volume` ("A slider, in an example"), what it left
+undone: `bench/keystrokes.ts` of the subscriptions' spike, ported or dropped; then the ideas of "To explore", each
+spiked or measured before it is proposed.
 
 **The branches**, local to this machine and never pushed, none to be merged: `spike/field-register`,
 `claude/spike-register-checks-fd58e1` (no commit of its own), `claude/spike-register-late-key-6cb914`,
@@ -108,9 +108,9 @@ the subscriptions (`d686ddf`) and `late-key.test.ts`, on a branch cut from `main
   revision of a replacement, and the search that follows the text.
 - The README, `docs/invariants.md`, `docs/boundary.md` (item 4 reopened), the changelog, `examples/form` and
   `form-react`; `examples/field.ts` removed.
-- Not done: a slider in an example; the bridge's parting of screen and state, and the focus a replacement loses in
-  snabbdom and React, which "Only what is drawn writes" asks to test, done since ("The bridges, in happy-dom");
-  `bench/keystrokes.ts` of the subscriptions' spike, not ported.
+- Not done: a slider in an example, done since ("A slider, in an example"); the bridge's parting of screen and
+  state, and the focus a replacement loses in snabbdom and React, which "Only what is drawn writes" asks to test,
+  done since ("The bridges, in happy-dom"); `bench/keystrokes.ts` of the subscriptions' spike, not ported.
 
 ## Context
 
@@ -1035,6 +1035,31 @@ tests of the bridges: neither the examples nor the README show it.
   of its own, with a renderer gated by hand and without a DOM, and with the frames rebuilt in plain Effect, which
   behave alike). In a browser a screen refresh can land there too. The tests of the dictation let the program settle
   before they refresh.
+
+## A slider, in an example
+
+The slider of the sixth check ("A slider, and the field generic over its value"), ported to the implementation as
+`examples/volume`: a level that Mute takes to 0, Unmute gives back, and Quiet hours caps at 30, drawn with snabbdom,
+with `onSlide` in both bridges, which writes a range's `valueAsNumber` into the field drawn. **Run**, on happy-dom,
+snabbdom 3.6.4 and React 19.3.1.
+
+- **`renewed` where the value does not change.** The spike replaced the level on every Mute and every Quiet hours;
+  by value, `field(v)` is a new slider only when `v` differs. Two cases keep it: Mute on a level already at 0, where
+  a drag of the slider drawn before, handled after, would be stored into a muted volume, and Quiet hours on a level
+  within the new bounds, where a slider drawn up to 100 would write 80 under a maximum of 30. The example gives a new
+  slider for a value through one function of its own, `renewed(level)` when the value is the same and `field(v)`
+  otherwise; each case is held by a test of the example, seen to fail without `renewed`.
+- **Unmute needs none**: the muted slider cannot be dragged, and a drag from before Mute has an older revision.
+- **Bounds before the value.** happy-dom keeps a range within the bounds it has when its value is set, and does not
+  bring it back within bounds set after (**run**): snabbdom's `initialValue` is written after the props, so a new
+  slider has its bounds first. A browser brings a range back within its bounds whenever they change (**reasoned**, by
+  the HTML specification's sanitization of a range, not run in a browser).
+- **The bridges' tests**, the same two in each: a drag writes its number and a frame drawn meanwhile keeps the
+  slider; bounds that narrow draw a new slider within them, for a level within them and for one above. Seen to fail
+  on an `onSlide` that writes nothing, and on a slider keyed by a constant. React's has no example: its test draws
+  `volume` with a view of its own.
+- **Not done**: `messagesSentBy` gives every input the text `typed`, and a slider's `valueAsNumber` is not in its
+  stand-in of the event, so a test of a view with a slider cannot use it as it is; none does.
 
 ## What a consumer could notice
 

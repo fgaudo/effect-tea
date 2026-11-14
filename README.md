@@ -133,6 +133,7 @@ with `bun run build`, then `bun examples/<name>/index.html`.
 | [`counter-react`](examples/counter-react) | the same program, in React   | what changes with the renderer: the view, `main.ts` and the bridge, never the program                               | [live](https://fgaudo.github.io/effect-tea/examples/counter-react/) |
 | [`form`](examples/form)                   | a form that saves a name     | an input declared in `compose`; a service; a failure as a message; a save only its completion ends; `rehearse`      | [live](https://fgaudo.github.io/effect-tea/examples/form/)          |
 | [`form-react`](examples/form-react)       | the form, in React           | an uncontrolled input: `defaultValue` and `key`, never `value`                                                      | [live](https://fgaudo.github.io/effect-tea/examples/form-react/)    |
+| [`volume`](examples/volume)               | a slider the program sets    | an input over a number; `renewed`, for a new slider at the same level when its bounds narrow; `drive`               | [live](https://fgaudo.github.io/effect-tea/examples/volume/)        |
 | [`pages`](examples/pages)                 | a clock and an About page    | `composition`, optics, `dispatchTo`, events, `subscribed`, a page started from flags; `simulate`                    | [live](https://fgaudo.github.io/effect-tea/examples/pages/)         |
 | [`list`](examples/list)                   | stopwatches by id            | `each`, a subscription per running child, `forEach`; a test with a `TestClock`                                      | [live](https://fgaudo.github.io/effect-tea/examples/list/)          |
 | [`timer`](examples/timer)                 | the tutorial's application   | timers by id, each ticking only while it runs, and a bell as a command; `rehearse` with `hear`                      | [live](https://fgaudo.github.io/effect-tea/examples/timer/)         |
@@ -262,7 +263,8 @@ Only what is drawn writes into an input. A subscription and a command answer wit
 A frame may be older than the user's last keystroke, so rewriting an input from every frame can eat what was
 just typed. How a view keeps the text meanwhile is the renderer's: the input is given its text only when it is
 created, and its field's revision as its key, so that a replaced input is a new one. The examples show one way, to
-copy: [`form`](examples/form) and [`form-react`](examples/form-react), with snabbdom and with React.
+copy: [`form`](examples/form) and [`form-react`](examples/form-react), with snabbdom and with React, and
+[`volume`](examples/volume), a slider.
 
 ### Commands
 

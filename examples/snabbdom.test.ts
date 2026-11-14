@@ -1,9 +1,10 @@
-// The bridge in a DOM (happy-dom), with screen refreshes that happen only when a test paints. What the other
-// tests cannot see: how often `renderInto` draws, that a click on a drawn button reaches the program, and that
-// what the user types survives the frames drawn while they type, with its focus, caret and selection, which a
-// replacement loses, and that a write the input on screen did not make parts the state from the screen, which a
-// source that belongs to the control, writing through the input on screen, does not. And that `messagesSentBy`, this
-// bridge's own way to find what a view sends, does what its comment says.
+// The bridge in a DOM (happy-dom), with screen refreshes that happen only when a test paints. What the other tests
+// cannot see: how often `renderInto` draws, that a click on a drawn button reaches the program, and that what the user
+// types survives the frames drawn while they type, with its focus, caret and selection, which a replacement loses, that
+// a slider writes its number and is drawn anew within bounds that narrow, and that a write the input on screen did not
+// make parts the state from the screen, which a source that belongs to the control, writing through the input on
+// screen, does not. And that `messagesSentBy`, this bridge's own way to find what a view sends, does what its comment
+// says.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import {
@@ -30,6 +31,8 @@ import { form } from './form/form.ts'
 import { Storage } from './form/storage.ts'
 import { view as formView } from './form/view.ts'
 import { initialValue, messagesSentBy, onClick, onInput, onWrite, renderInto } from './snabbdom.ts'
+import { view as volumeView } from './volume/view.ts'
+import { volume } from './volume/volume.ts'
 
 // The callbacks waiting for the next screen refresh: none runs until `paint`.
 const waiting = new Map<number, FrameRequestCallback>()
@@ -165,6 +168,44 @@ describe('inputs the user types into', () => {
     expect(replaced).not.toBe(input)
     expect(replaced.value).toBe('')
     expect(element('li').textContent).toBe('Ada')
+  })
+})
+
+describe('a slider the user drags', () => {
+  const drag = (slider: HTMLInputElement, value: number) => {
+    slider.value = String(value)
+    slider.dispatchEvent(new Event('input'))
+  }
+
+  test('writes its number, and a frame drawn while it is dragged keeps it', async () => {
+    mount(volumeView, (render) => run(volume, render))
+    await settle()
+    const slider = element<HTMLInputElement>('input')
+    drag(slider, 80)
+    await paint()
+    expect(element('input')).toBe(slider)
+    expect(element('output').textContent).toBe('80')
+  })
+
+  // A level within the new bounds is the same value: the program asks for a new slider with `renewed`.
+  test('bounds that narrow draw a new slider within them, even for a level that was within them', async () => {
+    mount(volumeView, (render) => run(volume, render))
+    await settle()
+    for (const [dragged, shown] of [[20, '20'], [80, '30']] as const) {
+      if (element('main').textContent?.includes('Full volume')) {
+        button('Full volume').click()
+        await paint()
+      }
+      const slider = element<HTMLInputElement>('input')
+      drag(slider, dragged)
+      await paint()
+      button('Quiet hours').click()
+      await paint()
+      const quiet = element<HTMLInputElement>('input')
+      expect(quiet).not.toBe(slider)
+      expect(quiet.max).toBe('30')
+      expect(quiet.value).toBe(shown)
+    }
   })
 })
 

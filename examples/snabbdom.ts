@@ -9,20 +9,21 @@ import * as Stream from 'effect/Stream'
 import { eventListenersModule, init, type Module, type On, propsModule, type VNode, type VNodeData } from 'snabbdom'
 
 /**
- * The text an input starts with, written only when the input is created: from then on the user types into it,
- * and the program learns the text from the input's messages. Rewriting it from the model could draw a frame
- * older than the last keys, taking them back and moving the caret. To replace the text, the program changes
- * the input's `key`, its field's revision, so that a new input is created.
+ * The value an input starts with, written only when the input is created: from then on the user types into it,
+ * or drags it, and the program learns the value from the input's messages. Rewriting it from the model could draw a
+ * frame older than the last keys, taking them back and moving the caret, or a slider back under the pointer. To
+ * replace the value, the program changes the input's `key`, its field's revision, so that a new input is created.
+ * It is written after the props, so that a slider has its bounds when it gets its value.
  */
-export const initialValue = (text: string): VNodeData => ({ initialValue: text })
+export const initialValue = (value: string | number): VNodeData => ({ initialValue: String(value) })
 
 const initialValueModule: Module = {
   create: (_, vnode) => {
-    const text: unknown = vnode.data?.initialValue
+    const value: unknown = vnode.data?.initialValue
     const element = vnode.elm
     const hasValue = element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
       || element instanceof HTMLSelectElement
-    if (typeof text === 'string' && hasValue) element.value = text
+    if (typeof value === 'string' && hasValue) element.value = value
   },
 }
 
@@ -70,6 +71,15 @@ export const onInput = <Message>(toMessage: (text: string) => Message, dispatch:
  */
 export const onWrite = (field: Field<string>, dispatch: Dispatch<Written<string>>): On =>
   onInput((text) => write(field, text), dispatch)
+
+/**
+ * snabbdom's `on` for a slider, `<input type="range">`, drawn from `field`: where it is dragged is written into the
+ * field, at the revision drawn, through the input's own dispatch. The browser keeps a range's value a number within
+ * the bounds it was drawn with, on its step, so `valueAsNumber` is never `NaN` there.
+ */
+export const onSlide = (field: Field<number>, dispatch: Dispatch<Written<number>>): On => ({
+  input: (event: Event) => send(dispatch, write(field, (event.target as HTMLInputElement).valueAsNumber)),
+})
 
 /**
  * For tests, and no part of what a bridge must do: what `view` can send in `model`, found without a DOM. The

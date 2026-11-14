@@ -63,3 +63,13 @@ export const onInput =
 /** React's `onChange` for a text input drawn from `field`: what is typed is written into it, at the revision drawn. */
 export const onWrite = (field: Field<string>, dispatch: Dispatch<Written<string>>) =>
   onInput((text) => write(field, text), dispatch)
+
+/**
+ * React's `onChange` for a slider, `<input type="range">`, drawn from `field`, uncontrolled as a text input is
+ * (`defaultValue`, and its field's revision as its `key`): where it is dragged is written into the field, at the
+ * revision drawn. React calls it on every move, as the `input` event. The browser keeps a range's value a number
+ * within its bounds, so `valueAsNumber` is never `NaN` there.
+ */
+export const onSlide =
+  (field: Field<number>, dispatch: Dispatch<Written<number>>) =>
+  (event: ChangeEvent<HTMLInputElement>) => send(dispatch, write(field, event.target.valueAsNumber))

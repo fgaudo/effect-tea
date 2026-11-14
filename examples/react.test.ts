@@ -1,8 +1,9 @@
-// React's bridge in a DOM (happy-dom), with screen refreshes that happen only when a test paints. What the other
-// tests cannot see: how often `renderInto` draws, that a click on a drawn button reaches the program, and that
-// what the user types into an uncontrolled input survives the frames drawn while they type, with its focus, caret
-// and selection, which a replacement loses, and that a write the input on screen did not make parts the state from
-// the screen, which a source that belongs to the control, writing into the input on screen, does not.
+// React's bridge in a DOM (happy-dom), with screen refreshes that happen only when a test paints. What the other tests
+// cannot see: how often `renderInto` draws, that a click on a drawn button reaches the program, and that what the user
+// types into an uncontrolled input survives the frames drawn while they type, with its focus, caret and selection,
+// which a replacement loses, that a slider writes its number and is drawn anew within bounds that narrow, and that a
+// write the input on screen did not make parts the state from the screen, which a source that belongs to the control,
+// writing into the input on screen, does not.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import {
@@ -30,6 +31,7 @@ import { createElement, type ReactNode, useEffect, useEffectEvent, useRef } from
 import { counter } from './counter/counter.ts'
 import { form } from './form/form.ts'
 import { Storage } from './form/storage.ts'
+import { type Message as VolumeMessage, type Model as VolumeModel, volume } from './volume/volume.ts'
 
 // The callbacks waiting for the next screen refresh: none runs until `paint`.
 const waiting = new Map<number, FrameRequestCallback>()
@@ -209,6 +211,69 @@ describe('inputs the user types into, with React', () => {
     expect(replaced).not.toBe(input)
     expect(replaced.value).toBe('')
     expect(element('li').textContent).toBe('Ada')
+  })
+})
+
+describe('a slider the user drags, with React', () => {
+  // The view of `volume/view.ts`, in React, as a test's own.
+  const volumeView: View<VolumeModel, VolumeMessage, ReactNode> = (model, dispatch) => {
+    const limit = model.limit._tag === 'Quiet'
+      ? { message: model.limit.full, label: 'Full volume' }
+      : { message: model.limit.quiet, label: 'Quiet hours' }
+    return createElement(
+      'main',
+      null,
+      createElement('input', {
+        key: model.level.revision,
+        type: 'range',
+        min: 0,
+        max: model.max,
+        step: 1,
+        defaultValue: model.level.value,
+        disabled: model.sound._tag === 'Muted',
+        onChange: model.sound._tag === 'Muted'
+          ? undefined
+          : bridge.onSlide(model.level, dispatchTo(dispatch, 'Level')),
+      }),
+      createElement('output', null, String(model.level.value)),
+      createElement('button', { type: 'button', onClick: bridge.onClick<VolumeMessage>(limit.message, dispatch) }, limit.label),
+    )
+  }
+
+  const drag = (slider: HTMLInputElement, value: number) => {
+    setValue(slider, String(value))
+    slider.dispatchEvent(new Event('input', { bubbles: true }))
+  }
+
+  test('writes its number, and a frame drawn while it is dragged keeps it', async () => {
+    mount(volumeView, (render) => run(volume, render))
+    await settle()
+    const slider = element<HTMLInputElement>('input')
+    drag(slider, 80)
+    await paint()
+    expect(element('input')).toBe(slider)
+    expect(element('output').textContent).toBe('80')
+  })
+
+  // A level within the new bounds is the same value: the program asks for a new slider with `renewed`.
+  test('bounds that narrow draw a new slider within them, even for a level that was within them', async () => {
+    mount(volumeView, (render) => run(volume, render))
+    await settle()
+    for (const [dragged, shown] of [[20, '20'], [80, '30']] as const) {
+      if (element('main').textContent?.includes('Full volume')) {
+        button('Full volume').click()
+        await paint()
+      }
+      const slider = element<HTMLInputElement>('input')
+      drag(slider, dragged)
+      await paint()
+      button('Quiet hours').click()
+      await paint()
+      const quiet = element<HTMLInputElement>('input')
+      expect(quiet).not.toBe(slider)
+      expect(quiet.max).toBe('30')
+      expect(quiet.value).toBe(shown)
+    }
   })
 })
 

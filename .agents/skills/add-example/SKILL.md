@@ -23,7 +23,7 @@ examples/<name>/
 ```
 
 What the examples share, in `examples/`: [`snabbdom.ts`](../../../examples/snabbdom.ts), the bridge to the
-renderer (`renderInto` for `run`, `onClick`, `onInput`, `onWrite`, `initialValue`, and `messagesSentBy`, an
+renderer (`renderInto` for `run`, `onClick`, `onInput`, `onWrite`, `onSlide`, `initialValue`, and `messagesSentBy`, an
 example of how to check that a view draws what its model holds);
 [`react.ts`](../../../examples/react.ts), the same bridge for React, without `messagesSentBy`, which only
 [`counter-react`](../../../examples/counter-react) and [`form-react`](../../../examples/form-react) use, to show
