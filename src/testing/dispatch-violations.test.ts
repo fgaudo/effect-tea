@@ -35,7 +35,7 @@ describe('dispatchViolations', () => {
     expect(check(closed, ['Opened', 'Increment', 'Closed'])).toEqual([])
   })
 
-  test('reports a message update rejects in the state the view was drawn from', () => {
+  test('reports a message update rejects in the state the model was made from', () => {
     expect(check(closed, ['Forbidden'])).toEqual([{ _tag: 'Rejected', message: 'Forbidden' }])
   })
 
@@ -79,16 +79,16 @@ const typed = (text: string): FormMessage => ({ _tag: 'Typed', text })
 describe('dispatchViolations, of the candidates', () => {
   const check = dispatchViolations(updateForm)
 
-  test('reports what update accepts and the view does not send', () => {
+  test('reports what update accepts and the model does not hold', () => {
     expect(check({ isOpen: true, isSaving: false }, [], [opened, shut])).toEqual([{ _tag: 'Missing', message: shut }])
   })
 
-  test('ignores what update rejects, and what the view sends, compared by value', () => {
+  test('ignores what update rejects, and what the model holds, compared by value', () => {
     expect(check({ isOpen: false, isSaving: false }, [{ _tag: 'Opened' }], [opened, shut])).toEqual([])
     expect(check({ isOpen: false, isSaving: false }, [typed('milk')], [typed('milk')])).toEqual([])
   })
 
-  test('ignores what the view withholds on purpose', () => {
+  test('ignores what the model withholds on purpose', () => {
     const withholding = dispatchViolations(updateForm, {
       withheld: (message, state) => message._tag === 'Typed' && state.isSaving,
     })

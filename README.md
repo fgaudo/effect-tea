@@ -823,7 +823,7 @@ From `@fgaudo/effect-tea/testing`:
 | Tool                 | Use it to test                                                                   |
 | -------------------- | -------------------------------------------------------------------------------- |
 | `applyAll`           | `update`'s rules: apply messages, check the state, commands and events           |
-| `dispatchViolations` | that the view sends what `update` accepts, all of it, and a double tap acts once |
+| `dispatchViolations` | that the model holds what `update` accepts, all of it, and a double tap acts once |
 | `simulate`           | a flow with its commands answered at once, without a runtime                     |
 | `rehearse`           | a user's scenario without a runtime, the test deciding when each command runs    |
 | `drive`              | a user's scenario on the running program, subscriptions included                 |
@@ -844,15 +844,15 @@ there with `applyAll`, or with `update` itself.
 
 - **`applyAll`** takes only the test's messages, and fails when `update` rejects one of them.
 - **`dispatchViolations`** checks both ways:
-  - each message the view sends must be accepted (`Rejected`), and act once when sent twice (`ActsTwice`): sent
+  - each message the model holds must be accepted (`Rejected`), and act once when sent twice (`ActsTwice`): sent
     again from the same frame, it is rejected or changes nothing, the same state by `Equal` with no commands and
     no events. Keep states data, since a value without structural equality compares by reference. Actions meant
     to repeat (a "+1") are marked `repeatable`;
   - of the `candidates` the test lists (what a user could ask for, with the text typed into each input), each one
-    `update` accepts must be among those sent (`Missing`), except those `withheld` on purpose, e.g. typing while
+    `update` accepts must be among those held (`Missing`), except those `withheld` on purpose, e.g. typing while
     a save is in progress.
 
-  Without candidates, it checks only what the view sends.
+  Without candidates, it checks only the messages it is given.
 - **`simulate`** takes the test's messages and those a subscription would send among them, and fails when
   `update` rejects one of them. Each command runs after those started before it, so the commands of one step all
   answer before those their answers start, as when the program runs commands that answer at once. The command

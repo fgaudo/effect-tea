@@ -56,6 +56,7 @@ version, and everything else, features included, the patch version.
 - "Model", "Guarantees" and "Testing" in the README say that the model holds what `update` accepts, as a test reads it.
 - "Model" in the README says that messages live in the model, and no longer offers a view that builds its own.
 - "View" and "Testing" in the README ask no `messagesSentBy` of a bridge, and the examples' React bridge has none.
+- The comments of `dispatchViolations` and the README's table of the tools speak of the messages a model holds.
 - "View" in the README no longer forbids a React component with state; "Structuring a program" says what it may keep.
 - The site has a tutorial that builds the new `timer` example in four steps.
 - **Breaking**: `child` and `each` refuse a program with commands and no `runCommand`.
