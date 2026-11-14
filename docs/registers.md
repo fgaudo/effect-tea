@@ -21,7 +21,8 @@ Name: input(at) }`), whose field `Field<A>`, `{ value, revision }`, lives in the
 rejects any other, so the late keystroke is closed for every input; no function is left in a model. Neither the
 engine nor the testing tools change. See "An independent opinion" and "A second opinion".
 
-**The choice left to the owner**: who keeps the revision.
+**Who keeps the revision.** The owner prefers (A), a derivation by value with `renewed`, the one the second opinion
+recommends: a preference, not yet a decision, which waits for the checks of "To explore" and of the subscriptions.
 
 | | (A) Derived by value, with `renewed` | (B) Kept by the program, under a check |
 | --- | --- | --- |
@@ -708,7 +709,7 @@ child's model.
 Between a derivation by value with `renewed`, where the state stored differs from the state written only in the
 revision and only when the value changes, and a revision the program keeps under a check that dies on a break, where
 they never differ and an undo by snapshot is a defect. Concern 3 is apart from both, and exists today for fixed
-messages.
+messages. The owner prefers the first, as the review recommends ("Where it stands").
 
 ## To explore
 
