@@ -640,8 +640,8 @@ A program lives in one module until it is too large. Then it splits into childre
   external message.
 - **Children that read each other's state are one child**, whatever its size. A child whose controls the parent
   would enable from its state, or whose state the parent would copy down and back up, is not one: a field the user
-  writes into, which the parent reads, is an input of the parent's. A parent that
-  grows logic between two siblings is a sign that they are one child.
+  writes into, which the parent reads, is an input of the parent's. A parent that grows logic between two siblings
+  is a sign that they are one child.
 
 ### Running
 

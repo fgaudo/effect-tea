@@ -3,9 +3,10 @@
 The README's "Guarantees" says what a user may rely on, and the library's tests check each one
 (`src/interleaving.test.ts` checks all but that of the order, and what the run does from the first defect on, and
 the rule of an input, under random orders of clicks, writes into an input, current and stale, answers, subscription
-messages and ends, releases, defects and self-interruptions, as the README says). This is how they are kept, and what a change must not undo. What they rest on of Effect and of the
-JavaScript engine is in [`premises.md`](premises.md), and how a change of the engine or of a testing tool is made
-in [`change-engine`](../.agents/skills/change-engine/SKILL.md).
+messages and ends, releases, defects and self-interruptions, as the README says). This is how they are kept, and
+what a change must not undo. What they rest on of Effect and of the JavaScript engine is in
+[`premises.md`](premises.md), and how a change of the engine or of a testing tool is made in
+[`change-engine`](../.agents/skills/change-engine/SKILL.md).
 
 The entries are in three parts: what a program may rely on, with how the engine keeps it; what the engine keeps for
 itself, so that the first part costs what it should; and how a check is built and tested, in the engine and in the
