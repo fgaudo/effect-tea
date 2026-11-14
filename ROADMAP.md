@@ -4,6 +4,36 @@ Open problems and possible improvements, found in a review of the project (Novem
 promise: each item is decided before it is done, against the rules of [`AGENTS.md`](AGENTS.md). Remove an item
 when it is done or rejected, with the reason in the commit.
 
+## Proposals recorded, to be decided
+
+Each has a document that says what was weighed, what was run and what is open. None is decided. They are listed so
+that each leans only on those above it.
+
+- **A step that does nothing**: `Missing` leaves out a candidate whose step does nothing, and `Inert`, a new
+  violation, finds a message a model holds that does nothing; `onEvent` still does not reject. Proposed, spiked
+  twice, breaking. [`docs/inert-steps.md`](docs/inert-steps.md), with open questions of its own (`list` over an
+  empty list, `rehearse`, `Field.typed`).
+- **What the run calls the view** is a dispatch: the words, and `Origin`'s `'View'`, which `rehearse` and
+  `simulate` already give to what a test sends. Breaking for the tag alone.
+  [`docs/boundary.md`](docs/boundary.md), item 8.
+- **`View` among the exports**, a type no module of `src/` uses. Breaking. `docs/boundary.md`, item 6.
+- **A model made when its frame is pulled, not when it is read**, which would take from `drive` its recording of a
+  defect of `makeModel`. Breaking, and untried against `drive`. `docs/boundary.md`, item 7.
+- **The wrapping of a child's message as a pure function** before the model, for `dispatchTo` and a test's reader
+  to share. A question, weighed by "A function earns its place". `docs/boundary.md`, "A question".
+- **What a key sends is not data**: no tool judges a subscription's message. Whether a test lists it, a program
+  exports it, or it is declared. [`docs/declared-inputs.md`](docs/declared-inputs.md), "What still makes sense";
+  `Inert` for a key waits for the first item.
+- **Who checks a test's reader**: one that forgets a field of its model is found only by `Missing`. Whether that is
+  enough, or worth a mark on a model's messages. `docs/declared-inputs.md`, and `docs/boundary.md`, "Open
+  questions".
+- **A tool that explores a program from `init`**, by what each state offers, to a bound. Spiked on the API as it
+  is; not shown to be worth a place. [`docs/exploration.md`](docs/exploration.md); its `Inert` waits for the first
+  item.
+- **What reaches `update`, declared as data** (offers with a schema, a `dispatch` that takes one). Suspended by the
+  owner, with three spikes and his decisions, which stand only if it is taken up again.
+  `docs/declared-inputs.md`.
+
 ## Open problems
 
 ### Found by the seventh review of the premises (November 2026)
@@ -79,10 +109,6 @@ reviewer's claim that was not:
 
 ## Ideas, to be decided
 
-- **What reaches `update`, declared as data**: the messages a view, a key and a command can send in a state, each
-  with the schema of what the outside supplies, so that the tools judge every one of them and explore a program from
-  `init`. Proposed and not done, with what was weighed and left (an input through a subscription), in
-  [`docs/declared-inputs.md`](docs/declared-inputs.md).
 - **Bridges as packages of their own** (`@fgaudo/effect-tea-snabbdom`, `@fgaudo/effect-tea-react`): the library
   stays free of renderers, and users stop copying `examples/snabbdom.ts` and `examples/react.ts`.
 - **A devtools bridge over `onApplied`** (e.g. Redux DevTools), with time travel through `init: { state }` and
