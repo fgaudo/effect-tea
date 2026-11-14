@@ -1,15 +1,16 @@
 # Registers: what the outside writes into a program's state
 
 **Status:** decided, 14 November 2026, and implemented the same day ("The implementation"). The direction, who keeps
-an input's revision, and what may write into an input, are decided ("Where it stands"); the name of a program that has
-inputs and no children is still open. It records a
+an input's revision, what may write into an input, and the name of what makes a program of children or inputs, are
+decided ("Where it stands"). It records a
 discussion with the owner, two reviews by Fable 5.2 (one of a design, one asked for ideas), and one spike, kept on the
 branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never to be merged), on Effect 4.1.4 and Bun 1.4.4,
 the six checks that followed, each on a branch of its own ("What the checks found"), and a third review by Fable 5.2,
 asked what to adopt, with a spike of its own ("An independent opinion"), and a fourth, on how that spike derives a
 revision ("A second opinion"), and a spike of the three ways to keep the revision a program did not write ("The revision
 a program did not write, spiked"), and a spike of the subscriptions of a program with an input ("The subscriptions with
-an input, checked"), and a fifth review by Fable 5.2, on what may write into an input ("Only what is drawn writes").
+an input, checked"), and a fifth review by Fable 5.2, on what may write into an input ("Only what is drawn writes"),
+and a sixth, on the name of `parent` ("The name").
 What the spikes ran is marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued,
 **reasoned**. It reopens the aim of [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way,
 and leans on [`inert-steps.md`](inert-steps.md), which it would simplify.
@@ -30,10 +31,10 @@ derivation by value with `renewed`, the one the second opinion recommends, with 
 the library's, a key and nothing else, and a test compares `value`; neither a placeholder nor a brand ("The revision a
 program did not write, spiked"). Accepted with it: the state stored differs from the state written in the revision once
 a value changed, and a `toEqual(field(''))` fails after the first replacement. The direction as a whole was decided
-after it ("The direction"). The ideas of "To explore" wait for the implementation, the name of a program that has inputs
-and no children before a release. The writes in the search of interleavings, the last check of the subscriptions, go to
-the implementation too, by the owner's choice: for the engine a write is a message of the composed program like any
-other, so the search can find a fault of the rule of `compose`, not of the shape of the API.
+after it ("The direction"). The ideas of "To explore" wait for the implementation. The writes in the search of
+interleavings, the last check of the subscriptions, go to the implementation too, by the owner's choice: for the engine
+a write is a message of the composed program like any other, so the search can find a fault of the rule of `compose`,
+not of the shape of the API.
 
 **Only what is drawn writes into an input: decided.** The owner accepted the rule of a fifth review by Fable 5.2
 ("Only what is drawn writes"): a subscription never writes into an input, nor does a command's answer. A value from
@@ -41,6 +42,12 @@ a source that exists whatever is drawn (a scanner, a dictation) is a message of 
 replaces the field or holds the value until it chooses to. A drag the program draws follows: its start is a fixed
 message of the model, its moves are messages of a subscription keyed by the state of dragging, and no input is
 involved; a native range stays an input.
+
+**The name: decided, `composition`.** The owner chose, after a sixth review by Fable 5.2 ("The name"), to rename
+`parent` to `composition` (and `ParentTypes` to `CompositionTypes`), since a program with inputs and no children is
+made with it too, and to keep every other name: `compose`, `child`, `each`, `input`, `inputs`, `children`, the
+names of `input.ts`, `dispatchTo` and `CompositionDefect`. "Parent" stays the word of the prose for a program that
+has children.
 
 | | (A) Derived by value, with `renewed`: chosen | (B) Kept by the program, under a check |
 | --- | --- | --- |
@@ -60,8 +67,8 @@ refuted by the second opinion: a copy equal by value would draw a new input and 
 `claude/spike-register-late-key-6cb914` holds it, and is ported with the design.
 
 **Open whatever the choice**: a child re-initialised by its parent, and an optional place that comes back, restart
-an input's revision, which no rule of before and after closes; a `File`; a reaction to every keystroke; the name of
-a program that has inputs and no children. See "To explore", and, for the subscriptions, "What is to be checked of
+an input's revision, which no rule of before and after closes; a `File`; a reaction to every keystroke. See "To
+explore", and, for the subscriptions, "What is to be checked of
 them, with an input declared in `compose`".
 
 **Next**, an implementation on a branch of its own, from `main`, following `change-api` and `change-engine`: the design
@@ -769,7 +776,7 @@ checked: each is **reasoned**, and is spiked or measured before it is proposed.
 - **The recipe "a model is data"** in the README's "Testing", with the way of the second opinion: the same seed drawn
   twice gives two equal states built apart, with no copy written by hand.
 - **A better name than `parent()`** for a program that has inputs and no children. It is decided before a release,
-  since it stays in the API.
+  since it stays in the API. Decided since: `composition` ("The name").
 - **`withheld` reviewed.** With typing gone from the candidates, what is left of its uses (the clock of `pages`) is
   counted in the tests, and whether it still earns its place is asked.
 - **The revision a program did not write.** With a derivation, a program writes `field('')`, whose revision reads 0,
@@ -943,12 +950,45 @@ file. Its verdict, which the owner accepted: keep it, and refuse a command's ans
   replacement loses focus in snabbdom and in React, which weighs the argument against; narrowing `runCommand`'s
   answers breaking nothing in the examples and tests.
 
+## The name
+
+A sixth review by Fable 5.2 was asked what `parent` should be called, now that a program with inputs and no children
+(`examples/form/form.ts`) is made with it, and whether to swap it with another name or rename others with it. It read
+`main` at `9a58662` and left no file; it compiled and ran nothing. Its verdict, which the owner accepted: rename the
+entry function alone, `parent` to `composition`, and keep the rest.
+
+- **For**, **checked**: the vocabulary of composition already covers inputs everywhere but the entry word (the
+  README's "Composition" › "Declaring children", "`inputs` in `compose`" in the changelog, `CompositionDefect`); and
+  `composition` was no identifier of any `.ts` or `.tsx` of the repository. **Reasoned**: as `Data.taggedEnum<T>()`,
+  it names what is made, its types fixed first.
+- **Weighed and refused**:
+  - keeping `parent`: free, and right for 59 of the 66 calls, but the README had to excuse it ("is made with `parent`
+    too"), three lines after "An input is no child";
+  - `program<T>()`: 37 `const program` in the tests, which it would shadow (**checked**); its keys are not those of
+    `Program<{ state; model; message }>`, and it would invite a program of no parts made with it, a second way to
+    make the same thing (**reasoned**);
+  - swapping it with `compose` (`compose<T>()`, then `make` or `program`): it touches the 84 calls of `compose(` too,
+    and a word that changes role is the worst rename for whoever upgrades;
+  - `composed`, `composing`, `define`, `declare`, `typed`, `withTypes`, `host`, `owner`, `container`: no precedent in
+    Effect, a name of the mechanism and not of the concept, or a metaphor no document uses (**reasoned**);
+  - renaming `child`, `each`, `children`, `inputs`, `input`, the names of `input.ts`, `dispatchTo` or
+    `CompositionDefect`: they are exact, and with `composition` the last is more coherent, not less.
+- **Against, by the review itself**: every user of 0.7 renames, in every program with children, for a case that is 7
+  calls in 66; `composition<…>()` then `compose({…})` is nearly a tautology, and longer; "composition" is a wide word
+  for a form of one input, less wrong than `parent` and not exact; whoever looks for `parent`, as in Elm, no longer
+  finds it as a function.
+- **Found in passing**, prose and no name: the doc comment of `dispatchTo` and its row in the README's "API
+  reference" said only "a child's dispatch", though an input is written through it too, and are corrected with the
+  rename; an internal helper `Field<T, K>` of `src/program.ts`, namesake of the public `Field<A>`, which `compose.ts`
+  imports as `Input` to avoid it, is left as it is.
+
 ## What a consumer could notice
 
 With an input declared in `compose`, either way of keeping its revision:
 
 - **New exports**: `Field`, `field`, `write`, `input` and `inputs` in `compose`, and `renewed` (A) or `replace` (B);
-  `children` becomes optional. Additive as API, with a changelog entry.
+  `children` becomes optional. Additive as API, with a changelog entry. `parent` is renamed `composition`, a
+  breaking change ("The name").
 - **A breaking change of what the README promises**: "a model is data" is a rule that a model holding `changeName`
   breaks, so every program with an input changes, with the version `release` asks for.
 - **Removed from what users copy**: `examples/field.ts`; in the bridges, `onInput` with a function of the model

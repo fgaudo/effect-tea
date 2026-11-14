@@ -1,7 +1,7 @@
 // The parent declares its pages; their messages, commands, subscriptions and models are routed by the
 // library. What is left is what only the parent knows: where each page lives (an optic into its state), and what
 // their events mean.
-import { type MessageOf, type ModelOf, parent } from '@fgaudo/effect-tea'
+import { composition, type MessageOf, type ModelOf } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import * as About from './about.ts'
@@ -9,7 +9,7 @@ import * as Clock from './clock.ts'
 
 export type State = Readonly<{ clock: Clock.State; maybeAbout: Opt.Option<About.State> }>
 
-const { child, compose } = parent<{ state: State }>()
+const { child, compose } = composition<{ state: State }>()
 
 const state = Optic.id<State>()
 

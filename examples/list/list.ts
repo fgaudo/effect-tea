@@ -1,6 +1,6 @@
 // The stopwatches are children by id. The parent says where each one lives and what its event means; adding
 // one, and halting them all, are the parent's own messages.
-import { forEach, type MessageOf, type ModelOf, parent } from '@fgaudo/effect-tea'
+import { composition, forEach, type MessageOf, type ModelOf } from '@fgaudo/effect-tea'
 import * as Arr from 'effect/Array'
 import * as Opt from 'effect/Option'
 import * as Stopwatch from './stopwatch.ts'
@@ -14,7 +14,7 @@ type AddClicked = Readonly<{ _tag: 'AddClicked' }>
 
 type StopAllClicked = Readonly<{ _tag: 'StopAllClicked' }>
 
-const { compose, each } = parent<{ state: State }>()
+const { compose, each } = composition<{ state: State }>()
 
 export const list = compose({
   init: () => ({ state: { nextId: 1, entries: [] } }),

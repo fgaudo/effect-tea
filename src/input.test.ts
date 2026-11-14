@@ -6,7 +6,7 @@ import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import * as fc from 'fast-check'
-import { parent } from './compose.ts'
+import { composition } from './compose.ts'
 import { type Dispatch, dispatchTo } from './dispatch.ts'
 import { type Field, field, renewed, write, type Written } from './input.ts'
 import type { MessageOf } from './program.ts'
@@ -28,7 +28,7 @@ const draftOf = (title: string, level = 50): Draft => ({
 
 const here = Optic.id<Draft>()
 
-const { input, compose } = parent<{ state: Draft }>()
+const { input, compose } = composition<{ state: Draft }>()
 
 const draft = compose({
   init: () => ({ state: draftOf('') }),
@@ -104,7 +104,7 @@ describe('what is written into an input', () => {
 
   test('is rejected where the input is not in the state', () => {
     type Page = Readonly<{ search: Opt.Option<Field<string>> }>
-    const page = parent<{ state: Page }>()
+    const page = composition<{ state: Page }>()
     const program = page.compose({
       init: () => ({ state: { search: Opt.none() } }),
       inputs: { Search: page.input(Optic.id<Page>().key('search').compose(Optic.some())) },
@@ -160,7 +160,7 @@ describe('a step of the program', () => {
       makeModel: (state: Button) => state,
     }
     type Form = Readonly<{ name: Field<string>; reset: Button }>
-    const form = parent<{ state: Form; event: 'Reset' }>()
+    const form = composition<{ state: Form; event: 'Reset' }>()
     const program = form.compose({
       init: (children) => ({ state: { name: field(''), reset: children.Reset.init.state } }),
       children: { Reset: form.child(button, { at: Optic.id<Form>().key('reset') }) },
@@ -180,7 +180,7 @@ describe('a step of the program', () => {
 
 describe('an input in a child by id', () => {
   type Note = Readonly<{ text: Field<string> }>
-  const note = parent<{ state: Note }>()
+  const note = composition<{ state: Note }>()
   const noteProgram = note.compose({
     init: () => ({ state: { text: field('') } }),
     inputs: { Text: note.input(Optic.id<Note>().key('text')) },
@@ -188,7 +188,7 @@ describe('an input in a child by id', () => {
     makeModel: (state) => state,
   })
   type Notes = Readonly<{ notes: ReadonlyArray<Readonly<{ id: number; note: Note }>> }>
-  const notes = parent<{ state: Notes }>()
+  const notes = composition<{ state: Notes }>()
   const program = notes.compose({
     init: () => ({ state: { notes: [] } }),
     children: {
@@ -303,7 +303,7 @@ const own = (message: Rebuilt) => (state: Titled): Transition<Titled> => {
   }
 }
 
-const titled = parent<{ state: Titled }>()
+const titled = composition<{ state: Titled }>()
 
 const titledDraft = titled.compose({
   init: () => ({ state: { title: field(''), opened: 0 } }),
@@ -359,7 +359,7 @@ describe('the revision, derived by value: identity is an optimisation', () => {
 
   test('a value compares by Equal, whatever it is made of', () => {
     type Tags = Readonly<{ tags: Field<ReadonlyArray<string>> }>
-    const tags = parent<{ state: Tags }>()
+    const tags = composition<{ state: Tags }>()
     const program = tags.compose({
       init: () => ({ state: { tags: field([]) } }),
       inputs: { Tags: tags.input(Optic.id<Tags>().key('tags')) },
@@ -406,7 +406,7 @@ describe('the revision, derived by value: where it comes back, which no rule of 
 
   test('an input at an optional place that goes and comes back restarts, and takes what was typed into the old one', () => {
     type Page = Readonly<{ search: Opt.Option<Field<string>> }>
-    const page = parent<{ state: Page }>()
+    const page = composition<{ state: Page }>()
     const program = page.compose({
       init: () => ({ state: { search: Opt.none() } }),
       inputs: { Search: page.input(Optic.id<Page>().key('search').compose(Optic.some())) },
@@ -428,7 +428,7 @@ describe('the revision, derived by value: where it comes back, which no rule of 
 
   describe('a child its parent starts again', () => {
     type Note = Readonly<{ text: Field<string>; pinned: boolean }>
-    const note = parent<{ state: Note }>()
+    const note = composition<{ state: Note }>()
     const noteProgram = note.compose({
       init: () => ({ state: { text: field(''), pinned: false } }),
       inputs: { Text: note.input(Optic.id<Note>().key('text')) },
@@ -436,7 +436,7 @@ describe('the revision, derived by value: where it comes back, which no rule of 
       makeModel: (state) => state,
     })
     type Board = Readonly<{ note: Note }>
-    const board = parent<{ state: Board }>()
+    const board = composition<{ state: Board }>()
     const program = board.compose({
       init: (children) => ({ state: { note: children.Note.init.state } }),
       children: { Note: board.child(noteProgram, { at: Optic.id<Board>().key('note') }) },

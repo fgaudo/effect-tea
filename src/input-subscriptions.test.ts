@@ -6,7 +6,7 @@ import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import * as Stream from 'effect/Stream'
-import { parent } from './compose.ts'
+import { composition } from './compose.ts'
 import { type Field, field, renewed, write } from './input.ts'
 import { type MessageOf, type Program, subscriptionsOf } from './program.ts'
 import { run } from './run.ts'
@@ -38,7 +38,7 @@ describe('an input among the subscriptions', () => {
   }
   type Page = Readonly<{ name: Field<string>; ticking: Ticks }>
   const here = Optic.id<Page>()
-  const { child, input, compose } = parent<{ state: Page }>()
+  const { child, input, compose } = composition<{ state: Page }>()
   const page = compose({
     init: (children) => ({ state: { name: field(''), ticking: children.Ticking.init.state } }),
     children: { Ticking: child(ticking, { at: here.key('ticking') }) },
@@ -78,7 +78,7 @@ describe('an input among the subscriptions', () => {
   })
 
   test('a command\'s answer cannot write into an input: it is an own message or a child\'s', () => {
-    const saving = parent<{ state: Page; command: 'Load' }>()
+    const saving = composition<{ state: Page; command: 'Load' }>()
     saving.compose({
       init: () => ({ state: { name: field(''), ticking: { ticks: 0 } } }),
       inputs: { Name: saving.input(here.key('name')) },
@@ -104,7 +104,7 @@ describe('a reaction to every keystroke, as a subscription keyed by the field', 
   type Search = Readonly<{ query: Field<string> }>
   type Own = 'Same' | 'Renewed' | 'Cleared'
   const here = Optic.id<Search>()
-  const { input, compose } = parent<{ state: Search }>()
+  const { input, compose } = composition<{ state: Search }>()
   const searching = (keyOf: (query: Field<string>) => string, log: Array<string>) =>
     compose({
       init: () => ({ state: { query: field('') } }),
@@ -179,7 +179,7 @@ describe('a reaction to every keystroke, as a subscription keyed by the field', 
 describe('a value from a subscription into an input', () => {
   type Note = Readonly<{ text: Field<string> }>
   const here = Optic.id<Note>()
-  const { input, compose } = parent<{ state: Note }>()
+  const { input, compose } = composition<{ state: Note }>()
   type Own = Readonly<{ _tag: 'Dictated'; text: string }>
   const note = compose({
     init: () => ({ state: { text: field('') } }),

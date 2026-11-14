@@ -3,7 +3,7 @@
  * @module @fgaudo/effect-tea
  */
 
-// A program, the types read back from one, and a parent made of children.
+// A program, the types read back from one, and a program composed of children and inputs.
 export {
   type CommandOf,
   type EventOf,
@@ -16,7 +16,7 @@ export {
   type StateOf,
   subscriptionsOf,
 } from './program.ts'
-export { parent } from './compose.ts'
+export { composition } from './compose.ts'
 
 // What `update` returns.
 export {
@@ -31,7 +31,7 @@ export {
   type Update,
 } from './update.ts'
 
-// What the outside writes into a program's state: an input, declared in `parent`.
+// What the outside writes into a program's state: an input, declared in `composition`.
 export { type Field, field, renewed, write, type Written } from './input.ts'
 
 // The effects it describes: commands, and subscriptions to the world.

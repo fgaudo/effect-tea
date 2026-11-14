@@ -19,7 +19,7 @@ messages:
 
 ## Declaring the children
 
-`parent<{ state }>()` gives the functions that declare children. `each` declares children by id: where each one
+`composition<{ state }>()` gives the functions that declare children. `each` declares children by id: where each one
 lives in the parent's state (`get` and `set`, by id), and which of them may listen (`subscribed`). The library does
 the routing (see [composition](https://fgaudo.github.io/effect-tea/#composition)):
 

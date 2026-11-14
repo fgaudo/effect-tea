@@ -7,13 +7,13 @@
 // was disabled is still stored, so that the form never shows a text the state does not have. A failure gives the
 // form back, as it was, and says which name it could not save.
 import {
+  composition,
   defect,
   type Execution,
   type Field,
   field,
   type MessageOf,
   type ModelOf,
-  parent,
   reject,
 } from '@fgaudo/effect-tea'
 import * as Data from 'effect/Data'
@@ -77,7 +77,7 @@ export type Editor = Data.TaggedEnum<{
 
 export const Editor = Data.taggedEnum<Editor>()
 
-const { input, compose } = parent<{ state: State; command: Command }>()
+const { input, compose } = composition<{ state: State; command: Command }>()
 
 export const form = compose({
   init: () => ({ state: { name: field(''), save: Save.Idle(), saved: [] } }),

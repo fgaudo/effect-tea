@@ -10,7 +10,7 @@ import * as Hash from 'effect/Hash'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import type * as Scope from 'effect/Scope'
-import { parent } from '../compose.ts'
+import { composition } from '../compose.ts'
 import { CompositionDefect, ProgramDefect } from '../defect.ts'
 import type { Applied, Ignored } from '../engine.ts'
 import type { Program } from '../program.ts'
@@ -473,7 +473,7 @@ describe('what the run dies of, and the tools fail on', () => {
     makeModel: ({ seen }) => seen,
   }
   type Table = Readonly<{ row: Row; twice: boolean }>
-  const { each, compose } = parent<{ state: Table }>()
+  const { each, compose } = composition<{ state: Table }>()
   const table = compose({
     init: (children) => ({ state: { row: children.Row.init(1).state, twice: false } }),
     children: {

@@ -79,10 +79,10 @@ export const entriesOf = (dispatch: object, name: string): number =>
   MutableHashMap.size(made.get(dispatch)?.get(name) ?? MutableHashMap.empty())
 
 /**
- * The dispatch of a parent's child, for its view: `dispatchTo(dispatch, 'Clock')`, or
- * `dispatchTo(dispatch, 'Row', id)` for children by id. It wraps each message as the parent receives it, and is
- * the same function every time it is asked for with the same parent dispatch, so that a view drawn with it can
- * be memoized.
+ * The dispatch of a child, or of an input, for its view: `dispatchTo(dispatch, 'Clock')`, or
+ * `dispatchTo(dispatch, 'Row', id)` for children by id. It wraps each message as the composed program receives it,
+ * and is the same function every time it is asked for with the same dispatch, so that a view drawn with it can be
+ * memoized.
  */
 // `Name` is checked by the result rather than by a constraint on `Message`: with such a constraint, a dispatch that
 // is itself a call of `dispatchTo` (a grandchild's) would make `Message` be inferred as `unknown`.

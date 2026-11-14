@@ -21,6 +21,8 @@ version, and everything else, features included, the patch version.
   Upgrade: a function of the model that makes a message from what the user typed, `changeName: (name) =>
   NameChanged({ name })`, becomes an input, `inputs: { Name: input(at) }`, and the view writes into its field,
   `write(model.name, text)` through `dispatchTo(dispatch, 'Name')`, where it called `model.changeName(text)`.
+- **Breaking**: `parent` is renamed `composition`, since a program with inputs and no children is made with it too.
+  Upgrade: `parent<{ state: State }>()` becomes `composition<{ state: State }>()`, and its import likewise.
 - "Inputs the user types into", "Declaring children", "Model and view", "Splitting a program", "Guarantees" and
   "Testing" in the README describe inputs; `examples/field.ts` is removed, and `form` and `form-react` declare one.
 - The peer dependency on `effect` is `^4.1.4`, where it was `^4.0.0`, and starts at the Effect it is developed with.

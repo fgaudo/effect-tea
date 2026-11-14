@@ -556,10 +556,10 @@ const compose = <
 }
 
 /**
- * What a parent declares of itself, by name: its state, and its own commands, events, external messages and
- * flags.
+ * What a composed program declares of itself, by name: its state, and its own commands, events, external messages
+ * and flags.
  */
-export type ParentTypes = Readonly<{
+export type CompositionTypes = Readonly<{
   state: object
   command?: unknown
   event?: unknown
@@ -568,15 +568,16 @@ export type ParentTypes = Readonly<{
 }>
 
 /**
- * The way to make a parent: its types fixed once, by name (`parent<{ state: State; event: Event }>()`), then
- * its children declared with `child` (one) or `each` (by id), its inputs with `input`, and the parent made with
- * `compose`. Its messages are its own, `{ _tag: <child>, message }` for each child (with `id` for children by id),
- * and `{ _tag: <input>, message: write(field, value) }` for each input; its commands are its own and its
- * children's, each run by its child's `runCommand`, which a child with commands must have. Fixing the types first
- * is what lets `get`, `set` and the rest be typed without annotations, and the parent's own commands, events,
- * external messages and flags, which nothing it returns can reveal, be known.
+ * The way to make a program of children, inputs or both: its types fixed once, by name
+ * (`composition<{ state: State; event: Event }>()`), then its children declared with `child` (one) or `each` (by
+ * id), its inputs with `input`, and the program made with `compose`. Its messages are its own,
+ * `{ _tag: <child>, message }` for each child (with `id` for children by id), and
+ * `{ _tag: <input>, message: write(field, value) }` for each input; its commands are its own and its children's,
+ * each run by its child's `runCommand`, which a child with commands must have. Fixing the types first is what lets
+ * `get`, `set` and the rest be typed without annotations, and the program's own commands, events, external messages
+ * and flags, which nothing it returns can reveal, be known.
  */
-export const parent = <T extends ParentTypes>() => {
+export const composition = <T extends CompositionTypes>() => {
   type State = Field<T, 'state'>
   type OwnCommand = Field<T, 'command'>
   type Event = Field<T, 'event'>

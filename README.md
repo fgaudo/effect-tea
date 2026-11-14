@@ -133,7 +133,7 @@ with `bun run build`, then `bun examples/<name>/index.html`.
 | [`counter-react`](examples/counter-react) | the same program, in React   | what changes with the renderer: the view, `main.ts` and the bridge, never the program                               | [live](https://fgaudo.github.io/effect-tea/examples/counter-react/) |
 | [`form`](examples/form)                   | a form that saves a name     | an input declared in `compose`; a service; a failure as a message; a save only its completion ends; `rehearse`      | [live](https://fgaudo.github.io/effect-tea/examples/form/)          |
 | [`form-react`](examples/form-react)       | the form, in React           | an uncontrolled input: `defaultValue` and `key`, never `value`                                                      | [live](https://fgaudo.github.io/effect-tea/examples/form-react/)    |
-| [`pages`](examples/pages)                 | a clock and an About page    | `parent`, optics, `dispatchTo`, events, `subscribed`, a page started from flags; `simulate`                         | [live](https://fgaudo.github.io/effect-tea/examples/pages/)         |
+| [`pages`](examples/pages)                 | a clock and an About page    | `composition`, optics, `dispatchTo`, events, `subscribed`, a page started from flags; `simulate`                    | [live](https://fgaudo.github.io/effect-tea/examples/pages/)         |
 | [`list`](examples/list)                   | stopwatches by id            | `each`, a subscription per running child, `forEach`; a test with a `TestClock`                                      | [live](https://fgaudo.github.io/effect-tea/examples/list/)          |
 | [`timer`](examples/timer)                 | the tutorial's application   | timers by id, each ticking only while it runs, and a bell as a command; `rehearse` with `hear`                      | [live](https://fgaudo.github.io/effect-tea/examples/timer/)         |
 
@@ -417,11 +417,11 @@ Whether the model holds only what applies, and all of it, is for the tests (see 
 
 ### Composition
 
-A child is any program. A parent declares its children, and its inputs, with `parent`, and the library does the
-routing:
+A child is any program. A parent declares its children, and its inputs, with `composition`, and the library
+does the routing:
 
 ```ts
-const { child, compose } = parent<{ state: State }>()
+const { child, compose } = composition<{ state: State }>()
 
 const state = Optic.id<State>()
 
@@ -472,13 +472,13 @@ export const app = compose({
   `Clock.clock.init.state` would leave its commands behind. A child with `flags` is started from them:
   `children.About.init({ openedAt })`, and `init(id, flags)` for children by id.
 - **The parent's own flags**, if it has any, are declared as its other types,
-  `parent<{ state: State; flags: Flags }>()`. Its `init` then returns the function that starts it:
+  `composition<{ state: State; flags: Flags }>()`. Its `init` then returns the function that starts it:
   `init: (children) => (flags) => ({ state, commands })`.
 - **What it draws:** `makeModel`, from its state and its children's models.
 - **Its inputs,** if it has any: `inputs: { Name: input(at) }`, where `at` is an optic to a `Field` of its own
   state (see [inputs the user types into](#inputs-the-user-types-into)). An input is no child: its field is the
   parent's own state, which its `update` and `makeModel` read as the rest. A program with inputs and no children
-  is made with `parent` too, and leaves `children` out.
+  is made with `composition` too, and leaves `children` out.
 - **Its own messages, commands and subscriptions,** if it has any: `update`, `runCommand` (required exactly when
   it has commands of its own), `subscriptions`. Its `update` takes `children` too, and may reject its own
   messages as any `update` does.
@@ -978,7 +978,7 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `Program<{ state; model; message; command?; … }>` | `init`, `update`, `runCommand` (with commands), `subscriptions` (optional), `makeModel`                  |
 | `StateOf`, `ModelOf`, `MessageOf`, `CommandOf`, … | a program's types, read back from it (`EventOf`, `ExternalOf`, `FlagsOf`, `ServicesOf`)                  |
-| `parent`                                          | `parent<{ state; … }>()`: `child`, `each`, `input` and `compose`, to make a parent of children, inputs   |
+| `composition`                                     | `composition<{ state; … }>()`: `child`, `each`, `input` and `compose`, for children, inputs or both      |
 | `Field`, `field`, `renewed`                       | what an input holds, `{ value, revision }`; a field of a value; a new input for the value held           |
 | `write`, `Written`                                | `write(field, value)`: what a view sends for what the user gave the input drawn from `field`             |
 | `Update`, `Transition`, `Step`                    | `(message) => (state) => Step` or `Rejected`; a `Step` is `{ state, commands?, events? }`                |
@@ -991,7 +991,7 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | `Subscriptions`                                   | `(state) => HashMap<K, Subscription<Message>>`, reconciled by key                                        |
 | `subscriptionsOf`                                 | what a program listens to in a state, by key, as `run` reconciles it                                     |
 | `View`, `Dispatch`                                | `(model, dispatch) => Node`; `(message) => Effect<void>`, the same in every frame                        |
-| `dispatchTo`                                      | a child's dispatch, for its view: wraps its messages as the parent receives them                         |
+| `dispatchTo`                                      | a child's or an input's dispatch, for its view: wraps its messages as the program receives them          |
 | `run`, `Frame`, `RunOptions`                      | run a program with a renderer; what the renderer draws; how the program runs                             |
 | `Applied`, `Ignored`, `Origin`                    | what `onApplied` and `onIgnored` hear: a message, where it came from, the states around it               |
 | `ProgramDefect`, `DefectSite`                     | the defect a run dies with: its `cause`, `where` it happened, `update`'s message, a subscription's `key` |

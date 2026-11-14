@@ -1,13 +1,13 @@
 // A consumer of the packed package, run with Node and typechecked by `smoke.ts` under several TypeScript versions
-// and module resolutions. It instantiates the types of `parent` (a child, children by id, events and external
+// and module resolutions. It instantiates the types of `composition` (a child, children by id, events and external
 // messages, an input) and checks that what they reject does not compile.
 import {
   andThen,
+  composition,
   type Field,
   field,
   isRejected,
   type MessageOf,
-  parent,
   type Program,
   reject,
   run,
@@ -53,7 +53,7 @@ type State = Readonly<{ main: CounterState; rows: ReadonlyArray<Row>; fulls: num
 
 type ResetAll = Readonly<{ _tag: 'ResetAll' }>
 
-const { child, compose, each } = parent<{ state: State }>()
+const { child, compose, each } = composition<{ state: State }>()
 
 const children = {
   Main: child(counter, {
@@ -128,7 +128,7 @@ child(
 // An input and no children: the field is the program's own state, which the outside writes into.
 type Draft = Readonly<{ title: Field<string> }>
 
-const drafting = parent<{ state: Draft; command: 'Load' }>()
+const drafting = composition<{ state: Draft; command: 'Load' }>()
 
 const draft = drafting.compose({
   init: () => ({ state: { title: field('') } }),

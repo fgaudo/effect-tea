@@ -51,8 +51,8 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * A program of the types `T` names, e.g. `Program<{ state: State; model: Model; message: Message }>`. The view
  * is not part of it: it lives in its own module, so it can be hot reloaded. `runCommand` is there exactly when
  * the program has commands, and `subscriptions` when it listens to something. `makeModel` turns a state into
- * what the view reads, and is a pure function of it: a test calls it as `run` does. A parent made of children
- * is made with `parent`.
+ * what the view reads, and is a pure function of it: a test calls it as `run` does. A program of children or
+ * inputs is made with `composition`.
  */
 export type Program<T extends ProgramTypes> = Shape<
   Field<T, 'state'>,

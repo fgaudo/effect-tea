@@ -13,7 +13,7 @@ import { collectGarbage } from '../test/gc.ts'
 import type { Subscription } from './subscription.ts'
 import { andThen, forEach, isRejected, raise, reject, type Step } from './update.ts'
 import { type Dispatch, dispatchTo } from './dispatch.ts'
-import { parent } from './compose.ts'
+import { composition } from './compose.ts'
 import { CompositionDefect } from './defect.ts'
 import { type CommandOf, type FlagsOf, type MessageOf, type Program, subscriptionsOf } from './program.ts'
 import { type Frame, run } from './run.ts'
@@ -103,7 +103,7 @@ const ticker: Program<{ state: Ticks; model: number; message: Tick }> = {
 type ParentState = Readonly<{ left: Counter; maybeRight: Opt.Option<Counter>; saves: number; ticks: Ticks }>
 type Reset = Readonly<{ _tag: 'Reset' }>
 
-const Parent = parent<{ state: ParentState }>()
+const Parent = composition<{ state: ParentState }>()
 
 const app = Parent.compose({
   init: (children) => {
@@ -265,7 +265,7 @@ describe('compose', () => {
       makeModel: (state) => state.pings,
     }
     type Pinged = Readonly<{ pinger: Pinger; heard: number }>
-    const Pings = parent<{ state: Pinged }>()
+    const Pings = composition<{ state: Pinged }>()
     const pingers = (onPinged: (state: Pinged) => Pinged) =>
       Pings.compose({
         init: (children) => ({
@@ -295,7 +295,7 @@ describe('compose', () => {
   })
 
   test('the model of a child that is not there is a defect', () => {
-    const Broken = parent<{ state: ParentState }>()
+    const Broken = composition<{ state: ParentState }>()
     const broken = Broken.compose({
       init: () => ({ state: app.init.state }),
       children: { Right: Broken.child(counter, { get: (s) => s.maybeRight, set: (s) => s }) },
@@ -346,7 +346,7 @@ describe('compose', () => {
 type Row = Readonly<{ id: number; counter: Counter }>
 type ListState = Readonly<{ rows: ReadonlyArray<Row> }>
 
-const List = parent<{ state: ListState }>()
+const List = composition<{ state: ListState }>()
 
 const list = List.compose({
   init: () => ({ state: { rows: [] } }),
@@ -376,7 +376,7 @@ const rows = (...ids: ReadonlyArray<number>): ListState => ({
 // Lists of counters, by id: parents whose children by id are parents with children by id.
 type Lists = Readonly<{ rows: ReadonlyArray<Readonly<{ id: string; list: ListState }>> }>
 
-const Nested = parent<{ state: Lists }>()
+const Nested = composition<{ state: Lists }>()
 
 const lists = Nested.compose({
   init: () => ({ state: { rows: [] } }),
@@ -494,7 +494,7 @@ describe('children by id', () => {
   })
 
   test('each child listens under its name and id, alone ones under their name', () => {
-    const Tickers = parent<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
+    const Tickers = composition<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
     const tickerList = Tickers.compose({
       init: () => ({ state: { ids: [7, 8] } }),
       children: {
@@ -515,7 +515,7 @@ describe('children by id', () => {
   })
 
   test('subscribed children that list one id twice are a defect that says so, not a clash with an own key', () => {
-    const Tickers = parent<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
+    const Tickers = composition<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
     const twice = Tickers.compose({
       init: () => ({ state: { ids: [7, 7] } }),
       children: {
@@ -538,7 +538,7 @@ describe('children by id', () => {
 
   // Only a cast, or a caller without TypeScript, gets a primitive state past the types.
   test('a child whose state is not an object is a defect that names it, in its model and in its subscriptions', () => {
-    const Tickers = parent<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
+    const Tickers = composition<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
     const primitive = 0 as unknown as Ticks
     const counting = Tickers.compose({
       init: () => ({ state: { ids: [7] } }),
@@ -564,7 +564,7 @@ describe('children by id', () => {
   // Rows of tickers, each in a state of its own; `calls` counts the calls of the ticker's `subscriptions`.
   const countedTickers = () => {
     const counted = { calls: 0 }
-    const Tickers = parent<{ state: Readonly<{ rows: ReadonlyArray<Readonly<{ id: number; ticks: Ticks }>> }> }>()
+    const Tickers = composition<{ state: Readonly<{ rows: ReadonlyArray<Readonly<{ id: number; ticks: Ticks }>> }> }>()
     const tickers = Tickers.compose({
       init: () => ({ state: { rows: [] } }),
       children: {
@@ -646,7 +646,7 @@ describe('what a parent can do with a child', () => {
     makeModel: () => null,
   }
   type Pages = Readonly<{ page: Opt.Option<Page> }>
-  const Pages = parent<{ state: Pages }>()
+  const Pages = composition<{ state: Pages }>()
   const shown = Pages.child(page, { get: (state) => state.page, set: (_, page) => ({ page: Opt.some(page) }) })
 
   test('a child answers its parent with its state or an event, handled in the same step', () => {
@@ -738,7 +738,7 @@ describe('what a parent can do with a child', () => {
       update: (_: Tick) => (state: Ticks) => ({ state, events: [{ _tag: 'Beeped' }] }),
       makeModel: ({ ticks }: Ticks) => ticks,
     }
-    const Unheard = parent<{ state: Ticks }>()
+    const Unheard = composition<{ state: Ticks }>()
     // @ts-expect-error: the types ask for an `onEvent` already; this one runs without.
     const unheard = Unheard.compose({
       init: () => ({ state: noTicks }),
@@ -762,7 +762,7 @@ describe('what a parent can do with a child', () => {
         return error
       }
     }
-    const One = parent<{ state: Ticks }>()
+    const One = composition<{ state: Ticks }>()
     const one = One.compose({
       init: (children) => children.Saving.init,
       children: {
@@ -773,7 +773,7 @@ describe('what a parent can do with a child', () => {
     })
     expect(thrown(() => one.runCommand({ _tag: 'Saving', command: { _tag: 'Save' } })))
       .toMatchObject({ _tag: 'CompositionDefect', child: 'Saving', on: 'Save' })
-    const List = parent<{ state: { rows: ReadonlyArray<Ticks> } }>()
+    const List = composition<{ state: { rows: ReadonlyArray<Ticks> } }>()
     const list = List.compose({
       init: () => ({ state: { rows: [noTicks] } }),
       children: {
@@ -792,7 +792,7 @@ describe('what a parent can do with a child', () => {
   })
 
   test('an own subscription key that is the lifted key of a child\'s is a defect, never a silent replacement', () => {
-    const { child, compose } = parent<{ state: Ticks }>()
+    const { child, compose } = composition<{ state: Ticks }>()
     const clashing = compose({
       init: () => ({ state: noTicks }),
       children: { Ticker: child(ticker, { get: Opt.some, set: (_, ticks) => ticks }) },
@@ -852,7 +852,7 @@ describe('steps that add up', () => {
   })
 
   test('a parent that tells each of its children by id the same thing, with forEach, reaches every one', () => {
-    const Clearing = parent<{ state: ListState }>()
+    const Clearing = composition<{ state: ListState }>()
     const clearing = Clearing.compose({
       init: () => ({ state: { rows: [] } }),
       children: {
@@ -893,7 +893,7 @@ describe('steps that add up', () => {
     makeModel: () => null,
   }
   type Home = Readonly<{ page: Readonly<{ left: boolean }> }>
-  const Home = parent<{ state: Home; event: Left; external: Leave }>()
+  const Home = composition<{ state: Home; event: Left; external: Leave }>()
   const home = Home.compose({
     init: (children) => ({ state: { page: children.Page.init.state } }),
     children: { Page: Home.child(leaving, { get: (state) => Opt.some(state.page), set: (_, page) => ({ page }) }) },
@@ -902,7 +902,7 @@ describe('steps that add up', () => {
     makeModel: () => null,
   })
   type App = Readonly<{ home: Home; heard: ReadonlyArray<boolean>; resets: number }>
-  const App = parent<{ state: App }>()
+  const App = composition<{ state: App }>()
   const app = App.compose({
     init: (children) => ({ state: { home: children.Home.init.state, heard: [], resets: 0 } }),
     children: {
@@ -938,7 +938,7 @@ describe('steps that add up', () => {
 })
 
 describe('a child placed with an optic', () => {
-  const Placed = parent<{ state: ParentState }>()
+  const Placed = composition<{ state: ParentState }>()
   const placed = Placed.compose({
     init: () => ({ state: app.init.state }),
     children: {
@@ -972,7 +972,7 @@ describe('a child placed with an optic', () => {
 
   test('a child by id takes an optic of the id', () => {
     type Rows = Readonly<{ rows: Readonly<Record<number, Counter>> }>
-    const ById = parent<{ state: Rows }>()
+    const ById = composition<{ state: Rows }>()
     const byId = ById.compose({
       init: () => ({ state: { rows: {} } }),
       children: {
@@ -1060,7 +1060,7 @@ describe('flags', () => {
 
   type Seed = Readonly<{ _tag: 'Seed'; count: number }>
 
-  const Seeds = parent<{ state: Seeds }>()
+  const Seeds = composition<{ state: Seeds }>()
 
   const seeds = Seeds.compose({
     init: () => ({ state: { maybeSeeded: Opt.none(), rows: [] } }),
@@ -1103,7 +1103,7 @@ describe('flags', () => {
   })
 
   // A parent with flags: it starts its counter from twice its own.
-  const Relay = parent<{ state: Counter; flags: number }>()
+  const Relay = composition<{ state: Counter; flags: number }>()
 
   const relay = Relay.compose({
     init: (children) => (count) => {
@@ -1125,7 +1125,7 @@ describe('flags', () => {
 
   test('a parent with flags is started from them by its own parent, alone and by id', () => {
     type Relays = Readonly<{ relay: Counter; rows: ReadonlyArray<Readonly<{ id: number; counter: Counter }>> }>
-    const Top = parent<{ state: Relays }>()
+    const Top = composition<{ state: Relays }>()
     const top = Top.compose({
       init: (children) => {
         const one = children.Relay.init(1)
@@ -1168,7 +1168,7 @@ describe('flags', () => {
       children: {},
       makeModel: () => null,
     })
-    const { compose } = parent<{ state: Ticks }>()
+    const { compose } = composition<{ state: Ticks }>()
     compose({
       // @ts-expect-error: it has no flags to start from.
       init: () => (ticks: number) => ({ state: { ticks } }),
@@ -1178,7 +1178,7 @@ describe('flags', () => {
   })
 
   test('a child without flags is started with none', () => {
-    const { child, compose } = parent<{ state: Ticks }>()
+    const { child, compose } = composition<{ state: Ticks }>()
     // Not called: its `init` would throw.
     const make = () =>
       compose({
@@ -1194,7 +1194,7 @@ describe('flags', () => {
   })
 
   test('a child with flags starts only from its flags', () => {
-    const { child, compose } = parent<{ state: Opt.Option<Counter> }>()
+    const { child, compose } = composition<{ state: Opt.Option<Counter> }>()
     const program = compose({
       init: () => ({ state: Opt.none() }),
       children: { Seeded: child(seeded, { get: (state) => state, set: (_, seeded) => Opt.some(seeded) }) },
@@ -1229,8 +1229,8 @@ describe('what the types reject', () => {
     // @ts-expect-error: a number is no object.
     const typed: Program<{ state: number; model: number; message: Tick }> = counting
     // @ts-expect-error: nor is a string, a parent's included.
-    expect(parent<{ state: string }>()).toBeDefined()
-    const { child } = parent<{ state: Ticks }>()
+    expect(composition<{ state: string }>()).toBeDefined()
+    const { child } = composition<{ state: Ticks }>()
     // @ts-expect-error: a child's state is an object.
     expect(child(counting, { get: () => Opt.some(0), set: (state) => state })).toBeDefined()
     // @ts-expect-error: and so is the state of the program that runs.
@@ -1239,7 +1239,7 @@ describe('what the types reject', () => {
   })
 
   test('a child whose type names no external message takes none from its parent', () => {
-    const { child, compose } = parent<{ state: Ticks }>()
+    const { child, compose } = composition<{ state: Ticks }>()
     const program = compose({
       init: () => ({ state: noTicks }),
       children: { Plain: child(plain, { get: (state) => Opt.some(state), set: (_, child) => child }) },
@@ -1253,7 +1253,7 @@ describe('what the types reject', () => {
   })
 
   test('an own message cannot take the name of a child, which would receive it', () => {
-    const { child, compose } = parent<{ state: Ticks }>()
+    const { child, compose } = composition<{ state: Ticks }>()
     // @ts-expect-error: `Plain` is a child's name.
     compose({
       init: () => ({ state: noTicks }),
@@ -1264,7 +1264,7 @@ describe('what the types reject', () => {
   })
 
   test('an own command cannot take the name of a child, whose interpreter would receive it', () => {
-    const { child, compose } = parent<{ state: Ticks; command: Readonly<{ _tag: 'Plain' }> }>()
+    const { child, compose } = composition<{ state: Ticks; command: Readonly<{ _tag: 'Plain' }> }>()
     // @ts-expect-error: `Plain` is a child's name.
     compose({
       init: () => ({ state: noTicks }),
@@ -1282,7 +1282,7 @@ describe('what the types reject', () => {
       runCommand: () => Effect.succeedNone,
       makeModel: ({ ticks }: Ticks) => ticks,
     }
-    const { child, compose } = parent<{ state: Ticks }>()
+    const { child, compose } = composition<{ state: Ticks }>()
     const program = compose({
       init: () => ({ state: noTicks }),
       children: { Saving: child(saving, { get: (state) => Opt.some(state), set: (_, child) => child }) },
@@ -1301,7 +1301,7 @@ describe('what the types reject', () => {
       update: (_: Tick) => (state: Ticks) => ({ state, events: [{ _tag: 'Gone' } as Gone] }),
       makeModel: ({ ticks }: Ticks) => ticks,
     }
-    const Silent = parent<{ state: Ticks; event: Readonly<{ _tag: 'Other' }> }>()
+    const Silent = composition<{ state: Ticks; event: Readonly<{ _tag: 'Other' }> }>()
     Silent.compose({
       init: () => ({ state: noTicks }),
       children: { Gone: Silent.child(gone, { get: (state) => Opt.some(state), set: (_, child) => child }) },
@@ -1309,7 +1309,7 @@ describe('what the types reject', () => {
       onEvent: { Gone: raise },
       makeModel: () => null,
     })
-    const Raising = parent<{ state: Ticks; event: Gone }>()
+    const Raising = composition<{ state: Ticks; event: Gone }>()
     expect(Raising.compose({
       init: () => ({ state: noTicks }),
       children: { Gone: Raising.child(gone, { get: (state) => Opt.some(state), set: (_, child) => child }) },
@@ -1323,7 +1323,7 @@ describe('what the types reject', () => {
   })
 
   test('commands of its own need a runCommand', () => {
-    const { child, compose } = parent<{ state: Ticks; command: Readonly<{ _tag: 'Beep' }> }>()
+    const { child, compose } = composition<{ state: Ticks; command: Readonly<{ _tag: 'Beep' }> }>()
     // @ts-expect-error: `Beep` would go uninterpreted.
     compose({
       init: () => ({ state: noTicks }),
@@ -1350,7 +1350,7 @@ describe('a child\'s subscriptions in a run', () => {
       makeModel: ({ bumps }) => bumps,
     }
     type Holder = Readonly<{ bumping: Bumps }>
-    const { child, compose } = parent<{ state: Holder }>()
+    const { child, compose } = composition<{ state: Holder }>()
     const holder = compose({
       init: (children) => ({ state: { bumping: children.Bumping.init.state } }),
       children: { Bumping: child(bumping, { at: Optic.id<Holder>().key('bumping') }) },

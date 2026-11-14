@@ -130,6 +130,21 @@ type ChildServices<C> = {
 export type CommandOf<P> = (FirstStepOf<P> extends Step<any, infer C> ? Known<C> : never) | UpdateCommands<P>;
 
 // @public
+export const composition: <T extends CompositionTypes>() => {
+    child: <P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown>, place: Placement<Field_2<T, "state">, StateOf<P>> & Readonly<{
+        subscribed?: (state: Field_2<T, "state">) => Opt.Option<StateOf<P>>;
+    }> & ObjectState<StateOf<P>>) => Child<Field_2<T, "state">, P>;
+    each: <Id, P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown>, place: EachPlacement<Field_2<T, "state">, Id, StateOf<P>> & Readonly<{
+        subscribed: (state: Field_2<T, "state">) => Iterable<readonly [Id, StateOf<P>]>;
+    }> & ObjectState<StateOf<P>>) => Each<Field_2<T, "state">, Id, P>;
+    input: <A>(at: Optic.Optional<Field_2<T, "state">, Field<A>>) => InputAt<Field_2<T, "state">, A>;
+    compose: <Model, C extends Children<Field_2<T, "state">> = None, I extends Inputs<Field_2<T, "state">> = None, Own = never, R = never, K = unknown>(config: Config<Field_2<T, "state">, NoInfer<C>, NoInfer<I>, Own, Field_2<T, "command">, Field_2<T, "event">, Model, R, K, Field_2<T, 'flags'>> & Readonly<{
+        children?: C;
+        inputs?: I;
+    }>) => Shape<Field_2<T, "state">, Model, Own | ChildMessages<C> | InputMessages<I>, ChildCommands<C> | Field_2<T, "command">, R | ChildServices<C>, Field_2<T, "event">, Field_2<T, "external"> & Own, Field_2<T, "flags">>;
+};
+
+// @public
 export class CompositionDefect extends CompositionDefect_base<Readonly<{
     message: string;
     child: string;
@@ -142,6 +157,15 @@ export class CompositionDefect extends CompositionDefect_base<Readonly<{
 const CompositionDefect_base: new <A extends Record<string, any> = {}>(args: VoidIfEmpty<    { readonly [P in keyof A as P extends "_tag" ? never : P]: A[P]; }>) => YieldableError & {
     readonly _tag: "CompositionDefect";
 } & Readonly<A>;
+
+// @public
+type CompositionTypes = Readonly<{
+    state: object;
+    command?: unknown;
+    event?: unknown;
+    external?: unknown;
+    flags?: unknown;
+}>;
 
 // @public (undocumented)
 type Config<State, C, I, Own, OwnCommand, Event, Model, R, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own | ChildMessages<C>, R> & NoClash<Own, OwnCommand, C> & NoClash<Own, OwnCommand, I> & Readonly<{
@@ -527,30 +551,6 @@ export type Origin = Readonly<{
 
 // @public
 const otherwiseDefect: (cause: Cause.Cause<unknown>, received?: Cause.Cause<never>) => Cause.Cause<never>;
-
-// @public
-export const parent: <T extends ParentTypes>() => {
-    child: <P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown>, place: Placement<Field_2<T, "state">, StateOf<P>> & Readonly<{
-        subscribed?: (state: Field_2<T, "state">) => Opt.Option<StateOf<P>>;
-    }> & ObjectState<StateOf<P>>) => Child<Field_2<T, "state">, P>;
-    each: <Id, P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown>, place: EachPlacement<Field_2<T, "state">, Id, StateOf<P>> & Readonly<{
-        subscribed: (state: Field_2<T, "state">) => Iterable<readonly [Id, StateOf<P>]>;
-    }> & ObjectState<StateOf<P>>) => Each<Field_2<T, "state">, Id, P>;
-    input: <A>(at: Optic.Optional<Field_2<T, "state">, Field<A>>) => InputAt<Field_2<T, "state">, A>;
-    compose: <Model, C extends Children<Field_2<T, "state">> = None, I extends Inputs<Field_2<T, "state">> = None, Own = never, R = never, K = unknown>(config: Config<Field_2<T, "state">, NoInfer<C>, NoInfer<I>, Own, Field_2<T, "command">, Field_2<T, "event">, Model, R, K, Field_2<T, 'flags'>> & Readonly<{
-        children?: C;
-        inputs?: I;
-    }>) => Shape<Field_2<T, "state">, Model, Own | ChildMessages<C> | InputMessages<I>, ChildCommands<C> | Field_2<T, "command">, R | ChildServices<C>, Field_2<T, "event">, Field_2<T, "external"> & Own, Field_2<T, "flags">>;
-};
-
-// @public
-type ParentTypes = Readonly<{
-    state: object;
-    command?: unknown;
-    event?: unknown;
-    external?: unknown;
-    flags?: unknown;
-}>;
 
 // @public
 type Placement<ParentState, ChildState> = Readonly<{
