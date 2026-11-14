@@ -4,10 +4,11 @@
 records a discussion with the owner, two reviews by Fable 5.2 (one of a design, one asked for ideas), and one spike,
 kept on the branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never to be merged), on Effect
 4.1.4 and Bun 1.4.4, the six checks that followed, each on a branch of its own ("What the checks found"), and a
-third review by Fable 5.2, asked what to adopt, with a spike of its own ("An independent opinion"). What the spikes
-ran is marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued,
-**reasoned**. It reopens the aim of [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another
-way, and leans on [`inert-steps.md`](inert-steps.md), which it would simplify.
+third review by Fable 5.2, asked what to adopt, with a spike of its own ("An independent opinion"), and a fourth, on
+how that spike derives a revision ("A second opinion"). What the spikes ran is marked **run**; what was read in the
+code at `beaba6f`, **checked**; what was only argued, **reasoned**. It reopens the aim of
+[`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way, and leans on
+[`inert-steps.md`](inert-steps.md), which it would simplify.
 
 ## Context
 
@@ -539,6 +540,94 @@ A field in a child by id is an input of the child's own `compose`, reached by ne
   a wrong `dispatchTo` for a child today.
 - **Open**: a `File`; a reaction to every keystroke, which it would make a subscription keyed by the value; whether
   `inputs` takes a `get` and `set`, or a form like `each`.
+
+## A second opinion: the revision derived by value, not by identity
+
+The owner asked whether `compose` may alter the state a parent's `update` returns, by deriving the revision from the
+identity of the object in the input's place. A fourth review by Fable 5.2 was given three concerns to test, not to
+accept, and three alternatives: (a) the program raises the revision itself, under a check; (b) a replacement asked as
+data in the `Step`; (c) a derivation by `Equal`. It worked on the branch `review-input-identity`, cut from `6b97cb6`
+(commits `11ea804`, the concerns on the spike as it was, and `c445a5b`, its answer, never to be merged). It reports
+`bun run typecheck`, `lint`, `test` (570), `test:node` (510) and `interleavings` (14) green on `c445a5b`;
+`mutations` was not run. Typecheck and the 45 tests of `src/input-identity.test.ts`, `src/input.test.ts` and
+`examples/form` were run again apart, green. **Run.**
+
+### Verdict
+
+Deriving the revision in `compose` is right; deriving it from identity is not. A design that enforces the generation
+either checks, and fails with a defect, or corrects, and alters the revision: the state stored differs from the state
+written in either case but the first, and enforcement is the only reason `Field` is the library's. What can be
+avoided is identity made semantic.
+
+### The concerns, by tests on the spike
+
+| Concern | Result |
+| --- | --- |
+| 1. The state stored is not the state written | **Confirmed**, and it stays under the answer: the `update` given to `compose` returns revision 0, the program stores 4 |
+| 2. Identity becomes semantic | **Confirmed**: a spread copy, a round trip through JSON and a `trim()` that changes nothing each raise the revision and reject the write in flight, though the steps are equal to the one that leaves the field alone |
+| 3a. `init` is not stamped | **Confirmed**, no hazard alone: nothing is drawn before `init` |
+| 3b. An optional place that goes and comes back | **Confirmed**: it restarts at revision 0, and a late write at 0 is stored |
+| 3c. A child re-initialised by its parent | **Confirmed**, and a class that exists today: a fixed message drawn for the old child reaches the new one too, since a message names a place, not an instance |
+
+### The answer: by value, with a new input asked as data
+
+After a step that writes nothing, for an input whose place holds a field before and after:
+
+```ts
+after === before || after.revision > before.revision ? after   // untouched, or raised by the program: as written
+: Equal.equals(after.value, before.value) ? before             // the same value: the same input
+: { value: after.value, revision: before.revision + 1 }        // another value: a new input
+```
+
+- What the user writes does not change: `field('')` in the place, `write(model.name, text)` in the view. The form and
+  both orders of the late key pass untouched.
+- One export more, `renewed(field)`, `{ value, revision + 1 }` as plain data, for the one case a value cannot say: a
+  new input that holds the same value, as when a slider's bounds narrow. It is stored as written.
+- What the library owns: a revision never stands still under a value the program changed, and never goes back. The
+  program may only raise it.
+
+Why, by the review:
+
+- **Over identity**: two `update`s that return states equal by `Equal` are the same program; a write was already
+  compared by `Equal`, and a replacement now follows the same rule; `field('')` over an empty field changes nothing,
+  so a Clear always shown no longer acts twice, and the first of the "two new rules" of the checks goes. A replacement
+  by the same value keeps the input on screen, so a write in flight is one typed a moment later, and screen and state
+  agree: **reasoned**.
+- **Over (b)**: it does not replace a derivation. A program can still put a field there by hand, or restore a
+  snapshot: with explicit requests only, 16 tests fail, "a field of an older state is a new input" among them
+  (**run**). It would still need a check or a derivation, and add a shape of `Step` that `andThen` and `forEach` merge;
+  `renewed` does its job as data in the state.
+- **Over (a)**: the one design where the state stored is always the state written, at the cost of a
+  `CompositionDefect` on a pure and legitimate step, an undo by snapshot, perhaps found only in production. About ten
+  lines in the same function: **reasoned**, not spiked. It is the way if concern 1 ranks above the rest.
+
+The sentences planned for `docs/invariants.md` would read "a step that leaves another value in its place, by `Equal`,
+gets the next revision; one that leaves the value it held leaves the same input", and "a program never lowers a
+revision: it may raise one, with `renewed`, for a new input that holds the same value". An input's value compares by
+`Equal`, as "a model is data" already asks. Identity stays an optimisation everywhere: a frame, the cache of a
+child's model.
+
+### Against, by the review itself
+
+- **Concern 1 stands**, and the rule has three cases where the spike had one. `field(v)` means "the value is now v",
+  not "a new input": who wants a new input for an equal value and forgets `renewed` gets none, silently. Identity
+  erred towards a spurious new input; value errs towards a missing one.
+- **"The program never handles a revision"** becomes "may only raise one": any larger number is honoured, harmless for
+  monotonicity.
+- **Concern 3 stays open.** An optional place has a recipe, not a guarantee: the field outside the option,
+  `Field<Option<A>>`. For a child restarted by its parent, no rule of before and after can tell a restart from typing:
+  **reasoned**. The remedies are a restart through a message of the child's own, or a generation of a child's
+  instances, a larger design.
+- **Cost**: an `Equal` on every step that leaves another object in an input's place, linear in a large value:
+  **reasoned**. A `File` compares by reference, as noted above.
+- **Not done**: `mutations`, `build`, `smoke`, a slider on a bridge, the README's text.
+
+### What is left to decide
+
+Between a derivation by value with `renewed`, where the state stored differs from the state written only in the
+revision and only when the value changes, and a revision the program keeps under a check that dies on a break, where
+they never differ and an undo by snapshot is a defect. Concern 3 is apart from both, and exists today for fixed
+messages.
 
 ## What a consumer could notice
 
