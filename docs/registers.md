@@ -62,23 +62,19 @@ has children.
 The column (B) is the sketch written before its spike, which confirmed it. Identity, the rule of the first spike, is
 refuted by the second opinion: a copy equal by value would draw a new input and reject what is being typed.
 
-**The late keystroke on `main`: decided, left to the implementation.** The owner chose not to fix it now in
-`examples/form`, since the implementation rewrites the form and its inputs; `examples/form/late-key.test.ts` on
-`claude/spike-register-late-key-6cb914` holds it, and is ported with the design.
+**The late keystroke on `main`: closed by the implementation.** The owner chose not to fix it in `examples/form`
+before the implementation, which rewrote the form and its inputs; `examples/form/late-key.test.ts`, ported from
+`claude/spike-register-late-key-6cb914`, holds it.
 
 **Open whatever the choice**: a child re-initialised by its parent, and an optional place that comes back, restart
 an input's revision, which no rule of before and after closes; a `File`; a reaction to every keystroke. See "To
-explore", and, for the subscriptions, "What is to be checked of
-them, with an input declared in `compose`".
+explore", and, for the subscriptions, "What is to be checked of them, with an input declared in `compose`".
 
-**Next**, an implementation on a branch of its own, from `main`, following `change-api` and `change-engine`: the design
-ported from its spike; the checks of `compose` as mutations (`mutations/mutations.ts`); writes, current and stale, drawn
-in the search of interleavings (`interleaving.test.ts`); `runCommand`'s answers narrowed to `Own | ChildMessages<C>`
-("Only what is drawn writes"); the report of the API, `build` and `smoke`; the README rewritten one section at a time
-("Messages live in the model", "Inputs the user types into", "Structuring a program", "Testing"), each sentence against
-the old one, with "a model is data"; a new entry of `docs/invariants.md`, and `docs/boundary.md` item 4 reopened;
-`examples/field.ts` removed and the examples converted (`form`, `form-react`, and the slider and the notes of the spikes
-if kept); a changelog entry and the version `release` asks for.
+**Next**, with the implementation on `main` ("The implementation") and `parent` renamed `composition` ("The name"),
+what it left undone: a slider in an example, with `renewed` for bounds that narrow; the screen and the state parting
+in a bridge, in happy-dom, and whether a replacement loses focus, caret and selection in snabbdom and in React, which
+weighs the argument against "Only what is drawn writes"; `bench/keystrokes.ts` of the subscriptions' spike, ported or
+dropped; then the ideas of "To explore", each spiked or measured before it is proposed.
 
 **The branches**, local to this machine and never pushed, none to be merged: `spike/field-register`,
 `claude/spike-register-checks-fd58e1` (no commit of its own), `claude/spike-register-late-key-6cb914`,
