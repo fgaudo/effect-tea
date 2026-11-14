@@ -1,36 +1,38 @@
 # Registers: what the outside writes into a program's state
 
-**Status:** being explored, 14 November 2026. Who keeps an input's revision, and what may write into an input, are
-decided ("Where it stands"), and no file of the library has changed. It records a discussion with the owner, two reviews by Fable 5.2 (one of a design, one
-asked for ideas), and one spike, kept on the branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never
-to be merged), on Effect 4.1.4 and Bun 1.4.4, the six checks that followed, each on a branch of its own ("What the
-checks found"), and a third review by Fable 5.2, asked what to adopt, with a spike of its own ("An independent
-opinion"), and a fourth, on how that spike derives a revision ("A second opinion"), and a spike of the three ways to
-keep the revision a program did not write ("The revision a program did not write, spiked"), and a spike of the
-subscriptions of a program with an input ("The subscriptions with an input, checked"), and a fifth review by Fable
-5.2, on what may write into an input ("Only what is drawn writes"). What the spikes ran is
-marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued, **reasoned**. It reopens the
-aim of [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way, and leans on
-[`inert-steps.md`](inert-steps.md), which it would simplify.
+**Status:** decided, 14 November 2026, and waiting for its implementation. The direction, who keeps an input's revision,
+and what may write into an input, are decided ("Where it stands"), and no file of the library has changed. It records a
+discussion with the owner, two reviews by Fable 5.2 (one of a design, one asked for ideas), and one spike, kept on the
+branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never to be merged), on Effect 4.1.4 and Bun 1.4.4,
+the six checks that followed, each on a branch of its own ("What the checks found"), and a third review by Fable 5.2,
+asked what to adopt, with a spike of its own ("An independent opinion"), and a fourth, on how that spike derives a
+revision ("A second opinion"), and a spike of the three ways to keep the revision a program did not write ("The revision
+a program did not write, spiked"), and a spike of the subscriptions of a program with an input ("The subscriptions with
+an input, checked"), and a fifth review by Fable 5.2, on what may write into an input ("Only what is drawn writes").
+What the spikes ran is marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued,
+**reasoned**. It reopens the aim of [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way,
+and leans on [`inert-steps.md`](inert-steps.md), which it would simplify.
 
 The document is in the order things happened: what stands now is in the next section, and a section older than a
 later one may be superseded by it ("Open questions" and "The ways forward" by the checks and the two opinions).
 
 ## Where it stands
 
-**The direction that came out**, not yet decided: an input declared in `compose`, beside the children (`inputs: {
-Name: input(at) }`), whose field `Field<A>`, `{ value, revision }`, lives in the program's own state; the view sends
-`write(field, value)` through `dispatchTo(dispatch, 'Name')`; `compose` stores a write at the revision held and
-rejects any other, so the late keystroke is closed for every input; no function is left in a model. Neither the
+**The direction: decided**, by the owner on 14 November 2026: an input declared in `compose`, beside the children
+(`inputs: { Name: input(at) }`), whose field `Field<A>`, `{ value, revision }`, lives in the program's own state; the
+view sends `write(field, value)` through `dispatchTo(dispatch, 'Name')`; `compose` stores a write at the revision held
+and rejects any other, so the late keystroke is closed for every input; no function is left in a model. Neither the
 engine nor the testing tools change. See "An independent opinion" and "A second opinion".
 
-**Who keeps the revision: decided, (A).** The owner chose, after the spike of the revision a program did not write,
-a derivation by value with `renewed`, the one the second opinion recommends, with the sentences of way 1: the
-revision is the library's, a key and nothing else, and a test compares `value`; neither a placeholder nor a brand
-("The revision a program did not write, spiked"). Accepted with it: the state stored differs from the state written
-in the revision once a value changed, and a `toEqual(field(''))` fails after the first replacement. The direction as
-a whole still waits for the checks of "To explore", and for one of the subscriptions: the writes in the search of
-interleavings ("The subscriptions with an input, checked").
+**Who keeps the revision: decided, (A).** The owner chose, after the spike of the revision a program did not write, a
+derivation by value with `renewed`, the one the second opinion recommends, with the sentences of way 1: the revision is
+the library's, a key and nothing else, and a test compares `value`; neither a placeholder nor a brand ("The revision a
+program did not write, spiked"). Accepted with it: the state stored differs from the state written in the revision once
+a value changed, and a `toEqual(field(''))` fails after the first replacement. The direction as a whole was decided
+after it ("The direction"). The ideas of "To explore" wait for the implementation, the name of a program that has inputs
+and no children before a release. The writes in the search of interleavings, the last check of the subscriptions, go to
+the implementation too, by the owner's choice: for the engine a write is a message of the composed program like any
+other, so the search can find a fault of the rule of `compose`, not of the shape of the API.
 
 **Only what is drawn writes into an input: decided.** The owner accepted the rule of a fifth review by Fable 5.2
 ("Only what is drawn writes"): a subscription never writes into an input, nor does a command's answer. A value from
@@ -61,13 +63,14 @@ an input's revision, which no rule of before and after closes; a `File`; a react
 a program that has inputs and no children. See "To explore", and, for the subscriptions, "What is to be checked of
 them, with an input declared in `compose`".
 
-**Once decided**, an implementation on a branch of its own, from `main`, following `change-api` and
-`change-engine`: the design ported from its spike; the checks of `compose` as mutations (`mutations/mutations.ts`);
-the report of the API, `build` and `smoke`; the README rewritten one section at a time ("Messages live in the
-model", "Inputs the user types into", "Structuring a program", "Testing"), each sentence against the old one, with
-"a model is data"; a new entry of `docs/invariants.md`, and `docs/boundary.md` item 4 reopened; `examples/field.ts`
-removed and the examples converted (`form`, `form-react`, and the slider and the notes of the spikes if kept); a
-changelog entry and the version `release` asks for.
+**Next**, an implementation on a branch of its own, from `main`, following `change-api` and `change-engine`: the design
+ported from its spike; the checks of `compose` as mutations (`mutations/mutations.ts`); writes, current and stale, drawn
+in the search of interleavings (`interleaving.test.ts`); `runCommand`'s answers narrowed to `Own | ChildMessages<C>`
+("Only what is drawn writes"); the report of the API, `build` and `smoke`; the README rewritten one section at a time
+("Messages live in the model", "Inputs the user types into", "Structuring a program", "Testing"), each sentence against
+the old one, with "a model is data"; a new entry of `docs/invariants.md`, and `docs/boundary.md` item 4 reopened;
+`examples/field.ts` removed and the examples converted (`form`, `form-react`, and the slider and the notes of the spikes
+if kept); a changelog entry and the version `release` asks for.
 
 **The branches**, local to this machine and never pushed, none to be merged: `spike/field-register`,
 `claude/spike-register-checks-fd58e1` (no commit of its own), `claude/spike-register-late-key-6cb914`,
