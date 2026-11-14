@@ -18,7 +18,7 @@ testing tools.
 - **Messages are applied one at a time, in the order they were queued**: one loop takes them from one queue
   (`engine.ts`), and takes the next only once the step of the one before is over, its observer, its frame, its
   subscriptions stopped and started and its commands started. Never apply a message from another fiber, nor start a
-  step's commands apart from it. That a `Queue` gives its items in the order they were offered is in `premises.md`:
+  step's commands apart from it. That a `Queue` gives its items in the order they were offered is documented:
   "dispatches run one after the other in one callback, before the run takes any, are all applied in order", "hears
   every accepted message in order, with the states around it, before its frame" (`run.test.ts`).
 - **`reject` means one thing: the message does not apply in the state.** The run ignores every rejection, and

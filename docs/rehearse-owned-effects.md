@@ -134,13 +134,13 @@ untouched and the seven tests of `rehearse.test.ts` without their mark.
   finished, the loop not finishing after a scenario that failed, a cancelled command's answer not applied. A test
   written for the third, "a message sent as the scenario returns is applied, and the command it starts fails the
   rehearsal", passes, and fails with the commands pending read as the exit is taken.
-- The premises it uses are in `docs/premises.md` already, each documented: what `Effect.uninterruptibleMask` runs
-  outside `restore` cannot be interrupted; an unbounded `Queue` takes an offer at once, and a shut one refuses it
+- What it rests on of Effect is documented, and so no premise of `docs/premises.md`: what `Effect.uninterruptibleMask`
+  runs outside `restore` cannot be interrupted; an unbounded `Queue` takes an offer at once, and a shut one refuses it
   (the loop no longer shuts its queue: once `end` is marked, nothing is offered to it); a `Queue` gives its items in
-  order, and a fiber that awaits a `Deferred` is interrupted alone; a fiber forked with
-  `Effect.forkIn` ends with its scope; `Effect.onInterrupt`. It adds none. That `Effect.raceFirst` waits for the
-  effect it interrupts, not documented, is no longer what makes a `run` fail with both defects of a command that
-  dies as it releases: the call reads the exit of the command's fiber.
+  order, and a fiber that awaits a `Deferred` is interrupted alone; a fiber forked with `Effect.forkIn` ends with its
+  scope; `Effect.onInterrupt`. It adds none. That `Effect.raceFirst` waits for the effect it interrupts, not documented,
+  is no longer what makes a `run` fail with both defects of a command that dies as it releases: the call reads the exit
+  of the command's fiber.
 - Not shown: that a spike is a design. It mutates maps where the library replaces values, and `bun run mutations`
   was not run past its first failure.
 

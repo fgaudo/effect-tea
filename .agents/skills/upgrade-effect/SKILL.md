@@ -27,8 +27,8 @@ is preferred, and the upgrade is the author's call.
 1. `bun add --dev effect@^4.<minor>.<patch>`, so that `devDependencies` and the lockfile name the new version.
 2. Set `peerDependencies.effect` to the same caret range, and the version in the README's "Installation".
 3. Read what changed in Effect's source between the two versions, in the modules the premises of
-   `docs/premises.md` name and in the runtime (`internal/effect.ts`), and the JSDoc of every premise
-   that rests on documentation; run every test the premises name, which `bun run test` does.
+   `docs/premises.md` name and in the runtime (`internal/effect.ts`); run every test the premises name, which
+   `bun run test` does.
 4. A raised peer range is a change a consumer can notice: a `Changed` entry in `CHANGELOG.md` that names the new
    minimum, and the version a breaking change raises ([`release`](../release/SKILL.md)).
 
@@ -53,8 +53,9 @@ is preferred, and the upgrade is the author's call.
   and drop the site's own TypeScript.
 - An upgrade of Effect is checked against what the invariants rest on, as `docs/premises.md` lists it: the tests named
   there are what keeps each premise, and one read only in Effect's source is read again in the new version. A move
-  to a new major checks every premise again, the documented ones included. An upgrade of React or snabbdom does the
-  same for the bridges' premises, and updates the versions their opening comments name.
+  to a new major checks every premise again, and reads what the major changed of each API of Effect the library uses:
+  what Effect documented is no premise, and is listed nowhere, so its migration notes are the list. An upgrade of
+  React or snabbdom does the same for the bridges' premises, and updates the versions their opening comments name.
 - After any upgrade: `bun install`, `bun run typecheck`, `bun run lint`, `bun run test`, and
   `cd site && bun install && bun run build` without warnings. Commit `bun.lock` and `site/bun.lock` with
   `package.json` and `site/package.json`: the documentation workflow installs both with `--frozen-lockfile`.

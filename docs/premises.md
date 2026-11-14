@@ -2,8 +2,9 @@
 
 An invariant holds only while what it rests on does: the purity of the program's code, states never mutated, and
 the behaviour of Effect's runtime and of the JavaScript engine. What the program must do is the README's ("What is
-left to you"). What Effect and the JavaScript engine must do is listed here, each with what checks it, as the rule
-after the list says. A change that rests on a new premise adds it here, with what checks it.
+left to you"). What Effect and the JavaScript engine must do without promising it is listed here, each with the test
+that checks it, as the rule after the list says: a guarantee that a stable API documents is no premise, and is not
+listed. A change that rests on a new premise adds it here, with its test.
 
 The invariants themselves are in [`invariants.md`](invariants.md).
 
@@ -21,19 +22,6 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   whose Equal throws against the key of the state before" (`contract.test.ts`). `FiberMap` compares its keys in a
   fiber's observer as well, which is why the run keeps its fibers by their start, never by their key. Both are read
   only in the source.
-- **`Fiber.interruptAs` completes only once the interrupted fiber has ended**, its release included, which is what
-  makes the gone keys released before any key starts: "a key that changes stops the old subscription and starts the
-  new one", "keys that go away together release their subscriptions together, not one after the other"
-  (`engine.test.ts`); and how the end of the run stops the loop before it stops the renderer, and before it reads the
-  fibers to interrupt: "a message the renderer sends as the run releases it does not reach update" (`run.test.ts`).
-  Documented.
-- **`Effect.acquireRelease` lets nothing interrupt its acquisition, and runs its release when its scope closes,
-  however it closes**, which is how the run forks the renderer and sets how its end stops it with nothing between
-  to leave the renderer to the end of the fiber the run is in, which would interrupt it as a child, unawaited, and
-  how it stops the loop, then interrupts and awaits the renderer, however the run ends, before the engine's other
-  fibers, acquired earlier in
-  the same scope: "a renderer that dies while an interrupted run releases it is in the cause", "a renderer that
-  dies as a run that died elsewhere releases it is in the cause" (`run.test.ts`). Documented.
 - **A fiber forked with `Effect.forkChild` where its parent is uninterruptible can still be interrupted**, which is
   how the run forks the renderer inside that acquisition and still stops it: "a run interrupted by whoever runs it is
   no defect", "a renderer that dies while an interrupted run releases it is in the cause" (`run.test.ts`) never end
@@ -65,18 +53,18 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   run ends, is a defect in the command" (`run.test.ts`), "the end of the engine interrupts its commands and its
   subscriptions at once", "what a command dies of as the end of the engine interrupts it is what the end dies of"
   (`engine.test.ts`) fail with the sets made after it. Not documented, and seen in those tests.
-- **`Effect.onExit` runs its cleanup however the effect ends, and puts what the cleanup fails with after the cause
-  of the effect**, which is how each fiber of the engine records what it dies of, interrupted or not. Interrupted: "a defect in what a subscription
-  the run stopped releases ends the run", "a subscription stopped as whoever runs the run interrupts it, which dies
-  as it releases, is in the cause"; dying of itself: "a command that dies while an interrupted run releases the
-  renderer ends the run with it", "a command that dies while a run that died elsewhere releases the renderer is in
-  the cause" (`run.test.ts`); and how `rehearse` records each defect of the program in whichever fiber, an interrupted one
-  included, merging no causes there: "a defect of what a subscription releases fails it, in a fiber of the test's
-  that nobody joins", "a defect of what a command the scenario interrupts releases fails it, alone"
-  (`rehearse.test.ts`), "rehearse fails, as the run dies, on a command that dies in a fiber nobody joins"
-  (`contract.test.ts`); and how `scopedIn` keeps what its own effect died of, to wrap apart what the release dies
-  of: "a release that dies with a defect already recorded elsewhere fails it with a second one" (`rehearse.test.ts`).
-  That the cleanup runs, and that the causes are merged, is documented; their order is read only in the source.
+- **What the cleanup of `Effect.onExit` fails with comes after the cause of the effect**, which is how each fiber of the
+  engine records what it dies of, interrupted or not. Interrupted: "a defect in what a subscription the run stopped
+  releases ends the run", "a subscription stopped as whoever runs the run interrupts it, which dies as it releases, is
+  in the cause"; dying of itself: "a command that dies while an interrupted run releases the renderer ends the run with
+  it", "a command that dies while a run that died elsewhere releases the renderer is in the cause" (`run.test.ts`); and
+  how `rehearse` records each defect of the program in whichever fiber, an interrupted one included, merging no causes
+  there: "a defect of what a subscription releases fails it, in a fiber of the test's that nobody joins", "a defect of
+  what a command the scenario interrupts releases fails it, alone" (`rehearse.test.ts`), "rehearse fails, as the run
+  dies, on a command that dies in a fiber nobody joins" (`contract.test.ts`); and how `scopedIn` keeps what its own
+  effect died of, to wrap apart what the release dies of: "a release that dies with a defect already recorded elsewhere
+  fails it with a second one" (`rehearse.test.ts`). That the cleanup runs however the effect ends, and that the causes
+  are merged, is documented; their order is read only in the source.
 - **A fiber interrupted while interruptible runs no failure handler**, which is how `diesIn` tells an interruption
   by the run from one the program makes: "a run interrupted by whoever runs it is no defect", "a subscription
   stopped inside an uninterruptible region is no defect" (`run.test.ts`); and beside a defect of its release, which is
@@ -119,66 +107,29 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   (`test/scheduled.test.ts`). Read in the source (`runLoop` in `internal/effect.ts`), and seen in those tests. Only
   the search of `interleaving.test.ts` rests on it, and no mutation's killer does: a model of the scheduler gone
   wrong costs a false alarm, or a missed one, never a test that passes where it should fail.
-- **`SubscriptionRef.changes` replays the latest state to a new subscriber, and a `Stream.buffer` of capacity one,
-  `'sliding'`, keeps the latest element when its consumer is slow**, so a renderer that subscribes late, or skips
-  frames, still draws the last state: "a renderer slower than the program gets only the latest frame"
-  (`run.test.ts`). That the buffer discards elements when full is documented (`Stream.buffer`), and that it discards
-  the oldest is the documented strategy of `Queue.sliding`.
+- **`SubscriptionRef.changes` replays the latest state to a new subscriber**, so a renderer that subscribes late,
+  or skips frames, still draws the last state: "a renderer slower than the program gets only the latest frame"
+  (`run.test.ts`).
 - **Effect calls each `Logger` synchronously, in the fiber that logs**, so that what it throws is a defect of
   that fiber, which `diesIn` wraps where the log is written: "a Logger that throws on the log of an accepted
   message is one defect, in the log", "a Logger that throws on what a command logs is a defect in the command"
   (`run.test.ts`). That it runs in the fiber that logs is read only in the source.
-- **`LogLevel.isEnabled` decides by `References.MinimumLogLevel`, as the logs themselves are kept or dropped**, which
-  is how the run calls `describeMessage` and `describeCommand` only while debug logs are enabled: "messages and
-  commands are described only while debug logs are enabled", and the same of a message ignored as rejected and of one
-  dropped as its subscription stopped (`run.test.ts`). Documented.
-- **A log is an event of the current span, an external span keeps none, and a span opened under an external one has
-  it as its parent**, which is how no span lives as long as the run, the fibers of the run seeing the span of whoever
-  runs it as an external one (`withExternalSpan` in `engine.ts`): "what runs in a run logs nothing into the span of
-  whoever runs it, which stays the parent of their spans" (`run.test.ts`). That a log is an event of the current span
-  is documented (`Logger.tracerLogger`), and so is a span with an external parent (`Tracer.externalSpan`); that an
-  external span keeps no event is not, and seen in that test.
+- **An external span keeps no event of the logs written under it**, which is how no span lives as long as the run,
+  the fibers of the run seeing the span of whoever runs it as an external one (`withExternalSpan` in `engine.ts`):
+  "what runs in a run logs nothing into the span of whoever runs it, which stays the parent of their spans"
+  (`run.test.ts`). That a log is an event of the current span (`Logger.tracerLogger`), and that a span opened under an
+  external one has it as its parent (`Tracer.externalSpan`), is documented; that an external span keeps none is not,
+  and seen in that test.
 - **A `WeakRef` is cleared before the `FinalizationRegistry` callback of its target runs**, and a `WeakMap` lets go
   of a value with its key: the tests of `dispatchTo` (`dispatch.test.ts`) and "a child's model is let go with its
   state" (`compose.test.ts`), under a collection the test asks for (`test/gc.ts`), on Bun and on Node.
-- **A `Queue` gives its items in the order they were offered, and a fiber that awaits a `Deferred` is interrupted
-  alone, never the fiber that completes it**, which is how `rehearse` applies one message at a time, as the run's
-  loop takes them, the fibers of the test's offering a step to one loop of its own (`loop.ts`) and awaiting its
-  result, and how an interrupted caller never splits a step: "two messages that arrive together, one stopping a
-  subscription, are both applied", "a command run while a message waits for a release leaves pending once", "send
-  selects on the model of the state its message is applied to", "a send interrupted while its message stops a
-  subscription leaves the state that stopped it" (`rehearse.test.ts`), "runs its steps one at a time, in the order
-  they were offered", "does a step whole though whoever asked for it is interrupted" (`loop.test.ts`). Documented.
-- **What `Effect.uninterruptibleMask` runs outside `restore` cannot be interrupted**, which is how `drive` stops and
-  awaits its run when whoever runs it interrupts it: "drive interrupted by whoever runs it" (`drive.test.ts`); and how
-  the end of `rehearse` takes the scenario's exit however it ends, an interruption by whoever runs it included, and
-  stops what it started before it reads what its fibers died of, the defects first: "interrupted by whoever runs it, it
-  fails on a defect of what a subscription releases", "a defect of a release still under way when the scenario returns
-  fails it", "a defect the scenario catches fails it all the same, first, and once" (`rehearse.test.ts`). It is also
-  how the fiber of a command in `rehearse` offers its answer to the loop once its effect has answered, nothing
-  interrupting it in between: a region that holds no code of the program, which no test reaches and no mutation names
-  ("one thunk" in `invariants.md`). Documented.
-- **`Effect.acquireUseRelease` lets nothing interrupt its acquisition, and runs its release however its use ends,
-  once the acquisition has succeeded, while its use can be interrupted**, which is how `rehearse`'s `run` takes its
+- **The use of `Effect.acquireUseRelease` can be interrupted**, which is how `rehearse`'s `run` takes its
   command, calls `runCommand` and forks the effect it returned with nothing in between for an interruption to fall
   into, and how an interrupted `run` cancels the command and stops its fiber, waiting for its release: "when a run
   interrupted while its command runs leaves the command unanswered", "the command is released before the interrupted
-  call returns" (`rehearse.test.ts`). The first two are documented; that the use can be interrupted is read only in
-  the source, and both tests fail with a use made uninterruptible.
-- **`Effect.scoped` closes the scope once the effect has ended, and what an effect inside it does on its exit runs
-  before the release**, which is how `scopedIn` records the defect of a command, a subscription or the renderer before
-  its release lets another fiber die: "a renderer that dies before a command is the first defect of the cause", "a
-  command that dies before another, which its release lets die, is the first defect of the cause", "a subscription that
-  dies before another, which its release lets die, is the first defect" (`run.test.ts`), "a command that dies before
-  another, which its release lets die, fails it first", "a subscription that dies before another, which its release
-  lets die, fails it first" (`rehearse.test.ts`). Documented.
-- **An effect ends with a defect only once what it wraps around its own code (`Effect.ensuring`, an `Effect.scoped`
-  of its own) has run, and `Effect.catchCause` around it recovers from the defect**, which is why the README counts a
-  defect from the end of the effect, and the engine learns of it no earlier: "a command that dies under a release of
-  its own dies once it has released, applying messages meanwhile", and the same of a subscription and of a renderer,
-  "a command that catches the defect of a scope of its own answers, and the run goes on", and the same of a
-  subscription and of a renderer (`run.test.ts`), "simulate applies, as the run does, the answer of a command that
-  catches the defect of a scope of its own", and the same of `rehearse` (`contract.test.ts`). Documented.
+  call returns" (`rehearse.test.ts`). That nothing interrupts the acquisition, and that the release runs however the
+  use ends, is documented; that the use can be interrupted is read only in the source, and both tests fail with a use
+  made uninterruptible.
 - **`Channel.toPull` keeps what a channel adds to the scope it is given, and releases none of it as the pull fails,
   while a release the channel wraps around itself (`Channel.onExit`, `Channel.acquireUseRelease`, and every operator
   that makes a scope of its own) runs as its pull fails, before the failure leaves it**. The first is how
@@ -194,28 +145,30 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   documented; what a failing pull releases is not, and is read in the source (`fromTransformBracket` in `Channel.ts`
   closes its own scope as the pull fails). The first three fail with `Channel.runForEach`, which closes a scope of its
   own before the defect leaves it, and the last two with a channel that adds its release to the scope it is given.
-- **`Effect.raceFirst` ends with the first of its effects to end, and interrupts the other, and waits for it to end,
-  its release included**, which is how a call of `rehearse`'s that waits for a subscription or a command fails as soon
-  as another fiber dies: "a hearNext waiting on its subscription fails as soon as another fiber of the test's dies", "a
-  run waiting for its command fails as soon as another fiber of the test's dies" (`rehearse.test.ts`); and how a `run`
-  whose command dies fails with what the command dies of as it releases, too: "a run whose command dies, then dies
-  again as it slowly releases, fails with both" (`rehearse.test.ts`), which fails with a race that does not wait; and
-  how `drive` ends a scenario that goes on after a defect of `makeModel`: "drive ends on the defect a scenario that
-  goes on caught" (`contract.test.ts`). That it interrupts the other is documented; that it waits for it is not.
+- **`Effect.raceFirst` waits for the effect it interrupts to end, its release included**, which is how a call of
+  `rehearse`'s that waits for a subscription or a command fails as soon as another fiber dies: "a hearNext waiting on
+  its subscription fails as soon as another fiber of the test's dies", "a run waiting for its command fails as soon as
+  another fiber of the test's dies" (`rehearse.test.ts`); and how a `run` whose command dies fails with what the command
+  dies of as it releases, too: "a run whose command dies, then dies again as it slowly releases, fails with both"
+  (`rehearse.test.ts`), which fails with a race that does not wait; and how `drive` ends a scenario that goes on after a
+  defect of `makeModel`: "drive ends on the defect a scenario that goes on caught" (`contract.test.ts`). That it ends
+  with the first of its effects to end, and interrupts the other, is documented; that it waits for it is not.
 
 A premise about what code does when it runs is checked before the change that rests on it is written, and never
 only reasoned:
 
 - **Documented, on a stable API**: the documentation is enough, since a stable API keeps its promise within the
-  major. For Effect, it is the JSDoc of its declarations in the version of the lockfile, where the peer range starts;
-  for the JavaScript engine, the ECMAScript specification. That a bug of the dependency where it promises is caught
-  by no test is a risk the rule accepts.
-- **Not documented** (read only in the source, or seen in a run): a test that fails without it. For Effect, what is
-  not promised may change in a minor version: an upgrade of Effect runs every such test before it raises the peer
-  range, and a daily job of the CI (`.github/workflows/effect-latest.yml`) runs them at the newest Effect the peer
-  range accepts, which a consumer may already have. For the JavaScript engine, the test runs on Bun, whose engine
-  is JavaScriptCore, and on Node, whose engine is V8 (`bun run test:node`, every test of `src/` and `test/` but the
-  search): what a browser could do otherwise goes under "Premises that no test reaches yet".
+  major, and it is no premise: it is not listed here. For Effect, it is the JSDoc of its declarations in the version
+  of the lockfile, where the peer range starts; for the JavaScript engine, the ECMAScript specification. That a bug
+  of the dependency where it promises is caught by no test is a risk the rule accepts. Of a behaviour documented in
+  part, only the part not promised is listed, with the rest named in a line.
+- **Not documented** (read only in the source, or seen in a run): a premise, listed here, and a test that fails without
+  it, unless a guard of the library's makes it unneeded. For Effect, what is not promised may change in a minor version:
+  an upgrade of Effect runs every such test before it raises the peer range, and a daily job of the CI
+  (`.github/workflows/effect-latest.yml`) runs them at the newest Effect the peer range accepts, which a consumer may
+  already have. For the JavaScript engine, the test runs on Bun, whose engine is JavaScriptCore, and on Node, whose
+  engine is V8 (`bun run test:node`, every test of `src/` and `test/` but the search): what a browser could do otherwise
+  goes under "Premises that no test reaches yet".
 
 What the dependencies of development do (fast-check, happy-dom, the renderers of the examples) is no premise of the
 library, and the rule leaves it out, with two exceptions. The bridges, `examples/snabbdom.ts` and
@@ -228,7 +181,8 @@ development does is still held to failing without what it checks.
 
 A premise that the rule cannot check yet holds the change up: it waits, or a guard of the library's makes the premise
 unneeded, and the premise goes under "Premises that no test reaches yet". A move to a new major of Effect, or of a
-bridge's renderer, checks every premise on it again, the documented ones included.
+bridge's renderer, checks every premise on it again, and reads what the major changed of each API the library uses:
+what it documented, listed nowhere here, may be promised no more.
 
 A review of the premises reports a finding only once it is reproduced by a test that fails, or ruled out by the check
 the rule above asks of the premise: a reading of the code alone, or of a dependency's source, gives a lead, and the
