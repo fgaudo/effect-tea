@@ -88,7 +88,10 @@ export const onSlide = (field: Field<number>, dispatch: Dispatch<Written<number>
  * way, for snabbdom: a test compares what it returns with what it reads from the model, as `list`'s does. It
  * draws the view with a dispatch that records, draws each `thunk` as the renderer would, calls every listener in
  * the tree as if `typed` was in every input, and returns the messages recorded, in the order the tree holds
- * them, as the root of the program receives them.
+ * them, as the root of the program receives them. What is written into an input is among them, as a write
+ * (`onWrite`, `onSlide`), which is no message of the model: a test that compares them with the model's leaves the
+ * writes out first. A slider gets no number, since the event it is given has only the text: its write holds
+ * `undefined`, which no slider sends.
  */
 export const messagesSentBy = <Model, Message>(
   view: View<Model, Message, VNode>,

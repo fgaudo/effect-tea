@@ -1058,8 +1058,11 @@ snabbdom 3.6.4 and React 19.3.1.
   slider; bounds that narrow draw a new slider within them, for a level within them and for one above. Seen to fail
   on an `onSlide` that writes nothing, and on a slider keyed by a constant. React's has no example: its test draws
   `volume` with a view of its own.
-- **Not done**: `messagesSentBy` gives every input the text `typed`, and a slider's `valueAsNumber` is not in its
-  stand-in of the event, so a test of a view with a slider cannot use it as it is; none does.
+- **Left as it is, and said in its comment**: `messagesSentBy` records the writes of a view's inputs among its
+  messages, which no model holds, so a test that compares them with the model's leaves the writes out first; and its
+  stand-in of the event has only the text, so a slider's write holds `undefined` (**run**, on the views of `form` and
+  `volume`). No test compares the messages of a view with inputs: a number for a slider, by an argument beside
+  `typed`, waits for one that does.
 
 ## What a consumer could notice
 
