@@ -34,23 +34,6 @@ that each leans only on those above it.
 
 ## Open problems
 
-### Found by the seventh review of the premises (November 2026)
-
-The reports are the bodies of the commits of `claude/premise-review-7-engine-a13862` (`5e34644`, `531638b`) and of
-`claude/premise-review-7-testing-3485ba` (`5b88849`, `3299b61`). Its findings are fixed. Places where the code or a
-document says otherwise than the other, from the same reports, each to be settled:
-
-- `core.ts` (the comment on a dropped message) and `engine.ts` (on `describeMessage`) promise that a run that died
-  describes no dropped message; a death recorded after the check of `Core.arrive` still lets the step describe one.
-- `docs/premises.md` names, for `Effect.raceFirst`'s wait for its loser, tests that pass without it since rehearse
-  finishes the step of a scenario that returned.
-- `docs/shared-core.md` cites a roadmap item that is gone; `loop.ts` stops the loop with `Fiber.interrupt`, unmarked.
-- Comments and names of tests that say more than they check: `run.test.ts`, "a run that died takes no message from
-  its queue while the renderer releases", and comments that still describe the run before its marks;
-  `contract.test.ts`, the comment on "rehearse fails with the defect alone, as the run dies, though a hearNext
-  waited"; `rehearse.test.ts`, "a command that answers while the end releases a subscription fails it, as one under
-  way", "a message its subscription sends after its key went away does not reach update".
-
 ### Found by a review of the invariants (November 2026)
 
 Three models read `docs/invariants.md`, `docs/premises.md` and the README's "Guarantees" against the code, each
@@ -82,8 +65,6 @@ session that wrote this, "reported" is a reviewer's claim that was not:
 - **Two ways for what arrives too late.** The run drops a message of a subscription whose key is gone; `update`
   rejects the answer of a command for what has since changed, with the care for ids that come back the README asks.
   It is what commands that cannot be cancelled cost, and is said in two places and not as one choice. Reported.
-- **The comment on `Dead`, in `step` of `engine.ts`**, says the loop takes no other message; it takes each one, and
-  applies none, until its end stops it. Checked.
 - **A parent's lifted subscriptions** are kept one for each state of a child, with the place checked, so children
   that share one state object would lift again on every change. Of speed, not of what is right. Reported, read in
   the code and not measured.

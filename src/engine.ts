@@ -391,15 +391,17 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     )
     switch (arrived._tag) {
       // Left in the queue by a subscription whose key has gone away since: it was produced after the program
-      // stopped listening, so it does not reach `update`. `Core.arrive` reads the register first: once a fiber has
-      // died, no message is dropped, so `describeMessage` is called on none.
+      // stopped listening, so it does not reach `update`. `Core.arrive` reads the register first: a message taken once
+      // a fiber has died is not dropped, so `describeMessage` is called on none of them. A death recorded after the
+      // check still lets this step describe its message, as any step goes on whole once it has passed the check.
       case 'Dropped': {
         if (debugging && source._tag === 'Subscription') {
           yield* log('Dropped a message of a stopped subscription', source.key, yield* described(message))
         }
         return active
       }
-      // A fiber died since the loop took the message: it is not applied, and the loop takes no other.
+      // A fiber had died when `Core.arrive` checked: the message is not applied, and neither is any other the loop
+      // takes until the end of the run stops it.
       case 'Dead':
         return active
       // The state the message was meant for is gone (a late answer, a second click), or it never applied.

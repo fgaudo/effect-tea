@@ -329,8 +329,11 @@ describe('rehearse', () => {
     })
 
     // The key goes away while a `hearNext` waits, in a fiber of the test's, for the message its subscription is about
-    // to send: in the run, a message of a start whose key went away never reaches `update`.
-    test('a message its subscription sends after its key went away does not reach update', async () => {
+    // to send: in the run, a message of a start whose key went away never reaches `update`. Which of the two the loop
+    // takes first is the scheduler's, and the assertion holds in either order: the message is applied before `Stop`,
+    // or not at all. That one of a start gone is dropped is the core's ("a message of an earlier start of a key that
+    // came back is dropped, dead after a death, calling nothing", `core.test.ts`).
+    test('a message its subscription sends as its key goes away never reaches update after it', async () => {
       type Listening = Readonly<{ listening: boolean; late: number }>
       type Said = 'Stop' | 'Heard'
       const late = await Effect.runPromise(Effect.gen(function*() {
@@ -1376,7 +1379,9 @@ describe('rehearse, as a fiber of the test\'s runs a command while it ends', () 
         yield* Deferred.await(started)
       }))
     }))
-    expect(Exit.isFailure(exit)).toBe(true)
+    expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain(
+      'Commands still under way when the scenario ended',
+    )
   })
 
   // The rehearsal has ended, failing on its pending command, when a fiber the scenario did not join asks to run it:

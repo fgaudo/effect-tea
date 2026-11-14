@@ -413,8 +413,8 @@ describe('how a stopped subscription ends', () => {
   })
 
   // A `hearNext` waiting when the key goes away fails with what its subscription ended with, the interruption by the
-  // rehearsal included; the scenario that joins it fails with that, and the rehearsal's cause keeps the interruption
-  // after the defect, where the run's holds the defect alone.
+  // rehearsal included; the scenario that joins it fails with that, and still the rehearsal's cause holds the defect
+  // alone, as the run's does.
   test('rehearse fails with the defect alone, as the run dies, though a hearNext waited', async () => {
     const exit = await Effect.runPromiseExit(rehearse(stopping, Effect.fnUntraced(function*(rehearsal) {
       yield* rehearsal.hearNext('ticks')

@@ -893,7 +893,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse's loop leaves its step under way to the close of its scope",
     file: 'src/testing/loop.ts',
-    from: '    yield* Fiber.interrupt(loop)\n',
+    from: '    yield* stopping(loop)\n',
     to: '',
     killedBy: [['src/testing/loop.test.ts', 'interrupts its step under way before its stop returns']],
   },

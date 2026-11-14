@@ -23,8 +23,8 @@ exists only to keep that copy in step. The deterministic part is exactly what a 
 scheduler. The library teaches the same split to its users: `update` is a pure core, and `runCommand` its shell.
 
 What a core does not reach is said too. A defect of a release is recorded only once the scope's close ends
-(`scopedIn`), and no core learns of a death before the shell does: that window is the README's to define (ROADMAP,
-"The run starts a command after a subscription's release has died"), not this note's.
+(`scopedIn`), and no core learns of a death before the shell does: that window is the README's to define (it says,
+under "Running", that the defect of a release counts once its scope has released all it holds), not this note's.
 
 ## Decision
 

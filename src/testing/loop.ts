@@ -1,8 +1,8 @@
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
-import * as Fiber from 'effect/Fiber'
 import * as Queue from 'effect/Queue'
 import type * as Scope from 'effect/Scope'
+import { stopping } from '../engine.ts'
 
 /**
  * One fiber that runs the steps it is offered one at a time, in the order they were offered, as the run's loop takes
@@ -73,8 +73,10 @@ export const make = Effect.fnUntraced(function*(
   // The queue gives its items in order, so the loop has done them all once it has done this one.
   const finish = Effect.flatMap(Deferred.make<unknown>(), (done) =>
     Effect.andThen(Queue.offer(requests, { step: Effect.void, done }), Deferred.await(done)))
+  // Stopped as the run stops each fiber of the program, with its mark, though the loop calls the program only in
+  // synchronous thunks, where no interruption of the program's can meet it.
   const stop = Effect.gen(function*() {
-    yield* Fiber.interrupt(loop)
+    yield* stopping(loop)
     yield* Effect.forEach(undelivered, Deferred.interrupt, { discard: true })
   })
   return {

@@ -1349,9 +1349,9 @@ describe('the end of the run', () => {
   })
 
   // The renderer releases slowly, while a subscription goes on sending, and each step would start a command: from the
-  // defect on, the run takes none of them from its queue, as `rehearse` stops at a defect. A step already under way is
-  // in the tests that follow.
-  test('a run that died takes no message from its queue while the renderer releases', async () => {
+  // defect on, the run applies none of the messages it takes from its queue, as `rehearse` stops at a defect. A step
+  // already under way is in the tests that follow.
+  test('a run that died applies no message of its queue while the renderer releases', async () => {
     let died = false
     let startedAfter = 0
     const exit = await Effect.runPromiseExit(run(
@@ -1724,8 +1724,8 @@ describe('the end of the run', () => {
     expect(wheres(exit)).toEqual(['log', 'subscription'])
   })
 
-  // `FiberMap.remove` leaves the fiber in the map until it has ended: the end of the run, which interrupts the loop
-  // while it waits there, still finds the fiber, and awaits its release.
+  // The run stops a key that went away with `stopping`, and the fiber stays in the map until it has ended: the end of
+  // the run, which interrupts the loop while it waits there, still finds the fiber, and awaits its release.
   test('a subscription stopped as whoever runs the run interrupts it, which dies as it releases, is in the cause', async () => {
     const exit = await Effect.runPromise(Effect.gen(function*() {
       const releasing = yield* Deferred.make<void>()
@@ -1928,10 +1928,10 @@ describe('a self-interruption as the run interrupts', () => {
     expect(selfInterruptions(exit)).toEqual(['subscription: It interrupted itself, which only the run may do'])
   })
 
-  // The run stops a subscription whose key went away with `FiberMap.remove`, which interrupts as the fiber -1, and so
-  // does every `FiberMap`, `FiberSet` and `FiberHandle`: the interruption a subscription makes itself, by joining a
-  // fiber that a map of its own interrupted, is taken for the one it received, and it ends in silence. With no
-  // interruption by the run, or with `Fiber.interrupt` as above, the same join is a defect.
+  // Every `FiberMap`, `FiberSet` and `FiberHandle` interrupts as the fiber -1: the interruption a subscription makes
+  // itself, by joining a fiber that a map of its own interrupted, has no mark, and is not taken for the one the run
+  // gives it as it stops it, which has one (`stopping`). The same join is a defect, as with no interruption by the
+  // run.
   const joinsWhatItsMapInterrupted = (started: Deferred.Deferred<void>) =>
     Effect.uninterruptible(Effect.gen(function*() {
       const map = yield* FiberMap.make<string>()
@@ -2020,8 +2020,8 @@ describe('a self-interruption as the run interrupts', () => {
 
   // The end of the run interrupts the renderer, the commands and the subscriptions as the fiber the run is in. A fiber
   // that very fiber interrupted before, which an effect of the program joins as the run ends, fails with an
-  // interruption of the same fiber id: it is taken for the one the effect received, and the effect ends in silence.
-  // Joined in a run that goes on, it is a defect.
+  // interruption of the same fiber id but with no mark: it is not taken for the one the effect received, and is a
+  // defect, as it is when joined in a run that goes on.
   const joinsOnceInterrupted = (started: Deferred.Deferred<void>, stale: Fiber.Fiber<never>) =>
     Effect.uninterruptible(Effect.gen(function*() {
       yield* Deferred.succeed(started, undefined)

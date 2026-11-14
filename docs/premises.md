@@ -145,14 +145,12 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   documented; what a failing pull releases is not, and is read in the source (`fromTransformBracket` in `Channel.ts`
   closes its own scope as the pull fails). The first three fail with `Channel.runForEach`, which closes a scope of its
   own before the defect leaves it, and the last two with a channel that adds its release to the scope it is given.
-- **`Effect.raceFirst` waits for the effect it interrupts to end, its release included**, which is how a call of
-  `rehearse`'s that waits for a subscription or a command fails as soon as another fiber dies: "a hearNext waiting on
-  its subscription fails as soon as another fiber of the test's dies", "a run waiting for its command fails as soon as
-  another fiber of the test's dies" (`rehearse.test.ts`); and how a `run` whose command dies fails with what the command
-  dies of as it releases, too: "a run whose command dies, then dies again as it slowly releases, fails with both"
-  (`rehearse.test.ts`), which fails with a race that does not wait; and how `drive` ends a scenario that goes on after a
-  defect of `makeModel`: "drive ends on the defect a scenario that goes on caught" (`contract.test.ts`). That it ends
-  with the first of its effects to end, and interrupts the other, is documented; that it waits for it is not.
+- **`Effect.raceFirst` waits for the effect it interrupts to end, its release included**, which is how `drive`
+  returns, once the run has died, only after the scenario it interrupts has released what it holds: "returns once the
+  scenario has released what it holds" (`drive.test.ts`), which fails with a race that does not wait. That it ends
+  with the first of its effects to end, and interrupts the other, is documented; that it waits for it is not. The races
+  of `rehearse` (`orDead`) rest on the documented part alone: what they interrupt waits on a `Deferred` or joins a
+  fiber, and holds nothing to release.
 
 A premise about what code does when it runs is checked before the change that rests on it is written, and never
 only reasoned:

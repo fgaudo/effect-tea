@@ -297,6 +297,31 @@ describe('drive interrupted by whoever runs it', () => {
   })
 })
 
+// A run that dies ends the scenario: `drive` interrupts it, and returns once it has released what it holds, as it
+// waits for the run (`Effect.raceFirst` waits for the effect it interrupts, `docs/premises.md`).
+describe('drive and a scenario the death of the run interrupts', () => {
+  type Still = Readonly<{ still: boolean }>
+
+  test('returns once the scenario has released what it holds', async () => {
+    const log: Array<'released' | 'drive ended'> = []
+    const program: Program<{ state: Still; model: Still; message: never }> = {
+      init: { state: { still: true } },
+      update: () => (state) => ({ state }),
+      makeModel: (state) => state,
+      subscriptions: () => HashMap.make(['dies', Channel.fromEffectDone(Effect.die('boom'))]),
+    }
+    await Effect.runPromise(Effect.gen(function*() {
+      yield* Effect.exit(drive(program, () =>
+        Effect.onInterrupt(
+          Effect.never,
+          () => Effect.andThen(Effect.sleep('20 millis'), Effect.sync(() => log.push('released'))),
+        )))
+      log.push('drive ended')
+    }))
+    expect(log).toEqual(['released', 'drive ended'])
+  })
+})
+
 // Found by the sixth premise review of November 2026: `drive` forks the run, then calls `scenario`. One that throws
 // before it returns its effect ends `drive` there, past the lines that stop the run and await it: the run starts
 // after `drive` has ended, and goes on until the fiber of whoever ran `drive` ends.
