@@ -14,6 +14,7 @@ version, and everything else, features included, the patch version.
 ### Changed
 
 - The peer dependency on `effect` is `^4.1.4`, where it was `^4.0.0`, and starts at the Effect it is developed with.
+- A child whose state is not an object, past the types, is a `CompositionDefect` that names it, not a `TypeError`.
 - `simulate` and `rehearse` read `subscriptions` on each new state, as the run does, and fail where it dies of them.
 - `simulate` and `rehearse` fail with a `ProgramDefect` on a command or subscription that interrupts itself.
 - `simulate`, `rehearse` and `drive` fail with a `ProgramDefect` in the run's site, where they failed with the defect.

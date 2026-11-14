@@ -536,6 +536,31 @@ describe('children by id', () => {
       }))
   })
 
+  // Only a cast, or a caller without TypeScript, gets a primitive state past the types.
+  test('a child whose state is not an object is a defect that names it, in its model and in its subscriptions', () => {
+    const Tickers = parent<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
+    const primitive = 0 as unknown as Ticks
+    const counting = Tickers.compose({
+      init: () => ({ state: { ids: [7] } }),
+      children: {
+        Tickers: Tickers.each(ticker, {
+          get: (state, id: number) => state.ids.includes(id) ? Opt.some(primitive) : Opt.none(),
+          set: (state) => state,
+          subscribed: (state) => state.ids.map((id) => [id, primitive] as const),
+        }),
+      },
+      onEvent: {},
+      makeModel: (state, children) => state.ids.map((id) => children.Tickers(state, id)),
+    })
+    const defect = new CompositionDefect({
+      message: 'The state of "Tickers" is a number, where a program keeps its state in an object',
+      child: 'Tickers',
+      id: 7,
+    })
+    expect(() => counting.makeModel(counting.init.state)).toThrow(defect)
+    expect(() => subscriptionsOf(counting)(counting.init.state)).toThrow(defect)
+  })
+
   // Rows of tickers, each in a state of its own; `calls` counts the calls of the ticker's `subscriptions`.
   const countedTickers = () => {
     const counted = { calls: 0 }

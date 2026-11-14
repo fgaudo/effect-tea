@@ -52,9 +52,6 @@ session that wrote this, "reported" is a reviewer's claim that was not:
   part, on what Effect does not document, and `^4.1.4` accepts minors no test has run on. The daily job tells of a
   break, and does not protect a consumer already there. A range that stops at the minors tested, widened on each
   green run, was proposed. Reported.
-- **"Every program keeps its state in an object"** is under "What the engine keeps for itself" in
-  `docs/invariants.md`, and binds whoever writes a program. A primitive state that gets past the types dies of the
-  `WeakMap`'s own `TypeError`, not of a `CompositionDefect` (reported).
 - **Two ways for what arrives too late.** The run drops a message of a subscription whose key is gone; `update`
   rejects the answer of a command for what has since changed, with the care for ids that come back the README asks.
   It is what commands that cannot be cancelled cost, and is said in two places and not as one choice. Reported.

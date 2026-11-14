@@ -291,6 +291,13 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
       ...(isEach(place.name) ? { id: place.id } : {}),
       ...(on === undefined ? {} : { on }),
     })
+  // The types require an object, by which a child's model and lifted subscriptions are kept: only a cast, or a
+  // caller without TypeScript, gets a primitive this far, which a `WeakMap` would refuse with a `TypeError`.
+  const objectAt = (place: Place, childState: unknown): object => {
+    if (Predicate.isObjectKeyword(childState)) return childState
+    const kind = childState === null || childState === undefined ? String(childState) : `a ${typeof childState}`
+    throw defectAt(place, `The state of "${place.name}" is ${kind}, where a program keeps its state in an object`)
+  }
   const onEventAt = (place: Place, event: unknown): (state: State) => Step<State, Command, Event> => {
     const handle = onEvents[place.name]
     if (handle === undefined) {
@@ -363,8 +370,7 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
   // places share is lifted again when it moves from one to the other.
   const lifted = new WeakMap<object, Readonly<{ place: Place; subscriptions: Lifted }>>()
   const liftedAt = (place: Place, childState: unknown): Lifted => {
-    // An object, as the types require: a primitive here is a defect, raised by the `WeakMap`.
-    const kept = lifted.get(childState as object)
+    const kept = lifted.get(objectAt(place, childState))
     if (kept !== undefined && kept.place.name === place.name && Equal.equals(kept.place.id, place.id)) {
       return kept.subscriptions
     }
@@ -387,11 +393,13 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
   }
   const modelAt = (place: Place, parentState: State) => {
     const { program } = childOf(place.name)
-    // An object, as the types require: a primitive here is a defect, raised by the `WeakMap`.
-    const childState = Opt.getOrThrowWith(
-      getAt(place, parentState),
-      () => defectAt(place, `The model of "${place.name}", which is not in this state`),
-    ) as object
+    const childState = objectAt(
+      place,
+      Opt.getOrThrowWith(
+        getAt(place, parentState),
+        () => defectAt(place, `The model of "${place.name}", which is not in this state`),
+      ),
+    )
     const kept = modelsOf(program)
     if (kept.has(childState)) return kept.get(childState)
     const model = program.makeModel(childState)

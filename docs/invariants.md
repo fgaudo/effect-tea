@@ -36,6 +36,14 @@ testing tools.
   child has events, a handle's `update` only with a child's `external` messages, no own message or command
   named like a child. A program written without `Program<…>` has `unknown` types, read as `never` (`Known` in
   `program.ts`), so that it does not open these checks.
+- **Every program keeps its state in an object**, replaced and never mutated, so that any program can be a child: a
+  parent keeps a child's model and its lifted subscriptions by its state object (below), and a number or a string
+  has no identity to keep them by. It binds whoever writes a program, and the types are what enforce it
+  (`ObjectState` in `program.ts`, checked by `Program`, `parent`, `child`, `each`, `run` and the testing tools). A
+  primitive state gets past them only by a cast, or from a caller without TypeScript: a program run alone never needs
+  its state to be an object, and is not checked, while a child's is checked where a parent reads it for a model or
+  for its lifted subscriptions (`objectAt` in `compose.ts`), and is a `CompositionDefect` that names the child, since
+  the state is the one the parent's `get` declared, where a `WeakMap` would raise its own `TypeError`.
 - **Running a dispatch needs no services and completes synchronously**: it only offers the message to the
   engine's unbounded queue, which wakes the engine on the scheduler of the run that made it, so that renderers
   send from plain callbacks with `Effect.runSync`. Keep the queue unbounded (one that waits when full would make
@@ -148,9 +156,8 @@ testing tools.
   states being replaced, never mutated, and hold nothing of the run, so runs that share a state share them. A
   model holds nothing of its place either, so children that share a state share its model; lifted subscriptions
   carry their place, which is checked rather than kept, one per state, so that ids never pile up under a shared
-  state. That is why every program
-  keeps its state in an object (`ObjectState` in `program.ts`, checked by `Program`, `parent`, `child`, `each`,
-  `run` and the testing tools): never add a cache for primitive states, which nothing could let go of.
+  state. They need the state to be an object, which every program keeps (above): never add a cache for primitive
+  states, which nothing could let go of.
 - **A child's dispatch is the same while anyone holds it** (`dispatchTo` in `dispatch.ts`): kept weakly by its
   parent's dispatch, its name and its id (compared with `Equal`, as subscription keys are), and removed by a
   `FinalizationRegistry` once collected. Never hold them strongly: ids that are never reused, as the README

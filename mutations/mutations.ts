@@ -567,6 +567,18 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: "a child's state that is not an object dies of the WeakMap's TypeError",
+    file: 'src/compose.ts',
+    from: '    if (Predicate.isObjectKeyword(childState)) return childState\n',
+    to: '    return childState as object\n',
+    killedBy: [
+      [
+        'src/compose.test.ts',
+        'a child whose state is not an object is a defect that names it, in its model and in its subscriptions',
+      ],
+    ],
+  },
+  {
     // Both checks: the second dies on an own key too, since the lifted keys are set among the own ones.
     name: 'an own key equal to a lifted one is no defect',
     file: 'src/compose.ts',
