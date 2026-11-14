@@ -36,7 +36,7 @@ What each found that the inventory did not have is in this document as `1d0ccc9`
   a parent's wraps what it returns (item 9).
 - **A reader that forgets a field is found only by `Missing`**, in a state where `update` accepts the field's
   message and the test lists it among the candidates. The reader is trusted as the candidates are (see
-  [`declared-inputs.md`](declared-inputs.md), "What is left of it").
+  [`declared-inputs.md`](declared-inputs.md), "What still makes sense").
 
 ## Candidates
 
