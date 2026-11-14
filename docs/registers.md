@@ -3,9 +3,10 @@
 **Status:** being explored, 14 November 2026. Nothing of it is decided, and no file of the library has changed. It
 records a discussion with the owner, two reviews by Fable 5.2 (one of a design, one asked for ideas), and one spike,
 kept on the branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never to be merged), on Effect
-4.1.4 and Bun 1.4.4. What the spike ran is marked **run**; what was read in the code at `beaba6f`, **checked**; what
-was only argued, **reasoned**. It reopens the aim of [`declared-inputs.md`](declared-inputs.md), suspended the same
-day, by another way, and leans on [`inert-steps.md`](inert-steps.md), which it would simplify.
+4.1.4 and Bun 1.4.4, and the six checks that followed, each on a branch of its own ("What the checks found"). What
+the spikes ran is marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued,
+**reasoned**. It reopens the aim of [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another
+way, and leans on [`inert-steps.md`](inert-steps.md), which it would simplify.
 
 ## Context
 
@@ -296,6 +297,138 @@ above for the first two.
 5. **Whether the library is needed**: an opaque `Field` in the example (way 2), and whether it holds the generation
    with no help.
 6. **A register that is not text**: a numeric slider in an example, with its bridge.
+
+All six were done the same day, each on a branch of its own, none to be merged; what they found is next.
+
+## What the checks found
+
+### 1. The engine's checks on the spike
+
+`test:node` (481), `interleavings` (14) and `mutations` (89 of 89 killed) pass on `0c6a357`. **Run.** They say
+little: the spike changes `examples/` only, and none of them runs the examples' tests. The spike breaks nothing of
+the engine; it is not checked by them.
+
+### 2. The late keystroke on `main` is real, and worse than argued
+
+Branch `claude/spike-register-late-key-6cb914`, `examples/form/late-key.test.ts`: two tests through `run`, with a
+renderer that draws synchronously and then waits for an animation frame, as the bridges do. **Run**, and seen to
+fail when `update` rejects the late key. The order needs only that the save ends, and `SaveSucceeded` is applied,
+within one animation frame of the click: the sliding buffer of one in `src/run.ts` then drops `Saving`, the input of
+revision 0 stays on screen, enabled, and a key typed into it is queued by `dispatch` with nothing that ties it to its
+frame. `Field.typed` stores it under revision 1. Two orders follow, both reached by the test:
+
+- **the loop wakes before the next render**: the input of revision 1 is created showing the late text. Screen and
+  state agree, but the clearing the save did is undone;
+- **the browser renders between the key's task and the loop's**: a dispatch wakes the loop through the scheduler,
+  while `Effect.callback` resumes the renderer at once, in the frame's callback (read in Effect's
+  `callbackOptions`, and asserted by the test). The input of revision 1 is created empty, then the state becomes
+  `{ text: 'Ada x', revision: 1 }`; `initialValue` counts only at creation, so the input stays empty, and Save is
+  offered for, and saves, a text nobody sees.
+
+It is not the form's bug alone: it holds for every input on `main` whose text the program replaces, since neither
+the run nor the engine ties a dispatch to the frame drawn. A write that carries the revision it was typed into, as
+the spike's `Typed` does, rejects it in both orders.
+
+### 3. "A model is data" holds as a test, and the trap is narrower than argued
+
+Branch `claude/spike-register-model-data-52ba83`, in `examples/form/form.test.ts`: for states drawn by fast-check,
+two deep copies built apart give two models equal by `Equal`. It passes on the spike's form and fails at once on
+`main`'s (`Idle` with a name `''`, whose model holds `changeName`). **Run.**
+
+The trap of the cache was argued wrong in one respect: `main`'s form is not composed, so two calls of `makeModel`
+on the same state fail too. The trap is real for a composed program only, and goes deeper than the outer state:
+`compose` keeps a model for each state object, a child's included, so `{ form: d }` built twice around one `d`
+passes with a function in the model. The copy must reach every child's state. **Run.**
+
+As a check of the tools it would need a copy the library cannot make (`structuredClone` loses the prototypes of
+`Data`, of classes and of `Option`): at most `modelViolations(program, copy)`, which would earn its place only by
+saying where two models differ. A walk of a model's own properties for functions needs no copy, but checks "holds
+no function" and not "compares by value": a `Date` or a `Map` passes it. The recipe in "Testing" is the cheaper
+form, and comes only with the sentence of the README.
+
+### 4. Two fields, and a field in a child
+
+Branch `claude/spike-register-shapes-ea38c5`: `examples/contact` (Name and Email, two `Field` children) and
+`examples/notes` (a list by id, each note a parent of its own field). **Run**, and the check of the revision seen
+to be needed by three of their tests.
+
+- Both held on the library as it is: four lines for each field (the `child` and its optic, the initial value, the
+  field in `makeModel`, the `dispatchTo` in the view), and a writer for each program in the tests. The logs read
+  `Name › Typed` and `Note › Text › Typed`, never the text. A late write is rejected through two levels, after a
+  discard and after the note is removed. `parent` still needs `command: Command` named; a parent with messages of
+  its own and no commands infers them with nothing named.
+- **Two children placed at the same optic compile and run with no error**, and a write sent to the wrong field is
+  stored when the revisions coincide: the revision belongs to a field, not to the place the view took it from.
+- **A replacement is never idempotent.** `replace` always grows the revision, so "Clear" on two empty fields acted
+  twice, and `dispatchViolations` found it (`ActsTwice`): every control that replaces must be rejected, and absent
+  from the model, where the replacement would change nothing but the revision.
+- A note became a `compose` only to hold a field: with way 1, every program with an input is a parent. Writing into
+  a nested field from a test is the clumsiest part: the path written by hand, and in `rehearse` and `drive` a lookup
+  of the note by id before each write.
+- `simulate`, `rehearse` and `drive` accept no late write from a view, by design: it is tested on `update`, or with
+  `applyAll`.
+
+The shapes argue weakly for `input(at)` under `parent` (way 3), more for a typed writer (way 5) and for a register
+declared in the program's shape, so that a note need not become a parent. Neither way 1 nor way 3 closes the wrong
+optic or the replacement that acts twice.
+
+### 5. An opaque `Field` is not enough
+
+Branch `claude/spike-register-opaque-3fc182`: `Field` a class with a private constructor and a private member, so
+the compiler tells it apart by name while the object holds only `text` and `revision`; `Equal` still compares it by
+its keys, as Effect 4 does for an instance of a class, and the logs and the tools are unchanged. **Run.**
+
+| Attempt | Caught by |
+| --- | --- |
+| `{ text, revision }` by hand, `{ ...old, text }`, `new Field(...)`, `name.text = ...` | the compiler |
+| `make('')` in place of `replace` | the form's tests and the bridges' |
+| a field taken from an earlier state | the tests |
+| `replace(oldField, '')` | only a new property: a step never takes the field to an older revision |
+| a `Typed` built by hand | the tests |
+
+The type closes the slips of writing; it cannot stop a program from returning a valid field taken from elsewhere,
+since the field lives in the parent's state, which the parent returns whole. Only the library could: by checking,
+around every step, that the revision at the register's place never decreases and that its text changes at the same
+revision only by a write; or by never giving the program the field as a value to write. That is the reason
+`AGENTS.md` gives for a type to be the library's.
+
+### 6. A slider, and the field generic over its value
+
+Branch `claude/spike-register-slider-f36368`: `Field<A>`, `{ value, revision }`, with `Written<A>`, and
+`examples/volume`, a level that Mute takes to 0 by a `replace`, Unmute gives back, and Quiet hours caps at 30, on
+the snabbdom and React bridges (`onSlide`, reading `valueAsNumber`), tested in happy-dom. **Run**, and seen to fail
+without the check of the revision and without the `replace` described next.
+
+- **One rule for every type.** The field compares revisions only, never values, so `A` needs no `Equal`.
+- **Bounds are nobody's.** A write goes to the child, so the program cannot reject it, and the generic field
+  accepts any number. A program that **narrows** the bounds must `replace`, even when the value is within them, or a
+  slider drawn with a maximum of 100 writes 80 under a maximum of 30. Widening needs none, and a drag goes on. A
+  register that holds its bounds would break the one rule.
+- **Parsing.** A range input's `valueAsNumber` is never `NaN`: the browser clamps it to its bounds and step. `NaN`
+  comes from an empty `<input type="number">`, another register: a `Field<string>`, or a `Field<Option<number>>`.
+- **A stale write during a drag** is still right to reject: Mute recreates the slider, the bridges drop the old
+  listener, and only a write sent before Mute and handled after it is stale. Mute wins.
+- **Where it does not hold**, **reasoned**: a progress bar the program moves on every tick. Each tick is a
+  `replace`, which recreates the slider under the pointer and rejects the drag: it needs a state of dragging, with
+  fixed messages for its start and end, as the line above about drags says.
+- **A file**, **reasoned**: the rule of the revision holds, but a `File` compares by reference, against "a model is
+  data". The cleanest way seen is a register holding an id, with the `File` in a service the upload's command
+  reads. A `replace` can only empty the input: a new key is a new, empty input, since a script cannot give one a
+  file.
+
+### What it changes in the open questions
+
+- **The late keystroke** is a bug of `main`, held by a test through a run, and closed by a write that carries its
+  generation. It is a reason for registers of its own, apart from the owner's wish for no function in a model.
+- **The generation needs the library to be enforced** (check 5), by a check around every step or by a register the
+  program never writes as a value: the condition `AGENTS.md` sets for a type of the library holds.
+- **A child is the wrong vehicle** (checks 4 and 5): it makes every program with an input a parent, lets two
+  children share an optic, and gives the program the field as a value. It points to the third answer of the first
+  open question, a register as a part of the program's shape.
+- **Two new rules**, whatever the way: a replacement that changes nothing is rejected, or it acts twice; a program
+  that narrows a register's bounds replaces it.
+- **"A model is data"** holds as a test, at the cost of a copy of the state written by the user that reaches every
+  child.
 
 ## What a consumer could notice
 
