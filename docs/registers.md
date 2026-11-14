@@ -3,8 +3,9 @@
 **Status:** being explored, 14 November 2026. Nothing of it is decided, and no file of the library has changed. It
 records a discussion with the owner, two reviews by Fable 5.2 (one of a design, one asked for ideas), and one spike,
 kept on the branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never to be merged), on Effect
-4.1.4 and Bun 1.4.4, and the six checks that followed, each on a branch of its own ("What the checks found"). What
-the spikes ran is marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued,
+4.1.4 and Bun 1.4.4, the six checks that followed, each on a branch of its own ("What the checks found"), and a
+third review by Fable 5.2, asked what to adopt, with a spike of its own ("An independent opinion"). What the spikes
+ran is marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued,
 **reasoned**. It reopens the aim of [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another
 way, and leans on [`inert-steps.md`](inert-steps.md), which it would simplify.
 
@@ -429,6 +430,115 @@ without the check of the revision and without the `replace` described next.
   that narrows a register's bounds replaces it.
 - **"A model is data"** holds as a test, at the cost of a copy of the state written by the user that reaches every
   child.
+
+## An independent opinion: an input declared in `compose`, its revision derived
+
+After the checks, a third review by Fable 5.2 was asked which design to adopt, free to change the invariants, with
+the owner's aim: elegant, pure, coherent, and confined to what the library should give its users. It spiked its
+answer on the branch `worktree-agent-a999dbf34f0675ed0` (commit `6b97cb6`, cut from `c263478`, never to be merged).
+It reports `bun run typecheck`, `lint`, `test` (556), `test:node` (496) and `interleavings` (14) green, and
+`mutations` printing 88 of 88 killed with its exit code not captured; typecheck and the 31 tests of `src/input.test.ts`
+and `examples/form` were run again apart, green. **Run.**
+
+### The design
+
+- **Added**: `Field<A>`, `{ value, revision }`, a type of the library read by hand; `field(value)`, what a program
+  starts or replaces an input with; `write(field, value)`, the message `Written<A>`, `{ _tag: 'Written', value,
+  revision }`; `parent().input(at)` and `inputs` in `compose`, beside `children`, which becomes optional. About 100
+  lines, in `src/input.ts` and `compose.ts`.
+- **Removed**: `examples/field.ts`, `replace`, and the functions of a model such as `changeName`.
+- **The rule, the library's**: a write at the revision held is stored, whatever its value, and a write of the value
+  held returns the same state; a write at another revision is rejected, so `onIgnored` hears it; after any other
+  step, an input whose place holds another object gets the revision before it plus one. The program never handles a
+  revision: it replaces a field by putting `field('')` in its place.
+
+```ts
+const { input, compose } = parent<{ state: State; command: Command }>()
+export const form = compose({
+  init: () => ({ state: { name: field(''), save: Save.Idle(), saved: [] } }),
+  inputs: { Name: input(Optic.id<State>().key('name')) },
+  update: (message: Own) => (state) => { /* SaveSucceeded returns { ...state, name: field('') } */ },
+  runCommand,
+  makeModel: (state) => ({ name: state.name, editor: /* fixed messages only */ }),
+})
+// view: key: model.name.revision, initialValue(model.name.value), onWrite(model.name, dispatchTo(dispatch, 'Name'))
+// test: { _tag: 'Name', message: write(model.name, 'Ada') }
+```
+
+A field in a child by id is an input of the child's own `compose`, reached by nested `dispatchTo`.
+
+### Why, by the review
+
+- **Pure**: a write is an ordinary message of the composed program, so the state stays the fold of `update` over the
+  messages. The engine, `core.ts`, `applyAll`, `simulate`, `rehearse`, `drive` and `dispatchViolations` do not change.
+- **The library's own idiom**: another object means changed, as for frames and for a child's model.
+- **Nothing to get wrong**: no opaque type, no `replace`, no check that can fail, no defect.
+- **Not a child**: the field is the program's own state, so "a parent never reads a child's state" stays whole.
+- "Nothing new in the library" was weighed at its best, a message with a hole held as data that the bridge fills,
+  which closes the late key at no cost of API. It was left because the rule would be the same in every program, which
+  is what a function of the library is for, and because only the library can make the revision impossible to get
+  wrong.
+
+### Evidence
+
+- **Run**: the late key, `late-key.test.ts` ported from its branch, is ignored in both orders, the new input stays
+  empty and no Save is offered.
+- **Run**: five checks of `compose` taken out by hand one at a time, each seen to fail tests: no check of the revision
+  on a write (6, both of the late key), a replacement keeping the revision the program gave (11), a write of the value
+  held making a new field (1), a child's step or an `onEvent` counted as a replacement (1), a write counted as one
+  (10).
+- **Run**, in `src/input.test.ts` (17 tests): two inputs in one program, one a `Field<number>`; an input at an
+  optional place; an input in a child by id; an undo that restores an older state, where the revision still grows and
+  the old write is rejected; the types refusing a value of the wrong type, the wrong input's name, an own message
+  named as an input, `input` at a place that holds no field.
+- **Run**: `examples/form` on both bridges, with the property "a model is data" (the same seed drawn twice gives two
+  equal states built apart, with no copy written by hand) and a `dispatchViolations` test that draws no text and needs
+  no `withheld`.
+- A finding of types: with no `children`, a command returned was inferred as a child's; inferring the children and
+  the inputs only from `children` and `inputs` fixes it.
+- **Not done**: the five checks in `mutations/mutations.ts`; `build`, `smoke` and the report of the API; a slider on a
+  bridge, the generic `A` being covered by the unit tests alone.
+
+### What it would change for users
+
+- Additive as API. Breaking only through the README's rule: a model that holds `changeName` breaks "a model is data".
+- "Messages live in the model": a value the user gives is no message; the model holds the field of an input and the
+  view writes into it with `write`; a model holds no function and compares by `Equal`.
+- "Inputs the user types into": the library keeps the rule for a declared input, and rejects what was written into an
+  input since replaced; `initialValue` and `key` stay the bridges'.
+- "Testing": readers and candidates hold fixed messages only.
+- `docs/invariants.md`: an input's revision is the library's; a step that leaves another object in its place gets the
+  next; a write is stored at the revision it carries or rejected; a program never chooses or restores a revision.
+- "`reject` means one thing" holds: a stale write does not apply in the state, and no third way for what arrives too
+  late is added. No guarantee of the run changes.
+
+### Where it departs from "What it changes in the open questions"
+
+- **`compose` is the home, not the engine.** A register applied by the engine changes the state with no `update`: it
+  breaks replay with `applyAll`, and needs `Core`, `Applied`, `Ignored` and `Origin`, the three tools, the contracts,
+  and a lifting of a child's registers. In `compose` it is about 60 lines.
+- **The generation is derived**, a third way beside a check around every step, which can only fail (a defect on an
+  undo by snapshot), and a replacement asked in the `Step`, which adds a shape.
+- **The two rules are not new**: a replacement that changes nothing is "show less than `update` accepts" and
+  `ActsTwice`; narrowed bounds are "validity is model data", by a new field in its place or a value clamped in
+  `makeModel`.
+- **"A model is data" needs no copy** written by the user: a seed drawn twice gives two states built apart.
+
+### Against, by the review itself
+
+- **`update` returns a state the program did not write**: `compose` stamps the revision, so the function given to it
+  and `form.update` differ, and a test of the former sees revision 0. It is the first time `compose` changes a
+  parent's own state.
+- **A program with one input is made with `parent()`**, a word that is wrong for it; judged cheaper than a second way
+  to declare one, or than teaching the engine.
+- **Re-initialisation is not covered**: a parent that replaces a child's whole state restarts its fields at revision
+  0, and a stale write at 0 can land, as with ids that come back. No design with the revision in the state closes it.
+- **Identity, not value**: `field('')` over an empty field is a new revision, so `ActsTwice` still finds a Clear always
+  shown. By `Equal` it would be idempotent, but a new input could not be forced, which narrowed bounds need.
+- **A write sent through the wrong input's dispatch** lands when the two have the same type and revision: the class of
+  a wrong `dispatchTo` for a child today.
+- **Open**: a `File`; a reaction to every keystroke, which it would make a subscription keyed by the value; whether
+  `inputs` takes a `get` and `set`, or a form like `each`.
 
 ## What a consumer could notice
 
