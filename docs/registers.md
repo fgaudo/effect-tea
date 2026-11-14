@@ -42,7 +42,8 @@ carries the revision it was typed at), or leave it to the implementation. It is 
 
 **Open whatever the choice**: a child re-initialised by its parent, and an optional place that comes back, restart
 an input's revision, which no rule of before and after closes; a `File`; a reaction to every keystroke; the name of
-a program that has inputs and no children. See "To explore".
+a program that has inputs and no children. See "To explore", and, for the subscriptions, "What is to be checked of
+them, with an input declared in `compose`".
 
 **Once decided**, an implementation on a branch of its own, from `main`, following `change-api` and
 `change-engine`: the design ported from its spike; the checks of `compose` as mutations (`mutations/mutations.ts`);
@@ -250,6 +251,36 @@ They do what they do today. The line above takes from them the temptation of inp
 through a key. What stays open is what it was: a key's messages are judged by no tool, and whether the test lists
 them, the program exports them or the subscription declares them is still the question of `ROADMAP.md` ("What a key
 sends is not data"). It now concerns only sources that exist whatever is drawn.
+
+### What is to be checked of them, with an input declared in `compose`
+
+Added after the two opinions. None is run; each is a test before it is a sentence.
+
+- **An input lifts no subscription.** In `spike/register-input-by-value`, `compose` lifts the subscriptions of the
+  names of `children` only, and an input's program has none (`src/compose.ts`, **checked**). A test is to hold it: a
+  program with inputs and subscriptions of its own keeps its keys, and no key under an input's name appears.
+- **A reaction to every keystroke as a subscription keyed by the value** (an autosave, a search as one types), as
+  the first opinion would make it. Through a run: each write ends the subscription of the old value and starts one
+  for the new, which debounces by itself; a value typed back ('a', 'ab', 'a') starts one anew, which is to be
+  squared with "an ended one is never restarted automatically", since the key went away between; with (A), a
+  replacement by an equal value, and `renewed`, restart nothing when the key is the value. Whether the key should be
+  the value, the revision, or both, is to be decided from it.
+- **The cost of a keystroke.** Every write is a new state, so `subscriptions(state)` and the reconciliation by key
+  run on each: the lifted subscriptions of the children are kept by their state objects, which a write into the
+  parent's input leaves alone. To be measured with `bench/`, under "frames cost only what is drawn".
+- **A subscription that writes into an input** (a dictation, a scanner of codes). It would send `write(field, v)`
+  with the field it started with, and after a replacement every write of it is rejected, unless it is keyed by the
+  revision. Whether a subscription may write into an input at all, or sends a message of the program that puts a
+  `field(v)` in the place, is to be decided, by a test of each.
+- **The order of a write among the rest, searched.** The late key is held by two deterministic orders. The search of
+  interleavings (`interleaving.test.ts`) draws clicks, answers and subscription messages, not writes: drawn writes,
+  current and stale, would search the guarantees with inputs among them, the start and stop of a subscription once
+  the new state is published included. A change of the search follows `change-engine`.
+- **Where a drag falls now.** A native range is an input; a drag the program draws (a canvas, a sortable list) is a
+  fixed start and a subscription keyed by the state of dragging. Whether its moves write into an input or are
+  messages of the program is to be spiked on the input's design.
+- **No control drawn still goes through a key.** The examples are to be read for a subscription that a control
+  drawn on screen feeds, so that "What a key sends is not data" is left with sources that exist whatever is drawn.
 
 ## Alternatives weighed the same day
 
