@@ -706,9 +706,11 @@ What you can rely on:
   message as it is emitted, and a command's answer as the command ends.
 - **Outdated clicks are harmless.** A message `update` rejects is ignored: the state stays as it was, however
   many messages came in between.
-- **Subscriptions follow their keys.** A subscription runs exactly while its key is in the state. When the key
-  goes away, it is interrupted and releases what it holds, and nothing it sent reaches `update` afterwards,
-  even if the same key comes back later.
+- **Subscriptions follow their keys.** A subscription starts when a new state brings its key, and is interrupted
+  when a new state takes it away: both once that state is published for the renderer, before the run takes the
+  next message. One that ends stays ended while its key stays, until the key goes away and comes back. When the
+  key goes away, the subscription releases what it holds, and nothing it sent reaches `update` afterwards, even
+  if the same key comes back later.
 - **Nothing outlives what acquired it.** Each command, each subscription and the renderer has a scope of its
   own. What it acquires is released when it ends or, when the run ends, once it has been interrupted, never
   while it still runs. The subscriptions one message stops are released together, and the next message waits

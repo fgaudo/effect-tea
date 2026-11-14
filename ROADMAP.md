@@ -48,10 +48,6 @@ session that wrote this, "reported" is a reviewer's claim that was not:
   data" is of the logs, and a crash report leaves the device more often than a debug log. An option `describeKey`,
   beside `describeMessage`, was proposed; a tag of the key's is not one, since a key is a string or a tuple.
   Checked.
-- **"A subscription runs exactly while its key is in the state"** (README, "Guarantees") says more than the run
-  does: the frame of a state without the key is published before the key's subscription is interrupted, and one
-  that ended does not run while its key is listed. Nothing reaches `update` meanwhile. Checked for the order of the
-  step; `docs/single-owner.md` says the first.
 - **The peer range is wider than what is tested.** About seventeen entries of `docs/premises.md` rest, in some
   part, on what Effect does not document, and `^4.1.4` accepts minors no test has run on. The daily job tells of a
   break, and does not protect a consumer already there. A range that stops at the minors tested, widened on each

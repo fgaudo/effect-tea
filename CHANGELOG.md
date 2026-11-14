@@ -48,6 +48,9 @@ version, and everything else, features included, the patch version.
   Upgrade: a `switch` over `where` that must be exhaustive adds a `case 'init'` and a `case 'log'`.
 - A parent's subscriptions are kept by each child's state object, as its models are.
 - "Guarantees" in the README asks that `subscriptions` be pure, as `update` and `makeModel` are.
+- "Guarantees" in the README says that a subscription starts and stops once the new state is published, and
+  that one that ended stays ended while its key stays, where it said that a subscription runs exactly while its key
+  is in the state.
 - The README is reorganized: a diagram of the loop, and a "Guide" from a program's anatomy to its structure.
 - "Installation" in the README states the oldest TypeScript supported, 5.9, as Effect 4's.
 - The README and the site link effect-tea-persistent, the same architecture for long-lived entities on a server.
