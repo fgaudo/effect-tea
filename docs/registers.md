@@ -629,6 +629,24 @@ revision and only when the value changes, and a revision the program keeps under
 they never differ and an undo by snapshot is a defect. Concern 3 is apart from both, and exists today for fixed
 messages.
 
+## To explore
+
+Ideas that an input declared in `compose` would open, weighed with the owner after the second opinion. None is
+checked: each is **reasoned**, and is spiked or measured before it is proposed.
+
+- **Frames skipped by the equality of models.** A model that holds a closure is never equal to the one before, so a
+  renderer's `thunk` or `memo` cannot tell it unchanged. With no function in it, the models of two equal states are
+  `Equal`, and a bridge could skip the drawing. To be measured with the benchmark (`bench/`), and decided whether it
+  is the bridge's or the run's, under "frames cost only what is drawn".
+- **`dispatchViolations` knows where the inputs are.** They are declared, so the tool could leave writes aside by
+  itself, or check that every input the model holds exists in the state, with nothing said by the test.
+- **The recipe "a model is data"** in the README's "Testing", with the way of the second opinion: the same seed drawn
+  twice gives two equal states built apart, with no copy written by hand.
+- **A better name than `parent()`** for a program that has inputs and no children. It is decided before a release,
+  since it stays in the API.
+- **`withheld` reviewed.** With typing gone from the candidates, what is left of its uses (the clock of `pages`) is
+  counted in the tests, and whether it still earns its place is asked.
+
 ## What a consumer could notice
 
 Nothing, while it stays in the examples (way 1), but the two sentences of the README, which applications cite as
