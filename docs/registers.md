@@ -1,7 +1,8 @@
 # Registers: what the outside writes into a program's state
 
-**Status:** decided, 14 November 2026, and waiting for its implementation. The direction, who keeps an input's revision,
-and what may write into an input, are decided ("Where it stands"), and no file of the library has changed. It records a
+**Status:** decided, 14 November 2026, and implemented the same day ("The implementation"). The direction, who keeps
+an input's revision, and what may write into an input, are decided ("Where it stands"); the name of a program that has
+inputs and no children is still open. It records a
 discussion with the owner, two reviews by Fable 5.2 (one of a design, one asked for ideas), and one spike, kept on the
 branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never to be merged), on Effect 4.1.4 and Bun 1.4.4,
 the six checks that followed, each on a branch of its own ("What the checks found"), and a third review by Fable 5.2,
@@ -80,6 +81,28 @@ if kept); a changelog entry and the version `release` asks for.
 `claude/spike-register-subscriptions`. The first spike and the six checks are
 cut from `spike/field-register` or `main` before this document; the two opinions from `c263478`; the spike of the
 revision a program did not write, and that of the subscriptions, from `c445a5b`.
+
+## The implementation
+
+Ported by hand from `spike/register-input-by-value` (`c445a5b`), with the sentences of way 1 (`50d5561`), the tests of
+the subscriptions (`d686ddf`) and `late-key.test.ts`, on a branch cut from `main` at `479b2de`:
+
+- `src/input.ts` (`Field`, `field`, `write`, `Written`, `renewed`, and the rule, `written` and `replaced`) and
+  `compose.ts` (`input`, `inputs`, `children` optional); `runCommand`'s answers narrowed to `Own | ChildMessages<C>`.
+  The two tests of types that refuse a write from an own subscription and from a command's answer annotate the state
+  of `update`, so that the own messages are inferred from it alone: without that, `Own` was inferred from the write,
+  and the tests failed to compile with the check or without it.
+- Eight mutations in `mutations/mutations.ts`: the five of "An independent opinion", adapted to the derivation by
+  value (a child's step and an `onEvent` replacing nothing, where the spike took them out as counted), a revision that
+  stands still under a changed value, one lowered that comes back, and a value compared by identity.
+- The search of interleavings draws writes into a note of the list, from the frame on screen and from an older one,
+  which `Clear` replaces, with a search keyed by the note's text; three properties check the rule of a write, the
+  revision of a replacement, and the search that follows the text.
+- The README, `docs/invariants.md`, `docs/boundary.md` (item 4 reopened), the changelog, `examples/form` and
+  `form-react`; `examples/field.ts` removed.
+- Not done: a slider in an example; the bridge's parting of screen and state, and the focus a replacement loses in
+  snabbdom and React, which "Only what is drawn writes" asks to test; `bench/keystrokes.ts` of the subscriptions'
+  spike, not ported.
 
 ## Context
 

@@ -6,7 +6,7 @@
 // an animation, the focus); what the program decides stays in its state, and reaches the view as its model (the
 // README's "Structuring a program").
 // Checked with react and react-dom 19.3.1.
-import type { Dispatch, Frame, View } from '@fgaudo/effect-tea'
+import { type Dispatch, type Field, type Frame, type View, type Written, write } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 import type { ChangeEvent, ReactNode } from 'react'
@@ -52,11 +52,14 @@ const send = <Message>(dispatch: Dispatch<Message>, message: Message): void => E
 export const onClick = <Message>(message: Message, dispatch: Dispatch<Message>) => () => send(dispatch, message)
 
 /**
- * React's `onChange` for a text input, whose text `toMessage` turns into a message. The input is uncontrolled,
- * as `field.ts` says of an input the user types into: the view gives it a `defaultValue`, never a `value`, and a
- * new `key` to replace its text. A controlled input would be rewritten from every frame, and a frame older than
- * the last key would take it back.
+ * React's `onChange` for a text input, whose text `toMessage` turns into a message. The input is uncontrolled: the
+ * view gives it a `defaultValue`, never a `value`, and a new `key`, its field's revision, to replace its text. A
+ * controlled input would be rewritten from every frame, and a frame older than the last key would take it back.
  */
 export const onInput =
   <Message>(toMessage: (text: string) => Message, dispatch: Dispatch<Message>) =>
   (event: ChangeEvent<HTMLInputElement>) => send(dispatch, toMessage(event.target.value))
+
+/** React's `onChange` for a text input drawn from `field`: what is typed is written into it, at the revision drawn. */
+export const onWrite = (field: Field<string>, dispatch: Dispatch<Written<string>>) =>
+  onInput((text) => write(field, text), dispatch)

@@ -131,7 +131,7 @@ with `bun run build`, then `bun examples/<name>/index.html`.
 | ----------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | [`counter`](examples/counter)             | the quick start, with a view | `applyAll`, `dispatchViolations`, `drive`                                                                           | [live](https://fgaudo.github.io/effect-tea/examples/counter/)       |
 | [`counter-react`](examples/counter-react) | the same program, in React   | what changes with the renderer: the view, `main.ts` and the bridge, never the program                               | [live](https://fgaudo.github.io/effect-tea/examples/counter-react/) |
-| [`form`](examples/form)                   | a form that saves a name     | an input the user owns while typing; a service; a failure as a message; a save only its completion ends; `rehearse` | [live](https://fgaudo.github.io/effect-tea/examples/form/)          |
+| [`form`](examples/form)                   | a form that saves a name     | an input declared in `compose`; a service; a failure as a message; a save only its completion ends; `rehearse`      | [live](https://fgaudo.github.io/effect-tea/examples/form/)          |
 | [`form-react`](examples/form-react)       | the form, in React           | an uncontrolled input: `defaultValue` and `key`, never `value`                                                      | [live](https://fgaudo.github.io/effect-tea/examples/form-react/)    |
 | [`pages`](examples/pages)                 | a clock and an About page    | `parent`, optics, `dispatchTo`, events, `subscribed`, a page started from flags; `simulate`                         | [live](https://fgaudo.github.io/effect-tea/examples/pages/)         |
 | [`list`](examples/list)                   | stopwatches by id            | `each`, a subscription per running child, `forEach`; a test with a `TestClock`                                      | [live](https://fgaudo.github.io/effect-tea/examples/list/)          |
@@ -187,26 +187,24 @@ How to shape the state and its messages is in [structuring a program](#structuri
 
 `makeModel(state)` turns the state into what the view reads. Its **shape** says what the view shows: a case
 for each state the view tells apart, each holding only what makes sense in it, the messages of its controls
-included. In this example, `Message` is a `Data.TaggedEnum` and `isBlank` a helper of the program:
+included, and the fields of the inputs it draws. In this example, `Message` is a `Data.TaggedEnum`, `name` an
+input (see [inputs the user types into](#inputs-the-user-types-into)) and `isBlank` a helper of the program:
 
 ```ts
 type Editor = Data.TaggedEnum<{
   Saving: object
-  Blank: { changeName: (name: string) => Message }
-  Named: {
-    changeName: (name: string) => Message
-    save: Message
-  }
+  Blank: object
+  Named: { save: Message }
 }>
 
-const makeModel = (state: State): Editor => {
-  const changeName = (name: string) => Message.NameChanged({ name })
-  return state.save._tag === 'Saving'
+const makeModel = (state: State): { name: Field<string>; editor: Editor } => ({
+  name: state.name,
+  editor: state.save._tag === 'Saving'
     ? { _tag: 'Saving' }
-    : isBlank(state.name)
-    ? { _tag: 'Blank', changeName }
-    : { _tag: 'Named', changeName, save: Message.SaveClicked() }
-}
+    : isBlank(state.name.value)
+    ? { _tag: 'Blank' }
+    : { _tag: 'Named', save: Message.SaveClicked() },
+})
 ```
 
 - **Pick the case from the state, as `update` reads it.** A model that shows "Save" where `update` rejects
@@ -215,11 +213,18 @@ const makeModel = (state: State): Editor => {
 
 What a model shows, and what a view may decide, is in [structuring a program](#structuring-a-program).
 
-**Messages live in the model.** Every message a view can send is in the model it draws: a value for a control
-that sends one thing, a function of what the user gives for one that carries it (`changeName`). A view sends
-only what the model holds, and builds no message itself: export `Message` as a type only, and no view can build
-one. The library does not enforce it, and what it says of a model rests on it: a test reads a program's messages
-from its model (see [testing](#testing)), so a message a view built is one no test has seen.
+**Messages live in the model.** Every message a view can send is in the model it draws, as a value: a control
+sends what the program fixed for it. What the user gives a control (a text, a slider's level) is no message: the
+view writes it into an input whose field the model holds (see
+[inputs the user types into](#inputs-the-user-types-into)). A view sends only what the model holds, writes only into
+the fields it holds, and builds no message of the program itself: export `Message` as a type only, and no view can
+build one. The library does not enforce it, and what it says of a model rests on it: a test reads a program's
+messages from its model (see [testing](#testing)), so a message a view built is one no test has seen.
+
+**A model is data.** It holds no function, and compares by value with `Equal`: the models of two equal states are
+equal. The testing tools compare a model's messages so, and a test checks it on the models of two equal states
+built apart (see [testing](#testing)), which a function made anew by each `makeModel` would break. Data need not be
+serializable: an `Option`, a `Data` class or a `HashMap` is data.
 
 ### View
 
@@ -237,11 +242,27 @@ written the same way.
 
 #### Inputs the user types into
 
+A value the user gives an input (a text, a slider's level) is no message of the program: the program declares where
+it goes, `inputs: { Name: input(at) }` in `compose` (see [declaring children](#declaring-children)), at a `Field<A>`
+of its state, `{ value, revision }`, and the view writes into the field its model holds, `write(model.name, text)`,
+through `dispatchTo(dispatch, 'Name')`. No `update` of the program's sees it: the library stores what is written,
+whatever it is, in every state where the input exists, and rejects what was written into an input the program has
+since replaced, since the input on screen is another one, which does not show it. The program replaces an input by
+leaving another value in its place, `field('')`; for a new input that holds the same value, as when a slider's
+bounds narrow, it leaves `renewed(state.level)`.
+
+A field's `revision` is the library's: the key of the input a view draws, and nothing else. The state stored then
+holds the next revision, not the one `field` made, so nothing of a program reads a revision but the view's key, and
+a test compares an input by its `value`: `expect(state.name.value).toBe('')`, never
+`expect(state.name).toEqual(field(''))`.
+
+Only what is drawn writes into an input. A subscription and a command answer with messages of the program, whose
+`update` puts the value in the input's place, which replaces it, or keeps it in the state until it chooses to.
+
 A frame may be older than the user's last keystroke, so rewriting an input from every frame can eat what was
-just typed. What the program owes the input is one rule of `update`: it accepts the input's messages in every
-state where the input exists (see [model and view](#model-and-view)). How a view keeps the text meanwhile is the
-renderer's. The examples show one way, to copy: [`examples/field.ts`](examples/field.ts) says it, and
-[`form`](examples/form) and [`form-react`](examples/form-react) use it, with snabbdom and with React.
+just typed. How a view keeps the text meanwhile is the renderer's: the input is given its text only when it is
+created, and its field's revision as its key, so that a replaced input is a new one. The examples show one way, to
+copy: [`form`](examples/form) and [`form-react`](examples/form-react), with snabbdom and with React.
 
 ### Commands
 
@@ -396,7 +417,8 @@ Whether the model holds only what applies, and all of it, is for the tests (see 
 
 ### Composition
 
-A child is any program. A parent declares its children with `parent`, and the library does the routing:
+A child is any program. A parent declares its children, and its inputs, with `parent`, and the library does the
+routing:
 
 ```ts
 const { child, compose } = parent<{ state: State }>()
@@ -453,14 +475,22 @@ export const app = compose({
   `parent<{ state: State; flags: Flags }>()`. Its `init` then returns the function that starts it:
   `init: (children) => (flags) => ({ state, commands })`.
 - **What it draws:** `makeModel`, from its state and its children's models.
+- **Its inputs,** if it has any: `inputs: { Name: input(at) }`, where `at` is an optic to a `Field` of its own
+  state (see [inputs the user types into](#inputs-the-user-types-into)). An input is no child: its field is the
+  parent's own state, which its `update` and `makeModel` read as the rest. A program with inputs and no children
+  is made with `parent` too, and leaves `children` out.
 - **Its own messages, commands and subscriptions,** if it has any: `update`, `runCommand` (required exactly when
   it has commands of its own), `subscriptions`. Its `update` takes `children` too, and may reject its own
   messages as any `update` does.
 
 What the library derives from it:
 
-- **The parent's messages:** its own plus `{ _tag: <child>, message }` for each child. `MessageOf<typeof app>`
-  names them. An own message that takes a child's name does not compile.
+- **The parent's messages:** its own plus `{ _tag: <child>, message }` for each child, and
+  `{ _tag: <input>, message: write(field, value) }` for each input. `MessageOf<typeof app>` names them. An own
+  message that takes a child's or an input's name does not compile, nor does an own subscription or a command's
+  answer that writes into an input.
+- **Its inputs' revisions:** after each step that is not a write, an input whose place holds another value, by
+  `Equal`, gets the next revision, and one that holds the value it held keeps its field.
 - **The parent's commands:** its own plus each child's, wrapped likewise and run by the child's `runCommand`.
   A child with commands and no `runCommand`, which a program written without `Program<…>` can be, does not
   compile; one that gets there through a cast is a defect when its command runs (a `CompositionDefect`).
@@ -592,9 +622,11 @@ holds, and its tests can check it. The library does not enforce them; the exampl
 - **What is only the screen's may stay in the renderer.** A hover, an animation, the focus: state of the
   interface that no rule of the program reads may live in a component of the renderer's, with state or hooks
   of its own. What the program decides stays in its state, and reaches the view as its model.
-- **Input is never a reason to reject.** The input keeps what the user typed whatever `update` says (see
-  [view](#view)), so a value `update` rejects would leave on screen a text the state does not have. Store what
-  is typed, and make its validity model data: show "Save" only for a name that is not blank.
+- **Input is never a reason to reject.** The input keeps what the user typed whatever the program decides, and
+  the library stores it (see [inputs the user types into](#inputs-the-user-types-into)), so no rule of the program
+  rejects a value: make its validity model data, and show "Save" only for a name that is not blank. A program that
+  narrows what an input accepts, a slider's bounds, replaces the input, with the value clamped or `renewed`, so that
+  what was written under the old bounds no longer applies.
 
 #### Splitting a program
 
@@ -607,7 +639,8 @@ A program lives in one module until it is too large. Then it splits into childre
   subscriptions. Only a fact several children must see as one truth is the parent's, handed down as an
   external message.
 - **Children that read each other's state are one child**, whatever its size. A child whose controls the parent
-  would enable from its state, or whose state the parent would copy down and back up, is not one. A parent that
+  would enable from its state, or whose state the parent would copy down and back up, is not one: a field the user
+  writes into, which the parent reads, is an input of the parent's. A parent that
   grows logic between two siblings is a sign that they are one child.
 
 ### Running
@@ -747,13 +780,15 @@ What is left to you:
 
 The library's tests check each guarantee. That of the order is the run's one loop over one queue, checked by the
 tests of the run. [`src/interleaving.test.ts`](src/interleaving.test.ts) checks the other six under random orders
-of clicks, command answers, subscription messages and ends, releases, defects and
-self-interruptions: that outdated clicks leave the state as it was, that subscriptions follow their keys, that what
-a subscription, a command or the renderer acquires does not outlive it and the next message waits for the slowest
-release, that what the run logs is not kept by the span of whoever runs it, which stays the parent of the spans
-opened in it, that nothing ends in silence, and that a model is made only for the frames read and the very same
-state draws no new frame. It checks too that the run dies with each defect, in the order it happened as the run
-is made today, and from the first one on applies no message (see [running](#running)).
+of clicks, writes into an input, current and stale, command answers, subscription messages and ends, releases,
+defects and self-interruptions: that outdated clicks leave the state as it was, that subscriptions follow their
+keys, that what a subscription, a command or the renderer acquires does not outlive it and the next message waits
+for the slowest release, that what the run logs is not kept by the span of whoever runs it, which stays the parent
+of the spans opened in it, that nothing ends in silence, and that a model is made only for the frames read and the
+very same state draws no new frame. It checks too that the run dies with each defect, in the order it happened as
+the run is made today, and from the first one on applies no message (see [running](#running)), and that what is
+written into an input is stored at the revision it was drawn at, or rejected (see
+[inputs the user types into](#inputs-the-user-types-into)).
 
 ### Testing
 
@@ -766,11 +801,11 @@ A program's tests follow its shape:
 1. **Generate its states** with a property-testing library (fast-check in the examples): one arbitrary that
    produces only valid states, every case of each state machine among them.
 2. **Check, for any of them,** that `update` answers every message with a step or `reject`, the same each time,
-   that the model holds what `update` accepts (`dispatchViolations`), and what the program listens to
-   (`subscriptionsOf`).
-3. **Write one test per message**, asserting the next state, the commands and the events by value. Assert a
-   rejection with `isRejected`, never as "the state did not change", which a step that keeps the state would
-   pass too.
+   that the model holds what `update` accepts (`dispatchViolations`), that the model is data, and what the program
+   listens to (`subscriptionsOf`).
+3. **Write one test per message**, asserting the next state, the commands and the events by value, and an input
+   by its `value`, since its revision is the library's. Assert a rejection with `isRejected`, never as "the state
+   did not change", which a step that keeps the state would pass too.
 4. **Check the defects apart.** The pairs of state and message that the invariants rule out (see
    [rejections and defects](#rejections-and-defects)) are skipped above, and checked as defects:
    `expect(() => update(message)(state)).toThrow(InvariantDefect)`.
@@ -802,12 +837,17 @@ test('the model holds what update accepts, all of it', () => {
 
 - `program.makeModel(state)` makes a model as `run` does, so a property test can read the model of any state,
   and `subscriptionsOf(program)(state)` says what the program listens to there.
+- **That the model is data** is checked on two equal states built apart, which the same seed drawn twice gives:
+  `fc.sample(states, { seed, numRuns: 1 })` twice, and `Equal.equals` of their models, as
+  [`form`](examples/form/form.test.ts) does. A state reused would pass whatever its model holds: a parent keeps
+  a child's model for each state object.
 - **The reader is the test's own**: a function from a model to the messages it holds (`messagesOf` above), a
-  case of the model at a time, with the text typed for a message that carries one (`editor.changeName(typed)`).
-  A parent's reader calls its children's, and wraps what they return as the parent receives it
-  (`{ _tag: 'Clock', message }`, with the `id` for children by id), as [`pages`](examples/pages/app.test.ts)
-  and [`list`](examples/list/list.test.ts) do. The library cannot write it: a message in a model is a value like
-  any other.
+  case of the model at a time. What the user writes into an input is none of them: the library keeps its rule,
+  the same for every input, and a test writes into an input as the view does,
+  `{ _tag: 'Name', message: write(model.name, 'Ada') }`. A parent's reader calls its children's, and wraps what
+  they return as the parent receives it (`{ _tag: 'Clock', message }`, with the `id` for children by id), as
+  [`pages`](examples/pages/app.test.ts) and [`list`](examples/list/list.test.ts) do. The library cannot write it:
+  a message in a model is a value like any other.
 - **The reader is complete only as far as the candidates go.** One that forgets a field of the model passes
   `Rejected` and `ActsTwice`, which judge only what it returns. `Missing` finds the field, in a state where
   `update` accepts its message and the test lists it among the `candidates`.
@@ -849,9 +889,9 @@ there with `applyAll`, or with `update` itself.
     again from the same frame, it is rejected or changes nothing, the same state by `Equal` with no commands and
     no events. Keep states data, since a value without structural equality compares by reference. Actions meant
     to repeat (a "+1") are marked `repeatable`;
-  - of the `candidates` the test lists (what a user could ask for, with the text typed into each input), each one
-    `update` accepts must be among those held (`Missing`), except those `withheld` on purpose, e.g. typing while
-    a save is in progress.
+  - of the `candidates` the test lists (what a user could ask for, the program's fixed messages), each one
+    `update` accepts must be among those held (`Missing`), except those `withheld` on purpose, e.g. the controls
+    of a page that another covers.
 
   Without candidates, it checks only the messages it is given.
 - **`simulate`** takes the test's messages and those a subscription would send among them, and fails when
@@ -880,10 +920,10 @@ there with `applyAll`, or with `update` itself.
   rehearse(
     form,
     Effect.fnUntraced(function*(rehearsal) {
-      yield* rehearsal.send(({ editor }) =>
+      yield* rehearsal.send(({ name, editor }) =>
         editor._tag === 'Saving'
           ? Opt.none()
-          : Opt.some(editor.changeName('Ada'))
+          : Opt.some({ _tag: 'Name', message: write(name, 'Ada') })
       )
       yield* rehearsal.send(({ editor }) =>
         editor._tag === 'Named' ? Opt.some(editor.save) : Opt.none()
@@ -938,7 +978,9 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `Program<{ state; model; message; command?; … }>` | `init`, `update`, `runCommand` (with commands), `subscriptions` (optional), `makeModel`                  |
 | `StateOf`, `ModelOf`, `MessageOf`, `CommandOf`, … | a program's types, read back from it (`EventOf`, `ExternalOf`, `FlagsOf`, `ServicesOf`)                  |
-| `parent`                                          | `parent<{ state; … }>()`: `child`, `each` and `compose`, to make a parent of children                    |
+| `parent`                                          | `parent<{ state; … }>()`: `child`, `each`, `input` and `compose`, to make a parent of children, inputs   |
+| `Field`, `field`, `renewed`                       | what an input holds, `{ value, revision }`; a field of a value; a new input for the value held           |
+| `write`, `Written`                                | `write(field, value)`: what a view sends for what the user gave the input drawn from `field`             |
 | `Update`, `Transition`, `Step`                    | `(message) => (state) => Step` or `Rejected`; a `Step` is `{ state, commands?, events? }`                |
 | `reject`, `Rejected`, `isRejected`                | the rejection `update` returns, and its check                                                            |
 | `defect`, `InvariantDefect`                       | `defect(reason)` throws an `InvariantDefect`: a message that cannot arrive, a defect                     |

@@ -19,11 +19,10 @@ export type DispatchViolation<Message> = Readonly<{ _tag: 'Rejected' | 'ActsTwic
  * actions meant to repeat (a "+1") are excluded with `repeatable`. States compare by value, so keep them data: a
  * state holding a value without structural equality (an instance of a class that does not implement `Equal`, a
  * function) compares by reference, and a message that rebuilds it would count as acting twice. Each of the
- * `candidates`, what a user could ask for (with the text typed into each input), that `update` accepts must be
- * among `sent`, compared with `Equal`;
- * a model may hold less on purpose (e.g. typing while a save is in progress), which `withheld` excludes. Without
- * candidates, only the messages given are checked. Returns every violation, so that a test can assert there are
- * none, e.g. for arbitrary states.
+ * `candidates`, what a user could ask for (the program's fixed messages), that `update` accepts must be among
+ * `sent`, compared with `Equal`; a model may hold less on purpose (e.g. the controls of a page that another
+ * covers), which `withheld` excludes. Without candidates, only the messages given are checked. Returns every
+ * violation, so that a test can assert there are none, e.g. for arbitrary states.
  */
 export const dispatchViolations = <State, Message, Command, Event>(
   update: Update<State, Message, Command, Event>,

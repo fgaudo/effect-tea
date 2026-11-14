@@ -10,9 +10,19 @@ version, and everything else, features included, the patch version.
 - `forEach(step, items, (item) => (state) => step)`, the `andThen` of many: one step per item, in order.
 - `andThen` and `forEach` are dual: `andThen(next)` and `forEach(items, next)` take the step last, for a `pipe`.
 - A `CompositionDefect` says in `on`, by its tags, which external message or event broke the parent's rule.
+- Inputs: `inputs: { Name: input(at) }` in `compose`, at a `Field<A>` of the state, which the view writes into with
+  `write(field, value)`; the library stores a write at the revision it was drawn at and rejects any other, and gives
+  the next revision to a field a step leaves with another value (`field`, `renewed`, `Written`).
+- `children` in `compose` is optional, for a program with inputs and no children.
 
 ### Changed
 
+- **Breaking**: "Model" in the README says that a model is data: it holds no function, and compares by `Equal`.
+  Upgrade: a function of the model that makes a message from what the user typed, `changeName: (name) =>
+  NameChanged({ name })`, becomes an input, `inputs: { Name: input(at) }`, and the view writes into its field,
+  `write(model.name, text)` through `dispatchTo(dispatch, 'Name')`, where it called `model.changeName(text)`.
+- "Inputs the user types into", "Declaring children", "Model and view", "Splitting a program", "Guarantees" and
+  "Testing" in the README describe inputs; `examples/field.ts` is removed, and `form` and `form-react` declare one.
 - The peer dependency on `effect` is `^4.1.4`, where it was `^4.0.0`, and starts at the Effect it is developed with.
 - A child whose state is not an object, past the types, is a `CompositionDefect` that names it, not a `TypeError`.
 - `simulate` and `rehearse` read `subscriptions` on each new state, as the run does, and fail where it dies of them.

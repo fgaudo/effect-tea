@@ -144,9 +144,10 @@ const CompositionDefect_base: new <A extends Record<string, any> = {}>(args: Voi
 } & Readonly<A>;
 
 // @public (undocumented)
-type Config<State, C, Own, OwnCommand, Event, Model, R, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own | ChildMessages<C>, R> & NoClash<Own, OwnCommand, C> & Readonly<{
+type Config<State, C, I, Own, OwnCommand, Event, Model, R, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own | ChildMessages<C>, R> & NoClash<Own, OwnCommand, C> & NoClash<Own, OwnCommand, I> & Readonly<{
     init: (children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>) => Init<State, OwnCommand | ChildCommands<C>, Flags>;
-    children: C;
+    children?: C;
+    inputs?: I;
     update?: (message: Own, children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>) => (state: State) => Transition<State, OwnCommand | ChildCommands<C>, Event>;
     subscriptions?: Subscriptions<State, Own, R, K>;
     makeModel: (state: State, children: Models<State, C>) => Model;
@@ -294,7 +295,16 @@ export type ExternalOf<P> = P extends {
 const ExternalTypeId: unique symbol;
 
 // @public
-type Field<T, K extends string> = T extends {
+export type Field<A> = Readonly<{
+    value: A;
+    revision: number;
+}>;
+
+// @public
+export const field: <A>(value: A) => Field<A>;
+
+// @public
+type Field_2<T, K extends string> = T extends {
     readonly [P in K]: infer V;
 } ? V : never;
 
@@ -379,6 +389,30 @@ type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, Command
 const init: <State, Command>(step: Step<State, Command>) => Started<State, Command>;
 
 // @public
+type InputAt<State, A> = Readonly<{
+    kind: 'input';
+    get: (state: State) => Opt.Option<Field<A>>;
+    set: (state: State, field: Field<A>) => State;
+}>;
+
+// @public
+type InputMessages<I> = {
+    [K in keyof I & string]: I[K] extends Readonly<{
+        get: (state: any) => Opt.Option<Field<infer A>>;
+    }> ? Readonly<{
+        _tag: K;
+        message: Written<A>;
+    }> : never;
+}[keyof I & string];
+
+// @public
+type Inputs<State> = Readonly<Record<string, Readonly<{
+    kind: 'input';
+    get: (state: State) => Opt.Option<Field<any>>;
+    set: (state: State, field: never) => State;
+}>>>;
+
+// @public
 type Interpreter<Command, Message, R> = [Command] extends [never] ? object : Readonly<{
     runCommand: RunCommand<Command, Message, R>;
 }>;
@@ -458,6 +492,9 @@ type NoClash<Own, OwnCommand, C> = ([Extract<TagOf<Own>, keyof C>] extends [neve
 // @public (undocumented)
 const noDeaths: Register;
 
+// @public
+type None = Readonly<Record<never, never>>;
+
 // @public (undocumented)
 const noneActive: Active<never>;
 
@@ -493,13 +530,17 @@ const otherwiseDefect: (cause: Cause.Cause<unknown>, received?: Cause.Cause<neve
 
 // @public
 export const parent: <T extends ParentTypes>() => {
-    child: <P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown>, place: Placement<Field<T, "state">, StateOf<P>> & Readonly<{
-        subscribed?: (state: Field<T, "state">) => Opt.Option<StateOf<P>>;
-    }> & ObjectState<StateOf<P>>) => Child<Field<T, "state">, P>;
-    each: <Id, P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown>, place: EachPlacement<Field<T, "state">, Id, StateOf<P>> & Readonly<{
-        subscribed: (state: Field<T, "state">) => Iterable<readonly [Id, StateOf<P>]>;
-    }> & ObjectState<StateOf<P>>) => Each<Field<T, "state">, Id, P>;
-    compose: <C extends Children<Field<T, "state">>, Model, Own = never, R = never, K = unknown>(config: Config<Field<T, "state">, C, Own, Field<T, "command">, Field<T, "event">, Model, R, K, Field<T, 'flags'>>) => Shape<Field<T, "state">, Model, Own | ChildMessages<C>, ChildCommands<C> | Field<T, "command">, R | ChildServices<C>, Field<T, "event">, Field<T, "external"> & Own, Field<T, "flags">>;
+    child: <P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown>, place: Placement<Field_2<T, "state">, StateOf<P>> & Readonly<{
+        subscribed?: (state: Field_2<T, "state">) => Opt.Option<StateOf<P>>;
+    }> & ObjectState<StateOf<P>>) => Child<Field_2<T, "state">, P>;
+    each: <Id, P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown>, place: EachPlacement<Field_2<T, "state">, Id, StateOf<P>> & Readonly<{
+        subscribed: (state: Field_2<T, "state">) => Iterable<readonly [Id, StateOf<P>]>;
+    }> & ObjectState<StateOf<P>>) => Each<Field_2<T, "state">, Id, P>;
+    input: <A>(at: Optic.Optional<Field_2<T, "state">, Field<A>>) => InputAt<Field_2<T, "state">, A>;
+    compose: <Model, C extends Children<Field_2<T, "state">> = None, I extends Inputs<Field_2<T, "state">> = None, Own = never, R = never, K = unknown>(config: Config<Field_2<T, "state">, NoInfer<C>, NoInfer<I>, Own, Field_2<T, "command">, Field_2<T, "event">, Model, R, K, Field_2<T, 'flags'>> & Readonly<{
+        children?: C;
+        inputs?: I;
+    }>) => Shape<Field_2<T, "state">, Model, Own | ChildMessages<C> | InputMessages<I>, ChildCommands<C> | Field_2<T, "command">, R | ChildServices<C>, Field_2<T, "event">, Field_2<T, "external"> & Own, Field_2<T, "flags">>;
 };
 
 // @public
@@ -523,7 +564,7 @@ type Placement<ParentState, ChildState> = Readonly<{
 }>;
 
 // @public
-export type Program<T extends ProgramTypes> = Shape<Field<T, 'state'>, Field<T, 'model'>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'services'>, Field<T, 'event'>, Field<T, 'external'>, Field<T, 'flags'>>;
+export type Program<T extends ProgramTypes> = Shape<Field_2<T, 'state'>, Field_2<T, 'model'>, Field_2<T, 'message'>, Field_2<T, 'command'>, Field_2<T, 'services'>, Field_2<T, 'event'>, Field_2<T, 'external'>, Field_2<T, 'flags'>>;
 
 // @public
 export class ProgramDefect extends ProgramDefect_base<Fields & Readonly<{
@@ -584,6 +625,9 @@ export const reject: unique symbol;
 
 // @public (undocumented)
 export type Rejected = typeof reject;
+
+// @public
+export const renewed: <A>(held: Field<A>) => Field<A>;
 
 // @public
 const report: (register: Register) => readonly [Opt.Option<Cause.Cause<never>>, Register];
@@ -730,6 +774,16 @@ const wrapDefects: <E>(cause: Cause.Cause<E>, where: DefectSite, details: Readon
     key?: unknown;
     on?: unknown;
 }>, wrapped: (defect: unknown) => boolean) => Cause.Cause<E>;
+
+// @public
+export const write: <A>(into: Field<A>, value: A) => Written<A>;
+
+// @public
+export type Written<A> = Readonly<{
+    _tag: 'Written';
+    value: A;
+    revision: number;
+}>;
 
 // (No @packageDocumentation comment for this package)
 

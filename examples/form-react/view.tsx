@@ -1,8 +1,8 @@
-import type { View } from '@fgaudo/effect-tea'
+import { dispatchTo, type View } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
 import type { ReactNode } from 'react'
 import type { Message, Model } from '../form/form.ts'
-import { onClick, onInput } from '../react.ts'
+import { onClick, onWrite } from '../react.ts'
 
 // The view of `form/view.ts`, in React: the same model, the same messages.
 export const view: View<Model, Message, ReactNode> = (model, dispatch) => {
@@ -12,13 +12,13 @@ export const view: View<Model, Message, ReactNode> = (model, dispatch) => {
       <input
         // Uncontrolled: a new input when the program replaces the name; otherwise the user's own.
         key={model.name.revision}
-        defaultValue={model.name.text}
+        defaultValue={model.name.value}
         disabled={editor._tag === 'Saving'}
         placeholder="A name"
-        onChange={editor._tag === 'Saving' ? undefined : onInput(editor.changeName, dispatch)}
+        onChange={editor._tag === 'Saving' ? undefined : onWrite(model.name, dispatchTo(dispatch, 'Name'))}
       />
       {editor._tag === 'Named'
-        ? <button type="button" onClick={onClick(editor.save, dispatch)}>Save</button>
+        ? <button type="button" onClick={onClick<Message>(editor.save, dispatch)}>Save</button>
         : <button type="button" disabled>{editor._tag === 'Saving' ? 'Saving…' : 'Save'}</button>}
       {Opt.match(model.failed, {
         onNone: () => null,

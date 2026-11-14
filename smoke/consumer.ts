@@ -1,11 +1,24 @@
 // A consumer of the packed package, run with Node and typechecked by `smoke.ts` under several TypeScript versions
 // and module resolutions. It instantiates the types of `parent` (a child, children by id, events and external
-// messages) and checks that what they reject does not compile.
-import { andThen, type MessageOf, parent, type Program, reject, run, type Update } from '@fgaudo/effect-tea'
+// messages, an input) and checks that what they reject does not compile.
+import {
+  andThen,
+  type Field,
+  field,
+  isRejected,
+  type MessageOf,
+  parent,
+  type Program,
+  reject,
+  run,
+  type Update,
+  write,
+} from '@fgaudo/effect-tea'
 import { applyAll, simulate } from '@fgaudo/effect-tea/testing'
 import * as Arr from 'effect/Array'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
+import * as Optic from 'effect/Optic'
 import * as Stream from 'effect/Stream'
 
 type CounterState = Readonly<{ count: number }>
@@ -112,6 +125,45 @@ child(
   { get: (state) => Opt.some(state.main), set: (state, main) => ({ ...state, main }) },
 )
 
+// An input and no children: the field is the program's own state, which the outside writes into.
+type Draft = Readonly<{ title: Field<string> }>
+
+const drafting = parent<{ state: Draft; command: 'Load' }>()
+
+const draft = drafting.compose({
+  init: () => ({ state: { title: field('') } }),
+  inputs: { Title: drafting.input(Optic.id<Draft>().key('title')) },
+  update: (_: 'Cleared') => (state: Draft) => ({
+    state: { title: field('') },
+    commands: state.title.value === '' ? [] : ['Load' as const],
+  }),
+  runCommand: () => Effect.succeedNone,
+  makeModel: (state) => state.title,
+})
+
+// A write is of the value the field holds; an own message that takes an input's name does not compile, nor does a
+// command's answer that writes into an input.
+// @ts-expect-error
+const wrong: MessageOf<typeof draft> = { _tag: 'Title', message: write(field(0), 1) }
+
+// @ts-expect-error
+drafting.compose({
+  init: () => ({ state: { title: field('') } }),
+  inputs: { Title: drafting.input(Optic.id<Draft>().key('title')) },
+  update: (_: Readonly<{ _tag: 'Title' }>) => (state: Draft) => ({ state }),
+  runCommand: () => Effect.succeedNone,
+  makeModel: () => null,
+})
+
+drafting.compose({
+  init: () => ({ state: { title: field('') } }),
+  inputs: { Title: drafting.input(Optic.id<Draft>().key('title')) },
+  update: (_: 'Cleared') => (state: Draft) => ({ state, commands: ['Load' as const] }),
+  // @ts-expect-error
+  runCommand: () => Effect.succeedSome({ _tag: 'Title' as const, message: write(field(''), 'a') }),
+  makeModel: () => null,
+})
+
 const assert = (condition: boolean, what: string) => {
   if (!condition) throw new Error(`smoke: ${what}`)
 }
@@ -124,6 +176,14 @@ const increment = (id?: number): Message =>
 const folded = applyAll(app.update)([increment(), increment(), increment(), increment(1)], app.init.state)
 assert(folded.state.main.count === 3 && folded.state.fulls === 1, 'applyAll routes to the children')
 assert(app.makeModel(folded.state).rows[0]?.model.count === 1, 'makeModel reads the children by id')
+
+const typed = applyAll(draft.update)(
+  [{ _tag: 'Title', message: write(draft.init.state.title, 'Ada') }, 'Cleared'],
+  draft.init.state,
+)
+assert(typed.state.title.value === '' && typed.state.title.revision === 1, 'a replaced input gets the next revision')
+const late = draft.update({ _tag: 'Title', message: write(draft.init.state.title, 'Ada L') })(typed.state)
+assert(isRejected(late) && wrong !== undefined, 'a write into a replaced input is rejected')
 
 const main = Effect.gen(function*() {
   const simulation = yield* simulate(app)([increment(), { _tag: 'ResetAll' }], app.init)

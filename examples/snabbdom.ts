@@ -3,7 +3,7 @@
 // The run's dispatch, and each child's from `dispatchTo`, is the same in every frame, so a view can be
 // memoized with snabbdom's own `thunk`, its dispatch among the arguments.
 // Checked with snabbdom 3.6.4.
-import type { Dispatch, Frame, View } from '@fgaudo/effect-tea'
+import { type Dispatch, type Field, type Frame, type View, type Written, write } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 import { eventListenersModule, init, type Module, type On, propsModule, type VNode, type VNodeData } from 'snabbdom'
@@ -12,7 +12,7 @@ import { eventListenersModule, init, type Module, type On, propsModule, type VNo
  * The text an input starts with, written only when the input is created: from then on the user types into it,
  * and the program learns the text from the input's messages. Rewriting it from the model could draw a frame
  * older than the last keys, taking them back and moving the caret. To replace the text, the program changes
- * the input's `key`, so that a new input is created (see `field.ts`).
+ * the input's `key`, its field's revision, so that a new input is created.
  */
 export const initialValue = (text: string): VNodeData => ({ initialValue: text })
 
@@ -63,6 +63,13 @@ export const onClick = <Message>(message: Message, dispatch: Dispatch<Message>):
 export const onInput = <Message>(toMessage: (text: string) => Message, dispatch: Dispatch<Message>): On => ({
   input: (event: Event) => send(dispatch, toMessage((event.target as HTMLInputElement).value)),
 })
+
+/**
+ * snabbdom's `on` for a text input drawn from `field`: what is typed is written into the field, at the revision
+ * drawn, through the input's own dispatch.
+ */
+export const onWrite = (field: Field<string>, dispatch: Dispatch<Written<string>>): On =>
+  onInput((text) => write(field, text), dispatch)
 
 /**
  * For tests, and no part of what a bridge must do: what `view` can send in `model`, found without a DOM. The

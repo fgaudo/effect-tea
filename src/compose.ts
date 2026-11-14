@@ -1,5 +1,5 @@
-// A parent declares its children, and the library generates how their messages, commands,
-// subscriptions and models reach them.
+// A parent declares its children and its inputs, and the library generates how their messages, commands,
+// subscriptions and models reach them, and keeps the revision of each input.
 import * as Arr from 'effect/Array'
 import * as Channel from 'effect/Channel'
 import * as Effect from 'effect/Effect'
@@ -12,6 +12,7 @@ import * as Record from 'effect/Record'
 import * as Result from 'effect/Result'
 import type { Execution, RunCommand } from './command.ts'
 import { CompositionDefect } from './defect.ts'
+import { field as fieldOf, type Field as Input, replaced, type Written, written } from './input.ts'
 import { describeByTag } from './log.ts'
 import {
   type AnyProgram,
@@ -100,6 +101,45 @@ const placedEach = <S, Id, A>(
       get: (state, id) => Result.getSuccess(place.at(id).getResult(state)),
       set: (state, id, child) => place.at(id).replace(child, state),
     }
+
+/**
+ * An input in its program's state: where the field the outside writes into lives. It is no child: the field is the
+ * program's own state, which its `update` and its `makeModel` read as they read the rest.
+ */
+type InputAt<State, A> = Readonly<{
+  kind: 'input'
+  get: (state: State) => Opt.Option<Input<A>>
+  set: (state: State, field: Input<A>) => State
+}>
+
+/** The inputs a parent declares, by name: `{ Name: input(at) }`. */
+type Inputs<State> = Readonly<
+  Record<
+    string,
+    Readonly<{
+      kind: 'input'
+      get: (state: State) => Opt.Option<Input<any>>
+      set: (state: State, field: never) => State
+    }>
+  >
+>
+
+/** No children, or no inputs: what a parent that declares none has. */
+type None = Readonly<Record<never, never>>
+
+/** What is written into an input, as its program receives it: `{ _tag: <input>, message }`, as a child's message. */
+type InputMessages<I> = {
+  [K in keyof I & string]: I[K] extends Readonly<{ get: (state: any) => Opt.Option<Input<infer A>> }>
+    ? Readonly<{ _tag: K; message: Written<A> }>
+    : never
+}[keyof I & string]
+
+// What an input is to the routing: a place with one rule, the library's.
+const inputProgram: AnyProgram = {
+  init: { state: fieldOf(undefined) },
+  update: written,
+  makeModel: (held: unknown) => held,
+}
 
 // `never` parameters: any `set` fits, whatever its child's state and id.
 type Children<State> = Readonly<
@@ -204,10 +244,12 @@ type NoClash<Own, OwnCommand, C> =
   & ([Extract<TagOf<OwnCommand>, keyof C>] extends [never] ? unknown
     : Readonly<{ 'an own command takes the name of a child': Extract<TagOf<OwnCommand>, keyof C> }>)
 
-type Config<State, C, Own, OwnCommand, Event, Model, R, K, Flags> =
+type Config<State, C, I, Own, OwnCommand, Event, Model, R, K, Flags> =
   & OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event>
+  // Only what is drawn writes into an input: a command's answer is an own message or a child's, never a write.
   & RunCommandOf<OwnCommand, Own | ChildMessages<C>, R>
   & NoClash<Own, OwnCommand, C>
+  & NoClash<Own, OwnCommand, I>
   & Readonly<{
     /**
      * The first state and commands, or, for a parent with flags, the function that makes them from its flags
@@ -217,7 +259,13 @@ type Config<State, C, Own, OwnCommand, Event, Model, R, K, Flags> =
     init: (
       children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>,
     ) => Init<State, OwnCommand | ChildCommands<C>, Flags>
-    children: C
+    children?: C
+    /**
+     * The places of the state that the outside writes into, each a `Field`: `{ Name: input(at) }`. What is written
+     * reaches no `update` of the program's: the library stores it, and rejects it once the program has replaced the
+     * field. Only a view writes into one: a subscription and a command answer with messages of the program.
+     */
+    inputs?: I
     /** The parent's own messages: its children's are routed by the library. */
     update?: (
       message: Own,
@@ -246,29 +294,48 @@ type Place = Readonly<{ name: string; id: unknown }>
 type Lifted = ReadonlyArray<readonly [unknown, Subscription<unknown, unknown>]>
 
 type UntypedChild = Readonly<{
-  kind: 'one' | 'each'
+  kind: 'one' | 'each' | 'input'
   program: AnyProgram
   get: (state: unknown, id?: unknown) => Opt.Option<unknown>
   set: (state: unknown, idOrChild: unknown, child?: unknown) => unknown
   subscribed?: (state: unknown) => Opt.Option<unknown> | Iterable<readonly [unknown, unknown]>
 }>
 
-const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event, R, K, External, Flags>(
-  config: Config<State, C, Own, OwnCommand, Event, Model, R, K, Flags>,
+const compose = <
+  State,
+  C extends Children<State>,
+  I extends Inputs<State>,
+  Model,
+  Own,
+  OwnCommand,
+  Event,
+  R,
+  K,
+  External,
+  Flags,
+>(
+  config: Config<State, C, I, Own, OwnCommand, Event, Model, R, K, Flags>,
 ): Shape<
   State,
   Model,
-  Own | ChildMessages<C>,
+  Own | ChildMessages<C> | InputMessages<I>,
   OwnCommand | ChildCommands<C>,
   R | ChildServices<C>,
   Event,
   External,
   Flags
 > => {
-  type Message = Own | ChildMessages<C>
+  type Message = Own | ChildMessages<C> | InputMessages<I>
   type Command = OwnCommand | ChildCommands<C>
-  const children = config.children as unknown as Readonly<Record<string, UntypedChild>>
-  const names = Record.keys(children)
+  const programs = (config.children ?? {}) as unknown as Readonly<Record<string, UntypedChild>>
+  const inputs = Record.map(
+    (config.inputs ?? {}) as unknown as Readonly<Record<string, Omit<UntypedChild, 'program'>>>,
+    (input): UntypedChild => ({ ...input, program: inputProgram }),
+  )
+  // An input is routed to as a child is: by its name, to its place.
+  const children: Readonly<Record<string, UntypedChild>> = { ...programs, ...inputs }
+  const names = Record.keys(programs)
+  const inputNames = Record.keys(inputs)
   const childOf = (name: string) => children[name] as UntypedChild
   const isChildName = (tag: unknown): tag is string => typeof tag === 'string' && Record.has(children, tag)
   const field = (value: unknown, key: string): unknown => Predicate.hasProperty(value, key) ? value[key] : undefined
@@ -341,7 +408,7 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
     return result
   }
   // Built once: a child's update calls `onEvent`, which may call any child's handle.
-  const handles = Record.map(children, (child, name) =>
+  const handles = Record.map(programs, (child, name) =>
     child.kind === 'each'
       ? {
         update: (id: unknown, message: unknown) => tell({ name, id }, message),
@@ -353,10 +420,32 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
           ? (flags: unknown) => startAt({ name, id: undefined }, flags)
           : startAt({ name, id: undefined }, undefined),
       }) as unknown as Handles<State, C, Command, Event>
+  // What a step of the program made of its inputs, by value: a field that holds what it held is the same input,
+  // and one that holds another value is a replacement, which gets the next revision. A step that touched none is
+  // returned as it is, so that the very same state still draws no new frame.
+  const replacing = (before: State, after: State): State =>
+    Arr.reduce(inputNames, after, (state, name) => {
+      const place = { name, id: undefined }
+      return Opt.match(Opt.all([getAt(place, before), getAt(place, state)]), {
+        onNone: () => state,
+        onSome: ([was, is]) => {
+          const next = replaced(was as Input<unknown>, is as Input<unknown>)
+          return next === is ? state : setAt(place, state, next)
+        },
+      })
+    })
   const update: Update<State, Message, Command, Event> = (message) => (state) => {
     const place = placeOf(message)
-    if (isChildName(place.name)) return updateAt(place, field(message, 'message'))(state)
-    return config.update === undefined ? reject : config.update(message as Own, handles)(state)
+    // What is written into an input replaces nothing: it is stored at the revision it was written at.
+    if (Record.has(inputs, place.name)) return updateAt(place, field(message, 'message'))(state)
+    const result = isChildName(place.name)
+      ? updateAt(place, field(message, 'message'))(state)
+      : config.update === undefined
+      ? reject
+      : config.update(message as Own, handles)(state)
+    if (isRejected(result) || result.state === state || inputNames.length === 0) return result
+    const replaced = replacing(state, result.state)
+    return replaced === result.state ? result : { ...result, state: replaced }
   }
   const subscriptionsAt = (place: Place, childState: unknown) =>
     HashMap.map(
@@ -406,12 +495,13 @@ const compose = <State, C extends Children<State>, Model, Own, OwnCommand, Event
     kept.set(childState, model)
     return model
   }
-  const childModels = Record.map(children, (child, name) =>
+  const childModels = Record.map(programs, (child, name) =>
     child.kind === 'each'
       ? (parentState: State, id: unknown) => modelAt({ name, id }, parentState)
       : (parentState: State) => modelAt({ name, id: undefined }, parentState)) as Models<State, C>
-  const ownRunCommand = (config as Readonly<{ runCommand?: (command: OwnCommand) => Execution<Message, R> }>)
-    .runCommand
+  const ownRunCommand = (
+    config as Readonly<{ runCommand?: (command: OwnCommand) => Execution<Own | ChildMessages<C>, R> }>
+  ).runCommand
   const program = {
     init: config.init(handles),
     update,
@@ -479,9 +569,10 @@ export type ParentTypes = Readonly<{
 
 /**
  * The way to make a parent: its types fixed once, by name (`parent<{ state: State; event: Event }>()`), then
- * its children declared with `child` (one) or `each` (by id), and the parent made with `compose`. Its messages
- * are its own and `{ _tag: <child>, message }` for each child (with `id` for children by id); its commands
- * likewise, each run by its child's `runCommand`, which a child with commands must have. Fixing the types first
+ * its children declared with `child` (one) or `each` (by id), its inputs with `input`, and the parent made with
+ * `compose`. Its messages are its own, `{ _tag: <child>, message }` for each child (with `id` for children by id),
+ * and `{ _tag: <input>, message: write(field, value) }` for each input; its commands are its own and its
+ * children's, each run by its child's `runCommand`, which a child with commands must have. Fixing the types first
  * is what lets `get`, `set` and the rest be typed without annotations, and the parent's own commands, events,
  * external messages and flags, which nothing it returns can reveal, be known.
  */
@@ -509,9 +600,27 @@ export const parent = <T extends ParentTypes>() => {
         & Readonly<{ subscribed: (state: State) => Iterable<readonly [Id, StateOf<P>]> }>
         & ObjectState<StateOf<P>>,
     ): Each<State, Id, P> => ({ kind: 'each', program, ...placedEach(place), subscribed: place.subscribed }),
+    /**
+     * An input, a place of the state that the outside writes into: `inputs: { Name: input(at) }`, where `at`
+     * focuses a `Field`. The view writes into the field its model holds, `write(model.name, text)`, through
+     * `dispatchTo(dispatch, 'Name')`.
+     */
+    input: <A>(at: Optic.Optional<State, Input<A>>): InputAt<State, A> => ({ kind: 'input', ...placed({ at }) }),
     // Its external messages are among its own: the intersection keeps only those.
-    compose: <C extends Children<State>, Model, Own = never, R = never, K = unknown>(
-      config: Config<State, C, Own, OwnCommand, Event, Model, R, K, Field<T, 'flags'>>,
-    ) => compose<State, C, Model, Own, OwnCommand, Event, R, K, Field<T, 'external'> & Own, Field<T, 'flags'>>(config),
+    compose: <
+      Model,
+      C extends Children<State> = None,
+      I extends Inputs<State> = None,
+      Own = never,
+      R = never,
+      K = unknown,
+    >(
+      // The children and the inputs are inferred from where they are declared alone: a command a step returns would
+      // otherwise be read as a child's, where no child is declared.
+      config:
+        & Config<State, NoInfer<C>, NoInfer<I>, Own, OwnCommand, Event, Model, R, K, Field<T, 'flags'>>
+        & Readonly<{ children?: C; inputs?: I }>,
+    ) =>
+      compose<State, C, I, Model, Own, OwnCommand, Event, R, K, Field<T, 'external'> & Own, Field<T, 'flags'>>(config),
   }
 }
