@@ -1,7 +1,7 @@
 // The bridge in a DOM (happy-dom), with screen refreshes that happen only when a test paints. What the other
 // tests cannot see: how often `renderInto` draws, that a click on a drawn button reaches the program, and that
-// what the user types survives the frames drawn while they type. And that `messagesSentBy` keeps the contract
-// the README's "Testing" sets for one.
+// what the user types survives the frames drawn while they type. And that `messagesSentBy`, this bridge's own way
+// to find what a view sends, does what its comment says.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import { type Dispatch, dispatchTo, type Frame, run, type View } from '@fgaudo/effect-tea'

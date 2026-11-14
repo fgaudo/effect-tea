@@ -1,16 +1,15 @@
 // React's bridge in a DOM (happy-dom), with screen refreshes that happen only when a test paints. What the other
 // tests cannot see: how often `renderInto` draws, that a click on a drawn button reaches the program, and that
-// what the user types into an uncontrolled input survives the frames drawn while they type. And that
-// `messagesSentBy` keeps the contract the README's "Testing" sets for one.
+// what the user types into an uncontrolled input survives the frames drawn while they type.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
-import { type Dispatch, dispatchTo, type Frame, ProgramDefect, run, type View } from '@fgaudo/effect-tea'
+import { type Frame, ProgramDefect, run, type View } from '@fgaudo/effect-tea'
 import * as Cause from 'effect/Cause'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
 import type * as Stream from 'effect/Stream'
-import { Component, createElement, forwardRef, memo, type ReactNode } from 'react'
+import { createElement, type ReactNode } from 'react'
 import { counter } from './counter/counter.ts'
 import { form } from './form/form.ts'
 import { Storage } from './form/storage.ts'
@@ -193,48 +192,5 @@ describe('inputs the user types into, with React', () => {
     expect(replaced).not.toBe(input)
     expect(replaced.value).toBe('')
     expect(element('li').textContent).toBe('Ada')
-  })
-})
-
-describe('messagesSentBy, with React', () => {
-  type Row = 'Tapped'
-  type Message =
-    | Readonly<{ _tag: 'Typed'; text: string }>
-    | Readonly<{ _tag: 'Saved' }>
-    | Readonly<{ _tag: 'Row'; id: number; message: Row }>
-  type RowProps = Readonly<{ id: number; dispatch: Dispatch<Row> }>
-  const RowButton = ({ id, dispatch }: RowProps) =>
-    createElement('button', { type: 'button', onClick: bridge.onClick<Row>('Tapped', dispatch) }, String(id))
-  const MemoRow = memo(RowButton)
-  class ClassRow extends Component<RowProps> {
-    override render() {
-      return createElement(RowButton, this.props)
-    }
-  }
-  const ForwardedRow = forwardRef<HTMLButtonElement, RowProps>((props, _ref) => createElement(RowButton, props))
-  const rows = [RowButton, MemoRow, ClassRow, ForwardedRow] as const
-  const view: View<ReadonlyArray<number>, Message, ReactNode> = (ids, dispatch) =>
-    createElement(
-      'div',
-      null,
-      createElement('input', { onChange: bridge.onInput((text): Message => ({ _tag: 'Typed', text }), dispatch) }),
-      createElement('button', { type: 'button', onClick: bridge.onClick<Message>({ _tag: 'Saved' }, dispatch) }),
-      ids.map((id) => {
-        const props = { key: id, id, dispatch: dispatchTo(dispatch, 'Row', id) }
-        return createElement(rows[id % rows.length] ?? RowButton, props)
-      }),
-    )
-
-  test('gives every input the text typed, and calls every callback', () => {
-    expect(bridge.messagesSentBy(view, [], 'Ada')).toEqual([{ _tag: 'Typed', text: 'Ada' }, { _tag: 'Saved' }])
-  })
-
-  test('draws every kind of component, and records the message of a child as the root receives it', () => {
-    expect(bridge.messagesSentBy(view, [0, 1, 2, 3]).slice(2)).toEqual([
-      { _tag: 'Row', id: 0, message: 'Tapped' },
-      { _tag: 'Row', id: 1, message: 'Tapped' },
-      { _tag: 'Row', id: 2, message: 'Tapped' },
-      { _tag: 'Row', id: 3, message: 'Tapped' },
-    ])
   })
 })
