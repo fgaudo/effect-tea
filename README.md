@@ -489,8 +489,9 @@ What the library derives from it:
 
 - **The parent's messages:** its own plus `{ _tag: <child>, message }` for each child, and
   `{ _tag: <input>, message: write(field, value) }` for each input. `MessageOf<typeof app>` names them. An own
-  message that takes a child's or an input's name does not compile, nor does an own subscription or a command's
-  answer that writes into an input.
+  message that takes a child's or an input's name does not compile, nor does an own subscription that writes into an
+  input. A command's answer is an own message, or an external message of a child's: one that writes into an input,
+  the parent's or a child's, does not compile, nor does one that gives a child its own business.
 - **Its inputs' revisions:** after each step that is not a write, an input whose place holds another value, by
   `Equal`, gets the next revision, and one that holds the value it held keeps its field.
 - **The parent's commands:** its own plus each child's, wrapped likewise and run by the child's `runCommand`.

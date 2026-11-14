@@ -49,8 +49,8 @@ testing tools.
   one, with `renewed`, for a new input that holds the same value. So the state stored differs from the state a step
   wrote in the revision once a value changed: a revision is a key, and nothing of a program reads it but a view.
   A write comes only from a view, whose control was drawn at the revision it carries: an own subscription sends
-  the parent's own messages, and a command answers with its own and its children's (`RunCommandOf` in `compose.ts`),
-  so neither compiles with a write, which would carry a revision no frame drew, and change the state where the
+  the parent's own messages, and a command answers with its own and its children's external ones (`RunCommandOf` in
+  `compose.ts`), so neither compiles with a write, into the parent's input or a child's, which would carry a revision no frame drew, and change the state where the
   element on screen does not show it. A child its parent starts again, and an optional place that comes back,
   restart an input's revision, which no rule of before and after closes. Each check has a mutation
   (`mutations/mutations.ts`).

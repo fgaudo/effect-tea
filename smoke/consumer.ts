@@ -108,6 +108,28 @@ compose({
   makeModel: () => null,
 })
 
+// So does a command's answer.
+const loading = composition<{ state: State; command: 'Load' }>()
+
+loading.compose({
+  init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
+  children: { Main: loading.child(counter, { at: Optic.id<State>().key('main') }) },
+  onEvent: { Main: () => (state) => ({ state }) },
+  update: (_: ResetAll) => (state: State) => ({ state, commands: ['Load' as const] }),
+  // @ts-expect-error
+  runCommand: () => Effect.succeedSome({ _tag: 'Main' as const, message: { _tag: 'Increment' as const } }),
+  makeModel: () => null,
+})
+
+loading.compose({
+  init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
+  children: { Main: loading.child(counter, { at: Optic.id<State>().key('main') }) },
+  onEvent: { Main: () => (state) => ({ state }) },
+  update: (_: ResetAll) => (state: State) => ({ state, commands: ['Load' as const] }),
+  runCommand: () => Effect.succeedSome({ _tag: 'Main' as const, message: { _tag: 'Reset' as const } }),
+  makeModel: () => null,
+})
+
 // An own message that takes a child's name does not compile.
 // @ts-expect-error
 compose({

@@ -96,6 +96,28 @@ describe('an input among the subscriptions', () => {
       makeModel: () => null,
     })
   })
+
+  test('a command\'s answer cannot write into a child\'s input either', () => {
+    type Note = Readonly<{ text: Field<string> }>
+    const note = composition<{ state: Note }>()
+    const noteProgram = note.compose({
+      init: () => ({ state: { text: field('') } }),
+      inputs: { Text: note.input(Optic.id<Note>().key('text')) },
+      makeModel: (state) => state,
+    })
+    type Board = Readonly<{ note: Note }>
+    const board = composition<{ state: Board; command: 'Load' }>()
+    const typed = { _tag: 'Note' as const, message: { _tag: 'Text' as const, message: write(field(''), 'Ada') } }
+    board.compose({
+      init: (children) => ({ state: { note: children.Note.init.state } }),
+      children: { Note: board.child(noteProgram, { at: Optic.id<Board>().key('note') }) },
+      // The state annotated, so that the own messages are inferred from `update` alone.
+      update: (_: 'Loaded') => (state: Board) => ({ state, commands: ['Load' as const] }),
+      // @ts-expect-error: the answer would write into the child's input, at the revision the command started with
+      runCommand: () => Effect.succeedSome(typed),
+      makeModel: () => null,
+    })
+  })
 })
 
 // A search as one types: a subscription under a key made from the field, run through a run, with what each start

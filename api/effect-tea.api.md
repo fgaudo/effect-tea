@@ -96,6 +96,14 @@ type ChildDispatch<Message, Name extends string> = string extends Name ? Readonl
 }> : Dispatch<ChildOf<Message, Name>['message']>;
 
 // @public
+type ChildExternals<C> = {
+    [K in keyof C & string]: Readonly<{
+        _tag: K;
+        message: ExternalOf<ProgramOf<C[K]>>;
+    }> & At<C[K]>;
+}[keyof C & string];
+
+// @public
 type ChildMessages<C> = {
     [K in keyof C & string]: Readonly<{
         _tag: K;
@@ -168,7 +176,7 @@ type CompositionTypes = Readonly<{
 }>;
 
 // @public (undocumented)
-type Config<State, C, I, Own, OwnCommand, Event, Model, R, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own | ChildMessages<C>, R> & NoClash<Own, OwnCommand, C> & NoClash<Own, OwnCommand, I> & Readonly<{
+type Config<State, C, I, Own, OwnCommand, Event, Model, R, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own | ChildExternals<C>, R> & NoClash<Own, OwnCommand, C> & NoClash<Own, OwnCommand, I> & Readonly<{
     init: (children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>) => Init<State, OwnCommand | ChildCommands<C>, Flags>;
     children?: C;
     inputs?: I;

@@ -173,6 +173,11 @@ type ChildMessages<C> = {
   [K in keyof C & string]: Readonly<{ _tag: K; message: MessageOf<ProgramOf<C[K]>> }> & At<C[K]>
 }[keyof C & string]
 
+/** A child's external message, as its parent receives it: what a parent's command may answer for the child. */
+type ChildExternals<C> = {
+  [K in keyof C & string]: Readonly<{ _tag: K; message: ExternalOf<ProgramOf<C[K]>> }> & At<C[K]>
+}[keyof C & string]
+
 /** A child's command, as its parent's interpreter receives it. */
 type ChildCommands<C> = {
   [K in keyof C & string]: [CommandOf<ProgramOf<C[K]>>] extends [never] ? never
@@ -246,8 +251,9 @@ type NoClash<Own, OwnCommand, C> =
 
 type Config<State, C, I, Own, OwnCommand, Event, Model, R, K, Flags> =
   & OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event>
-  // Only what is drawn writes into an input: a command's answer is an own message or a child's, never a write.
-  & RunCommandOf<OwnCommand, Own | ChildMessages<C>, R>
+  // A command's answer is an own message, or one its parent may send a child: never a write into an input, the
+  // parent's or a child's, since only what is drawn writes, nor a child's own message.
+  & RunCommandOf<OwnCommand, Own | ChildExternals<C>, R>
   & NoClash<Own, OwnCommand, C>
   & NoClash<Own, OwnCommand, I>
   & Readonly<{
@@ -500,7 +506,7 @@ const compose = <
       ? (parentState: State, id: unknown) => modelAt({ name, id }, parentState)
       : (parentState: State) => modelAt({ name, id: undefined }, parentState)) as Models<State, C>
   const ownRunCommand = (
-    config as Readonly<{ runCommand?: (command: OwnCommand) => Execution<Own | ChildMessages<C>, R> }>
+    config as Readonly<{ runCommand?: (command: OwnCommand) => Execution<Own | ChildExternals<C>, R> }>
   ).runCommand
   const program = {
     init: config.init(handles),

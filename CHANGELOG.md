@@ -23,6 +23,12 @@ version, and everything else, features included, the patch version.
   `write(model.name, text)` through `dispatchTo(dispatch, 'Name')`, where it called `model.changeName(text)`.
 - **Breaking**: `parent` is renamed `composition`, since a program with inputs and no children is made with it too.
   Upgrade: `parent<{ state: State }>()` becomes `composition<{ state: State }>()`, and its import likewise.
+- **Breaking**: a parent's command answers with its own messages or its children's external ones, as a parent's
+  handle sends them: an answer that writes into a child's input, or gives a child one of its own messages, no longer
+  compiles. Upgrade: an answer `{ _tag: 'Note', message: { _tag: 'Pinned' } }`, of the child's own business, becomes
+  an own message of the parent's, whose `update` tells the child through its handle, `children.Note.update(…)`, an
+  external message the child declares for it; a value for a child's input becomes a message of the child's program,
+  whose `update` replaces the field.
 - "Inputs the user types into", "Declaring children", "Model and view", "Splitting a program", "Guarantees" and
   "Testing" in the README describe inputs; `examples/field.ts` is removed, and `form` and `form-react` declare one.
 - The `volume` example declares a slider as an input, with `renewed` for a new slider when its bounds narrow; the

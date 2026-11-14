@@ -1252,6 +1252,37 @@ describe('what the types reject', () => {
     expect(isRejected(program.update({ _tag: 'Reset' })(noTicks))).toBe(false)
   })
 
+  test('a command\'s answer gives a child only what its parent may send it', () => {
+    const resettable: Program<{ state: Ticks; model: number; message: Tick | Reset; external: Reset }> = {
+      init: { state: noTicks },
+      update: (message) => ({ ticks }) => ({ state: { ticks: message._tag === 'Tick' ? ticks + 1 : 0 } }),
+      makeModel: ({ ticks }) => ticks,
+    }
+    const { child, compose } = composition<{ state: Ticks; command: 'Load' }>()
+    const children = {
+      Counter: child(resettable, { get: (state: Ticks) => Opt.some(state), set: (_: Ticks, child: Ticks) => child }),
+    }
+    compose({
+      init: () => ({ state: noTicks }),
+      children,
+      // The state annotated, so that the own messages are inferred from `update` alone.
+      update: (_: 'Loaded') => (state: Ticks) => ({ state, commands: ['Load' as const] }),
+      // @ts-expect-error: `Tick` is the child's own business.
+      runCommand: () => Effect.succeedSome({ _tag: 'Counter' as const, message: { _tag: 'Tick' as const } }),
+      makeModel: () => null,
+    })
+    const program = compose({
+      init: () => ({ state: noTicks }),
+      children,
+      update: (_: 'Loaded') => (state: Ticks) => ({ state, commands: ['Load' as const] }),
+      runCommand: () => Effect.succeedSome({ _tag: 'Counter' as const, message: { _tag: 'Reset' as const } }),
+      makeModel: () => null,
+    })
+    expect(Effect.runSync(program.runCommand('Load'))).toEqual(
+      Opt.some({ _tag: 'Counter', message: { _tag: 'Reset' } }),
+    )
+  })
+
   test('an own message cannot take the name of a child, which would receive it', () => {
     const { child, compose } = composition<{ state: Ticks }>()
     // @ts-expect-error: `Plain` is a child's name.
