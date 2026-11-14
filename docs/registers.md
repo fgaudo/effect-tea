@@ -10,7 +10,7 @@ asked what to adopt, with a spike of its own ("An independent opinion"), and a f
 revision ("A second opinion"), and a spike of the three ways to keep the revision a program did not write ("The revision
 a program did not write, spiked"), and a spike of the subscriptions of a program with an input ("The subscriptions with
 an input, checked"), and a fifth review by Fable 5.2, on what may write into an input ("Only what is drawn writes"),
-and a sixth, on the name of `parent` ("The name").
+and a sixth, on the name of `parent` ("The name"), and the bridges tested in happy-dom ("The bridges, in happy-dom").
 What the spikes ran is marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued,
 **reasoned**. It reopens the aim of [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way,
 and leans on [`inert-steps.md`](inert-steps.md), which it would simplify.
@@ -71,10 +71,9 @@ an input's revision, which no rule of before and after closes; a `File`; a react
 explore", and, for the subscriptions, "What is to be checked of them, with an input declared in `compose`".
 
 **Next**, with the implementation on `main` ("The implementation") and `parent` renamed `composition` ("The name"),
-what it left undone: a slider in an example, with `renewed` for bounds that narrow; the screen and the state parting
-in a bridge, in happy-dom, and whether a replacement loses focus, caret and selection in snabbdom and in React, which
-weighs the argument against "Only what is drawn writes"; `bench/keystrokes.ts` of the subscriptions' spike, ported or
-dropped; then the ideas of "To explore", each spiked or measured before it is proposed.
+and the bridges tested in happy-dom ("The bridges, in happy-dom"), what it left undone: a slider in an example, with
+`renewed` for bounds that narrow; `bench/keystrokes.ts` of the subscriptions' spike, ported or dropped; then the ideas
+of "To explore", each spiked or measured before it is proposed.
 
 **The branches**, local to this machine and never pushed, none to be merged: `spike/field-register`,
 `claude/spike-register-checks-fd58e1` (no commit of its own), `claude/spike-register-late-key-6cb914`,
@@ -104,8 +103,8 @@ the subscriptions (`d686ddf`) and `late-key.test.ts`, on a branch cut from `main
 - The README, `docs/invariants.md`, `docs/boundary.md` (item 4 reopened), the changelog, `examples/form` and
   `form-react`; `examples/field.ts` removed.
 - Not done: a slider in an example; the bridge's parting of screen and state, and the focus a replacement loses in
-  snabbdom and React, which "Only what is drawn writes" asks to test; `bench/keystrokes.ts` of the subscriptions'
-  spike, not ported.
+  snabbdom and React, which "Only what is drawn writes" asks to test, done since ("The bridges, in happy-dom");
+  `bench/keystrokes.ts` of the subscriptions' spike, not ported.
 
 ## Context
 
@@ -944,7 +943,7 @@ file. Its verdict, which the owner accepted: keep it, and refuse a command's ans
   element changes, and it writes at the frame's revision), a recipe of a bridge not yet written or tested.
 - **To be tested in the implementation**: the screen and the state parting in a bridge, in happy-dom; whether a
   replacement loses focus in snabbdom and in React, which weighs the argument against; narrowing `runCommand`'s
-  answers breaking nothing in the examples and tests.
+  answers breaking nothing in the examples and tests. The first two are tested since ("The bridges, in happy-dom").
 
 ## The name
 
@@ -977,6 +976,25 @@ entry function alone, `parent` to `composition`, and keep the rest.
   reference" said only "a child's dispatch", though an input is written through it too, and are corrected with the
   rename; an internal helper `Field<T, K>` of `src/program.ts`, namesake of the public `Field<A>`, which `compose.ts`
   imports as `Input` to avoid it, is left as it is.
+
+## The bridges, in happy-dom
+
+What "Only what is drawn writes" left to test in a DOM, in the bridges' tests (`examples/snabbdom.test.ts` and
+`examples/react.test.ts`, the same three tests in each), on a note of one input that the program replaces on a message
+no control drawn sends, as a source that exists whatever is drawn would. **Run**, on happy-dom, snabbdom 3.6.4 and
+React 19.3.1, and each test seen to fail on a view or a bridge that breaks what it checks: an input keyed by its value
+in place of its revision, by a constant, or rewritten from the model (a snabbdom module that sets `value` on every
+patch, React's `value` in place of `defaultValue`).
+
+- **The screen and the state part**, as the fifth review reasoned: a write at the revision on screen, sent through the
+  input's dispatch from elsewhere than the element, stores `'SCAN'` over `'Hel'`, the element keeps showing `'Hel'`,
+  and the next key stores `'Help'` over it, in silence. A rewritten input shows `'SCAN'`, which is what fails the
+  test: the parting is the price of an input the bridge does not control.
+- **A frame drawn while the user types keeps the element**, and with it the focus, the caret and the selection.
+- **A replacement loses all three**: the new input has no focus, and its caret and selection are at 0. The argument
+  against the rule holds as the review put it, for a source that replaces while the user types.
+- **Not checked**: a real browser, where focus and selection are the browser's and not happy-dom's; an IME
+  composition, which happy-dom does not model; a recipe of a bridge for a source that belongs to the control.
 
 ## What a consumer could notice
 

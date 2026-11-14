@@ -1,13 +1,29 @@
 // React's bridge in a DOM (happy-dom), with screen refreshes that happen only when a test paints. What the other
 // tests cannot see: how often `renderInto` draws, that a click on a drawn button reaches the program, and that
-// what the user types into an uncontrolled input survives the frames drawn while they type.
+// what the user types into an uncontrolled input survives the frames drawn while they type, with its focus, caret
+// and selection, which a replacement loses, and that a write the input on screen did not make parts the state from
+// the screen.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
-import { type Frame, ProgramDefect, run, type View } from '@fgaudo/effect-tea'
+import {
+  composition,
+  type Dispatch,
+  dispatchTo,
+  field,
+  type Field,
+  type Frame,
+  type MessageOf,
+  type ModelOf,
+  ProgramDefect,
+  run,
+  type View,
+  write,
+} from '@fgaudo/effect-tea'
 import * as Cause from 'effect/Cause'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
+import * as Optic from 'effect/Optic'
 import type * as Stream from 'effect/Stream'
 import { createElement, type ReactNode } from 'react'
 import { counter } from './counter/counter.ts'
@@ -192,5 +208,92 @@ describe('inputs the user types into, with React', () => {
     expect(replaced).not.toBe(input)
     expect(replaced.value).toBe('')
     expect(element('li').textContent).toBe('Ada')
+  })
+})
+
+describe('what a replacement loses, and what a write the input did not make does, with React', () => {
+  // A note the program clears on a message that no control drawn sends, as a source that exists whatever is drawn
+  // would.
+  type Note = Readonly<{ note: Field<string> }>
+  const { input, compose } = composition<{ state: Note }>()
+  const note = compose({
+    init: () => ({ state: { note: field('') } }),
+    inputs: { Note: input(Optic.id<Note>().key('note')) },
+    update: (_: 'Cleared') => () => ({ state: { note: field('') } }),
+    makeModel: (state) => state.note,
+  })
+  type Model = ModelOf<typeof note>
+  type Message = MessageOf<typeof note>
+  const noteView: View<Model, Message, ReactNode> = (model, dispatch) =>
+    createElement(
+      'main',
+      null,
+      createElement('input', {
+        key: model.revision,
+        defaultValue: model.value,
+        onChange: bridge.onWrite(model, dispatchTo(dispatch, 'Note')),
+      }),
+    )
+  const mountNote = () => {
+    let drawn: Readonly<{ model: Model; dispatch: Dispatch<Message> }> | undefined
+    mount<Model, Message>((model, dispatch) => {
+      drawn = { model, dispatch }
+      return noteView(model, dispatch)
+    }, (render) => run(note, render))
+    const last = () => {
+      if (drawn === undefined) throw new Error('No frame is drawn')
+      return drawn
+    }
+    return {
+      field: () => last().model,
+      send: (message: Message) => Effect.runSync(last().dispatch(message)),
+    }
+  }
+
+  test('a frame drawn while the user types keeps the focus, the caret and the selection of the input', async () => {
+    mountNote()
+    await settle()
+    const typed = element<HTMLInputElement>('input')
+    type(typed, 'Ada')
+    typed.focus()
+    typed.setSelectionRange(1, 3)
+    await paint()
+    expect(element('input')).toBe(typed)
+    expect(document.activeElement).toBe(typed)
+    expect([typed.selectionStart, typed.selectionEnd]).toEqual([1, 3])
+  })
+
+  test('a replacement draws a new input, which has neither the focus nor the caret nor the selection', async () => {
+    const app = mountNote()
+    await settle()
+    const typed = element<HTMLInputElement>('input')
+    type(typed, 'Ada')
+    typed.focus()
+    typed.setSelectionRange(1, 3)
+    await paint()
+    app.send('Cleared')
+    await paint()
+    const replaced = element<HTMLInputElement>('input')
+    expect(replaced).not.toBe(typed)
+    expect(replaced.value).toBe('')
+    expect(document.activeElement).not.toBe(replaced)
+    expect([replaced.selectionStart, replaced.selectionEnd]).toEqual([0, 0])
+  })
+
+  test('a write the input did not make parts the state from the screen, and the next key erases it', async () => {
+    const app = mountNote()
+    await settle()
+    const typed = element<HTMLInputElement>('input')
+    type(typed, 'Hel')
+    await paint()
+    // At the revision on screen, from elsewhere than the element: what a scanner would send if it could write.
+    app.send({ _tag: 'Note', message: write(app.field(), 'SCAN') })
+    await paint()
+    expect(app.field().value).toBe('SCAN')
+    expect(element('input')).toBe(typed)
+    expect(typed.value).toBe('Hel')
+    type(typed, 'Help')
+    await paint()
+    expect(app.field().value).toBe('Help')
   })
 })
