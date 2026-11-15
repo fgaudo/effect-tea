@@ -14,7 +14,8 @@ version, and everything else, features included, the patch version.
   `{ _tag: 'Written', was, value }`; the library stores a write while the place holds `was`, by `Equal`, and rejects
   it otherwise.
 - `typed` and `drawn`, over an opaque `Shown`: the rule a bridge calls for the element of an input, on an edit and
-  after each frame, so that the element is never replaced and never takes back what the user typed since.
+  after each frame, so that the element is never replaced and never takes back what the user typed since; each gives
+  the bridge its write, `typed` the message to send and `drawn` whether the element takes the frame's value.
 - `children` in `compose` is optional, for a program with inputs and no children.
 
 ### Changed

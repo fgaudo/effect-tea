@@ -58,16 +58,24 @@ export const typed = <A>(
 
 /**
  * What a frame makes of an element, `held`, or of one just made, `undefined`: `value` is the input's in the frame, and
- * `seen` the frame's own. When the frame holds what the element showed before its first write the frame has not seen,
- * or what it shows when the frame has seen them all, the frame is the element's own past or present, and the element
- * stays as it is: the result holds the very `value` it held, the same object, so a bridge sets the element only when
- * the result's `value` is not identical to `held.value`. Otherwise the state has moved on without the element, whose
- * writes the frame has not seen will be rejected, and the element takes the frame's very `value`; so does a new one.
+ * `seen` the frame's own. `shown` is what the element then holds, and `taken` whether it takes the frame's value, which
+ * the bridge then writes into it, `shown.value`. When the frame holds what the element showed before its first write
+ * the frame has not seen, or what it shows when the frame has seen them all, the frame is the element's own past or
+ * present: the element stays as it is, showing the value it held, and is not taken. Otherwise the state has moved on
+ * without the element, whose writes the frame has not seen will be rejected, and the element shows the frame's very
+ * `value`, taken unless it is the very value the element showed; a new one is always taken.
  */
-export const drawn = <A>(held: Shown<A> | undefined, value: A, seen: number): Shown<A> => {
-  if (held === undefined) return shownOf(value)
+export const drawn = <A>(
+  held: Shown<A> | undefined,
+  value: A,
+  seen: number,
+): Readonly<{ shown: Shown<A>; taken: boolean }> => {
+  if (held === undefined) return { shown: shownOf(value), taken: true }
   const unseen = held[Unseen].filter((write) => write.sent > seen)
   const first = unseen[0]
-  if (!Equal.equals(value, first === undefined ? held.value : first.was)) return shownOf(value)
-  return unseen.length === held[Unseen].length ? held : { value: held.value, [Unseen]: unseen }
+  if (!Equal.equals(value, first === undefined ? held.value : first.was)) {
+    return { shown: shownOf(value), taken: value !== held.value }
+  }
+  const shown = unseen.length === held[Unseen].length ? held : { value: held.value, [Unseen]: unseen }
+  return { shown, taken: false }
 }

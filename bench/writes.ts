@@ -260,7 +260,7 @@ type Situation = Readonly<{
   at: (values: ReadonlyArray<unknown>, i: number, copy: Kind['copy']) => Drawing
 }>
 
-const shownOf = <A>(value: A) => drawn(undefined, value, 0)
+const shownOf = <A>(value: A) => drawn(undefined, value, 0).shown
 
 const sentOf = (was: unknown, value: unknown) => typed(shownOf(was), value).sent(1)
 
@@ -319,9 +319,9 @@ const settle = (live: Set<Element>, lives: WeakMap<Element, Live>, seen: number)
   for (const element of live) {
     const known = lives.get(element)
     if (known === undefined) continue
-    const next = drawn(known.held, known.value, seen)
-    if (known.held === undefined || next.value !== known.held.value) element.value = next.value
-    known.held = next
+    const { shown, taken } = drawn(known.held, known.value, seen)
+    if (taken) element.value = shown.value
+    known.held = shown
   }
 }
 

@@ -169,7 +169,10 @@ export type Dispatch<Message> = (message: Message) => Effect.Effect<number>;
 export const dispatchTo: <Message, Name extends string>(dispatch: Dispatch<Message>, name: Name, ...id: IdOf<Message, Name>) => ChildDispatch<Message, Name>;
 
 // @public
-export const drawn: <A>(held: Shown<A> | undefined, value: A, seen: number) => Shown<A>;
+export const drawn: <A>(held: Shown<A> | undefined, value: A, seen: number) => Readonly<{
+    shown: Shown<A>;
+    taken: boolean;
+}>;
 
 // @public
 type Each<ParentState, Id, P> = Readonly<{

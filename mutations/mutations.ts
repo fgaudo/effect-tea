@@ -988,20 +988,78 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'a frame is compared with what the element showed by identity, not by Equal',
     file: 'src/input.ts',
-    from: '  if (!Equal.equals(value, first === undefined ? held.value : first.was)) return shownOf(value)\n',
-    to: '  if (value !== (first === undefined ? held.value : first.was)) return shownOf(value)\n',
+    from: '  if (!Equal.equals(value, first === undefined ? held.value : first.was)) {\n',
+    to: '  if (value !== (first === undefined ? held.value : first.was)) {\n',
     killedBy: [
-      ['src/input.test.ts', 'leaves the very value the element holds when it stays, though the frame holds an equal copy'],
+      ['src/input.test.ts', 'an element that stays is not taken, though the frame holds an equal copy'],
       ['src/input.test.ts', 'compares the frame by Equal, so that a copy of what the element showed keeps it'],
     ],
   },
   {
-    name: "an element that stays takes the frame's equal copy of its value",
+    name: "an element that stays takes the frame's value",
     file: 'src/input.ts',
-    from: '  return unseen.length === held[Unseen].length ? held : { value: held.value, [Unseen]: unseen }\n',
-    to: '  return { value, [Unseen]: unseen }\n',
+    from: '  const shown = unseen.length === held[Unseen].length ? held : { value: held.value, [Unseen]: unseen }\n',
+    to: '  const shown = { value, [Unseen]: unseen }\n',
     killedBy: [
-      ['src/input.test.ts', 'leaves the very value the element holds when it stays, though the frame holds an equal copy'],
+      ['src/input.test.ts', 'a frame older than the keys typed since leaves the element as it is'],
+      ['src/input.test.ts', 'an element that stays is not taken, though the frame holds an equal copy'],
+    ],
+  },
+  {
+    name: "a new element does not take the frame's value",
+    file: 'src/input.ts',
+    from: '  if (held === undefined) return { shown: shownOf(value), taken: true }\n',
+    to: '  if (held === undefined) return { shown: shownOf(value), taken: false }\n',
+    killedBy: [
+      ['src/input.test.ts', "a new element takes the frame's very value"],
+    ],
+  },
+  {
+    name: 'an element the state moved on without is taken though it shows the very value of the frame',
+    file: 'src/input.ts',
+    from: '    return { shown: shownOf(value), taken: value !== held.value }\n',
+    to: '    return { shown: shownOf(value), taken: true }\n',
+    killedBy: [
+      [
+        'src/input.test.ts',
+        'a frame of a state that moved on to the very value the element shows does not write it again',
+      ],
+    ],
+  },
+  {
+    name: "an element the state moved on without does not take the frame's value",
+    file: 'src/input.ts',
+    from: '    return { shown: shownOf(value), taken: value !== held.value }\n',
+    to: '    return { shown: shownOf(value), taken: false }\n',
+    killedBy: [
+      ['src/input.test.ts', 'a frame that has seen every key and holds another value gives the element that value'],
+      [
+        'src/input.test.ts',
+        "a frame that holds neither the element's past nor its present gives the element its value at once",
+      ],
+      ['src/input.test.ts', 'a frame of a state brought back to one the element has left gives the element its value'],
+      [
+        'examples/snabbdom.test.ts',
+        'a name the program empties is emptied in the input on screen, which stays and keeps the focus',
+      ],
+      [
+        'examples/react.test.ts',
+        'a name the program empties is emptied in the input on screen, which stays and keeps the focus',
+      ],
+      ['examples/form/late-key.test.ts', 'is rejected, and the input on screen is emptied, as the save left it'],
+    ],
+  },
+  {
+    name: 'an element that stays is taken',
+    file: 'src/input.ts',
+    from: '  return { shown, taken: false }\n',
+    to: '  return { shown, taken: true }\n',
+    killedBy: [
+      ['src/input.test.ts', 'typed, the write names what the element showed, as the element records it'],
+      ['src/input.test.ts', 'a frame older than the keys typed since leaves the element as it is'],
+      ['src/input.test.ts', 'an element that stays is not taken, though the frame holds an equal copy'],
+      ['examples/snabbdom.test.ts', 'a frame drawn while the user types does not take back what they typed since'],
+      ['examples/react.test.ts', 'a frame drawn while the user types does not take back what they typed since'],
     ],
   },
   {

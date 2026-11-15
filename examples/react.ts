@@ -77,15 +77,14 @@ export const Shows = ({
   })
 }
 
-// `drawn` returns the very value the element held when it stays, so it is written only when it must be, through the
-// element's own setter, which React's tracking of the value hears.
+// Written through the element's own setter, which React's tracking of the value hears.
 const settle = (live: Set<HTMLInputElement>, seen: number): void => {
   for (const element of live) {
     const known = lives.get(element)
     if (known === undefined) continue
-    const next = drawn(known.held, known.value, seen)
-    if (known.held === undefined || next.value !== known.held.value) element.value = next.value
-    known.held = next
+    const { shown, taken } = drawn(known.held, known.value, seen)
+    if (taken) element.value = shown.value
+    known.held = shown
   }
 }
 

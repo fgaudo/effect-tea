@@ -47,9 +47,9 @@ const started = () => {
     const { name, editor } = model
     drawn.push(name)
     saved.push(model.saved)
-    const next = settled(screen.held, name, seen)
-    if (screen.held === undefined || next.value !== screen.held.value) screen.text = next.value
-    screen.held = next
+    const { shown, taken } = settled(screen.held, name, seen)
+    if (taken) screen.text = shown.value
+    screen.held = shown
     // As the bridges' `shows`: over what the input showed, numbered by the dispatch. Disabled while saving.
     screen.onInput = editor._tag === 'Saving'
       ? undefined

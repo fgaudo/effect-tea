@@ -1767,6 +1767,20 @@ live.held = sent(send(dispatch, write))
 The shape without a continuation, `typed` returning the write and an element whose number is still missing with a
 third function to give it, is three functions and the same convention.
 
+### `drawn` says whether the element is written
+
+Decided by the owner on 15 November 2026, before 0.8.0 was released: `drawn(held | undefined, value, seen)` returns
+`{ shown, taken }`, where it returned the `Shown` alone, and `taken` is true exactly where each bridge wrote the
+element, `held === undefined || shown.value !== held.value`. Shape (c) gave the bridge its write on an edit and left
+the other half of the rule to a convention copied into every bridge: that a new element is always written, and that
+the comparison is by identity, right only because `drawn` returns the very value held when the element stays. Now
+`drawn` applies it, "the one place where a rule of the library is applied", and no bridge compares values; what a
+bridge does is unchanged, and the bridges' tests pass as they were (**run**). It costs an object per input per frame
+where `drawn` returned `held` itself, which `bun bench/writes.ts` does not tell from its noise (**run**, Bun 1.4.4, the
+old code and the new alternated four times): a `settle` of 1000 inputs of a short text, the very value, took 31.8 to
+33.8 µs before and 33.5 to 41.4 µs after, and of a long text given as an equal copy 193 to 577 µs before and 203 to
+518 µs after.
+
 ## The port of the ninth review
 
 Asked by the owner on 15 November 2026, after "The rule a bridge calls", and made by a session of Opus 5.5 on the

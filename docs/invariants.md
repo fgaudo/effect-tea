@@ -67,8 +67,9 @@ testing tools.
   `input.ts`). `typed` makes the write and what the element records of it from one value, the element's, so the two
   cannot differ; the number comes from the dispatch the bridge runs, given to a continuation, since the library
   runs no dispatch. `drawn` compares the frame's value, by `Equal`, with what the element showed before its first
-  write the frame has not seen, or with what it shows when the frame has seen them all, and returns the very `value`
-  it held when the element stays, which a bridge compares by identity to decide whether to set the element. What
+  write the frame has not seen, or with what it shows when the frame has seen them all, and says itself whether the
+  bridge sets the element, `taken`: always for a new one, never for one that stays, and for one the state has moved on
+  without unless the frame's value is the very value it shows, so that no bridge compares values to decide it. What
   a screen then shows is no guarantee of the library's, which knows no renderer: the README promises it in "Inputs
   the user types into", for elements and renderers that meet its condition and a bridge that settles them with
   `drawn`, and the bridges' tests check it in a DOM. Each check of `typed` and `drawn` has a mutation.

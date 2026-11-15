@@ -229,13 +229,16 @@ const late = draft.update({ _tag: 'Title', message: { _tag: 'Written', was: 'Ada
 assert(late === reject && wrong !== undefined, 'a write over a value the input no longer holds is rejected')
 
 // What a bridge does with an element: typed by the user, numbered by the dispatch, settled by a frame.
-const shown = drawn(undefined, 'Ada', 0)
+const { shown, taken } = drawn(undefined, 'Ada', 0)
+assert(taken, 'a new element takes the frame\'s value')
 const { write: edit, sent } = typed(shown, 'Ada L')
 const element = sent(1)
 assert(edit.was === 'Ada' && element.value === 'Ada L', 'typed writes over what the element showed')
-assert(drawn(element, 'Ada', 0) === element && byHand !== undefined, 'a frame that has not seen the write keeps it')
+const kept = drawn(element, 'Ada', 0)
+assert(kept.shown === element && !kept.taken && byHand !== undefined, 'a frame that has not seen the write keeps it')
 assert(deaf.update({ _tag: 'Full' })(deaf.init.state) !== reject, 'a program typed past its types runs')
-assert(drawn(element, '', 1).value === '', 'a frame that has seen it and moved on gives its value')
+const moved = drawn(element, '', 1)
+assert(moved.shown.value === '' && moved.taken, 'a frame that has seen it and moved on gives its value')
 
 const main = Effect.gen(function*() {
   const simulation = yield* simulate(app)([increment(), { _tag: 'ResetAll' }], app.init)

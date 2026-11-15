@@ -270,11 +270,12 @@ Only what is drawn writes into an input. A subscription and a command answer wit
 A frame may be older than the user's last keystroke, so rewriting an input from every frame can eat what was
 just typed. A bridge keeps the element of each input, and asks the library what to make of it. When the user edits
 it, `typed(held, value)` gives the write to send, over what the element showed, and, from the number its dispatch
-returns, what the element then holds. After each frame, `drawn(held, value, seen)` keeps the element as it is while
-the frame is the element's own past or present, and gives it the frame's value once the state has moved on without
-it. So the element is never replaced, and keeps its focus while the program changes what it shows. The examples'
-bridges show it, to copy, in [`form`](examples/form) and [`form-react`](examples/form-react), with snabbdom and with
-React, and in [`volume`](examples/volume), a slider.
+returns, what the element then holds. After each frame, `drawn(held, value, seen)` gives what the element then holds,
+`shown`, and whether it takes the frame's value, `taken`, which the bridge then writes into it: the element stays as
+it is while the frame is the element's own past or present, and takes the frame's value once the state has moved on
+without it. So the element is never replaced, and keeps its focus while the program changes what it shows. The
+examples' bridges show it, to copy, in [`form`](examples/form) and [`form-react`](examples/form-react), with snabbdom
+and with React, and in [`volume`](examples/volume), a slider.
 
 With a bridge that settles them with `drawn`, the element of an input never takes back what the user typed since the
 frame, and shows the program's value once the state has moved on without it. That holds for elements and renderers
