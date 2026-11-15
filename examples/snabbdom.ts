@@ -53,7 +53,7 @@ export const renderInto =
  * Sends a message at once, from a plain callback. A dispatch needs no services and completes synchronously, so
  * `Effect.runSync` is enough: the run handles the message with its own services.
  */
-const send = <Message>(dispatch: Dispatch<Message>, message: Message): void => Effect.runSync(dispatch(message))
+const send = <Message>(dispatch: Dispatch<Message>, message: Message): number => Effect.runSync(dispatch(message))
 
 /** snabbdom's `on` for a click that sends `message`. */
 export const onClick = <Message>(message: Message, dispatch: Dispatch<Message>): On => ({

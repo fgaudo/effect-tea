@@ -1058,7 +1058,7 @@ describe('subscriptions', () => {
           Stream.tap(({ model, dispatch }) =>
             Effect.suspend(() => {
               latest = model.watch
-              return model.watch.isRunning ? dispatch(model.stop) : Deferred.succeed(stopped, undefined)
+              return model.watch.isRunning ? Effect.asVoid(dispatch(model.stop)) : Deferred.succeed(stopped, undefined)
             })
           ),
           Stream.runDrain,
@@ -1414,8 +1414,8 @@ describe('the end of the run', () => {
           Stream.runForEach(frames, ({ model, dispatch }) => {
             drawn.push(model.count)
             return model.count === 0
-              ? Deferred.await(releasing).pipe(Effect.andThen(dispatch(model.increment)))
-              : Deferred.succeed(go, undefined)
+              ? Deferred.await(releasing).pipe(Effect.andThen(dispatch(model.increment)), Effect.asVoid)
+              : Effect.asVoid(Deferred.succeed(go, undefined))
           }),
       )
     }))
@@ -2178,5 +2178,123 @@ describe('a release that interrupts itself', () => {
       () => Effect.never,
     ))
     expect(said(exit)).toEqual(['boom', 'It interrupted itself, which only the run may do'])
+  })
+})
+
+// A dispatch returns the number of its message among those the view has sent, and a frame says how many of them the
+// run had taken when its state was made: a renderer tells from the two whether a frame is older than what it sent.
+describe('what a frame has seen of what the view sent', () => {
+  type Drawn = Readonly<{ count: number; seen: number }>
+  type Render = (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void>
+
+  /** Runs what `start` makes of a renderer until `act`, given each frame drawn, says it is done; returns the frames. */
+  const drawnUntil = (
+    start: (render: Render) => Effect.Effect<void>,
+    act: (frame: Frame<Model, Message>) => Effect.Effect<boolean>,
+  ): Promise<ReadonlyArray<Drawn>> =>
+    Effect.runPromise(Effect.gen(function*() {
+      const drawn: Array<Drawn> = []
+      const done = yield* Deferred.make<void>()
+      const render: Render = (frames) =>
+        Stream.runForEach(
+          frames,
+          Effect.fnUntraced(function*(frame) {
+            drawn.push({ count: frame.model.count, seen: frame.seen })
+            if (yield* act(frame)) yield* Deferred.succeed(done, undefined)
+          }),
+        )
+      yield* Effect.raceFirst(start(render), Deferred.await(done))
+      return drawn
+    }))
+
+  test('counts every message the view sent that the run has taken, a rejected one too', async () => {
+    const numbers: Array<number> = []
+    const frames = await drawnUntil(
+      (render) => runCounter(counter, render),
+      Effect.fnUntraced(function*({ model, dispatch }) {
+        if (model.count === 0) {
+          numbers.push(yield* dispatch('Increment'), yield* dispatch('Forbidden'), yield* dispatch('Increment'))
+        }
+        return model.count === 2
+      }),
+    )
+    expect(numbers).toEqual([1, 2, 3])
+    expect(frames[0]).toEqual({ count: 0, seen: 0 })
+    // The second increment is the third message: the frame of its state has seen the rejected one between.
+    expect(frames.at(-1)).toEqual({ count: 2, seen: 3 })
+    for (const { count, seen } of frames) expect(count).toBe(seen === 0 ? 0 : seen === 1 ? 1 : 2)
+  })
+
+  test('the frame of the state a message made has seen that message', async () => {
+    const frames = await drawnUntil(
+      (render) => runCounter(counter, render),
+      ({ model, dispatch }) => model.count === 0 ? Effect.as(dispatch('Increment'), false) : Effect.succeed(true),
+    )
+    expect(frames).toEqual([{ count: 0, seen: 0 }, { count: 1, seen: 1 }])
+  })
+
+  test('a dispatch is numbered each time it runs, as it runs, not as it is made', async () => {
+    const numbers: Array<number> = []
+    const heard: Array<Message> = []
+    const frames = await drawnUntil(
+      (render) =>
+        run(counter, render, {
+          onApplied: ({ message }) => Effect.sync(() => void heard.push(message)),
+          onIgnored: ({ message }) => Effect.sync(() => void heard.push(message)),
+        }),
+      Effect.fnUntraced(function*({ model, dispatch }) {
+        if (model.count === 0) {
+          const increment = dispatch('Increment')
+          const forbidden = dispatch('Forbidden')
+          numbers.push(yield* forbidden, yield* increment, yield* increment)
+        }
+        return model.count === 2
+      }),
+    )
+    // The number of a message is its place in the order `update` hears them.
+    expect(numbers).toEqual([1, 2, 3])
+    expect(heard).toEqual(['Forbidden', 'Increment', 'Increment'])
+    expect(frames.at(-1)).toEqual({ count: 2, seen: 3 })
+  })
+
+  test('the messages of a command are not counted among those the view sent', async () => {
+    const numbers: Array<number> = []
+    const frames = await drawnUntil(
+      (render) => runCounter({ ...counter, init: { state: { count: 0 }, commands: ['Ping'] } }, render),
+      Effect.fnUntraced(function*({ model, dispatch }) {
+        if (model.count === 1) numbers.push(yield* dispatch('Increment'))
+        return model.count === 2
+      }),
+    )
+    expect(numbers).toEqual([1])
+    expect(frames.filter(({ count }) => count > 0)).toEqual([{ count: 1, seen: 0 }, { count: 2, seen: 1 }])
+  })
+
+  test('a frame drawn once the run has taken more messages says what its own state had seen', async () => {
+    const frames = await Effect.runPromise(Effect.gen(function*() {
+      const drawn: Array<Drawn> = []
+      const ignored = yield* Deferred.make<void>()
+      const done = yield* Deferred.make<void>()
+      // The renderer reads the frame of the increment only once the loop has taken the rejected message after it,
+      // which makes no frame of its own.
+      const render: Render = (frames) =>
+        Stream.runForEach(
+          frames,
+          Effect.fnUntraced(function*({ model, dispatch, seen }) {
+            drawn.push({ count: model.count, seen })
+            if (model.count === 0) {
+              yield* dispatch('Increment')
+              yield* dispatch('Forbidden')
+              yield* Deferred.await(ignored)
+            } else yield* Deferred.succeed(done, undefined)
+          }),
+        )
+      yield* Effect.raceFirst(
+        run(counter, render, { onIgnored: () => Effect.asVoid(Deferred.succeed(ignored, undefined)) }),
+        Deferred.await(done),
+      )
+      return drawn
+    }))
+    expect(frames).toEqual([{ count: 0, seen: 0 }, { count: 1, seen: 1 }])
   })
 })

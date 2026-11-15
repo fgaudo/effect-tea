@@ -97,7 +97,10 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   through the scheduler of the fiber that made it, so a dispatch never runs `update` in its caller's stack:
   "running a dispatch from a plain callback returns before update has seen the message" (`run.test.ts`). That
   the scheduler is the run's own is read only in the source: "a dispatch run from a plain callback wakes the
-  program on the scheduler the run started with" (`run.test.ts`).
+  program on the scheduler the run started with" (`run.test.ts`). The numbering of the view's messages rests on documented parts alone:
+  `Effect.sync` evaluates its thunk as the effect runs, `Queue.offerUnsafe` adds the message synchronously, and the
+  queue hands its messages in the order they were offered. `Queue.offer` is `offerUnsafe` in a `suspend` for an
+  unbounded queue (read in the source), so the dispatch that offers with it wakes the loop as before.
 - **Every fiber of a run asks the `Scheduler` it is given before each step, and every task it makes goes to that
   scheduler's dispatcher, or resumes inline where the scheduler of the tests makes it yield first**, so that
   `test/scheduled.ts` decides where each fiber yields and which runs next, needing nothing of the platform's: "driven

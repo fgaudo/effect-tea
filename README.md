@@ -230,10 +230,13 @@ serializable: an `Option`, a `Data` class or a `HashMap` is data.
 ### View
 
 A view is `(model, dispatch) => Node`, and `dispatch` takes the program's messages. Sending returns an
-`Effect<void>` that needs no services and completes synchronously. It only hands the message to the run, which
+`Effect<number>` that needs no services and completes synchronously. It only hands the message to the run, which
 handles it in its own fiber, with its own services: a handler returns before `update` has seen its message. A
 renderer whose handlers are plain callbacks, like snabbdom's, runs it at once with
-`Effect.runSync(dispatch(message))`, or with a runtime of its own: either is right.
+`Effect.runSync(dispatch(message))`, or with a runtime of its own: either is right. The number is the message's
+among those the view has sent, from 1, in the order the run takes them, and each frame says in `seen` how many of
+them the run had taken when its state was made: a frame whose `seen` is below a message's number was made before
+the run took it.
 
 The library ships no renderer. A bridge to one does two things: it draws each frame, and runs `dispatch` in the
 handlers. [`examples/snabbdom.ts`](examples/snabbdom.ts) and [`examples/react.ts`](examples/react.ts) are two,
@@ -764,6 +767,10 @@ What you can rely on:
   a defect too: only the run, and whoever runs it, interrupt them.
 - **Frames cost only what is drawn.** A message that returns the very same state draws no new frame, and a
   model is made only for the frames the renderer reads.
+- **A frame says what it has seen.** Each message the view sends is numbered, from 1, in the order the run takes
+  it, and a frame's `seen` is how many of them the run had taken when the frame's state was made, rejected ones
+  included, and no message of a command or a subscription. A message that makes no new state draws no frame, so
+  the last frame may have seen fewer than the view has sent: never wait for it to see them all.
 
 What is left to you:
 
@@ -782,13 +789,14 @@ What is left to you:
   child's model, and its subscriptions, while its state is the same object.
 
 The library's tests check each guarantee. That of the order is the run's one loop over one queue, checked by the
-tests of the run. [`src/interleaving.test.ts`](src/interleaving.test.ts) checks the other six under random orders
+tests of the run. [`src/interleaving.test.ts`](src/interleaving.test.ts) checks the other seven under random orders
 of clicks, writes into an input, current and stale, command answers, subscription messages and ends, releases,
 defects and self-interruptions: that outdated clicks leave the state as it was, that subscriptions follow their
 keys, that what a subscription, a command or the renderer acquires does not outlive it and the next message waits
 for the slowest release, that what the run logs is not kept by the span of whoever runs it, which stays the parent
-of the spans opened in it, that nothing ends in silence, and that a model is made only for the frames read and the
-very same state draws no new frame. It checks too that the run dies with each defect, in the order it happened as
+of the spans opened in it, that nothing ends in silence, that a model is made only for the frames read and the
+very same state draws no new frame, and that a frame has seen the view's messages taken before its state was made,
+and none after. It checks too that the run dies with each defect, in the order it happened as
 the run is made today, and from the first one on applies no message (see [running](#running)), and that what is
 written into an input is stored at the revision it was drawn at, or rejected (see
 [inputs the user types into](#inputs-the-user-types-into)).
@@ -993,9 +1001,9 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | `Subscription`                                    | a `Channel` of messages that never ends, or ends with one last message; kept by key                      |
 | `Subscriptions`                                   | `(state) => HashMap<K, Subscription<Message>>`, reconciled by key                                        |
 | `subscriptionsOf`                                 | what a program listens to in a state, by key, as `run` reconciles it                                     |
-| `View`, `Dispatch`                                | `(model, dispatch) => Node`; `(message) => Effect<void>`, the same in every frame                        |
+| `View`, `Dispatch`                                | `(model, dispatch) => Node`; `(message) => Effect<number>`, which numbers it; the same in every frame    |
 | `dispatchTo`                                      | a child's or an input's dispatch, for its view: wraps its messages as the program receives them          |
-| `run`, `Frame`, `RunOptions`                      | run a program with a renderer; what the renderer draws; how the program runs                             |
+| `run`, `Frame`, `RunOptions`                      | run a program with a renderer; what it draws, `{ model, dispatch, seen }`; how the program runs          |
 | `Applied`, `Ignored`, `Origin`                    | what `onApplied` and `onIgnored` hear: a message, where it came from, the states around it               |
 | `ProgramDefect`, `DefectSite`                     | the defect a run dies with: its `cause`, `where` it happened, `update`'s message, a subscription's `key` |
 | `CompositionDefect`                               | a parent breaking what it declared of a child, which the run then dies with                              |

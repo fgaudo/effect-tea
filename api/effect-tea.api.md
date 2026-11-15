@@ -244,7 +244,7 @@ const diesIn: (where: DefectSite, details?: () => Readonly<{
 const diesOf: (exit: Exit.Exit<unknown, unknown>) => ReadonlyArray<Cause.Die>;
 
 // @public
-export type Dispatch<Message> = (message: Message) => Effect.Effect<void>;
+export type Dispatch<Message> = (message: Message) => Effect.Effect<number>;
 
 // @public
 export const dispatchTo: <Message, Name extends string>(dispatch: Dispatch<Message>, name: Name, ...id: IdOf<Message, Name>) => ChildDispatch<Message, Name>;
@@ -303,10 +303,11 @@ declare namespace Engine {
 interface Engine_2<State, Message> {
     readonly await: Effect.Effect<never>;
     readonly died: Effect.Effect<void>;
-    readonly dispatch: (message: Message) => Effect.Effect<void>;
+    readonly dispatch: (message: Message) => Effect.Effect<number>;
     readonly report: Effect.Effect<void>;
-    // (undocumented)
-    readonly states: Stream.Stream<Core.Revisioned<State>>;
+    readonly states: Stream.Stream<Core.Revisioned<State> & Readonly<{
+        seen: number;
+    }>>;
     readonly stop: Effect.Effect<void>;
 }
 
@@ -377,6 +378,7 @@ export const forEach: {
 export type Frame<Model, Message> = Readonly<{
     model: Model;
     dispatch: Dispatch<Message>;
+    seen: number;
 }>;
 
 // @public (undocumented)
@@ -482,11 +484,12 @@ const make: <State, Message, Command, R, K>(args_0: Readonly<{
     died: Effect.Effect<void, never, never>;
     report: Effect.Effect<void, never, never>;
     stop: Effect.Effect<void, never, never>;
-    dispatch: (message: Message) => Effect.Effect<void, never, never>;
-    states: Stream.Stream<Readonly<{
+    dispatch: (message: Message) => Effect.Effect<number, never, never>;
+    states: Stream.Stream<{
         state: State;
         revision: Core.Revision;
-    }>, never, never>;
+        seen: number;
+    }, never, never>;
 }, never, Scope.Scope | Exclude<R, Scope.Scope>>;
 
 // @public (undocumented)

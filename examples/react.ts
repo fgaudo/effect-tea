@@ -46,7 +46,7 @@ export const renderInto =
     )
 
 /** Sends a message from a React callback: a dispatch needs no services and completes synchronously. */
-const send = <Message>(dispatch: Dispatch<Message>, message: Message): void => Effect.runSync(dispatch(message))
+const send = <Message>(dispatch: Dispatch<Message>, message: Message): number => Effect.runSync(dispatch(message))
 
 /** React's `onClick` for a click that sends `message`. */
 export const onClick = <Message>(message: Message, dispatch: Dispatch<Message>) => () => send(dispatch, message)

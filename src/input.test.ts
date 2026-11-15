@@ -227,7 +227,7 @@ describe('an input in a child by id', () => {
 
   test('has a dispatch of its own, made from its note\'s', () => {
     const sent: Array<NotesMessage> = []
-    const dispatch: Dispatch<NotesMessage> = (message) => Effect.sync(() => void sent.push(message))
+    const dispatch: Dispatch<NotesMessage> = (message) => Effect.sync(() => sent.push(message))
     const toText: Dispatch<Written<string>> = dispatchTo(dispatchTo(dispatch, 'Note', 2), 'Text')
     Effect.runSync(toText(write(field('b'), 'bc')))
     expect(sent).toEqual([typing(2, field('b'), 'bc')])

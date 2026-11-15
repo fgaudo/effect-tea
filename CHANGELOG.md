@@ -17,6 +17,10 @@ version, and everything else, features included, the patch version.
 
 ### Changed
 
+- **Breaking**: a `Dispatch` returns `Effect<number>`, the number of its message among those the view sent, and a
+  `Frame` has `seen`, how many of them the run had taken when its state was made ("View", "Guarantees").
+  Upgrade: a dispatch written by hand, `(message) => Effect.sync(() => void sent.push(message))`, returns a number,
+  `(message) => Effect.sync(() => sent.push(message))`, and a frame made by hand has `seen`.
 - **Breaking**: "Model" in the README says that a model is data: it holds no function, and compares by `Equal`.
   Upgrade: a function of the model that makes a message from what the user typed, `changeName: (name) =>
   NameChanged({ name })`, becomes an input, `inputs: { Name: input(at) }`, and the view writes into its field,

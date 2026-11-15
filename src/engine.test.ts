@@ -13,6 +13,7 @@ import * as Queue from 'effect/Queue'
 import * as References from 'effect/References'
 import * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
+import { everySchedule } from '../test/scheduled.ts'
 import { ProgramDefect } from './defect.ts'
 import * as Engine from './engine.ts'
 import type { Execution } from './command.ts'
@@ -41,6 +42,7 @@ const revision = (engine: Engine.Engine<number, Message>, target: Engine.Revisio
     Stream.filter(({ revision }) => revision >= target),
     Stream.runHead,
     Effect.map(Opt.getOrThrow),
+    Effect.map(({ state, revision }) => ({ state, revision })),
   )
 
 /** Runs `engine.await` for a short while: `None` means the engine is still alive. */
@@ -228,7 +230,12 @@ describe('Engine same state', () => {
     })
 
   const firstAfter = (engine: Engine.Engine<number, Signal>) =>
-    engine.states.pipe(Stream.filter(({ revision }) => revision > 0), Stream.runHead, Effect.map(Opt.getOrThrow))
+    engine.states.pipe(
+      Stream.filter(({ revision }) => revision > 0),
+      Stream.runHead,
+      Effect.map(Opt.getOrThrow),
+      Effect.map(({ state, revision }) => ({ state, revision })),
+    )
 
   test('a message that keeps the same state makes no new revision', async () => {
     const reached = await run(Effect.gen(function*() {
@@ -786,5 +793,41 @@ describe('Engine end', () => {
       return log
     }))
     expect(log).toEqual(['subscription interrupted'])
+  })
+})
+
+// A view's message is numbered in the thunk that queues it, which holds no code of the program: no gate reaches it,
+// and only a scheduler that yields between any two operations can come between a number and its offer. So this is an
+// alarm, under every schedule of two dispatches racing within two deviations, and no mutation names it ("one thunk"
+// in `docs/invariants.md`): it fails with the number taken in an operation of its own before the offer.
+describe('the numbers of two dispatches racing', () => {
+  type Sent = 'A' | 'B'
+  const racing = Effect.scoped(Effect.gen(function*() {
+    const heard: Array<Sent> = []
+    const both = yield* Deferred.make<void>()
+    const engine = yield* Engine.make<number, Sent, never, never, never>({
+      init: { state: 0 },
+      runCommand: () => Effect.die('no command'),
+      update: () => (count) => ({ state: count + 1 }),
+      subscriptions: () => HashMap.empty(),
+      onApplied: ({ message }) =>
+        Effect.suspend(() => {
+          heard.push(message)
+          return heard.length === 2 ? Effect.asVoid(Deferred.succeed(both, undefined)) : Effect.void
+        }),
+    })
+    const a = yield* Effect.forkChild(engine.dispatch('A'))
+    const b = yield* Effect.forkChild(engine.dispatch('B'))
+    const numbers = { A: yield* Fiber.join(a), B: yield* Fiber.join(b) }
+    yield* Deferred.await(both)
+    return { numbers, heard }
+  }))
+
+  test('follow the order update hears them in, under every schedule within two deviations', () => {
+    everySchedule(racing, { bound: 2, resumptions: 'inline' }, (exit) => {
+      if (Exit.isFailure(exit)) throw new Error(Cause.pretty(exit.cause))
+      const { numbers, heard } = exit.value
+      expect([heard[numbers.A - 1], heard[numbers.B - 1]]).toEqual(['A', 'B'])
+    })
   })
 })

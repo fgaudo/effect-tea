@@ -758,6 +758,16 @@ describe('interleavings of the user, commands and subscriptions', () => {
       }
       if (made > 0 && read < events.filter(({ _tag }) => _tag === 'Drew').length) reached.add('a frame never read')
       if (releaseOvertaken(events)) reached.add('a release overtaken')
+      let heard = 0
+      for (const event of events) {
+        const origin = event._tag === 'Applied'
+          ? event.applied.origin
+          : event._tag === 'Ignored'
+          ? event.ignored.origin
+          : undefined
+        if (origin?._tag === 'View') heard += 1
+        if (event._tag === 'Drew' && event.frame.seen < heard) reached.add('a frame older than a message heard')
+      }
     }, { numRuns: 2000, seed })
     const places: ReadonlyArray<Where> = ['command', 'subscription', 'render', 'onApplied', 'onIgnored']
     const missing = [
@@ -784,6 +794,7 @@ describe('interleavings of the user, commands and subscriptions', () => {
       'a frame never read',
       'a span of the program',
       'a release overtaken',
+      'a frame older than a message heard',
     ].filter((tag) => !reached.has(tag))
     if (missing.length > 0) throw new Error(`No scenario of seed ${seed} reached ${missing.join(', ')}`)
   }, 180_000)
@@ -892,6 +903,38 @@ describe('interleavings of the user, commands and subscriptions', () => {
       if (deaths(events).length > 0) return
       const { note } = finalState(events)
       expect(searches(events, settled)).toEqual(note.value === '' ? [] : [note.value])
+    })
+  }, 120_000)
+
+  // The renderer may draw an older state than the last one made, which the sliding buffer drops, but never a count
+  // that no state was made with: `seen` is the count of the view's messages taken when the frame's state was made.
+  test('a frame has seen the messages of the view taken before its state was made, and none after', () => {
+    property(({ events }) => {
+      const broken: Array<string> = []
+      let heard = 0
+      const counts = new Set([0])
+      let last = 0
+      let drawn = 0
+      for (const event of events) {
+        const origin = event._tag === 'Applied'
+          ? event.applied.origin
+          : event._tag === 'Ignored'
+          ? event.ignored.origin
+          : undefined
+        if (origin?._tag === 'View') heard += 1
+        if (event._tag === 'Applied' && event.applied.after !== event.applied.before) {
+          counts.add(heard)
+          last = heard
+        }
+        if (event._tag === 'Drew') {
+          const { seen } = event.frame
+          if (!counts.has(seen)) broken.push(`a frame has seen ${seen}, which no state was made with`)
+          if (seen < drawn) broken.push(`a frame has seen ${seen}, after one that had seen ${drawn}`)
+          drawn = seen
+        }
+      }
+      expect(broken).toEqual([])
+      if (deaths(events).length === 0) expect(drawn).toBe(last)
     })
   }, 120_000)
 

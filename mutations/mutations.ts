@@ -386,6 +386,67 @@ export const mutations: ReadonlyArray<Mutation> = [
       ['src/testing/rehearse.test.ts', 'a defect the scenario catches fails it all the same, first, and once'],
     ],
   },
+  // The numbering of the view's messages, and what a frame has seen of them.
+  {
+    name: "a view's message is numbered as its dispatch is made, not as it is queued",
+    file: 'src/engine.ts',
+    from: '  const send = (message: Message) =>\n'
+      + '    Effect.sync(() => {\n'
+      + '      sent += 1\n'
+      + '      Queue.offerUnsafe(queue, { message, source: Core.fromView })\n'
+      + '      return sent\n'
+      + '    })\n',
+    to: '  const send = (message: Message) => {\n'
+      + '    const number = (sent += 1)\n'
+      + '    return Effect.sync(() => {\n'
+      + '      Queue.offerUnsafe(queue, { message, source: Core.fromView })\n'
+      + '      return number\n'
+      + '    })\n'
+      + '  }\n',
+    killedBy: [['src/run.test.ts', 'a dispatch is numbered each time it runs, as it runs, not as it is made']],
+  },
+  {
+    name: "a frame's seen leaves out the message that made its state",
+    file: 'src/engine.ts',
+    from: 'SubscriptionRef.set(stateRef, { ...next, seen })',
+    to: "SubscriptionRef.set(stateRef, { ...next, seen: source._tag === 'View' ? seen - 1 : seen })",
+    killedBy: [
+      ['src/run.test.ts', 'counts every message the view sent that the run has taken, a rejected one too'],
+      ['src/run.test.ts', 'the frame of the state a message made has seen that message'],
+    ],
+  },
+  {
+    name: "a frame's seen counts the states made, not the view's messages taken",
+    file: 'src/engine.ts',
+    from: 'SubscriptionRef.set(stateRef, { ...next, seen })',
+    to: 'SubscriptionRef.set(stateRef, { ...next, seen: next.revision })',
+    killedBy: [
+      ['src/run.test.ts', 'counts every message the view sent that the run has taken, a rejected one too'],
+      ['src/run.test.ts', 'the messages of a command are not counted among those the view sent'],
+    ],
+  },
+  {
+    name: "a frame's seen counts the messages of commands and subscriptions",
+    file: 'src/engine.ts',
+    from: "if (source._tag === 'View') seen += 1",
+    to: 'seen += 1',
+    killedBy: [
+      ['src/run.test.ts', 'the messages of a command are not counted among those the view sent'],
+      [
+        'src/testing/contract.test.ts',
+        "drive's frames say how many of the messages sent through them the run has taken, as the run's do",
+      ],
+    ],
+  },
+  {
+    name: "a frame's seen is read as the frame is drawn, not with its state",
+    file: 'src/engine.ts',
+    from: 'SubscriptionRef.set(stateRef, { ...next, seen })',
+    to: 'SubscriptionRef.set(stateRef, {\n          ...next,\n          get seen() {\n            return seen\n          },\n        })',
+    killedBy: [
+      ['src/run.test.ts', 'a frame drawn once the run has taken more messages says what its own state had seen'],
+    ],
+  },
   {
     name: 'the run does not stop the renderer',
     file: 'src/run.ts',

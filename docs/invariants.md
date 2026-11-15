@@ -22,6 +22,17 @@ testing tools.
   step's commands apart from it. That a `Queue` gives its items in the order they were offered is documented:
   "dispatches run one after the other in one callback, before the run takes any, are all applied in order", "hears
   every accepted message in order, with the states around it, before its frame" (`run.test.ts`).
+- **A view's message is numbered as it is queued, and a frame says how many of them it has seen.** A dispatch
+  returns the number of its message among those the view sent, from 1, taken in the thunk that offers it to the queue
+  (`send` in `engine.ts`) each time the effect runs, never as it is made, so that the numbers follow the order the
+  queue gives, which is documented. The loop counts each view's message it takes, a rejected one and one that leaves
+  the state as it was included, and no message of a command or a subscription. It counts the message before the state
+  it makes is published, and publishes the count in the same object as the state (`{ ...next, seen }`), so that a
+  frame's `seen` is the count of its own state's step, whatever the loop has taken since. A message that makes no
+  state draws no frame, so the last frame's `seen` may stay below the last number: nothing may wait for it to reach
+  one. The thunk of the number holds no code of the program and has no mutation ("one thunk"): "follow the order
+  update hears them in, under every schedule within two deviations" (`engine.test.ts`) is its alarm. Each other check
+  has a mutation (`mutations/mutations.ts`), and `interleaving.test.ts` checks the count of every frame drawn.
 - **`reject` means one thing: the message does not apply in the state.** The run ignores every rejection, and
   whether the view sends only what applies is for the tests ("Rejections and defects" in the README). Never add
   a runtime check of the model against `update`, nor a way for a model to ask `update` what it accepts: the
@@ -62,8 +73,8 @@ testing tools.
   its state to be an object, and is not checked, while a child's is checked where a parent reads it for a model or
   for its lifted subscriptions (`objectAt` in `compose.ts`), and is a `CompositionDefect` that names the child, since
   the state is the one the parent's `get` declared, where a `WeakMap` would raise its own `TypeError`.
-- **Running a dispatch needs no services and completes synchronously**: it only offers the message to the
-  engine's unbounded queue, which wakes the engine on the scheduler of the run that made it, so that renderers
+- **Running a dispatch needs no services and completes synchronously**: it only numbers the message and offers it to
+  the engine's unbounded queue, which wakes the engine on the scheduler of the run that made it, so that renderers
   send from plain callbacks with `Effect.runSync`. Keep the queue unbounded (one that waits when full would make
   every such call throw, one that drops would lose what the user did) and the dispatch free of services.
   Running a dispatch is the renderer's business: the library exports no helper for it.

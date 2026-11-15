@@ -165,6 +165,28 @@ describe('the testing tools and the run, on the same program and inputs', () => 
     expect(result).toEqual(rehearsed.state)
     expect(ignored.map(({ message }) => message)).toEqual([...rehearsed.ignored])
   })
+
+  // `simulate` and `rehearse` draw no frames: each message the test sends is applied to the state it was chosen on,
+  // so nothing they apply is older than what was sent, and there is nothing for a frame to count.
+  test('drive\'s frames say how many of the messages sent through them the run has taken, as the run\'s do', async () => {
+    const answer = await Effect.runPromise(Deferred.make<void>())
+    const { result, applied, ignored } = await Effect.runPromise(
+      recorded(draftProgram(Deferred.await(answer), true), (driver) =>
+        Effect.gen(function*() {
+          yield* driver.send(({ type }) => type('a'))
+          yield* driver.send(({ save }) => save)
+          yield* driver.waitFor(({ draft }) => draft.ticks === 1 ? Opt.some(draft) : Opt.none())
+          // Rejected while saving, and counted all the same; the tick and the answer are not the view's.
+          yield* driver.send(() => Opt.some<Edit>({ _tag: 'Typed', text: 'b' }))
+          yield* Deferred.succeed(answer, undefined)
+          yield* driver.waitFor(idle)
+          return (yield* driver.latest).seen
+        })),
+    )
+    const fromView = [...applied, ...ignored].filter(({ origin }) => origin._tag === 'View')
+    expect(fromView.map(({ message }) => message._tag)).toEqual(['Typed', 'Save', 'Typed'])
+    expect(result).toBe(3)
+  })
 })
 
 describe('the order of the answers of commands started together', () => {

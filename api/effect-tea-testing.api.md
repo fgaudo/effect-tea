@@ -92,7 +92,7 @@ const diesFirst: <E>(deaths: ReadonlyArray<Cause.Die>, cause: Cause.Cause<E>) =>
 const diesOf: (exit: Exit.Exit<unknown, unknown>) => ReadonlyArray<Cause.Die>;
 
 // @public
-type Dispatch<Message> = (message: Message) => Effect.Effect<void>;
+type Dispatch<Message> = (message: Message) => Effect.Effect<number>;
 
 // @public
 export type DispatchViolation<Message> = Readonly<{
@@ -150,6 +150,7 @@ type Folded<State, Command, Event> = Readonly<{
 type Frame<Model, Message> = Readonly<{
     model: Model;
     dispatch: Dispatch<Message>;
+    seen: number;
 }>;
 
 // @public (undocumented)

@@ -8,11 +8,13 @@ import * as Engine from './engine.ts'
 import { runCommandOf, type Shape, startOf, subscriptionsOf } from './program.ts'
 
 /**
- * What a renderer draws: a model, and the dispatch of the run, the very same function for every frame. The model
- * is made when it is first read, so a frame nobody reads costs nothing: whatever enumerates or copies a frame
+ * What a renderer draws: a model, the dispatch of the run, the very same function for every frame, and `seen`, how
+ * many of the messages sent through that dispatch the run had taken when the frame's state was made, rejected ones
+ * included: a message numbered up to `seen` is one the frame's state has seen, and one numbered after it is not. The
+ * model is made when it is first read, so a frame nobody reads costs nothing: whatever enumerates or copies a frame
  * (a spread, `JSON.stringify`) reads it.
  */
-export type Frame<Model, Message> = Readonly<{ model: Model; dispatch: Dispatch<Message> }>
+export type Frame<Model, Message> = Readonly<{ model: Model; dispatch: Dispatch<Message>; seen: number }>
 
 /** What the program starts from: required exactly when it has flags. */
 export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: never }>
@@ -58,7 +60,7 @@ const running = Effect.fnUntraced(
     })
     const frames = engine.states.pipe(
       Stream.buffer({ capacity: 1, strategy: 'sliding' }),
-      Stream.map(({ state }) => lazyFrame(() => program.makeModel(state), engine.dispatch)),
+      Stream.map(({ state, seen }) => lazyFrame(() => program.makeModel(state), engine.dispatch, seen)),
     )
     // Called once, in a run that died as it started too, as a subscription of `init` may die while the engine starts:
     // the end of the run interrupts it, as it does any effect of the program.
@@ -97,7 +99,11 @@ export const run = <State, Model, Message, Command = never, R = never, RR = neve
 ): Effect.Effect<void, never, Exclude<R | RR, Scope.Scope>> =>
   Effect.flatMap(Engine.makeDeaths(() => true), (deaths) => runWith(program, render, options, deaths))
 
-const lazyFrame = <Model, Message>(makeModel: () => Model, dispatch: Dispatch<Message>): Frame<Model, Message> => {
+const lazyFrame = <Model, Message>(
+  makeModel: () => Model,
+  dispatch: Dispatch<Message>,
+  seen: number,
+): Frame<Model, Message> => {
   let made: Readonly<{ model: Model }> | undefined
   return {
     get model() {
@@ -105,5 +111,6 @@ const lazyFrame = <Model, Message>(makeModel: () => Model, dispatch: Dispatch<Me
       return made.model
     },
     dispatch,
+    seen,
   }
 }
