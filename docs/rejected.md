@@ -167,6 +167,20 @@ answer, and saying so in the proposal.
   4.1.4, the version of the lockfile, and the job was green on 14 and 15 November. Source: the session that removed
   it from `ROADMAP.md`. *Reopen if* a minor of Effect breaks a premise and reaches consumers before a release of the
   library follows it.
+- **The wrapping of a child's message as a public function** (`{ _tag, id?, message }`, for `dispatchTo` and a
+  test's reader to share), **and as an internal one** for the two places of `src/` that build it. Reasoned, with a
+  scratch probe of `tsc` against the `list` and `pages` examples, outside the repository and deleted, 15 November
+  2026. The public function adds a name over a shape the library documents as data, as `Step` is, and covers one of
+  the three shapes a parent's test rebuilds (a child's command and a lifted key stay literals). The probe confirmed
+  that the compiler rejects a wrong child name, a missing or mistyped id and another child's message in a literal
+  typed as the parent's `Message`, and found the one check a function would add: a stray `id` on a child that is
+  alone compiles when the literal is not fresh (a `const` assigned later, or the result of a `map`). Inferring the
+  parent's `Message` from the parent program was found easy, so that was no reason against. The internal function
+  would share only the spread: `compose` and `dispatchTo` decide differently whether a child is by id, and it would
+  add an import between `compose.ts` and `dispatch.ts`, which have none. The owner decided against both.
+  [`boundary.md`](boundary.md), "A question". Source: the session that removed it from `ROADMAP.md`, with a review by
+  Fable 5.2. *Reopen if* a tool must lift a child's message without a type to lean on (as the third spike of
+  [`declared-inputs.md`](declared-inputs.md) did), or the stray `id` is found in an application's tests.
 
 ## Not here
 
@@ -176,5 +190,3 @@ What is open, proposed or suspended is not rejected, and is listed in `ROADMAP.m
   not revoked. The decisions taken in it stand only if it is taken up again, and what its spikes refuted is there.
 - **`Inert`** ([`inert-steps.md`](inert-steps.md), "What was decided"): deferred by the owner, not rejected; the
   rest of the proposal is done.
-- **The wrapping of a child's message as a public function** ([`boundary.md`](boundary.md), "A question"), and its
-  items 6 and 7: questions and candidates, not decided. Its item 8 is done.

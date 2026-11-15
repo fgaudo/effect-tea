@@ -1,7 +1,8 @@
 # Where the library ends: what is left across and after the model
 
-**Status:** items 1 to 5 done on `main`, 14 November 2026, and items 8, 6 and 7 on 15 November 2026; item 9 is a
-question, neither decided nor designed. Rewritten the same day from the inventory it
+**Status:** items 1 to 5 done on `main`, 14 November 2026, and items 8, 6 and 7 on 15 November 2026; item 9, the
+question of the wrapping, was answered no on 15 November 2026 ([`rejected.md`](rejected.md)). Rewritten the same
+day from the inventory it
 was (`d13bd6f`, whose tables and sections 1 to 3 describe the repository before item 1 and are kept there, in the
 history). Made by one model (Fable 5.2) on Effect 4.1.4 and Bun 1.4.4. "What it rests on" says what was read again in
 the code today, at `1d0ccc9`, and what is carried over. Read again on 15 November 2026, at `7074b7a`, after the port
@@ -143,7 +144,7 @@ Item 7 is breaking; 0.8.0 is open and unreleased. Items 6 and 8 are done, and ke
 - **Read again**: the list above is today's, at `7074b7a`. It splits in two: the words alone (a changelog entry at
   most), and the tag (breaking).
 
-## A question: the wrapping of a child's message, before the model
+## A question: the wrapping of a child's message, before the model (answered: no)
 
 `dispatchTo` stays where it is: its cache is what earns it its place, and each memoizing bridge would otherwise
 write a `WeakRef` and a `FinalizationRegistry` again. The question is narrower: whether the library offers, as a
@@ -153,9 +154,9 @@ reader to share.
 What the code has, read today:
 
 - **The shape is written twice in `src/`, and typed three times.** `compose.ts:357`, `wrapMessage(place)`, used for
-  a child's subscriptions (`:449`) and for the answers of its commands (`:527`); and `dispatch.ts:101`, inline in
+  a child's subscriptions (`:449`) and for the answers of its commands (`:527`); and `dispatch.ts:98`, inline in
   `dispatchTo`. The types are `ChildMessages` (`compose.ts:172`), `InputMessages` (`compose.ts:131`), since the port
-  the same shape without an id for a write into an input, and `Routed` (`dispatch.ts:27`). The two functions differ in
+  the same shape without an id for a write into an input, and `Routed` (`dispatch.ts:24`). The two functions differ in
   how they know that a child is by id: `compose` asks its configuration, `dispatchTo` whether an id was given.
 - **The tests write it a third time.** `list` and `timers` have `to(id, message)`, one line, and `pages` two
   literals. Each had it before the readers, to build its candidates and the messages of its own tests: the readers
@@ -164,12 +165,16 @@ What the code has, read today:
   model's.
 - **The compiler already checks the literal.** A wrong child name, a missing or mistyped id, a message of another
   child: none compiles, since the literal is typed as the parent's `Message`. A wrong id of the right type compiles,
-  with a function as with a literal, and the test finds it (`Rejected`, and `Missing` for the right one).
+  with a function as with a literal, and the test finds it (`Rejected`, and `Missing` for the right one). One case
+  escapes the literal: a stray `id` on a child that is alone compiles when the literal is not fresh (a `const`
+  assigned later, or the result of a `map`), where a function would refuse it. It is the one check a function adds;
+  what the engine does with such a message was not run.
 - **It is not the only shape a parent's test rebuilds.** A child's command is `{ _tag, id?, command }`
   (`compose.ts:358`; `pages` asserts one by hand), and a lifted key `[name, id, key]`. A function for messages
   alone covers one of three.
-- **A function has no value to infer the parent's `Message` from.** `dispatchTo` infers it from the dispatch it is
-  given; a pure function would take it as a type argument, or from the parent program.
+- **A function has no value to infer the parent's `Message` from**, but the parent program is one. `dispatchTo`
+  infers it from the dispatch it is given; a function given the parent program, `messageTo(list)('Stopwatch', 1)`,
+  typed correctly in a probe with a few lines of types like `Routed` and `IdOf`. Inference is no obstacle.
 
 By "A function earns its place": the wrapping is an object literal, so Effect is not in question, and the test is
 whether it is "the one place where a rule of the library is applied". Today the rule is applied by the types, in
@@ -179,7 +184,13 @@ without a type to lean on: the third spike of `declared-inputs.md` lifted a chil
 `dispatchTo` used, because a walk of a model had no other way. With readers written by hand there is no such tool.
 
 Apart from the question, and with no change of the API: the two places of `src/` could share one internal function.
-It removes a line and the chance that they drift, which the tests of both already hold.
+It would share only the spread, since they decide differently whether a child is by id, and it would add an import
+between `compose.ts` and `dispatch.ts`, which have none.
+
+**Answered, 15 November 2026:** neither. The owner decided against the public function and the internal one, after
+the claims above were checked with a scratch probe of `tsc` against the `list` and `pages` examples (outside the
+repository, deleted), by Fable 5.2: the probe found the stray `id` and the inference from the parent program. The
+entry, and what would reopen it, is in [`rejected.md`](rejected.md).
 
 ## Not on the list
 

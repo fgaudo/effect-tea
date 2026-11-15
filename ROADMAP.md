@@ -14,8 +14,6 @@ that each leans only on those above it.
   of [`docs/inert-steps.md`](docs/inert-steps.md) was done. It would flag the guard `{ state }` against a double tap
   and a parent's broadcast, and found one real case in the examples. Weighed again with what it finds in an
   application, and with a key whose message does nothing.
-- **The wrapping of a child's message as a pure function** before the model, for `dispatchTo` and a test's reader
-  to share. A question, weighed by "A function earns its place". [`docs/boundary.md`](docs/boundary.md), "A question".
 - **What a key sends is not data**: no tool judges a subscription's message. Whether a test lists it, a program
   exports it, or it is declared. [`docs/declared-inputs.md`](docs/declared-inputs.md), "What still makes sense";
   `Inert` for a key waits for the first item.
