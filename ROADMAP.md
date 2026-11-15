@@ -15,10 +15,6 @@ showed it, "reasoned" that it was read only.
 
 ### The tests and the checks
 
-- **Checks of `docs/invariants.md` with tests but no mutation**: the `Effect.scoped` of `scopedIn` (a scope of its
-  own for each command, subscription and renderer), the `CompositionDefect`s for an unhandled event, an external
-  message to a missing child or one it rejects, and a child's command with no `runCommand`; and the engine's logs
-  describing by `describeByTag`, which no test checks at all. Confirmed by reading.
 - **`src/input-subscriptions.test.ts` has no module of its own**, and mixes type tests, pure semantics of
   `subscriptionsOf` and `composition`, and a `run` scenario that reads as an example. A judgement call.
 

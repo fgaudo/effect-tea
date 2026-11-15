@@ -618,6 +618,44 @@ describe('Engine after the first defect', () => {
   })
 })
 
+describe('Engine logs', () => {
+  type Logged =
+    | Readonly<{ _tag: 'Set'; value: number }>
+    | Readonly<{ _tag: 'Child'; message: Readonly<{ _tag: 'Typed'; text: string }> }>
+    | Readonly<{ _tag: 'Stale'; value: number }>
+
+  test('by default, the loop logs the tags of a message and of its commands, never their data', async () => {
+    const logs: Array<unknown> = []
+    await Effect.runPromise(Effect.gen(function*() {
+      const engine = yield* Engine.make<number, Logged, Readonly<{ _tag: 'Save'; value: number }>, never, never>({
+        init: { state: 0 },
+        update: (message) => (count) =>
+          message._tag === 'Set'
+            ? { state: message.value, commands: [{ _tag: 'Save', value: message.value }] }
+            : message._tag === 'Child'
+            ? { state: count + 1 }
+            : reject,
+        runCommand: () => Effect.succeedNone,
+        subscriptions: () => HashMap.empty(),
+      })
+      yield* engine.dispatch({ _tag: 'Stale', value: 1111 })
+      yield* engine.dispatch({ _tag: 'Set', value: 4321 })
+      yield* engine.dispatch({ _tag: 'Child', message: { _tag: 'Typed', text: 'secret' } })
+      // Each message is logged before its state is published.
+      yield* engine.states.pipe(Stream.filter(({ revision }) => revision === 2), Stream.runHead)
+    }).pipe(
+      Effect.scoped,
+      Effect.provideService(References.MinimumLogLevel, 'Debug'),
+      Effect.provide(Logger.layer([Logger.make(({ message }) => logs.push(message))])),
+    ))
+    expect(logs).toEqual([
+      ['Ignored a rejected message', 'Stale', { origin: 'Dispatch' }],
+      ['Message', 'Set', { revision: 1, commands: ['Save'] }],
+      ['Message', 'Child › Typed', { revision: 2, commands: [] }],
+    ])
+  })
+})
+
 describe('Engine end', () => {
   // The engine used without `run`, whose renderer's release stops the loop first already: the end of the engine is
   // all there is. Its command, started by `init`, is the one each test gives.

@@ -173,6 +173,27 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    // The context a command, a subscription or the renderer runs in holds the run's scope.
+    name: 'a fiber of the run acquires into the scope of the run',
+    file: 'src/engine.ts',
+    from: '      return Effect.scoped(self.pipe(\n',
+    to: '      return (self.pipe(\n',
+    killedBy: [
+      ['src/engine.test.ts', 'what a command acquires is released when it ends, before update hears its message'],
+      ['src/engine.test.ts', 'a fiber that a command forks in its scope is interrupted when the command ends'],
+      ['src/engine.test.ts', 'what a subscription acquires (Channel.fromEffect) is released when its key goes away'],
+      [
+        'src/run.test.ts',
+        'what a command and the renderer acquire is theirs: no scope to provide, released after they stop',
+      ],
+      [
+        'src/testing/rehearse.test.ts',
+        'runs the subscription under the key to its first message, applies it, and releases it at the end',
+      ],
+      ['src/testing/drive.test.ts', 'a program whose commands acquire needs no scope: each command has its own'],
+    ],
+  },
+  {
     name: "a subscription's channel releases its scopes before its defect is recorded",
     file: 'src/engine.ts',
     from: 'Channel.toPull(subscription).pipe(\n'
@@ -428,6 +449,24 @@ export const mutations: ReadonlyArray<Mutation> = [
         'src/log.test.ts',
         'one whose wrapping comes back to a value on its way, by the tags on its way until then',
       ],
+    ],
+  },
+  {
+    name: 'the loop logs a message as it is by default',
+    file: 'src/engine.ts',
+    from: '  describeMessage = describeByTag,\n',
+    to: '  describeMessage = (message) => message,\n',
+    killedBy: [
+      ['src/engine.test.ts', 'by default, the loop logs the tags of a message and of its commands, never their data'],
+    ],
+  },
+  {
+    name: 'the loop logs a command as it is by default',
+    file: 'src/engine.ts',
+    from: '  describeCommand = describeByTag,\n',
+    to: '  describeCommand = (command) => command,\n',
+    killedBy: [
+      ['src/engine.test.ts', 'by default, the loop logs the tags of a message and of its commands, never their data'],
     ],
   },
   {
@@ -736,6 +775,49 @@ export const mutations: ReadonlyArray<Mutation> = [
         'src/compose.test.ts',
         "an own subscription key that is the lifted key of a child's is a defect, never a silent replacement",
       ],
+    ],
+  },
+  {
+    name: "a child's event that nothing handles dies of a TypeError",
+    file: 'src/compose.ts',
+    from: '    if (handle === undefined) {\n',
+    to: '    if (false) {\n',
+    killedBy: [
+      [
+        'src/compose.test.ts',
+        'a CompositionDefect names the child, its id for a child by id, and the tags of what it happened on',
+      ],
+    ],
+  },
+  {
+    name: 'an external message to a missing child is taken for one it rejects',
+    file: 'src/compose.ts',
+    from: '    if (Opt.isNone(getAt(place, state))) {\n',
+    to: '    if (false) {\n',
+    killedBy: [
+      ['src/compose.test.ts', 'a child that rejects what its parent gives it, or is not there to take it, is a defect'],
+    ],
+  },
+  {
+    name: 'an external message a child rejects is a rejection of the parent',
+    file: 'src/compose.ts',
+    from: '    const result = updateAt(place, message)(state)\n    if (isRejected(result)) {\n',
+    to: '    const result = updateAt(place, message)(state)\n    if (false) {\n',
+    killedBy: [
+      ['src/compose.test.ts', 'a child that rejects what its parent gives it, or is not there to take it, is a defect'],
+      [
+        'src/compose.test.ts',
+        'a CompositionDefect names the child, its id for a child by id, and the tags of what it happened on',
+      ],
+    ],
+  },
+  {
+    name: "a child's command with no runCommand dies of a TypeError",
+    file: 'src/compose.ts',
+    from: '        if (run === undefined) {\n',
+    to: '        if (false) {\n',
+    killedBy: [
+      ['src/compose.test.ts', "a child's command that nothing interprets is a CompositionDefect naming the child"],
     ],
   },
   {
