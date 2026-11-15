@@ -11,16 +11,16 @@ import * as Optic from 'effect/Optic'
 import * as fc from 'fast-check'
 import { composition } from './compose.ts'
 import { type Dispatch, dispatchTo } from './dispatch.ts'
-import { drawn, type Shown, typed, write, type Written } from './input.ts'
+import { drawn, type Shown, typed, type Written } from './input.ts'
 import { type MessageOf, type Program, subscriptionsOf } from './program.ts'
 import type { Subscription } from './subscription.ts'
 import { dispatchViolations } from './testing/dispatch-violations.ts'
-import { isRejected, raise, reject, type Step, type Transition } from './update.ts'
+import { reject, type Step, type Transition } from './update.ts'
 
 const idle = <M>(): Subscription<M, never> => Channel.never
 
 const stepped = <S, C, E>(result: Transition<S, C, E>): Step<S, C, E> => {
-  if (isRejected(result)) throw new Error('rejected')
+  if (result === reject) throw new Error('rejected')
   return result
 }
 
@@ -59,9 +59,12 @@ const draft = compose({
 
 type Message = MessageOf<typeof draft>
 
-const title = (was: string, text: string): Message => ({ _tag: 'Title', message: write(was, text) })
+const title = (was: string, text: string): Message => ({
+  _tag: 'Title',
+  message: { _tag: 'Written', was, value: text },
+})
 
-const level = (was: number, value: number): Message => ({ _tag: 'Level', message: write(was, value) })
+const level = (was: number, value: number): Message => ({ _tag: 'Level', message: { _tag: 'Written', was, value } })
 
 const drafts = fc.record({
   title: fc.string(),
@@ -86,10 +89,10 @@ describe('what is written into an input', () => {
   test('is rejected when it was written over another value than the place holds', () => {
     fc.assert(fc.property(drafts, fc.string(), fc.string(), (state, was, text) => {
       fc.pre(was !== state.title)
-      expect(isRejected(draft.update(title(was, text))(state))).toBe(true)
+      expect(draft.update(title(was, text))(state)).toBe(reject)
     }))
     const cleared = stepped(draft.update('Cleared')(draftOf('Ada'))).state
-    expect(isRejected(draft.update(title('Ada', 'Ada L'))(cleared))).toBe(true)
+    expect(draft.update(title('Ada', 'Ada L'))(cleared)).toBe(reject)
     expect(stepped(draft.update(title('', 'B'))(cleared)).state.title).toBe('B')
   })
 
@@ -106,8 +109,8 @@ describe('what is written into an input', () => {
       inputs: { Search: page.input(Optic.id<Page>().key('search').compose(Optic.some())) },
       makeModel: (state) => state,
     })
-    const written = { _tag: 'Search' as const, message: write('', 'a') }
-    expect(isRejected(program.update(written)({ search: Opt.none() }))).toBe(true)
+    const written = { _tag: 'Search' as const, message: { _tag: 'Written' as const, was: '', value: 'a' } }
+    expect(program.update(written)({ search: Opt.none() })).toBe(reject)
     expect(stepped(program.update(written)({ search: Opt.some('') })).state).toEqual({ search: Opt.some('a') })
   })
 
@@ -121,11 +124,11 @@ describe('what is written into an input', () => {
     })
     const held: Tags = { tags: ['a', 'b'] }
     const over = (was: ReadonlyArray<string>, value: ReadonlyArray<string>) =>
-      program.update({ _tag: 'Tags', message: write(was, value) })(held)
+      program.update({ _tag: 'Tags', message: { _tag: 'Written', was, value } })(held)
     expect(stepped(over(['a', 'b'], ['a', 'b', 'c'])).state).toEqual({ tags: ['a', 'b', 'c'] })
     // An equal copy of the value held leaves the very value held.
     expect(stepped(over(['a', 'b'], ['a', 'b'])).state).toBe(held)
-    expect(isRejected(over(['b', 'a'], ['c']))).toBe(true)
+    expect(over(['b', 'a'], ['c'])).toBe(reject)
   })
 })
 
@@ -156,14 +159,14 @@ describe('a step of the program', () => {
       init: (children) => ({ state: { name: '', reset: children.Reset.init.state } }),
       children: { Reset: form.child(button, { at: Optic.id<Form>().key('reset') }) },
       inputs: { Name: form.input(Optic.id<Form>().key('name')) },
-      onEvent: { Reset: (event) => (state) => raise(event)({ ...state, name: '' }) },
+      onEvent: { Reset: (event) => (state) => ({ state: { ...state, name: '' }, events: [event] }) },
       makeModel: (state) => state,
     })
     const result = program.update({ _tag: 'Reset', message: 'Pressed' })({ name: 'Ada', reset: { pressed: 0 } })
     expect(result).toEqual({ state: { name: '', reset: { pressed: 1 } }, commands: [], events: ['Reset'] })
-    expect(isRejected(program.update({ _tag: 'Name', message: write('Ada', 'Ada L') })(stepped(result).state))).toBe(
-      true,
-    )
+    expect(
+      program.update({ _tag: 'Name', message: { _tag: 'Written', was: 'Ada', value: 'Ada L' } })(stepped(result).state),
+    ).toBe(reject)
   })
 
   test('that puts a subscription\'s value into an input rejects what was typed over the value before', () => {
@@ -179,8 +182,12 @@ describe('a step of the program', () => {
     })
     const dictated = stepped(program.update({ _tag: 'Dictated', text: 'lo' })({ text: 'Hel' }))
     expect(dictated.state).toEqual({ text: 'Hello' })
-    expect(isRejected(program.update({ _tag: 'Text', message: write('Hel', 'Help') })(dictated.state))).toBe(true)
-    expect(isRejected(program.update({ _tag: 'Text', message: write('Hello', 'Hello!') })(dictated.state))).toBe(false)
+    expect(
+      program.update({ _tag: 'Text', message: { _tag: 'Written', was: 'Hel', value: 'Help' } })(dictated.state),
+    ).toBe(reject)
+    expect(
+      program.update({ _tag: 'Text', message: { _tag: 'Written', was: 'Hello', value: 'Hello!' } })(dictated.state),
+    ).not.toBe(reject)
   })
 })
 
@@ -212,7 +219,9 @@ describe('an input among the subscriptions', () => {
 
   test('a write into it keeps every subscription the same object, the children\'s lifted ones included', () => {
     const before: Page = { name: '', ticking: { ticks: 0 } }
-    const written = stepped(page.update({ _tag: 'Name', message: write(before.name, 'Ada') })(before))
+    const written = stepped(
+      page.update({ _tag: 'Name', message: { _tag: 'Written', was: before.name, value: 'Ada' } })(before),
+    )
     expect(written.state.ticking).toBe(before.ticking)
     const lifted = (state: Page) => Opt.getOrThrow(HashMap.get(subscriptionsOf(page)(state), ['Ticking', 'ticks']))
     expect(lifted(written.state)).toBe(lifted(before))
@@ -295,13 +304,17 @@ describe('a key typed into an input its parent has since replaced', () => {
   type DeskModel = ReturnType<typeof desk.makeModel>
   const typing = (model: DeskModel, value: string, id?: number): DeskMessage =>
     id === undefined
-      ? { _tag: 'Draft', message: { _tag: 'Text', message: write(model.draft, value) } }
+      ? { _tag: 'Draft', message: { _tag: 'Text', message: { _tag: 'Written', was: model.draft, value } } }
       : {
         _tag: 'Row',
         id,
         message: {
           _tag: 'Text',
-          message: write(Opt.getOrThrow(Arr.findFirst(model.rows, (row) => row.id === id)).text, value),
+          message: {
+            _tag: 'Written',
+            was: Opt.getOrThrow(Arr.findFirst(model.rows, (row) => row.id === id)).text,
+            value,
+          },
         },
       }
   const after = (messages: ReadonlyArray<DeskMessage>, from: Desk = desk.init.state): Desk =>
@@ -318,7 +331,7 @@ describe('a key typed into an input its parent has since replaced', () => {
     const onScreen = desk.makeModel(typedInto)
     const sent = after([{ _tag: 'Draft', message: 'SendClicked' }], typedInto)
     expect(sent).toEqual({ ...desk.init.state, sent: ['hello'] })
-    expect(isRejected(desk.update(typing(onScreen, 'hello!'))(sent))).toBe(true)
+    expect(desk.update(typing(onScreen, 'hello!'))(sent)).toBe(reject)
   })
 
   test('typed before the desk brought a kept draft back, it is rejected by the draft brought back', () => {
@@ -327,7 +340,7 @@ describe('a key typed into an input its parent has since replaced', () => {
     const onScreen = desk.makeModel(typedInto)
     const undone = after([{ _tag: 'Draft', message: 'DiscardClicked' }, { _tag: 'Undone' }], typedInto)
     expect(textOf(undone)).toBe('Ada')
-    expect(isRejected(desk.update(typing(onScreen, 'Adamx'))(undone))).toBe(true)
+    expect(desk.update(typing(onScreen, 'Adamx'))(undone)).toBe(reject)
   })
 
   test('typed into a row, it is rejected by another row that came to its id', () => {
@@ -336,7 +349,7 @@ describe('a key typed into an input its parent has since replaced', () => {
     const onScreen = desk.makeModel(typedInto)
     const back = after([{ _tag: 'RowRemoved', id: 1 }, { _tag: 'RowAdded', id: 1 }], typedInto)
     expect(textOf(back, 1)).toBe('')
-    expect(isRejected(desk.update(typing(onScreen, 'ab', 1))(back))).toBe(true)
+    expect(desk.update(typing(onScreen, 'ab', 1))(back)).toBe(reject)
   })
 
   // The two limits of a design where a message names a place, which the guide declares: neither corrupts the state.
@@ -351,7 +364,7 @@ describe('a key typed into an input its parent has since replaced', () => {
   test('a fixed message drawn for the old draft reaches the new one, and update decides', () => {
     const typedInto = after([typing(desk.makeModel(desk.init.state), 'hello')])
     const sent = after([{ _tag: 'Draft', message: 'SendClicked' }], typedInto)
-    expect(isRejected(desk.update({ _tag: 'Draft', message: 'SendClicked' })(sent))).toBe(true)
+    expect(desk.update({ _tag: 'Draft', message: 'SendClicked' })(sent)).toBe(reject)
     expect(after([{ _tag: 'Draft', message: 'DiscardClicked' }], sent)).toEqual(sent)
   })
 })
@@ -382,7 +395,7 @@ describe('an input in a child by id', () => {
   const typing = (id: number, was: string, text: string): NotesMessage => ({
     _tag: 'Note',
     id,
-    message: { _tag: 'Text', message: write(was, text) },
+    message: { _tag: 'Text', message: { _tag: 'Written', was, value: text } },
   })
   const state: Notes = { notes: [{ id: 1, note: { text: 'a' } }, { id: 2, note: { text: 'b' } }] }
 
@@ -395,15 +408,15 @@ describe('an input in a child by id', () => {
   })
 
   test('rejects what was written over another text, and what was written into a note that is gone', () => {
-    expect(isRejected(program.update(typing(2, 'a', 'ac'))(state))).toBe(true)
-    expect(isRejected(program.update(typing(3, '', 'c'))(state))).toBe(true)
+    expect(program.update(typing(2, 'a', 'ac'))(state)).toBe(reject)
+    expect(program.update(typing(3, '', 'c'))(state)).toBe(reject)
   })
 
   test('has a dispatch of its own, made from its note\'s', () => {
     const sent: Array<NotesMessage> = []
     const dispatch: Dispatch<NotesMessage> = (message) => Effect.sync(() => sent.push(message))
     const toText: Dispatch<Written<string>> = dispatchTo(dispatchTo(dispatch, 'Note', 2), 'Text')
-    expect(Effect.runSync(toText(write('b', 'bc')))).toBe(1)
+    expect(Effect.runSync(toText({ _tag: 'Written', was: 'b', value: 'bc' }))).toBe(1)
     expect(sent).toEqual([typing(2, 'b', 'bc')])
   })
 })
@@ -438,7 +451,7 @@ describe('what an element on screen holds of an input', () => {
       let held = made(start)
       keys.forEach((key, index) => {
         const { write: written, sent } = typed(held, key)
-        expect(written).toEqual(write(held.value, key))
+        expect(written).toEqual({ _tag: 'Written', was: held.value, value: key })
         const next = sent(index + 1)
         expect(next.value).toBe(key)
         // A frame that has seen none of the writes and holds the start leaves the element as it is.
@@ -502,9 +515,9 @@ describe('the types of an input', () => {
     // @ts-expect-error: the level holds a number.
     level(50, 'loud')
     // @ts-expect-error: a text is not written into the level.
-    const wrong: Message = { _tag: 'Level', message: write('Ada', 'Ada L') }
+    const wrong: Message = { _tag: 'Level', message: { _tag: 'Written', was: 'Ada', value: 'Ada L' } }
     // @ts-expect-error: the draft has no such input.
-    const missing: Message = { _tag: 'Body', message: write('Ada', 'Ada L') }
+    const missing: Message = { _tag: 'Body', message: { _tag: 'Written', was: 'Ada', value: 'Ada L' } }
     expect([wrong, missing]).toHaveLength(2)
   })
 
@@ -537,8 +550,9 @@ describe('the types of an input', () => {
       inputs: { Title: saving.input(here.key('title')) },
       // The state annotated, so that the own messages are inferred from `update` alone.
       update: (_: 'Loaded') => (state: Draft) => ({ state, commands: ['Load' as const] }),
-      // @ts-expect-error: the answer would write into the input, over the value the command started with
-      runCommand: () => Effect.succeedSome({ _tag: 'Title' as const, message: write('', 'Ada') }),
+      runCommand: () =>
+        // @ts-expect-error: the answer would write into the input, over the value the command started with
+        Effect.succeedSome({ _tag: 'Title' as const, message: { _tag: 'Written' as const, was: '', value: 'Ada' } }),
       makeModel: () => null,
     })
     saving.compose({
@@ -560,7 +574,10 @@ describe('the types of an input', () => {
     })
     type Board = Readonly<{ note: Note }>
     const board = composition<{ state: Board; command: 'Load' }>()
-    const written = { _tag: 'Note' as const, message: { _tag: 'Text' as const, message: write('', 'Ada') } }
+    const written = {
+      _tag: 'Note' as const,
+      message: { _tag: 'Text' as const, message: { _tag: 'Written' as const, was: '', value: 'Ada' } },
+    }
     board.compose({
       init: (children) => ({ state: { note: children.Note.init.state } }),
       children: { Note: board.child(noteProgram, { at: Optic.id<Board>().key('note') }) },

@@ -1,21 +1,19 @@
 // A place of a program's state that the outside writes. A value a component of the renderer decides (a text, a
 // slider's level) is no message of the program: the program declares where it goes (`input`, in `composition`), the
-// view writes over the value its model holds (`write`), and the library stores it. What an element on screen holds of
-// an input, and what a frame makes of it, is the rule a bridge calls (`typed`, `drawn`): the library's, so that every
-// bridge applies the same one.
+// view writes over the value its model holds (a `Written`), and the library stores it. What an element on screen holds
+// of an input, and what a frame makes of it, is the rule a bridge calls (`typed`, `drawn`): the library's, so that
+// every bridge applies the same one.
 import * as Equal from 'effect/Equal'
 import { reject, type Transition } from './update.ts'
 
-/** What the outside wrote into an input: the `value` it gives now, written over the value it showed, `was`. */
-export type Written<A> = Readonly<{ _tag: 'Written'; was: A; value: A }>
-
 /**
- * What a view sends for a value the user gave to an input that showed `was`, through that input's dispatch
- * (`dispatchTo(dispatch, 'Name')`): it is stored only while the input's place holds `was`, so that a value typed over
- * a value the program has since replaced is rejected. A bridge makes it with `typed`; a test writes it by hand, over
- * the value its model holds: `write(model.name, 'Ada')`.
+ * What the outside wrote into an input: the `value` it gives now, written over the value it showed, `was`. A view
+ * sends it through that input's dispatch (`dispatchTo(dispatch, 'Name')`), and it is stored only while the input's
+ * place holds `was`, so that a value typed over a value the program has since replaced is rejected. A bridge makes it
+ * with `typed`; a view without one, and a test, write it as data, over the value the model holds:
+ * `{ _tag: 'Written', was: model.name, value: 'Ada' }`.
  */
-export const write = <A>(was: A, value: A): Written<A> => ({ _tag: 'Written', was, value })
+export type Written<A> = Readonly<{ _tag: 'Written'; was: A; value: A }>
 
 /**
  * The one rule of an input: what was written over the value the place holds, by `Equal`, is stored, whatever it is and
@@ -54,7 +52,7 @@ export const typed = <A>(
   held: Shown<A>,
   value: A,
 ): Readonly<{ write: Written<A>; sent: (number: number) => Shown<A> }> => ({
-  write: write(held.value, value),
+  write: { _tag: 'Written', was: held.value, value },
   sent: (number) => ({ value, [Unseen]: [...held[Unseen], { sent: number, was: held.value }] }),
 })
 

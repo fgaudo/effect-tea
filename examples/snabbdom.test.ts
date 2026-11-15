@@ -16,7 +16,6 @@ import {
   type ModelOf,
   reject,
   run,
-  write,
 } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Fiber from 'effect/Fiber'
@@ -459,7 +458,7 @@ describe('a value the program puts in an input\'s place', () => {
     const typed = element<HTMLInputElement>('input')
     type(typed, 'Hel')
     paint()
-    app.send({ _tag: 'Note', message: write(app.note(), 'SCAN') })
+    app.send({ _tag: 'Note', message: { _tag: 'Written', was: app.note(), value: 'SCAN' } })
     paint()
     expect(app.note()).toBe('SCAN')
     expect(element('input')).toBe(typed)

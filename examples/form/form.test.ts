@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { InvariantDefect, isRejected, write } from '@fgaudo/effect-tea'
+import { InvariantDefect, reject } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations, drive, rehearse, simulate } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
@@ -26,7 +26,10 @@ const state = (): fc.Arbitrary<State> =>
 const messagesOf = ({ editor }: Model): ReadonlyArray<Message> => editor._tag === 'Named' ? [editor.save] : []
 
 /** What the user types into the input the model shows, as the view sends it. */
-const typing = (model: Model, text: string): Message => ({ _tag: 'Name', message: write(model.name, text) })
+const typing = (model: Model, text: string): Message => ({
+  _tag: 'Name',
+  message: { _tag: 'Written', was: model.name, value: text },
+})
 
 const working = Storage.of({ save: () => Effect.void })
 const failing = Storage.of({ save: (name) => Effect.fail(new StorageError({ cause: name })) })
@@ -42,8 +45,8 @@ describe('form', () => {
 
     test('rejects saving a blank name, and a second save', () => {
       const saving = { ...empty, name: 'Ada', save: Save.Saving() }
-      expect(isRejected(update(Own.SaveClicked())({ ...empty, name: '  ' }))).toBe(true)
-      expect(isRejected(update(Own.SaveClicked())(saving))).toBe(true)
+      expect(update(Own.SaveClicked())({ ...empty, name: '  ' })).toBe(reject)
+      expect(update(Own.SaveClicked())(saving)).toBe(reject)
     })
 
     // Only the save in progress can complete: a completion anywhere else is a bug, not a message to ignore.
@@ -70,7 +73,7 @@ describe('form', () => {
       const drawn = form.makeModel(typed)
       const { state } = applyAll(update)([Own.SaveClicked(), Own.SaveSucceeded({ name: 'Ada' })], typed)
       expect(state.name).toBe('')
-      expect(isRejected(update(typing(drawn, 'Ada x'))(state))).toBe(true)
+      expect(update(typing(drawn, 'Ada x'))(state)).toBe(reject)
     })
 
     // An input keeps nothing of its own: the state stored is the state the form wrote, which a test compares whole.

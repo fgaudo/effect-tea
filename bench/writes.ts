@@ -1,12 +1,12 @@
-// What a write into an input costs as `main` stores it, written over the value the input showed (`write(was, value)`),
-// for each kind of value: by the bare rule, through the composed program's `update` as the engine calls it, and, for
-// some cases, through `run` with a renderer that sends the next write once a frame has seen the last one. `was` is the
-// very value the state holds, as the snabbdom bridge sends it, or, in the cases marked "copy", an equal value that is
-// another string or object, as a bridge that read it again from the element would send. Then what the bridge pays on
-// each frame, `drawn` for one input and the snabbdom bridge's `settle` for many, and what a rejected write costs. The
-// measures that chose this design are in `docs/registers.md` ("The cost of `was`"). Run with
-// `bun bench/writes.ts [writes] [rounds] [sections]`, or `node bench/writes.ts …`, where `sections` is a list of
-// `writes`, `drawn`, `settle` and `rejected` (all of them by default); not part of `bun run test`.
+// What a write into an input costs as `main` stores it, written over the value the input showed (`{ _tag: 'Written',
+// was, value }`), for each kind of value: by the bare rule, through the composed program's `update` as the engine calls
+// it, and, for some cases, through `run` with a renderer that sends the next write once a frame has seen the last one.
+// `was` is the very value the state holds, as the snabbdom bridge sends it, or, in the cases marked "copy", an equal
+// value that is another string or object, as a bridge that read it again from the element would send. Then what the
+// bridge pays on each frame, `drawn` for one input and the snabbdom bridge's `settle` for many, and what a rejected
+// write costs. The measures that chose this design are in `docs/registers.md` ("The cost of `was`"). Run with `bun
+// bench/writes.ts [writes] [rounds] [sections]`, or `node bench/writes.ts …`, where `sections` is a list of `writes`,
+// `drawn`, `settle` and `rejected` (all of them by default); not part of `bun run test`.
 import * as Arr from 'effect/Array'
 import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
@@ -17,7 +17,7 @@ import * as Stream from 'effect/Stream'
 import {
   composition,
   drawn,
-  isRejected,
+  reject,
   type Program,
   run,
   type Shown,
@@ -25,7 +25,6 @@ import {
   typed,
   type Update,
   type Written,
-  write,
 } from '../src/index.ts'
 import { written } from '../src/input.ts'
 
@@ -147,7 +146,7 @@ const subjectOf = ({ values, copy, inRow }: Case): Subject => {
     messages: () => {
       const all = [start, ...values().slice(1)]
       const was = (i: number) => copy === undefined ? all[i] : copy(all[i] as never)
-      const bare = all.slice(1).map((value, i): Written<unknown> => write(was(i), value))
+      const bare = all.slice(1).map((value, i): Written<unknown> => ({ _tag: 'Written', was: was(i), value }))
       return { bare, composed: bare.map((message) => at({ _tag: 'V', message })) }
     },
   }
@@ -158,7 +157,7 @@ const applyAll = (update: Update<unknown, unknown>, start: unknown, messages: Re
   let state = start
   for (const message of messages) {
     const step: Transition<unknown> = update(message)(state)
-    if (isRejected(step)) throw new Error('a write was rejected')
+    if (step === reject) throw new Error('a write was rejected')
     state = step.state
   }
   return state
@@ -400,7 +399,7 @@ const rejectedPasses = 16
 // Every write is rejected: one stored would measure another path.
 const rejectAll = (update: Update<unknown, unknown>, state: unknown, messages: ReadonlyArray<unknown>) => {
   for (const message of messages) {
-    if (!isRejected(update(message)(state))) throw new Error('a write was stored')
+    if (update(message)(state) !== reject) throw new Error('a write was stored')
   }
 }
 
@@ -413,7 +412,7 @@ if (sections.includes('rejected')) {
     Equal.equals(refusal.held, refusal.was())
     const program = inputProgram(refusal.held) as unknown as Program_
     const update = program.update as unknown as Update<unknown, unknown>
-    const message = (): Written<unknown> => write(refusal.was(), refusal.held)
+    const message = (): Written<unknown> => ({ _tag: 'Written', was: refusal.was(), value: refusal.held })
     const [bare, composed] = await alternated([
       sampler(() => Arr.makeBy(writes, message), (all) => rejectAll(rule, refusal.held, all), writes, rejectedPasses),
       sampler(

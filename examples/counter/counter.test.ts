@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { isRejected } from '@fgaudo/effect-tea'
+import { reject } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations, drive } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
@@ -17,7 +17,7 @@ describe('counter', () => {
   })
 
   test('rejects going below zero', () => {
-    expect(isRejected(update('Decrement')({ count: 0 }))).toBe(true)
+    expect(update('Decrement')({ count: 0 })).toBe(reject)
   })
 
   // The model, for any count: every message it holds is accepted, and nothing `update` accepts is missing from

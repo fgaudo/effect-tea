@@ -21,8 +21,6 @@ export type Step<State, Command = never, Event = never> = Readonly<{
 export const reject: unique symbol = Symbol.for('@fgaudo/effect-tea/Rejected')
 export type Rejected = typeof reject
 
-export const isRejected = (result: unknown): result is Rejected => result === reject
-
 export type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected
 
 /** A step with both its lists present: what a fold of steps accumulates. */
@@ -104,17 +102,6 @@ export const forEach: {
     return Arr.reduce(items, first, (folded, item) => appendStep(folded, next(item)(folded.state)))
   },
 )
-
-/**
- * An event a parent has nothing to say about, raised as its own for its own parent to handle, the state
- * unchanged: `onEvent: { Products: raise }`, or `raise(event)(state)` in a handler that decides. It compiles
- * only where the parent's `Event` includes the child's. A handler of children by id takes the id first:
- * `(_, event) => raise(event)`.
- */
-export const raise = <Event>(event: Event) => <State>(state: State): Step<State, never, Event> => ({
-  state,
-  events: [event],
-})
 
 export type Update<State, Message, Command = never, Event = never> = (
   message: Message,

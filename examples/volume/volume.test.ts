@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { InvariantDefect, isRejected, write } from '@fgaudo/effect-tea'
+import { InvariantDefect, reject } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations, drive, rehearse } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
@@ -18,7 +18,7 @@ const state: fc.Arbitrary<State> = fc.record({
 })
 
 /** Where the user drags the media's slider, drawn at `was`, as the view sends it. */
-const dragging = (was: number, value: number): Message => ({ _tag: 'Media', message: write(was, value) })
+const dragging = (was: number, value: number): Message => ({ _tag: 'Media', message: { _tag: 'Written', was, value } })
 
 // What the model holds: the messages of its buttons and of the ringer's track. What the media's slider is dragged to
 // is none of them, and the moves of a drag are a subscription's.
@@ -39,7 +39,7 @@ describe('volume', () => {
     test('accepts a drag of the media\'s slider over the level held, in any state', () => {
       fc.assert(fc.property(state, fc.integer({ min: 0, max: 100 }), (before, dragged) => {
         const after = update(dragging(before.media, dragged))(before)
-        return !isRejected(after) && after.state.media === dragged
+        return after !== reject && after.state.media === dragged
       }))
     })
 
@@ -61,7 +61,7 @@ describe('volume', () => {
     // Sent from a frame drawn before another drag was stored: the slider it was dragged on has moved since.
     test('a drag of the media\'s slider over a level the volume no longer holds is rejected', () => {
       const moved = applyAll(update)([dragging(50, 80)], start).state
-      expect(isRejected(update(dragging(50, 30))(moved))).toBe(true)
+      expect(update(dragging(50, 30))(moved)).toBe(reject)
     })
 
     test('quiet hours bring a louder ringer down to their maximum, and full volume leaves it there', () => {
@@ -84,7 +84,7 @@ describe('volume', () => {
 
     test('a second press while the ringer is dragged starts nothing', () => {
       const pressed = applyAll(update)([Own.DragStarted()], start).state
-      expect(isRejected(update(Own.DragStarted())(pressed))).toBe(true)
+      expect(update(Own.DragStarted())(pressed)).toBe(reject)
     })
 
     // Only a drag's subscription sends moves, and it stops with the drag: a move anywhere else is a bug.

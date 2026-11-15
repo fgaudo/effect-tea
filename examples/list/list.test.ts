@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { dispatchTo, isRejected, run, subscriptionsOf } from '@fgaudo/effect-tea'
+import { dispatchTo, reject, run, subscriptionsOf } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
@@ -70,7 +70,7 @@ describe('list', () => {
     test('a stopwatch that asks to be removed is removed, and its late messages are rejected', () => {
       const { state } = applyAll(list.update)([added, added, to(1, Stopwatch.Message.RemoveClicked())], list.init.state)
       expect(state.entries.map((entry) => entry.id)).toEqual([2])
-      expect(isRejected(list.update(to(1, Stopwatch.Message.Stopped()))(state))).toBe(true)
+      expect(list.update(to(1, Stopwatch.Message.Stopped()))(state)).toBe(reject)
     })
 
     test('stopping all stops the running stopwatches and leaves the others as they were', () => {

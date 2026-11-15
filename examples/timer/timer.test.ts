@@ -1,6 +1,6 @@
 // #region imports
 import { describe, expect, test } from 'bun:test'
-import { InvariantDefect, isRejected, subscriptionsOf } from '@fgaudo/effect-tea'
+import { InvariantDefect, reject, subscriptionsOf } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations, rehearse } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
@@ -42,7 +42,7 @@ describe('timer', () => {
   describe('update', () => {
     test('sets the minutes, never below one', () => {
       expect(applyAll(update)([Message.LessClicked()], { ...setting, minutes: 2 }).state.minutes).toBe(1)
-      expect(isRejected(update(Message.LessClicked())({ ...setting, minutes: 1 }))).toBe(true)
+      expect(update(Message.LessClicked())({ ...setting, minutes: 1 })).toBe(reject)
     })
 
     test('starts from the minutes set, and rings once at zero', () => {
@@ -56,8 +56,8 @@ describe('timer', () => {
 
     test('rejects a second start, and changing the minutes while running', () => {
       const { state } = applyAll(update)([Message.StartClicked()], setting)
-      expect(isRejected(update(Message.StartClicked())(state))).toBe(true)
-      expect(isRejected(update(Message.MoreClicked())(state))).toBe(true)
+      expect(update(Message.StartClicked())(state)).toBe(reject)
+      expect(update(Message.MoreClicked())(state)).toBe(reject)
     })
 
     // A tick outside the running phase cannot arrive: the subscription stops with it.

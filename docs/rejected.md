@@ -146,6 +146,15 @@ answer, and saying so in the proposal.
 - **`silent` and `Subscription.every`.** `AGENTS.md` names them as removed by the same rule, since `775f140`.
   Neither appears anywhere in this repository's history, so what each was, when it was removed and where are not
   found here: they may come from an application or a predecessor of the library. To be completed by whoever knows.
+- **`write`, `isRejected` and `raise`.** Removed in 0.8.0, 15 November 2026, by the same rule: each was a name over
+  what a user writes as it is, `write(was, value)` over the literal `{ _tag: 'Written', was, value }`,
+  `isRejected(result)` over `result === reject`, and `raise(event)(state)` over the step `{ state, events: [event] }`,
+  as the wrapping of a child's message would have been (below). `write` took two arguments of one type, in an order
+  nothing checked, where the literal names them. Checked with `tsc`: `=== reject` narrows a `Transition` as
+  `isRejected` did, and a handler written by hand in `onEvent` is refused and inferred as `raise` was ("a parent
+  raises only the events its own type includes", `compose.test.ts`), since the check is `onEvent`'s. `raise` was
+  weighed with a second opinion (Opus 5.5), the owner deciding; `write` was never released. *Reopen if* one of them
+  comes to do what the literal or the operator cannot: a check as it is made, or a shape that is hidden.
 - **Offers as tokens, checked against `update`** (`offer`, `offerInput`, `missingOffers`, a run that reported a
   rejected offer). Shipped in 0.3.0 (`ae4661b`) and removed in 0.6.0 (`3c3fdf9`, 23 October 2026): checking each
   offer against `update` made every page carry rules (offer only what `update` accepts, never probe offers, inputs

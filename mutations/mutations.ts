@@ -894,7 +894,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'an external message a child rejects is a rejection of the parent',
     file: 'src/compose.ts',
-    from: '    const result = updateAt(place, message)(state)\n    if (isRejected(result)) {\n',
+    from: '    const result = updateAt(place, message)(state)\n    if (result === reject) {\n',
     to: '    const result = updateAt(place, message)(state)\n    if (false) {\n',
     killedBy: [
       ['src/compose.test.ts', 'a child that rejects what its parent gives it, or is not there to take it, is a defect'],
@@ -964,8 +964,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'a write names what the element shows after it, not what it showed',
     file: 'src/input.ts',
-    from: '  write: write(held.value, value),',
-    to: '  write: write(value, value),',
+    from: "  write: { _tag: 'Written', was: held.value, value },",
+    to: "  write: { _tag: 'Written', was: value, value },",
     killedBy: [['src/input.test.ts', 'typed, the write names what the element showed, as the element records it']],
   },
   {

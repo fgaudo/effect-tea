@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { raise, reject, type Update } from '../update.ts'
+import { reject, type Update } from '../update.ts'
 import { dispatchViolations } from './dispatch-violations.ts'
 
 type State = Readonly<{ count: number; isOpen: boolean }>
@@ -20,7 +20,7 @@ const update: Update<State, Message, 'Ping', 'Notify'> = (message) => (state) =>
     case 'Pinged':
       return { state, commands: ['Ping'] }
     case 'Notified':
-      return raise('Notify' as const)(state)
+      return { state, events: ['Notify' as const] }
     case 'Forbidden':
       return reject
   }
@@ -79,7 +79,7 @@ const updateForm: Update<Form, FormMessage, 'Ping', 'Notify'> = (message) => (st
     case 'Pinged':
       return { state, commands: ['Ping'] }
     case 'Notified':
-      return raise('Notify' as const)(state)
+      return { state, events: ['Notify' as const] }
   }
 }
 

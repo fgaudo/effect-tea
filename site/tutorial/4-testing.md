@@ -20,7 +20,7 @@ only valid states, every phase among them, and from the messages a user could se
 ## `update`
 
 `applyAll(update)` applies messages one after the other, and fails the test when `update` rejects one of them. A
-rejection is asserted with `isRejected`, a defect with `InvariantDefect`, and the commands by value, since they are
+rejection is asserted as `reject` itself, a defect with `InvariantDefect`, and the commands by value, since they are
 data:
 
 {@includeCode ../../examples/timer/timer.test.ts#update}

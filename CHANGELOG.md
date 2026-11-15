@@ -11,7 +11,8 @@ version, and everything else, features included, the patch version.
 - `andThen` and `forEach` are dual: `andThen(next)` and `forEach(items, next)` take the step last, for a `pipe`.
 - A `CompositionDefect` says in `on`, by its tags, which external message or event broke the parent's rule.
 - Inputs: `inputs: { Name: input(at) }` in `compose`, at a plain value of the state, which the view writes over with
-  `write(was, value)`; the library stores a write while the place holds `was`, by `Equal`, and rejects it otherwise.
+  `{ _tag: 'Written', was, value }`; the library stores a write while the place holds `was`, by `Equal`, and rejects
+  it otherwise.
 - `typed` and `drawn`, over an opaque `Shown`: the rule a bridge calls for the element of an input, on an edit and
   after each frame, so that the element is never replaced and never takes back what the user typed since.
 - `children` in `compose` is optional, for a program with inputs and no children.
@@ -28,9 +29,16 @@ version, and everything else, features included, the patch version.
 - **Breaking**: "Model" in the README says that a model is data: it holds no function, and compares by `Equal`.
   Upgrade: a function of the model that makes a message from what the user typed, `changeName: (name) =>
   NameChanged({ name })`, becomes an input, `inputs: { Name: input(at) }`, and the view writes over its value,
-  `write(model.name, text)` through `dispatchTo(dispatch, 'Name')`, where it called `model.changeName(text)`.
+  `{ _tag: 'Written', was: model.name, value: text }` through `dispatchTo(dispatch, 'Name')`, where it called
+  `model.changeName(text)`.
 - **Breaking**: `parent` is renamed `composition`, since a program with inputs and no children is made with it too.
   Upgrade: `parent<{ state: State }>()` becomes `composition<{ state: State }>()`, and its import likewise.
+- **Breaking**: `isRejected` is removed: a rejection is `reject` itself.
+  Upgrade: `isRejected(result)` becomes `result === reject`, and `expect(isRejected(result)).toBe(true)` becomes
+  `expect(result).toBe(reject)`.
+- **Breaking**: `raise` is removed: a handler that raises a child's event as the parent's own returns the step.
+  Upgrade: `onEvent: { Products: raise }` becomes `onEvent: { Products: (event) => (state) => ({ state, events:
+  [event] }) }`, and `raise(event)(state)` becomes `{ state, events: [event] }`.
 - **Breaking**: a parent's command answers with its own messages or its children's external ones, as a parent's
   handle sends them: an answer that writes into a child's input, or gives a child one of its own messages, no longer
   compiles. Upgrade: an answer `{ _tag: 'Note', message: { _tag: 'Pinned' } }`, of the child's own business, becomes

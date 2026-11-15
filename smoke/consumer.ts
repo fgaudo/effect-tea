@@ -6,7 +6,6 @@ import {
   andThen,
   composition,
   drawn,
-  isRejected,
   type MessageOf,
   type Program,
   reject,
@@ -14,7 +13,6 @@ import {
   type Shown,
   typed,
   type Update,
-  write,
 } from '@fgaudo/effect-tea'
 import { applyAll, simulate } from '@fgaudo/effect-tea/testing'
 import * as Arr from 'effect/Array'
@@ -186,7 +184,7 @@ const draft = drafting.compose({
 // A write is of the value the place holds; an own message that takes an input's name does not compile, nor does a
 // command's answer that writes into an input, nor an element made by hand.
 // @ts-expect-error
-const wrong: MessageOf<typeof draft> = { _tag: 'Title', message: write(0, 1) }
+const wrong: MessageOf<typeof draft> = { _tag: 'Title', message: { _tag: 'Written', was: 0, value: 1 } }
 
 // @ts-expect-error
 const byHand: Shown<string> = { value: '' }
@@ -205,7 +203,7 @@ drafting.compose({
   inputs: { Title: drafting.input(Optic.id<Draft>().key('title')) },
   update: (_: 'Cleared') => (state: Draft) => ({ state, commands: ['Load' as const] }),
   // @ts-expect-error
-  runCommand: () => Effect.succeedSome({ _tag: 'Title' as const, message: write('', 'a') }),
+  runCommand: () => Effect.succeedSome({ _tag: 'Title' as const, message: { _tag: 'Written', was: '', value: 'a' } }),
   makeModel: () => null,
 })
 
@@ -223,12 +221,12 @@ assert(folded.state.main.count === 3 && folded.state.fulls === 1, 'applyAll rout
 assert(app.makeModel(folded.state).rows[0]?.model.count === 1, 'makeModel reads the children by id')
 
 const cleared = applyAll(draft.update)(
-  [{ _tag: 'Title', message: write(draft.init.state.title, 'Ada') }, 'Cleared'],
+  [{ _tag: 'Title', message: { _tag: 'Written', was: draft.init.state.title, value: 'Ada' } }, 'Cleared'],
   draft.init.state,
 )
 assert(cleared.state.title === '' && cleared.commands.length === 1, 'a write is stored, and the step sees it')
-const late = draft.update({ _tag: 'Title', message: write('Ada', 'Ada L') })(cleared.state)
-assert(isRejected(late) && wrong !== undefined, 'a write over a value the input no longer holds is rejected')
+const late = draft.update({ _tag: 'Title', message: { _tag: 'Written', was: 'Ada', value: 'Ada L' } })(cleared.state)
+assert(late === reject && wrong !== undefined, 'a write over a value the input no longer holds is rejected')
 
 // What a bridge does with an element: typed by the user, numbered by the dispatch, settled by a frame.
 const shown = drawn(undefined, 'Ada', 0)
@@ -236,7 +234,7 @@ const { write: edit, sent } = typed(shown, 'Ada L')
 const element = sent(1)
 assert(edit.was === 'Ada' && element.value === 'Ada L', 'typed writes over what the element showed')
 assert(drawn(element, 'Ada', 0) === element && byHand !== undefined, 'a frame that has not seen the write keeps it')
-assert(isRejected(deaf.update({ _tag: 'Full' })(deaf.init.state)) === false, 'a program typed past its types runs')
+assert(deaf.update({ _tag: 'Full' })(deaf.init.state) !== reject, 'a program typed past its types runs')
 assert(drawn(element, '', 1).value === '', 'a frame that has seen it and moved on gives its value')
 
 const main = Effect.gen(function*() {

@@ -17,7 +17,6 @@ import {
   ProgramDefect,
   reject,
   run,
-  write,
   type Written,
 } from '@fgaudo/effect-tea'
 import * as Cause from 'effect/Cause'
@@ -496,7 +495,7 @@ describe('a value the program puts in an input\'s place, with React', () => {
     const typed = element<HTMLInputElement>('input')
     type(typed, 'Hel')
     paint()
-    app.send({ _tag: 'Note', message: write(app.note(), 'SCAN') })
+    app.send({ _tag: 'Note', message: { _tag: 'Written', was: app.note(), value: 'SCAN' } })
     paint()
     expect(app.note()).toBe('SCAN')
     expect(element('input')).toBe(typed)

@@ -20,7 +20,6 @@ import { composition } from './compose.ts'
 import { type DefectSite, ProgramDefect } from './defect.ts'
 import { type Dispatch, dispatchTo } from './dispatch.ts'
 import type { Applied, Ignored } from './engine.ts'
-import { write } from './input.ts'
 import type { Program } from './program.ts'
 import { type Frame, run } from './run.ts'
 import type { Subscription } from './subscription.ts'
@@ -472,9 +471,11 @@ const act: fc.Arbitrary<Act> = fc.record({
 
 /** What the user types into the note drawn in `model`: a letter more, or one less. */
 const typing = (model: Model, pick: number): Control => (dispatch) =>
-  dispatchTo(dispatch, 'Note')(
-    write(model.note, pick % 3 === 0 ? model.note.slice(0, -1) : `${model.note}${'ab'[pick % 2]}`),
-  )
+  dispatchTo(dispatch, 'Note')({
+    _tag: 'Written',
+    was: model.note,
+    value: pick % 3 === 0 ? model.note.slice(0, -1) : `${model.note}${'ab'[pick % 2]}`,
+  })
 
 /** What a control does with the frame's dispatch: a row's sends through the row's own dispatch, as its view would. */
 type Control = (dispatch: Dispatch<Message>) => Effect.Effect<void>

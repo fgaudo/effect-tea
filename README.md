@@ -256,8 +256,9 @@ written the same way.
 
 A value the user gives an input (a text, a slider's level) is no message of the program: the program declares where
 it goes, `inputs: { Name: input(at) }` in `compose` (see [declaring children](#declaring-children)), at a plain value
-of its state, and the view writes over the value its model holds, `write(model.name, text)`, through
-`dispatchTo(dispatch, 'Name')`. No `update` of the program's sees it: the library stores what is written, whatever
+of its state, and the view writes over the value its model holds,
+`{ _tag: 'Written', was: model.name, value: text }`, through `dispatchTo(dispatch, 'Name')`. No `update` of the
+program's sees it: the library stores what is written, whatever
 it is, in every state where the input's place holds, by `Equal`, the value it was written over, and rejects it in
 any other, since the state has moved on without the input that wrote it. The program changes an input by leaving
 another value in its place, `name: ''`, and an input keeps nothing of its own: the state stored is the state the
@@ -528,8 +529,8 @@ export const app = compose({
 What the library derives from it:
 
 - **The parent's messages:** its own plus `{ _tag: <child>, message }` for each child, and
-  `{ _tag: <input>, message: write(was, value) }` for each input. `MessageOf<typeof app>` names them. An own
-  message that takes a child's or an input's name does not compile, nor does an input that takes a child's, nor an
+  `{ _tag: <input>, message: { _tag: 'Written', was, value } }` for each input. `MessageOf<typeof app>` names them. An
+  own message that takes a child's or an input's name does not compile, nor does an input that takes a child's, nor an
   own subscription that writes into an input. A command's answer is an own message, or an external message of a
   child's: one that writes into an input, the parent's or a child's, does not compile, nor does one that gives a child
   its own business.
@@ -554,8 +555,8 @@ A parent and its children talk only through events and external messages.
 - **A child raises an event** to ask its parent for something, like leaving the page. `onEvent` has one handler
   per child that has events, and is required exactly when one has, so that no event goes unhandled. An event
   the parent has nothing to say about, and its own parent handles, it raises as its own:
-  `onEvent: { Products: raise }`, or `(_, event) => raise(event)` for children by id. Its `Event` then includes
-  the child's, or this does not compile.
+  `onEvent: { Products: (event) => (state) => ({ state, events: [event] }) }`, with the id before the event for
+  children by id. Its `Event` then includes the child's, or this does not compile.
 - **A parent sends an external message** to a child with `children.<child>.update`, in its own `update` and
   `onEvent`: one of the messages the child's type declares as `external` (e.g. a back button). The parent
   decides when to send, and the child's type says it takes the message. The child answers in every state, with
@@ -864,8 +865,8 @@ A program's tests follow its shape:
    that the model holds what `update` accepts (`dispatchViolations`), that the model is data, and what the program
    listens to (`subscriptionsOf`).
 3. **Write one test per message**, asserting the next state, the commands and the events by value, the inputs
-   included, which hold what the program wrote. Assert a rejection with `isRejected`, never as "the state
-   did not change", which a step that keeps the state would pass too.
+   included, which hold what the program wrote. Assert a rejection as `reject` itself, `toBe(reject)`, never as
+   "the state did not change", which a step that keeps the state would pass too.
 4. **Check the defects apart.** The pairs of state and message that the invariants rule out (see
    [rejections and defects](#rejections-and-defects)) are skipped above, and checked as defects:
    `expect(() => update(message)(state)).toThrow(InvariantDefect)`.
@@ -904,7 +905,8 @@ test('the model holds what update accepts, all of it', () => {
 - **The reader is the test's own**: a function from a model to the messages it holds (`messagesOf` above), a
   case of the model at a time. What the user writes into an input is none of them: the library keeps its rule,
   the same for every input, and a test writes into an input as the view does,
-  `{ _tag: 'Name', message: write(model.name, 'Ada') }`. A parent's reader calls its children's, and wraps what
+  `{ _tag: 'Name', message: { _tag: 'Written', was: model.name, value: 'Ada' } }`. A parent's reader calls its
+  children's, and wraps what
   they return as the parent receives it (`{ _tag: 'Clock', message }`, with the `id` for children by id), as
   [`pages`](examples/pages/app.test.ts) and [`list`](examples/list/list.test.ts) do. The library cannot write it:
   a message in a model is a value like any other.
@@ -985,7 +987,7 @@ there with `applyAll`, or with `update` itself.
       yield* rehearsal.send(({ name, editor }) =>
         editor._tag === 'Saving'
           ? Opt.none()
-          : Opt.some({ _tag: 'Name', message: write(name, 'Ada') })
+          : Opt.some({ _tag: 'Name', message: { _tag: 'Written', was: name, value: 'Ada' } })
       )
       yield* rehearsal.send(({ editor }) =>
         editor._tag === 'Named' ? Opt.some(editor.save) : Opt.none()
@@ -1047,13 +1049,12 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | `Program<{ state; model; message; command?; … }>` | `init`, `update`, `runCommand` (with commands), `subscriptions` (optional), `makeModel`                  |
 | `StateOf`, `ModelOf`, `MessageOf`, `CommandOf`, … | a program's types, read back from it (`EventOf`, `ExternalOf`, `FlagsOf`, `ServicesOf`)                  |
 | `composition`                                     | `composition<{ state; … }>()`: `child`, `each`, `input` and `compose`, for children, inputs or both      |
-| `write`, `Written`                                | `write(was, value)`: what a view sends for what the user gave an input that showed `was`                 |
+| `Written`                                         | `{ _tag: 'Written', was, value }`: what a view sends for what the user gave an input that showed `was`   |
 | `typed`, `drawn`, `Shown`                         | what a bridge asks for an input's element: the write of an edit, what a frame makes of it                |
 | `Update`, `Transition`, `Step`                    | `(message) => (state) => Step` or `Rejected`; a `Step` is `{ state, commands?, events? }`                |
-| `reject`, `Rejected`, `isRejected`                | the rejection `update` returns, and its check                                                            |
+| `reject`, `Rejected`                              | the rejection `update` returns, a value to compare with `===`, and its type                              |
 | `defect`, `InvariantDefect`                       | `defect(reason)` throws an `InvariantDefect`: a message that cannot arrive, a defect                     |
 | `andThen`, `forEach`                              | a step and the next made from its state, or one per item; dual                                           |
-| `raise`                                           | `(event) => (state) => Step`: a child's event raised as the parent's own                                 |
 | `Execution<Message, R>`, `RunCommand`             | `Effect<Option<Message>, never, R>`, how a command happens; `(command) => Execution`                     |
 | `Subscription`                                    | a `Channel` of messages that never ends, or ends with one last message; kept by key                      |
 | `Subscriptions`                                   | `(state) => HashMap<K, Subscription<Message>>`, reconciled by key                                        |

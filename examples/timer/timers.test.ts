@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { isRejected, subscriptionsOf } from '@fgaudo/effect-tea'
+import { reject, subscriptionsOf } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations } from '@fgaudo/effect-tea/testing'
 import * as HashMap from 'effect/HashMap'
 import * as fc from 'fast-check'
@@ -68,8 +68,8 @@ describe('timers', () => {
   test('a removed timer is gone, and a second click on "Remove" is rejected', () => {
     const { state } = applyAll(timers.update)([added, removed(1)], timers.init.state)
     expect(state.entries.map((entry) => entry.id)).toEqual([2])
-    expect(isRejected(timers.update(removed(1))(state))).toBe(true)
-    expect(isRejected(timers.update(to(1, Timer.Message.StartClicked()))(state))).toBe(true)
+    expect(timers.update(removed(1))(state)).toBe(reject)
+    expect(timers.update(to(1, Timer.Message.StartClicked()))(state)).toBe(reject)
   })
 
   test('only running timers tick, each under its own key', () => {

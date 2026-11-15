@@ -1,6 +1,6 @@
 import * as Arr from 'effect/Array'
 import * as Equal from 'effect/Equal'
-import { isRejected, type Step, type Update } from '../update.ts'
+import { reject, type Step, type Update } from '../update.ts'
 
 /**
  * How a model breaks its agreement with `update` in a state, by the messages it holds there:
@@ -46,16 +46,16 @@ export const dispatchViolations = <State, Message, Command, Event>(
   const shown = Arr.fromIterable(sent)
   const wrong = Arr.flatMap(shown, (message): ReadonlyArray<DispatchViolation<Message>> => {
     const first = update(message)(state)
-    if (isRejected(first)) return [{ _tag: 'Rejected', message }]
+    if (first === reject) return [{ _tag: 'Rejected', message }]
     if (repeatable(message)) return []
     const second = update(message)(first.state)
-    return !isRejected(second) && !doesNothing(second, first.state) ? [{ _tag: 'ActsTwice', message }] : []
+    return second !== reject && !doesNothing(second, first.state) ? [{ _tag: 'ActsTwice', message }] : []
   })
   const missing = Arr.flatMap(
     Arr.fromIterable(candidates),
     (message): ReadonlyArray<DispatchViolation<Message>> => {
       const step = update(message)(state)
-      return !isRejected(step) && !doesNothing(step, state) && !withheld(message, state)
+      return step !== reject && !doesNothing(step, state) && !withheld(message, state)
           && !Arr.some(shown, (each) => Equal.equals(each, message))
         ? [{ _tag: 'Missing', message }]
         : []

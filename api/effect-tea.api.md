@@ -333,9 +333,6 @@ const InvariantDefect_base: new <A extends Record<string, any> = {}>(args: VoidI
 } & Readonly<A>;
 
 // @public (undocumented)
-export const isRejected: (result: unknown) => result is Rejected;
-
-// @public (undocumented)
 type Items<L> = L extends ReadonlyArray<infer I> ? I : never;
 
 // @public (undocumented)
@@ -447,9 +444,6 @@ type ProgramTypes = Readonly<{
 }>;
 
 // @public
-export const raise: <Event>(event: Event) => <State>(state: State) => Step<State, never, Event>;
-
-// @public
 export const reject: unique symbol;
 
 // @public (undocumented)
@@ -558,9 +552,6 @@ const Unseen: unique symbol;
 
 // @public (undocumented)
 export type Update<State, Message, Command = never, Event = never> = (message: Message) => (state: State) => Transition<State, Command, Event>;
-
-// @public
-export const write: <A>(was: A, value: A) => Written<A>;
 
 // @public
 export type Written<A> = Readonly<{

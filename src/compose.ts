@@ -34,7 +34,7 @@ import {
   subscriptionsOf,
 } from './program.ts'
 import type { Subscription, Subscriptions } from './subscription.ts'
-import { appendStep, type Folded, isRejected, reject, type Step, type Transition, type Update } from './update.ts'
+import { appendStep, type Folded, reject, type Step, type Transition, type Update } from './update.ts'
 
 /**
  * Where a child lives in its parent's state: `get`, which finds what `set` put and depends on the state alone,
@@ -396,7 +396,7 @@ const compose = <
       onNone: () => reject,
       onSome: (childState) => {
         const result = childOf(place.name).program.update(message)(childState) as Transition<unknown, unknown, unknown>
-        if (isRejected(result)) return reject
+        if (result === reject) return reject
         // A child's events are handled in order, each by the state its predecessors left. An unchanged child
         // leaves its parent's state as it is, so that the very same state draws no new frame.
         const lifted: Folded<State, Command, Event> = {
@@ -419,7 +419,7 @@ const compose = <
       throw defectAt(place, `The external message ${String(on)} to "${place.name}", which is not in this state`, on)
     }
     const result = updateAt(place, message)(state)
-    if (isRejected(result)) {
+    if (result === reject) {
       const on = describeByTag(message)
       throw defectAt(place, `"${place.name}" rejected the external message ${String(on)}, which it takes`, on)
     }
@@ -587,10 +587,10 @@ export type CompositionTypes = Readonly<{
  * (`composition<{ state: State; event: Event }>()`), then its children declared with `child` (one) or `each` (by
  * id), its inputs with `input`, and the program made with `compose`. Its messages are its own,
  * `{ _tag: <child>, message }` for each child (with `id` for children by id), and
- * `{ _tag: <input>, message: write(was, value) }` for each input; its commands are its own and its children's,
- * each run by its child's `runCommand`, which a child with commands must have. Fixing the types first is what lets
- * `get`, `set` and the rest be typed without annotations, and the program's own commands, events, external messages
- * and flags, which nothing it returns can reveal, be known.
+ * `{ _tag: <input>, message: { _tag: 'Written', was, value } }` for each input; its commands are its own and its
+ * children's, each run by its child's `runCommand`, which a child with commands must have. Fixing the types first is
+ * what lets `get`, `set` and the rest be typed without annotations, and the program's own commands, events, external
+ * messages and flags, which nothing it returns can reveal, be known.
  */
 export const composition = <T extends CompositionTypes>() => {
   type State = Field<T, 'state'>
@@ -618,8 +618,9 @@ export const composition = <T extends CompositionTypes>() => {
     ): Each<State, Id, P> => ({ kind: 'each', program, ...placedEach(place), subscribed: place.subscribed }),
     /**
      * An input, a place of the state that the outside writes into: `inputs: { Name: input(at) }`, where `at`
-     * focuses a plain value. The view writes over the value its model holds, `write(model.name, text)`, through
-     * `dispatchTo(dispatch, 'Name')`, which a bridge makes with `typed`.
+     * focuses a plain value. The view writes over the value its model holds,
+     * `{ _tag: 'Written', was: model.name, value: text }`, through `dispatchTo(dispatch, 'Name')`, which a bridge
+     * makes with `typed`.
      */
     input: <A>(at: Optic.Optional<State, A>): InputAt<State, A> => ({ kind: 'input', ...placed({ at }) }),
     // Its external messages are checked where it is a child (`child`, `each`): here its own messages are still being

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { isRejected } from '@fgaudo/effect-tea'
+import { reject } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations } from '@fgaudo/effect-tea/testing'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
@@ -14,7 +14,7 @@ describe('duration', () => {
   })
 
   test('rejects going below one minute', () => {
-    expect(isRejected(update('Less')({ minutes: 1 }))).toBe(true)
+    expect(update('Less')({ minutes: 1 })).toBe(reject)
   })
 
   test('the model holds what update accepts, all of it', () => {

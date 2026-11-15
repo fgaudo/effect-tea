@@ -5,7 +5,7 @@ import * as Exit from 'effect/Exit'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import { type DefectSite, ProgramDefect } from './defect.ts'
-import { isRejected, type Step, type Update } from './update.ts'
+import { reject, type Step, type Update } from './update.ts'
 
 // The semantics shared by the run and the testing tools, as pure functions of data (`docs/shared-core.md`): the
 // shells, `engine.ts` and `src/testing/`, decide when they run and perform what they return.
@@ -251,7 +251,7 @@ export const arrive = <State, Message, Command, Event, K>(
   if (died()) return dead
   if (source._tag === 'Subscription' && !active.starts.has(source.generation)) return dropped
   const result = update(message)(current.state)
-  if (isRejected(result)) return ignored
+  if (result === reject) return ignored
   const changed = result.state !== current.state
   return {
     _tag: 'Applied',

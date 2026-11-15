@@ -47,7 +47,7 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   combinators, and the library defines no function over it. One of the library's own has a shape the library
   defines and documents, public where it is meant to be written by hand (an `update` writes a `Step`,
   `{ state, commands?, events? }`, as data) and hidden where it is not (a program `composition` makes); the
-  library gives the functions over it (`andThen` and `raise` over `Step`). An alias with a few helpers over it
+  library gives the functions over it (`andThen` and `forEach` over `Step`). An alias with a few helpers over it
   has the costs of both and keeps neither promise: users still write the representation everywhere else, so it
   cannot change. A type moves to the library's side only when the library must do with it what Effect alone
   cannot: inspect it in tests without running it, keep it the same across frames by a cache of its own (as
@@ -56,12 +56,13 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 - **A function earns its place by doing what Effect alone cannot**, or by being the one place where a rule of
   the library is applied (`reject`, `composition`). A name over a composition of Effect's combinators is not one,
   however often the composition recurs in an application: `attempt`, `silent` and `Subscription.every` were
-  removed by this rule. A type that already imposes a rule (`Execution` cannot fail, a `Subscription` ends with
-  a message) makes the function that would remind of it superfluous. A form of a declaration that takes a
-  standard type of Effect in place of hand-written functions (`at`, an `Optic`, for `get` and `set`) is not a
-  function, and may stay. `forEach` over `Step`, the n-ary `andThen`, is a fold the rule admits: with it, a parent
-  tells one message to each of its children by id (the `list` example). Both are dual (`Function.dual`), for a
-  chain of steps written in a `pipe`.
+  removed by this rule. Nor is a name over a literal of a shape the library documents, or over an operator: `write`,
+  `isRejected` and `raise` went by it too. A type that already imposes a rule (`Execution` cannot fail, a
+  `Subscription` ends with a message) makes the function that would remind of it superfluous. A form of a
+  declaration that takes a standard type of Effect in place of hand-written functions (`at`, an `Optic`, for `get` and
+  `set`) is not a function, and may stay. `forEach` over `Step`, the n-ary `andThen`, is a fold the rule admits: with
+  it, a parent tells one message to each of its children by id (the `list` example). Both are dual (`Function.dual`),
+  for a chain of steps written in a `pipe`.
 - **Only stable APIs.** A module or function marked `@stability unstable` in Effect's declarations may change
   under the library's users: never build on one, not even as an option, and not in `examples/` either, since
   users copy them. The same holds for React's `unstable_` and `experimental_` APIs in the bridges. The typecheck

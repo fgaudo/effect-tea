@@ -8,7 +8,7 @@ import * as Channel from 'effect/Channel'
 import * as HashMap from 'effect/HashMap'
 import * as Num from 'effect/Number'
 import * as Opt from 'effect/Option'
-import { composition, isRejected, type MessageOf, type Program, type StateOf, subscriptionsOf } from '../src/index.ts'
+import { composition, reject, type MessageOf, type Program, type StateOf, subscriptionsOf } from '../src/index.ts'
 
 type RowState = Readonly<{ seconds: number }>
 
@@ -51,7 +51,7 @@ const statesOf = (shared: boolean) => {
   for (let i = 0; i < changes; i++) {
     const tick: MessageOf<typeof list> = { _tag: 'Row', id: shared ? 0 : i % children, message: { _tag: 'Ticked' } }
     const step = list.update(tick)(state)
-    if (!isRejected(step)) state = step.state
+    if (step !== reject) state = step.state
     all.push(state)
   }
   return all

@@ -11,7 +11,7 @@ import * as Optic from 'effect/Optic'
 import * as Stream from 'effect/Stream'
 import { collectGarbage } from '../test/gc.ts'
 import type { Subscription } from './subscription.ts'
-import { andThen, forEach, isRejected, raise, reject, type Step } from './update.ts'
+import { andThen, forEach, reject, type Step } from './update.ts'
 import { type Dispatch, dispatchTo } from './dispatch.ts'
 import { composition } from './compose.ts'
 import { CompositionDefect } from './defect.ts'
@@ -259,7 +259,7 @@ describe('compose', () => {
   test('a parent\'s own message gives a child an external message through its handle', () => {
     const at = { ...app.init.state, left: { ...counter.init.state, count: 2 } }
     const result = app.update({ _tag: 'Reset' })(at)
-    expect(!isRejected(result) && result.state.left.count).toBe(0)
+    expect(result !== reject && result.state.left.count).toBe(0)
   })
 
   // The very same state draws no new frame: a parent rebuilt around an unchanged child would draw one.
@@ -291,14 +291,13 @@ describe('compose', () => {
       _tag: 'Pinger',
       message: 'Ping',
     })(before)
-    expect(!isRejected(kept) && kept.state === before).toBe(true)
-    expect(!isRejected(kept) && kept.commands).toEqual([{ _tag: 'Pinger', command: 'Pong' }])
-    expect(!isRejected(heard) && heard.state.heard).toBe(1)
+    expect(kept !== reject && kept.state === before).toBe(true)
+    expect(kept !== reject && kept.commands).toEqual([{ _tag: 'Pinger', command: 'Pong' }])
+    expect(heard !== reject && heard.state.heard).toBe(1)
   })
 
   test('a message for a child that is not there is rejected', () => {
-    expect(isRejected(app.update({ _tag: 'Right', message: CounterMessage.Increment() })(app.init.state)))
-      .toBe(true)
+    expect(app.update({ _tag: 'Right', message: CounterMessage.Increment() })(app.init.state)).toBe(reject)
   })
 
   test('the model of a child that is not there is a defect', () => {
@@ -400,7 +399,7 @@ const lists = Nested.compose({
 describe('children by id', () => {
   test('a message reaches the child with its id, and only that one', () => {
     const result = list.update({ _tag: 'Rows', id: 2, message: CounterMessage.Increment() })(rows(1, 2))
-    expect(!isRejected(result) && result.state.rows.map((row) => row.counter.count)).toEqual([0, 1])
+    expect(result !== reject && result.state.rows.map((row) => row.counter.count)).toEqual([0, 1])
   })
 
   test('children that share one state object share its model, and their dispatch adds their id', () => {
@@ -486,18 +485,18 @@ describe('children by id', () => {
 
   test('a child\'s commands come back to it, and its events reach the parent with its id', async () => {
     const saving = list.update({ _tag: 'Rows', id: 2, message: CounterMessage.SaveClicked() })(rows(1, 2))
-    if (isRejected(saving)) throw new Error('saving was rejected')
+    if (saving === reject) throw new Error('saving was rejected')
     expect(saving.commands).toEqual([{ _tag: 'Rows', id: 2, command: CounterCommand.Save(counter.init.state) }])
     const [command] = saving.commands ?? []
     if (command === undefined) throw new Error('saving started no command')
     const saved = await Effect.runPromise(list.runCommand(command))
     expect(saved).toEqual(Opt.some({ _tag: 'Rows', id: 2, message: CounterMessage.Saved() }))
     const done = list.update(Opt.getOrThrow(saved))(saving.state)
-    expect(!isRejected(done) && done.state.rows.map((row) => row.id)).toEqual([1])
+    expect(done !== reject && done.state.rows.map((row) => row.id)).toEqual([1])
   })
 
   test('the late message of a removed child is rejected', () => {
-    expect(isRejected(list.update({ _tag: 'Rows', id: 3, message: CounterMessage.Increment() })(rows(1, 2)))).toBe(true)
+    expect(list.update({ _tag: 'Rows', id: 3, message: CounterMessage.Increment() })(rows(1, 2))).toBe(reject)
   })
 
   test('each child listens under its name and id, alone ones under their name', () => {
@@ -671,7 +670,7 @@ describe('what a parent can do with a child', () => {
       onEvent: { Left: () => (state) => ({ state }) },
       makeModel: () => null,
     })
-    expect(isRejected(sendTo.update({ _tag: 'Reset' })(app.init.state))).toBe(false)
+    expect(sendTo.update({ _tag: 'Reset' })(app.init.state)).not.toBe(reject)
   })
 
   // A page with a menu, which a back button closes, or, with nothing to close, asks its parent to leave.
@@ -702,7 +701,7 @@ describe('what a parent can do with a child', () => {
     })
     const back = (state: Pages) => {
       const result = pages.update({ _tag: 'BackPressed' })(state)
-      return isRejected(result) ? state : result.state
+      return result === reject ? state : result.state
     }
     expect(back(pages.init.state)).toEqual({ page: Opt.some({ menu: false }) })
     expect(back(back(pages.init.state))).toEqual({ page: Opt.none() })
@@ -941,7 +940,7 @@ describe('steps that add up', () => {
     init: (children) => ({ state: { page: children.Page.init.state } }),
     children: { Page: Home.child(leaving, { get: (state) => Opt.some(state.page), set: (_, page) => ({ page }) }) },
     update: (_: Leave, children) => children.Page.update({ _tag: 'Leave' }),
-    onEvent: { Page: raise },
+    onEvent: { Page: (event) => (state) => ({ state, events: [event] }) },
     makeModel: () => null,
   })
   type App = Readonly<{ home: Home; heard: ReadonlyArray<boolean>; resets: number }>
@@ -1001,15 +1000,15 @@ describe('a child placed with an optic', () => {
 
   test('the optic finds the child and puts its new state back, as get and set would', () => {
     const left = placed.update(increment('Left'))(app.init.state)
-    expect(!isRejected(left) && left.state.left.count).toBe(1)
+    expect(left !== reject && left.state.left.count).toBe(1)
     expect(placed.makeModel(app.init.state).left.count).toBe(0)
   })
 
   test('a child the optic does not focus is not there: its messages are rejected, and it has no model', () => {
-    expect(isRejected(placed.update(increment('Right'))(app.init.state))).toBe(true)
+    expect(placed.update(increment('Right'))(app.init.state)).toBe(reject)
     const withRight = { ...app.init.state, maybeRight: Opt.some(counter.init.state) }
     const right = placed.update(increment('Right'))(withRight)
-    expect(!isRejected(right) && Opt.map(right.state.maybeRight, (counter) => counter.count)).toEqual(Opt.some(1))
+    expect(right !== reject && Opt.map(right.state.maybeRight, (counter) => counter.count)).toEqual(Opt.some(1))
     expect(Opt.map(placed.makeModel(withRight).maybeRight, (model) => model.count)).toEqual(Opt.some(0))
   })
 
@@ -1029,8 +1028,8 @@ describe('a child placed with an optic', () => {
     })
     const state: Rows = { rows: { 1: counter.init.state } }
     const result = byId.update({ _tag: 'Rows', id: 1, message: CounterMessage.Increment() })(state)
-    expect(!isRejected(result) && result.state.rows[1]?.count).toBe(1)
-    expect(isRejected(byId.update({ _tag: 'Rows', id: 2, message: CounterMessage.Increment() })(state))).toBe(true)
+    expect(result !== reject && result.state.rows[1]?.count).toBe(1)
+    expect(byId.update({ _tag: 'Rows', id: 2, message: CounterMessage.Increment() })(state)).toBe(reject)
     expect(byId.makeModel(state).map((model) => model.count)).toEqual([0])
   })
 
@@ -1056,10 +1055,10 @@ describe('a child placed with an optic', () => {
       makeModel: () => null,
     })
     const result = started.update({ _tag: 'Reset' })(started.init.state)
-    expect(!isRejected(result) && result.commands).toEqual([
+    expect(result !== reject && result.commands).toEqual([
       { _tag: 'Rows', id: 7, command: CounterCommand.Save({ count: 0 }) },
     ])
-    expect(!isRejected(result) && result.state.rows).toEqual([{ id: 7, counter: counter.init.state }])
+    expect(result !== reject && result.state.rows).toEqual([{ id: 7, counter: counter.init.state }])
   })
 
   test('a parent\'s init starts a child there from the start with its commands, lifted', () => {
@@ -1135,11 +1134,11 @@ describe('flags', () => {
 
   test('a child with flags starts from the flags its parent gives it, its commands lifted', () => {
     const result = seeds.update({ _tag: 'Seed', count: 3 })(seeds.init.state)
-    expect(!isRejected(result) && result.state).toEqual({
+    expect(result !== reject && result.state).toEqual({
       maybeSeeded: Opt.some({ count: 3, text: '', saving: true }),
       rows: [{ id: 7, counter: { count: 4, text: '', saving: true } }],
     })
-    expect(!isRejected(result) && result.commands).toEqual([
+    expect(result !== reject && result.commands).toEqual([
       { _tag: 'Seeded', command: CounterCommand.Save({ count: 3 }) },
       { _tag: 'Rows', id: 7, command: CounterCommand.Save({ count: 4 }) },
     ])
@@ -1292,7 +1291,7 @@ describe('what the types reject', () => {
       },
       makeModel: () => null,
     })
-    expect(isRejected(program.update({ _tag: 'Reset' })(noTicks))).toBe(false)
+    expect(program.update({ _tag: 'Reset' })(noTicks)).not.toBe(reject)
   })
 
   test('a command\'s answer gives a child only what its parent may send it', () => {
@@ -1480,14 +1479,14 @@ describe('what the types reject', () => {
       init: () => ({ state: noTicks }),
       children: { Gone: Silent.child(gone, { get: (state) => Opt.some(state), set: (_, child) => child }) },
       // @ts-expect-error: `Gone` is no event of this parent's.
-      onEvent: { Gone: raise },
+      onEvent: { Gone: (event) => (state) => ({ state, events: [event] }) },
       makeModel: () => null,
     })
     const Raising = composition<{ state: Ticks; event: Gone }>()
     expect(Raising.compose({
       init: () => ({ state: noTicks }),
       children: { Gone: Raising.child(gone, { get: (state) => Opt.some(state), set: (_, child) => child }) },
-      onEvent: { Gone: raise },
+      onEvent: { Gone: (event) => (state) => ({ state, events: [event] }) },
       makeModel: () => null,
     }).update({ _tag: 'Gone', message: { _tag: 'Tick' } })(noTicks)).toEqual({
       state: noTicks,
