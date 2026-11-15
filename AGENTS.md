@@ -133,7 +133,10 @@ an example's and a document's too:
 - A piece of a program that may be missing (`runCommand` without commands, `subscriptions`) is read through
   `runCommandOf` and `subscriptionsOf`, never directly: the engine always gets the complete set. Likewise
   `init`, a step or a function of the flags, is read through `startOf`: a step is never a function, so `typeof`
-  tells them apart, and so does `compose` for a child's handle.
+  tells them apart, and so does `compose` for a child's handle. Of the three, `subscriptionsOf` alone is public: that
+  a missing `subscriptions` means listening to nothing is a rule of the library which a test of a program observes,
+  on a type where the piece is optional, and that function is the one place it is applied. The other two decide
+  nothing such a test can see.
 - Effect modules are imported as namespaces (`import * as Effect from 'effect/Effect'`), with `Arr`, `Opt` for
   `Array`, `Option`.
 - A function that returns an effect made with `Effect.gen` is an `Effect.fnUntraced` instead, with what would
