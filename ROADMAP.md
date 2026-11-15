@@ -52,11 +52,6 @@ session that wrote this, "reported" is a reviewer's claim that was not:
   part, on what Effect does not document, and `^4.1.4` accepts minors no test has run on. The daily job tells of a
   break, and does not protect a consumer already there. A range that stops at the minors tested, widened on each
   green run, was proposed. Reported.
-- **Three ways for what arrives too late.** The run drops a message of a subscription whose key is gone; `update`
-  rejects the answer of a command for what has since changed, with the care for ids that come back the README asks;
-  and, since the plain input, the library rejects a write over a value the program has since replaced, from the
-  state and the message alone. The first two are what commands that cannot be cancelled cost; none of the three is
-  said with the others, as one choice. Reported for the first two, the third read in the code.
 
 ## Possible improvements
 

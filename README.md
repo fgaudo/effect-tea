@@ -435,6 +435,22 @@ To tell them apart, ask whether the message could reach that state while the pro
 are right. If a fast finger, a slow frame or another device is enough, it is a `reject`. If only a bug can
 bring it there, it is a `defect`.
 
+**What arrives too late is judged where what it was for is known.** Nothing is cancelled when the state moves on:
+not a command under way, not what a subscription sent before its key went away, not a frame already drawn. Besides
+a message of the view, which `update` rejects where it does not apply, three kinds of message may arrive for a
+state that has left them behind, and each is settled by whoever knows what it was for:
+
+- **A subscription's message once its key is gone** is dropped by the run before `update`, even if the key has come
+  back since: the run stopped that subscription. `onIgnored` does not hear it, and the run logs it at the debug
+  level.
+- **A command's answer for what has since changed** reaches `update`, which rejects it: only the program knows what
+  the answer was for, so its message says it (see ids that come back in [children by id](#children-by-id)).
+- **A write over a value the program has since replaced** is rejected by the library, from the state and the message
+  alone, since the input's place is declared to it (see [inputs the user types into](#inputs-the-user-types-into)).
+
+None of them is a defect: they are what commands that cannot be cancelled, keys that come and go, and frames older
+than the state cost.
+
 Whether the model holds only what applies, and all of it, is for the tests (see [testing](#testing)).
 
 ### Composition

@@ -490,7 +490,7 @@ above for the first two.
 - **A register inside a child**, addressed by nested `dispatchTo`, and **several registers in one form**: not tried.
 - **What a stale write is.** The spike rejects a write into a replaced revision, so `onIgnored` hears it. Whether that
   is the rejection of "the message does not apply in the state", or a third way for what arrives too late
-  (`ROADMAP.md`, "Two ways for what arrives too late").
+  (the README's "Rejections and defects" now says the three as one choice).
 - **The testing tools.** A typed writer (way 5), and whether `dispatchViolations` is asked anything of a register:
   that it exists where `update` would read it, say.
 - **`inert-steps.md`.** Its decision holds and loses the exemption for an unchanged text; its open question on

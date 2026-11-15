@@ -98,6 +98,9 @@ version, and everything else, features included, the patch version.
   Upgrade: give the child the `runCommand` its commands need; one that gets there through a cast is a
   `CompositionDefect` naming the child.
 - The README says that a command, a subscription or the renderer dies once its effect ends with a defect.
+- "Rejections and defects" in the README says, as one choice, who settles what arrives too late: the run drops a
+  stopped subscription's message, `update` rejects a command's outdated answer, the library a write over a value
+  replaced.
 
 ### Fixed
 
