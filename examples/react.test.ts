@@ -26,6 +26,7 @@ import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
 import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
+import * as Scheduler from 'effect/Scheduler'
 import * as Stream from 'effect/Stream'
 import { createElement, Fragment, memo, type ReactNode, StrictMode, useEffect, useRef } from 'react'
 import { counter } from './counter/counter.ts'
@@ -38,8 +39,24 @@ import { type Message as VolumeMessage, type Model as VolumeModel, Pointer, volu
 const waiting = new Map<number, FrameRequestCallback>()
 let requested = 0
 
-/** Lets the program, the renderer and React's scheduler do what they can without a screen refresh. */
-const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 20))
+// Effect's own scheduler, but for the turns of the event loop it would wait for: it keeps them until `settle`, so
+// that a test, not the clock, says when the program and the renderer go on. React needs no turn of its own: the
+// bridge draws each frame with `flushSync`, which commits it and runs its effects before it returns. What a run waits
+// for outside Effect's scheduler (`Effect.sleep`, a promise) is not held: a test controls it by its own means
+// (`TestClock`, a `Deferred`).
+const held = new Set<() => void>()
+const scheduler = new Scheduler.MixedScheduler('async', (task) => {
+  held.add(task)
+  return () => held.delete(task)
+})
+
+/** Lets the program and the renderer do all they can without a screen refresh. */
+const settle = () => {
+  for (let turns = 0; held.size > 0; turns += 1) {
+    if (turns === 10_000) throw new Error('The program never settles: a fiber yields forever')
+    for (const task of [...held]) if (held.delete(task)) task()
+  }
+}
 
 /** One screen refresh: the renderer resumes in its callback, and draws the latest frame at once. */
 const refresh = () => {
@@ -49,9 +66,9 @@ const refresh = () => {
 }
 
 /** One screen refresh, then what follows from it. */
-const paint = async () => {
+const paint = () => {
   refresh()
-  await settle()
+  settle()
 }
 
 // React DOM reads the DOM when it is loaded, so the bridge, the views and React DOM are loaded once there is one.
@@ -76,16 +93,22 @@ beforeAll(async () => {
   portal = (await import('react-dom')).createPortal
 })
 
-// React's scheduler may still have work queued by the last unmount, which reads the DOM.
+// React's scheduler may still have work queued by the last unmount, which reads the DOM: it queues it with
+// `setImmediate`, so a turn queued after it runs once it is done.
 afterAll(async () => {
-  await settle()
+  await new Promise<void>((resolve) => setImmediate(resolve))
   await GlobalRegistrator.unregister()
 })
 
 let running: Fiber.Fiber<void> | undefined
 
 const stop = async () => {
-  if (running !== undefined) await Effect.runPromise(Fiber.interrupt(running))
+  if (running !== undefined) {
+    // The run ends on the held scheduler too: what its interruption does is let through before it is awaited.
+    const ended = Effect.runPromise(Fiber.interrupt(running))
+    settle()
+    await ended
+  }
   running = undefined
 }
 
@@ -105,7 +128,7 @@ const mount = <Model, Message>(
   running = Effect.runFork(start(bridge.renderInto(root, (model, dispatch) => {
     views += 1
     return view(model, dispatch)
-  })))
+  })), { scheduler })
   return { views: () => views }
 }
 
@@ -137,41 +160,40 @@ const type = (input: HTMLInputElement, text: string) => {
 const state = () => [...document.querySelectorAll('output, li')].map((found) => found.textContent)
 
 describe('renderInto, with React', () => {
-  test('draws the first frame at once, then at most once per screen refresh, the latest frame', async () => {
+  test('draws the first frame at once, then at most once per screen refresh, the latest frame', () => {
     const app = mount(counterView, (render) => run(counter, render))
-    await settle()
+    settle()
     expect(app.views()).toBe(1)
     expect(element('output').textContent).toBe('0')
     for (let click = 0; click < 5; click += 1) {
       button('+').click()
-      await settle()
+      settle()
     }
     expect(app.views()).toBe(1)
     expect(element('output').textContent).toBe('0')
-    await paint()
+    paint()
     expect(app.views()).toBe(2)
     expect(element('output').textContent).toBe('5')
-    await paint()
+    paint()
     expect(app.views()).toBe(2)
   })
 
-  test('a click on a drawn button reaches the program, and the next refresh shows it', async () => {
+  test('a click on a drawn button reaches the program, and the next refresh shows it', () => {
     mount(counterView, (render) => run(counter, render))
-    await settle()
+    settle()
     button('+').click()
-    await paint()
+    paint()
     expect(element('output').textContent).toBe('1')
     button('−').click()
-    await paint()
+    paint()
     expect(element('output').textContent).toBe('0')
   })
 
   test('unmounts what it drew when the run ends', async () => {
     mount(counterView, (render) => run(counter, render))
-    await settle()
+    settle()
     expect(element('output').textContent).toBe('0')
     await stop()
-    await settle()
     expect(element('#app').childElementCount).toBe(0)
   })
 
@@ -197,30 +219,30 @@ describe('inputs the user types into, with React', () => {
       (render) => run(form, render).pipe(Effect.provideService(Storage, saving)),
     )
 
-  test('a frame drawn while the user types does not take back what they typed since', async () => {
+  test('a frame drawn while the user types does not take back what they typed since', () => {
     mountForm()
-    await settle()
+    settle()
     const input = element<HTMLInputElement>('input')
     type(input, 'A')
-    await settle()
+    settle()
     // The next key is in the input before its message reaches the program: the frame drawn now knows only "A".
     setValue(input, 'Ad')
-    await paint()
+    paint()
     expect(element('input')).toBe(input)
     expect(input.value).toBe('Ad')
     expect(button('Save')).toBeDefined()
   })
 
-  test('a name the program empties is emptied in the input on screen, which stays and keeps the focus', async () => {
+  test('a name the program empties is emptied in the input on screen, which stays and keeps the focus', () => {
     mountForm()
-    await settle()
+    settle()
     const input = element<HTMLInputElement>('input')
     input.focus()
     type(input, 'Ada')
-    await paint()
+    paint()
     button('Save').click()
-    await paint()
-    await paint()
+    paint()
+    paint()
     expect(element('input')).toBe(input)
     expect(input.value).toBe('')
     expect(document.activeElement).toBe(input)
@@ -294,74 +316,74 @@ describe('an input in a draft its parent starts again, and brings back, with Rea
     describe(strict ? 'in StrictMode' : 'plainly', () => {
       const mountDesk = () => mount(deskView(strict), (render) => run(desk, render))
 
-      test('a frame that has not seen a key sent before it was drawn leaves the element as it is', async () => {
+      test('a frame that has not seen a key sent before it was drawn leaves the element as it is', () => {
         mountDesk()
-        await settle()
+        settle()
         const typedInto = element<HTMLInputElement>('input')
         // A frame waits for the screen refresh; the key is sent, and the refresh draws that frame before the run
         // takes the key: the callback of the refresh resumes the renderer at once.
         button('Keep').click()
-        await settle()
+        settle()
         type(typedInto, 'A')
         refresh()
         expect(typedInto.value).toBe('A')
-        await paint()
+        paint()
         expect(state()).toEqual(['A'])
         expect(typedInto.value).toBe('A')
       })
 
-      test('sent, the draft is emptied in the element on screen, which stays and keeps the focus', async () => {
+      test('sent, the draft is emptied in the element on screen, which stays and keeps the focus', () => {
         mountDesk()
-        await settle()
+        settle()
         const typedInto = element<HTMLInputElement>('input')
         typedInto.focus()
         type(typedInto, 'hello')
-        await paint()
+        paint()
         button('Send').click()
-        await paint()
+        paint()
         expect(state()).toEqual(['', 'hello'])
         expect(element('input')).toBe(typedInto)
         expect(typedInto.value).toBe('')
         expect(document.activeElement).toBe(typedInto)
         // What is typed next is typed over the empty text, and stored: React's tracking heard the emptying.
         type(typedInto, 'again')
-        await paint()
+        paint()
         expect(state()).toEqual(['again', 'hello'])
       })
 
       test(
         'a key typed after Send, before the emptied draft is drawn, is rejected, and the element emptied',
-        async () => {
+        () => {
           mountDesk()
-          await settle()
+          settle()
           const typedInto = element<HTMLInputElement>('input')
           type(typedInto, 'hello')
-          await paint()
+          paint()
           button('Send').click()
           // The frame on screen still shows "hello": the key is written over it.
           type(typedInto, 'hello!')
-          await paint()
+          paint()
           expect(state()).toEqual(['', 'hello'])
           expect(typedInto.value).toBe('')
           button('Send').click()
-          await paint()
+          paint()
           expect(state()).toEqual(['', 'hello'])
         },
       )
 
-      test('a kept draft brought back as the very same state, which memo skips, is shown by the element', async () => {
+      test('a kept draft brought back as the very same state, which memo skips, is shown by the element', () => {
         mountDesk()
-        await settle()
+        settle()
         const typedInto = element<HTMLInputElement>('input')
         type(typedInto, 'Ada')
         button('Keep').click()
-        await paint()
+        paint()
         // Within one screen refresh: the draft is discarded, a key is typed over what the screen still shows, and
         // the kept draft comes back. The key is rejected, and the draft's state is the object drawn last.
         button('Discard').click()
         type(typedInto, 'Adam')
         button('Undo').click()
-        await paint()
+        paint()
         expect(state()).toEqual(['Ada'])
         expect(typedInto.value).toBe('Ada')
       })
@@ -393,16 +415,16 @@ describe('the sliders of the volume, with React', () => {
 
   test(
     'a press on the one the program draws starts a drag, whose moves set it until the pointer is released',
-    async () => {
+    () => {
       mount(
         volumeView,
         (render) =>
           run(volume, render).pipe(Effect.provideService(Pointer, Pointer.of({ moves: Stream.make(40, 64.4) }))),
       )
-      await settle()
+      settle()
       element('.track').dispatchEvent(new Event('pointerdown', { bubbles: true }))
-      await paint()
-      await paint()
+      paint()
+      paint()
       expect(element('output.ringer').textContent).toBe('64')
       expect(element<HTMLElement>('.fill').style.width).toBe('64%')
     },
@@ -440,47 +462,47 @@ describe('a value the program puts in an input\'s place, with React', () => {
     }
   }
 
-  test('a frame drawn while the user types keeps the focus, the caret and the selection of the input', async () => {
+  test('a frame drawn while the user types keeps the focus, the caret and the selection of the input', () => {
     mountNote()
-    await settle()
+    settle()
     const typed = element<HTMLInputElement>('input')
     type(typed, 'Ada')
     typed.focus()
     typed.setSelectionRange(1, 3)
-    await paint()
+    paint()
     expect(element('input')).toBe(typed)
     expect(document.activeElement).toBe(typed)
     expect([typed.selectionStart, typed.selectionEnd]).toEqual([1, 3])
   })
 
-  test('is shown by the element on screen, which stays and keeps the focus', async () => {
+  test('is shown by the element on screen, which stays and keeps the focus', () => {
     const app = mountNote()
-    await settle()
+    settle()
     const typed = element<HTMLInputElement>('input')
     type(typed, 'Ada')
     typed.focus()
-    await paint()
+    paint()
     app.send('Cleared')
-    await paint()
+    paint()
     expect(element('input')).toBe(typed)
     expect(typed.value).toBe('')
     expect(document.activeElement).toBe(typed)
   })
 
   // What a scanner would send if it could write: the bridge cannot tell it from a step of the program, and shows it.
-  test('a write the element did not make is shown by it too, and the next key is written over it', async () => {
+  test('a write the element did not make is shown by it too, and the next key is written over it', () => {
     const app = mountNote()
-    await settle()
+    settle()
     const typed = element<HTMLInputElement>('input')
     type(typed, 'Hel')
-    await paint()
+    paint()
     app.send({ _tag: 'Note', message: write(app.note(), 'SCAN') })
-    await paint()
+    paint()
     expect(app.note()).toBe('SCAN')
     expect(element('input')).toBe(typed)
     expect(typed.value).toBe('SCAN')
     type(typed, 'SCANs')
-    await paint()
+    paint()
     expect(app.note()).toBe('SCANs')
   })
 
@@ -520,41 +542,41 @@ describe('a value the program puts in an input\'s place, with React', () => {
         createElement(Dictated, { value: model, dispatch: dispatchTo(dispatch, 'Note'), source }),
       )
 
-    test('each result is shown by the input on screen, which keeps the focus, and is stored', async () => {
+    test('each result is shown by the input on screen, which keeps the focus, and is stored', () => {
       const source = dictation()
       const app = mountNote(dictatedView(source))
-      await settle()
+      settle()
       const typed = element<HTMLInputElement>('input')
       type(typed, 'Note: ')
       typed.focus()
-      await paint()
+      paint()
       source.say('Note: hel')
-      await settle()
+      settle()
       source.say('Note: hello')
       // A dispatch only queues the message: the program applies it in a later step of the scheduler.
-      await settle()
-      await paint()
+      settle()
+      paint()
       expect(element('input')).toBe(typed)
       expect(document.activeElement).toBe(typed)
       expect(typed.value).toBe('Note: hello')
       expect(app.note()).toBe('Note: hello')
       type(typed, 'Note: hello!')
-      await paint()
+      paint()
       expect(app.note()).toBe('Note: hello!')
     })
 
-    test('after the program empties the input, the results go on into the same element, and are stored', async () => {
+    test('after the program empties the input, the results go on into the same element, and are stored', () => {
       const source = dictation()
       const app = mountNote(dictatedView(source))
-      await settle()
+      settle()
       const typed = element<HTMLInputElement>('input')
       source.say('Ada')
-      await paint()
+      paint()
       app.send('Cleared')
-      await paint()
+      paint()
       expect(typed.value).toBe('')
       source.say('Bob')
-      await paint()
+      paint()
       expect(element('input')).toBe(typed)
       expect(typed.value).toBe('Bob')
       expect(app.note()).toBe('Bob')
@@ -573,7 +595,7 @@ describe('an input React draws outside the root', () => {
     makeModel: (held) => held,
   })
 
-  test('an input drawn through a portal, outside the root, is settled by the frames of its run', async () => {
+  test('an input drawn through a portal, outside the root, is settled by the frames of its run', () => {
     const view: View<ModelOf<typeof solo>, MessageOf<typeof solo>> = (model, dispatch) =>
       createElement(
         Fragment,
@@ -586,13 +608,13 @@ describe('an input React draws outside the root', () => {
         createElement('output', null, model.text),
       )
     mount(view, (render) => run(solo, render))
-    await settle()
+    settle()
     const typedInto = element<HTMLInputElement>('#aside input')
     expect(typedInto.value).toBe('draft')
     type(typedInto, 'hello')
-    await paint()
+    paint()
     button('Discard').click()
-    await paint()
+    paint()
     expect(state()).toEqual([''])
     expect(typedInto.value).toBe('')
   })

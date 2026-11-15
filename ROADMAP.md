@@ -15,10 +15,6 @@ showed it, "reasoned" that it was read only.
 
 ### The tests and the checks
 
-- **The bridges' tests order themselves by a 20 ms sleep** (`settle` and `paint` in `examples/snabbdom.test.ts` and
-  `examples/react.test.ts`), and `examples/form/late-key.test.ts` by turns of the event loop: against "a test never
-  rests on the clock for an order", in the tests the README offers to copy. They pass here. Confirmed as a break of
-  the rule.
 - **Checks of `docs/invariants.md` with tests but no mutation**: the `Effect.scoped` of `scopedIn` (a scope of its
   own for each command, subscription and renderer), the `CompositionDefect`s for an unhandled event, an external
   message to a missing child or one it rejects, and a child's command with no `runCommand`; and the engine's logs

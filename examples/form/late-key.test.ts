@@ -8,6 +8,7 @@ import { describe, expect, test } from 'bun:test'
 import { dispatchTo, drawn as settled, type Frame, run, type Shown, typed } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Fiber from 'effect/Fiber'
+import * as Scheduler from 'effect/Scheduler'
 import * as Stream from 'effect/Stream'
 import { form, type Message, type Model } from './form.ts'
 import { Storage } from './storage.ts'
@@ -19,21 +20,23 @@ type Screen = {
   onSave: (() => void) | undefined
 }
 
-const ticks = (n: number) =>
-  Array.from({ length: n }).reduce<Promise<void>>(
-    (previous) => previous.then(() => new Promise((resolve) => setTimeout(resolve, 0))),
-    Promise.resolve(),
-  )
-
-const until = async (done: () => boolean) => {
-  for (let i = 0; i < 1000 && !done(); i++) await ticks(1)
-  expect(done()).toBe(true)
-  // What the run publishes reaches the renderer's buffer through fibers of its own: let them catch up.
-  await ticks(10)
-}
-
 // A run of the form with a storage that answers at once, its screen, and the animation frame, which the test fires.
+// It runs on Effect's own scheduler, but for the turns of the event loop it would wait for: it keeps them until
+// `settle`, so that a test, not the clock, says when the run goes on, and so which comes first of what the run does
+// and an animation frame.
 const started = () => {
+  const held = new Set<() => void>()
+  const scheduler = new Scheduler.MixedScheduler('async', (task) => {
+    held.add(task)
+    return () => held.delete(task)
+  })
+  /** Lets the run and the renderer do all they can before the next animation frame. */
+  const settle = () => {
+    for (let turns = 0; held.size > 0; turns += 1) {
+      if (turns === 10_000) throw new Error('The run never settles: a fiber yields forever')
+      for (const task of [...held]) if (held.delete(task)) task()
+    }
+  }
   const screen: Screen = { held: undefined, text: '', onInput: undefined, onSave: undefined }
   const drawn: Array<string> = []
   const saved: Array<ReadonlyArray<string>> = []
@@ -71,6 +74,7 @@ const started = () => {
     }).pipe(
       Effect.provideService(Storage, Storage.of({ save: () => Effect.void })),
     ),
+    { scheduler },
   )
   return {
     screen,
@@ -91,21 +95,30 @@ const started = () => {
       resume?.()
     },
     waitingForFrame: () => nextFrame !== undefined,
-    end: () => Effect.runPromise(Fiber.interrupt(fiber)),
+    settle,
+    end: () => {
+      const ended = Effect.runPromise(Fiber.interrupt(fiber))
+      settle()
+      return ended
+    },
   }
 }
 
 // The user types "Ada" and clicks Save; the save completes, and `SaveSucceeded` is applied, within one animation
 // frame of the click, so the renderer never draws `Saving`: the screen still shows "Ada", enabled, with the handler of
 // the frame drawn before the save. The user types one more key into it.
-const savedWithinOneFrame = async (form: ReturnType<typeof started>) => {
-  await until(form.waitingForFrame)
+const savedWithinOneFrame = (form: ReturnType<typeof started>) => {
+  form.settle()
+  expect(form.waitingForFrame()).toBe(true)
   form.type('Ada')
-  await until(() => form.count('Name') === 1)
+  form.settle()
+  expect(form.count('Name')).toBe(1)
   form.animationFrame()
-  await until(() => form.drawn.length === 2 && form.waitingForFrame())
+  form.settle()
+  expect(form.waitingForFrame()).toBe(true)
   form.screen.onSave?.()
-  await until(() => form.count('SaveSucceeded') === 1)
+  form.settle()
+  expect(form.count('SaveSucceeded')).toBe(1)
   expect(form.drawn).toEqual(['', 'Ada'])
   expect(form.screen.text).toBe('Ada')
   expect(form.screen.onInput).toBeDefined()
@@ -116,11 +129,13 @@ describe('a key typed into the input drawn before a save completed', () => {
   test('is rejected, and the input on screen is emptied, as the save left it', async () => {
     const run = started()
     try {
-      await savedWithinOneFrame(run)
+      savedWithinOneFrame(run)
       run.type('Ada x')
-      await until(() => run.ignored.length === 1)
+      run.settle()
+      expect(run.ignored).toHaveLength(1)
       run.animationFrame()
-      await until(() => run.drawn.length === 3)
+      run.settle()
+      expect(run.drawn).toHaveLength(3)
       expect(run.drawn.at(-1)).toBe('')
       expect(run.screen.text).toBe('')
       expect(run.ignored).toEqual(['Name'])
@@ -135,7 +150,7 @@ describe('a key typed into the input drawn before a save completed', () => {
   test('is rejected once the input on screen is emptied, which offers no save', async () => {
     const run = started()
     try {
-      await savedWithinOneFrame(run)
+      savedWithinOneFrame(run)
       run.type('Ada x')
       run.animationFrame()
       // Drawn in the callback itself, before the loop has taken the key: the frame has not seen the key, but holds
@@ -143,9 +158,10 @@ describe('a key typed into the input drawn before a save completed', () => {
       expect(run.drawn.at(-1)).toBe('')
       expect(run.screen.text).toBe('')
       expect(run.ignored).toEqual([])
-      await until(() => run.ignored.length === 1)
+      run.settle()
+      expect(run.ignored).toHaveLength(1)
       run.animationFrame()
-      await ticks(20)
+      run.settle()
       // The state is what the screen shows: an empty input, and nothing to save.
       expect(run.drawn.at(-1)).toBe('')
       expect(run.screen.text).toBe('')
