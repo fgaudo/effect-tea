@@ -77,9 +77,8 @@ answer, and saying so in the proposal.
   [`rehearse-owned-effects.md`](rehearse-owned-effects.md), "Alternatives".
 - **What the tools do with a step that does nothing.** These were refused inside a proposal the owner decided in
   part on 15 November 2026 ([`inert-steps.md`](inert-steps.md), "What was decided"): with `onEvent` left without
-  `reject`, the first three stand rejected. `Inert` itself is deferred, not rejected, and the two entries on it are
-  to be weighed again with it; `Missing`'s change was taken alone, `Inert` waiting for an application to measure it.
-  Each is in its "Alternatives":
+  `reject`, the first three entries and the last stand rejected. `Inert` itself is deferred, not rejected, and the
+  two entries on it are to be weighed again with it. Each is in its "Alternatives":
   - `reject` in `onEvent`, the whole message rejected. Spiked (sixteen tests over seven cases): a child could no
     longer rely on its own transitions, the tool would blame the child, and one answer would have two outcomes.
   - `reject` in `onEvent` only where the child's step changed nothing of its own, a defect otherwise. Reasoned.
@@ -87,7 +86,8 @@ answer, and saying so in the proposal.
     own commands too.
   - `Inert` by identity, not by `Equal`. Spiked: two programs that behave alike would be judged by how they build
     their state.
-  - `Inert` as an option to turn on, and `Missing`'s change alone. Reasoned.
+  - `Inert` as an option to turn on. Reasoned. `Missing`'s change alone, refused beside it, was taken since, with
+    `Inert` waiting for an application to measure it.
   - A constant `unchanged`, frames with a version, a child that removes its own duplicates, events with an answer
     from the parent. Reasoned, 26 October 2026, in a discussion in an application that uses the library, not in
     this repository; the reasons are the document's, and that discussion was not read again for this index.
@@ -174,6 +174,7 @@ What is open, proposed or suspended is not rejected, and is listed in `ROADMAP.m
 
 - **What reaches `update`, declared as data** ([`declared-inputs.md`](declared-inputs.md)): suspended by the owner,
   not revoked. The decisions taken in it stand only if it is taken up again, and what its spikes refuted is there.
-- **The proposal of [`inert-steps.md`](inert-steps.md)**: proposed, not decided.
+- **`Inert`** ([`inert-steps.md`](inert-steps.md), "What was decided"): deferred by the owner, not rejected; the
+  rest of the proposal is done.
 - **The wrapping of a child's message as a public function** ([`boundary.md`](boundary.md), "A question"), and its
   items 6 to 8: questions and candidates, not decided.
