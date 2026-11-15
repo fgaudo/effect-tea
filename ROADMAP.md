@@ -13,23 +13,6 @@ A lead of the search (`bun run interleavings`) goes here with its seed and path,
 test of it. The items below come from a review of 15 November 2026, at `abe1614`; "confirmed" means a probe or a run
 showed it, "reasoned" that it was read only.
 
-### The library
-
-- **A child whose messages are strings is logged by the parent's tag alone** (`wrappedOf` in `log.ts` follows only
-  a tagged `message`), while the README's `describeMessage` reads as `Child › Increment`. Following a string would
-  log a program's own `{ _tag, message: '<user text>' }`, which the default must not: the README is the likelier
-  side to change, but it is the owner's call. Confirmed.
-
-### The testing tools
-
-- **A failure of `rehearse`'s own reaches only the fiber that made the call**: a rejected `send`, a `run` that
-  matches nothing, a `hearNext` stopped while it waited. From a forked fiber that is not joined, the rehearsal
-  succeeds, while the README's table says a rejected message the test sends "fails the test". Either the README
-  says "fails the call", or these go into the register as defects do. Confirmed.
-- **The three tools start a program three ways**: `simulate` takes `from` only (a program with flags makes the test
-  call `init` itself, outside `diesIn('init')`), `rehearse` `from` or `flags`, `drive` `flags` only. Confirmed by
-  reading.
-
 ### The tests and the checks
 
 - **The bridges' tests order themselves by a 20 ms sleep** (`settle` and `paint` in `examples/snabbdom.test.ts` and

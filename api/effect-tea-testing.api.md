@@ -129,23 +129,8 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
 
 // @public
 export const rehearse: <State, Model, Message, Command = never, Event = never, R = never, A = unknown, E = never, RS = never, Flags = never>(program: Shape<State, Model, Message, Command, R, Event, unknown, Flags>, scenario: (rehearsal: Rehearsal<State, Model, Message, Command, Event, R>) => Effect.Effect<A, E, RS>, ...args: [Flags] extends [never] ? [options?: Readonly<{
-    from?: Readonly<{
-        state: NoInfer<State>;
-        commands?: readonly NoInfer<Command>[];
-        events?: readonly never[];
-    }>;
-}>] : [options: RehearseOptions<NoInfer<State>, NoInfer<Command>, NoInfer<Flags>>]) => Effect.Effect<A, E, RS | Exclude<R, Scope.Scope>>;
-
-// @public
-export type RehearseOptions<State, Command, Flags = never> = [Flags] extends [never] ? Readonly<{
-    from?: Step<State, Command>;
-}> : Readonly<{
-    from: Step<State, Command>;
     flags?: never;
-}> | Readonly<{
-    flags: Flags;
-    from?: never;
-}>;
+}>] : [options: FlagsOption<NoInfer<Flags>>]) => Effect.Effect<A, E, RS | Exclude<R, Scope.Scope>>;
 
 // @public
 const reject: unique symbol;

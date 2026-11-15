@@ -125,7 +125,7 @@ describe('rehearse', () => {
     })
   })
 
-  test('a program with flags starts from the flags the test gives it', async () => {
+  test('a program with flags starts from the flags the test gives it, or from the step of another init', async () => {
     const seeded: Program<
       {
         state: Note
@@ -144,15 +144,15 @@ describe('rehearse', () => {
     )))
     expect(text).toBe('eggs')
     const from = { state: { text: 'milk', isSaving: false, saved: Opt.none(), pings: 0 } }
+    // As the run starts elsewhere: a program whose init is that step, and which then has no flags.
     const fromStep = await Effect.runPromise(withStorage(rehearse(
-      seeded,
+      { ...seeded, init: from },
       (rehearsal) => Effect.map(rehearsal.state, (note) => note.text),
-      { from },
     )))
     expect(fromStep).toBe('milk')
     // @ts-expect-error: it has nothing to start from.
     expect(() => rehearse(seeded, () => Effect.void)).toBeDefined()
-    // @ts-expect-error: it starts from one or the other.
+    // @ts-expect-error: it starts from its init, given its flags.
     expect(() => rehearse(seeded, () => Effect.void, { flags: 'eggs', from })).toBeDefined()
   })
 
@@ -168,17 +168,17 @@ describe('rehearse', () => {
   test('runAll runs the commands that the commands it runs start', async () => {
     announced.length = 0
     const pending = await Effect.runPromise(withStorage(rehearse(
-      program,
-      Effect.fnUntraced(function*(rehearsal) {
-        yield* rehearsal.runAll
-        return yield* rehearsal.pending
-      }),
       {
-        from: {
+        ...program,
+        init: {
           state: { ...program.init.state, text: 'tea', isSaving: true },
           commands: [{ _tag: 'Store', text: 'tea' }],
         },
       },
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.runAll
+        return yield* rehearsal.pending
+      }),
     )))
     expect(pending).toEqual([])
     expect(announced).toEqual(['announced'])
@@ -186,13 +186,12 @@ describe('rehearse', () => {
 
   test('a command\'s answer that no longer applies is ignored, and listed', async () => {
     const ignored = await Effect.runPromise(withStorage(rehearse(
-      program,
+      { ...program, init: { state: program.init.state, commands: [{ _tag: 'Store', text: 'old' }] } },
       Effect.fnUntraced(function*(rehearsal) {
         // Answered while nothing is saving.
         yield* rehearsal.run(isStore)
         return yield* rehearsal.ignored
       }),
-      { from: { state: program.init.state, commands: [{ _tag: 'Store', text: 'old' }] } },
     )))
     expect(ignored).toEqual([{ _tag: 'Saved', text: 'old' }])
   })
@@ -213,7 +212,6 @@ describe('rehearse', () => {
         yield* rehearsal.send(saving)
         yield* rehearsal.hear('ping', { _tag: 'Pinged' })
       }),
-      { from: program.init },
     ))
     expect(String(failure)).toContain('Nothing listens under ping in the current state')
     // Keys may hold any value a `HashMap` compares, JSON or not.
@@ -1171,11 +1169,13 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
   test('a subscription that dies before another, which its release lets die, fails it first', async () => {
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const released = yield* Deferred.make<void>()
-      return yield* rehearse(ordered(released), Effect.fnUntraced(function*(rehearsal) {
-        // Started on this stack, the call is offered to the loop before the next one is.
-        yield* Effect.forkChild(rehearsal.hearNext('second'), { startImmediately: true })
-        yield* rehearsal.hearNext('first')
-      }), { from: { state: { still: true } } })
+      return yield* rehearse({ ...ordered(released), init: { state: { still: true } } }, Effect.fnUntraced(
+        function*(rehearsal) {
+          // Started on this stack, the call is offered to the loop before the next one is.
+          yield* Effect.forkChild(rehearsal.hearNext('second'), { startImmediately: true })
+          yield* rehearsal.hearNext('first')
+        },
+      ))
     }))
     expect(defectsOf(exit)).toEqual(['first', 'second'])
   })

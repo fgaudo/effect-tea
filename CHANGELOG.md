@@ -120,6 +120,11 @@ version, and everything else, features included, the patch version.
   over an empty list, and its model leaves it out there.
 - The views of `volume` and `pages` apply no fallback: `volume`'s model says whether the media's slider is fixed at 0,
   and its drag ends on `pointercancel` too.
+- **Breaking**: `rehearse` starts from the program's `init`, given `flags` for a program with them, as `run` and
+  `drive` do: its `from` option, and `RehearseOptions`, are gone. Upgrade: `rehearse(program, scenario, { from })`
+  becomes `rehearse({ ...program, init: from }, scenario)`.
+- The README says that a parent's message wrapping a child's string is logged by the child's name alone, that a
+  failure of a call of `rehearse` fails the fiber that made it, and that `simulate` calls no `init`.
 
 ### Fixed
 

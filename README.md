@@ -700,9 +700,11 @@ Options:
   notification opened the app for.
 - **`describeMessage`**, **`describeCommand`**: how messages and commands appear in the logs. By default only
   their tags, never their data: `Home › Products › Deleted`. One that is a string is its own tag, and appears
-  whole: data goes in a field of a tagged value. They are called only while debug logs are enabled
-  (`References.MinimumLogLevel`), so they cost nothing otherwise. The debug logs of subscriptions show their
-  keys, which may hold data (an id, a search's text).
+  whole: data goes in a field of a tagged value. A parent's wrapping is followed only to a tagged value, so the
+  message of a child whose messages are strings appears by the child's name alone, `{ _tag: 'Counter', message:
+  'Increment' }` as `Counter`: a string in a field named `message` may be the program's own data. They are called
+  only while debug logs are enabled (`References.MinimumLogLevel`), so they cost nothing otherwise. The debug
+  logs of subscriptions show their keys, which may hold data (an id, a search's text).
 - **`onApplied`**: hears every accepted message with where it came from (`origin`: a dispatch, a command, or a
   subscription with its key), the state before and after it, the `revision` of the state after it, and the
   commands it decided, for devtools or session recording. The first state is revision 0, and each new one the next:
@@ -730,8 +732,8 @@ ending. Effect's default minimum level, `Info`, hides them all.
 
 A program starts where its `init` says. To start it elsewhere, from a state saved by `onApplied` or kept across
 a reload in development, give `run` the program with another first step: `{ ...program, init: { state } }`
-(its commands, if any, with it). A session recorded with `onApplied` plays again the same way, with `applyAll`
-in a test.
+(its commands, if any, with it), and so `drive` and `rehearse` in a test. A session recorded with `onApplied`
+plays again the same way, with `applyAll` in a test.
 
 A defect anywhere ends the run, which dies with a `ProgramDefect`:
 
@@ -1005,8 +1007,10 @@ there with `applyAll`, or with `update` itself.
   joins included, and however the rehearsal ends, once what it stopped has released what it held: the defect comes
   first in the cause, before what the scenario ended with, and a rehearsal that died checks nothing more of its
   commands. A scenario that catches the defect, with `Effect.exit` say, does not keep it from failing the
-  rehearsal: a test that expects a defect wraps `rehearse` itself. After a defect, `send`, `run`, `runAll`, `hear`,
-  `hearNext` and `model` fail with it, and so do a `hearNext` and a `run` already waiting for their subscription or
+  rehearsal: a test that expects a defect wraps `rehearse` itself. A call that fails the test (a `send` the model
+  does not show or `update` rejects, a `run` that matches nothing, a `hearNext` stopped while it waited) fails the
+  fiber that made it: a call forked from the scenario is joined, or its failure is lost, as in any effect. After a
+  defect, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail with it, and so do a `hearNext` and a `run` already waiting for their subscription or
   their command, as nothing happens in a run that died, while `state`, `pending`, `events` and `ignored` stay
   readable. A fiber that the test detaches from the scenario (`Effect.forkDetach`) is beyond its reach: what such a
   fiber asks for after the rehearsal ended is interrupted, and a defect it meets then is lost. A command's or a
@@ -1015,8 +1019,8 @@ there with `applyAll`, or with `update` itself.
   them: each waits for the state the one before left, the release of the subscriptions it stopped included, and
   `send` selects on the model of that state. A message once sent is applied whole, even if the fiber that sent it
   is interrupted meanwhile, or the scenario returns: a rehearsal whose scenario returned applies what was sent
-  before, and one whose scenario failed or was interrupted does not. It starts from the program's `init`, or from
-  the step given as `from`; a program with flags needs either `from` or its `flags`.
+  before, and one whose scenario failed or was interrupted does not. It starts from the program's `init`, and a
+  program with flags gets them as `run` does, in the options.
 - **`drive`** sends what the frames show, through the run's dispatch, and fails on a wait longer than
   `patience` (2 seconds). Its time is real: a frame may be past by the time its message arrives. So, as when
   the program runs, a rejected message is ignored, and a scenario checks what it expects to see. A program with
@@ -1027,7 +1031,8 @@ there with `applyAll`, or with `update` itself.
 
 A defect of the program fails `simulate`, `rehearse` and `drive` as it ends the run when the program runs: with the
 `ProgramDefect` the run dies with, in the same `where`, with the same `on` or `key`, wherever the tool calls the
-program (`init`, `update`, `makeModel`, `subscriptions`, a subscription, `runCommand`). `applyAll` and
+program (`init`, `update`, `makeModel`, `subscriptions`, a subscription, `runCommand`): `simulate` starts from the
+step it is given, and calls no `init`. `applyAll` and
 `dispatchViolations` call `update` without a run, and fail with the defect itself.
 
 ## API reference
@@ -1058,8 +1063,8 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | `ProgramDefect`, `DefectSite`                     | the defect a run dies with: its `cause`, `where` it happened, `update`'s message, a subscription's `key` |
 | `CompositionDefect`                               | a parent breaking what it declared of a child, which the run then dies with                              |
 
-From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `rehearse`, `Rehearsal`,
-`RehearseOptions`, `drive`, `DriveOptions`, `Driver`, `dispatchViolations`, `DispatchViolation`.
+From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `rehearse`, `Rehearsal`, `drive`,
+`DriveOptions`, `Driver`, `dispatchViolations`, `DispatchViolation`.
 
 ## Development
 

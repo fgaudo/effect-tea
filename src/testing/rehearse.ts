@@ -15,15 +15,17 @@ import { ProgramDefect } from '../defect.ts'
 import { diesIn, makeDeaths, runSubscription, scopedIn, stopping as stopFiber } from '../engine.ts'
 import { describeByTag } from '../log.ts'
 import { runCommandOf, type Shape, startOf, subscriptionsOf } from '../program.ts'
+import type { FlagsOption } from '../run.ts'
 import type { Subscription } from '../subscription.ts'
-import type { Step } from '../update.ts'
 import * as Ledger from './ledger.ts'
 import * as Loop from './loop.ts'
 
 /**
  * A rehearsal of a program, without a runtime: nothing happens unless the test does it. The test acts on what the
  * current model shows, decides when each command runs and what each subscription sends, and reads the result
- * at any point.
+ * at any point. What a call fails the test on fails the fiber that made it: a call forked from the scenario is
+ * joined, or its failure is lost, as in any effect. Only a defect of the program fails the rehearsal from whichever
+ * fiber it reaches.
  */
 export type Rehearsal<State, Model, Message, Command, Event = never, R = never> = Readonly<{
   /** The current state. */
@@ -77,14 +79,6 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
   ignored: Effect.Effect<ReadonlyArray<Message>>
 }>
 
-/**
- * Where a rehearsal starts: `from`, or the program's `init`, from `flags` for a program with them, which then
- * needs one of the two.
- */
-export type RehearseOptions<State, Command, Flags = never> = [Flags] extends [never]
-  ? Readonly<{ from?: Step<State, Command> }>
-  : Readonly<{ from: Step<State, Command>; flags?: never }> | Readonly<{ flags: Flags; from?: never }>
-
 // A call of `hearNext`, by its identity, and what the loop tells it: the message it heard, once applied, or none once
 // its start has ended.
 type Call<Message> = Readonly<{ key: unknown; heard: Deferred.Deferred<Opt.Option<Message>> }>
@@ -102,8 +96,10 @@ type Current<State, Message, Event> = Readonly<{
 }>
 
 /**
- * Rehearses `program` without a runtime, step by step, and returns what `scenario` returns. As in `drive`, the test
- * acts through what the models show; unlike it, nothing runs by itself: each command waits until the test runs it,
+ * Rehearses `program` without a runtime, step by step, and returns what `scenario` returns. It starts from the
+ * program's `init`, given `flags` for a program with them, as `run` does: to start elsewhere, give it the program
+ * with that step as its `init`, `{ ...program, init: { state } }`. As in `drive`, the test acts through what the
+ * models show; unlike it, nothing runs by itself: each command waits until the test runs it,
  * through the program's `runCommand` with the services provided, and each subscription message is one the test says was
  * heard, or the next one its subscription sends when the test asks for it. So the test decides what happens while a
  * command is under way, and when its answer arrives. Since the test decides when each message arrives, a message it
@@ -137,11 +133,10 @@ export const rehearse = Effect.fnUntraced(function*<
 >(
   program: Shape<State, Model, Message, Command, R, Event, unknown, Flags>,
   scenario: (rehearsal: Rehearsal<State, Model, Message, Command, Event, R>) => Effect.Effect<A, E, RS>,
-  ...[options = {}]: [Flags] extends [never] ? [options?: RehearseOptions<NoInfer<State>, NoInfer<Command>>]
-    : [options: RehearseOptions<NoInfer<State>, NoInfer<Command>, NoInfer<Flags>>]
+  ...[{ flags } = {}]: [Flags] extends [never] ? [options?: FlagsOption<never>]
+    : [options: FlagsOption<NoInfer<Flags>>]
 ): Effect.fn.Return<A, E, Exclude<R, Scope.Scope> | RS> {
-  const { from: given, flags } = options as Readonly<{ from?: Step<State, Command>; flags?: unknown }>
-  const from = given ?? (yield* Effect.sync(() => startOf(program.init, flags)).pipe(diesIn('init')))
+  const from = yield* Effect.sync(() => startOf(program.init, flags)).pipe(diesIn('init'))
   type Now = Current<State, Message, Event>
   const runCommand = runCommandOf(program)
   const subscriptions = subscriptionsOf(program)

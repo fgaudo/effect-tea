@@ -98,7 +98,7 @@ describe('timer', () => {
     const bell = Bell.of({ ring: Effect.sync(() => rings++) })
     const finished = await Effect.runPromise(
       rehearse(
-        timer,
+        { ...timer, init: { state: { minutes: 1, phase: Phase.Running({ secondsLeft: 1 }) } } },
         Effect.fnUntraced(function*(rehearsal) {
           yield* rehearsal.hear('ticks', Message.Ticked())
           const finished = (yield* rehearsal.model)._tag
@@ -108,7 +108,6 @@ describe('timer', () => {
           expect((yield* rehearsal.model)._tag).toBe('Setting')
           return finished
         }),
-        { from: { state: { minutes: 1, phase: Phase.Running({ secondsLeft: 1 }) } } },
       ).pipe(Effect.provideService(Bell, bell)),
     )
     expect(finished).toBe('Finished')

@@ -116,6 +116,24 @@ answer, and saying so in the proposal.
   session that removed it from `ROADMAP.md`. *Reopen if* a reader forgets a fixed message of a model, in an example
   or an application, and no test with `Missing` finds it.
 
+- **A failure of a call of `rehearse` failing the rehearsal from any fiber.** Reasoned, 15 November 2026, on a
+  finding of the review of that day: a rejected `send`, a `run` that matches nothing or a `hearNext` stopped while
+  it waited, made in a fiber the scenario does not join, let the rehearsal succeed. The register of deaths means what
+  the run died of, and `deadOr` makes every later call fail because nothing happens in a run that died: a call's
+  failure leaves the program whole. A typed failure, in the error channel, is lost in a fiber nobody joins as a
+  defect is. The one form that keeps the register's meaning, a second record read at the end, would fail a rehearsal
+  whose scenario caught the failure with `Effect.exit` (tests of `rehearse.test.ts` observe one and go on), and
+  `drive`'s timeouts, which fail the calling fiber too, would need the same. The README says instead that a call's
+  failure fails the fiber that made it. Weighed with a second opinion (Fable), the owner deciding. *Reopen if* a
+  test that forked a call and never joined it passed on a failure an application then met.
+- **Every tool starting from `from` or `flags`.** Reasoned, 15 November 2026, on the same review. `simulate` is
+  given pieces of a program, with no `init` (`simulate({ update })` is one), and folds from a step as `applyAll`
+  does: giving it flags would ask for `init` to save the test a call of it. `drive` is a run, and a `from` there would
+  name `{ ...program, init: { state } }`, which the README gives for `run`. `rehearse`'s `from` was that spread under
+  a name, and was removed instead (0.8.0), so that `drive` and `rehearse` start as `run` does. Left: under `simulate`,
+  an `init` that throws on its flags is the test's own defect, not a `ProgramDefect` in `'init'`. *Reopen if* such a
+  defect goes untested in a program with flags.
+
 ## The API
 
 - **`attempt`**, which turned an effect that may fail into an execution with a message for each outcome. Removed in
@@ -190,6 +208,16 @@ answer, and saying so in the proposal.
   [`boundary.md`](boundary.md), "A question". Source: the session that removed it from `ROADMAP.md`, with a review by
   Fable 5.2. *Reopen if* a tool must lift a child's message without a type to lean on (as the third spike of
   [`declared-inputs.md`](declared-inputs.md) did), or the stray `id` is found in an application's tests.
+
+- **Following a string in a child's wrapping, in the default description of a message.** Reasoned, 15 November
+  2026, on the same review: `describeByTag` describes `{ _tag: 'Counter', message: 'Increment' }` as `Counter`. It is
+  a function of the value alone, used where no program is at hand (`applyAll`, the `on` of a `ProgramDefect`), and
+  it meets a leaf program's own values, which nothing of the library checks: another name for the field collides the
+  same way, a rule of the types reaches only a composition's own tags, and a key that is a symbol, the one shape it
+  could trust, would be imported by every parent's test and view and lost in a session saved as JSON. Following the
+  string would log a program's own text, `{ _tag: 'ToastShown', message: '<text>' }`, which the default must not.
+  The README says what it does; `describeMessage` shows more. *Reopen if* a wrapping the describer can tell from a
+  program's own value comes for another reason.
 
 ## Parked, not rejected
 
