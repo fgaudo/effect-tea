@@ -2,7 +2,8 @@
 
 **Status:** reopened, 15 November 2026. Inputs are on `main` as decided and implemented on 14 November ("The
 implementation"); what happens to an input when its parent replaces its child's state is open, and three reviews
-propose an answer, none decided. Where to start is "Where it stands" › "Open".
+propose an answer, none decided; the ninth, the candidate, was spiked in React and in its numbering, and neither broke
+it. Where to start is "Where it stands" › "Open".
 
 The document records a discussion with the owner, two reviews by Fable 5.2 (one of a design, one asked for ideas),
 and one spike, kept on the branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never to be merged),
@@ -17,7 +18,8 @@ there too ("A source that belongs to the control"), and a slider in an example (
 seventh review by Fable 5.2, with a spike, on how to close concern 3 ("Whoever steps replaces what is below"), and an
 eighth, with a spike, on how a parent applies its child's rule there ("The channel of a replacement, declared"), and a
 ninth, with a spike and a free hand over the whole library, which replaces the revision with a plain input and a frame
-that says what it has seen ("A plain input, and a frame that says what it has seen"), none yet decided.
+that says what it has seen ("A plain input, and a frame that says what it has seen"), none yet decided, and two
+spikes of the ninth, its React bridge and its numbering ("The ninth review, in React and in its numbering").
 What the spikes ran is marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued,
 **reasoned**. It reopens the aim of [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way,
 and leans on [`inert-steps.md`](inert-steps.md), which it would simplify.
@@ -58,12 +60,13 @@ feature that stands in the way, and Elm, the owner's reference, need not be the 
   revision out: an input is a plain value, a write names the value it was written over and is rejected when the place
   holds another, and a frame says how many of the view's messages it has seen, so that the bridge never replaces an
   element. It removes the split instead of bridging it, keeps the loop and the composition, and drops `Field`,
-  `renewed` and rule (A). Spiked in Snabbdom, not in React.
+  `renewed` and rule (A). Spiked in Snabbdom, then in React, where it holds as a component, `Shows`, with its run's
+  registry in a context, and in its numbering, which rests on no undocumented premise of Effect and has a test and a
+  mutation for each check of the engine ("The ninth review, in React and in its numbering").
 
-**Next**: the two points where the ninth review could still break, spiked before a decision: a React bridge with its
-registry of inputs, and a test of the premise of the numbering that fails without it (`change-engine`). If it is
-adopted, it is ported from `main` by `change-engine` and `change-api`, the README rewritten one section at a time, and
-the seventh and eighth reviews listed in `docs/rejected.md`.
+**Next**: the owner's decision on the ninth review. If it is adopted, it is ported from `main` by `change-engine` and
+`change-api`, with the React bridge of its spike and the tests and mutations of the numbering, the README rewritten one
+section at a time, and the seventh and eighth reviews listed in `docs/rejected.md`.
 
 **Open too**: a `File`; a reaction to every keystroke; the ideas of "To explore", each spiked or measured before it is
 proposed.
@@ -135,12 +138,13 @@ Local to this machine and never pushed, none to be merged: `spike/field-register
 `claude/spike-register-model-data-52ba83`, `claude/spike-register-shapes-ea38c5`,
 `claude/spike-register-opaque-3fc182`, `claude/spike-register-slider-f36368`, `spike/register-input-compose`,
 `spike/register-input-by-value`, `claude/spike-revision-unwritten-b1e290`, `claude/spike-register-subscriptions`,
-`worktree-agent-a144664c3ddf8f27a`, `worktree-agent-a04cfe354d300ce70` and `worktree-agent-a02816c77ebec330c`. The
+`worktree-agent-a144664c3ddf8f27a`, `worktree-agent-a04cfe354d300ce70`, `worktree-agent-a02816c77ebec330c`,
+`claude/spike-react-plain-df66b2` and `claude/spike-seen-premise-4b91ce`. The
 first spike and the six checks are cut from `spike/field-register` or `main` before this document; the two opinions
 from `c263478`; the spike of the revision a program did not write, and that of the subscriptions, from `c445a5b`; the
 seventh review's from `9a58662`, and the eighth's from the seventh's, cherry-picked onto `9a58662`; the ninth's from
-`b63a5b6`. The last three live in worktrees under `.claude/worktrees/`, which a cleaning of the worktrees removes:
-their branches stay.
+`b63a5b6`; its two spikes, of React and of the numbering, from the ninth's `4757546`. The last five live in worktrees
+under `.claude/worktrees/`, which a cleaning of the worktrees removes: their branches stay.
 
 ## The implementation
 
@@ -1466,7 +1470,72 @@ h('input', shows(model.text, dispatchTo(dispatch, 'Text')))
 
 Whether to take this direction in place of the seventh and eighth reviews. Before a decision, the two points where it
 could still break are spiked: a React bridge with its registry of inputs, and a test of the premise of the numbering
-that fails without it, as `change-engine` asks.
+that fails without it, as `change-engine` asks. Both were, in the next section.
+
+## The ninth review, in React and in its numbering
+
+The two points where the ninth review could still break were spiked on 15 November 2026, each by a session of Opus 5.5
+on a branch of its own cut from `4757546`, never to be merged: React on `claude/spike-react-plain-df66b2` (`b4b13be`
+and `96268d0`), the numbering on `claude/spike-seen-premise-4b91ce` (`d11e89a`). Each reports `typecheck`, `lint` and
+`test` green, the numbering `test:node`, `interleavings` (17) and `mutations` (102 of 102) too; the tests each added
+were run again on its commit, 25 of the two React files and 6 of `src/seen.test.ts` (**run**). Not decided.
+
+### React
+
+- **It holds as a component, not as props** (`96268d0`, **run**): the view writes `createElement(Shows, { value,
+  dispatch: dispatchTo(dispatch, 'Text') })`, any other prop going to the `<input>`, and `renderInto` provides by a
+  context its run's registry of live inputs, settled with `drawn` after each frame. The 12 cases of
+  `examples/react-plain.test.ts`, the five of the draft inside `StrictMode` among them, pass, and so do the 13 of
+  `react.test.ts`.
+- **As props it breaks** (`b4b13be`, **run**): `shows(value, dispatch)` returned a `ref` and an `onChange` and found
+  its registry through a module variable set around the frame's `flushSync`, so an input that a component mounts from
+  its own state, outside a frame, is in no registry and never writes; a `test.failing` holds it. A portal needs the
+  context too.
+- **What React forced and Snabbdom did not**: a component and a context, since a ref cannot tell which run its element
+  belongs to (**run**); a ref callback new on each render, the only way a frame's value reaches the element, so an
+  input in a memoized subtree keeps the value of the state it skipped (**checked**); the settling after `flushSync`
+  returns, not inside its callback, where React has not committed the frame (**run**: moved inside, 2 tests fail); an
+  uncontrolled `<input>`, since a controlled one would put its prop back after every `onChange` (**reasoned**); the
+  value set by `element.value`, which React's value tracking hears (**run**).
+- **Size**: about 57 lines of logic, against Snabbdom's 53; 83 lines added against 75.
+- **Each check taken out by hand** (**run**): nine fail between 2 and 10 tests each. The value given to a new element
+  failed none until the root draft started at `'draft'`; the cleanup of the ref fails none, and without it a removed
+  input only stays in the registry for the rest of the run, left without a test since React's retained fibers would make
+  one of collection flaky (**reasoned**).
+- **Not run**: `test:node` and `interleavings` on this branch, a real browser, an IME composition, the caret, a
+  `Suspense` or a `startTransition` in a view; an old React element attached again with an older value
+  (**reasoned**).
+
+### The numbering
+
+- **A promise of the engine, on no undocumented premise of Effect** (**checked**): the number is taken in the thunk
+  that offers the message, which `Effect.sync`, evaluated as the effect runs, and `Queue.offerUnsafe`, synchronous,
+  document in Effect 4.1.4, and the queue hands its messages in the order offered, already cited in
+  `docs/invariants.md`.
+- **Five checks of the engine, each with a test and a mutation that only that test kills** (`src/seen.test.ts`,
+  `mutations/mutations.ts`, **run**): a dispatch numbered each time it runs, not as it is made; the loop counting every
+  message of the view it takes, a rejected one too, and none of a command or a subscription (two mutations); the count
+  including a message before the state it makes is published; and `seen` published in the same object as its state,
+  so that a frame drawn later says what its own state had seen.
+- **One alarm without a mutation** (**run**): that nothing runs between the number and the offer is held by "follow the
+  order update hears them in, under every schedule within two deviations", over 1604 schedules of `test/scheduled.ts`,
+  red when the number is taken in an `Effect.sync` of its own before the offer; the rule "one thunk" of
+  `docs/invariants.md` gives no mutation to a region that holds no code of the program.
+- **Found** (**run**): a rejected message, or one that leaves the state as it was, draws no frame, so the last frame's
+  `seen` may stay below the last number until another state comes; `drawn` does not wait for it, but a bridge that
+  waited for `seen` to reach its last number would wait forever. After the run ends, a dispatch still returns a number,
+  of a message the closed queue refused, which no frame reads. None of the five mutations fails a test of `examples/`:
+  only `src/seen.test.ts` holds the numbering.
+- **Proposed entries**, not written: none in the list of `docs/premises.md`, since what is documented stays out of it,
+  at most a line after the entry of the unbounded `Queue`; in `docs/invariants.md`, under "What a program may rely on",
+  "A view's message is numbered as it is queued, and a frame says how many of them it has seen", with the thunk of the
+  number, the count and its publication, and the alarm in place of a mutation.
+
+### What is left to decide
+
+Whether to adopt the ninth review. Neither spike found where it breaks. What they add to it: React's bridge is a
+component, `Shows`, where Snabbdom's `shows` returns props, so the README's "View" would show each bridge's form; and a
+bridge must never wait for `seen` to reach the number of its last write.
 
 ## What a consumer could notice
 
