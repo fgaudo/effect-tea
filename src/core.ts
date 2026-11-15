@@ -113,10 +113,6 @@ export const report = (register: Register): readonly [Opt.Option<Cause.Cause<nev
     : [Opt.none(), register]
 }
 
-/** The defects a fiber ended with, in the order of its cause; none for one that succeeded. */
-export const diesOf = (exit: Exit.Exit<unknown, unknown>): ReadonlyArray<Cause.Die> =>
-  Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isDieReason) : []
-
 /**
  * `deaths` first, in their order, then the rest of `cause`, but for the defects already among them, by their identity,
  * never by `Equal`, which is the program's and which `Cause.combine` compares reasons with.

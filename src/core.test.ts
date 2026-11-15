@@ -9,7 +9,6 @@ import {
   type Active,
   arrive,
   diesFirst,
-  diesOf,
   endedWith,
   hasDied,
   init,
@@ -168,12 +167,6 @@ describe('the register of deaths', () => {
 describe('what a run ends with', () => {
   const dies = (...thrown: ReadonlyArray<unknown>) =>
     thrown.flatMap((defect) => Cause.die(defect).reasons.filter(Cause.isDieReason))
-
-  test('the defects a fiber ended with are those of its cause, in order, and none for one that succeeded', () => {
-    const cause = Cause.fromReasons<string>([...dies('a'), ...Cause.interrupt(1).reasons, ...dies('b')])
-    expect(diesOf(Exit.failCause(cause)).map((death) => death.defect)).toEqual(['a', 'b'])
-    expect(diesOf(Exit.succeed(1))).toEqual([])
-  })
 
   test('a run that died ends with its defects first, then the rest of what it ended with', () => {
     const a = new Error('a')

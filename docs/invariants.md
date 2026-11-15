@@ -148,7 +148,8 @@ testing tools.
     its scope, which would interrupt them as the fiber that ends it; `simulate` runs each command in a fiber of its
     own, which it stops when it is interrupted.
   - Each fiber of the run records what it dies of in one place (`makeDeaths` in `shell.ts`, made by `run` or `drive`
-    and given through `runWith` to the engine; `rehearse` has its own, keeping only the program's defects): the engine's, the renderer, and the
+    and given through `runWith` to the engine; `rehearse` has its own, keeping only the program's defects, and
+    `simulate` one for each simulation, for the commands it runs): the engine's, the renderer, and the
     run's own as it starts the engine, as they end, and one with a scope of its own as it dies too, before the scope
     releases what it holds (`scopedIn`), a subscription's channel and the scopes of its own included
     (`runSubscription`), so that a defect is in the order it happened, though its release lets another fiber die first;
@@ -162,7 +163,7 @@ testing tools.
     and nothing forks a fiber while it reads them, then interrupts its other fibers itself, waits for them to release
     what they hold, and dies of the rest; the run's cause holds the defects first, then the rest of what it ended with,
     but for the defects already among them, by their identity (`endedWith` in `core.ts`, which `rehearse`, `drive` and
-    `simulate` end with too).
+    `simulate`, for a command it stops, end with too).
   - From the first defect recorded on, the run applies no message, until its end stops the loop: it calls no `update`,
     checked in the thunk that calls it (`arrive` in `core.ts`), where no other fiber can run, since the scheduler may
     yield at any other operation. It is the only check. A step whose `update` was called before goes on whole until the

@@ -1157,7 +1157,9 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: 'Effect.forEach(stopping, ({ fiber }) => Effect.andThen(stopFiber(fiber), Fiber.await(fiber)), {\n'
       + "      concurrency: 'unbounded',\n"
       + '    }).pipe(Effect.flatMap((exits) => {\n'
-      + '      const dies = exits.flatMap(Core.diesOf)\n'
+      + '      const dies = exits.flatMap((exit) =>\n'
+      + '        Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isDieReason) : []\n'
+      + '      )\n'
       + '      return Arr.isArrayNonEmpty(dies) ? Effect.failCause(Cause.fromReasons<never>(dies)) : Effect.void\n'
       + '    }))',
     killedBy: [
@@ -1268,8 +1270,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'simulate runs a command in the fiber of whoever runs it',
     file: 'src/testing/simulate.ts',
-    from: 'const message = yield* runOne(command)',
-    to: "const message = yield* Effect.suspend(() => runCommand(command)).pipe(Effect.scoped, diesIn('command'))",
+    from: 'const message = yield* runOne(deaths, command)',
+    to: "const message = yield* Effect.suspend(() => runCommand(command)).pipe(scopedIn(deaths, 'command'))",
     killedBy: [
       [
         'src/testing/contract.test.ts',
@@ -1550,9 +1552,29 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: "simulate closes a command's scope before its defect says where",
+    file: 'src/testing/simulate.ts',
+    from: "effect.pipe(scopedIn(deaths, 'command'))",
+    to: "effect.pipe(Effect.scoped, diesIn('command'))",
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'simulate gives, as the run does, what a command that dies releases its defect, in a command',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'simulate gives, as the run does, what a command that interrupts itself releases a defect',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails, as the run dies, of two defects on a release that dies of that of its command',
+      ],
+    ],
+  },
+  {
     name: "simulate takes a defect of what a command's scope releases for one of its own",
     file: 'src/testing/simulate.ts',
-    from: "effect.pipe(Effect.scoped, diesIn('command'))",
+    from: "effect.pipe(scopedIn(deaths, 'command'))",
     to: "effect.pipe(diesIn('command'), Effect.scoped)",
     killedBy: [
       [

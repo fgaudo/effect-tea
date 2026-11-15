@@ -175,6 +175,9 @@ version, and everything else, features included, the patch version.
 - `rehearse` writes a new state, and makes its model, before the subscriptions it stops release what they hold, as
   the run publishes it: a release that waited on what the test saw of the new state hung, and after a defect of
   `subscriptions`, `state` read the state before the message.
+- `simulate` closes a command's scope as the run does, once its defect says where: what a command that died
+  releases was given the bare defect, or an interruption for one that interrupted itself, where the run gives it a
+  `ProgramDefect` in `'command'`, and a release that died of the very defect of its command was one defect, not two.
 - A message or command whose wrapping comes back to itself is described by its tags until then, `Loop › …`: its
   description overflowed the stack, and a defect it was made for died as that `RangeError`, without where.
 - `Applied`'s `revision` is a `number` in the declarations, which no longer carry the engine's internal modules, and

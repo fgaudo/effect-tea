@@ -1122,6 +1122,86 @@ describe('what the run dies of, and the tools fail on', () => {
     expect(diedIn(exit)).toBe('command')
   })
 
+  // What a command holds is released once its defect says where: its scope closes with the exit the run dies with,
+  // a defect for a command that interrupted itself too. So a release that dies of the very defect of its command is
+  // a second defect, which `Cause` would take for the first before either said where.
+  type Witness = Program<{ state: Row; model: number; message: 'Go'; command: 'Save'; services: Scope.Scope }>
+  const wheres = (exit: Exit.Exit<unknown, unknown>): ReadonlyArray<unknown> =>
+    Exit.isFailure(exit)
+      ? exit.cause.reasons.map((reason) =>
+        Cause.isDieReason(reason) && reason.defect instanceof ProgramDefect ? reason.defect.where : reason._tag
+      )
+      : []
+  const witnessing = (seen: Array<unknown>, body: Effect.Effect<never>, release: Effect.Effect<void>): Witness => ({
+    init: { state: { seen: 0 } },
+    update: () => (state) => ({ state, commands: ['Save'] }),
+    runCommand: () =>
+      Effect.addFinalizer((exit) => Effect.andThen(Effect.sync(() => seen.push(...wheres(exit))), release)).pipe(
+        Effect.andThen(body),
+      ),
+    makeModel: ({ seen }) => seen,
+  })
+  const tools = {
+    run: (program: Witness) =>
+      drive(program, (driver) => Effect.andThen(driver.send(go), driver.waitFor(() => Opt.none()))),
+    rehearse: (program: Witness) =>
+      rehearse(program, (rehearsal) => Effect.andThen(rehearsal.send(go), rehearsal.runAll)),
+    simulate: (program: Witness) => simulate(program)(['Go'], program.init),
+  }
+  // What the release of the command saw, and what the tool ended with: the site of each defect, or the tag of what
+  // is none.
+  const witnessed = async (
+    tool: keyof typeof tools,
+    body: Effect.Effect<never>,
+    release: Effect.Effect<void> = Effect.void,
+  ) => {
+    const seen: Array<unknown> = []
+    const exit = await Effect.runPromiseExit(tools[tool](witnessing(seen, body, release)))
+    return { seen, ended: wheres(exit) }
+  }
+
+  test('the run gives what a command that dies releases its defect, in a command', async () => {
+    expect(await witnessed('run', Effect.die(new Boom()))).toEqual({ seen: ['command'], ended: ['command'] })
+  })
+
+  test('simulate gives, as the run does, what a command that dies releases its defect, in a command', async () => {
+    expect(await witnessed('simulate', Effect.die(new Boom()))).toEqual({ seen: ['command'], ended: ['command'] })
+  })
+
+  test('rehearse gives, as the run does, what a command that dies releases its defect, in a command', async () => {
+    expect(await witnessed('rehearse', Effect.die(new Boom()))).toEqual({ seen: ['command'], ended: ['command'] })
+  })
+
+  test('the run gives what a command that interrupts itself releases a defect, in a command', async () => {
+    expect(await witnessed('run', Effect.interrupt)).toEqual({ seen: ['command'], ended: ['command'] })
+  })
+
+  test('simulate gives, as the run does, what a command that interrupts itself releases a defect', async () => {
+    expect(await witnessed('simulate', Effect.interrupt)).toEqual({ seen: ['command'], ended: ['command'] })
+  })
+
+  test('rehearse gives, as the run does, what a command that interrupts itself releases a defect', async () => {
+    expect(await witnessed('rehearse', Effect.interrupt)).toEqual({ seen: ['command'], ended: ['command'] })
+  })
+
+  test('the run dies of two defects on a release that dies of the very defect of its command', async () => {
+    const boom = new Boom()
+    const { ended } = await witnessed('run', Effect.die(boom), Effect.die(boom))
+    expect(ended).toEqual(['command', 'command'])
+  })
+
+  test('simulate fails, as the run dies, of two defects on a release that dies of that of its command', async () => {
+    const boom = new Boom()
+    const { ended } = await witnessed('simulate', Effect.die(boom), Effect.die(boom))
+    expect(ended).toEqual(['command', 'command'])
+  })
+
+  test('rehearse fails, as the run dies, of two defects on a release that dies of that of its command', async () => {
+    const boom = new Boom()
+    const { ended } = await witnessed('rehearse', Effect.die(boom), Effect.die(boom))
+    expect(ended).toEqual(['command', 'command'])
+  })
+
   // A `runCommand` that throws before it returns its effect: the run suspends it, so the defect is the command's.
   const raising: Program<{ state: Row; model: number; message: 'Go'; command: 'Explode' }> = {
     ...exploding,
