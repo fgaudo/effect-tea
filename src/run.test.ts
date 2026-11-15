@@ -63,6 +63,16 @@ const runCounter = (
   render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void>,
 ) => run(program, render)
 
+/** Runs `running`, interrupts it once it says it has started, and returns how it ended. */
+const interruptedOnce = (running: (started: Deferred.Deferred<void>) => Effect.Effect<void>) =>
+  Effect.runPromiseExit(Effect.gen(function*() {
+    const started = yield* Deferred.make<void>()
+    const fiber = yield* Effect.forkChild(running(started))
+    yield* Deferred.await(started)
+    yield* Fiber.interrupt(fiber)
+    return yield* Fiber.await(fiber)
+  })).then((outcome) => Exit.isSuccess(outcome) ? outcome.value : outcome)
+
 describe('run', () => {
   test('frames carry the model, and a dispatch that drives the program', async () => {
     const counts: Array<number> = []
@@ -1268,22 +1278,49 @@ describe('the end of the run', () => {
     Effect.andThen(Effect.never),
   )
 
-  // Dies of itself, while the renderer of a run that has ended releases what it holds.
-  const diesLater = Effect.sleep('40 millis').pipe(Effect.andThen(Effect.die('late')))
+  // A renderer's release that takes a while, and tells when it has begun, by `releasing`; and what dies of itself
+  // once it has, while the renderer of a run that has ended releases what it holds. No clock: a slow frame, or a run
+  // interrupted before its renderer started, would outrun one.
+  const releasesSlowlyAndTells = (releasing: Deferred.Deferred<void>) =>
+    Effect.acquireRelease(
+      Effect.void,
+      () => Deferred.succeed(releasing, undefined).pipe(Effect.andThen(Effect.sleep('60 millis'))),
+    )
+
+  const diesWhileReleased = (releasing: Deferred.Deferred<void>) =>
+    Deferred.await(releasing).pipe(Effect.andThen(Effect.die('late')))
 
   test('a command that dies while an interrupted run releases the renderer ends the run with it', async () => {
-    const exit = await interrupted(run(
-      { ...counter, init: { state: { count: 0 }, commands: ['Ping'] }, runCommand: () => diesLater },
-      () => releasesSlowly,
-    ))
+    const releasing = Deferred.makeUnsafe<void>()
+    const exit = await interruptedOnce((started) =>
+      run(
+        {
+          ...counter,
+          init: { state: { count: 0 }, commands: ['Ping'] },
+          runCommand: () => diesWhileReleased(releasing),
+        },
+        () =>
+          releasesSlowlyAndTells(releasing).pipe(
+            Effect.andThen(Deferred.succeed(started, undefined)),
+            Effect.andThen(Effect.never),
+          ),
+      )
+    )
     expect(wheres(exit)).toEqual(['command'])
   })
 
   test('a subscription that dies while an interrupted run releases the renderer ends the run with it', async () => {
-    const exit = await interrupted(run(
-      { ...counter, subscriptions: () => HashMap.make(['k', Channel.fromEffectDone(diesLater)]) },
-      () => releasesSlowly,
-    ))
+    const releasing = Deferred.makeUnsafe<void>()
+    const exit = await interruptedOnce((started) =>
+      run(
+        { ...counter, subscriptions: () => HashMap.make(['k', Channel.fromEffectDone(diesWhileReleased(releasing))]) },
+        () =>
+          releasesSlowlyAndTells(releasing).pipe(
+            Effect.andThen(Deferred.succeed(started, undefined)),
+            Effect.andThen(Effect.never),
+          ),
+      )
+    )
     expect(wheres(exit)).toEqual(['subscription'])
   })
 
@@ -1316,15 +1353,16 @@ describe('the end of the run', () => {
   })
 
   test('a command that dies while a run that died elsewhere releases the renderer is in the cause', async () => {
+    const releasing = Deferred.makeUnsafe<void>()
     const exit = await Effect.runPromiseExit(run(
       {
         ...counter,
         init: { state: { count: 0 }, commands: ['Ping'] },
         update: () => () => defect('update'),
-        runCommand: () => diesLater,
+        runCommand: () => diesWhileReleased(releasing),
       },
       (frames) =>
-        Effect.acquireRelease(Effect.void, () => Effect.sleep('60 millis')).pipe(
+        releasesSlowlyAndTells(releasing).pipe(
           Effect.andThen(Stream.runForEach(frames, ({ model, dispatch }) => dispatch(model.increment))),
           Effect.andThen(Effect.never),
         ),
@@ -1333,14 +1371,15 @@ describe('the end of the run', () => {
   })
 
   test('a subscription that dies while a run that died elsewhere releases the renderer is in the cause', async () => {
+    const releasing = Deferred.makeUnsafe<void>()
     const exit = await Effect.runPromiseExit(run(
       {
         ...counter,
         update: () => () => defect('update'),
-        subscriptions: () => HashMap.make(['k', Channel.fromEffectDone(diesLater)]),
+        subscriptions: () => HashMap.make(['k', Channel.fromEffectDone(diesWhileReleased(releasing))]),
       },
       (frames) =>
-        Effect.acquireRelease(Effect.void, () => Effect.sleep('60 millis')).pipe(
+        releasesSlowlyAndTells(releasing).pipe(
           Effect.andThen(Stream.runForEach(frames, ({ model, dispatch }) => dispatch(model.increment))),
           Effect.andThen(Effect.never),
         ),
@@ -1599,9 +1638,9 @@ describe('the end of the run', () => {
       const releasing = yield* Deferred.make<void>()
       const heard = yield* Deferred.make<void>()
       const release = Deferred.succeed(releasing, undefined).pipe(
-        // Bounded, so that a run that applies nothing still ends.
+        // Bounded, so that a run that applies nothing still ends; and wide, since a loaded machine may take a while.
         Effect.andThen(Effect.timeoutOrElse(Deferred.await(heard), {
-          duration: '50 millis',
+          duration: '1 second',
           orElse: () => Effect.void,
         })),
       )
@@ -1871,15 +1910,6 @@ describe('a self-interruption as the run interrupts', () => {
           : []
       )
       : []
-
-  const interruptedOnce = (running: (started: Deferred.Deferred<void>) => Effect.Effect<void>) =>
-    Effect.runPromiseExit(Effect.gen(function*() {
-      const started = yield* Deferred.make<void>()
-      const fiber = yield* Effect.forkChild(running(started))
-      yield* Deferred.await(started)
-      yield* Fiber.interrupt(fiber)
-      return yield* Fiber.await(fiber)
-    })).then((outcome) => Exit.isSuccess(outcome) ? outcome.value : outcome)
 
   test(
     'a renderer that interrupts itself as whoever runs the run interrupts it is a defect in the renderer',

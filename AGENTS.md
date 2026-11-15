@@ -195,6 +195,11 @@ an example's and a document's too:
 - A test's name says what it checks. When a change touches a test, or what it tests, check that its name, its
   `describe` and its comments still say what the assertions check: a test adapted to a new design keeps an old
   name that promises what it no longer proves.
+- **A test never rests on the clock for an order.** What must happen before what it checks is awaited (a
+  `Deferred`, a gate), never slept for: a sleep that must outlast work the machine may take longer to do is a race,
+  which a loaded machine loses, as `bun run mutations --discover` running the whole suite did. A clock may only bound
+  a wait that a failing test alone reaches (a mutant that never sends), wide enough never to fire otherwise, or be
+  what the test is about (a subscription that ticks), under Effect's `TestClock` where it can be.
 - Only the bridges' tests, `examples/snabbdom.test.ts` and `examples/react.test.ts`, register a DOM (happy-dom);
   every other test runs without one.
 
