@@ -170,6 +170,8 @@ version, and everything else, features included, the patch version.
 - `rehearse` writes a new state, and makes its model, before the subscriptions it stops release what they hold, as
   the run publishes it: a release that waited on what the test saw of the new state hung, and after a defect of
   `subscriptions`, `state` read the state before the message.
+- A message or command whose wrapping comes back to itself is described by its tags until then, `Loop › …`: its
+  description overflowed the stack, and a defect it was made for died as that `RangeError`, without where.
 
 ## 0.7.1 (2026-10-28)
 

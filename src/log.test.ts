@@ -26,6 +26,16 @@ describe('how a message is described by default', () => {
     expect(describedAs({ _tag: 'Rows', id: 3, command: { _tag: 'Save', count: 2 } })).toBe('Rows › Save')
   })
 
+  // A description is made in the handler of a defect too: one that threw would take the defect's place.
+  test('one whose wrapping comes back to a value on its way, by the tags on its way until then', () => {
+    const loop: { _tag: 'Loop'; message?: unknown } = { _tag: 'Loop' }
+    loop.message = loop
+    expect(describedAs(loop)).toBe('Loop › …')
+    const rows: { _tag: 'Rows'; message?: unknown } = { _tag: 'Rows' }
+    rows.message = { _tag: 'Row', command: rows }
+    expect(describedAs(rows)).toBe('Rows › Row › …')
+  })
+
   test('never by a field named message that holds data', () => {
     expect(describedAs({ _tag: 'ToastShown', message: 'Card ending 4242 declined' })).toBe('ToastShown')
     expect(describedAs({ _tag: 'Left', message: 'Increment' })).toBe('Left')

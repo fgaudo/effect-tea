@@ -419,6 +419,18 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [['src/run.test.ts', 'a dispatch is numbered each time it runs, as it runs, not as it is made']],
   },
   {
+    name: 'a description follows a wrapping that comes back to a value on its way',
+    file: 'src/log.ts',
+    from: "on.includes(wrapped) ? '…' :",
+    to: "false ? '…' :",
+    killedBy: [
+      [
+        'src/log.test.ts',
+        'one whose wrapping comes back to a value on its way, by the tags on its way until then',
+      ],
+    ],
+  },
+  {
     name: 'the run stops the subscriptions of a state before it publishes the state',
     file: 'src/engine.ts',
     from: '        if (changed) yield* SubscriptionRef.set(stateRef, { ...next, seen })\n'

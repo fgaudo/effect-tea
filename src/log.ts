@@ -12,6 +12,15 @@ const wrappedOf = (value: unknown): unknown =>
     ? value.command
     : undefined
 
+// A description is made in the handler of a defect too, where one that threw would take the defect's place: a
+// wrapping that comes back to a value on its way ends there.
+const tagsOf = (value: unknown, tag: string, way: ReadonlyArray<unknown>): string => {
+  const wrapped = wrappedOf(value)
+  if (wrapped === undefined) return tag
+  const on = [...way, value]
+  return `${tag} › ${on.includes(wrapped) ? '…' : tagsOf(wrapped, tagOf(wrapped) ?? '', on)}`
+}
+
 /**
  * By default a message or a command is described by its `_tag`, or itself if it is a string: never its data.
  * One a parent wrapped is described by the tags on its way, e.g. `Home › Products › Deleted`.
@@ -19,7 +28,5 @@ const wrappedOf = (value: unknown): unknown =>
 export const describeByTag = (value: unknown): unknown => {
   if (typeof value === 'string') return value
   const tag = tagOf(value)
-  if (tag === undefined) return typeof value
-  const wrapped = wrappedOf(value)
-  return wrapped === undefined ? tag : `${tag} › ${String(describeByTag(wrapped))}`
+  return tag === undefined ? typeof value : tagsOf(value, tag, [])
 }

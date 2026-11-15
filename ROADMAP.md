@@ -15,10 +15,6 @@ showed it, "reasoned" that it was read only.
 
 ### The library
 
-- **A message whose description throws loses `update`'s defect**: `diesIn('update', …)` (`engine.ts`) builds `on`
-  with `describeByTag` inside its `catchCause` handler, so a cyclic `message` chain dies as a bare `RangeError`,
-  with no `ProgramDefect` and no `where`. Contrived input, but program data is evaluated inside the defect handler;
-  the testing tools build `on` the same way and were not checked. Confirmed.
 - **`Applied.revision` is typed `Core.Revision`** (`engine.ts`), so the API reports carry the whole internal `Core`
   namespace (about 25 names), and a rename in `core.ts` reads as an API change under `change-api`. The README's
   "Running" does not mention the field either. Confirmed.
