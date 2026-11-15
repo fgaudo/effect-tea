@@ -105,6 +105,99 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'a defect of update in the run has no site',
+    file: 'src/engine.ts',
+    from: "diesIn('update', () => ({ on: describeByTag(message) })),",
+    to: '(self) => self,',
+    killedBy: [
+      ['src/run.test.ts', 'a defect in update ends the run, which dies with it and with where it happened'],
+      ['src/run.test.ts', 'defect in update dies in update, on its message, with the InvariantDefect as its cause'],
+      ['src/testing/contract.test.ts', 'the run dies in update, with its message, on an update that throws'],
+    ],
+  },
+  {
+    name: 'a defect of update in the run does not say its message',
+    file: 'src/engine.ts',
+    from: "diesIn('update', () => ({ on: describeByTag(message) })),",
+    to: "diesIn('update'),",
+    killedBy: [
+      ['src/run.test.ts', 'a defect in update says which message it was given, by its tags, in its message too'],
+      ['src/run.test.ts', 'defect in update dies in update, on its message, with the InvariantDefect as its cause'],
+      ['src/testing/contract.test.ts', 'the run dies in update, with its message, on an update that throws'],
+    ],
+  },
+  {
+    name: 'a defect of init in the run has no site',
+    file: 'src/run.ts',
+    from: "Shell.diesIn('init'), deaths.recorded)",
+    to: 'deaths.recorded)',
+    killedBy: [
+      ['src/run.test.ts', 'an init that throws on its flags dies in init'],
+      ['src/testing/contract.test.ts', 'the run dies in init on an init that throws on its flags'],
+    ],
+  },
+  {
+    name: 'a defect of update in rehearse has no site',
+    file: 'src/testing/rehearse.ts',
+    from: "diesIn('update', () => ({ on: describeByTag(message) })),",
+    to: '(self) => self,',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails, as the run dies, in update, with its message, on an update that throws',
+      ],
+      ['src/testing/rehearse.test.ts', 'a defect the scenario catches fails it all the same, first, and once'],
+    ],
+  },
+  {
+    name: 'a defect of update in rehearse does not say its message',
+    file: 'src/testing/rehearse.ts',
+    from: "diesIn('update', () => ({ on: describeByTag(message) })),",
+    to: "diesIn('update'),",
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails, as the run dies, in update, with its message, on an update that throws',
+      ],
+    ],
+  },
+  {
+    name: 'a defect of init in rehearse has no site',
+    file: 'src/testing/rehearse.ts',
+    from: ".pipe(diesIn('init'))",
+    to: '',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails, as the run dies, in init, on an init that throws on its flags',
+      ],
+    ],
+  },
+  {
+    name: 'a defect of update in simulate has no site',
+    file: 'src/testing/simulate.ts',
+    from: "diesIn('update', () => ({ on: describeByTag(message) })),",
+    to: '(self) => self,',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails, as the run dies, in update, with its message, on an update that throws',
+      ],
+    ],
+  },
+  {
+    name: 'a defect of update in simulate does not say its message',
+    file: 'src/testing/simulate.ts',
+    from: "diesIn('update', () => ({ on: describeByTag(message) })),",
+    to: "diesIn('update'),",
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails, as the run dies, in update, with its message, on an update that throws',
+      ],
+    ],
+  },
+  {
     name: 'scopedIn wraps again what it wrapped',
     file: 'src/shell.ts',
     from: '(defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),',
