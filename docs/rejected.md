@@ -121,6 +121,25 @@ answer, and saying so in the proposal.
   before the proposal of declared inputs: typed-then-Save would rest on scheduling, a typed message would be checked
   by nothing, a key that goes away drops what it sent, and the renderer would feed the run by a service.
   [`declared-inputs.md`](declared-inputs.md), "What was proposed".
+- **An input as a `Field`, `{ value, revision }`, with `field`, `renewed` and a revision derived by value.**
+  Implemented on 14 November 2026 and replaced, unreleased, on 15 November by the plain input of the ninth review
+  ([`registers.md`](registers.md), "A plain input, and a frame that says what it has seen"). The rule of a revision is
+  applied after each step of the program that holds the input, and a hierarchical composition splits that ownership:
+  a child its parent starts again, a kept state brought back and a row whose id comes back gave the input a revision
+  it had, and a late key was stored into the new instance, run in `src/input-swap.test.ts` of
+  `worktree-agent-a02816c77ebec330c` (`4757546`). `renewed` was a recipe to remember for a slider whose bounds narrow,
+  and the state stored differed from the state written. *Reopen if* the numbering of a frame (`seen`) or the condition
+  on elements and renderers it rests on fails where no revision would.
+- **Whoever steps replaces what is below** (the seventh review) **and the channel of a replacement, declared** (the
+  eighth). Spiked, 15 November 2026: `2d2e77b` on `worktree-agent-a144664c3ddf8f27a` and `45da546` on
+  `worktree-agent-a04cfe354d300ce70`, never to be merged. The rule of a revision applied by whichever program steps to
+  every input below it, through a channel from a child to its parent (`replacing`, with `all` in `each`, an input's
+  place a lens, and a generation for what is left): they close the reset and the undo, but patch the split of
+  ownership rather than remove it, need a recipe for what they leave, and widen what a parent's `compose` does to a
+  child's state. The owner judged the complexity of parents and children too much and asked for another way, which
+  the ninth review gave. [`registers.md`](registers.md), "Whoever steps replaces what is below" and "The channel of a
+  replacement, declared". *Reopen if* the plain input is dropped and an input must again keep a history between two
+  writes.
 
 ## Not here
 

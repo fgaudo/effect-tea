@@ -1,9 +1,10 @@
 # Registers: what the outside writes into a program's state
 
-**Status:** reopened, 15 November 2026. Inputs are on `main` as decided and implemented on 14 November ("The
-implementation"); what happens to an input when its parent replaces its child's state is open, and three reviews
-propose an answer, none decided; the ninth, the candidate, was spiked in React, in its numbering and in a slider, and
-the cost of its writes measured, and none of them broke it. Where to start is "Where it stands" › "Open".
+**Status:** the ninth review adopted and ported, 15 November 2026, on the branch `claude/port-plain-input`, not yet
+merged ("The port of the ninth review"): an input is a plain value, a write names the value it was written over, and
+a frame says how many of the view's messages it has seen; `Field`, `field` and `renewed` are gone, and the seventh and
+eighth reviews are in `docs/rejected.md`. What is left is in "The port of the ninth review" › "Left". The sections
+before it are the history that led there, in the order it happened.
 
 The document records a discussion with the owner, two reviews by Fable 5.2 (one of a design, one asked for ideas),
 and one spike, kept on the branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never to be merged),
@@ -80,15 +81,11 @@ shows both, side by side ("A slider, the cost of `was`, and the bridges' part" �
 undefined, value, seen)`, and `typed(held, value)`, which makes the write itself and returns it with a pure
 continuation that takes its number; `Shown` opaque but for `value`; `shown` dropped ("The rule a bridge calls").
 
-**Next**: the owner's decision on the ninth review, and its public names. If it is adopted, it is ported from `main`
-by `change-engine` and `change-api`, with the React bridge of its spike, the tests and mutations of the numbering and
-`bench/writes.ts`, the README rewritten one section at a time with the condition on the bridges, and the seventh and
-eighth reviews listed in `docs/rejected.md`. What only the port checks: the search of interleavings drawing
-`write(was, value)`, the mutations of inputs, `build`, `smoke` and the API report, the testing tools' contracts with
-`seen`, inputs under models skipped by `Equal`, a real browser.
+**Done since**: adopted by the owner and ported ("The port of the ninth review").
 
-**Open too**: a `File`; a reaction to every keystroke; the ideas of "To explore", each spiked or measured before it is
-proposed.
+**Open too**: a `File`; the ideas of "To explore", each spiked or measured before it is proposed. A reaction to every
+keystroke, a subscription keyed by the input's value, was run again on the plain input and is closed ("The port of
+the ninth review").
 
 ### On `main`: decided
 
@@ -1745,6 +1742,62 @@ live.held = sent(send(dispatch, write))
 
 The shape without a continuation, `typed` returning the write and an element whose number is still missing with a
 third function to give it, is three functions and the same convention.
+
+## The port of the ninth review
+
+Asked by the owner on 15 November 2026, after "The rule a bridge calls", and made by a session of Opus 5.5 on the
+branch `claude/port-plain-input`, cut from `main` at `e8340d3`, in small commits; the spikes' branches were rewritten
+on it, not merged.
+
+### What it is
+
+- **The numbering**, first and apart: a `Dispatch` returns `Effect<number>`, and a `Frame` has `seen`, as the spike
+  of the numbering checked them, with its five mutations and its alarm. Its tests are in `run.test.ts` and
+  `engine.test.ts`, its premises are documented parts of Effect alone (a line in `docs/premises.md`), and its entry
+  in `docs/invariants.md` is the one proposed in "The ninth review, in React and in its numbering". Added by the
+  port: a contract of `drive`'s frames with the run's (`contract.test.ts`), which `simulate` and `rehearse` have no
+  frames to share, and a property of the search of interleavings, a frame's `seen` among the counts its states were
+  made with, never going back, and the last frame's the count of the last state (**run**, seen to fail under two of
+  the mutations by hand).
+- **The plain input**: `input(at)` at any `Optional`, `write(was, value)` and its rule `written`, `typed` and `drawn`
+  over a `Shown` whose writes are under a symbol the package does not export, shape (c); `Field`, `field`, `renewed`,
+  `replaced` and `replacing` removed. Nine mutations of inputs in place of the eight of the revision, each with its
+  killers (**run**); two killers named at first were dropped, since a primitive value equal to the one held is the
+  very same, and only a structure tells the two apart.
+- **The search** draws `write(was, value)` from the frame on screen and from an older one; its property of a write
+  finds a write stored whatever it was written over in the first scenario (**run**, by hand). The property of a
+  revision is gone with it.
+- **The bridges**: `shows` and `slides` with snabbdom, `Shows` with React, both settling their registry after each
+  frame; `onPress` in both, for a drag the program draws; snabbdom's `styleModule`, for the slider drawn. Both
+  bridges' tests ported (22 with snabbdom, 21 with React, the draft in `StrictMode` too), and each seen to fail with
+  `seen` taken as everything or nothing, with no settle, or with the element written on every frame, and in React
+  with no context, or a settle inside `flushSync`'s callback (**run**).
+- **The examples**: `form` and `form-react` on the plain input, with `late-key.test.ts` holding both histories of the
+  late key on a screen that settles by `typed` and `drawn` (**run**, seen to fail without the rule of `was`); `volume`
+  with a native slider over a plain input, whose bounds never change, beside a ringer the program draws, whose press
+  is a fixed message and whose moves a subscription keyed by the state of dragging, through a `Pointer` service,
+  with quiet hours that put each move within their bounds.
+- **A reaction to every keystroke**, a subscription keyed by the input's value, run again through a run on the plain
+  input (`input-subscriptions.test.ts`): each write that changes the value stops the search and starts another, a
+  value typed back starts one anew, and a write of the value held or a step that keeps it starts nothing (**run**).
+  The open point is closed; the key by revision has nothing to key now.
+- **The README**, section by section: "View" (the number, the rule that a renderer draws frames and nothing else, a
+  bridge's three duties), "Inputs the user types into" (the rule of `was`, `typed` and `drawn`, the condition on
+  elements and renderers, a range whose bounds narrow outside the guarantees, a widget that does not fit replaced by
+  one the program draws, the two limits of a message that names a place), "Model", "Declaring children", "Model and
+  view", "Splitting a program", "Guarantees" (an input stores what is written over the value it holds; a frame says
+  what it has seen), "Testing", the examples and the API reference.
+
+### Left
+
+- **A slider in React**: `Shows` is a text input over a string, so the React bridge has no counterpart of `slides`,
+  and its tests have no native slider; `volume` has no React view, as before.
+- **Whether `Shows` and its context are still needed** now that an input drawn from a component's own state is
+  unsupported ("What the owner accepts"): the port kept the spike's component, and its portal test.
+- **Not run**: a real browser, an IME composition, the caret when the program changes a value under the user; inputs
+  under models skipped by `Equal` beyond the `thunk` and `memo` cases of the bridges' tests.
+- **The two limits**, declared in the README and tested as pure pieces: a write over a value that came back is
+  stored, and a fixed message drawn for an old instance reaches the new one.
 
 ## What a consumer could notice
 
