@@ -188,8 +188,9 @@ an example's and a document's too:
   type, and gets a scenario of its own only where none can hold it. The examples' own tests show users how to test
   a program. So do the bridges' (`examples/snabbdom.test.ts`, `examples/react.test.ts`), for a bridge: the same
   tests of `renderInto` and of an input for each renderer, in a DOM, and those of the snabbdom bridge's
-  `messagesSentBy`. The smoke test (`smoke/`) and the benchmark (`bench/`) check the package and its speed. None of
-  them is a test of the library's correctness, and they are kept apart from the five.
+  `messagesSentBy`, without one (`examples/snabbdom-testing.test.ts`). The smoke test (`smoke/`) and the benchmark
+  (`bench/`) check the package and its speed. None of them is a test of the library's correctness, and they are kept
+  apart from the five.
 - **Each check an invariant rests on has a mutation** in `mutations/mutations.ts` that takes it out, with the tests
   that must fail under it: `bun run mutations` applies them one at a time to a copy of the repository (`.mutants/`),
   runs those tests alone, and fails when one passes under its mutation, or fails without it. What has none, and why,
@@ -212,8 +213,8 @@ an example's and a document's too:
   which a loaded machine loses, as `bun run mutations --discover` running the whole suite did. A clock may only bound
   a wait that a failing test alone reaches (a mutant that never sends), wide enough never to fire otherwise, or be
   what the test is about (a subscription that ticks), under Effect's `TestClock` where it can be.
-- Only the bridges' tests, `examples/snabbdom.test.ts` and `examples/react.test.ts`, register a DOM (happy-dom);
-  every other test runs without one.
+- Only the bridges' tests in a DOM, `examples/snabbdom.test.ts` and `examples/react.test.ts`, register one
+  (happy-dom); every other test runs without one, `examples/snabbdom-testing.test.ts` too.
 
 ## Checks
 

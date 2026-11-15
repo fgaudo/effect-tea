@@ -62,6 +62,8 @@ version, and everything else, features included, the patch version.
 - The examples' bridges keep the element of each input and settle it after each frame with `drawn` (`shows` and
   `slides` with snabbdom, `Shows` with React), and have `onPress`; `volume` draws a native slider beside one the
   program draws, whose drag is a subscription, for bounds that narrow.
+- `messagesSentBy` moves from `examples/snabbdom.ts` to `examples/snabbdom-testing.ts`, so that the bridge holds only
+  what a bridge does ("Examples" and "Testing" in the README).
 - The peer dependency on `effect` is `^4.1.4`, where it was `^4.0.0`, and starts at the Effect it is developed with.
 - A child whose state is not an object, past the types, is a `CompositionDefect` that names it, not a `TypeError`.
 - A parent lifts once the subscriptions of children that share one state object, as those a step's `init` starts do,

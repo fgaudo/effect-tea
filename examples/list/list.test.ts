@@ -7,7 +7,7 @@ import * as Opt from 'effect/Option'
 import * as Stream from 'effect/Stream'
 import * as TestClock from 'effect/testing/TestClock'
 import * as fc from 'fast-check'
-import { messagesSentBy } from '../snabbdom.ts'
+import { messagesSentBy } from '../snabbdom-testing.ts'
 import { list, type Message, type Model, type State } from './list.ts'
 import * as Stopwatch from './stopwatch.ts'
 import { view } from './view.ts'
@@ -100,8 +100,8 @@ describe('list', () => {
     }))
   })
 
-  // Beyond what the library asks: that the view draws what its model holds, each control once and each
-  // stopwatch through its own dispatch. `messagesSentBy` is the snabbdom bridge's way to see it without a DOM.
+  // Beyond what the library asks: that the view draws what its model holds, each control once and each stopwatch
+  // through its own dispatch. `messagesSentBy`, beside the snabbdom bridge, is its way to see it without a DOM.
   test('the view sends what its model holds', () => {
     fc.assert(fc.property(state, (before) => {
       const model = list.makeModel(before)

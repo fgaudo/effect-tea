@@ -144,7 +144,8 @@ input (`shows` and `slides` with snabbdom, `Shows` with React). Their tests,
 [`examples/snabbdom.test.ts`](examples/snabbdom.test.ts) and [`examples/react.test.ts`](examples/react.test.ts),
 run them in a DOM, with [happy-dom](https://github.com/capricorn86/happy-dom). They check how often a bridge draws, that
 a click reaches the program, that what the user types survives the frames drawn meanwhile, and that the element of an
-input shows what the program puts in its place. The first has `messagesSentBy` too, which finds what a view sends
+input shows what the program puts in its place. Beside the snabbdom bridge,
+[`examples/snabbdom-testing.ts`](examples/snabbdom-testing.ts) has `messagesSentBy`, which finds what a view sends
 without a DOM: one way to check that a view draws what its model holds, which the library asks of no bridge (see
 [testing](#testing)).
 
@@ -918,8 +919,8 @@ test('the model holds what update accepts, all of it', () => {
   `update` accepts its message, the message would do something, and the test lists it among the `candidates`.
 - **That the view draws what its model holds is not checked here**: each control once, through the right
   dispatch. It is checked with your renderer's tools. For snabbdom,
-  [`examples/snabbdom.ts`](examples/snabbdom.ts) has one, `messagesSentBy`, which finds what a view sends
-  without a DOM, for a test to compare with what its reader returns, as [`list`](examples/list/list.test.ts)
+  [`examples/snabbdom-testing.ts`](examples/snabbdom-testing.ts) has one, `messagesSentBy`, which finds what a view
+  sends without a DOM, for a test to compare with what its reader returns, as [`list`](examples/list/list.test.ts)
   does. It is an example, and nothing a bridge must have.
 
 #### The tools
