@@ -19,7 +19,7 @@ import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
-import { createElement, Fragment, memo, type ReactNode, StrictMode, useEffect, useRef } from 'react'
+import { act, createElement, Fragment, memo, type ReactNode, StrictMode, useEffect, useRef } from 'react'
 import {
   type Bridge,
   bridgeTests,
@@ -59,14 +59,19 @@ beforeAll(async () => {
   portal = (await import('react-dom')).createPortal
 })
 
-// React's scheduler may still have work queued by the last unmount, which reads the DOM: it queues it with
-// `setImmediate`, so a turn queued after it runs once it is done.
-afterAll(async () => {
-  await new Promise<void>((resolve) => setImmediate(resolve))
-  await GlobalRegistrator.unregister()
-})
+afterAll(() => GlobalRegistrator.unregister())
 
-afterEach(stop)
+// The run ends inside `act`, which returns once React has done all the work the end set going, the unmount's
+// included: none is left to read the DOM after the last test. React asks the environment to say it acts, and only
+// for the call, so that the frames of the tests, drawn outside `act`, are not taken for updates it was not given.
+afterEach(async () => {
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+  try {
+    await act(stop)
+  } finally {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: false })
+  }
+})
 
 const drawButton = (text: string, onClick: () => void) => createElement('button', { type: 'button', onClick }, text)
 

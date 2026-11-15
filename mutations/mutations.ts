@@ -646,11 +646,11 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: 'the run does not stop the renderer',
     file: 'src/run.ts',
     from: '    const renderer = yield* Effect.acquireRelease(\n'
-      + '      Effect.forkChild(rendering),\n'
+      + '      Effect.forkChild(Effect.interruptible(rendering)),\n'
       + '      (renderer) =>\n'
       + '        engine.stop.pipe(Effect.andThen(Shell.stopping(renderer))),\n'
       + '    )\n',
-    to: '    const renderer = yield* Effect.forkChild(rendering)\n',
+    to: '    const renderer = yield* Effect.forkChild(Effect.interruptible(rendering))\n',
     killedBy: [
       ['src/run.test.ts', 'a renderer that dies while an interrupted run releases it is in the cause'],
       [

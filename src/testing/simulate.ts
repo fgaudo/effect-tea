@@ -91,7 +91,8 @@ export const simulate = <State, Message, Command, Event, R = never>(
     Effect.uninterruptibleMask((restore) =>
       Effect.sync(() => runCommand(command)).pipe(
         diesIn('command'),
-        Effect.flatMap((effect) => Effect.forkChild(effect.pipe(scopedIn(deaths, 'command')))),
+        // Interruptible by its own say, whatever its fork makes of the region it is forked in.
+        Effect.flatMap((effect) => Effect.forkChild(Effect.interruptible(effect.pipe(scopedIn(deaths, 'command'))))),
         Effect.flatMap((fiber) =>
           Effect.flatMap(Effect.exit(restore(Fiber.join(fiber))), (joined) =>
             Exit.isFailure(joined) && Cause.hasInterrupts(joined.cause)

@@ -395,6 +395,7 @@ export const rehearse = Effect.fnUntraced(function*<
       Effect.flatMap((last) => sends(key, generation, last, true)),
       Effect.asVoid,
       recorded,
+      Effect.interruptible,
       FiberSet.run(listeners),
     )
     return { fiber, asks }
@@ -501,7 +502,10 @@ export const rehearse = Effect.fnUntraced(function*<
         if (Opt.isNone(taking)) return Effect.succeed<Taking>({ _tag: 'None', pending: ledger.pending })
         const [{ ticket, command }, taken] = taking.value
         ledger = taken
+        // Forked where nothing interrupts, the acquisition: the command is interruptible by its own say, whatever its
+        // fork makes of that region.
         return answering(ticket, calling(() => runCommand(command))).pipe(
+          Effect.interruptible,
           FiberSet.run(commands),
           Effect.map((fiber): Taking => ({ _tag: 'Running', ticket, command, fiber })),
         )

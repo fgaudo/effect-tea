@@ -137,8 +137,8 @@ export const button = (text: string) => {
   return found
 }
 
-// React tracks an input's value through its `value` setter, and ignores an `input` event that left it as tracked: a
-// key is the element's own setter, then the event, which bubbles, since React hears it at its root.
+// A key as the browser makes one: the value written by the prototype's own setter, past any a renderer puts on the
+// element, then the event, which bubbles, as a renderer may hear it at its root.
 export const setValue = (input: HTMLInputElement, text: string) =>
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, text)
 
@@ -295,8 +295,7 @@ export const draftTests = <Node>(bridge: Bridge<Node>) =>
       expect(element('input')).toBe(typedInto)
       expect(typedInto.value).toBe('')
       expect(document.activeElement).toBe(typedInto)
-      // What is typed next is typed over the empty text, and stored: the element itself was emptied, so a renderer
-      // that tracks its value, as React does, heard the emptying, and takes the next key for an edit.
+      // What is typed next is typed over the empty text, and stored: the element itself was emptied.
       type(typedInto, 'again')
       paint()
       expect(state()).toEqual(['again', 'hello'])
@@ -394,6 +393,20 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       expect(element('input')).toBe(input)
       expect(input.value).toBe('Ad')
       expect(button('Save')).toBeDefined()
+    })
+
+    // As an extension that fills forms writes: through the element's `value`, past nothing a renderer may put on it.
+    test('a text a script writes into the input, and announces with an input event, is stored', () => {
+      mountForm()
+      settle()
+      const input = element<HTMLInputElement>('input')
+      input.value = 'Ada'
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      paint()
+      button('Save').click()
+      paint()
+      paint()
+      expect(element('li').textContent).toBe('Ada')
     })
 
     test('a name the program empties is emptied in the input on screen, which stays and keeps the focus', () => {

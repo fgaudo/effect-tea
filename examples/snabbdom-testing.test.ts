@@ -18,17 +18,15 @@ describe('messagesSentBy', () => {
   const view: View<ReadonlyArray<number>, Message> = (ids, dispatch) =>
     h('div', [
       h('button', { on: { click: [send(dispatch, { _tag: 'Cleared' }), send(dispatch, { _tag: 'Saved' })] } }),
-      // snabbdom calls the listeners of nested lists too, which its types do not show.
-      h('button', { on: { click: [[send(dispatch, { _tag: 'Cleared' })]] as unknown as () => void } }),
       ...ids.map((id) => thunk('button', String(id), rowView, [id, dispatchTo(dispatch, 'Row', id)])),
     ])
 
-  test('calls each listener of a list, nested or not, in order', () => {
-    expect(messagesSentBy(view, [])).toEqual([{ _tag: 'Cleared' }, { _tag: 'Saved' }, { _tag: 'Cleared' }])
+  test('calls each listener of a list, in order', () => {
+    expect(messagesSentBy(view, [])).toEqual([{ _tag: 'Cleared' }, { _tag: 'Saved' }])
   })
 
   test('draws each thunk, and records the message of a child as the root of the program receives it', () => {
-    expect(messagesSentBy(view, [1, 2]).slice(3)).toEqual([
+    expect(messagesSentBy(view, [1, 2]).slice(2)).toEqual([
       { _tag: 'Row', id: 1, message: 'Tapped' },
       { _tag: 'Row', id: 2, message: 'Tapped' },
     ])

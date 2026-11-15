@@ -159,6 +159,8 @@ version, and everything else, features included, the patch version.
   `examples/bridge.test_suite.ts`, run on each bridge with `form`'s views.
 - The examples' snabbdom bridge no longer has `onInput`, which turned what is typed into a message in the view: what
   the user types is an input, drawn with `shows`, and `messagesSentBy` no longer takes a text to type.
+- `messagesSentBy` calls a listener, or a list of them, as snabbdom's types say: a list nested in a list, which they do
+  not show, is no longer walked.
 
 ### Fixed
 
@@ -219,6 +221,8 @@ version, and everything else, features included, the patch version.
   place of a plain field, it shows the program's value and sends its writes; drawn as a plain field in the place of an
   input, it is let go and keeps what the view gives it.
 - `rehearse` whose `init`, `subscriptions` or `makeModel` dies at the start leaves no scope of its own open.
+- The examples' React bridge hears an input's own `input` event, not React's `onChange`: a text a script wrote into
+  the element through its `value`, as an extension that fills forms does, was lost.
 
 ## 0.7.1 (2026-10-28)
 

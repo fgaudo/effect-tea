@@ -13,7 +13,6 @@ import { type Dispatch, drawn, type Frame, type Shown, typed, type Written } fro
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 import {
-  type ChangeEvent,
   createContext,
   createElement,
   type InputHTMLAttributes,
@@ -29,8 +28,8 @@ import { createRoot } from 'react-dom/client'
 export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => ReactNode
 
 // What the bridge holds of an element that shows an input: what the library made of it, `undefined` until the first
-// frame that draws it is settled, and the value the last frame drawn gave it.
-type Live = { held: Shown<string> | undefined; value: string }
+// frame that draws it is settled, the value the last frame drawn gave it, and the dispatch of its last render.
+type Live = { held: Shown<string> | undefined; value: string; dispatch: Dispatch<Written<string>> }
 
 const lives = new WeakMap<HTMLInputElement, Live>()
 
@@ -59,25 +58,30 @@ export const Shows = ({
     // the last, which is the value of the state it skipped.
     ref: (element: HTMLInputElement) => {
       const known = lives.get(element)
-      if (known === undefined) lives.set(element, { held: undefined, value })
-      else known.value = value
+      if (known === undefined) {
+        lives.set(element, { held: undefined, value, dispatch })
+        // The element's own `input` event, not React's `onChange`: React leaves out an event that finds the value as
+        // its tracking of the value last heard it, and that tracking is React's to change. Added once per element, it
+        // goes with the element.
+        element.addEventListener('input', () => {
+          const current = lives.get(element)
+          if (current?.held === undefined) return
+          const { write, sent } = typed(current.held, element.value)
+          current.held = sent(send(current.dispatch, write))
+        })
+      } else {
+        known.value = value
+        known.dispatch = dispatch
+      }
       live.add(element)
       // React detaches the old ref of a render before it attaches the new one, and runs this on unmount.
       return () => {
         live.delete(element)
       }
     },
-    onChange: (event: ChangeEvent<HTMLInputElement>) => {
-      const element = event.target
-      const known = lives.get(element)
-      if (known?.held === undefined) return
-      const { write, sent } = typed(known.held, element.value)
-      known.held = sent(send(dispatch, write))
-    },
   })
 }
 
-// Written through the element's own setter, which React's tracking of the value hears.
 const settle = (live: Set<HTMLInputElement>, seen: number): void => {
   for (const element of live) {
     const known = lives.get(element)

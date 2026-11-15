@@ -74,9 +74,10 @@ const running = Effect.fnUntraced(
     // of, the renderer too, and the run reports here what they have died of so far, and what they die of later, while
     // the renderer releases what it holds too, by the end of the engine. The fork and how the run stops it are one
     // acquisition, which nothing interrupts in between: forked apart, the run would leave the renderer to the end of
-    // whichever fiber runs it, unawaited. Its release comes before the engine's, acquired first in the same scope.
+    // whichever fiber runs it, unawaited. Its release comes before the engine's, acquired first in the same scope. The
+    // renderer is interruptible by its own say, whatever its fork makes of the acquisition it is forked in.
     const renderer = yield* Effect.acquireRelease(
-      Effect.forkChild(rendering),
+      Effect.forkChild(Effect.interruptible(rendering)),
       (renderer) =>
         engine.stop.pipe(Effect.andThen(Shell.stopping(renderer))),
     )

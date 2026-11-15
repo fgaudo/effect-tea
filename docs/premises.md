@@ -22,16 +22,6 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   whose Equal throws against the key of the state before" (`contract.test.ts`). `FiberMap` compares its keys in a
   fiber's observer as well, which is why the run keeps its fibers by their start, never by their key. Both are read
   only in the source.
-- **A fiber forked with `Effect.forkChild` where its parent is uninterruptible can still be interrupted**, which is
-  how the run forks the renderer inside that acquisition and still stops it: "a run interrupted by whoever runs it is
-  no defect", "a renderer that dies while an interrupted run releases it is in the cause" (`run.test.ts`) never end
-  with a renderer that inherits it (`{ uninterruptible: 'inherit' }`). Not documented, and seen in those tests.
-- **A fiber forked with `FiberSet.run` where its parent is uninterruptible can still be interrupted**, which is how
-  the engine forks its loop and keeps it for `stop` in one region nothing interrupts, and still stops it: "a message
-  update rejects is ignored, and the program goes on", "the end of the engine lets its loop end before it interrupts
-  its commands" (`engine.test.ts`), and every other test that ends an engine, never end with a loop that inherits it.
-  Not documented: read in the source (`FiberSet.run` forks with `forkUnsafe`, interruptible whatever its parent),
-  and seen in those tests.
 - **`FiberSet.run` and `FiberMap.run` fork a fiber and add it in one step**, with nothing between for an interruption
   to fall into, which is how the end of the engine, interrupting the loop wherever it is and then reading the fibers
   to stop, finds a command or a subscription the loop was forking: "a command whose runCommand begins the end of the

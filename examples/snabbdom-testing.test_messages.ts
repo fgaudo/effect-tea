@@ -1,6 +1,8 @@
 import * as Effect from 'effect/Effect'
-import type { VNode } from 'snabbdom'
+import type { On, VNode } from 'snabbdom'
 import type { View } from './snabbdom.ts'
+
+type Listener = Extract<NonNullable<On[string]>, (...args: never) => unknown>
 
 /**
  * For tests, and no part of what a bridge must do: what `view` can send in `model`, found without a DOM. The
@@ -20,16 +22,10 @@ export const messagesSentBy = <Model, Message>(
   const sent: Array<Message> = []
   // Without a DOM, an event of no element: the handlers of `shows` and `slides` find none on screen in it.
   const event = {} as Event
-  // Called as snabbdom calls a listener, with the node as `this` and as its second argument, and lists of them,
-  // nested or not, in order, as snabbdom walks them.
-  const listen = (node: VNode, listeners: unknown): void => {
-    if (Array.isArray(listeners)) {
-      for (const listener of listeners) listen(node, listener)
-      return
-    }
-    if (typeof listeners === 'function') {
-      ;(listeners as (this: VNode, event: Event, vnode: VNode) => void).call(node, event, node)
-    }
+  // Called as snabbdom calls a listener, with the node as `this` and as its second argument, and a list of them in
+  // order: a listener or a list of them, as snabbdom's types say, and nothing they do not.
+  const listen = (node: VNode, listeners: Listener | ReadonlyArray<Listener>): void => {
+    for (const listener of Array.isArray(listeners) ? listeners : [listeners]) listener.call(node, event, node)
   }
   const visit = (node: VNode | string): void => {
     if (typeof node === 'string') return

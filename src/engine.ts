@@ -204,6 +204,8 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: enqueue(Core.fromCommand) })),
       Effect.provideContext(context),
       recorded,
+      // Interruptible by its own say, as every fiber of the engine, whatever its fork makes of where it is forked.
+      Effect.interruptible,
       FiberSet.run(fibers),
     )
   /**
@@ -238,6 +240,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
         Effect.flatMap((last) => log('Subscription ended', key).pipe(Effect.andThen(send(last)))),
         Effect.provideContext(context),
         recorded,
+        Effect.interruptible,
         FiberMap.run(subscriptionFibers, generation),
       )
     }
@@ -308,8 +311,8 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     recorded,
   )
   // The fork and its assignment are one step nothing interrupts: interrupted between them, the fiber that makes the
-  // engine would close its scope with a loop `stop` does not know of. The loop is interruptible all the same:
-  // `FiberSet.run` forks every fiber interruptible, whatever its parent (`docs/premises.md`).
+  // engine would close its scope with a loop `stop` does not know of. The loop is interruptible all the same, as a
+  // command is (`runCommand`).
   yield* Effect.gen(function*() {
     let active = initialActive
     while (true) {
@@ -318,6 +321,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   }).pipe(
     Effect.provideContext(context),
     recorded,
+    Effect.interruptible,
     FiberSet.run(fibers),
     Effect.map((fiber) => {
       loop = fiber
