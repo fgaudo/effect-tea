@@ -416,19 +416,21 @@ describe('children by id', () => {
   })
 
   test('a child\'s model is let go with its state', async () => {
-    const make = () => {
-      const model = list.makeModel({ rows: [{ id: 1, counter: { ...counter.init.state } }] })[0]?.model
-      return new WeakRef(model ?? {})
-    }
+    const make = () =>
+      Array.from({ length: 1_000 }, (_, id) => {
+        const model = list.makeModel({ rows: [{ id, counter: { ...counter.init.state } }] })[0]?.model
+        return new WeakRef(model ?? {})
+      })
     const released = make()
+    const left = () => released.filter((model) => model.deref() !== undefined).length
     // A WeakRef keeps its target until the current job ends: a macrotask, unlike a microtask, ends it. A collection
-    // can still find the model in a register or stack slot left by JIT-compiled code, which JSC scans
-    // conservatively, until the job after it: each collection gets a job of its own.
-    for (let collection = 0; collection < 10 && released.deref() !== undefined; collection++) {
+    // can still find a few models in register or stack slots left by JIT-compiled code, which JSC scans
+    // conservatively, for many jobs: of a thousand models, a cache that kept them would keep all.
+    for (let collection = 0; collection < 10 && left() > 10; collection++) {
       await new Promise((resolve) => setTimeout(resolve, 0))
       collectGarbage()
     }
-    expect(released.deref()).toBeUndefined()
+    expect(left()).toBeLessThanOrEqual(10)
   })
 
   test('the models of ids shown once each, under one shared state, do not pile up', () => {
