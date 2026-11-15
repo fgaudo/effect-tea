@@ -147,6 +147,10 @@ an example's and a document's too:
   the build, and `build.ts` does the same in the declarations.
 - Comments only for what the code cannot say: a reason, an invariant the types do not show, a choice that
   would look like a mistake. Never a repetition of names or of the next line.
+- A reason is written once, where the check it explains is: another place that needs it names that place
+  (`Core.arrive`, a section of `docs/invariants.md`) and says only what follows from it there, never the reason again.
+  The documentation of an export stands alone, since a user reads it in the declarations; and a summary says that it
+  is one and what rules where it says less, as "Invariants" above does.
 - No blank lines between the statements of a block; blank lines separate declarations and `describe`/`test`
   calls.
 - Formatting: 120 columns, two-space indentation, single quotes, no semicolons, trailing commas in multiline

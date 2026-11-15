@@ -59,11 +59,13 @@ export const typed = <A>(
 /**
  * What a frame makes of an element, `held`, or of one just made, `undefined`: `value` is the input's in the frame, and
  * `seen` the frame's own. `shown` is what the element then holds, and `taken` whether it takes the frame's value, which
- * the bridge then writes into it, `shown.value`. When the frame holds what the element showed before its first write
- * the frame has not seen, or what it shows when the frame has seen them all, the frame is the element's own past or
- * present: the element stays as it is, showing the value it held, and is not taken. Otherwise the state has moved on
- * without the element, whose writes the frame has not seen will be rejected, and the element shows the frame's very
- * `value`, taken unless it is the very value the element showed; a new one is always taken.
+ * the bridge then writes into it, `shown.value`. There are three cases:
+ * - a new element: it shows the frame's very `value`, and is always taken;
+ * - the element's own past or present, when the frame holds, by `Equal`, what the element showed before its first write
+ *   the frame has not seen, or what it shows when the frame has seen them all: the element stays as it is, showing the
+ *   very value it held, and is not taken; only the writes the frame has seen are forgotten;
+ * - a state that has moved on without the element, in any other case: the element's writes the frame has not seen will
+ *   be rejected, and it shows the frame's very `value`, taken unless it is the very value the element showed.
  */
 export const drawn = <A>(
   held: Shown<A> | undefined,

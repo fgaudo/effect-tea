@@ -139,12 +139,10 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   )
   const deaths = given ?? (yield* makeDeaths(() => true))
   const { recorded, died, report, dead } = deaths
-  // A run that died applies no message, until whoever runs it stops the loop, which may run before the fiber that
-  // stops it: checked in the thunk that calls `update` (`Core.arrive`), where no other fiber can run, since the
-  // scheduler may yield at any other operation. It is the only check: a step whose `update` was called before the
-  // death goes on whole until then, so it may still start its commands and the subscriptions of its new keys. One
-  // check in the middle of it would leave a state whose commands never started. What the program's effects do once
-  // started is theirs, until the end of the run interrupts them.
+  // A death is checked once, in `Core.arrive`. A step that passed the check goes on whole until the end of the run
+  // stops the loop, so it may still start its commands and the subscriptions of its new keys: one more check in the
+  // middle of it would leave a state whose commands never started. What the program's effects do once started is
+  // theirs, until the end of the run interrupts them.
   // The loop and the commands.
   const fibers = yield* FiberSet.make<unknown, never>()
   // Kept by their start, never by their key: `FiberMap` compares its keys, in a fiber's observer too, where
@@ -255,17 +253,16 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     )
     switch (arrived._tag) {
       // Left in the queue by a subscription whose key has gone away since: it was produced after the program
-      // stopped listening, so it does not reach `update`. `Core.arrive` reads the register first: a message taken once
-      // a fiber has died is not dropped, so `describeMessage` is called on none of them. A death recorded after the
-      // check still lets this step describe its message, as any step goes on whole once it has passed the check.
+      // stopped listening, so it does not reach `update`. None taken once a fiber has died is dropped (`Core.arrive`),
+      // so `describeMessage` is called on none of those; one dropped before the death is still described, since the
+      // step goes on whole (as said under `deaths`).
       case 'Dropped': {
         if (debugging && source._tag === 'Subscription') {
           yield* log('Dropped a message of a stopped subscription', source.key, yield* described(message))
         }
         return active
       }
-      // A fiber had died when `Core.arrive` checked: the message is not applied, and neither is any other the loop
-      // takes until the end of the run stops it.
+      // A fiber had died when `Core.arrive` checked: the message is not applied.
       case 'Dead':
         return active
       // The state the message was meant for is gone (a late answer, a second click), or it never applied.
