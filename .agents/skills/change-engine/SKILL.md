@@ -18,8 +18,10 @@ and of the JavaScript engine, each with what checks it, is [`docs/premises.md`](
    without what its entry names under "Reopen if".
 2. List the premises the change rests on. Each is checked before the change is written, and never only reasoned:
    the documentation of a stable API, or a test that fails without it, as the rule of `docs/premises.md` says. A new
-   one that no stable API documents is added there, with its test; one that cannot be checked yet holds the change
-   up.
+   one that no stable API documents is first met with a guard of the library's that makes it unneeded; only where none
+   holds is the owner asked, before the change is written, and added there with a test of its own once the owner
+   agrees, apart from the library's tests (`test/premises.test.ts`, as that document says). One that cannot be checked
+   yet holds the change up.
 3. List the points where another fiber can run between a check and the act it guards ("one thunk" in
    `docs/invariants.md`). Each leaves a test that fails without the check, deterministic, of the core or with a gate,
    and a mutation that takes the check out, naming that test.

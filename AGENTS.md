@@ -119,6 +119,8 @@ an example's and a document's too:
 - **Logs never carry message data by default**: only tags, at `debug`. A subscription's key is logged as it is.
 - **A premise about what code does when it runs is checked before the change that rests on it is written**, and
   never only reasoned: by the documentation of a stable API, or by a test that fails without it.
+- **A new premise needs the owner's consent**: a guard of the library's that makes it unneeded is tried first, and the
+  owner is asked before the change that rests on one is written, as `docs/premises.md` says.
 
 ## Code
 
@@ -194,7 +196,8 @@ an example's and a document's too:
   - **the boundary of a run**, the run's or a testing tool's: its lifecycle, scopes, interruption and defects, what
     it holds and lets go, what a tool fails on (`run.test.ts`, `engine.test.ts`, the cache of `dispatchTo` in
     `dispatch.test.ts`, a parent's subscriptions in a run in `compose.test.ts`, each tool's own file in
-    `src/testing/`). A test of a premise (`docs/premises.md`) is of this kind, and so is one of the scheduler of the
+    `src/testing/`). A test of a premise (`docs/premises.md`) is of this kind, a test of its own that checks Effect or
+    the JavaScript engine and nothing of the library (`test/premises.test.ts`), and so is one of the scheduler of the
     tests, `test/scheduled.test_scheduler.ts`, which is no part of the package: it serves the search, and the few
     tests of a boundary that run one scenario under the orders it gives (`engine.test.ts`, `rehearse.test.ts`),
     alarms that are the killer of no mutation (`docs/invariants.md`, "one thunk").

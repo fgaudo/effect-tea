@@ -115,11 +115,13 @@ Your last message says the branch, the commit and the findings in a few lines.
   where it is not; the fix's commit names the form and the places it checked. Findings of one form are fixed
   together, by one mechanism where one can hold them all, rather than one place at a time.
 - A suspect ruled out by a test, that rests on what Effect or the JavaScript engine does without promising it, is a
-  premise, added to `docs/premises.md` with the test, which comes to `main`. One ruled out by the documentation of a
+  premise, added to `docs/premises.md` with the test, which comes to `main`, once the owner has agreed to it as that
+  document says (a guard that makes it unneeded is tried first). One ruled out by the documentation of a
   stable API is no premise, and is not listed there: the report names the declaration.
 - A lead, and a suspect left unchecked, are no findings yet. Write the test that would reproduce each, here or in a
   session of its own, and run it: a test that fails makes it a finding, one that passes rules it out. A lead no test
-  can reach yet goes under "Premises that no test reaches yet" in `docs/premises.md`, with what would decide it.
+  can reach yet goes under "Premises that no test reaches yet" in `docs/premises.md`, with what would decide it, once
+  the owner has agreed to it.
 - A place where the code does otherwise than `AGENTS.md`, `docs/invariants.md` or the README says is a bug of the
   one or of the other: the README is a specification, and its prose changes as `AGENTS.md` says.
 - Do not merge the reviewer's branch whole: take what the points above bring to `main`, and nothing else.

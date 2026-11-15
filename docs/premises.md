@@ -4,7 +4,14 @@ An invariant holds only while what it rests on does: the purity of the program's
 the behaviour of Effect's runtime and of the JavaScript engine. What the program must do is the README's ("What is
 left to you"). What Effect and the JavaScript engine must do without promising it is listed here, each with the test
 that checks it, as the rule after the list says: a guarantee that a stable API documents is no premise, and is not
-listed. A change that rests on a new premise adds it here, with its test.
+listed. A change that rests on a new premise adds it here, with its test, and only once the owner has agreed to it.
+
+A premise is never added without the owner's consent, under the list or under "Premises that no test reaches yet",
+whether a change or a review brings it. First comes a guard of the library's, written with documented APIs, that
+makes the premise unneeded (an explicit `Effect.interruptible`, a scope closed by hand): it is tried, and seen to hold
+with the premise made false where a test can make it so. Only where none holds is the owner asked, before the change
+that rests on the premise is written, with the premise, what rests on it, its test, and the guards tried and why each
+failed. Without the owner's yes, the change waits.
 
 The invariants themselves are in [`invariants.md`](invariants.md).
 
@@ -145,6 +152,13 @@ only reasoned:
   already have. For the JavaScript engine, the test runs on Bun, whose engine is JavaScriptCore, and on Node, whose
   engine is V8 (`bun run test:node`, every test of `src/` and `test/` but the search): what a browser could do otherwise
   goes under "Premises that no test reaches yet".
+- **A premise's test is its own**: a test in `test/premises.test.ts`, named after the premise, that checks what Effect
+  or the JavaScript engine does and nothing of the library, or a file of its own in `test/` where it needs a harness,
+  as `test/effect-scheduler.test.ts` does for the scheduler of the tests. A test of the library that the premise's
+  fall would break too stays a test of what the library promises, and is not named as the premise's: so a test of a
+  premise that fails names the premise that fell, and a premise dropped, by a guard or by a change, takes its own test
+  with it and leaves the library's. The premises listed before this rule, on 16 November 2026, name tests of the
+  library that see them; each gets a test of its own when it is next touched.
 
 A guarantee of the README says what it promises in the library's own terms, never in those of what a function of
 Effect makes of a value: the order of the defects in a cause is no promise, since what a user would rely on is what
