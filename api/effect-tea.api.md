@@ -135,21 +135,21 @@ type ChildServices<C> = {
 }[keyof C];
 
 // @public (undocumented)
-export type CommandOf<P> = (FirstStepOf<P> extends Step<any, infer C> ? Known<C> : never) | UpdateCommands<P>;
+export type CommandOf<P> = Listed<FirstStepOf<P>, 'commands'> | Returned<P, 'commands'>;
 
 // @public
 export const composition: <T extends CompositionTypes>() => {
-    child: <P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown>, place: Placement<Field<T, "state">, StateOf<P>> & Readonly<{
+    child: <P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalAmong<MessageOf<P>, ExternalOf<P>>, place: Placement<Field<T, "state">, StateOf<P>> & Readonly<{
         subscribed?: (state: Field<T, "state">) => Opt.Option<StateOf<P>>;
     }> & ObjectState<StateOf<P>>) => Child<Field<T, "state">, P>;
-    each: <Id, P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown>, place: EachPlacement<Field<T, "state">, Id, StateOf<P>> & Readonly<{
+    each: <Id, P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalAmong<MessageOf<P>, ExternalOf<P>>, place: EachPlacement<Field<T, "state">, Id, StateOf<P>> & Readonly<{
         subscribed: (state: Field<T, "state">) => Iterable<readonly [Id, StateOf<P>]>;
     }> & ObjectState<StateOf<P>>) => Each<Field<T, "state">, Id, P>;
     input: <A>(at: Optic.Optional<Field<T, "state">, A>) => InputAt<Field<T, "state">, A>;
     compose: <Model, C extends Children<Field<T, "state">> = None, I extends Inputs<Field<T, "state">> = None, Own = never, R = never, K = unknown>(config: Config<Field<T, "state">, NoInfer<C>, NoInfer<I>, Own, Field<T, "command">, Field<T, "event">, Model, R, K, Field<T, 'flags'>> & Readonly<{
         children?: C;
         inputs?: I;
-    }>) => Shape<Field<T, "state">, Model, Own | ChildMessages<C> | InputMessages<I>, ChildCommands<C> | Field<T, "command">, R | ChildServices<C>, Field<T, "event">, Field<T, "external"> & Own, Field<T, "flags">>;
+    }>) => Shape<Field<T, "state">, Model, Own | ChildMessages<C> | InputMessages<I>, ChildCommands<C> | Field<T, "command">, R | ChildServices<C>, Field<T, "event">, Field<T, "external">, Field<T, "flags">>;
 };
 
 // @public
@@ -176,7 +176,7 @@ type CompositionTypes = Readonly<{
 }>;
 
 // @public (undocumented)
-type Config<State, C, I, Own, OwnCommand, Event, Model, R, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own | ChildExternals<C>, R> & NoClash<Own, OwnCommand, C> & NoClash<Own, OwnCommand, I> & Readonly<{
+type Config<State, C, I, Own, OwnCommand, Event, Model, R, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own | ChildExternals<C>, R> & NoClash<Own, OwnCommand, C> & NoClash<Own, OwnCommand, I> & NoShared<C, I> & Readonly<{
     init: (children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>) => Init<State, OwnCommand | ChildCommands<C>, Flags>;
     children?: C;
     inputs?: I;
@@ -315,12 +315,15 @@ interface Engine_2<State, Message> {
 }
 
 // @public (undocumented)
-export type EventOf<P> = P extends {
-    readonly update: Update<any, any, any, infer E>;
-} ? Known<E> : never;
+export type EventOf<P> = Returned<P, 'events'>;
 
 // @public
 export type Execution<Message, R> = Effect.Effect<Opt.Option<Message>, never, R>;
+
+// @public
+type ExternalAmong<Message, External> = [Exclude<External, Message>] extends [never] ? unknown : Readonly<{
+    'an external message is not among the program messages': Exclude<External, Message>;
+}>;
 
 // @public
 export type ExternalOf<P> = P extends {
@@ -353,7 +356,7 @@ type FirstStepOf<P> = P extends {
 // @public
 export type FlagsOf<P> = P extends {
     readonly init: (flags: infer F) => any;
-} ? Known<F> : never;
+} ? F : never;
 
 // @public
 type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{
@@ -464,7 +467,15 @@ const InvariantDefect_base: new <A extends Record<string, any> = {}>(args: VoidI
 export const isRejected: (result: unknown) => result is Rejected;
 
 // @public (undocumented)
+type Items<L> = L extends ReadonlyArray<infer I> ? I : never;
+
+// @public (undocumented)
 type Known<T> = unknown extends T ? never : T;
+
+// @public
+type Listed<T, Key extends 'commands' | 'events'> = T extends {
+    readonly [K in Key]?: infer L;
+} ? Items<L> : never;
 
 // @public (undocumented)
 const make: <State, Message, Command, R, K>(args_0: Readonly<{
@@ -528,6 +539,11 @@ type None = Readonly<Record<never, never>>;
 const noneActive: Active<never>;
 
 // @public
+type NoShared<C, I> = [keyof C & keyof I] extends [never] ? unknown : Readonly<{
+    'an input takes the name of a child': keyof C & keyof I;
+}>;
+
+// @public
 type ObjectState<State> = [State] extends [object] ? unknown : Readonly<{
     'a program keeps its state in an object': State;
 }>;
@@ -569,7 +585,7 @@ type Placement<ParentState, ChildState> = Readonly<{
 }>;
 
 // @public
-export type Program<T extends ProgramTypes> = Shape<Field<T, 'state'>, Field<T, 'model'>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'services'>, Field<T, 'event'>, Field<T, 'external'>, Field<T, 'flags'>>;
+export type Program<T extends ProgramTypes> = Shape<Field<T, 'state'>, Field<T, 'model'>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'services'>, Field<T, 'event'>, Field<T, 'external'>, Field<T, 'flags'>> & ExternalAmong<Field<T, 'message'>, Field<T, 'external'>>;
 
 // @public
 export class ProgramDefect extends ProgramDefect_base<Fields & Readonly<{
@@ -633,6 +649,11 @@ export type Rejected = typeof reject;
 
 // @public
 const report: (register: Register) => readonly [Opt.Option<Cause.Cause<never>>, Register];
+
+// @public
+type Returned<P, Key extends 'commands' | 'events'> = P extends {
+    readonly update: (message: any) => (state: any) => infer T;
+} ? Listed<T, Key> : never;
 
 // @public
 type Revision = number;
@@ -777,11 +798,6 @@ const Unseen: unique symbol;
 
 // @public (undocumented)
 export type Update<State, Message, Command = never, Event = never> = (message: Message) => (state: State) => Transition<State, Command, Event>;
-
-// @public
-type UpdateCommands<P> = P extends {
-    readonly update: (message: any) => (state: any) => infer T;
-} ? T extends Step<any, infer C, any> ? Known<C> : never : never;
 
 // @public
 const withExternalSpan: <R>(context: Context.Context<R>) => Context.Context<R>;

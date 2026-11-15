@@ -123,6 +123,13 @@ version, and everything else, features included, the patch version.
 
 ### Fixed
 
+- An input that takes a child's name no longer compiles: it replaced the child, whose messages were then rejected.
+- A program whose `external` messages are not among its `message`s no longer compiles, as a `Program<…>` or as a
+  child of a `composition`: its parent's message reached an `update` that does not take it, as a `TypeError`.
+- A child whose `flags`, events or commands are of type `unknown`, or whose `init` is a function written without
+  `Program<…>`, is typed as having them: its handle takes flags, `onEvent` is required, and so is `runCommand`, where
+  the types read them as absent and the run met them. `FlagsOf`, `EventOf` and `CommandOf` read them as `unknown`.
+
 - A run interrupted just as it forked the renderer left the renderer running, and lost a defect.
 - A message taken before a defect could reach `update` after it, under a lowered `Scheduler.MaxOpsBeforeYield`.
 - A release that interrupts itself, or fails against its type, after its command or subscription died, is a defect.

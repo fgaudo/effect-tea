@@ -15,7 +15,14 @@ import { andThen, forEach, isRejected, raise, reject, type Step } from './update
 import { type Dispatch, dispatchTo } from './dispatch.ts'
 import { composition } from './compose.ts'
 import { CompositionDefect } from './defect.ts'
-import { type CommandOf, type FlagsOf, type MessageOf, type Program, subscriptionsOf } from './program.ts'
+import {
+  type CommandOf,
+  type EventOf,
+  type FlagsOf,
+  type MessageOf,
+  type Program,
+  subscriptionsOf,
+} from './program.ts'
 import { type Frame, run } from './run.ts'
 
 // A counter that cannot go below zero, that saves on request, and that accepts typed numbers only.
@@ -1339,6 +1346,106 @@ describe('what the types reject', () => {
       runCommand: () => Effect.succeedNone,
       makeModel: () => null,
     })
+  })
+
+  test('an input cannot take the name of a child, which it would replace', () => {
+    type Named = Readonly<{ ticks: number; name: string }>
+    const { child, input, compose } = composition<{ state: Named }>()
+    // @ts-expect-error: `Plain` is a child's name.
+    compose({
+      init: () => ({ state: { ticks: 0, name: '' } }),
+      children: {
+        Plain: child(plain, { get: (state) => Opt.some(state), set: (state, ticks) => ({ ...state, ...ticks }) }),
+      },
+      inputs: { Plain: input(Optic.id<Named>().key('name')) },
+      makeModel: () => null,
+    })
+  })
+
+  test('an external message is one of the program\'s messages, however the program is made', () => {
+    // @ts-expect-error: `Reset` is none of its messages.
+    const resetting: Program<{ state: Ticks; model: number; message: Tick; external: Reset }> = {
+      init: { state: noTicks },
+      update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
+      makeModel: ({ ticks }) => ticks,
+    }
+    const Wrapper = composition<{ state: Ticks; external: Reset }>()
+    const wrapper = Wrapper.compose({
+      init: () => ({ state: noTicks }),
+      update: (_: Tick) => (state) => ({ state }),
+      makeModel: () => null,
+    })
+    const { child, each } = composition<{ state: Ticks }>()
+    // @ts-expect-error: its parent may send it a `Reset`, which its `update` does not take.
+    expect(child(wrapper, { get: Opt.some, set: (_, ticks) => ticks })).toBeDefined()
+    // @ts-expect-error: likewise for children by id.
+    expect(each(wrapper, { get: () => Opt.some(noTicks), set: (state) => state, subscribed: () => [] })).toBeDefined()
+    expect(resetting).toBeDefined()
+  })
+
+  // What a program's type does not name is read back as none, and what it names as `unknown` as anything.
+  test('a child whose init is a function starts from flags, whatever their type', () => {
+    const unknowing: Program<{ state: Ticks; model: number; message: Tick; flags: unknown }> = {
+      init: () => ({ state: noTicks }),
+      update: () => (state) => ({ state }),
+      makeModel: ({ ticks }) => ticks,
+    }
+    const thunk = { ...plain, init: () => ({ state: noTicks }) }
+    const { child, compose } = composition<{ state: Readonly<{ a: Ticks; b: Ticks }> }>()
+    // Not called: it would start the children without flags.
+    const make = () =>
+      compose({
+        init: (children) => ({
+          state: {
+            // @ts-expect-error: its first state depends on its flags.
+            a: children.Unknowing.init.state,
+            // @ts-expect-error: and so does that of a program written as a plain object.
+            b: children.Thunk.init.state,
+          },
+        }),
+        children: {
+          Unknowing: child(unknowing, { get: (state) => Opt.some(state.a), set: (state, a) => ({ ...state, a }) }),
+          Thunk: child(thunk, { get: (state) => Opt.some(state.b), set: (state, b) => ({ ...state, b }) }),
+        },
+        makeModel: () => null,
+      })
+    const flags: [FlagsOf<typeof unknowing>, FlagsOf<typeof thunk>] = [Symbol(), null]
+    // @ts-expect-error: a program whose first step is a value has no flags.
+    const none: FlagsOf<typeof plain> = null
+    expect([make, flags, none]).toHaveLength(3)
+  })
+
+  test('a child whose events are of any type needs an onEvent', () => {
+    const telling: Program<{ state: Ticks; model: number; message: Tick; event: unknown }> = {
+      init: { state: noTicks },
+      update: () => (state) => ({ state, events: [state.ticks] }),
+      makeModel: ({ ticks }) => ticks,
+    }
+    const { child, compose } = composition<{ state: Ticks }>()
+    // @ts-expect-error: its events would go unhandled.
+    compose({
+      init: () => ({ state: noTicks }),
+      children: { Telling: child(telling, { get: Opt.some, set: (_, ticks) => ticks }) },
+      makeModel: () => null,
+    })
+  })
+
+  test('a program\'s commands and events are those its steps list, and none where none lists them', () => {
+    const sometimes = {
+      init: { state: noTicks },
+      update: (_: Tick) => (state: Ticks) =>
+        state.ticks > 1 ? { state, events: ['Many' as const], commands: [1 as const] }
+        : state.ticks > 0 ? { state, events: ['One' as const] }
+        : reject,
+      makeModel: ({ ticks }: Ticks) => ticks,
+    }
+    const read: [EventOf<typeof sometimes>, CommandOf<typeof sometimes>] = ['One', 1]
+    // @ts-expect-error: no step lists another event.
+    const other: EventOf<typeof sometimes> = 'None'
+    // @ts-expect-error: nor does any step of a program that lists none.
+    const none: EventOf<typeof plain> | CommandOf<typeof plain> = 'None'
+    const anything: [EventOf<Program<{ state: Ticks; model: null; message: Tick; event: unknown }>>] = [Symbol()]
+    expect([read, other, none, anything]).toHaveLength(4)
   })
 
   test('a child that starts with no command still has those its update returns', () => {

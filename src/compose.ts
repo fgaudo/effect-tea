@@ -18,6 +18,7 @@ import {
   type AnyProgram,
   type CommandOf,
   type EventOf,
+  type ExternalAmong,
   type ExternalOf,
   type Field,
   type FlagsOf,
@@ -249,6 +250,10 @@ type NoClash<Own, OwnCommand, C> =
   & ([Extract<TagOf<OwnCommand>, keyof C>] extends [never] ? unknown
     : Readonly<{ 'an own command takes the name of a child': Extract<TagOf<OwnCommand>, keyof C> }>)
 
+/** An input that takes a child's name would replace the child, whose messages would then be the input's. */
+type NoShared<C, I> = [keyof C & keyof I] extends [never] ? unknown
+  : Readonly<{ 'an input takes the name of a child': keyof C & keyof I }>
+
 type Config<State, C, I, Own, OwnCommand, Event, Model, R, K, Flags> =
   & OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event>
   // A command's answer is an own message, or one its parent may send a child: never a write into an input, the
@@ -256,6 +261,7 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, R, K, Flags> =
   & RunCommandOf<OwnCommand, Own | ChildExternals<C>, R>
   & NoClash<Own, OwnCommand, C>
   & NoClash<Own, OwnCommand, I>
+  & NoShared<C, I>
   & Readonly<{
     /**
      * The first state and commands, or, for a parent with flags, the function that makes them from its flags
@@ -592,7 +598,7 @@ export const composition = <T extends CompositionTypes>() => {
   type Event = Field<T, 'event'>
   return {
     child: <P extends AnyProgram>(
-      program: P & Interpreter<CommandOf<P>, unknown, unknown>,
+      program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalAmong<MessageOf<P>, ExternalOf<P>>,
       place:
         & Placement<State, StateOf<P>>
         & Readonly<{ subscribed?: (state: State) => Opt.Option<StateOf<P>> }>
@@ -604,7 +610,7 @@ export const composition = <T extends CompositionTypes>() => {
       ...(place.subscribed === undefined ? {} : { subscribed: place.subscribed }),
     }),
     each: <Id, P extends AnyProgram>(
-      program: P & Interpreter<CommandOf<P>, unknown, unknown>,
+      program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalAmong<MessageOf<P>, ExternalOf<P>>,
       place:
         & EachPlacement<State, Id, StateOf<P>>
         & Readonly<{ subscribed: (state: State) => Iterable<readonly [Id, StateOf<P>]> }>
@@ -616,7 +622,8 @@ export const composition = <T extends CompositionTypes>() => {
      * `dispatchTo(dispatch, 'Name')`, which a bridge makes with `typed`.
      */
     input: <A>(at: Optic.Optional<State, A>): InputAt<State, A> => ({ kind: 'input', ...placed({ at }) }),
-    // Its external messages are among its own: the intersection keeps only those.
+    // Its external messages are checked where it is a child (`child`, `each`): here its own messages are still being
+    // inferred from `update`, and a check of them would fix them as `never` first.
     compose: <
       Model,
       C extends Children<State> = None,
@@ -631,6 +638,6 @@ export const composition = <T extends CompositionTypes>() => {
         & Config<State, NoInfer<C>, NoInfer<I>, Own, OwnCommand, Event, Model, R, K, Field<T, 'flags'>>
         & Readonly<{ children?: C; inputs?: I }>,
     ) =>
-      compose<State, C, I, Model, Own, OwnCommand, Event, R, K, Field<T, 'external'> & Own, Field<T, 'flags'>>(config),
+      compose<State, C, I, Model, Own, OwnCommand, Event, R, K, Field<T, 'external'>, Field<T, 'flags'>>(config),
   }
 }

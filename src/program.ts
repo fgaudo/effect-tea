@@ -54,16 +54,25 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * what the view reads, and is a pure function of it: a test calls it as `run` does. A program of children or
  * inputs is made with `composition`.
  */
-export type Program<T extends ProgramTypes> = Shape<
-  Field<T, 'state'>,
-  Field<T, 'model'>,
-  Field<T, 'message'>,
-  Field<T, 'command'>,
-  Field<T, 'services'>,
-  Field<T, 'event'>,
-  Field<T, 'external'>,
-  Field<T, 'flags'>
->
+export type Program<T extends ProgramTypes> =
+  & Shape<
+    Field<T, 'state'>,
+    Field<T, 'model'>,
+    Field<T, 'message'>,
+    Field<T, 'command'>,
+    Field<T, 'services'>,
+    Field<T, 'event'>,
+    Field<T, 'external'>,
+    Field<T, 'flags'>
+  >
+  & ExternalAmong<Field<T, 'message'>, Field<T, 'external'>>
+
+/**
+ * A program's external messages are among its messages: one that is not would reach an `update` that does not take
+ * it, with no `CompositionDefect` to say so.
+ */
+export type ExternalAmong<Message, External> = [Exclude<External, Message>] extends [never] ? unknown
+  : Readonly<{ 'an external message is not among the program messages': Exclude<External, Message> }>
 
 /**
  * How a program starts: its first step, or, for a program with flags, the function that makes it from the
@@ -111,22 +120,26 @@ export const startOf = <State, Command>(
 export type StateOf<P> = FirstStepOf<P> extends Step<infer S, any> ? S : never
 export type ModelOf<P> = P extends { readonly makeModel: (state: any) => infer M } ? M : never
 export type MessageOf<P> = P extends { readonly update: (message: infer M) => any } ? M : never
-// What a program's type does not say reads back as `unknown` (an optional property it lacks, a step without
-// commands): none, then, rather than anything.
+// What a program's type does not say reads back as `unknown` (an optional property it lacks): none, then, rather
+// than anything. Only where nothing else tells "absent" from `unknown`.
 type Known<T> = unknown extends T ? never : T
 
-/** Each step `update` may return gives its own: a step without commands names none. */
-type UpdateCommands<P> = P extends { readonly update: (message: any) => (state: any) => infer T }
-  ? T extends Step<any, infer C, any> ? Known<C> : never
-  : never
+/** What the lists under `Key` hold, for each step of a union: none in a step without the list. */
+type Listed<T, Key extends 'commands' | 'events'> = T extends { readonly [K in Key]?: infer L } ? Items<L> : never
+// `L` is `undefined` where an object literal of the union lacks the list, and `unknown` where no type names it.
+type Items<L> = L extends ReadonlyArray<infer I> ? I : never
+
+/** What the steps `update` may return list under `Key`. */
+type Returned<P, Key extends 'commands' | 'events'> = P extends
+  { readonly update: (message: any) => (state: any) => infer T } ? Listed<T, Key> : never
 
 // Read from `update` too: a program written without `Program<…>` may start with no command and still return some.
-export type CommandOf<P> = (FirstStepOf<P> extends Step<any, infer C> ? Known<C> : never) | UpdateCommands<P>
-/** What a program starts from: none, unless its type says so. */
-export type FlagsOf<P> = P extends { readonly init: (flags: infer F) => any } ? Known<F> : never
+export type CommandOf<P> = Listed<FirstStepOf<P>, 'commands'> | Returned<P, 'commands'>
+/** What a program starts from: none, unless its `init` is a function, which is given flags when it runs. */
+export type FlagsOf<P> = P extends { readonly init: (flags: infer F) => any } ? F : never
 /** The messages a parent may send the program: none, unless its type says so. */
 export type ExternalOf<P> = P extends { readonly [ExternalTypeId]?: infer E } ? Known<E> : never
-export type EventOf<P> = P extends { readonly update: Update<any, any, any, infer E> } ? Known<E> : never
+export type EventOf<P> = Returned<P, 'events'>
 export type ServicesOf<P> =
   | (P extends { readonly runCommand: RunCommand<any, any, infer R> } ? Known<R> : never)
   | (P extends { readonly subscriptions?: Subscriptions<any, any, infer R, any> } ? Known<R> : never)

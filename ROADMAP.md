@@ -15,25 +15,12 @@ showed it, "reasoned" that it was read only.
 
 ### The library
 
-- **A child and an input with the same name** compile, and the input replaces the child: `composition` routes
-  through `{ ...programs, ...inputs }` (`compose.ts`), while `handles` and the child models keep the child's name
-  and type. The child's own messages are rejected, its `init.state` is `undefined`, and both shapes are in the
-  parent's `Message`. `NoClash` compares the own messages and commands with `C` and with `I`, never `C` with `I`: a
-  conjunct over `keyof C & keyof I` would refuse it. Confirmed.
 - **`rehearse` writes a new state only after the stopped subscriptions are released**, while the run publishes it
   first, as "Guarantees" promises (`applyNow` in `rehearse.ts` runs `listen` before it writes `now`). A release
   that waits on what the test does once it sees the new state ends under `drive` and hangs under `rehearse`; after
   a defect of `subscriptions`, `rehearsal.state` reads the state before the message. No contract compares the two
   while a release is under way. Writing `now` before `listen`, with `Ledger.owe` after it, was not tried.
   Confirmed.
-- **A `Program<T>` whose `external` is not among its `message`s** typechecks, and its parent's `update` of that
-  message dies with a `TypeError` in `update`, not a `CompositionDefect`: `Shape` (`program.ts`) relates nothing
-  between the two. In `composition` the same mistake makes `External` (`Field<T, 'external'> & Own`) `never`
-  silently, and the error shows only in the parent. Confirmed.
-- **`Known` reads `unknown` or `any` as "not declared"** (`program.ts`): with `flags: unknown`, `FlagsOf` is
-  `never` and the parent's handle is typed as a `Start`, though `hasFlags` makes it a function at run time, so
-  `children.W.init.state` is `undefined` and `makeModel` dies. `event: unknown` would drop the required `onEvent`
-  the same way (reasoned). Either refuse `unknown` in those fields or tell "absent" apart. Confirmed for flags.
 - **A message whose description throws loses `update`'s defect**: `diesIn('update', …)` (`engine.ts`) builds `on`
   with `describeByTag` inside its `catchCause` handler, so a cyclic `message` chain dies as a bare `RangeError`,
   with no `ProgramDefect` and no `where`. Contrived input, but program data is evaluated inside the defect handler;

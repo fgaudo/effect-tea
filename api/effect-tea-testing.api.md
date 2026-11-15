@@ -7,7 +7,7 @@
 import * as Cause from 'effect/Cause';
 import type * as Channel from 'effect/Channel';
 import * as Context from 'effect/Context';
-import type * as Duration from 'effect/Duration';
+import * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
 import * as Exit from 'effect/Exit';
 import * as HashMap from 'effect/HashMap';

@@ -163,7 +163,7 @@ A program is a plain object with up to five pieces:
 | `subscriptions` | what it listens to in each state                                                           | when it listens      |
 
 - **Its type names its types:** `Program<{ state; model; message }>`, plus `command`, `services`, `event`,
-  `external` and `flags` when it has them.
+  `external` and `flags` when it has them. Its `external` messages are among its `message`s, or it does not compile.
 - **Its state is always an object**, `{ count }` rather than `count`, so that any program can become a child as
   it is (see [composition](#composition)). A program whose state is a number or a string does not compile.
 - **The view is not part of it.** `run` hands your renderer a stream of **frames** (`{ model, dispatch, seen }`) to
@@ -529,8 +529,8 @@ What the library derives from it:
 
 - **The parent's messages:** its own plus `{ _tag: <child>, message }` for each child, and
   `{ _tag: <input>, message: write(was, value) }` for each input. `MessageOf<typeof app>` names them. An own
-  message that takes a child's or an input's name does not compile, nor does an own subscription that writes into an
-  input. A command's answer is an own message, or an external message of a child's: one that writes into an input,
+  message that takes a child's or an input's name does not compile, nor does an input that takes a child's, nor an
+  own subscription that writes into an input. A command's answer is an own message, or an external message of a child's: one that writes into an input,
   the parent's or a child's, does not compile, nor does one that gives a child its own business.
 - **Its inputs' rule:** a write is stored while the input's place holds, by `Equal`, the value it was written over,
   and rejected otherwise; every other step leaves an input as it wrote it.

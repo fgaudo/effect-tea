@@ -142,6 +142,24 @@ compose({
   makeModel: () => null,
 })
 
+// Nor does an input that takes a child's name.
+// @ts-expect-error
+compose({
+  init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
+  children,
+  inputs: { Main: composition<{ state: State }>().input(Optic.id<State>().key('fulls')) },
+  onEvent: { Main: () => (state) => ({ state }), Row: () => (state) => ({ state }) },
+  makeModel: () => null,
+})
+
+// A program's external messages are among its messages.
+// @ts-expect-error
+const deaf: Program<{ state: CounterState; model: null; message: Full; external: Reset }> = {
+  init: { state: { count: 0 } },
+  update: () => (state) => ({ state }),
+  makeModel: () => null,
+}
+
 // A child with commands has a `runCommand`, even when written without `Program<…>`.
 child(
   // @ts-expect-error
@@ -218,6 +236,7 @@ const { write: edit, sent } = typed(shown, 'Ada L')
 const element = sent(1)
 assert(edit.was === 'Ada' && element.value === 'Ada L', 'typed writes over what the element showed')
 assert(drawn(element, 'Ada', 0) === element && byHand !== undefined, 'a frame that has not seen the write keeps it')
+assert(isRejected(deaf.update({ _tag: 'Full' })(deaf.init.state)) === false, 'a program typed past its types runs')
 assert(drawn(element, '', 1).value === '', 'a frame that has seen it and moved on gives its value')
 
 const main = Effect.gen(function*() {
