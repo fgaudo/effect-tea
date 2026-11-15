@@ -289,11 +289,16 @@ describe('rehearse', () => {
       const log: Array<string> = []
       const pings = await Effect.runPromise(Effect.gen(function*() {
         const gate = yield* Deferred.make<void>()
+        const waits = yield* Deferred.make<void>()
         return yield* withStorage(rehearse(
-          twice(log, Deferred.await(gate)),
+          twice(log, Effect.andThen(Deferred.succeed(waits, undefined), Deferred.await(gate))),
           Effect.fnUntraced(function*(rehearsal) {
             yield* rehearsal.hearNext('ping')
-            expect(Opt.isNone(yield* Effect.timeoutOption(rehearsal.hearNext('ping'), '20 millis'))).toBe(true)
+            // The subscription goes on to its second message only once a call asks for it.
+            const call = yield* Effect.forkChild(rehearsal.hearNext('ping'))
+            yield* Deferred.await(waits)
+            yield* Fiber.interrupt(call)
+            expect(Exit.hasInterrupts(yield* Fiber.await(call))).toBe(true)
             yield* Deferred.succeed(gate, undefined)
             yield* rehearsal.hearNext('ping')
             return (yield* rehearsal.state).pings
@@ -320,11 +325,21 @@ describe('rehearse', () => {
 
     test('a subscription it started is released when whoever runs the rehearsal interrupts it', async () => {
       const log: Array<string> = []
-      const ended = await Effect.runPromise(withStorage(rehearse(
-        pinging(log),
-        (rehearsal) => Effect.andThen(rehearsal.hearNext('ping'), Effect.never),
-      )).pipe(Effect.timeoutOption('20 millis')))
-      expect(Opt.isNone(ended)).toBe(true)
+      const ended = await Effect.runPromise(Effect.gen(function*() {
+        const heard = yield* Deferred.make<void>()
+        const fiber = yield* Effect.forkChild(withStorage(rehearse(
+          pinging(log),
+          (rehearsal) =>
+            rehearsal.hearNext('ping').pipe(
+              Effect.andThen(Deferred.succeed(heard, undefined)),
+              Effect.andThen(Effect.never),
+            ),
+        )))
+        yield* Deferred.await(heard)
+        yield* Fiber.interrupt(fiber)
+        return yield* Fiber.await(fiber)
+      }))
+      expect(Exit.hasInterrupts(ended)).toBe(true)
       expect(log).toEqual(['acquire', 'release'])
     })
 
@@ -351,8 +366,8 @@ describe('rehearse', () => {
           makeModel: (state) => state,
         }
         return yield* rehearse(listening, Effect.fnUntraced(function*(rehearsal) {
-          const waiting = yield* Effect.forkChild(rehearsal.hearNext('k'))
-          yield* Effect.sleep('10 millis')
+          // Started on this stack, the call is offered to the loop before `Stop` is.
+          const waiting = yield* Effect.forkChild(rehearsal.hearNext('k'), { startImmediately: true })
           yield* Deferred.succeed(gate, undefined)
           yield* rehearsal.send(() => Opt.some('Stop'))
           yield* Fiber.await(waiting)
@@ -370,8 +385,8 @@ describe('rehearse', () => {
         makeModel: ({ listening }) => listening,
       }
       const exit = await Effect.runPromise(rehearse(silent, Effect.fnUntraced(function*(rehearsal) {
-        const waiting = yield* Effect.forkChild(rehearsal.hearNext('k'))
-        yield* Effect.sleep('10 millis')
+        // Started on this stack, the call is offered to the loop before `Stop` is.
+        const waiting = yield* Effect.forkChild(rehearsal.hearNext('k'), { startImmediately: true })
         yield* rehearsal.send(() => Opt.some('Stop'))
         return yield* Fiber.await(waiting)
       })))
@@ -385,7 +400,8 @@ describe('rehearse', () => {
     type Counting = Readonly<{ listening: boolean; count: number }>
     type Counted = 'Stop' | 'Count'
     const counting = (
-      answer: Effect.Effect<void>,
+      answer: Effect.Effect<unknown>,
+      release: Effect.Effect<unknown>,
     ): Program<{ state: Counting; model: Counting; message: Counted; command: 'Count' }> => ({
       init: { state: { listening: true, count: 0 }, commands: ['Count'] },
       update: (message) => (state) =>
@@ -399,35 +415,53 @@ describe('rehearse', () => {
             'k',
             Channel.succeed<Counted>('Stop').pipe(
               Channel.concatWith(() => Channel.never),
-              Channel.ensuring(Effect.sleep('50 millis')),
+              Channel.ensuring(release),
             ),
           ])
           : HashMap.empty(),
       makeModel: (state) => state,
     })
 
+    // The command answers once the release of `k` has begun, and the release waits for the answer.
     test('two messages that arrive together, one stopping a subscription, are both applied', async () => {
-      const state = await Effect.runPromise(rehearse(
-        counting(Effect.sleep('10 millis')),
-        Effect.fnUntraced(function*(rehearsal) {
-          yield* Effect.all([rehearsal.hearNext('k'), rehearsal.run(() => true)], { concurrency: 'unbounded' })
-          return yield* rehearsal.state
-        }),
-      ))
+      const state = await Effect.runPromise(Effect.gen(function*() {
+        const releasing = yield* Deferred.make<void>()
+        const answered = yield* Deferred.make<void>()
+        return yield* rehearse(
+          counting(
+            Effect.andThen(Deferred.await(releasing), Deferred.succeed(answered, undefined)),
+            Effect.andThen(Deferred.succeed(releasing, undefined), Deferred.await(answered)),
+          ),
+          Effect.fnUntraced(function*(rehearsal) {
+            // Started on this stack, the run starts the command before `hearNext` starts the subscription.
+            const running = yield* Effect.forkChild(rehearsal.run(() => true), { startImmediately: true })
+            yield* rehearsal.hearNext('k')
+            yield* Fiber.join(running)
+            return yield* rehearsal.state
+          }),
+        )
+      }))
       expect(state).toEqual({ listening: false, count: 1 })
     })
 
     test('a command run while a message waits for a release leaves pending once', async () => {
-      const { state, pending } = await Effect.runPromise(rehearse(
-        counting(Effect.void),
-        Effect.fnUntraced(function*(rehearsal) {
-          yield* Effect.all([
-            rehearsal.hearNext('k'),
-            Effect.andThen(Effect.sleep('10 millis'), rehearsal.run(() => true)),
-          ], { concurrency: 'unbounded' })
-          return { state: yield* rehearsal.state, pending: yield* rehearsal.pending }
-        }),
-      ))
+      const { state, pending } = await Effect.runPromise(Effect.gen(function*() {
+        const releasing = yield* Deferred.make<void>()
+        const gate = yield* Deferred.make<void>()
+        return yield* rehearse(
+          counting(Effect.void, Effect.andThen(Deferred.succeed(releasing, undefined), Deferred.await(gate))),
+          Effect.fnUntraced(function*(rehearsal) {
+            const hearing = yield* Effect.forkChild(rehearsal.hearNext('k'))
+            yield* Deferred.await(releasing)
+            // Started on this stack, the run is offered to the loop while the release holds it.
+            const running = yield* Effect.forkChild(rehearsal.run(() => true), { startImmediately: true })
+            yield* Deferred.succeed(gate, undefined)
+            yield* Fiber.join(hearing)
+            yield* Fiber.join(running)
+            return { state: yield* rehearsal.state, pending: yield* rehearsal.pending }
+          }),
+        )
+      }))
       expect({ state, pending }).toEqual({ state: { listening: false, count: 1 }, pending: [] })
     })
 
@@ -555,25 +589,29 @@ describe('rehearse', () => {
 
     // Commands cannot be cancelled: in the run, a command once started still answers.
     test('when a run interrupted while its command runs leaves the command unanswered', async () => {
+      const started = Deferred.makeUnsafe<void>()
       const failure = await failureOf(rehearse(
-        { ...program, runCommand: () => Effect.never },
+        { ...program, runCommand: () => Effect.andThen(Deferred.succeed(started, undefined), Effect.never) },
         Effect.fnUntraced(function*(rehearsal) {
           yield* rehearsal.send(typing('milk'))
           yield* rehearsal.send(saving)
-          yield* Effect.timeoutOption(rehearsal.run(isStore), '20 millis')
+          const running = yield* Effect.forkChild(rehearsal.run(isStore))
+          yield* Deferred.await(started)
+          yield* Fiber.interrupt(running)
         }),
       ))
       expect(String(failure)).toContain('Commands whose run was interrupted before they answered: Store')
     })
 
     test('when a command is still under way at the end, since its answer would still arrive', async () => {
+      const started = Deferred.makeUnsafe<void>()
       const failure = await failureOf(rehearse(
-        { ...program, runCommand: () => Effect.never },
+        { ...program, runCommand: () => Effect.andThen(Deferred.succeed(started, undefined), Effect.never) },
         Effect.fnUntraced(function*(rehearsal) {
           yield* rehearsal.send(typing('milk'))
           yield* rehearsal.send(saving)
           yield* Effect.forkChild(rehearsal.run(isStore))
-          yield* Effect.sleep('10 millis')
+          yield* Deferred.await(started)
         }),
       ))
       expect(String(failure)).toContain('Commands still under way when the scenario ended: Store')
@@ -593,7 +631,7 @@ describe('rehearse', () => {
         return begun === 2
           ? Effect.asVoid(Deferred.succeed(releasing, undefined))
           : Deferred.await(releasing).pipe(
-            Effect.timeoutOption('500 millis'),
+            Effect.timeoutOption('1 second'),
             Effect.map((met) => {
               waited.push(Opt.isSome(met) ? 'together' : 'alone')
             }),
@@ -678,8 +716,11 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
         yield* rehearsal.hearNext('k')
         const dropping = yield* Effect.forkChild(rehearsal.send(() => Opt.some({ _tag: 'Drop' })))
         yield* Deferred.await(releasing)
-        const setting = yield* Effect.forkChild(rehearsal.send(({ count }) => Opt.some({ _tag: 'Set', to: count + 1 })))
-        yield* Effect.sleep('10 millis')
+        // Started on this stack, the send is offered to the loop while the release holds it.
+        const setting = yield* Effect.forkChild(
+          rehearsal.send(({ count }) => Opt.some({ _tag: 'Set', to: count + 1 })),
+          { startImmediately: true },
+        )
         yield* Deferred.succeed(gate, undefined)
         yield* Fiber.join(dropping)
         yield* Fiber.join(setting)
@@ -699,10 +740,12 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
         yield* rehearsal.hearNext('k')
         const dropping = yield* Effect.forkChild(rehearsal.send(() => Opt.some({ _tag: 'Drop' })))
         yield* Deferred.await(releasing)
-        const interrupting = yield* Effect.forkChild(Fiber.interrupt(dropping))
-        yield* Effect.sleep('10 millis')
+        // Started on this stack, the interruption has reached the call once the fork returns.
+        const interrupting = yield* Effect.forkChild(Fiber.interrupt(dropping), { startImmediately: true })
         yield* Deferred.succeed(gate, undefined)
         yield* Fiber.join(interrupting)
+        // The call left at once: `Tick`, which leaves the state as it is, follows the step in the loop.
+        yield* rehearsal.send(() => Opt.some({ _tag: 'Tick' }))
         return (yield* rehearsal.state).listening
       }))
     }))
@@ -731,7 +774,7 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
     const heard = await Effect.runPromise(rehearse(pingingTwice, Effect.fnUntraced(function*(rehearsal) {
       const both = yield* Effect.timeoutOption(
         Effect.all([rehearsal.hearNext('k'), rehearsal.hearNext('k')], { concurrency: 'unbounded' }),
-        '200 millis',
+        '1 second',
       )
       return { both: Opt.isSome(both), pings: (yield* rehearsal.state).pings }
     })))
@@ -783,7 +826,6 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
         rehearse(dying(started), (rehearsal) => Effect.andThen(rehearsal.hearNext('ticks'), Effect.never)),
       )
       yield* Deferred.await(started)
-      yield* Effect.sleep('10 millis')
       yield* Fiber.interrupt(fiber)
       return yield* Fiber.await(fiber)
     }))
@@ -799,8 +841,8 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
       return yield* rehearse(dying(started), Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.hearNext('ticks')
         yield* rehearsal.send(() => Opt.some('Go'))
-        yield* Effect.forkChild(rehearsal.run(() => true))
-        yield* Effect.sleep('20 millis')
+        // Awaited, never joined: what the call ends with does not reach the scenario.
+        yield* Fiber.await(yield* Effect.forkChild(rehearsal.run(() => true)))
       }))
     }))
     expect(diesOfRelease(exit)).toBe(true)
@@ -845,7 +887,8 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
           yield* Deferred.await(started)
           yield* Fiber.interrupt(hearing)
           yield* Deferred.succeed(gate, undefined)
-          yield* Effect.sleep('30 millis')
+          // A call under `k` waits until the subscription has died.
+          yield* Effect.exit(rehearsal.hearNext('k'))
           after = Opt.some({
             sent: yield* Effect.exit(rehearsal.send(() => Opt.some('Tick'))),
             heard: yield* Effect.exit(rehearsal.hear('nobody', 'Tick')),
@@ -878,16 +921,20 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
   // An interruption by the scenario is no defect, but what the interrupted command releases may die: that defect is
   // the rehearsal's, and the rehearsal that died of it checks nothing more.
   test('a defect of what a command the scenario interrupts releases fails it, alone', async () => {
+    const acquired = Deferred.makeUnsafe<void>()
     const exit = await Effect.runPromiseExit(rehearse(
       {
         ...dying(Deferred.makeUnsafe()),
         runCommand: () =>
-          Effect.acquireRelease(Effect.void, () => Effect.die('release')).pipe(Effect.andThen(Effect.never)),
+          Effect.acquireRelease(Effect.void, () => Effect.die('release')).pipe(
+            Effect.andThen(Deferred.succeed(acquired, undefined)),
+            Effect.andThen(Effect.never),
+          ),
       },
       Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.send(() => Opt.some('Go'))
         const running = yield* Effect.forkChild(rehearsal.run(() => true))
-        yield* Effect.sleep('10 millis')
+        yield* Deferred.await(acquired)
         yield* Fiber.interrupt(running)
       }),
     ))
@@ -902,13 +949,15 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
   test('a defect of a release still under way when the scenario returns fails it', async () => {
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const releasing = yield* Deferred.make<void>()
+      const returned = yield* Deferred.make<void>()
+      // The release goes on until the scenario has returned.
       return yield* rehearse(
-        gated(releasing, Effect.andThen(Effect.sleep('20 millis'), Effect.die('release'))),
+        gated(releasing, Effect.andThen(Deferred.await(returned), Effect.die('release'))),
         Effect.fnUntraced(function*(rehearsal) {
           yield* rehearsal.hearNext('k')
           yield* Effect.forkChild(rehearsal.send(() => Opt.some({ _tag: 'Drop' })))
           yield* Deferred.await(releasing)
-        }),
+        }, Effect.ensuring(Deferred.succeed(returned, undefined))),
       )
     }))
     expect(diesOfRelease(exit)).toBe(true)
@@ -920,15 +969,17 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
     let released = false
     await Effect.runPromise(Effect.gen(function*() {
       const releasing = yield* Deferred.make<void>()
+      const returned = yield* Deferred.make<void>()
+      // The release goes on until the scenario has returned.
       return yield* rehearse(
-        gated(releasing, Effect.andThen(Effect.sleep('20 millis'), Effect.sync(() => {
+        gated(releasing, Effect.andThen(Deferred.await(returned), Effect.sync(() => {
           released = true
         }))),
         Effect.fnUntraced(function*(rehearsal) {
           yield* rehearsal.hearNext('k')
           yield* Effect.forkChild(rehearsal.send(() => Opt.some({ _tag: 'Drop' })))
           yield* Deferred.await(releasing)
-        }),
+        }, Effect.ensuring(Deferred.succeed(returned, undefined))),
       )
     }))
     expect(released).toBe(true)
@@ -945,10 +996,12 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
         yield* rehearsal.send(() => Opt.some({ _tag: 'Go' }))
         const running = yield* Effect.forkChild(rehearsal.run(() => true))
         yield* Deferred.await(releasing)
-        const interrupting = yield* Effect.forkChild(Fiber.interrupt(running))
-        yield* Effect.sleep('10 millis')
+        // Started on this stack, the interruption has reached the call once the fork returns.
+        const interrupting = yield* Effect.forkChild(Fiber.interrupt(running), { startImmediately: true })
         yield* Deferred.succeed(gate, undefined)
         yield* Fiber.join(interrupting)
+        // The call left at once: `Tick`, which leaves the state as it is, follows the step in the loop.
+        yield* rehearsal.send(() => Opt.some({ _tag: 'Tick' }))
         return (yield* rehearsal.state).listening
       }))
     }))
@@ -964,10 +1017,12 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
         Effect.fnUntraced(function*(rehearsal) {
           const hearing = yield* Effect.forkChild(rehearsal.hearNext('k'))
           yield* Deferred.await(releasing)
-          const interrupting = yield* Effect.forkChild(Fiber.interrupt(hearing))
-          yield* Effect.sleep('10 millis')
+          // Started on this stack, the interruption has reached the call once the fork returns.
+          const interrupting = yield* Effect.forkChild(Fiber.interrupt(hearing), { startImmediately: true })
           yield* Deferred.succeed(gate, undefined)
           yield* Fiber.join(interrupting)
+          // The call left at once: `Tick`, which leaves the state as it is, follows the step in the loop.
+          yield* rehearsal.send(() => Opt.some({ _tag: 'Tick' }))
           return (yield* rehearsal.state).listening
         }),
       )
@@ -977,26 +1032,29 @@ describe('rehearse, under fibers of the test\'s and of whoever runs it', () => {
 })
 
 describe('rehearse, while a fiber of the test\'s waits for what nothing will send', () => {
-  // `Go` starts `Dies`, a command that dies after a while, and `Waits`, one that never answers; every other message
-  // counts. Listens under `k` to `subscription`.
+  // `Go` starts `Dies`, a command that dies once `waited` is done, and `Waits`, one that does it as it starts and never
+  // answers; every other message counts. Listens under `k` to `subscription`.
   type Counter = Readonly<{ count: number }>
   type Waited = 'Tick' | 'Go' | 'Last'
   const waiting = (
     subscription: Channel.Channel<Waited, never, Waited>,
+    waited: Deferred.Deferred<void> = Deferred.makeUnsafe(),
   ): Program<{ state: Counter; model: Counter; message: Waited; command: 'Dies' | 'Waits' }> => ({
     init: { state: { count: 0 } },
     update: (message) => ({ count }) =>
       message === 'Go' ? { state: { count }, commands: ['Dies', 'Waits'] } : { state: { count: count + 1 } },
     runCommand: (command) =>
-      command === 'Dies' ? Effect.andThen(Effect.sleep('10 millis'), Effect.die('boom')) : Effect.never,
+      command === 'Dies'
+        ? Effect.andThen(Deferred.await(waited), Effect.die('boom'))
+        : Effect.andThen(Deferred.succeed(waited, undefined), Effect.never),
     subscriptions: () => HashMap.make(['k', subscription]),
     makeModel: (state) => state,
   })
 
-  // What the rehearsal ended with, or `hung` when it had not ended after 300 milliseconds.
+  // What the rehearsal ended with, or `hung` when it had not ended after a second.
   const outcomeOf = <A, E>(rehearsal: Effect.Effect<A, E>) =>
     Effect.runPromise(
-      Effect.map(Effect.timeoutOption(Effect.exit(rehearsal), '300 millis'), Opt.getOrElse(() => 'hung' as const)),
+      Effect.map(Effect.timeoutOption(Effect.exit(rehearsal), '1 second'), Opt.getOrElse(() => 'hung' as const)),
     )
 
   const whereDied = (outcome: Exit.Exit<unknown, unknown> | 'hung') =>
@@ -1011,7 +1069,10 @@ describe('rehearse, while a fiber of the test\'s waits for what nothing will sen
   // The run dies as soon as one of its fibers dies, and interrupts what still waits: a call of the test's that waits
   // for a message nothing will send ends with the defect, or the rehearsal never ends where the run has died.
   test('a hearNext waiting on its subscription fails as soon as another fiber of the test\'s dies', async () => {
-    const outcome = await outcomeOf(rehearse(waiting(Channel.never), Effect.fnUntraced(function*(rehearsal) {
+    // `Dies` dies once the call has started the subscription, and waits on it.
+    const waited = Deferred.makeUnsafe<void>()
+    const listening = Channel.unwrap(Effect.as(Deferred.succeed(waited, undefined), Channel.never))
+    const outcome = await outcomeOf(rehearse(waiting(listening, waited), Effect.fnUntraced(function*(rehearsal) {
       yield* rehearsal.send(() => Opt.some('Go'))
       yield* Effect.forkChild(rehearsal.run((command) => command === 'Dies'))
       yield* rehearsal.hearNext('k')
@@ -1053,7 +1114,7 @@ describe('rehearse, while a fiber of the test\'s waits for what nothing will sen
         yield* Deferred.await(started)
         return call
       }))
-      return yield* Effect.timeoutOption(Fiber.await(call), '300 millis')
+      return yield* Effect.timeoutOption(Fiber.await(call), '1 second')
     }))
     expect(Opt.isSome(outcome) && Exit.isFailure(outcome.value) && String(Cause.squash(outcome.value.cause))).toContain(
       'The subscription under k was stopped while hearNext waited for its message',
@@ -1099,8 +1160,8 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const released = yield* Deferred.make<void>()
       return yield* rehearse(ordered(released), Effect.fnUntraced(function*(rehearsal) {
-        yield* Effect.forkChild(rehearsal.run((command) => command === 'Second'))
-        yield* Effect.sleep('10 millis')
+        // Started on this stack, the run has started its command once the fork returns.
+        yield* Effect.forkChild(rehearsal.run((command) => command === 'Second'), { startImmediately: true })
         yield* rehearsal.run((command) => command === 'First')
       }))
     }))
@@ -1111,8 +1172,8 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const released = yield* Deferred.make<void>()
       return yield* rehearse(ordered(released), Effect.fnUntraced(function*(rehearsal) {
-        yield* Effect.forkChild(rehearsal.hearNext('second'))
-        yield* Effect.sleep('10 millis')
+        // Started on this stack, the call is offered to the loop before the next one is.
+        yield* Effect.forkChild(rehearsal.hearNext('second'), { startImmediately: true })
         yield* rehearsal.hearNext('first')
       }), { from: { state: { still: true } } })
     }))
@@ -1153,8 +1214,8 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
         makeModel: (state) => state,
       }
       return yield* rehearse(program, Effect.fnUntraced(function*(rehearsal) {
-        yield* Effect.forkChild(rehearsal.hearNext('second'))
-        yield* Effect.sleep('10 millis')
+        // Started on this stack, the call is offered to the loop before the next one is.
+        yield* Effect.forkChild(rehearsal.hearNext('second'), { startImmediately: true })
         yield* rehearsal.hearNext('first')
       }))
     }))
@@ -1187,6 +1248,7 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
     let caught: unknown
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const handed = yield* Deferred.make<void>()
+      const holding = yield* Deferred.make<void>()
       const program: Program<{
         state: Still
         model: Still
@@ -1200,13 +1262,13 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
           command === 'Held'
             ? Effect.addFinalizer(() =>
               Deferred.await(handed).pipe(Effect.andThen(Effect.suspend(() => Effect.die(caught))))
-            ).pipe(Effect.andThen(Effect.never))
+            ).pipe(Effect.andThen(Deferred.succeed(holding, undefined)), Effect.andThen(Effect.never))
             : Effect.die('first'),
         makeModel: (state) => state,
       }
       return yield* rehearse(program, Effect.fnUntraced(function*(rehearsal) {
         yield* Effect.forkChild(rehearsal.run((command) => command === 'Held'))
-        yield* Effect.sleep('10 millis')
+        yield* Deferred.await(holding)
         const failed = yield* Effect.exit(rehearsal.run((command) => command === 'Dies'))
         caught = Exit.isFailure(failed)
           ? failed.cause.reasons.find(Cause.isDieReason)?.defect
@@ -1519,6 +1581,7 @@ describe('rehearse, as a call leaves while the loop is in a release', () => {
     let started = 0
     const state = await Effect.runPromise(Effect.gen(function*() {
       const gate = yield* Deferred.make<void>()
+      const releasing = yield* Deferred.make<void>()
       const program: Program<{ state: Listening; model: Listening; message: Message }> = {
         init: { state: { listening: true, count: 0 } },
         update: (message) => (state) =>
@@ -1535,7 +1598,7 @@ describe('rehearse, as a call leaves while the loop is in a release', () => {
             ...(listening
               ? [['a', Channel.succeed<Message>('Tick').pipe(
                 Channel.concatWith(() => Channel.never),
-                Channel.ensuring(Deferred.await(gate)),
+                Channel.ensuring(Effect.andThen(Deferred.succeed(releasing, undefined), Deferred.await(gate))),
               )] as const]
               : []),
           ),
@@ -1544,9 +1607,9 @@ describe('rehearse, as a call leaves while the loop is in a release', () => {
       return yield* rehearse(program, Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.hearNext('a')
         const stopping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>('Stop')))
-        yield* Effect.sleep('10 millis')
-        const hearing = yield* Effect.forkChild(rehearsal.hearNext('k'))
-        yield* Effect.sleep('10 millis')
+        yield* Deferred.await(releasing)
+        // Started on this stack, the call waits in the loop's queue once the fork returns.
+        const hearing = yield* Effect.forkChild(rehearsal.hearNext('k'), { startImmediately: true })
         yield* Fiber.interrupt(hearing)
         yield* Deferred.succeed(gate, undefined)
         yield* Fiber.join(stopping)
@@ -1562,6 +1625,7 @@ describe('rehearse, as a call leaves while the loop is in a release', () => {
   test('a command run while a release waits for what the command gives ends', async () => {
     const state = await Effect.runPromise(Effect.gen(function*() {
       const gate = yield* Deferred.make<void>()
+      const releasing = yield* Deferred.make<void>()
       const program: Program<{ state: Listening; model: Listening; message: Message; command: 'Open' }> = {
         init: { state: { listening: true, count: 0 }, commands: ['Open'] },
         update: (message) => (state) =>
@@ -1573,7 +1637,7 @@ describe('rehearse, as a call leaves while the loop is in a release', () => {
           listening
             ? HashMap.make(['a', Channel.succeed<Message>('Tick').pipe(
               Channel.concatWith(() => Channel.never),
-              Channel.ensuring(Deferred.await(gate)),
+              Channel.ensuring(Effect.andThen(Deferred.succeed(releasing, undefined), Deferred.await(gate))),
             )])
             : HashMap.empty(),
         makeModel: (state) => state,
@@ -1581,7 +1645,7 @@ describe('rehearse, as a call leaves while the loop is in a release', () => {
       return yield* rehearse(program, Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.hearNext('a')
         const stopping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>('Stop')))
-        yield* Effect.sleep('10 millis')
+        yield* Deferred.await(releasing)
         yield* rehearsal.run(() => true)
         yield* Fiber.join(stopping)
         return yield* rehearsal.state
@@ -1655,11 +1719,13 @@ describe('rehearse and a scenario that throws before it returns its effect', () 
         ]),
       makeModel: (state) => state,
     }
+    let call: Fiber.Fiber<'Tick'> | undefined
     const exit = await Effect.runPromiseExit(rehearse(program, (rehearsal) => {
-      Effect.runFork(rehearsal.hearNext('k'))
+      call = Effect.runFork(rehearsal.hearNext('k'))
       throw new Error('boom')
     }))
-    await new Promise((resolve) => setTimeout(resolve, 30))
+    // Bounded, so that a call left waiting still lets the test end.
+    if (call !== undefined) await Effect.runPromise(Effect.timeoutOption(Fiber.await(call), '1 second'))
     expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain('boom')
     expect(log.filter((each) => each === 'acquire').length).toBe(log.filter((each) => each === 'release').length)
   })
@@ -1673,7 +1739,7 @@ describe('rehearse, as the scenario ends while its loop waits for a release', ()
   type Message = 'Stop' | 'Tick' | 'Late'
 
   type Holding = Program<{ state: Listening; model: Listening; message: Message }>
-  const holding = (gate: Deferred.Deferred<void>): Holding => ({
+  const holding = (gate: Deferred.Deferred<void>, releasing: Deferred.Deferred<void>): Holding => ({
     init: { state: { listening: true, late: 0 } },
     update: (message) => (state) =>
       message === 'Stop' ? { state: { ...state, listening: false } }
@@ -1683,7 +1749,7 @@ describe('rehearse, as the scenario ends while its loop waits for a release', ()
       listening
         ? HashMap.make(['a', Channel.succeed<Message>('Tick').pipe(
           Channel.concatWith(() => Channel.never),
-          Channel.ensuring(Deferred.await(gate)),
+          Channel.ensuring(Effect.andThen(Deferred.succeed(releasing, undefined), Deferred.await(gate))),
         )])
         : HashMap.empty(),
     makeModel: (state) => state,
@@ -1701,11 +1767,12 @@ describe('rehearse, as the scenario ends while its loop waits for a release', ()
     let late: Exit.Exit<unknown> | undefined
     const state = await Effect.runPromise(Effect.gen(function*() {
       const gate = yield* Deferred.make<void>()
-      const program = holding(gate)
+      const releasing = yield* Deferred.make<void>()
+      const program = holding(gate, releasing)
       return yield* rehearse(program, Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.hearNext('a')
         yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>('Stop')))
-        yield* Effect.sleep('10 millis')
+        yield* Deferred.await(releasing)
         yield* Effect.forkChild(Effect.gen(function*() {
           yield* untilEnded(rehearsal)
           late = yield* Effect.exit(rehearsal.send(() => Opt.some<Message>('Late')))
@@ -1722,10 +1789,11 @@ describe('rehearse, as the scenario ends while its loop waits for a release', ()
     let stopped: Exit.Exit<unknown> | undefined
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const gate = yield* Deferred.make<void>()
-      return yield* rehearse(holding(gate), Effect.fnUntraced(function*(rehearsal) {
+      const releasing = yield* Deferred.make<void>()
+      return yield* rehearse(holding(gate, releasing), Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.hearNext('a')
         const stopping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>('Stop')))
-        yield* Effect.sleep('10 millis')
+        yield* Deferred.await(releasing)
         yield* Effect.forkChild(Effect.gen(function*() {
           stopped = yield* Fiber.await(stopping)
           yield* Deferred.succeed(gate, undefined)
@@ -1745,15 +1813,19 @@ describe('rehearse, as a run is interrupted while its command runs', () => {
   // not at the end of the rehearsal.
   test('the command is released before the interrupted call returns', async () => {
     const log: Array<'released' | 'returned'> = []
+    const started = Deferred.makeUnsafe<void>()
     const program: Program<{ state: Count; model: Count; message: 'Go'; command: 'Wait' }> = {
       init: { state: { count: 0 }, commands: ['Wait'] },
       update: () => (state) => ({ state }),
-      runCommand: () => Effect.never.pipe(Effect.ensuring(Effect.sync(() => log.push('released')))),
+      runCommand: () =>
+        Effect.andThen(Deferred.succeed(started, undefined), Effect.never).pipe(
+          Effect.ensuring(Effect.sync(() => log.push('released'))),
+        ),
       makeModel: (state) => state,
     }
     await Effect.runPromiseExit(rehearse(program, Effect.fnUntraced(function*(rehearsal) {
       const running = yield* Effect.forkChild(rehearsal.run(() => true))
-      yield* Effect.sleep('10 millis')
+      yield* Deferred.await(started)
       yield* Fiber.interrupt(running)
       log.push('returned')
     })))
@@ -1810,8 +1882,8 @@ describe('rehearse, as a scenario that failed stops its loop in the release of a
         const fiber = yield* Effect.forkDetach(Effect.never)
         yield* Fiber.interrupt(fiber)
         yield* Deferred.succeed(stale, fiber)
-        yield* Effect.forkChild(rehearsal.hearNext('a'))
-        yield* Effect.sleep('10 millis')
+        // Started on this stack, the call is offered to the loop before `Stop` is.
+        yield* Effect.forkChild(rehearsal.hearNext('a'), { startImmediately: true })
         yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>('Stop')))
         yield* Deferred.await(stopped)
         return yield* Effect.fail('boom')
@@ -1842,13 +1914,13 @@ describe('rehearse, as a scenario that failed stops its loop in the release of a
       const stopped = yield* Deferred.make<void>()
       let call: Fiber.Fiber<Message> | undefined
       yield* Effect.exit(rehearse(lingering(stopped), Effect.fnUntraced(function*(rehearsal) {
-        call = yield* Effect.forkDetach(rehearsal.hearNext('a'))
-        yield* Effect.sleep('10 millis')
+        // Started on this stack, the call is offered to the loop before `Stop` is.
+        call = yield* Effect.forkDetach(rehearsal.hearNext('a'), { startImmediately: true })
         yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>('Stop')))
         yield* Deferred.await(stopped)
         return yield* Effect.fail('boom')
       })))
-      const ended = call === undefined ? Opt.none() : yield* Effect.timeoutOption(Fiber.await(call), '300 millis')
+      const ended = call === undefined ? Opt.none() : yield* Effect.timeoutOption(Fiber.await(call), '1 second')
       return Opt.match(ended, {
         onNone: () => 'hung',
         onSome: (exit) => Exit.isFailure(exit) ? String(Cause.squash(exit.cause)) : 'heard',
@@ -1877,13 +1949,13 @@ describe('rehearse, as a scenario that failed stops its loop in the release of a
       const stopped = yield* Deferred.make<void>()
       let call: Fiber.Fiber<Message> | undefined
       yield* Effect.exit(rehearse(stoppingBoth(stopped), Effect.fnUntraced(function*(rehearsal) {
-        yield* Effect.forkChild(rehearsal.hearNext('b'))
-        yield* Effect.sleep('10 millis')
+        // Started on this stack, the call is offered to the loop before the next one is.
+        yield* Effect.forkChild(rehearsal.hearNext('b'), { startImmediately: true })
         call = yield* Effect.forkDetach(rehearsal.hearNext('a'))
         yield* Deferred.await(stopped)
         return yield* Effect.fail('boom')
       })))
-      const ended = call === undefined ? Opt.none() : yield* Effect.timeoutOption(Fiber.await(call), '300 millis')
+      const ended = call === undefined ? Opt.none() : yield* Effect.timeoutOption(Fiber.await(call), '1 second')
       return Opt.match(ended, {
         onNone: () => 'hung',
         onSome: (exit) => Exit.isFailure(exit) ? String(Cause.squash(exit.cause)) : 'heard',

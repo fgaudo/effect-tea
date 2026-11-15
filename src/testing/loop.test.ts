@@ -72,9 +72,11 @@ describe('the loop of rehearse', () => {
         yield* loop.submit(Deferred.await(gate), counted)
         const before = offered
         loop.end()
-        const refused = yield* Effect.timeoutOption(Effect.exit(loop.submit(step, counted)), '100 millis')
-        const waiting = yield* Effect.forkChild(loop.submit(step, { ...counted, quiet: true }))
-        yield* Effect.sleep('10 millis')
+        const refused = yield* Effect.timeoutOption(Effect.exit(loop.submit(step, counted)), '1 second')
+        // Started on this stack, the call has been refused, or is waiting, once the fork returns.
+        const waiting = yield* Effect.forkChild(loop.submit(step, { ...counted, quiet: true }), {
+          startImmediately: true,
+        })
         const quiet = waiting.pollUnsafe()
         yield* Fiber.interrupt(waiting)
         yield* Deferred.succeed(gate, undefined)
@@ -94,8 +96,8 @@ describe('the loop of rehearse', () => {
       Effect.gen(function*() {
         const gate = yield* Deferred.make<void>()
         const first = yield* loop.submit(Deferred.await(gate))
-        const finishing = yield* Effect.forkChild(loop.finish)
-        yield* Effect.sleep('10 millis')
+        // Started on this stack, it has finished, or waits for the loop, once the fork returns.
+        const finishing = yield* Effect.forkChild(loop.finish, { startImmediately: true })
         const early = finishing.pollUnsafe()
         yield* Deferred.succeed(gate, undefined)
         yield* Fiber.join(finishing)
@@ -141,5 +143,28 @@ describe('the loop of rehearse', () => {
       })
     ))
     expect(atStop).toBe(true)
+  })
+})
+
+// What the tests of the testing tools rest on to know that a call they forked is waiting, or has ended, before they go
+// on: no clock, and no turn of the scheduler (`docs/premises.md`).
+describe('a fiber forked to start immediately', () => {
+  test('runs on the stack of the fiber that forks it until it first waits', async () => {
+    const steps = await Effect.runPromise(Effect.gen(function*() {
+      const steps: Array<string> = []
+      const gate = yield* Deferred.make<void>()
+      const fiber = yield* Effect.forkChild(
+        Effect.sync(() => steps.push('before the wait')).pipe(
+          Effect.andThen(Deferred.await(gate)),
+          Effect.andThen(Effect.sync(() => steps.push('after the wait'))),
+        ),
+        { startImmediately: true },
+      )
+      steps.push('forked')
+      yield* Deferred.succeed(gate, undefined)
+      yield* Fiber.join(fiber)
+      return steps
+    }))
+    expect(steps.slice(0, 2)).toEqual(['before the wait', 'forked'])
   })
 })

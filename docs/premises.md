@@ -47,6 +47,11 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   the loop at once, its step under way included" (`rehearse.test.ts`) never ends with a subscription forked as a
   child of the loop. Not documented: read in the source (`FiberSet.run` forks with `forkUnsafe`, as a daemon), and
   seen in that test.
+- **A fiber forked with `startImmediately` runs on the stack of the fiber that forks it until it first waits**,
+  which is how tests of the testing tools know, with no clock, that a call they forked is waiting, or has ended,
+  before they go on (`loop.test.ts`, `rehearse.test.ts`, `contract.test.ts`): "runs on the stack of the fiber that
+  forks it until it first waits" (`loop.test.ts`), which fails without the option. Not documented: the option is in
+  the type of `Effect.forkChild`, not in its JSDoc.
 - **A scope runs its finalizers in the reverse order they were added**, which is how the end of the engine, added
   after its `FiberSet` and its `FiberMap` were made, stops their fibers with the run's mark before they close, and
   reports what those die of as they release: "a command that joins a fiber the fiber of the run interrupted, as the
