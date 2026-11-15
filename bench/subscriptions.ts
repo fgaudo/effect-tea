@@ -1,6 +1,8 @@
-// The cost of a parent's subscriptions on each change of state: a list of many children by id, each ticking,
-// each in a state object of its own, and a sequence of states that each change one child. Run with
-// `bun run bench [children] [changes]`; not part of `bun run test`.
+// The cost of a parent's subscriptions on each change of state: a list of many children by id, each ticking, and a
+// sequence of states that each change one child. First with each child in a state object of its own, then with all
+// of them starting from one object, `row.init.state`, and the changes made to the first child alone, so that the
+// others keep sharing it: a parent keeps a child's lifted subscriptions by its state object, with its place checked.
+// Run with `bun run bench [children] [changes]`; not part of `bun run test`.
 import * as Arr from 'effect/Array'
 import * as Channel from 'effect/Channel'
 import * as HashMap from 'effect/HashMap'
@@ -41,23 +43,23 @@ const children = Number(Bun.argv[2] ?? 1000)
 const changes = Number(Bun.argv[3] ?? 2000)
 const rounds = 7
 
-const states = (() => {
+const statesOf = (shared: boolean) => {
   let state: StateOf<typeof list> = {
-    rows: Arr.makeBy(children, (id) => ({ id, row: { ...row.init.state } })),
+    rows: Arr.makeBy(children, (id) => ({ id, row: shared ? row.init.state : { ...row.init.state } })),
   }
   const all = [state]
   for (let i = 0; i < changes; i++) {
-    const tick: MessageOf<typeof list> = { _tag: 'Row', id: i % children, message: { _tag: 'Ticked' } }
+    const tick: MessageOf<typeof list> = { _tag: 'Row', id: shared ? 0 : i % children, message: { _tag: 'Ticked' } }
     const step = list.update(tick)(state)
     if (!isRejected(step)) state = step.state
     all.push(state)
   }
   return all
-})()
+}
 
 const subscriptions = subscriptionsOf(list)
 
-const round = () => {
+const round = (states: ReadonlyArray<StateOf<typeof list>>) => {
   const start = performance.now()
   for (const state of states) {
     if (HashMap.size(subscriptions(state)) !== children) throw new Error('a child lost its subscription')
@@ -65,10 +67,14 @@ const round = () => {
   return (performance.now() - start) / states.length
 }
 
-round()
-const timings = Arr.sort(Arr.makeBy(rounds, round), Num.Order)
-const median = timings[Math.floor(rounds / 2)] ?? Number.NaN
-console.log(
-  `subscriptions of ${children} children, ${states.length} states that each change one: ` +
-    `${(median * 1000).toFixed(1)} µs per change of state (median of ${rounds} rounds)`,
-)
+for (const shared of [false, true]) {
+  const states = statesOf(shared)
+  round(states)
+  const timings = Arr.sort(Arr.makeBy(rounds, () => round(states)), Num.Order)
+  const median = timings[Math.floor(rounds / 2)] ?? Number.NaN
+  console.log(
+    `subscriptions of ${children} children ${shared ? 'that share one state object' : 'in objects of their own'}, ` +
+      `${states.length} states that each change one: ${(median * 1000).toFixed(1)} µs per change of state ` +
+      `(median of ${rounds} rounds)`,
+  )
+}
