@@ -84,8 +84,8 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   the cause, by the fibers that made them: "a renderer that interrupts itself as whoever runs the run interrupts it
   is a defect in the renderer", and the same of a command and of a subscription the run stops (`run.test.ts`), and of
   `rehearse`: "rehearse fails with a defect of a command interrupting itself as whoever runs it interrupts it", and
-  the same of a subscription (`contract.test.ts`), whose gate waits on that very failure. Read only in the source (`exitFailCause` and `causeAddInterrupts` in
-  `internal/core.ts`), and seen in those tests.
+  the same of a subscription (`contract.test.ts`), whose gate waits on that very failure. Read only in the source
+  (`exitFailCause` and `causeAddInterrupts` in `internal/core.ts`), and seen in those tests.
 - **An interruption made with `Fiber.interruptAs` carries the annotations it is given on its reason, and the runtime
   keeps them as it annotates the reason further**, which is how `diesIn` tells the run's interruption from one the
   program makes with the same fiber id, by the mark the run puts on each of its own (`Stopped` in `core.ts`, `stopping`
@@ -98,14 +98,16 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   has is documented; that `interruptAs` puts its annotations on the reason is not, and seen in those tests.
 - **An unbounded `Queue` takes an offer at once, and a shut one refuses it without interrupting**: "a dispatch runs
   with Effect.runSync from a plain callback, and after the run has ended too", and "dispatches run one after the
-  other in one callback, before the run takes any, are all applied in order" (`run.test.ts`). It wakes its taker
-  through the scheduler of the fiber that made it, so a dispatch never runs `update` in its caller's stack:
+  other in one callback, before the run takes any, are all applied in order" (`run.test.ts`). That an offer to a
+  queue that is done returns `false` is documented (`Queue.offer`); that one to an unbounded queue completes
+  synchronously is said only in the comment of an example (`Queue.unbounded`), and seen in those tests. It wakes its
+  taker through the scheduler of the fiber that made it, so a dispatch never runs `update` in its caller's stack:
   "running a dispatch from a plain callback returns before update has seen the message" (`run.test.ts`). That
   the scheduler is the run's own is read only in the source: "a dispatch run from a plain callback wakes the
-  program on the scheduler the run started with" (`run.test.ts`). The numbering of the dispatched messages rests on documented parts alone:
-  `Effect.sync` evaluates its thunk as the effect runs, `Queue.offerUnsafe` adds the message synchronously, and the
-  queue hands its messages in the order they were offered. `Queue.offer` is `offerUnsafe` in a `suspend` for an
-  unbounded queue (read in the source), so the dispatch that offers with it wakes the loop as before.
+  program on the scheduler the run started with" (`run.test.ts`). The numbering of the dispatched messages rests on
+  documented parts alone: `Effect.sync` evaluates its thunk as the effect runs, `Queue.offerUnsafe` adds the message
+  synchronously, and the queue hands its messages in the order they were offered. `Queue.offer` is `offerUnsafe` in a
+  `suspend` for an unbounded queue (read in the source), so the dispatch that offers with it wakes the loop as before.
 - **Every fiber of a run asks the `Scheduler` it is given before each step, and every task it makes goes to that
   scheduler's dispatcher, or resumes inline where the scheduler of the tests makes it yield first**, so that
   `test/scheduled.ts` decides where each fiber yields and which runs next, needing nothing of the platform's: "driven
@@ -115,9 +117,6 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   (`test/scheduled.test.ts`). Read in the source (`runLoop` in `internal/effect.ts`), and seen in those tests. Only
   the search of `interleaving.test.ts` rests on it, and no mutation's killer does: a model of the scheduler gone
   wrong costs a false alarm, or a missed one, never a test that passes where it should fail.
-- **`SubscriptionRef.changes` replays the latest state to a new subscriber**, so a renderer that subscribes late,
-  or skips frames, still draws the last state: "a renderer slower than the program gets only the latest frame"
-  (`run.test.ts`).
 - **A `Stream.map` after `Stream.buffer` runs only for the elements the consumer pulls, in the consumer's fiber**,
   so a frame's model is made for the frames the renderer pulls, never for a state the sliding buffer dropped, and a
   defect of `makeModel` is the renderer's: "a model is made only for the frames the renderer pulls, never for a state

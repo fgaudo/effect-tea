@@ -18,9 +18,9 @@ for the task before starting it:
 | a changelog entry, the version, a release, the site     | [`release`](.agents/skills/release/SKILL.md)               |
 | a review of what the invariants rest on                 | [`premise-review`](.agents/skills/premise-review/SKILL.md) |
 
-The engine is `src/core.ts`, `shell.ts`, `engine.ts`, `run.ts`, `compose.ts`, `dispatch.ts` and `log.ts`, and the
-testing tools are `src/testing/`: a change of one, of `mutations/` or of `test/scheduled.ts` reads `change-engine`
-first, whatever else it is.
+The engine is `src/core.ts`, `shell.ts`, `engine.ts`, `run.ts`, `compose.ts`, `dispatch.ts`, `input.ts` and `log.ts`,
+and the testing tools are `src/testing/`: a change of one, of `mutations/` or of `test/scheduled.ts` reads
+`change-engine` first, whatever else it is.
 
 ## Language
 
@@ -68,7 +68,7 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   fails on one, in the library and in the examples (the Effect language service's `unstableApiUsage`).
 - **Nothing deprecated.** No module, type, function, method or option marked `@deprecated`, of any dependency,
   in the library, its tests or its examples: use what the deprecation names instead, and replace a use found in
-  passing. `bun run lint` warns about one (Oxlint's type-aware `typescript/no-deprecated`).
+  passing. `bun run lint` fails on one (Oxlint's type-aware `typescript/no-deprecated`).
 - **The peer range starts at the Effect the library is developed with** (`^4.1.4` today): `peerDependencies`
   names the version of `devDependencies` with a caret, and an upgrade of Effect raises both in one commit, so that
   the library is checked, and what it rests on of Effect read and tested, at one version only. No older Effect is
@@ -149,13 +149,15 @@ an example's and a document's too:
 ## Tests
 
 - `bun:test`, in a `*.test.ts` next to the module. Tests are excluded from `dist/` and from the packed `src/`.
-- Test through behaviour (`run`, `Engine.make`, the public functions), not through internals.
+- Test through behaviour: what a module gives the rest of the library (`run`, `Engine.make`, the public functions, a
+  transition of `core.ts` or of `testing/ledger.ts`), never what it keeps to itself. An export made for a test alone
+  says so (`entriesOf` in `dispatch.ts`).
 - A test of the library is of one of five kinds, and a test of none of them is not added:
   - **the semantics of the pure pieces**: what a function that runs nothing returns, as a `Step` and `andThen`,
     `forEach` and `reject` over it, a parent's composition, how a child's message is wrapped, how the logs describe
     a message, `defect`, `applyAll` and `dispatchViolations`, what the core makes of a cause and of the keys of a
-    state. They lie in the test file of their module (`compose.test.ts`, `dispatch.test.ts`, `log.test.ts`,
-    `defect.test.ts`, `core.test.ts`, `src/testing/`).
+    state. They lie in the test file of their module (`compose.test.ts`, which holds those of a `Step` too,
+    `dispatch.test.ts`, `input.test.ts`, `log.test.ts`, `defect.test.ts`, `core.test.ts`, `src/testing/`).
   - **invariants under random histories**: fast-check draws clicks, answers, subscription messages and ends,
     releases, defects and self-interruptions, and the seed of the order the scheduler of the tests (`test/scheduled.ts`)
     runs them in, and each promise of the README's "Guarantees" that the scenario reaches is checked on every one
@@ -169,8 +171,9 @@ an example's and a document's too:
     it holds and lets go, what a tool fails on (`run.test.ts`, `engine.test.ts`, the cache of `dispatchTo` in
     `dispatch.test.ts`, a parent's subscriptions in a run in `compose.test.ts`, each tool's own file in
     `src/testing/`). A test of a premise (`docs/premises.md`) is of this kind,
-    and so is one of the scheduler of the tests, `test/scheduled.ts`, which is no part of the package and serves the
-    search alone.
+    and so is one of the scheduler of the tests, `test/scheduled.ts`, which is no part of the package: it serves the
+    search, and the few tests of a boundary that run one scenario under the orders it gives (`engine.test.ts`,
+    `rehearse.test.ts`), alarms that are the killer of no mutation (`docs/invariants.md`, "one thunk").
   - **the types**: what the compiler refuses (`@ts-expect-error`), or infers (`expectTypeOf`), next to the tests
     of the function whose types they are.
 
@@ -182,10 +185,10 @@ an example's and a document's too:
   them is a test of the library's correctness, and they are kept apart from the five.
 - **Each check an invariant rests on has a mutation** in `mutations/mutations.ts` that takes it out, with the tests
   that must fail under it: `bun run mutations` applies them one at a time to a copy of the repository (`.mutants/`),
-  runs those tests alone, and fails when one passes under its mutation, or fails without it. A new check adds its
-  mutation; a test of one renamed or removed, or the code it replaces rewritten, updates the list. It runs before a
-  release (`release`), and after a change of a file it mutates; what a mutation is, and is not, is in
-  `change-engine`.
+  runs those tests alone, and fails when one passes under its mutation, or fails without it. What has none, and why,
+  is in `docs/invariants.md` and `change-engine`. A new check adds its mutation; a test of one renamed or removed, or
+  the code it replaces rewritten, updates the list. It runs before a release (`release`), and after a change of a
+  file it mutates; what a mutation is, and is not, is in `change-engine`.
 - **The tests of `src/` and `test/` run on Node too**, on V8 as Chrome and Edge run the library: `bun run test:node`
   makes Node resolve `bun:test` to `test/node/bun-test.ts`, which gives what the tests use of it over Node's own
   runner, with Jest's `expect`. A test that needs more of `bun:test` adds it there, and one that asks for a

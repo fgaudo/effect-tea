@@ -1,9 +1,10 @@
 # Invariants the engine keeps
 
 The README's "Guarantees" says what a user may rely on, and the library's tests check each one
-(`src/interleaving.test.ts` checks all but that of the order, and what the run does from the first defect on, the
-rule of an input, and what a frame has seen, under random orders of clicks, writes into an input, current and stale, answers, subscription
-messages and ends, releases, defects and self-interruptions, as the README says). This is how they are kept, and
+(`src/interleaving.test.ts` checks all but that of the order, the rule of an input and what a frame has seen
+included, and what the run does from the first defect on too, under random orders of clicks, writes into an input,
+current and stale, answers, subscription messages and ends, releases, defects and self-interruptions, as the README
+says). This is how they are kept, and
 what a change must not undo. What they rest on of Effect and of the JavaScript engine is in
 [`premises.md`](premises.md), and how a change of the engine or of a testing tool is made in
 [`change-engine`](../.agents/skills/change-engine/SKILL.md).
@@ -43,8 +44,8 @@ testing tools.
 - **A parent and its children talk only through external messages and events**, so that `reject` means the
   same everywhere: a handle's `update` returns a step, never a rejection, and a child rejecting an external
   message, or a parent giving one to a child that is not there, is a defect: a `CompositionDefect`, as every
-  break of what a parent declared is (`defectAt` in `compose.ts`), so that reports group them and name the child. The types
-  enforce what a parent declares: `runCommand` exactly when it has commands of its own, `onEvent` exactly when a
+  break of what a parent declared is (`defectAt` in `compose.ts`), so that reports group them and name the child. The
+  types enforce what a parent declares: `runCommand` exactly when it has commands of its own, `onEvent` exactly when a
   child has events, a handle's `update` only with a child's `external` messages, no own message or command
   named like a child. A program written without `Program<…>` has `unknown` types, read as `never` (`Known` in
   `program.ts`), so that it does not open these checks.

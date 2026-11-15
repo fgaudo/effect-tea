@@ -1077,8 +1077,8 @@ entry function alone, `parent` to `composition`, and keep the rest.
   - renaming `child`, `each`, `children`, `inputs`, `input`, the names of `input.ts`, `dispatchTo` or
     `CompositionDefect`: they are exact, and with `composition` the last is more coherent, not less.
 - **Against, by the review itself**: every user of 0.7 renames, in every program with children, for a case that is 7
-  calls in 66; `composition<…>()` then `compose({…})` is nearly a tautology, and longer; "composition" is a wide word
-  for a form of one input, less wrong than `parent` and not exact; whoever looks for `parent`, as in Elm, no longer
+  calls in 66; `composition<…>()` then `compose({…})` is nearly a tautology, and longer; "composition" is a wide
+  word for a form of one input, less wrong than `parent` and not exact; whoever looks for `parent`, as in Elm, no longer
   finds it as a function.
 - **Found in passing**, prose and no name: the doc comment of `dispatchTo` and its row in the README's "API
   reference" said only "a child's dispatch", though an input is written through it too, and are corrected with the
@@ -1738,8 +1738,8 @@ live.held = sent(send(dispatch, write))
   "enforce at construction what the type cannot", the order of the writes and their values written over. Wholly opaque,
   it would need a function to read `value`.
 - **The rule split between library and bridge, which (a) and (b) leave** (**checked**): each of the three bridges
-  writes `swap(live.held.value, …)` beside `typed`, so the value a write names and the one the element records agree by
-  a convention copied into every bridge; a bridge that names another, the last frame's, makes `drawn` judge on data
+  writes `swap(live.held.value, …)` beside `typed`, so the value a write names and the one the element records agree
+  by a convention copied into every bridge; a bridge that names another, the last frame's, makes `drawn` judge on data
   that is false, and no test of the library sees it. (c) makes both from one value, so they cannot differ, and makes
   that property a test of a pure piece. The number comes after the dispatch, which only the bridge runs, so it is
   given to a continuation: a `typed` that ran the dispatch itself would break "Running a dispatch […] is the

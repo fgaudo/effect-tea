@@ -133,8 +133,9 @@ Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun ru
    and the queues of a start `hearNext` runs, opaque to the ledger. `runAll` ends on a `take` that finds nothing,
    in the thunk where it would take, with a test under `prioritizedSchedules` and a mutation that counts `pending`
    apart again. The end of a start stays in `Active`, marked in the thunk of `heard`, where its waiting calls are
-   counted (until after step 7, when it moved into the ledger). An opened start whose key went away is kept while calls wait on it, so that a last message it sent before
-   is still told to them, and forgotten when the last of them leaves.
+   counted (until after step 7, when it moved into the ledger). An opened start whose key went away is kept while
+   calls wait on it, so that a last message it sent before is still told to them, and forgotten when the last of
+   them leaves.
 6. `model`, once the README says whether the check holds of `makeModel`: the renderer's frames and `rehearse`'s
    `model` make it through the core, with a changelog entry if the run's behaviour changes. Done, without a `model`:
    the README says that a frame read after a defect still makes its model, `makeModel` being pure, and the model stays

@@ -99,7 +99,8 @@ Item 7 is breaking; 0.8.0 is open and unreleased. Items 6 and 8 are done, and ke
   - The search: `made` equals the frames read no more, and "a model is made once for each frame the renderer pulls"
     holds with `made` at most one more than the frames drawn, a frame pulled as the end interrupts the renderer (seed
     `-1767139819`, path `0:2:1:1:1:4:2:5:7:6:3:7:11:6:7:7:10:12:14:13:14:14:35`, made 3 for 2 drawn); eleven runs of 60
-    scenarios found nothing else, and the other properties of one whole run pass. "A frame never read" of the scenarios reached means nothing after it.
+    scenarios found nothing else, and the other properties of one whole run pass. "A frame never read" of the
+    scenarios reached means nothing after it.
 
 - **Done** the same day, by the owner's decision, with `rehearse` brought in step: it makes the model of each new
   state in the step that makes it, under `'render'`, the test being a renderer that pulls every frame, where it made

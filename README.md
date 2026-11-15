@@ -530,8 +530,9 @@ What the library derives from it:
 - **The parent's messages:** its own plus `{ _tag: <child>, message }` for each child, and
   `{ _tag: <input>, message: write(was, value) }` for each input. `MessageOf<typeof app>` names them. An own
   message that takes a child's or an input's name does not compile, nor does an input that takes a child's, nor an
-  own subscription that writes into an input. A command's answer is an own message, or an external message of a child's: one that writes into an input,
-  the parent's or a child's, does not compile, nor does one that gives a child its own business.
+  own subscription that writes into an input. A command's answer is an own message, or an external message of a
+  child's: one that writes into an input, the parent's or a child's, does not compile, nor does one that gives a child
+  its own business.
 - **Its inputs' rule:** a write is stored while the input's place holds, by `Equal`, the value it was written over,
   and rejected otherwise; every other step leaves an input as it wrote it.
 - **The parent's commands:** its own plus each child's, wrapped likewise and run by the child's `runCommand`.
@@ -1010,9 +1011,10 @@ there with `applyAll`, or with `update` itself.
   rehearsal: a test that expects a defect wraps `rehearse` itself. A call that fails the test (a `send` the model
   does not show or `update` rejects, a `run` that matches nothing, a `hearNext` stopped while it waited) fails the
   fiber that made it: a call forked from the scenario is joined, or its failure is lost, as in any effect. After a
-  defect, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail with it, and so do a `hearNext` and a `run` already waiting for their subscription or
-  their command, as nothing happens in a run that died, while `state`, `pending`, `events` and `ignored` stay
-  readable. A fiber that the test detaches from the scenario (`Effect.forkDetach`) is beyond its reach: what such a
+  defect, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail with it, and so do a `hearNext` and a `run`
+  already waiting for their subscription or their command, as nothing happens in a run that died, while `state`,
+  `pending`, `events` and `ignored` stay readable. A fiber that the test detaches from the scenario
+  (`Effect.forkDetach`) is beyond its reach: what such a
   fiber asks for after the rehearsal ended is interrupted, and a defect it meets then is lost. A command's or a
   subscription's message that no longer applies is ignored, as when the program runs, and listed in
   `ignored`. Messages that arrive together, from fibers of the test's, are applied one at a time, as the run takes

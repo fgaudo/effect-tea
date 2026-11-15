@@ -153,9 +153,10 @@ answer, and saying so in the proposal.
 - **`describeKey`, an option for how a subscription's key appears in the logs and in a `ProgramDefect`.** Reasoned,
   13 and 14 November 2026. Proposed by a review of the invariants, since a key, a string message and a child's id
   reach a crash report as they are. Deferred on the 13th, then rejected on the 14th after a second opinion: a key is
-  the identity its author chose, as a tag is, not data; reporting is the job of whoever runs the program, whose
-  reporter already filters the `cause`, any thrown value the library cannot scrub, and with it `key` and `on`; and an
-  option would only name code around `run`. An option for the logs alone leaves out the crash report; one for the
+  the identity its author chose, as a tag is, even where it holds data; reporting is the job of whoever runs the
+  program, whose reporter already filters the `cause`, any thrown value the library cannot scrub, and with it `key`
+  and `on`; and an option would only name code around `run`.
+  An option for the logs alone leaves out the crash report; one for the
   defect too runs the program's code as the run dies, or costs at every start outside debug, makes the key differ
   from `onApplied`'s `origin`, and leaves a child's `id` undefined. The README says instead that the key and the id
   are carried as they are, and a string message whole. Source: the sessions "Analisi invarianti progetto" and

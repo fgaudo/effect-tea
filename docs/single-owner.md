@@ -115,9 +115,9 @@ three.
 - **`rehearse.ts`, `runAll`**: one transition, `Ledger.take`, which finds a command or none. Already by construction.
 - **`rehearse.ts`, `orDead`**: races a wait with `died`. It guards no call of the program, and both its uses have
   deterministic killers. Kept.
-- **`rehearse.ts`, `hearNext`**: `Ledger.ask`, `Ledger.hear` (which marks the end of a start) and `Ledger.leave`, each one transition
-  in one thunk, from the fiber of the test's that calls. Tested as data in `ledger.test.ts`. Kept: moving them into
-  the loop would change nothing a test can see.
+- **`rehearse.ts`, `hearNext`**: `Ledger.ask`, `Ledger.hear` (which marks the end of a start) and `Ledger.leave`, each
+  one transition in one thunk, from the fiber of the test's that calls. Tested as data in `ledger.test.ts`. Kept: moving
+  them into the loop would change nothing a test can see.
 - **`rehearse.ts`, `state`, `pending`, `events`, `ignored`**: reads of a value the loop replaced whole. No act.
 - **`simulate.ts`**: one fiber. **`drive.ts`**: the run and the scenario, forked and stopped inside one
   `uninterruptibleMask`, with a deterministic test ("drive interrupted by whoever runs it").

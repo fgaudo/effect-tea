@@ -74,8 +74,9 @@ would see it: the `types` and `default` conditions, and the declarations in `dis
 
 `bun run smoke` (`smoke/smoke.ts`, also run by the CI) packs the package, installs the tarball with npm in a
 project outside the repository, runs the README's quick start and
-[`smoke/consumer.ts`](../../../smoke/consumer.ts) with Node, and typechecks both, with `skipLibCheck: false`, under `moduleResolution` `nodenext` and `bundler` and
-each supported TypeScript. It needs Node 22.18 or newer, which runs TypeScript as it is.
+[`smoke/consumer.ts`](../../../smoke/consumer.ts) with Node, and typechecks both, with `skipLibCheck: false`, under
+`moduleResolution` `nodenext` and `bundler` and each supported TypeScript. It needs Node 22.18 or newer, which runs
+TypeScript as it is.
 
 - A change to what `composition` declares or derives, or to the shape of what `run` and the testing tools take, gets
   code in `smoke/consumer.ts` that uses it, and a `// @ts-expect-error` for what its types newly reject.

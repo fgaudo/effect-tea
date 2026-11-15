@@ -25,7 +25,8 @@ the documentation of a stable API, or a test for what is not documented.
 2. The reviewer wrote none of the changes. Start it as a session in a worktree of its own, so that its failing tests
    stay off `main` until they are read, or as a subagent where the author asks for one. Commit what the review must
    see first: a worktree is cut from the last commit. Two reviewers at once read apart: the engine (`engine.ts`,
-   `shell.ts`, `run.ts`, `compose.ts`, `dispatch.ts`, `log.ts`) and the testing tools (`src/testing/`).
+   `core.ts`, `shell.ts`, `run.ts`, `compose.ts`, `dispatch.ts`, `input.ts`, `log.ts`) and the testing tools
+   (`src/testing/`).
 3. Fill the brief's two places: what to read, and what is already known (the open problems of
    [`ROADMAP.md`](../../../ROADMAP.md), the `test.failing` cases of `src/testing/contract.test.ts`, and the premises
    that no test reaches yet, listed in `docs/premises.md`), so that the reviewer does not report them again, and
@@ -70,8 +71,8 @@ HOW:
 4. A suspect is ruled out as docs/premises.md says: by the documentation of a stable
    API (for Effect, the JSDoc of the declarations in the version of the lockfile, where the peer range starts; for
    the JavaScript engine, the ECMAScript specification), or by a test that passes for what is not documented.
-   Effect's source, effect.website and its maintainers' answers rule out nothing. A property of src/interleaving.test.ts rules a
-   suspect out only under the runs it made: run it with `numRuns` of a thousand at least, and name the seeds.
+   Effect's source, effect.website and its maintainers' answers rule out nothing. A property of src/interleaving.test.ts
+   rules a suspect out only under the runs it made: run it with `numRuns` of a thousand at least, and name the seeds.
 5. While you read the code that keeps a row, note each place where it does otherwise than AGENTS.md,
    docs/invariants.md or the README says, and each test whose name promises more than its assertions check.
 
@@ -107,8 +108,8 @@ Your last message says the branch, the commit and the findings in a few lines.
   author; one rejected there and proposed again without what its entry asks is no proposal. One the author rejects
   is added there.
 - A finding is fixed by its form, as `docs/premises.md` says after the rule of a review. Before the fix, write the
-  form in a line (a cleanup skipped, or an exit discarded, as a scope closes; a step applied by two actors at once; a window
-  between two fibers that nobody watches), and list each place of the engine and of the testing tools that ends a
+  form in a line (a cleanup skipped, or an exit discarded, as a scope closes; a step applied by two actors at once; a
+  window between two fibers that nobody watches), and list each place of the engine and of the testing tools that ends a
   run, applies a message or releases what a fiber holds: `runWith`, the engine's finalizer, `drive`, `simulate`,
   `rehearse`, and any added since. Each place the form can reach gets a test, failing where the form is and passing
   where it is not; the fix's commit names the form and the places it checked. Findings of one form are fixed
