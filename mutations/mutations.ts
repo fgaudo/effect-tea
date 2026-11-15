@@ -645,12 +645,12 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'the run does not stop the renderer',
     file: 'src/run.ts',
-    from: '    const renderer = yield* Effect.acquireRelease(\n'
-      + '      Effect.forkChild(Effect.interruptible(rendering)),\n'
-      + '      (renderer) =>\n'
-      + '        engine.stop.pipe(Effect.andThen(Shell.stopping(renderer))),\n'
-      + '    )\n',
-    to: '    const renderer = yield* Effect.forkChild(Effect.interruptible(rendering))\n',
+    from: '      const renderer = yield* Effect.acquireRelease(\n'
+      + '        Effect.forkChild(Effect.interruptible(rendering)),\n'
+      + '        (renderer) =>\n'
+      + '          engine.stop.pipe(Effect.andThen(Shell.stopping(renderer))),\n'
+      + '      )\n',
+    to: '      const renderer = yield* Effect.forkChild(Effect.interruptible(rendering))\n',
     killedBy: [
       ['src/run.test.ts', 'a renderer that dies while an interrupted run releases it is in the cause'],
       [
@@ -708,8 +708,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'the end of the engine does not stop its loop first',
     file: 'src/engine.ts',
-    from: '    Effect.andThen(\n      stop,\n',
-    to: '    Effect.andThen(\n      Effect.void,\n',
+    from: '      Effect.andThen(\n        stop,\n',
+    to: '      Effect.andThen(\n        Effect.void,\n',
     killedBy: [
       ['src/engine.test.ts', 'the end of the engine lets its loop end before it interrupts its commands'],
     ],
@@ -766,8 +766,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "dispatchTo holds a child's dispatch strongly",
     file: 'src/dispatch.ts',
-    from: 'MutableHashMap.set(byId, key, new WeakRef(wrapping))',
-    to: 'MutableHashMap.set(byId, key, { deref: () => wrapping } as never)',
+    from: 'const entry: Entry = { key, ref: new WeakRef(wrapping) }',
+    to: 'const entry: Entry = { key, ref: { deref: () => wrapping } as never }',
     killedBy: [
       ['src/dispatch.test.ts', 'keeps nothing for the ids nobody holds'],
       ['src/dispatch.test.ts', 'lets go of what a long list held once the list is no longer drawn'],
@@ -777,8 +777,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'dispatchTo lets go of an entry whose dispatch is alive',
     file: 'src/dispatch.ts',
-    from: 'if (Opt.isSome(entry) && entry.value.deref() === undefined)',
-    to: 'if (Opt.isSome(entry))',
+    from: 'const at = bucket?.indexOf(entry) ?? -1',
+    to: 'const at = bucket === undefined ? -1 : 0',
     killedBy: [
       ['src/dispatch.test.ts', 'keeps the entry of a new dispatch made for the id of a collected one'],
     ],
@@ -786,7 +786,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "dispatchTo makes a child's dispatch anew each time",
     file: 'src/dispatch.ts',
-    from: '  if (Opt.isSome(found)) return found.value as ChildDispatch<Message, Name>\n',
+    from: '  if (found !== undefined) return found as ChildDispatch<Message, Name>\n',
     to: '',
     killedBy: [
       [
@@ -1150,8 +1150,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'rehearse runs a command after the first defect',
     file: 'src/testing/rehearse.ts',
-    from: '        if (dead()) return deadOr(Effect.never)\n        if (loop.ended()) return Effect.interrupt\n',
-    to: '        if (loop.ended()) return Effect.interrupt\n',
+    from: '          if (dead()) return deadOr(Effect.never)\n          if (loop.ended()) return Effect.interrupt\n',
+    to: '          if (loop.ended()) return Effect.interrupt\n',
     killedBy: [
       ['src/testing/rehearse.test.ts', 'run calls no runCommand once a command has died'],
     ],

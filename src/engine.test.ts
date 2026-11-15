@@ -823,9 +823,10 @@ describe('Engine end', () => {
   })
 
   // `FiberSet.run` starts the command's fiber at once, on the loop's stack, so `runCommand` is called before the fiber
-  // is in the set. Called, it begins the end of the engine, which interrupts the loop there: had `FiberSet.run` a step
-  // between the fork and the add for that interruption to fall into, the end would not find the command, and would
-  // leave it running. Seen by the seventh review of the premises, with a fork and an add of the set apart.
+  // is in the set. Called, it begins the end of the engine, which interrupts the loop there: with a step between the
+  // fork and the add for that interruption to fall into, the end would not find the command, and would leave it
+  // running. The fork and the add are one region nothing interrupts (`runCommand` in `engine.ts`); seen by the seventh
+  // review of the premises with them apart.
   test('a command whose runCommand begins the end of the engine as it is called is interrupted by that end', async () => {
     const log = await Effect.runPromise(Effect.gen(function*() {
       const log: Array<string> = []

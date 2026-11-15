@@ -3,8 +3,8 @@
 // holds it, it is the same function in every frame, so that a renderer can skip a child whose model has not
 // changed.
 import type * as Effect from 'effect/Effect'
-import * as MutableHashMap from 'effect/MutableHashMap'
-import * as Opt from 'effect/Option'
+import * as Equal from 'effect/Equal'
+import * as Hash from 'effect/Hash'
 
 /**
  * Sends a message to the running program: `update` decides what it means in the state it finds. Running it needs
@@ -43,21 +43,31 @@ type ChildDispatch<Message, Name extends string> = string extends Name
 
 /**
  * The dispatches made for one child of one parent dispatch, by id, compared with `Equal` as the engine compares
- * subscription keys. Each is held weakly: a function nobody holds can be made anew, since nobody can tell it from
- * the old one, while one that a renderer keeps to compare with stays the same. Once one is collected, its entry
- * goes too, so that ids nobody shows any more cost nothing.
+ * subscription keys, in buckets by the id's `Hash`. Each is held weakly: a function nobody holds can be made anew,
+ * since nobody can tell it from the old one, while one that a renderer keeps to compare with stays the same. Once one
+ * is collected, its entry goes too, so that ids nobody shows any more cost nothing.
  */
-type Made = MutableHashMap.MutableHashMap<unknown, WeakRef<Dispatch<unknown>>>
+type Entry = Readonly<{ key: unknown; ref: WeakRef<Dispatch<unknown>> }>
+
+type Made = Map<number, Array<Entry>>
 
 const alone = Symbol('alone')
 
 const made = new WeakMap<object, Map<string, Made>>()
 
-// An entry whose dispatch is alive belongs to a new dispatch made for the same id: it stays.
-const forgotten = new FinalizationRegistry<Readonly<{ byId: Made; key: unknown }>>(({ byId, key }) => {
-  const entry = MutableHashMap.get(byId, key)
-  if (Opt.isSome(entry) && entry.value.deref() === undefined) MutableHashMap.remove(byId, key)
-})
+const drop = (byId: Made, hash: number, entry: Entry) => {
+  const bucket = byId.get(hash)
+  const at = bucket?.indexOf(entry) ?? -1
+  if (bucket === undefined || at === -1) return
+  bucket.splice(at, 1)
+  if (bucket.length === 0) byId.delete(hash)
+}
+
+// Run in a host job, outside any run, where an id's `Equal` or `Hash` that throws would be no defect of a run: the
+// entry is found by its hash, computed as it was made, and by its identity, so that no id is compared here.
+const forgotten = new FinalizationRegistry<Readonly<{ byId: Made; hash: number; entry: Entry }>>(
+  ({ byId, hash, entry }) => drop(byId, hash, entry),
+)
 
 const madeFor = (dispatch: object, name: string): Made => {
   let byName = made.get(dispatch)
@@ -67,15 +77,18 @@ const madeFor = (dispatch: object, name: string): Made => {
   }
   let byId = byName.get(name)
   if (byId === undefined) {
-    byId = MutableHashMap.empty()
+    byId = new Map()
     byName.set(name, byId)
   }
   return byId
 }
 
 /** How many entries `dispatchTo` keeps for the children `name` of `dispatch`: for the tests of its cleanup only. */
-export const entriesOf = (dispatch: object, name: string): number =>
-  MutableHashMap.size(made.get(dispatch)?.get(name) ?? MutableHashMap.empty())
+export const entriesOf = (dispatch: object, name: string): number => {
+  let count = 0
+  for (const bucket of made.get(dispatch)?.get(name)?.values() ?? []) count += bucket.length
+  return count
+}
 
 /**
  * The dispatch of a child, or of an input, for its view: `dispatchTo(dispatch, 'Clock')`, or
@@ -92,11 +105,19 @@ export const dispatchTo = <Message, Name extends string>(
 ): ChildDispatch<Message, Name> => {
   const byId = madeFor(dispatch, name)
   const key = id.length === 0 ? alone : id[0]
-  const found = Opt.flatMapNullishOr(MutableHashMap.get(byId, key), (ref) => ref.deref())
-  if (Opt.isSome(found)) return found.value as ChildDispatch<Message, Name>
+  const hash = Hash.hash(key)
+  const old = byId.get(hash)?.find((entry) => Equal.equals(key, entry.key))
+  const found = old?.ref.deref()
+  if (found !== undefined) return found as ChildDispatch<Message, Name>
+  // The entry of a collected dispatch whose callback has not run yet: the new one takes its place, and the callback
+  // finds nothing to drop.
+  if (old !== undefined) drop(byId, hash, old)
   const wrapping: Dispatch<unknown> = (message) =>
     dispatch((id.length === 0 ? { _tag: name, message } : { _tag: name, id: id[0], message }) as never)
-  MutableHashMap.set(byId, key, new WeakRef(wrapping))
-  forgotten.register(wrapping, { byId, key })
+  const entry: Entry = { key, ref: new WeakRef(wrapping) }
+  const bucket = byId.get(hash)
+  if (bucket === undefined) byId.set(hash, [entry])
+  else bucket.push(entry)
+  forgotten.register(wrapping, { byId, hash, entry })
   return wrapping as ChildDispatch<Message, Name>
 }

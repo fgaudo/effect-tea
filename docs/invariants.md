@@ -233,9 +233,10 @@ testing tools.
   - **One check for each call.** No earlier check of the same register stands in front of it in another thunk: it
     would answer in its place in every order a deterministic test reaches.
   - **A fiber and how it stops are one primitive**, `Effect.acquireRelease(fork, stop)`, with nothing in between for an
-    interruption to fall into (the renderer in `run.ts`), or `Effect.acquireUseRelease` where a call waits for the
-    fiber (a command's in `rehearse`'s `run`), or the fork and what keeps it for the stop in one region nothing
-    interrupts, where the stop is the end's (the loop in `engine.ts`, for `stop`).
+    interruption to fall into (the renderer in `run.ts`), or the same bracket written with `Effect.uninterruptibleMask`,
+    its use `restore`d, where a call waits for the fiber (a command's in `rehearse`'s `run`), or the fork and what
+    keeps it for the stop in one region nothing interrupts, where the stop is the end's (the loop in `engine.ts`, for
+    `stop`, and every fork into a `FiberSet` or a `FiberMap`, whose end reads them).
 
   What cannot be one thunk with its check, as the first step of an effect of the program, is no act the README
   promises about.

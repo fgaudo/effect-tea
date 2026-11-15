@@ -395,8 +395,10 @@ export const rehearse = Effect.fnUntraced(function*<
       Effect.flatMap((last) => sends(key, generation, last, true)),
       Effect.asVoid,
       recorded,
+      // As the engine forks a command (`runCommand` in `engine.ts`).
       Effect.interruptible,
       FiberSet.run(listeners),
+      Effect.uninterruptible,
     )
     return { fiber, asks }
   })
@@ -492,41 +494,46 @@ export const rehearse = Effect.fnUntraced(function*<
   // Checks the register and that the rehearsal has not ended, takes the oldest pending command `select` matches, or
   // finds none (`Ledger.take`), and calls `runCommand`, all in one thunk, with no check in front of it; then forks the
   // effect it returned in the rehearsal's scope. The fiber and how an interrupted call stops it are one primitive: the
-  // call cancels the command and interrupts its fiber, which may have offered its answer already.
+  // call cancels the command and interrupts its fiber, which may have offered its answer already. Written with
+  // `uninterruptibleMask`, not `acquireUseRelease`, whose use only `restore` says is interruptible where its caller is.
   const runFirst = (select: (command: Command) => boolean) =>
-    Effect.acquireUseRelease(
-      Effect.suspend(() => {
-        if (dead()) return deadOr(Effect.never)
-        if (loop.ended()) return Effect.interrupt
-        const taking = Ledger.take(ledger, select)
-        if (Opt.isNone(taking)) return Effect.succeed<Taking>({ _tag: 'None', pending: ledger.pending })
-        const [{ ticket, command }, taken] = taking.value
-        ledger = taken
-        // Forked where nothing interrupts, the acquisition: the command is interruptible by its own say, whatever its
-        // fork makes of that region.
-        return answering(ticket, calling(() => runCommand(command))).pipe(
-          Effect.interruptible,
-          FiberSet.run(commands),
-          Effect.map((fiber): Taking => ({ _tag: 'Running', ticket, command, fiber })),
-        )
-      }),
-      (taking): Effect.Effect<Ran> =>
-        taking._tag === 'None'
-          ? Effect.succeed(taking)
-          : Effect.map(orDead(Fiber.join(taking.fiber)), (answer) => ({
-            _tag: 'Ran',
-            command: taking.command,
-            answer,
-          })),
-      (taking, exit) =>
-        taking._tag === 'Running' && Exit.hasInterrupts(exit)
-          ? Effect.andThen(
-            Effect.sync(() => {
-              ledger = Ledger.cancel(ledger, taking.ticket)
-            }),
-            stopFiber(taking.fiber),
+    Effect.uninterruptibleMask((restore) =>
+      Effect.flatMap(
+        Effect.suspend(() => {
+          if (dead()) return deadOr(Effect.never)
+          if (loop.ended()) return Effect.interrupt
+          const taking = Ledger.take(ledger, select)
+          if (Opt.isNone(taking)) return Effect.succeed<Taking>({ _tag: 'None', pending: ledger.pending })
+          const [{ ticket, command }, taken] = taking.value
+          ledger = taken
+          // Forked where nothing interrupts: the command is interruptible by its own say, whatever its fork makes of
+          // that region.
+          return answering(ticket, calling(() => runCommand(command))).pipe(
+            Effect.interruptible,
+            FiberSet.run(commands),
+            Effect.map((fiber): Taking => ({ _tag: 'Running', ticket, command, fiber })),
           )
-          : Effect.void,
+        }),
+        (taking) =>
+          restore(
+            taking._tag === 'None'
+              ? Effect.succeed<Ran>(taking)
+              : Effect.map(orDead(Fiber.join(taking.fiber)), (answer): Ran => ({
+                _tag: 'Ran',
+                command: taking.command,
+                answer,
+              })),
+          ).pipe(Effect.onExit((exit) =>
+            taking._tag === 'Running' && Exit.hasInterrupts(exit)
+              ? Effect.andThen(
+                Effect.sync(() => {
+                  ledger = Ledger.cancel(ledger, taking.ticket)
+                }),
+                stopFiber(taking.fiber),
+              )
+              : Effect.void
+          )),
+      )
     ).pipe(
       Effect.tap((ran) =>
         ran._tag === 'Ran' && Opt.isSome(ran.answer) ? Deferred.await(ran.answer.value) : Effect.void

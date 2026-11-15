@@ -12,25 +12,13 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   for each state, as a parent's lifted keys are, keeps its subscription: "a key equal by value keeps its
   subscription running, untouched" (`engine.test.ts`), "a child whose state changes, under the same key, keeps
   its subscription running" (`compose.test.ts`). `Equal` keeps its results and hashes by reference, so a key or an
-  id is never mutated, as states are not. A `MutableHashMap` compares the key it is given with those already in
-  it, that key first, so that what `dispatchTo`'s `FinalizationRegistry` callback looks up, outside any run, finds
-  only pairs compared while the view made the dispatches: "lets go of collected dispatches without comparing ids
-  again" (`dispatch.test.ts`). Both are read only in the source.
+  id is never mutated, as states are not. Both are read only in the source.
 - **`HashMap` calls a key's `Equal` and `Hash` only within the call it is given the key in**, synchronously, and
   never later, so that `reconcile` compares keys all inside `'subscriptions'`: "a key whose Equal throws dies in
   subscriptions" (`run.test.ts`), and so do `simulate` and `rehearse`, which compare them as it does: "… on a key
   whose Equal throws against the key of the state before" (`contract.test.ts`). `FiberMap` compares its keys in a
   fiber's observer as well, which is why the run keeps its fibers by their start, never by their key. Both are read
   only in the source.
-- **`FiberSet.run` and `FiberMap.run` fork a fiber and add it in one step**, with nothing between for an interruption
-  to fall into, which is how the end of the engine, interrupting the loop wherever it is and then reading the fibers
-  to stop, finds a command or a subscription the loop was forking: "a command whose runCommand begins the end of the
-  engine as it is called is interrupted by that end", "a subscription that begins the end of the engine as it starts
-  is interrupted by that end" (`engine.test.ts`) fail with a fork and an add apart. Not documented: the JSDoc says the
-  fiber is forked and added, with no word on a step between, and seen in those tests (the seventh review of the
-  premises, November 2026). The end of `rehearse` finds the same way a subscription its loop was starting for
-  `hearNext`, whose fiber runs no code of the program before it waits to be asked, so that no test of `rehearse` can
-  begin the end there: those two hold it.
 - **A fiber forked with `FiberSet.run` is no child of the fiber that forks it, which ends without waiting for it**,
   which is how the end of `rehearse` stops its loop at once, in a step that waits for a release, and then stops with
   the run's mark the subscriptions the loop had started for `hearNext`, still running: "a scenario that failed stops
@@ -42,12 +30,6 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   before they go on (`loop.test.ts`, `rehearse.test.ts`, `contract.test.ts`): "runs on the stack of the fiber that
   forks it until it first waits" (`loop.test.ts`), which fails without the option. Not documented: the option is in
   the type of `Effect.forkChild`, not in its JSDoc.
-- **A scope runs its finalizers in the reverse order they were added**, which is how the end of the engine, added
-  after its `FiberSet` and its `FiberMap` were made, stops their fibers with the run's mark before they close, and
-  reports what those die of as they release: "a command that joins a fiber the fiber of the run interrupted, as the
-  run ends, is a defect in the command" (`run.test.ts`), "the end of the engine interrupts its commands and its
-  subscriptions at once", "what a command dies of as the end of the engine interrupts it is what the end dies of"
-  (`engine.test.ts`) fail with the sets made after it. Not documented, and seen in those tests.
 - **What the cleanup of `Effect.onExit` fails with comes after the cause of the effect**, which is how each fiber of the
   engine records what it dies of, interrupted or not. Interrupted: "a defect in what a subscription the run stopped
   releases ends the run", "a subscription stopped as whoever runs the run interrupts it, which dies as it releases, is
@@ -126,13 +108,6 @@ The invariants themselves are in [`invariants.md`](invariants.md).
 - **A `WeakRef` is cleared before the `FinalizationRegistry` callback of its target runs**, and a `WeakMap` lets go
   of a value with its key: the tests of `dispatchTo` (`dispatch.test.ts`) and "a child's model is let go with its
   state" (`compose.test.ts`), under a collection the test asks for (`test/gc.test_helper.ts`), on Bun and on Node.
-- **The use of `Effect.acquireUseRelease` can be interrupted**, which is how `rehearse`'s `run` takes its
-  command, calls `runCommand` and forks the effect it returned with nothing in between for an interruption to fall
-  into, and how an interrupted `run` cancels the command and stops its fiber, waiting for its release: "when a run
-  interrupted while its command runs leaves the command unanswered", "the command is released before the interrupted
-  call returns" (`rehearse.test.ts`). That nothing interrupts the acquisition, and that the release runs however the
-  use ends, is documented; that the use can be interrupted is read only in the source, and both tests fail with a use
-  made uninterruptible.
 - **`Channel.toPull` keeps what a channel adds to the scope it is given, and releases none of it as the pull fails,
   while a release the channel wraps around itself (`Channel.onExit`, `Channel.acquireUseRelease`, and every operator
   that makes a scope of its own) runs as its pull fails, before the failure leaves it**. The first is how
