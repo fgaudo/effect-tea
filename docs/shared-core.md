@@ -2,7 +2,9 @@
 
 **Status:** decided, November 2026; done, steps 0 to 7. It follows effect-tea-persistent's decision 0292
 (`docs/decisions/0292-…` there), which moves that runtime's state into a pure core, and a reading of it by Fable 5.2
-for this library.
+for this library. Since then, what the shells share that has effects (`stopping`, `diesIn`, `scopedIn`,
+`runSubscription`, `makeDeaths`, `withExternalSpan`), which was in `engine.ts`, is `src/shell.ts`, beside the core:
+where this note says `engine.ts` of one of them, read `shell.ts`.
 
 ## Context
 

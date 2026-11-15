@@ -18,9 +18,9 @@ for the task before starting it:
 | a changelog entry, the version, a release, the site     | [`release`](.agents/skills/release/SKILL.md)               |
 | a review of what the invariants rest on                 | [`premise-review`](.agents/skills/premise-review/SKILL.md) |
 
-The engine is `src/core.ts`, `engine.ts`, `run.ts`, `compose.ts`, `dispatch.ts` and `log.ts`, and the testing tools
-are `src/testing/`: a change of one, of `mutations/` or of `test/scheduled.ts` reads `change-engine` first, whatever
-else it is.
+The engine is `src/core.ts`, `shell.ts`, `engine.ts`, `run.ts`, `compose.ts`, `dispatch.ts` and `log.ts`, and the
+testing tools are `src/testing/`: a change of one, of `mutations/` or of `test/scheduled.ts` reads `change-engine`
+first, whatever else it is.
 
 ## Language
 
@@ -119,9 +119,11 @@ an example's and a document's too:
 ## Code
 
 - One module per concept: `update.ts`, `command.ts`, `subscription.ts`, `dispatch.ts` (views and their
-  dispatch), `program.ts` (the program and its types), `compose.ts` (`composition`), `log.ts`, `defect.ts`;
-  `core.ts` is what the run and the testing tools share, as pure functions of data (`docs/shared-core.md`);
-  `engine.ts` is the runtime only (with `RunOptions`), and `run.ts` connects it to a renderer. `testing/` holds
+  dispatch), `program.ts` (the program and its types), `compose.ts` (`composition`), `input.ts` (an input, and the
+  rule a bridge calls for the element that shows one), `log.ts`, `defect.ts`; `core.ts` is what the run and the
+  testing tools share as pure functions of data, and `shell.ts` what they share that has effects
+  (`docs/shared-core.md`); `engine.ts` is the runtime only (with `RunOptions`), and `run.ts` connects it to a
+  renderer. `testing/` holds
   one module per testing tool (and `unexpected.ts`, the failure they share, `ledger.ts`, what `rehearse` keeps of
   its commands and starts, as pure transitions, and `loop.ts`, the loop that applies its steps one at a time).
 - A piece of a program that may be missing (`runCommand` without commands, `subscriptions`) is read through

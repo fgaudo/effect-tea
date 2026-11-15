@@ -8,9 +8,10 @@ import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import * as SubscriptionRef from 'effect/SubscriptionRef'
 import * as Core from '../core.ts'
-import { makeDeaths, type RunOptions } from '../engine.ts'
-import type { Shape } from '../program.ts'
-import { type FlagsOption, type Frame, runWith } from '../run.ts'
+import type { RunOptions } from '../engine.ts'
+import type { FlagsOption, Shape } from '../program.ts'
+import { type Frame, runWith } from '../run.ts'
+import { makeDeaths } from '../shell.ts'
 
 /** A user of a program that `drive` runs: it waits for what the frames show, and does what they show. */
 export type Driver<Model, Message> = Readonly<{

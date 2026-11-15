@@ -89,7 +89,7 @@ The invariants themselves are in [`invariants.md`](invariants.md).
 - **An interruption made with `Fiber.interruptAs` carries the annotations it is given on its reason, and the runtime
   keeps them as it annotates the reason further**, which is how `diesIn` tells the run's interruption from one the
   program makes with the same fiber id, by the mark the run puts on each of its own (`Stopped` in `core.ts`, `stopping`
-  in `engine.ts`): "a renderer that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the
+  in `shell.ts`): "a renderer that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the
   renderer" fails without the mark, and "a subscription stopped inside an uninterruptible region, which then enters a
   traced function, is no defect" (`run.test.ts`) with a copy of the reason that drops it, as one compared by identity
   does; and so do the testing tools: "rehearse fails with a defect of a command joining, as its run is stopped, a
@@ -129,7 +129,7 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   message is one defect, in the log", "a Logger that throws on what a command logs is a defect in the command"
   (`run.test.ts`). That it runs in the fiber that logs is read only in the source.
 - **An external span keeps no event of the logs written under it**, which is how no span lives as long as the run,
-  the fibers of the run seeing the span of whoever runs it as an external one (`withExternalSpan` in `engine.ts`):
+  the fibers of the run seeing the span of whoever runs it as an external one (`withExternalSpan` in `shell.ts`):
   "what runs in a run logs nothing into the span of whoever runs it, which stays the parent of their spans"
   (`run.test.ts`). That a log is an event of the current span (`Logger.tracerLogger`), and that a span opened under an
   external one has it as its parent (`Tracer.externalSpan`), is documented; that an external span keeps none is not,

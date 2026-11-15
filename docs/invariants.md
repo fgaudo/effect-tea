@@ -135,11 +135,11 @@ testing tools.
     of a defect earlier (a `Supervisor`, a look at a fiber's state); what it acquires in the scope the library gives it
     is released after, and what that release dies of is a defect once the scope has closed.
   - Where the engine knows where a defect happened, it wraps each defect of the cause in a `ProgramDefect` (`diesIn` in
-    `engine.ts`) that holds it as its `cause` and says where, and keeps the rest of the cause. The run's own logs die in
+    `shell.ts`) that holds it as its `cause` and says where, and keeps the rest of the cause. The run's own logs die in
     `'log'`, each outside any other site, so that a `Logger` that throws is never taken for the subscription or the step
     that logs; what the program logs is in the site it logs from.
   - The run stops each fiber of the program with a mark of its own on the interruption, made anew for each stop
-    (`stopping` in `engine.ts`, `Stopped` in `core.ts`), and `diesIn` takes an interruption of the cause for one the
+    (`stopping` in `shell.ts`, `Stopped` in `core.ts`), and `diesIn` takes an interruption of the cause for one the
     fiber received only when it has the fiber id and the mark, or the lack of one, of a received one: a fiber id alone
     is one the program can make too (`FiberMap`, `FiberSet` and `FiberHandle` interrupt as the fiber -1, and the fiber
     that ends the run may have interrupted another before). Never stop a fiber of the program otherwise. So do the
@@ -147,7 +147,7 @@ testing tools.
     that went away and, as it ends, the subscriptions `hearNext` started and the commands under way, before it closes
     its scope, which would interrupt them as the fiber that ends it; `simulate` runs each command in a fiber of its
     own, which it stops when it is interrupted.
-  - Each fiber of the run records what it dies of in one place (`makeDeaths` in `engine.ts`, made by `run` or `drive`
+  - Each fiber of the run records what it dies of in one place (`makeDeaths` in `shell.ts`, made by `run` or `drive`
     and given through `runWith` to the engine; `rehearse` has its own, keeping only the program's defects): the engine's, the renderer, and the
     run's own as it starts the engine, as they end, and one with a scope of its own as it dies too, before the scope
     releases what it holds (`scopedIn`), a subscription's channel and the scopes of its own included

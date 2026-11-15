@@ -2,7 +2,7 @@ import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Queue from 'effect/Queue'
 import type * as Scope from 'effect/Scope'
-import { stopping } from '../engine.ts'
+import { stopping } from '../shell.ts'
 
 /**
  * One fiber that runs the steps it is offered one at a time, in the order they were offered, as the run's loop takes

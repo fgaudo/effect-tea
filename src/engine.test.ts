@@ -16,6 +16,7 @@ import * as Stream from 'effect/Stream'
 import { everySchedule } from '../test/scheduled.ts'
 import { ProgramDefect } from './defect.ts'
 import * as Engine from './engine.ts'
+import * as Shell from './shell.ts'
 import type { Execution } from './command.ts'
 import type { Subscription } from './subscription.ts'
 import { reject } from './update.ts'
@@ -533,9 +534,9 @@ describe('Engine after the first defect', () => {
   // the first message after the death: what no update and no description follows. The clock only bounds a wait that a
   // loop which never reads it, past the death, would make.
   const readingDeaths = Effect.gen(function*() {
-    const made = yield* Engine.makeDeaths(() => true)
+    const made = yield* Shell.makeDeaths(() => true)
     const read = yield* Deferred.make<void>()
-    const deaths: Engine.Deaths = {
+    const deaths: Shell.Deaths = {
       ...made,
       dead: () => {
         const dead = made.dead()

@@ -6,7 +6,8 @@ import * as Core from './core.ts'
 import type { Dispatch } from './dispatch.ts'
 import * as Engine from './engine.ts'
 import type { RunOptions } from './engine.ts'
-import { runCommandOf, type Shape, startOf, subscriptionsOf } from './program.ts'
+import { type FlagsOption, runCommandOf, type Shape, startOf, subscriptionsOf } from './program.ts'
+import * as Shell from './shell.ts'
 
 /**
  * What a renderer draws: a model, the dispatch of the run, the very same function for every frame, and `seen`, how
@@ -17,20 +18,16 @@ import { runCommandOf, type Shape, startOf, subscriptionsOf } from './program.ts
  */
 export type Frame<Model, Message> = Readonly<{ model: Model; dispatch: Dispatch<Message>; seen: number }>
 
-/** What the program starts from: required exactly when it has flags. */
-export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: never }>
-  : Readonly<{ flags: Flags }>
-
 /**
  * `run`, with its options as one value, recording what its fibers die of in `deaths`: for `drive`, which passes the
  * options on as it got them, and ends with what they died of.
  */
-// Not an `Effect.fn`: a span of its own would be the one the renderer logs into (see `Engine.withExternalSpan`).
+// Not an `Effect.fn`: a span of its own would be the one the renderer logs into (see `Shell.withExternalSpan`).
 export const runWith = <State, Model, Message, Command, R, RR, Flags>(
   program: Shape<State, Model, Message, Command, R, never, unknown, Flags>,
   render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
   options: RunOptions<Message, State, Command> & Readonly<{ flags?: unknown }>,
-  deaths: Engine.Deaths,
+  deaths: Shell.Deaths,
 ): Effect.Effect<void, never, Exclude<R | RR, Scope.Scope>> =>
   // The renderer, the fiber of the run as it starts the engine, and the engine's fibers record what they die of in
   // one place: the defects come first in the cause, in the order they died, then the rest of what the run ended with
@@ -46,11 +43,11 @@ const running = Effect.fnUntraced(
     program: Shape<State, Model, Message, Command, R, never, unknown, Flags>,
     render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
     options: RunOptions<Message, State, Command> & Readonly<{ flags?: unknown }>,
-    deaths: Engine.Deaths,
+    deaths: Shell.Deaths,
   ): Effect.fn.Return<void, never, R | RR | Scope.Scope> {
     const { flags, ...runOptions } = options
     // A step is data: only an `init` that makes it from the flags can throw.
-    const init = yield* Effect.sync(() => startOf(program.init, flags)).pipe(Engine.diesIn('init'), deaths.recorded)
+    const init = yield* Effect.sync(() => startOf(program.init, flags)).pipe(Shell.diesIn('init'), deaths.recorded)
     const engine = yield* Engine.make({
       ...runOptions,
       deaths,
@@ -68,8 +65,8 @@ const running = Effect.fnUntraced(
     // the end of the run interrupts it, as it does any effect of the program.
     const rendering = Effect.suspend(() => render(frames)).pipe(
       // The model is made as the renderer pulls its frame: a defect of `makeModel` is the renderer's.
-      Engine.scopedIn(deaths, 'render'),
-      Effect.updateContext(Engine.withExternalSpan<Exclude<RR, Scope.Scope>>),
+      Shell.scopedIn(deaths, 'render'),
+      Effect.updateContext(Shell.withExternalSpan<Exclude<RR, Scope.Scope>>),
     )
     // However the run ends, it stops the loop first, then the renderer is interrupted and awaited, before the engine's
     // other fibers: what the renderer sends as it releases what it holds is not applied, and the program does not go
@@ -81,7 +78,7 @@ const running = Effect.fnUntraced(
     const renderer = yield* Effect.acquireRelease(
       Effect.forkChild(rendering),
       (renderer) =>
-        engine.stop.pipe(Effect.andThen(Engine.stopping(renderer))),
+        engine.stop.pipe(Effect.andThen(Shell.stopping(renderer))),
     )
     yield* Effect.raceFirst(engine.died, Fiber.await(renderer)).pipe(Effect.andThen(engine.report))
   },
@@ -99,4 +96,4 @@ export const run = <State, Model, Message, Command = never, R = never, RR = neve
     ? [options?: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>]
     : [options: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
 ): Effect.Effect<void, never, Exclude<R | RR, Scope.Scope>> =>
-  Effect.flatMap(Engine.makeDeaths(() => true), (deaths) => runWith(program, render, options, deaths))
+  Effect.flatMap(Shell.makeDeaths(() => true), (deaths) => runWith(program, render, options, deaths))

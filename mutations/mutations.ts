@@ -106,7 +106,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: 'scopedIn wraps again what it wrapped',
-    file: 'src/engine.ts',
+    file: 'src/shell.ts',
     from: '(defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),',
     to: '() => false,',
     killedBy: [
@@ -128,7 +128,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: 'scopedIn tells what it wrapped by the register',
-    file: 'src/engine.ts',
+    file: 'src/shell.ts',
     from: '(defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),',
     to: 'deaths.has,',
     killedBy: [
@@ -140,7 +140,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: 'a defect is recorded after the release of its scope',
-    file: 'src/engine.ts',
+    file: 'src/shell.ts',
     from: '        deaths.recorded,\n      )).pipe(\n',
     to: '      )).pipe(\n',
     killedBy: [
@@ -175,7 +175,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     // The context a command, a subscription or the renderer runs in holds the run's scope.
     name: 'a fiber of the run acquires into the scope of the run',
-    file: 'src/engine.ts',
+    file: 'src/shell.ts',
     from: '      return Effect.scoped(self.pipe(\n',
     to: '      return (self.pipe(\n',
     killedBy: [
@@ -195,7 +195,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a subscription's channel releases its scopes before its defect is recorded",
-    file: 'src/engine.ts',
+    file: 'src/shell.ts',
     from: 'Channel.toPull(subscription).pipe(\n'
       + '    Effect.flatMap((pull) => Effect.forever(Effect.flatMap(pull, send), { disableYield: true })),\n'
       + '    Pull.catchDone(Effect.succeed),\n'
@@ -218,7 +218,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: 'a self-interruption is no defect',
-    file: 'src/engine.ts',
+    file: 'src/shell.ts',
     from: 'const own = Core.otherwiseDefect(cause, Exit.isFailure(received) ? received.cause : Cause.empty)',
     to: 'const own = cause as Cause.Cause<never>',
     killedBy: [
@@ -256,7 +256,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: 'an interruption the fiber received is taken for its own',
-    file: 'src/engine.ts',
+    file: 'src/shell.ts',
     from: 'Exit.isFailure(received) ? received.cause : Cause.empty',
     to: 'Cause.empty',
     killedBy: [
@@ -337,7 +337,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the run's fibers log into the span of whoever runs it",
-    file: 'src/engine.ts',
+    file: 'src/shell.ts',
     from: "if (span === undefined || span._tag === 'ExternalSpan') return context",
     to: 'return context',
     killedBy: [
@@ -531,7 +531,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: '    const renderer = yield* Effect.acquireRelease(\n'
       + '      Effect.forkChild(rendering),\n'
       + '      (renderer) =>\n'
-      + '        engine.stop.pipe(Effect.andThen(Engine.stopping(renderer))),\n'
+      + '        engine.stop.pipe(Effect.andThen(Shell.stopping(renderer))),\n'
       + '    )\n',
     to: '    const renderer = yield* Effect.forkChild(rendering)\n',
     killedBy: [
@@ -578,7 +578,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: 'the run stops its fibers with no mark of its own',
-    file: 'src/engine.ts',
+    file: 'src/shell.ts',
     from: 'Fiber.interruptAs(fiber, id, Context.make(Core.Stopped, {}))',
     to: 'Fiber.interruptAs(fiber, id)',
     killedBy: [
@@ -640,8 +640,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'the end of the run stops the renderer before the loop',
     file: 'src/run.ts',
-    from: 'engine.stop.pipe(Effect.andThen(Engine.stopping(renderer)))',
-    to: 'Engine.stopping(renderer)',
+    from: 'engine.stop.pipe(Effect.andThen(Shell.stopping(renderer)))',
+    to: 'Shell.stopping(renderer)',
     killedBy: [
       ['src/run.test.ts', 'a message the renderer sends as the run releases it does not reach update'],
     ],

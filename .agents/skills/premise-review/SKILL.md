@@ -25,7 +25,7 @@ the documentation of a stable API, or a test for what is not documented.
 2. The reviewer wrote none of the changes. Start it as a session in a worktree of its own, so that its failing tests
    stay off `main` until they are read, or as a subagent where the author asks for one. Commit what the review must
    see first: a worktree is cut from the last commit. Two reviewers at once read apart: the engine (`engine.ts`,
-   `run.ts`, `compose.ts`, `dispatch.ts`, `log.ts`) and the testing tools (`src/testing/`).
+   `shell.ts`, `run.ts`, `compose.ts`, `dispatch.ts`, `log.ts`) and the testing tools (`src/testing/`).
 3. Fill the brief's two places: what to read, and what is already known (the open problems of
    [`ROADMAP.md`](../../../ROADMAP.md), the `test.failing` cases of `src/testing/contract.test.ts`, and the premises
    that no test reaches yet, listed in `docs/premises.md`), so that the reviewer does not report them again, and

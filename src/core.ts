@@ -11,7 +11,7 @@ import { isRejected, type Step, type Update } from './update.ts'
 // shells, `engine.ts` and `src/testing/`, decide when they run and perform what they return.
 
 /**
- * The mark of an interruption the run makes (`Engine.stopping`), one for each, among the annotations of its reason. A
+ * The mark of an interruption the run makes (`Shell.stopping`), one for each, among the annotations of its reason. A
  * fiber id tells no interruption of the run's from one the program makes: `FiberMap`, `FiberSet` and `FiberHandle`
  * interrupt as the fiber -1, and the fiber that ends the run may have interrupted a fiber before, that the program
  * joins. The program cannot make the mark: the key is the library's, and so is each value, made anew for each stop.

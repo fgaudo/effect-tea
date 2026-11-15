@@ -81,6 +81,10 @@ export type ExternalAmong<Message, External> = [Exclude<External, Message>] exte
 export type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, Command>
   : (flags: Flags) => Step<State, Command>
 
+/** What the program starts from, among the options of whoever starts it: required exactly when it has flags. */
+export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: never }>
+  : Readonly<{ flags: Flags }>
+
 /**
  * A program keeps its state in an object: a parent keeps a child's model for as long as the child's state is the
  * same object, and a number or a string has no identity to keep it by. Every program, so that any can be a child.
