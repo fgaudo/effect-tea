@@ -67,8 +67,8 @@ feature that stands in the way, and Elm, the owner's reference, need not be the 
   registry in a context, and in its numbering, which rests on no undocumented premise of Effect and has a test and a
   mutation for each check of the engine ("The ninth review, in React and in its numbering"). A slider ported to it
   needs a rule of its own only where its bounds narrow, which the owner puts outside what is guaranteed, and a write
-  over the value held costs one `===` more than a write at a revision ("A slider, the cost of `was`, and the bridges'
-  part").
+  over the value held costs one `===` more than a write at a revision, the bridge's check on each frame under 0.3% of a
+  frame for 1000 inputs, and a rejected write under 3 µs ("A slider, the cost of `was`, and the bridges' part").
 
 **Accepted by the owner**, 15 November 2026, for the ninth review: a tie between the library and its bridges, as a
 condition of the guarantees of inputs on the elements and the renderers, rather than a weak point in the library; a
@@ -1565,8 +1565,9 @@ Two more points of the ninth review were left only reasoned: whether "a program 
 stays simple in a slider whose bounds narrow, where `renewed` is dropped, and what `was` costs on each write. Each was
 spiked on 15 November 2026 by a session of Opus 5.5 on a branch of its own cut from `4757546`, never to be merged: the
 slider on `claude/spike-volume-plain-031355` (`a7b0faf` and `bf76814`), the measure on `claude/bench-write-was-b77d29`
-(`f570872`). Each reports `typecheck` and `lint` green, the slider `test` (648) too; the tests of the plain volume and
-of the plain bridge, 26, were run again on its commit (**run**).
+(`f570872`, extended in `ac38db8` to a frame's check and to rejected writes). Each reports `typecheck` and `lint`
+green, the slider `test` (648) too; the tests of the plain volume and of the plain bridge, 26, were run again on its
+commit (**run**).
 
 ### The slider
 
@@ -1617,8 +1618,28 @@ rounds each (**run**).
   frame (**reasoned**).
 - **What a write weighs**: three properties in each design; `was` copies nothing, but holds the old value until the
   write is applied; a stored write makes one object fewer than a `Field` (**checked**).
-- **Not measured**: the `Equal` that `drawn` runs in the bridge on each frame for each input, rejected writes, a
-  browser.
+- **What the bridge checks on each frame**: `drawn` for an input whose value is the one the state holds takes 60 to 80
+  ns on Bun, 10 to 60 ns on Node, for any value, with or without a write pending (**run**); the value is the same one
+  when `makeModel` passes it on, since `compose` keeps a child's model while its state is the same object and a write
+  of an equal value leaves the state as it is (**checked**, `src/compose.ts`), and a copy only when `makeModel` or the
+  view rebuilds it (**reasoned**). An equal copy costs 0.5 to 0.9 µs for 4 to 6 KB of text, 4 to 5 µs for 200 ids,
+  1.6 to 4.3 µs for a record of four fields; a state gone ahead costs the hash of the new value, which `main` pays
+  anyway when it stores it (**run**).
+- **A whole frame's settle**, as the Snabbdom bridge at `4757546` does it without a DOM: 19 to 52 µs for 1000 inputs
+  holding the same value, 0.1 to 0.3% of a 16 ms frame, the walk over the elements and not the comparison; 154 to 249
+  µs, 1 to 1.5% of a frame, for 1000 texts of 4 KB copied (**run**). The patch of the DOM was not measured.
+- **A rejected write costs more than `main`'s**, which compares two numbers in 12 to 33 ns for the rule alone, 120 to
+  300 ns through `update` (**run**). The plain design rejects a short text or a number as fast; a text of 4 KB of the
+  same length that differs near its end in up to 0.4 µs, one of another length at once; an array of 200 ids or a record
+  in 0.7 to 2.8 µs wherever it differs, since `Equal` hashes `was` whole before it compares (**run**; **checked** in
+  `Equal.ts` of Effect 4.1.4). On Bun, a long text that differs at its first character costs more than one that
+  differs at its last, 0.6 µs against 0.15, which Node does not show: the JIT warming up is suspected, not verified.
+- **Where it shows**: text from a few KB up, only when copied or rejected near its end, at about 0.1 to 0.2 µs a KB;
+  structures from a few tens of elements up, at 2 to 3 µs per 200, for a copied `was` or a rejection; under 6 µs an
+  event in every case, and under 0.04% of a frame but for the settle of 1000 long texts copied (**reasoned**). Strings
+  are flattened in the bench, as an element gives them: a rope of 4 KB compared in 225 ns on Node against 5 for a flat
+  one (**run**).
+- **Not measured**: a browser, and the patch of the DOM.
 
 ### What the owner accepts
 
