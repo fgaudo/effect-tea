@@ -1038,7 +1038,7 @@ file. Its verdict, which the owner accepted: keep it, and refuse a command's ans
   would do nothing Effect cannot, for the sake of one kind of application, and add a kind of message `simulate` and
   `rehearse` would be asked about (**reasoned**).
 - **`reject` keeps one meaning**: the keystroke rejected after a replacement was written into an input no longer on
-  screen (**checked**, `src/input-subscriptions.test.ts`).
+  screen (**checked**, `src/input.test.ts`).
 - **A finding**: in the spike, `runCommand`'s answers include the inputs' messages (`RunCommandOf<OwnCommand, Own |
   ChildMessages<C> | InputMessages<I>, R>`, `src/compose.ts:247`, **checked**, and **run** as types), so a
   subscription reaches an input in two hops, an own message and a command whose answer is a `write`, with the same
@@ -1253,7 +1253,7 @@ Why, by the review:
   child's own message did too, against "a parent and its children talk only through external messages and events".
   Closed since, apart from this proposal: a parent's command answers with its own messages or its children's
   external ones (`ChildExternals<C>`), as its handles send them, held by a `@ts-expect-error` in
-  `src/input-subscriptions.test.ts` and one in `src/compose.test.ts`, each seen to pass on `main`.
+  `src/input.test.ts` and one in `src/compose.test.ts`, each seen to pass on `main`.
 - A wrong `dispatchTo`, `init`, a `File`: as before. Nothing of it ran in a bridge.
 
 ### Refused, by the review

@@ -10,13 +10,7 @@ holds only what is to be done or decided now.
 ## Open problems
 
 A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a deterministic
-test of it. The items below come from a review of 15 November 2026, at `abe1614`; "confirmed" means a probe or a run
-showed it, "reasoned" that it was read only.
-
-### The tests and the checks
-
-- **`src/input-subscriptions.test.ts` has no module of its own**, and mixes type tests, pure semantics of
-  `subscriptionsOf` and `composition`, and a `run` scenario that reads as an example. A judgement call.
+test of it. None is open.
 
 ## Possible improvements
 

@@ -1,18 +1,23 @@
 // The semantics of an input, as pure pieces: what `update` makes of what is written into one, what a step of the
-// program leaves of one, and what an element on screen holds of one, as a bridge asks the library (`typed`, `drawn`).
-// Nothing here runs.
+// program leaves of one and of its subscriptions, and what an element on screen holds of one, as a bridge asks the
+// library (`typed`, `drawn`). Nothing here runs.
 import { describe, expect, test } from 'bun:test'
 import * as Arr from 'effect/Array'
+import * as Channel from 'effect/Channel'
 import * as Effect from 'effect/Effect'
+import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import * as fc from 'fast-check'
 import { composition } from './compose.ts'
 import { type Dispatch, dispatchTo } from './dispatch.ts'
 import { drawn, type Shown, typed, write, type Written } from './input.ts'
-import type { MessageOf } from './program.ts'
+import { type MessageOf, type Program, subscriptionsOf } from './program.ts'
+import type { Subscription } from './subscription.ts'
 import { dispatchViolations } from './testing/dispatch-violations.ts'
 import { isRejected, raise, reject, type Step, type Transition } from './update.ts'
+
+const idle = <M>(): Subscription<M, never> => Channel.never
 
 const stepped = <S, C, E>(result: Transition<S, C, E>): Step<S, C, E> => {
   if (isRejected(result)) throw new Error('rejected')
@@ -159,6 +164,58 @@ describe('a step of the program', () => {
     expect(isRejected(program.update({ _tag: 'Name', message: write('Ada', 'Ada L') })(stepped(result).state))).toBe(
       true,
     )
+  })
+
+  test('that puts a subscription\'s value into an input rejects what was typed over the value before', () => {
+    type Note = Readonly<{ text: string }>
+    const note = composition<{ state: Note }>()
+    const program = note.compose({
+      init: () => ({ state: { text: '' } }),
+      inputs: { Text: note.input(Optic.id<Note>().key('text')) },
+      update: (message: Readonly<{ _tag: 'Dictated'; text: string }>) => (state) => ({
+        state: { text: `${state.text}${message.text}` },
+      }),
+      makeModel: (state) => state.text,
+    })
+    const dictated = stepped(program.update({ _tag: 'Dictated', text: 'lo' })({ text: 'Hel' }))
+    expect(dictated.state).toEqual({ text: 'Hello' })
+    expect(isRejected(program.update({ _tag: 'Text', message: write('Hel', 'Help') })(dictated.state))).toBe(true)
+    expect(isRejected(program.update({ _tag: 'Text', message: write('Hello', 'Hello!') })(dictated.state))).toBe(false)
+  })
+})
+
+describe('an input among the subscriptions', () => {
+  type Ticks = Readonly<{ ticks: number }>
+  const ticking: Program<{ state: Ticks; model: number; message: 'Tick' }> = {
+    init: { state: { ticks: 0 } },
+    update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
+    subscriptions: () => HashMap.make(['ticks', idle<'Tick'>()]),
+    makeModel: ({ ticks }) => ticks,
+  }
+  type Page = Readonly<{ name: string; ticking: Ticks }>
+  const onPage = Optic.id<Page>()
+  const pages = composition<{ state: Page }>()
+  const page = pages.compose({
+    init: (children) => ({ state: { name: '', ticking: children.Ticking.init.state } }),
+    children: { Ticking: pages.child(ticking, { at: onPage.key('ticking') }) },
+    inputs: { Name: pages.input(onPage.key('name')) },
+    subscriptions: () => HashMap.make(['own', idle<never>()]),
+    makeModel: (state) => state.name,
+  })
+
+  test('lifts no key: the program keeps its own and its children\'s, and none is under the input\'s name', () => {
+    const keys = subscriptionsOf(page)({ name: 'Ada', ticking: { ticks: 0 } })
+    expect(HashMap.size(keys)).toBe(2)
+    expect(HashMap.has(keys, 'own')).toBe(true)
+    expect(HashMap.has(keys, ['Ticking', 'ticks'])).toBe(true)
+  })
+
+  test('a write into it keeps every subscription the same object, the children\'s lifted ones included', () => {
+    const before: Page = { name: '', ticking: { ticks: 0 } }
+    const written = stepped(page.update({ _tag: 'Name', message: write(before.name, 'Ada') })(before))
+    expect(written.state.ticking).toBe(before.ticking)
+    const lifted = (state: Page) => Opt.getOrThrow(HashMap.get(subscriptionsOf(page)(state), ['Ticking', 'ticks']))
+    expect(lifted(written.state)).toBe(lifted(before))
   })
 })
 
@@ -458,6 +515,60 @@ describe('the types of an input', () => {
       inputs: { Title: input(here.key('title')) },
       update: (_: Readonly<{ _tag: 'Title' }>) => (state) => ({ state }),
       makeModel: (state) => state,
+    })
+  })
+
+  test('a subscription of the program\'s own cannot write into an input: it sends the program\'s own messages', () => {
+    compose({
+      init: () => ({ state: draftOf('') }),
+      inputs: { Title: input(here.key('title')) },
+      // The state annotated, so that the own messages are inferred from `update` alone.
+      update: (_: 'Dictated') => (state: Draft) => ({ state }),
+      // @ts-expect-error: what is written into an input is no own message
+      subscriptions: () => HashMap.make(['dictation', idle<Extract<Message, { _tag: 'Title' }>>()]),
+      makeModel: () => null,
+    })
+  })
+
+  test('a command\'s answer cannot write into an input: it is an own message or a child\'s', () => {
+    const saving = composition<{ state: Draft; command: 'Load' }>()
+    saving.compose({
+      init: () => ({ state: draftOf('') }),
+      inputs: { Title: saving.input(here.key('title')) },
+      // The state annotated, so that the own messages are inferred from `update` alone.
+      update: (_: 'Loaded') => (state: Draft) => ({ state, commands: ['Load' as const] }),
+      // @ts-expect-error: the answer would write into the input, over the value the command started with
+      runCommand: () => Effect.succeedSome({ _tag: 'Title' as const, message: write('', 'Ada') }),
+      makeModel: () => null,
+    })
+    saving.compose({
+      init: () => ({ state: draftOf('') }),
+      inputs: { Title: saving.input(here.key('title')) },
+      update: (_: 'Loaded') => (state: Draft) => ({ state, commands: ['Load' as const] }),
+      runCommand: () => Effect.succeedSome('Loaded' as const),
+      makeModel: () => null,
+    })
+  })
+
+  test('a command\'s answer cannot write into a child\'s input either', () => {
+    type Note = Readonly<{ text: string }>
+    const note = composition<{ state: Note }>()
+    const noteProgram = note.compose({
+      init: () => ({ state: { text: '' } }),
+      inputs: { Text: note.input(Optic.id<Note>().key('text')) },
+      makeModel: (state) => state,
+    })
+    type Board = Readonly<{ note: Note }>
+    const board = composition<{ state: Board; command: 'Load' }>()
+    const written = { _tag: 'Note' as const, message: { _tag: 'Text' as const, message: write('', 'Ada') } }
+    board.compose({
+      init: (children) => ({ state: { note: children.Note.init.state } }),
+      children: { Note: board.child(noteProgram, { at: Optic.id<Board>().key('note') }) },
+      // The state annotated, so that the own messages are inferred from `update` alone.
+      update: (_: 'Loaded') => (state: Board) => ({ state, commands: ['Load' as const] }),
+      // @ts-expect-error: the answer would write into the child's input, over the value the command started with
+      runCommand: () => Effect.succeedSome(written),
+      makeModel: () => null,
     })
   })
 

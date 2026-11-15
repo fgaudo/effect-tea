@@ -725,7 +725,7 @@ export const mutations: ReadonlyArray<Mutation> = [
       ],
       ['src/compose.test.ts', 'children that share one state object are lifted once while they keep sharing it'],
       [
-        'src/input-subscriptions.test.ts',
+        'src/input.test.ts',
         "a write into it keeps every subscription the same object, the children's lifted ones included",
       ],
     ],
@@ -837,7 +837,10 @@ export const mutations: ReadonlyArray<Mutation> = [
         'src/input.test.ts',
         'rejects what was written over another text, and what was written into a note that is gone',
       ],
-      ['src/input-subscriptions.test.ts', 'is a step of the program: what the user typed over the value before it is rejected'],
+      [
+        'src/input.test.ts',
+        "that puts a subscription's value into an input rejects what was typed over the value before",
+      ],
     ],
   },
   {
