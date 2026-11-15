@@ -5,6 +5,7 @@ import * as Stream from 'effect/Stream'
 import * as Core from './core.ts'
 import type { Dispatch } from './dispatch.ts'
 import * as Engine from './engine.ts'
+import type { RunOptions } from './engine.ts'
 import { runCommandOf, type Shape, startOf, subscriptionsOf } from './program.ts'
 
 /**
@@ -28,7 +29,7 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: ne
 export const runWith = <State, Model, Message, Command, R, RR, Flags>(
   program: Shape<State, Model, Message, Command, R, never, unknown, Flags>,
   render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
-  options: Engine.RunOptions<Message, State, Command> & Readonly<{ flags?: unknown }>,
+  options: RunOptions<Message, State, Command> & Readonly<{ flags?: unknown }>,
   deaths: Engine.Deaths,
 ): Effect.Effect<void, never, Exclude<R | RR, Scope.Scope>> =>
   // The renderer, the fiber of the run as it starts the engine, and the engine's fibers record what they die of in
@@ -44,7 +45,7 @@ const running = Effect.fnUntraced(
   function*<State, Model, Message, Command, R, RR, Flags>(
     program: Shape<State, Model, Message, Command, R, never, unknown, Flags>,
     render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
-    options: Engine.RunOptions<Message, State, Command> & Readonly<{ flags?: unknown }>,
+    options: RunOptions<Message, State, Command> & Readonly<{ flags?: unknown }>,
     deaths: Engine.Deaths,
   ): Effect.fn.Return<void, never, R | RR | Scope.Scope> {
     const { flags, ...runOptions } = options
@@ -95,7 +96,7 @@ export const run = <State, Model, Message, Command = never, R = never, RR = neve
   program: Shape<State, Model, Message, Command, R, never, unknown, Flags>,
   render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
   ...[options = {}]: [Flags] extends [never]
-    ? [options?: Engine.RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>]
-    : [options: Engine.RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
+    ? [options?: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>]
+    : [options: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
 ): Effect.Effect<void, never, Exclude<R | RR, Scope.Scope>> =>
   Effect.flatMap(Engine.makeDeaths(() => true), (deaths) => runWith(program, render, options, deaths))

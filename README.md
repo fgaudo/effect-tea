@@ -704,8 +704,9 @@ Options:
   (`References.MinimumLogLevel`), so they cost nothing otherwise. The debug logs of subscriptions show their
   keys, which may hold data (an id, a search's text).
 - **`onApplied`**: hears every accepted message with where it came from (`origin`: a dispatch, a command, or a
-  subscription with its key), the state before and after it, and the commands it decided, for devtools or
-  session recording.
+  subscription with its key), the state before and after it, the `revision` of the state after it, and the
+  commands it decided, for devtools or session recording. The first state is revision 0, and each new one the next:
+  a message whose `update` returns the very state it was given leaves the revision as it was.
 - **`onIgnored`**: hears every message `update` rejected, with where it came from and the state it did not
   apply in. It only watches: the message stays ignored. For devtools, or to count the taps that did nothing.
 

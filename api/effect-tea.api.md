@@ -4,26 +4,15 @@
 
 ```ts
 
-import * as Cause from 'effect/Cause';
 import type * as Channel from 'effect/Channel';
-import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
-import * as Exit from 'effect/Exit';
-import * as Fiber from 'effect/Fiber';
-import * as HashMap from 'effect/HashMap';
+import type * as HashMap from 'effect/HashMap';
 import * as Opt from 'effect/Option';
 import type * as Optic from 'effect/Optic';
 import type * as Scope from 'effect/Scope';
 import * as Stream from 'effect/Stream';
 import { VoidIfEmpty } from 'effect/Types';
 import { YieldableError } from 'effect/Cause';
-
-// @public
-type Active<K> = Readonly<{
-    keys: HashMap.HashMap<K, Generation>;
-    starts: ReadonlySet<Generation>;
-    started: Generation;
-}>;
 
 // @public
 export const andThen: {
@@ -44,26 +33,8 @@ export type Applied<State, Message, Command> = Readonly<{
     origin: Origin;
     before: State;
     after: State;
-    revision: Core.Revision;
+    revision: number;
     commands: ReadonlyArray<Command>;
-}>;
-
-// @public
-const arrive: <State, Message, Command, Event, K>(update: Update<State, Message, Command, Event>, current: Revisioned<State>, active: Active<K>, source: Source<K>, message: Message, died: () => boolean) => Arrived<State, Command, Event>;
-
-// @public
-type Arrived<State, Command, Event> = Readonly<{
-    _tag: 'Dropped';
-}> | Readonly<{
-    _tag: 'Dead';
-}> | Readonly<{
-    _tag: 'Ignored';
-}> | Readonly<{
-    _tag: 'Applied';
-    next: Revisioned<State>;
-    changed: boolean;
-    commands: ReadonlyArray<Command>;
-    events: ReadonlyArray<Event>;
 }>;
 
 // @public
@@ -185,63 +156,11 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, R, K, Flags> = OnEventOf
     makeModel: (state: State, children: Models<State, C>) => Model;
 }>;
 
-declare namespace Core {
-    export {
-        Stopped,
-        otherwiseDefect,
-        wrapDefects,
-        Register,
-        noDeaths,
-        hasDied,
-        record,
-        report,
-        diesOf,
-        diesFirst,
-        endedWith,
-        Generation,
-        Active,
-        noneActive,
-        Reconciled,
-        reconcile,
-        Revision,
-        Revisioned,
-        Source,
-        fromDispatch,
-        fromCommand,
-        Started,
-        init,
-        Arrived,
-        arrive
-    }
-}
-
-// @public
-interface Deaths {
-    readonly all: () => ReadonlyArray<Cause.Die>;
-    readonly dead: () => boolean;
-    readonly died: Effect.Effect<void>;
-    readonly has: (defect: unknown) => boolean;
-    readonly recorded: <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
-    readonly report: Effect.Effect<void>;
-}
-
 // @public
 export const defect: (reason: string) => never;
 
 // @public
 export type DefectSite = 'init' | 'update' | 'subscriptions' | 'subscription' | 'command' | 'describeMessage' | 'describeCommand' | 'onApplied' | 'onIgnored' | 'render' | 'log';
-
-// @public
-const diesFirst: <E>(deaths: ReadonlyArray<Cause.Die>, cause: Cause.Cause<E>) => Cause.Cause<E>;
-
-// @public
-const diesIn: (where: DefectSite, details?: () => Readonly<{
-    key?: unknown;
-    on?: unknown;
-}>, wrapped?: (defect: unknown) => boolean) => <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
-
-// @public
-const diesOf: (exit: Exit.Exit<unknown, unknown>) => ReadonlyArray<Cause.Die>;
 
 // @public
 export type Dispatch<Message> = (message: Message) => Effect.Effect<number>;
@@ -278,41 +197,6 @@ type EachPlacement<ParentState, Id, ChildState> = Readonly<{
     get?: never;
     set?: never;
 }>;
-
-// @public
-const endedWith: <A, E>(deaths: ReadonlyArray<Cause.Die>, exit: Exit.Exit<A, E>) => Exit.Exit<A, E>;
-
-declare namespace Engine {
-    export {
-        Revision,
-        Revisioned,
-        Origin,
-        Applied,
-        Ignored,
-        RunOptions,
-        stopping,
-        diesIn,
-        scopedIn,
-        runSubscription,
-        Deaths,
-        makeDeaths,
-        withExternalSpan,
-        Engine_2 as Engine,
-        make
-    }
-}
-
-// @public
-interface Engine_2<State, Message> {
-    readonly await: Effect.Effect<never>;
-    readonly died: Effect.Effect<void>;
-    readonly dispatch: (message: Message) => Effect.Effect<number>;
-    readonly report: Effect.Effect<void>;
-    readonly states: Stream.Stream<Core.Revisioned<State> & Readonly<{
-        seen: number;
-    }>>;
-    readonly stop: Effect.Effect<void>;
-}
 
 // @public (undocumented)
 export type EventOf<P> = Returned<P, 'events'>;
@@ -378,15 +262,6 @@ export type Frame<Model, Message> = Readonly<{
     seen: number;
 }>;
 
-// @public (undocumented)
-const fromCommand: Source<never>;
-
-// @public (undocumented)
-const fromDispatch: Source<never>;
-
-// @public
-type Generation = number;
-
 // @public
 type Handles<State, C, Command, Event> = {
     readonly [K in keyof C & string]: C[K] extends EachOf<infer Id, infer P> ? Readonly<{
@@ -397,9 +272,6 @@ type Handles<State, C, Command, Event> = {
         init: [FlagsOf<ProgramOf<C[K]>>] extends [never] ? Start<ProgramOf<C[K]>, Command> : (flags: FlagsOf<ProgramOf<C[K]>>) => Start<ProgramOf<C[K]>, Command>;
     }>;
 };
-
-// @public
-const hasDied: (register: Register, defect: unknown) => boolean;
 
 // @public
 type IdOf<Message, Name> = [ChildOf<Message, Name>] extends [never] ? [] : ChildOf<Message, Name> extends Readonly<{
@@ -415,9 +287,6 @@ export type Ignored<State, Message> = Readonly<{
 
 // @public
 type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, Command> : (flags: Flags) => Step<State, Command>;
-
-// @public
-const init: <State, Command>(step: Step<State, Command>) => Started<State, Command>;
 
 // @public
 type InputAt<State, A> = Readonly<{
@@ -478,36 +347,6 @@ type Listed<T, Key extends 'commands' | 'events'> = T extends {
 } ? Items<L> : never;
 
 // @public (undocumented)
-const make: <State, Message, Command, R, K>(args_0: Readonly<{
-    deaths?: Deaths;
-    init: Step<State, Command>;
-    update: Update<State, Message, Command>;
-    runCommand: RunCommand<Command, Message, R>;
-    subscriptions: Subscriptions<State, Message, R, K>;
-}> & RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>) => Effect.Effect<{
-    await: Effect.Effect<never, never, never>;
-    died: Effect.Effect<void, never, never>;
-    report: Effect.Effect<void, never, never>;
-    stop: Effect.Effect<void, never, never>;
-    dispatch: (message: Message) => Effect.Effect<number, never, never>;
-    states: Stream.Stream<{
-        state: State;
-        revision: Core.Revision;
-        seen: number;
-    }, never, never>;
-}, never, Scope.Scope | Exclude<R, Scope.Scope>>;
-
-// @public (undocumented)
-const makeDeaths: (keeps: (defect: unknown) => boolean) => Effect.Effect<{
-    recorded: <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
-    died: Effect.Effect<void, never, never>;
-    all: () => readonly Cause.Die[];
-    dead: () => boolean;
-    has: (defect: unknown) => boolean;
-    report: Effect.Effect<void, never, never>;
-}, never, never>;
-
-// @public (undocumented)
 export type MessageOf<P> = P extends {
     readonly update: (message: infer M) => any;
 } ? M : never;
@@ -529,14 +368,8 @@ type NoClash<Own, OwnCommand, C> = ([Extract<TagOf<Own>, keyof C>] extends [neve
     'an own command takes the name of a child': Extract<TagOf<OwnCommand>, keyof C>;
 }>);
 
-// @public (undocumented)
-const noDeaths: Register;
-
 // @public
 type None = Readonly<Record<never, never>>;
-
-// @public (undocumented)
-const noneActive: Active<never>;
 
 // @public
 type NoShared<C, I> = [keyof C & keyof I] extends [never] ? unknown : Readonly<{
@@ -569,9 +402,6 @@ export type Origin = Readonly<{
     _tag: 'Subscription';
     key: unknown;
 }>;
-
-// @public
-const otherwiseDefect: (cause: Cause.Cause<unknown>, received?: Cause.Cause<never>) => Cause.Cause<never>;
 
 // @public
 type Placement<ParentState, ChildState> = Readonly<{
@@ -620,49 +450,15 @@ type ProgramTypes = Readonly<{
 export const raise: <Event>(event: Event) => <State>(state: State) => Step<State, never, Event>;
 
 // @public
-const reconcile: <K, S>(active: Active<K>, listed: HashMap.HashMap<K, S>) => Reconciled<K, S>;
-
-// @public
-type Reconciled<K, S> = Readonly<{
-    gone: ReadonlyArray<readonly [K, Generation]>;
-    fresh: ReadonlyArray<readonly [K, S, Generation]>;
-    active: Active<K>;
-}>;
-
-// @public
-const record: (register: Register, cause: Cause.Cause<unknown>, keeps: (defect: unknown) => boolean) => Readonly<{
-    deaths: ReadonlyArray<Cause.Die>;
-    reported: number;
-}>;
-
-// @public
-type Register = Readonly<{
-    deaths: ReadonlyArray<Cause.Die>;
-    reported: number;
-}>;
-
-// @public
 export const reject: unique symbol;
 
 // @public (undocumented)
 export type Rejected = typeof reject;
 
 // @public
-const report: (register: Register) => readonly [Opt.Option<Cause.Cause<never>>, Register];
-
-// @public
 type Returned<P, Key extends 'commands' | 'events'> = P extends {
     readonly update: (message: any) => (state: any) => infer T;
 } ? Listed<T, Key> : never;
-
-// @public
-type Revision = number;
-
-// @public (undocumented)
-type Revisioned<State> = Readonly<{
-    state: State;
-    revision: Revision;
-}>;
 
 // @public
 type Routed<Message> = Message extends Readonly<{
@@ -671,7 +467,7 @@ type Routed<Message> = Message extends Readonly<{
 }> ? [Exclude<keyof Message, '_tag' | 'message' | 'id'>] extends [never] ? Message : never : never;
 
 // @public
-export const run: <State, Model, Message, Command = never, R = never, RR = never, Flags = never>(program: Shape<State, Model, Message, Command, R, never, unknown, Flags>, render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>, ...input: [Flags] extends [never] ? [options?: Engine.RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>] : [options: Engine.RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<void, never, Exclude<R | RR, Scope.Scope>>;
+export const run: <State, Model, Message, Command = never, R = never, RR = never, Flags = never>(program: Shape<State, Model, Message, Command, R, never, unknown, Flags>, render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>] : [options: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<void, never, Exclude<R | RR, Scope.Scope>>;
 
 // @public
 export type RunCommand<Command, Message, R> = (command: Command) => Execution<Message, R>;
@@ -690,15 +486,6 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
     readonly onApplied?: (applied: Applied<State, Message, Command>) => Effect.Effect<void>;
     readonly onIgnored?: (ignored: Ignored<State, Message>) => Effect.Effect<void>;
 }
-
-// @public
-const runSubscription: <Message, R, RS>(subscription: Subscription<Message, R>, send: (message: Message) => Effect.Effect<void, never, RS>) => Effect.Effect<Message, never, R | RS | Scope.Scope>;
-
-// @public
-const scopedIn: (deaths: Deaths, where: DefectSite, details?: () => Readonly<{
-    key?: unknown;
-    on?: unknown;
-}>) => <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, Exclude<R, Scope.Scope>>;
 
 // @public (undocumented)
 export type ServicesOf<P> = (P extends {
@@ -726,25 +513,8 @@ export type Shown<A> = Readonly<{
 }>;
 
 // @public
-type Source<K> = Readonly<{
-    _tag: 'Dispatch';
-}> | Readonly<{
-    _tag: 'Command';
-}> | Readonly<{
-    _tag: 'Subscription';
-    key: K;
-    generation: Generation;
-}>;
-
-// @public
 type Start<P, Command> = Readonly<{
     state: StateOf<P>;
-    commands: ReadonlyArray<Command>;
-}>;
-
-// @public
-type Started<State, Command> = Readonly<{
-    current: Revisioned<State>;
     commands: ReadonlyArray<Command>;
 }>;
 
@@ -757,16 +527,6 @@ export type Step<State, Command = never, Event = never> = Readonly<{
     commands?: ReadonlyArray<Command>;
     events?: ReadonlyArray<Event>;
 }>;
-
-// @public
-class Stopped extends Stopped_base {
-}
-
-// @public (undocumented)
-const Stopped_base: Context.ServiceClass<Stopped, "@fgaudo/effect-tea/Stopped", object>;
-
-// @public
-const stopping: <A, E>(fiber: Fiber.Fiber<A, E>) => Effect.Effect<void>;
 
 // @public
 export type Subscription<Message, R> = Channel.Channel<Message, never, Message, unknown, unknown, unknown, R>;
@@ -798,15 +558,6 @@ const Unseen: unique symbol;
 
 // @public (undocumented)
 export type Update<State, Message, Command = never, Event = never> = (message: Message) => (state: State) => Transition<State, Command, Event>;
-
-// @public
-const withExternalSpan: <R>(context: Context.Context<R>) => Context.Context<R>;
-
-// @public
-const wrapDefects: <E>(cause: Cause.Cause<E>, where: DefectSite, details: Readonly<{
-    key?: unknown;
-    on?: unknown;
-}>, wrapped: (defect: unknown) => boolean) => Cause.Cause<E>;
 
 // @public
 export const write: <A>(was: A, value: A) => Written<A>;

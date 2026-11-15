@@ -40,7 +40,7 @@ export type Applied<State, Message, Command> = Readonly<{
   origin: Origin
   before: State
   after: State
-  revision: Core.Revision
+  revision: number
   commands: ReadonlyArray<Command>
 }>
 

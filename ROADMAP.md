@@ -15,9 +15,6 @@ showed it, "reasoned" that it was read only.
 
 ### The library
 
-- **`Applied.revision` is typed `Core.Revision`** (`engine.ts`), so the API reports carry the whole internal `Core`
-  namespace (about 25 names), and a rename in `core.ts` reads as an API change under `change-api`. The README's
-  "Running" does not mention the field either. Confirmed.
 - **A child whose messages are strings is logged by the parent's tag alone** (`wrappedOf` in `log.ts` follows only
   a tagged `message`), while the README's `describeMessage` reads as `Child › Increment`. Following a string would
   log a program's own `{ _tag, message: '<user text>' }`, which the default must not: the README is the likelier

@@ -172,6 +172,8 @@ version, and everything else, features included, the patch version.
   `subscriptions`, `state` read the state before the message.
 - A message or command whose wrapping comes back to itself is described by its tags until then, `Loop › …`: its
   description overflowed the stack, and a defect it was made for died as that `RangeError`, without where.
+- `Applied`'s `revision` is a `number` in the declarations, which no longer carry the engine's internal modules, and
+  the README says what it counts ("Running").
 
 ## 0.7.1 (2026-10-28)
 
