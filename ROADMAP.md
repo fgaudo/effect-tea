@@ -15,21 +15,10 @@ test of it. None is open.
 The rest of this section, and the items marked "(review)" below, come from a review of the whole repository
 (November 2026); each was reproduced where it says "confirmed", and only reasoned elsewhere.
 
-- **The timer's buttons stay disabled** (confirmed, happy-dom): snabbdom reuses the buttons of
-  `examples/timer/view.ts` by position, and its `props` module never removes a prop. At one minute the "−" is
-  `disabled`; after Start the same element is "Pause", still disabled, and after Reset it is "+", still disabled.
-  `add-example` asks for `disabled` in every case of the element, and the tutorial shows this view to copy.
 - **The snabbdom bridge loses an input it reuses** (confirmed, happy-dom): `examples/snabbdom.ts` registers an
   element only when snabbdom creates it, so a plain `<input>` reused for a vnode with `shows` never shows the
   program's value and sends no write; reused the other way, it stays registered and is given a stale value. No
   example reaches it, and the React bridge does not have it: a case for `examples/bridge.test_suite.ts`.
-- **`Engine.await` hangs after `report`** (confirmed): once `report` has reported the defects, `await` waits on
-  `died`, then calls a `report` with nothing left to report, and never ends. Its documentation says it "dies as
-  `report` does", and does not say that only `engine.test.ts` uses it.
-- **Two checks of `rehearse` that no test kills** (confirmed: each taken out in a copy, and the suite stays green):
-  `diesIn('render')` around `makeModel` in `draw`, for a `makeModel` that throws on a later state (the contract's
-  cases all throw at the start), and `calling` around `runCommand`, for a `runCommand` that throws before it returns
-  its effect (`contract.test.ts` has the run's and `simulate`'s case, not `rehearse`'s). The README promises both.
 
 ## Possible improvements
 
@@ -82,8 +71,7 @@ The rest of this section, and the items marked "(review)" below, come from a rev
     `bridge.test_suite.ts`, for a check `add-example` gives to the bridges' tests.
   - lines over 120 columns: `site/tutorial/4-testing.md`, `examples/form/form.ts`, `examples/volume/volume.test.ts`.
 - **Contracts missing where the tools agree** (review): `simulate`, a command that interrupts itself; `rehearse`, a
-  command that joins, as it is stopped, a fiber its interrupter interrupted; `rehearse`, a `runCommand` that throws
-  before its effect (above).
+  command that joins, as it is stopped, a fiber its interrupter interrupted.
 - **Smaller points of the tests and the CI** (review):
   - `run.test.ts`, "a run that died applies no message of its queue while the renderer releases", races a 10 ms
     `Boom` against 5 ms ticks without `TestClock`, is vacuous if no tick comes, and asserts on the commands started

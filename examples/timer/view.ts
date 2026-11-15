@@ -24,13 +24,16 @@ export const durationView: View<Duration.Model, Duration.Message> = (model, disp
 // #region timer
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 
+// snabbdom reuses an element by position across the phases: the key keeps the "−", and the `disabled` it may hold,
+// from becoming another phase's button.
 export const timerView: View<Timer.Model, Timer.Message> = (model, dispatch) => {
   switch (model._tag) {
     case 'Setting':
       return h('div.timer', [
         Opt.match(model.less, {
-          onNone: () => h('button', { props: { disabled: true } }, '−'),
-          onSome: (less) => h('button', { props: { disabled: false }, on: onClick(less, dispatch) }, '−'),
+          onNone: () => h('button', { key: 'less', props: { disabled: true } }, '−'),
+          onSome: (less) =>
+            h('button', { key: 'less', props: { disabled: false }, on: onClick(less, dispatch) }, '−'),
         }),
         h('output', `${model.minutes} min`),
         h('button', { on: onClick(model.more, dispatch) }, '+'),

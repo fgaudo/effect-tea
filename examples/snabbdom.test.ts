@@ -27,6 +27,8 @@ import {
 import { view as counterView } from './counter/view.ts'
 import { view as formView } from './form/view.ts'
 import { onClick, renderInto, shows, type View } from './snabbdom.ts'
+import { Bell, Phase, timer } from './timer/timer.ts'
+import { timerView } from './timer/view.ts'
 import { view as volumeView } from './volume/view.ts'
 import { Pointer, volume } from './volume/volume.ts'
 
@@ -172,5 +174,24 @@ describe('the sliders of the volume', () => {
     expect(slider.value).toBe('25')
     paint()
     expect([slider.value, shown('output.media')]).toEqual(['25', '25'])
+  })
+})
+
+// snabbdom reuses the timer's buttons by position, and its props module never removes a prop: the disabled "−" of one
+// minute must not lend its `disabled` to the button drawn in its place.
+describe('the buttons of the timer', () => {
+  const quiet = Bell.of({ ring: Effect.void })
+  const oneMinute = { ...timer, init: { state: { minutes: 1, phase: Phase.Setting() } } }
+
+  test('only the "−" of one minute is disabled, through a start and a reset', () => {
+    mount(renderInto, timerView, (render) => run(oneMinute, render).pipe(Effect.provideService(Bell, quiet)))
+    settle()
+    expect(button('−').disabled).toBe(true)
+    button('Start').click()
+    paint()
+    expect([button('Pause').disabled, button('Reset').disabled]).toEqual([false, false])
+    button('Reset').click()
+    paint()
+    expect([button('−').disabled, button('+').disabled, button('Start').disabled]).toEqual([true, false, false])
   })
 })

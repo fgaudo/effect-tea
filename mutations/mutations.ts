@@ -170,6 +170,30 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'a defect of makeModel on a later state in rehearse has no site',
+    file: 'src/testing/rehearse.ts',
+    from: "      shown = program.makeModel(state)\n    }).pipe(diesIn('render'))",
+    to: '      shown = program.makeModel(state)\n    })',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails, as the run dies, in render, on a makeModel that throws on a later state',
+      ],
+    ],
+  },
+  {
+    name: 'a runCommand that throws before its effect in rehearse is no defect of its command',
+    file: 'src/testing/rehearse.ts',
+    from: 'calling(() => runCommand(command))',
+    to: 'runCommand(command)',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails, as the run dies, in a command on a runCommand that throws before its effect',
+      ],
+    ],
+  },
+  {
     name: 'a defect of update in simulate has no site',
     file: 'src/testing/simulate.ts',
     from: "diesIn('update', () => ({ on: describeByTag(message) })),",

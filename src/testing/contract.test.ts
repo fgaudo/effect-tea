@@ -1221,6 +1221,14 @@ describe('what the run dies of, and the tools fail on', () => {
     expect(diedIn(exit)).toBe('command')
   })
 
+  test('rehearse fails, as the run dies, in a command on a runCommand that throws before its effect', async () => {
+    const exit = await Effect.runPromiseExit(rehearse(raising, Effect.fnUntraced(function*(rehearsal) {
+      yield* rehearsal.send(go)
+      yield* rehearsal.run(() => true)
+    })))
+    expect(diedIn(exit)).toBe('command')
+  })
+
   // The subscriptions of the state the program starts from are read before any message.
   const deaf: Program<{ state: Row; model: number; message: 'Seen' }> = { ...row, subscriptions: throwing }
 
@@ -1324,6 +1332,27 @@ describe('a defect of makeModel', () => {
 
   test('drive fails in render, as rehearse does', async () => {
     const exit = await Effect.runPromiseExit(drive(modeling, (driver) => Effect.exit(driver.waitFor(Opt.some))))
+    expect(diedIn(exit)).toBe('render')
+  })
+
+  // The model of the state the program starts from is made; that of the next one throws.
+  const later: Program<{ state: Count; model: number; message: 'Go' }> = {
+    ...modeling,
+    makeModel: ({ count }) => {
+      if (count > 0) throw new Error('boom')
+      return count
+    },
+  }
+
+  test('the run dies in render on a makeModel that throws on a later state', async () => {
+    const exit = await Effect.runPromiseExit(
+      drive(later, (driver) => Effect.andThen(driver.send(() => Opt.some('Go')), Effect.never)),
+    )
+    expect(diedIn(exit)).toBe('render')
+  })
+
+  test('rehearse fails, as the run dies, in render, on a makeModel that throws on a later state', async () => {
+    const exit = await Effect.runPromiseExit(rehearse(later, (rehearsal) => rehearsal.send(() => Opt.some('Go'))))
     expect(diedIn(exit)).toBe('render')
   })
 

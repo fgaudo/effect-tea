@@ -99,8 +99,6 @@ export interface Engine<State, Message> {
    * first, before whoever runs the engine stops what sends to it.
    */
   readonly stop: Effect.Effect<void>
-  /** Never succeeds: waits until a fiber of the run has died, and dies as `report` does. */
-  readonly await: Effect.Effect<never>
 }
 
 // Untraced: a span of its own would be the one its fibers log into (see `withExternalSpan`).
@@ -323,7 +321,6 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     Effect.uninterruptible,
   )
   return {
-    await: died.pipe(Effect.andThen(report), Effect.andThen(Effect.never)),
     died,
     report,
     stop,

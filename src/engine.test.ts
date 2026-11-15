@@ -46,9 +46,8 @@ const revision = (engine: Engine.Engine<number, Message>, target: Engine.Revisio
     Effect.map(({ state, revision }) => ({ state, revision })),
   )
 
-/** Runs `engine.await` for a short while: `None` means the engine is still alive. */
-const failureWithin = (engine: Engine.Engine<number, Message>) =>
-  engine.await.pipe(Effect.exit, Effect.timeoutOption('200 millis'))
+/** Waits a short while for a fiber of the run to die: `None` means the engine is still alive. */
+const deathWithin = (engine: Engine.Engine<number, Message>) => Effect.timeoutOption(engine.died, '200 millis')
 
 const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) => Effect.runPromise(Effect.scoped(effect))
 
@@ -59,10 +58,10 @@ describe('Engine reject', () => {
       yield* engine.dispatch('Forbidden')
       yield* engine.dispatch('Increment')
       const reached = yield* revision(engine, 1)
-      return { reached, failure: yield* failureWithin(engine) }
+      return { reached, death: yield* deathWithin(engine) }
     }))
     expect(outcome.reached).toEqual({ state: 1, revision: 1 })
-    expect(Opt.isNone(outcome.failure)).toBe(true)
+    expect(Opt.isNone(outcome.death)).toBe(true)
   })
 
   test('a message that no longer applies is ignored', async () => {
@@ -74,10 +73,10 @@ describe('Engine reject', () => {
       yield* engine.dispatch('Decrement') // a double tap: fine at 1, rejected at 0
       yield* engine.dispatch('Increment') // revision 2 → 3
       const reached = yield* revision(engine, 3)
-      return { reached, failure: yield* failureWithin(engine) }
+      return { reached, death: yield* deathWithin(engine) }
     }))
     expect(outcome.reached).toEqual({ state: 1, revision: 3 })
-    expect(Opt.isNone(outcome.failure)).toBe(true)
+    expect(Opt.isNone(outcome.death)).toBe(true)
   })
 
   test('a message rejected after coming from a command is ignored', async () => {
@@ -85,10 +84,10 @@ describe('Engine reject', () => {
       const engine = yield* make([Effect.succeedSome<Message>('Forbidden')])
       yield* engine.dispatch('Increment')
       const reached = yield* revision(engine, 1)
-      return { reached, failure: yield* failureWithin(engine) }
+      return { reached, death: yield* deathWithin(engine) }
     }))
     expect(outcome.reached.state).toBe(1)
-    expect(Opt.isNone(outcome.failure)).toBe(true)
+    expect(Opt.isNone(outcome.death)).toBe(true)
   })
 
   test('a message sent from an older frame that still applies is applied', async () => {
