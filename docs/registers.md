@@ -91,8 +91,9 @@ continuation that takes its number; `Shown` opaque but for `value`; `shown` drop
 
 **Done since**: adopted by the owner and ported ("The port of the ninth review").
 
-**Open**: what "The port of the ninth review" › "Left" lists; a `File`; and, of the ideas of "To explore", the one
-the port did not overtake, frames skipped by the equality of models, spiked or measured before it is proposed. A
+**Open**: what "The port of the ninth review" › "Left" lists, and a `File`, now possible improvements of
+[`ROADMAP.md`](../ROADMAP.md); and, of the ideas of "To explore", the one the port did not overtake, frames skipped by
+the equality of models, spiked or measured before it is proposed, and parked in [`rejected.md`](rejected.md). A
 reaction to every keystroke, a subscription keyed by the input's value, was run again on the plain input and is
 closed ("The port of the ninth review").
 
@@ -394,8 +395,8 @@ or the register's own, would keep the tools symmetric: what a view can write, a 
 
 They do what they do today. The line above takes from them the temptation of input: no control drawn on screen goes
 through a key. What stays open is what it was: a key's messages are judged by no tool, and whether the test lists
-them, the program exports them or the subscription declares them is still the question of `ROADMAP.md` ("What a key
-sends is not data"). It now concerns only sources that exist whatever is drawn.
+them, the program exports them or the subscription declares them is still the question of "What a key sends is not
+data", parked in [`rejected.md`](rejected.md). It now concerns only sources that exist whatever is drawn.
 
 ### What is to be checked of them, with an input declared in `compose`
 
@@ -1010,7 +1011,7 @@ a test seen to fail with the check taken out by hand.
   list of ten thousand children pays on a tick too.
 - **No control drawn goes through a key**, **checked**: the examples' subscriptions are clocks (`list/stopwatch.ts`,
   `pages/clock.ts`, `timer/timer.ts`), which `pages/app.ts` and `timer/timers.ts` lift. None is fed by a control, so
-  "What a key sends is not data" (`ROADMAP.md`) is left with sources that exist whatever is drawn.
+  "What a key sends is not data" (parked in `rejected.md`) is left with sources that exist whatever is drawn.
 - **Not done**: the writes in the search of interleavings, a change of `interleaving.test.ts` that follows
   `change-engine` and is a step of its own; and a drag, which no example draws, settled since by the rule of "Only
   what is drawn writes".

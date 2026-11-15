@@ -106,6 +106,15 @@ answer, and saying so in the proposal.
   an example. *Reopen if* a walk keeps a composed program tractable without the test choosing its states (a child
   walked alone, ids told as names), or a bug put into an example is found by it and by no test the library's tools
   already make possible.
+- **A mark on a model's messages, so that a tool finds a reader that forgets one.** Reasoned, 15 November 2026,
+  from the third spike of [`declared-inputs.md`](declared-inputs.md), whose walk found every marked message of a
+  model, and from the port of the plain input ([`registers.md`](registers.md)), after which the question is of a
+  model's fixed messages alone: an input's writes are no reader's. A test's reader is trusted as its candidates are,
+  and one that forgets a fixed message is found by `Missing`, given a candidate that acts; the mark's price is the
+  spike's, a constructor every model calls and the limits of identity, for a check no example needed. The owner
+  judged `Missing` enough. [`boundary.md`](boundary.md) and `declared-inputs.md`, "Open questions". Source: the
+  session that removed it from `ROADMAP.md`. *Reopen if* a reader forgets a fixed message of a model, in an example
+  or an application, and no test with `Missing` finds it.
 
 ## The API
 
@@ -182,11 +191,29 @@ answer, and saying so in the proposal.
   Fable 5.2. *Reopen if* a tool must lift a child's message without a type to lean on (as the third spike of
   [`declared-inputs.md`](declared-inputs.md) did), or the stray `id` is found in an application's tests.
 
-## Not here
+## Parked, not rejected
 
-What is open, proposed or suspended is not rejected, and is listed in `ROADMAP.md` with its document:
+What is deferred or suspended is not rejected: it is kept here, with its document and what would reopen it, and is
+out of [`ROADMAP.md`](../ROADMAP.md), which lists only what is to be done or decided now. An item reopened goes back
+there; one decided against becomes an entry above.
 
-- **What reaches `update`, declared as data** ([`declared-inputs.md`](declared-inputs.md)): suspended by the owner,
-  not revoked. The decisions taken in it stand only if it is taken up again, and what its spikes refuted is there.
-- **`Inert`** ([`inert-steps.md`](inert-steps.md), "What was decided"): deferred by the owner, not rejected; the
-  rest of the proposal is done.
+- **What reaches `update`, declared as data** ([`declared-inputs.md`](declared-inputs.md)): suspended by the owner on
+  14 November 2026, not revoked. The decisions taken in it stand only if it is taken up again, and what its spikes
+  refuted is there; its first aim, a model with no function for what the user types, was reached by the plain input.
+  *Reopen if* the owner takes it up again; the one case the owner named, exploring made awkward on today's API
+  because a model's functions do not compare, the exploration did not find (`exploration.md`).
+- **`Inert`, a message a model holds that does nothing** ([`inert-steps.md`](inert-steps.md), "What was decided"):
+  deferred by the owner on 15 November 2026, not rejected; the rest of the proposal is done. It would flag the guard
+  `{ state }` against a double tap and a parent's broadcast, and found one real case in the examples, fixed without
+  it. *Reopen if* an application has a message that does nothing where it should act, which a test with `Inert`
+  would have found, or a key's messages are given to the tools (below).
+- **What a key sends is not data** (`declared-inputs.md`, "What still makes sense", point 3): no tool judges a
+  subscription's message, and whether a test lists a key's messages, a program exports them or a subscription
+  declares them is open. Deferred with the suspension above, 15 November 2026; no control drawn goes through a key
+  in the examples, so it concerns only sources that exist whatever is drawn ([`registers.md`](registers.md)).
+  *Reopen if* a key's message that `update` rejects, or that does nothing, is found in an application, or a test
+  must give a key's messages to `dispatchViolations`.
+- **Frames a bridge skips by the equality of models** (`registers.md`, "To explore"): with no function in a model,
+  the models of two equal states are `Equal`, and a bridge could skip the drawing, as `thunk` and `memo` do by
+  reference. Neither spiked nor measured, 15 November 2026. *Reopen if* the benchmark of a bridge's frame
+  (`bench/writes.ts`) shows the drawing of an unchanged model to be a cost that matters.

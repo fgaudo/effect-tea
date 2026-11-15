@@ -1,14 +1,15 @@
 # What reaches `update`, declared as data
 
-**Status:** suspended by the owner, 14 November 2026, the day it was proposed: suspended, not revoked. Nothing of it
-is done, and nothing of it is to be done now. This is a short record, rewritten the same day after the contract of the
-library became the model's with `update` ([`boundary.md`](boundary.md), item 1). The record in full, with every
-finding of its three spikes, is `docs/declared-inputs.md` on the branch `claude/declared-inputs-spike-8af3b8`. The
-spikes' code is on `spike/declared-inputs`, `spike/dispatch-offers` and `spike/offer-check`, each cut from the one
-before, never to be merged. Everything under "What was proposed", "What the spikes showed" and "What the owner
-decided" is carried over from that record and was not run again; "What still makes sense" was read against the
-code today, at `1d0ccc9`, and again on 15 November 2026, at `7074b7a`, after the port of the plain input
-([`registers.md`](registers.md)), which reached this record's first aim by another way.
+**Status:** suspended by the owner, 14 November 2026, the day it was proposed: suspended, not revoked, and parked in
+[`rejected.md`](rejected.md) with what would reopen it. Nothing of it is done, and nothing of it is to be done now. This
+is a short record, rewritten the same day after the contract of the library became the model's with `update`
+([`boundary.md`](boundary.md), item 1). The record in full, with every finding of its three spikes, is
+`docs/declared-inputs.md` on the branch `claude/declared-inputs-spike-8af3b8`. The spikes' code is on
+`spike/declared-inputs`, `spike/dispatch-offers` and `spike/offer-check`, each cut from the one before, never to be
+merged. Everything under "What was proposed", "What the spikes showed" and "What the owner decided" is carried over from
+that record and was not run again; "What still makes sense" was read against the code today, at `1d0ccc9`, and again on
+15 November 2026, at `7074b7a`, after the port of the plain input ([`registers.md`](registers.md)), which reached this
+record's first aim by another way.
 
 ## Context
 
@@ -139,7 +140,8 @@ end of a subscription, a schema in a bridge, a key that changes its message) are
 
 - **Whether a key's messages are listed by the test, exported by the program, or declared.** The first costs no
   API and is trusted; only the last is true by construction.
-- **Whether the reader's completeness is worth a mark.** See above.
+- **Whether the reader's completeness is worth a mark**: no, 15 November 2026; `Missing` is enough
+  ([`rejected.md`](rejected.md)).
 - **Whether it is taken up again.** What is left of its context is the key and the command, since what the user
   types is no message now, and a model holds no function for it. The owner named one case: if exploring on today's
   API were awkward because a model's functions do not compare. The spike found them no obstacle (`exploration.md`).

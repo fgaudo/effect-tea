@@ -4,30 +4,8 @@ Open problems and possible improvements, found in a review of the project (Novem
 promise: each item is decided before it is done, against the rules of [`AGENTS.md`](AGENTS.md). Remove an item
 when it is done, with the reason in the commit. An item rejected is removed and added to
 [`docs/rejected.md`](docs/rejected.md), with why and on what evidence, in the same commit: read it before adding one.
-
-## Proposals recorded, to be decided
-
-Each has a document that says what was weighed, what was run and what is open. None is decided. They are listed so
-that each leans only on those above it.
-
-- **`Inert`, a message a model holds that does nothing**: deferred by the owner on 15 November 2026, when the rest
-  of [`docs/inert-steps.md`](docs/inert-steps.md) was done. It would flag the guard `{ state }` against a double tap
-  and a parent's broadcast, and found one real case in the examples. Weighed again with what it finds in an
-  application, and with a key whose message does nothing.
-- **What a key sends is not data**: no tool judges a subscription's message. Whether a test lists it, a program
-  exports it, or it is declared. [`docs/declared-inputs.md`](docs/declared-inputs.md), "What still makes sense";
-  `Inert` for a key waits for the first item.
-- **Who checks a test's reader**: one that forgets a fixed message of its model is found only by `Missing`. Whether
-  that is enough, or worth a mark on a model's messages. `docs/declared-inputs.md`, and `docs/boundary.md`, "Open
-  questions".
-- **What reaches `update`, declared as data** (offers with a schema, a `dispatch` that takes one). Suspended by the
-  owner, with three spikes and his decisions, which stand only if it is taken up again. Its first aim, a model with
-  no function for what the user types, was reached by the plain input; what is left of it is a key's messages and a
-  command's answers. `docs/declared-inputs.md`.
-- **What the plain input left**: a slider in React, a `File`, frames a bridge skips by the equality of models (the
-  one idea of "To explore" the port did not overtake), and what was not run (a real browser, an IME composition, the
-  caret under a value the program changes). [`docs/registers.md`](docs/registers.md), "The port of the ninth review"
-  › "Left", and "Where it stands".
+An item deferred or suspended leaves too, for "Parked, not rejected" there, with what would reopen it: this list
+holds only what is to be done or decided now.
 
 ## Open problems
 
@@ -39,6 +17,13 @@ deterministic test of it.
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is
   drawn" from regressing. `bun run bench` (`bench/subscriptions.ts`) measures a parent's subscriptions only, and
   `bench/writes.ts`, run by hand, what a write into an input and a bridge's frame cost; neither runs in the CI.
+- **A slider in React**: the React bridge has no counterpart of snabbdom's `slides`, and its tests no native slider;
+  `volume` has no React view. [`docs/registers.md`](docs/registers.md), "The port of the ninth review" › "Left".
+- **An input in a real browser**: the bridges are tested in happy-dom only, so an IME composition, and the caret
+  when the program changes a value under the user, were never run. `docs/registers.md`, the same place.
+- **An input that holds a `File`**: a `File` compares by reference, against "a model is data". The way seen, a
+  register holding an id with the `File` in a service the upload's command reads, was reasoned only.
+  `docs/registers.md`, "6. A slider, and the field generic over its value".
 
 ## Ideas, to be decided
 
@@ -51,4 +36,5 @@ deterministic test of it.
   module of its own) without showing.
 - **A first frame for server-side rendering** (`renderToString` of the initial model), to be weighed against "a
   function earns its place by doing what Effect alone cannot".
-- **What 1.0 needs**: the API looks close to stable; the proposals above are the list to close before freezing it.
+- **What 1.0 needs**: the API looks close to stable; what `docs/rejected.md` parks would change it, and is weighed
+  before freezing it.

@@ -212,10 +212,11 @@ for them.
 
 ## Open questions
 
-- **Who checks the reader.** A model's messages are not marked, so no function of the library finds them. Whether
-  trusting the reader as the candidates are trusted is enough is the one thing the third spike of
-  `declared-inputs.md` still answers. Since the port, the question is of a model's fixed messages alone: an input
-  is a value of the model, and its writes are no message a reader returns.
+- **Who checks the reader** (answered: `Missing` is enough, 15 November 2026, [`rejected.md`](rejected.md)). A model's
+  messages are not marked, so no function of the library finds them. Whether trusting the reader as the candidates are
+  trusted is enough is the one thing the third spike of `declared-inputs.md` still answers. Since the port, the question
+  is of a model's fixed messages alone: an input is a value of the model, and its writes are no message a reader
+  returns.
 - **A renderer with no tree to walk** (React Native, a canvas, a terminal). The contract of the model asks nothing
   of it now. That its drawing can be checked with its own tools is the README's word, and no such bridge was
   attempted.
