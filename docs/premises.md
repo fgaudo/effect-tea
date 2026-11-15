@@ -181,6 +181,12 @@ only reasoned:
   engine is V8 (`bun run test:node`, every test of `src/` and `test/` but the search): what a browser could do otherwise
   goes under "Premises that no test reaches yet".
 
+A guarantee of the README says what it promises in the library's own terms, never in those of what a function of
+Effect makes of a value: the order of the defects in a cause is no promise, since what a user would rely on is what
+`Cause.squash` returns ([`rejected.md`](rejected.md)). What keeps a guarantee may rest on a premise listed here, as
+those of the span, of the frames and of a self-interruption do: the premise's test, which the daily job runs at the
+newest Effect the peer range accepts, is what tells that it fell.
+
 What the dependencies of development do (fast-check, happy-dom, the renderers of the examples) is no premise of the
 library, and the rule leaves it out, with two exceptions. The bridges, `examples/snabbdom.ts` and
 `examples/react.ts`, are copied by users: their premises about the renderer follow the rule at the version of the

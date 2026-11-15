@@ -42,9 +42,12 @@ answer, and saying so in the proposal.
 - **"A dispatch never runs `update` on the caller's stack", as a guarantee.** Reasoned, 13 and 14 November 2026.
   It became a sentence of the README's "View" instead (a handler returns before `update` has seen its message,
   `c3c2783`), as the owner accepted: it rests on a premise read only in Effect's source (an unbounded `Queue` wakes
-  its reader through the scheduler of the fiber that made it), held by two tests of `run.test.ts`, and by the
-  owner's principle above no guarantee rests on it. Source: the same session. *Reopen if* a check of the library's
-  own makes it true whatever Effect's scheduler does.
+  its reader through the scheduler of the fiber that made it), held by two tests of `run.test.ts`. The
+  reason given then, that by the owner's principle above no guarantee rests on such a premise, said too much: three
+  guarantees do, and the rule written since in [`premises.md`](premises.md) lets them (15 November 2026). The
+  sentence is a promise all the same, of the Guide, held by those tests, and stays in "View", where a view's author
+  reads it. Source: the same session, and the review of the rules of 15 November. *Reopen if* the owner wants it
+  listed among the guarantees, with a property of the search for it.
 - **One owner of the run's decisions, in other forms.** Spiked, 13 November 2026, on copies deleted since: a death
   queued as a message of the loop; no check at all, the loop stopped first, and the renderer stopped first; the
   death interrupting the loop; the loop calling `runCommand`. Reasoned only: `forkChild` with `startImmediately`,

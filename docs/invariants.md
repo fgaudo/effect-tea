@@ -115,9 +115,9 @@ testing tools.
   buffer dropped" (`run.test.ts`) and its mutation keep it. `rehearse` makes the model of each new state in the step
   that makes it, the test being a renderer that pulls every frame, so that a defect of `makeModel` ends each tool as
   it ends the run, and no scenario meets it.
-- **`onApplied` and `onIgnored` watch, never steer**: they hear each accepted, or rejected, message in order,
-  with where it came from, before its frame is published. The run gives them no dispatch and keeps nothing of what
-  they return (an `Effect<void>`): they send no message and change no state, and that is all the rule means.
+- **`onApplied` and `onIgnored` are given no dispatch, and nothing they return is kept** (an `Effect<void>`): they
+  hear each accepted, or rejected, message in order, with where it came from, before its frame is published, and
+  they send no message and change no state. That is all the rule means: they watch.
   They do hold the program while they run, since the next message waits for them so that they hear every one in
   order, and one that never ends holds it, as the README says ("Running"). A defect in them is a bug like any
   other. Neither hears a message dropped before `update` (one left by a stopped subscription): that is the

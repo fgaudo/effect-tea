@@ -77,7 +77,10 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 - **A change a consumer can notice has a changelog entry** in the same commit, and raises the version when it
   needs more than the unreleased section says (`release`).
 - **The README is a specification.** Its "Guide" and "Guarantees" say what the library promises, and
-  applications cite them as rules. Its prose changes one section at a time, each sentence checked against the
+  applications cite them as rules. Both bind alike: "Guarantees" is the list the README says the tests check, most of
+  it under the search, and a sentence of the "Guide" promises no less for standing outside it; what is described and
+  not promised says so where it stands (the order of the defects).
+  Its prose changes one section at a time, each sentence checked against the
   old one: the same promise, no weaker and no stronger, as the code and the tests keep it. A word that looks
   minor ("exactly when", "by `Equal`", "never more") is often the rule.
 
@@ -108,8 +111,8 @@ an example's and a document's too:
 - **Each command, each subscription and the renderer has a scope of its own**: never let them acquire into the
   run's scope.
 - **Frames cost only what is drawn**, and no span lives as long as the run.
-- **`onApplied` and `onIgnored` watch, never steer**: they are given no dispatch and change no state, though the run
-  waits for them.
+- **`onApplied` and `onIgnored` are given no dispatch, and nothing they return is kept**: they send no message and
+  change no state, though the run waits for them, and a defect in one is a defect.
 - **The testing tools behave like the engine** where it is deterministic: when the engine or one tool changes, keep
   the others in step.
 - **Logs never carry message data by default**: only tags, at `debug`. A subscription's key is logged as it is.
