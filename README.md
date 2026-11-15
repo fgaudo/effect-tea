@@ -139,13 +139,14 @@ with `bun run build`, then `bun examples/<name>/index.html`.
 | [`timer`](examples/timer)                 | the tutorial's application   | timers by id, each ticking only while it runs, and a bell as a command; `rehearse` with `hear`                      | [live](https://fgaudo.github.io/effect-tea/examples/timer/)         |
 
 [`examples/snabbdom.ts`](examples/snabbdom.ts) and [`examples/react.ts`](examples/react.ts) are the small
-bridges to the two renderers, worth copying for your own: `renderInto` for `run`, and handlers. Their tests,
+bridges to the two renderers, worth copying for your own: `renderInto` for `run`, handlers, and the element of each
+input (`shows` and `slides` with snabbdom, `Shows` with React). Their tests,
 [`examples/snabbdom.test.ts`](examples/snabbdom.test.ts) and [`examples/react.test.ts`](examples/react.test.ts),
-run them in a DOM, with [happy-dom](https://github.com/capricorn86/happy-dom). They check how often a bridge
-draws, that a click reaches the program, that what the user types survives the frames drawn meanwhile, and that the
-element of an input shows what the program puts in its place. The
-first has `messagesSentBy` too, which finds what a view sends without a DOM: one way to check that a view draws
-what its model holds, which the library asks of no bridge (see [testing](#testing)).
+run them in a DOM, with [happy-dom](https://github.com/capricorn86/happy-dom). They check how often a bridge draws, that
+a click reaches the program, that what the user types survives the frames drawn meanwhile, and that the element of an
+input shows what the program puts in its place. The first has `messagesSentBy` too, which finds what a view sends
+without a DOM: one way to check that a view draws what its model holds, which the library asks of no bridge (see
+[testing](#testing)).
 
 ## Guide
 
@@ -165,7 +166,7 @@ A program is a plain object with up to five pieces:
   `external` and `flags` when it has them.
 - **Its state is always an object**, `{ count }` rather than `count`, so that any program can become a child as
   it is (see [composition](#composition)). A program whose state is a number or a string does not compile.
-- **The view is not part of it.** `run` hands your renderer a stream of **frames** (`{ model, dispatch }`) to
+- **The view is not part of it.** `run` hands your renderer a stream of **frames** (`{ model, dispatch, seen }`) to
   draw however it likes (see [view](#view)).
 - **A program that cannot start the same way every time declares `flags`**, as in Elm, e.g. a page that shows
   the product it was opened for. Its `init` is then a function of them, `init: ({ id }) => ({ state, commands })`.
@@ -896,13 +897,13 @@ test('the model holds what update accepts, all of it', () => {
 
 From `@fgaudo/effect-tea/testing`:
 
-| Tool                 | Use it to test                                                                   |
-| -------------------- | -------------------------------------------------------------------------------- |
-| `applyAll`           | `update`'s rules: apply messages, check the state, commands and events           |
+| Tool                 | Use it to test                                                                    |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `applyAll`           | `update`'s rules: apply messages, check the state, commands and events            |
 | `dispatchViolations` | that the model holds what `update` accepts, all of it, and a double tap acts once |
-| `simulate`           | a flow with its commands answered at once, without a runtime                     |
-| `rehearse`           | a user's scenario without a runtime, the test deciding when each command runs    |
-| `drive`              | a user's scenario on the running program, subscriptions included                 |
+| `simulate`           | a flow with its commands answered at once, without a runtime                      |
+| `rehearse`           | a user's scenario without a runtime, the test deciding when each command runs     |
+| `drive`              | a user's scenario on the running program, subscriptions included                  |
 
 Where the test decides when each message arrives, a rejected message fails it if the test, or the view through
 it, sent it. What arrives by itself is ignored, as when the program runs. In `drive` time is real, so every
@@ -932,11 +933,12 @@ there with `applyAll`, or with `update` itself.
 - **`simulate`** takes the test's messages and those a subscription would send among them, and fails when
   `update` rejects one of them. Each command runs after those started before it, so the commands of one step all
   answer before those their answers start, as when the program runs commands that answer at once. The command
-  answers that `update` rejected are listed in `ignored`: assert it when one being dropped would be a bug. Its subscriptions do not run, but it reads them on each new state, as
-  the run does, and fails on a state whose subscriptions are a defect, as the run dies of one, a key whose
-  `Equal` throws against a key of the state before included.
-- **`rehearse`** acts through what the current model shows, as `drive` does, but nothing reaches `update` by itself. Each
-  command waits until the test runs it (`run`, `runAll`), through the program's `runCommand` with the services
+  answers that `update` rejected are listed in `ignored`: assert it when one being dropped would be a bug. Its
+  subscriptions do not run, but it reads them on each new state, as the run does, and fails on a state whose
+  subscriptions are a defect, as the run dies of one, a key whose `Equal` throws against a key of the state before
+  included.
+- **`rehearse`** acts through what the current model shows, as `drive` does, but nothing reaches `update` by itself.
+  Each command waits until the test runs it (`run`, `runAll`), through the program's `runCommand` with the services
   provided. A subscription's message is one the test says was heard (`hear`), or the next one the subscription
   itself sends (`hearNext`), only while its key is in the state. `hearNext` starts the subscription the first time
   it hears its key, the one listed when the key appeared, as the run starts that one, and keeps it, as the run
@@ -983,8 +985,9 @@ there with `applyAll`, or with `update` itself.
   rehearsal: a test that expects a defect wraps `rehearse` itself. After a defect, `send`, `run`, `runAll`, `hear`,
   `hearNext` and `model` fail with it, and so do a `hearNext` and a `run` already waiting for their subscription or
   their command, as nothing happens in a run that died, while `state`, `pending`, `events` and `ignored` stay
-  readable. A fiber that the test detaches from the scenario (`Effect.forkDetach`) is beyond its reach: what such a fiber asks for after the rehearsal ended is interrupted, and a defect it meets then is lost. A
-  command's or a subscription's message that no longer applies is ignored, as when the program runs, and listed in
+  readable. A fiber that the test detaches from the scenario (`Effect.forkDetach`) is beyond its reach: what such a
+  fiber asks for after the rehearsal ended is interrupted, and a defect it meets then is lost. A command's or a
+  subscription's message that no longer applies is ignored, as when the program runs, and listed in
   `ignored`. Messages that arrive together, from fibers of the test's, are applied one at a time, as the run takes
   them: each waits for the state the one before left, the release of the subscriptions it stopped included, and
   `send` selects on the model of that state. A message once sent is applied whole, even if the fiber that sent it
