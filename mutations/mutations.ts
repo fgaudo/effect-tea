@@ -36,10 +36,6 @@ export const mutations: ReadonlyArray<Mutation> = [
         'src/core.test.ts',
         'a message of an earlier start of a key that came back is dropped, dead after a death, calling nothing',
       ],
-      [
-        'src/core.test.ts',
-        'under any history of listings, arrivals and a death, update is called exactly when it applies',
-      ],
       ['src/engine.test.ts', 'a message of a stopped subscription, taken once a command has died, is not described'],
     ],
   },

@@ -40,7 +40,10 @@ its mutation, or fails without it; what each did is printed in the order of the 
 its check is run again, not only seen once. A new check adds its mutation; a test of one renamed or
 removed, or the code it replaces rewritten, updates the list, which the script refuses otherwise (a name that runs
 no test, or a text not found exactly once); `bun run mutations --discover <name>` lists every test that fails
-under one. A test that fails only beside others of its file is no killer: the list names those that fail alone. It
+under one. A test that fails only beside others of its file is no killer: the list names those that fail alone. Nor
+is a property of fast-check that finds a failing history only on some runs, since one run of it proves nothing: the
+list names a property only when it fails under the mutation on each of a hundred runs, which the script does not
+check (the search of the histories, on 15 November 2026, passed 5 of 100 under the swap of the checks of `arrive`). It
 runs before a release (`release`), and after a change of a file it mutates. A mutation takes a check out: one that
 writes a form the structure rules out (a second read of `pending` apart from `Ledger.take`) restores a bug that no
 code of the program could reach, and no deterministic test can kill it. Such a form is held by the test of the
