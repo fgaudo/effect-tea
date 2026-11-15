@@ -1,11 +1,10 @@
-import { dispatchTo, type View } from '@fgaudo/effect-tea'
+import { dispatchTo } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
-import type { ReactNode } from 'react'
 import type { Message, Model } from '../form/form.ts'
-import { onClick, Shows } from '../react.ts'
+import { onClick, Shows, type View } from '../react.ts'
 
 // The view of `form/view.ts`, in React: the same model, the same messages.
-export const view: View<Model, Message, ReactNode> = (model, dispatch) => {
+export const view: View<Model, Message> = (model, dispatch) => {
   const { editor } = model
   return (
     <main>

@@ -9,7 +9,7 @@
 // `flushSync` has committed it. An input drawn from a component's own state, outside a frame, is not supported: what
 // an input shows is the program's, and the renderer draws frames and nothing else.
 // Checked with react and react-dom 19.3.1.
-import { type Dispatch, drawn, type Frame, type Shown, typed, type View, type Written } from '@fgaudo/effect-tea'
+import { type Dispatch, drawn, type Frame, type Shown, typed, type Written } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 import {
@@ -22,6 +22,11 @@ import {
 } from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
+
+/** A view of a program, drawn by this renderer: a pure function of its model, which sends its messages through
+ * `dispatch`.
+ */
+export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => ReactNode
 
 // What the bridge holds of an element that shows an input: what the library made of it, `undefined` until the first
 // frame that draws it is settled, and the value the last frame drawn gave it.
@@ -96,7 +101,7 @@ const animationFrame = Effect.callback<void>((resume) => {
  * included, so the run dies with it.
  */
 export const renderInto =
-  <Model, Message>(element: Element, view: View<Model, Message, ReactNode>) =>
+  <Model, Message>(element: Element, view: View<Model, Message>) =>
   (frames: Stream.Stream<Frame<Model, Message>>) =>
     Effect.acquireRelease(
       Effect.sync(() => {

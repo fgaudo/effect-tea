@@ -1,10 +1,10 @@
-import { dispatchTo, type View } from '@fgaudo/effect-tea'
+import { dispatchTo } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
-import { h, type VNode } from 'snabbdom'
-import { onClick, shows } from '../snabbdom.ts'
+import { h } from 'snabbdom'
+import { onClick, shows, type View } from '../snabbdom.ts'
 import type { Message, Model } from './form.ts'
 
-export const view: View<Model, Message, VNode> = (model, dispatch) => {
+export const view: View<Model, Message> = (model, dispatch) => {
   const { editor } = model
   return h('main', [
     // The same element throughout: the bridge gives it the name when the program changes it, and writes what is

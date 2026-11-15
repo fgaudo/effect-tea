@@ -1,7 +1,7 @@
 # Where the library ends: what is left across and after the model
 
-**Status:** items 1 to 5 done on `main`, 14 November 2026, and item 8 on 15 November 2026 (`9903b9c`); items 6 and
-7 are candidates and item 9 a question, none decided and none designed. Rewritten the same day from the inventory it
+**Status:** items 1 to 5 done on `main`, 14 November 2026, and items 8 and 6 on 15 November 2026; item 7 is a
+candidate and item 9 a question, neither decided nor designed. Rewritten the same day from the inventory it
 was (`d13bd6f`, whose tables and sections 1 to 3 describe the repository before item 1 and are kept there, in the
 history). Made by one model (Fable 5.2) on Effect 4.1.4 and Bun 1.4.4. "What it rests on" says what was read again in
 the code today, at `1d0ccc9`, and what is carried over. Read again on 15 November 2026, at `7074b7a`, after the port
@@ -30,6 +30,7 @@ boundary the code has is **the frame**, a model and a dispatch. What follows is 
 | 4 | "Inputs the user types into" keeps the cause and `update`'s rule; the remedy is the examples'. **Reopened** by [`registers.md`](registers.md): the rule is the library's, for an input declared in `compose`, and `examples/field.ts` is gone | `36119ad` |
 | 5 | The bridges' tests are examples' tests, not among the library's five kinds | `87e5e35` |
 | 8 | What a dispatch sends has the origin `'Dispatch'`, and the run's words name a dispatch where they named the view | `9903b9c` |
+| 6 | `View` is no longer exported: each bridge declares the type of its views, `View<Model, Message>` | this commit |
 
 What each found that the inventory did not have is in this document as `1d0ccc9` left it ("Item 1, as done",
 "Items 2 to 5, as done"). Three findings bear on what is open:
@@ -43,10 +44,14 @@ What each found that the inventory did not have is in this document as `1d0ccc9`
 
 ## Candidates
 
-Each can be taken or struck alone. Both are breaking; 0.8.0 is open and unreleased. Item 8 is done, and kept below
-as it was weighed.
+Item 7 is breaking; 0.8.0 is open and unreleased. Items 6 and 8 are done, and kept below as they were weighed.
 
-### 6. Take `View` out of the exports
+### 6. Take `View` out of the exports (done)
+
+- **As done.** Decided by the owner on 15 November 2026. The type is gone from `dispatch.ts`, the index and the API
+  report; `examples/snabbdom.ts` and `examples/react.ts` each export `View<Model, Message>`, with their node type, and
+  the views and the bridges' tests import it from there. The README keeps "View" in prose, says that each bridge
+  names the type, and its API reference has a row for `Dispatch` alone.
 
 - **What it is today.** `View<Model, Message, Node>` is one line (`dispatch.ts:20`), used by no module of `src/` but
   the one that defines it. Twelve files of `examples/` import it (eight views, the two bridges and their tests), and

@@ -1,16 +1,16 @@
 // The views of the tutorial's steps, drawn with snabbdom. Each draws its model and formats its values, never
 // deciding: what is shown, and which messages the controls send, is the model's.
-import { dispatchTo, type View } from '@fgaudo/effect-tea'
+import { dispatchTo } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
-import { h, thunk, type VNode } from 'snabbdom'
-import { onClick } from '../snabbdom.ts'
+import { h, thunk } from 'snabbdom'
+import { onClick, type View } from '../snabbdom.ts'
 import type * as Duration from './duration.ts'
 import type * as Timer from './timer.ts'
 import type * as Timers from './timers.ts'
 
 // #region duration
 // snabbdom's props module never removes a prop, so both cases of "−" set `disabled`.
-export const durationView: View<Duration.Model, Duration.Message, VNode> = (model, dispatch) =>
+export const durationView: View<Duration.Model, Duration.Message> = (model, dispatch) =>
   h('main.timer', [
     Opt.match(model.less, {
       onNone: () => h('button', { props: { disabled: true } }, '−'),
@@ -24,7 +24,7 @@ export const durationView: View<Duration.Model, Duration.Message, VNode> = (mode
 // #region timer
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 
-export const timerView: View<Timer.Model, Timer.Message, VNode> = (model, dispatch) => {
+export const timerView: View<Timer.Model, Timer.Message> = (model, dispatch) => {
   switch (model._tag) {
     case 'Setting':
       return h('div.timer', [
@@ -60,7 +60,7 @@ export const timerView: View<Timer.Model, Timer.Message, VNode> = (model, dispat
 // #region timers
 // A timer's model is the same object while its state is, and `dispatchTo` gives it the same dispatch in every
 // frame: `thunk` draws again only the timer that changed.
-export const view: View<Timers.Model, Timers.Message, VNode> = (model, dispatch) =>
+export const view: View<Timers.Model, Timers.Message> = (model, dispatch) =>
   h('main', [
     h('button', { on: onClick(model.add, dispatch) }, 'Add a timer'),
     h(

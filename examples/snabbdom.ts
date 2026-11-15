@@ -5,7 +5,7 @@
 // The run's dispatch, and each child's from `dispatchTo`, is the same in every frame, so a view can be
 // memoized with snabbdom's own `thunk`, its dispatch among the arguments.
 // Checked with snabbdom 3.6.4.
-import { type Dispatch, drawn, type Frame, type Shown, typed, type View, type Written } from '@fgaudo/effect-tea'
+import { type Dispatch, drawn, type Frame, type Shown, typed, type Written } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 import {
@@ -18,6 +18,11 @@ import {
   type VNode,
   type VNodeData,
 } from 'snabbdom'
+
+/** A view of a program, drawn by this renderer: a pure function of its model, which sends its messages through
+ * `dispatch`.
+ */
+export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => VNode
 
 // What the bridge holds of an element that shows an input: what the library made of it, `undefined` until the first
 // frame that draws it is settled, and the value the last frame drawn gave it. A text input holds a string and a slider
@@ -102,7 +107,7 @@ const animationFrame = Effect.callback<void>((resume) => {
  * draws at most once per screen refresh: `run` keeps only the latest frame meanwhile.
  */
 export const renderInto =
-  <Model, Message>(root: Element, view: View<Model, Message, VNode>) =>
+  <Model, Message>(root: Element, view: View<Model, Message>) =>
   (frames: Stream.Stream<Frame<Model, Message>>) => {
     const live = new Set<HTMLInputElement>()
     const patch = init([propsModule, styleModule, eventListenersModule, showsModule(live)])
@@ -151,7 +156,7 @@ export const onInput = <Message>(toMessage: (text: string) => Message, dispatch:
  * of the model.
  */
 export const messagesSentBy = <Model, Message>(
-  view: View<Model, Message, VNode>,
+  view: View<Model, Message>,
   model: Model,
   typed = '',
 ): ReadonlyArray<Message> => {

@@ -40,7 +40,7 @@ export type { Execution, RunCommand } from './command.ts'
 export type { Subscription, Subscriptions } from './subscription.ts'
 
 // How a view sends messages, its children's included.
-export { type Dispatch, dispatchTo, type View } from './dispatch.ts'
+export { type Dispatch, dispatchTo } from './dispatch.ts'
 
 // Running a program with a renderer.
 export type { Applied, Ignored, Origin, RunOptions } from './engine.ts'

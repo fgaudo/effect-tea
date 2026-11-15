@@ -247,9 +247,10 @@ program's, and no frame drawn in parts or put off.
 The library ships no renderer. A bridge to one does three things: it draws each frame, runs `dispatch` in the
 handlers, and settles, after each frame, the element of each input on screen (see
 [inputs the user types into](#inputs-the-user-types-into)). [`examples/snabbdom.ts`](examples/snabbdom.ts) and
-[`examples/react.ts`](examples/react.ts) are two, each small enough to copy. [`counter-react`](examples/counter-react)
-and [`form-react`](examples/form-react) draw the programs of [`counter`](examples/counter) and [`form`](examples/form)
-with the second. React Native's bridge is written the same way.
+[`examples/react.ts`](examples/react.ts) are two, each small enough to copy, and each names the type of its views,
+`View<Model, Message>`. [`counter-react`](examples/counter-react) and [`form-react`](examples/form-react) draw the
+programs of [`counter`](examples/counter) and [`form`](examples/form) with the second. React Native's bridge is
+written the same way.
 
 #### Inputs the user types into
 
@@ -594,7 +595,7 @@ wraps them as the parent receives them. It is the same function in every frame, 
 model and its dispatch is drawn again only when its model changes:
 
 ```ts
-const view: View<Model, Message, VNode> = (model, dispatch) =>
+const view: View<Model, Message> = (model, dispatch) =>
   model.page._tag === 'Clock'
     ? thunk('main', 'clock', clockView, [
       model.page.model,
@@ -1049,7 +1050,7 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | `Subscription`                                    | a `Channel` of messages that never ends, or ends with one last message; kept by key                      |
 | `Subscriptions`                                   | `(state) => HashMap<K, Subscription<Message>>`, reconciled by key                                        |
 | `subscriptionsOf`                                 | what a program listens to in a state, by key, as `run` reconciles it                                     |
-| `View`, `Dispatch`                                | `(model, dispatch) => Node`; `(message) => Effect<number>`, which numbers it; the same in every frame    |
+| `Dispatch`                                        | `(message) => Effect<number>`, which numbers it; the same in every frame                                 |
 | `dispatchTo`                                      | a child's or an input's dispatch, for its view: wraps its messages as the program receives them          |
 | `run`, `Frame`, `RunOptions`                      | run a program with a renderer; what it draws, `{ model, dispatch, seen }`; how the program runs          |
 | `Applied`, `Ignored`, `Origin`                    | what `onApplied` and `onIgnored` hear: a message, where it came from, the states around it               |

@@ -37,6 +37,10 @@ version, and everything else, features included, the patch version.
   an own message of the parent's, whose `update` tells the child through its handle, `children.Note.update(…)`, an
   external message the child declares for it; a value for a child's input becomes a message of the child's program,
   whose `update` puts it in the input's place.
+- **Breaking**: `View` is no longer exported: the library ends at the frame, and a view's type is its renderer's.
+  Upgrade: a bridge declares it, `type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => VNode`,
+  as `examples/snabbdom.ts` and `examples/react.ts` do, and a view imports it from its bridge, `View<Model, Message>`
+  where it wrote `View<Model, Message, VNode>`.
 - "View", "Inputs the user types into", "Declaring children", "Model and view", "Splitting a program", "Guarantees"
   and "Testing" in the README describe inputs, the condition they need of elements and renderers, and that a renderer
   draws frames and nothing else; `examples/field.ts` is removed, and `form` and `form-react` declare one.

@@ -16,9 +16,6 @@ import * as Opt from 'effect/Option'
  */
 export type Dispatch<Message> = (message: Message) => Effect.Effect<number>
 
-/** A pure view, independent of the renderer: `Node` is what the renderer draws. */
-export type View<Model, Message, Node> = (model: Model, dispatch: Dispatch<Message>) => Node
-
 /**
  * A parent's messages that carry a child's: `{ _tag: <child>, message }`, with `id` for children by id, and
  * nothing else. A message of the parent's own that has a `message` field among others is not one: wrapping only

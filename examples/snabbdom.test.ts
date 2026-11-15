@@ -16,7 +16,6 @@ import {
   type ModelOf,
   reject,
   run,
-  type View,
   write,
 } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
@@ -30,7 +29,7 @@ import { view as counterView } from './counter/view.ts'
 import { form } from './form/form.ts'
 import { Storage } from './form/storage.ts'
 import { view as formView } from './form/view.ts'
-import { messagesSentBy, onClick, onInput, renderInto, shows } from './snabbdom.ts'
+import { messagesSentBy, onClick, onInput, renderInto, shows, type View } from './snabbdom.ts'
 import { view as volumeView } from './volume/view.ts'
 import { Pointer, volume } from './volume/volume.ts'
 
@@ -78,7 +77,7 @@ afterEach(async () => {
 
 /** Starts a program drawn with `view` into a fresh page; `views` counts the trees drawn, one per patch. */
 const mount = <Model, Message>(
-  view: View<Model, Message, VNode>,
+  view: View<Model, Message>,
   start: (render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void>) => Effect.Effect<void>,
 ) => {
   document.body.innerHTML = '<div id="app"></div>'
@@ -217,7 +216,7 @@ describe('an input in a draft its parent starts again, and brings back', () => {
       h('button', { props: { type: 'button' }, on: onClick<Own>('DiscardClicked', dispatch) }, 'Discard'),
       h('output', model.text),
     ])
-  const view: View<ModelOf<typeof desk>, MessageOf<typeof desk>, VNode> = (model, dispatch) =>
+  const view: View<ModelOf<typeof desk>, MessageOf<typeof desk>> = (model, dispatch) =>
     h('main', [
       // Skipped while the draft's state is the same object: the bridge settles its input all the same.
       thunk('form', 'draft', draftView, [model.draft, dispatchTo(dispatch, 'Draft')]),
@@ -387,7 +386,7 @@ describe('a value the program puts in an input\'s place', () => {
     update: (_: 'Cleared') => () => ({ state: { note: '' } }),
     makeModel: (state) => state.note,
   })
-  const noteView: View<ModelOf<typeof note>, MessageOf<typeof note>, VNode> = (model, dispatch) =>
+  const noteView: View<ModelOf<typeof note>, MessageOf<typeof note>> = (model, dispatch) =>
     h('main', [h('input', shows(model, dispatchTo(dispatch, 'Note')))])
   const mountNote = (view = noteView) => {
     let drawn: Readonly<{ model: string; dispatch: Dispatch<MessageOf<typeof note>> }> | undefined
@@ -542,7 +541,7 @@ describe('messagesSentBy', () => {
     | Readonly<{ _tag: 'Row'; id: number; message: Row }>
   const send = (dispatch: Dispatch<Message>, message: Message) => () => Effect.runSync(dispatch(message))
   const rowView = (id: number, dispatch: Dispatch<Row>) => h('button', { on: onClick('Tapped', dispatch) }, String(id))
-  const view: View<ReadonlyArray<number>, Message, VNode> = (ids, dispatch) =>
+  const view: View<ReadonlyArray<number>, Message> = (ids, dispatch) =>
     h('div', [
       h('input', { on: onInput((text): Message => ({ _tag: 'Typed', text }), dispatch) }),
       h('button', { on: { click: [send(dispatch, { _tag: 'Cleared' }), send(dispatch, { _tag: 'Saved' })] } }),
@@ -574,7 +573,7 @@ describe('messagesSentBy', () => {
       inputs: { Name: named.input(Optic.id<Named>().key('name')) },
       makeModel: (state) => state.name,
     })
-    const nameView: View<ModelOf<typeof program>, MessageOf<typeof program>, VNode> = (model, dispatch) =>
+    const nameView: View<ModelOf<typeof program>, MessageOf<typeof program>> = (model, dispatch) =>
       h('main', [h('input', shows(model, dispatchTo(dispatch, 'Name')))])
     expect(messagesSentBy(nameView, '', 'Ada')).toEqual([])
   })

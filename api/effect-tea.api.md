@@ -784,9 +784,6 @@ type UpdateCommands<P> = P extends {
 } ? T extends Step<any, infer C, any> ? Known<C> : never : never;
 
 // @public
-export type View<Model, Message, Node> = (model: Model, dispatch: Dispatch<Message>) => Node;
-
-// @public
 const withExternalSpan: <R>(context: Context.Context<R>) => Context.Context<R>;
 
 // @public

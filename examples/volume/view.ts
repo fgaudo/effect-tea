@@ -1,10 +1,10 @@
-import { dispatchTo, type View } from '@fgaudo/effect-tea'
+import { dispatchTo } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
-import { h, type VNode } from 'snabbdom'
-import { onClick, onPress, slides } from '../snabbdom.ts'
+import { h } from 'snabbdom'
+import { onClick, onPress, slides, type View } from '../snabbdom.ts'
 import type { Message, Model } from './volume.ts'
 
-export const view: View<Model, Message, VNode> = (model, dispatch) => {
+export const view: View<Model, Message> = (model, dispatch) => {
   const { sound, limit } = model
   const media = Opt.getOrElse(model.media, () => 0)
   return h('main', [

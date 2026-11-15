@@ -17,7 +17,6 @@ import {
   ProgramDefect,
   reject,
   run,
-  type View,
   write,
   type Written,
 } from '@fgaudo/effect-tea'
@@ -32,6 +31,7 @@ import { createElement, Fragment, memo, type ReactNode, StrictMode, useEffect, u
 import { counter } from './counter/counter.ts'
 import { form } from './form/form.ts'
 import { Storage } from './form/storage.ts'
+import type { View } from './react.ts'
 import { type Message as VolumeMessage, type Model as VolumeModel, Pointer, volume } from './volume/volume.ts'
 
 // The callbacks waiting for the next screen refresh: none runs until `paint`.
@@ -96,7 +96,7 @@ afterEach(async () => {
 
 /** Starts a program drawn by React with `view` into a fresh page; `views` counts the trees drawn, one per frame. */
 const mount = <Model, Message>(
-  view: View<Model, Message, ReactNode>,
+  view: View<Model, Message>,
   start: (render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void>) => Effect.Effect<void>,
 ) => {
   document.body.innerHTML = '<div id="app"></div><div id="aside"></div>'
@@ -273,7 +273,7 @@ describe('an input in a draft its parent starts again, and brings back, with Rea
       createElement('output', null, model.text),
     )
   )
-  const deskView = (strict: boolean): View<ModelOf<typeof desk>, MessageOf<typeof desk>, ReactNode> =>
+  const deskView = (strict: boolean): View<ModelOf<typeof desk>, MessageOf<typeof desk>> =>
   (
     model,
     dispatch,
@@ -372,7 +372,7 @@ describe('an input in a draft its parent starts again, and brings back, with Rea
 // The bridge has no component for the media's native range, an input over a number: `Shows` is a text input over a
 // string. Only the ringer, which the program draws, is drawn here.
 describe('the sliders of the volume, with React', () => {
-  const volumeView: View<VolumeModel, VolumeMessage, ReactNode> = (model, dispatch) =>
+  const volumeView: View<VolumeModel, VolumeMessage> = (model, dispatch) =>
     createElement(
       'main',
       null,
@@ -422,7 +422,7 @@ describe('a value the program puts in an input\'s place, with React', () => {
   })
   type Model = ModelOf<typeof note>
   type Message = MessageOf<typeof note>
-  const noteView: View<Model, Message, ReactNode> = (model, dispatch) =>
+  const noteView: View<Model, Message> = (model, dispatch) =>
     createElement('main', null, createElement(bridge.Shows, { value: model, dispatch: dispatchTo(dispatch, 'Note') }))
   const mountNote = (view = noteView) => {
     let drawn: Readonly<{ model: Model; dispatch: Dispatch<Message> }> | undefined
@@ -574,7 +574,7 @@ describe('an input React draws outside the root', () => {
   })
 
   test('an input drawn through a portal, outside the root, is settled by the frames of its run', async () => {
-    const view: View<ModelOf<typeof solo>, MessageOf<typeof solo>, ReactNode> = (model, dispatch) =>
+    const view: View<ModelOf<typeof solo>, MessageOf<typeof solo>> = (model, dispatch) =>
       createElement(
         Fragment,
         null,

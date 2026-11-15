@@ -1,10 +1,10 @@
 // Each stopwatch gets a dispatch of its own, which adds its id to its messages. Its model is kept while its state
 // is the same, and `dispatchTo` gives it the same dispatch in every frame, so snabbdom's `thunk` draws again only
 // the stopwatch that changed.
-import { type Dispatch, dispatchTo, type View } from '@fgaudo/effect-tea'
+import { type Dispatch, dispatchTo } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
 import { h, thunk, type VNode } from 'snabbdom'
-import { onClick } from '../snabbdom.ts'
+import { onClick, type View } from '../snabbdom.ts'
 import type { Message, Model } from './list.ts'
 import type * as Stopwatch from './stopwatch.ts'
 
@@ -17,7 +17,7 @@ const stopwatchView = (model: Stopwatch.Model, dispatch: Dispatch<Stopwatch.Mess
     h('button.secondary', { on: onClick(model.remove, dispatch) }, 'Remove'),
   ])
 
-export const view: View<Model, Message, VNode> = (model, dispatch) =>
+export const view: View<Model, Message> = (model, dispatch) =>
   h('main', [
     h('button', { on: onClick(model.add, dispatch) }, 'Add a stopwatch'),
     ...Opt.match(model.stopAll, {
