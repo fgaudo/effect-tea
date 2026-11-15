@@ -1792,8 +1792,11 @@ on it, not merged.
 
 - **A slider in React**: `Shows` is a text input over a string, so the React bridge has no counterpart of `slides`,
   and its tests have no native slider; `volume` has no React view, as before.
-- **Whether `Shows` and its context are still needed** now that an input drawn from a component's own state is
-  unsupported ("What the owner accepts"): the port kept the spike's component, and its portal test.
+- **`Shows` and its context stay**, by the owner on 15 November 2026: what the context gives is not the case left
+  unsupported ("What the owner accepts") but the run an element belongs to, since several runs may share a page, each
+  with its own registry and `seen`. Props in the form of snabbdom's `shows` would have to find that run without it: a
+  registry of the whole page settles one run's inputs with another's `seen`, and the element's ancestors miss a
+  portal (**reasoned**, not spiked). The bridges keep their two forms; the README names `Shows` in its examples.
 - **Not run**: a real browser, an IME composition, the caret when the program changes a value under the user; inputs
   under models skipped by `Equal` beyond the `thunk` and `memo` cases of the bridges' tests.
 - **The two limits**, declared in the README and tested as pure pieces: a write over a value that came back is
