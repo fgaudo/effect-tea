@@ -188,10 +188,14 @@ testing tools.
 - **A child's model, and its lifted subscriptions, are kept by its state object** (`modelsOf` and `lifted` in
   `compose.ts`) for as long as that object lives: they rely on `makeModel` and `subscriptions` being pure and on
   states being replaced, never mutated, and hold nothing of the run, so runs that share a state share them. A
-  model holds nothing of its place either, so children that share a state share its model; lifted subscriptions
-  carry their place, which is checked rather than kept, one per state, so that ids never pile up under a shared
-  state. They need the state to be an object, which every program keeps (above): never add a cache for primitive
-  states, which nothing could let go of.
+  model holds nothing of its place either, so children that share a state share its model. Lifted subscriptions
+  carry their place: a state keeps them for the places it held in the last call of its parent's `subscriptions` that
+  met it, in their order, each checked, so that children that share a state, as those a step's `init` starts do,
+  keep theirs, and ids never pile up under a shared state, since the next call that meets it lets go of the places it
+  no longer holds. A place met out of that order, or a state that two callers meet in turn at other places (two
+  runs, or one program as two children), is lifted again: it costs time, never a wrong place. They need the state
+  to be an object, which every program keeps (above): never add a cache for primitive states, which nothing could
+  let go of.
 - **A child's dispatch is the same while anyone holds it** (`dispatchTo` in `dispatch.ts`): kept weakly by its
   parent's dispatch, its name and its id (compared with `Equal`, as subscription keys are), and removed by a
   `FinalizationRegistry` once collected. Never hold them strongly: ids that are never reused, as the README

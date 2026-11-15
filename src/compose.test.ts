@@ -612,6 +612,42 @@ describe('children by id', () => {
       ])
     }
   })
+
+  test('children that share one state object are lifted once while they keep sharing it', () => {
+    const { counted, subscriptions } = countedTickers()
+    const shared = { ticks: 0 }
+    const state = { rows: [{ id: 1, ticks: shared }, { id: 2, ticks: shared }, { id: 3, ticks: shared }] }
+    const first = subscriptions(state)
+    const again = subscriptions({ rows: [...state.rows] })
+    expect(counted.calls).toBe(3)
+    for (const id of [1, 2, 3]) {
+      const lifted = (all: typeof first) => Opt.getOrThrow(HashMap.get(all, ['Tickers', id, 'ticks']))
+      expect(lifted(again)).toBe(lifted(first))
+    }
+  })
+
+  test('a child that takes the place of another in a shared state listens with its own id', () => {
+    const { subscriptions } = countedTickers()
+    const shared = { ticks: 0 }
+    subscriptions({ rows: [{ id: 1, ticks: shared }, { id: 2, ticks: shared }] })
+    const taken = subscriptions({ rows: [{ id: 3, ticks: shared }, { id: 2, ticks: shared }] })
+    expect(HashMap.size(taken)).toBe(2)
+    expect(HashMap.has(taken, ['Tickers', 1, 'ticks'])).toBe(false)
+    expect(Effect.runSync(Channel.runHead(Opt.getOrThrow(HashMap.get(taken, ['Tickers', 3, 'ticks'])))))
+      .toEqual(Opt.some({ _tag: 'Tickers', id: 3, message: { _tag: 'Tick' } }))
+  })
+
+  // What a shared state keeps is not observed directly: a place it let go of is lifted again when it comes back.
+  test('a place that a shared state no longer holds is let go of by the next call that meets the state', () => {
+    const { counted, subscriptions } = countedTickers()
+    const shared = { ticks: 0 }
+    const rows = [{ id: 1, ticks: shared }, { id: 2, ticks: shared }, { id: 3, ticks: shared }]
+    subscriptions({ rows })
+    subscriptions({ rows: rows.slice(0, 2) })
+    expect(counted.calls).toBe(3)
+    subscriptions({ rows })
+    expect(counted.calls).toBe(4)
+  })
 })
 
 describe('what a parent can do with a child', () => {

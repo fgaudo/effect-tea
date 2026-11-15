@@ -300,6 +300,12 @@ type Place = Readonly<{ name: string; id: unknown }>
 /** A child's subscriptions under its parent's keys, `[<child>, key]` or `[<child>, id, key]`. */
 type Lifted = ReadonlyArray<readonly [unknown, Subscription<unknown, unknown>]>
 
+/**
+ * The places a child's state object held, in the order of `call`, the last call that met it, each with the
+ * subscriptions lifted there; `met` of them so far in that call.
+ */
+type Kept = { call: number; met: number; readonly places: Array<readonly [Place, Lifted]> }
+
 type UntypedChild = Readonly<{
   kind: 'one' | 'each' | 'input'
   program: AnyProgram
@@ -442,21 +448,35 @@ const compose = <
       )(childState),
       (subscription) => subscription.pipe(Channel.map(wrapMessage(place)), Channel.mapDone(wrapMessage(place))),
     )
-  // `subscriptions` is pure, as `makeModel` is: a child's, lifted under its place, are kept for as long as its
-  // state object lives, by every run of this parent. The place is checked rather than keyed, so a state that two
-  // places share is lifted again when it moves from one to the other.
-  const lifted = new WeakMap<object, Readonly<{ place: Place; subscriptions: Lifted }>>()
-  const liftedAt = (place: Place, childState: unknown): Lifted => {
-    const kept = lifted.get(objectAt(place, childState))
-    if (kept !== undefined && kept.place.name === place.name && Equal.equals(kept.place.id, place.id)) {
-      return kept.subscriptions
+  // `subscriptions` is pure, as `makeModel` is: a child's, lifted under its place, are kept by its state object, for
+  // every run of this parent, at the places that object held in the last call that met it, in their order. So
+  // children that share a state, as those a step's `init` starts do, keep theirs, and the ids of a long list never
+  // pile up under a state that lives as long as the program: the next call that meets the object lets go of the
+  // places it no longer holds. A place met out of that order is lifted again.
+  const lifted = new WeakMap<object, Kept>()
+  let calls = 0
+  const liftedAt = (call: number, place: Place, childState: unknown): Lifted => {
+    const state = objectAt(place, childState)
+    let kept = lifted.get(state)
+    if (kept === undefined) {
+      kept = { call, met: 0, places: [] }
+      lifted.set(state, kept)
+    } else if (kept.call !== call) {
+      kept.places.length = kept.met
+      kept.met = 0
+      kept.call = call
+    }
+    const at = kept.places[kept.met]
+    if (at !== undefined && at[0].name === place.name && Equal.equals(at[0].id, place.id)) {
+      kept.met++
+      return at[1]
     }
     const subscriptions = Arr.map(
       Arr.fromIterable(subscriptionsAt(place, childState)),
       ([key, subscription]) =>
         [isEach(place.name) ? [place.name, place.id, key] : [place.name, key], subscription] as const,
     )
-    lifted.set(childState as object, { place, subscriptions })
+    kept.places[kept.met++] = [place, subscriptions]
     return subscriptions
   }
   const listening = (name: string, state: State): ReadonlyArray<readonly [Place, unknown]> => {
@@ -519,12 +539,13 @@ const compose = <
         config.subscriptions?.(state) ?? HashMap.empty<K, Subscription<Own, R>>(),
         (subscription) => subscription as Subscription<Message, unknown>,
       ) as HashMap.HashMap<unknown, Subscription<Message, unknown>>
+      const call = ++calls
       return HashMap.mutate(
         own,
         (keyed) => {
           for (const name of names) {
             for (const [place, childState] of listening(name, state)) {
-              for (const [key, subscription] of liftedAt(place, childState)) {
+              for (const [key, subscription] of liftedAt(call, place, childState)) {
                 if (HashMap.has(own, key)) {
                   throw defectAt(place, `An own subscription key is the key of a subscription of "${name}"`)
                 }

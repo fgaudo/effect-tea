@@ -1,7 +1,7 @@
 // The cost of a parent's subscriptions on each change of state: a list of many children by id, each ticking, and a
 // sequence of states that each change one child. First with each child in a state object of its own, then with all
 // of them starting from one object, `row.init.state`, and the changes made to the first child alone, so that the
-// others keep sharing it: a parent keeps a child's lifted subscriptions by its state object, with its place checked.
+// others keep sharing it: a parent keeps a child's lifted subscriptions by its state object, for the places it held.
 // Run with `bun run bench [children] [changes]`; not part of `bun run test`.
 import * as Arr from 'effect/Array'
 import * as Channel from 'effect/Channel'

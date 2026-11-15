@@ -53,6 +53,21 @@ answer, and saying so in the proposal.
 - **The shared core in a smaller form**: the guard alone, a core for `rehearse` alone, and the register of deaths as
   part of the step's state. Reasoned; the document records no spike of them. [`shared-core.md`](shared-core.md),
   "Alternatives".
+- **Other caches of a parent's lifted subscriptions, for children that share one state object.** Spiked, 15
+  November 2026, on `compose.ts` in the working tree and in a copy, neither kept; measured with `bun run bench`, per
+  change of state for a thousand children, in objects of their own and sharing one, against 0.22 and 1.31 ms before.
+  The cache kept one place for each state, so children that share one lifted again on every call; keeping every
+  place would let ids pile up under a step's `init`, which lives as long as the program. Rejected, in favour of the
+  places of the last call in their order (`liftedAt`): keeping only each child's own subscriptions by its state, as
+  `modelsOf` keeps a model, and lifting them on every call (0.78 and 0.76 ms: a `Channel.map` for each subscription
+  on each call); a map of places keyed by `[name, id]`, made again on each call (1.24 and 1.15 ms: a map for each
+  child, and Effect's hash of an array key costs about 0.36 µs, a number's 0.02); and the first place kept for as
+  long as the state lives, the others in maps by id for the last two calls (0.23 and 0.34 ms), which keeps two rules
+  for one thing, keeps up to twice the list, and holds the ids of the last calls that shared a state once none does.
+  The positional cache costs the common case about a tenth (0.26 ms), and lifts again the children after a place
+  inserted or removed among those that share a state, in that call alone. Source: the session that made the change,
+  with a review by a second model. *Reopen if* a list that inserts a sharing child before the others on most changes
+  of state is shown to matter, which the maps by id keep.
 
 ## The testing tools
 

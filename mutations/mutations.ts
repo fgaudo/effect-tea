@@ -617,13 +617,38 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a child's lifted subscriptions are kept without their place",
     file: 'src/compose.ts',
-    from: 'kept !== undefined && kept.place.name === place.name && Equal.equals(kept.place.id, place.id)',
-    to: 'kept !== undefined',
+    from: 'at !== undefined && at[0].name === place.name && Equal.equals(at[0].id, place.id)',
+    to: 'at !== undefined',
     killedBy: [
-      ['src/compose.test.ts', 'each child listens under its name and id, alone ones under their name'],
+      ['src/compose.test.ts', 'a child that takes the place of another in a shared state listens with its own id'],
+    ],
+  },
+  {
+    name: 'a shared state keeps the places it no longer holds',
+    file: 'src/compose.ts',
+    from: '      kept.places.length = kept.met\n',
+    to: '',
+    killedBy: [
       [
         'src/compose.test.ts',
-        'children that share one state object each listen with their own id, however often they are asked',
+        'a place that a shared state no longer holds is let go of by the next call that meets the state',
+      ],
+    ],
+  },
+  {
+    name: "a child's lifted subscriptions are looked for past the places of the last call",
+    file: 'src/compose.ts',
+    from: '      kept.met = 0\n',
+    to: '',
+    killedBy: [
+      [
+        'src/compose.test.ts',
+        "a child's subscriptions are kept while its state is the same object, and made again for a new one",
+      ],
+      ['src/compose.test.ts', 'children that share one state object are lifted once while they keep sharing it'],
+      [
+        'src/input-subscriptions.test.ts',
+        "a write into it keeps every subscription the same object, the children's lifted ones included",
       ],
     ],
   },

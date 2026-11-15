@@ -57,14 +57,6 @@ session that wrote this, "reported" is a reviewer's claim that was not:
   and, since the plain input, the library rejects a write over a value the program has since replaced, from the
   state and the message alone. The first two are what commands that cannot be cancelled cost; none of the three is
   said with the others, as one choice. Reported for the first two, the third read in the code.
-- **A parent's lifted subscriptions** are kept one for each state of a child, with the place checked, so children
-  that share one state object would lift again on every change. Of speed, not of what is right. Read in the code and
-  measured (`bun run bench`, November 2026): children that share one object cost about six times those in objects of
-  their own on each change of state (1.3 ms against 0.2 ms for a thousand, 13 ms against 2 ms for ten thousand), both
-  linear in the children. It is the common case: a child that `each` starts from an `init` that is a step gets that
-  very object, and keeps it until its first change. A fix keeps more than one place for each state, without letting
-  ids pile up under an object that lives as long as the program (`docs/invariants.md`, "What the engine keeps for
-  itself"), nor holding a state beyond its run.
 
 ## Possible improvements
 
