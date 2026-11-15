@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
 import * as Hash from 'effect/Hash'
-import { collectGarbage } from '../test/gc.ts'
+import { collectGarbage } from '../test/gc.test_helper.ts'
 import { type Dispatch, dispatchTo, entriesOf } from './dispatch.ts'
 
 type Row = Readonly<{ _tag: 'Row'; id: number | readonly [string, number]; message: 'Inc' }>

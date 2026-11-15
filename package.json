@@ -41,7 +41,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p examples",
     "lint": "biome lint . && oxlint --type-aware",
     "test": "bun test --path-ignore-patterns=src/interleaving.test.ts",
-    "test:node": "node --expose-gc --import ./test/node/register.ts --test \"src/**/!(interleaving).test.ts\" \"test/*.test.ts\"",
+    "test:node": "node --expose-gc --import ./test/node/register.test_hook.ts --test \"src/**/!(interleaving).test.ts\" \"test/*.test.ts\"",
     "interleavings": "bun test src/interleaving.test.ts",
     "bench": "bun bench/subscriptions.ts",
     "mutations": "bun mutations/mutate.ts",

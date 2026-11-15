@@ -1,6 +1,6 @@
 ---
 name: change-engine
-description: How a change of the engine of @fgaudo/effect-tea or of a testing tool is made: the invariants and the premises to read first, what to list before writing it, the deterministic test and the mutation a check leaves, how a lead of the search of interleavings is weighed, and the checks to run. Use before changing src/core.ts, shell.ts, engine.ts, run.ts, compose.ts, dispatch.ts, input.ts, log.ts or anything under src/testing/, their tests, mutations/ or test/scheduled.ts.
+description: How a change of the engine of @fgaudo/effect-tea or of a testing tool is made: the invariants and the premises to read first, what to list before writing it, the deterministic test and the mutation a check leaves, how a lead of the search of interleavings is weighed, and the checks to run. Use before changing src/core.ts, shell.ts, engine.ts, run.ts, compose.ts, dispatch.ts, input.ts, log.ts or anything under src/testing/, their tests, mutations/ or test/scheduled.test_scheduler.ts.
 ---
 
 # Change the engine or a testing tool
@@ -50,13 +50,13 @@ interrupt, which holds no code of the program for a gate to stop in: its three f
 ### A lead of the search
 
 `bun run interleavings` (`src/interleaving.test.ts`) is a search, from a seed drawn on each run. A lead it finds is
-checked under `test/scheduled.ts` in both of its modes of resumption. A failure under `'inline'` is an order
-Effect's own scheduler gives, but for where it preempts, and so reachable when the program runs. One under
-`'queued'` alone (the default) rests on a fiber resumed by a `Deferred` or a `Fiber.join` waiting for its turn,
-where Effect 4.1.4 resumes it at once on the stack of the fiber that completes it: still a finding, since that
-inline resumption is read only in the source, unless it is added as a premise with a test that fails without it.
-A finding is listed in `ROADMAP.md` with its seed and path until a fix leaves a deterministic test of it; no
-mutation names it among its killers.
+checked under `test/scheduled.test_scheduler.ts` in both of its modes of resumption. A failure under `'inline'` is an
+order Effect's own scheduler gives, but for where it preempts, and so reachable when the program runs. One under
+`'queued'` alone (the default) rests on a fiber resumed by a `Deferred` or a `Fiber.join` waiting for its turn, where
+Effect 4.1.4 resumes it at once on the stack of the fiber that completes it: still a finding, since that inline
+resumption is read only in the source, unless it is added as a premise with a test that fails without it. A finding is
+listed in `ROADMAP.md` with its seed and path until a fix leaves a deterministic test of it; no mutation names it among
+its killers.
 
 A finding is fixed by its form, not only by the sequence that found it, as `docs/premises.md` says after the rule of
 a review.

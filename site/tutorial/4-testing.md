@@ -33,9 +33,9 @@ data:
 
 The run does not check that the model holds only what `update` accepts. A test does, for any state. It reads the
 messages a model holds with a function of its own, a case of the model at a time
-([`examples/timer/reader.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/reader.ts)):
+([`examples/timer/timer.test_reader.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/timer.test_reader.ts)):
 
-{@includeCode ../../examples/timer/reader.ts#reader}
+{@includeCode ../../examples/timer/timer.test_reader.ts#reader}
 
 and gives them to `dispatchViolations`: each message the model holds must be accepted, and act once when sent twice
 unless it is meant to repeat (`repeatable`), and each of the messages a user could send that `update` accepts, and

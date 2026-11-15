@@ -15,7 +15,7 @@ import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import type * as Tracer from 'effect/Tracer'
 import fc from 'fast-check'
-import { idle, prioritizedSchedules, unpreempted } from '../test/scheduled.ts'
+import { idle, prioritizedSchedules, unpreempted } from '../test/scheduled.test_scheduler.ts'
 import { composition } from './compose.ts'
 import { type DefectSite, ProgramDefect } from './defect.ts'
 import { type Dispatch, dispatchTo } from './dispatch.ts'
@@ -33,11 +33,12 @@ import { reject } from './update.ts'
 // together. The list has a note, an input the user writes into from the frame on screen or from an older one, which
 // clearing empties, and while the note holds a text it searches for it, under a key of that text, so that a write
 // stops one search and starts another. What the user does, when commands complete, when ticks arrive and when
-// releases end is all in the hands of the scheduler of the tests (`test/scheduled.ts`), which may also make any fiber
-// yield between two of its steps; what is drawn beside it (`Fates`) says which subscriptions end or die, which
-// releases take time or die, which commands die, which steps `onApplied` and `onIgnored` hold or die in, and whether
-// the renderer, which acquires something too, dies, and takes time to release what it holds, which is when a run that
-// died still has fibers under way. To die is to die of a defect, or to interrupt oneself, which the run takes for one.
+// releases end is all in the hands of the scheduler of the tests (`test/scheduled.test_scheduler.ts`), which may also
+// make any fiber yield between two of its steps; what is drawn beside it (`Fates`) says which subscriptions end or die,
+// which releases take time or die, which commands die, which steps `onApplied` and `onIgnored` hold or die in, and
+// whether the renderer, which acquires something too, dies, and takes time to release what it holds, which is when a
+// run that died still has fibers under way. To die is to die of a defect, or to interrupt oneself, which the run takes
+// for one.
 // The run runs in a span of whoever runs it, with debug logs enabled, and the program logs and opens spans of its own.
 type Id = 1 | 2
 const ids: ReadonlyArray<Id> = [1, 2]

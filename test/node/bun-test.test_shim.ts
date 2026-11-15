@@ -1,5 +1,5 @@
 // What the tests import of `bun:test`, over Node's own runner: `bun run test:node` resolves `bun:test` to this
-// module (`register.ts`), so that the same test files run on V8. Only what the tests use is here: a test that
+// module (`register.test_hook.ts`), so that the same test files run on V8. Only what the tests use is here: a test that
 // needs more of `bun:test` fails on Node until it is added.
 import * as NodeTest from 'node:test'
 import { format } from 'node:util'

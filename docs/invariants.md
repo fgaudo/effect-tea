@@ -222,9 +222,9 @@ testing tools.
   (program code held by a `Deferred`) makes the order deterministic. A change of the engine or of a testing tool lists
   the points where another fiber can run between a check and its act, and leaves a test that fails without the check,
   deterministic, of the core or with a gate, and a mutation that takes the check out, naming that test (`mutations/`,
-  `change-engine`). No test of a check runs under the scheduler of the tests (`test/scheduled.ts`): a check whose
-  mutation no deterministic test kills is moved until one does, or goes. Three rules keep a check where such a test
-  reaches it (`docs/single-owner.md`):
+  `change-engine`). No test of a check runs under the scheduler of the tests (`test/scheduled.test_scheduler.ts`): a
+  check whose mutation no deterministic test kills is moved until one does, or goes. Three rules keep a check where such
+  a test reaches it (`docs/single-owner.md`):
   - **A function of the program is called where the call is decided**, never as the first step of a fiber forked for
     it, which starts when the scheduler says, unless the fork is documented to start at once (`FiberSet.run`).
   - **One check for each call.** No earlier check of the same register stands in front of it in another thunk: it

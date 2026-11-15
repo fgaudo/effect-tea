@@ -31,10 +31,10 @@ example of how to check that a view draws what its model holds;
 that a program does not change with its renderer (each imports the program of `counter` or `form`, and has a
 `view.tsx` and no test: the program's tests are those of `counter` and `form`), with
 [`react.test.ts`](../../../examples/react.test.ts), its test in a DOM;
-[`style.css`](../../../examples/style.css); [`preload.ts`](../../../examples/preload.ts), which `bun test`
-loads first (`bunfig.toml`); [`snabbdom.test.ts`](../../../examples/snabbdom.test.ts), the bridge's own test, and
-[`snabbdom-testing.test.ts`](../../../examples/snabbdom-testing.test.ts), that of its `messagesSentBy`, examples'
-tests like the others and none of the library's five kinds (`AGENTS.md`, "Tests");
+[`style.css`](../../../examples/style.css); [`preload.test_setup.ts`](../../../examples/preload.test_setup.ts), which
+`bun test` loads first (`bunfig.toml`); [`snabbdom.test.ts`](../../../examples/snabbdom.test.ts), the bridge's own test,
+and [`snabbdom-testing.test.ts`](../../../examples/snabbdom-testing.test.ts), that of its `messagesSentBy`,
+examples' tests like the others and none of the library's five kinds (`AGENTS.md`, "Tests");
 [`bridge.test_suite.ts`](../../../examples/bridge.test_suite.ts), the tests every bridge passes, which
 `snabbdom.test.ts` and `react.test.ts` call with their renderer's `Bridge` (its `renderInto` and the views of the
 scenarios), beside the tests of that renderer alone;
@@ -69,7 +69,7 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
 - **Messages live in the model** (the README's "Model"): a view builds none, and a test reads them from the
   model with a reader of its own, `messagesOf(model)`, a case of the model at a time. A parent's reader calls
   its children's and wraps what they return as the parent receives it; a child's reader that two tests need
-  lies in a module of its own (`timer/reader.ts`).
+  lies in a module of its own (`timer/timer.test_reader.ts`).
 - **A bridge owes no `messagesSentBy`.** The snabbdom bridge has one beside it, in
   `snabbdom-testing.test_messages.ts`, as an example of how to check that a view draws what its model holds, with its
   own tests (`snabbdom-testing.test.ts`), and `list`'s test shows its use: `messagesSentBy(view, model)` equals
@@ -78,10 +78,10 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
   `dispatchViolations` always (with the reader, for what the model holds, and the candidates that keep the
   reader complete), then `simulate`, `rehearse` or `drive` for what needs them. A new check of this kind is
   seen to fail on a model that shows what `update` rejects, and on a reader that forgets a field. It runs
-  without a DOM: `preload.ts` sets `window` to `undefined` so that snabbdom loads, and only the bridges' tests in
-  a DOM register happy-dom. A check that needs a DOM (how often the bridge draws, a click on a drawn button, typing
-  while frames are drawn) goes into the bridges' tests: `bridge.test_suite.ts` when every bridge must pass it, the
-  test of the bridge the example uses when it is about that renderer alone.
+  without a DOM: `preload.test_setup.ts` sets `window` to `undefined` so that snabbdom loads, and only the bridges'
+  tests in a DOM register happy-dom. A check that needs a DOM (how often the bridge draws, a click on a drawn button,
+  typing while frames are drawn) goes into the bridges' tests: `bridge.test_suite.ts` when every bridge must pass it,
+  the test of the bridge the example uses when it is about that renderer alone.
 
 ## Run it
 

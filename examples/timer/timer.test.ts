@@ -6,7 +6,7 @@ import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
-import { timerMessages } from './reader.ts'
+import { timerMessages } from './timer.test_reader.ts'
 import { Bell, Command, Message, Phase, type State, timer, update } from './timer.ts'
 // #endregion imports
 

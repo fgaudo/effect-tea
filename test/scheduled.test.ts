@@ -1,6 +1,6 @@
 /**
- * The scheduler the engine's tests run under (`scheduled.ts`): its rules are those of `effect-scheduler.test.ts`,
- * which tests them one by one against Effect; here, what the explorations add.
+ * The scheduler the engine's tests run under (`scheduled.test_scheduler.ts`): its rules are those of
+ * `effect-scheduler.test.ts`, which tests them one by one against Effect; here, what the explorations add.
  */
 import { expect, test } from 'bun:test'
 import * as Deferred from 'effect/Deferred'
@@ -21,7 +21,7 @@ import {
   seeds,
   type Strategy,
   unpreempted,
-} from './scheduled.ts'
+} from './scheduled.test_scheduler.ts'
 
 const value = <A, E>(run: Run<A, E>) => run.exit !== undefined && Exit.isSuccess(run.exit) ? run.exit.value : undefined
 

@@ -19,8 +19,8 @@ for the task before starting it:
 | a review of what the invariants rest on                 | [`premise-review`](.agents/skills/premise-review/SKILL.md) |
 
 The engine is `src/core.ts`, `shell.ts`, `engine.ts`, `run.ts`, `compose.ts`, `dispatch.ts`, `input.ts` and `log.ts`,
-and the testing tools are `src/testing/`: a change of one, of `mutations/` or of `test/scheduled.ts` reads
-`change-engine` first, whatever else it is.
+and the testing tools are `src/testing/`: a change of one, of `mutations/` or of `test/scheduled.test_scheduler.ts`
+reads `change-engine` first, whatever else it is.
 
 ## Language
 
@@ -157,14 +157,17 @@ an example's and a document's too:
 
 - `bun:test`, in a `*.test.ts` next to the module. Tests are excluded from `dist/` and from the packed `src/`.
 - **A file of the tests has one of two names, and no other**: `<name>.test.ts` when it holds tests that run,
-  `<name>.test_<kind>.ts` when it serves them. One that serves the tests takes the `<name>` of the test file it goes
-  with, as `examples/snabbdom-testing.test_messages.ts`, `messagesSentBy`, goes with
-  `examples/snabbdom-testing.test.ts`, which tests it; one that several test files call has a name of its own, as
-  `examples/bridge.test_suite.ts`, which runs in each bridge's test. `bun test` does not collect a `.test_<kind>.ts`
-  (it collects `*.test.ts`, `*_test.ts`, `*.spec.ts` and `*_spec.ts`), so it runs only where a test file imports it.
-  The rule is new, and does not cover yet what predates it: of `test/`, `scheduled.ts`, `gc.ts` and what is in `node/`
-  serve the tests, and so do `examples/timer/reader.ts` and `examples/preload.ts`; they predate the rule and keep their
-  names until the owner decides otherwise.
+  `<name>.test_<kind>.ts` when it serves them, and never both in one name (no `<name>.test_<kind>.test.ts`): a file
+  is a test or serves the tests. So a file of neither form is no file of the tests: in `src/` and `examples/` it is,
+  at a glance, code of the library or of an example. One that serves the tests takes the `<name>` of the test file it
+  goes with, as `test/scheduled.test_scheduler.ts`, the scheduler of the tests, goes with `test/scheduled.test.ts`,
+  which tests it, and `examples/snabbdom-testing.test_messages.ts`, `messagesSentBy`, with
+  `examples/snabbdom-testing.test.ts`; one that several test files call has a name of its own, as
+  `examples/bridge.test_suite.ts`, which runs in each bridge's test, and `test/gc.test_helper.ts`, which the tests that
+  ask for a collection call. `bun test` does not collect a `.test_<kind>.ts` (it collects `*.test.ts`, `*_test.ts`,
+  `*.spec.ts` and `*_spec.ts`), so it runs only where a test file imports it, or where a runner loads it before the
+  tests: `bun test` preloads `examples/preload.test_setup.ts` (`bunfig.toml`), and `bun run test:node` has Node import
+  `test/node/register.test_hook.ts`.
 - Test through behaviour: what a module gives the rest of the library (`run`, `Engine.make`, the public functions, a
   transition of `core.ts` or of `testing/ledger.ts`), never what it keeps to itself. An export made for a test alone
   says so (`entriesOf` in `dispatch.ts`).
@@ -175,21 +178,21 @@ an example's and a document's too:
     state. They lie in the test file of their module (`compose.test.ts`, which holds those of a `Step` too,
     `dispatch.test.ts`, `input.test.ts`, `log.test.ts`, `defect.test.ts`, `core.test.ts`, `src/testing/`).
   - **invariants under random histories**: fast-check draws clicks, answers, subscription messages and ends,
-    releases, defects and self-interruptions, and the seed of the order the scheduler of the tests (`test/scheduled.ts`)
-    runs them in, and each promise of the README's "Guarantees" that the scenario reaches is checked on every one
-    (`interleaving.test.ts`). It is a search, from a seed drawn on each run, and runs apart: `bun run interleavings`,
-    and a daily job of the CI (`.github/workflows/interleavings.yml`), never `bun run test`. How a lead it finds is
-    weighed is in `change-engine`; a finding is listed in `ROADMAP.md` with its seed and path until a fix leaves a
-    deterministic test of it.
+    releases, defects and self-interruptions, and the seed of the order the scheduler of the tests
+    (`test/scheduled.test_scheduler.ts`) runs them in, and each promise of the README's "Guarantees" that the scenario
+    reaches is checked on every one (`interleaving.test.ts`). It is a search, from a seed drawn on each run, and runs
+    apart: `bun run interleavings`, and a daily job of the CI (`.github/workflows/interleavings.yml`), never
+    `bun run test`. How a lead it finds is weighed is in `change-engine`; a finding is listed in `ROADMAP.md` with its
+    seed and path until a fix leaves a deterministic test of it.
   - **contracts**: one program and its inputs given alike to each testing tool and to the run
     (`src/testing/contract.test.ts`, where a difference found is a `test.failing` until it is fixed).
   - **the boundary of a run**, the run's or a testing tool's: its lifecycle, scopes, interruption and defects, what
     it holds and lets go, what a tool fails on (`run.test.ts`, `engine.test.ts`, the cache of `dispatchTo` in
     `dispatch.test.ts`, a parent's subscriptions in a run in `compose.test.ts`, each tool's own file in
-    `src/testing/`). A test of a premise (`docs/premises.md`) is of this kind,
-    and so is one of the scheduler of the tests, `test/scheduled.ts`, which is no part of the package: it serves the
-    search, and the few tests of a boundary that run one scenario under the orders it gives (`engine.test.ts`,
-    `rehearse.test.ts`), alarms that are the killer of no mutation (`docs/invariants.md`, "one thunk").
+    `src/testing/`). A test of a premise (`docs/premises.md`) is of this kind, and so is one of the scheduler of the
+    tests, `test/scheduled.test_scheduler.ts`, which is no part of the package: it serves the search, and the few
+    tests of a boundary that run one scenario under the orders it gives (`engine.test.ts`, `rehearse.test.ts`),
+    alarms that are the killer of no mutation (`docs/invariants.md`, "one thunk").
   - **the types**: what the compiler refuses (`@ts-expect-error`), or infers (`expectTypeOf`), next to the tests
     of the function whose types they are.
 
@@ -208,13 +211,13 @@ an example's and a document's too:
   the code it replaces rewritten, updates the list. It runs before a release (`release`), and after a change of a
   file it mutates; what a mutation is, and is not, is in `change-engine`.
 - **The tests of `src/` and `test/` run on Node too**, on V8 as Chrome and Edge run the library: `bun run test:node`
-  makes Node resolve `bun:test` to `test/node/bun-test.ts`, which gives what the tests use of it over Node's own
-  runner, with Jest's `expect`. A test that needs more of `bun:test` adds it there, and one that asks for a
-  collection calls `test/gc.ts`, never `Bun.gc`. Node strips the types itself, so the TypeScript is erasable
-  (`erasableSyntaxOnly`: no enum, namespace or parameter property). The search runs on Bun alone: the scheduler of
-  the tests decides the order its fibers run in, whatever the engine, so V8 would run the same histories. So do the
-  examples' tests: their programs are pure, and their bridges are tested against a renderer and happy-dom, not
-  against the engine.
+  makes Node resolve `bun:test` to `test/node/bun-test.test_shim.ts`, which gives what the tests use of it over Node's
+  own runner, with Jest's `expect`. A test that needs more of `bun:test` adds it there, and one that asks for a
+  collection calls `test/gc.test_helper.ts`, never `Bun.gc`. Node strips the types itself, so the TypeScript is erasable
+  (`erasableSyntaxOnly`: no enum, namespace or parameter property). The search runs on Bun alone: the scheduler of the
+  tests decides the order its fibers run in, whatever the engine, so V8 would run the same histories. So do the
+  examples' tests: their programs are pure, and their bridges are tested against a renderer and happy-dom, not against
+  the engine.
 - A test's name says what it checks. When a change touches a test, or what it tests, check that its name, its
   `describe` and its comments still say what the assertions check: a test adapted to a new design keeps an old
   name that promises what it no longer proves.

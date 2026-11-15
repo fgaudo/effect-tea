@@ -3,7 +3,7 @@ import { reject, subscriptionsOf } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations } from '@fgaudo/effect-tea/testing'
 import * as HashMap from 'effect/HashMap'
 import * as fc from 'fast-check'
-import { timerMessages } from './reader.ts'
+import { timerMessages } from './timer.test_reader.ts'
 import * as Timer from './timer.ts'
 import { type Message, type Model, type State, timers } from './timers.ts'
 

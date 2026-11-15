@@ -2,7 +2,7 @@
 // resolves to the module that gives the same names over its own runner.
 import { registerHooks } from 'node:module'
 
-const bunTest = new URL('./bun-test.ts', import.meta.url).href
+const bunTest = new URL('./bun-test.test_shim.ts', import.meta.url).href
 
 registerHooks({
   resolve: (specifier, context, nextResolve) =>

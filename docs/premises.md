@@ -110,13 +110,13 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   `suspend` for an unbounded queue (read in the source), so the dispatch that offers with it wakes the loop as before.
 - **Every fiber of a run asks the `Scheduler` it is given before each step, and every task it makes goes to that
   scheduler's dispatcher, or resumes inline where the scheduler of the tests makes it yield first**, so that
-  `test/scheduled.ts` decides where each fiber yields and which runs next, needing nothing of the platform's: "driven
-  by hand, every fiber resumes through the scheduler, that of the test clock included", "fibers a Deferred resumes
-  inline run in the order the test picks", "a fiber that yielded and is interrupted waits for its turn, as one resumed
-  inline does" (`test/effect-scheduler.test.ts`), and the rules of the scheduler built on them
-  (`test/scheduled.test.ts`). Read in the source (`runLoop` in `internal/effect.ts`), and seen in those tests. Only
-  the search of `interleaving.test.ts` rests on it, and no mutation's killer does: a model of the scheduler gone
-  wrong costs a false alarm, or a missed one, never a test that passes where it should fail.
+  `test/scheduled.test_scheduler.ts` decides where each fiber yields and which runs next, needing nothing of the
+  platform's: "driven by hand, every fiber resumes through the scheduler, that of the test clock included", "fibers a
+  Deferred resumes inline run in the order the test picks", "a fiber that yielded and is interrupted waits for its turn,
+  as one resumed inline does" (`test/effect-scheduler.test.ts`), and the rules of the scheduler built on them
+  (`test/scheduled.test.ts`). Read in the source (`runLoop` in `internal/effect.ts`), and seen in those tests. Only the
+  search of `interleaving.test.ts` rests on it, and no mutation's killer does: a model of the scheduler gone wrong costs
+  a false alarm, or a missed one, never a test that passes where it should fail.
 - **A `Stream.map` after `Stream.buffer` runs only for the elements the consumer pulls, in the consumer's fiber**,
   so a frame's model is made for the frames the renderer pulls, never for a state the sliding buffer dropped, and a
   defect of `makeModel` is the renderer's: "a model is made only for the frames the renderer pulls, never for a state
@@ -135,7 +135,7 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   and seen in that test.
 - **A `WeakRef` is cleared before the `FinalizationRegistry` callback of its target runs**, and a `WeakMap` lets go
   of a value with its key: the tests of `dispatchTo` (`dispatch.test.ts`) and "a child's model is let go with its
-  state" (`compose.test.ts`), under a collection the test asks for (`test/gc.ts`), on Bun and on Node.
+  state" (`compose.test.ts`), under a collection the test asks for (`test/gc.test_helper.ts`), on Bun and on Node.
 - **The use of `Effect.acquireUseRelease` can be interrupted**, which is how `rehearse`'s `run` takes its
   command, calls `runCommand` and forks the effect it returned with nothing in between for an interruption to fall
   into, and how an interrupted `run` cancels the command and stops its fiber, waiting for its release: "when a run
