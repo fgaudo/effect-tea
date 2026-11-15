@@ -88,9 +88,9 @@ export const scopedIn =
 
 /**
  * Runs a subscription, sending each of its messages, in the scope of the fiber that runs it, and returns its last
- * message: what the channel acquires in scopes of its own is released as that scope closes, after `scopedIn` has
- * recorded what the subscription died of. `Channel.runForEach` closes a scope of its own first, so that a defect would
- * wait for that release, while the loop goes on applying messages.
+ * message: what the channel adds to that scope is released as it closes, after `scopedIn` has recorded what the
+ * subscription died of. `Channel.runForEach` would run the channel in a scope it makes and closes first, so that a
+ * defect would wait for that release, while the loop goes on applying messages.
  */
 export const runSubscription = <Message, R, RS>(
   subscription: Subscription<Message, R>,

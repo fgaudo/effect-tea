@@ -87,7 +87,11 @@ export interface Engine<State, Message> {
   readonly states: Stream.Stream<Core.Revisioned<State> & Readonly<{ seen: number }>>
   /** Enqueues a message, and returns its number among those dispatched, from 1. */
   readonly dispatch: (message: Message) => Effect.Effect<number>
-  /** Succeeds once a fiber of the run has died: of `update`, a command, a subscription, an option or a log. */
+  /**
+   * Succeeds once a fiber of the run has died: of `update`, `subscriptions`, a command, a subscription, an option
+   * (`describeMessage`, `describeCommand`, `onApplied`, `onIgnored`) or a log, or of what whoever runs the engine
+   * records in the `deaths` it shares with it (`run`'s `init` and renderer).
+   */
   readonly died: Effect.Effect<void>
   /**
    * Dies with every defect the fibers of the run have died of and that it has not reported yet, each a

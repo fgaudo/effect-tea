@@ -10,14 +10,14 @@ import * as Stream from 'effect/Stream'
 import * as fc from 'fast-check'
 import * as About from './about.ts'
 import { app, type Message, type Model, type State } from './app.ts'
-import * as Clock from './clock.ts'
+import type * as Clock from './clock.ts'
 
-const aboutClicked: Message = { _tag: 'Clock', message: Clock.Message.AboutClicked() }
-const backClicked: Message = { _tag: 'About', message: About.Message.BackClicked() }
-const picked = (format: Clock.Format): Message => ({ _tag: 'Clock', message: Clock.Message.FormatPicked({ format }) })
+const aboutClicked: Message = { _tag: 'Clock', message: { _tag: 'AboutClicked' } }
+const backClicked: Message = { _tag: 'About', message: { _tag: 'BackClicked' } }
+const picked = (format: Clock.Format): Message => ({ _tag: 'Clock', message: { _tag: 'FormatPicked', format } })
 const ticked = (millis: number): Message => ({
   _tag: 'Clock',
-  message: Clock.Message.Ticked({ now: DateTime.makeUnsafe(millis) }),
+  message: { _tag: 'Ticked', now: DateTime.makeUnsafe(millis) },
 })
 
 const maybe = <A>(value: fc.Arbitrary<A>): fc.Arbitrary<Opt.Option<A>> =>

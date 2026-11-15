@@ -10,7 +10,8 @@
 //
 // The copies are under `.mutants/` (ignored by git, and by `bun test`, which skips directories that start with a dot),
 // where `effect` resolves through the repository's `node_modules`. The working tree is never written. A copy holds one
-// mutation at a time, so the mutations run apart, and what each did is printed in the order of the list.
+// mutation at a time, so the mutations run apart, and what each did is printed in the order of the list. A run
+// stopped by SIGINT or SIGTERM ends the tests under way and removes its copies too.
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -53,10 +54,31 @@ const outcomes = (report: string): ReadonlyArray<Outcome> =>
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-// No test takes more than half a minute: a process that lasts longer hangs, which no report says of its test.
+// No test takes more than a minute: a process that lasts longer hangs, which no report says of its test.
 const patience = 60 * 1000
 
 let reports = 0
+
+// The runs of `bun test` under way, so that a run of this script stopped from outside ends them before it removes the
+// copies they run in.
+const running = new Set<Bun.Subprocess>()
+
+const removeCopies = () => {
+  fs.rmSync(base, { recursive: true, force: true })
+  // Left to another process still running, when it is not empty.
+  try {
+    fs.rmdirSync(path.dirname(base))
+  } catch {}
+}
+
+const stopped = async (signal: NodeJS.Signals) => {
+  for (const run of running) run.kill()
+  await Promise.all(Array.from(running, (run) => run.exited))
+  removeCopies()
+  process.exit(128 + os.constants.signals[signal])
+}
+
+for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, stopped)
 
 // Runs `files` in `copy`, only the test whose title is `title` when given, and returns what each did, or that it hung.
 const runTests = async (
@@ -75,7 +97,9 @@ const runTests = async (
     stderr: 'pipe',
     timeout: patience,
   })
+  running.add(run)
   const [stderr] = await Promise.all([new Response(run.stderr).text(), run.exited])
+  running.delete(run)
   // Only `timeout` ends a run this late.
   if (performance.now() - started >= patience) return 'hung'
   if (!fs.existsSync(report)) throw new Error(`bun test wrote no report (exit ${run.exitCode}):\n${stderr}`)
@@ -200,7 +224,9 @@ try {
     for (const entry of copied) fs.cpSync(path.join(root, entry), path.join(copy, entry), { recursive: true })
   }
   if (discover) {
-    const suite = (copy: string, mutation: Mutation) => under(copy, mutation, () => runTests(copy, []))
+    // The suite of `bun run test`: the search of the histories lasts longer than a test may, and names no killer.
+    const suite = (copy: string, mutation: Mutation) =>
+      under(copy, mutation, () => runTests(copy, ['--path-ignore-patterns=src/interleaving.test.ts']))
     await pool(copies, chosen, suite, (ran, index) => {
       const { name } = chosen[index] as Mutation
       if (ran === 'hung') {
@@ -239,11 +265,7 @@ try {
     })
   }
 } finally {
-  fs.rmSync(base, { recursive: true, force: true })
-  // Left to another process still running, when it is not empty.
-  try {
-    fs.rmdirSync(path.dirname(base))
-  } catch {}
+  removeCopies()
 }
 if (survived > 0) {
   console.error(`\n${survived} of ${chosen.length} mutations survived a test that must kill them`)

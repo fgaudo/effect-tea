@@ -40,4 +40,9 @@ describe('how a message is described by default', () => {
     expect(describedAs({ _tag: 'ToastShown', message: 'Card ending 4242 declined' })).toBe('ToastShown')
     expect(describedAs({ _tag: 'Left', message: 'Increment' })).toBe('Left')
   })
+
+  test('never by a field named command that holds data', () => {
+    expect(describedAs({ _tag: 'Reminded', command: 'Pay the card ending 4242' })).toBe('Reminded')
+    expect(describedAs({ _tag: 'Left', command: 'Save' })).toBe('Left')
+  })
 })

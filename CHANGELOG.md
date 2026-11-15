@@ -142,6 +142,24 @@ version, and everything else, features included, the patch version.
 - The README says that a parent's message wrapping a child's string is logged by the child's name alone, that a
   failure of a call of `rehearse` fails the fiber that made it, and that `simulate` calls no `init`.
 
+- **Breaking**: `rehearse`'s `hear` takes no write into an input, the program's or a child's, which only a view sends.
+  Upgrade: a test that heard `{ _tag: 'Name', message: { _tag: 'Written', … } }` sends it with `send`, from the model
+  that shows the input.
+- `Update`, `Transition`, `Rejected`, `ModelOf`, `MessageOf`, `CommandOf`, `EventOf` and `ServicesOf` have doc comments
+  of their own, and `StateOf`'s speaks of `StateOf` alone.
+- "Rejections and defects" in the README says that `defect` is for `init` too, and the API reference that a
+  `ProgramDefect` holds the tags of `update`'s message, not the message.
+- `CompositionDefect`'s documentation names a child whose state is not an object, and that of `Rehearsal.ignored`
+  says that it holds messages.
+- "Running" in the README says that what a channel adds to the scope the run gives it is released after its defect,
+  where it said "a channel's own scopes".
+- The examples export `Message` as a type only, as "Model" in the README says (`pages`, `list`, `timer`, `form`,
+  `volume`): their tests write messages as data.
+- `examples/form/late-key.test.ts` is removed: its two histories of a key typed before a save completed are cases of
+  `examples/bridge.test_suite.ts`, run on each bridge with `form`'s views.
+- The examples' snabbdom bridge no longer has `onInput`, which turned what is typed into a message in the view: what
+  the user types is an input, drawn with `shows`, and `messagesSentBy` no longer takes a text to type.
+
 ### Fixed
 
 - An input that takes a child's name no longer compiles: it replaced the child, whose messages were then rejected.
@@ -150,7 +168,6 @@ version, and everything else, features included, the patch version.
 - A child whose `flags`, events or commands are of type `unknown`, or whose `init` is a function written without
   `Program<…>`, is typed as having them: its handle takes flags, `onEvent` is required, and so is `runCommand`, where
   the types read them as absent and the run met them. `FlagsOf`, `EventOf` and `CommandOf` read them as `unknown`.
-
 - A run interrupted just as it forked the renderer left the renderer running, and lost a defect.
 - A message taken before a defect could reach `update` after it, under a lowered `Scheduler.MaxOpsBeforeYield`.
 - A release that interrupts itself, or fails against its type, after its command or subscription died, is a defect.
@@ -198,6 +215,10 @@ version, and everything else, features included, the patch version.
   description overflowed the stack, and a defect it was made for died as that `RangeError`, without where.
 - `Applied`'s `revision` is a `number` in the declarations, which no longer carry the engine's internal modules, and
   the README says what it counts ("Running").
+- The examples' snabbdom bridge settles an `<input>` that snabbdom reuses for another vnode: drawn with `shows` in the
+  place of a plain field, it shows the program's value and sends its writes; drawn as a plain field in the place of an
+  input, it is let go and keeps what the view gives it.
+- `rehearse` whose `init`, `subscriptions` or `makeModel` dies at the start leaves no scope of its own open.
 
 ## 0.7.1 (2026-10-28)
 

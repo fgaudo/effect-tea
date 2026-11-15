@@ -406,6 +406,10 @@ export const mutations: ReadonlyArray<Mutation> = [
       ],
       [
         'src/testing/contract.test.ts',
+        'simulate fails with a defect of a command interrupting itself as whoever runs it interrupts it',
+      ],
+      [
+        'src/testing/contract.test.ts',
         'the run dies with a defect of a subscription interrupting itself as the run stops it',
       ],
       [
@@ -1066,7 +1070,8 @@ export const mutations: ReadonlyArray<Mutation> = [
         'examples/react.test.ts',
         'a name the program empties is emptied in the input on screen, which stays and keeps the focus',
       ],
-      ['examples/form/late-key.test.ts', 'is rejected, and the input on screen is emptied, as the save left it'],
+      ['examples/snabbdom.test.ts', 'is rejected, and the input on screen is emptied, as the save left it'],
+      ['examples/react.test.ts', 'is rejected, and the input on screen is emptied, as the save left it'],
     ],
   },
   {
@@ -1781,6 +1786,464 @@ export const mutations: ReadonlyArray<Mutation> = [
         'src/testing/rehearse.test.ts',
         'a message sent as the scenario returns is applied, and the command it starts fails the rehearsal',
       ],
+    ],
+  },
+  // Each place a defect is told where it happened (`diesIn`, and `scopedIn`, which calls it) has a mutation that takes
+  // its site out, or gives it another, in the engine and in each testing tool alike (`docs/invariants.md`).
+  {
+    name: 'a defect of subscriptions in the run has no site',
+    file: 'src/engine.ts',
+    from: "yield* call(\n      'subscriptions',\n      () =>",
+    to: 'yield* Effect.sync(\n      () =>',
+    killedBy: [
+      ['src/run.test.ts', 'a defect in subscriptions ends the run, which dies with it and with where it happened'],
+      ['src/run.test.ts', 'a key whose Equal throws dies in subscriptions'],
+      ['src/run.test.ts', 'a key whose Hash throws dies in subscriptions'],
+      [
+        'src/testing/contract.test.ts',
+        'the run dies in subscriptions on the subscriptions of the state it starts from',
+      ],
+      ['src/testing/contract.test.ts', 'the run dies in subscriptions first, on a state whose model is a defect too'],
+    ],
+  },
+  {
+    name: 'a defect of describeMessage in the run has no site',
+    file: 'src/engine.ts',
+    from: "call('describeMessage', () => describeMessage(message))",
+    to: 'Effect.sync(() => describeMessage(message))',
+    killedBy: [
+      ['src/run.test.ts', 'a defect in describeMessage ends the run, which dies with it and with where it happened'],
+    ],
+  },
+  {
+    name: 'a defect of describeCommand in the run has no site',
+    file: 'src/engine.ts',
+    from: "call('describeCommand', () => commands.map(describeCommand))",
+    to: 'Effect.sync(() => commands.map(describeCommand))',
+    killedBy: [
+      ['src/run.test.ts', 'a defect in describeCommand ends the run, which dies with it and with where it happened'],
+    ],
+  },
+  {
+    name: "a defect of the run's own logs has no site",
+    file: 'src/engine.ts',
+    from: "Effect.logDebug(...message).pipe(diesIn('log'))",
+    to: 'Effect.logDebug(...message)',
+    killedBy: [
+      ['src/run.test.ts', 'a Logger that throws on the log of an accepted message is one defect, in the log'],
+      ['src/run.test.ts', 'a Logger that throws on the log of a rejected message is one defect, in the log'],
+      ['src/run.test.ts', 'a Logger that throws on the log of a dropped message is one defect, in the log'],
+      [
+        'src/run.test.ts',
+        'a Logger that throws on the log of a subscription started by init is one defect, in the log',
+      ],
+      [
+        'src/run.test.ts',
+        'a Logger that throws on the log of a subscription started by a message is one defect, in the log',
+      ],
+    ],
+  },
+  {
+    name: 'a defect of onApplied has no site',
+    file: 'src/engine.ts',
+    from: "Effect.suspend(() => onApplied(applied)).pipe(diesIn('onApplied'))",
+    to: 'Effect.suspend(() => onApplied(applied))',
+    killedBy: [
+      ['src/run.test.ts', 'a defect in onApplied ends the run, which dies with it and with where it happened'],
+      [
+        'src/run.test.ts',
+        'a defect in onApplied, before it returns its effect ends the run'
+          + ', which dies with it and with where it happened',
+      ],
+      ['src/run.test.ts', 'onApplied that interrupts itself is a defect, where it happened'],
+    ],
+  },
+  {
+    name: 'a defect of onIgnored has no site',
+    file: 'src/engine.ts',
+    from: "Effect.suspend(() => onIgnored(ignored)).pipe(diesIn('onIgnored'))",
+    to: 'Effect.suspend(() => onIgnored(ignored))',
+    killedBy: [
+      ['src/run.test.ts', 'a defect in onIgnored ends the run, which dies with it and with where it happened'],
+      [
+        'src/run.test.ts',
+        'a defect in onIgnored, before it returns its effect ends the run'
+          + ', which dies with it and with where it happened',
+      ],
+    ],
+  },
+  {
+    name: "a defect of a command in the run is a subscription's",
+    file: 'src/engine.ts',
+    from: "scopedIn(deaths, 'command'),",
+    to: "scopedIn(deaths, 'subscription'),",
+    killedBy: [
+      ['src/engine.test.ts', 'what a command dies of as the end of the engine interrupts it is what the end dies of'],
+      ['src/run.test.ts', 'a defect in a command ends the run, which dies with it and with where it happened'],
+      ['src/run.test.ts', 'a defect in runCommand ends the run, which dies with it and with where it happened'],
+      ['src/run.test.ts', 'a command that interrupts itself is a defect, where it happened'],
+      [
+        'src/run.test.ts',
+        'a command that joins an interrupted fiber that interrupts itself is a defect, where it happened',
+      ],
+    ],
+  },
+  {
+    name: "a defect of a subscription in the run is a command's",
+    file: 'src/engine.ts',
+    from: "scopedIn(deaths, 'subscription', () => ({ key })),",
+    to: "scopedIn(deaths, 'command', () => ({ key })),",
+    killedBy: [
+      [
+        'src/engine.test.ts',
+        'a subscription interrupting itself as the end of the engine stops it, its key gone, is a defect',
+      ],
+      ['src/run.test.ts', 'a defect in a subscription ends the run, which dies with it and with where it happened'],
+      [
+        'src/run.test.ts',
+        'a defect in what a subscription the run stopped releases ends the run'
+          + ', which dies with it and with where it happened',
+      ],
+      ['src/run.test.ts', 'a subscription that interrupts itself is a defect, where it happened'],
+      ['src/run.test.ts', 'a subscription that dies as the end of the run releases it ends the run with it'],
+    ],
+  },
+  {
+    name: 'a defect of a subscription in the run does not say its key',
+    file: 'src/engine.ts',
+    from: "scopedIn(deaths, 'subscription', () => ({ key })),",
+    to: "scopedIn(deaths, 'subscription'),",
+    killedBy: [
+      ['src/run.test.ts', 'a defect in a subscription carries its key'],
+      ['src/testing/contract.test.ts', 'the run dies in a subscription, with its key, on a subscription that throws'],
+    ],
+  },
+  {
+    name: "a defect of the renderer is a command's",
+    file: 'src/run.ts',
+    from: "Shell.scopedIn(deaths, 'render'),",
+    to: "Shell.scopedIn(deaths, 'command'),",
+    killedBy: [
+      ['src/run.test.ts', 'a defect in makeModel ends the run, which dies with it and with where it happened'],
+      ['src/run.test.ts', 'a defect in the view ends the run, which dies with it and with where it happened'],
+      ['src/run.test.ts', 'a renderer that throws before it returns its effect dies in the renderer'],
+      ['src/run.test.ts', 'the renderer that interrupts itself is a defect, where it happened'],
+      ['src/run.test.ts', 'a renderer that dies while it releases what it holds ends the run with that defect'],
+    ],
+  },
+  {
+    name: 'scopedIn leaves what its effect dies of without a site',
+    file: 'src/shell.ts',
+    from: '        diesIn(where, details),\n        Effect.onExit(',
+    to: '        Effect.onExit(',
+    killedBy: [
+      ['src/engine.test.ts', 'what a command dies of as the end of the engine interrupts it is what the end dies of'],
+      ['src/run.test.ts', 'a defect in makeModel ends the run, which dies with it and with where it happened'],
+      ['src/run.test.ts', 'a defect in the view ends the run, which dies with it and with where it happened'],
+      ['src/run.test.ts', 'a defect in a subscription ends the run, which dies with it and with where it happened'],
+      ['src/run.test.ts', 'a defect in a command ends the run, which dies with it and with where it happened'],
+    ],
+  },
+  {
+    name: 'scopedIn leaves what the release dies of without a site',
+    file: 'src/shell.ts',
+    from: '      )).pipe(\n        diesIn(\n          where,\n          details,\n'
+      + '          (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),\n'
+      + '        ),\n',
+    to: '      )).pipe(\n',
+    killedBy: [
+      ['src/run.test.ts', 'a renderer that dies while it releases what it holds ends the run with that defect'],
+      ['src/run.test.ts', 'a renderer that dies while an interrupted run releases it is in the cause'],
+      ['src/run.test.ts', 'a renderer that dies as a run that died elsewhere releases it is in the cause'],
+      [
+        'src/run.test.ts',
+        'a makeModel that dies as a run that died releases the renderer is the second defect, in render',
+      ],
+      ['src/run.test.ts', 'a subscription whose release dies applies messages until its scope has released all'],
+    ],
+  },
+  {
+    name: 'a defect of subscriptions in rehearse has no site',
+    file: 'src/testing/rehearse.ts',
+    from: "      diesIn('subscriptions'),\n      Effect.map(([stopping, stopped])",
+    to: '      Effect.map(([stopping, stopped])',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'rehearse keeps the state whose subscriptions are a defect, as the run publishes it',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails, as the run dies, on a key whose Equal throws against the key of the state before',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails, as the run dies, in subscriptions on those of the state it starts from',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails in subscriptions first, as the run dies, on a state whose model is a defect too',
+      ],
+    ],
+  },
+  {
+    name: 'a defect of makeModel on the first state in rehearse has no site',
+    file: 'src/testing/rehearse.ts',
+    from: "program.makeModel(started.current.state)).pipe(diesIn('render'))",
+    to: 'program.makeModel(started.current.state))',
+    killedBy: [
+      ['src/testing/contract.test.ts', 'rehearse fails, as the run dies, in render, on a makeModel that throws'],
+      ['src/testing/contract.test.ts', 'rehearse fails in render, as the run dies'],
+      [
+        'src/testing/contract.test.ts',
+        'drive fails, as rehearse does, in render alone: the scenario that would catch it never meets it',
+      ],
+    ],
+  },
+  {
+    name: "a defect of a key's Equal in rehearse's hear has no site",
+    file: 'src/testing/rehearse.ts',
+    from: "Effect.sync(() => HashMap.get(active.keys, key)).pipe(\n      diesIn('subscriptions'),\n",
+    to: 'Effect.sync(() => HashMap.get(active.keys, key)).pipe(\n',
+    killedBy: [
+      ['src/testing/rehearse.test.ts', "dies in subscriptions when a key's Equal throws, as the run does"],
+    ],
+  },
+  {
+    name: "a defect of a subscription in rehearse is a command's",
+    file: 'src/testing/rehearse.ts',
+    from: "scopedIn(register, 'subscription', () => ({ key }))",
+    to: "scopedIn(register, 'command', () => ({ key }))",
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails, as the run dies, on a defect of what a subscription releases when the scenario ends',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails with a defect, as the run dies, on a subscription interrupting itself',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails with a defect of a subscription interrupting itself as it stops it',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails with a defect of a subscription joining, as its end stops it, a fiber its caller interrupted',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails with a defect of a subscription interrupting itself as the fiber that stops it',
+      ],
+    ],
+  },
+  {
+    name: 'a defect of a subscription in rehearse does not say its key',
+    file: 'src/testing/rehearse.ts',
+    from: "scopedIn(register, 'subscription', () => ({ key }))",
+    to: "scopedIn(register, 'subscription')",
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails, as the run dies, in a subscription, with its key, on a subscription that throws',
+      ],
+    ],
+  },
+  {
+    name: "a defect of a command in rehearse is a subscription's",
+    file: 'src/testing/rehearse.ts',
+    from: "scopedIn(register, 'command')",
+    to: "scopedIn(register, 'subscription')",
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails with a defect, as the run dies, on a command interrupting itself',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails with a defect of a command interrupting itself as whoever runs it interrupts it',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails with a defect of a command joining, as its run is stopped, a fiber its caller interrupted',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails with a defect of a command joining, as its run is stopped, a fiber its interrupter interrupted',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails with a defect of a command joining, as its end stops it, a fiber its caller interrupted',
+      ],
+    ],
+  },
+  {
+    name: 'a defect of subscriptions in simulate has no site',
+    file: 'src/testing/simulate.ts',
+    from: "    }).pipe(diesIn('subscriptions'))",
+    to: '    })',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails, as the run dies, on a key whose Equal throws against the key of the state before',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails, as the run dies, in subscriptions on those of the state it starts from',
+      ],
+    ],
+  },
+  {
+    name: 'a runCommand that throws before its effect in simulate has no site',
+    file: 'src/testing/simulate.ts',
+    from: "      Effect.sync(() => runCommand(command)).pipe(\n        diesIn('command'),\n",
+    to: '      Effect.sync(() => runCommand(command)).pipe(\n',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails, as the run dies, in a command on a runCommand that throws before its effect',
+      ],
+    ],
+  },
+  {
+    name: "a defect of a command in simulate is a subscription's",
+    file: 'src/testing/simulate.ts',
+    from: "effect.pipe(scopedIn(deaths, 'command'))",
+    to: "effect.pipe(scopedIn(deaths, 'subscription'))",
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails with a defect, as the run dies, on a command interrupting itself',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails with a defect of a command interrupting itself as whoever runs it interrupts it',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails with a defect of a command joining, as it is stopped, a fiber its interrupter interrupted',
+      ],
+      ['src/testing/contract.test.ts', 'simulate fails, as the run dies, in a command on a command that dies'],
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails, as the run dies, in a command on a release of a command that dies',
+      ],
+    ],
+  },
+  {
+    name: "a parent makes a new state for a child's message that keeps the child's",
+    file: 'src/compose.ts',
+    from: 'state: result.state === childState ? state : setAt(place, state, result.state),',
+    to: 'state: setAt(place, state, result.state),',
+    killedBy: [
+      [
+        'src/compose.test.ts',
+        "a child's message that keeps its state keeps the parent's, its commands and events still going",
+      ],
+      ['src/input.test.ts', 'leaves the very same state when the place holds it already'],
+      ['src/input.test.ts', 'compares the value it was written over by Equal, whatever it is made of'],
+    ],
+  },
+  {
+    name: 'rehearse lets a command whose run was interrupted go',
+    file: 'src/testing/rehearse.ts',
+    from: '  if (cancelled.length > 0) {\n',
+    to: '  if (false) {\n',
+    killedBy: [
+      ['src/testing/rehearse.test.ts', 'when a run interrupted while its command runs leaves the command unanswered'],
+      [
+        'src/testing/rehearse.test.ts',
+        'a run interrupted once its command has answered applies the answer, or fails the rehearsal',
+      ],
+      ['src/testing/rehearse.test.ts', 'a run interrupted before the effect of its command begins fails the rehearsal'],
+    ],
+  },
+  {
+    name: 'rehearse lets a command still under way at the end go',
+    file: 'src/testing/rehearse.ts',
+    from: '  if (underWay.size > 0) {\n',
+    to: '  if (false) {\n',
+    killedBy: [
+      [
+        'src/testing/rehearse.test.ts',
+        'when a command is still under way at the end, since its answer would still arrive',
+      ],
+      [
+        'src/testing/rehearse.test.ts',
+        'a command that answers while the end releases a subscription fails it, as one under way',
+      ],
+    ],
+  },
+  {
+    name: 'rehearse lets a command still pending at the end go',
+    file: 'src/testing/rehearse.ts',
+    from: '  if (pending.length > 0) {\n',
+    to: '  if (false) {\n',
+    killedBy: [
+      [
+        'src/testing/rehearse.test.ts',
+        'when a command is still pending at the end, since its answer would still arrive',
+      ],
+      ['src/testing/rehearse.test.ts', 'a run interrupted before the effect of its command begins fails the rehearsal'],
+      [
+        'src/testing/rehearse.test.ts',
+        'a message sent as the scenario returns is applied, and the command it starts fails the rehearsal',
+      ],
+    ],
+  },
+  {
+    name: 'a report leaves the defects it reported to be reported again',
+    file: 'src/core.ts',
+    from: '[Opt.some(Cause.fromReasons<never>(dies)), { ...register, reported: register.deaths.length }]',
+    to: '[Opt.some(Cause.fromReasons<never>(dies)), register]',
+    killedBy: [
+      ['src/core.test.ts', 'reports each defect once, those since the last report, in order'],
+    ],
+  },
+  {
+    name: 'a death recorded signals nobody',
+    file: 'src/shell.ts',
+    from: 'return register !== before ? Deferred.succeed(died, undefined) : Effect.void',
+    to: 'return Effect.void',
+    killedBy: [
+      [
+        'src/testing/rehearse.test.ts',
+        "a hearNext waiting on its subscription fails as soon as another fiber of the test's dies",
+      ],
+      [
+        'src/testing/rehearse.test.ts',
+        "a run waiting for its command fails as soon as another fiber of the test's dies",
+      ],
+    ],
+  },
+  {
+    name: 'simulate stops an interrupted command with no mark of its own',
+    file: 'src/testing/simulate.ts',
+    from: 'Effect.andThen(stopping(fiber), ',
+    to: 'Effect.andThen(Fiber.interrupt(fiber), ',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails with a defect of a command joining, as it is stopped, a fiber its caller interrupted',
+      ],
+    ],
+  },
+  {
+    name: 'a description follows a wrapped message that is not tagged',
+    file: 'src/log.ts',
+    from: "Predicate.hasProperty(value, 'message') && tagOf(value.message) !== undefined",
+    to: "Predicate.hasProperty(value, 'message')",
+    killedBy: [
+      ['src/log.test.ts', 'never by a field named message that holds data'],
+    ],
+  },
+  {
+    name: 'a description follows a wrapped command that is not tagged',
+    file: 'src/log.ts',
+    from: "Predicate.hasProperty(value, 'command') && tagOf(value.command) !== undefined",
+    to: "Predicate.hasProperty(value, 'command')",
+    killedBy: [
+      ['src/log.test.ts', 'never by a field named command that holds data'],
     ],
   },
 ]

@@ -70,7 +70,8 @@ export type Own = Data.TaggedEnum<{
   DragEnded: object
 }>
 
-export const Own = Data.taggedEnum<Own>()
+// Not exported, as the README's "Model" says: a view sends only the messages its model holds, and builds none.
+const Own = Data.taggedEnum<Own>()
 
 // What the subscription of a drag sends: each move of the pointer, then the release, its last message.
 const dragging: Subscription<Own, Pointer> = Channel.unwrap(

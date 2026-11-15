@@ -128,22 +128,22 @@ Item 7 is breaking; 0.8.0 is open and unreleased. Items 6 and 8 are done, and ke
   on a frame drawn before), `reject`'s comment speaks of a control the view shows, and "the test, or the view through
   it" in "The tools" of a test that drives a view.
 
-- **What it is today.** `Origin`'s case is `'View'` (`engine.ts:30`, `core.ts:195`), and `Core.fromView` is the
-  source `rehearse` and `simulate` give to a message the test sends (`rehearse.ts:289`, `simulate.ts:129`): the name
-  is already untrue where no view exists. The words: `reject`'s comment (`update.ts:19`), "Enqueues a message sent
-  by the view" (`engine.ts:236`), and in the README "what the view draws never does" and "a message of the view"
-  ("Rejections and defects"), `origin`'s description in "Running", "what the view sends is queued" in "Guarantees",
-  and "the test or the view" twice in "The tools".
-- **Since the port**, the tag has a second use: the run numbers the messages of that source, and a frame's `seen`
-  counts them (`engine.ts:397`, where the tag is tested). The words grew with it: "how many of the view's messages"
+- **What it was**, at `7074b7a`, where the line numbers below are. `Origin`'s case was `'View'` (`engine.ts:30`,
+  `core.ts:195`), and `Core.fromView` the source `rehearse` and `simulate` gave to a message the test sends
+  (`rehearse.ts:289`, `simulate.ts:129`): the name was already untrue where no view exists. The words: `reject`'s
+  comment (`update.ts:19`), "Enqueues a message sent by the view" (`engine.ts:236`), and in the README "what the view
+  draws never does" and "a message of the view" ("Rejections and defects"), `origin`'s description in "Running", "what
+  the view sends is queued" in "Guarantees", and "the test or the view" twice in "The tools".
+- **Since the port**, the tag had a second use: the run numbers the messages of that source, and a frame's `seen`
+  counts them (`engine.ts:397`, where the tag was tested). The words grew with it: "how many of the view's messages"
   (`engine.ts:234`), "the view's messages are numbered" (`engine.ts:323`), and in the README "among those the view has
   sent" in "View", "A frame says what it has seen" in "Guarantees" ("Each message the view sends is numbered") and
-  "the view's messages" in "Testing". A message a test sends is numbered as one of the view's in `drive`, since it
+  "the view's messages" in "Testing". A message a test sends was numbered as one of the view's in `drive`, since it
   goes through the run's dispatch.
 - **Removes**: nothing. It makes the run speak of what it knows, a dispatch.
 - **Costs**: the words are free. The tag is a rename through `core.ts`, `engine.ts`, their tests and the README.
 - **A consumer notices**: an `onApplied` or `onIgnored` that matches `origin._tag === 'View'`.
-- **Read again**: the list above is today's, at `7074b7a`. It splits in two: the words alone (a changelog entry at
+- **Read again**: the list above was that of `7074b7a`. It split in two: the words alone (a changelog entry at
   most), and the tag (breaking).
 
 ## A question: the wrapping of a child's message, before the model (answered: no)

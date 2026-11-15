@@ -1,7 +1,7 @@
 // A form that saves names. The name is an input, a plain value of the form's own state that the outside writes over:
 // no `update` of the form's sees what is typed, which the library stores in any state, and rejects once the form has
-// put another name in its place. The form's messages are those it fixes, Save and the answers of its command, and its model
-// holds no function. The name's validity becomes model data: "Save" exists only for a name that is not blank.
+// put another name in its place. The form's messages are those it fixes, Save and the answers of its command, and its
+// model holds no function. The name's validity becomes model data: "Save" exists only for a name that is not blank.
 // Saving is a state that only its completion leaves, so a second click is rejected, and a completion outside it
 // cannot arrive: it is a defect. The model has no input to type into while saving, but a key typed before the input
 // was disabled is still stored, so that the form never shows a text the state does not have. A failure gives the
@@ -42,7 +42,8 @@ export type Own = Data.TaggedEnum<{
   SaveFailed: { name: string }
 }>
 
-export const Own = Data.taggedEnum<Own>()
+// Not exported, as the README's "Model" says: a view sends only the messages its model holds, and builds none.
+const Own = Data.taggedEnum<Own>()
 
 /** What `update` decides to do in the world, as data: `runCommand` is how it happens. */
 export type Command = Data.TaggedEnum<{

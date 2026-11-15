@@ -7,7 +7,7 @@ import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Stream from 'effect/Stream'
 import * as fc from 'fast-check'
-import { Drag, Limit, type Message, type Model, Own, Pointer, Sound, type State, update, volume } from './volume.ts'
+import { Drag, Limit, type Message, type Model, Pointer, Sound, type State, update, volume } from './volume.ts'
 
 const start = volume.init.state
 
@@ -33,7 +33,7 @@ const messagesOf = ({ sound, limit, press }: Model): ReadonlyArray<Message> => [
 // What a key sends, as `messagesOf` says what the model holds: a drag sends a move to wherever the pointer is, and
 // its release.
 const heardFrom = (key: unknown, at: number): ReadonlyArray<Message> =>
-  key === 'ringer' ? [Own.Moved({ at }), Own.DragEnded()] : []
+  key === 'ringer' ? [{ _tag: 'Moved', at }, { _tag: 'DragEnded' }] : []
 
 describe('volume', () => {
   // `update` alone: the rules, without running anything.
@@ -51,18 +51,18 @@ describe('volume', () => {
     })
 
     test('muting leaves the media\'s level as it is, and unmuting gives it back', () => {
-      const muted = applyAll(update)([dragging(50, 80), Own.MuteClicked()], start).state
+      const muted = applyAll(update)([dragging(50, 80), { _tag: 'MuteClicked' }], start).state
       expect(muted).toMatchObject({ media: 80, sound: Sound.Muted() })
       expect(volume.makeModel(muted).media).toEqual({ _tag: 'Fixed', level: 0 })
-      expect(volume.makeModel(applyAll(update)([Own.UnmuteClicked()], muted).state).media)
+      expect(volume.makeModel(applyAll(update)([{ _tag: 'UnmuteClicked' }], muted).state).media)
         .toEqual({ _tag: 'Adjustable', level: 80 })
     })
 
     // Sent from a frame drawn before the mute: it was dragged over the level the volume still holds. Stored, it is
     // what the user meant, and unmuting gives it back.
     test('a drag of the media\'s slider drawn before it was muted is stored', () => {
-      const muted = applyAll(update)([Own.MuteClicked()], start).state
-      expect(applyAll(update)([dragging(50, 80), Own.UnmuteClicked()], muted).state.media).toBe(80)
+      const muted = applyAll(update)([{ _tag: 'MuteClicked' }], start).state
+      expect(applyAll(update)([dragging(50, 80), { _tag: 'UnmuteClicked' }], muted).state.media).toBe(80)
     })
 
     // Sent from a frame drawn before another drag was stored: the slider it was dragged on has moved since.
@@ -72,32 +72,41 @@ describe('volume', () => {
     })
 
     test('quiet hours bring a louder ringer down to their maximum, and full volume leaves it there', () => {
-      const quiet = applyAll(update)([Own.QuietClicked()], start).state
+      const quiet = applyAll(update)([{ _tag: 'QuietClicked' }], start).state
       expect(quiet).toMatchObject({ ringer: 30, limit: Limit.Quiet() })
-      expect(applyAll(update)([Own.FullClicked()], quiet).state.ringer).toBe(30)
+      expect(applyAll(update)([{ _tag: 'FullClicked' }], quiet).state.ringer).toBe(30)
     })
 
     // The moves are the program's own messages: each is put within the bounds the state holds when it arrives,
     // whatever they were when the drag began. No recipe is needed for bounds that narrow under a drag.
     test('a move of the ringer is put within the bounds of quiet hours that began during the drag', () => {
       const { state } = applyAll(update)(
-        [Own.DragStarted(), Own.Moved({ at: 90 }), Own.QuietClicked(), Own.Moved({ at: 95 }), Own.Moved({ at: 10 })],
+        [
+          { _tag: 'DragStarted' },
+          { _tag: 'Moved', at: 90 },
+          { _tag: 'QuietClicked' },
+          { _tag: 'Moved', at: 95 },
+          { _tag: 'Moved', at: 10 },
+        ],
         start,
       )
       expect(state.ringer).toBe(10)
-      const quietened = applyAll(update)([Own.DragStarted(), Own.QuietClicked(), Own.Moved({ at: 95 })], start)
+      const quietened = applyAll(update)(
+        [{ _tag: 'DragStarted' }, { _tag: 'QuietClicked' }, { _tag: 'Moved', at: 95 }],
+        start,
+      )
       expect(quietened.state.ringer).toBe(30)
     })
 
     test('a second press while the ringer is dragged starts nothing', () => {
-      const pressed = applyAll(update)([Own.DragStarted()], start).state
-      expect(update(Own.DragStarted())(pressed)).toBe(reject)
+      const pressed = applyAll(update)([{ _tag: 'DragStarted' }], start).state
+      expect(update({ _tag: 'DragStarted' })(pressed)).toBe(reject)
     })
 
     // Only a drag's subscription sends moves, and it stops with the drag: a move anywhere else is a bug.
     test('dies on a move, or a release, with nothing dragged', () => {
-      expect(() => update(Own.Moved({ at: 40 }))(start)).toThrow(InvariantDefect)
-      expect(() => update(Own.DragEnded())(start)).toThrow(InvariantDefect)
+      expect(() => update({ _tag: 'Moved', at: 40 })(start)).toThrow(InvariantDefect)
+      expect(() => update({ _tag: 'DragEnded' })(start)).toThrow(InvariantDefect)
     })
   })
 
@@ -105,7 +114,13 @@ describe('volume', () => {
   // `update` accepts is missing, but the moves, which no control sends.
   test('the model holds what update accepts, all of it, and each acts once when sent twice', () => {
     const violations = dispatchViolations(update)
-    const candidates = [Own.MuteClicked(), Own.UnmuteClicked(), Own.QuietClicked(), Own.FullClicked(), Own.DragStarted()]
+    const candidates: ReadonlyArray<Message> = [
+      { _tag: 'MuteClicked' },
+      { _tag: 'UnmuteClicked' },
+      { _tag: 'QuietClicked' },
+      { _tag: 'FullClicked' },
+      { _tag: 'DragStarted' },
+    ]
     fc.assert(fc.property(state, (before) => {
       expect(violations(before, messagesOf(volume.makeModel(before)), candidates)).toEqual([])
     }))
@@ -139,19 +154,19 @@ describe('volume', () => {
         volume,
         Effect.fnUntraced(function*(rehearsal) {
           yield* rehearsal.send(press)
-          yield* rehearsal.hear('ringer', Own.Moved({ at: 90 }))
+          yield* rehearsal.hear('ringer', { _tag: 'Moved', at: 90 })
           const loud = (yield* rehearsal.model).ringer
           yield* rehearsal.send((model) => model.limit._tag === 'Full' ? Opt.some(model.limit.quiet) : Opt.none())
-          yield* rehearsal.hear('ringer', Own.Moved({ at: 95 }))
+          yield* rehearsal.hear('ringer', { _tag: 'Moved', at: 95 })
           const quiet = (yield* rehearsal.model).ringer
-          yield* rehearsal.hear('ringer', Own.DragEnded())
+          yield* rehearsal.hear('ringer', { _tag: 'DragEnded' })
           return { loud, quiet, after: yield* rehearsal.model }
         }),
       ).pipe(Effect.provideService(Pointer, Pointer.of({ moves: Stream.empty }))),
     )
     expect(heard.loud).toBe(90)
     expect(heard.quiet).toBe(30)
-    expect(heard.after.press).toEqual(Opt.some(Own.DragStarted()))
+    expect(heard.after.press).toEqual(Opt.some({ _tag: 'DragStarted' }))
   })
 
   // The program as it runs, driven like a user would, with a pointer that moves twice and is released.

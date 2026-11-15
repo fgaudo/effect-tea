@@ -36,7 +36,8 @@ controls send. At one minute the model has no `less`: the view cannot offer what
 {@includeCode ../../examples/timer/duration.ts#program}
 
 A program is a plain object, and its type names its types: `Program<{ state; model; message }>`. `init` is the
-state it starts from (see [model](https://fgaudo.github.io/effect-tea/#model)).
+step it starts with, its first state and the commands it starts, none here (see
+[model](https://fgaudo.github.io/effect-tea/#model)).
 
 ## View
 

@@ -156,8 +156,8 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   its channel dies once it has released, applying messages meanwhile", and the same in an `acquireUseRelease` of its
   channel (`run.test.ts`). That it takes the scope it is run in, and its pull is used while that scope is open, is
   documented; what a failing pull releases is not, and is read in the source (`fromTransformBracket` in `Channel.ts`
-  closes its own scope as the pull fails). The first three fail with `Channel.runForEach`, which closes a scope of its
-  own before the defect leaves it, and the last two with a channel that adds its release to the scope it is given.
+  closes its own scope as the pull fails). The first three fail with `Channel.runForEach`, which closes a scope it
+  makes before the defect leaves it, and the last two with a channel that adds its release to the scope it is given.
 - **`Effect.raceFirst` waits for the effect it interrupts to end, its release included**, which is how `drive`
   returns, once the run has died, only after the scenario it interrupts has released what it holds: "returns once the
   scenario has released what it holds" (`drive.test.ts`), which fails with a race that does not wait. That it ends

@@ -724,6 +724,11 @@ describe('what the run dies of, and the tools fail on', () => {
     expect(diedIn(exit)).toBe('command')
   })
 
+  test('simulate fails with a defect of a command interrupting itself as whoever runs it interrupts it', async () => {
+    const exit = await interruptedOnce((started) => simulate(lingering(started))(['Go'], quitting.init))
+    expect(diedIn(exit)).toBe('command')
+  })
+
   const stopping = (started: Deferred.Deferred<void>): Program<{ state: Row; model: number; message: 'Seen' }> => ({
     ...row,
     subscriptions: ({ seen }) =>
@@ -800,6 +805,13 @@ describe('what the run dies of, and the tools fail on', () => {
     expect(diedIn(exit)).toBe('command')
   })
 
+  test('simulate fails with a defect of a command joining, as it is stopped, a fiber its caller interrupted', async () => {
+    const exit = await endedByTheFiberThatInterrupted((started, stale) =>
+      simulate(joinsOnceInterrupted(started, stale))(['Go'], quitting.init)
+    )
+    expect(diedIn(exit)).toBe('command')
+  })
+
   // `simulate` runs a command in the fiber it runs in: whoever interrupts it stops the command as itself, and may have
   // interrupted a fiber before.
   const interruptedByTheFiberThatInterrupted = (
@@ -828,6 +840,14 @@ describe('what the run dies of, and the tools fail on', () => {
   test('simulate fails with a defect of a command joining, as it is stopped, a fiber its interrupter interrupted', async () => {
     const exit = await interruptedByTheFiberThatInterrupted((started, stale) =>
       simulate(joinsOnceInterrupted(started, stale))(['Go'], quitting.init)
+    )
+    expect(diedIn(exit)).toBe('command')
+  })
+
+  test('rehearse fails with a defect of a command joining, as its run is stopped, a fiber its interrupter interrupted', async () => {
+    const exit = await interruptedByTheFiberThatInterrupted((started, stale) =>
+      rehearse(joinsOnceInterrupted(started, stale), (rehearsal) =>
+        rehearsal.send(() => Opt.some('Go')).pipe(Effect.andThen(rehearsal.run(() => true))))
     )
     expect(diedIn(exit)).toBe('command')
   })

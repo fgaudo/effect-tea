@@ -140,7 +140,10 @@ testing tools.
   - Where the engine knows where a defect happened, it wraps each defect of the cause in a `ProgramDefect` (`diesIn` in
     `shell.ts`) that holds it as its `cause` and says where, and keeps the rest of the cause. The run's own logs die in
     `'log'`, each outside any other site, so that a `Logger` that throws is never taken for the subscription or the step
-    that logs; what the program logs is in the site it logs from.
+    that logs; what the program logs is in the site it logs from. Every site where a defect is told where it happened,
+    a `diesIn` or a `scopedIn`, which calls it, in the engine and in each testing tool, has a mutation that takes the
+    site out, or gives it another (and one that drops the key or the message it says, where it says one): where is what
+    a report groups defects by, and a tool that told another site than the run's would point a test at the wrong code.
   - The run stops each fiber of the program with a mark of its own on the interruption, made anew for each stop
     (`stopping` in `shell.ts`, `Stopped` in `core.ts`), and `diesIn` takes an interruption of the cause for one the
     fiber received only when it has the fiber id and the mark, or the lack of one, of a received one: a fiber id alone
@@ -154,7 +157,7 @@ testing tools.
     and given through `runWith` to the engine; `rehearse` has its own, keeping only the program's defects, and
     `simulate` one for each simulation, for the commands it runs): the engine's, the renderer, and the
     run's own as it starts the engine, as they end, and one with a scope of its own as it dies too, before the scope
-    releases what it holds (`scopedIn`), a subscription's channel and the scopes of its own included
+    releases what it holds (`scopedIn`), what a subscription's channel adds to that scope included
     (`runSubscription`), so that a defect is in the order it happened, though its release lets another fiber die first;
     what the release dies of is wrapped apart, told from what the fiber died of by what the fiber kept of it, never by
     the register, where a defect another fiber recorded may be the very one a release dies with.

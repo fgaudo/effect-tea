@@ -19,8 +19,10 @@ export type Step<State, Command = never, Event = never> = Readonly<{
  * control the view shows where `update` rejects its message (`dispatchViolations`).
  */
 export const reject: unique symbol = Symbol.for('@fgaudo/effect-tea/Rejected')
+/** The type of `reject`, the one value `update` returns for a message that does not apply in the state. */
 export type Rejected = typeof reject
 
+/** What `update` returns for a message in a state: a `Step`, or `reject` when the message does not apply in it. */
 export type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected
 
 /** A step with both its lists present: what a fold of steps accumulates. */
@@ -103,6 +105,11 @@ export const forEach: {
   },
 )
 
+/**
+ * A program's `update`: given a message, then a state, the transition the message makes from that state, a `Step` or
+ * `reject`. It must be pure: never assume it runs once per message, nor only for a message that was sent (the testing
+ * tools call it on those a model holds).
+ */
 export type Update<State, Message, Command = never, Event = never> = (
   message: Message,
 ) => (state: State) => Transition<State, Command, Event>

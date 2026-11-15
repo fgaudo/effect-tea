@@ -120,9 +120,11 @@ export const startOf = <State, Command>(
   flags: unknown,
 ): Step<State, Command> => typeof init === 'function' ? init(flags) : init
 
-/** A program's state, model, message, command, flags and external messages, e.g. `MessageOf<typeof app>`. */
+/** A program's state, read back from the step its `init` starts with, e.g. `StateOf<typeof app>`. */
 export type StateOf<P> = FirstStepOf<P> extends Step<infer S, any> ? S : never
+/** A program's model, read back from what its `makeModel` returns, e.g. `ModelOf<typeof app>`. */
 export type ModelOf<P> = P extends { readonly makeModel: (state: any) => infer M } ? M : never
+/** The messages a program's `update` takes, e.g. `MessageOf<typeof app>`. */
 export type MessageOf<P> = P extends { readonly update: (message: infer M) => any } ? M : never
 // What a program's type does not say reads back as `unknown` (an optional property it lacks): none, then, rather
 // than anything. Only where nothing else tells "absent" from `unknown`.
@@ -138,12 +140,21 @@ type Returned<P, Key extends 'commands' | 'events'> = P extends
   { readonly update: (message: any) => (state: any) => infer T } ? Listed<T, Key> : never
 
 // Read from `update` too: a program written without `Program<…>` may start with no command and still return some.
+/**
+ * The commands a program's steps list, those its `init` starts with and those its `update` returns, e.g.
+ * `CommandOf<typeof app>`: none, for a program that lists none.
+ */
 export type CommandOf<P> = Listed<FirstStepOf<P>, 'commands'> | Returned<P, 'commands'>
 /** What a program starts from: none, unless its `init` is a function, which is given flags when it runs. */
 export type FlagsOf<P> = P extends { readonly init: (flags: infer F) => any } ? F : never
 /** The messages a parent may send the program: none, unless its type says so. */
 export type ExternalOf<P> = P extends { readonly [ExternalTypeId]?: infer E } ? Known<E> : never
+/** The events a program's `update` returns for its parent, e.g. `EventOf<typeof app>`: none, unless it returns some. */
 export type EventOf<P> = Returned<P, 'events'>
+/**
+ * The services a program needs to run, those its `runCommand` and its `subscriptions` require, e.g.
+ * `ServicesOf<typeof app>`: none, unless their types name some.
+ */
 export type ServicesOf<P> =
   | (P extends { readonly runCommand: RunCommand<any, any, infer R> } ? Known<R> : never)
   | (P extends { readonly subscriptions?: Subscriptions<any, any, infer R, any> } ? Known<R> : never)

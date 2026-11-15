@@ -10,10 +10,12 @@ import * as Fiber from 'effect/Fiber'
 import * as Hash from 'effect/Hash'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
+import * as Optic from 'effect/Optic'
 import type * as Scope from 'effect/Scope'
 import { prioritizedSchedules } from '../../test/scheduled.test_scheduler.ts'
+import { composition } from '../compose.ts'
 import { ProgramDefect } from '../defect.ts'
-import type { Program } from '../program.ts'
+import type { MessageOf, Program } from '../program.ts'
 import { reject, type Update } from '../update.ts'
 import { type Rehearsal, rehearse } from './rehearse.ts'
 
@@ -217,6 +219,47 @@ describe('rehearse', () => {
     // Keys may hold any value a `HashMap` compares, JSON or not.
     const unheard = await failureOf(rehearse(program, (rehearsal) => rehearsal.hear(['Row', 1n], { _tag: 'Pinged' })))
     expect(String(unheard)).toContain('Nothing listens under ["Row","1n"] in the current state')
+  })
+
+  test('hear takes what a subscription sends, and no write into an input, the program\'s or a child\'s', async () => {
+    type Field = Readonly<{ text: string; pings: number }>
+    const Field = composition<{ state: Field }>()
+    const field = Field.compose({
+      init: () => ({ state: { text: '', pings: 0 } }),
+      inputs: { Text: Field.input(Optic.id<Field>().key('text')) },
+      update: (_: 'Pinged') => (state) => ({ state: { ...state, pings: state.pings + 1 } }),
+      subscriptions: () => HashMap.make(['ping', Channel.never]),
+      makeModel: (state) => state,
+    })
+    type Form = Readonly<{ name: string; field: Field; pings: number }>
+    const Form = composition<{ state: Form }>()
+    const form = Form.compose({
+      init: (children) => ({ state: { name: '', field: children.Field.init.state, pings: 0 } }),
+      children: {
+        Field: Form.child(field, { get: (state) => Opt.some(state.field), set: (state, f) => ({ ...state, field: f }) }),
+      },
+      inputs: { Name: Form.input(Optic.id<Form>().key('name')) },
+      update: (_: 'Pinged') => (state) => ({ state: { ...state, pings: state.pings + 1 } }),
+      subscriptions: () => HashMap.make(['ping', Channel.never]),
+      makeModel: (state) => state,
+    })
+    const state = await Effect.runPromise(rehearse(
+      form,
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.hear('ping', 'Pinged')
+        yield* rehearsal.hear(['Field', 'ping'], { _tag: 'Field', message: 'Pinged' })
+        return yield* rehearsal.state
+      }),
+    ))
+    expect(state).toEqual({ name: '', field: { text: '', pings: 1 }, pings: 1 })
+    const written = { _tag: 'Written', was: '', value: 'Ada' } as const
+    const never = (rehearsal: Rehearsal<Form, Form, MessageOf<typeof form>, never>) => [
+      // @ts-expect-error: a write into the program's input.
+      rehearsal.hear('ping', { _tag: 'Name', message: written }),
+      // @ts-expect-error: a write into a child's input.
+      rehearsal.hear(['Field', 'ping'], { _tag: 'Field', message: { _tag: 'Text', message: written } }),
+    ]
+    expect(never).toBeDefined()
   })
 
   describe('hearNext', () => {

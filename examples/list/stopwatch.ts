@@ -20,7 +20,8 @@ export type Message = Data.TaggedEnum<{
   Halted: object
 }>
 
-export const Message = Data.taggedEnum<Message>()
+// Not exported, as the README's "Model" says: a view sends only the messages its model holds, and builds none.
+const Message = Data.taggedEnum<Message>()
 
 export type Event = Readonly<{ _tag: 'RemoveRequested' }>
 

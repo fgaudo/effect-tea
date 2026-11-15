@@ -84,6 +84,14 @@ type Frame<Model, Message> = Readonly<{
 }>;
 
 // @public
+type Heard<Message> = 0 extends 1 & Message ? Message : Message extends Readonly<{
+    _tag: string;
+    message: infer Inner;
+}> ? [Inner] extends [Unwritten<Inner>] ? Message : [Unwritten<Inner>] extends [never] ? never : Omit<Message, 'message'> & Readonly<{
+    message: Unwritten<Inner>;
+}> : Message;
+
+// @public
 type Ignored<State, Message> = Readonly<{
     message: Message;
     origin: Origin;
@@ -121,7 +129,7 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
     pending: Effect.Effect<ReadonlyArray<Command>>;
     run: (select: (command: Command) => boolean) => Effect.Effect<Command, never, Exclude<R, Scope.Scope>>;
     runAll: Effect.Effect<void, never, Exclude<R, Scope.Scope>>;
-    hear: (key: unknown, message: Message) => Effect.Effect<void>;
+    hear: (key: unknown, message: Heard<Message>) => Effect.Effect<void>;
     hearNext: (key: unknown) => Effect.Effect<Message, never, Exclude<R, Scope.Scope>>;
     events: Effect.Effect<ReadonlyArray<Event>>;
     ignored: Effect.Effect<ReadonlyArray<Message>>;
@@ -135,7 +143,7 @@ export const rehearse: <State, Model, Message, Command = never, Event = never, R
 // @public
 const reject: unique symbol;
 
-// @public (undocumented)
+// @public
 type Rejected = typeof reject;
 
 // @public
@@ -197,11 +205,21 @@ type Subscription<Message, R> = Channel.Channel<Message, never, Message, unknown
 // @public
 type Subscriptions<State, Message, R, K = unknown> = (state: State) => HashMap.HashMap<K, Subscription<Message, R>>;
 
-// @public (undocumented)
+// @public
 type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected;
 
 // @public (undocumented)
+type Unwritten<Inner> = Inner extends Written<unknown> ? never : Heard<Inner>;
+
+// @public
 type Update<State, Message, Command = never, Event = never> = (message: Message) => (state: State) => Transition<State, Command, Event>;
+
+// @public
+type Written<A> = Readonly<{
+    _tag: 'Written';
+    was: A;
+    value: A;
+}>;
 
 // (No @packageDocumentation comment for this package)
 

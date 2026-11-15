@@ -524,6 +524,8 @@ const compose = <
       if (isChildName(place.name)) {
         const childCommand = field(command, 'command')
         // Unreachable through the types: `child` and `each` ask for a `runCommand` whenever the child has commands.
+        // Read as it is, not through `runCommandOf`, whose stand-in, `absurd`, would die of an error of its own: a child that
+        // has none is a `CompositionDefect` that names it.
         const run = (childOf(place.name).program as Readonly<{ runCommand?: RunCommand<unknown, unknown, unknown> }>)
           .runCommand
         if (run === undefined) {

@@ -33,13 +33,16 @@ data:
 
 The run does not check that the model holds only what `update` accepts. A test does, for any state. It reads the
 messages a model holds with a function of its own, a case of the model at a time
-([`examples/timer/timer.test_reader.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/timer.test_reader.ts)):
+([`examples/timer/timer.test_reader.ts`][reader]):
+
+[reader]: https://github.com/fgaudo/effect-tea/tree/main/examples/timer/timer.test_reader.ts
 
 {@includeCode ../../examples/timer/timer.test_reader.ts#reader}
 
 and gives them to `dispatchViolations`: each message the model holds must be accepted, and act once when sent twice
 unless it is meant to repeat (`repeatable`), and each of the messages a user could send that `update` accepts, and
-whose step would do something, must be among those the model holds. That last check is what finds a reader that forgot a field of the model.
+whose step would do something, must be among those the model holds. That last check is what finds a reader that
+forgot a field of the model.
 
 {@includeCode ../../examples/timer/timer.test.ts#model}
 
@@ -50,8 +53,10 @@ That the view draws what its model holds is not checked here: it is checked with
 
 `rehearse` acts on the program as a user does, through what the current model shows, but nothing runs by itself:
 the test says when a subscription's message is heard (`hear`) and when a command runs (`run`), through the
-program's `runCommand`, with the services the test provides. It fails when a command is still pending at the end,
-since its answer would still arrive.
+program's `runCommand`, with the services the test provides. It fails when the test sends what the model does not
+show or `update` rejects, when it runs or hears what is not there, on a defect of the program, as the run dies of it,
+and at the end when a command is still pending or under way, or its `run` was interrupted before it answered, since
+its answer would still arrive, or a call of `hearNext`, which runs a subscription, still waits for its message.
 
 {@includeCode ../../examples/timer/timer.test.ts#rehearse}
 

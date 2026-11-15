@@ -5,7 +5,7 @@ import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
-import { Command, form, type Message, type Model, Own, Save, type State, update } from './form.ts'
+import { Command, form, type Message, type Model, Save, type State, update } from './form.ts'
 import { Storage, StorageError } from './storage.ts'
 
 const empty = form.init.state
@@ -38,29 +38,29 @@ describe('form', () => {
   // `update` alone: the rules, without running anything.
   describe('update', () => {
     test('saves a name that is not blank, trimmed', () => {
-      const { state, commands } = applyAll(update)([Own.SaveClicked()], { ...empty, name: ' Ada ' })
+      const { state, commands } = applyAll(update)([{ _tag: 'SaveClicked' }], { ...empty, name: ' Ada ' })
       expect(state.save).toEqual(Save.Saving())
       expect(commands).toEqual([Command.Save({ name: 'Ada' })])
     })
 
     test('rejects saving a blank name, and a second save', () => {
       const saving = { ...empty, name: 'Ada', save: Save.Saving() }
-      expect(update(Own.SaveClicked())({ ...empty, name: '  ' })).toBe(reject)
-      expect(update(Own.SaveClicked())(saving)).toBe(reject)
+      expect(update({ _tag: 'SaveClicked' })({ ...empty, name: '  ' })).toBe(reject)
+      expect(update({ _tag: 'SaveClicked' })(saving)).toBe(reject)
     })
 
     // Only the save in progress can complete: a completion anywhere else is a bug, not a message to ignore.
     test('dies on a completion with nothing saving', () => {
       const failed = { ...empty, save: Save.Failed({ name: 'Ada' }) }
-      expect(() => update(Own.SaveSucceeded({ name: 'Ada' }))(empty)).toThrow(InvariantDefect)
-      expect(() => update(Own.SaveFailed({ name: 'Ada' }))(failed)).toThrow(InvariantDefect)
+      expect(() => update({ _tag: 'SaveSucceeded', name: 'Ada' })(empty)).toThrow(InvariantDefect)
+      expect(() => update({ _tag: 'SaveFailed', name: 'Ada' })(failed)).toThrow(InvariantDefect)
     })
 
     // Sent from a frame drawn before the save: it arrives while saving, before the save's failure.
     test('a key typed just before saving disabled the input is kept, for when the save fails', () => {
       const drawn = form.makeModel({ ...empty, name: ' Ada ' })
       const { state } = applyAll(update)(
-        [Own.SaveClicked(), typing(drawn, ' Ada x'), Own.SaveFailed({ name: 'Ada' })],
+        [{ _tag: 'SaveClicked' }, typing(drawn, ' Ada x'), { _tag: 'SaveFailed', name: 'Ada' }],
         { ...empty, name: ' Ada ' },
       )
       expect(state.name).toBe(' Ada x')
@@ -71,14 +71,14 @@ describe('form', () => {
     test('a key typed over the name a completed save has emptied is rejected', () => {
       const typed = { ...empty, name: 'Ada' }
       const drawn = form.makeModel(typed)
-      const { state } = applyAll(update)([Own.SaveClicked(), Own.SaveSucceeded({ name: 'Ada' })], typed)
+      const { state } = applyAll(update)([{ _tag: 'SaveClicked' }, { _tag: 'SaveSucceeded', name: 'Ada' }], typed)
       expect(state.name).toBe('')
       expect(update(typing(drawn, 'Ada x'))(state)).toBe(reject)
     })
 
     // An input keeps nothing of its own: the state stored is the state the form wrote, which a test compares whole.
     test('a completed save leaves the form as it starts, with the name listed', () => {
-      const { state } = applyAll(update)([Own.SaveClicked(), Own.SaveSucceeded({ name: 'Ada' })], {
+      const { state } = applyAll(update)([{ _tag: 'SaveClicked' }, { _tag: 'SaveSucceeded', name: 'Ada' }], {
         ...empty,
         name: 'Ada',
       })
@@ -95,7 +95,7 @@ describe('form', () => {
   test('the model holds what update accepts, all of it, and each acts once when sent twice', () => {
     const violations = dispatchViolations(update)
     fc.assert(fc.property(state(), (before) => {
-      expect(violations(before, messagesOf(form.makeModel(before)), [Own.SaveClicked()])).toEqual([])
+      expect(violations(before, messagesOf(form.makeModel(before)), [{ _tag: 'SaveClicked' }])).toEqual([])
     }))
   })
 
@@ -113,7 +113,7 @@ describe('form', () => {
 
   // `update` and the commands, with the storage provided: what each outcome leaves.
   describe('saving', () => {
-    const typedAndSaved = [typing(form.makeModel(empty), ' Ada '), Own.SaveClicked()]
+    const typedAndSaved: ReadonlyArray<Message> = [typing(form.makeModel(empty), ' Ada '), { _tag: 'SaveClicked' }]
 
     test('a saved name is listed, trimmed, and the form empties its input', async () => {
       const { state, ignored } = await Effect.runPromise(

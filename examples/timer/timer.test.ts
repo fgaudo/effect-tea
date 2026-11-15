@@ -7,7 +7,7 @@ import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
 import { timerMessages } from './timer.test_reader.ts'
-import { Bell, Command, Message, Phase, type State, timer, update } from './timer.ts'
+import { Bell, Command, type Message, Phase, type State, timer, update } from './timer.ts'
 // #endregion imports
 
 // #region states
@@ -25,13 +25,13 @@ const state: fc.Arbitrary<State> = fc.integer({ min: 1, max: 120 }).chain((minut
 )
 
 // What a user could ask of a timer: everything but the ticks, which only the clock sends.
-const userMessages = [
-  Message.MoreClicked(),
-  Message.LessClicked(),
-  Message.StartClicked(),
-  Message.PauseClicked(),
-  Message.ResumeClicked(),
-  Message.ResetClicked(),
+const userMessages: ReadonlyArray<Message> = [
+  { _tag: 'MoreClicked' },
+  { _tag: 'LessClicked' },
+  { _tag: 'StartClicked' },
+  { _tag: 'PauseClicked' },
+  { _tag: 'ResumeClicked' },
+  { _tag: 'ResetClicked' },
 ]
 
 const setting = timer.init.state
@@ -41,13 +41,13 @@ describe('timer', () => {
   // #region update
   describe('update', () => {
     test('sets the minutes, never below one', () => {
-      expect(applyAll(update)([Message.LessClicked()], { ...setting, minutes: 2 }).state.minutes).toBe(1)
-      expect(update(Message.LessClicked())({ ...setting, minutes: 1 })).toBe(reject)
+      expect(applyAll(update)([{ _tag: 'LessClicked' }], { ...setting, minutes: 2 }).state.minutes).toBe(1)
+      expect(update({ _tag: 'LessClicked' })({ ...setting, minutes: 1 })).toBe(reject)
     })
 
     test('starts from the minutes set, and rings once at zero', () => {
       const { state, commands } = applyAll(update)(
-        [Message.StartClicked(), ...Array.from({ length: 60 }, () => Message.Ticked())],
+        [{ _tag: 'StartClicked' }, ...Array.from({ length: 60 }, (): Message => ({ _tag: 'Ticked' }))],
         { ...setting, minutes: 1 },
       )
       expect(state.phase).toEqual(Phase.Finished())
@@ -55,16 +55,16 @@ describe('timer', () => {
     })
 
     test('rejects a second start, and changing the minutes while running', () => {
-      const { state } = applyAll(update)([Message.StartClicked()], setting)
-      expect(update(Message.StartClicked())(state)).toBe(reject)
-      expect(update(Message.MoreClicked())(state)).toBe(reject)
+      const { state } = applyAll(update)([{ _tag: 'StartClicked' }], setting)
+      expect(update({ _tag: 'StartClicked' })(state)).toBe(reject)
+      expect(update({ _tag: 'MoreClicked' })(state)).toBe(reject)
     })
 
     // A tick outside the running phase cannot arrive: the subscription stops with it.
     test('dies on a tick while not running', () => {
       fc.assert(fc.property(state, (before) => {
         fc.pre(before.phase._tag !== 'Running')
-        expect(() => update(Message.Ticked())(before)).toThrow(InvariantDefect)
+        expect(() => update({ _tag: 'Ticked' })(before)).toThrow(InvariantDefect)
       }))
     })
   })
@@ -100,7 +100,7 @@ describe('timer', () => {
       rehearse(
         { ...timer, init: { state: { minutes: 1, phase: Phase.Running({ secondsLeft: 1 }) } } },
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hear('ticks', Message.Ticked())
+          yield* rehearsal.hear('ticks', { _tag: 'Ticked' })
           const finished = (yield* rehearsal.model)._tag
           expect(rings).toBe(0)
           yield* rehearsal.run((command) => command._tag === 'Ring')

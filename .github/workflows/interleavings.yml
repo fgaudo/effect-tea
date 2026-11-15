@@ -11,8 +11,12 @@ on:
 jobs:
   search:
     runs-on: ubuntu-latest
+    # A search of a few minutes: a run that lasts far longer hangs.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
       - run: bun install --frozen-lockfile
       - run: bun run interleavings

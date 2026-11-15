@@ -3,7 +3,7 @@
 // it, and, for some cases, through `run` with a renderer that sends the next write once a frame has seen the last one.
 // `was` is the very value the state holds, as the snabbdom bridge sends it, or, in the cases marked "copy", an equal
 // value that is another string or object, as a bridge that read it again from the element would send. Then what the
-// bridge pays on each frame, `drawn` for one input and the snabbdom bridge's `settle` for many, and what a rejected
+// bridge pays on each frame, `drawn` for one input and the React bridge's `settle` for many, and what a rejected
 // write costs. The measures that chose this design are in `docs/registers.md` ("The cost of `was`"). Run with `bun
 // bench/writes.ts [writes] [rounds] [sections]`, or `node bench/writes.ts …`, where `sections` is a list of `writes`,
 // `drawn`, `settle` and `rejected` (all of them by default); not part of `bun run test`.
@@ -310,7 +310,7 @@ if (sections.includes('drawn')) {
   }
 }
 
-// As the snabbdom bridge has them, without a DOM: an element is what holds `value`.
+// As the React bridge has them (`examples/react.ts`), without a DOM: an element is what holds `value`, a string.
 type Element = { value: string }
 
 type Live = { held: Shown<string> | undefined; value: string }

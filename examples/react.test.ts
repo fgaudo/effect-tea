@@ -30,6 +30,7 @@ import {
   draftTests,
   element,
   holdFrames,
+  type lid,
   mount,
   type note,
   paint,
@@ -134,6 +135,22 @@ const Dictated = ({ value, dispatch, source }: DictatedProps): ReactNode => {
 const dictatedView = (source: Dictation): typeof noteView => (model, dispatch) =>
   createElement('main', null, createElement(Dictated, { value: model, dispatch: dispatchTo(dispatch, 'Note'), source }))
 
+const lidView: View<ModelOf<typeof lid>, MessageOf<typeof lid>> = (model, dispatch) =>
+  model._tag === 'Opened'
+    ? createElement(
+      'main',
+      null,
+      createElement(bridge.Shows, { value: model.note, dispatch: dispatchTo(dispatch, 'Note') }),
+      drawButton('Close', bridge.onClick<MessageOf<typeof lid>>(model.close, dispatch)),
+      createElement('output', null, model.note),
+    )
+    : createElement(
+      'main',
+      null,
+      createElement('input', { value: 'Closed', readOnly: true }),
+      drawButton('Open', bridge.onClick<MessageOf<typeof lid>>(model.open, dispatch)),
+    )
+
 const react: Bridge<ReactNode> = {
   renderInto: (root, view) => bridge.renderInto(root, view),
   skips: 'memo',
@@ -144,6 +161,7 @@ const react: Bridge<ReactNode> = {
     volume: volumeView,
     note: noteView,
     dictated: dictatedView,
+    lid: lidView,
   },
 }
 

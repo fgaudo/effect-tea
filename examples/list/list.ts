@@ -47,7 +47,7 @@ export const list = compose({
       case 'StopAllClicked':
         return Arr.isReadonlyArrayEmpty(state.entries)
           ? reject
-          : forEach({ state }, state.entries, ({ id }) => children.Stopwatch.update(id, Stopwatch.Message.Halted()))
+          : forEach({ state }, state.entries, ({ id }) => children.Stopwatch.update(id, { _tag: 'Halted' }))
     }
   },
   onEvent: {

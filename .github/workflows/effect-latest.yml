@@ -17,6 +17,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
       # Node runs the tests' TypeScript as it is, which needs Node 22.18 or newer.
       - uses: actions/setup-node@v7
         with:

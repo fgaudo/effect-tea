@@ -64,8 +64,9 @@ export class ProgramDefect extends Data.TaggedError('ProgramDefect')<Fields & Re
 /**
  * A parent breaking what it declared of a child, raised as it happens (in `update`, `makeModel`, `subscriptions`
  * or `runCommand`, which the run then dies in): an external message to a child that is not there, or that
- * rejects it; the model of a child that is not there; an event, a command or a subscription key that nothing
- * handles. `child` names the child, and `id` its id for a child by id, as it is: it may hold data, as an id may.
+ * rejects it; the model of a child that is not there; a child whose state is not an object, met as its model or its
+ * subscriptions are made; an event, a command or a subscription key that nothing handles. `child` names the child,
+ * and `id` its id for a child by id, as it is: it may hold data, as an id may.
  */
 export class CompositionDefect extends Data.TaggedError('CompositionDefect')<
   Readonly<{

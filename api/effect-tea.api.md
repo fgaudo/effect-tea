@@ -105,7 +105,7 @@ type ChildServices<C> = {
     [K in keyof C]: ServicesOf<ProgramOf<C[K]>>;
 }[keyof C];
 
-// @public (undocumented)
+// @public
 export type CommandOf<P> = Listed<FirstStepOf<P>, 'commands'> | Returned<P, 'commands'>;
 
 // @public
@@ -201,7 +201,7 @@ type EachPlacement<ParentState, Id, ChildState> = Readonly<{
     set?: never;
 }>;
 
-// @public (undocumented)
+// @public
 export type EventOf<P> = Returned<P, 'events'>;
 
 // @public
@@ -346,12 +346,12 @@ type Listed<T, Key extends 'commands' | 'events'> = T extends {
     readonly [K in Key]?: infer L;
 } ? Items<L> : never;
 
-// @public (undocumented)
+// @public
 export type MessageOf<P> = P extends {
     readonly update: (message: infer M) => any;
 } ? M : never;
 
-// @public (undocumented)
+// @public
 export type ModelOf<P> = P extends {
     readonly makeModel: (state: any) => infer M;
 } ? M : never;
@@ -449,7 +449,7 @@ type ProgramTypes = Readonly<{
 // @public
 export const reject: unique symbol;
 
-// @public (undocumented)
+// @public
 export type Rejected = typeof reject;
 
 // @public
@@ -484,7 +484,7 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
     readonly onIgnored?: (ignored: Ignored<State, Message>) => Effect.Effect<void>;
 }
 
-// @public (undocumented)
+// @public
 export type ServicesOf<P> = (P extends {
     readonly runCommand: RunCommand<any, any, infer R>;
 } ? Known<R> : never) | (P extends {
@@ -541,7 +541,7 @@ type TagOf<M> = M extends {
     readonly _tag: infer T;
 } ? T : never;
 
-// @public (undocumented)
+// @public
 export type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected;
 
 // @public
@@ -553,7 +553,7 @@ export const typed: <A>(held: Shown<A>, value: A) => Readonly<{
 // @public (undocumented)
 const Unseen: unique symbol;
 
-// @public (undocumented)
+// @public
 export type Update<State, Message, Command = never, Event = never> = (message: Message) => (state: State) => Transition<State, Command, Event>;
 
 // @public

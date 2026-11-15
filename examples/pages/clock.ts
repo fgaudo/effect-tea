@@ -18,7 +18,8 @@ export type Message = Data.TaggedEnum<{
   FormatPicked: { format: Format }
 }>
 
-export const Message = Data.taggedEnum<Message>()
+// Not exported, as the README's "Model" says: a view sends only the messages its model holds, and builds none.
+const Message = Data.taggedEnum<Message>()
 
 /** Asks for About, with the time the clock shows (none before its first tick). */
 export type Event = Readonly<{ _tag: 'AboutRequested'; at: Opt.Option<DateTime.Utc> }>

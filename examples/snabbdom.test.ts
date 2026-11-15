@@ -17,6 +17,7 @@ import {
   type draft,
   element,
   holdFrames,
+  type lid,
   mount,
   type note,
   paint,
@@ -89,6 +90,20 @@ const dictatedView = (source: Dictation): typeof noteView => {
     ])
 }
 
+// The same `<input>` in both cases, which snabbdom patches into each other: the props module never removes a prop, so
+// the input sets `readOnly` too.
+const lidView: View<ModelOf<typeof lid>, MessageOf<typeof lid>> = (model, dispatch) =>
+  model._tag === 'Opened'
+    ? h('main', [
+      h('input', { ...shows(model.note, dispatchTo(dispatch, 'Note')), props: { readOnly: false } }),
+      h('button', { on: onClick<MessageOf<typeof lid>>(model.close, dispatch) }, 'Close'),
+      h('output', model.note),
+    ])
+    : h('main', [
+      h('input', { props: { value: 'Closed', readOnly: true } }),
+      h('button', { on: onClick<MessageOf<typeof lid>>(model.open, dispatch) }, 'Open'),
+    ])
+
 const snabbdom: Bridge<VNode> = {
   renderInto,
   skips: 'a thunk',
@@ -99,6 +114,7 @@ const snabbdom: Bridge<VNode> = {
     volume: volumeView,
     note: noteView,
     dictated: dictatedView,
+    lid: lidView,
   },
 }
 

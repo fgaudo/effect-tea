@@ -42,26 +42,28 @@ const state: fc.Arbitrary<State> = fc
   )
   .map((entries) => ({ nextId: 21, entries }))
 
+const timerClicks: ReadonlyArray<Timer.Message> = [
+  { _tag: 'MoreClicked' },
+  { _tag: 'LessClicked' },
+  { _tag: 'StartClicked' },
+  { _tag: 'PauseClicked' },
+  { _tag: 'ResumeClicked' },
+  { _tag: 'ResetClicked' },
+]
+
 // What a user can ask of the list: adding a timer, and removing or using each one.
 const userMessages = (state: State) => [
   added,
   ...state.entries.flatMap(({ id }) => [
     removed(id),
-    ...[
-      Timer.Message.MoreClicked(),
-      Timer.Message.LessClicked(),
-      Timer.Message.StartClicked(),
-      Timer.Message.PauseClicked(),
-      Timer.Message.ResumeClicked(),
-      Timer.Message.ResetClicked(),
-    ].map((message) => to(id, message)),
+    ...timerClicks.map((message) => to(id, message)),
   ]),
 ]
 
 describe('timers', () => {
   // #region update
   test('each timer keeps its own state', () => {
-    const { state } = applyAll(timers.update)([added, to(2, Timer.Message.StartClicked())], timers.init.state)
+    const { state } = applyAll(timers.update)([added, to(2, { _tag: 'StartClicked' })], timers.init.state)
     expect(state.entries.map((entry) => entry.timer.phase._tag)).toEqual(['Setting', 'Running'])
   })
 
@@ -69,11 +71,11 @@ describe('timers', () => {
     const { state } = applyAll(timers.update)([added, removed(1)], timers.init.state)
     expect(state.entries.map((entry) => entry.id)).toEqual([2])
     expect(timers.update(removed(1))(state)).toBe(reject)
-    expect(timers.update(to(1, Timer.Message.StartClicked()))(state)).toBe(reject)
+    expect(timers.update(to(1, { _tag: 'StartClicked' }))(state)).toBe(reject)
   })
 
   test('only running timers tick, each under its own key', () => {
-    const { state } = applyAll(timers.update)([added, to(2, Timer.Message.StartClicked())], timers.init.state)
+    const { state } = applyAll(timers.update)([added, to(2, { _tag: 'StartClicked' })], timers.init.state)
     expect(Array.from(HashMap.keys(subscriptionsOf(timers)(state)))).toEqual([['Timer', 2, 'ticks']])
   })
   // #endregion update

@@ -155,14 +155,15 @@ answer, and saying so in the proposal.
   raises only the events its own type includes", `compose.test.ts`), since the check is `onEvent`'s. `raise` was
   weighed with a second opinion (Opus 5.5), the owner deciding; `write` was never released. *Reopen if* one of them
   comes to do what the literal or the operator cannot: a check as it is made, or a shape that is hidden.
-- **`subscriptionsOf` made internal**, with `write`, `isRejected` and `raise`. Reasoned, 15 November 2026, with a
-  second opinion (Opus 5.5), the owner deciding: it is `program.subscriptions ?? (() => HashMap.empty())`, and its
-  siblings `runCommandOf` and `startOf` are internal. It stays, since it is no name over a literal: `subscriptions` is
-  optional on every type a test holds (`Shape` in `program.ts`, which `compose` returns too, though it always sets
-  the piece), so that without it each test would write again what a missing piece means, which is the library's rule;
-  nothing else tells a pure test what a program listens to in a state; and its fallback is one a test observes, where
-  `runCommandOf`'s is never called and `startOf` decides only for generic code. The reason is in `AGENTS.md`
-  ("Code"). *Reopen if* `subscriptions` becomes required on a program's type, where it would be a property read.
+- **Making `subscriptionsOf` internal**, as `write`, `isRejected` and `raise` were removed: it stays public. Reasoned,
+  15 November 2026, with a second opinion (Opus 5.5), the owner deciding: it is `program.subscriptions ?? (() =>
+  HashMap.empty())`, and its siblings `runCommandOf` and `startOf` are internal. It stays, since it is no name over a
+  literal: `subscriptions` is optional on every type a test holds (`Shape` in `program.ts`, which `compose` returns too,
+  though it always sets the piece), so that without it each test would write again what a missing piece means, which is
+  the library's rule; nothing else tells a pure test what a program listens to in a state; and its fallback is one a
+  test observes, where `runCommandOf`'s is never called and `startOf` decides only for generic code. The reason is in
+  `AGENTS.md` ("Code"). *Reopen if* `subscriptions` becomes required on a program's type, where it would be a property
+  read.
 - **Offers as tokens, checked against `update`** (`offer`, `offerInput`, `missingOffers`, a run that reported a
   rejected offer). Shipped in 0.3.0 (`ae4661b`) and removed in 0.6.0 (`3c3fdf9`, 23 October 2026): checking each
   offer against `update` made every page carry rules (offer only what `update` accepts, never probe offers, inputs

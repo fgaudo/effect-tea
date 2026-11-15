@@ -37,7 +37,9 @@ checks before the change is committed.
 that must fail under it: `bun run mutations` applies them one at a time to each of several copies of the repository
 (`.mutants/`, half the processors of them, or `--jobs=<n>`), runs those tests alone, and fails when one passes under
 its mutation, or fails without it; what each did is printed in the order of the list. So a test that fails without
-its check is run again, not only seen once. A new check adds its mutation; a test of one renamed or
+its check is run again, not only seen once. Every site of `diesIn` or `scopedIn`, in the engine and in each testing
+tool, has one too, as `docs/invariants.md` says under "Defects always die": a new site adds its own. A new check adds
+its mutation; a test of one renamed or
 removed, or the code it replaces rewritten, updates the list, which the script refuses otherwise (a name that runs
 no test, or a text not found exactly once); `bun run mutations --discover <name>` lists every test that fails
 under one. A test that fails only beside others of its file is no killer: the list names those that fail alone. Nor

@@ -4,9 +4,11 @@
 // and how the bridge settles each input with a frame by the library's rule: what the user types survives the frames
 // drawn while they type, with its focus, caret and selection, a frame that has not seen a key leaves the element alone,
 // and a value the program puts in an input's place is shown by the same element, through a subtree the renderer skips
-// too. A slider the program draws listens to a drag. A source that belongs to the control writes through the element
-// on screen. A `.test_suite.ts`, a file that serves the tests, not a `*.test.ts`: `bun test` does not run it by
-// itself, and it runs in the file of each bridge that calls it, under that file's name.
+// too, as a save that completes within one screen refresh empties the input under a late key. An element the renderer
+// draws in turn as an input and as a plain field shows the input only while it is one. A slider the program draws
+// listens to a drag. A source that belongs to the control writes through the element on screen. A `.test_suite.ts`, a
+// file that serves the tests, not a `*.test.ts`: `bun test` does not run it by itself, and it runs in the file of each
+// bridge that calls it, under that file's name.
 import { describe, expect, test } from 'bun:test'
 import {
   composition,
@@ -197,6 +199,21 @@ export const note = noteOf.compose({
   makeModel: (state) => state.note,
 })
 
+// A note behind a lid, which starts open or closed: open, it is drawn by its input; closed, a plain field that is no
+// input of the program stands in the input's place, which a renderer may draw with the same element.
+type Lid = Readonly<{ note: string; lid: 'Opened' | 'Closed' }>
+const lidOf = composition<{ state: Lid; flags: Lid['lid'] }>()
+
+export const lid = lidOf.compose({
+  init: () => (lid) => ({ state: { note: 'draft', lid } }),
+  inputs: { Note: lidOf.input(Optic.id<Lid>().key('note')) },
+  update: (message: 'Opened' | 'Closed') => (held) => ({ state: { ...held, lid: message } }),
+  makeModel: (held) =>
+    held.lid === 'Opened'
+      ? { _tag: 'Opened' as const, note: held.note, close: 'Closed' as const }
+      : { _tag: 'Closed' as const, open: 'Opened' as const },
+})
+
 /** A source that belongs to the control, as a dictation that streams partial results: the control listens to it. */
 export type Dictation = Readonly<{ listen: (listener: (text: string) => void) => () => void }>
 
@@ -236,6 +253,11 @@ export type Bridge<Node> = Readonly<{
     note: View<Node, ModelOf<typeof note>, MessageOf<typeof note>>
     /** The note's input, which puts each result of `source` into the element on screen, as a key is. */
     dictated: (source: Dictation) => View<Node, ModelOf<typeof note>, MessageOf<typeof note>>
+    /**
+     * Open, the note's input, a Close button and the note in an `<output>`; closed, in the input's place a plain
+     * `<input>` that is no input of the program, read-only and showing "Closed", and an Open button.
+     */
+    lid: View<Node, ModelOf<typeof lid>, MessageOf<typeof lid>>
   }>
 }>
 
@@ -389,6 +411,63 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       expect(document.activeElement).toBe(input)
       expect(element('li').textContent).toBe('Ada')
     })
+
+    describe('a key typed into the input drawn before a save completed', () => {
+      // A storage that answers at once: the user types "Ada" and clicks Save, and the save completes within one screen
+      // refresh of the click, so `Saving` is never drawn. The screen still shows "Ada", enabled, and the user types one
+      // more key into it.
+      const savedWithinOneFrame = () => {
+        const applied: Array<FormMessage['_tag']> = []
+        const ignored: Array<FormMessage['_tag']> = []
+        mount(bridge.renderInto, bridge.views.form, (render) =>
+          run(form, render, {
+            onApplied: ({ message }) => Effect.sync(() => applied.push(message._tag)),
+            onIgnored: ({ message }) => Effect.sync(() => ignored.push(message._tag)),
+          }).pipe(Effect.provideService(Storage, saving)))
+        settle()
+        const input = element<HTMLInputElement>('input')
+        type(input, 'Ada')
+        paint()
+        button('Save').click()
+        settle()
+        expect(applied).toEqual(['Name', 'SaveClicked', 'SaveSucceeded'])
+        expect([input.value, input.disabled, button('Save').disabled]).toEqual(['Ada', false, false])
+        type(input, 'Ada x')
+        return { input, applied, ignored }
+      }
+
+      // The order when the run's loop wakes before the browser's next rendering: the key reaches the program first.
+      test('is rejected, and the input on screen is emptied, as the save left it', () => {
+        const { input, applied, ignored } = savedWithinOneFrame()
+        settle()
+        expect(ignored).toEqual(['Name'])
+        paint()
+        expect(element('input')).toBe(input)
+        expect(input.value).toBe('')
+        expect(element('li').textContent).toBe('Ada')
+        expect(applied).toEqual(['Name', 'SaveClicked', 'SaveSucceeded'])
+      })
+
+      // The order when the browser renders between the task of the key and the task that wakes the run's loop: a
+      // dispatch only queues the message, and the renderer resumes in the callback of the refresh, at once.
+      test('is rejected once the input on screen is emptied, which offers no save', () => {
+        const { input, applied, ignored } = savedWithinOneFrame()
+        refresh()
+        // Drawn before the loop has taken the key: the frame has not seen the key, but holds neither what the input
+        // showed before it nor after it, so the state has moved on, and the input is emptied.
+        expect(input.value).toBe('')
+        expect(ignored).toEqual([])
+        settle()
+        expect(ignored).toEqual(['Name'])
+        paint()
+        // The state is what the screen shows: an empty input, and nothing to save.
+        expect(element('input')).toBe(input)
+        expect(input.value).toBe('')
+        expect(button('Save').disabled).toBe(true)
+        expect(element('li').textContent).toBe('Ada')
+        expect(applied).toEqual(['Name', 'SaveClicked', 'SaveSucceeded'])
+      })
+    })
   })
 
   draftTests(bridge)
@@ -516,6 +595,45 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
         expect(typed.value).toBe('Bob')
         expect(app.note()).toBe('Bob')
       })
+    })
+  })
+
+  // A renderer may draw the input with the element of the plain field it replaces, and the other way round: snabbdom
+  // does, for an `<input>` in the same place.
+  describe('an input in the place of a plain field, and back', () => {
+    const mountLid = (flags: Lid['lid']) =>
+      mount(bridge.renderInto, bridge.views.lid, (render) => run(lid, render, { flags }))
+
+    test('the input drawn in a plain field\'s place shows the program\'s value, and what is typed is stored', () => {
+      mountLid('Closed')
+      settle()
+      expect(element<HTMLInputElement>('input').value).toBe('Closed')
+      button('Open').click()
+      paint()
+      const typedInto = element<HTMLInputElement>('input')
+      expect(typedInto.value).toBe('draft')
+      type(typedInto, 'draft!')
+      paint()
+      expect(state()).toEqual(['draft!'])
+      expect(typedInto.value).toBe('draft!')
+    })
+
+    test('the plain field drawn in the place of the input is left as the view draws it, by every frame', () => {
+      mountLid('Opened')
+      settle()
+      const typedInto = element<HTMLInputElement>('input')
+      type(typedInto, 'Ada')
+      paint()
+      // A key the frame of Close has seen, written over what the input showed in the frame before.
+      type(typedInto, 'Ada!')
+      button('Close').click()
+      paint()
+      expect(element<HTMLInputElement>('input').value).toBe('Closed')
+      // Open again, the input shows the note the program holds, whatever the field showed.
+      button('Open').click()
+      paint()
+      expect(element<HTMLInputElement>('input').value).toBe('Ada!')
+      expect(state()).toEqual(['Ada!'])
     })
   })
 }

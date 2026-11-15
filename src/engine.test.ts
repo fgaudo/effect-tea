@@ -150,7 +150,10 @@ describe('Engine subscriptions', () => {
         const names = Opt.match(reached, { onNone: () => [], onSome: ({ state }) => state.names })
         yield* Effect.gen(function*() {
           while (!names.every((name) => isRunning(log, name))) yield* Effect.sleep('1 millis')
-        }).pipe(Effect.timeoutOption('1 second'))
+        }).pipe(Effect.timeoutOrElse({
+          duration: '1 second',
+          orElse: () => Effect.die(new Error(`${names.join(', ')} did not start within a second`)),
+        }))
       }),
       { discard: true },
     )
@@ -407,7 +410,11 @@ describe('Engine scopes', () => {
     const send = (signal: Signal) => engine.dispatch(signal)
     const until = Effect.fnUntraced(function*(line: string) {
       while (!log.includes(line)) yield* Effect.sleep('1 millis')
-    }, Effect.timeoutOption('1 second'))
+    }, (waiting, line) =>
+      Effect.timeoutOrElse(waiting, {
+        duration: '1 second',
+        orElse: () => Effect.die(new Error(`"${line}" was not logged within a second`)),
+      }))
     return { log, send, until, held }
   })
 

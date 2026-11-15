@@ -424,7 +424,7 @@ state as it was.
 is saving, where a rejection would hide the bug. The run dies as it dies with any defect (an `Effect.die`, a
 thrown error: broken code). The `InvariantDefect` lets a crash report tell a broken rule of the program from
 any other error. `defect` is an expression, for a branch of a ternary or a `Match`. It is for the synchronous
-functions (`update`, `onEvent`, `makeModel`, `subscriptions`); inside an Effect, `Effect.die` stays.
+functions (`init`, `update`, `onEvent`, `makeModel`, `subscriptions`); inside an Effect, `Effect.die` stays.
 
 "Cannot arrive" is a promise of the program's state, kept by the run. The state says that only a completion
 leaves an operation, and a command answers once. The state stops listing a key, and the run drops what that
@@ -754,7 +754,7 @@ A defect anywhere ends the run, which dies with a `ProgramDefect`:
   the run's own debug logs (a `Logger` that throws). What the program logs itself is in the place it logs from.
 
 A command, a subscription or the renderer dies when its effect ends with a defect. What it acquired in the scope
-the run gives it (`Effect.acquireRelease`, `Effect.addFinalizer`, a channel's own scopes) is released after that;
+the run gives it (`Effect.acquireRelease`, `Effect.addFinalizer`, what a channel adds to it) is released after that;
 what it wraps around its own code (`Effect.ensuring`, `Effect.onExit`, an `Effect.scoped` of its own) is part of its
 effect, runs before it ends, and may still catch the defect. What that release dies of is a defect once the scope has
 released all it holds: until then, the run goes on. From the defect on, the run applies no message: it does not call
@@ -1070,7 +1070,7 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | `dispatchTo`                                      | a child's or an input's dispatch, for its view: wraps its messages as the program receives them          |
 | `run`, `Frame`, `RunOptions`                      | run a program with a renderer; what it draws, `{ model, dispatch, seen }`; how the program runs          |
 | `Applied`, `Ignored`, `Origin`                    | what `onApplied` and `onIgnored` hear: a message, where it came from, the states around it               |
-| `ProgramDefect`, `DefectSite`                     | the defect a run dies with: its `cause`, `where` it happened, `update`'s message, a subscription's `key` |
+| `ProgramDefect`, `DefectSite`                     | the defect a run dies with: `cause`, `where`, the tags of `update`'s message, a subscription's `key`     |
 | `CompositionDefect`                               | a parent breaking what it declared of a child, which the run then dies with                              |
 
 From `@fgaudo/effect-tea/testing`: `applyAll`, `simulate`, `Simulation`, `rehearse`, `Rehearsal`, `drive`,

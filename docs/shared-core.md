@@ -38,15 +38,16 @@ under "Running", that the defect of a release counts once its scope has released
   each fiber ends, by whichever fiber ends, never by a step: a transition reads whether the run has died as one of its
   inputs, in the thunk it runs in.
 - **A transition calls at most one function of the program, and runs in that function's site.** `arrive` calls
-  `update` and runs under `diesIn('update')`; `reconcile` calls `subscriptions` and compares the keys, so it runs
-  under `diesIn('subscriptions')`, where AGENTS.md wants every comparison of keys. So the defects keep their sites,
-  and the shell's `Effect.sync` around a transition is the one thunk that holds a check and its act.
-- **A transition returns data, which the shell performs.** `arrive` returns one of `Dropped`, `Dead`, `Ignored` (with
-  the origin and the state) or `Applied` (the state before and after, the revision, the commands and the events);
-  `reconcile` returns the starts that stop and those that start, each with its key, its subscription and its
-  generation, and the new `Active`. The order the shell performs them in is part of the core's contract and is
-  written beside it: observers, then the frame, then the stops together and awaited, then the starts, then the
-  commands.
+  `update` and runs under `diesIn('update')`; `reconcile` takes the listing of `subscriptions`, which the shell calls
+  in the same thunk, and compares its keys, so it runs under `diesIn('subscriptions')`, where AGENTS.md wants every
+  comparison of keys. So the defects keep their sites, and the shell's `Effect.sync` around a transition is the one
+  thunk that holds a check and its act.
+- **A transition returns data, which the shell performs.** `arrive` returns one of `Dropped`, `Dead`, `Ignored` or
+  `Applied` (the state after, with its revision, whether it changed, the commands and the events): the origin and the
+  state before are the shell's, which has them; `reconcile` returns the starts that stop, each with its key and its
+  generation, those that start, each with its key, its subscription and its generation, and the new `Active`. The order
+  the shell performs them in is part of the core's contract and is written beside it: observers, then the frame, then
+  the stops together and awaited, then the starts, then the commands.
 - **The start of a program is a transition too.** `init` calls `startOf(init, flags)` under `diesIn('init')`, and
   is followed by the first `reconcile`: the subscriptions of the first state start before its commands, one rule
   where `run.ts` and `rehearse` each start on their own today.
@@ -76,12 +77,12 @@ under "Running", that the defect of a release counts once its scope has released
   rejection means (ignored, or a failure of the test for a message the test sends), the observers and the frames
   (the run's only). `rehearse` keys what it keeps of a start by its generation, as the run keeps its fibers, rather
   than by its key.
-- **`rehearse`'s own bookkeeping is a pure module of its own**, after the shared core: `pending`, the commands under
-  way and those cancelled, and for each start `opened`, `scripted`, `gone`, `waiting`, `asked`, `ended`, all written
-  today by several fibers across yields. Its transitions (a step applied, a command taken, answered or interrupted, a
-  message asked for or heard, a key gone) run in one thunk each. `runAll`'s check and take become one transition,
-  "take the oldest pending command or finish", which fixes the ROADMAP's "`rehearse`'s `runAll` dies on a command
-  another call took" by its form.
+- **`rehearse`'s own bookkeeping is a pure module of its own**, after the shared core: `pending`, the commands under way
+  and those cancelled, and for each start how the test hears it (`Scripted`, or `Opened` with the calls `waiting`, the
+  messages `sent`, those `asked` for and whether it has `ended`), all written today by several fibers across yields. Its
+  transitions (a step applied, a command taken, answered or interrupted, a message asked for or heard, a key gone) run
+  in one thunk each. `runAll`'s check and take become one transition, "take the oldest pending command or finish", which
+  fixes the ROADMAP's "`rehearse`'s `runAll` dies on a command another call took" by its form.
 - **The core is tested on its own, by orders of its events.** fast-check draws histories of arrivals (from the view,
   commands, and subscriptions of starts current or gone), listings and deaths, and checks the rules after each:
   a message of a gone start never reaches `update`, nothing of the program is called once dead, a kept key keeps its
@@ -133,9 +134,10 @@ Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun ru
    and the queues of a start `hearNext` runs, opaque to the ledger. `runAll` ends on a `take` that finds nothing,
    in the thunk where it would take, with a test under `prioritizedSchedules` and a mutation that counts `pending`
    apart again. The end of a start stays in `Active`, marked in the thunk of `heard`, where its waiting calls are
-   counted (until after step 7, when it moved into the ledger). An opened start whose key went away is kept while
-   calls wait on it, so that a last message it sent before is still told to them, and forgotten when the last of
-   them leaves.
+   counted (until after step 7, when it moved into the ledger). An opened start whose key went away was kept while
+   calls waited on it, and forgotten when the last of them left; since the fourth step of
+   [`rehearse-owned-effects.md`](rehearse-owned-effects.md), `Ledger.listened` forgets it at once, with what it sent,
+   and tells the calls waiting on it that it was stopped.
 6. `model`, once the README says whether the check holds of `makeModel`: the renderer's frames and `rehearse`'s
    `model` make it through the core, with a changelog entry if the run's behaviour changes. Done, without a `model`:
    the README says that a frame read after a defect still makes its model, `makeModel` being pure, and the model stays

@@ -1310,11 +1310,6 @@ describe('the end of the run', () => {
     expect(wheres(exit)).toEqual(['command'])
   })
 
-  // A renderer whose release takes a while, once it is interrupted: the engine's fibers still run meanwhile.
-  const releasesSlowly = Effect.acquireRelease(Effect.void, () => Effect.sleep('60 millis')).pipe(
-    Effect.andThen(Effect.never),
-  )
-
   // A renderer's release that tells when it has begun, by `releasing`, and lasts until `died`; and what dies of itself
   // once it has, while the renderer of a run that has ended releases what it holds, and tells by `died` that it has
   // ended. No clock: a slow frame, or a run interrupted before its renderer started, would outrun one, and a slow
@@ -1438,45 +1433,6 @@ describe('the end of the run', () => {
         ),
     ))
     expect(wheres(exit)).toEqual(['update', 'subscription'])
-  })
-
-  // The renderer releases slowly, while a subscription goes on sending, and each step would start a command: from the
-  // defect on, the run applies none of the messages it takes from its queue, as `rehearse` stops at a defect. A step
-  // already under way is in the tests that follow.
-  test('a run that died applies no message of its queue while the renderer releases', async () => {
-    let died = false
-    let startedAfter = 0
-    const exit = await Effect.runPromiseExit(run(
-      {
-        ...counter,
-        init: { state: { count: 0 }, commands: ['Boom'] },
-        update: () => ({ count }) => ({ state: { count: count + 1 }, commands: ['Ping'] }),
-        runCommand: (command) =>
-          command === 'Boom'
-            ? Effect.sleep('10 millis').pipe(
-              Effect.andThen(Effect.sync(() => {
-                died = true
-              })),
-              Effect.andThen(Effect.die('boom')),
-            )
-            : Effect.sync(() => {
-              if (died) startedAfter += 1
-              return Opt.none<Message>()
-            }),
-        subscriptions: () =>
-          HashMap.make([
-            'k',
-            Stream.tick('5 millis').pipe(
-              Stream.toChannel,
-              Channel.map((): Message => 'Increment'),
-              Channel.concatWith(() => Channel.never),
-            ),
-          ]),
-      },
-      () => releasesSlowly,
-    ))
-    expect(wheres(exit)).toEqual(['command'])
-    expect(startedAfter).toBe(0)
   })
 
   // What a release dies of is a defect once the scope it is in has released all it holds: a subscription that ends

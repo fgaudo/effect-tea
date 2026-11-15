@@ -66,24 +66,35 @@ export const slides = (value: number, dispatch: Dispatch<Written<number>>): VNod
   showing(value, dispatch, (element) => element.valueAsNumber)
 
 // The elements on screen that show an input, of one renderer: every one is settled after each frame, whether the frame
-// drew it again or a `thunk` skipped it.
-const showsModule = (live: Set<HTMLInputElement>): Module => ({
-  create: (_, vnode) => {
+// drew it again or a `thunk` skipped it. snabbdom patches an `<input>` into the next one drawn in its place, so an
+// element starts showing an input when a frame draws it with `shows`, created or not, as a new element, and stops when
+// a frame draws it without, or removes it.
+const showsModule = (live: Set<HTMLInputElement>): Module => {
+  const drawnAs = (vnode: VNode) => {
     const data = vnode.data
     const element = vnode.elm
-    if (data === undefined || !('shows' in data) || !(element instanceof HTMLInputElement)) return
+    if (!(element instanceof HTMLInputElement)) return
+    if (data === undefined || !('shows' in data)) {
+      live.delete(element)
+      lives.delete(element)
+      return
+    }
+    const known = live.has(element) ? lives.get(element) : undefined
+    if (known !== undefined) {
+      known.value = data.shows
+      return
+    }
     lives.set(element, { held: undefined, value: data.shows })
     live.add(element)
-  },
-  update: (_, vnode) => {
-    const data = vnode.data
-    const known = vnode.elm === undefined ? undefined : lives.get(vnode.elm as Element)
-    if (data !== undefined && 'shows' in data && known !== undefined) known.value = data.shows
-  },
-  destroy: (vnode) => {
-    if (vnode.elm instanceof HTMLInputElement) live.delete(vnode.elm)
-  },
-})
+  }
+  return {
+    create: (_, vnode) => drawnAs(vnode),
+    update: (_, vnode) => drawnAs(vnode),
+    destroy: (vnode) => {
+      if (vnode.elm instanceof HTMLInputElement) live.delete(vnode.elm)
+    },
+  }
+}
 
 const settle = (live: Set<HTMLInputElement>, seen: number): void => {
   for (const element of live) {
@@ -136,9 +147,4 @@ export const onClick = <Message>(message: Message, dispatch: Dispatch<Message>):
 /** snabbdom's `on` for a press of the pointer that sends `message`: where a drag the program draws starts. */
 export const onPress = <Message>(message: Message, dispatch: Dispatch<Message>): On => ({
   pointerdown: () => send(dispatch, message),
-})
-
-/** snabbdom's `on` for a text field that is no input of the program, whose text `toMessage` turns into a message. */
-export const onInput = <Message>(toMessage: (text: string) => Message, dispatch: Dispatch<Message>): On => ({
-  input: (event: Event) => send(dispatch, toMessage((event.target as HTMLInputElement).value)),
 })

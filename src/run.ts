@@ -61,8 +61,8 @@ const running = Effect.fnUntraced(
       // After the buffer, so that a model is made only for the frames the renderer pulls, in the renderer's fiber.
       Stream.map(({ state, seen }) => ({ model: program.makeModel(state), dispatch: engine.dispatch, seen })),
     )
-    // Called once, in a run that died as it started too, as a subscription of `init` may die while the engine starts:
-    // the end of the run interrupts it, as it does any effect of the program.
+    // Called at most once, in a run that died as it started too, as a subscription of `init` may die while the engine
+    // starts: the end of the run interrupts it, as it does any effect of the program (`docs/invariants.md`).
     const rendering = Effect.suspend(() => render(frames)).pipe(
       // The model is made as the renderer pulls its frame: a defect of `makeModel` is the renderer's.
       Shell.scopedIn(deaths, 'render'),

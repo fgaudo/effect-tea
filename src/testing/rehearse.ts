@@ -12,6 +12,7 @@ import * as Queue from 'effect/Queue'
 import * as Scope from 'effect/Scope'
 import * as Core from '../core.ts'
 import { ProgramDefect } from '../defect.ts'
+import type { Written } from '../input.ts'
 import { describeByTag } from '../log.ts'
 import { type FlagsOption, runCommandOf, type Shape, startOf, subscriptionsOf } from '../program.ts'
 import { diesIn, makeDeaths, runSubscription, scopedIn, stopping as stopFiber } from '../shell.ts'
@@ -52,9 +53,10 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    * Applies `message` as the subscription under `key` would send it, without running it; fails the test when
    * nothing listens under `key` in the current state, and when `hearNext` runs that subscription, or has heard it
    * end, until the key goes away and comes back. Keys compare by value, as the engine compares them; a child's key
-   * is under its name, as its parent lists it (`['Clock', 'ticks']`, with the id for children by id).
+   * is under its name, as its parent lists it (`['Clock', 'ticks']`, with the id for children by id). A write into an
+   * input, the program's or a child's, does not compile: only a view writes into one.
    */
-  hear: (key: unknown, message: Message) => Effect.Effect<void>
+  hear: (key: unknown, message: Heard<Message>) => Effect.Effect<void>
   /**
    * Hears the next message of the subscription under `key`, applies it as `hear` would, and returns it. The
    * subscription is the one listed when its key appeared, as the run starts that one, though the state has changed
@@ -73,10 +75,24 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
   events: Effect.Effect<ReadonlyArray<Event>>
   /**
    * The messages of commands and subscriptions that `update` rejected, in order: an answer that came when the
-   * state had moved on, an event about something no longer there.
+   * state had moved on, a subscription's message about something no longer there.
    */
   ignored: Effect.Effect<ReadonlyArray<Message>>
 }>
+
+/**
+ * What a subscription may send of a program's `Message`: all of it but a write into an input, the program's or a
+ * child's, `{ _tag: <input>, message: { _tag: 'Written', … } }` however deep, which only a view sends.
+ */
+type Heard<Message> = 0 extends 1 & Message ? Message
+  : Message extends Readonly<{ _tag: string; message: infer Inner }>
+    ? [Inner] extends [Unwritten<Inner>] ? Message
+    : [Unwritten<Inner>] extends [never] ? never
+    : Omit<Message, 'message'> & Readonly<{ message: Unwritten<Inner> }>
+  : Message
+
+/** What a parent's wrapped message may hold, as a subscription sends it: no write, at that level or below. */
+type Unwritten<Inner> = Inner extends Written<unknown> ? never : Heard<Inner>
 
 // A call of `hearNext`, by its identity, and what the loop tells it: the message it heard, once applied, or none once
 // its start has ended.
@@ -135,7 +151,7 @@ export const rehearse = Effect.fnUntraced(function*<
   ...[{ flags } = {}]: [Flags] extends [never] ? [options?: FlagsOption<never>]
     : [options: FlagsOption<NoInfer<Flags>>]
 ): Effect.fn.Return<A, E, Exclude<R, Scope.Scope> | RS> {
-  const from = yield* Effect.sync(() => startOf(program.init, flags)).pipe(diesIn('init'))
+  const started = Core.init(yield* Effect.sync(() => startOf(program.init, flags)).pipe(diesIn('init')))
   type Now = Current<State, Message, Event>
   const runCommand = runCommandOf(program)
   const subscriptions = subscriptionsOf(program)
@@ -175,7 +191,7 @@ export const rehearse = Effect.fnUntraced(function*<
   // The commands, and how each start is heard, by its generation, as the run keeps its fibers. Written by every fiber
   // of the test's, each time by one transition in one thunk.
   type LedgerOf = Ledger.Ledger<Command, Subscription<Message, R>, Opened, Call<Message>, Message>
-  let ledger: LedgerOf = Ledger.start(from.commands ?? [])
+  let ledger: LedgerOf = Ledger.start(started.commands)
   const stoppedWhileWaiting = (key: unknown) =>
     new Error(
       `The subscription under ${Inspectable.toStringUnknown(key, 0)} was stopped while hearNext waited for its `
@@ -185,17 +201,6 @@ export const rehearse = Effect.fnUntraced(function*<
   // does. One told already hears nothing of it.
   const tellStopped = (calls: ReadonlyArray<Call<Message>>) =>
     Effect.forEach(calls, ({ key, heard }) => Deferred.die(heard, stoppedWhileWaiting(key)), { discard: true })
-  // Where the loop is forked, and the commands and the subscriptions `hearNext` starts are kept, so that they outlive
-  // the fiber of the test's that asked for them, as the run's loop and subscriptions outlive whoever dispatched. Closed
-  // at the end, however the rehearsal ends, once what it holds is stopped.
-  const forks = yield* Scope.make()
-  // The commands under way, kept as they are forked, so that the end stops them as the run does, with its mark,
-  // before it closes the scope, which would interrupt them as the fiber that ends the rehearsal.
-  const commands = yield* FiberSet.make<Opt.Option<Deferred.Deferred<void>>, never>().pipe(Scope.provide(forks))
-  // The subscriptions `hearNext` started, kept likewise, until each has ended: the end stops those that still run by
-  // their fibers, as the end of the run does, never by what the ledger says of them, which forgets a start in the
-  // transition that stops it, while the step that stops it may be interrupted before its release has ended.
-  const listeners = yield* FiberSet.make<void, never>().pipe(Scope.provide(forks))
   // Interrupts them together, as the run stops the keys that went away, and waits for their release. A defect of what
   // they release is recorded by the fiber that dies of it, as in the run: the step goes on whole.
   const stop = (stopping: Iterable<Opened>) =>
@@ -221,17 +226,29 @@ export const rehearse = Effect.fnUntraced(function*<
       diesIn('subscriptions'),
       Effect.map(([stopping, stopped]) => Effect.andThen(stop(stopping), tellStopped(stopped))),
     )
-  yield* Effect.flatten(listen(from.state))
+  yield* Effect.flatten(listen(started.current.state))
   // Written only by the loop.
-  let now: Now = { state: from.state, revision: 0, events: [], ignored: [] }
+  let now: Now = { ...started.current, events: [], ignored: [] }
   // There is no renderer: the model of each new state is made in the step that makes the state, as the run's renderer
   // makes it for each frame it pulls, and a defect of `makeModel` is in `'render'` all the same. The test, which reads
   // every state, is a renderer that pulls every frame. Written only by the loop.
-  let shown: Model = yield* Effect.sync(() => program.makeModel(from.state)).pipe(diesIn('render'))
+  let shown: Model = yield* Effect.sync(() => program.makeModel(started.current.state)).pipe(diesIn('render'))
   const draw = (state: State) =>
     Effect.sync(() => {
       shown = program.makeModel(state)
     }).pipe(diesIn('render'))
+  // Where the loop is forked, and the commands and the subscriptions `hearNext` starts are kept, so that they outlive
+  // the fiber of the test's that asked for them, as the run's loop and subscriptions outlive whoever dispatched. Closed
+  // at the end, however the rehearsal ends, once what it holds is stopped. Made once the program has started, so that a
+  // start that dies leaves no scope open.
+  const forks = yield* Scope.make()
+  // The commands under way, kept as they are forked, so that the end stops them as the run does, with its mark,
+  // before it closes the scope, which would interrupt them as the fiber that ends the rehearsal.
+  const commands = yield* FiberSet.make<Opt.Option<Deferred.Deferred<void>>, never>().pipe(Scope.provide(forks))
+  // The subscriptions `hearNext` started, kept likewise, until each has ended: the end stops those that still run by
+  // their fibers, as the end of the run does, never by what the ledger says of them, which forgets a start in the
+  // transition that stops it, while the step that stops it may be interrupted before its release has ended.
+  const listeners = yield* FiberSet.make<void, never>().pipe(Scope.provide(forks))
   // One loop applies every message, one at a time, as the run's loop takes them: the fibers of the test's only offer
   // it a step and wait for its result, so that a message that stops a subscription waits for its release before its
   // commands are owed, one that arrives meanwhile waits for that release, and an interruption of whoever asked never
@@ -535,7 +552,11 @@ export const rehearse = Effect.fnUntraced(function*<
     hear: (key, message) =>
       ask(startUnder(key).pipe(
         Effect.flatMap((generation) =>
-          Effect.andThen(script(key, generation), arriveNow({ _tag: 'Subscription', key, generation }, message))
+          // Its type rules out only what no subscription sends.
+          Effect.andThen(
+            script(key, generation),
+            arriveNow({ _tag: 'Subscription', key, generation }, message as Message),
+          )
         ),
       )),
     hearNext,
