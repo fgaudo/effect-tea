@@ -15,12 +15,6 @@ showed it, "reasoned" that it was read only.
 
 ### The library
 
-- **`rehearse` writes a new state only after the stopped subscriptions are released**, while the run publishes it
-  first, as "Guarantees" promises (`applyNow` in `rehearse.ts` runs `listen` before it writes `now`). A release
-  that waits on what the test does once it sees the new state ends under `drive` and hangs under `rehearse`; after
-  a defect of `subscriptions`, `rehearsal.state` reads the state before the message. No contract compares the two
-  while a release is under way. Writing `now` before `listen`, with `Ledger.owe` after it, was not tried.
-  Confirmed.
 - **A message whose description throws loses `update`'s defect**: `diesIn('update', …)` (`engine.ts`) builds `on`
   with `describeByTag` inside its `catchCause` handler, so a cyclic `message` chain dies as a bare `RangeError`,
   with no `ProgramDefect` and no `where`. Contrived input, but program data is evaluated inside the defect handler;

@@ -209,7 +209,9 @@ export const rehearse = Effect.fnUntraced(function*<
   // Read on each new state and compared with the keys of the state before, as the run reconciles them, though only
   // `hear` and `hearNext` act on them: a state whose subscriptions are a defect ends the run, and so does a key
   // whose `Equal` throws against a key of the state before. The calls that waited on a start stopped are told once it
-  // is released: a defect of its release fails them first, as it ends the run.
+  // is released: a defect of its release fails them first, as it ends the run. The keys are read here, and the
+  // release is what this returns, so that the step makes its model in between, as the run's renderer draws a state
+  // the run has read the subscriptions of, while those it stops release what they hold.
   const listen = (state: State) =>
     Effect.sync(() => {
       const { gone, fresh, active: next } = Core.reconcile(active, subscriptions(state))
@@ -223,9 +225,9 @@ export const rehearse = Effect.fnUntraced(function*<
       return [stopping, stopped] as const
     }).pipe(
       diesIn('subscriptions'),
-      Effect.flatMap(([stopping, stopped]) => Effect.andThen(stop(stopping), tellStopped(stopped))),
+      Effect.map(([stopping, stopped]) => Effect.andThen(stop(stopping), tellStopped(stopped))),
     )
-  yield* listen(from.state)
+  yield* Effect.flatten(listen(from.state))
   // Written only by the loop.
   let now: Now = { state: from.state, revision: 0, events: [], ignored: [] }
   // There is no renderer: the model of each new state is made in the step that makes the state, as the run's renderer
@@ -238,7 +240,7 @@ export const rehearse = Effect.fnUntraced(function*<
     }).pipe(diesIn('render'))
   // One loop applies every message, one at a time, as the run's loop takes them: the fibers of the test's only offer
   // it a step and wait for its result, so that a message that stops a subscription waits for its release before its
-  // state is written, one that arrives meanwhile waits for that state, and an interruption of whoever asked never
+  // commands are owed, one that arrives meanwhile waits for that release, and an interruption of whoever asked never
   // splits a step. Once the rehearsal has ended, what a fiber of the test's still running asks is refused, and the call
   // is interrupted: nothing would apply it.
   const loop = yield* Loop.make(forks, (step) => recorded(deadOr(step)))
@@ -259,15 +261,22 @@ export const rehearse = Effect.fnUntraced(function*<
               return deadOr(Effect.never)
             case 'Ignored':
               return onRejected()
+            // The state is written, and its model made, before the subscriptions it stops release what they hold,
+            // as the run publishes it first; its commands are owed after, as the run starts them after.
             case 'Applied': {
               const { next, changed, commands, events } = arrived
-              return Effect.andThen(
-                changed ? listen(next.state) : Effect.void,
-                Effect.sync(() => {
-                  now = { ...before, ...next, events: [...before.events, ...events] }
+              return Effect.sync(() => {
+                now = { ...before, ...next, events: [...before.events, ...events] }
+              }).pipe(
+                Effect.andThen(
+                  changed
+                    ? Effect.flatMap(listen(next.state), (release) => Effect.andThen(draw(next.state), release))
+                    : Effect.void,
+                ),
+                Effect.andThen(Effect.sync(() => {
                   ledger = Ledger.owe(ledger, commands)
-                }),
-              ).pipe(Effect.andThen(changed ? draw(next.state) : Effect.void))
+                })),
+              )
             }
           }
         }),

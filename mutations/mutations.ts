@@ -419,6 +419,20 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [['src/run.test.ts', 'a dispatch is numbered each time it runs, as it runs, not as it is made']],
   },
   {
+    name: 'the run stops the subscriptions of a state before it publishes the state',
+    file: 'src/engine.ts',
+    from: '        if (changed) yield* SubscriptionRef.set(stateRef, { ...next, seen })\n'
+      + '        const nextActive = changed ? yield* reconcile(active, next.state) : active\n',
+    to: '        const nextActive = changed ? yield* reconcile(active, next.state) : active\n'
+      + '        if (changed) yield* SubscriptionRef.set(stateRef, { ...next, seen })\n',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'in the run, a stopped subscription releases once the state that stopped it is published',
+      ],
+    ],
+  },
+  {
     name: "a frame's seen leaves out the message that made its state",
     file: 'src/engine.ts',
     from: 'SubscriptionRef.set(stateRef, { ...next, seen })',
@@ -798,6 +812,45 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: '  return { value, [Unseen]: unseen }\n',
     killedBy: [
       ['src/input.test.ts', 'leaves the very value the element holds when it stays, though the frame holds an equal copy'],
+    ],
+  },
+  {
+    name: 'rehearse writes a state once the subscriptions it stops are released',
+    file: 'src/testing/rehearse.ts',
+    from: '              return Effect.sync(() => {\n'
+      + '                now = { ...before, ...next, events: [...before.events, ...events] }\n'
+      + '              }).pipe(\n'
+      + '                Effect.andThen(\n'
+      + '                  changed\n'
+      + '                    ? Effect.flatMap(listen(next.state), (release) => Effect.andThen(draw(next.state), release))\n'
+      + '                    : Effect.void,\n'
+      + '                ),\n'
+      + '                Effect.andThen(Effect.sync(() => {\n'
+      + '                  ledger = Ledger.owe(ledger, commands)\n',
+    to: '              return Effect.void.pipe(\n'
+      + '                Effect.andThen(changed ? Effect.flatten(listen(next.state)) : Effect.void),\n'
+      + '                Effect.andThen(changed ? draw(next.state) : Effect.void),\n'
+      + '                Effect.andThen(Effect.sync(() => {\n'
+      + '                  now = { ...before, ...next, events: [...before.events, ...events] }\n'
+      + '                  ledger = Ledger.owe(ledger, commands)\n',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'rehearse writes the state that stops a subscription before its release, as the run publishes it',
+      ],
+      ['src/testing/contract.test.ts', 'rehearse keeps the state whose subscriptions are a defect, as the run publishes it'],
+    ],
+  },
+  {
+    name: 'rehearse makes the model of a state before it reads its subscriptions',
+    file: 'src/testing/rehearse.ts',
+    from: 'Effect.flatMap(listen(next.state), (release) => Effect.andThen(draw(next.state), release))',
+    to: 'Effect.andThen(draw(next.state), Effect.flatten(listen(next.state)))',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails in subscriptions first, as the run dies, on a state whose model is a defect too',
+      ],
     ],
   },
   {

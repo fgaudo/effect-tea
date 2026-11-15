@@ -455,6 +455,54 @@ describe('how a stopped subscription ends', () => {
     })))
     expect(reasonsOf(exit)).toEqual(['release'])
   })
+
+  // What the subscription releases tells `releasing`, then waits until the test has seen the state `Stop` left: the
+  // run publishes a state before it stops the subscriptions the state takes away.
+  const awaiting = (releasing: Deferred.Deferred<void>, seen: Deferred.Deferred<void>): Stopping => ({
+    ...stopping,
+    subscriptions: ({ listening }) =>
+      listening
+        ? HashMap.make([
+          'ticks',
+          Channel.succeed<'Tick' | 'Stop'>('Tick').pipe(
+            Channel.concatWith(() => Channel.never),
+            Channel.onExit(() => Effect.andThen(Deferred.succeed(releasing, undefined), Deferred.await(seen))),
+          ),
+        ])
+        : HashMap.empty(),
+  })
+
+  test('in the run, a stopped subscription releases once the state that stopped it is published', async () => {
+    const shown = await Effect.runPromise(Effect.gen(function*() {
+      const releasing = yield* Deferred.make<void>()
+      const seen = yield* Deferred.make<void>()
+      return yield* drive(awaiting(releasing, seen), Effect.fnUntraced(function*(driver) {
+        yield* driver.send(() => Opt.some('Stop'))
+        yield* Deferred.await(releasing)
+        const shown = yield* driver.waitFor((model) => model.listening ? Opt.none() : Opt.some(model))
+        yield* Deferred.succeed(seen, undefined)
+        return shown
+      }))
+    }))
+    expect(shown).toEqual({ listening: false })
+  })
+
+  test('rehearse writes the state that stops a subscription before its release, as the run publishes it', async () => {
+    const shown = await Effect.runPromise(Effect.gen(function*() {
+      const releasing = yield* Deferred.make<void>()
+      const seen = yield* Deferred.make<void>()
+      return yield* rehearse(awaiting(releasing, seen), Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.hearNext('ticks')
+        const stopped = yield* Effect.forkChild(rehearsal.send(() => Opt.some('Stop')), { startImmediately: true })
+        yield* Deferred.await(releasing)
+        const shown = [yield* rehearsal.state, yield* rehearsal.model]
+        yield* Deferred.succeed(seen, undefined)
+        yield* Fiber.join(stopped)
+        return shown
+      }))
+    }))
+    expect(shown).toEqual([{ listening: false }, { listening: false }])
+  })
 })
 
 describe('a subscription that depends on more of the state than its key', () => {
@@ -534,6 +582,18 @@ describe('what the run dies of, and the tools fail on', () => {
   test('rehearse fails, as the run dies, on a state whose subscriptions are a defect', async () => {
     const exit = await Effect.runPromiseExit(rehearse(table, (rehearsal) => rehearsal.send(({ double }) => double)))
     expect(isCompositionDefect(exit)).toBe(true)
+  })
+
+  // The run publishes the state before it reads its subscriptions: what the test reads of the state after the defect
+  // is the state the message left.
+  test('rehearse keeps the state whose subscriptions are a defect, as the run publishes it', async () => {
+    const twice: Array<boolean> = []
+    const exit = await Effect.runPromiseExit(rehearse(table, Effect.fnUntraced(function*(rehearsal) {
+      yield* Effect.exit(rehearsal.send(({ double }) => double))
+      twice.push((yield* rehearsal.state).twice)
+    })))
+    expect(isCompositionDefect(exit)).toBe(true)
+    expect(twice).toEqual([true])
   })
 
   test('simulate fails, as the run dies, on a state whose subscriptions are a defect', async () => {
@@ -1195,6 +1255,32 @@ describe('a defect of makeModel', () => {
           : reason._tag
       )
       : []
+
+  // `Go` leaves a state whose subscriptions throw too: the run reads them in the step that publishes the state, before
+  // its renderer pulls the frame.
+  const both: Program<{ state: Count; model: number; message: 'Go' }> = {
+    ...modeling,
+    subscriptions: ({ count }) => {
+      if (count > 0) throw new Error('keys')
+      return HashMap.empty()
+    },
+    makeModel: ({ count }) => {
+      if (count > 0) throw new Error('boom')
+      return count
+    },
+  }
+
+  test('the run dies in subscriptions first, on a state whose model is a defect too', async () => {
+    const exit = await Effect.runPromiseExit(
+      drive(both, (driver) => Effect.andThen(driver.send(() => Opt.some('Go')), Effect.never)),
+    )
+    expect(reasons(exit)[0]).toBe('subscriptions')
+  })
+
+  test('rehearse fails in subscriptions first, as the run dies, on a state whose model is a defect too', async () => {
+    const exit = await Effect.runPromiseExit(rehearse(both, (rehearsal) => rehearsal.send(() => Opt.some('Go'))))
+    expect(reasons(exit)[0]).toBe('subscriptions')
+  })
 
   // As the run's death interrupts the scenario, so does this one.
   test('drive ends on the defect, though the scenario would go on', async () => {

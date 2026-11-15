@@ -167,6 +167,9 @@ version, and everything else, features included, the patch version.
 - `rehearse` runs a command's effect in its own scope: an interrupted `run` no longer loses its answer or its count.
 - A `run` made once a rehearsal has ended no longer calls `runCommand`.
 - A message that `hearNext`'s subscription sent to a call interrupted meanwhile is heard by the next call, not lost.
+- `rehearse` writes a new state, and makes its model, before the subscriptions it stops release what they hold, as
+  the run publishes it: a release that waited on what the test saw of the new state hung, and after a defect of
+  `subscriptions`, `state` read the state before the message.
 
 ## 0.7.1 (2026-10-28)
 
