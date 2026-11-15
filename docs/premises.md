@@ -118,6 +118,12 @@ The invariants themselves are in [`invariants.md`](invariants.md).
 - **`SubscriptionRef.changes` replays the latest state to a new subscriber**, so a renderer that subscribes late,
   or skips frames, still draws the last state: "a renderer slower than the program gets only the latest frame"
   (`run.test.ts`).
+- **A `Stream.map` after `Stream.buffer` runs only for the elements the consumer pulls, in the consumer's fiber**,
+  so a frame's model is made for the frames the renderer pulls, never for a state the sliding buffer dropped, and a
+  defect of `makeModel` is the renderer's: "a model is made only for the frames the renderer pulls, never for a state
+  the buffer dropped" (`run.test.ts`, which makes 4 models for 2 frames with the map before the buffer), "the run dies
+  in render on a makeModel that throws" (`contract.test.ts`). The JSDoc of `Stream.buffer` says only that a slower
+  consumer lets the producer go ahead; the rest is seen in those tests.
 - **Effect calls each `Logger` synchronously, in the fiber that logs**, so that what it throws is a defect of
   that fiber, which `diesIn` wraps where the log is written: "a Logger that throws on the log of an accepted
   message is one defect, in the log", "a Logger that throws on what a command logs is a defect in the command"

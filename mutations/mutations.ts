@@ -386,6 +386,19 @@ export const mutations: ReadonlyArray<Mutation> = [
       ['src/testing/rehearse.test.ts', 'a defect the scenario catches fails it all the same, first, and once'],
     ],
   },
+  // A frame's model, made only for the frames the renderer pulls.
+  {
+    name: 'the run makes a model for every state, before the buffer drops it',
+    file: 'src/run.ts',
+    from: "      Stream.buffer({ capacity: 1, strategy: 'sliding' }),\n"
+      + "      // After the buffer, so that a model is made only for the frames the renderer pulls, in the renderer's fiber.\n"
+      + '      Stream.map(({ state, seen }) => ({ model: program.makeModel(state), dispatch: engine.dispatch, seen })),\n',
+    to: '      Stream.map(({ state, seen }) => ({ model: program.makeModel(state), dispatch: engine.dispatch, seen })),\n'
+      + "      Stream.buffer({ capacity: 1, strategy: 'sliding' }),\n",
+    killedBy: [
+      ['src/run.test.ts', 'a model is made only for the frames the renderer pulls, never for a state the buffer dropped'],
+    ],
+  },
   // The numbering of the dispatched messages, and what a frame has seen of them.
   {
     name: 'a dispatched message is numbered as its dispatch is made, not as it is queued',
@@ -805,7 +818,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: 'Core.arrive(program.update, before, active, source, message, dead)',
     to: 'Core.arrive(program.update, before, active, source, message, () => false)',
     killedBy: [
-      ['src/testing/rehearse.test.ts', 'send calls no update once a read of the model has died in its select'],
+      ['src/testing/rehearse.test.ts', 'send calls no update once a command run in its select has died'],
     ],
   },
   {
@@ -829,16 +842,13 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'rehearse reads the model after the first defect',
     file: 'src/testing/rehearse.ts',
-    from: '      dead()\n'
-      + '        ? deadOr(Effect.never)\n'
-      + "        : calling(() => Effect.succeed(program.makeModel(state))).pipe(diesIn('render'))\n",
-    to: "      calling(() => Effect.succeed(program.makeModel(state))).pipe(diesIn('render'))\n",
+    from: 'model: deadOr(Effect.sync(() => shown)),',
+    to: 'model: Effect.sync(() => shown),',
     killedBy: [
       [
         'src/testing/rehearse.test.ts',
         'after a defect of the program, what the test asks for fails with it, and the state is still read',
       ],
-      ['src/testing/rehearse.test.ts', 'model calls no makeModel once a command has died'],
     ],
   },
   {
@@ -1374,21 +1384,17 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [['src/testing/drive.test.ts', 'nothing of the program happens once drive has ended']],
   },
   {
-    name: 'drive keeps no defect of makeModel the scenario caught',
-    file: 'src/testing/drive.ts',
-    from: "diesIn('render'), deaths.recorded)",
-    to: "diesIn('render'))",
-    killedBy: [
-      ['src/testing/contract.test.ts', 'drive fails in render all the same, as rehearse does'],
-      ['src/testing/drive.test.ts', 'fails with the defects in the order they happened'],
-    ],
-  },
-  {
-    name: 'drive goes on after a defect of makeModel until the scenario ends',
+    name: 'drive goes on after a defect of the program until the scenario ends',
     file: 'src/testing/drive.ts',
     from: '    deaths,\n  ).pipe(',
     to: '    { ...deaths, died: Effect.never },\n  ).pipe(',
-    killedBy: [['src/testing/contract.test.ts', 'drive ends on the defect a scenario that goes on caught']],
+    killedBy: [
+      ['src/testing/drive.test.ts', 'a defect of the program fails the scenario'],
+      [
+        'src/testing/drive.test.ts',
+        'a subscription of init that dies fails a scenario waiting for a frame, before its patience',
+      ],
+    ],
   },
   {
     name: 'rehearse calls the scenario outside the effect whose end is guarded',

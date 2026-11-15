@@ -49,9 +49,11 @@ under "Running", that the defect of a release counts once its scope has released
   where `run.ts` and `rehearse` each start on their own today.
 - **The model of a state is the shells'.** `makeModel` is pure, and calling it after a defect changes nothing of the
   program, so the core has no `model`: it would be `makeModel` under a name. When the model is made, and what a read
-  after a death gives, is policy: the run's frames make it lazily as the renderer reads them (`lazyFrame` in
-  `run.ts`), under `'render'`, with no check of the register, as the README says; `rehearse`'s `model` fails once the
-  run has died (`modelOf`), as its other calls do, the test being the renderer. Whether the renderer itself may start
+  after a death gives, is policy: the run's frames make it as the renderer pulls them, after the sliding buffer
+  (`run.ts`), under `'render'`, with no check of the register, as the README says; `rehearse` makes it in the step of
+  each new state, under `'render'`, the test being a renderer that pulls every frame, and its `model` fails once the
+  run has died, as its other calls do. (Until November 2026 the run made it lazily as the renderer read it, and
+  `rehearse` as the test read it: see item 7 of [`boundary.md`](boundary.md).) Whether the renderer itself may start
   after a defect is the ROADMAP's, apart: it is code with effects, not `makeModel`.
 - **The end of a subscription is an event of the core.** `ended` takes the start that sent its last message: its key
   stays among the active ones, and does not start again until it goes away and comes back. The engine keeps this

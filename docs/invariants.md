@@ -107,9 +107,13 @@ testing tools.
   library starts them; a command's closes before its message is queued), and `simulate` scopes each command the
   same way. Never let them acquire into the run's scope: what they hold would outlive them, and be released
   before their fibers are interrupted.
-- **Frames cost only what is drawn**: a frame's model is made when first read, and a message that returns the
-  very same state makes no new frame (a parent keeps its own state when a child's message leaves the child's as
-  it is). Do not compute models eagerly in `run`.
+- **Frames cost only what is drawn**: a frame's model is made as the renderer pulls the frame, by a `Stream.map`
+  after the sliding buffer (`run.ts`), never for a state the buffer dropped, and a message that returns the very same
+  state makes no new frame (a parent keeps its own state when a child's message leaves the child's as it is). Never
+  make models before the buffer: "a model is made only for the frames the renderer pulls, never for a state the
+  buffer dropped" (`run.test.ts`) and its mutation keep it. `rehearse` makes the model of each new state in the step
+  that makes it, the test being a renderer that pulls every frame, so that a defect of `makeModel` ends each tool as
+  it ends the run, and no scenario meets it.
 - **`onApplied` and `onIgnored` watch, never steer**: they hear each accepted, or rejected, message in order,
   with where it came from, before its frame is published. The run gives them no dispatch and keeps nothing of what
   they return (an `Effect<void>`): they send no message and change no state, and that is all the rule means.
@@ -170,18 +174,18 @@ testing tools.
     nothing a correct program needs, since a command that died is, to `update`, one that has not answered yet
     (`docs/single-owner.md`).
   - What an effect of the program does once started is its own, until the end of the run interrupts it: no check can
-    come between two of its operations. So is what the renderer reads: a frame's model is made in the renderer's own
-    code, as it reads it, and `makeModel` is pure, so the run checks nothing there, and a frame read after the defect
-    still makes its model, as the README says.
+    come between two of its operations. So is what the renderer pulls: a frame's model is made in the renderer's
+    fiber, as it pulls the frame, and `makeModel` is pure, so the run checks nothing there, and a frame pulled after
+    the defect still makes its model, as the README says.
   - Never report a defect only through a `join`, or through a fiber that races: once nothing awaits it, or the race is
     lost, the defect is lost with it, and `FiberSet` and `FiberMap` discard the exits of the fibers they interrupt as
     they close. The renderer is one of them, interrupted and awaited however the run ends, once the loop has stopped and
     before the engine's other fibers (`running` in `run.ts`).
-  - `drive` stops and awaits its run however it ends, interrupted too. A defect of `makeModel`, which the scenario
-    meets where the run's renderer would, is recorded as it happens in the register of the run (`runWith` in
-    `run.ts`), so that the run dies of it as of any other, and the scenario races only the end of the run: `drive`
-    fails on it, in the order the defects happened, though the scenario caught it. A call of `rehearse`'s that waits for a subscription or
-    a command races its wait with the death of any fiber (`orDead`), as the run dies at once.
+  - `drive` stops and awaits its run however it ends, interrupted too. Its renderer is the run's, which makes each
+    model as it pulls the frame, so a defect of `makeModel` is the renderer's, recorded in the register of the run
+    (`runWith` in `run.ts`) as any other, and the scenario races only the end of the run. A call of `rehearse`'s that
+    waits for a subscription or a command races its wait with the death of any fiber (`orDead`), as the run dies at
+    once.
 
 ## What the engine keeps for itself
 

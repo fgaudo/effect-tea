@@ -500,8 +500,8 @@ const controlFor = (model: Model, { pick }: Act): Opt.Option<Control> => {
 /**
  * Runs `acts` against the list, in a span of its own with debug logs enabled, and what was seen once nothing is under
  * way but what waits forever (`settled`, the number of events by then), then once whoever runs it has interrupted it
- * and it has ended: the span it ran in, the models made, and the frames whose model was read. It is run under the
- * scheduler of the tests, which picks every order: each act waits for its turn as a `later` does.
+ * and it has ended: the span it ran in, and the models made. It is run under the scheduler of the tests, which picks
+ * every order: each act waits for its turn as a `later` does.
  */
 const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArray<Act>) {
   const events: Array<Event> = []
@@ -522,11 +522,6 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
   }
   let latest: Frame<Model, Message> | undefined
   const shown: Array<Frame<Model, Message>> = []
-  const read = new Set<Frame<Model, Message>>()
-  const modelOf = (frame: Frame<Model, Message>) => {
-    read.add(frame)
-    return frame.model
-  }
   let heard = 0
   const hearing = (event: Event) =>
     Effect.suspend(() => {
@@ -590,18 +585,18 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
     const control = latest === undefined
       ? Opt.none()
       : Opt.isSome(older)
-      ? Opt.some(typing(modelOf(older.value), act.pick))
-      : controlFor(modelOf(latest), act)
+      ? Opt.some(typing(older.value.model, act.pick))
+      : controlFor(latest.model, act)
     if (latest === undefined || Opt.isNone(control)) continue
     yield* control.value(latest.dispatch)
     if (act.twice) yield* control.value(latest.dispatch)
   }
   yield* idle
   const settled = events.length
-  const drawn = latest === undefined ? undefined : modelOf(latest)
+  const drawn = latest?.model
   yield* Fiber.interrupt(fiber)
   const exit = yield* Fiber.await(fiber)
-  return { exit, events, settled, drawn, made, read: read.size, caller }
+  return { exit, events, settled, drawn, made, caller }
 })
 
 type Outcome = Effect.Success<ReturnType<typeof runScenario>>
@@ -729,7 +724,7 @@ describe('interleavings of the user, commands and subscriptions', () => {
   test('the scenarios reach every message, every way of dying, and what each property checks', () => {
     const seed = Math.floor(Math.random() * 2 ** 31)
     const reached = new Set<string>()
-    property(({ events, made, read }) => {
+    property(({ events, made }) => {
       events.forEach((event, index) => {
         if (Opt.isSome(answerOf(event)) && given(events.slice(0, index)).has(Opt.getOrThrow(answerOf(event)))) {
           reached.add('an answer after its release')
@@ -756,7 +751,8 @@ describe('interleavings of the user, commands and subscriptions', () => {
       if (renderer.length > 0 && given(events.slice(renderer[0])).has('renderer')) {
         reached.add('a renderer released once interrupted')
       }
-      if (made > 0 && read < events.filter(({ _tag }) => _tag === 'Drew').length) reached.add('a frame never read')
+      const states = 1 + applied(events).filter(({ before, after }) => before !== after).length
+      if (made < states) reached.add('a state no frame showed')
       if (releaseOvertaken(events)) reached.add('a release overtaken')
       let heard = 0
       for (const event of events) {
@@ -791,7 +787,7 @@ describe('interleavings of the user, commands and subscriptions', () => {
       'the very same state',
       'an answer after its release',
       'a renderer released once interrupted',
-      'a frame never read',
+      'a state no frame showed',
       'a span of the program',
       'a release overtaken',
       'a frame older than a message heard',
@@ -1036,12 +1032,15 @@ describe('interleavings of the user, commands and subscriptions', () => {
     })
   }, 120_000)
 
-  test('a model is made once for each frame whose model is read, and the very same state draws no frame', () => {
-    property(({ events, made, read }) => {
-      expect(made).toBe(read)
+  test('a model is made once for each frame the renderer pulls, and the very same state draws no frame', () => {
+    property(({ events, made }) => {
+      const drew = events.filter(({ _tag }) => _tag === 'Drew').length
+      // A frame pulled as the end of the run interrupts the renderer has its model, and is never drawn.
+      expect(made).toBeGreaterThanOrEqual(drew)
+      expect(made).toBeLessThanOrEqual(drew + 1)
       // The first frame is the state the run starts from.
       const states = 1 + applied(events).filter(({ before, after }) => before !== after).length
-      expect(events.filter(({ _tag }) => _tag === 'Drew').length).toBeLessThanOrEqual(states)
+      expect(drew).toBeLessThanOrEqual(states)
     })
   }, 120_000)
 })

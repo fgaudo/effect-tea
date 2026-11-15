@@ -998,7 +998,7 @@ describe('onIgnored', () => {
 })
 
 describe('frames', () => {
-  test('a model is made only for the frames whose model is read, once each', async () => {
+  test('a model is made only for the frames the renderer pulls, never for a state the buffer dropped', async () => {
     let made = 0
     const counting: Counter = {
       ...counter,
@@ -1007,27 +1007,23 @@ describe('frames', () => {
         return counter.makeModel(count)
       },
     }
-    const models: Array<number> = []
-    let increment: Message | undefined
+    const applied = Deferred.makeUnsafe<void>()
     await Effect.runPromise(run(
       counting,
       (frames) =>
         frames.pipe(
-          // The second frame sends the first frame's message again, without reading its own model: three frames
-          // in all.
-          Stream.tap((frame) =>
-            Effect.suspend(() => {
-              increment ??= frame.model.increment
-              return frame.dispatch(increment)
-            })
-          ),
-          Stream.take(3),
-          Stream.runLast,
-          // Like a renderer that only draws the newest frame, and reads its model twice.
-          Effect.map(Opt.map((last) => models.push(last.model.count, last.model.count))),
+          Stream.tap(Effect.fnUntraced(function*({ model, dispatch }) {
+            if (model.count > 0) return
+            // Three states while the renderer is still busy with this frame: the buffer keeps only the last.
+            yield* Effect.repeat(dispatch(model.increment), { times: 2 })
+            yield* dispatch(model.type(false))
+            yield* Deferred.await(applied)
+          })),
+          Stream.take(2),
+          Stream.runDrain,
         ),
+      { onIgnored: () => Deferred.succeed(applied, undefined) },
     ))
-    expect(models).toEqual([2, 2])
     expect(made).toBe(2)
   })
 
@@ -1202,26 +1198,27 @@ describe('the end of the run', () => {
     expect(wheres(exit)).toEqual(['update', 'render'])
   })
 
-  // The check of the register is the run's own, for `update` and `runCommand`: a frame read once the run has died,
-  // in what the renderer releases, still makes its model, of the state it was published with.
-  const readsAsItReleases = (program: Counter, read: (model: Model) => void) =>
+  // The check of the register is the run's own, for `update` and `runCommand`: a frame pulled once the run has died,
+  // in what the renderer releases, still makes its model, of the latest state, which a new pull of the frames replays.
+  const pullsAsItReleases = (program: Counter, read: (model: Model) => void) =>
     run({ ...program, update: () => () => defect('update') }, (frames) =>
       Stream.runHead(frames).pipe(
         Effect.flatMap(Opt.match({
           onNone: () => Effect.never,
-          // The frame's model is first read in the release, once `update` has died.
           onSome: (frame) =>
-            Effect.addFinalizer(() => Effect.sync(() => read(frame.model))).pipe(
+            Effect.addFinalizer(() =>
+              Stream.runHead(frames).pipe(Effect.map(Opt.map(({ model }) => read(model))), Effect.asVoid)
+            ).pipe(
               Effect.andThen(frame.dispatch('Increment')),
               Effect.andThen(Effect.never),
             ),
         })),
       ))
 
-  test('a frame the renderer reads as a run that died releases it still makes its model', async () => {
+  test('a frame the renderer pulls as a run that died releases it still makes its model', async () => {
     const read: Array<number> = []
     let made = 0
-    const exit = await Effect.runPromiseExit(readsAsItReleases(
+    const exit = await Effect.runPromiseExit(pullsAsItReleases(
       {
         ...counter,
         makeModel: (state) => {
@@ -1231,15 +1228,19 @@ describe('the end of the run', () => {
       },
       ({ count }) => read.push(count),
     ))
-    expect([wheres(exit), made, read]).toEqual([['update'], 1, [0]])
+    expect([wheres(exit), made, read]).toEqual([['update'], 2, [0]])
   })
 
   test('a makeModel that dies as a run that died releases the renderer is the second defect, in render', async () => {
-    const exit = await Effect.runPromiseExit(readsAsItReleases(
+    let made = 0
+    const exit = await Effect.runPromiseExit(pullsAsItReleases(
       {
         ...counter,
-        makeModel: () => {
-          throw new Error('boom')
+        // The first frame's model is made, and the one the release pulls dies.
+        makeModel: (state) => {
+          made++
+          if (made > 1) throw new Error('boom')
+          return counter.makeModel(state)
         },
       },
       () => undefined,

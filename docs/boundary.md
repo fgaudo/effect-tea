@@ -1,7 +1,7 @@
 # Where the library ends: what is left across and after the model
 
-**Status:** items 1 to 5 done on `main`, 14 November 2026, and items 8 and 6 on 15 November 2026; item 7 is a
-candidate and item 9 a question, neither decided nor designed. Rewritten the same day from the inventory it
+**Status:** items 1 to 5 done on `main`, 14 November 2026, and items 8, 6 and 7 on 15 November 2026; item 9 is a
+question, neither decided nor designed. Rewritten the same day from the inventory it
 was (`d13bd6f`, whose tables and sections 1 to 3 describe the repository before item 1 and are kept there, in the
 history). Made by one model (Fable 5.2) on Effect 4.1.4 and Bun 1.4.4. "What it rests on" says what was read again in
 the code today, at `1d0ccc9`, and what is carried over. Read again on 15 November 2026, at `7074b7a`, after the port
@@ -63,9 +63,9 @@ Item 7 is breaking; 0.8.0 is open and unreleased. Items 6 and 8 are done, and ke
 - **Read again**: it constrains nothing and nothing rests on it. It is a name, and "A function earns its place" does
   not judge a type.
 
-### 7. Make the model when the frame is pulled, not when it is read
+### 7. Make the model when the frame is pulled, not when it is read (done)
 
-- **What it is today.** `lazyFrame` (`run.ts:102`) makes the model in a getter, after the sliding buffer
+- **What it was.** `lazyFrame` (`run.ts:102`) made the model in a getter, after the sliding buffer
   (`run.ts:62`); a frame's `seen` is a plain field beside it. `drive` keeps every frame it pulls and reads a model only
   when the scenario asks, so it records a defect of `makeModel` in the run's register by hand (`drive.ts:82`–`88`),
   held by two mutations ("drive keeps no defect of makeModel the scenario caught", "drive goes on after a defect of
@@ -80,6 +80,40 @@ Item 7 is breaking; 0.8.0 is open and unreleased. Items 6 and 8 are done, and ke
 - **Read again**: the code is as the inventory found it. That a `Stream.map` after the buffer runs only for the
   frames pulled was run by the inventory (2 mapped for 2 pulled of 101) and not again. Nothing was tried against
   `drive`'s tests, the contract tests or the search: it cannot be settled by reading.
+- **Tried** on 15 November 2026, at `18f813b`, on a branch (`claude/model-when-pulled`), by Opus 5.5: the model made in
+  the `Stream.map` after the buffer, `lazyFrame` and `drive`'s `shown` removed (21 and 5 lines). The typecheck and the
+  lint pass, and 632 tests of 635. The premise holds: "a model is made only for the frames the renderer pulls, never
+  for a state the buffer dropped" (`run.test.ts`, in place of "… whose model is read, once each") makes 2 models for 2
+  frames pulled of 4 states, and 4 with the map before the buffer. What fails is what the getter alone allowed:
+  - "a makeModel that dies as a run that died releases the renderer is the second defect, in render" (`run.test.ts`)
+    and "fails with the defects in the order they happened" (`drive.test.ts`, which now waits for its patience) read a
+    model first after another fiber has died. The model is made as the frame is pulled, before that death, so the
+    order they check has no scenario left: a defect of `makeModel` after another needs a frame pulled after it, of a
+    step whose `update` was called before. Both would go, or be written again with such a step.
+  - "drive fails, as rehearse does, in render first, then with what a scenario that caught it ended with"
+    (`contract.test.ts`): `rehearse` still makes the model when the scenario asks, so its scenario meets the defect
+    and goes on; `drive`'s never does, the renderer dying as it pulls, and ends with `['render']` alone. The tools
+    differ there unless `rehearse` makes its model at each step too, which "drive without the getter" left open.
+  - The search: `made` equals the frames read no more, and "a model is made once for each frame the renderer pulls"
+    holds with `made` at most one more than the frames drawn, a frame pulled as the end interrupts the renderer (seed
+    `-1767139819`, path `0:2:1:1:1:4:2:5:7:6:3:7:11:6:7:7:10:12:14:13:14:14:35`, made 3 for 2 drawn); eleven runs of 60
+    scenarios found nothing else, and the other properties of one whole run pass. "A frame never read" of the scenarios reached means nothing after it.
+
+- **Done** the same day, by the owner's decision, with `rehearse` brought in step: it makes the model of each new
+  state in the step that makes it, under `'render'`, the test being a renderer that pulls every frame, where it made
+  it as the test read `model` or sent. So a defect of `makeModel` ends each tool as it ends the run, and no scenario
+  meets it; "drive fails, as rehearse does, in render alone: the scenario that would catch it never meets it"
+  (`contract.test.ts`) holds both. The two tests of the run read now a frame pulled anew in the renderer's release,
+  which the frames replay ("a frame the renderer pulls as a run that died releases it still makes its model"); that of
+  `drive` went, its order being the run's register, which those tests hold. The search checks that a model is made
+  for each frame pulled, at most one more than the frames drawn. Of the mutations, "drive keeps no defect of makeModel
+  the scenario caught" went; "drive goes on after a defect of the program until the scenario ends" stays, killed by
+  two tests of `drive.test.ts`; "the run makes a model for every state, before the buffer drops it" is new. In
+  `rehearse`, a read of the model could no longer die in a `select`, which left "rehearse calls update after the first
+  defect" with no killer: a command that the `select` runs, and that dies at once in a fiber `FiberSet.run` starts as
+  it is forked, records its death there instead ("send calls no update once a command run in its select has died").
+  What the tools share of the model is a rule, not code: a function of the core that makes it would be `makeModel`
+  under a name ([`shared-core.md`](shared-core.md)), and `simulate` has no model.
 
 ### 8. Call what a dispatch sends by its name (done)
 
@@ -167,7 +201,6 @@ for them.
 
 ## Open questions
 
-- **`drive` without the getter** (item 7): untried.
 - **Who checks the reader.** A model's messages are not marked, so no function of the library finds them. Whether
   trusting the reader as the candidates are trusted is enough is the one thing the third spike of
   `declared-inputs.md` still answers. Since the port, the question is of a model's fixed messages alone: an input

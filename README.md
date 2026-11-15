@@ -753,7 +753,7 @@ that has not answered yet. A message whose `update` it called before goes on unt
 which may be before its frame: it may still start its commands and the subscriptions of its new keys, and
 `onApplied` may have heard a step whose frame is never drawn and whose commands never start. What a command or a
 subscription does once started is the program's, until the run interrupts it. So is what the renderer does, in a run
-that died as it started too, as when a subscription of `init` dies: a frame it reads meanwhile still makes its model,
+that died as it started too, as when a subscription of `init` dies: a frame it pulls meanwhile still makes its model,
 as `makeModel` is pure, and calling it changes nothing of the program. As it ends, of a defect or of an
 interruption, the run stops applying messages first, then stops the renderer, then its commands and its
 subscriptions: what is sent meanwhile, by the renderer as it releases what it holds included, is not applied. A
@@ -805,7 +805,7 @@ What you can rely on:
   renderer or an option that interrupts itself (with `Effect.interrupt`, or by joining an interrupted fiber) is
   a defect too: only the run, and whoever runs it, interrupt them.
 - **Frames cost only what is drawn.** A message that returns the very same state draws no new frame, and a
-  model is made only for the frames the renderer reads.
+  model is made only for the frames the renderer pulls.
 - **An input stores what is written over the value it holds.** A write is stored when its place holds, by
   `Equal`, the value it was written over, whatever it is and whatever else the state says, and rejected otherwise.
   With elements and renderers that meet the condition of inputs (see
@@ -839,7 +839,7 @@ of clicks, writes into an input, current and stale, command answers, subscriptio
 defects and self-interruptions: that outdated clicks leave the state as it was, that subscriptions follow their
 keys, that what a subscription, a command or the renderer acquires does not outlive it and the next message waits
 for the slowest release, that what the run logs is not kept by the span of whoever runs it, which stays the parent
-of the spans opened in it, that nothing ends in silence, that a model is made only for the frames read and the
+of the spans opened in it, that nothing ends in silence, that a model is made only for the frames pulled and the
 very same state draws no new frame, and that a frame has seen the dispatched messages taken before its state was made,
 and none after. It checks too that the run dies with each defect, in the order it happened as
 the run is made today, and from the first one on applies no message (see [running](#running)), and that what is
@@ -999,8 +999,9 @@ there with `applyAll`, or with `update` itself.
   command is under way at the end if it is as the scenario ends, and pending if it is once what the test sent before
   is applied. It
   also fails, as the run dies, on a state whose subscriptions are a defect, which it reads on each new state, a key
-  whose `Equal` throws against a key of the state before included, and on a command or a subscription that
-  interrupts itself. A defect of the program fails it whichever fiber of the test's it reached, one that nobody
+  whose `Equal` throws against a key of the state before included, on a state whose model is a defect, which it
+  makes on each new state, as a renderer that pulls every frame, and on a command or a subscription that interrupts
+  itself. A defect of the program fails it whichever fiber of the test's it reached, one that nobody
   joins included, and however the rehearsal ends, once what it stopped has released what it held: the defect comes
   first in the cause, before what the scenario ended with, and a rehearsal that died checks nothing more of its
   commands. A scenario that catches the defect, with `Effect.exit` say, does not keep it from failing the

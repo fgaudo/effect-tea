@@ -1283,58 +1283,26 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
 
 describe('rehearse after the first defect', () => {
   // The order no yield of the scheduler needs: the loop checks the register as it takes the step of `send`, and the
-  // death is recorded after, in the step, by a read of the model that the test's `select` makes, before `update`.
-  test('send calls no update once a read of the model has died in its select', async () => {
+  // death is recorded after, in the step, by a command that the test's `select` runs and that dies at once, its fiber
+  // started as it is forked, before `update`.
+  test('send calls no update once a command run in its select has died', async () => {
     type Count = Readonly<{ n: number }>
-    const late = { n: 0 }
-    let dying = false
-    let died = false
-    const exit = await Effect.runPromiseExit(rehearse(
-      {
-        init: { state: { n: 0 } },
-        update: () => ({ n }: Count) => {
-          if (died) late.n += 1
-          return { state: { n: n + 1 } }
-        },
-        makeModel: (state: Count) => {
-          if (dying) throw new Error('boom')
-          return state
-        },
-      },
-      (rehearsal) =>
-        rehearsal.send(() => {
-          dying = true
-          died = Exit.isFailure(Effect.runSync(Effect.exit(rehearsal.model)))
-          return Opt.some('Go')
-        }),
-    ))
-    expect(died).toBe(true)
-    expect(late.n).toBe(0)
-    expect(Exit.isFailure(exit)).toBe(true)
-  })
-
-  // A read of the model has one check of the register, in the thunk that calls `makeModel`, and none in front of it:
-  // a read that follows the death reaches it with no schedule.
-  test('model calls no makeModel once a command has died', async () => {
-    type Count = Readonly<{ n: number }>
-    let died = false
     let late = 0
+    let died = false
     const program: Program<{ state: Count; model: Count; message: 'Go'; command: 'Die' }> = {
       init: { state: { n: 0 }, commands: ['Die'] },
-      update: () => (state) => ({ state }),
-      runCommand: () => Effect.die('boom'),
-      makeModel: (state) => {
+      update: () => ({ n }) => {
         if (died) late += 1
-        return state
+        return { state: { n: n + 1 } }
       },
+      runCommand: () => Effect.die('boom'),
+      makeModel: (state) => state,
     }
-    const exit = await Effect.runPromiseExit(rehearse(
-      program,
-      Effect.fnUntraced(function*(rehearsal) {
-        died = Exit.isFailure(yield* Effect.exit(rehearsal.run(() => true)))
-        yield* Effect.exit(rehearsal.model)
-      }),
-    ))
+    const exit = await Effect.runPromiseExit(rehearse(program, (rehearsal) =>
+      rehearsal.send(() => {
+        died = Exit.isFailure(Effect.runSync(Effect.exit(rehearsal.run(() => true))))
+        return Opt.some('Go')
+      })))
     expect(died).toBe(true)
     expect(late).toBe(0)
     expect(Exit.isFailure(exit)).toBe(true)

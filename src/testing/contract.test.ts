@@ -948,7 +948,7 @@ describe('what the run dies of, and the tools fail on', () => {
   })
 
   test('the run dies in render on a makeModel that throws', async () => {
-    // The model is made when the scenario reads it.
+    // The model is made as the renderer pulls the first frame.
     const exit = await Effect.runPromiseExit(
       drive(modeling, (driver) => driver.waitFor(() => Opt.none()), { flags: 0 }),
     )
@@ -1099,7 +1099,7 @@ describe('what the run dies of, and the tools fail on', () => {
     expect(diedIn(exit)).toBe('subscriptions')
   })
 
-  // `drive` reads the model where the scenario does, and `send` selects on it there.
+  // `drive`'s renderer makes the model as it pulls the frame, before `send` could select on it.
   test('drive fails in render on a makeModel that throws, when it sends', async () => {
     const exit = await Effect.runPromiseExit(drive(modeling, (driver) => driver.send(go), { flags: 0 }))
     expect(said(exit)).toEqual(['render', undefined])
@@ -1161,10 +1161,9 @@ describe('a defect of the program, then a failure of the scenario', () => {
   })
 })
 
-// Found by the sixth premise review of November 2026. The run dies of a `makeModel` that throws as its renderer reads
-// the frame, and `rehearse` fails on it however the scenario ends; `drive` reads the model in the scenario, and ends
-// its run on it as the run would, the scenario catching it or not.
-describe('a defect of makeModel that the scenario catches', () => {
+// Found by the sixth premise review of November 2026. The run dies of a `makeModel` that throws as its renderer pulls
+// the frame, `drive` with it, and `rehearse` as it makes the model of the state: no scenario meets the defect.
+describe('a defect of makeModel', () => {
   type Count = Readonly<{ count: number }>
   const modeling: Program<{ state: Count; model: number; message: 'Go' }> = {
     init: { state: { count: 0 } },
@@ -1178,12 +1177,12 @@ describe('a defect of makeModel that the scenario catches', () => {
     return defect instanceof ProgramDefect ? defect.where : undefined
   }
 
-  test('rehearse fails in render all the same', async () => {
+  test('rehearse fails in render, as the run dies', async () => {
     const exit = await Effect.runPromiseExit(rehearse(modeling, (rehearsal) => Effect.exit(rehearsal.model)))
     expect(diedIn(exit)).toBe('render')
   })
 
-  test('drive fails in render all the same, as rehearse does', async () => {
+  test('drive fails in render, as rehearse does', async () => {
     const exit = await Effect.runPromiseExit(drive(modeling, (driver) => Effect.exit(driver.waitFor(Opt.some))))
     expect(diedIn(exit)).toBe('render')
   })
@@ -1198,14 +1197,14 @@ describe('a defect of makeModel that the scenario catches', () => {
       : []
 
   // As the run's death interrupts the scenario, so does this one.
-  test('drive ends on the defect a scenario that goes on caught', async () => {
+  test('drive ends on the defect, though the scenario would go on', async () => {
     const exit = await Effect.runPromiseExit(
       drive(modeling, (driver) => Effect.andThen(Effect.exit(driver.waitFor(Opt.some)), Effect.never)),
     )
     expect(reasons(exit)).toEqual(['render'])
   })
 
-  test('drive fails, as rehearse does, in render first, then with what a scenario that caught it ended with', async () => {
+  test('drive fails, as rehearse does, in render alone: the scenario that would catch it never meets it', async () => {
     const failing = <R>(caught: Effect.Effect<unknown, never, R>) => Effect.andThen(caught, Effect.fail('oops'))
     const rehearsed = await Effect.runPromiseExit(
       rehearse(modeling, (rehearsal) => failing(Effect.exit(rehearsal.model))),
@@ -1213,8 +1212,8 @@ describe('a defect of makeModel that the scenario catches', () => {
     const driven = await Effect.runPromiseExit(
       drive(modeling, (driver) => failing(Effect.exit(driver.waitFor(Opt.some)))),
     )
-    expect(reasons(rehearsed)).toEqual(['render', 'Fail'])
-    expect(reasons(driven)).toEqual(['render', 'Fail'])
+    expect(reasons(rehearsed)).toEqual(['render'])
+    expect(reasons(driven)).toEqual(['render'])
   })
 })
 

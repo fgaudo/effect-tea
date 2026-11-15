@@ -11,8 +11,8 @@ import { runCommandOf, type Shape, startOf, subscriptionsOf } from './program.ts
  * What a renderer draws: a model, the dispatch of the run, the very same function for every frame, and `seen`, how
  * many of the messages sent through that dispatch the run had taken when the frame's state was made, rejected ones
  * included: a message numbered up to `seen` is one the frame's state has seen, and one numbered after it is not. The
- * model is made when it is first read, so a frame nobody reads costs nothing: whatever enumerates or copies a frame
- * (a spread, `JSON.stringify`) reads it.
+ * model is made as the renderer pulls the frame, so a state the renderer never pulls, being busy as the program moved
+ * on, costs nothing.
  */
 export type Frame<Model, Message> = Readonly<{ model: Model; dispatch: Dispatch<Message>; seen: number }>
 
@@ -22,7 +22,7 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: ne
 
 /**
  * `run`, with its options as one value, recording what its fibers die of in `deaths`: for `drive`, which passes the
- * options on as it got them, and records there what the scenario meets of `makeModel`.
+ * options on as it got them, and ends with what they died of.
  */
 // Not an `Effect.fn`: a span of its own would be the one the renderer logs into (see `Engine.withExternalSpan`).
 export const runWith = <State, Model, Message, Command, R, RR, Flags>(
@@ -60,12 +60,13 @@ const running = Effect.fnUntraced(
     })
     const frames = engine.states.pipe(
       Stream.buffer({ capacity: 1, strategy: 'sliding' }),
-      Stream.map(({ state, seen }) => lazyFrame(() => program.makeModel(state), engine.dispatch, seen)),
+      // After the buffer, so that a model is made only for the frames the renderer pulls, in the renderer's fiber.
+      Stream.map(({ state, seen }) => ({ model: program.makeModel(state), dispatch: engine.dispatch, seen })),
     )
     // Called once, in a run that died as it started too, as a subscription of `init` may die while the engine starts:
     // the end of the run interrupts it, as it does any effect of the program.
     const rendering = Effect.suspend(() => render(frames)).pipe(
-      // The model is made when the renderer reads it: a defect of `makeModel` is the renderer's.
+      // The model is made as the renderer pulls its frame: a defect of `makeModel` is the renderer's.
       Engine.scopedIn(deaths, 'render'),
       Effect.updateContext(Engine.withExternalSpan<Exclude<RR, Scope.Scope>>),
     )
@@ -98,19 +99,3 @@ export const run = <State, Model, Message, Command = never, R = never, RR = neve
     : [options: Engine.RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
 ): Effect.Effect<void, never, Exclude<R | RR, Scope.Scope>> =>
   Effect.flatMap(Engine.makeDeaths(() => true), (deaths) => runWith(program, render, options, deaths))
-
-const lazyFrame = <Model, Message>(
-  makeModel: () => Model,
-  dispatch: Dispatch<Message>,
-  seen: number,
-): Frame<Model, Message> => {
-  let made: Readonly<{ model: Model }> | undefined
-  return {
-    get model() {
-      made ??= { model: makeModel() }
-      return made.model
-    },
-    dispatch,
-    seen,
-  }
-}

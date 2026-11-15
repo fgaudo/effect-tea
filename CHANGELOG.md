@@ -37,6 +37,12 @@ version, and everything else, features included, the patch version.
   an own message of the parent's, whose `update` tells the child through its handle, `children.Note.update(…)`, an
   external message the child declares for it; a value for a child's input becomes a message of the child's program,
   whose `update` puts it in the input's place.
+- **Breaking**: a frame's model is made as the renderer pulls the frame, where it was made as the renderer read
+  `model`, and `rehearse` makes the model of each new state as it applies the message ("Running", "Guarantees",
+  "Testing"). A `Frame` is plain data: a spread or `JSON.stringify` of one no longer makes its model. Upgrade: a
+  renderer that pulls a frame it does not draw pays for its model, and meets a defect of `makeModel` as it pulls it; a
+  scenario of `rehearse` or `drive` no longer meets a defect of `makeModel` in `model`, `send` or `waitFor`, since the
+  tool fails on the state whose model dies: a test that expects one wraps the tool, as for any other defect.
 - **Breaking**: `View` is no longer exported: the library ends at the frame, and a view's type is its renderer's.
   Upgrade: a bridge declares it, `type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => VNode`,
   as `examples/snabbdom.ts` and `examples/react.ts` do, and a view imports it from its bridge, `View<Model, Message>`
@@ -56,7 +62,6 @@ version, and everything else, features included, the patch version.
 - `simulate`, `rehearse` and `drive` fail with a `ProgramDefect` in the run's site, where they failed with the defect.
 - `drive` fails on a defect of `makeModel` that the scenario catches, as `rehearse` does, and ends the scenario.
 - `drive` keeps a defect of `makeModel` among the program's in the order they happened, as the run does, not first.
-- `drive` keeps what a scenario that caught a defect of `makeModel` ended with, after the defects, as `rehearse` does.
 - The run dies of an effect that interrupts itself with the fiber id of the run's interruption, as the run stops it.
 - `rehearse` and `simulate` fail, as the run dies, on such an effect, and stop a command as the run does.
 - **Breaking**: `simulate` runs each command after those started before it, as the run does.

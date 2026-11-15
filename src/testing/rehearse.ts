@@ -146,10 +146,10 @@ export const rehearse = Effect.fnUntraced(function*<
   const runCommand = runCommandOf(program)
   const subscriptions = subscriptionsOf(program)
   // Each fiber of the rehearsal records the defects of the program it dies of, as the engine's fibers record theirs:
-  // the loop, a command's, a subscription's, a read of the model. The run dies of the first, so the rehearsal fails
-  // with them at its end, and what the test asks for after the first fails with them, as nothing happens in a run
-  // that died. The tool's own failures of a call (nothing to send, a control that does nothing) are the caller's
-  // alone, so only a `ProgramDefect` is recorded.
+  // the loop, a command's, a subscription's. The run dies of the first, so the rehearsal fails with them at its end,
+  // and what the test asks for after the first fails with them, as nothing happens in a run that died. The tool's own
+  // failures of a call (nothing to send, a control that does nothing) are the caller's alone, so only a
+  // `ProgramDefect` is recorded.
   const register = yield* makeDeaths((defect) => defect instanceof ProgramDefect)
   const { recorded, all: deaths, dead } = register
   // Fails with the defects recorded so far, if any: else runs `effect`. It guards no call of the program: one that
@@ -228,6 +228,14 @@ export const rehearse = Effect.fnUntraced(function*<
   yield* listen(from.state)
   // Written only by the loop.
   let now: Now = { state: from.state, revision: 0, events: [], ignored: [] }
+  // There is no renderer: the model of each new state is made in the step that makes the state, as the run's renderer
+  // makes it for each frame it pulls, and a defect of `makeModel` is in `'render'` all the same. The test, which reads
+  // every state, is a renderer that pulls every frame. Written only by the loop.
+  let shown: Model = yield* Effect.sync(() => program.makeModel(from.state)).pipe(diesIn('render'))
+  const draw = (state: State) =>
+    Effect.sync(() => {
+      shown = program.makeModel(state)
+    }).pipe(diesIn('render'))
   // One loop applies every message, one at a time, as the run's loop takes them: the fibers of the test's only offer
   // it a step and wait for its result, so that a message that stops a subscription waits for its release before its
   // state is written, one that arrives meanwhile waits for that state, and an interruption of whoever asked never
@@ -259,7 +267,7 @@ export const rehearse = Effect.fnUntraced(function*<
                   now = { ...before, ...next, events: [...before.events, ...events] }
                   ledger = Ledger.owe(ledger, commands)
                 }),
-              )
+              ).pipe(Effect.andThen(changed ? draw(next.state) : Effect.void))
             }
           }
         }),
@@ -271,18 +279,9 @@ export const rehearse = Effect.fnUntraced(function*<
       Effect.sync(() => {
         now = { ...now, ignored: [...now.ignored, message] }
       }))
-  // There is no renderer: the test reads the model where the run's renderer would, and a defect of `makeModel` is
-  // in `'render'` all the same. Its check is the only one before the call, and outside the site: the defects it fails
-  // with were wrapped where they happened.
-  const modelOf = (state: State) =>
-    Effect.suspend(() =>
-      dead()
-        ? deadOr(Effect.never)
-        : calling(() => Effect.succeed(program.makeModel(state))).pipe(diesIn('render'))
-    )
   // Selected on the model of the state it applies to, in the loop.
   const send = (select: (model: Model) => Opt.Option<Message>) =>
-    Effect.flatMap(modelOf(now.state), (shown) =>
+    Effect.suspend(() =>
       Opt.match(select(shown), {
         onNone: () => Effect.die(new Error('The model does not show what the test sends', { cause: shown })),
         onSome: (message) =>
@@ -520,10 +519,11 @@ export const rehearse = Effect.fnUntraced(function*<
     runFirst(() => true),
     (ran) => ran._tag === 'None' ? Effect.void : runAll,
   )
-  // What the test reads of the state stays readable once the rehearsal died; what asks the program for more fails.
+  // What the test reads of the state stays readable once the rehearsal died; what it asks of the program, its model
+  // included, fails.
   const rehearsal: Rehearsal<State, Model, Message, Command, Event, R> = {
     state: Effect.sync(() => now.state),
-    model: Effect.suspend(() => recorded(modelOf(now.state))),
+    model: deadOr(Effect.sync(() => shown)),
     send: (select) => ask(Effect.suspend(() => send(select))),
     pending: Effect.sync(() => ledger.pending),
     run,

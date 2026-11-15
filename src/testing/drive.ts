@@ -8,7 +8,7 @@ import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import * as SubscriptionRef from 'effect/SubscriptionRef'
 import * as Core from '../core.ts'
-import { diesIn, makeDeaths, type RunOptions } from '../engine.ts'
+import { makeDeaths, type RunOptions } from '../engine.ts'
 import type { Shape } from '../program.ts'
 import { type FlagsOption, type Frame, runWith } from '../run.ts'
 
@@ -79,16 +79,11 @@ export const drive = Effect.fnUntraced(function*<
       // The frames never end, so a frame always comes before the stream ends.
       Effect.orDie,
     )
-  // The model is made when the scenario first reads it, where the run makes it when its renderer does: a defect of
-  // `makeModel` is in `'render'` all the same, and is recorded with what the run's fibers die of, as the renderer's
-  // would be, though the scenario catches it. So the run dies of it, as of any other, and the race ends with the run.
+  // What the run's fibers die of, the renderer's `makeModel` included, as `drive` ends with it.
   const deaths = yield* makeDeaths(() => true)
-  const shown = (frame: Frame<Model, Message>) =>
-    Effect.sync(() => frame.model).pipe(diesIn('render'), deaths.recorded)
   const driver: Driver<Model, Message> = {
-    waitFor: (select) => first((frame) => Effect.map(shown(frame), select)),
-    send: (select) =>
-      Effect.flatten(first((frame) => Effect.map(shown(frame), (model) => Opt.map(select(model), frame.dispatch)))),
+    waitFor: (select) => first((frame) => Effect.sync(() => select(frame.model))),
+    send: (select) => Effect.flatten(first((frame) => Effect.sync(() => Opt.map(select(frame.model), frame.dispatch)))),
     latest: first(Effect.succeedSome),
   }
   const running = runWith(
