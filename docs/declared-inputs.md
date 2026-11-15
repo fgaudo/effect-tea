@@ -7,7 +7,8 @@ finding of its three spikes, is `docs/declared-inputs.md` on the branch `claude/
 spikes' code is on `spike/declared-inputs`, `spike/dispatch-offers` and `spike/offer-check`, each cut from the one
 before, never to be merged. Everything under "What was proposed", "What the spikes showed" and "What the owner
 decided" is carried over from that record and was not run again; "What still makes sense" was read against the
-code today, at `1d0ccc9`.
+code today, at `1d0ccc9`, and again on 15 November 2026, at `7074b7a`, after the port of the plain input
+([`registers.md`](registers.md)), which reached this record's first aim by another way.
 
 ## Context
 
@@ -98,10 +99,11 @@ reads them with a function of its own.
 - **Point 1, the one shape and its `dispatch`: its second motive is gone.** "A view never holds a message and cannot
   build one" is now the README's rule, kept by exporting `Message` as a type only, which no spike had tried. What is
   left of the shape is point 2's.
-- **Point 2, a model that is data: valid, and worth less.** A model still holds `changeName`, so two models of one
-  state are not equal. Nothing built since needs them to be: a reader calls the function with the text the test
-  gives, and the exploration compares states, never models. What is left is `Inert` and a value, which a one-line
-  `inert` answers.
+- **Point 2, a model that is data: reached, by the port.** An input is declared in `composition`, its value lives in
+  the state, and the view writes over the value its model holds (`write(was, value)`): no model holds `changeName`,
+  and `form`'s test checks that equal states built apart have equal models. No offer, schema or mark was needed.
+  `Inert` and a value are no longer a case: a write is no message of a model's, and one of the value held leaves the
+  very value ([`inert-steps.md`](inert-steps.md), "Since the port").
 - **The third spike's walk: overtaken, but for one thing.** It was built to do two things.
   - *To ask the rules of the model alone, with no view.* That is what a reader of 1 to 12 lines does today, in
     every example, with no constructor, no mark and nothing kept by `compose`.
@@ -111,7 +113,8 @@ reads them with a function of its own.
   What is left of it is the one thing a reader cannot give: **that it is complete**. A walk finds every marked
   message of a model, where a reader that forgets a field is found only by `Missing`, with candidates. That is "who
   checks the reader" (`boundary.md`, "Open questions"), and its price is the spike's: a constructor every model
-  calls, and the limits of identity.
+  calls, and the limits of identity. Since the port it is asked of fixed messages alone, as an input's writes are no
+  reader's.
 - **Point 3: what a key sends is not data, and stands as it was.** The contract of the model says nothing of a
   key. No tool asks a subscription what it will send; a key that is listed and whose message `update` rejects, or
   that does nothing, is found by none. The exploration found it to be what its walk trusts most blindly. Short of a
@@ -137,5 +140,6 @@ end of a subscription, a schema in a bridge, a key that changes its message) are
 - **Whether a key's messages are listed by the test, exported by the program, or declared.** The first costs no
   API and is trusted; only the last is true by construction.
 - **Whether the reader's completeness is worth a mark.** See above.
-- **Whether it is taken up again.** The owner named one case: if exploring on today's API were awkward because a
-  model's functions do not compare. The spike found them no obstacle (`exploration.md`).
+- **Whether it is taken up again.** What is left of its context is the key and the command, since what the user
+  types is no message now, and a model holds no function for it. The owner named one case: if exploring on today's
+  API were awkward because a model's functions do not compare. The spike found them no obstacle (`exploration.md`).

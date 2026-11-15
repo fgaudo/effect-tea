@@ -1,10 +1,10 @@
 # Registers: what the outside writes into a program's state
 
-**Status:** the ninth review adopted and ported, 15 November 2026, on the branch `claude/port-plain-input`, not yet
-merged ("The port of the ninth review"): an input is a plain value, a write names the value it was written over, and
-a frame says how many of the view's messages it has seen; `Field`, `field` and `renewed` are gone, and the seventh and
-eighth reviews are in `docs/rejected.md`. What is left is in "The port of the ninth review" › "Left". The sections
-before it are the history that led there, in the order it happened.
+**Status:** the ninth review adopted and ported, 15 November 2026, on `main` since `4305f7d`, made on the branch
+`claude/port-plain-input` ("The port of the ninth review"): an input is a plain value, a write names the value it was
+written over, and a frame says how many of the view's messages it has seen; `Field`, `field` and `renewed` are gone,
+and the seventh and eighth reviews are in `docs/rejected.md`. What is left is in "The port of the ninth review" ›
+"Left". The sections before it are the history that led there, in the order it happened.
 
 The document records a discussion with the owner, two reviews by Fable 5.2 (one of a design, one asked for ideas),
 and one spike, kept on the branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never to be merged),

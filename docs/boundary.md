@@ -4,7 +4,8 @@
 none decided and none designed. Rewritten the same day from the inventory it was (`d13bd6f`, whose tables and
 sections 1 to 3 describe the repository before item 1 and are kept there, in the history). Made by one model (Fable
 5.2) on Effect 4.1.4 and Bun 1.4.4. "What it rests on" says what was read again in the code today, at `1d0ccc9`, and
-what is carried over.
+what is carried over. Read again on 15 November 2026, at `7074b7a`, after the port of the plain input
+([`registers.md`](registers.md)): the places cited are today's, and items 8 and 9 say what the port added to them.
 
 ## Context
 
@@ -44,8 +45,8 @@ Each can be taken or struck alone. All three are breaking; 0.8.0 is open and unr
 
 ### 6. Take `View` out of the exports
 
-- **What it is today.** `View<Model, Message, Node>` is one line (`dispatch.ts:18`), used by no module of `src/` but
-  the one that defines it. Eleven files of `examples/` import it (seven views, the two bridges and their tests), and
+- **What it is today.** `View<Model, Message, Node>` is one line (`dispatch.ts:20`), used by no module of `src/` but
+  the one that defines it. Twelve files of `examples/` import it (eight views, the two bridges and their tests), and
   the README has it in "Children's views" and in the API reference.
 - **Removes**: the type, a row of the API reference, and the library's one name for something after the model.
 - **Costs**: each bridge declares it, and each view imports it from its bridge. The README's "View" still says what
@@ -56,10 +57,11 @@ Each can be taken or struck alone. All three are breaking; 0.8.0 is open and unr
 
 ### 7. Make the model when the frame is pulled, not when it is read
 
-- **What it is today.** `lazyFrame` (`run.ts:100`) makes the model in a getter, after the sliding buffer
-  (`run.ts:60`). `drive` keeps every frame it pulls and reads a model only when the scenario asks, so it records a
-  defect of `makeModel` in the run's register by hand (`drive.ts:82`–`87`), held by two mutations ("drive keeps no
-  defect of makeModel the scenario caught", "drive goes on after a defect of makeModel until the scenario ends").
+- **What it is today.** `lazyFrame` (`run.ts:102`) makes the model in a getter, after the sliding buffer
+  (`run.ts:62`); a frame's `seen` is a plain field beside it. `drive` keeps every frame it pulls and reads a model only
+  when the scenario asks, so it records a defect of `makeModel` in the run's register by hand (`drive.ts:82`–`88`),
+  held by two mutations ("drive keeps no defect of makeModel the scenario caught", "drive goes on after a defect of
+  makeModel until the scenario ends").
 - **Removes**: the getter, `drive`'s recording and those mutations, a sentence of `invariants.md` ("a frame's model is
   made when first read") and the warning of `Frame`'s comment about a spread.
 - **Costs**: `drive` would make a model for every frame it pulls, read or not, and a defect of `makeModel` would end
@@ -76,14 +78,20 @@ Each can be taken or struck alone. All three are breaking; 0.8.0 is open and unr
 - **What it is today.** `Origin`'s case is `'View'` (`engine.ts:30`, `core.ts:195`), and `Core.fromView` is the
   source `rehearse` and `simulate` give to a message the test sends (`rehearse.ts:289`, `simulate.ts:129`): the name
   is already untrue where no view exists. The words: `reject`'s comment (`update.ts:19`), "Enqueues a message sent
-  by the view" (`engine.ts:235`), and in the README "what the view draws never does" and "a message of the view"
+  by the view" (`engine.ts:236`), and in the README "what the view draws never does" and "a message of the view"
   ("Rejections and defects"), `origin`'s description in "Running", "what the view sends is queued" in "Guarantees",
   and "the test or the view" twice in "The tools".
+- **Since the port**, the tag has a second use: the run numbers the messages of that source, and a frame's `seen`
+  counts them (`engine.ts:397`, where the tag is tested). The words grew with it: "how many of the view's messages"
+  (`engine.ts:234`), "the view's messages are numbered" (`engine.ts:323`), and in the README "among those the view has
+  sent" in "View", "A frame says what it has seen" in "Guarantees" ("Each message the view sends is numbered") and
+  "the view's messages" in "Testing". A message a test sends is numbered as one of the view's in `drive`, since it
+  goes through the run's dispatch.
 - **Removes**: nothing. It makes the run speak of what it knows, a dispatch.
 - **Costs**: the words are free. The tag is a rename through `core.ts`, `engine.ts`, their tests and the README.
 - **A consumer notices**: an `onApplied` or `onIgnored` that matches `origin._tag === 'View'`.
-- **Read again**: the list above is today's. It splits in two: the words alone (a changelog entry at most), and the
-  tag (breaking).
+- **Read again**: the list above is today's, at `7074b7a`. It splits in two: the words alone (a changelog entry at
+  most), and the tag (breaking).
 
 ## A question: the wrapping of a child's message, before the model
 
@@ -94,18 +102,21 @@ reader to share.
 
 What the code has, read today:
 
-- **The shape is written twice in `src/`, and typed twice.** `compose.ts:278`, `wrapMessage(place)`, used for a
-  child's subscriptions (`:359`) and for the answers of its commands (`:421`); and `dispatch.ts:99`, inline in
-  `dispatchTo`. The types are `ChildMessages` (`compose.ts:131`) and `Routed` (`dispatch.ts:25`). The two differ in
+- **The shape is written twice in `src/`, and typed three times.** `compose.ts:351`, `wrapMessage(place)`, used for
+  a child's subscriptions (`:443`) and for the answers of its commands (`:507`); and `dispatch.ts:101`, inline in
+  `dispatchTo`. The types are `ChildMessages` (`compose.ts:172`), `InputMessages` (`compose.ts:131`), since the port
+  the same shape without an id for a write into an input, and `Routed` (`dispatch.ts:27`). The two functions differ in
   how they know that a child is by id: `compose` asks its configuration, `dispatchTo` whether an id was given.
 - **The tests write it a third time.** `list` and `timers` have `to(id, message)`, one line, and `pages` two
   literals. Each had it before the readers, to build its candidates and the messages of its own tests: the readers
-  added no wrapping, they reuse it.
+  added no wrapping, they reuse it. Since the port, `form` writes it for an input, `{ _tag: 'Name', message:
+  write(model.name, text) }`, in the messages of its own tests and in no reader, since a write is no message of the
+  model's.
 - **The compiler already checks the literal.** A wrong child name, a missing or mistyped id, a message of another
   child: none compiles, since the literal is typed as the parent's `Message`. A wrong id of the right type compiles,
   with a function as with a literal, and the test finds it (`Rejected`, and `Missing` for the right one).
 - **It is not the only shape a parent's test rebuilds.** A child's command is `{ _tag, id?, command }`
-  (`compose.ts:279`; `pages` asserts one by hand), and a lifted key `[name, id, key]`. A function for messages
+  (`compose.ts:352`; `pages` asserts one by hand), and a lifted key `[name, id, key]`. A function for messages
   alone covers one of three.
 - **A function has no value to infer the parent's `Message` from.** `dispatchTo` infers it from the dispatch it is
   given; a pure function would take it as a type argument, or from the parent program.
@@ -143,7 +154,8 @@ for them.
 - **`drive` without the getter** (item 7): untried.
 - **Who checks the reader.** A model's messages are not marked, so no function of the library finds them. Whether
   trusting the reader as the candidates are trusted is enough is the one thing the third spike of
-  `declared-inputs.md` still answers.
+  `declared-inputs.md` still answers. Since the port, the question is of a model's fixed messages alone: an input
+  is a value of the model, and its writes are no message a reader returns.
 - **A renderer with no tree to walk** (React Native, a canvas, a terminal). The contract of the model asks nothing
   of it now. That its drawing can be checked with its own tools is the README's word, and no such bridge was
   attempted.

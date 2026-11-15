@@ -13,10 +13,11 @@ that each leans only on those above it.
 - **A step that does nothing**: `Missing` leaves out a candidate whose step does nothing, and `Inert`, a new
   violation, finds a message a model holds that does nothing; `onEvent` still does not reject. Proposed, spiked
   twice, breaking. [`docs/inert-steps.md`](docs/inert-steps.md), with open questions of its own (`list` over an
-  empty list, `rehearse`, `Field.typed`).
+  empty list, `rehearse`, a key). Since the plain input, no input asks for an exemption: a write is no message of a
+  model's.
 - **What the run calls the view** is a dispatch: the words, and `Origin`'s `'View'`, which `rehearse` and
-  `simulate` already give to what a test sends. Breaking for the tag alone.
-  [`docs/boundary.md`](docs/boundary.md), item 8.
+  `simulate` already give to what a test sends, and which numbers the messages a frame's `seen` counts. Breaking for
+  the tag alone. [`docs/boundary.md`](docs/boundary.md), item 8.
 - **`View` among the exports**, a type no module of `src/` uses. Breaking. `docs/boundary.md`, item 6.
 - **A model made when its frame is pulled, not when it is read**, which would take from `drive` its recording of a
   defect of `makeModel`. Breaking, and untried against `drive`. `docs/boundary.md`, item 7.
@@ -25,12 +26,16 @@ that each leans only on those above it.
 - **What a key sends is not data**: no tool judges a subscription's message. Whether a test lists it, a program
   exports it, or it is declared. [`docs/declared-inputs.md`](docs/declared-inputs.md), "What still makes sense";
   `Inert` for a key waits for the first item.
-- **Who checks a test's reader**: one that forgets a field of its model is found only by `Missing`. Whether that is
-  enough, or worth a mark on a model's messages. `docs/declared-inputs.md`, and `docs/boundary.md`, "Open
+- **Who checks a test's reader**: one that forgets a fixed message of its model is found only by `Missing`. Whether
+  that is enough, or worth a mark on a model's messages. `docs/declared-inputs.md`, and `docs/boundary.md`, "Open
   questions".
 - **What reaches `update`, declared as data** (offers with a schema, a `dispatch` that takes one). Suspended by the
-  owner, with three spikes and his decisions, which stand only if it is taken up again.
-  `docs/declared-inputs.md`.
+  owner, with three spikes and his decisions, which stand only if it is taken up again. Its first aim, a model with
+  no function for what the user types, was reached by the plain input; what is left of it is a key's messages and a
+  command's answers. `docs/declared-inputs.md`.
+- **What the plain input left**: a slider in React, a `File`, the ideas of "To explore" not yet overtaken, and what
+  was not run (a real browser, an IME composition, the caret under a value the program changes).
+  [`docs/registers.md`](docs/registers.md), "The port of the ninth review" › "Left", and "Where it stands".
 
 ## Open problems
 
@@ -47,9 +52,11 @@ session that wrote this, "reported" is a reviewer's claim that was not:
   part, on what Effect does not document, and `^4.1.4` accepts minors no test has run on. The daily job tells of a
   break, and does not protect a consumer already there. A range that stops at the minors tested, widened on each
   green run, was proposed. Reported.
-- **Two ways for what arrives too late.** The run drops a message of a subscription whose key is gone; `update`
-  rejects the answer of a command for what has since changed, with the care for ids that come back the README asks.
-  It is what commands that cannot be cancelled cost, and is said in two places and not as one choice. Reported.
+- **Three ways for what arrives too late.** The run drops a message of a subscription whose key is gone; `update`
+  rejects the answer of a command for what has since changed, with the care for ids that come back the README asks;
+  and, since the plain input, the library rejects a write over a value the program has since replaced, from the
+  state and the message alone. The first two are what commands that cannot be cancelled cost; none of the three is
+  said with the others, as one choice. Reported for the first two, the third read in the code.
 - **A parent's lifted subscriptions** are kept one for each state of a child, with the place checked, so children
   that share one state object would lift again on every change. Of speed, not of what is right. Reported, read in
   the code and not measured.
@@ -57,7 +64,8 @@ session that wrote this, "reported" is a reviewer's claim that was not:
 ## Possible improvements
 
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is
-  drawn" from regressing. `bun run bench` (`bench/subscriptions.ts`) measures a parent's subscriptions only.
+  drawn" from regressing. `bun run bench` (`bench/subscriptions.ts`) measures a parent's subscriptions only, and
+  `bench/writes.ts`, run by hand, what a write into an input and a bridge's frame cost; neither runs in the CI.
 
 ## Ideas, to be decided
 

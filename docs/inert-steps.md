@@ -6,7 +6,10 @@ discussion in an application that uses the library (26 October 2026), and two sp
 on Effect 4.1.4 and Bun 1.4.4, which are not kept: "What it rests on" says what each one showed, and what was
 checked again and what was only reported. Its words were aligned, the same day, with the contract of the model
 ([`boundary.md`](boundary.md), item 1): the tool judges the messages a model holds, where it said those a view
-sends. The decision is as it was.
+sends. The decision is as it was. Read again on 15 November 2026, after the port of the plain input
+([`registers.md`](registers.md)): an input is a value of the state that the library stores, and no message of a
+model's, so what this record says of `NameChanged`, of `Field.typed` and of an input's exemption is history; "Since
+the port" says what changed, and the rest is read in the code as it stands at `7074b7a`.
 
 ## Context
 
@@ -135,6 +138,20 @@ return to say "nothing, on purpose" is `{ state }` under another name, and was d
   **reported** by both reviewers (`send` selects from the model of the state its message is applied to), not checked
   again.
 
+## Since the port
+
+What the plain input changed of the above, read in the code at `7074b7a` and not run:
+
+- **No input asks for an exemption.** `NameChanged` is gone from `form` and `form-react`: the name is an input,
+  `write(was, value)` goes through the input's dispatch, and `form`'s test gives `dispatchViolations` only the
+  messages its model holds, Save and nothing typed. The 4 and 7 states of 2,000 have no counterpart.
+- **A write of the value held leaves the very value** (`written`, in `input.ts`), so it draws no frame, and the open
+  question of `Field.typed` is closed. Such a write is a step that does nothing; `Inert` would judge it only if a
+  test gave writes to the tool, which no example does.
+- **What stands**: `withheld` in `pages` (`app.test.ts:68`), `StopAllClicked` in `list` and its empty list, the
+  question of `rehearse`, a key whose message does nothing, the comment of `dispatchViolations`, and the application.
+  The decision and its five points are as they were.
+
 ## Alternatives
 
 - **`reject` in `onEvent`, the whole message rejected.** Above.
@@ -181,8 +198,8 @@ It is a breaking change, with a changelog entry and the version `release` asks f
   no test can read from a subscription what it will send, as it reads a model, so a test would have to list the
   messages of each key (see [`declared-inputs.md`](declared-inputs.md), "What still makes sense"). Until then a
   property written by hand holds it.
-- **`Field.typed`** builds a new field for the text it has, so the same text draws a frame for nothing. Whether the
-  example returns the same state there, which `Inert` would then report and the input's exemption cover.
+- **`Field.typed`** built a new field for the text it had, so the same text drew a frame for nothing. Closed by the
+  port: a write of the value held leaves the very value ("Since the port").
 - **The comment of `dispatchViolations`** says an instance of a class that does not implement `Equal` compares by
   reference. The check above found otherwise for one class: to be read again when the file changes.
 - **An application.** What `Inert` finds in a program larger than the examples, and how many exemptions it asks for,
