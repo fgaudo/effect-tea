@@ -13,7 +13,10 @@ an input, checked"), and a fifth review by Fable 5.2, on what may write into an 
 and a sixth, on the name of `parent` ("The name"), and the bridges tested in happy-dom ("The bridges, in happy-dom"),
 and a recipe of a bridge for a source that belongs to the control, tested there too ("A source that belongs to the
 control"), and a slider in an example ("A slider, in an example"), and a seventh review by Fable 5.2, with a spike,
-on how to close concern 3 ("Whoever steps replaces what is below"), not yet decided.
+on how to close concern 3 ("Whoever steps replaces what is below"), and an eighth, with a spike, on how a parent applies
+its child's rule there ("The channel of a replacement, declared"), and a ninth, with a spike and a free hand over the
+whole library, which replaces the revision with a plain input and a frame that says what it has seen ("A plain input,
+and a frame that says what it has seen"), none yet decided.
 What the spikes ran is marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued,
 **reasoned**. It reopens the aim of [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way,
 and leans on [`inert-steps.md`](inert-steps.md), which it would simplify.
@@ -75,23 +78,31 @@ before the implementation, which rewrote the form and its inputs; `examples/form
 **Open whatever the choice**: a child re-initialised by its parent, an optional place that comes back, and an undo
 by snapshot above a child, which bring an input's revision back. A seventh review proposes to close the first and the
 third with the rule of a replacement applied by whoever steps to every input below it, the second with an input's
-place made a lens, and to leave the rest to an id ("Whoever steps replaces what is below"): not yet decided. Open too:
-a `File`; a reaction to every keystroke. See "To explore".
+place made a lens, and to leave the rest to an id ("Whoever steps replaces what is below"); an eighth, that a parent
+read its child's rule from a piece the child declares, `replacing`, which the types require when its messages carry
+writes, in place of the seventh's hidden symbol ("The channel of a replacement, declared"). A ninth takes the revision
+out: an input is a plain value, a write names the value it was written over, and a frame says how many of the view's
+messages it has seen, so that the bridge never replaces an element ("A plain input, and a frame that says what it has
+seen"). None is yet decided. Open too: a `File`; a reaction to every keystroke. See "To explore".
 
 **Next**, with the implementation on `main` ("The implementation") and `parent` renamed `composition` ("The name"),
 and the bridges tested in happy-dom ("The bridges, in happy-dom"), with a source that belongs to the control ("A
 source that belongs to the control"), and a slider in `examples/volume` ("A slider, in an example"), and
-`bench/keystrokes.ts` dropped ("The implementation"): the decision on the seventh review ("Whoever steps replaces
-what is below"), and the ideas of "To explore", each spiked or measured before it is proposed.
+`bench/keystrokes.ts` dropped ("The implementation"): a React bridge and a test of the premise of the numbering, for
+the ninth review ("A plain input, and a frame that says what it has seen"); the decision between it and the seventh
+and eighth ("Whoever steps replaces what is below", "The channel of a replacement, declared"); and the ideas of "To
+explore", each spiked or measured before it is proposed.
 
 **The branches**, local to this machine and never pushed, none to be merged: `spike/field-register`,
 `claude/spike-register-checks-fd58e1` (no commit of its own), `claude/spike-register-late-key-6cb914`,
 `claude/spike-register-model-data-52ba83`, `claude/spike-register-shapes-ea38c5`,
 `claude/spike-register-opaque-3fc182`, `claude/spike-register-slider-f36368`, `spike/register-input-compose`,
-`spike/register-input-by-value`, `claude/spike-revision-unwritten-b1e290`, `claude/spike-register-subscriptions`
-and `worktree-agent-a144664c3ddf8f27a`. The first spike and the six checks are cut from `spike/field-register` or
-`main` before this document; the two opinions from `c263478`; the spike of the revision a program did not write, and
-that of the subscriptions, from `c445a5b`; the seventh review's from `9a58662`.
+`spike/register-input-by-value`, `claude/spike-revision-unwritten-b1e290`, `claude/spike-register-subscriptions`,
+`worktree-agent-a144664c3ddf8f27a`, `worktree-agent-a04cfe354d300ce70` and `worktree-agent-a02816c77ebec330c`. The
+first spike and the six checks are cut from `spike/field-register` or `main` before this document; the two opinions
+from `c263478`; the spike of the revision a program did not write, and that of the subscriptions, from `c445a5b`; the
+seventh review's from `9a58662`, and the eighth's from the seventh's, cherry-picked onto `9a58662`; the ninth's from
+`b63a5b6`.
 
 ## The implementation
 
@@ -1191,6 +1202,233 @@ Why, by the review:
 Whether to adopt it; then `all` required or optional in `each`; and whether a lens only is worth the optional input it
 refuses. If adopted, the port is written from `main`, following `change-engine`: the spike is seven commits behind it,
 before `parent` was renamed `composition` and before `examples/volume`, and the mutations are run on the port.
+
+## The channel of a replacement, declared
+
+An eighth review by Fable 5.2 was asked how a parent should apply its child's rule of a replacement in the seventh
+review's proposal, where the spike passes it through a hidden symbol ("Whoever steps replaces what is below"), which
+that review held against itself: a program rebuilt by hand rather than spread loses it in silence. It was given the
+spike and the question, not a conclusion. Its spike is on the branch `worktree-agent-a04cfe354d300ce70` (commit
+`45da546`, over `8015729`, which is the seventh review's `2d2e77b` cherry-picked onto `9a58662`; never to be merged):
+`src/program.ts`, `src/compose.ts` and `src/input-channel.test.ts`. It reports `typecheck`, `lint`, `test` (593),
+`test:node` and `interleavings` (17) green; `typecheck` and the four tests of the channel were run again on its
+commit, and two of them were seen to fail on the symbol's `compose.ts` (**run**). `mutations` was not run; the README,
+`docs/invariants.md` and the API report are not brought in step. Not decided, and needed only if the seventh review's
+proposal is.
+
+### The proposal
+
+How a program replaces its inputs is a piece of it, declared and optional as `runCommand` and `subscriptions` are:
+`replacing: (before: State, after: State) => State`, read through an internal `replacingOf`, beside `runCommandOf`
+and `subscriptionsOf`. The types require it exactly when the program's messages carry writes: `Replacer<State,
+Message>` sits in `Shape` beside `Interpreter<Command, Message, R>`, and `child` and `each` ask it of their program as
+they ask `Interpreter`. It is required when a `Written` lies under `{ message }` at any depth, which is how `compose`
+types an input's write and a child's message; `any` is asked nothing. At run time nothing changes from the seventh
+review's spike: `compose` sets the property only when the program has inputs, its own or below.
+
+Why, by the review:
+
+- **It is the precedent the library has**: a piece that may be missing, required by the types exactly when the
+  program's types need it, read through an `…Of`. The symbol is a third kind of thing, a property of a program that no
+  type mentions.
+- **The silent loss becomes a compile error**: a program rebuilt by hand without `replacing` is refused at
+  `child(...)`, with the property named as missing (**run**).
+- **A program written by hand, without `compose`, can be a child with inputs**: it writes `replacing` with
+  `replaced`, which would be exported. Under the symbol, or a `WeakMap`, it cannot take part at all (**run** for the
+  symbol: its input keeps revision 0).
+- **"A type is Effect's or the library's" holds**: a program is the library's type with a public shape written by
+  hand, and a member keyed by a hidden symbol makes it half hidden.
+- **The engine and the testing tools see nothing new**: `run`, `simulate`, `rehearse`, `drive`, `applyAll` and
+  `dispatchViolations` call `update` only, and the rule is applied inside the parent's `update` (**checked**, in
+  `run.ts`; **run**, the suites green).
+
+### Refused, by the review
+
+- **The symbol, as spiked**: lost in silence by a program rebuilt by hand, and kept by `{ ...program, update: other }`
+  for an `update` that is gone (**run**, the two tests red on it); a program written by hand or a wrapper cannot carry
+  it, and no type or document can name it.
+- **A `WeakMap` of the module, keyed by the composed `update`** (**reasoned**): it survives a copy by hand, but is lost,
+  in silence again, by any wrapped `update`, the commonest reason to rebuild a program; a program written by hand
+  cannot register in it without a new export, the declared field with worse ergonomics; and it gives the identity of a
+  function a meaning, where the `WeakMap` of models is a memo whose loss costs only a recomputation.
+- **A reserved message that the child's `update` answers** (**reasoned**): the parent would send a message outside the
+  child's type, and an `update` written by hand with an exhaustive `switch` returns `undefined` on it, not `reject`
+  (**checked**: `isRejected` is `result === reject`); the parent would first have to know whether the child takes it,
+  the same channel again, and `reject` would gain a second meaning ("it has no inputs").
+- **Fields found by their shape in the child's state** (**reasoned**): a `Field` carries no brand, by (A), so it would
+  be a guess over any data, and linear on every step of the parent.
+- **A defect when the rule is missing** (**reasoned**): a program with no inputs and one that lost its rule are the same
+  value; the only evidence is a write passing through the routing, which would inspect message data and die at the
+  first keystroke, perhaps first in production.
+- **No channel at all** (**reasoned**): a parent returns its state whole, so the library sees only before and after,
+  and only the child's `compose` knows where its fields are. The recipe of a generation alone needs none, and leaves
+  the undo by snapshot open.
+
+### What it would change
+
+- **API**: `Program` and `Shape` gain `replacing`, required exactly when the messages carry writes, and `replaced` is
+  exported, for a program that holds a `Field` without `compose`. The name is open.
+- **Breaking, narrowly**: a program whose messages carry writes, rebuilt by hand without `replacing`, no longer
+  compiles, as a child or as `run`'s argument; a spread is unaffected. No example or test of the repository changed
+  (**run**, by the typecheck).
+- **Internal**: `Replacer` and `replacingOf` stay unexported, and the symbol goes.
+- **README**: a sentence on `replacing` where a program's pieces are listed, and in "Structuring a program", that a
+  child written by hand with a `Field` writes it with `replaced`.
+- **`docs/invariants.md`**: the seventh review's rule gains that a parent applies its child's `replacing`, and that a
+  child that declares none has no inputs, by the types; `AGENTS.md` reads `replacingOf` beside `runCommandOf` and
+  `subscriptionsOf`.
+- **Mutations**: one more, `replacingOf` returning nothing. A changelog entry.
+
+### Against, by the review itself
+
+- **The check of the types is structural**: it knows a write only as `compose` shapes it, so a wrapper written by
+  hand that carries a child's messages under another key, or a program typed `any`, is asked nothing and loses the
+  rule in silence. The guarantee holds for programs shaped as `compose` shapes them.
+- **`run` asks for a piece it never uses**, since the requirement sits in `Shape`; asking it only in `child` and `each`
+  avoids that, and breaks the symmetry with `Interpreter`.
+- **It is public surface for a rule most users never write**: `replacing` and `replaced` are documented and kept
+  stable, and a user can now write a wrong `replacing`, which the symbol made impossible.
+- **The types and the run can disagree**: the property is required by the shape of the messages and set by "has
+  inputs", and a cast can part them.
+- **A recursive conditional type over every union of messages** costs the compiler what was not measured on a large
+  application.
+- **It makes the seventh review's proposal more visible, not smaller**: declined, the recipe of a generation alone needs
+  no channel, and none of this is added.
+
+## A plain input, and a frame that says what it has seen
+
+The owner judged the seventh and eighth reviews out of hand: a recipe for a reset or an undo is one nobody remembers,
+whatever the examples, and the program's loop must stay simple. The rule of a revision is trivial when one function
+owns every transition of the state that holds an input, and a hierarchical composition splits that ownership, so each
+fix patched the split. A ninth review by Fable 5.2 was given a free hand over the whole library, its engine and its
+loop, its composition, its invariants and any feature in the way, for a solution stable, elegant and correct, with no
+weak point that leads to a patch or to more API; it was told that composition came when the library ran a simpler
+model, close to Elm's, and that Elm, the owner's reference, may not be the most general. Its spike is on the branch
+`worktree-agent-a02816c77ebec330c` (commits `6dc6b3d` and `4757546`, over `main` at `b63a5b6`, never to be merged),
+additive beside the inputs of `main` under the spike's names (`place`, `swap`, `swapped`, `shown`, `typed`, `drawn`,
+`shows`). It reports `typecheck`, `lint`, `test` (628), `test:node` (538) and `interleavings` (17) green; `typecheck`
+and `test` were run again on its commit, and its four histories written on `main`'s design, each a `test.failing`
+there, were seen to fail as plain tests (**run**). `mutations`, `build`, `smoke` and the API report were not run. Not
+decided.
+
+### The proposal
+
+Keep the loop of Elm and the composition as they are; change what an input is, and tell the renderer one fact the loop
+already knows.
+
+1. **An input is a plain value of the state**: `inputs: { Text: input(at) }`, with `at` any `Optional` to an `A`. No
+   `Field`, no revision, no `renewed`, no rule (A).
+2. **A write names what it was written over**, `write(was, value)`: stored when the place holds `was`, by `Equal`, and
+   rejected otherwise. The rule reads the state and the message alone.
+3. **A dispatch returns the number of its message** among those the view sent, and **a frame carries `seen`**, how
+   many of them the run had taken when its state was made.
+4. **The element is never replaced.** A pure rule of the library, `drawn` (five lines), says what a frame makes of an
+   element: when the frame holds what the element showed before its first write the frame has not seen, the frame is
+   the element's own past, and the element stays; otherwise the state moved on without it, and the element takes the
+   frame's value.
+
+Why, by the review:
+
+- **The split of ownership is gone, not bridged**: the rule of a write keeps nothing between two writes, so there is
+  no history that a reset, an undo, an optional place or an id that comes back can cut. No channel from a child to its
+  parent, no `all`, no lens only, no recipe of a generation.
+- **No revision in the state could close it** (**reasoned**): a frame that lags and a state brought back by a
+  snapshot are the same state, so no function of the state tells them apart. Only the order of the loop does, and
+  `seen` is that order.
+- **`reject` keeps its one meaning**, and the state stored is the state written, so a `toEqual` holds again.
+
+What a user writes, by the review:
+
+```ts
+// the draft's own composition
+type Draft = Readonly<{ text: string }>
+inputs: { Text: input(Optic.id<Draft>().key('text')) },
+// the parent, on Sent: nothing to remember
+draft: children.Draft.init.state
+// an undo by snapshot, in the parent's update: nothing to remember
+case 'Undone': return { state: { ...state, draft: kept } }
+// rows by id: each(draft, { get, set, subscribed }) as today, no `all`
+// the view (snabbdom): no key, no initialValue
+h('input', shows(model.text, dispatchTo(dispatch, 'Text')))
+// a test
+{ _tag: 'Draft', message: { _tag: 'Text', message: write(model.draft.text, 'hello') } }
+```
+
+### What it found
+
+- **Three histories that end with a late key** (`src/input-swap.test.ts`, **run**): a draft its parent starts again,
+  a kept draft brought back, and a row whose id comes back store the late key on `main`'s `Field` and reject it with
+  the plain input.
+- **In happy-dom, through `run`** (`examples/snabbdom-plain.test.ts`, **run**): sent, the draft is emptied in the same
+  element, which keeps the focus, where `main`'s design leaves "hello" on screen; a key typed after Send, before the
+  emptied frame is drawn, is rejected, the element is emptied, and a second Send sends nothing; a kept draft brought
+  back as the very same state object, which a `thunk` skips, is still shown; a frame that has not seen a key sent
+  before it was drawn leaves the element alone.
+- **Each check taken out by hand** (**run**): `was` not compared fails 5 tests; a frame taken to have seen everything
+  eats a key on screen; a frame taken to have seen nothing fails 3.
+- **The numbering** (`src/seen.test.ts`, **run**): dispatches return 1, 2 and 3, and the last frame has seen 3, the
+  rejected one included. `Queue.offerUnsafe` is `@stability stable` in Effect 4.1.4 (**checked**), and the number and
+  the offer are in one thunk, so the numbers follow the queue's order (**reasoned**).
+- **Not run**: a React bridge, a slider, the sweep of inputs under models skipped by `Equal`.
+
+### What it would change
+
+- **API**: `Field`, `field` and `renewed` removed, and the internal `replaced` and `replacing`; `write(was, value)`;
+  `Dispatch` returns `Effect<number>`; `Frame.seen`, and the rule of an element (`shown`, `typed`, `drawn`, or one
+  function), the one place that rule is applied.
+- **Engine**: about 10 lines of `engine.ts` and 3 of `run.ts`; the testing tools unchanged, `drive` getting `seen`
+  through `run`.
+- **Bridges**: about 45 lines each, a registry of the live inputs settled after every frame, and `shows` in place of
+  `key`, `initialValue` and `onWrite`.
+- **README**: "Inputs the user types into", the paragraph of the revisions in "Declaring children", "Model", "View",
+  and a guarantee that a frame has seen the messages it counts. "Only what is drawn writes" stays.
+- **`docs/invariants.md` and `AGENTS.md`**: the entry of an input rewritten, and a premise for the numbering.
+- **Tests and examples**: the eight mutations of inputs replaced, the search of interleavings drawing `write(was,
+  value)`, and `form`, `volume` and their tests rewritten. Medium in size, and breaking.
+- **Dropped**: `renewed`, and with it a new input for the same value, which is not expressible: a drag from before
+  bounds narrowed is stored, so a program reads an input through its own bounds. `volume` gets simpler, since Mute
+  need not touch the level. The seventh and eighth reviews are not needed.
+
+### Refused, by the review
+
+- **One program, with its children as plain functions**: a large break that still leaves a place that comes back
+  and the enumeration of rows, and moves about 400 lines of routing into every application.
+- **Inputs declared by the root alone**: a child's view writes into what its root owns, and rows still need
+  enumerating.
+- **The limit documented**: a recipe.
+- **Whoever steps, with a declared channel**: right for a reset and an undo, but the split patched, and a place that
+  comes back left open.
+- **A generation per place of a child, or the children's state kept by the library as a tree**: the first puts a
+  shape of the library around every child's state and still needs the view to key the subtree; the second forbids a
+  snapshot above a child and needs handles of its own, to restart and to take a snapshot.
+- **A clock in the engine, or a lineage by the identity of objects**: impure, or a break of `applyAll`.
+- **Acknowledgements kept in the state**: a frame skipped makes them ambiguous again.
+- **A frame published for every message of the view**: a trivial bridge, at the cost of "the very same state draws no
+  new frame".
+- **Another loop**: none found more general; what was missing was one fact, not a model.
+
+### What it does not close
+
+- A fixed message, or a command's answer, drawn for an old instance still reaches the new one: a message names a
+  place and `update` decides, and with the writes out of that class it corrupts nothing by itself.
+- A `File`.
+- The caret and an IME composition when the program replaces a value under the user; the focus stays.
+
+### Against, by the review itself
+
+- **The correctness of the screen lives in each bridge**: the rule is the library's, but the registry is copied into
+  every bridge, and React is not spiked.
+- **`Dispatch` changes type** for everything that implements it, and the numbering adds a premise on Effect's `Queue`.
+- **A late drag after the bounds narrowed is stored**, where today `renewed` rejects it, when remembered.
+- **`was` doubles a write**, and costs an `Equal` on every keystroke.
+- **A program that sets a value equal to one the element already left lets an old write through**; the screen and the
+  state still agree.
+
+### What is left to decide
+
+Whether to take this direction in place of the seventh and eighth reviews. Before a decision, the two points where it
+could still break are spiked: a React bridge with its registry of inputs, and a test of the premise of the numbering
+that fails without it, as `change-engine` asks.
 
 ## What a consumer could notice
 
