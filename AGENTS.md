@@ -156,6 +156,11 @@ an example's and a document's too:
 ## Tests
 
 - `bun:test`, in a `*.test.ts` next to the module. Tests are excluded from `dist/` and from the packed `src/`.
+- **A file that serves the tests, and is no test file itself, is named `<name>.test_<what>.ts`**: `bun test` does not
+  collect it (it collects `*.test.ts`, `*_test.ts`, `*.spec.ts` and `*_spec.ts`), so it runs only where a test file
+  imports it, as `examples/bridge.test_suite.ts` runs in each bridge's test. The rule is new, and does not cover yet
+  what predates it: `test/` holds only files that serve the tests (`scheduled.ts`, `gc.ts`, `node/`), and so do
+  `examples/timer/reader.ts` and `examples/preload.ts`; they keep their names until the owner decides otherwise.
 - Test through behaviour: what a module gives the rest of the library (`run`, `Engine.make`, the public functions, a
   transition of `core.ts` or of `testing/ledger.ts`), never what it keeps to itself. An export made for a test alone
   says so (`entriesOf` in `dispatch.ts`).
@@ -186,8 +191,9 @@ an example's and a document's too:
 
   A bug found is held by a case of one of them: a rule of a pure piece, an invariant, a contract, a boundary or a
   type, and gets a scenario of its own only where none can hold it. The examples' own tests show users how to test
-  a program. So do the bridges' (`examples/snabbdom.test.ts`, `examples/react.test.ts`), for a bridge: the same
-  tests of `renderInto` and of an input for each renderer, in a DOM, and those of the snabbdom bridge's
+  a program. So do the bridges' (`examples/snabbdom.test.ts`, `examples/react.test.ts`), for a bridge: the tests of
+  `renderInto` and of an input that every bridge passes, written once in `examples/bridge.test_suite.ts` and given
+  each renderer's `Bridge`, with those of one renderer alone, in a DOM, and those of the snabbdom bridge's
   `messagesSentBy`, without one (`examples/snabbdom-testing.test.ts`). The smoke test (`smoke/`) and the benchmark
   (`bench/`) check the package and its speed. None of them is a test of the library's correctness, and they are kept
   apart from the five.
@@ -214,7 +220,8 @@ an example's and a document's too:
   a wait that a failing test alone reaches (a mutant that never sends), wide enough never to fire otherwise, or be
   what the test is about (a subscription that ticks), under Effect's `TestClock` where it can be.
 - Only the bridges' tests in a DOM, `examples/snabbdom.test.ts` and `examples/react.test.ts`, register one
-  (happy-dom); every other test runs without one, `examples/snabbdom-testing.test.ts` too.
+  (happy-dom), for the tests of `examples/bridge.test_suite.ts` they call too; every other test runs without one,
+  `examples/snabbdom-testing.test.ts` too.
 
 ## Checks
 

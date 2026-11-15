@@ -35,6 +35,9 @@ that a program does not change with its renderer (each imports the program of `c
 loads first (`bunfig.toml`); [`snabbdom.test.ts`](../../../examples/snabbdom.test.ts), the bridge's own test, and
 [`snabbdom-testing.test.ts`](../../../examples/snabbdom-testing.test.ts), that of its `messagesSentBy`, examples'
 tests like the others and none of the library's five kinds (`AGENTS.md`, "Tests");
+[`bridge.test_suite.ts`](../../../examples/bridge.test_suite.ts), the tests every bridge passes, which
+`snabbdom.test.ts` and `react.test.ts` call with their renderer's `Bridge` (its `renderInto` and the views of the
+scenarios), beside the tests of that renderer alone;
 and [`tsconfig.json`](../../../examples/tsconfig.json).
 
 ## The rules
@@ -77,7 +80,8 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
   seen to fail on a model that shows what `update` rejects, and on a reader that forgets a field. It runs
   without a DOM: `preload.ts` sets `window` to `undefined` so that snabbdom loads, and only the bridges' tests in
   a DOM register happy-dom. A check that needs a DOM (how often the bridge draws, a click on a drawn button, typing
-  while frames are drawn) goes into the test of the bridge the example uses.
+  while frames are drawn) goes into the bridges' tests: `bridge.test_suite.ts` when every bridge must pass it, the
+  test of the bridge the example uses when it is about that renderer alone.
 
 ## Run it
 

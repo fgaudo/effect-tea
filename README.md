@@ -142,12 +142,14 @@ with `bun run build`, then `bun examples/<name>/index.html`.
 bridges to the two renderers, worth copying for your own: `renderInto` for `run`, handlers, and the element of each
 input (`shows` and `slides` with snabbdom, `Shows` with React). Their tests,
 [`examples/snabbdom.test.ts`](examples/snabbdom.test.ts) and [`examples/react.test.ts`](examples/react.test.ts),
-run them in a DOM, with [happy-dom](https://github.com/capricorn86/happy-dom). They check how often a bridge draws, that
-a click reaches the program, that what the user types survives the frames drawn meanwhile, and that the element of an
-input shows what the program puts in its place. Beside the snabbdom bridge,
-[`examples/snabbdom-testing.ts`](examples/snabbdom-testing.ts) has `messagesSentBy`, which finds what a view sends
-without a DOM: one way to check that a view draws what its model holds, which the library asks of no bridge (see
-[testing](#testing)).
+run them in a DOM, with [happy-dom](https://github.com/capricorn86/happy-dom). The tests they share are written once, in
+[`examples/bridge.test_suite.ts`](examples/bridge.test_suite.ts), and check how often a bridge draws, that a click
+reaches the program, that what the user types survives the frames drawn meanwhile, and that the element of an input
+shows what the program puts in its place. To run them on a bridge of your own, a test file that registers a DOM, as
+those two do, gives `bridgeTests` a `Bridge`: your `renderInto`, and the views of their scenarios drawn with your
+renderer. Beside the snabbdom bridge, [`examples/snabbdom-testing.ts`](examples/snabbdom-testing.ts) has
+`messagesSentBy`, which finds what a view sends without a DOM: one way to check that a view draws what its model
+holds, which the library asks of no bridge (see [testing](#testing)).
 
 ## Guide
 
