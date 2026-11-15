@@ -14,6 +14,7 @@ import * as Clock from './clock.ts'
 
 const aboutClicked: Message = { _tag: 'Clock', message: Clock.Message.AboutClicked() }
 const backClicked: Message = { _tag: 'About', message: About.Message.BackClicked() }
+const picked = (format: Clock.Format): Message => ({ _tag: 'Clock', message: Clock.Message.FormatPicked({ format }) })
 const ticked = (millis: number): Message => ({
   _tag: 'Clock',
   message: Clock.Message.Ticked({ now: DateTime.makeUnsafe(millis) }),
@@ -25,14 +26,17 @@ const maybe = <A>(value: fc.Arbitrary<A>): fc.Arbitrary<Opt.Option<A>> =>
 const time = fc.nat().map((millis) => DateTime.makeUnsafe(millis))
 
 const state: fc.Arbitrary<State> = fc.record({
-  clock: fc.record({ maybeNow: maybe(time) }),
+  clock: fc.record({ maybeNow: maybe(time), format: fc.constantFrom<Clock.Format>('Iso', 'Unix') }),
   maybeAbout: maybe(fc.record({ openedAt: maybe(time), maybeSaying: maybe(fc.string()) })),
 })
 
 // What the model holds: the message of the page on top, wrapped as the parent receives it.
 const messagesOf = ({ page }: Model): ReadonlyArray<Message> =>
   page._tag === 'Clock'
-    ? [{ _tag: 'Clock', message: page.model.openAbout }]
+    ? [
+      { _tag: 'Clock', message: page.model.openAbout },
+      { _tag: 'Clock', message: page.model.format._tag === 'Iso' ? page.model.format.toUnix : page.model.format.toIso },
+    ]
     : [{ _tag: 'About', message: page.model.back }]
 
 /** The pages whose subscriptions run, from the keys the library namespaces (`['Clock', 'ticks']`). */
@@ -54,7 +58,10 @@ describe('pages', () => {
 
     test('About asks to be left, and the Clock is back as it was', () => {
       const { state } = applyAll(app.update)([ticked(0), aboutClicked, backClicked], app.init.state)
-      expect(state).toEqual({ clock: { maybeNow: Opt.some(DateTime.makeUnsafe(0)) }, maybeAbout: Opt.none() })
+      expect(state).toEqual({
+        clock: { maybeNow: Opt.some(DateTime.makeUnsafe(0)), format: 'Iso' },
+        maybeAbout: Opt.none(),
+      })
     })
 
     test('the Clock stops ticking while About is over it', () => {
@@ -64,12 +71,15 @@ describe('pages', () => {
   })
 
   test('the model holds what update accepts, all of it, and each acts once when sent twice', () => {
+    // Under About, the Clock's format would change on the page hidden below it: held back on purpose. Its About
+    // would do nothing there, so it is no control missing.
     const violations = dispatchViolations(app.update, {
-      withheld: (message, state) => message._tag === 'Clock' && Opt.isSome(state.maybeAbout),
+      withheld: (message, state) =>
+        message._tag === 'Clock' && message.message._tag === 'FormatPicked' && Opt.isSome(state.maybeAbout),
     })
     fc.assert(fc.property(state, (before) => {
       const held = messagesOf(app.makeModel(before))
-      expect(violations(before, held, [aboutClicked, backClicked])).toEqual([])
+      expect(violations(before, held, [aboutClicked, backClicked, picked('Iso'), picked('Unix')])).toEqual([])
     }))
   })
 

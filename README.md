@@ -427,7 +427,10 @@ subscription sent. Nothing else makes that promise:
 - **An event keeps the timing of its cause.** A child that raises an event for a click raises it whenever the
   click comes, so the parent's `onEvent` cannot rule it out by its own state either. A handler answers with a
   step, and its type has no `reject`: one that does not apply answers `{ state }`, as
-  [`pages`](examples/pages/app.ts) does when About is asked for while it is open. A completion promises
+  [`pages`](examples/pages/app.ts) does when About is asked for while it is open. A rejection there would take back
+  a step the child has accepted, its own change of state included, and a child tested alone would promise what the
+  program does not. Such a message is applied, and does nothing: `onApplied` hears it with no commands, and with the
+  state it came to, the very same when the handler returns the one it was given. A completion promises
   something of the child's state, not of its parent's. An event raised for one rules out a parent's state only
   where the parent's own state promises it too.
 
@@ -652,7 +655,8 @@ holds, and its tests can check it. The library does not enforce them; the exampl
 #### Model and view
 
 - **Show less than `update` accepts, never more.** What it leaves out on purpose, a test lists as `withheld`
-  (see [testing](#testing)); anything else left out is a control missing from the screen.
+  (see [testing](#testing)); anything else left out is a control missing from the screen, unless it would do
+  nothing there.
 - **A view draws, it never decides.** It matches the model's tags and formats its values (a date, a count, a
   text). It computes no condition from data (`items.length === 0`), combines no fields, and applies no rule and
   no fallback. What a view would decide, `makeModel` decides, as a case named for the state the screen tells
@@ -902,7 +906,7 @@ test('the model holds what update accepts, all of it', () => {
   a message in a model is a value like any other.
 - **The reader is complete only as far as the candidates go.** One that forgets a field of the model passes
   `Rejected` and `ActsTwice`, which judge only what it returns. `Missing` finds the field, in a state where
-  `update` accepts its message and the test lists it among the `candidates`.
+  `update` accepts its message, the message would do something, and the test lists it among the `candidates`.
 - **That the view draws what its model holds is not checked here**: each control once, through the right
   dispatch. It is checked with your renderer's tools. For snabbdom,
   [`examples/snabbdom.ts`](examples/snabbdom.ts) has one, `messagesSentBy`, which finds what a view sends
@@ -942,8 +946,9 @@ there with `applyAll`, or with `update` itself.
     no events. Keep states data, since a value without structural equality compares by reference. Actions meant
     to repeat (a "+1") are marked `repeatable`;
   - of the `candidates` the test lists (what a user could ask for, the program's fixed messages), each one
-    `update` accepts must be among those held (`Missing`), except those `withheld` on purpose, e.g. the controls
-    of a page that another covers.
+    `update` accepts must be among those held (`Missing`), unless its step does nothing, by the rule above: a
+    control that would do nothing is no control missing. Those `withheld` on purpose are excepted, e.g. the
+    controls of a page that another covers, which would act on its hidden state.
 
   Without candidates, it checks only the messages it is given.
 - **`simulate`** takes the test's messages and those a subscription would send among them, and fails when

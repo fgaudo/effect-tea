@@ -10,11 +10,10 @@ when it is done, with the reason in the commit. An item rejected is removed and 
 Each has a document that says what was weighed, what was run and what is open. None is decided. They are listed so
 that each leans only on those above it.
 
-- **A step that does nothing**: `Missing` leaves out a candidate whose step does nothing, and `Inert`, a new
-  violation, finds a message a model holds that does nothing; `onEvent` still does not reject. Proposed, spiked
-  twice, breaking. [`docs/inert-steps.md`](docs/inert-steps.md), with open questions of its own (`list` over an
-  empty list, `rehearse`, a key). Since the plain input, no input asks for an exemption: a write is no message of a
-  model's.
+- **`Inert`, a message a model holds that does nothing**: deferred by the owner on 15 November 2026, when the rest
+  of [`docs/inert-steps.md`](docs/inert-steps.md) was done. It would flag the guard `{ state }` against a double tap
+  and a parent's broadcast, and found one real case in the examples. Weighed again with what it finds in an
+  application, and with a key whose message does nothing.
 - **What the run calls the view** is a dispatch: the words, and `Origin`'s `'View'`, which `rehearse` and
   `simulate` already give to what a test sends, and which numbers the messages a frame's `seen` counts. Breaking for
   the tag alone. [`docs/boundary.md`](docs/boundary.md), item 8.

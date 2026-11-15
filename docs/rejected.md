@@ -75,9 +75,11 @@ answer, and saying so in the proposal.
   a request the loop has not taken failing the rehearsal (spiked, `74b271f`), a subscription's message applied as it
   is sent (reasoned), and three more reasoned only. The accepted form was `db8309a`. Each is in
   [`rehearse-owned-effects.md`](rehearse-owned-effects.md), "Alternatives".
-- **What the tools do with a step that does nothing.** These were refused inside a proposal the owner has **not yet
-  decided** ([`inert-steps.md`](inert-steps.md), proposed 14 November 2026): if the proposal is taken, they stand
-  rejected; if it is struck, they are to be weighed again with it. Each is in its "Alternatives":
+- **What the tools do with a step that does nothing.** These were refused inside a proposal the owner decided in
+  part on 15 November 2026 ([`inert-steps.md`](inert-steps.md), "What was decided"): with `onEvent` left without
+  `reject`, the first three stand rejected. `Inert` itself is deferred, not rejected, and the two entries on it are
+  to be weighed again with it; `Missing`'s change was taken alone, `Inert` waiting for an application to measure it.
+  Each is in its "Alternatives":
   - `reject` in `onEvent`, the whole message rejected. Spiked (sixteen tests over seven cases): a child could no
     longer rely on its own transitions, the tool would blame the child, and one answer would have two outcomes.
   - `reject` in `onEvent` only where the child's step changed nothing of its own, a defect otherwise. Reasoned.

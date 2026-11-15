@@ -1,15 +1,43 @@
 # A step that does nothing, and what the tests say of it
 
-**Status:** proposed, 14 November 2026. Nothing of it is done: no file of the library, of its tests or of its examples
-has changed. It records a review of the invariants by three models (Fable 5.2 twice, Opus 5.5 once), an earlier
-discussion in an application that uses the library (26 October 2026), and two spikes, each on a worktree of its own,
-on Effect 4.1.4 and Bun 1.4.4, which are not kept: "What it rests on" says what each one showed, and what was
-checked again and what was only reported. Its words were aligned, the same day, with the contract of the model
-([`boundary.md`](boundary.md), item 1): the tool judges the messages a model holds, where it said those a view
-sends. The decision is as it was. Read again on 15 November 2026, after the port of the plain input
-([`registers.md`](registers.md)): an input is a value of the state that the library stores, and no message of a
-model's, so what this record says of `NameChanged`, of `Field.typed` and of an input's exemption is history; "Since
-the port" says what changed, and the rest is read in the code as it stands at `7074b7a`.
+**Status:** decided in part by the owner, 15 November 2026, after a review by Fable 5.2: points 1, 2, 3 and 5 of
+"Decision" are done, and point 4, `Inert`, is **deferred**, not rejected ("What was decided"). The rest of this record
+is the proposal as it was, 14 November 2026, with what it rests on: a review of the invariants by three models (Fable
+5.2 twice, Opus 5.5 once), an earlier discussion in an application that uses the library (26 October 2026), and two
+spikes, each on a worktree of its own, on Effect 4.1.4 and Bun 1.4.4, which are not kept. Its words were aligned with
+the contract of the model ([`boundary.md`](boundary.md), item 1), and read again after the port of the plain input
+([`registers.md`](registers.md)): "Since the port" says what that changed.
+
+## What was decided
+
+On 15 November 2026, by the owner:
+
+- **Done**: `onEvent` does not reject (1); a step does nothing when it leaves the same state by `Equal`, with no
+  commands and no events (2), one predicate in `dispatchViolations` for `ActsTwice` and `Missing`; `Missing` leaves
+  out a candidate whose step does nothing (3), so `pages` lost its `withheld` for the Clock's About; the README says
+  why a handler has no `reject`, and that `onApplied` hears such a message with the very same state only where the
+  handler returns the one it was given (5, worded so, since the tool compares by `Equal` and `before === after` is
+  identity).
+- **`withheld` kept, with an example**: the clock of `pages` has a format, ISO or Unix, which would change on the
+  page under About, so its test withholds it there. It is the use the README names, a page that another covers, and
+  `withheld` keeps one meaning: left out on purpose though it would act.
+- **`list` over an empty list**: `update` rejects `StopAllClicked`, and the model leaves it out, as an `Option`,
+  since "missing" is all the screen tells apart there. The parent's own state tells it, which is what the README's
+  rule asks.
+- **`rehearse`**: does not fail on a `send` whose step does nothing. The run applies it and `onApplied` hears it, so
+  `rehearse` follows the run; its failure on a rejection reports what `update` said, while doing nothing is a
+  judgement of the model, which has its place in `dispatchViolations` and its exemptions there.
+- **`Inert` deferred.** The review found it would flag what the library itself admits: a message answered `{ state }`
+  once its intent is met is the documented guard against a double tap (`Closed` in `dispatch-violations.test.ts`, a
+  "select" of the current tab), and a broadcast from a parent (`forEach` over its children, as "Stop all" with every
+  stopwatch stopped) is an alarm the parent cannot avoid without reading its children. Over the examples it found one
+  real case, the empty list, now fixed without it; 819 of 2,000 states of `list` were flagged, 433 over an empty list
+  and 386 with entries all stopped (Fable's measure, not run again). It is weighed again with what `Inert` finds in an
+  application, and with "`dispatchViolations` knows where the inputs are" (`registers.md`, "To explore"), which
+  would spare it an exemption for writes.
+- **The comment of `dispatchViolations`** no longer says that an instance of a class without `Equal` compares by
+  reference: `Equal.equals`'s documentation at 4.1.4 says how plain objects, arrays, maps, sets and dates compare,
+  and that functions compare by reference, and says nothing of other instances, so the comment names functions alone.
 
 ## Context
 
@@ -72,7 +100,8 @@ child's `update` again to say who rejected.
 
 ## Decision
 
-Proposed. Composition stays as it is, and the testing tool learns to see a step that does nothing.
+Proposed, and decided in part ("What was decided"). Composition stays as it is, and the testing tool learns to see
+a step that does nothing.
 
 1. **`onEvent` does not reject.** An event is part of a step its child has already accepted; an intent that is
    already met is answered `{ state }`.

@@ -1309,35 +1309,60 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
-    name: 'dispatchViolations takes a message that changes the state again for one that acts once',
+    name: 'dispatchViolations takes a step that changes the state for one that does nothing',
     file: 'src/testing/dispatch-violations.ts',
-    from: '(!Equal.equals(second.state, first.state)\n        || ',
-    to: '(',
+    from: 'Equal.equals(step.state, state)\n  && ',
+    to: '',
     killedBy: [
       ['src/testing/dispatch-violations.test.ts', 'reports a message that changes the state again when sent twice'],
+      ['src/testing/dispatch-violations.test.ts', 'reports what update accepts and the model does not hold'],
     ],
   },
   {
-    name: 'dispatchViolations takes a message that starts a command again for one that acts once',
+    name: 'dispatchViolations takes a step that starts a command for one that does nothing',
     file: 'src/testing/dispatch-violations.ts',
-    from: '\n        || (second.commands?.length ?? 0) > 0',
+    from: '\n  && (step.commands?.length ?? 0) === 0',
     to: '',
     killedBy: [
       [
         'src/testing/dispatch-violations.test.ts',
         'reports a message that starts a command again when sent twice, though the state stays the same',
       ],
+      [
+        'src/testing/dispatch-violations.test.ts',
+        'reports a candidate that starts a command or raises an event, though the state stays the same',
+      ],
     ],
   },
   {
-    name: 'dispatchViolations takes a message that raises an event again for one that acts once',
+    name: 'dispatchViolations takes a step that raises an event for one that does nothing',
     file: 'src/testing/dispatch-violations.ts',
-    from: '\n        || (second.events?.length ?? 0) > 0)',
-    to: ')',
+    from: '\n  && (step.events?.length ?? 0) === 0',
+    to: '',
     killedBy: [
       [
         'src/testing/dispatch-violations.test.ts',
         'reports a message that raises an event again when sent twice, unless it repeats on purpose',
+      ],
+      [
+        'src/testing/dispatch-violations.test.ts',
+        'reports a candidate that starts a command or raises an event, though the state stays the same',
+      ],
+    ],
+  },
+  {
+    name: 'dispatchViolations takes a candidate whose step does nothing for a control missing',
+    file: 'src/testing/dispatch-violations.ts',
+    from: ' && !doesNothing(step, state) && ',
+    to: ' && ',
+    killedBy: [
+      [
+        'src/testing/dispatch-violations.test.ts',
+        'leaves out a candidate whose step does nothing: the same state by Equal, a copy included',
+      ],
+      [
+        'examples/pages/app.test.ts',
+        'the model holds what update accepts, all of it, and each acts once when sent twice',
       ],
     ],
   },

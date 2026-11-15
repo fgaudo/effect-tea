@@ -3,6 +3,7 @@ import { dispatchTo, isRejected, run, subscriptionsOf } from '@fgaudo/effect-tea
 import { applyAll, dispatchViolations } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
+import * as Opt from 'effect/Option'
 import * as Stream from 'effect/Stream'
 import * as TestClock from 'effect/testing/TestClock'
 import * as fc from 'fast-check'
@@ -37,7 +38,7 @@ const stopwatchMessages = ({ watch, remove }: Stopwatch.Model): ReadonlyArray<St
 
 const messagesOf = (model: Model): ReadonlyArray<Message> => [
   model.add,
-  model.stopAll,
+  ...Opt.toArray(model.stopAll),
   ...model.stopwatches.flatMap(({ id, model }) => stopwatchMessages(model).map((message) => to(id, message))),
 ]
 

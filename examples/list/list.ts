@@ -1,6 +1,6 @@
 // The stopwatches are children by id. The parent says where each one lives and what its event means; adding
 // one, and halting them all, are the parent's own messages.
-import { composition, forEach, type MessageOf, type ModelOf } from '@fgaudo/effect-tea'
+import { composition, forEach, type MessageOf, type ModelOf, reject } from '@fgaudo/effect-tea'
 import * as Arr from 'effect/Array'
 import * as Opt from 'effect/Option'
 import * as Stopwatch from './stopwatch.ts'
@@ -42,9 +42,12 @@ export const list = compose({
           commands: stopwatch.commands,
         }
       }
-      // Every stopwatch is told, running or not: the parent never reads a child's state to decide.
+      // Every stopwatch is told, running or not: the parent never reads a child's state to decide. Over an empty
+      // list, which the parent's own state tells, there is nothing to stop.
       case 'StopAllClicked':
-        return forEach({ state }, state.entries, ({ id }) => children.Stopwatch.update(id, Stopwatch.Message.Halted()))
+        return Arr.isReadonlyArrayEmpty(state.entries)
+          ? reject
+          : forEach({ state }, state.entries, ({ id }) => children.Stopwatch.update(id, Stopwatch.Message.Halted()))
     }
   },
   onEvent: {
@@ -54,7 +57,9 @@ export const list = compose({
   },
   makeModel: (state, children) => ({
     add: { _tag: 'AddClicked' } as AddClicked,
-    stopAll: { _tag: 'StopAllClicked' } as StopAllClicked,
+    stopAll: Arr.isReadonlyArrayEmpty(state.entries)
+      ? Opt.none()
+      : Opt.some<StopAllClicked>({ _tag: 'StopAllClicked' }),
     stopwatches: Arr.map(state.entries, ({ id }) => ({ id, model: children.Stopwatch(state, id) })),
   }),
 })

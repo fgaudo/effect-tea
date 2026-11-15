@@ -101,6 +101,14 @@ version, and everything else, features included, the patch version.
 - "Rejections and defects" in the README says, as one choice, who settles what arrives too late: the run drops a
   stopped subscription's message, `update` rejects a command's outdated answer, the library a write over a value
   replaced.
+- `dispatchViolations` reports as `Missing` only a candidate whose step would do something: one that leaves the same
+  state by `Equal`, with no commands and no events, is no control missing, by the rule `ActsTwice` applies to a
+  message sent twice. A `withheld` that listed such messages is no longer needed.
+- "Rejections and defects" in the README says why a handler of `onEvent` has no `reject`, and how `onApplied` hears
+  a message whose handler answers `{ state }`; "Model and view" and "Testing" say that a control that would do
+  nothing is no control missing.
+- The clock of `pages` has a format, ISO or Unix, which its test withholds under About; `list` rejects "Stop all"
+  over an empty list, and its model leaves it out there.
 
 ### Fixed
 

@@ -11,6 +11,9 @@ import type * as Clock from './clock.ts'
 const clockView = (model: Clock.Model, dispatch: Dispatch<Clock.Message>): VNode =>
   h('main', [
     h('time', model.time),
+    model.format._tag === 'Iso'
+      ? h('button.secondary', { on: onClick(model.format.toUnix, dispatch) }, 'Unix time')
+      : h('button.secondary', { on: onClick(model.format.toIso, dispatch) }, 'ISO time'),
     h('button', { on: onClick(model.openAbout, dispatch) }, 'About'),
   ])
 
