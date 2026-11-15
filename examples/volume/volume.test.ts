@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test'
-import { InvariantDefect, reject } from '@fgaudo/effect-tea'
+import { InvariantDefect, reject, subscriptionsOf } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations, drive, rehearse } from '@fgaudo/effect-tea/testing'
+import * as Arr from 'effect/Array'
 import * as Effect from 'effect/Effect'
+import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Stream from 'effect/Stream'
 import * as fc from 'fast-check'
@@ -27,6 +29,11 @@ const messagesOf = ({ sound, limit, press }: Model): ReadonlyArray<Message> => [
   limit._tag === 'Quiet' ? limit.full : limit.quiet,
   ...Opt.toArray(press),
 ]
+
+// What a key sends, as `messagesOf` says what the model holds: a drag sends a move to wherever the pointer is, and
+// its release.
+const heardFrom = (key: unknown, at: number): ReadonlyArray<Message> =>
+  key === 'ringer' ? [Own.Moved({ at }), Own.DragEnded()] : []
 
 describe('volume', () => {
   // `update` alone: the rules, without running anything.
@@ -101,6 +108,26 @@ describe('volume', () => {
     const candidates = [Own.MuteClicked(), Own.UnmuteClicked(), Own.QuietClicked(), Own.FullClicked(), Own.DragStarted()]
     fc.assert(fc.property(state, (before) => {
       expect(violations(before, messagesOf(volume.makeModel(before)), candidates)).toEqual([])
+    }))
+  })
+
+  test('listens to a drag exactly while the ringer is dragged', () => {
+    fc.assert(fc.property(state, (before) => {
+      expect(Arr.fromIterable(HashMap.keys(subscriptionsOf(volume)(before))))
+        .toEqual(before.drag._tag === 'Dragging' ? ['ringer'] : [])
+    }))
+  })
+
+  // The keys, for any state: `update` accepts what each key the state lists may send, wherever the pointer is. A
+  // key's messages are meant to repeat, and no control sends them, so only a rejection is asked of them.
+  test('update accepts what each key it listens to sends', () => {
+    const violations = dispatchViolations(update, { repeatable: () => true })
+    fc.assert(fc.property(state, fc.double({ min: -50, max: 150, noNaN: true }), (before, at) => {
+      const heard = Arr.flatMap(
+        Arr.fromIterable(HashMap.keys(subscriptionsOf(volume)(before))),
+        (key) => heardFrom(key, at),
+      )
+      expect(violations(before, heard)).toEqual([])
     }))
   })
 

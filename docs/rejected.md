@@ -260,8 +260,13 @@ there; one decided against becomes an entry above.
   subscription's message, and whether a test lists a key's messages, a program exports them or a subscription
   declares them is open. Deferred with the suspension above, 15 November 2026; no control drawn goes through a key
   in the examples, so it concerns only sources that exist whatever is drawn ([`registers.md`](registers.md)).
-  *Reopen if* a key's message that `update` rejects, or that does nothing, is found in an application, or a test
-  must give a key's messages to `dispatchViolations`.
+  Weighed again the same day as a second `makeModel`, whose messages `subscriptions` would be given, and left parked
+  (reasoned): a subscription starts once for a key, where a view is drawn again from each model, so the messages
+  could depend on the key alone; most carry a value from the world, so that model would hold functions again; and
+  only a `Subscription` of the library's own could hold a channel to what it is given. Tried instead, and run: a
+  test lists what each key sends, as its reader lists what the model holds, and gives it to `dispatchViolations`
+  with every message `repeatable` ([`volume`](../examples/volume/volume.test.ts)). *Reopen if* a key's message that
+  `update` rejects, or that does nothing, is found in an application, and such a test does not find it.
 - **Frames a bridge skips by the equality of models** (`registers.md`, "To explore"): with no function in a model,
   the models of two equal states are `Equal`, and a bridge could skip the drawing, as `thunk` and `memo` do by
   reference. Neither spiked nor measured, 15 November 2026. *Reopen if* the benchmark of a bridge's frame

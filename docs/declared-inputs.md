@@ -120,8 +120,10 @@ reads them with a function of its own.
   key. No tool asks a subscription what it will send; a key that is listed and whose message `update` rejects, or
   that does nothing, is found by none. The exploration found it to be what its walk trusts most blindly. Short of a
   declaration, a test can list a key's messages and give them to `dispatchViolations` as it is, with every one
-  `repeatable`, and so have `Rejected` asked of them: read in `dispatch-violations.ts`, not run. `Inert` would be
-  asked of them too, once it exists.
+  `repeatable`, and so have `Rejected` asked of them: [`volume`](../examples/volume/volume.test.ts)'s test does
+  since 15 November 2026, with a reader of the keys as it has one of the model, and was seen to fail, alone of its
+  file, on an `update` that rejects the release of a drag while muted. Nothing checks that the reader lists what the
+  channel sends. `Inert` would be asked of them too, once it exists.
 - **Point 4, a command's answers: stands, and is the least pressing.** A test already stands in for `runCommand` in
   `simulate` and `rehearse`.
 - **Point 5: half done by other means.** The tools judge the model's messages, read by the test. A key's and a
