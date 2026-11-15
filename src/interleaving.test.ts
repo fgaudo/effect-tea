@@ -20,7 +20,7 @@ import { composition } from './compose.ts'
 import { type DefectSite, ProgramDefect } from './defect.ts'
 import { type Dispatch, dispatchTo } from './dispatch.ts'
 import type { Applied, Ignored } from './engine.ts'
-import { type Field, field, write } from './input.ts'
+import { write } from './input.ts'
 import type { Program } from './program.ts'
 import { type Frame, run } from './run.ts'
 import type { Subscription } from './subscription.ts'
@@ -32,7 +32,7 @@ import { reject } from './update.ts'
 // listens, hears two ticks from a subscription that then stays open, ends with a last message, or dies; each time it
 // starts listening again is a new session. The list can clear all its rows at once, stopping their subscriptions
 // together. The list has a note, an input the user writes into from the frame on screen or from an older one, which
-// clearing replaces, and while the note holds a text it searches for it, under a key of that text, so that a write
+// clearing empties, and while the note holds a text it searches for it, under a key of that text, so that a write
 // stops one search and starts another. What the user does, when commands complete, when ticks arrive and when
 // releases end is all in the hands of the scheduler of the tests (`test/scheduled.ts`), which may also make any fiber
 // yield between two of its steps; what is drawn beside it (`Fates`) says which subscriptions end or die, which
@@ -73,7 +73,7 @@ type RowModel = Readonly<{
   poke: RowMessage
 }>
 
-type ListState = Readonly<{ rows: ReadonlyArray<Readonly<{ id: Id; row: Row }>>; born: number; note: Field<string> }>
+type ListState = Readonly<{ rows: ReadonlyArray<Readonly<{ id: Id; row: Row }>>; born: number; note: string }>
 type Own = Readonly<{ _tag: 'Add'; id: Id }> | Readonly<{ _tag: 'Remove'; id: Id }> | Readonly<{ _tag: 'Clear' }>
 
 /** How a fiber of the program dies: of a defect, or interrupting itself, at once or by joining an interrupted fiber. */
@@ -414,7 +414,7 @@ const makeList = (fates: Fates, events: Array<Event>) => {
     )
   const List = composition<{ state: ListState }>()
   return List.compose({
-    init: () => ({ state: { rows: [], born: 0, note: field('') } }),
+    init: () => ({ state: { rows: [], born: 0, note: '' } }),
     children: {
       Rows: List.each(row, {
         get: (state, id: Id) => Opt.map(Arr.findFirst(state.rows, (entry) => entry.id === id), (entry) => entry.row),
@@ -434,14 +434,14 @@ const makeList = (fates: Fates, events: Array<Event>) => {
           return state.rows.some((entry) => entry.id === message.id)
             ? { state: { ...state, rows: state.rows.filter((entry) => entry.id !== message.id) } }
             : reject
-        // Another text in the note's place is a new input, which rejects what was written into the old one.
+        // Another text in the note's place rejects what was written over the old one.
         case 'Clear':
-          return state.rows.length > 0 ? { state: { ...state, rows: [], note: field('') } } : reject
+          return state.rows.length > 0 ? { state: { ...state, rows: [], note: '' } } : reject
       }
     },
     inputs: { Note: List.input(Optic.id<ListState>().key('note')) },
     subscriptions: ({ note }) =>
-      note.value === '' ? HashMap.empty() : HashMap.make([['search', note.value], searching(note.value)]),
+      note === '' ? HashMap.empty() : HashMap.make([['search', note], searching(note)]),
     makeModel: (state, children) => ({
       note: state.note,
       add: ids.filter((id) => !state.rows.some((entry) => entry.id === id)).map((id): Own => ({ _tag: 'Add', id })),
@@ -473,7 +473,7 @@ const act: fc.Arbitrary<Act> = fc.record({
 /** What the user types into the note drawn in `model`: a letter more, or one less. */
 const typing = (model: Model, pick: number): Control => (dispatch) =>
   dispatchTo(dispatch, 'Note')(
-    write(model.note, pick % 3 === 0 ? model.note.value.slice(0, -1) : `${model.note.value}${'ab'[pick % 2]}`),
+    write(model.note, pick % 3 === 0 ? model.note.slice(0, -1) : `${model.note}${'ab'[pick % 2]}`),
   )
 
 /** What a control does with the frame's dispatch: a row's sends through the row's own dispatch, as its view would. */
@@ -610,7 +610,7 @@ const applied = (events: ReadonlyArray<Event>) =>
   events.flatMap((event) => event._tag === 'Applied' ? [event.applied] : [])
 
 const finalState = (events: ReadonlyArray<Event>): ListState =>
-  applied(events).at(-1)?.after ?? { rows: [], born: 0, note: field('') }
+  applied(events).at(-1)?.after ?? { rows: [], born: 0, note: '' }
 
 /** The searches running after the first `count` events, by their text. */
 const searches = (events: ReadonlyArray<Event>, count = events.length) => {
@@ -738,7 +738,7 @@ describe('interleavings of the user, commands and subscriptions', () => {
         if (event._tag !== 'Applied') return
         const { message } = event.applied
         reached.add(message._tag === 'Rows' ? message.message._tag : message._tag)
-        if (message._tag !== 'Note' && event.applied.before.note.value !== event.applied.after.note.value) {
+        if (message._tag !== 'Note' && event.applied.before.note !== event.applied.after.note) {
           reached.add('a note replaced')
         }
         if (event.applied.before === event.applied.after) reached.add('the very same state')
@@ -858,37 +858,24 @@ describe('interleavings of the user, commands and subscriptions', () => {
   }, 120_000)
 
   // A stale write needs a write, a row, a clear and a write from a frame before it: taken out, the check of the
-  // revision was found after 20 to 532 scenarios, in four searches. 1,000 make a miss rare.
-  test('a write into the note is stored exactly at the revision it was drawn at, whatever it holds', () => {
+  // revision was found after 20 to 532 scenarios, in four searches, in the design this replaced. 1,000 make a miss
+  // rare.
+  test('a write into the note is stored exactly when it was written over the text the note holds, whatever it is', () => {
     property(({ events }) => {
       const broken: Array<string> = []
       for (const event of events) {
         if (event._tag === 'Applied' && event.applied.message._tag === 'Note') {
           const { before, after, message } = event.applied
-          if (message.message.revision !== before.note.revision) broken.push('a stale write was stored')
-          const same = message.message.value === before.note.value
-          if (same ? after !== before : after.note.value !== message.message.value) broken.push('not as written')
-          if (after.note.revision !== before.note.revision) broken.push('a write made a new input')
+          if (message.message.was !== before.note) broken.push('a stale write was stored')
+          const same = message.message.value === before.note
+          if (same ? after !== before : after.note !== message.message.value) broken.push('not as written')
         }
         if (event._tag === 'Ignored' && event.ignored.message._tag === 'Note') {
-          if (event.ignored.message.message.revision === event.ignored.state.note.revision) {
-            broken.push('a current write was rejected')
-          }
+          if (event.ignored.message.message.was === event.ignored.state.note) broken.push('a current write was rejected')
         }
       }
       expect(broken).toEqual([])
     }, { numRuns: 1000 })
-  }, 120_000)
-
-  test('a step that changes the value of the note gives it the next revision, and one that keeps it keeps the field', () => {
-    property(({ events }) => {
-      const broken = applied(events).flatMap(({ message, before, after }) => {
-        if (message._tag === 'Note') return []
-        if (before.note.value === after.note.value) return after.note === before.note ? [] : ['a new field, same value']
-        return after.note.revision === before.note.revision + 1 ? [] : [`revision ${after.note.revision}`]
-      })
-      expect(broken).toEqual([])
-    })
   }, 120_000)
 
   // A write is a message of the list like any other: the search it starts and the one it stops follow the key.
@@ -902,7 +889,7 @@ describe('interleavings of the user, commands and subscriptions', () => {
       expect(broken).toEqual([])
       if (deaths(events).length > 0) return
       const { note } = finalState(events)
-      expect(searches(events, settled)).toEqual(note.value === '' ? [] : [note.value])
+      expect(searches(events, settled)).toEqual(note === '' ? [] : [note])
     })
   }, 120_000)
 

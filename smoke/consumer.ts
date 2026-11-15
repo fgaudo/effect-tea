@@ -1,16 +1,18 @@
 // A consumer of the packed package, run with Node and typechecked by `smoke.ts` under several TypeScript versions
 // and module resolutions. It instantiates the types of `composition` (a child, children by id, events and external
-// messages, an input) and checks that what they reject does not compile.
+// messages, an input, and the rule a bridge calls for the element that shows one) and checks that what they reject
+// does not compile.
 import {
   andThen,
   composition,
-  type Field,
-  field,
+  drawn,
   isRejected,
   type MessageOf,
   type Program,
   reject,
   run,
+  type Shown,
+  typed,
   type Update,
   write,
 } from '@fgaudo/effect-tea'
@@ -147,30 +149,33 @@ child(
   { get: (state) => Opt.some(state.main), set: (state, main) => ({ ...state, main }) },
 )
 
-// An input and no children: the field is the program's own state, which the outside writes into.
-type Draft = Readonly<{ title: Field<string> }>
+// An input and no children: the title is the program's own state, which the outside writes over.
+type Draft = Readonly<{ title: string }>
 
 const drafting = composition<{ state: Draft; command: 'Load' }>()
 
 const draft = drafting.compose({
-  init: () => ({ state: { title: field('') } }),
+  init: () => ({ state: { title: '' } }),
   inputs: { Title: drafting.input(Optic.id<Draft>().key('title')) },
   update: (_: 'Cleared') => (state: Draft) => ({
-    state: { title: field('') },
-    commands: state.title.value === '' ? [] : ['Load' as const],
+    state: { title: '' },
+    commands: state.title === '' ? [] : ['Load' as const],
   }),
   runCommand: () => Effect.succeedNone,
   makeModel: (state) => state.title,
 })
 
-// A write is of the value the field holds; an own message that takes an input's name does not compile, nor does a
-// command's answer that writes into an input.
+// A write is of the value the place holds; an own message that takes an input's name does not compile, nor does a
+// command's answer that writes into an input, nor an element made by hand.
 // @ts-expect-error
-const wrong: MessageOf<typeof draft> = { _tag: 'Title', message: write(field(0), 1) }
+const wrong: MessageOf<typeof draft> = { _tag: 'Title', message: write(0, 1) }
+
+// @ts-expect-error
+const byHand: Shown<string> = { value: '' }
 
 // @ts-expect-error
 drafting.compose({
-  init: () => ({ state: { title: field('') } }),
+  init: () => ({ state: { title: '' } }),
   inputs: { Title: drafting.input(Optic.id<Draft>().key('title')) },
   update: (_: Readonly<{ _tag: 'Title' }>) => (state: Draft) => ({ state }),
   runCommand: () => Effect.succeedNone,
@@ -178,11 +183,11 @@ drafting.compose({
 })
 
 drafting.compose({
-  init: () => ({ state: { title: field('') } }),
+  init: () => ({ state: { title: '' } }),
   inputs: { Title: drafting.input(Optic.id<Draft>().key('title')) },
   update: (_: 'Cleared') => (state: Draft) => ({ state, commands: ['Load' as const] }),
   // @ts-expect-error
-  runCommand: () => Effect.succeedSome({ _tag: 'Title' as const, message: write(field(''), 'a') }),
+  runCommand: () => Effect.succeedSome({ _tag: 'Title' as const, message: write('', 'a') }),
   makeModel: () => null,
 })
 
@@ -199,13 +204,21 @@ const folded = applyAll(app.update)([increment(), increment(), increment(), incr
 assert(folded.state.main.count === 3 && folded.state.fulls === 1, 'applyAll routes to the children')
 assert(app.makeModel(folded.state).rows[0]?.model.count === 1, 'makeModel reads the children by id')
 
-const typed = applyAll(draft.update)(
+const cleared = applyAll(draft.update)(
   [{ _tag: 'Title', message: write(draft.init.state.title, 'Ada') }, 'Cleared'],
   draft.init.state,
 )
-assert(typed.state.title.value === '' && typed.state.title.revision === 1, 'a replaced input gets the next revision')
-const late = draft.update({ _tag: 'Title', message: write(draft.init.state.title, 'Ada L') })(typed.state)
-assert(isRejected(late) && wrong !== undefined, 'a write into a replaced input is rejected')
+assert(cleared.state.title === '' && cleared.commands.length === 1, 'a write is stored, and the step sees it')
+const late = draft.update({ _tag: 'Title', message: write('Ada', 'Ada L') })(cleared.state)
+assert(isRejected(late) && wrong !== undefined, 'a write over a value the input no longer holds is rejected')
+
+// What a bridge does with an element: typed by the user, numbered by the dispatch, settled by a frame.
+const shown = drawn(undefined, 'Ada', 0)
+const { write: edit, sent } = typed(shown, 'Ada L')
+const element = sent(1)
+assert(edit.was === 'Ada' && element.value === 'Ada L', 'typed writes over what the element showed')
+assert(drawn(element, 'Ada', 0) === element && byHand !== undefined, 'a frame that has not seen the write keeps it')
+assert(drawn(element, '', 1).value === '', 'a frame that has seen it and moved on gives its value')
 
 const main = Effect.gen(function*() {
   const simulation = yield* simulate(app)([increment(), { _tag: 'ResetAll' }], app.init)
@@ -213,9 +226,10 @@ const main = Effect.gen(function*() {
   const counts: Array<number> = []
   yield* run(app, (frames) =>
     frames.pipe(
-      Stream.tap(Effect.fnUntraced(function*({ model, dispatch }) {
+      Stream.tap(Effect.fnUntraced(function*({ model, dispatch, seen }) {
         counts.push(model.main.count)
-        if (model.fulls === 0) yield* dispatch(increment())
+        assert(seen === model.main.count, 'a frame has seen the messages that made its state')
+        if (model.fulls === 0) assert((yield* dispatch(increment())) === seen + 1, 'a dispatch numbers its message')
       })),
       Stream.take(4),
       Stream.runDrain,

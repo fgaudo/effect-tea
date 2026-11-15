@@ -10,9 +10,10 @@ version, and everything else, features included, the patch version.
 - `forEach(step, items, (item) => (state) => step)`, the `andThen` of many: one step per item, in order.
 - `andThen` and `forEach` are dual: `andThen(next)` and `forEach(items, next)` take the step last, for a `pipe`.
 - A `CompositionDefect` says in `on`, by its tags, which external message or event broke the parent's rule.
-- Inputs: `inputs: { Name: input(at) }` in `compose`, at a `Field<A>` of the state, which the view writes into with
-  `write(field, value)`; the library stores a write at the revision it was drawn at and rejects any other, and gives
-  the next revision to a field a step leaves with another value (`field`, `renewed`, `Written`).
+- Inputs: `inputs: { Name: input(at) }` in `compose`, at a plain value of the state, which the view writes over with
+  `write(was, value)`; the library stores a write while the place holds `was`, by `Equal`, and rejects it otherwise.
+- `typed` and `drawn`, over an opaque `Shown`: the rule a bridge calls for the element of an input, on an edit and
+  after each frame, so that the element is never replaced and never takes back what the user typed since.
 - `children` in `compose` is optional, for a program with inputs and no children.
 
 ### Changed
@@ -23,7 +24,7 @@ version, and everything else, features included, the patch version.
   `(message) => Effect.sync(() => sent.push(message))`, and a frame made by hand has `seen`.
 - **Breaking**: "Model" in the README says that a model is data: it holds no function, and compares by `Equal`.
   Upgrade: a function of the model that makes a message from what the user typed, `changeName: (name) =>
-  NameChanged({ name })`, becomes an input, `inputs: { Name: input(at) }`, and the view writes into its field,
+  NameChanged({ name })`, becomes an input, `inputs: { Name: input(at) }`, and the view writes over its value,
   `write(model.name, text)` through `dispatchTo(dispatch, 'Name')`, where it called `model.changeName(text)`.
 - **Breaking**: `parent` is renamed `composition`, since a program with inputs and no children is made with it too.
   Upgrade: `parent<{ state: State }>()` becomes `composition<{ state: State }>()`, and its import likewise.
@@ -32,11 +33,13 @@ version, and everything else, features included, the patch version.
   compiles. Upgrade: an answer `{ _tag: 'Note', message: { _tag: 'Pinned' } }`, of the child's own business, becomes
   an own message of the parent's, whose `update` tells the child through its handle, `children.Note.update(…)`, an
   external message the child declares for it; a value for a child's input becomes a message of the child's program,
-  whose `update` replaces the field.
-- "Inputs the user types into", "Declaring children", "Model and view", "Splitting a program", "Guarantees" and
-  "Testing" in the README describe inputs; `examples/field.ts` is removed, and `form` and `form-react` declare one.
-- The `volume` example declares a slider as an input, with `renewed` for a new slider when its bounds narrow; the
-  examples' bridges have `onSlide`, for a slider drawn from a field.
+  whose `update` puts it in the input's place.
+- "View", "Inputs the user types into", "Declaring children", "Model and view", "Splitting a program", "Guarantees"
+  and "Testing" in the README describe inputs, the condition they need of elements and renderers, and that a renderer
+  draws frames and nothing else; `examples/field.ts` is removed, and `form` and `form-react` declare one.
+- The examples' bridges keep the element of each input and settle it after each frame with `drawn` (`shows` and
+  `slides` with snabbdom, `Shows` with React), and have `onPress`; `volume` draws a native slider beside one the
+  program draws, whose drag is a subscription, for bounds that narrow.
 - The peer dependency on `effect` is `^4.1.4`, where it was `^4.0.0`, and starts at the Effect it is developed with.
 - A child whose state is not an object, past the types, is a `CompositionDefect` that names it, not a `TypeError`.
 - `simulate` and `rehearse` read `subscriptions` on each new state, as the run does, and fail where it dies of them.

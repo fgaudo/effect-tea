@@ -1,6 +1,6 @@
-// A form that saves names. The name is an input, a field of the form's own state that the outside writes into: no
-// `update` of the form's sees what is typed, which the library stores in any state, and rejects once the form has
-// replaced the input. The form's messages are those it fixes, Save and the answers of its command, and its model
+// A form that saves names. The name is an input, a plain value of the form's own state that the outside writes over:
+// no `update` of the form's sees what is typed, which the library stores in any state, and rejects once the form has
+// put another name in its place. The form's messages are those it fixes, Save and the answers of its command, and its model
 // holds no function. The name's validity becomes model data: "Save" exists only for a name that is not blank.
 // Saving is a state that only its completion leaves, so a second click is rejected, and a completion outside it
 // cannot arrive: it is a defect. The model has no input to type into while saving, but a key typed before the input
@@ -10,8 +10,6 @@ import {
   composition,
   defect,
   type Execution,
-  type Field,
-  field,
   type MessageOf,
   type ModelOf,
   reject,
@@ -32,7 +30,7 @@ export type Save = Data.TaggedEnum<{
 export const Save = Data.taggedEnum<Save>()
 
 export type State = Readonly<{
-  name: Field<string>
+  name: string
   save: Save
   saved: ReadonlyArray<string>
 }>
@@ -80,23 +78,24 @@ export const Editor = Data.taggedEnum<Editor>()
 const { input, compose } = composition<{ state: State; command: Command }>()
 
 export const form = compose({
-  init: () => ({ state: { name: field(''), save: Save.Idle(), saved: [] } }),
+  init: () => ({ state: { name: '', save: Save.Idle(), saved: [] } }),
   inputs: { Name: input(Optic.id<State>().key('name')) },
   update: (message: Own) => (state) => {
     switch (message._tag) {
       case 'SaveClicked':
-        return state.save._tag === 'Saving' || isBlank(state.name.value)
+        return state.save._tag === 'Saving' || isBlank(state.name)
           ? reject
           : {
             state: { ...state, save: Save.Saving() },
-            commands: [Command.Save({ name: state.name.value.trim() })],
+            commands: [Command.Save({ name: state.name.trim() })],
           }
       // A completion arrives only while saving: there is no other operation it could belong to. Anywhere else it
       // is a bug, and the run dies with it.
       case 'SaveSucceeded':
         return state.save._tag === 'Saving'
-          // Another value in the name's place is a new input: the library gives it the next revision.
-          ? { state: { name: field(''), save: Save.Idle(), saved: [...state.saved, message.name] } }
+          // Another value in the name's place: what was typed over the old one is rejected, and the input on screen
+          // is emptied.
+          ? { state: { name: '', save: Save.Idle(), saved: [...state.saved, message.name] } }
           : defect('A save completed while nothing was saving')
       case 'SaveFailed':
         return state.save._tag === 'Saving'
@@ -106,12 +105,12 @@ export const form = compose({
   },
   runCommand,
   makeModel: (state) => ({
-    // The form's own state: the view draws the input from it, and writes into it.
+    // The form's own state: the view draws the input from it, and writes over it.
     name: state.name,
     // Less than is accepted: typing is still stored while saving, but there is nothing to type into.
     editor: state.save._tag === 'Saving'
       ? Editor.Saving()
-      : isBlank(state.name.value)
+      : isBlank(state.name)
       ? Editor.Blank()
       : Editor.Named({ save: Own.SaveClicked() }),
     failed: state.save._tag === 'Failed' ? Opt.some(state.save.name) : Opt.none(),

@@ -1,5 +1,6 @@
-// The semantics of an input, as pure pieces: what `update` makes of what is written into one, and of a step of the
-// program that replaces one, by value. Nothing here runs.
+// The semantics of an input, as pure pieces: what `update` makes of what is written into one, what a step of the
+// program leaves of one, and what an element on screen holds of one, as a bridge asks the library (`typed`, `drawn`).
+// Nothing here runs.
 import { describe, expect, test } from 'bun:test'
 import * as Arr from 'effect/Array'
 import * as Effect from 'effect/Effect'
@@ -8,23 +9,23 @@ import * as Optic from 'effect/Optic'
 import * as fc from 'fast-check'
 import { composition } from './compose.ts'
 import { type Dispatch, dispatchTo } from './dispatch.ts'
-import { type Field, field, renewed, write, type Written } from './input.ts'
+import { drawn, type Shown, typed, write, type Written } from './input.ts'
 import type { MessageOf } from './program.ts'
 import { dispatchViolations } from './testing/dispatch-violations.ts'
 import { isRejected, raise, reject, type Step, type Transition } from './update.ts'
 
+const stepped = <S, C, E>(result: Transition<S, C, E>): Step<S, C, E> => {
+  if (isRejected(result)) throw new Error('rejected')
+  return result
+}
+
 // A draft with a title and a level, which the outside writes into, and what the program does with them: it clears
-// the title, takes back the state it had, and mutes the level.
-type Draft = Readonly<{ title: Field<string>; level: Field<number>; before: Opt.Option<Draft>; opened: number }>
+// the title, keeping the state it had, takes that state back, and mutes the level.
+type Draft = Readonly<{ title: string; level: number; before: Opt.Option<Draft>; opened: number }>
 
 type Own = 'Cleared' | 'Undone' | 'Muted' | 'Opened' | 'Touched'
 
-const draftOf = (title: string, level = 50): Draft => ({
-  title: field(title),
-  level: field(level),
-  before: Opt.none(),
-  opened: 0,
-})
+const draftOf = (title: string, level = 50): Draft => ({ title, level, before: Opt.none(), opened: 0 })
 
 const here = Optic.id<Draft>()
 
@@ -36,13 +37,12 @@ const draft = compose({
   update: (message: Own) => (state) => {
     switch (message) {
       case 'Cleared':
-        return state.title.value === '' ? reject : { state: { ...state, title: field(''), before: Opt.some(state) } }
-      // The whole state it had, its fields included, as they were.
+        return state.title === '' ? reject : { state: { ...state, title: '', before: Opt.some(state) } }
+      // The whole state it had, as it was.
       case 'Undone':
         return Opt.match(state.before, { onNone: () => reject, onSome: (before) => ({ state: before }) })
-      // Written by hand, with a revision of the program's own choosing.
       case 'Muted':
-        return { state: { ...state, level: { value: 0, revision: 0 } } }
+        return { state: { ...state, level: 0 } }
       case 'Opened':
         return { state: { ...state, opened: state.opened + 1 } }
       case 'Touched':
@@ -54,102 +54,88 @@ const draft = compose({
 
 type Message = MessageOf<typeof draft>
 
-const title = (into: Field<string>, text: string): Message => ({ _tag: 'Title', message: write(into, text) })
+const title = (was: string, text: string): Message => ({ _tag: 'Title', message: write(was, text) })
 
-const level = (into: Field<number>, value: number): Message => ({ _tag: 'Level', message: write(into, value) })
-
-const stepOf = (message: Message, state: Draft): Step<Draft> => {
-  const result = draft.update(message)(state)
-  if (isRejected(result)) throw new Error('rejected')
-  return result
-}
+const level = (was: number, value: number): Message => ({ _tag: 'Level', message: write(was, value) })
 
 const drafts = fc.record({
-  title: fc.record({ value: fc.string(), revision: fc.nat() }),
-  level: fc.record({ value: fc.integer(), revision: fc.nat() }),
+  title: fc.string(),
+  level: fc.integer(),
   before: fc.constant(Opt.none<Draft>()),
   opened: fc.nat(),
 })
 
 describe('what is written into an input', () => {
-  test('is stored, whatever it is, at the revision of the field it was written into', () => {
+  test('is stored, whatever it is, when it was written over the value the place holds', () => {
     fc.assert(fc.property(drafts, fc.string(), fc.integer(), (state, text, value) => {
-      const typed = stepOf(title(state.title, text), state).state
-      expect(typed).toEqual({ ...state, title: { value: text, revision: state.title.revision } })
-      const slid = stepOf(level(state.level, value), state).state
-      expect(slid).toEqual({ ...state, level: { value, revision: state.level.revision } })
+      expect(stepped(draft.update(title(state.title, text))(state)).state).toEqual({ ...state, title: text })
+      expect(stepped(draft.update(level(state.level, value))(state)).state).toEqual({ ...state, level: value })
     }))
   })
 
-  test('leaves the very same state when the field holds it already', () => {
+  test('leaves the very same state when the place holds it already', () => {
     const state = draftOf('Ada')
-    expect(stepOf(title(state.title, 'Ada'), state).state).toBe(state)
+    expect(stepped(draft.update(title('Ada', 'Ada'))(state)).state).toBe(state)
   })
 
-  test('is rejected once the program has replaced the field it was written into', () => {
-    const drawn = draftOf('Ada')
-    const cleared = stepOf('Cleared', drawn).state
-    expect(cleared.title).toEqual({ value: '', revision: 1 })
-    expect(isRejected(draft.update(title(drawn.title, 'Ada L'))(cleared))).toBe(true)
-    // Into the field the new state holds, it is stored.
-    expect(stepOf(title(cleared.title, 'B'), cleared).state.title).toEqual({ value: 'B', revision: 1 })
+  test('is rejected when it was written over another value than the place holds', () => {
+    fc.assert(fc.property(drafts, fc.string(), fc.string(), (state, was, text) => {
+      fc.pre(was !== state.title)
+      expect(isRejected(draft.update(title(was, text))(state))).toBe(true)
+    }))
+    const cleared = stepped(draft.update('Cleared')(draftOf('Ada'))).state
+    expect(isRejected(draft.update(title('Ada', 'Ada L'))(cleared))).toBe(true)
+    expect(stepped(draft.update(title('', 'B'))(cleared)).state.title).toBe('B')
   })
 
   test('goes to its own input, and leaves the others as they are', () => {
     const state = draftOf('Ada')
-    const slid = stepOf(level(state.level, 80), state).state
-    expect(slid.title).toBe(state.title)
-    expect(slid.level).toEqual({ value: 80, revision: 0 })
+    expect(stepped(draft.update(level(50, 80))(state)).state).toEqual({ ...state, level: 80 })
   })
 
   test('is rejected where the input is not in the state', () => {
-    type Page = Readonly<{ search: Opt.Option<Field<string>> }>
+    type Page = Readonly<{ search: Opt.Option<string> }>
     const page = composition<{ state: Page }>()
     const program = page.compose({
       init: () => ({ state: { search: Opt.none() } }),
       inputs: { Search: page.input(Optic.id<Page>().key('search').compose(Optic.some())) },
       makeModel: (state) => state,
     })
-    const written = { _tag: 'Search' as const, message: write(field(''), 'a') }
+    const written = { _tag: 'Search' as const, message: write('', 'a') }
     expect(isRejected(program.update(written)({ search: Opt.none() }))).toBe(true)
-    expect(program.update(written)({ search: Opt.some(field('')) })).toMatchObject({
-      state: { search: Opt.some({ value: 'a', revision: 0 }) },
+    expect(stepped(program.update(written)({ search: Opt.some('') })).state).toEqual({ search: Opt.some('a') })
+  })
+
+  test('compares the value it was written over by Equal, whatever it is made of', () => {
+    type Tags = Readonly<{ tags: ReadonlyArray<string> }>
+    const tags = composition<{ state: Tags }>()
+    const program = tags.compose({
+      init: () => ({ state: { tags: [] } }),
+      inputs: { Tags: tags.input(Optic.id<Tags>().key('tags')) },
+      makeModel: (state) => state,
     })
+    const held: Tags = { tags: ['a', 'b'] }
+    const over = (was: ReadonlyArray<string>, value: ReadonlyArray<string>) =>
+      program.update({ _tag: 'Tags', message: write(was, value) })(held)
+    expect(stepped(over(['a', 'b'], ['a', 'b', 'c'])).state).toEqual({ tags: ['a', 'b', 'c'] })
+    // An equal copy of the value held leaves the very value held.
+    expect(stepped(over(['a', 'b'], ['a', 'b'])).state).toBe(held)
+    expect(isRejected(over(['b', 'a'], ['c']))).toBe(true)
   })
 })
 
 describe('a step of the program', () => {
-  test('that leaves another value in the place of an input replaces it, at the next revision', () => {
+  test('leaves an input as it wrote it: the state stored is the state written', () => {
     fc.assert(fc.property(drafts, (state) => {
-      fc.pre(state.title.value !== '')
-      expect(stepOf('Cleared', state).state.title).toEqual({ value: '', revision: state.title.revision + 1 })
+      fc.pre(state.title !== '')
+      expect(stepped(draft.update('Cleared')(state)).state).toEqual({ ...state, title: '', before: Opt.some(state) })
     }))
-  })
-
-  test('cannot take the revision back: a field written by hand at a lower one is the next one too', () => {
-    const state = { ...draftOf('Ada'), level: { value: 70, revision: 4 } }
-    expect(stepOf('Muted', state).state.level).toEqual({ value: 0, revision: 5 })
-  })
-
-  // What an opaque field cannot stop (docs/registers.md, check 5): a valid field, taken from an earlier state.
-  test('cannot bring a revision back: a field of an older state is a new input', () => {
-    const drawn = draftOf('Ada')
-    const cleared = stepOf('Cleared', drawn).state
-    const typedSince = stepOf(title(cleared.title, 'B'), cleared).state
-    const undone = stepOf('Undone', typedSince).state
-    expect(undone.title).toEqual({ value: 'Ada', revision: 2 })
-    // What was typed into the input of the first frame, which showed the same text, no longer applies.
-    expect(isRejected(draft.update(title(drawn.title, 'Ada L'))(undone))).toBe(true)
-  })
-
-  test('that leaves an input as it found it keeps its field, and one that changes nothing its step', () => {
     const state = draftOf('Ada')
-    expect(stepOf('Opened', state).state.title).toBe(state.title)
-    expect(stepOf('Opened', state).state.level).toBe(state.level)
-    expect(stepOf('Touched', state).state).toBe(state)
+    expect(stepped(draft.update('Opened')(state)).state.title).toBe(state.title)
+    expect(stepped(draft.update('Touched')(state)).state).toBe(state)
   })
 
-  test('of a child, or of what the parent makes of its event, replaces the parent\'s inputs alike', () => {
+  test('of a child, or of what the parent makes of its event, is stored as written too', () => {
     type Button = Readonly<{ pressed: number }>
     const button = {
       init: { state: { pressed: 0 } },
@@ -159,32 +145,166 @@ describe('a step of the program', () => {
       }),
       makeModel: (state: Button) => state,
     }
-    type Form = Readonly<{ name: Field<string>; reset: Button }>
+    type Form = Readonly<{ name: string; reset: Button }>
     const form = composition<{ state: Form; event: 'Reset' }>()
     const program = form.compose({
-      init: (children) => ({ state: { name: field(''), reset: children.Reset.init.state } }),
+      init: (children) => ({ state: { name: '', reset: children.Reset.init.state } }),
       children: { Reset: form.child(button, { at: Optic.id<Form>().key('reset') }) },
       inputs: { Name: form.input(Optic.id<Form>().key('name')) },
-      onEvent: { Reset: (event) => (state) => raise(event)({ ...state, name: field('') }) },
+      onEvent: { Reset: (event) => (state) => raise(event)({ ...state, name: '' }) },
       makeModel: (state) => state,
     })
-    const drawn: Form = { name: field('Ada'), reset: { pressed: 0 } }
-    const result = program.update({ _tag: 'Reset', message: 'Pressed' })(drawn)
-    expect(result).toEqual({
-      state: { name: { value: '', revision: 1 }, reset: { pressed: 1 } },
-      commands: [],
-      events: ['Reset'],
-    })
+    const result = program.update({ _tag: 'Reset', message: 'Pressed' })({ name: 'Ada', reset: { pressed: 0 } })
+    expect(result).toEqual({ state: { name: '', reset: { pressed: 1 } }, commands: [], events: ['Reset'] })
+    expect(isRejected(program.update({ _tag: 'Name', message: write('Ada', 'Ada L') })(stepped(result).state))).toBe(
+      true,
+    )
+  })
+})
+
+// A desk whose draft is sent, kept and brought back, and drafts by id, where an id leaves and comes back. Each history
+// ends with a key typed into the input of a frame drawn before the desk replaced the draft: it is rejected from the
+// state and the message alone, since the place no longer holds what the key was typed over.
+describe('a key typed into an input its parent has since replaced', () => {
+  type Sent = Readonly<{ _tag: 'Sent'; text: string }>
+  type Text = Readonly<{ text: string }>
+  const text = composition<{ state: Text; event: Sent }>()
+  const textDraft = text.compose({
+    init: () => ({ state: { text: '' } }),
+    inputs: { Text: text.input(Optic.id<Text>().key('text')) },
+    update: (message: 'SendClicked' | 'DiscardClicked') => (state) =>
+      message === 'DiscardClicked'
+        ? { state: { text: '' } }
+        : state.text === ''
+        ? reject
+        : { state, events: [{ _tag: 'Sent', text: state.text }] },
+    makeModel: (state) => state.text,
+  })
+  type DeskOwn =
+    | Readonly<{ _tag: 'Kept' }>
+    | Readonly<{ _tag: 'Undone' }>
+    | Readonly<{ _tag: 'RowAdded'; id: number }>
+    | Readonly<{ _tag: 'RowRemoved'; id: number }>
+  type Desk = Readonly<{
+    draft: Text
+    kept: Opt.Option<Text>
+    rows: ReadonlyArray<Readonly<{ id: number; draft: Text }>>
+    sent: ReadonlyArray<string>
+  }>
+  const deskOf = composition<{ state: Desk }>()
+  const rowAt = (state: Desk, id: number) =>
+    Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.draft)
+  const desk = deskOf.compose({
+    init: (children) => ({ state: { draft: children.Draft.init.state, kept: Opt.none(), rows: [], sent: [] } }),
+    children: {
+      Draft: deskOf.child(textDraft, { at: Optic.id<Desk>().key('draft') }),
+      Row: deskOf.each(textDraft, {
+        get: rowAt,
+        set: (state, id, draft) => ({
+          ...state,
+          rows: Arr.map(state.rows, (row) => row.id === id ? { id, draft } : row),
+        }),
+        subscribed: (state) => Arr.map(state.rows, ({ id, draft }) => [id, draft] as const),
+      }),
+    },
+    update: (message: DeskOwn, children) => (state) => {
+      switch (message._tag) {
+        case 'Kept':
+          return { state: { ...state, kept: Opt.some(state.draft) } }
+        case 'Undone':
+          return Opt.match(state.kept, {
+            onNone: () => reject,
+            onSome: (draft) => ({ state: { ...state, draft, kept: Opt.none() } }),
+          })
+        case 'RowAdded':
+          return { state: { ...state, rows: [...state.rows, { id: message.id, draft: children.Row.init(message.id).state }] } }
+        case 'RowRemoved':
+          return { state: { ...state, rows: Arr.filter(state.rows, (row) => row.id !== message.id) } }
+      }
+    },
+    onEvent: {
+      // Sent, the draft is started again: the state its parent puts back is the one it starts with.
+      Draft: (event, children) => (state) => ({
+        state: { ...state, draft: children.Draft.init.state, sent: [...state.sent, event.text] },
+      }),
+      Row: () => (state) => ({ state }),
+    },
+    makeModel: (state, children) => ({
+      draft: children.Draft(state),
+      rows: Arr.map(state.rows, ({ id }) => ({ id, text: children.Row(state, id) })),
+    }),
+  })
+  type DeskMessage = MessageOf<typeof desk>
+  type DeskModel = ReturnType<typeof desk.makeModel>
+  const typing = (model: DeskModel, value: string, id?: number): DeskMessage =>
+    id === undefined
+      ? { _tag: 'Draft', message: { _tag: 'Text', message: write(model.draft, value) } }
+      : {
+        _tag: 'Row',
+        id,
+        message: {
+          _tag: 'Text',
+          message: write(Opt.getOrThrow(Arr.findFirst(model.rows, (row) => row.id === id)).text, value),
+        },
+      }
+  const after = (messages: ReadonlyArray<DeskMessage>, from: Desk = desk.init.state): Desk =>
+    messages.reduce((state, message) => stepped(desk.update(message)(state)).state, from)
+  const textOf = (state: Desk, id?: number) => (id === undefined ? state.draft : Opt.getOrThrow(rowAt(state, id))).text
+
+  test('a text typed into the input on screen is stored', () => {
+    const typedOnce = after([typing(desk.makeModel(desk.init.state), 'hel')])
+    expect(textOf(after([typing(desk.makeModel(typedOnce), 'hello')], typedOnce))).toBe('hello')
+  })
+
+  test('typed before the desk started the draft again, it is rejected by the new draft', () => {
+    const typedInto = after([typing(desk.makeModel(desk.init.state), 'hello')])
+    const onScreen = desk.makeModel(typedInto)
+    const sent = after([{ _tag: 'Draft', message: 'SendClicked' }], typedInto)
+    expect(sent).toEqual({ ...desk.init.state, sent: ['hello'] })
+    expect(isRejected(desk.update(typing(onScreen, 'hello!'))(sent))).toBe(true)
+  })
+
+  test('typed before the desk brought a kept draft back, it is rejected by the draft brought back', () => {
+    const kept = after([typing(desk.makeModel(desk.init.state), 'Ada'), { _tag: 'Kept' }])
+    const typedInto = after([typing(desk.makeModel(kept), 'Adam')], kept)
+    const onScreen = desk.makeModel(typedInto)
+    const undone = after([{ _tag: 'Draft', message: 'DiscardClicked' }, { _tag: 'Undone' }], typedInto)
+    expect(textOf(undone)).toBe('Ada')
+    expect(isRejected(desk.update(typing(onScreen, 'Adamx'))(undone))).toBe(true)
+  })
+
+  test('typed into a row, it is rejected by another row that came to its id', () => {
+    const added = after([{ _tag: 'RowAdded', id: 1 }])
+    const typedInto = after([typing(desk.makeModel(added), 'a', 1)], added)
+    const onScreen = desk.makeModel(typedInto)
+    const back = after([{ _tag: 'RowRemoved', id: 1 }, { _tag: 'RowAdded', id: 1 }], typedInto)
+    expect(textOf(back, 1)).toBe('')
+    expect(isRejected(desk.update(typing(onScreen, 'ab', 1))(back))).toBe(true)
+  })
+
+  // The two limits of a design where a message names a place, which the guide declares: neither corrupts the state.
+  test('a write over a value that came back is stored, as what the user typed over what they saw', () => {
+    const typedInto = after([typing(desk.makeModel(desk.init.state), 'hello')])
+    const onScreen = desk.makeModel(desk.init.state)
+    const sent = after([{ _tag: 'Draft', message: 'SendClicked' }], typedInto)
+    // The draft holds '' again, the value the old frame's input was typed over.
+    expect(textOf(after([typing(onScreen, 'h')], sent))).toBe('h')
+  })
+
+  test('a fixed message drawn for the old draft reaches the new one, and update decides', () => {
+    const typedInto = after([typing(desk.makeModel(desk.init.state), 'hello')])
+    const sent = after([{ _tag: 'Draft', message: 'SendClicked' }], typedInto)
+    expect(isRejected(desk.update({ _tag: 'Draft', message: 'SendClicked' })(sent))).toBe(true)
+    expect(after([{ _tag: 'Draft', message: 'DiscardClicked' }], sent)).toEqual(sent)
   })
 })
 
 describe('an input in a child by id', () => {
-  type Note = Readonly<{ text: Field<string> }>
+  type Note = Readonly<{ text: string }>
   const note = composition<{ state: Note }>()
   const noteProgram = note.compose({
-    init: () => ({ state: { text: field('') } }),
+    init: () => ({ state: { text: '' } }),
     inputs: { Text: note.input(Optic.id<Note>().key('text')) },
-    update: (_: 'Discarded') => (state) => state.text.value === '' ? reject : { state: { text: field('') } },
     makeModel: (state) => state,
   })
   type Notes = Readonly<{ notes: ReadonlyArray<Readonly<{ id: number; note: Note }>> }>
@@ -202,45 +322,42 @@ describe('an input in a child by id', () => {
     makeModel: (state, children) => Arr.map(state.notes, ({ id }) => ({ id, note: children.Note(state, id) })),
   })
   type NotesMessage = MessageOf<typeof program>
-  const typing = (id: number, into: Field<string>, text: string): NotesMessage => ({
+  const typing = (id: number, was: string, text: string): NotesMessage => ({
     _tag: 'Note',
     id,
-    message: { _tag: 'Text', message: write(into, text) },
+    message: { _tag: 'Text', message: write(was, text) },
   })
-  const state: Notes = { notes: [{ id: 1, note: { text: field('a') } }, { id: 2, note: { text: field('b') } }] }
+  const state: Notes = { notes: [{ id: 1, note: { text: 'a' } }, { id: 2, note: { text: 'b' } }] }
 
   test('is written into through the child\'s place, and no other note changes', () => {
-    const result = program.update(typing(2, field('b'), 'bc'))(state)
-    expect(result).toEqual({
-      state: { notes: [{ id: 1, note: { text: field('a') } }, { id: 2, note: { text: field('bc') } }] },
+    expect(program.update(typing(2, 'b', 'bc'))(state)).toEqual({
+      state: { notes: [{ id: 1, note: { text: 'a' } }, { id: 2, note: { text: 'bc' } }] },
       commands: [],
       events: [],
     })
   })
 
-  test('rejects what was written before the note replaced it, and what was written into a note that is gone', () => {
-    const discarded = program.update({ _tag: 'Note', id: 2, message: 'Discarded' })(state)
-    if (isRejected(discarded)) throw new Error('rejected')
-    expect(isRejected(program.update(typing(2, field('b'), 'bc'))(discarded.state))).toBe(true)
-    expect(isRejected(program.update(typing(3, field(''), 'c'))(state))).toBe(true)
+  test('rejects what was written over another text, and what was written into a note that is gone', () => {
+    expect(isRejected(program.update(typing(2, 'a', 'ac'))(state))).toBe(true)
+    expect(isRejected(program.update(typing(3, '', 'c'))(state))).toBe(true)
   })
 
   test('has a dispatch of its own, made from its note\'s', () => {
     const sent: Array<NotesMessage> = []
     const dispatch: Dispatch<NotesMessage> = (message) => Effect.sync(() => sent.push(message))
     const toText: Dispatch<Written<string>> = dispatchTo(dispatchTo(dispatch, 'Note', 2), 'Text')
-    Effect.runSync(toText(write(field('b'), 'bc')))
-    expect(sent).toEqual([typing(2, field('b'), 'bc')])
+    expect(Effect.runSync(toText(write('b', 'bc')))).toBe(1)
+    expect(sent).toEqual([typing(2, 'b', 'bc')])
   })
 })
 
 describe('the tools of the model', () => {
   // What a model holds is what the program fixes: no value is drawn, and what is written is asked of nothing.
-  test('judge a replacement as any message: by the value held it changes nothing, so it does not act twice', () => {
+  test('judge a step that empties an input as any message: on an empty one it changes nothing, so it does not act twice', () => {
     const always = compose({
       init: () => ({ state: draftOf('') }),
       inputs: { Title: input(here.key('title')) },
-      update: (_: 'Cleared') => (state) => ({ state: { ...state, title: field('') } }),
+      update: (_: 'Cleared') => (state) => ({ state: { ...state, title: '' } }),
       makeModel: (state) => state,
     })
     expect(dispatchViolations(always.update)(draftOf('Ada'), ['Cleared'])).toEqual([])
@@ -248,15 +365,89 @@ describe('the tools of the model', () => {
   })
 })
 
+// What a bridge asks of the library for each element that shows an input: `typed` when the user edits it, `drawn`
+// when a frame is drawn. `sent` numbers stand for what the run's dispatch returned.
+describe('what an element on screen holds of an input', () => {
+  const made = (value: string) => drawn(undefined, value, 0)
+  const typing = (held: Shown<string>, value: string, sent: number) => typed(held, value).sent(sent)
+
+  test('a new element shows the frame\'s very value', () => {
+    const value = { text: 'a' }
+    expect(drawn(undefined, value, 3).value).toBe(value)
+  })
+
+  test('typed, the write names what the element showed, as the element records it', () => {
+    fc.assert(fc.property(fc.string(), fc.array(fc.string(), { minLength: 1 }), (start, keys) => {
+      let held = made(start)
+      keys.forEach((key, index) => {
+        const { write: written, sent } = typed(held, key)
+        expect(written).toEqual(write(held.value, key))
+        const next = sent(index + 1)
+        expect(next.value).toBe(key)
+        // A frame that has seen none of the writes and holds the start leaves the element as it is.
+        expect(drawn(next, start, 0)).toBe(next)
+        held = next
+      })
+    }))
+  })
+
+  test('a frame older than the keys typed since leaves the element as it is', () => {
+    const element = typing(typing(made(''), 'a', 4), 'ab', 5)
+    // The frame has seen neither key, then the first alone: each time it holds what the element showed before the
+    // first key the frame has not seen.
+    expect(drawn(element, '', 3)).toBe(element)
+    const later = drawn(element, 'a', 4)
+    expect(later.value).toBe('ab')
+    // The key it has seen is forgotten: a frame that holds '' from now on is no longer its past.
+    expect(drawn(later, '', 4).value).toBe('')
+  })
+
+  test('a frame that has seen every key and holds what the element shows leaves it as it is', () => {
+    const element = typing(made(''), 'a', 4)
+    const settled = drawn(element, 'a', 4)
+    expect(settled.value).toBe('a')
+    expect(drawn(settled, '', 3).value).toBe('')
+  })
+
+  test('a frame that has seen every key and holds another value gives the element that value', () => {
+    // The program emptied the input after the key: the element takes the empty text.
+    expect(drawn(typing(made(''), 'a', 4), '', 5).value).toBe('')
+  })
+
+  test('a frame that holds neither the element\'s past nor its present gives the element its value at once', () => {
+    // The key was typed over 'a', and the frame, which has not seen it, holds '': the key will be rejected.
+    expect(drawn(typing(made('a'), 'ab', 4), '', 3).value).toBe('')
+  })
+
+  test('a frame of a state brought back to one the element has left gives the element its value', () => {
+    // An undo brought 'a' back after the element's two keys were stored: the frame has seen both.
+    expect(drawn(typing(typing(made(''), 'a', 4), 'ab', 5), 'a', 7).value).toBe('a')
+  })
+
+  test('leaves the very value the element holds when it stays, though the frame holds an equal copy', () => {
+    const shown = { tags: ['a'] }
+    const element = drawn(undefined, shown, 0)
+    const copy = { tags: ['a'] }
+    expect(drawn(element, copy, 1).value).toBe(shown)
+    const later = typed(element, { tags: ['a', 'b'] }).sent(2)
+    expect(drawn(later, { tags: ['a'] }, 1).value).toBe(later.value)
+  })
+
+  test('compares the frame by Equal, so that a copy of what the element showed keeps it', () => {
+    const element = typed(drawn(undefined, ['a'], 0), ['a', 'b']).sent(1)
+    expect(drawn(element, ['a'], 0)).toBe(element)
+    expect(drawn(element, ['b'], 0).value).toEqual(['b'])
+  })
+})
+
 describe('the types of an input', () => {
-  test('a write is of the value its field holds, and goes to the name of its input', () => {
-    const state = draftOf('')
+  test('a write is of the value its place holds, and goes to the name of its input', () => {
     // @ts-expect-error: the level holds a number.
-    level(state.level, 'loud')
+    level(50, 'loud')
     // @ts-expect-error: a text is not written into the level.
-    const wrong: Message = { _tag: 'Level', message: write(state.title, 'Ada') }
+    const wrong: Message = { _tag: 'Level', message: write('Ada', 'Ada L') }
     // @ts-expect-error: the draft has no such input.
-    const missing: Message = { _tag: 'Body', message: write(state.title, 'Ada') }
+    const missing: Message = { _tag: 'Body', message: write('Ada', 'Ada L') }
     expect([wrong, missing]).toHaveLength(2)
   })
 
@@ -270,193 +461,13 @@ describe('the types of an input', () => {
     })
   })
 
-  test('an input is declared where the state holds a field', () => {
-    // @ts-expect-error: a number is no field.
-    input(here.key('opened'))
-  })
-})
-
-type Titled = Readonly<{ title: Field<string>; opened: number }>
-
-type Rebuilt = 'Cleared' | 'Opened' | 'Copied' | 'Decoded' | 'Normalised' | 'Narrowed' | 'Restored'
-
-// The update a program gives to `compose`, as a function of its own.
-const own = (message: Rebuilt) => (state: Titled): Transition<Titled> => {
-  switch (message) {
-    case 'Cleared':
-      return state.title.value === '' ? reject : { state: { ...state, title: field('') } }
-    case 'Opened':
-      return { state: { ...state, opened: state.opened + 1 } }
-    // Three steps that leave a state equal by value to the one `Opened` leaves, built another way.
-    case 'Copied':
-      return { state: { opened: state.opened + 1, title: { ...state.title } } }
-    case 'Decoded':
-      return { state: JSON.parse(JSON.stringify({ ...state, opened: state.opened + 1 })) as Titled }
-    case 'Normalised':
-      return { state: { opened: state.opened + 1, title: { ...state.title, value: state.title.value.trim() } } }
-    // A new input for the same value, asked for as data.
-    case 'Narrowed':
-      return { state: { ...state, title: renewed(state.title) } }
-    // The value held, in a field of an older revision.
-    case 'Restored':
-      return { state: { ...state, title: { value: state.title.value, revision: 0 } } }
-  }
-}
-
-const titled = composition<{ state: Titled }>()
-
-const titledDraft = titled.compose({
-  init: () => ({ state: { title: field(''), opened: 0 } }),
-  inputs: { Title: titled.input(Optic.id<Titled>().key('title')) },
-  update: own,
-  makeModel: (state) => state,
-})
-
-type TitledMessage = MessageOf<typeof titledDraft>
-
-const typed = (into: Field<string>, text: string): TitledMessage => ({ _tag: 'Title', message: write(into, text) })
-
-const stepped = <S>(result: Transition<S>): Step<S> => {
-  if (isRejected(result)) throw new Error('rejected')
-  return result
-}
-
-const shown: Titled = { title: { value: 'Ada', revision: 3 }, opened: 0 }
-
-describe('the revision, derived by value: the state stored is not the state written', () => {
-  test('the update given to compose and the program\'s differ in the revision of an input whose value changed', () => {
-    expect(stepped(own('Cleared')(shown)).state.title).toEqual({ value: '', revision: 0 })
-    expect(stepped(titledDraft.update('Cleared')(shown)).state.title).toEqual({ value: '', revision: 4 })
-  })
-
-  test('a step that asks for the new input itself is stored as written', () => {
-    expect(stepped(titledDraft.update('Narrowed')(shown)).state).toEqual(stepped(own('Narrowed')(shown)).state)
-  })
-})
-
-describe('the revision, derived by value: identity is an optimisation', () => {
-  test('the steps are equal by value as the program wrote them', () => {
-    const opened = stepped(own('Opened')(shown)).state
-    expect(stepped(own('Copied')(shown)).state).toEqual(opened)
-    expect(stepped(own('Decoded')(shown)).state).toEqual(opened)
-    expect(stepped(own('Normalised')(shown)).state).toEqual(opened)
-  })
-
-  test.each(['Copied', 'Decoded', 'Normalised'] as const)(
-    'a step that leaves an equal field built anew (%s) leaves the same input, and what is being typed is stored',
-    (message) => {
-      const opened = stepped(titledDraft.update('Opened')(shown)).state
-      const rebuilt = stepped(titledDraft.update(message)(shown)).state
-      expect(rebuilt).toEqual(opened)
-      // The very field it held, so that a view that skips an unchanged field still does.
-      expect(rebuilt.title).toBe(shown.title)
-      expect(stepped(titledDraft.update(typed(shown.title, 'Ada L'))(rebuilt)).state.title).toEqual({
-        value: 'Ada L',
-        revision: 3,
-      })
-    },
-  )
-
-  test('a value compares by Equal, whatever it is made of', () => {
-    type Tags = Readonly<{ tags: Field<ReadonlyArray<string>> }>
-    const tags = composition<{ state: Tags }>()
-    const program = tags.compose({
-      init: () => ({ state: { tags: field([]) } }),
-      inputs: { Tags: tags.input(Optic.id<Tags>().key('tags')) },
-      update: (message: 'Rebuilt' | 'Sorted') => (state) => ({
-        state: { tags: field(message === 'Rebuilt' ? [...state.tags.value] : [...state.tags.value].sort()) },
-      }),
-      makeModel: (state) => state,
-    })
-    const held: Tags = { tags: { value: ['b', 'a'], revision: 2 } }
-    expect(stepped(program.update('Rebuilt')(held)).state.tags).toBe(held.tags)
-    expect(stepped(program.update('Sorted')(held)).state.tags).toEqual({ value: ['a', 'b'], revision: 3 })
-  })
-
-  test('a new input for the same value is asked for as data, and rejects what was written into the old one', () => {
-    const narrowed = stepped(titledDraft.update('Narrowed')(shown)).state
-    expect(narrowed.title).toEqual({ value: 'Ada', revision: 4 })
-    expect(isRejected(titledDraft.update(typed(shown.title, 'Ada L'))(narrowed))).toBe(true)
-  })
-
-  test('a revision never comes back: the value held in a field of an older revision is the same input', () => {
-    expect(stepped(titledDraft.update('Restored')(shown)).state.title).toBe(shown.title)
-  })
-
-  test('a replacement by the value held changes nothing, so a control always shown does not act twice', () => {
-    const always = titled.compose({
-      init: () => ({ state: { title: field(''), opened: 0 } }),
-      inputs: { Title: titled.input(Optic.id<Titled>().key('title')) },
-      update: (_: 'Cleared') => (state) => ({ state: { ...state, title: field('') } }),
-      makeModel: (state) => state,
-    })
-    expect(dispatchViolations(always.update)(shown, ['Cleared'])).toEqual([])
-  })
-})
-
-describe('the revision, derived by value: where it comes back, which no rule of before and after closes', () => {
-  test('init is stored as written: nothing gives its inputs a revision', () => {
-    const program = titled.compose({
-      init: () => ({ state: { title: { value: '', revision: 7 }, opened: 0 } }),
-      inputs: { Title: titled.input(Optic.id<Titled>().key('title')) },
-      makeModel: (state) => state,
-    })
-    expect(program.init).toEqual({ state: { title: { value: '', revision: 7 }, opened: 0 } })
-  })
-
-  test('an input at an optional place that goes and comes back restarts, and takes what was typed into the old one', () => {
-    type Page = Readonly<{ search: Opt.Option<Field<string>> }>
-    const page = composition<{ state: Page }>()
-    const program = page.compose({
-      init: () => ({ state: { search: Opt.none() } }),
-      inputs: { Search: page.input(Optic.id<Page>().key('search').compose(Optic.some())) },
-      update: (message: 'Opened' | 'Closed') => (state) =>
-        message === 'Opened'
-          ? Opt.isSome(state.search) ? reject : { state: { search: Opt.some(field('')) } }
-          : Opt.isNone(state.search)
-          ? reject
-          : { state: { search: Opt.none() } },
-      makeModel: (state) => state,
-    })
-    const old = { value: 'abc', revision: 0 }
-    const closed = stepped(program.update('Closed')({ search: Opt.some(old) })).state
-    const reopened = stepped(program.update('Opened')(closed)).state
-    expect(reopened).toEqual({ search: Opt.some({ value: '', revision: 0 }) })
-    const late = program.update({ _tag: 'Search', message: write(old, 'abcd') })(reopened)
-    expect(stepped(late).state).toEqual({ search: Opt.some({ value: 'abcd', revision: 0 }) })
-  })
-
-  describe('a child its parent starts again', () => {
-    type Note = Readonly<{ text: Field<string>; pinned: boolean }>
-    const note = composition<{ state: Note }>()
-    const noteProgram = note.compose({
-      init: () => ({ state: { text: field(''), pinned: false } }),
-      inputs: { Text: note.input(Optic.id<Note>().key('text')) },
-      update: (_: 'Pinned') => (state) => state.pinned ? reject : { state: { ...state, pinned: true } },
-      makeModel: (state) => state,
-    })
-    type Board = Readonly<{ note: Note }>
-    const board = composition<{ state: Board }>()
-    const program = board.compose({
-      init: (children) => ({ state: { note: children.Note.init.state } }),
-      children: { Note: board.child(noteProgram, { at: Optic.id<Board>().key('note') }) },
-      update: (_: 'Restarted', children) => () => ({ state: { note: children.Note.init.state } }),
-      makeModel: (state) => state,
-    })
-    const old: Board = { note: { text: { value: 'Ada', revision: 0 }, pinned: false } }
-    const restarted = stepped(program.update('Restarted')(old)).state
-
-    test('restarts its inputs at the revision of its init, and takes what was typed into the old one', () => {
-      expect(restarted.note.text).toEqual({ value: '', revision: 0 })
-      const late = program.update({ _tag: 'Note', message: { _tag: 'Text', message: write(old.note.text, 'Ada x') } })(
-        restarted,
-      )
-      expect(stepped(late).state.note.text).toEqual({ value: 'Ada x', revision: 0 })
-    })
-
-    // The class the gap belongs to, as it is on `main`: a message names a child's place, not the child it was shown for.
-    test('takes a fixed message shown for the old one too', () => {
-      expect(stepped(program.update({ _tag: 'Note', message: 'Pinned' })(restarted)).state.note.pinned).toBe(true)
-    })
+  test('the element a bridge holds shows its value, and keeps the rest to the library', () => {
+    const element = drawn(undefined, 'a', 0)
+    expect(element.value).toBe('a')
+    // @ts-expect-error: what the element sent that no frame has seen is not for a bridge to read.
+    expect(element.unseen).toBeUndefined()
+    // @ts-expect-error: an element is made by `drawn` and `typed`, not by hand.
+    const byHand: Shown<string> = { value: 'a' }
+    expect(byHand.value).toBe('a')
   })
 })

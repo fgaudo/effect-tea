@@ -31,8 +31,9 @@ export {
   type Update,
 } from './update.ts'
 
-// What the outside writes into a program's state: an input, declared in `composition`.
-export { type Field, field, renewed, write, type Written } from './input.ts'
+// What the outside writes into a program's state: an input, declared in `composition`, and the rule a bridge calls
+// for the element that shows one.
+export { drawn, type Shown, typed, write, type Written } from './input.ts'
 
 // The effects it describes: commands, and subscriptions to the world.
 export type { Execution, RunCommand } from './command.ts'

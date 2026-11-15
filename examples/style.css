@@ -183,6 +183,53 @@ time {
   font-weight: 600;
 }
 
+/* Volume: a native slider, and one the program draws, a track filled up to the level with a mark at its maximum. */
+.volume {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.volume h2 {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 1rem;
+}
+
+.volume input,
+.track {
+  flex: 1;
+}
+
+.track {
+  position: relative;
+  height: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.cap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--danger);
+}
+
+.volume output {
+  min-width: 3ch;
+  font-weight: 700;
+}
+
 /* Timer: the time left beside its controls. */
 .timer {
   display: flex;

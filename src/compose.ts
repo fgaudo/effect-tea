@@ -1,5 +1,5 @@
 // A parent declares its children and its inputs, and the library generates how their messages, commands,
-// subscriptions and models reach them, and keeps the revision of each input.
+// subscriptions and models reach them, and stores what is written into each input.
 import * as Arr from 'effect/Array'
 import * as Channel from 'effect/Channel'
 import * as Effect from 'effect/Effect'
@@ -12,7 +12,7 @@ import * as Record from 'effect/Record'
 import * as Result from 'effect/Result'
 import type { Execution, RunCommand } from './command.ts'
 import { CompositionDefect } from './defect.ts'
-import { field as fieldOf, type Field as Input, replaced, type Written, written } from './input.ts'
+import { type Written, written } from './input.ts'
 import { describeByTag } from './log.ts'
 import {
   type AnyProgram,
@@ -103,13 +103,13 @@ const placedEach = <S, Id, A>(
     }
 
 /**
- * An input in its program's state: where the field the outside writes into lives. It is no child: the field is the
+ * An input in its program's state: where the value the outside writes over lives. It is no child: the value is the
  * program's own state, which its `update` and its `makeModel` read as they read the rest.
  */
 type InputAt<State, A> = Readonly<{
   kind: 'input'
-  get: (state: State) => Opt.Option<Input<A>>
-  set: (state: State, field: Input<A>) => State
+  get: (state: State) => Opt.Option<A>
+  set: (state: State, value: A) => State
 }>
 
 /** The inputs a parent declares, by name: `{ Name: input(at) }`. */
@@ -118,8 +118,8 @@ type Inputs<State> = Readonly<
     string,
     Readonly<{
       kind: 'input'
-      get: (state: State) => Opt.Option<Input<any>>
-      set: (state: State, field: never) => State
+      get: (state: State) => Opt.Option<any>
+      set: (state: State, value: never) => State
     }>
   >
 >
@@ -129,14 +129,14 @@ type None = Readonly<Record<never, never>>
 
 /** What is written into an input, as its program receives it: `{ _tag: <input>, message }`, as a child's message. */
 type InputMessages<I> = {
-  [K in keyof I & string]: I[K] extends Readonly<{ get: (state: any) => Opt.Option<Input<infer A>> }>
+  [K in keyof I & string]: I[K] extends Readonly<{ get: (state: any) => Opt.Option<infer A> }>
     ? Readonly<{ _tag: K; message: Written<A> }>
     : never
 }[keyof I & string]
 
 // What an input is to the routing: a place with one rule, the library's.
 const inputProgram: AnyProgram = {
-  init: { state: fieldOf(undefined) },
+  init: { state: undefined },
   update: written,
   makeModel: (held: unknown) => held,
 }
@@ -267,9 +267,10 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, R, K, Flags> =
     ) => Init<State, OwnCommand | ChildCommands<C>, Flags>
     children?: C
     /**
-     * The places of the state that the outside writes into, each a `Field`: `{ Name: input(at) }`. What is written
-     * reaches no `update` of the program's: the library stores it, and rejects it once the program has replaced the
-     * field. Only a view writes into one: a subscription and a command answer with messages of the program.
+     * The places of the state that the outside writes into, each a plain value: `{ Name: input(at) }`. What is
+     * written reaches no `update` of the program's: the library stores it while the place holds the value it was
+     * written over, and rejects it once the place holds another. Only a view writes into one: a subscription and a
+     * command answer with messages of the program.
      */
     inputs?: I
     /** The parent's own messages: its children's are routed by the library. */
@@ -341,7 +342,6 @@ const compose = <
   // An input is routed to as a child is: by its name, to its place.
   const children: Readonly<Record<string, UntypedChild>> = { ...programs, ...inputs }
   const names = Record.keys(programs)
-  const inputNames = Record.keys(inputs)
   const childOf = (name: string) => children[name] as UntypedChild
   const isChildName = (tag: unknown): tag is string => typeof tag === 'string' && Record.has(children, tag)
   const field = (value: unknown, key: string): unknown => Predicate.hasProperty(value, key) ? value[key] : undefined
@@ -426,32 +426,14 @@ const compose = <
           ? (flags: unknown) => startAt({ name, id: undefined }, flags)
           : startAt({ name, id: undefined }, undefined),
       }) as unknown as Handles<State, C, Command, Event>
-  // What a step of the program made of its inputs, by value: a field that holds what it held is the same input,
-  // and one that holds another value is a replacement, which gets the next revision. A step that touched none is
-  // returned as it is, so that the very same state still draws no new frame.
-  const replacing = (before: State, after: State): State =>
-    Arr.reduce(inputNames, after, (state, name) => {
-      const place = { name, id: undefined }
-      return Opt.match(Opt.all([getAt(place, before), getAt(place, state)]), {
-        onNone: () => state,
-        onSome: ([was, is]) => {
-          const next = replaced(was as Input<unknown>, is as Input<unknown>)
-          return next === is ? state : setAt(place, state, next)
-        },
-      })
-    })
+  // An input keeps nothing between two writes: a step of the program leaves its value as it wrote it.
   const update: Update<State, Message, Command, Event> = (message) => (state) => {
     const place = placeOf(message)
-    // What is written into an input replaces nothing: it is stored at the revision it was written at.
-    if (Record.has(inputs, place.name)) return updateAt(place, field(message, 'message'))(state)
-    const result = isChildName(place.name)
+    return isChildName(place.name)
       ? updateAt(place, field(message, 'message'))(state)
       : config.update === undefined
       ? reject
       : config.update(message as Own, handles)(state)
-    if (isRejected(result) || result.state === state || inputNames.length === 0) return result
-    const replaced = replacing(state, result.state)
-    return replaced === result.state ? result : { ...result, state: replaced }
   }
   const subscriptionsAt = (place: Place, childState: unknown) =>
     HashMap.map(
@@ -578,7 +560,7 @@ export type CompositionTypes = Readonly<{
  * (`composition<{ state: State; event: Event }>()`), then its children declared with `child` (one) or `each` (by
  * id), its inputs with `input`, and the program made with `compose`. Its messages are its own,
  * `{ _tag: <child>, message }` for each child (with `id` for children by id), and
- * `{ _tag: <input>, message: write(field, value) }` for each input; its commands are its own and its children's,
+ * `{ _tag: <input>, message: write(was, value) }` for each input; its commands are its own and its children's,
  * each run by its child's `runCommand`, which a child with commands must have. Fixing the types first is what lets
  * `get`, `set` and the rest be typed without annotations, and the program's own commands, events, external messages
  * and flags, which nothing it returns can reveal, be known.
@@ -609,10 +591,10 @@ export const composition = <T extends CompositionTypes>() => {
     ): Each<State, Id, P> => ({ kind: 'each', program, ...placedEach(place), subscribed: place.subscribed }),
     /**
      * An input, a place of the state that the outside writes into: `inputs: { Name: input(at) }`, where `at`
-     * focuses a `Field`. The view writes into the field its model holds, `write(model.name, text)`, through
-     * `dispatchTo(dispatch, 'Name')`.
+     * focuses a plain value. The view writes over the value its model holds, `write(model.name, text)`, through
+     * `dispatchTo(dispatch, 'Name')`, which a bridge makes with `typed`.
      */
-    input: <A>(at: Optic.Optional<State, Input<A>>): InputAt<State, A> => ({ kind: 'input', ...placed({ at }) }),
+    input: <A>(at: Optic.Optional<State, A>): InputAt<State, A> => ({ kind: 'input', ...placed({ at }) }),
     // Its external messages are among its own: the intersection keeps only those.
     compose: <
       Model,

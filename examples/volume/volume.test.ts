@@ -1,113 +1,144 @@
 import { describe, expect, test } from 'bun:test'
-import { type Field, isRejected, write } from '@fgaudo/effect-tea'
-import { applyAll, dispatchViolations, drive } from '@fgaudo/effect-tea/testing'
+import { InvariantDefect, isRejected, write } from '@fgaudo/effect-tea'
+import { applyAll, dispatchViolations, drive, rehearse } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
+import * as Stream from 'effect/Stream'
 import * as fc from 'fast-check'
-import { Limit, type Message, type Model, Own, Sound, type State, update, volume } from './volume.ts'
+import { Drag, Limit, type Message, type Model, Own, Pointer, Sound, type State, update, volume } from './volume.ts'
 
 const start = volume.init.state
 
 const state: fc.Arbitrary<State> = fc.record({
-  level: fc.record({ value: fc.integer({ min: 0, max: 100 }), revision: fc.nat() }),
-  sound: fc.oneof(
-    fc.constant(null).map(() => Sound.Audible()),
-    fc.integer({ min: 0, max: 100 }).map((level) => Sound.Muted({ level })),
-  ),
+  media: fc.integer({ min: 0, max: 100 }),
+  sound: fc.constantFrom(Sound.Audible(), Sound.Muted()),
+  ringer: fc.integer({ min: 0, max: 100 }),
   limit: fc.constantFrom(Limit.Full(), Limit.Quiet()),
+  drag: fc.constantFrom(Drag.Idle(), Drag.Dragging()),
 })
 
-/** Where the user drags the slider drawn from `level`, as the view sends it. */
-const dragging = (level: Field<number>, value: number): Message => ({ _tag: 'Level', message: write(level, value) })
+/** Where the user drags the media's slider, drawn at `was`, as the view sends it. */
+const dragging = (was: number, value: number): Message => ({ _tag: 'Media', message: write(was, value) })
 
-// What the model holds: the messages of its buttons. What is dragged is none of them.
-const messagesOf = ({ sound, limit }: Model): ReadonlyArray<Message> => [
+// What the model holds: the messages of its buttons and of the ringer's track. What the media's slider is dragged to
+// is none of them, and the moves of a drag are a subscription's.
+const messagesOf = ({ sound, limit, press }: Model): ReadonlyArray<Message> => [
   sound._tag === 'Muted' ? sound.unmute : sound.mute,
   limit._tag === 'Quiet' ? limit.full : limit.quiet,
+  ...Opt.toArray(press),
 ]
 
 describe('volume', () => {
   // `update` alone: the rules, without running anything.
   describe('update', () => {
-    test('stores where the slider is dragged', () => {
-      expect(applyAll(update)([dragging(start.level, 80)], start).state.level.value).toBe(80)
+    test('stores where the media\'s slider is dragged', () => {
+      expect(applyAll(update)([dragging(50, 80)], start).state.media).toBe(80)
     })
 
     // The slider shows where it was dragged whatever the state: storing it keeps the two the same.
-    test('accepts a drag of the slider on screen in any state, and keeps that slider', () => {
+    test('accepts a drag of the media\'s slider over the level held, in any state', () => {
       fc.assert(fc.property(state, fc.integer({ min: 0, max: 100 }), (before, dragged) => {
-        const after = update(dragging(before.level, dragged))(before)
-        return !isRejected(after) && after.state.level.value === dragged
-          && after.state.level.revision === before.level.revision
+        const after = update(dragging(before.media, dragged))(before)
+        return !isRejected(after) && after.state.media === dragged
       }))
     })
 
-    test('muting puts the level at 0, on a new slider, and unmuting gives it back', () => {
-      const loud = applyAll(update)([dragging(start.level, 80)], start).state
-      const muted = applyAll(update)([Own.MuteClicked()], loud).state
-      expect(muted.level.value).toBe(0)
-      expect(muted.level.revision).toBeGreaterThan(loud.level.revision)
-      expect(applyAll(update)([Own.UnmuteClicked()], muted).state.level.value).toBe(80)
+    test('muting leaves the media\'s level as it is, and unmuting gives it back', () => {
+      const muted = applyAll(update)([dragging(50, 80), Own.MuteClicked()], start).state
+      expect(muted).toMatchObject({ media: 80, sound: Sound.Muted() })
+      expect(volume.makeModel(muted).media).toEqual(Opt.none())
+      expect(volume.makeModel(applyAll(update)([Own.UnmuteClicked()], muted).state).media).toEqual(Opt.some(80))
     })
 
-    // Sent from a frame drawn before the mute: the slider it was dragged on has been replaced by one at 0, which
-    // does not show it, even when the level was 0 already.
-    test('a drag of a slider the volume has since muted is rejected, even at 0', () => {
-      for (const level of [80, 0]) {
-        const drawn = applyAll(update)([dragging(start.level, level)], start).state
-        const muted = applyAll(update)([Own.MuteClicked()], drawn).state
-        expect(isRejected(update(dragging(drawn.level, 30))(muted))).toBe(true)
-      }
+    // Sent from a frame drawn before the mute: it was dragged over the level the volume still holds. Stored, it is
+    // what the user meant, and unmuting gives it back.
+    test('a drag of the media\'s slider drawn before it was muted is stored', () => {
+      const muted = applyAll(update)([Own.MuteClicked()], start).state
+      expect(applyAll(update)([dragging(50, 80), Own.UnmuteClicked()], muted).state.media).toBe(80)
     })
 
-    test('quiet hours bring a louder level down to their maximum, and a muted one too', () => {
-      const loud = applyAll(update)([dragging(start.level, 80), Own.QuietClicked()], start).state
-      expect(loud.level.value).toBe(30)
-      const muted = applyAll(update)([dragging(start.level, 80), Own.MuteClicked(), Own.QuietClicked()], start).state
-      expect(applyAll(update)([Own.UnmuteClicked()], muted).state.level.value).toBe(30)
+    // Sent from a frame drawn before another drag was stored: the slider it was dragged on has moved since.
+    test('a drag of the media\'s slider over a level the volume no longer holds is rejected', () => {
+      const moved = applyAll(update)([dragging(50, 80)], start).state
+      expect(isRejected(update(dragging(50, 30))(moved))).toBe(true)
     })
 
-    // The slider drawn before quiet hours goes up to 100, and the input takes any number: only the revision keeps
-    // what it writes out of the new bounds.
-    test('a drag of a slider drawn before quiet hours is rejected, even when the level was within them', () => {
-      const drawn = applyAll(update)([dragging(start.level, 20)], start).state
-      const quiet = applyAll(update)([Own.QuietClicked()], drawn).state
-      expect(quiet.level.value).toBe(20)
-      expect(isRejected(update(dragging(drawn.level, 80))(quiet))).toBe(true)
-    })
-
-    // What a slider drawn with the quiet bounds writes is within the full ones: the drag in progress goes on.
-    test('full volume keeps the slider being dragged', () => {
+    test('quiet hours bring a louder ringer down to their maximum, and full volume leaves it there', () => {
       const quiet = applyAll(update)([Own.QuietClicked()], start).state
-      const full = applyAll(update)([Own.FullClicked()], quiet).state
-      expect(full.level).toBe(quiet.level)
-      expect(applyAll(update)([dragging(quiet.level, 25)], full).state.level.value).toBe(25)
+      expect(quiet).toMatchObject({ ringer: 30, limit: Limit.Quiet() })
+      expect(applyAll(update)([Own.FullClicked()], quiet).state.ringer).toBe(30)
+    })
+
+    // The moves are the program's own messages: each is put within the bounds the state holds when it arrives,
+    // whatever they were when the drag began. No recipe is needed for bounds that narrow under a drag.
+    test('a move of the ringer is put within the bounds of quiet hours that began during the drag', () => {
+      const { state } = applyAll(update)(
+        [Own.DragStarted(), Own.Moved({ at: 90 }), Own.QuietClicked(), Own.Moved({ at: 95 }), Own.Moved({ at: 10 })],
+        start,
+      )
+      expect(state.ringer).toBe(10)
+      const quietened = applyAll(update)([Own.DragStarted(), Own.QuietClicked(), Own.Moved({ at: 95 })], start)
+      expect(quietened.state.ringer).toBe(30)
+    })
+
+    test('a second press while the ringer is dragged starts nothing', () => {
+      const pressed = applyAll(update)([Own.DragStarted()], start).state
+      expect(isRejected(update(Own.DragStarted())(pressed))).toBe(true)
+    })
+
+    // Only a drag's subscription sends moves, and it stops with the drag: a move anywhere else is a bug.
+    test('dies on a move, or a release, with nothing dragged', () => {
+      expect(() => update(Own.Moved({ at: 40 }))(start)).toThrow(InvariantDefect)
+      expect(() => update(Own.DragEnded())(start)).toThrow(InvariantDefect)
     })
   })
 
-  // The model, for any state: every message it holds is accepted, a double click acts once, and nothing `update`
-  // accepts is missing. No level is drawn: what is dragged is no message of the model's.
+  // The model, for any state: every message it holds is accepted, each acts once when sent twice, and nothing
+  // `update` accepts is missing, but the moves, which no control sends.
   test('the model holds what update accepts, all of it, and each acts once when sent twice', () => {
     const violations = dispatchViolations(update)
-    const candidates = [Own.MuteClicked(), Own.UnmuteClicked(), Own.QuietClicked(), Own.FullClicked()]
+    const candidates = [Own.MuteClicked(), Own.UnmuteClicked(), Own.QuietClicked(), Own.FullClicked(), Own.DragStarted()]
     fc.assert(fc.property(state, (before) => {
       expect(violations(before, messagesOf(volume.makeModel(before)), candidates)).toEqual([])
     }))
   })
 
-  // The program as it runs, driven like a user would.
-  test('a user drags the volume up, mutes it and gets it back', async () => {
-    const level = await Effect.runPromise(
+  // The drag waits on the test: what each move does, and what quiet hours do to one in progress.
+  test('a drag listens while the ringer is dragged, and its release ends it', async () => {
+    const press = (model: Model) => model.press
+    const heard = await Effect.runPromise(
+      rehearse(
+        volume,
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.send(press)
+          yield* rehearsal.hear('ringer', Own.Moved({ at: 90 }))
+          const loud = (yield* rehearsal.model).ringer
+          yield* rehearsal.send((model) => model.limit._tag === 'Full' ? Opt.some(model.limit.quiet) : Opt.none())
+          yield* rehearsal.hear('ringer', Own.Moved({ at: 95 }))
+          const quiet = (yield* rehearsal.model).ringer
+          yield* rehearsal.hear('ringer', Own.DragEnded())
+          return { loud, quiet, after: yield* rehearsal.model }
+        }),
+      ).pipe(Effect.provideService(Pointer, Pointer.of({ moves: Stream.empty }))),
+    )
+    expect(heard.loud).toBe(90)
+    expect(heard.quiet).toBe(30)
+    expect(heard.after.press).toEqual(Opt.some(Own.DragStarted()))
+  })
+
+  // The program as it runs, driven like a user would, with a pointer that moves twice and is released.
+  test('a user drags the ringer, and the slider ends where the pointer was released', async () => {
+    const ringer = await Effect.runPromise(
       drive(
         volume,
         Effect.fnUntraced(function*(driver) {
-          yield* driver.send(({ level }) => Opt.some(dragging(level, 80)))
-          yield* driver.send(({ sound }) => sound._tag === 'Audible' ? Opt.some(sound.mute) : Opt.none())
-          yield* driver.send(({ sound }) => sound._tag === 'Muted' ? Opt.some(sound.unmute) : Opt.none())
-          return yield* driver.waitFor((model) => model.sound._tag === 'Audible' ? Opt.some(model.level) : Opt.none())
+          yield* driver.send((model) => model.press)
+          return yield* driver.waitFor((model) =>
+            Opt.isSome(model.press) && model.ringer !== start.ringer ? Opt.some(model.ringer) : Opt.none()
+          )
         }),
-      ),
+      ).pipe(Effect.provideService(Pointer, Pointer.of({ moves: Stream.make(20, 64.4) }))),
     )
-    expect(level.value).toBe(80)
+    expect(ringer).toBe(64)
   })
 })

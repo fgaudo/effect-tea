@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { field, InvariantDefect, isRejected, write } from '@fgaudo/effect-tea'
+import { InvariantDefect, isRejected, write } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations, drive, rehearse, simulate } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
@@ -13,7 +13,7 @@ const empty = form.init.state
 // Made anew on each draw, so that two states drawn alike share no object.
 const state = (): fc.Arbitrary<State> =>
   fc.record({
-    name: fc.record({ value: fc.oneof(fc.string(), fc.constant('   ')), revision: fc.nat() }),
+    name: fc.oneof(fc.string(), fc.constant('   ')),
     save: fc.oneof(
       fc.constant(null).map(() => Save.Idle()),
       fc.constant(null).map(() => Save.Saving()),
@@ -35,14 +35,14 @@ describe('form', () => {
   // `update` alone: the rules, without running anything.
   describe('update', () => {
     test('saves a name that is not blank, trimmed', () => {
-      const { state, commands } = applyAll(update)([Own.SaveClicked()], { ...empty, name: field(' Ada ') })
+      const { state, commands } = applyAll(update)([Own.SaveClicked()], { ...empty, name: ' Ada ' })
       expect(state.save).toEqual(Save.Saving())
       expect(commands).toEqual([Command.Save({ name: 'Ada' })])
     })
 
     test('rejects saving a blank name, and a second save', () => {
-      const saving = { ...empty, name: field('Ada'), save: Save.Saving() }
-      expect(isRejected(update(Own.SaveClicked())({ ...empty, name: field('  ') }))).toBe(true)
+      const saving = { ...empty, name: 'Ada', save: Save.Saving() }
+      expect(isRejected(update(Own.SaveClicked())({ ...empty, name: '  ' }))).toBe(true)
       expect(isRejected(update(Own.SaveClicked())(saving))).toBe(true)
     })
 
@@ -55,38 +55,35 @@ describe('form', () => {
 
     // Sent from a frame drawn before the save: it arrives while saving, before the save's failure.
     test('a key typed just before saving disabled the input is kept, for when the save fails', () => {
-      const drawn = form.makeModel({ ...empty, name: field(' Ada ') })
+      const drawn = form.makeModel({ ...empty, name: ' Ada ' })
       const { state } = applyAll(update)(
         [Own.SaveClicked(), typing(drawn, ' Ada x'), Own.SaveFailed({ name: 'Ada' })],
-        { ...empty, name: field(' Ada ') },
+        { ...empty, name: ' Ada ' },
       )
-      expect(state.name.value).toBe(' Ada x')
+      expect(state.name).toBe(' Ada x')
       expect(state.save).toEqual(Save.Failed({ name: 'Ada' }))
     })
 
-    // Sent from a frame drawn before the save completed: the input it was typed into is gone.
-    test('a key typed into the input a completed save has replaced is rejected', () => {
-      const typed = { ...empty, name: field('Ada') }
+    // Sent from a frame drawn before the save completed: it was typed over a name the form no longer holds.
+    test('a key typed over the name a completed save has emptied is rejected', () => {
+      const typed = { ...empty, name: 'Ada' }
       const drawn = form.makeModel(typed)
       const { state } = applyAll(update)([Own.SaveClicked(), Own.SaveSucceeded({ name: 'Ada' })], typed)
-      expect(state.name.value).toBe('')
+      expect(state.name).toBe('')
       expect(isRejected(update(typing(drawn, 'Ada x'))(state))).toBe(true)
     })
 
-    // The form's `update` leaves `field('')`, and the state stored holds the revision the library gave the new
-    // input: a test reads the value.
-    test('the state stored holds the revision of the library, so a test compares an input by its value', () => {
+    // An input keeps nothing of its own: the state stored is the state the form wrote, which a test compares whole.
+    test('a completed save leaves the form as it starts, with the name listed', () => {
       const { state } = applyAll(update)([Own.SaveClicked(), Own.SaveSucceeded({ name: 'Ada' })], {
         ...empty,
-        name: field('Ada'),
+        name: 'Ada',
       })
-      expect(state.name).not.toEqual(field(''))
-      expect(state.name.value).toBe('')
-      expect(state).toMatchObject({ name: { value: '' }, save: Save.Idle(), saved: ['Ada'] })
+      expect(state).toEqual({ ...empty, saved: ['Ada'] })
     })
 
     test('has nothing to type into while saving', () => {
-      expect(form.makeModel({ ...empty, name: field('Ada'), save: Save.Saving() }).editor._tag).toBe('Saving')
+      expect(form.makeModel({ ...empty, name: 'Ada', save: Save.Saving() }).editor._tag).toBe('Saving')
     })
   })
 
@@ -115,11 +112,11 @@ describe('form', () => {
   describe('saving', () => {
     const typedAndSaved = [typing(form.makeModel(empty), ' Ada '), Own.SaveClicked()]
 
-    test('a saved name is listed, trimmed, and the form gets a new, empty input', async () => {
+    test('a saved name is listed, trimmed, and the form empties its input', async () => {
       const { state, ignored } = await Effect.runPromise(
         simulate(form)(typedAndSaved, form.init).pipe(Effect.provideService(Storage, working)),
       )
-      expect(state).toMatchObject({ name: { value: '' }, save: Save.Idle(), saved: ['Ada'] })
+      expect(state).toEqual({ name: '', save: Save.Idle(), saved: ['Ada'] })
       // The save's completion reached `update`: a rejected one would mean a form stuck saving.
       expect(ignored).toEqual([])
     })
@@ -128,7 +125,7 @@ describe('form', () => {
       const { state } = await Effect.runPromise(
         simulate(form)(typedAndSaved, form.init).pipe(Effect.provideService(Storage, failing)),
       )
-      expect(state).toMatchObject({ name: { value: ' Ada ' }, save: Save.Failed({ name: 'Ada' }), saved: [] })
+      expect(state).toEqual({ name: ' Ada ', save: Save.Failed({ name: 'Ada' }), saved: [] })
     })
 
     // The save waits until the test runs it: what the user can do meanwhile, and what its answer finds.
@@ -165,7 +162,7 @@ describe('form', () => {
         Effect.fnUntraced(function*(driver) {
           yield* driver.send((model) => model.editor._tag === 'Saving' ? Opt.none() : Opt.some(typing(model, 'Ada')))
           yield* driver.send(({ name, editor }) =>
-            name.value === 'Ada' && editor._tag === 'Named' ? Opt.some(editor.save) : Opt.none()
+            name === 'Ada' && editor._tag === 'Named' ? Opt.some(editor.save) : Opt.none()
           )
           return yield* driver.waitFor((model) => model.saved.length > 0 ? Opt.some(model.saved) : Opt.none())
         }),

@@ -1,61 +1,75 @@
 // A place of a program's state that the outside writes. A value a component of the renderer decides (a text, a
-// slider's level) is no message of the program: the program declares where it goes (`input`, in `composition`), the view
-// writes into the field its model holds (`write`), and the library stores it.
+// slider's level) is no message of the program: the program declares where it goes (`input`, in `composition`), the
+// view writes over the value its model holds (`write`), and the library stores it. What an element on screen holds of
+// an input, and what a frame makes of it, is the rule a bridge calls (`typed`, `drawn`): the library's, so that every
+// bridge applies the same one.
 import * as Equal from 'effect/Equal'
 import { reject, type Transition } from './update.ts'
 
-/**
- * What an input holds, in the state of the program that reads it: the `value` the outside wrote last, or the one
- * the program put there, and the `revision` of the input, which is the library's: the key of the input a view
- * draws, and nothing else. The program replaces the value by leaving a field that holds another in its place,
- * `field(value)`: the library then gives it the next revision, whatever revision it was made with, so that a view
- * draws a new input for it and what was written into the old one no longer applies. So the state stored differs
- * from the state a step wrote in the revision: a program reads `value` alone, and so does a test, which asserts
- * `state.name.value`, never `toEqual(field(''))`.
- */
-export type Field<A> = Readonly<{ value: A; revision: number }>
-
-/** A field that holds `value`: what a program starts an input with, and what it replaces one with. */
-export const field = <A>(value: A): Field<A> => ({ value, revision: 0 })
-
-/** What the outside wrote into the input drawn from a field: its value, and the revision it was drawn at. */
-export type Written<A> = Readonly<{ _tag: 'Written'; value: A; revision: number }>
+/** What the outside wrote into an input: the `value` it gives now, written over the value it showed, `was`. */
+export type Written<A> = Readonly<{ _tag: 'Written'; was: A; value: A }>
 
 /**
- * What a view sends for a value the user gave to the input it drew from `into`, through that input's dispatch
- * (`dispatchTo(dispatch, 'Name')`). It carries the revision of the field drawn, so that a value given to an input
- * the program has since replaced is rejected: the input on screen is another one, which does not show it.
+ * What a view sends for a value the user gave to an input that showed `was`, through that input's dispatch
+ * (`dispatchTo(dispatch, 'Name')`): it is stored only while the input's place holds `was`, so that a value typed over
+ * a value the program has since replaced is rejected. A bridge makes it with `typed`; a test writes it by hand, over
+ * the value its model holds: `write(model.name, 'Ada')`.
  */
-export const write = <A>(into: Field<A>, value: A): Written<A> => ({ _tag: 'Written', value, revision: into.revision })
+export const write = <A>(was: A, value: A): Written<A> => ({ _tag: 'Written', was, value })
 
 /**
- * The one rule of an input: what is written into the field of the state is stored, whatever it is and whatever
- * else the state says, since the input on screen already shows it; what was written into a field replaced since is
- * rejected. A value equal to the one held leaves the very same field, so it draws no frame.
+ * The one rule of an input: what was written over the value the place holds, by `Equal`, is stored, whatever it is and
+ * whatever else the state says, since the input on screen already shows it; what was written over another value is
+ * rejected, since the state has moved on without the input that wrote it. A value equal to the one held leaves the
+ * very same value, so it draws no frame. It reads the state and the message alone: nothing is kept between two writes.
  */
-export const written = <A>(message: Written<A>) => (held: Field<A>): Transition<Field<A>> =>
-  message.revision !== held.revision
+export const written = <A>(message: Written<A>) => (held: A): Transition<A> =>
+  !Equal.equals(message.was, held)
     ? reject
-    : Equal.equals(message.value, held.value)
+    : Equal.equals(message.value, held)
     ? { state: held }
-    : { state: { value: message.value, revision: held.revision } }
+    : { state: message.value }
+
+// Hidden: what a bridge holds of an element is the library's to make and read, but for the value it shows.
+const Unseen = Symbol('@fgaudo/effect-tea/Shown/unseen')
 
 /**
- * A new input for the value `held` holds: what a program leaves in an input's place when what the input on screen
- * means has changed and its value has not (a slider whose bounds narrow), so that what was written into the old one
- * no longer applies. A value that changes needs none: `field(value)` in its place is a new input already.
+ * What an element on screen holds of an input: the `value` it shows, which a bridge reads, and the writes it sent that
+ * no frame has seen yet, which only `typed` and `drawn` make and read.
  */
-export const renewed = <A>(held: Field<A>): Field<A> => ({ value: held.value, revision: held.revision + 1 })
+export type Shown<A> = Readonly<{
+  value: A
+  [Unseen]: ReadonlyArray<Readonly<{ sent: number; was: A }>>
+}>
+
+const shownOf = <A>(value: A): Shown<A> => ({ value, [Unseen]: [] })
 
 /**
- * The field a step of the program left where `before` was, by value: the same input while it holds the same value
- * (by `Equal`), whatever object holds it and whatever revision the program wrote, and a new one, at the next
- * revision, once the value differs. A revision the step raised itself is kept (`renewed`): a revision never stands
- * still under a value the program changed, and never comes back.
+ * The element after the user gave it `value`: `write`, which the bridge sends through the input's dispatch, written
+ * over what the element showed, and `sent`, which takes the number that dispatch returned and gives the element as it
+ * now is. The write and what the element records of it are made from the one value, so they cannot differ; a bridge
+ * calls `sent` once, with the number of that write, or `drawn` may replace what the user typed.
  */
-export const replaced = <A>(before: Field<A>, after: Field<A>): Field<A> =>
-  after === before || after.revision > before.revision
-    ? after
-    : Equal.equals(after.value, before.value)
-    ? before
-    : { value: after.value, revision: before.revision + 1 }
+export const typed = <A>(
+  held: Shown<A>,
+  value: A,
+): Readonly<{ write: Written<A>; sent: (number: number) => Shown<A> }> => ({
+  write: write(held.value, value),
+  sent: (number) => ({ value, [Unseen]: [...held[Unseen], { sent: number, was: held.value }] }),
+})
+
+/**
+ * What a frame makes of an element, `held`, or of one just made, `undefined`: `value` is the input's in the frame, and
+ * `seen` the frame's own. When the frame holds what the element showed before its first write the frame has not seen,
+ * or what it shows when the frame has seen them all, the frame is the element's own past or present, and the element
+ * stays as it is: the result holds the very `value` it held, the same object, so a bridge sets the element only when
+ * the result's `value` is not identical to `held.value`. Otherwise the state has moved on without the element, whose
+ * writes the frame has not seen will be rejected, and the element takes the frame's very `value`; so does a new one.
+ */
+export const drawn = <A>(held: Shown<A> | undefined, value: A, seen: number): Shown<A> => {
+  if (held === undefined) return shownOf(value)
+  const unseen = held[Unseen].filter((write) => write.sent > seen)
+  const first = unseen[0]
+  if (!Equal.equals(value, first === undefined ? held.value : first.was)) return shownOf(value)
+  return unseen.length === held[Unseen].length ? held : { value: held.value, [Unseen]: unseen }
+}

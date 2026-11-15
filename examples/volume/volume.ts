@@ -1,31 +1,39 @@
-// A volume, set with a slider the user drags, that the program also sets: muting puts it at 0 and unmuting gives
-// back the level it had, and quiet hours lower its maximum, bringing a louder level down. Muted, the slider shows 0
-// and cannot be dragged. The level is an input over a number, as the form's name is over a text, with the same rule:
-// a drag into a slider the program has replaced since is rejected, whatever it holds. What a slider adds is its
-// bounds: the browser keeps a slider within those it was drawn with, and the input takes any number, so a program
-// that narrows the bounds draws a new slider, even for a level within them, and a drag of one drawn wider is
-// rejected for its revision.
-import {
-  composition,
-  type Field,
-  field,
-  type MessageOf,
-  type ModelOf,
-  reject,
-  renewed,
-} from '@fgaudo/effect-tea'
+// Two sliders side by side: the media's, a native range, and the ringer's, which the program draws itself. The media
+// level is an input, a plain number the user drags and the library stores; its bounds never change, and muting draws
+// the slider at 0, disabled, without touching the level, which unmuting gives back. The ringer's bounds narrow: quiet
+// hours bring its maximum down to 30, under a drag in progress too. A native range brings its value within bounds that
+// narrow by itself, which no edit of the user reports, so it does not meet what the bridge asks of an element: a
+// widget, native or not, that does not fit the bridge is replaced by one the program draws. The ringer is no input: a
+// press on its track starts a drag, a fixed message of the model, and its moves are the messages of a subscription
+// keyed by the state of dragging, which `update` puts within the bounds it holds, whatever they were when the drag
+// began.
+import { composition, defect, type MessageOf, type ModelOf, reject, type Subscription } from '@fgaudo/effect-tea'
+import * as Channel from 'effect/Channel'
+import * as Context from 'effect/Context'
 import * as Data from 'effect/Data'
+import * as Effect from 'effect/Effect'
+import * as HashMap from 'effect/HashMap'
+import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
+import * as Stream from 'effect/Stream'
 
-/** Whether the volume is heard; a muted one keeps the level it had, to give it back. */
+/**
+ * Where the pointer is along the ringer's track, from 0 to 100, while it is held after the press that started a drag,
+ * ending when it is released. The program knows only this interface: `main.ts` and the tests provide it.
+ */
+export class Pointer extends Context.Service<Pointer, { readonly moves: Stream.Stream<number> }>()(
+  'examples/volume/Pointer',
+) {}
+
+/** Whether the media is heard: a muted one keeps its level, to give it back. */
 export type Sound = Data.TaggedEnum<{
   Audible: object
-  Muted: { level: number }
+  Muted: object
 }>
 
 export const Sound = Data.taggedEnum<Sound>()
 
-/** How loud the volume may go: quiet hours bring the maximum down. */
+/** How loud the ringer may go: quiet hours bring the maximum down. */
 export type Limit = Data.TaggedEnum<{
   Full: object
   Quiet: object
@@ -35,74 +43,90 @@ export const Limit = Data.taggedEnum<Limit>()
 
 export const maxOf = (limit: Limit): number => limit._tag === 'Quiet' ? 30 : 100
 
-export type State = Readonly<{
-  level: Field<number>
-  sound: Sound
-  limit: Limit
+/** The ringer's slider: one state machine, idle or dragged. */
+export type Drag = Data.TaggedEnum<{
+  Idle: object
+  Dragging: object
 }>
 
-/** The volume's own messages: what the slider is dragged to is no message of the volume's. */
+export const Drag = Data.taggedEnum<Drag>()
+
+export type State = Readonly<{
+  media: number
+  sound: Sound
+  ringer: number
+  limit: Limit
+  drag: Drag
+}>
+
+/** The volume's own messages: where the media's slider is dragged is no message of the volume's. */
 export type Own = Data.TaggedEnum<{
   MuteClicked: object
   UnmuteClicked: object
   QuietClicked: object
   FullClicked: object
+  DragStarted: object
+  Moved: { at: number }
+  DragEnded: object
 }>
 
 export const Own = Data.taggedEnum<Own>()
 
-// A new slider at `value`: another value is one already, and the same one asks for it with `renewed`, since a
-// field equal by value is the same input.
-const newSlider = (level: Field<number>, value: number): Field<number> =>
-  value === level.value ? renewed(level) : field(value)
+// What the subscription of a drag sends: each move of the pointer, then the release, its last message.
+const dragging: Subscription<Own, Pointer> = Channel.unwrap(
+  Effect.map(Effect.service(Pointer), (pointer) =>
+    Stream.toChannel(pointer.moves).pipe(
+      Channel.flattenArray,
+      Channel.map((at) => Own.Moved({ at })),
+      Channel.mapDone(() => Own.DragEnded()),
+    )),
+)
+
+const within = (at: number, limit: Limit) => Math.min(Math.max(Math.round(at), 0), maxOf(limit))
 
 const { input, compose } = composition<{ state: State }>()
 
 export const volume = compose({
-  init: () => ({ state: { level: field(50), sound: Sound.Audible(), limit: Limit.Full() } }),
-  inputs: { Level: input(Optic.id<State>().key('level')) },
+  init: () => ({ state: { media: 50, sound: Sound.Audible(), ringer: 80, limit: Limit.Full(), drag: Drag.Idle() } }),
+  inputs: { Media: input(Optic.id<State>().key('media')) },
   update: (message: Own) => (state) => {
     switch (message._tag) {
-      // The slider at 0 is another one even when the level was 0: a drag of the slider drawn before, handled after,
-      // would be stored into a muted volume.
       case 'MuteClicked':
-        return state.sound._tag === 'Muted'
-          ? reject
-          : { state: { ...state, level: newSlider(state.level, 0), sound: Sound.Muted({ level: state.level.value }) } }
-      // The muted slider cannot be dragged, so nothing written into it is to reject: the level given back may stay on
-      // the same slider.
+        return state.sound._tag === 'Muted' ? reject : { state: { ...state, sound: Sound.Muted() } }
       case 'UnmuteClicked':
-        return state.sound._tag === 'Audible'
+        return state.sound._tag === 'Audible' ? reject : { state: { ...state, sound: Sound.Audible() } }
+      case 'QuietClicked':
+        return state.limit._tag === 'Quiet'
           ? reject
-          : { state: { ...state, level: field(state.sound.level), sound: Sound.Audible() } }
-      // The bounds narrow: a slider drawn with the old ones may still write above the new maximum, so the slider is
-      // replaced whatever the level. A muted level stays 0, and gives back no more than the new maximum.
-      case 'QuietClicked': {
-        if (state.limit._tag === 'Quiet') return reject
-        const max = maxOf(Limit.Quiet())
-        return {
-          state: {
-            level: newSlider(state.level, Math.min(state.level.value, max)),
-            sound: state.sound._tag === 'Muted'
-              ? Sound.Muted({ level: Math.min(state.sound.level, max) })
-              : state.sound,
-            limit: Limit.Quiet(),
-          },
-        }
-      }
-      // The bounds widen: what a slider drawn with the old ones writes is within the new ones, so the slider stays,
-      // and so does a drag in progress.
+          : { state: { ...state, ringer: within(state.ringer, Limit.Quiet()), limit: Limit.Quiet() } }
       case 'FullClicked':
         return state.limit._tag === 'Full' ? reject : { state: { ...state, limit: Limit.Full() } }
+      // A press on a frame drawn before the last one ended may come while a drag goes on: it starts nothing.
+      case 'DragStarted':
+        return state.drag._tag === 'Dragging' ? reject : { state: { ...state, drag: Drag.Dragging() } }
+      // A move comes only while dragging: the subscription that sends it stops with the drag, and the run drops what
+      // it sent after. Anywhere else it is a bug, and the run dies with it.
+      case 'Moved':
+        return state.drag._tag === 'Dragging'
+          ? { state: { ...state, ringer: within(message.at, state.limit) } }
+          : defect('A move of the ringer while nothing was dragged')
+      case 'DragEnded':
+        return state.drag._tag === 'Dragging'
+          ? { state: { ...state, drag: Drag.Idle() } }
+          : defect('A drag of the ringer ended while nothing was dragged')
     }
   },
+  subscriptions: (state) => state.drag._tag === 'Dragging' ? HashMap.make(['ringer', dragging]) : HashMap.empty(),
   makeModel: (state) => ({
-    // The volume's own state: the view draws the slider from it, and writes into it.
-    level: state.level,
-    max: maxOf(state.limit),
+    // What the media's slider is drawn from and written over: the level held, or 0 while muted, which the slider
+    // cannot be dragged from.
+    media: state.sound._tag === 'Muted' ? Opt.none() : Opt.some(state.media),
     sound: state.sound._tag === 'Muted'
       ? { _tag: 'Muted' as const, unmute: Own.UnmuteClicked() }
       : { _tag: 'Audible' as const, mute: Own.MuteClicked() },
+    ringer: state.ringer,
+    max: maxOf(state.limit),
+    press: state.drag._tag === 'Idle' ? Opt.some(Own.DragStarted()) : Opt.none(),
     limit: state.limit._tag === 'Quiet'
       ? { _tag: 'Quiet' as const, full: Own.FullClicked() }
       : { _tag: 'Full' as const, quiet: Own.QuietClicked() },
@@ -111,7 +135,7 @@ export const volume = compose({
 
 export type Model = ModelOf<typeof volume>
 
-/** The volume's messages, made by the library: its own, and `{ _tag: 'Level', message }` for what is dragged. */
+/** The volume's messages, made by the library: its own, and `{ _tag: 'Media', message }` for what is dragged. */
 export type Message = MessageOf<typeof volume>
 
 export const update = volume.update

@@ -1,6 +1,6 @@
 ---
 name: add-example
-description: How to add or change an example of @fgaudo/effect-tea under examples/: the files one has, the snabbdom bridge and the field helper they share, how the examples are checked, tested and run in the browser, and their row in the README. Use when adding an example, changing one, or changing the bridge or the helpers the examples share.
+description: How to add or change an example of @fgaudo/effect-tea under examples/: the files one has, the snabbdom bridge and the helpers they share, how the examples are checked, tested and run in the browser, and their row in the README. Use when adding an example, changing one, or changing the bridge or the helpers the examples share.
 ---
 
 # Add an example
@@ -23,7 +23,7 @@ examples/<name>/
 ```
 
 What the examples share, in `examples/`: [`snabbdom.ts`](../../../examples/snabbdom.ts), the bridge to the
-renderer (`renderInto` for `run`, `onClick`, `onInput`, `onWrite`, `onSlide`, `initialValue`, and `messagesSentBy`, an
+renderer (`renderInto` for `run`, `onClick`, `onPress`, `onInput`, `shows`, `slides`, and `messagesSentBy`, an
 example of how to check that a view draws what its model holds);
 [`react.ts`](../../../examples/react.ts), the same bridge for React, without `messagesSentBy`, which only
 [`counter-react`](../../../examples/counter-react) and [`form-react`](../../../examples/form-react) use, to show
@@ -56,9 +56,10 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
 - **The view** follows the README's "Guide", and is drawn with snabbdom: React is for `counter-react` and
   `form-react` alone, so that the examples share one bridge. snabbdom's props module never removes a prop, so a
   view sets a prop such as `disabled` in every case of an element (`counter/view.ts`). An input is declared in
-  `compose`, as the README's "Inputs the user types into" says: the view writes into the field its model holds
-  (`onWrite`, through `dispatchTo`), and gives a text only to a new input (`initialValue`, with the field's
-  `revision` as the input's `key`). A child's view is
+  `compose`, as the README's "Inputs the user types into" says: the view draws it from the value its model holds,
+  with `shows` (a text) or `slides` (a range whose bounds never narrow), through `dispatchTo`, and gives it no key:
+  the bridge keeps the element. A control that fits no element the bridge settles is drawn by the program, its
+  press a message of the model and its drag a subscription (`volume`). A child's view is
   memoized with snabbdom's `thunk`, its dispatch from `dispatchTo` among the arguments (`pages/view.ts`).
 - **Messages live in the model** (the README's "Model"): a view builds none, and a test reads them from the
   model with a reader of its own, `messagesOf(model)`, a case of the model at a time. A parent's reader calls

@@ -1,8 +1,8 @@
 # Invariants the engine keeps
 
 The README's "Guarantees" says what a user may rely on, and the library's tests check each one
-(`src/interleaving.test.ts` checks all but that of the order, and what the run does from the first defect on, and
-the rule of an input, under random orders of clicks, writes into an input, current and stale, answers, subscription
+(`src/interleaving.test.ts` checks all but that of the order, and what the run does from the first defect on, the
+rule of an input, and what a frame has seen, under random orders of clicks, writes into an input, current and stale, answers, subscription
 messages and ends, releases, defects and self-interruptions, as the README says). This is how they are kept, and
 what a change must not undo. What they rest on of Effect and of the JavaScript engine is in
 [`premises.md`](premises.md), and how a change of the engine or of a testing tool is made in
@@ -48,23 +48,28 @@ testing tools.
   child has events, a handle's `update` only with a child's `external` messages, no own message or command
   named like a child. A program written without `Program<…>` has `unknown` types, read as `never` (`Known` in
   `program.ts`), so that it does not open these checks.
-- **An input's revision is the library's, and only what is drawn writes into an input** (`written` and `replaced` in
-  `input.ts`, applied in `compose.ts`; [`registers.md`](registers.md) says why). A write is a message of the composed
-  program like any other, so the state stays the fold of `update` over the messages, `applyAll` replays it, and
-  neither the engine nor the testing tools know of inputs. It is stored at the revision it carries, whatever its
-  value, and a write of the value held leaves the very same state; at another revision it is rejected, since it was
-  written into an input the program has since replaced: a stale write does not apply in the state, the one meaning
-  of `reject`. After any other step, the parent's own, a child's and what `onEvent` makes of its events, an input
-  whose place holds another value, by `Equal`, gets the next revision, and one that holds the value it held keeps its
-  field, whatever object holds it: identity stays an optimisation. A program never lowers a revision: it may raise
-  one, with `renewed`, for a new input that holds the same value. So the state stored differs from the state a step
-  wrote in the revision once a value changed: a revision is a key, and nothing of a program reads it but a view.
-  A write comes only from a view, whose control was drawn at the revision it carries: an own subscription sends
-  the parent's own messages, and a command answers with its own and its children's external ones (`RunCommandOf` in
-  `compose.ts`), so neither compiles with a write, into the parent's input or a child's, which would carry a revision no frame drew, and change the state where the
-  element on screen does not show it. A child its parent starts again, and an optional place that comes back,
-  restart an input's revision, which no rule of before and after closes. Each check has a mutation
-  (`mutations/mutations.ts`).
+- **A write is stored over the value it names, and only what is drawn writes into an input** (`written` in
+  `input.ts`, applied in `compose.ts` as an input's program; [`registers.md`](registers.md) says why). A write is a
+  message of the composed program like any other, so the state stays the fold of `update` over the messages,
+  `applyAll` replays it, and neither the engine nor the testing tools know of inputs. It is stored when the input's
+  place holds, by `Equal`, the value it was written over, whatever it is, and a write of the value held leaves the
+  very same value; over another value it is rejected, since the state has moved on without the element that wrote
+  it: a stale write does not apply in the state, the one meaning of `reject`. The rule reads the state and the message
+  alone and keeps nothing between two writes, so every other step, the parent's own, a child's and what `onEvent`
+  makes of its events, leaves an input as it wrote it, and a reset, an undo by snapshot or a place that comes back
+  cuts no history. A write comes only from a view: an own subscription sends the parent's own messages, and a command
+  answers with its own and its children's external ones (`RunCommandOf` in `compose.ts`), so neither compiles with a
+  write, into the parent's input or a child's. Two limits are declared, not flaws: a write over a value that came
+  back is stored, and a message names a place, so one drawn for an old instance reaches the new one. Each check has a
+  mutation (`mutations/mutations.ts`).
+- **The rule of an element is the library's, and the bridges only keep their registry** (`typed` and `drawn` in
+  `input.ts`). `typed` makes the write and what the element records of it from one value, the element's, so the two
+  cannot differ; the number comes from the dispatch the bridge runs, given to a continuation, since the library
+  runs no dispatch. `drawn` compares the frame's value, by `Equal`, with what the element showed before its first
+  write the frame has not seen, or with what it shows when the frame has seen them all, and returns the very `value`
+  it held when the element stays, which a bridge compares by identity to decide whether to set the element. It
+  promises the screen only for elements and renderers that meet the condition of the README ("Inputs the user types
+  into"); the bridges' tests check it in a DOM. Each check of `typed` and `drawn` has a mutation.
 - **Every program keeps its state in an object**, replaced and never mutated, so that any program can be a child: a
   parent keeps a child's model and its lifted subscriptions by its state object (below), and a number or a string
   has no identity to keep them by. It binds whoever writes a program, and the types are what enforce it

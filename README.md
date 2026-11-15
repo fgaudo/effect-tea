@@ -132,8 +132,8 @@ with `bun run build`, then `bun examples/<name>/index.html`.
 | [`counter`](examples/counter)             | the quick start, with a view | `applyAll`, `dispatchViolations`, `drive`                                                                           | [live](https://fgaudo.github.io/effect-tea/examples/counter/)       |
 | [`counter-react`](examples/counter-react) | the same program, in React   | what changes with the renderer: the view, `main.ts` and the bridge, never the program                               | [live](https://fgaudo.github.io/effect-tea/examples/counter-react/) |
 | [`form`](examples/form)                   | a form that saves a name     | an input declared in `compose`; a service; a failure as a message; a save only its completion ends; `rehearse`      | [live](https://fgaudo.github.io/effect-tea/examples/form/)          |
-| [`form-react`](examples/form-react)       | the form, in React           | an uncontrolled input: `defaultValue` and `key`, never `value`                                                      | [live](https://fgaudo.github.io/effect-tea/examples/form-react/)    |
-| [`volume`](examples/volume)               | a slider the program sets    | an input over a number; `renewed`, for a new slider at the same level when its bounds narrow; `drive`               | [live](https://fgaudo.github.io/effect-tea/examples/volume/)        |
+| [`form-react`](examples/form-react)       | the form, in React           | an input drawn by `Shows`, an uncontrolled `<input>` the bridge settles, never a `value` prop                       | [live](https://fgaudo.github.io/effect-tea/examples/form-react/)    |
+| [`volume`](examples/volume)               | two sliders, side by side    | an input over a number; a slider the program draws, its drag a subscription, for bounds that narrow; `drive`        | [live](https://fgaudo.github.io/effect-tea/examples/volume/)        |
 | [`pages`](examples/pages)                 | a clock and an About page    | `composition`, optics, `dispatchTo`, events, `subscribed`, a page started from flags; `simulate`                    | [live](https://fgaudo.github.io/effect-tea/examples/pages/)         |
 | [`list`](examples/list)                   | stopwatches by id            | `each`, a subscription per running child, `forEach`; a test with a `TestClock`                                      | [live](https://fgaudo.github.io/effect-tea/examples/list/)          |
 | [`timer`](examples/timer)                 | the tutorial's application   | timers by id, each ticking only while it runs, and a bell as a command; `rehearse` with `hear`                      | [live](https://fgaudo.github.io/effect-tea/examples/timer/)         |
@@ -142,7 +142,8 @@ with `bun run build`, then `bun examples/<name>/index.html`.
 bridges to the two renderers, worth copying for your own: `renderInto` for `run`, and handlers. Their tests,
 [`examples/snabbdom.test.ts`](examples/snabbdom.test.ts) and [`examples/react.test.ts`](examples/react.test.ts),
 run them in a DOM, with [happy-dom](https://github.com/capricorn86/happy-dom). They check how often a bridge
-draws, that a click reaches the program, and that what the user types survives the frames drawn meanwhile. The
+draws, that a click reaches the program, that what the user types survives the frames drawn meanwhile, and that the
+element of an input shows what the program puts in its place. The
 first has `messagesSentBy` too, which finds what a view sends without a DOM: one way to check that a view draws
 what its model holds, which the library asks of no bridge (see [testing](#testing)).
 
@@ -188,7 +189,7 @@ How to shape the state and its messages is in [structuring a program](#structuri
 
 `makeModel(state)` turns the state into what the view reads. Its **shape** says what the view shows: a case
 for each state the view tells apart, each holding only what makes sense in it, the messages of its controls
-included, and the fields of the inputs it draws. In this example, `Message` is a `Data.TaggedEnum`, `name` an
+included, and the values of the inputs it draws. In this example, `Message` is a `Data.TaggedEnum`, `name` an
 input (see [inputs the user types into](#inputs-the-user-types-into)) and `isBlank` a helper of the program:
 
 ```ts
@@ -198,11 +199,11 @@ type Editor = Data.TaggedEnum<{
   Named: { save: Message }
 }>
 
-const makeModel = (state: State): { name: Field<string>; editor: Editor } => ({
+const makeModel = (state: State): { name: string; editor: Editor } => ({
   name: state.name,
   editor: state.save._tag === 'Saving'
     ? { _tag: 'Saving' }
-    : isBlank(state.name.value)
+    : isBlank(state.name)
     ? { _tag: 'Blank' }
     : { _tag: 'Named', save: Message.SaveClicked() },
 })
@@ -216,9 +217,9 @@ What a model shows, and what a view may decide, is in [structuring a program](#s
 
 **Messages live in the model.** Every message a view can send is in the model it draws, as a value: a control
 sends what the program fixed for it. What the user gives a control (a text, a slider's level) is no message: the
-view writes it into an input whose field the model holds (see
-[inputs the user types into](#inputs-the-user-types-into)). A view sends only what the model holds, writes only into
-the fields it holds, and builds no message of the program itself: export `Message` as a type only, and no view can
+view writes it over the value of an input the model holds (see
+[inputs the user types into](#inputs-the-user-types-into)). A view sends only what the model holds, writes only over
+the values it holds, and builds no message of the program itself: export `Message` as a type only, and no view can
 build one. The library does not enforce it, and what it says of a model rests on it: a test reads a program's
 messages from its model (see [testing](#testing)), so a message a view built is one no test has seen.
 
@@ -238,36 +239,51 @@ among those the view has sent, from 1, in the order the run takes them, and each
 them the run had taken when its state was made: a frame whose `seen` is below a message's number was made before
 the run took it.
 
-The library ships no renderer. A bridge to one does two things: it draws each frame, and runs `dispatch` in the
-handlers. [`examples/snabbdom.ts`](examples/snabbdom.ts) and [`examples/react.ts`](examples/react.ts) are two,
-each small enough to copy. [`counter-react`](examples/counter-react) and [`form-react`](examples/form-react) draw the
-programs of [`counter`](examples/counter) and [`form`](examples/form) with the second. React Native's bridge is
-written the same way.
+The library gives a frame, and the renderer reads it and draws it; nothing else is supported or advised. A frame is
+drawn whole and at once, and what the screen shows comes from frames alone: no state kept by the renderer beside the
+program's, and no frame drawn in parts or put off.
+
+The library ships no renderer. A bridge to one does three things: it draws each frame, runs `dispatch` in the
+handlers, and settles, after each frame, the element of each input on screen (see
+[inputs the user types into](#inputs-the-user-types-into)). [`examples/snabbdom.ts`](examples/snabbdom.ts) and
+[`examples/react.ts`](examples/react.ts) are two, each small enough to copy. [`counter-react`](examples/counter-react)
+and [`form-react`](examples/form-react) draw the programs of [`counter`](examples/counter) and [`form`](examples/form)
+with the second. React Native's bridge is written the same way.
 
 #### Inputs the user types into
 
 A value the user gives an input (a text, a slider's level) is no message of the program: the program declares where
-it goes, `inputs: { Name: input(at) }` in `compose` (see [declaring children](#declaring-children)), at a `Field<A>`
-of its state, `{ value, revision }`, and the view writes into the field its model holds, `write(model.name, text)`,
-through `dispatchTo(dispatch, 'Name')`. No `update` of the program's sees it: the library stores what is written,
-whatever it is, in every state where the input exists, and rejects what was written into an input the program has
-since replaced, since the input on screen is another one, which does not show it. The program replaces an input by
-leaving another value in its place, `field('')`; for a new input that holds the same value, as when a slider's
-bounds narrow, it leaves `renewed(state.level)`.
-
-A field's `revision` is the library's: the key of the input a view draws, and nothing else. The state stored then
-holds the next revision, not the one `field` made, so nothing of a program reads a revision but the view's key, and
-a test compares an input by its `value`: `expect(state.name.value).toBe('')`, never
-`expect(state.name).toEqual(field(''))`.
+it goes, `inputs: { Name: input(at) }` in `compose` (see [declaring children](#declaring-children)), at a plain value
+of its state, and the view writes over the value its model holds, `write(model.name, text)`, through
+`dispatchTo(dispatch, 'Name')`. No `update` of the program's sees it: the library stores what is written, whatever
+it is, in every state where the input's place holds, by `Equal`, the value it was written over, and rejects it in
+any other, since the state has moved on without the input that wrote it. The program changes an input by leaving
+another value in its place, `name: ''`, and an input keeps nothing of its own: the state stored is the state the
+program wrote, which a test compares whole.
 
 Only what is drawn writes into an input. A subscription and a command answer with messages of the program, whose
-`update` puts the value in the input's place, which replaces it, or keeps it in the state until it chooses to.
+`update` puts the value in the input's place, or keeps it in the state until it chooses to.
 
 A frame may be older than the user's last keystroke, so rewriting an input from every frame can eat what was
-just typed. How a view keeps the text meanwhile is the renderer's: the input is given its text only when it is
-created, and its field's revision as its key, so that a replaced input is a new one. The examples show one way, to
-copy: [`form`](examples/form) and [`form-react`](examples/form-react), with snabbdom and with React, and
-[`volume`](examples/volume), a slider.
+just typed. A bridge keeps the element of each input, and asks the library what to make of it. When the user edits
+it, `typed(held, value)` gives the write to send, over what the element showed, and, from the number its dispatch
+returns, what the element then holds. After each frame, `drawn(held, value, seen)` keeps the element as it is while
+the frame is the element's own past or present, and gives it the frame's value once the state has moved on without
+it. So the element is never replaced, and keeps its focus while the program changes what it shows. The examples'
+bridges show it, to copy, in [`form`](examples/form) and [`form-react`](examples/form-react), with snabbdom and with
+React, and in [`volume`](examples/volume), a slider.
+
+The guarantees of inputs hold for elements and renderers that meet one condition: an element's value changes only by
+an edit of the user, which it reports with the whole value, or by the bridge; and the renderer, after each frame and
+before the user can act on it, lets the bridge reach the element of each input with the frame's value and `seen`. A
+text field meets it, and so does a renderer that draws each frame at once. A range whose bounds narrow does not,
+since it brings its value within them by itself, and is outside the guarantees. A widget, native or not, that does
+not fit the bridge is replaced by one the program draws, which is no input: a press is a message of the model, and a
+drag the messages of a subscription keyed by the state of dragging, as the ringer of [`volume`](examples/volume) is.
+
+A message names a place, which leaves two limits, neither of which corrupts the state: a write over a value that
+came back, the same text after a reset or an undo, is stored, as what the user typed over what they saw; and a
+message drawn for an old instance of a child reaches the new one, where `update` decides.
 
 ### Commands
 
@@ -480,8 +496,8 @@ export const app = compose({
   `composition<{ state: State; flags: Flags }>()`. Its `init` then returns the function that starts it:
   `init: (children) => (flags) => ({ state, commands })`.
 - **What it draws:** `makeModel`, from its state and its children's models.
-- **Its inputs,** if it has any: `inputs: { Name: input(at) }`, where `at` is an optic to a `Field` of its own
-  state (see [inputs the user types into](#inputs-the-user-types-into)). An input is no child: its field is the
+- **Its inputs,** if it has any: `inputs: { Name: input(at) }`, where `at` is an optic to a value of its own
+  state (see [inputs the user types into](#inputs-the-user-types-into)). An input is no child: its value is the
   parent's own state, which its `update` and `makeModel` read as the rest. A program with inputs and no children
   is made with `composition` too, and leaves `children` out.
 - **Its own messages, commands and subscriptions,** if it has any: `update`, `runCommand` (required exactly when
@@ -491,12 +507,12 @@ export const app = compose({
 What the library derives from it:
 
 - **The parent's messages:** its own plus `{ _tag: <child>, message }` for each child, and
-  `{ _tag: <input>, message: write(field, value) }` for each input. `MessageOf<typeof app>` names them. An own
+  `{ _tag: <input>, message: write(was, value) }` for each input. `MessageOf<typeof app>` names them. An own
   message that takes a child's or an input's name does not compile, nor does an own subscription that writes into an
   input. A command's answer is an own message, or an external message of a child's: one that writes into an input,
   the parent's or a child's, does not compile, nor does one that gives a child its own business.
-- **Its inputs' revisions:** after each step that is not a write, an input whose place holds another value, by
-  `Equal`, gets the next revision, and one that holds the value it held keeps its field.
+- **Its inputs' rule:** a write is stored while the input's place holds, by `Equal`, the value it was written over,
+  and rejected otherwise; every other step leaves an input as it wrote it.
 - **The parent's commands:** its own plus each child's, wrapped likewise and run by the child's `runCommand`.
   A child with commands and no `runCommand`, which a program written without `Program<…>` can be, does not
   compile; one that gets there through a cast is a defect when its command runs (a `CompositionDefect`).
@@ -625,14 +641,15 @@ holds, and its tests can check it. The library does not enforce them; the exampl
   no fallback. What a view would decide, `makeModel` decides, as a case named for the state the screen tells
   apart (`Empty | Listed`, `Loading | Loaded`), never a boolean. An `Option` is such a case only when
   "missing" is all the screen tells apart.
-- **What is only the screen's may stay in the renderer.** A hover, an animation, the focus: state of the
-  interface that no rule of the program reads may live in a component of the renderer's, with state or hooks
-  of its own. What the program decides stays in its state, and reaches the view as its model.
+- **The renderer draws frames, and nothing else.** A hover, an animation or the focus that the platform keeps by
+  itself is no state of the program's; a state kept in a component of the renderer, beside the program's, is
+  neither supported nor advised (see [view](#view)). What the program decides stays in its state, and reaches the
+  view as its model.
 - **Input is never a reason to reject.** The input keeps what the user typed whatever the program decides, and
   the library stores it (see [inputs the user types into](#inputs-the-user-types-into)), so no rule of the program
-  rejects a value: make its validity model data, and show "Save" only for a name that is not blank. A program that
-  narrows what an input accepts, a slider's bounds, replaces the input, with the value clamped or `renewed`, so that
-  what was written under the old bounds no longer applies.
+  rejects a value: make its validity model data, and show "Save" only for a name that is not blank. A control whose
+  bounds narrow under what the user gives it is drawn by the program, and its moves are messages that `update`
+  puts within the bounds it holds.
 
 #### Splitting a program
 
@@ -645,8 +662,8 @@ A program lives in one module until it is too large. Then it splits into childre
   subscriptions. Only a fact several children must see as one truth is the parent's, handed down as an
   external message.
 - **Children that read each other's state are one child**, whatever its size. A child whose controls the parent
-  would enable from its state, or whose state the parent would copy down and back up, is not one: a field the user
-  writes into, which the parent reads, is an input of the parent's. A parent that grows logic between two siblings
+  would enable from its state, or whose state the parent would copy down and back up, is not one: a value the user
+  writes, which the parent reads, is an input of the parent's. A parent that grows logic between two siblings
   is a sign that they are one child.
 
 ### Running
@@ -767,6 +784,12 @@ What you can rely on:
   a defect too: only the run, and whoever runs it, interrupt them.
 - **Frames cost only what is drawn.** A message that returns the very same state draws no new frame, and a
   model is made only for the frames the renderer reads.
+- **An input stores what is written over the value it holds.** A write is stored when its place holds, by
+  `Equal`, the value it was written over, whatever it is and whatever else the state says, and rejected otherwise.
+  With elements and renderers that meet the condition of inputs (see
+  [inputs the user types into](#inputs-the-user-types-into)), and a bridge that settles them with `drawn`, the
+  element of an input never takes back what the user typed since the frame, and shows the program's value once the
+  state has moved on without it.
 - **A frame says what it has seen.** Each message the view sends is numbered, from 1, in the order the run takes
   it, and a frame's `seen` is how many of them the run had taken when the frame's state was made, rejected ones
   included, and no message of a command or a subscription. A message that makes no new state draws no frame, so
@@ -798,8 +821,9 @@ of the spans opened in it, that nothing ends in silence, that a model is made on
 very same state draws no new frame, and that a frame has seen the view's messages taken before its state was made,
 and none after. It checks too that the run dies with each defect, in the order it happened as
 the run is made today, and from the first one on applies no message (see [running](#running)), and that what is
-written into an input is stored at the revision it was drawn at, or rejected (see
-[inputs the user types into](#inputs-the-user-types-into)).
+written into an input is stored exactly when it was written over the value its place holds (see
+[inputs the user types into](#inputs-the-user-types-into)). The bridges' tests check, in a DOM, what an element makes
+of the frames, by `drawn`.
 
 ### Testing
 
@@ -814,8 +838,8 @@ A program's tests follow its shape:
 2. **Check, for any of them,** that `update` answers every message with a step or `reject`, the same each time,
    that the model holds what `update` accepts (`dispatchViolations`), that the model is data, and what the program
    listens to (`subscriptionsOf`).
-3. **Write one test per message**, asserting the next state, the commands and the events by value, and an input
-   by its `value`, since its revision is the library's. Assert a rejection with `isRejected`, never as "the state
+3. **Write one test per message**, asserting the next state, the commands and the events by value, the inputs
+   included, which hold what the program wrote. Assert a rejection with `isRejected`, never as "the state
    did not change", which a step that keeps the state would pass too.
 4. **Check the defects apart.** The pairs of state and message that the invariants rule out (see
    [rejections and defects](#rejections-and-defects)) are skipped above, and checked as defects:
@@ -990,8 +1014,8 @@ Each export is documented in full in the [documentation](https://fgaudo.github.i
 | `Program<{ state; model; message; command?; … }>` | `init`, `update`, `runCommand` (with commands), `subscriptions` (optional), `makeModel`                  |
 | `StateOf`, `ModelOf`, `MessageOf`, `CommandOf`, … | a program's types, read back from it (`EventOf`, `ExternalOf`, `FlagsOf`, `ServicesOf`)                  |
 | `composition`                                     | `composition<{ state; … }>()`: `child`, `each`, `input` and `compose`, for children, inputs or both      |
-| `Field`, `field`, `renewed`                       | what an input holds, `{ value, revision }`; a field of a value; a new input for the value held           |
-| `write`, `Written`                                | `write(field, value)`: what a view sends for what the user gave the input drawn from `field`             |
+| `write`, `Written`                                | `write(was, value)`: what a view sends for what the user gave an input that showed `was`                 |
+| `typed`, `drawn`, `Shown`                         | what a bridge asks for an input's element: the write of an edit, what a frame makes of it                |
 | `Update`, `Transition`, `Step`                    | `(message) => (state) => Step` or `Rejected`; a `Step` is `{ state, commands?, events? }`                |
 | `reject`, `Rejected`, `isRejected`                | the rejection `update` returns, and its check                                                            |
 | `defect`, `InvariantDefect`                       | `defect(reason)` throws an `InvariantDefect`: a message that cannot arrive, a defect                     |
