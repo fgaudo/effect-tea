@@ -39,19 +39,8 @@ that each leans only on those above it.
 
 ## Open problems
 
-### Found by a review of the invariants (November 2026)
-
-Three models read `docs/invariants.md`, `docs/premises.md` and the README's "Guarantees" against the code, each
-attacking the others' claims. What it found of a step that does nothing, and of `reject` in `onEvent`, is in
-[`docs/inert-steps.md`](docs/inert-steps.md), a decision proposed and not done, with open questions of its own. What
-it proposed that was already decided (the flag for each fiber, the order of the defects) is in
-[`docs/rejected.md`](docs/rejected.md). The rest, each to be settled; "checked" is read again in the code by the
-session that wrote this, "reported" is a reviewer's claim that was not:
-
-- **The peer range is wider than what is tested.** About seventeen entries of `docs/premises.md` rest, in some
-  part, on what Effect does not document, and `^4.1.4` accepts minors no test has run on. The daily job tells of a
-  break, and does not protect a consumer already there. A range that stops at the minors tested, widened on each
-  green run, was proposed. Reported.
+None open. A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a
+deterministic test of it.
 
 ## Possible improvements
 
@@ -70,4 +59,4 @@ session that wrote this, "reported" is a reviewer's claim that was not:
   module of its own) without showing.
 - **A first frame for server-side rendering** (`renderToString` of the initial model), to be weighed against "a
   function earns its place by doing what Effect alone cannot".
-- **What 1.0 needs**: the API looks close to stable; the problems above are the list to close before freezing it.
+- **What 1.0 needs**: the API looks close to stable; the proposals above are the list to close before freezing it.

@@ -155,6 +155,16 @@ answer, and saying so in the proposal.
   the ninth review gave. [`registers.md`](registers.md), "Whoever steps replaces what is below" and "The channel of a
   replacement, declared". *Reopen if* the plain input is dropped and an input must again keep a history between two
   writes.
+- **A peer range that stops at the minors of Effect tested** (`~4.1.4`, widened by a release on each green run of
+  the daily job). Reasoned, 15 November 2026. Proposed by the review of the invariants of November 2026: about
+  seventeen entries of [`premises.md`](premises.md) rest in part on what Effect does not document, and `^4.1.4`
+  accepts minors no test has run on, so the daily job (`.github/workflows/effect-latest.yml`) tells of a break and
+  does not protect a consumer already on that minor. The owner chose the wide range with the daily job, and acts only
+  when it fails: the narrow one would ask for a release at each minor of Effect, even one that changes nothing, and
+  warn every consumer who upgrades Effect before it. The evidence at the time: the newest Effect 4 published was
+  4.1.4, the version of the lockfile, and the job was green on 14 and 15 November. Source: the session that removed
+  it from `ROADMAP.md`. *Reopen if* a minor of Effect breaks a premise and reaches consumers before a release of the
+  library follows it.
 
 ## Not here
 
