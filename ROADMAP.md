@@ -30,9 +30,10 @@ that each leans only on those above it.
   owner, with three spikes and his decisions, which stand only if it is taken up again. Its first aim, a model with
   no function for what the user types, was reached by the plain input; what is left of it is a key's messages and a
   command's answers. `docs/declared-inputs.md`.
-- **What the plain input left**: a slider in React, a `File`, the ideas of "To explore" not yet overtaken, and what
-  was not run (a real browser, an IME composition, the caret under a value the program changes).
-  [`docs/registers.md`](docs/registers.md), "The port of the ninth review" › "Left", and "Where it stands".
+- **What the plain input left**: a slider in React, a `File`, frames a bridge skips by the equality of models (the
+  one idea of "To explore" the port did not overtake), and what was not run (a real browser, an IME composition, the
+  caret under a value the program changes). [`docs/registers.md`](docs/registers.md), "The port of the ninth review"
+  › "Left", and "Where it stands".
 
 ## Open problems
 

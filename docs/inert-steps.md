@@ -33,8 +33,9 @@ On 15 November 2026, by the owner:
   stopwatch stopped) is an alarm the parent cannot avoid without reading its children. Over the examples it found one
   real case, the empty list, now fixed without it; 819 of 2,000 states of `list` were flagged, 433 over an empty list
   and 386 with entries all stopped (Fable's measure, not run again). It is weighed again with what `Inert` finds in an
-  application, and with "`dispatchViolations` knows where the inputs are" (`registers.md`, "To explore"), which
-  would spare it an exemption for writes.
+  application, and with a key whose message does nothing ("Open questions"). The exemption for writes that
+  "`dispatchViolations` knows where the inputs are" (`registers.md`, "To explore") would have spared it is gone with
+  the port: a write is no message a model holds ("Since the port").
 - **The comment of `dispatchViolations`** no longer says that an instance of a class without `Equal` compares by
   reference: `Equal.equals`'s documentation at 4.1.4 says how plain objects, arrays, maps, sets and dates compare,
   and that functions compare by reference, and says nothing of other instances, so the comment names functions alone.
@@ -177,9 +178,10 @@ What the plain input changed of the above, read in the code at `7074b7a` and not
 - **A write of the value held leaves the very value** (`written`, in `input.ts`), so it draws no frame, and the open
   question of `Field.typed` is closed. Such a write is a step that does nothing; `Inert` would judge it only if a
   test gave writes to the tool, which no example does.
-- **What stands**: `withheld` in `pages` (`app.test.ts:68`), `StopAllClicked` in `list` and its empty list, the
+- **What stands**: `withheld` in `pages` (`app.test.ts:77`), `StopAllClicked` in `list` and its empty list, the
   question of `rehearse`, a key whose message does nothing, the comment of `dispatchViolations`, and the application.
-  The decision and its five points are as they were.
+  The decision and its five points are as they were. All but the key and the application were settled since, by the
+  owner's decision ("What was decided").
 
 ## Alternatives
 
@@ -215,12 +217,16 @@ It is a breaking change, with a changelog entry and the version `release` asks f
 
 ## Open questions
 
+Two are open: a key whose message does nothing, and the application. The others were closed by the owner's decision
+or by the port, and are kept as they were asked, with how each was closed.
+
 - **`list` over an empty list.** Whether the example rejects `StopAllClicked` there and gives its model a case for
   it (`Empty | Listed`), which is what the README's rules ask and what `Inert` found, or lists it as `inert` with the
-  case of every stopwatch stopped.
+  case of every stopwatch stopped. *Closed*: `update` rejects it over an empty list, and the model leaves it out as
+  an `Option` ("What was decided").
 - **`rehearse`.** It fails on a `send` that `update` rejects, as a control that does nothing. Whether it fails on one
   whose step does nothing too: the run applies such a message, and `rehearse` follows the run, but the tools are
-  meant to be asked about the same things.
+  meant to be asked about the same things. *Closed*: it does not ("What was decided").
 - **A key whose message does nothing.** `Inert` is of what a model holds. A subscription has the same mistake, and its
   own way to leave a control out: a state that does not list the key (a "back" button of the device, not listened
   to at the root, is left to the system). A key that is listed and whose message does nothing is found by no tool:
@@ -230,7 +236,8 @@ It is a breaking change, with a changelog entry and the version `release` asks f
 - **`Field.typed`** built a new field for the text it had, so the same text drew a frame for nothing. Closed by the
   port: a write of the value held leaves the very value ("Since the port").
 - **The comment of `dispatchViolations`** says an instance of a class that does not implement `Equal` compares by
-  reference. The check above found otherwise for one class: to be read again when the file changes.
+  reference. The check above found otherwise for one class: to be read again when the file changes. *Closed*: the
+  comment names functions alone ("What was decided").
 - **An application.** What `Inert` finds in a program larger than the examples, and how many exemptions it asks for,
   is not measured. It decides nothing of the rule, which is judged on the library's own terms, but says what it is
   worth.

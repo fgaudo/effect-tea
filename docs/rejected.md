@@ -177,4 +177,4 @@ What is open, proposed or suspended is not rejected, and is listed in `ROADMAP.m
 - **`Inert`** ([`inert-steps.md`](inert-steps.md), "What was decided"): deferred by the owner, not rejected; the
   rest of the proposal is done.
 - **The wrapping of a child's message as a public function** ([`boundary.md`](boundary.md), "A question"), and its
-  items 6 to 8: questions and candidates, not decided.
+  items 6 and 7: questions and candidates, not decided. Its item 8 is done.

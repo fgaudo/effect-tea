@@ -33,7 +33,15 @@ later one may be superseded by it ("Open questions" and "The ways forward" by th
 
 ## Where it stands
 
-### Open: an input whose history its parent cuts
+### Closed by the port: an input whose history its parent cuts
+
+**How it was closed.** The ninth review, ported to `main` ("The port of the ninth review"), took the revision out, and
+with it the split this question was about: a write names the value it was written over, and is rejected where the
+place holds another, whoever made that value. `src/input.test.ts` holds each case of the list below, in "a key typed
+into an input its parent has since replaced": what was typed before the parent started the draft again, or brought a
+kept one back, or before another row came to the same id, is rejected. What is left of it are the two limits the
+README declares, each tested there as a pure piece: a write over a value that came back is stored, and a fixed
+message drawn for an old instance reaches the new one. The rest of this section is the question as it was asked.
 
 **The question.** The rule of a revision is applied after each step of the program that holds the input, and a
 hierarchical composition splits that ownership: a child's state lives in its parent's, while the rule lives in the
@@ -83,11 +91,16 @@ continuation that takes its number; `Shown` opaque but for `value`; `shown` drop
 
 **Done since**: adopted by the owner and ported ("The port of the ninth review").
 
-**Open too**: a `File`; the ideas of "To explore", each spiked or measured before it is proposed. A reaction to every
-keystroke, a subscription keyed by the input's value, was run again on the plain input and is closed ("The port of
-the ninth review").
+**Open**: what "The port of the ninth review" › "Left" lists; a `File`; and, of the ideas of "To explore", the one
+the port did not overtake, frames skipped by the equality of models, spiked or measured before it is proposed. A
+reaction to every keystroke, a subscription keyed by the input's value, was run again on the plain input and is
+closed ("The port of the ninth review").
 
 ### On `main`: decided
+
+What follows was decided before the ninth review. What it says of a `Field`, a revision and `renewed` was replaced
+by the port, which removed them: the direction, an input declared in `compose`, stands with a plain value, and so do
+"Only what is drawn writes", the name and the narrowing of a command's answer.
 
 **The direction: decided**, by the owner on 14 November 2026: an input declared in `compose`, beside the children
 (`inputs: { Name: input(at) }`), whose field `Field<A>`, `{ value, revision }`, lives in the program's own state; the
@@ -165,6 +178,9 @@ last seven live in worktrees under `.claude/worktrees/`, which a cleaning of the
 stay.
 
 ## The implementation
+
+The first implementation, of an input with a revision, replaced since by the port of the ninth review, which removed
+`Field`, `field`, `renewed` and `replaced` ("The port of the ninth review"). It is kept as it was done.
 
 Ported by hand from `spike/register-input-by-value` (`c445a5b`), with the sentences of way 1 (`50d5561`), the tests of
 the subscriptions (`d686ddf`) and `late-key.test.ts`, on a branch cut from `main` at `479b2de`:
@@ -843,7 +859,8 @@ messages. The owner prefers the first, as the review recommends ("Where it stand
 ## To explore
 
 Ideas that an input declared in `compose` would open, weighed with the owner after the second opinion. None is
-checked: each is **reasoned**, and is spiked or measured before it is proposed.
+checked: each is **reasoned**, and is spiked or measured before it is proposed. Read again at `9903b9c`, after the
+port: only the first is still open, and each of the others says what closed it.
 
 - **Frames skipped by the equality of models.** A model that holds a closure is never equal to the one before, so a
   renderer's `thunk` or `memo` cannot tell it unchanged. With no function in it, the models of two equal states are
@@ -851,15 +868,19 @@ checked: each is **reasoned**, and is spiked or measured before it is proposed.
   is the bridge's or the run's, under "frames cost only what is drawn".
 - **`dispatchViolations` knows where the inputs are.** They are declared, so the tool could leave writes aside by
   itself, or check that every input the model holds exists in the state, with nothing said by the test.
+  Overtaken by the port: a write is no message a model holds, so no test gives one to the tool, and a model holds an
+  input's plain value, which names no input to check.
 - **The recipe "a model is data"** in the README's "Testing", with the way of the second opinion: the same seed drawn
-  twice gives two equal states built apart, with no copy written by hand.
+  twice gives two equal states built apart, with no copy written by hand. Done since: the README's "Testing" has it,
+  and `examples/form/form.test.ts` its test.
 - **A better name than `parent()`** for a program that has inputs and no children. It is decided before a release,
   since it stays in the API. Decided since: `composition` ("The name").
 - **`withheld` reviewed.** With typing gone from the candidates, what is left of its uses (the clock of `pages`) is
   counted in the tests, and whether it still earns its place is asked. Decided since: `Missing` leaves out a step
   that does nothing, which took that use away, and the owner kept `withheld` with an example of its own, the format
   of the clock under About ([`inert-steps.md`](inert-steps.md), "What was decided").
-- **The revision a program did not write.** With a derivation, a program writes `field('')`, whose revision reads 0,
+- **The revision a program did not write.** Overtaken by the port, which removed the revision: the state stored is
+  the state written. As it was weighed: with a derivation, a program writes `field('')`, whose revision reads 0,
   and its state holds another: `expect(state.name).toEqual(field(''))` fails on a revision of 4. It harms no
   determinism and no replay; it surprises whoever compares whole states, or reads an `update` as "it returns exactly
   this". It is unseen in the view, which keys the input by the revision stored, and in the program's logic, which
@@ -1806,7 +1827,9 @@ on it, not merged.
 
 ## What a consumer could notice
 
-With an input declared in `compose`, either way of keeping its revision:
+As weighed before the ninth review, of an input with a revision. What a consumer notices of what `main` has, a plain
+input with no `Field`, `field` or `renewed`, is in the changelog's 0.8.0. With an input declared in `compose`, either
+way of keeping its revision:
 
 - **New exports**: `Field`, `field`, `write`, `input` and `inputs` in `compose`, and `renewed` (A) or `replace` (B);
   `children` becomes optional. Additive as API, with a changelog entry. `parent` is renamed `composition`, a

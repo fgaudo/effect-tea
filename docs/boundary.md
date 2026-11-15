@@ -1,11 +1,12 @@
 # Where the library ends: what is left across and after the model
 
-**Status:** items 1 to 5 done on `main`, 14 November 2026, and item 8 on 15 November 2026; items 6 and 7 are
-candidates and item 9 a question, none decided and none designed. Rewritten the same day from the inventory it was (`d13bd6f`, whose tables and
-sections 1 to 3 describe the repository before item 1 and are kept there, in the history). Made by one model (Fable
-5.2) on Effect 4.1.4 and Bun 1.4.4. "What it rests on" says what was read again in the code today, at `1d0ccc9`, and
-what is carried over. Read again on 15 November 2026, at `7074b7a`, after the port of the plain input
-([`registers.md`](registers.md)): the places cited are today's, and items 8 and 9 say what the port added to them.
+**Status:** items 1 to 5 done on `main`, 14 November 2026, and item 8 on 15 November 2026 (`9903b9c`); items 6 and
+7 are candidates and item 9 a question, none decided and none designed. Rewritten the same day from the inventory it
+was (`d13bd6f`, whose tables and sections 1 to 3 describe the repository before item 1 and are kept there, in the
+history). Made by one model (Fable 5.2) on Effect 4.1.4 and Bun 1.4.4. "What it rests on" says what was read again in
+the code today, at `1d0ccc9`, and what is carried over. Read again on 15 November 2026, at `7074b7a`, after the port
+of the plain input ([`registers.md`](registers.md)): items 8 and 9 say what the port added to them. The places cited
+in items 6, 7 and 9 were read again at `9903b9c`.
 
 ## Context
 
@@ -28,7 +29,7 @@ boundary the code has is **the frame**, a model and a dispatch. What follows is 
 | 3 | `dispatchViolations` has the words of what it takes: the messages a model holds | `910b343` |
 | 4 | "Inputs the user types into" keeps the cause and `update`'s rule; the remedy is the examples'. **Reopened** by [`registers.md`](registers.md): the rule is the library's, for an input declared in `compose`, and `examples/field.ts` is gone | `36119ad` |
 | 5 | The bridges' tests are examples' tests, not among the library's five kinds | `87e5e35` |
-| 8 | What a dispatch sends has the origin `'Dispatch'`, and the run's words name a dispatch where they named the view | the one after `0c0a6c4` |
+| 8 | What a dispatch sends has the origin `'Dispatch'`, and the run's words name a dispatch where they named the view | `9903b9c` |
 
 What each found that the inventory did not have is in this document as `1d0ccc9` left it ("Item 1, as done",
 "Items 2 to 5, as done"). Three findings bear on what is open:
@@ -112,8 +113,8 @@ reader to share.
 
 What the code has, read today:
 
-- **The shape is written twice in `src/`, and typed three times.** `compose.ts:351`, `wrapMessage(place)`, used for
-  a child's subscriptions (`:443`) and for the answers of its commands (`:507`); and `dispatch.ts:101`, inline in
+- **The shape is written twice in `src/`, and typed three times.** `compose.ts:357`, `wrapMessage(place)`, used for
+  a child's subscriptions (`:449`) and for the answers of its commands (`:527`); and `dispatch.ts:101`, inline in
   `dispatchTo`. The types are `ChildMessages` (`compose.ts:172`), `InputMessages` (`compose.ts:131`), since the port
   the same shape without an id for a write into an input, and `Routed` (`dispatch.ts:27`). The two functions differ in
   how they know that a child is by id: `compose` asks its configuration, `dispatchTo` whether an id was given.
@@ -126,7 +127,7 @@ What the code has, read today:
   child: none compiles, since the literal is typed as the parent's `Message`. A wrong id of the right type compiles,
   with a function as with a literal, and the test finds it (`Rejected`, and `Missing` for the right one).
 - **It is not the only shape a parent's test rebuilds.** A child's command is `{ _tag, id?, command }`
-  (`compose.ts:352`; `pages` asserts one by hand), and a lifted key `[name, id, key]`. A function for messages
+  (`compose.ts:358`; `pages` asserts one by hand), and a lifted key `[name, id, key]`. A function for messages
   alone covers one of three.
 - **A function has no value to infer the parent's `Message` from.** `dispatchTo` infers it from the dispatch it is
   given; a pure function would take it as a type argument, or from the parent program.
