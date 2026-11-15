@@ -68,9 +68,10 @@ testing tools.
   cannot differ; the number comes from the dispatch the bridge runs, given to a continuation, since the library
   runs no dispatch. `drawn` compares the frame's value, by `Equal`, with what the element showed before its first
   write the frame has not seen, or with what it shows when the frame has seen them all, and returns the very `value`
-  it held when the element stays, which a bridge compares by identity to decide whether to set the element. It
-  promises the screen only for elements and renderers that meet the condition of the README ("Inputs the user types
-  into"); the bridges' tests check it in a DOM. Each check of `typed` and `drawn` has a mutation.
+  it held when the element stays, which a bridge compares by identity to decide whether to set the element. What
+  a screen then shows is no guarantee of the library's, which knows no renderer: the README promises it in "Inputs
+  the user types into", for elements and renderers that meet its condition and a bridge that settles them with
+  `drawn`, and the bridges' tests check it in a DOM. Each check of `typed` and `drawn` has a mutation.
 - **Every program keeps its state in an object**, replaced and never mutated, so that any program can be a child: a
   parent keeps a child's model and its lifted subscriptions by its state object (below), and a number or a string
   has no identity to keep them by. It binds whoever writes a program, and the types are what enforce it

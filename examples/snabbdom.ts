@@ -59,8 +59,8 @@ export const shows = (value: string, dispatch: Dispatch<Written<string>>): VNode
  * The same for a slider, `<input type="range">`, over a number: where it is dragged, `valueAsNumber`, is written over
  * the number the element showed. The bounds are props, which snabbdom writes before the frame gives the element its
  * value, and must not narrow under a value the program holds: a range brings its value within its bounds by itself,
- * which no edit of the user reports, and the guarantees of inputs do not cover it. A slider whose bounds narrow is one
- * the program draws itself.
+ * which no edit of the user reports, and what the README promises of an input's element does not cover it. A slider
+ * whose bounds narrow is one the program draws itself.
  */
 export const slides = (value: number, dispatch: Dispatch<Written<number>>): VNodeData =>
   showing(value, dispatch, (element) => element.valueAsNumber)

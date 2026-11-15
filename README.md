@@ -276,13 +276,15 @@ it. So the element is never replaced, and keeps its focus while the program chan
 bridges show it, to copy, in [`form`](examples/form) and [`form-react`](examples/form-react), with snabbdom and with
 React, and in [`volume`](examples/volume), a slider.
 
-The guarantees of inputs hold for elements and renderers that meet one condition: an element's value changes only by
-an edit of the user, which it reports with the whole value, or by the bridge; and the renderer, after each frame and
-before the user can act on it, lets the bridge reach the element of each input with the frame's value and `seen`. A
-text field meets it, and so does a renderer that draws each frame at once. A range whose bounds narrow does not,
-since it brings its value within them by itself, and is outside the guarantees. A widget, native or not, that does
-not fit the bridge is replaced by one the program draws, which is no input: a press is a message of the model, and a
-drag the messages of a subscription keyed by the state of dragging, as the ringer of [`volume`](examples/volume) is.
+With a bridge that settles them with `drawn`, the element of an input never takes back what the user typed since the
+frame, and shows the program's value once the state has moved on without it. That holds for elements and renderers
+that meet one condition: an element's value changes only by an edit of the user, which it reports with the whole
+value, or by the bridge; and the renderer, after each frame and before the user can act on it, lets the bridge reach
+the element of each input with the frame's value and `seen`. A text field meets it, and so does a renderer that draws
+each frame at once. A range whose bounds narrow does not, since it brings its value within them by itself, and is
+outside what is promised here. A widget, native or not, that does not fit the bridge is replaced by one the program
+draws, which is no input: a press is a message of the model, and a drag the messages of a subscription keyed by the
+state of dragging, as the ringer of [`volume`](examples/volume) is. The bridges' tests check it, in a DOM.
 
 A message names a place, which leaves two limits, neither of which corrupts the state: a write over a value that
 came back, the same text after a reset or an undo, is stored, as what the user typed over what they saw; and a
@@ -813,10 +815,9 @@ What you can rely on:
   model is made only for the frames the renderer pulls.
 - **An input stores what is written over the value it holds.** A write is stored when its place holds, by
   `Equal`, the value it was written over, whatever it is and whatever else the state says, and rejected otherwise.
-  With elements and renderers that meet the condition of inputs (see
-  [inputs the user types into](#inputs-the-user-types-into)), and a bridge that settles them with `drawn`, the
-  element of an input never takes back what the user typed since the frame, and shows the program's value once the
-  state has moved on without it.
+  For the element that shows an input, `drawn` keeps the element as it is while the frame is the element's own past
+  or present, and gives it the frame's value once the state has moved on without it: what that makes of a screen,
+  and for which elements and renderers, is in [inputs the user types into](#inputs-the-user-types-into).
 - **A frame says what it has seen.** Each message a dispatch sends is numbered, from 1, in the order the run takes
   it, and a frame's `seen` is how many of them the run had taken when the frame's state was made, rejected ones
   included, and no message of a command or a subscription. A message that makes no new state draws no frame, so
@@ -849,7 +850,8 @@ very same state draws no new frame, that what is written into an input is stored
 the value its place holds (see [inputs the user types into](#inputs-the-user-types-into)), and that a frame has seen
 the dispatched messages taken before its state was made, and none after. It checks too that the run dies with each
 defect, in the order it happened as the run is made today, and from the first one on applies no message (see
-[running](#running)). The bridges' tests check, in a DOM, what an element makes of the frames, by `drawn`.
+[running](#running)). What `drawn` makes of an element is checked by the tests of the rule itself, as data; what a
+screen then shows is the bridges', checked in a DOM (see [inputs the user types into](#inputs-the-user-types-into)).
 
 ### Testing
 
