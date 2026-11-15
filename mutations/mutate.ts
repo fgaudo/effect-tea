@@ -1,5 +1,6 @@
-// Applies each mutation of `mutations.ts` to a copy of the repository, one at a time, runs the tests it names alone,
-// and fails when one of them passes, or fails without it: a check whose removal no test notices is held by none.
+// Applies each mutation of `mutations.ts` to a copy of the repository, one at a time, runs each test it names alone,
+// in a process of its own, and fails when one of them passes, or fails alone without it: a check whose removal no
+// test notices is held by none, and a test that fails only beside others of its file holds nothing.
 //
 //   bun run mutations                  every mutation
 //   bun run mutations <name>…          those whose name contains one of the arguments
@@ -17,7 +18,11 @@ const root = path.resolve(import.meta.dir, '..')
 const copy = path.join(root, '.mutants', String(process.pid))
 const copied = ['src', 'test', 'examples', 'bunfig.toml', 'package.json', 'tsconfig.json']
 
-type Outcome = Readonly<{ file: string; name: string; failed: boolean }>
+// `title` is what `bun test -t` matches: the names of the enclosing `describe`s, outermost first, and the test's,
+// joined by spaces.
+type Outcome = Readonly<{ file: string; name: string; title: string; failed: boolean }>
+
+type Killer = Mutation['killedBy'][number]
 
 const decode = (text: string) =>
   text.replace(/&(quot|apos|lt|gt|amp);/g, (_, entity: string) =>
@@ -26,24 +31,33 @@ const decode = (text: string) =>
 const attributes = (text: string) =>
   Object.fromEntries(Array.from(text.matchAll(/(\w+)="([^"]*)"/g), ([, key, value]) => [key, decode(value ?? '')]))
 
-// What bun's JUnit report says of each test that ran: skipped and `todo` tests are left out.
+// What bun's JUnit report says of each test that ran: skipped and `todo` tests are left out. Its `classname` lists
+// the enclosing `describe`s innermost first, joined by ' > '.
 const outcomes = (report: string): ReadonlyArray<Outcome> =>
   Array.from(report.matchAll(/<testcase\s([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/g)).flatMap(([, head, body]) => {
     if (body?.includes('<skipped')) return []
-    const { name, file } = attributes(head ?? '')
-    return [{ file: (file ?? '').replaceAll('\\', '/'), name: name ?? '', failed: body?.includes('<failure') ?? false }]
+    const { name = '', file = '', classname = '' } = attributes(head ?? '')
+    const describes = classname === '' ? [] : classname.split(' > ').reverse()
+    return [{
+      file: file.replaceAll('\\', '/'),
+      name,
+      title: [...describes, name].join(' '),
+      failed: body?.includes('<failure') ?? false,
+    }]
   })
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-// The whole suite takes under a minute: a run that lasts longer hangs, which no report says of any one test.
-const patience = 5 * 60 * 1000
+// No test takes more than half a minute: a process that lasts longer hangs, which no report says of its test.
+const patience = 60 * 1000
 
-// Runs `files` in the copy, only the tests named `names` when given, and returns what each did, or that it hung.
-const runTests = (files: ReadonlyArray<string>, names?: ReadonlyArray<string>): ReadonlyArray<Outcome> | 'hung' => {
+// Runs `files` in the copy, only the test whose title is `title` when given, and returns what each did, or that it
+// hung.
+const runTests = (files: ReadonlyArray<string>, title?: string): ReadonlyArray<Outcome> | 'hung' => {
   const report = path.join(copy, 'report.xml')
   fs.rmSync(report, { force: true })
-  const filter = names === undefined ? [] : ['-t', names.map(escape).join('|')]
+  // Anchored, since `-t` runs every test whose title the pattern finds anywhere in it.
+  const filter = title === undefined ? [] : ['-t', `^${escape(title)}$`]
   const started = performance.now()
   const run = Bun.spawnSync(['bun', 'test', ...files, ...filter, '--reporter=junit', `--reporter-outfile=${report}`], {
     cwd: copy,
@@ -58,19 +72,42 @@ const runTests = (files: ReadonlyArray<string>, names?: ReadonlyArray<string>): 
   return outcomes(fs.readFileSync(report, 'utf8'))
 }
 
-const filesOf = (mutation: Mutation) => [...new Set(mutation.killedBy.map(([file]) => file))]
+const describe = ([file, name]: Killer) => `${file} › ${name}`
 
-const namesOf = (mutation: Mutation) => mutation.killedBy.map(([, name]) => name)
-
-// The tests `mutation` names, each found exactly once among `ran`: a renamed or removed test is an error of the list.
-const named = (mutation: Mutation, ran: ReadonlyArray<Outcome>) =>
-  mutation.killedBy.map(([file, name]) => {
-    const found = ran.filter((outcome) => outcome.file === file && outcome.name === name)
-    if (found.length !== 1) {
-      throw new Error(`"${mutation.name}" names ${file} › ${name}, which ran ${found.length} times`)
+// The title of each killer of `chosen`, found by a run of their files whole: each must have run exactly once, so that
+// a renamed or removed test is an error of the list, and be the only test of its file with its title, so that a run
+// of it alone runs it only.
+const titlesOf = (chosen: ReadonlyArray<Mutation>): ReadonlyMap<string, string> => {
+  const killers = chosen.flatMap((mutation) => mutation.killedBy)
+  const ran = runTests([...new Set(killers.map(([file]) => file))])
+  if (ran === 'hung') throw new Error('The files of the tests hang without any mutation')
+  const titles = new Map<string, string>()
+  for (const mutation of chosen) {
+    for (const killer of mutation.killedBy) {
+      const [file, name] = killer
+      const found = ran.filter((outcome) => outcome.file === file && outcome.name === name)
+      if (found.length !== 1) {
+        throw new Error(`"${mutation.name}" names ${describe(killer)}, which ran ${found.length} times`)
+      }
+      const { title } = found[0] as Outcome
+      const alike = ran.filter((outcome) => outcome.file === file && outcome.title === title).length
+      if (alike !== 1) throw new Error(`${file} holds ${alike} tests titled "${title}"`)
+      titles.set(describe(killer), title)
     }
-    return found[0] as Outcome
-  })
+  }
+  return titles
+}
+
+// Runs `killer` alone, in a process of its own: a test that hangs does not pass.
+const alone = (titles: ReadonlyMap<string, string>, killer: Killer): 'passed' | 'failed' | 'hung' => {
+  const title = titles.get(describe(killer)) as string
+  const ran = runTests([killer[0]], title)
+  if (ran === 'hung') return 'hung'
+  if (ran.length !== 1 || (ran[0] as Outcome).title !== title) {
+    throw new Error(`A run of ${describe(killer)} alone ran ${ran.length} tests`)
+  }
+  return (ran[0] as Outcome).failed ? 'failed' : 'passed'
+}
 
 // The mutated text of `mutation`'s file: `from` must occur exactly once, so that a change of the code is noticed.
 const mutated = (mutation: Mutation, original: string) => {
@@ -119,26 +156,23 @@ try {
       for (const { file, name } of failed) console.log(`  ['${file}', ${JSON.stringify(name)}],`)
     }
   } else {
-    // Each test must pass without its mutation, or its failure under it says nothing.
-    const baseline = runTests(
-      [...new Set(chosen.flatMap(filesOf))],
-      [...new Set(chosen.flatMap(namesOf))],
-    )
-    if (baseline === 'hung') throw new Error('The tests hang without any mutation')
-    for (const mutation of chosen) {
-      for (const { file, name } of named(mutation, baseline).filter((outcome) => outcome.failed)) {
-        throw new Error(`${file} › ${name} fails without "${mutation.name}"`)
-      }
+    const titles = titlesOf(chosen)
+    // Each test must pass alone without its mutation, or its failure under it says nothing.
+    const killers = new Map(chosen.flatMap((mutation) => mutation.killedBy.map((killer) => [describe(killer), killer])))
+    for (const killer of killers.values()) {
+      const outcome = alone(titles, killer)
+      if (outcome !== 'passed') throw new Error(`${describe(killer)} ${outcome} alone without any mutation`)
     }
     for (const [index, mutation] of chosen.entries()) {
       const started = performance.now()
-      const ran = under(mutation, () => runTests(filesOf(mutation), namesOf(mutation)))
-      // A test that hangs does not pass.
-      const passed = ran === 'hung' ? [] : named(mutation, ran).filter((outcome) => !outcome.failed)
+      const ran = under(mutation, () => mutation.killedBy.map((killer) => [killer, alone(titles, killer)] as const))
+      const passed = ran.filter(([, outcome]) => outcome === 'passed')
+      const hung = ran.filter(([, outcome]) => outcome === 'hung')
       const seconds = ((performance.now() - started) / 1000).toFixed(1)
-      const verdict = ran === 'hung' ? 'killed (the tests hang)' : passed.length === 0 ? 'killed' : 'SURVIVED'
+      const verdict = passed.length === 0 ? 'killed' : 'SURVIVED'
       console.log(`${verdict} [${index + 1}/${chosen.length}] ${mutation.name} (${seconds}s)`)
-      for (const { file, name } of passed) console.log(`  passes under it: ${file} › ${name}`)
+      for (const [killer] of hung) console.log(`  hangs under it: ${describe(killer)}`)
+      for (const [killer] of passed) console.log(`  passes under it: ${describe(killer)}`)
       if (passed.length > 0) survived++
     }
   }
