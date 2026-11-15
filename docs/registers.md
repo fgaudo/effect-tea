@@ -1,22 +1,23 @@
 # Registers: what the outside writes into a program's state
 
-**Status:** decided, 14 November 2026, and implemented the same day ("The implementation"). The direction, who keeps
-an input's revision, what may write into an input, and the name of what makes a program of children or inputs, are
-decided ("Where it stands"). It records a
-discussion with the owner, two reviews by Fable 5.2 (one of a design, one asked for ideas), and one spike, kept on the
-branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never to be merged), on Effect 4.1.4 and Bun 1.4.4,
-the six checks that followed, each on a branch of its own ("What the checks found"), and a third review by Fable 5.2,
-asked what to adopt, with a spike of its own ("An independent opinion"), and a fourth, on how that spike derives a
-revision ("A second opinion"), and a spike of the three ways to keep the revision a program did not write ("The revision
-a program did not write, spiked"), and a spike of the subscriptions of a program with an input ("The subscriptions with
-an input, checked"), and a fifth review by Fable 5.2, on what may write into an input ("Only what is drawn writes"),
-and a sixth, on the name of `parent` ("The name"), and the bridges tested in happy-dom ("The bridges, in happy-dom"),
-and a recipe of a bridge for a source that belongs to the control, tested there too ("A source that belongs to the
-control"), and a slider in an example ("A slider, in an example"), and a seventh review by Fable 5.2, with a spike,
-on how to close concern 3 ("Whoever steps replaces what is below"), and an eighth, with a spike, on how a parent applies
-its child's rule there ("The channel of a replacement, declared"), and a ninth, with a spike and a free hand over the
-whole library, which replaces the revision with a plain input and a frame that says what it has seen ("A plain input,
-and a frame that says what it has seen"), none yet decided.
+**Status:** reopened, 15 November 2026. Inputs are on `main` as decided and implemented on 14 November ("The
+implementation"); what happens to an input when its parent replaces its child's state is open, and three reviews
+propose an answer, none decided. Where to start is "Where it stands" › "Open".
+
+The document records a discussion with the owner, two reviews by Fable 5.2 (one of a design, one asked for ideas),
+and one spike, kept on the branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never to be merged),
+on Effect 4.1.4 and Bun 1.4.4, the six checks that followed, each on a branch of its own ("What the checks found"),
+and a third review by Fable 5.2, asked what to adopt, with a spike of its own ("An independent opinion"), and a
+fourth, on how that spike derives a revision ("A second opinion"), and a spike of the three ways to keep the revision a
+program did not write ("The revision a program did not write, spiked"), and a spike of the subscriptions of a program
+with an input ("The subscriptions with an input, checked"), and a fifth review by Fable 5.2, on what may write into an
+input ("Only what is drawn writes"), and a sixth, on the name of `parent` ("The name"), and the bridges tested in
+happy-dom ("The bridges, in happy-dom"), and a recipe of a bridge for a source that belongs to the control, tested
+there too ("A source that belongs to the control"), and a slider in an example ("A slider, in an example"), and a
+seventh review by Fable 5.2, with a spike, on how to close concern 3 ("Whoever steps replaces what is below"), and an
+eighth, with a spike, on how a parent applies its child's rule there ("The channel of a replacement, declared"), and a
+ninth, with a spike and a free hand over the whole library, which replaces the revision with a plain input and a frame
+that says what it has seen ("A plain input, and a frame that says what it has seen"), none yet decided.
 What the spikes ran is marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued,
 **reasoned**. It reopens the aim of [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way,
 and leans on [`inert-steps.md`](inert-steps.md), which it would simplify.
@@ -25,6 +26,49 @@ The document is in the order things happened: what stands now is in the next sec
 later one may be superseded by it ("Open questions" and "The ways forward" by the checks and the two opinions).
 
 ## Where it stands
+
+### Open: an input whose history its parent cuts
+
+**The question.** The rule of a revision is applied after each step of the program that holds the input, and a
+hierarchical composition splits that ownership: a child's state lives in its parent's, while the rule lives in the
+child's `compose`. So:
+
+- a parent that starts a child again leaves the child's field at the revision of its `init`; where that is the
+  revision it had, the bridge keeps the old element, which shows the old text over an empty state, and a late
+  keystroke is stored into the new child. A chat whose Send empties its draft sends the text twice. `main` holds it as
+  it is, in `src/input.test.ts` ("restarts its inputs at the revision of its init, and takes what was typed into the
+  old one");
+- an undo by snapshot above a child brings a revision back;
+- an optional place, or a child by id, that leaves and comes back has no state before it to compare with;
+- apart from inputs, a fixed message drawn for an old child reaches the new one, since a message names a place.
+
+**What the owner asks of an answer**, 15 November 2026: no recipe that a user must remember for a reset or an undo,
+whatever the examples; the loop of a program stays simple; no weak point that leads to a patch or to more API. A
+review has a free hand over the whole library, its engine and its loop, its composition, its invariants, and any
+feature that stands in the way, and Elm, the owner's reference, need not be the answer.
+
+**The proposals**:
+
+- **The seventh and eighth reviews** ("Whoever steps replaces what is below", "The channel of a replacement,
+  declared"): the rule applied by whoever steps to every input below it, through a channel from a child to its
+  parent, with `all` in `each`, an input's place a lens, and a generation for what is left. They close the reset and
+  the undo, but patch the split; the owner judged that complexity of parents and children too much, and asked for
+  another way. Not formally declined.
+- **The ninth review** ("A plain input, and a frame that says what it has seen"): the candidate. It takes the
+  revision out: an input is a plain value, a write names the value it was written over and is rejected when the place
+  holds another, and a frame says how many of the view's messages it has seen, so that the bridge never replaces an
+  element. It removes the split instead of bridging it, keeps the loop and the composition, and drops `Field`,
+  `renewed` and rule (A). Spiked in Snabbdom, not in React.
+
+**Next**: the two points where the ninth review could still break, spiked before a decision: a React bridge with its
+registry of inputs, and a test of the premise of the numbering that fails without it (`change-engine`). If it is
+adopted, it is ported from `main` by `change-engine` and `change-api`, the README rewritten one section at a time, and
+the seventh and eighth reviews listed in `docs/rejected.md`.
+
+**Open too**: a `File`; a reaction to every keystroke; the ideas of "To explore", each spiked or measured before it is
+proposed.
+
+### On `main`: decided
 
 **The direction: decided**, by the owner on 14 November 2026: an input declared in `compose`, beside the children
 (`inputs: { Name: input(at) }`), whose field `Field<A>`, `{ value, revision }`, lives in the program's own state; the
@@ -75,25 +119,18 @@ refuted by the second opinion: a copy equal by value would draw a new input and 
 before the implementation, which rewrote the form and its inputs; `examples/form/late-key.test.ts`, ported from
 `claude/spike-register-late-key-6cb914`, holds it.
 
-**Open whatever the choice**: a child re-initialised by its parent, an optional place that comes back, and an undo
-by snapshot above a child, which bring an input's revision back. A seventh review proposes to close the first and the
-third with the rule of a replacement applied by whoever steps to every input below it, the second with an input's
-place made a lens, and to leave the rest to an id ("Whoever steps replaces what is below"); an eighth, that a parent
-read its child's rule from a piece the child declares, `replacing`, which the types require when its messages carry
-writes, in place of the seventh's hidden symbol ("The channel of a replacement, declared"). A ninth takes the revision
-out: an input is a plain value, a write names the value it was written over, and a frame says how many of the view's
-messages it has seen, so that the bridge never replaces an element ("A plain input, and a frame that says what it has
-seen"). None is yet decided. Open too: a `File`; a reaction to every keystroke. See "To explore".
+**A command's answer: narrowed**, 15 November 2026 (`e95f10b`): a parent's command answers with its own messages or
+its children's external ones, as its handles send them, so that it writes into no child's input, against "Only what
+is drawn writes", and gives no child its own business. Found on the way to the seventh review ("Whoever steps
+replaces what is below" › "What it does not close").
 
-**Next**, with the implementation on `main` ("The implementation") and `parent` renamed `composition` ("The name"),
-and the bridges tested in happy-dom ("The bridges, in happy-dom"), with a source that belongs to the control ("A
-source that belongs to the control"), and a slider in `examples/volume` ("A slider, in an example"), and
-`bench/keystrokes.ts` dropped ("The implementation"): a React bridge and a test of the premise of the numbering, for
-the ninth review ("A plain input, and a frame that says what it has seen"); the decision between it and the seventh
-and eighth ("Whoever steps replaces what is below", "The channel of a replacement, declared"); and the ideas of "To
-explore", each spiked or measured before it is proposed.
+Also done on `main`, apart from the decisions above: the bridges tested in happy-dom ("The bridges, in happy-dom"), a
+source that belongs to the control ("A source that belongs to the control"), a slider in `examples/volume` ("A slider,
+in an example"), and `bench/keystrokes.ts` dropped ("The implementation").
 
-**The branches**, local to this machine and never pushed, none to be merged: `spike/field-register`,
+### The branches
+
+Local to this machine and never pushed, none to be merged: `spike/field-register`,
 `claude/spike-register-checks-fd58e1` (no commit of its own), `claude/spike-register-late-key-6cb914`,
 `claude/spike-register-model-data-52ba83`, `claude/spike-register-shapes-ea38c5`,
 `claude/spike-register-opaque-3fc182`, `claude/spike-register-slider-f36368`, `spike/register-input-compose`,
@@ -102,7 +139,8 @@ explore", each spiked or measured before it is proposed.
 first spike and the six checks are cut from `spike/field-register` or `main` before this document; the two opinions
 from `c263478`; the spike of the revision a program did not write, and that of the subscriptions, from `c445a5b`; the
 seventh review's from `9a58662`, and the eighth's from the seventh's, cherry-picked onto `9a58662`; the ninth's from
-`b63a5b6`.
+`b63a5b6`. The last three live in worktrees under `.claude/worktrees/`, which a cleaning of the worktrees removes:
+their branches stay.
 
 ## The implementation
 
@@ -1083,7 +1121,7 @@ snabbdom 3.6.4 and React 19.3.1.
 
 ## Whoever steps replaces what is below
 
-A seventh review by Fable 5.2 was asked how to close concern 3 ("Open whatever the choice"), with a free hand to
+A seventh review by Fable 5.2 was asked how to close concern 3 ("Where it stands" › "Open"), with a free hand to
 change the design or the invariants, for a solution that is pure, clean, coherent and elegant. Its spike is on the
 branch `worktree-agent-a144664c3ddf8f27a` (commit `2d2e77b`, cut from `9a58662`, never to be merged):
 `src/compose.ts`, `src/input.test.ts` and `src/input-below.test.ts`. It reports `typecheck`, `lint`, `test` (589),
