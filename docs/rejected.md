@@ -240,11 +240,26 @@ answer, and saying so in the proposal.
   The README says what it does; `describeMessage` shows more. *Reopen if* a wrapping the describer can tell from a
   program's own value comes for another reason.
 
+## The checks
+
+- **A framework of mutation testing (StrykerJS) in place of `mutations/`.** Reasoned, 15 November 2026, when the run
+  grew slow. Stryker generates mutants by syntactic operators and scores how many the suite kills; the list in
+  `mutations/mutations.ts` takes out each check an invariant rests on, names the tests that must fail under it, and
+  the runner refuses a killer that ran more or fewer times than once, or fails only beside its file. A score is no
+  such promise, the mutants equivalent in code over Effect would each be read by hand, and Stryker has no runner for
+  `bun:test`: its command runner would run the whole suite for each mutant. The run was made parallel instead (162 s
+  to 44 s on 24 processors). *Reopen if* the list is to be judged for what it misses, beside the checks it names.
+
 ## Parked, not rejected
 
 What is deferred or suspended is not rejected: it is kept here, with its document and what would reopen it, and is
 out of [`ROADMAP.md`](../ROADMAP.md), which lists only what is to be done or decided now. An item reopened goes back
 there; one decided against becomes an entry above.
+
+- **Running only the mutations a diff touches** (`--changed`: those whose file, or a file of whose killers, changed):
+  deferred by the owner on 15 November 2026, for the parallel run. A change elsewhere can make a check redundant, and
+  the mutation of it survive, which such a selection does not run; and the files of the engine hold most of the list.
+  *Reopen if* the parallel run grows slow again; the whole run stays before a release.
 
 - **What reaches `update`, declared as data** ([`declared-inputs.md`](declared-inputs.md)): suspended by the owner on
   14 November 2026, not revoked. The decisions taken in it stand only if it is taken up again, and what its spikes

@@ -210,11 +210,11 @@ an example's and a document's too:
   (`bench/`) check the package and its speed. None of them is a test of the library's correctness, and they are kept
   apart from the five.
 - **Each check an invariant rests on has a mutation** in `mutations/mutations.ts` that takes it out, with the tests
-  that must fail under it: `bun run mutations` applies them one at a time to a copy of the repository (`.mutants/`),
-  runs those tests alone, and fails when one passes under its mutation, or fails without it. What has none, and why,
-  is in `docs/invariants.md` and `change-engine`. A new check adds its mutation; a test of one renamed or removed, or
-  the code it replaces rewritten, updates the list. It runs before a release (`release`), and after a change of a
-  file it mutates; what a mutation is, and is not, is in `change-engine`.
+  that must fail under it: `bun run mutations` applies them one at a time to each of several copies of the repository
+  (`.mutants/`), runs those tests alone, and fails when one passes under its mutation, or fails without it. What has
+  none, and why, is in `docs/invariants.md` and `change-engine`. A new check adds its mutation; a test of one renamed
+  or removed, or the code it replaces rewritten, updates the list. It runs before a release (`release`), and after a
+  change of a file it mutates; what a mutation is, and is not, is in `change-engine`.
 - **The tests of `src/` and `test/` run on Node too**, on V8 as Chrome and Edge run the library: `bun run test:node`
   makes Node resolve `bun:test` to `test/node/bun-test.test_shim.ts`, which gives what the tests use of it over Node's
   own runner, with Jest's `expect`. A test that needs more of `bun:test` adds it there, and one that asks for a
