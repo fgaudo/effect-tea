@@ -32,6 +32,7 @@
     "dist",
     "src",
     "!src/**/*.test.ts",
+    "!src/**/*.test_*.ts",
     "README.md",
     "CHANGELOG.md"
   ],

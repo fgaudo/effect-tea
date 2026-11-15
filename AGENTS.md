@@ -155,7 +155,8 @@ an example's and a document's too:
 
 ## Tests
 
-- `bun:test`, in a `*.test.ts` next to the module. Tests are excluded from `dist/` and from the packed `src/`.
+- `bun:test`, in a `*.test.ts` next to the module. Tests, and the files that serve them, are excluded from `dist/` and
+  from the packed `src/`.
 - **A file of the tests has one of two names, and no other**: `<name>.test.ts` when it holds tests that run,
   `<name>.test_<kind>.ts` when it serves them, and never both in one name (no `<name>.test_<kind>.test.ts`): a file
   is a test or serves the tests. So a file of neither form is no file of the tests: in `src/` and `examples/` it is,
