@@ -24,8 +24,8 @@ examples/<name>/
 
 What the examples share, in `examples/`: [`snabbdom.ts`](../../../examples/snabbdom.ts), the bridge to the
 renderer (`renderInto` for `run`, `onClick`, `onPress`, `onInput`, `shows` and `slides`), beside
-[`snabbdom-testing.ts`](../../../examples/snabbdom-testing.ts), its `messagesSentBy`, an example of how to check
-that a view draws what its model holds;
+[`snabbdom-testing.test_messages.ts`](../../../examples/snabbdom-testing.test_messages.ts), its `messagesSentBy`, an
+example of how to check that a view draws what its model holds;
 [`react.ts`](../../../examples/react.ts), the same bridge for React, without `messagesSentBy`, which only
 [`counter-react`](../../../examples/counter-react) and [`form-react`](../../../examples/form-react) use, to show
 that a program does not change with its renderer (each imports the program of `counter` or `form`, and has a
@@ -70,10 +70,10 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
   model with a reader of its own, `messagesOf(model)`, a case of the model at a time. A parent's reader calls
   its children's and wraps what they return as the parent receives it; a child's reader that two tests need
   lies in a module of its own (`timer/reader.ts`).
-- **A bridge owes no `messagesSentBy`.** The snabbdom bridge has one beside it, in `snabbdom-testing.ts`, as an
-  example of how to check that a view draws what its model holds, with its own tests (`snabbdom-testing.test.ts`),
-  and `list`'s test shows its use: `messagesSentBy(view, model)` equals `messagesOf(model)`. A change to the two
-  renderers' bridges is made to both for `renderInto` and the handlers alone.
+- **A bridge owes no `messagesSentBy`.** The snabbdom bridge has one beside it, in
+  `snabbdom-testing.test_messages.ts`, as an example of how to check that a view draws what its model holds, with its
+  own tests (`snabbdom-testing.test.ts`), and `list`'s test shows its use: `messagesSentBy(view, model)` equals
+  `messagesOf(model)`. A change to the two renderers' bridges is made to both for `renderInto` and the handlers alone.
 - **The test** shows the testing tools on the example, from the cheapest that proves the point: `applyAll` and
   `dispatchViolations` always (with the reader, for what the model holds, and the candidates that keep the
   reader complete), then `simulate`, `rehearse` or `drive` for what needs them. A new check of this kind is

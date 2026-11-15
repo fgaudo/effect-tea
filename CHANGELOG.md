@@ -62,8 +62,8 @@ version, and everything else, features included, the patch version.
 - The examples' bridges keep the element of each input and settle it after each frame with `drawn` (`shows` and
   `slides` with snabbdom, `Shows` with React), and have `onPress`; `volume` draws a native slider beside one the
   program draws, whose drag is a subscription, for bounds that narrow.
-- `messagesSentBy` moves from `examples/snabbdom.ts` to `examples/snabbdom-testing.ts`, so that the bridge holds only
-  what a bridge does ("Examples" and "Testing" in the README).
+- `messagesSentBy` moves from `examples/snabbdom.ts` to `examples/snabbdom-testing.test_messages.ts`, so that the
+  bridge holds only what a bridge does ("Examples" and "Testing" in the README).
 - The tests the examples' two bridges share are written once, in `examples/bridge.test_suite.ts`, over a `Bridge` of
   each renderer, its `renderInto` and the views of the scenarios, which a bridge of one's own can give too ("Examples"
   in the README).

@@ -147,9 +147,10 @@ run them in a DOM, with [happy-dom](https://github.com/capricorn86/happy-dom). T
 reaches the program, that what the user types survives the frames drawn meanwhile, and that the element of an input
 shows what the program puts in its place. To run them on a bridge of your own, a test file that registers a DOM, as
 those two do, gives `bridgeTests` a `Bridge`: your `renderInto`, and the views of their scenarios drawn with your
-renderer. Beside the snabbdom bridge, [`examples/snabbdom-testing.ts`](examples/snabbdom-testing.ts) has
-`messagesSentBy`, which finds what a view sends without a DOM: one way to check that a view draws what its model
-holds, which the library asks of no bridge (see [testing](#testing)).
+renderer. Beside the snabbdom bridge,
+[`examples/snabbdom-testing.test_messages.ts`](examples/snabbdom-testing.test_messages.ts) has `messagesSentBy`, which
+finds what a view sends without a DOM: one way to check that a view draws what its model holds, which the library
+asks of no bridge (see [testing](#testing)).
 
 ## Guide
 
@@ -921,9 +922,9 @@ test('the model holds what update accepts, all of it', () => {
   `update` accepts its message, the message would do something, and the test lists it among the `candidates`.
 - **That the view draws what its model holds is not checked here**: each control once, through the right
   dispatch. It is checked with your renderer's tools. For snabbdom,
-  [`examples/snabbdom-testing.ts`](examples/snabbdom-testing.ts) has one, `messagesSentBy`, which finds what a view
-  sends without a DOM, for a test to compare with what its reader returns, as [`list`](examples/list/list.test.ts)
-  does. It is an example, and nothing a bridge must have.
+  [`examples/snabbdom-testing.test_messages.ts`](examples/snabbdom-testing.test_messages.ts) has one,
+  `messagesSentBy`, which finds what a view sends without a DOM, for a test to compare with what its reader returns,
+  as [`list`](examples/list/list.test.ts) does. It is an example, and nothing a bridge must have.
 
 #### The tools
 

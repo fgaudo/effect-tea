@@ -156,11 +156,15 @@ an example's and a document's too:
 ## Tests
 
 - `bun:test`, in a `*.test.ts` next to the module. Tests are excluded from `dist/` and from the packed `src/`.
-- **A file that serves the tests, and is no test file itself, is named `<name>.test_<what>.ts`**: `bun test` does not
-  collect it (it collects `*.test.ts`, `*_test.ts`, `*.spec.ts` and `*_spec.ts`), so it runs only where a test file
-  imports it, as `examples/bridge.test_suite.ts` runs in each bridge's test. The rule is new, and does not cover yet
-  what predates it: `test/` holds only files that serve the tests (`scheduled.ts`, `gc.ts`, `node/`), and so do
-  `examples/timer/reader.ts` and `examples/preload.ts`; they keep their names until the owner decides otherwise.
+- **A file of the tests has one of two names, and no other**: `<name>.test.ts` when it holds tests that run,
+  `<name>.test_<kind>.ts` when it serves them. One that serves the tests takes the `<name>` of the test file it goes
+  with, as `examples/snabbdom-testing.test_messages.ts`, `messagesSentBy`, goes with
+  `examples/snabbdom-testing.test.ts`, which tests it; one that several test files call has a name of its own, as
+  `examples/bridge.test_suite.ts`, which runs in each bridge's test. `bun test` does not collect a `.test_<kind>.ts`
+  (it collects `*.test.ts`, `*_test.ts`, `*.spec.ts` and `*_spec.ts`), so it runs only where a test file imports it.
+  The rule is new, and does not cover yet what predates it: of `test/`, `scheduled.ts`, `gc.ts` and what is in `node/`
+  serve the tests, and so do `examples/timer/reader.ts` and `examples/preload.ts`; they predate the rule and keep their
+  names until the owner decides otherwise.
 - Test through behaviour: what a module gives the rest of the library (`run`, `Engine.make`, the public functions, a
   transition of `core.ts` or of `testing/ledger.ts`), never what it keeps to itself. An export made for a test alone
   says so (`entriesOf` in `dispatch.ts`).
