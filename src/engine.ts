@@ -25,9 +25,9 @@ import type { Step, Update } from './update.ts'
 
 export type { Revision, Revisioned } from './core.ts'
 
-/** Where a message came from: the view, a command, or a subscription, with its key. */
+/** Where a message came from: a dispatch, a command, or a subscription, with its key. */
 export type Origin =
-  | Readonly<{ _tag: 'View' }>
+  | Readonly<{ _tag: 'Dispatch' }>
   | Readonly<{ _tag: 'Command' }>
   | Readonly<{ _tag: 'Subscription'; key: unknown }>
 
@@ -231,9 +231,9 @@ export const withExternalSpan = <R>(context: Context.Context<R>): Context.Contex
 
 /** The engine owns its message loop: it runs as long as the scope `make` was called in. */
 export interface Engine<State, Message> {
-  /** Each state, with `seen`, how many of the view's messages the loop had taken when it was made. */
+  /** Each state, with `seen`, how many dispatched messages the loop had taken when it was made. */
   readonly states: Stream.Stream<Core.Revisioned<State> & Readonly<{ seen: number }>>
-  /** Enqueues a message sent by the view, and returns its number among those the view sent, from 1. */
+  /** Enqueues a message, and returns its number among those dispatched, from 1. */
   readonly dispatch: (message: Message) => Effect.Effect<number>
   /** Succeeds once a fiber of the run has died: of `update`, a command, a subscription, an option or a log. */
   readonly died: Effect.Effect<void>
@@ -320,14 +320,14 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     )
   )
   const started = Core.init(first)
-  // The view's messages are numbered as they are queued, in the thunk that offers them, so that their numbers follow
+  // Dispatched messages are numbered as they are queued, in the thunk that offers them, so that their numbers follow
   // the order of the queue, and counted as the loop takes them: a frame's `seen` is the count of its own state's step.
   let sent = 0
   let seen = 0
   const send = (message: Message) =>
     Effect.sync(() => {
       sent += 1
-      Queue.offerUnsafe(queue, { message, source: Core.fromView })
+      Queue.offerUnsafe(queue, { message, source: Core.fromDispatch })
       return sent
     })
   const stateRef = yield* SubscriptionRef.make({ ...started.current, seen })
@@ -394,7 +394,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   const step = Effect.fnUntraced(function*(active: Core.Active<K>, { message, source }: Envelope<Message, K>) {
     // `describeMessage` and `describeCommand` run for every message, and only to be logged.
     const debugging = yield* LogLevel.isEnabled('Debug')
-    if (source._tag === 'View') seen += 1
+    if (source._tag === 'Dispatch') seen += 1
     const current = yield* SubscriptionRef.get(stateRef)
     // Described by its tags alone, whatever `describeMessage` says: a report must not run the program's code while the
     // run is dying, nor carry the message's data. The testing tools apply a message the same way.

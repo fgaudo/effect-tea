@@ -190,13 +190,13 @@ export type Revision = number
 
 export type Revisioned<State> = Readonly<{ state: State; revision: Revision }>
 
-/** Where a message comes from: the view, a command, or a subscription, with its key and the start it comes from. */
+/** Where a message comes from: a dispatch, a command, or a subscription, with its key and the start it comes from. */
 export type Source<K> =
-  | Readonly<{ _tag: 'View' }>
+  | Readonly<{ _tag: 'Dispatch' }>
   | Readonly<{ _tag: 'Command' }>
   | Readonly<{ _tag: 'Subscription'; key: K; generation: Generation }>
 
-export const fromView: Source<never> = { _tag: 'View' }
+export const fromDispatch: Source<never> = { _tag: 'Dispatch' }
 
 export const fromCommand: Source<never> = { _tag: 'Command' }
 

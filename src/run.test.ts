@@ -881,15 +881,15 @@ describe('onApplied', () => {
         ),
       { onApplied: (applied) => Effect.sync(() => heard.push(applied)) },
     ))
-    const fromView = { _tag: 'View' } as const
+    const origin = { _tag: 'Dispatch' } as const
     expect(heard).toEqual([
-      { message: 'Increment', origin: fromView, before: { count: 0 }, after: { count: 1 }, revision: 1, commands: [] },
-      { message: 'Increment', origin: fromView, before: { count: 1 }, after: { count: 2 }, revision: 2, commands: [] },
+      { message: 'Increment', origin, before: { count: 0 }, after: { count: 1 }, revision: 1, commands: [] },
+      { message: 'Increment', origin, before: { count: 1 }, after: { count: 2 }, revision: 2, commands: [] },
     ])
     expect(drawn).toEqual([0, 1, 2])
   })
 
-  test('says where each message came from: the view, a command, or a subscription with its key', async () => {
+  test('says where each message came from: a dispatch, a command, or a subscription with its key', async () => {
     const origins: Array<unknown> = []
     const pinging: Counter = {
       ...counter,
@@ -908,7 +908,7 @@ describe('onApplied', () => {
       { onApplied: ({ origin }) => Effect.sync(() => origins.push(origin)) },
     ))
     expect(origins).toHaveLength(3)
-    expect(origins).toContainEqual({ _tag: 'View' })
+    expect(origins).toContainEqual({ _tag: 'Dispatch' })
     expect(origins).toContainEqual({ _tag: 'Command' })
     expect(origins).toContainEqual({ _tag: 'Subscription', key: 'k' })
   })
@@ -992,7 +992,7 @@ describe('onIgnored', () => {
     ))
     expect(applied).toEqual([])
     expect(ignored).toHaveLength(2)
-    expect(ignored).toContainEqual({ message: 'Forbidden', origin: { _tag: 'View' }, state: { count: 0 } })
+    expect(ignored).toContainEqual({ message: 'Forbidden', origin: { _tag: 'Dispatch' }, state: { count: 0 } })
     expect(ignored).toContainEqual({ message: 'Forbidden', origin: { _tag: 'Command' }, state: { count: 0 } })
   })
 })
@@ -2254,7 +2254,7 @@ describe('a release that interrupts itself', () => {
 
 // A dispatch returns the number of its message among those the view has sent, and a frame says how many of them the
 // run had taken when its state was made: a renderer tells from the two whether a frame is older than what it sent.
-describe('what a frame has seen of what the view sent', () => {
+describe('what a frame has seen of what was dispatched', () => {
   type Drawn = Readonly<{ count: number; seen: number }>
   type Render = (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void>
 
@@ -2278,7 +2278,7 @@ describe('what a frame has seen of what the view sent', () => {
       return drawn
     }))
 
-  test('counts every message the view sent that the run has taken, a rejected one too', async () => {
+  test('counts every dispatched message the run has taken, a rejected one too', async () => {
     const numbers: Array<number> = []
     const frames = await drawnUntil(
       (render) => runCounter(counter, render),
@@ -2328,7 +2328,7 @@ describe('what a frame has seen of what the view sent', () => {
     expect(frames.at(-1)).toEqual({ count: 2, seen: 3 })
   })
 
-  test('the messages of a command are not counted among those the view sent', async () => {
+  test('the messages of a command are not counted among those dispatched', async () => {
     const numbers: Array<number> = []
     const frames = await drawnUntil(
       (render) => runCounter({ ...counter, init: { state: { count: 0 }, commands: ['Ping'] } }, render),

@@ -191,8 +191,8 @@ describe('the testing tools and the run, on the same program and inputs', () => 
           return (yield* driver.latest).seen
         })),
     )
-    const fromView = [...applied, ...ignored].filter(({ origin }) => origin._tag === 'View')
-    expect(fromView.map(({ message }) => message._tag)).toEqual(['Typed', 'Save', 'Typed'])
+    const fromDispatch = [...applied, ...ignored].filter(({ origin }) => origin._tag === 'Dispatch')
+    expect(fromDispatch.map(({ message }) => message._tag)).toEqual(['Typed', 'Save', 'Typed'])
     expect(result).toBe(3)
   })
 })

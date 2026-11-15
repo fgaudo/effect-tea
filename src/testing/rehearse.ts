@@ -286,7 +286,7 @@ export const rehearse = Effect.fnUntraced(function*<
       Opt.match(select(shown), {
         onNone: () => Effect.die(new Error('The model does not show what the test sends', { cause: shown })),
         onSome: (message) =>
-          applyNow(Core.fromView, message, () =>
+          applyNow(Core.fromDispatch, message, () =>
             Effect.die(
               new Error(
                 `update rejected ${

@@ -22,10 +22,10 @@ testing tools.
   step's commands apart from it. That a `Queue` gives its items in the order they were offered is documented:
   "dispatches run one after the other in one callback, before the run takes any, are all applied in order", "hears
   every accepted message in order, with the states around it, before its frame" (`run.test.ts`).
-- **A view's message is numbered as it is queued, and a frame says how many of them it has seen.** A dispatch
-  returns the number of its message among those the view sent, from 1, taken in the thunk that offers it to the queue
+- **A dispatched message is numbered as it is queued, and a frame says how many of them it has seen.** A dispatch
+  returns the number of its message among those dispatched, from 1, taken in the thunk that offers it to the queue
   (`send` in `engine.ts`) each time the effect runs, never as it is made, so that the numbers follow the order the
-  queue gives, which is documented. The loop counts each view's message it takes, a rejected one and one that leaves
+  queue gives, which is documented. The loop counts each dispatched message it takes, a rejected one and one that leaves
   the state as it was included, and no message of a command or a subscription. It counts the message before the state
   it makes is published, and publishes the count in the same object as the state (`{ ...next, seen }`), so that a
   frame's `seen` is the count of its own state's step, whatever the loop has taken since. A message that makes no

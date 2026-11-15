@@ -295,7 +295,7 @@ const counting = () => {
   return { calls, update }
 }
 
-const fromView: Source<string> = { _tag: 'View' }
+const fromDispatch: Source<string> = { _tag: 'Dispatch' }
 
 const alive = () => false
 
@@ -304,7 +304,7 @@ describe('a message against the state', () => {
 
   test('a new state gets the next revision, with the commands and the events of its step', () => {
     const { calls, update } = counting()
-    expect(arrive(update, current, noneActive, fromView, 'Bump', alive)).toEqual({
+    expect(arrive(update, current, noneActive, fromDispatch, 'Bump', alive)).toEqual({
       _tag: 'Applied',
       next: { state: { n: 1 }, revision: 4 },
       changed: true,
@@ -323,12 +323,12 @@ describe('a message against the state', () => {
 
   test('a message update rejects is ignored', () => {
     const { update } = counting()
-    expect(arrive(update, current, noneActive, fromView, 'Refuse', alive)).toEqual({ _tag: 'Ignored' })
+    expect(arrive(update, current, noneActive, fromDispatch, 'Refuse', alive)).toEqual({ _tag: 'Ignored' })
   })
 
   test('once the run has died, update is not called', () => {
     const { calls, update } = counting()
-    expect(arrive(update, current, noneActive, fromView, 'Bump', () => true)).toEqual({ _tag: 'Dead' })
+    expect(arrive(update, current, noneActive, fromDispatch, 'Bump', () => true)).toEqual({ _tag: 'Dead' })
     expect(calls.count).toBe(0)
   })
 
@@ -375,7 +375,7 @@ describe('a message against the state', () => {
           const start = starts[happened.from]
           if (happened.from >= 0 && start === undefined) continue
           const source: Source<string> = start === undefined
-            ? fromView
+            ? fromDispatch
             : { _tag: 'Subscription', key: start[0], generation: start[1] }
           const applies = start === undefined || HashMap.get(active.keys, start[0]).pipe(Opt.contains(start[1]))
           const before = calls.count

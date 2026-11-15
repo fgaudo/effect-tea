@@ -1,7 +1,7 @@
 # Where the library ends: what is left across and after the model
 
-**Status:** items 1 to 5 done on `main`, 14 November 2026; items 6, 7 and 8 are candidates and item 9 a question,
-none decided and none designed. Rewritten the same day from the inventory it was (`d13bd6f`, whose tables and
+**Status:** items 1 to 5 done on `main`, 14 November 2026, and item 8 on 15 November 2026; items 6 and 7 are
+candidates and item 9 a question, none decided and none designed. Rewritten the same day from the inventory it was (`d13bd6f`, whose tables and
 sections 1 to 3 describe the repository before item 1 and are kept there, in the history). Made by one model (Fable
 5.2) on Effect 4.1.4 and Bun 1.4.4. "What it rests on" says what was read again in the code today, at `1d0ccc9`, and
 what is carried over. Read again on 15 November 2026, at `7074b7a`, after the port of the plain input
@@ -28,6 +28,7 @@ boundary the code has is **the frame**, a model and a dispatch. What follows is 
 | 3 | `dispatchViolations` has the words of what it takes: the messages a model holds | `910b343` |
 | 4 | "Inputs the user types into" keeps the cause and `update`'s rule; the remedy is the examples'. **Reopened** by [`registers.md`](registers.md): the rule is the library's, for an input declared in `compose`, and `examples/field.ts` is gone | `36119ad` |
 | 5 | The bridges' tests are examples' tests, not among the library's five kinds | `87e5e35` |
+| 8 | What a dispatch sends has the origin `'Dispatch'`, and the run's words name a dispatch where they named the view | the one after `0c0a6c4` |
 
 What each found that the inventory did not have is in this document as `1d0ccc9` left it ("Item 1, as done",
 "Items 2 to 5, as done"). Three findings bear on what is open:
@@ -41,7 +42,8 @@ What each found that the inventory did not have is in this document as `1d0ccc9`
 
 ## Candidates
 
-Each can be taken or struck alone. All three are breaking; 0.8.0 is open and unreleased.
+Each can be taken or struck alone. Both are breaking; 0.8.0 is open and unreleased. Item 8 is done, and kept below
+as it was weighed.
 
 ### 6. Take `View` out of the exports
 
@@ -73,7 +75,15 @@ Each can be taken or struck alone. All three are breaking; 0.8.0 is open and unr
   frames pulled was run by the inventory (2 mapped for 2 pulled of 101) and not again. Nothing was tried against
   `drive`'s tests, the contract tests or the search: it cannot be settled by reading.
 
-### 8. Call what a dispatch sends by its name
+### 8. Call what a dispatch sends by its name (done)
+
+- **As done.** The tag is `'Dispatch'`, and `Core.fromDispatch` its source. The words changed where the run names
+  where a message comes from, numbers it or counts it: the comments of `core.ts`, `engine.ts` and `dispatch.ts`,
+  `invariants.md` and `premises.md`, the names of the tests and mutations that count a frame's `seen`, and in the
+  README "View", `origin` in "Running", and "Guarantees" and "Testing". They stayed where the view is meant: "What
+  the view draws never does" and "a message of the view" in "Rejections and defects" say why `update` rejects (a tap
+  on a frame drawn before), `reject`'s comment speaks of a control the view shows, and "the test, or the view through
+  it" in "The tools" of a test that drives a view.
 
 - **What it is today.** `Origin`'s case is `'View'` (`engine.ts:30`, `core.ts:195`), and `Core.fromView` is the
   source `rehearse` and `simulate` give to a message the test sends (`rehearse.ts:289`, `simulate.ts:129`): the name

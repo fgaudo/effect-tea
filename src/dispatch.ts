@@ -11,7 +11,7 @@ import * as Opt from 'effect/Option'
  * no services and completes synchronously, whatever runs it: it only hands the message to the run, which handles
  * it in its own fiber, with the services and the scheduler it started with. A renderer whose handlers are plain
  * callbacks runs it at once with `Effect.runSync`, or with a runtime of its own. It returns the number of the
- * message among those the view has sent, from 1, in the order the run takes them: a frame whose `seen` is below it
+ * message among those dispatched, from 1, in the order the run takes them: a frame whose `seen` is below it
  * was made before the run took the message.
  */
 export type Dispatch<Message> = (message: Message) => Effect.Effect<number>

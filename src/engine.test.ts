@@ -838,7 +838,7 @@ describe('Engine end', () => {
   })
 })
 
-// A view's message is numbered in the thunk that queues it, which holds no code of the program: no gate reaches it,
+// A dispatched message is numbered in the thunk that queues it, which holds no code of the program: no gate reaches it,
 // and only a scheduler that yields between any two operations can come between a number and its offer. So this is an
 // alarm, under every schedule of two dispatches racing within two deviations, and no mutation names it ("one thunk"
 // in `docs/invariants.md`): it fails with the number taken in an operation of its own before the offer.

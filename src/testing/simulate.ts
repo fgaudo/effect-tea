@@ -126,7 +126,7 @@ export const simulate = <State, Message, Command, Event, R = never>(
     yield* listen(listening)
     let current = yield* runFrom({ messages: [], commands: started.commands, events: [], ignored: [] }, 0, listening)
     for (const [index, message] of messages.entries()) {
-      const applied = yield* apply(Core.fromView, message, current, listening)
+      const applied = yield* apply(Core.fromDispatch, message, current, listening)
       if (Opt.isNone(applied)) return yield* Effect.die(unexpectedRejection(index, message))
       current = yield* runFrom(applied.value, current.commands.length, listening)
     }

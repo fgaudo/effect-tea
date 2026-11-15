@@ -236,7 +236,7 @@ A view is `(model, dispatch) => Node`, and `dispatch` takes the program's messag
 handles it in its own fiber, with its own services: a handler returns before `update` has seen its message. A
 renderer whose handlers are plain callbacks, like snabbdom's, runs it at once with
 `Effect.runSync(dispatch(message))`, or with a runtime of its own: either is right. The number is the message's
-among those the view has sent, from 1, in the order the run takes them, and each frame says in `seen` how many of
+among those dispatched, from 1, in the order the run takes them, and each frame says in `seen` how many of
 them the run had taken when its state was made: a frame whose `seen` is below a message's number was made before
 the run took it.
 
@@ -702,7 +702,7 @@ Options:
   whole: data goes in a field of a tagged value. They are called only while debug logs are enabled
   (`References.MinimumLogLevel`), so they cost nothing otherwise. The debug logs of subscriptions show their
   keys, which may hold data (an id, a search's text).
-- **`onApplied`**: hears every accepted message with where it came from (`origin`: the view, a command, or a
+- **`onApplied`**: hears every accepted message with where it came from (`origin`: a dispatch, a command, or a
   subscription with its key), the state before and after it, and the commands it decided, for devtools or
   session recording.
 - **`onIgnored`**: hears every message `update` rejected, with where it came from and the state it did not
@@ -783,7 +783,7 @@ What you can rely on:
 
 - **One message at a time, in the order they were queued.** The run takes the next message only once the step
   of the one before is over: its `update`, then `onApplied` or `onIgnored`, its frame, the subscriptions it
-  stops and starts, and the start of its commands. What the view sends is queued as it is sent, a subscription's
+  stops and starts, and the start of its commands. What a dispatch sends is queued as it is sent, a subscription's
   message as it is emitted, and a command's answer as the command ends.
 - **Outdated clicks are harmless.** A message `update` rejects is ignored: the state stays as it was, however
   many messages came in between.
@@ -811,10 +811,10 @@ What you can rely on:
   [inputs the user types into](#inputs-the-user-types-into)), and a bridge that settles them with `drawn`, the
   element of an input never takes back what the user typed since the frame, and shows the program's value once the
   state has moved on without it.
-- **A frame says what it has seen.** Each message the view sends is numbered, from 1, in the order the run takes
+- **A frame says what it has seen.** Each message a dispatch sends is numbered, from 1, in the order the run takes
   it, and a frame's `seen` is how many of them the run had taken when the frame's state was made, rejected ones
   included, and no message of a command or a subscription. A message that makes no new state draws no frame, so
-  the last frame may have seen fewer than the view has sent: never wait for it to see them all.
+  the last frame may have seen fewer than were dispatched: never wait for it to see them all.
 
 What is left to you:
 
@@ -839,7 +839,7 @@ defects and self-interruptions: that outdated clicks leave the state as it was, 
 keys, that what a subscription, a command or the renderer acquires does not outlive it and the next message waits
 for the slowest release, that what the run logs is not kept by the span of whoever runs it, which stays the parent
 of the spans opened in it, that nothing ends in silence, that a model is made only for the frames read and the
-very same state draws no new frame, and that a frame has seen the view's messages taken before its state was made,
+very same state draws no new frame, and that a frame has seen the dispatched messages taken before its state was made,
 and none after. It checks too that the run dies with each defect, in the order it happened as
 the run is made today, and from the first one on applies no message (see [running](#running)), and that what is
 written into an input is stored exactly when it was written over the value its place holds (see

@@ -206,7 +206,7 @@ declare namespace Core {
         Revision,
         Revisioned,
         Source,
-        fromView,
+        fromDispatch,
         fromCommand,
         Started,
         init,
@@ -379,7 +379,7 @@ export type Frame<Model, Message> = Readonly<{
 const fromCommand: Source<never>;
 
 // @public (undocumented)
-const fromView: Source<never>;
+const fromDispatch: Source<never>;
 
 // @public
 type Generation = number;
@@ -546,7 +546,7 @@ type OnEvents<State, C, Command, Event> = {
 
 // @public
 export type Origin = Readonly<{
-    _tag: 'View';
+    _tag: 'Dispatch';
 }> | Readonly<{
     _tag: 'Command';
 }> | Readonly<{
@@ -706,7 +706,7 @@ export type Shown<A> = Readonly<{
 
 // @public
 type Source<K> = Readonly<{
-    _tag: 'View';
+    _tag: 'Dispatch';
 }> | Readonly<{
     _tag: 'Command';
 }> | Readonly<{

@@ -14,10 +14,8 @@ that each leans only on those above it.
   of [`docs/inert-steps.md`](docs/inert-steps.md) was done. It would flag the guard `{ state }` against a double tap
   and a parent's broadcast, and found one real case in the examples. Weighed again with what it finds in an
   application, and with a key whose message does nothing.
-- **What the run calls the view** is a dispatch: the words, and `Origin`'s `'View'`, which `rehearse` and
-  `simulate` already give to what a test sends, and which numbers the messages a frame's `seen` counts. Breaking for
-  the tag alone. [`docs/boundary.md`](docs/boundary.md), item 8.
-- **`View` among the exports**, a type no module of `src/` uses. Breaking. `docs/boundary.md`, item 6.
+- **`View` among the exports**, a type no module of `src/` uses. Breaking. [`docs/boundary.md`](docs/boundary.md),
+  item 6.
 - **A model made when its frame is pulled, not when it is read**, which would take from `drive` its recording of a
   defect of `makeModel`. Breaking, and untried against `drive`. `docs/boundary.md`, item 7.
 - **The wrapping of a child's message as a pure function** before the model, for `dispatchTo` and a test's reader

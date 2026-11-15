@@ -765,7 +765,7 @@ describe('interleavings of the user, commands and subscriptions', () => {
           : event._tag === 'Ignored'
           ? event.ignored.origin
           : undefined
-        if (origin?._tag === 'View') heard += 1
+        if (origin?._tag === 'Dispatch') heard += 1
         if (event._tag === 'Drew' && event.frame.seen < heard) reached.add('a frame older than a message heard')
       }
     }, { numRuns: 2000, seed })
@@ -894,8 +894,8 @@ describe('interleavings of the user, commands and subscriptions', () => {
   }, 120_000)
 
   // The renderer may draw an older state than the last one made, which the sliding buffer drops, but never a count
-  // that no state was made with: `seen` is the count of the view's messages taken when the frame's state was made.
-  test('a frame has seen the messages of the view taken before its state was made, and none after', () => {
+  // that no state was made with: `seen` is the count of the dispatched messages taken when the frame's state was made.
+  test('a frame has seen the dispatched messages taken before its state was made, and none after', () => {
     property(({ events }) => {
       const broken: Array<string> = []
       let heard = 0
@@ -908,7 +908,7 @@ describe('interleavings of the user, commands and subscriptions', () => {
           : event._tag === 'Ignored'
           ? event.ignored.origin
           : undefined
-        if (origin?._tag === 'View') heard += 1
+        if (origin?._tag === 'Dispatch') heard += 1
         if (event._tag === 'Applied' && event.applied.after !== event.applied.before) {
           counts.add(heard)
           last = heard
