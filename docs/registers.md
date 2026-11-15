@@ -2,8 +2,8 @@
 
 **Status:** reopened, 15 November 2026. Inputs are on `main` as decided and implemented on 14 November ("The
 implementation"); what happens to an input when its parent replaces its child's state is open, and three reviews
-propose an answer, none decided; the ninth, the candidate, was spiked in React and in its numbering, and neither broke
-it. Where to start is "Where it stands" › "Open".
+propose an answer, none decided; the ninth, the candidate, was spiked in React, in its numbering and in a slider, and
+the cost of its writes measured, and none of them broke it. Where to start is "Where it stands" › "Open".
 
 The document records a discussion with the owner, two reviews by Fable 5.2 (one of a design, one asked for ideas),
 and one spike, kept on the branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never to be merged),
@@ -19,7 +19,9 @@ seventh review by Fable 5.2, with a spike, on how to close concern 3 ("Whoever s
 eighth, with a spike, on how a parent applies its child's rule there ("The channel of a replacement, declared"), and a
 ninth, with a spike and a free hand over the whole library, which replaces the revision with a plain input and a frame
 that says what it has seen ("A plain input, and a frame that says what it has seen"), none yet decided, and two
-spikes of the ninth, its React bridge and its numbering ("The ninth review, in React and in its numbering").
+spikes of the ninth, its React bridge and its numbering ("The ninth review, in React and in its numbering"), and a
+spike of its slider and a measure of its writes, with what the owner accepts of it ("A slider, the cost of `was`, and
+the bridges' part").
 What the spikes ran is marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued,
 **reasoned**. It reopens the aim of [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way,
 and leans on [`inert-steps.md`](inert-steps.md), which it would simplify.
@@ -62,11 +64,23 @@ feature that stands in the way, and Elm, the owner's reference, need not be the 
   element. It removes the split instead of bridging it, keeps the loop and the composition, and drops `Field`,
   `renewed` and rule (A). Spiked in Snabbdom, then in React, where it holds as a component, `Shows`, with its run's
   registry in a context, and in its numbering, which rests on no undocumented premise of Effect and has a test and a
-  mutation for each check of the engine ("The ninth review, in React and in its numbering").
+  mutation for each check of the engine ("The ninth review, in React and in its numbering"). A slider ported to it
+  needs a rule of its own only where its bounds narrow, which the owner puts outside what is guaranteed, and a write
+  over the value held costs one `===` more than a write at a revision ("A slider, the cost of `was`, and the bridges'
+  part").
+
+**Accepted by the owner**, 15 November 2026, for the ninth review: a tie between the library and its bridges, as a
+condition of the guarantees of inputs on the elements and the renderers, rather than a weak point in the library; a
+native widget that does not meet it is replaced by one the program draws, as web applications do; the library gives a
+frame and the renderer reads it and draws it, and nothing else is supported or advised; and the example of a slider
+shows both, side by side ("A slider, the cost of `was`, and the bridges' part" › "What the owner accepts").
 
 **Next**: the owner's decision on the ninth review. If it is adopted, it is ported from `main` by `change-engine` and
-`change-api`, with the React bridge of its spike and the tests and mutations of the numbering, the README rewritten one
-section at a time, and the seventh and eighth reviews listed in `docs/rejected.md`.
+`change-api`, with the React bridge of its spike, the tests and mutations of the numbering and `bench/writes.ts`, the
+README rewritten one section at a time with the condition on the bridges, and the seventh and eighth reviews listed in
+`docs/rejected.md`. What only the port checks: the search of interleavings drawing `write(was, value)`, the mutations
+of inputs, `build`, `smoke` and the API report, the testing tools' contracts with `seen`, inputs under models skipped
+by `Equal`, a real browser.
 
 **Open too**: a `File`; a reaction to every keystroke; the ideas of "To explore", each spiked or measured before it is
 proposed.
@@ -139,12 +153,14 @@ Local to this machine and never pushed, none to be merged: `spike/field-register
 `claude/spike-register-opaque-3fc182`, `claude/spike-register-slider-f36368`, `spike/register-input-compose`,
 `spike/register-input-by-value`, `claude/spike-revision-unwritten-b1e290`, `claude/spike-register-subscriptions`,
 `worktree-agent-a144664c3ddf8f27a`, `worktree-agent-a04cfe354d300ce70`, `worktree-agent-a02816c77ebec330c`,
-`claude/spike-react-plain-df66b2` and `claude/spike-seen-premise-4b91ce`. The
+`claude/spike-react-plain-df66b2`, `claude/spike-seen-premise-4b91ce`, `claude/spike-volume-plain-031355` and
+`claude/bench-write-was-b77d29`. The
 first spike and the six checks are cut from `spike/field-register` or `main` before this document; the two opinions
 from `c263478`; the spike of the revision a program did not write, and that of the subscriptions, from `c445a5b`; the
 seventh review's from `9a58662`, and the eighth's from the seventh's, cherry-picked onto `9a58662`; the ninth's from
-`b63a5b6`; its two spikes, of React and of the numbering, from the ninth's `4757546`. The last five live in worktrees
-under `.claude/worktrees/`, which a cleaning of the worktrees removes: their branches stay.
+`b63a5b6`; its spikes of React, of the numbering and of the slider, and its measure, from the ninth's `4757546`. The
+last seven live in worktrees under `.claude/worktrees/`, which a cleaning of the worktrees removes: their branches
+stay.
 
 ## The implementation
 
@@ -1535,7 +1551,106 @@ were run again on its commit, 25 of the two React files and 6 of `src/seen.test.
 
 Whether to adopt the ninth review. Neither spike found where it breaks. What they add to it: React's bridge is a
 component, `Shows`, where Snabbdom's `shows` returns props, so the README's "View" would show each bridge's form; and a
-bridge must never wait for `seen` to reach the number of its last write.
+bridge must never wait for `seen` to reach the number of its last write. A slider and the cost of `was` were left
+unchecked, in the next section.
+
+## A slider, the cost of `was`, and the bridges' part
+
+Two more points of the ninth review were left only reasoned: whether "a program reads an input through its own bounds"
+stays simple in a slider whose bounds narrow, where `renewed` is dropped, and what `was` costs on each write. Each was
+spiked on 15 November 2026 by a session of Opus 5.5 on a branch of its own cut from `4757546`, never to be merged: the
+slider on `claude/spike-volume-plain-031355` (`a7b0faf` and `bf76814`), the measure on `claude/bench-write-was-b77d29`
+(`f570872`). Each reports `typecheck` and `lint` green, the slider `test` (648) too; the tests of the plain volume and
+of the plain bridge, 26, were run again on its commit (**run**).
+
+### The slider
+
+`examples/volume-plain` beside `examples/volume`, with `slides(value, dispatch)` in the Snabbdom bridge, the slider's
+`shows`, read back with `valueAsNumber`, and eight cases in happy-dom through `run`:
+
+| | `volume`, on `main` | `volume-plain` |
+| --- | --- | --- |
+| Lines: program, view, tests | 117, 25, 113 | 87, 23, 122 (**checked**) |
+| The level | a `Field<number>`, kept in `Muted` too | a plain number, which Mute and Full leave alone |
+| What a user must remember | `renewed` when the value stays (Mute at 0, Quiet with the level under 30) | the level read through `heard`, and the slider drawn from the level held, never the one heard |
+| A late drag after Mute | rejected; Unmute gives back 50 | stored, 80; the slider shows 0; Unmute gives back 80 (**run**) |
+| A late drag from 20 to 80 after Quiet | rejected; 20 | stored, 80, above the maximum of 30; heard as 30; Full makes 80 heard (**run**) |
+| A late drag from 80 to 90 after Quiet | rejected | rejected: Quiet had lowered the level to 30 (**run**) |
+| Mute, then Unmute | a new slider at 0, then the level | the same slider, at 0 and disabled, then the level (**run**) |
+
+- **Mute gets simpler**, as the review said: no level kept in `Muted`, no new slider, and the 0 case of `renewed` gone.
+- **Narrowing bounds make a recipe of two rules** (**run**): every reader of the level goes through `heard`, one place
+  here and a second for a command that set a device's volume; and the slider is drawn from the level held, since one
+  drawn from the level heard rejects every drag for good, which nothing in the types or the checks catches.
+- **The screen and the state** agree after a late Mute; after a late Quiet only because the model reads through
+  `heard`: a browser brings a range back within bounds set after its value (**reasoned**), happy-dom does not
+  (**run**).
+- **Refused on the way**: Full storing the level heard rejects a drag in progress (**run**); an optic that refuses a
+  value above the maximum makes the write a step that changes nothing, so no frame is drawn and the refused value stays
+  on screen (**reasoned**).
+- **Taken out by hand** (**run**): a frame taken to have seen everything fails 2 tests, one taken to have seen nothing
+  1, the slider read as text 3.
+
+### The cost of `was`
+
+`bench/writes.ts`, run apart with `bun bench/writes.ts [writes] [rounds]` or on Node, applies the same 2000 writes with
+each design: the rule alone, the composed `update`, and for two cases `run` with a trivial renderer; fresh values on
+each pass, since `Equal` caches its hashes and its pairs, and the two designs' rounds alternated after a round each
+thrown away, since the first measured paid for the JIT. Three runs on Bun 1.4.4 and three on Node 24.14.1, eleven
+rounds each (**run**).
+
+- **What the bridge sends costs one `===`** (**checked**, `examples/snabbdom.ts` and `Equal.ts` in Effect 4.1.4): `was`
+  is the value the bridge sent before, as the state stored it, or the frame's own, so the comparison stops at its first
+  line, `self === that`. Through `update` the two designs are within each other's ranges, about 220 ns a write for a
+  short text, a long one, or a number; 8 to 9 ns more for the rule alone on Bun, nothing measurable on Node (**run**).
+- **An equal copy costs more**, which a bridge that read the value back from the element, or a program that rebuilt an
+  equal value, would send (**reasoned**): about 0.15 µs a KB of text, +0.7 µs at 4 to 6 KB; +2.3 to +3.1 µs for an
+  array of 200 ids; +1.2 to +3.4 µs for a record of four fields (**run**), since a distinct structure is hashed, then
+  compared (**checked**).
+- **Against a frame**: a whole write through `run` takes 14 to 15 µs for one input, and 290 to 380 µs for a row among
+  1000, where finding and replacing the row dominates (**run**); the worst copy measured is under 0.04% of a 16 ms
+  frame (**reasoned**).
+- **What a write weighs**: three properties in each design; `was` copies nothing, but holds the old value until the
+  write is applied; a stored write makes one object fewer than a `Field` (**checked**).
+- **Not measured**: the `Equal` that `drawn` runs in the bridge on each frame for each input, rejected writes, a
+  browser.
+
+### What the owner accepts
+
+The owner, 15 November 2026, on these results:
+
+- **A tie between the library and its bridges rather than a weak point in the library.** The guarantees of inputs are
+  given for elements and renderers that meet a condition, stated as a property, not as a list of widgets. As this
+  document words it, to be checked against the README when it is written: an element's value changes only by an edit
+  of the user, which it reports with the whole value, or by the bridge; and a renderer, after each frame and before the
+  user can act on it, lets the bridge reach each input's element with the frame's value and `seen`. A text field
+  meets it, and so do Snabbdom and React through `flushSync`; a range whose bounds narrow does not, nor does concurrent
+  rendering. "The correctness of the screen lives in each bridge", among the ninth review's weak points, becomes a
+  cost accepted: the rule stays the library's, `drawn`, and the bridges keep only their registry.
+- **A slider whose bounds narrow is out of the guarantees**, and nearly irrelevant: in rendering a widget that does
+  not fit is often replaced by one drawn by hand. The recipe of two rules above is not the library's.
+- **The example shows both**: a native slider as a plain input, with bounds that do not narrow, and beside it a slider
+  the program draws, its start a fixed message and its moves a subscription keyed by the state of dragging, with no
+  input, as "Only what is drawn writes" decided and no example showed yet; the quiet hours go to that one. The
+  example, and the guide's "Inputs the user types into", say that a widget, native or not, that does not fit the
+  bridge is replaced by a custom one.
+- **A renderer only draws.** The library gives a frame, and the renderer reads it and draws it, and nothing else:
+  anything else is neither supported nor advised, and the README says so, without a renderer's name, as `AGENTS.md`
+  asks of the library. Drawing a frame includes settling its inputs by `drawn` with its `seen`, which is part of the
+  frame. So concurrent React is irrelevant, and so is state kept in React's components: a hybrid makes sense for
+  nobody, and React is named only as an example, in the bridge's guide. A question for the port
+  (**reasoned**): the React spike needed `Shows` and a context because an input that a component mounts from its own
+  state escaped the registry, a case this rule leaves unsupported; whether the props of `b4b13be` are then enough, or
+  a portal still needs the context, is to be checked.
+
+Also left as limits, not flaws, after a discussion with the owner the same day: a message names a place, so one drawn
+for an old instance reaches the new one, and `update` decides, which no design of a loop avoids, since a click always
+comes from a frame already past; and a write whose `was` equals a value come back is stored, which keeps a keystroke the
+user typed over what they saw.
+
+### What is left to decide
+
+Whether to adopt the ninth review, now with nothing of it left only reasoned that a spike could check before the port.
 
 ## What a consumer could notice
 
