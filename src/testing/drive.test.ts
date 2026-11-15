@@ -284,7 +284,6 @@ describe('drive interrupted by whoever runs it', () => {
       const started = yield* Deferred.make<void>()
       const fiber = yield* Effect.forkChild(drive(dying(started), () => Effect.never))
       yield* Deferred.await(started)
-      yield* Effect.sleep('10 millis')
       yield* Fiber.interrupt(fiber)
       return yield* Fiber.await(fiber)
     }))
@@ -348,7 +347,8 @@ describe('drive and a scenario that throws before it returns its effect', () => 
         throw new Error('boom')
       }))
       log.push('drive ended')
-      yield* Effect.sleep('30 millis')
+      // Turns of the scheduler, not time: a run left behind would start its subscription in far fewer.
+      yield* Effect.repeat(Effect.yieldNow, { times: 100 })
       return exit
     }))
     expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain('boom')

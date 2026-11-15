@@ -131,15 +131,26 @@ describe('Engine subscriptions', () => {
         )),
     })
 
-  /** Sends `changes` one at a time, each once the previous one is applied, letting the subscriptions settle. */
-  const send = (engine: Engine.Engine<Listening, Change>, changes: ReadonlyArray<Change>) =>
+  /** Whether the subscription named `name` has started, and has not been stopped since. */
+  const isRunning = (log: ReadonlyArray<string>, name: string) =>
+    log.lastIndexOf(`start ${name}`) > log.lastIndexOf(`stop ${name}`)
+
+  /**
+   * Sends `changes` one at a time, each once the previous one is applied and the subscriptions its state lists have
+   * started: they are forked as it is applied, and one the next change takes away must have started first. The clock
+   * only bounds a wait for a start that never comes.
+   */
+  const send = (engine: Engine.Engine<Listening, Change>, log: ReadonlyArray<string>, changes: ReadonlyArray<Change>) =>
     Effect.forEach(
       changes,
       Effect.fnUntraced(function*(change, index) {
         yield* engine.states.pipe(Stream.filter(({ revision }) => revision >= index), Stream.runHead)
         yield* engine.dispatch(change)
-        yield* engine.states.pipe(Stream.filter(({ revision }) => revision > index), Stream.runHead)
-        yield* Effect.sleep('20 millis')
+        const reached = yield* engine.states.pipe(Stream.filter(({ revision }) => revision > index), Stream.runHead)
+        const names = Opt.match(reached, { onNone: () => [], onSome: ({ state }) => state.names })
+        yield* Effect.gen(function*() {
+          while (!names.every((name) => isRunning(log, name))) yield* Effect.sleep('1 millis')
+        }).pipe(Effect.timeoutOption('1 second'))
       }),
       { discard: true },
     )
@@ -148,7 +159,7 @@ describe('Engine subscriptions', () => {
     const log: Array<string> = []
     await run(Effect.gen(function*() {
       const engine = yield* listening(log)
-      yield* send(engine, changes)
+      yield* send(engine, log, changes)
     }))
     return log
   }
@@ -159,7 +170,11 @@ describe('Engine subscriptions', () => {
     const log: Array<string> = []
     const whileRunning = await run(Effect.gen(function*() {
       const engine = yield* listening(log)
-      yield* send(engine, [{ _tag: 'Listened', names: ['a'] }, { _tag: 'Listened', names: [] }, { _tag: 'Bumped' }])
+      yield* send(engine, log, [
+        { _tag: 'Listened', names: ['a'] },
+        { _tag: 'Listened', names: [] },
+        { _tag: 'Bumped' },
+      ])
       return [...log]
     }))
     expect(whileRunning).toEqual(['start a', 'stop a'])
@@ -501,21 +516,42 @@ describe('Engine generations', () => {
       dispatch = engine.dispatch
       yield* engine.dispatch('Stop')
       yield* engine.states.pipe(Stream.filter(({ revision }) => revision >= 2), Stream.runHead)
-      // Long enough for the late tick to be applied, if the engine let it through.
-      yield* Effect.sleep('50 millis')
-      return yield* engine.states.pipe(Stream.runHead, Effect.map((latest) => Opt.getOrThrow(latest).state.ticks))
+      // Queued behind the late tick, which the loop has taken once this is applied.
+      yield* engine.dispatch('Start')
+      return yield* engine.states.pipe(
+        Stream.filter(({ revision }) => revision >= 3),
+        Stream.runHead,
+        Effect.map((reached) => Opt.getOrThrow(reached).state.ticks),
+      )
     }))
     expect(ticks).toBe(0)
   })
 })
 
 describe('Engine after the first defect', () => {
+  // The register of deaths, with `taken`, which waits until the loop has read it with a death recorded, as it takes
+  // the first message after the death: what no update and no description follows. The clock only bounds a wait that a
+  // loop which never reads it, past the death, would make.
+  const readingDeaths = Effect.gen(function*() {
+    const made = yield* Engine.makeDeaths(() => true)
+    const read = yield* Deferred.make<void>()
+    const deaths: Engine.Deaths = {
+      ...made,
+      dead: () => {
+        const dead = made.dead()
+        if (dead) Deferred.doneUnsafe(read, Exit.void)
+        return dead
+      },
+    }
+    return { deaths, taken: Effect.timeoutOption(Deferred.await(read), '1 second') }
+  })
+
   // The order no yield of the scheduler needs: the loop is held by `onApplied` while a command dies, with a message
   // queued behind, which it takes once the death is recorded.
   test('no update is called on a message taken once a command has died', async () => {
     const calls = { n: 0 }
     await Effect.runPromiseExit(Effect.gen(function*() {
-      const deaths = yield* Engine.makeDeaths(() => true)
+      const { deaths, taken } = yield* readingDeaths
       const dead = () => deaths.all().length > 0
       const go = yield* Deferred.make<void>()
       const engine = yield* Engine.make<Readonly<{ n: number }>, 'Go' | 'Hit', 'Die', never, never>({
@@ -533,8 +569,7 @@ describe('Engine after the first defect', () => {
       yield* engine.dispatch('Go')
       yield* engine.dispatch('Hit')
       yield* engine.died
-      // Long enough for the loop to take `Hit`, once `onApplied` lets it go.
-      yield* Effect.sleep('20 millis')
+      yield* taken
     }).pipe(Effect.scoped))
     expect(calls.n).toBe(0)
   })
@@ -544,7 +579,7 @@ describe('Engine after the first defect', () => {
   test('a message of a stopped subscription, taken once a command has died, is not described', async () => {
     const described: Array<string> = []
     await Effect.runPromiseExit(Effect.gen(function*() {
-      const deaths = yield* Engine.makeDeaths(() => true)
+      const { deaths, taken } = yield* readingDeaths
       const go = yield* Deferred.make<void>()
       const source = yield* Queue.unbounded<'Tick'>()
       const sent = yield* Deferred.make<void>()
@@ -573,8 +608,7 @@ describe('Engine after the first defect', () => {
       })
       yield* engine.dispatch('Stop')
       yield* engine.died
-      // Long enough for the loop to take the tick, once `onApplied` lets it go.
-      yield* Effect.sleep('20 millis')
+      yield* taken
     }).pipe(
       Effect.scoped,
       Effect.provideService(References.MinimumLogLevel, 'Debug'),
@@ -600,11 +634,25 @@ describe('Engine end', () => {
       onApplied: () => options.onApplied ?? Effect.void,
     })
 
+  // How many interruptions the fiber has received, asked where it is uninterruptible.
+  const received = Effect.map(
+    Effect.exit(Effect.interruptible(Effect.void)),
+    (exit) => Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isInterruptReason).length : 0,
+  )
+  // The gate is the fiber's own: it waits until it has received `count` interruptions, or gives up after a while.
+  const untilReceived = (count: number, tries = 10_000): Effect.Effect<void> =>
+    Effect.flatMap(
+      received,
+      (seen) =>
+        seen >= count || tries === 0 ? Effect.void : Effect.andThen(Effect.yieldNow, untilReceived(count, tries - 1)),
+    )
+
   test('the end of the engine lets its loop end before it interrupts its commands', async () => {
     const log = await Effect.runPromise(Effect.gen(function*() {
       const log: Array<string> = []
       const holding = yield* Deferred.make<void>()
       const busy = yield* Deferred.make<void>()
+      const stopping = yield* Deferred.make<void>()
       const go = yield* Deferred.make<void>()
       const scope = yield* Scope.make()
       const engine = yield* ending(
@@ -613,9 +661,11 @@ describe('Engine end', () => {
           Effect.onInterrupt(() => Effect.sync(() => log.push('command interrupted'))),
         ),
         {
-          // Uninterruptible, so that the loop still runs once the end has begun.
+          // Uninterruptible, so that the loop still runs once the end has begun: it tells when the end has reached it.
           onApplied: Effect.uninterruptible(
             Deferred.succeed(busy, undefined).pipe(
+              Effect.andThen(untilReceived(1)),
+              Effect.andThen(Deferred.succeed(stopping, undefined)),
               Effect.andThen(Deferred.await(go)),
               Effect.andThen(Effect.sync(() => log.push('applied Go'))),
             ),
@@ -626,7 +676,9 @@ describe('Engine end', () => {
       yield* engine.dispatch('Go')
       yield* Deferred.await(busy)
       const closing = yield* Effect.forkChild(Scope.close(scope, Exit.void))
-      // Long enough for the end to interrupt the command, were it not waiting for the loop.
+      // Long enough, once the end is stopping the loop, for it to interrupt the command, were it not waiting for the
+      // loop: nothing happens meanwhile that could be awaited instead.
+      yield* Deferred.await(stopping)
       yield* Effect.sleep('20 millis')
       yield* Deferred.succeed(go, undefined)
       yield* Fiber.join(closing)
@@ -647,7 +699,7 @@ describe('Engine end', () => {
       yield* ending(
         Effect.acquireRelease(Effect.void, () =>
           Deferred.await(interrupted).pipe(
-            Effect.timeoutOption('200 millis'),
+            Effect.timeoutOption('1 second'),
             Effect.flatMap((waited) =>
               Effect.sync(() =>
                 log.push(Opt.isSome(waited) ? 'released once the subscription was interrupted' : 'released alone')
@@ -694,18 +746,6 @@ describe('Engine end', () => {
   // then joins a fiber the fiber that ends the engine interrupted interrupts itself, a defect, and the end dies of it.
   // `rehearse` left such a subscription to the close of its scope (the seventh review of the premises).
   test('a subscription interrupting itself as the end of the engine stops it, its key gone, is a defect', async () => {
-    // How many interruptions the fiber has received, asked where it is uninterruptible.
-    const received = Effect.map(
-      Effect.exit(Effect.interruptible(Effect.void)),
-      (exit) => Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isInterruptReason).length : 0,
-    )
-    // The gate is the fiber's own: it waits until it has received `count` interruptions, or gives up after a while.
-    const untilReceived = (count: number, tries = 10_000): Effect.Effect<void> =>
-      Effect.flatMap(
-        received,
-        (seen) =>
-          seen >= count || tries === 0 ? Effect.void : Effect.andThen(Effect.yieldNow, untilReceived(count, tries - 1)),
-      )
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const stopped = yield* Deferred.make<void>()
       // Interrupted by the fiber that ends the engine.
@@ -746,18 +786,19 @@ describe('Engine end', () => {
       const log: Array<string> = []
       const scope = yield* Scope.make()
       const fork = Effect.runForkWith(yield* Effect.context<never>())
+      // The end of the engine, begun where the test cannot fork it: joined, it has stopped what it found.
+      const closing = yield* Deferred.make<Fiber.Fiber<void>>()
       const engine = yield* Engine.make<number, 'Go', 'Hold', never, never>({
         init: { state: 0 },
         update: () => (n) => ({ state: n + 1, commands: ['Hold'] }),
         runCommand: () => {
-          fork(Scope.close(scope, Exit.void))
+          Deferred.doneUnsafe(closing, Effect.succeed(fork(Scope.close(scope, Exit.void))))
           return Effect.never.pipe(Effect.onInterrupt(() => Effect.sync(() => log.push('command interrupted'))))
         },
         subscriptions: () => HashMap.empty(),
       }).pipe(Scope.provide(scope))
       yield* engine.dispatch('Go')
-      // Long enough for the end to have stopped the command, if it found it.
-      yield* Effect.sleep('50 millis')
+      yield* Fiber.join(yield* Deferred.await(closing))
       return log
     }))
     expect(log).toEqual(['command interrupted'])
@@ -770,6 +811,8 @@ describe('Engine end', () => {
       const log: Array<string> = []
       const scope = yield* Scope.make()
       const fork = Effect.runForkWith(yield* Effect.context<never>())
+      // The end of the engine, begun where the test cannot fork it: joined, it has stopped what it found.
+      const closing = yield* Deferred.make<Fiber.Fiber<void>>()
       const engine = yield* Engine.make<number, 'Go', never, never, string>({
         init: { state: 0 },
         update: () => (n) => ({ state: n + 1 }),
@@ -779,7 +822,7 @@ describe('Engine end', () => {
             ? HashMap.make([
               'k',
               Channel.unwrap(Effect.sync(() => {
-                fork(Scope.close(scope, Exit.void))
+                Deferred.doneUnsafe(closing, Effect.succeed(fork(Scope.close(scope, Exit.void))))
                 return Channel.fromEffectDrain(
                   Effect.never.pipe(Effect.onInterrupt(() => Effect.sync(() => log.push('subscription interrupted')))),
                 ).pipe(Channel.concatWith(() => Channel.never))
@@ -788,8 +831,7 @@ describe('Engine end', () => {
             : HashMap.empty(),
       }).pipe(Scope.provide(scope))
       yield* engine.dispatch('Go')
-      // Long enough for the end to have stopped the subscription, if it found it.
-      yield* Effect.sleep('50 millis')
+      yield* Fiber.join(yield* Deferred.await(closing))
       return log
     }))
     expect(log).toEqual(['subscription interrupted'])

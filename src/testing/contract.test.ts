@@ -87,12 +87,14 @@ const idle = ({ draft }: DraftModel) => draft.isSaving ? Opt.none() : Opt.some(d
 const recorded = Effect.fnUntraced(function*<A>(
   program: ReturnType<typeof draftProgram>,
   scenario: Parameters<typeof drive<Draft, DraftModel, Edit, Store, never, A>>[1],
+  // Told the count of the messages ignored so far, each time one is.
+  told: (ignored: number) => Effect.Effect<unknown> = () => Effect.void,
 ) {
   const applied: Array<Applied<Draft, Edit, Store>> = []
   const ignored: Array<Ignored<Draft, Edit>> = []
   const result = yield* drive(program, scenario, {
     onApplied: (heard) => Effect.sync(() => void applied.push(heard)),
-    onIgnored: (heard) => Effect.sync(() => void ignored.push(heard)),
+    onIgnored: (heard) => Effect.suspend(() => Effect.asVoid(told(ignored.push(heard)))),
   })
   return { result, applied, ignored }
 })
@@ -148,19 +150,25 @@ describe('the testing tools and the run, on the same program and inputs', () => 
         return { state: yield* rehearsal.state, ignored: yield* rehearsal.ignored }
       })))
     const answer = await Effect.runPromise(Deferred.make<void>())
+    const allIgnored = await Effect.runPromise(Deferred.make<void>())
     const { result, ignored } = await Effect.runPromise(
-      recorded(draftProgram(Deferred.await(answer), true), (driver) =>
-        Effect.gen(function*() {
-          yield* driver.send(({ type }) => type('a'))
-          yield* driver.send(({ save }) => save)
-          yield* driver.waitFor(({ draft }) => draft.ticks === 1 ? Opt.some(draft) : Opt.none())
-          yield* driver.send(({ cancel }) => cancel)
-          const cancelled = yield* driver.waitFor(idle)
-          yield* Deferred.succeed(answer, undefined)
-          // The late answer is ignored, so no frame shows it: give it the time to arrive.
-          yield* Effect.sleep('50 millis')
-          return cancelled
-        })),
+      recorded(
+        draftProgram(Deferred.await(answer), true),
+        (driver) =>
+          Effect.gen(function*() {
+            yield* driver.send(({ type }) => type('a'))
+            yield* driver.send(({ save }) => save)
+            yield* driver.waitFor(({ draft }) => draft.ticks === 1 ? Opt.some(draft) : Opt.none())
+            yield* driver.send(({ cancel }) => cancel)
+            const cancelled = yield* driver.waitFor(idle)
+            yield* Deferred.succeed(answer, undefined)
+            // The late answer is ignored, so no frame shows it: `onIgnored` tells. Bounded, so that a run that ignores
+            // fewer than `rehearse` still ends.
+            yield* Effect.timeoutOption(Deferred.await(allIgnored), '1 second')
+            return cancelled
+          }),
+        (count) => count === rehearsed.ignored.length ? Deferred.succeed(allIgnored, undefined) : Effect.void,
+      ),
     )
     expect(result).toEqual(rehearsed.state)
     expect(ignored.map(({ message }) => message)).toEqual([...rehearsed.ignored])
@@ -440,8 +448,8 @@ describe('how a stopped subscription ends', () => {
   test('rehearse fails with the defect alone, as the run dies, though a hearNext waited', async () => {
     const exit = await Effect.runPromiseExit(rehearse(stopping, Effect.fnUntraced(function*(rehearsal) {
       yield* rehearsal.hearNext('ticks')
-      const waiting = yield* Effect.forkChild(rehearsal.hearNext('ticks'))
-      yield* Effect.sleep('10 millis')
+      // Started on this stack, the call is offered to the loop before `Stop` is.
+      const waiting = yield* Effect.forkChild(rehearsal.hearNext('ticks'), { startImmediately: true })
       yield* Effect.exit(rehearsal.send(() => Opt.some('Stop')))
       return yield* Fiber.join(waiting)
     })))
@@ -915,8 +923,8 @@ describe('what the run dies of, and the tools fail on', () => {
   test('rehearse fails, as the run dies, on a command that dies in a fiber nobody joins', async () => {
     const exit = await Effect.runPromiseExit(rehearse(exploding, Effect.fnUntraced(function*(rehearsal) {
       yield* rehearsal.send(go)
-      yield* Effect.forkChild(rehearsal.run(() => true))
-      yield* Effect.sleep('20 millis')
+      // Awaited, never joined: what the call ends with does not reach the scenario.
+      yield* Fiber.await(yield* Effect.forkChild(rehearsal.run(() => true)))
     })))
     expect(diedIn(exit)).toBe('command')
   })
@@ -1100,11 +1108,14 @@ describe('what the run dies of, and the tools fail on', () => {
 
 // The run's cause holds its defects first, then the rest of what it ended with, and so does `rehearse`'s, before what
 // the scenario ended with ("a defect the scenario catches fails it all the same, first, and once"): `drive`, which
-// fails "as the run dies", keeps the same order. Here `update` dies on `Boom`, the run releases a subscription slowly,
-// and the scenario fails meanwhile.
+// fails "as the run dies", keeps the same order. Here `update` dies on `Boom`, the run releases a subscription until
+// the scenario has failed, and the scenario fails once that release has begun.
 describe('a defect of the program, then a failure of the scenario', () => {
   type Still = Readonly<{ still: true }>
-  const booming: Program<{ state: Still; model: Still; message: 'Boom' }> = {
+  const booming = (
+    releasing: Deferred.Deferred<void>,
+    failed: Deferred.Deferred<void>,
+  ): Program<{ state: Still; model: Still; message: 'Boom' }> => ({
     init: { state: { still: true } },
     update: () => () => {
       throw new Error('update')
@@ -1113,11 +1124,19 @@ describe('a defect of the program, then a failure of the scenario', () => {
       HashMap.make([
         'k',
         Channel.unwrap(
-          Effect.acquireRelease(Effect.void, () => Effect.sleep('50 millis')).pipe(Effect.as(Channel.never)),
+          // Bounded, so that a scenario that never fails still lets the run end.
+          Effect.acquireRelease(
+            Effect.void,
+            () =>
+              Effect.andThen(
+                Deferred.succeed(releasing, undefined),
+                Effect.timeoutOption(Deferred.await(failed), '1 second'),
+              ),
+          ).pipe(Effect.as(Channel.never)),
         ),
       ]),
     makeModel: (state) => state,
-  }
+  })
 
   const said = (exit: Exit.Exit<unknown>) =>
     Exit.isFailure(exit)
@@ -1130,10 +1149,13 @@ describe('a defect of the program, then a failure of the scenario', () => {
 
   const inOrder = 'drive fails, as rehearse does, with the defect first, then with what the scenario ended with'
   test(inOrder, async () => {
-    const exit = await Effect.runPromiseExit(drive(booming, (driver) =>
+    const releasing = Deferred.makeUnsafe<void>()
+    const failed = Deferred.makeUnsafe<void>()
+    const exit = await Effect.runPromiseExit(drive(booming(releasing, failed), (driver) =>
       driver.send(() => Opt.some('Boom')).pipe(
-        Effect.andThen(Effect.sleep('10 millis')),
+        Effect.andThen(Deferred.await(releasing)),
         Effect.andThen(Effect.die('after')),
+        Effect.ensuring(Deferred.succeed(failed, undefined)),
       )))
     expect(said(exit)).toEqual(['update', 'after'])
   })
@@ -1238,9 +1260,10 @@ describe('a fiber of the test\'s that sends once the tool has ended', () => {
         sent = yield* Effect.forkDetach(Effect.andThen(Deferred.await(ended), rehearsal.send(() => Opt.some('Go'))))
       }))
     ))
+    // Once the call has ended, nothing it sent can still reach `update`.
+    const call = sent === undefined ? undefined : await Effect.runPromise(Fiber.await(sent))
     expect(Exit.isSuccess(exit)).toBe(true)
     expect(applied).toEqual([])
-    const call = sent === undefined ? undefined : await Effect.runPromise(Fiber.await(sent))
     expect(call !== undefined && Exit.hasInterrupts(call)).toBe(true)
   })
 })
