@@ -29,9 +29,10 @@ under "Running", that the defect of a release counts once its scope has released
 ## Decision
 
 - **One module, `src/core.ts`, holds the semantics of a step.** It imports no effectful module of Effect (`Effect`,
-  `Fiber`, `Scope`, `Queue`, `Deferred`): only data (`HashMap`, `Option`, `Equal`). It is internal, as `engine.ts` is.
+  `Fiber`, `Scope`, `Queue`, `Deferred`): only data (`Array`, `Cause`, `Context`, `Exit`, `HashMap`, `Option`). It is
+  internal, as `engine.ts` is.
 - **Its state** is the program's state and revision, and the keys listened to, each with its start, and the starts
-  (`Active`, today in `engine.ts`), and the count of starts. The register of deaths is a value of its own, written as
+  (`Active`), and the count of starts. The register of deaths is a value of its own, written as
   each fiber ends, by whichever fiber ends, never by a step: a transition reads whether the run has died as one of its
   inputs, in the thunk it runs in.
 - **A transition calls at most one function of the program, and runs in that function's site.** `arrive` calls

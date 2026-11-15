@@ -4,6 +4,6 @@
     "correctness": "off"
   },
   "rules": {
-    "typescript/no-deprecated": "warn"
+    "typescript/no-deprecated": "error"
   }
 }

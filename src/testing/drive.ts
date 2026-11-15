@@ -1,5 +1,5 @@
 import * as Clock from 'effect/Clock'
-import type * as Duration from 'effect/Duration'
+import * as Duration from 'effect/Duration'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
@@ -70,7 +70,7 @@ export const drive = Effect.fnUntraced(function*<
         onNone: () =>
           Effect.flatMap(SubscriptionRef.get(frames), (latest) =>
             Effect.die(
-              new Error(`No frame showed what the test waits for within ${String(patience)}`, {
+              new Error(`No frame showed what the test waits for within ${Duration.format(Duration.fromInputUnsafe(patience))}`, {
                 cause: Opt.map(latest, (frame) => frame.model),
               }),
             )),

@@ -55,26 +55,13 @@ showed it, "reasoned" that it was read only.
 - **The three tools start a program three ways**: `simulate` takes `from` only (a program with flags makes the test
   call `init` itself, outside `diesIn('init')`), `rehearse` `from` or `flags`, `drive` `flags` only. Confirmed by
   reading.
-- **`drive`'s timeout message prints `patience` without its unit** ("within 500", "within 1,0"):
-  `Duration.format` of the decoded input would say it. Confirmed.
 
 ### The tests and the checks
 
-- **The CI never fails on a deprecated API**: `typescript/no-deprecated` is a warning in `.oxlintrc.json`, and
-  `oxlint` exits 0 on warnings (no `--deny-warnings`). `effect-latest.yml`, where a new deprecation would first show,
-  runs no lint at all. Confirmed.
-- **On Node, a test that hangs never fails**: `test/node/bun-test.ts` passes no timeout, `node:test`'s default is
-  infinite, and no job sets `timeout-minutes`. Tests that catch a regression only by hanging (the concurrent
-  commands of `run.test.ts`, the scheduled cases of `rehearse.test.ts`) would hold the `node` job for hours. A
-  default of 5 seconds, as `bun:test`'s, and a job timeout. Reasoned.
 - **The bridges' tests order themselves by a 20 ms sleep** (`settle` and `paint` in `examples/snabbdom.test.ts` and
   `examples/react.test.ts`), and `examples/form/late-key.test.ts` by turns of the event loop: against "a test never
   rests on the clock for an order", in the tests the README offers to copy. They pass here. Confirmed as a break of
   the rule.
-- **The only killer of "dispatchTo lets go of an entry whose dispatch is alive"** (`dispatch.test.ts`, "keeps the
-  entry of a new dispatch made for the id of a collected one") collects once and does not check that the first
-  dispatch went: if it survives, the test and the mutant both pass. The other tests of collection retry until a
-  `WeakRef` clears. Killed 15 times of 15 here: reasoned.
 - **Checks of `docs/invariants.md` with tests but no mutation**: the `Effect.scoped` of `scopedIn` (a scope of its
   own for each command, subscription and renderer), the `CompositionDefect`s for an unhandled event, an external
   message to a missing child or one it rejects, and a child's command with no `runCommand`; and the engine's logs
@@ -82,31 +69,8 @@ showed it, "reasoned" that it was read only.
 - **`bun run mutations` does not enforce what `change-engine` says of a killer**: the killers of a mutation run in
   one process, `-t` is an unanchored pattern that runs any test whose name contains one, and a hung process counts
   every named killer as killed. Confirmed by reading.
-- **`docs.yml` runs fewer checks than its comment promises** ("The checks of ci.yml"): not `test:node`, `build`,
-  `api --check`, `smoke`, nor the site's warning check. Confirmed.
 - **`src/input-subscriptions.test.ts` has no module of its own**, and mixes type tests, pure semantics of
   `subscriptionsOf` and `composition`, and a `run` scenario that reads as an example. A judgement call.
-
-### The documents and the examples
-
-- **The 0.8.0 section of `CHANGELOG.md` keeps three states it later undid**: the remedy in `examples/field.ts`
-  (removed in the same section), the README no longer forbidding a React component with state (it now does), and
-  `drive` failing on a defect of `makeModel` a scenario catches (since `606b6e9` none meets it). Confirmed.
-- **Two examples' views apply a fallback**, which the Guide forbids ("applies no rule and no fallback"):
-  `Opt.getOrElse` in `examples/volume/view.ts` (whose `makeModel` comment already says it gives 0) and in
-  `examples/pages/view.ts`. Confirmed.
-- **The tutorial states `Missing` as it was before `c524af4`** (`site/tutorial/4-testing.md`): every accepted
-  message, where the tool now reports only one that would do something. Confirmed.
-- **"Guarantees" counts its list wrong**: "checks the other seven", of nine items with the order apart; the input
-  rule is the eighth, added after. Confirmed.
-- **`volume`'s drag never hears `pointercancel`** (`examples/volume/main.ts`): a cancelled pointer leaves `held` on
-  and the drag's stream open until the next `pointerup`. `touch-action: none` removes the commonest cause, not the
-  others. Reasoned, not run in a browser.
-- **Stale words**: `DispatchViolation`'s comment still names "a value typed that `update` does not store" as
-  `Rejected`; `docs/shared-core.md` lists `core.ts`'s imports as `HashMap`, `Option`, `Equal` and `Active` as "today
-  in `engine.ts`"; `docs/boundary.md` says "this commit" for item 6 and has no row for item 7, though both are done;
-  `docs/invariants.md` and `AGENTS.md` speak of the `test.failing` cases of `contract.test.ts`, of which there are
-  none today. Confirmed.
 
 ## Possible improvements
 

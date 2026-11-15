@@ -38,8 +38,8 @@ messages a model holds with a function of its own, a case of the model at a time
 {@includeCode ../../examples/timer/reader.ts#reader}
 
 and gives them to `dispatchViolations`: each message the model holds must be accepted, and act once when sent twice
-unless it is meant to repeat (`repeatable`), and each of the messages a user could send that `update` accepts must
-be among those the model holds. That last check is what finds a reader that forgot a field of the model.
+unless it is meant to repeat (`repeatable`), and each of the messages a user could send that `update` accepts, and
+whose step would do something, must be among those the model holds. That last check is what finds a reader that forgot a field of the model.
 
 {@includeCode ../../examples/timer/timer.test.ts#model}
 

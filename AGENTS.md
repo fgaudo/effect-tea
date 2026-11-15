@@ -162,7 +162,7 @@ an example's and a document's too:
     weighed is in `change-engine`; a finding is listed in `ROADMAP.md` with its seed and path until a fix leaves a
     deterministic test of it.
   - **contracts**: one program and its inputs given alike to each testing tool and to the run
-    (`src/testing/contract.test.ts`, where a `test.failing` says how they still differ).
+    (`src/testing/contract.test.ts`, where a difference found is a `test.failing` until it is fixed).
   - **the boundary of a run**, the run's or a testing tool's: its lifecycle, scopes, interruption and defects, what
     it holds and lets go, what a tool fails on (`run.test.ts`, `engine.test.ts`, the cache of `dispatchTo` in
     `dispatch.test.ts`, a parent's subscriptions in a run in `compose.test.ts`, each tool's own file in

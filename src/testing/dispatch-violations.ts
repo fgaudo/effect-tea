@@ -5,7 +5,7 @@ import { isRejected, type Step, type Update } from '../update.ts'
 /**
  * How a model breaks its agreement with `update` in a state, by the messages it holds there:
  * - `Rejected`: it holds a message that `update` rejects, so the control that sends it does nothing: a button
- *   shown in the wrong state, or a value typed that `update` does not store;
+ *   shown in the wrong state;
  * - `ActsTwice`: a message it holds acts again when sent twice from the same frame (a double tap), so a one-shot
  *   action would happen twice;
  * - `Missing`: `update` accepts a message that it does not hold, and the message would do something: a control

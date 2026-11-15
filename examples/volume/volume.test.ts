@@ -46,8 +46,9 @@ describe('volume', () => {
     test('muting leaves the media\'s level as it is, and unmuting gives it back', () => {
       const muted = applyAll(update)([dragging(50, 80), Own.MuteClicked()], start).state
       expect(muted).toMatchObject({ media: 80, sound: Sound.Muted() })
-      expect(volume.makeModel(muted).media).toEqual(Opt.none())
-      expect(volume.makeModel(applyAll(update)([Own.UnmuteClicked()], muted).state).media).toEqual(Opt.some(80))
+      expect(volume.makeModel(muted).media).toEqual({ _tag: 'Fixed', level: 0 })
+      expect(volume.makeModel(applyAll(update)([Own.UnmuteClicked()], muted).state).media)
+        .toEqual({ _tag: 'Adjustable', level: 80 })
     })
 
     // Sent from a frame drawn before the mute: it was dragged over the level the volume still holds. Stored, it is

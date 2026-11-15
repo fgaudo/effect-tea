@@ -120,7 +120,9 @@ export const volume = compose({
   makeModel: (state) => ({
     // What the media's slider is drawn from and written over: the level held, or 0 while muted, which the slider
     // cannot be dragged from.
-    media: state.sound._tag === 'Muted' ? Opt.none() : Opt.some(state.media),
+    media: state.sound._tag === 'Muted'
+      ? { _tag: 'Fixed' as const, level: 0 }
+      : { _tag: 'Adjustable' as const, level: state.media },
     sound: state.sound._tag === 'Muted'
       ? { _tag: 'Muted' as const, unmute: Own.UnmuteClicked() }
       : { _tag: 'Audible' as const, mute: Own.MuteClicked() },

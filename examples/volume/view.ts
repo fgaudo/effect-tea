@@ -5,17 +5,16 @@ import { onClick, onPress, slides, type View } from '../snabbdom.ts'
 import type { Message, Model } from './volume.ts'
 
 export const view: View<Model, Message> = (model, dispatch) => {
-  const { sound, limit } = model
-  const media = Opt.getOrElse(model.media, () => 0)
+  const { sound, limit, media } = model
   return h('main', [
     h('section.volume', [
       h('h2', 'Media'),
       // A native range over a plain input: its bounds never change. Muted, it shows 0 and cannot be dragged.
       h('input.media', {
-        ...slides(media, dispatchTo(dispatch, 'Media')),
-        props: { type: 'range', min: 0, max: 100, step: 1, disabled: Opt.isNone(model.media) },
+        ...slides(media.level, dispatchTo(dispatch, 'Media')),
+        props: { type: 'range', min: 0, max: 100, step: 1, disabled: media._tag === 'Fixed' },
       }),
-      h('output.media', String(media)),
+      h('output.media', String(media.level)),
       sound._tag === 'Muted'
         ? h('button', { on: onClick<Message>(sound.unmute, dispatch) }, 'Unmute')
         : h('button', { on: onClick<Message>(sound.mute, dispatch) }, 'Mute'),

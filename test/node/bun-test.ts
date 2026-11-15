@@ -7,9 +7,13 @@ import { expect } from 'expect'
 
 type Body<Args extends ReadonlyArray<unknown>> = (...args: Args) => unknown
 
+// `node:test` waits for a test forever by default: a test that catches a regression only by hanging would hold the
+// run for good. The default is `bun:test`'s.
+const defaultTimeout = 5_000
+
 // A body is never given Node's own arguments (its context, or a callback when it declares two parameters).
-const test = (name: string, body: Body<[]>, timeout?: number): void => {
-  void NodeTest.test(name, timeout === undefined ? {} : { timeout }, async () => {
+const test = (name: string, body: Body<[]>, timeout = defaultTimeout): void => {
+  void NodeTest.test(name, { timeout }, async () => {
     await body()
   })
 }

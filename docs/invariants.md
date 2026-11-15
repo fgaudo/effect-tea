@@ -259,4 +259,4 @@ testing tools.
   of the engine stops it, its key gone, is a defect" (`engine.test.ts`). Never make what an end stops, or tells,
   depend on what a step it may interrupt writes after its thunk. When the engine or one tool changes, keep
   the others in step. `src/testing/contract.test.ts` gives the same program and inputs to each tool and to the run;
-  where they still differ, its `test.failing` cases say how, and `ROADMAP.md` lists them.
+  a difference found is a `test.failing` case there, which says how, and an item of `ROADMAP.md`, until it is fixed.

@@ -834,18 +834,17 @@ What is left to you:
   child's model, and its subscriptions, while its state is the same object.
 
 The library's tests check each guarantee. That of the order is the run's one loop over one queue, checked by the
-tests of the run. [`src/interleaving.test.ts`](src/interleaving.test.ts) checks the other seven under random orders
+tests of the run. [`src/interleaving.test.ts`](src/interleaving.test.ts) checks the other eight under random orders
 of clicks, writes into an input, current and stale, command answers, subscription messages and ends, releases,
 defects and self-interruptions: that outdated clicks leave the state as it was, that subscriptions follow their
 keys, that what a subscription, a command or the renderer acquires does not outlive it and the next message waits
 for the slowest release, that what the run logs is not kept by the span of whoever runs it, which stays the parent
 of the spans opened in it, that nothing ends in silence, that a model is made only for the frames pulled and the
-very same state draws no new frame, and that a frame has seen the dispatched messages taken before its state was made,
-and none after. It checks too that the run dies with each defect, in the order it happened as
-the run is made today, and from the first one on applies no message (see [running](#running)), and that what is
-written into an input is stored exactly when it was written over the value its place holds (see
-[inputs the user types into](#inputs-the-user-types-into)). The bridges' tests check, in a DOM, what an element makes
-of the frames, by `drawn`.
+very same state draws no new frame, that what is written into an input is stored exactly when it was written over
+the value its place holds (see [inputs the user types into](#inputs-the-user-types-into)), and that a frame has seen
+the dispatched messages taken before its state was made, and none after. It checks too that the run dies with each
+defect, in the order it happened as the run is made today, and from the first one on applies no message (see
+[running](#running)). The bridges' tests check, in a DOM, what an element makes of the frames, by `drawn`.
 
 ### Testing
 

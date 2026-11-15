@@ -183,6 +183,13 @@ describe('drive', () => {
     expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain('No frame showed')
   })
 
+  test('a wait longer than the patience fails with the patience and its unit, given as a number of milliseconds', async () => {
+    const exit = await Effect.runPromiseExit(
+      drive(noteProgram(Effect.void), (driver) => driver.waitFor(() => Opt.none()), { patience: 20 }),
+    )
+    expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain('within 20ms')
+  })
+
   test('a message update rejects is ignored, as when the program runs', async () => {
     const saved = await Effect.runPromise(drive(
       noteProgram(Effect.void),

@@ -31,7 +31,8 @@ boundary the code has is **the frame**, a model and a dispatch. What follows is 
 | 4 | "Inputs the user types into" keeps the cause and `update`'s rule; the remedy is the examples'. **Reopened** by [`registers.md`](registers.md): the rule is the library's, for an input declared in `compose`, and `examples/field.ts` is gone | `36119ad` |
 | 5 | The bridges' tests are examples' tests, not among the library's five kinds | `87e5e35` |
 | 8 | What a dispatch sends has the origin `'Dispatch'`, and the run's words name a dispatch where they named the view | `9903b9c` |
-| 6 | `View` is no longer exported: each bridge declares the type of its views, `View<Model, Message>` | this commit |
+| 6 | `View` is no longer exported: each bridge declares the type of its views, `View<Model, Message>` | `18f813b` |
+| 7 | A frame's model is made as the renderer pulls it, and `rehearse` makes the model of each new state as it applies the message | `606b6e9` |
 
 What each found that the inventory did not have is in this document as `1d0ccc9` left it ("Item 1, as done",
 "Items 2 to 5, as done"). Three findings bear on what is open:

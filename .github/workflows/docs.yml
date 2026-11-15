@@ -17,22 +17,32 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
+      # Node runs the tests' and the consumer's TypeScript as it is, which needs Node 22.18 or newer.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
       - run: bun install --frozen-lockfile
-      # The checks of ci.yml: a tag never deploys what they reject.
+      # The checks of ci.yml, its three jobs in one: a tag never deploys what they reject.
       - run: bun audit
       - run: bun run typecheck
       - run: bun run lint
       - run: bun run test
+      - run: bun run test:node
+      - run: bun run build
+      - run: bun run api --check
+      - run: bun run smoke
       - run: bun install --frozen-lockfile
         working-directory: site
       # TypeDoc 0.28.20 needs minimatch 10, and the fix of this advisory is in minimatch 11 alone. The site's globs
       # are its own configuration. Remove the ignore once TypeDoc depends on a minimatch with the fix.
       - run: bun audit --ignore=GHSA-g3hv-75wg-m249
         working-directory: site
-      - run: bun run build
+      # A warning is a doc comment to fix: the site must build without any.
+      - run: bun run build 2>&1 | tee build.log && ! grep -q '\[warning\]' build.log
         working-directory: site
       - uses: actions/upload-pages-artifact@v5
         with:

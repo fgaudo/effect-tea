@@ -60,7 +60,6 @@ version, and everything else, features included, the patch version.
 - `simulate` and `rehearse` read `subscriptions` on each new state, as the run does, and fail where it dies of them.
 - `simulate` and `rehearse` fail with a `ProgramDefect` on a command or subscription that interrupts itself.
 - `simulate`, `rehearse` and `drive` fail with a `ProgramDefect` in the run's site, where they failed with the defect.
-- `drive` fails on a defect of `makeModel` that the scenario catches, as `rehearse` does, and ends the scenario.
 - `drive` keeps a defect of `makeModel` among the program's in the order they happened, as the run does, not first.
 - The run dies of an effect that interrupts itself with the fiber id of the run's interruption, as the run stops it.
 - `rehearse` and `simulate` fail, as the run dies, on such an effect, and stop a command as the run does.
@@ -103,8 +102,6 @@ version, and everything else, features included, the patch version.
 - "Model" in the README says that messages live in the model, and no longer offers a view that builds its own.
 - "View" and "Testing" in the README ask no `messagesSentBy` of a bridge, and the examples' React bridge has none.
 - The comments of `dispatchViolations` and the README's table of the tools speak of the messages a model holds.
-- "Inputs the user types into" in the README keeps the cause and `update`'s rule; `examples/field.ts` has the remedy.
-- "View" in the README no longer forbids a React component with state; "Structuring a program" says what it may keep.
 - The site has a tutorial that builds the new `timer` example in four steps.
 - **Breaking**: `child` and `each` refuse a program with commands and no `runCommand`.
   Upgrade: give the child the `runCommand` its commands need; one that gets there through a cast is a
@@ -121,6 +118,8 @@ version, and everything else, features included, the patch version.
   nothing is no control missing.
 - The clock of `pages` has a format, ISO or Unix, which its test withholds under About; `list` rejects "Stop all"
   over an empty list, and its model leaves it out there.
+- The views of `volume` and `pages` apply no fallback: `volume`'s model says whether the media's slider is fixed at 0,
+  and its drag ends on `pointercancel` too.
 
 ### Fixed
 
@@ -142,6 +141,7 @@ version, and everything else, features included, the patch version.
 - A parent whose `subscribed` lists an id twice says so, not that an own key took a child's.
 - `rehearse` applies messages that arrive together one at a time: a command's answer could be lost.
 - `simulate` and `rehearse` compare a new state's keys with those of the state before, as the run does.
+- `drive`'s timeout says its patience with a unit, `within 500ms`, where it said `within 500`.
 - `rehearse`'s `hearNext` runs the subscription listed when its key appeared, not the one listed at its first call.
 - A subscription that `hearNext` started keeps running while its key stays, whichever fiber of the test's heard it.
 - What a subscription that `hearNext` runs sends after its key went away no longer reaches `update`.

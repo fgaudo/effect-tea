@@ -11,15 +11,18 @@ const root = document.getElementById('app')
 if (root === null) throw new Error('index.html has no #app element')
 
 // Whether the pointer is held: a drag whose subscription starts once the pointer is already released ends at once.
+// A pointer the browser cancels (a gesture it takes over, a lost touch) is released too.
 let held = false
 document.addEventListener('pointerdown', () => {
   held = true
 })
-document.addEventListener('pointerup', () => {
-  held = false
-})
+for (const released of ['pointerup', 'pointercancel']) {
+  document.addEventListener(released, () => {
+    held = false
+  })
+}
 
-// Where the pointer is along the ringer's track, from 0 to 100, until it is released.
+// Where the pointer is along the ringer's track, from 0 to 100, until it is released or cancelled.
 const pointer = Pointer.of({
   moves: Stream.callback<number>((queue) =>
     Effect.acquireRelease(
@@ -33,6 +36,7 @@ const pointer = Pointer.of({
         const release = () => Queue.endUnsafe(queue)
         document.addEventListener('pointermove', move)
         document.addEventListener('pointerup', release)
+        document.addEventListener('pointercancel', release)
         if (!held) release()
         return { move, release }
       }),
@@ -40,6 +44,7 @@ const pointer = Pointer.of({
         Effect.sync(() => {
           document.removeEventListener('pointermove', move)
           document.removeEventListener('pointerup', release)
+          document.removeEventListener('pointercancel', release)
         }),
     )
   ),

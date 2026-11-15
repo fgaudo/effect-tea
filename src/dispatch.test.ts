@@ -31,6 +31,9 @@ const draw = (dispatch: Dispatch<Message>, ids: ReadonlyArray<number>) => {
   for (const id of ids) dispatchTo(dispatch, 'Row', id)
 }
 
+// A dispatch nobody holds, but through a weak reference that tells when it is collected.
+const drawnWeakly = (dispatch: Dispatch<Message>, id: number) => new WeakRef(dispatchTo(dispatch, 'Row', id))
+
 const range = (from: number, count: number) => Array.from({ length: count }, (_, index) => from + index)
 
 /**
@@ -67,6 +70,7 @@ describe('dispatchTo', () => {
   })
 
   // A list whose rows get ids that are never reused, as the README advises.
+  // Two hundred full collections take about six seconds on V8 (`bun run test:node`).
   test('keeps nothing for the ids nobody holds', async () => {
     const { dispatch } = recording()
     for (let frame = 0; frame < 200; frame++) {
@@ -74,7 +78,7 @@ describe('dispatchTo', () => {
       await collect()
     }
     expect(await entriesLeft(dispatch, 10)).toBeLessThanOrEqual(10)
-  })
+  }, 30_000)
 
   test('lets go of what a long list held once the list is no longer drawn', async () => {
     const { dispatch } = recording()
@@ -83,13 +87,18 @@ describe('dispatchTo', () => {
     expect(await entriesLeft(dispatch, 1_000)).toBeLessThanOrEqual(1_000)
   })
 
-  // The entry of a collected dispatch goes after the collection, when a new dispatch may have taken its place.
+  // The entry of a collected dispatch goes after the collection, when a new dispatch may have taken its place. The
+  // new one is made in the job of the collection that took the first, before the collector's callback can run.
   test('keeps the entry of a new dispatch made for the id of a collected one', async () => {
     const { dispatch } = recording()
-    draw(dispatch, [1])
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    collectGarbage()
-    const row = dispatchTo(dispatch, 'Row', 1)
+    const first = drawnWeakly(dispatch, 1)
+    let row: Dispatch<'Inc'> | undefined
+    for (let collection = 0; collection < 10 && row === undefined; collection++) {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      collectGarbage()
+      if (first.deref() === undefined) row = dispatchTo(dispatch, 'Row', 1)
+    }
+    if (row === undefined) throw new Error('The first dispatch was never collected')
     await collect()
     await collect()
     expect(dispatchTo(dispatch, 'Row', 1)).toBe(row)

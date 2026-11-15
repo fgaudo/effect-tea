@@ -20,7 +20,7 @@ const clockView = (model: Clock.Model, dispatch: Dispatch<Clock.Message>): VNode
 const aboutView = (model: About.Model, dispatch: Dispatch<About.Message>): VNode =>
   h('main', [
     ...Opt.match(model.openedAt, { onNone: () => [], onSome: (at) => [h('p', `Opened at ${at}`)] }),
-    h('blockquote', Opt.getOrElse(model.saying, () => '…')),
+    Opt.match(model.saying, { onNone: () => h('blockquote', '…'), onSome: (saying) => h('blockquote', saying) }),
     h('button.secondary', { on: onClick(model.back, dispatch) }, 'Back'),
   ])
 
