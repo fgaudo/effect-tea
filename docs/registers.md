@@ -21,7 +21,8 @@ ninth, with a spike and a free hand over the whole library, which replaces the r
 that says what it has seen ("A plain input, and a frame that says what it has seen"), none yet decided, and two
 spikes of the ninth, its React bridge and its numbering ("The ninth review, in React and in its numbering"), and a
 spike of its slider and a measure of its writes, with what the owner accepts of it ("A slider, the cost of `was`, and
-the bridges' part").
+the bridges' part"), and a tenth review by Fable 5.2, on the shape of the rule a bridge calls ("The rule a bridge
+calls").
 What the spikes ran is marked **run**; what was read in the code at `beaba6f`, **checked**; what was only argued,
 **reasoned**. It reopens the aim of [`declared-inputs.md`](declared-inputs.md), suspended the same day, by another way,
 and leans on [`inert-steps.md`](inert-steps.md), which it would simplify.
@@ -75,12 +76,16 @@ native widget that does not meet it is replaced by one the program draws, as web
 frame and the renderer reads it and draws it, and nothing else is supported or advised; and the example of a slider
 shows both, side by side ("A slider, the cost of `was`, and the bridges' part" › "What the owner accepts").
 
-**Next**: the owner's decision on the ninth review. If it is adopted, it is ported from `main` by `change-engine` and
-`change-api`, with the React bridge of its spike, the tests and mutations of the numbering and `bench/writes.ts`, the
-README rewritten one section at a time with the condition on the bridges, and the seventh and eighth reviews listed in
-`docs/rejected.md`. What only the port checks: the search of interleavings drawing `write(was, value)`, the mutations
-of inputs, `build`, `smoke` and the API report, the testing tools' contracts with `seen`, inputs under models skipped
-by `Equal`, a real browser.
+**The rule a bridge calls: (c), for now**, by the owner the same day, after a tenth review by Fable 5.2: `drawn(held |
+undefined, value, seen)`, and `typed(held, value)`, which makes the write itself and returns it with a pure
+continuation that takes its number; `Shown` opaque but for `value`; `shown` dropped ("The rule a bridge calls").
+
+**Next**: the owner's decision on the ninth review, and its public names. If it is adopted, it is ported from `main`
+by `change-engine` and `change-api`, with the React bridge of its spike, the tests and mutations of the numbering and
+`bench/writes.ts`, the README rewritten one section at a time with the condition on the bridges, and the seventh and
+eighth reviews listed in `docs/rejected.md`. What only the port checks: the search of interleavings drawing
+`write(was, value)`, the mutations of inputs, `build`, `smoke` and the API report, the testing tools' contracts with
+`seen`, inputs under models skipped by `Equal`, a real browser.
 
 **Open too**: a `File`; a reaction to every keystroke; the ideas of "To explore", each spiked or measured before it is
 proposed.
@@ -1651,6 +1656,74 @@ user typed over what they saw.
 ### What is left to decide
 
 Whether to adopt the ninth review, now with nothing of it left only reasoned that a spike could check before the port.
+
+## The rule a bridge calls
+
+The ninth review's spike gives a bridge a type and three functions (`git show 4757546:src/input.ts`): `Shown<A>`, what
+an element on screen holds of an input, its `value` and the writes it sent that no frame has seen, each with its number
+and the value it was written over; `shown(value)`, an element just made; `typed(held, value, sent)`, the element after
+the user's edit; and `drawn(held, value, seen)`, what a frame makes of it. The review leaves open "`shown`, `typed`,
+`drawn`, or one function". Two shapes were weighed with the owner on 15 November 2026, and a tenth review by Fable 5.2,
+given the code of the spike and of its three bridges, the two shapes and the rules of `AGENTS.md` but no preference,
+asked which to take, or a third, added one. Read only, nothing spiked. The owner chose the third, for now.
+
+### The shapes
+
+- **(a) A type and two functions**: `shown` dropped, a new element being `drawn` from nothing; the bridge calls `typed`
+  on an edit and `drawn` on a frame, and builds the write itself, `swap(held.value, value)`.
+- **(b) One function, a reducer**: `element(held | undefined, event)`, the event `{ _tag: 'Typed', value, sent }` or
+  `{ _tag: 'Drawn', value, seen }`, so that an element's history is a fold over events, as `update` is over messages.
+- **(c) The write made by the library**: `drawn(held | undefined, value, seen)` as in (a), and `typed(held, value)`,
+  which returns `{ write, sent }`, the write to dispatch and a pure continuation that takes its number:
+
+```ts
+const { write, sent } = typed(live.held, element.value)
+live.held = sent(send(dispatch, write))
+```
+
+### By the review
+
+- **(b) is no more functional than (a)** (**reasoned**): a function of a sum is a pair of functions, and both are
+  pure; what looks imperative is the registry the bridge mutates, which neither removes. Each bridge already calls
+  `typed` only in its handler of an edit and `drawn` only after a frame, and none queues or replays events
+  (**checked**), so the tag of (b) is built only to be taken apart by the same function. `update` is a reducer because
+  messages travel as data, through the queue, the logs and the search; the precedent here is `andThen` and `raise` over
+  `Step`, whose caller knows which it calls. (b) adds a public type, written by hand, that promises nothing more, and
+  its tag `Typed` is already the name of a message of an earlier design in this document.
+- **`Shown` opaque but for `value`** (**checked**): every bridge reads `held.value`, to write over it and to decide
+  whether to set the element, and never `unseen`, nor builds a `Shown` but by `shown`. `AGENTS.md` decides it: a type of
+  the library's own is "hidden where it is not" meant to be written by hand, and the library's because it must
+  "enforce at construction what the type cannot", the order of the writes and their values written over. Wholly opaque,
+  it would need a function to read `value`.
+- **The rule split between library and bridge, which (a) and (b) leave** (**checked**): each of the three bridges
+  writes `swap(live.held.value, …)` beside `typed`, so the value a write names and the one the element records agree by
+  a convention copied into every bridge; a bridge that names another, the last frame's, makes `drawn` judge on data
+  that is false, and no test of the library sees it. (c) makes both from one value, so they cannot differ, and makes
+  that property a test of a pure piece. The number comes after the dispatch, which only the bridge runs, so it is
+  given to a continuation: a `typed` that ran the dispatch itself would break "Running a dispatch […] is the
+  renderer's business, and the library exports no helper for it". By "the one place where a rule of the library is
+  applied", the rules prefer (c), though they do not impose it.
+- **A promise any shape needs** (**checked**): the bridge sets the element when `next.value !== held.value`
+  (`examples/snabbdom.ts:92` at `4757546`), by identity where the library compares by `Equal`. It is right for a text
+  and a number, and for a structure only because `drawn` returns the very `value` held when the element stays, which is
+  true and not promised: `drawn`'s documentation promises it.
+- **Its choice**: (c), then (a) if the continuation is too odd for the README, then (b), which adds a type and two tags
+  and closes neither gap.
+
+### What (c) costs
+
+- **A shape the library has nowhere else** (**reasoned**, `src/` not searched in full): a function that returns half
+  of its work and a function to finish it, which the README explains.
+- **The convention moved, not gone**: the bridge calls `sent` once, with the number of that write; a bridge that
+  forgets leaves the element unaware of its own write, which `drawn` may then replace under the user. Smaller, and
+  harder to get wrong, than the same value named in two lines.
+- **A closure per keystroke**, negligible against the 14 µs of a write through `run` ("The cost of `was`").
+- **`swap`, or `write(was, value)`, stays exported**, for the tests of an `update`, and leaves only the bridges'
+  imports. That `send` returns the number synchronously, which the continuation rests on, is `Effect.runSync` over the
+  dispatch in each bridge (**checked**).
+
+The shape without a continuation, `typed` returning the write and an element whose number is still missing with a
+third function to give it, is three functions and the same convention.
 
 ## What a consumer could notice
 
