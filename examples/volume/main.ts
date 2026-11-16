@@ -12,12 +12,14 @@ if (root === null) throw new Error('index.html has no #app element')
 
 // Whether the pointer is held, and the track it was pressed on: a drag whose subscription starts once the pointer is
 // already released ends at once. A pointer the browser cancels (a gesture it takes over, a lost touch) is released too.
+// Heard in the capture phase, before the track's own listener sends `DragStarted`: the drag reads both when it
+// starts, whenever the run applies that message.
 let held = false
 let pressed: Element | null = null
 document.addEventListener('pointerdown', (event) => {
   held = true
   pressed = event.target instanceof Element ? event.target.closest('.track') : null
-})
+}, { capture: true })
 for (const released of ['pointerup', 'pointercancel']) {
   document.addEventListener(released, () => {
     held = false

@@ -810,6 +810,18 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'a tag that the children inherit is routed to a child',
+    file: 'src/compose.ts',
+    from: "typeof tag === 'string' && Object.hasOwn(children, tag)",
+    to: "typeof tag === 'string' && tag in children",
+    killedBy: [
+      [
+        'src/compose.test.ts',
+        'an own message or command whose tag a plain object inherits is the parent\'s own, not a child\'s',
+      ],
+    ],
+  },
+  {
     name: "a child's lifted subscriptions are kept without their place",
     file: 'src/compose.ts',
     from: 'at !== undefined && at[0].name === place.name && Equal.equals(at[0].id, place.id)',

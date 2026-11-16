@@ -355,7 +355,8 @@ const compose = <
   const children: Readonly<Record<string, UntypedChild>> = { ...programs, ...inputs }
   const names = Record.keys(programs)
   const childOf = (name: string) => children[name] as UntypedChild
-  const isChildName = (tag: unknown): tag is string => typeof tag === 'string' && Record.has(children, tag)
+  // `Object.hasOwn`, not `Record.has`, which does not say whether a key `children` inherits (`toString`) counts.
+  const isChildName = (tag: unknown): tag is string => typeof tag === 'string' && Object.hasOwn(children, tag)
   const field = (value: unknown, key: string): unknown => Predicate.hasProperty(value, key) ? value[key] : undefined
   const placeOf = (value: unknown): Place => ({ name: field(value, '_tag') as string, id: field(value, 'id') })
   const isEach = (name: string) => childOf(name).kind === 'each'

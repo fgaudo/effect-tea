@@ -300,6 +300,22 @@ describe('compose', () => {
     expect(app.update({ _tag: 'Right', message: CounterMessage.Increment() })(app.init.state)).toBe(reject)
   })
 
+  test('an own message or command whose tag a plain object inherits is the parent\'s own, not a child\'s', () => {
+    type Own = Readonly<{ _tag: 'toString' }>
+    type OwnCommand = Readonly<{ _tag: 'constructor' }>
+    const Inherited = composition<{ state: Ticks; command: OwnCommand }>()
+    const program = Inherited.compose({
+      init: (children) => ({ state: children.Ticker.init.state }),
+      children: { Ticker: Inherited.child(ticker, { get: (s) => Opt.some(s), set: (_, ticks) => ticks }) },
+      update: (_: Own) => (state) => ({ state: { ticks: state.ticks + 1 }, commands: [{ _tag: 'constructor' }] }),
+      runCommand: () => Effect.succeedSome({ _tag: 'toString' } as Own),
+      makeModel: (state, children) => children.Ticker(state),
+    })
+    const step = program.update({ _tag: 'toString' })(noTicks)
+    expect(step !== reject && step.state.ticks).toBe(1)
+    expect(Effect.runSync(program.runCommand({ _tag: 'constructor' }))).toEqual(Opt.some({ _tag: 'toString' }))
+  })
+
   test('the model of a child that is not there is a defect', () => {
     const Broken = composition<{ state: ParentState }>()
     const broken = Broken.compose({
