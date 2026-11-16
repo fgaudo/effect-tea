@@ -37,7 +37,7 @@ export type DispatchViolation<Message> = Readonly<{
 export const dispatchViolations: <State, Message, Command, Event>(update: Update<State, Message, Command, Event>, input?: Readonly<{
     repeatable?: (message: Message) => boolean;
     withheld?: (message: Message, state: State) => boolean;
-}>) => (state: State, sent: Iterable<Message>, candidates?: Iterable<Message>) => ReadonlyArray<DispatchViolation<Message>>;
+}>) => (state: State, held: Iterable<Message>, candidates?: Iterable<Message>) => ReadonlyArray<DispatchViolation<Message>>;
 
 // @public
 export const drive: <State, Model, Message, Command = never, R = never, A = unknown, E = never, RS = never, Flags = never>(program: Shape<State, Model, Message, Command, R, never, unknown, Flags>, scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RS>, ...args: [Flags] extends [never] ? [options?: DriveOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>] : [options: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & Readonly<{

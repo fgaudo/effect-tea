@@ -53,7 +53,7 @@ const doesNothing = <State, Command, Event>(step: Step<State, Command, Event>, s
  * @param update - The program's `update`.
  * @param options - `repeatable`, the messages meant to act again when sent twice (a "+1"); `withheld`, the messages a
  * model may leave out on purpose in a state.
- * @returns A function of `state`; of `sent`, the messages the model of that state holds, as the test reads them from
+ * @returns A function of `state`; of `held`, the messages the model of that state holds, as the test reads them from
  * `program.makeModel(state)`; and of `candidates`, what a user could ask for. It returns every violation it finds, so
  * that a test asserts there are none.
  *
@@ -93,10 +93,10 @@ export const dispatchViolations = <State, Message, Command, Event>(
 ) =>
 (
   state: State,
-  sent: Iterable<Message>,
+  held: Iterable<Message>,
   candidates: Iterable<Message> = [],
 ): ReadonlyArray<DispatchViolation<Message>> => {
-  const shown = Arr.fromIterable(sent)
+  const shown = Arr.fromIterable(held)
   const wrong = Arr.flatMap(shown, (message): ReadonlyArray<DispatchViolation<Message>> => {
     const first = update(message)(state)
     if (first === reject) return [{ _tag: 'Rejected', message }]
