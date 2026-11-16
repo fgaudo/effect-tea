@@ -83,12 +83,12 @@ For each child, and for itself, a parent declares:
 
 ### What the library derives from it
 
-| The parent's      | its own, plus                                                                 |
-| ----------------- | ----------------------------------------------------------------------------- |
-| messages          | `{ _tag: <child>, message }` for each child                                   |
-|                   | `{ _tag: <input>, message: { _tag: 'Written', was, value } }` for each input  |
-| commands          | each child's, wrapped likewise and run by the child's `runCommand`            |
-| subscriptions     | each child's under `[<child>, key]` (`[<child>, id, key]` for children by id) |
+- **The parent's messages** are its own, plus `{ _tag: <child>, message }` for each child
+  (`{ _tag: <child>, id, message }` for children by id), and
+  `{ _tag: <input>, message: { _tag: 'Written', was, value } }` for each input.
+- **The parent's commands** are its own, plus each child's, wrapped likewise and run by the child's `runCommand`.
+- **The parent's subscriptions** are its own, plus each child's under `[<child>, key]` (`[<child>, id, key]` for
+  children by id).
 
 `MessageOf<typeof app>` names the parent's messages. More on each is in [commands](./commands.md),
 [subscriptions](./subscriptions.md) and [children's views](#childrens-views).
@@ -107,7 +107,6 @@ For each child, and for itself, a parent declares:
 **`runCommand`** is required exactly when the parent has commands of its own.
 
 **What does not compile:**
-
 - an own message that takes a child's or an input's name;
 - an input that takes a child's name;
 - an own subscription that writes into an input;
@@ -118,8 +117,11 @@ For each child, and for itself, a parent declares:
 A command's answer is an own message, or an external message of a child's.
 
 **What is a defect** (a `CompositionDefect`):
-
 - a child with commands and no `runCommand` that gets there through a cast, when its command runs;
+- a child with events and no handler in `onEvent` that gets there through a cast, when it raises one;
+- a child whose state is not an object, which only a cast gets there, as its model or its subscriptions are made;
+- an own subscription key that is the key of a child's subscription;
+- a `subscribed` that lists one id twice;
 - asking for the model of a child that is not there.
 
 ## Events and external messages
@@ -155,9 +157,10 @@ onEvent: { Page: () => (state) => ({ state: leavePage(state) }) },
 child's, a parent adds them up:
 
 - **`andThen`**: `andThen(leave(state), children.Home.update({ _tag: 'ProductGone', at }))`. The result has the second
-  step's state, and both steps' commands and events, in order. Taking a step's `.state` by hand to make the next one
-  drops its commands and its events.
-- **`forEach`** is the `andThen` of many: one step for each item, each made from the state the previous one left. For
+  step's state, and both steps' commands and events, in order, both lists always there. Taking a step's `.state` by
+  hand to make the next one drops its commands and its events.
+- **`forEach`** is the `andThen` of many: one step for each item, each made from the state the previous one left. The
+  result has the last step's state, and every step's commands and events, in order, both lists always there. For
   example, a message to every child by id:
   `forEach({ state }, state.rows, ({ id }) => children.Row.update(id, Cleared()))`.
 
@@ -176,8 +179,8 @@ Both take the step last as well, for a chain written with Effect's `pipe`:
 
 - **A child's view gets a dispatch of its own.** It sends the child's own messages: `dispatchTo(dispatch, 'Clock')`
   wraps them as the parent receives them.
-- **That dispatch is the same function in every frame.** So a view memoized on its model and its dispatch is drawn
-  again only when its model changes:
+- **That dispatch is the same function in every frame.** It is the same every time it is asked for with the same
+  dispatch, name and id. So a view memoized on its model and its dispatch is drawn again only when its model changes.
 
 ```ts
 const view: View<Model, Message> = (model, dispatch) =>

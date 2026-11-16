@@ -37,12 +37,13 @@ before taking another draws at most once per screen refresh, as
   It only watches: the message stays ignored. Use it for devtools, or to count the taps that did nothing.
 
 **The run waits for `onApplied` and `onIgnored`.** It takes the next message only after them, so that they hear every
-message in order. It waits for `onApplied` before the message's frame too. So a slow one holds the whole program.
+message in order. It waits for `onApplied` before the message's frame and its commands too. So a slow one holds the
+whole program. A defect in one ends the run, as any other.
 
 **Hand slow work off.** An `onApplied` or an `onIgnored` with slow work to do, such as a devtools that sends each step
 away, hands it off. It offers what it hears to an unbounded queue, which takes it at once. A fiber of whoever runs the
 program takes it from there. Raced with the run, that fiber ends with it, and a defect in it ends the run. What is still
-in the queue when the run ends is not reported:
+in the queue when the run ends is not reported.
 
 ```ts
 const app = Effect.gen(function*() {
@@ -70,21 +71,19 @@ across a reload in development. In a test, give it to `drive` and `rehearse` the
 
 A defect anywhere ends the run, which dies with a `ProgramDefect`:
 
-- its `cause` is the defect itself, an `InvariantDefect` for one thrown with `defect`;
-- `where` says where it happened, which only the run knows:
+- **Its `cause` is the defect itself**: an `InvariantDefect` for one thrown with `defect`.
+- **Its `where` says where it happened**, which only the run knows:
+  - `'init'`: in `init`, for a program that starts from flags;
+  - `'update'`: in `update`, `onEvent` included; the message it was given is in `on`, by its tags, as the logs
+    describe it by default;
+  - `'subscriptions'`: in `subscriptions`, the `Equal` and `Hash` of its keys included;
+  - `'subscription'`: in a subscription; its `key` is there as it is, as the logs show it;
+  - `'command'`: in a command;
+  - `'render'`: in the renderer, the view and `makeModel` included;
+  - an option's name: in that option;
+  - `'log'`: in one of the run's own debug logs (a `Logger` that throws).
 
-| `where`           | the defect happened in                                                              |
-| ----------------- | ----------------------------------------------------------------------------------- |
-| `'init'`          | `init`, for a program that starts from flags                                        |
-| `'update'`        | `update`, `onEvent` included; the message it was given is in `on`, by its tags      |
-| `'subscriptions'` | `subscriptions`, the `Equal` and `Hash` of its keys included                        |
-| `'subscription'`  | a subscription; its `key` is there as it is, as the logs show it                    |
-| `'command'`       | a command                                                                           |
-| `'render'`        | the renderer, the view and `makeModel` included                                     |
-| an option's name  | that option                                                                         |
-| `'log'`           | one of the run's own debug logs (a `Logger` that throws)                            |
-
-What the program logs itself is in the place it logs from.
+  What the program logs itself is in the place it logs from.
 
 From the defect on, the run applies no message. Every defect is in the cause, each with where it happened.
 
@@ -104,8 +103,8 @@ Effect.runFork(
 )
 ```
 
-What leaves the device is chosen there. The `cause` is whatever was thrown. A `ProgramDefect`'s `key`, like a
-`CompositionDefect`'s `id`, is the program's own value, as it is.
+**What leaves the device is chosen there.** The `cause` is whatever was thrown. A `ProgramDefect`'s `key`, like a
+`CompositionDefect`'s `id`, is the program's own value, as it is, and may hold data.
 
 ## Precisely
 

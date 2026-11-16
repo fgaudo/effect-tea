@@ -19,57 +19,202 @@ import type { Step, Update } from './update.ts'
 
 export type { Revision, Revisioned } from './core.ts'
 
-/** Where a message came from: a dispatch, a command, or a subscription, with its key. */
+/**
+ * Where a message came from: a dispatch, a command, or a subscription.
+ *
+ * `onApplied` and `onIgnored` hear it with each message.
+ */
 export type Origin =
   | Readonly<{ _tag: 'Dispatch' }>
   | Readonly<{ _tag: 'Command' }>
-  | Readonly<{ _tag: 'Subscription'; key: unknown }>
+  | Readonly<{
+    _tag: 'Subscription'
+    /** The key of the subscription that sent the message. */
+    key: unknown
+  }>
 
 /**
- * A message that `update` accepted: where it came from, the state before and after it, the revision of `after`
- * (unchanged when the state is the same), and the commands it decided.
+ * A message that `update` accepted, as `onApplied` hears it.
+ *
+ * @example
+ * ```ts
+ * const session: Array<Message> = []
+ * const onApplied = ({ message }: Applied<State, Message, Command>) =>
+ *   Effect.sync(() => {
+ *     session.push(message)
+ *   })
+ * ```
+ *
+ * @remarks
+ * From the guide, "Running", "`onApplied`":
+ *
+ * **`onApplied`**: hears every accepted message, for devtools or session recording. It hears where the message came
+ * from (`origin`: a dispatch, a command, or a subscription with its key), the state before and after it, the `revision`
+ * of the state after it, and the commands it decided. The first state is revision 0, and each new one the next. A
+ * message whose `update` returns the very state it was given leaves the revision as it was.
  */
 export type Applied<State, Message, Command> = Readonly<{
+  /** The message. */
   message: Message
+  /** Where it came from. */
   origin: Origin
+  /** The state it was applied in. */
   before: State
+  /** The state it came to. */
   after: State
+  /** The revision of `after`. */
   revision: number
+  /** The commands it decided. */
   commands: ReadonlyArray<Command>
 }>
 
-/** A message that `update` rejected, and the run ignored: where it came from, and the state it did not apply in. */
+/**
+ * A message that `update` rejected, as `onIgnored` hears it.
+ *
+ * @example
+ * ```ts
+ * let taps = 0
+ * const onIgnored = ({ origin }: Ignored<State, Message>) =>
+ *   Effect.sync(() => {
+ *     if (origin._tag === 'Dispatch') taps += 1
+ *   })
+ * ```
+ *
+ * @remarks
+ * From the guide, "Running", "`onIgnored`":
+ *
+ * **`onIgnored`**: hears every message `update` rejected, with where it came from and the state it did not apply in. It
+ * only watches: the message stays ignored. Use it for devtools, or to count the taps that did nothing.
+ */
 export type Ignored<State, Message> = Readonly<{
+  /** The message. */
   message: Message
+  /** Where it came from. */
   origin: Origin
+  /** The state it did not apply in. */
   state: State
 }>
 
-/** How a program runs: how messages and commands appear in the logs, and who observes the transitions. */
+/**
+ * The options of a run: how messages and commands appear in the logs, and what hears each message.
+ *
+ * `run` and `drive` take them.
+ *
+ * @example
+ * ```ts
+ * run(program, render, { describeMessage: (message) => (message._tag === 'Searched' ? message : message._tag) })
+ * ```
+ */
 export interface RunOptions<Message, State = unknown, Command = unknown> {
   /**
-   * How a message appears in the logs; by default its `_tag`, never its data, and one that is a string whole.
-   * Called only while debug logs are enabled.
+   * How a message appears in the logs.
+   *
+   * @remarks
+   * From the guide, "Running", "`describeMessage`":
+   *
+   * **`describeMessage`**, **`describeCommand`**: how messages and commands appear in the logs. By default only their
+   * tags appear, never their data: `Home › Products › Deleted`. They are called only while debug logs are enabled
+   * (`References.MinimumLogLevel`), so they cost nothing otherwise. How a string and a parent's wrapping appear is
+   * under "Precisely".
+   *
+   * From the guide, "Running", "How messages and commands appear in the logs":
+   *
+   * - One that is a string is its own tag, and appears whole. Data goes in a field of a tagged value.
+   * - A parent's wrapping is followed only to a tagged value. So the message of a child whose messages are strings
+   *   appears by the child's name alone: `{ _tag: 'Counter', message: 'Increment' }` appears as `Counter`. A string in
+   *   a field named `message` may be the program's own data.
    */
   readonly describeMessage?: (message: Message) => unknown
   /**
-   * How a command appears in the logs; by default its `_tag`, never its data, and one that is a string whole.
-   * Called only while debug logs are enabled.
+   * How a command appears in the logs.
+   *
+   * @remarks
+   * From the guide, "Running", "`describeMessage`":
+   *
+   * **`describeMessage`**, **`describeCommand`**: how messages and commands appear in the logs. By default only their
+   * tags appear, never their data: `Home › Products › Deleted`. They are called only while debug logs are enabled
+   * (`References.MinimumLogLevel`), so they cost nothing otherwise. How a string and a parent's wrapping appear is
+   * under "Precisely".
+   *
+   * From the guide, "Running", "How messages and commands appear in the logs":
+   *
+   * - One that is a string is its own tag, and appears whole. Data goes in a field of a tagged value.
+   * - A parent's wrapping is followed only to a tagged value. So the message of a child whose messages are strings
+   *   appears by the child's name alone: `{ _tag: 'Counter', message: 'Increment' }` appears as `Counter`. A string in
+   *   a field named `message` may be the program's own data.
    */
   readonly describeCommand?: (command: Command) => unknown
   /**
-   * Hears every message `update` accepts, in order, with the state before and after it and the commands it
-   * decided (e.g. for devtools, or to record a session), before its frame is drawn and its commands start: a
-   * run that ends meanwhile may do neither. The next message waits for it, so a slow one holds the program: it
-   * hands slow work off to a queue (the guide's "Running" shows how). A defect in it ends the run like any
-   * other.
+   * Hears each message `update` accepts.
+   *
+   * @example
+   * ```ts
+   * const app = Effect.gen(function*() {
+   *   const heard = yield* Queue.unbounded<Applied<State, Message, Command>>()
+   *   const report = Queue.take(heard).pipe(Effect.flatMap(sendToDevtools), Effect.forever)
+   *   const running = run(program, render, { onApplied: (applied) => Effect.asVoid(Queue.offer(heard, applied)) })
+   *   yield* Effect.raceFirst(running, report)
+   * })
+   * ```
+   *
+   * @remarks
+   * From the guide, "Running", "`onApplied`":
+   *
+   * **`onApplied`**: hears every accepted message, for devtools or session recording. It hears where the message came
+   * from (`origin`: a dispatch, a command, or a subscription with its key), the state before and after it, the
+   * `revision` of the state after it, and the commands it decided. The first state is revision 0, and each new one the
+   * next. A message whose `update` returns the very state it was given leaves the revision as it was.
+   *
+   * From the guide, "Running", "The run waits for `onApplied` and `onIgnored`":
+   *
+   * **The run waits for `onApplied` and `onIgnored`.** It takes the next message only after them, so that they hear
+   * every message in order. It waits for `onApplied` before the message's frame and its commands too. So a slow one
+   * holds the whole program. A defect in one ends the run, as any other.
+   *
+   * From the guide, "Running", "Hand slow work off":
+   *
+   * **Hand slow work off.** An `onApplied` or an `onIgnored` with slow work to do, such as a devtools that sends each
+   * step away, hands it off. It offers what it hears to an unbounded queue, which takes it at once. A fiber of whoever
+   * runs the program takes it from there. Raced with the run, that fiber ends with it, and a defect in it ends the run.
+   * What is still in the queue when the run ends is not reported.
+   *
+   * From the guide, "Running", "What the run still does after a defect":
+   *
+   * - From the defect on, the run applies no message: it does not call `update`.
+   * - A message it does not apply starts no command and no subscription, and `onApplied` does not hear it. So a session
+   *   recorded there ends with the step under way at the defect, at the latest.
+   * - That is a bound on what the run still does: at most the step under way. It is nothing `update` can count on. To
+   *   `update`, a command that died is one that has not answered yet.
+   * - A message whose `update` the run called before goes on until the run stops applying messages. That may be before
+   *   its frame. It may still start its commands and the subscriptions of its new keys. And `onApplied` may have heard
+   *   a step whose frame is never drawn and whose commands never start.
+   * - What a command or a subscription does once started is the program's, until the run interrupts it.
+   * - So is what the renderer does. This holds in a run that died as it started too, as when a subscription of `init`
+   *   dies. A frame the renderer pulls meanwhile still makes its model, since `makeModel` is pure, and calling it
+   *   changes nothing of the program.
    */
   readonly onApplied?: (applied: Applied<State, Message, Command>) => Effect.Effect<void>
   /**
-   * Hears every message `update` rejects, which the run ignores, with where it came from and the state it did
-   * not apply in (e.g. for devtools, or to count the taps that did nothing). It only watches: the message stays
-   * ignored, and the state as it was. The next message waits for it, so a slow one holds the program: it hands
-   * slow work off to a queue, as `onApplied` does. A defect in it ends the run like any other.
+   * Hears each message `update` rejects, which the run ignores.
+   *
+   * @remarks
+   * From the guide, "Running", "`onIgnored`":
+   *
+   * **`onIgnored`**: hears every message `update` rejected, with where it came from and the state it did not apply in.
+   * It only watches: the message stays ignored. Use it for devtools, or to count the taps that did nothing.
+   *
+   * From the guide, "Running", "The run waits for `onApplied` and `onIgnored`":
+   *
+   * **The run waits for `onApplied` and `onIgnored`.** It takes the next message only after them, so that they hear
+   * every message in order. It waits for `onApplied` before the message's frame and its commands too. So a slow one
+   * holds the whole program. A defect in one ends the run, as any other.
+   *
+   * From the guide, "Running", "Hand slow work off":
+   *
+   * **Hand slow work off.** An `onApplied` or an `onIgnored` with slow work to do, such as a devtools that sends each
+   * step away, hands it off. It offers what it hears to an unbounded queue, which takes it at once. A fiber of whoever
+   * runs the program takes it from there. Raced with the run, that fiber ends with it, and a defect in it ends the run.
+   * What is still in the queue when the run ends is not reported.
    */
   readonly onIgnored?: (ignored: Ignored<State, Message>) => Effect.Effect<void>
 }

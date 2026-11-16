@@ -19,6 +19,8 @@ The duration of the timer's tutorial (`examples/timer/duration.ts`). It rejects 
 ## Rules
 
 - **Keep it pure.** It returns commands instead of running effects.
+- **It may be called at any time.** Never assume it runs once per message, nor only for a message that was sent: the
+  testing tools call it on the messages a model holds, twice, and on others a test lists.
 - **Never mutate the state**, nested objects included. Return a new one.
 - **A message that cannot arrive is a defect.** Its arrival is a bug: `update` throws `defect(reason)`, and the run dies
   (see [rejections and defects](./rejections-and-defects.md)).

@@ -7,8 +7,8 @@ title: Commands
 ## In short
 
 A command is **data** that says what `update` decided, usually a `Data.TaggedEnum`: `Command.Save({ name })`. The
-program's `runCommand` turns it into an Effect that may produce one message back. Since the decision is data, tests
-can assert it without running it.
+program's `runCommand` alone turns it into an Effect that may produce one message back. Since the decision is data,
+tests can assert it without running it.
 
 ## An example
 
@@ -28,8 +28,9 @@ expect(commands).toEqual([Command.Save({ name: 'Ada' })])
 
 **An execution cannot fail.** Its type says so: `Execution<Message, R>` is an `Effect<Option<Message>, never, R>`.
 
-**An expected failure becomes a message, as the success does.** Then `update` decides what each means. Write it with
-`Effect.match`, then `Effect.asSome`, at the end of a `pipe` or an `Effect.fn`:
+**An expected failure becomes a message, as the success does.** Then `update` decides what each means.
+
+Write it with `Effect.match`, then `Effect.asSome`, at the end of a `pipe` or an `Effect.fn`:
 
 ```ts
 const save = Effect.fn('Save')(

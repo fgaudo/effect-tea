@@ -45,6 +45,15 @@ Its `update` is on [update](./update.md). The program itself:
 **What does not compile.** A program whose state is a number or a string does not compile. Nor does one whose
 `external` messages are not among its `message`s.
 
+**`runCommand` is required exactly when the program has commands.** So no command goes uninterpreted.
+
+**A test makes a model as `run` does.** `run` makes a frame's model with `program.makeModel(state)`, and a test can
+call it the same way, on any state.
+
+**What a program listens to.** `subscriptionsOf(program)(state)` is what the program listens to in `state`, by key, as
+`run` reconciles it. It is empty for a program without `subscriptions`. A parent lists each child's under
+`[<child>, key]`, or `[<child>, id, key]` for children by id (see [composition](./composition.md)).
+
 **A program with flags.** Its `init` is a function of them: `init: ({ id }) => ({ state, commands })`. Whoever starts
 the program gives them. A parent gives them to its child (see [composition](./composition.md)), and `run` to the root
 (see [running](./running.md)).

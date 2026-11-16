@@ -123,24 +123,24 @@ with `applyAll`, or with `update` itself.
 
 ### `applyAll`
 
-`applyAll` tests `update`'s rules. The first test above, `counts up and down`, uses it.
+`applyAll` tests `update`'s rules, as `counts up and down` does in [how a program is tested](#how-a-program-is-tested).
 
 - It takes only the test's messages.
 - It fails when `update` rejects one of them.
 
 ### `dispatchViolations`
 
-`dispatchViolations` tests that the model holds what `update` accepts, all of it, and that a double tap acts once. The
-second test above uses it. It checks both ways:
+`dispatchViolations` tests that the model holds what `update` accepts, all of it, and that a double tap acts once, as
+the second test of [how a program is tested](#how-a-program-is-tested) does. It checks both ways:
 
 - **Each message the model holds must be accepted** (`Rejected`).
 - **Each one must act once when sent twice** (`ActsTwice`). Sent again from the same frame, it is rejected or changes
   nothing: the same state by `Equal`, with no commands and no events. Keep states data, since a value without
   structural equality compares by reference. Actions meant to repeat (a "+1") are marked `repeatable`.
-- **Each candidate `update` accepts must be among those held** (`Missing`). The `candidates` are what the test lists:
-  what a user could ask for, the program's fixed messages. A candidate whose step does nothing, by the rule of
-  `ActsTwice`, is excepted: a control that would do nothing is no control missing. Those `withheld` on purpose are
-  excepted too, e.g. the controls of a page that another covers, which would act on its hidden state.
+- **Each candidate `update` accepts must be among those held** (`Missing`), compared by `Equal`. The `candidates` are
+  what the test lists: what a user could ask for, the program's fixed messages. A candidate whose step does nothing, by
+  the rule of `ActsTwice`, is excepted: a control that would do nothing is no control missing. Those `withheld` on
+  purpose are excepted too, e.g. the controls of a page that another covers, which would act on its hidden state.
 
 Without candidates, it checks only the messages it is given.
 
@@ -151,7 +151,10 @@ Without candidates, it checks only the messages it is given.
 - It takes the test's messages, and among them those a subscription would send.
 - It fails when `update` rejects one of them.
 - Each command runs after those started before it. So the commands of one step all answer before those their answers
-  start, as when the program runs commands that answer at once.
+  start, as when the program runs commands that answer at once. All of them run before the next of the test's messages
+  is applied.
+- Each command has a scope of its own, as when the program runs. The scope is closed before the command's message is
+  applied.
 - The command answers that `update` rejected are listed in `ignored`. Assert `ignored` when one being dropped would be
   a bug.
 - Its subscriptions do not run. What it reads of them is under [precisely](#precisely).
@@ -180,13 +183,14 @@ rehearse(
 )
 ```
 
-- It acts through what the current model shows, as `drive` does.
-- Nothing reaches `update` by itself.
-- Each command waits until the test runs it (`run`, `runAll`). It runs through the program's `runCommand`, with the
-  services provided.
-- A subscription's message is one the test says was heard (`hear`), or the next one the subscription itself sends
+- **It acts through what the current model shows**, as `drive` does.
+- **Nothing reaches `update` by itself.**
+- **Each command waits until the test runs it** (`run`, `runAll`). It runs through the program's `runCommand`, with the
+  services provided, in a scope of its own. `run` runs the oldest pending command it matches. `runAll` runs the oldest
+  until none is left, those they start included.
+- **A subscription's message is one the test says was heard** (`hear`), or the next one the subscription itself sends
   (`hearNext`). Either is heard only while its key is in the state.
-- It starts from the program's `init`. A program with flags gets them as `run` does, in the options.
+- **It starts from the program's `init`.** A program with flags gets them as `run` does, in the options.
 
 ### `drive`
 
@@ -196,19 +200,21 @@ rehearse(
 - It fails on a wait longer than `patience` (2 seconds).
 - Its time is real: a frame may be past by the time its message arrives. So, as when the program runs, a rejected
   message is ignored, and a scenario checks what it expects to see.
+- Its renderer keeps only the latest frame. A wait looks at that frame and at later ones.
 - Its commands run as soon as they start. To hold one, give the program a service of the test's that waits on a
   `Deferred` the scenario completes.
 - A program with flags gets them as `run` does, in the options.
 
 ## Precisely
 
-### `simulate`
+### `simulate`, as the run dies
 
 - Its subscriptions do not run, but it reads them on each new state, as the run does.
 - It fails on a state whose subscriptions are a defect, as the run dies of one. A key whose `Equal` throws against a key
   of the state before is such a defect too.
+- It fails on a command that interrupts itself, as the run dies of one.
 
-### `rehearse`
+### `rehearse`, in detail
 
 #### What fails the test
 
@@ -228,11 +234,12 @@ It also fails, as the run dies:
 
 #### How a subscription is heard
 
-- A subscription's message is heard only while its key is in the state.
+- A subscription's message is heard only while its key is in the state. Keys compare by value, as the run compares
+  them.
 - `hear` runs nothing. The test answers for what it says was heard, and for whether the subscription had ended.
 - `hearNext` runs the subscription:
-  1. The first time it hears a key, it starts that key's subscription: the one listed when the key appeared, as the
-     run starts that one.
+  1. The first time it hears a key, it starts that key's subscription, with the services provided and in a scope of its
+     own: the one listed when the key appeared, as the run starts that one.
   2. It keeps it for as long as the key stays, as the run does, whichever fiber of the test's first heard it.
   3. Each call hears the subscription's next message, which waits for the call.
   4. The last message is the subscription's end value. After it, neither `hearNext` nor `hear` hears that key until the
@@ -288,7 +295,7 @@ already waiting for their subscription or their command, as nothing happens in a
 - A rehearsal whose scenario returned applies what was sent before. One whose scenario failed or was interrupted does
   not.
 
-### `drive`
+### How `drive` ends
 
 Once the scenario ends, or whoever runs `drive` interrupts it:
 
@@ -303,4 +310,4 @@ with the `ProgramDefect` the run dies with, in the same `where`, with the same `
 tool calls the program: `init`, `update`, `makeModel`, `subscriptions`, a subscription, `runCommand`. (`simulate` calls
 no `init`.)
 
-`applyAll` and `dispatchViolations` call `update` without a run, and fail with the defect itself.
+**`applyAll` and `dispatchViolations` call `update` without a run**, and fail with the defect itself.

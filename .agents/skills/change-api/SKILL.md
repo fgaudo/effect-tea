@@ -44,7 +44,9 @@ In the same change:
   Types the API refers to without exporting them are shown by name only, on purpose (`validation.notExported` is
   off in `site/typedoc.json`). Each is written for a reader who meets the export in a hover:
   - a first line that says what it is or does, in one short sentence;
-  - `@param` and `@returns` for a function, and a comment on each field of a type;
+  - `@param` and `@returns` for a function, and a comment on each field of a type; one made with
+    `Effect.fnUntraced`, whose type keeps no names of parameters (`drive`, `rehearse`), says its parameters in a
+    sentence instead, which TypeDoc would otherwise warn of;
   - an `@example` of the common case, as code, never inside the prose;
   - short sentences, one idea each, and only the words the guide defines; what the export is before what it is not;
   - no note on how it is implemented, which is a `//` comment ("Code" in `AGENTS.md`).

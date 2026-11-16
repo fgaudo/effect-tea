@@ -7,12 +7,42 @@ import * as Equal from 'effect/Equal'
 import * as Hash from 'effect/Hash'
 
 /**
- * Sends a message to the running program: `update` decides what it means in the state it finds. Running it needs
- * no services and completes synchronously, whatever runs it: it only hands the message to the run, which handles
- * it in its own fiber, with the services and the scheduler it started with. A renderer whose handlers are plain
- * callbacks runs it at once with `Effect.runSync`, or with a runtime of its own. It returns the number of the
- * message among those dispatched, from 1, in the order the run takes them: a frame whose `seen` is below it
- * was made before the run took the message.
+ * Sends a message to the running program.
+ *
+ * @param message - One of the program's messages.
+ * @returns An effect that sends it, and gives the message's number among those dispatched.
+ *
+ * @example
+ * ```ts
+ * button.addEventListener('click', () => Effect.runSync(dispatch({ _tag: 'Increment' })))
+ * ```
+ *
+ * @remarks
+ * From the guide, "View", "`dispatch` takes the program's messages":
+ *
+ * **`dispatch` takes the program's messages.** Sending one returns an `Effect<number>`. That effect needs no services
+ * and completes synchronously.
+ *
+ * From the guide, "View", "A handler may run it either way":
+ *
+ * **A handler may run it either way.** A renderer whose handlers are plain callbacks, like snabbdom's, runs it at once
+ * with `Effect.runSync(dispatch(message))`. It may also run it with a runtime of its own. Either is right.
+ *
+ * From the guide, "View", "Sending only hands the message to the run":
+ *
+ * **Sending only hands the message to the run.** The run handles the message in its own fiber, with its own services,
+ * on the scheduler it started with. So a handler returns before `update` has seen its message.
+ *
+ * From the guide, "View", "The number a dispatch returns":
+ *
+ * **The number a dispatch returns.** It is the message's number among those dispatched. The numbers start from 1. They
+ * follow the order in which the run takes the messages.
+ *
+ * From the guide, "View", "A frame's `seen`":
+ *
+ * **A frame's `seen`.** Each frame says in `seen` how many of the dispatched messages the run had taken when the
+ * frame's state was made. So a frame whose `seen` is below a message's number was made before the run took that
+ * message.
  */
 export type Dispatch<Message> = (message: Message) => Effect.Effect<number>
 
@@ -91,10 +121,49 @@ export const entriesOf = (dispatch: object, name: string): number => {
 }
 
 /**
- * The dispatch of a child, or of an input, for its view: `dispatchTo(dispatch, 'Clock')`, or
- * `dispatchTo(dispatch, 'Row', id)` for children by id. It wraps each message as the composed program receives it,
- * and is the same function every time it is asked for with the same dispatch, so that a view drawn with it can be
- * memoized.
+ * The dispatch of a child, or of an input, for its view.
+ *
+ * @param dispatch - The dispatch of the program that declares the child or the input.
+ * @param name - The child's or the input's name, as a literal.
+ * @param id - The child's id, for children by id, and nothing otherwise.
+ * @returns A dispatch of the child's own messages, or of what is written into the input, which wraps each as the
+ * program receives it. A name that is no child's, or that is not a literal, gives a value that cannot be called and
+ * says why.
+ *
+ * @example
+ * ```ts
+ * thunk('main', 'clock', clockView, [model.clock, dispatchTo(dispatch, 'Clock')])
+ * ```
+ *
+ * @remarks
+ * From the guide, "Composition", "A child's view gets a dispatch of its own":
+ *
+ * **A child's view gets a dispatch of its own.** It sends the child's own messages: `dispatchTo(dispatch, 'Clock')`
+ * wraps them as the parent receives them.
+ *
+ * From the guide, "Composition", "That dispatch is the same function in every frame":
+ *
+ * **That dispatch is the same function in every frame.** It is the same every time it is asked for with the same
+ * dispatch, name and id. So a view memoized on its model and its dispatch is drawn again only when its model changes.
+ *
+ * From the guide, "Composition", "A grandchild's dispatch is made from its parent's":
+ *
+ * **A grandchild's dispatch is made from its parent's**: `dispatchTo(dispatchTo(dispatch, 'Home'), 'Products')`. A view
+ * usually writes it in two steps, each view taking the dispatch its parent gave it.
+ *
+ * From the guide, "Composition", "`children.Row(state, id)` is a row's model":
+ *
+ * **`children.Row(state, id)` is a row's model**, and `dispatchTo(dispatch, 'Row', id)` its dispatch.
+ *
+ * From the guide, "Composition", "Ids are compared by value,":
+ *
+ * **Ids are compared by value,** with `Equal`, wherever they go (subscription keys, dispatches): strings, numbers, or
+ * tuples and structs of them.
+ *
+ * From the guide, "Inputs the user types into", "The view writes over the value its model holds":
+ *
+ * **The view writes over the value its model holds**: `{ _tag: 'Written', was: model.name, value: text }`, through
+ * `dispatchTo(dispatch, 'Name')`.
  */
 // `Name` is checked by the result rather than by a constraint on `Message`: with such a constraint, a dispatch that
 // is itself a call of `dispatchTo` (a grandchild's) would make `Message` be inferred as `unknown`.

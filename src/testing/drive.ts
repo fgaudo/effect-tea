@@ -13,31 +13,98 @@ import type { FlagsOption, Shape } from '../program.ts'
 import { type Frame, runWith } from '../run.ts'
 import { makeDeaths } from '../shell.ts'
 
-/** A user of a program that `drive` runs: it waits for what the frames show, and does what they show. */
+/**
+ * The user of a program that `drive` runs: it waits for what the frames show, and sends what they show.
+ *
+ * @example
+ * ```ts
+ * yield* driver.send((model) => Opt.some(model.increment))
+ * const count = yield* driver.waitFor((model) => (model.count === 1 ? Opt.some(model.count) : Opt.none()))
+ * ```
+ */
 export type Driver<Model, Message> = Readonly<{
   /** Waits for a frame whose model `select` maps to `Some`, and returns that value. */
   waitFor: <A>(select: (model: Model) => Opt.Option<A>) => Effect.Effect<A>
   /**
-   * Waits for a frame on which `select` finds a message, and sends it through that frame's dispatch, as a
-   * control drawn from that model would.
+   * Waits for a frame on which `select` finds a message, and sends it through that frame's dispatch, as a control drawn
+   * from that model would.
    */
   send: (select: (model: Model) => Opt.Option<Message>) => Effect.Effect<void>
-  /** The latest frame, once there is one. */
+  /** Waits for the first frame, and returns the latest. */
   latest: Effect.Effect<Frame<Model, Message>>
 }>
 
-/** How `drive` runs a program: `run`'s options, and how long a wait lasts before it fails (2 seconds). */
+/**
+ * The options of `drive`: those of `run`, and how long a wait lasts.
+ *
+ * @example
+ * ```ts
+ * drive(program, scenario, { patience: '5 seconds' })
+ * ```
+ */
 export type DriveOptions<Message, State = unknown, Command = unknown> =
   & RunOptions<Message, State, Command>
-  & Readonly<{ patience?: Duration.Input }>
+  & Readonly<{
+    /** How long a wait of the scenario lasts before `drive` fails: 2 seconds by default. */
+    patience?: Duration.Input
+  }>
 
 /**
- * Runs `program` with `run`, from its `flags` when it has them, its commands and subscriptions included, with a
- * renderer that keeps only the latest frame, and runs `scenario` against that frame. Returns what `scenario`
- * returns, then stops the program and waits for it to release what it holds, as it does when whoever runs it
- * interrupts it. A defect of the program fails it, one of what it releases as it stops included, and so does a wait
- * that lasts longer than `patience`. As when the program runs, a message `update` rejects is ignored: a scenario
- * checks what it expects to see.
+ * Runs a program and plays a scenario on its frames, as a user would.
+ *
+ * It takes the program to run, one without events; the scenario, what the user does through the {@link Driver} it is
+ * given; and its options: `flags`, when the program has them, `patience`, and the options of `RunOptions`.
+ *
+ * @returns What `scenario` returns, once the program has stopped.
+ *
+ * @example
+ * ```ts
+ * const count = yield* drive(
+ *   counter,
+ *   Effect.fnUntraced(function*(driver) {
+ *     yield* driver.send((model) => Opt.some(model.increment))
+ *     return yield* driver.waitFor((model) => (model.count === 1 ? Opt.some(model.count) : Opt.none()))
+ *   }),
+ * )
+ * ```
+ *
+ * @remarks
+ * From the guide, "Testing", "`drive`":
+ *
+ * `drive` tests a user's scenario on the running program, subscriptions included.
+ *
+ * - It sends what the frames show, through the run's dispatch.
+ * - It fails on a wait longer than `patience` (2 seconds).
+ * - Its time is real: a frame may be past by the time its message arrives. So, as when the program runs, a rejected
+ *   message is ignored, and a scenario checks what it expects to see.
+ * - Its renderer keeps only the latest frame. A wait looks at that frame and at later ones.
+ * - Its commands run as soon as they start. To hold one, give the program a service of the test's that waits on a
+ *   `Deferred` the scenario completes.
+ * - A program with flags gets them as `run` does, in the options.
+ *
+ * From the guide, "Testing", "How `drive` ends":
+ *
+ * Once the scenario ends, or whoever runs `drive` interrupts it:
+ *
+ * 1. it interrupts the run, and waits for it;
+ * 2. it fails, as the run dies, on a defect of what the program releases as it stops. The defect comes first in the
+ *    cause, before what the scenario ended with.
+ *
+ * From the guide, "Testing", "Defects of the program":
+ *
+ * A defect of the program fails `simulate`, `rehearse` and `drive` as it ends the run when the program runs. They fail
+ * with the `ProgramDefect` the run dies with, in the same `where`, with the same `on` or `key`. That holds wherever the
+ * tool calls the program: `init`, `update`, `makeModel`, `subscriptions`, a subscription, `runCommand`. (`simulate`
+ * calls no `init`.)
+ *
+ * **`applyAll` and `dispatchViolations` call `update` without a run**, and fail with the defect itself.
+ *
+ * From the guide, "Running", "Starting from another state":
+ *
+ * A program starts where its `init` says. To start it elsewhere, give `run` the program with another first step: `{
+ * ...program, init: { state } }`, with its commands, if any. The state may be one saved by `onApplied`, or one kept
+ * across a reload in development. In a test, give it to `drive` and `rehearse` the same way. A session recorded with
+ * `onApplied` plays again the same way, with `applyAll` in a test.
  */
 export const drive = Effect.fnUntraced(function*<
   State,

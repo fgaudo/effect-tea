@@ -87,8 +87,7 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   how it is called: a summary, its parameters and result, its fields, an example. What the library promises of it is
   quoted from the guide, word for word, by `bun run quotes` (`quotes/quote.ts`), in a block after `@remarks` that is
   never edited by hand; where the two differ, the guide rules. A comment never links the site, which shows the latest
-  release, not the version installed. The comments come to this form a module at a time: `run.ts` and `input.ts` have
-  it, and a comment changed in another module is brought to it with its module.
+  release, not the version installed.
 
 ## Invariants
 

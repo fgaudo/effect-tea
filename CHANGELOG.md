@@ -37,6 +37,16 @@ version, and everything else, features included, the patch version.
 - The guide no longer says that the writes a frame has not seen are always rejected, once the state has moved on
   without the element ("Writing a bridge", and the comment of `drawn` before): one is stored when the input's place
   holds again the value it was written over, as "Two limits" said already.
+- Every other doc comment of the API, of `effect-tea` and `effect-tea/testing`, has the same form: a summary, a
+  comment per field and an example, and what the guide promises of the export quoted under "Remarks". The promises
+  only the comments made are now the guide's: in "Anatomy of a program" (`runCommand`, `makeModel` and
+  `subscriptionsOf`), "Update" (it may be called at any time), "Composition" (the messages of children by id, a
+  dispatch asked for again, and every case of a `CompositionDefect`), "View" (the scheduler a message is handled on),
+  "Running" (`onApplied` before the commands, `where` as a list) and "Testing" (scopes, the order of `rehearse`'s
+  `run` and `runAll`, `Equal` in `dispatchViolations`, the latest frame in `drive`).
+- The comments no longer say what the code does not keep: that `update` always learns that a subscription is over (a
+  last message still queued when its key goes away is dropped), that a program's view lives in a module of its own
+  to be hot reloaded, and that ids of children are told apart with `Equal` (the `get` of `each` compares them).
 - **Breaking**: a `Dispatch` returns `Effect<number>`, the number of its message among those dispatched, and a
   `Frame` has `seen`, how many of them the run had taken when its state was made ("View", "Guarantees").
   Upgrade: a dispatch written by hand, `(message) => Effect.sync(() => void sent.push(message))`, returns a number,

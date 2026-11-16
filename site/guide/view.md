@@ -29,8 +29,8 @@ const send = <Message>(dispatch: Dispatch<Message>, message: Message): number =>
   and completes synchronously.
 - **A handler may run it either way.** A renderer whose handlers are plain callbacks, like snabbdom's, runs it at once
   with `Effect.runSync(dispatch(message))`. It may also run it with a runtime of its own. Either is right.
-- **Sending only hands the message to the run.** The run handles the message in its own fiber, with its own services.
-  So a handler returns before `update` has seen its message.
+- **Sending only hands the message to the run.** The run handles the message in its own fiber, with its own services,
+  on the scheduler it started with. So a handler returns before `update` has seen its message.
 - **The renderer draws frames, and nothing else.** The library gives a frame, and the renderer reads it and draws it.
   Nothing else is supported or advised. What the screen shows comes from frames alone: the renderer keeps no state
   beside the program's.

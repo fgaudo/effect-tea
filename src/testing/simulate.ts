@@ -13,31 +13,72 @@ import type { Step, Update } from '../update.ts'
 import { unexpectedRejection } from './unexpected.ts'
 
 /**
- * Where a simulation ends: the last state, every message `update` accepted and every command it started, in
- * order, every event, and every message of a command that `update` rejected (`ignored`).
+ * What a simulation ends with.
+ *
+ * @example
+ * ```ts
+ * const { state, commands, ignored } = yield* simulate(form)(typedAndSaved, form.init)
+ * ```
  */
 export type Simulation<State, Message, Command, Event> = Readonly<{
+  /** The last state. */
   state: State
+  /** Every message `update` accepted, the test's and the commands' answers, in order. */
   messages: ReadonlyArray<Message>
+  /** Every command started, in order, those of the step it started from included. */
   commands: ReadonlyArray<Command>
+  /** Every event `update` raised, in order. */
   events: ReadonlyArray<Event>
+  /** Every command's answer that `update` rejected, in order. */
   ignored: ReadonlyArray<Message>
 }>
 
 /**
- * Runs a program's flow without a runtime: from `from` (e.g. the program's `init`), runs its commands, then
- * applies `messages` in order. Every command runs through `runCommand`, after those started before it, and its
- * message is applied at once: the commands of one step all answer before those their answers start, as when the
- * program runs commands that answer at once. All of them run before the next of `messages`. As when the
- * program runs, each command has a scope of its own, closed before its message is applied. Pass the program's
- * own `runCommand` with its services provided, or one of the test's that answers each command without any.
- * Subscriptions do not run: pass the messages they would send in `messages`. They are read on each new state, as
- * the run reads them, so a state whose subscriptions are a defect fails the test, as it ends the run, a key whose
- * `Equal` throws against a key of the state before included; a command that interrupts itself is a defect too, as
- * in the run. A rejection of one of `messages` fails the test with a defect, and so does an error `update` throws; a
- * command's message that `update` rejects no longer applies: it is ignored, as when the program runs, and listed in
- * `ignored`. Each command completes in the state its message left, so an ignored message is usually a bug, unless
- * commands started together are meant to exclude one another: a test says which by asserting `ignored`.
+ * Plays a program's flow without a runtime, each command answered as soon as it runs.
+ *
+ * @param program - The program, or the pieces of it a simulation calls: `update`, and `runCommand` and `subscriptions`
+ * when it has them. Give it the program's own `runCommand`, with its services provided, or one of the test's that
+ * answers each command without any.
+ * @returns A function of `messages`, the test's, and of `from`, the step to start from, e.g. the program's `init`. Its
+ * effect runs the commands of `from`, then applies each message in turn, and succeeds with the {@link Simulation}.
+ *
+ * @example
+ * ```ts
+ * const { state } = yield* simulate(form)(typedAndSaved, form.init).pipe(Effect.provideService(Storage, working))
+ * ```
+ *
+ * @remarks
+ * From the guide, "Testing", "`simulate`":
+ *
+ * `simulate` tests a flow with its commands answered at once, without a runtime.
+ *
+ * - It takes the test's messages, and among them those a subscription would send.
+ * - It fails when `update` rejects one of them.
+ * - Each command runs after those started before it. So the commands of one step all answer before those their answers
+ *   start, as when the program runs commands that answer at once. All of them run before the next of the test's
+ *   messages is applied.
+ * - Each command has a scope of its own, as when the program runs. The scope is closed before the command's message is
+ *   applied.
+ * - The command answers that `update` rejected are listed in `ignored`. Assert `ignored` when one being dropped would
+ *   be a bug.
+ * - Its subscriptions do not run. What it reads of them is under "precisely".
+ * - It starts from the step it is given, and calls no `init`.
+ *
+ * From the guide, "Testing", "`simulate`, as the run dies":
+ *
+ * - Its subscriptions do not run, but it reads them on each new state, as the run does.
+ * - It fails on a state whose subscriptions are a defect, as the run dies of one. A key whose `Equal` throws against a
+ *   key of the state before is such a defect too.
+ * - It fails on a command that interrupts itself, as the run dies of one.
+ *
+ * From the guide, "Testing", "Defects of the program":
+ *
+ * A defect of the program fails `simulate`, `rehearse` and `drive` as it ends the run when the program runs. They fail
+ * with the `ProgramDefect` the run dies with, in the same `where`, with the same `on` or `key`. That holds wherever the
+ * tool calls the program: `init`, `update`, `makeModel`, `subscriptions`, a subscription, `runCommand`. (`simulate`
+ * calls no `init`.)
+ *
+ * **`applyAll` and `dispatchViolations` call `update` without a run**, and fail with the defect itself.
  */
 export const simulate = <State, Message, Command, Event, R = never>(
   program:

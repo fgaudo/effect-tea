@@ -35,7 +35,6 @@ as it was.
 
 **`defect` makes a bug loud.** [`form`](https://github.com/fgaudo/effect-tea/tree/main/examples/form/form.ts) throws it
 on a save that completes while nothing is saving. A rejection there would hide the bug.
-
 - The run dies as it dies with any defect (an `Effect.die`, a thrown error: broken code).
 - The `InvariantDefect` lets a crash report tell a broken rule of the program from any other error.
 - `defect` is an expression, for a branch of a ternary or a `Match`.
