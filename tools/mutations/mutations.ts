@@ -1010,8 +1010,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'a write into an input by id goes to its place without its id',
     file: 'src/compose.ts',
-    from: "  const isEach = (name: string) => childOf(name).kind === 'each' || childOf(name).kind === 'eachInput'\n",
-    to: "  const isEach = (name: string) => childOf(name).kind === 'each'\n",
+    from: "          kind: 'each',\n          program: inputProgram,\n",
+    to: "          kind: 'one',\n          program: inputProgram,\n",
     killedBy: [
       ['src/input.test.ts', 'stores a write at its id, and leaves the other rows and inputs as they are'],
       [

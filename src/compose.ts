@@ -482,7 +482,7 @@ type Lifted = ReadonlyArray<readonly [unknown, Subscription<unknown, unknown>]>
 type Kept = { call: number; met: number; readonly places: Array<readonly [Place, Lifted]> }
 
 type UntypedChild = Readonly<{
-  kind: 'one' | 'each' | 'input' | 'eachInput'
+  kind: 'one' | 'each'
   program: AnyProgram
   get: (state: unknown, id?: unknown) => Opt.Option<unknown>
   set: (state: unknown, idOrChild: unknown, child?: unknown) => unknown
@@ -518,16 +518,16 @@ const compose = <
   type Command = OwnCommand | ChildCommands<C>
   const programs = (config.children ?? {}) as unknown as Readonly<Record<string, UntypedChild>>
   // An optic has the `getResult` its type declares, and a function of the id has none: an input by id is told from an
-  // input alone by it, as a child by id is by its `kind`.
+  // input alone by it, and is addressed by id, as a child by id is.
   const inputs = mapOwn(
     (config.inputs ?? {}) as unknown as Readonly<
       Record<string, Optic.Optional<unknown, unknown> | ((id: unknown) => Optic.Optional<unknown, unknown>)>
     >,
     (at): UntypedChild =>
       Predicate.hasProperty(at, 'getResult')
-        ? { kind: 'input', program: inputProgram, ...placed({ at: at as Optic.Optional<unknown, unknown> }) }
+        ? { kind: 'one', program: inputProgram, ...placed({ at: at as Optic.Optional<unknown, unknown> }) }
         : {
-          kind: 'eachInput',
+          kind: 'each',
           program: inputProgram,
           ...placedEach({ at: at as (id: unknown) => Optic.Optional<unknown, unknown> }),
         } as UntypedChild,
@@ -540,7 +540,7 @@ const compose = <
   const isChildName = (tag: unknown): tag is string => typeof tag === 'string' && Object.hasOwn(children, tag)
   const field = (value: unknown, key: string): unknown => Predicate.hasProperty(value, key) ? value[key] : undefined
   const placeOf = (value: unknown): Place => ({ name: field(value, '_tag') as string, id: field(value, 'id') })
-  const isEach = (name: string) => childOf(name).kind === 'each' || childOf(name).kind === 'eachInput'
+  const isEach = (name: string) => childOf(name).kind === 'each'
   const at = ({ name, id }: Place) => isEach(name) ? { id } : {}
   const wrapMessage = (place: Place) => (message: unknown) => ({ _tag: place.name, ...at(place), message }) as Message
   const wrapCommand = (place: Place) => (command: unknown) => ({ _tag: place.name, ...at(place), command }) as Command
