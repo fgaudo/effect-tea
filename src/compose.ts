@@ -861,7 +861,8 @@ export const composition = <T extends CompositionTypes>() => {
      *
      * From the guide, "Composition", "`subscribed` lists the rows that listen":
      *
-     * **`subscribed` lists the rows that listen.**
+     * **`subscribed` lists the rows that listen.** It is required, since the library cannot list the ids in the state:
+     * a row it leaves out runs no subscription, so list every row, as `list` does, unless some must not listen.
      *
      * From the guide, "Composition", "`children.Row(state, id)` is a row's model":
      *
@@ -926,7 +927,9 @@ export const composition = <T extends CompositionTypes>() => {
      * From the guide, "Composition", "Its own messages, commands and subscriptions,":
      *
      * **Its own messages, commands and subscriptions,** if it has any: `update`, `runCommand` and `subscriptions`. Its
-     * `update` takes `children` too. It may reject its own messages, as any `update` does.
+     * `update` takes `children` too. It may reject its own messages, as any `update` does. Where its `runCommand` and
+     * its `subscriptions` need different services, the compiler takes them from one of the two: name them all on what
+     * `runCommand` returns, `Execution<Message, Server | Feed>`.
      */
     compose: <
       Model,

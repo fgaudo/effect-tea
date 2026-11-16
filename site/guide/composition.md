@@ -72,7 +72,9 @@ For each child, and for itself, a parent declares:
   children by id.
 - **What the parent draws: `makeModel`**, from its state and its children's models.
 - **Its own messages, commands and subscriptions,** if it has any: `update`, `runCommand` and `subscriptions`. Its
-  `update` takes `children` too. It may reject its own messages, as any `update` does.
+  `update` takes `children` too. It may reject its own messages, as any `update` does. Where its `runCommand` and its
+  `subscriptions` need different services, the compiler takes them from one of the two: name them all on what
+  `runCommand` returns, `Execution<Message, Server | Feed>`.
 - **Its own types, by name: `composition<{ state: State }>()`.** Beside `state`, they name, if the parent has any, its
   own commands (`command`), the events it raises (`event`), and which of its messages a parent of its own may send it
   (`external`). Nothing given to `compose` reveals them: a type it does not name it has none, and a parent that raises
@@ -210,7 +212,8 @@ const view: View<Model, Message> = (model, dispatch) =>
 For children by id, such as the rows of a list, use `each` instead of `child`:
 
 - **`get` and `set` take the id** (or `at` is a function of it).
-- **`subscribed` lists the rows that listen.**
+- **`subscribed` lists the rows that listen.** It is required, since the library cannot list the ids in the state: a
+  row it leaves out runs no subscription, so list every row, as `list` does, unless some must not listen.
 - **`children.Row(state, id)` is a row's model**, and `forwardTo(dispatch, 'Row', id)` its dispatch.
 - **Ids are compared by value,** with `Equal`, wherever they go (subscription keys, dispatches): strings, numbers, or
   tuples and structs of them.

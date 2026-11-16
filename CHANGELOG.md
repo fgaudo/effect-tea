@@ -208,6 +208,10 @@ version, and everything else, features included, the patch version.
 - The guide's "Composition" ("Declaring children") names the types `composition` takes beside `state` and `flags`;
   its "Testing" says what `simulate` and `hearNext` succeed with ("`simulate`", "How a subscription is heard"), and
   how a program run under its renderer in a DOM is tested ("The view").
+- The guide's "Composition" says how a parent whose `runCommand` and `subscriptions` need different services names
+  them ("Declaring children"), and that `subscribed` is required for children by id ("Children by id"); "Inputs the
+  user types into" says that an input's optic may focus nothing, and that a write is rejected there ("Rules"); "Writing
+  a bridge" says how the shared tests of a bridge are reused, and how they hold frames and fibers ("Their tests").
 
 ### Fixed
 

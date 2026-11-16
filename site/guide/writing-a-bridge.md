@@ -186,10 +186,13 @@ check:
 - how often a bridge draws;
 - that a click reaches the program;
 - that what the user types survives the frames drawn meanwhile;
-- that the element of an input shows what the program puts in its place.
+- that the element of an input shows what the program puts in its place;
+- that an element drawn in turn as an input and as a plain field shows the input only while it is one.
 
-A bridge of your own can start from them. To run them on it, a test file registers a DOM, as those two do, and gives
-`bridgeTests` a `Bridge`: your `renderInto`, and the views of their scenarios drawn with your renderer.
+A bridge of your own can start from them. To run them on it, copy the file with the examples whose programs it draws,
+and have a test file register a DOM, as those two do, and give `bridgeTests` a `Bridge`: your `renderInto`, and the
+views of their scenarios drawn with your renderer. The file holds the screen refreshes and Effect's scheduler, so that
+the test says when a frame is drawn and when the run's fibers go on: `holdFrames`, `settle`, `refresh` and `paint`.
 
 Beside the snabbdom bridge, [`examples/snabbdom-testing.test_messages.ts`][messages] has `messagesSentBy`. It finds
 what a view sends, without a DOM. It is one way to check that a view draws what its model holds. The library asks that

@@ -32,12 +32,14 @@ In general, a view writes over the value its model holds, through the input's di
 
 - **What the user gives an input is no message of the program.** No `update` of the program's sees it.
 - **The program declares where it goes**: `inputs: { Name: input(at) }` in `compose`, at a plain value of its state
-  (see [declaring children](./composition.md#declaring-children)).
+  (see [declaring children](./composition.md#declaring-children)). An optic that may focus nothing, as one composed
+  with `Optic.some()`, declares an input that is not always there.
 - **The view writes over the value its model holds**: `{ _tag: 'Written', was: model.name, value: text }`, through
   `forwardTo(dispatch, 'Name')`.
 - **The library stores what is written, whatever it is**, in every state where the input's place holds, by `Equal`,
   the value it was written over.
-- **It rejects the write in any other state.** There, the state has moved on without the input that wrote it.
+- **It rejects the write in any other state.** There, the state has moved on without the input that wrote it. A state
+  where the input's optic focuses nothing is one.
 - **The program changes an input by leaving another value in its place**, such as `name: ''`.
 - **An input keeps nothing of its own.** The state stored is the state the program wrote, and a test compares it whole.
 - **Only what is drawn writes into an input.** A subscription and a command answer with messages of the program. The

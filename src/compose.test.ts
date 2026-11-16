@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import * as Arr from 'effect/Array'
 import * as Channel from 'effect/Channel'
+import * as Context from 'effect/Context'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
@@ -10,6 +11,7 @@ import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import * as Stream from 'effect/Stream'
 import { collectGarbage } from '../test/gc.test_helper.ts'
+import type { Execution } from './command.ts'
 import type { Subscription } from './subscription.ts'
 import { andThen, forEach, reject, type Step } from './update.ts'
 import { type Dispatch, forwardTo } from './dispatch.ts'
@@ -21,6 +23,7 @@ import {
   type FlagsOf,
   type MessageOf,
   type Program,
+  type ServicesOf,
   subscriptionsOf,
 } from './program.ts'
 import { type Frame, run } from './run.ts'
@@ -1559,6 +1562,23 @@ describe('what the types reject', () => {
       children: { Plain: child(plain, { get: (state) => Opt.some(state), set: (_, child) => child }) },
       makeModel: () => null,
     })
+  })
+
+  test('services that runCommand and subscriptions need apart are all the parent\'s, named on what runCommand returns', () => {
+    class Clock extends Context.Service<Clock, { readonly now: Effect.Effect<number> }>()('Clock') {}
+    class Feed extends Context.Service<Feed, { readonly ticks: Subscription<Tick, never> }>()('Feed') {}
+    const { compose } = composition<{ state: Ticks; command: 'Read' }>()
+    const app = compose({
+      init: () => ({ state: noTicks }),
+      update: (_: Tick) => (state) => ({ state }),
+      runCommand: (): Execution<Tick, Clock | Feed> =>
+        Effect.map(Effect.service(Clock), (): Opt.Option<Tick> => Opt.some({ _tag: 'Tick' })),
+      subscriptions: () => HashMap.make(['ticks', Channel.unwrap(Effect.map(Effect.service(Feed), (feed) => feed.ticks))]),
+      makeModel: () => null,
+    })
+    type Needs = ServicesOf<typeof app>
+    const both: [Needs] extends [Clock | Feed] ? [Clock | Feed] extends [Needs] ? true : false : false = true
+    expect(both).toBe(true)
   })
 })
 

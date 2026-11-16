@@ -25,6 +25,9 @@ says, for each thing the reader needed, where it found it.
    an earlier check, listed here:
    - a chat room: a connection status from a server feed that ends, a draft refused when blank or offline, sends that
      may fail and are retried, a log and a composer as children, and a reconnect under a new key (2026-11-16).
+   - a warehouse stock-take: items loaded by a command that may fail and is retried, an item per id with a typed
+     count, a barcode scanner feed that ends and is listened to again, a submit refused while a count is invalid or a
+     submit is in flight, and a summary once it succeeds (2026-11-16).
 4. Run `bun run build`: the reader's compiler reads the package's declarations in `dist/`, as a user's reads them in
    `node_modules`, and a `dist/` older than `src/` shows it an API that is not the one it runs.
 5. Make sure `scratch/` does not exist, since the reader writes there. Git and Biome ignore it.
