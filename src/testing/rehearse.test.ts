@@ -223,24 +223,24 @@ describe('rehearse', () => {
     expect(String(unheard)).toContain('Nothing listens under ["Row","1n"] in the current state')
   })
 
-  test('hear takes what a subscription sends, and no write into an input, the program\'s or a child\'s', async () => {
+  test('hear takes what a subscription sends, and no write into an input, the program\'s, by id or not, or a child\'s', async () => {
     type Field = Readonly<{ text: string; pings: number }>
     const Field = composition<{ state: Field }>()
     const field = Field.compose({
       init: () => ({ state: { text: '', pings: 0 } }),
-      inputs: { Text: Field.input(Optic.id<Field>().key('text')) },
+      inputs: { Text: Optic.id<Field>().key('text') },
       update: (_: 'Pinged') => (state) => ({ state: { ...state, pings: state.pings + 1 } }),
       subscriptions: () => HashMap.make(['ping', Channel.never]),
       makeModel: (state) => state,
     })
-    type Form = Readonly<{ name: string; field: Field; pings: number }>
+    type Form = Readonly<{ name: string; notes: Readonly<Record<string, string>>; field: Field; pings: number }>
     const Form = composition<{ state: Form }>()
     const form = Form.compose({
-      init: (children) => ({ state: { name: '', field: children.Field.init.state, pings: 0 } }),
+      init: (children) => ({ state: { name: '', notes: {}, field: children.Field.init.state, pings: 0 } }),
       children: {
         Field: Form.child(field, { get: (state) => Opt.some(state.field), set: (state, f) => ({ ...state, field: f }) }),
       },
-      inputs: { Name: Form.input(Optic.id<Form>().key('name')) },
+      inputs: { Name: Optic.id<Form>().key('name'), Note: (id: string) => Optic.id<Form>().key('notes').at(id) },
       update: (_: 'Pinged') => (state) => ({ state: { ...state, pings: state.pings + 1 } }),
       subscriptions: () => HashMap.make(['ping', Channel.never]),
       makeModel: (state) => state,
@@ -253,11 +253,13 @@ describe('rehearse', () => {
         return yield* rehearsal.state
       }),
     ))
-    expect(state).toEqual({ name: '', field: { text: '', pings: 1 }, pings: 1 })
+    expect(state).toEqual({ name: '', notes: {}, field: { text: '', pings: 1 }, pings: 1 })
     const written = { _tag: 'Written', was: '', value: 'Ada' } as const
     const never = (rehearsal: Rehearsal<Form, Form, MessageOf<typeof form>, never>) => [
       // @ts-expect-error: a write into the program's input.
       rehearsal.hear('ping', { _tag: 'Name', message: written }),
+      // @ts-expect-error: a write into the program's input by id.
+      rehearsal.hear('ping', { _tag: 'Note', id: 'a', message: written }),
       // @ts-expect-error: a write into a child's input.
       rehearsal.hear(['Field', 'ping'], { _tag: 'Field', message: { _tag: 'Text', message: written } }),
     ]

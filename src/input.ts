@@ -1,5 +1,5 @@
 // A place of a program's state that the outside writes. A value a component of the renderer decides (a text, a
-// slider's level) is no message of the program: the program declares where it goes (`input`, in `composition`), the
+// slider's level) is no message of the program: the program declares where it goes (`inputs`, in `compose`), the
 // view writes over the value its model holds (a `Written`), and the library stores it. What an element on screen holds
 // of an input, and what a frame makes of it, is the rule a bridge calls (`edited`, `drawn`): the library's, so that
 // every bridge applies the same one.

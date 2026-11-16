@@ -180,7 +180,7 @@ compose({
 compose({
   init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
   children,
-  inputs: { Main: composition<{ state: State }>().input(Optic.id<State>().key('fulls')) },
+  inputs: { Main: Optic.id<State>().key('fulls') },
   onEvent: { Main: () => (state) => ({ state }), Row: () => (state) => ({ state }) },
   makeModel: () => null,
 })
@@ -207,7 +207,7 @@ const drafting = composition<{ state: Draft; command: 'Load' }>()
 
 const draft = drafting.compose({
   init: () => ({ state: { title: '' } }),
-  inputs: { Title: drafting.input(Optic.id<Draft>().key('title')) },
+  inputs: { Title: Optic.id<Draft>().key('title') },
   update: (_: 'Cleared') => (state: Draft) => ({
     state: { title: '' },
     commands: state.title === '' ? [] : ['Load' as const],
@@ -227,7 +227,7 @@ const byHand: Shown<string> = { value: '' }
 // @ts-expect-error
 drafting.compose({
   init: () => ({ state: { title: '' } }),
-  inputs: { Title: drafting.input(Optic.id<Draft>().key('title')) },
+  inputs: { Title: Optic.id<Draft>().key('title') },
   update: (_: Readonly<{ _tag: 'Title' }>) => (state: Draft) => ({ state }),
   runCommand: () => Effect.succeedNone,
   makeModel: () => null,
@@ -235,12 +235,24 @@ drafting.compose({
 
 drafting.compose({
   init: () => ({ state: { title: '' } }),
-  inputs: { Title: drafting.input(Optic.id<Draft>().key('title')) },
+  inputs: { Title: Optic.id<Draft>().key('title') },
   update: (_: 'Cleared') => (state: Draft) => ({ state, commands: ['Load' as const] }),
   // @ts-expect-error
   runCommand: () => Effect.succeedSome({ _tag: 'Title' as const, message: { _tag: 'Written', was: '', value: 'a' } }),
   makeModel: () => null,
 })
+
+// An input by id: a function of the id gives the optic to the value of that row, and a write names its id.
+type Sheet = Readonly<{ counts: Readonly<Record<string, string>> }>
+
+const sheet = composition<{ state: Sheet }>().compose({
+  init: () => ({ state: { counts: { a: '' } } }),
+  inputs: { Count: (id: string) => Optic.id<Sheet>().key('counts').at(id) },
+  makeModel: (state) => state.counts,
+})
+
+// @ts-expect-error
+const unnamed: MessageOf<typeof sheet> = { _tag: 'Count', message: { _tag: 'Written', was: '', value: '1' } }
 
 const assert = (condition: boolean, what: string) => {
   if (!condition) throw new Error(`smoke: ${what}`)
@@ -262,6 +274,15 @@ const cleared = applyAll(draft.update)(
 assert(cleared.state.title === '' && cleared.commands.length === 1, 'a write is stored, and the step sees it')
 const late = draft.update({ _tag: 'Title', message: { _tag: 'Written', was: 'Ada', value: 'Ada L' } })(cleared.state)
 assert(late === reject && wrong !== undefined, 'a write over a value the input no longer holds is rejected')
+
+const counted = sheet.update({ _tag: 'Count', id: 'a', message: { _tag: 'Written', was: '', value: '1' } })(
+  sheet.init.state,
+)
+assert(counted !== reject && counted.state.counts.a === '1', 'a write into an input by id is stored at its id')
+const nowhere = sheet.update({ _tag: 'Count', id: 'b', message: { _tag: 'Written', was: '', value: '1' } })(
+  sheet.init.state,
+)
+assert(nowhere === reject && unnamed !== undefined, 'a write at an id the state does not hold is rejected')
 
 // What a bridge does with an element: typed by the user, numbered by the dispatch, settled by a frame.
 const { shown, taken } = drawn(undefined, 'Ada', 0)

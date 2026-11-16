@@ -76,11 +76,11 @@ export type Editor = Data.TaggedEnum<{
 
 export const Editor = Data.taggedEnum<Editor>()
 
-const { input, compose } = composition<{ state: State; command: Command }>()
+const { compose } = composition<{ state: State; command: Command }>()
 
 export const form = compose({
   init: () => ({ state: { name: '', save: Save.Idle(), saved: [] } }),
-  inputs: { Name: input(Optic.id<State>().key('name')) },
+  inputs: { Name: Optic.id<State>().key('name') },
   update: (message: Own) => (state) => {
     switch (message._tag) {
       case 'SaveClicked':

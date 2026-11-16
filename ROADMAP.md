@@ -12,13 +12,6 @@ holds only what is to be done or decided now.
 A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a deterministic
 test of it. None is open.
 
-- **What a parent reads of its children's inputs**: a parent that submits, or totals, the values typed into the
-  inputs of its children by id reads their states, against "A parent never reads a child's state to decide"
-  ("Structuring a program"); an input of the parent's cannot stand in, since `input` takes one optic, not one per id,
-  and a write raises no event (a reader's check, the stock-take). Decided by whether the rule admits a parent that
-  reads its children's inputs, or inputs by id are wanted, after the entries of `docs/rejected.md` on inputs and on a
-  hierarchy's ownership of them are read for it.
-
 ## Possible improvements
 
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is

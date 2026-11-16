@@ -1408,14 +1408,14 @@ describe('what the types reject', () => {
 
   test('an input cannot take the name of a child, which it would replace', () => {
     type Named = Readonly<{ ticks: number; name: string }>
-    const { child, input, compose } = composition<{ state: Named }>()
+    const { child, compose } = composition<{ state: Named }>()
     // @ts-expect-error: `Plain` is a child's name.
     compose({
       init: () => ({ state: { ticks: 0, name: '' } }),
       children: {
         Plain: child(plain, { get: (state) => Opt.some(state), set: (state, ticks) => ({ ...state, ...ticks }) }),
       },
-      inputs: { Plain: input(Optic.id<Named>().key('name')) },
+      inputs: { Plain: Optic.id<Named>().key('name') },
       makeModel: () => null,
     })
   })

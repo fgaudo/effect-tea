@@ -10,9 +10,13 @@ version, and everything else, features included, the patch version.
 - `forEach(step, items, (item) => (state) => step)`, the `andThen` of many: one step per item, in order.
 - `andThen` and `forEach` are dual: `andThen(next)` and `forEach(items, next)` take the step last, for a `pipe`.
 - A `CompositionDefect` says in `on`, by its tags, which external message or event broke the parent's rule.
-- Inputs: `inputs: { Name: input(at) }` in `compose`, at a plain value of the state, which the view writes over with
-  `{ _tag: 'Written', was, value }`; the library stores a write while the place holds `was`, by `Equal`, and rejects
-  it otherwise.
+- Inputs: `inputs: { Name: at }` in `compose`, an Effect optic `at` to a plain value of the state, which the view
+  writes over with `{ _tag: 'Written', was, value }`; the library stores a write while the place holds `was`, by
+  `Equal`, and rejects it otherwise.
+- Inputs by id: `inputs: { Count: (id) => at }`, a function of the id that gives the optic to a row's value, written
+  with `{ _tag: 'Count', id, message }` through `forwardTo(dispatch, 'Count', id)`. The guide's "Composition" shows
+  them ("Inputs by id"), and "Structuring a program" says that a value the user writes into each row, and the parent
+  reads, is one ("Splitting a program").
 - `edited` and `drawn`, over an opaque `Shown`: the rule a bridge calls for the element of an input, on an edit and
   after each frame, so that the element is never replaced and never takes back what the user typed since; each gives
   the bridge its write, `edited` the message to send and `drawn` whether the element takes the frame's value.
@@ -56,7 +60,7 @@ version, and everything else, features included, the patch version.
   sends, where no view exists. Upgrade: `origin._tag === 'View'` becomes `origin._tag === 'Dispatch'`.
 - **Breaking**: "Model" in the guide says that a model is data: it holds no function, and compares by `Equal`.
   Upgrade: a function of the model that makes a message from what the user typed, `changeName: (name) =>
-  NameChanged({ name })`, becomes an input, `inputs: { Name: input(at) }`, and the view writes over its value,
+  NameChanged({ name })`, becomes an input, `inputs: { Name: at }`, and the view writes over its value,
   `{ _tag: 'Written', was: model.name, value: text }` through `forwardTo(dispatch, 'Name')`, where it called
   `model.changeName(text)`.
 - **Breaking**: `parent` is renamed `composition`, since a program with inputs and no children is made with it too.

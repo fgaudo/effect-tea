@@ -439,7 +439,7 @@ const makeList = (fates: Fates, events: Array<Event>) => {
           return state.rows.length > 0 ? { state: { ...state, rows: [], note: '' } } : reject
       }
     },
-    inputs: { Note: List.input(Optic.id<ListState>().key('note')) },
+    inputs: { Note: Optic.id<ListState>().key('note') },
     subscriptions: ({ note }) =>
       note === '' ? HashMap.empty() : HashMap.make([['search', note], searching(note)]),
     makeModel: (state, children) => ({

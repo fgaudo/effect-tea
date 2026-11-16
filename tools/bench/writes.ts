@@ -98,7 +98,7 @@ const inputOf = composition<{ state: State }>()
 const inputProgram = (start: unknown) =>
   inputOf.compose({
     init: () => ({ state: { v: start } }),
-    inputs: { V: inputOf.input(Optic.id<State>().key('v')) },
+    inputs: { V: Optic.id<State>().key('v') },
     makeModel: (state) => state.v,
   })
 

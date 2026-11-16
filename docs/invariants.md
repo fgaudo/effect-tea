@@ -55,7 +55,9 @@ testing tools.
   `applyAll` replays it, and neither the engine nor the testing tools know of inputs. It is stored when the input's
   place holds, by `Equal`, the value it was written over, whatever it is, and a write of the value held leaves the
   very same value; over another value it is rejected, since the state has moved on without the element that wrote
-  it: a stale write does not apply in the state, the one meaning of `reject`. The rule reads the state and the message
+  it: a stale write does not apply in the state, the one meaning of `reject`. A write into an input by id is routed as
+  a child's message by id is, to the place the optic of the id it names focuses (`isEach` in `compose.ts`), and is
+  rejected where that optic focuses nothing. The rule reads the state and the message
   alone and keeps nothing between two writes, so every other step, the parent's own, a child's and what `onEvent`
   makes of its events, leaves an input as it wrote it, and a reset, an undo by snapshot or a place that comes back
   cuts no history. A write comes only from a view: an own subscription sends the parent's own messages, and a command

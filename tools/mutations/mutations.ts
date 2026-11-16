@@ -997,6 +997,27 @@ export const mutations: ReadonlyArray<Mutation> = [
         'src/input.test.ts',
         "that puts a subscription's value into an input rejects what was typed over the value before",
       ],
+      [
+        'src/input.test.ts',
+        'rejects a write at an id the state does not hold, and one over another value than its row holds',
+      ],
+      [
+        'src/input.test.ts',
+        'rejects a late write by another row that came to its id, unless that row holds the value written over',
+      ],
+    ],
+  },
+  {
+    name: 'a write into an input by id goes to its place without its id',
+    file: 'src/compose.ts',
+    from: "  const isEach = (name: string) => childOf(name).kind === 'each' || childOf(name).kind === 'eachInput'\n",
+    to: "  const isEach = (name: string) => childOf(name).kind === 'each'\n",
+    killedBy: [
+      ['src/input.test.ts', 'stores a write at its id, and leaves the other rows and inputs as they are'],
+      [
+        'src/input.test.ts',
+        'rejects a late write by another row that came to its id, unless that row holds the value written over',
+      ],
     ],
   },
   {

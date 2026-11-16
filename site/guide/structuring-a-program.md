@@ -63,4 +63,5 @@ A program lives in one module until it is too large. Then it splits into childre
   siblings is a sign that they are one child.
 - **Not every part is a child.** A child whose controls the parent would enable from its state is not one. Nor is a
   child whose state the parent would copy down and back up. A value the user writes, and the parent reads, is an input
-  of the parent's.
+  of the parent's, and an input by id where the user writes one into each row (see
+  [inputs by id](./composition.md#inputs-by-id)).

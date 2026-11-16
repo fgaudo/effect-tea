@@ -116,7 +116,6 @@ export const composition: <T extends CompositionTypes>() => {
     each: <Id, P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalAmong<MessageOf<P>, ExternalOf<P>>, place: EachPlacement<Field<T, "state">, Id, StateOf<P>> & Readonly<{
         subscribed: (state: Field<T, "state">) => Iterable<readonly [Id, StateOf<P>]>;
     }> & ObjectState<StateOf<P>>) => Each<Field<T, "state">, Id, P>;
-    input: <A>(at: Optic.Optional<Field<T, "state">, A>) => InputAt<Field<T, "state">, A>;
     compose: <Model, C extends Children<Field<T, "state">> = None, I extends Inputs<Field<T, "state">> = None, Own = never, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, "state">, NoInfer<C>, NoInfer<I>, Own, Field<T, "command">, Field<T, "event">, Model, Ran, Heard, K, Field<T, 'flags'>> & Readonly<{
         children?: C;
         inputs?: I;
@@ -298,28 +297,19 @@ export type Ignored<State, Message> = Readonly<{
 type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, Command> : (flags: Flags) => Step<State, Command>;
 
 // @public
-type InputAt<State, A> = Readonly<{
-    kind: 'input';
-    get: (state: State) => Opt.Option<A>;
-    set: (state: State, value: A) => State;
-}>;
-
-// @public
 type InputMessages<I> = {
-    [K in keyof I & string]: I[K] extends Readonly<{
-        get: (state: any) => Opt.Option<infer A>;
-    }> ? Readonly<{
+    [K in keyof I & string]: I[K] extends (id: infer Id) => Optic.Optional<any, infer A> ? Readonly<{
+        _tag: K;
+        id: Id;
+        message: Written<A>;
+    }> : I[K] extends Optic.Optional<any, infer A> ? Readonly<{
         _tag: K;
         message: Written<A>;
     }> : never;
 }[keyof I & string];
 
 // @public
-type Inputs<State> = Readonly<Record<string, Readonly<{
-    kind: 'input';
-    get: (state: State) => Opt.Option<any>;
-    set: (state: State, value: never) => State;
-}>>>;
+type Inputs<State> = Readonly<Record<string, Optic.Optional<State, any> | ((id: never) => Optic.Optional<State, any>)>>;
 
 // @public
 type Interpreter<Command, Message, R> = [Command] extends [never] ? object : Readonly<{

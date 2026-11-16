@@ -260,6 +260,33 @@ answer, and saying so in the proposal.
   the ninth review gave. [`registers.md`](registers.md), "Whoever steps replaces what is below" and "The channel of a
   replacement, declared". *Reopen if* the plain input is dropped and an input must again keep a history between two
   writes.
+- **A parent that reads its children's inputs**, as an exception to "A parent never reads a child's state to decide"
+  ("Structuring a program"), for a parent that totals or submits what was typed into its rows. Reasoned, 16 November
+  2026, on a reader's check of the guide that wrote a stock-take: the rule admitted no way for the sheet to read the
+  count typed into each item, since an input took one optic. It would be an exception to a rule the examples keep even
+  where breaking it is cheap (`examples/list/list.ts`, "Every stopwatch is told, running or not"). The owner decided
+  that the rule stands, and that a value the user writes, and the parent reads, is an input of the parent's, by id
+  where there is one for each row. *Reopen if* a value the parent must read cannot be an input of its own, by id or
+  not.
+- **A parent's `update` given its children's models**, for the same parent. Reasoned, 16 November 2026, with the
+  entry above: it would be a third channel between a parent and its children, beside events and external messages,
+  and a model with two readers, the view and the parent, which then decides on what is drawn. *Reopen if* the same.
+- **A write into a child's input that raises an event**, which the parent handles to learn what was typed. Reasoned,
+  16 November 2026, with the entries above: the parent would keep a copy of the value, two truths of one input, and a
+  function of the program for what the user types, which inputs replaced, would come back in the child's `update`.
+  *Reopen if* the same.
+- **A named declaration of an input by id, `eachInput({ at | get, set })`, beside `input`.** Spiked, 16 November
+  2026, first: `scratch/stocktake-by-id/inputs-by-id.spike.patch`, outside git, never to be merged. It worked, but it
+  adds an export, and a name to learn beside `each`, where a bare optic, and a function of the id that gives one,
+  need neither: the `getResult` an optic's type declares, which a function of the id has not, tells the two forms
+  apart. The second spike, inputs as bare optics (`scratch/stocktake-optic/`), is what was made of it,
+  and `input(at)` went with it: an input takes no `{ get, set }`, since an optic is the one form. *Reopen if* an input
+  needs a place that no Effect optic can be made for.
+- **An exported `byId` optic**, to the element of an array that has an id, for inputs by id over rows kept in an array.
+  Reasoned, 16 November 2026: a name over a composition of Effect's combinators (`Optic.makeOptional` and
+  `Arr.findFirst`), which the rule of `AGENTS.md` ("A function earns its place") refuses; rows kept in a record need
+  only Effect's `.at(id)`. The guide's "Composition" shows it once ("Inputs by id"), to copy. *Reopen if* such an optic
+  must do what Effect alone cannot.
 - **A peer range that stops at the minors of Effect tested** (`~4.1.4`, widened by a release on each green run of
   the daily job). Reasoned, 15 November 2026. Proposed by the review of the invariants of November 2026: about
   seventeen entries of [`premises.md`](premises.md) rest in part on what Effect does not document, and `^4.1.4`

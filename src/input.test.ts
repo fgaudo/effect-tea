@@ -34,11 +34,11 @@ const draftOf = (title: string, level = 50): Draft => ({ title, level, before: O
 
 const here = Optic.id<Draft>()
 
-const { input, compose } = composition<{ state: Draft }>()
+const { compose } = composition<{ state: Draft }>()
 
 const draft = compose({
   init: () => ({ state: draftOf('') }),
-  inputs: { Title: input(here.key('title')), Level: input(here.key('level')) },
+  inputs: { Title: here.key('title'), Level: here.key('level') },
   update: (message: Own) => (state) => {
     switch (message) {
       case 'Cleared':
@@ -106,7 +106,7 @@ describe('what is written into an input', () => {
     const page = composition<{ state: Page }>()
     const program = page.compose({
       init: () => ({ state: { search: Opt.none() } }),
-      inputs: { Search: page.input(Optic.id<Page>().key('search').compose(Optic.some())) },
+      inputs: { Search: Optic.id<Page>().key('search').compose(Optic.some()) },
       makeModel: (state) => state,
     })
     const written = { _tag: 'Search' as const, message: { _tag: 'Written' as const, was: '', value: 'a' } }
@@ -119,7 +119,7 @@ describe('what is written into an input', () => {
     const tags = composition<{ state: Tags }>()
     const program = tags.compose({
       init: () => ({ state: { tags: [] } }),
-      inputs: { Tags: tags.input(Optic.id<Tags>().key('tags')) },
+      inputs: { Tags: Optic.id<Tags>().key('tags') },
       makeModel: (state) => state,
     })
     const held: Tags = { tags: ['a', 'b'] }
@@ -158,7 +158,7 @@ describe('a step of the program', () => {
     const program = form.compose({
       init: (children) => ({ state: { name: '', reset: children.Reset.init.state } }),
       children: { Reset: form.child(button, { at: Optic.id<Form>().key('reset') }) },
-      inputs: { Name: form.input(Optic.id<Form>().key('name')) },
+      inputs: { Name: Optic.id<Form>().key('name') },
       onEvent: { Reset: (event) => (state) => ({ state: { ...state, name: '' }, events: [event] }) },
       makeModel: (state) => state,
     })
@@ -174,7 +174,7 @@ describe('a step of the program', () => {
     const note = composition<{ state: Note }>()
     const program = note.compose({
       init: () => ({ state: { text: '' } }),
-      inputs: { Text: note.input(Optic.id<Note>().key('text')) },
+      inputs: { Text: Optic.id<Note>().key('text') },
       update: (message: Readonly<{ _tag: 'Dictated'; text: string }>) => (state) => ({
         state: { text: `${state.text}${message.text}` },
       }),
@@ -205,7 +205,7 @@ describe('an input among the subscriptions', () => {
   const page = pages.compose({
     init: (children) => ({ state: { name: '', ticking: children.Ticking.init.state } }),
     children: { Ticking: pages.child(ticking, { at: onPage.key('ticking') }) },
-    inputs: { Name: pages.input(onPage.key('name')) },
+    inputs: { Name: onPage.key('name') },
     subscriptions: () => HashMap.make(['own', idle<never>()]),
     makeModel: (state) => state.name,
   })
@@ -237,7 +237,7 @@ describe('a key typed into an input its parent has since replaced', () => {
   const text = composition<{ state: Text; event: Sent }>()
   const textDraft = text.compose({
     init: () => ({ state: { text: '' } }),
-    inputs: { Text: text.input(Optic.id<Text>().key('text')) },
+    inputs: { Text: Optic.id<Text>().key('text') },
     update: (message: 'SendClicked' | 'DiscardClicked') => (state) =>
       message === 'DiscardClicked'
         ? { state: { text: '' } }
@@ -374,7 +374,7 @@ describe('an input in a child by id', () => {
   const note = composition<{ state: Note }>()
   const noteProgram = note.compose({
     init: () => ({ state: { text: '' } }),
-    inputs: { Text: note.input(Optic.id<Note>().key('text')) },
+    inputs: { Text: Optic.id<Note>().key('text') },
     makeModel: (state) => state,
   })
   type Notes = Readonly<{ notes: ReadonlyArray<Readonly<{ id: number; note: Note }>> }>
@@ -421,12 +421,86 @@ describe('an input in a child by id', () => {
   })
 })
 
+describe('an input by id', () => {
+  // Rows in a record by id, which Effect's own `at` reaches.
+  type Sheet = Readonly<{ title: string; counts: Readonly<Record<string, string>> }>
+  type Own = Readonly<{ _tag: 'Removed'; id: string }> | Readonly<{ _tag: 'Added'; id: string; count: string }>
+  const sheet = Optic.id<Sheet>()
+  const sheets = composition<{ state: Sheet }>()
+  const program = sheets.compose({
+    init: () => ({ state: { title: '', counts: { a: '1', b: '2' } } }),
+    inputs: { Title: sheet.key('title'), Count: (id: string) => sheet.key('counts').at(id) },
+    update: (message: Own) => (state) => ({
+      state: {
+        ...state,
+        counts: message._tag === 'Added'
+          ? { ...state.counts, [message.id]: message.count }
+          : Object.fromEntries(Object.entries(state.counts).filter(([id]) => id !== message.id)),
+      },
+    }),
+    makeModel: (state) => state,
+  })
+  type SheetMessage = MessageOf<typeof program>
+  const count = (id: string, was: string, value: string): SheetMessage => ({
+    _tag: 'Count',
+    id,
+    message: { _tag: 'Written', was, value },
+  })
+  const start = program.init.state
+  const after = (state: Sheet, message: SheetMessage) => stepped(program.update(message)(state)).state
+
+  test('stores a write at its id, and leaves the other rows and inputs as they are', () => {
+    expect(program.update(count('b', '2', '25'))(start)).toEqual({
+      state: { title: '', counts: { a: '1', b: '25' } },
+      commands: [],
+      events: [],
+    })
+  })
+
+  test('rejects a write at an id the state does not hold, and one over another value than its row holds', () => {
+    expect(program.update(count('c', '', '3'))(start)).toBe(reject)
+    expect(program.update(count('b', '1', '15'))(start)).toBe(reject)
+  })
+
+  test('rejects a late write by another row that came to its id, unless that row holds the value written over', () => {
+    const gone = after(start, { _tag: 'Removed', id: 'b' })
+    expect(program.update(count('b', '2', '25'))(gone)).toBe(reject)
+    const other = after(gone, { _tag: 'Added', id: 'b', count: '9' })
+    expect(program.update(count('b', '2', '25'))(other)).toBe(reject)
+    const same = after(gone, { _tag: 'Added', id: 'b', count: '2' })
+    expect(after(same, count('b', '2', '25'))).toEqual({ title: '', counts: { a: '1', b: '25' } })
+  })
+
+  test('has a dispatch for each id, which names it', () => {
+    const sent: Array<SheetMessage> = []
+    const dispatch: Dispatch<SheetMessage> = (message) => Effect.sync(() => sent.push(message))
+    const toB: Dispatch<Written<string>> = forwardTo(dispatch, 'Count', 'b')
+    expect(Effect.runSync(toB({ _tag: 'Written', was: '2', value: '25' }))).toBe(1)
+    expect(sent).toEqual([count('b', '2', '25')])
+  })
+
+  test('the types: a write names its id, of the type the function takes, and an input alone takes none', () => {
+    const dispatch: Dispatch<SheetMessage> = () => Effect.succeed(0)
+    // @ts-expect-error: an input by id is written at an id.
+    forwardTo(dispatch, 'Count')
+    // @ts-expect-error: the id is a string.
+    forwardTo(dispatch, 'Count', 1)
+    // @ts-expect-error: an input alone takes no id.
+    forwardTo(dispatch, 'Title', 'a')
+    // @ts-expect-error: a write into an input by id names its id.
+    const unnamed: SheetMessage = { _tag: 'Count', message: { _tag: 'Written', was: '2', value: '25' } }
+    // @ts-expect-error: a count holds a string.
+    const mistyped: SheetMessage = { _tag: 'Count', id: 'b', message: { _tag: 'Written', was: 2, value: 25 } }
+    expect([unnamed, mistyped]).toHaveLength(2)
+  })
+})
+
 describe('the tools of the model', () => {
   // What a model holds is what the program fixes: no value is drawn, and what is written is asked of nothing.
   test('judge a step that empties an input as any message: on an empty one it changes nothing, so it does not act twice', () => {
     const always = compose({
       init: () => ({ state: draftOf('') }),
-      inputs: { Title: input(here.key('title')) },
+      inputs: { Title: here.key('title') },
       update: (_: 'Cleared') => (state) => ({ state: { ...state, title: '' } }),
       makeModel: (state) => state,
     })
@@ -550,11 +624,28 @@ describe('the types of an input', () => {
     expect([wrong, missing]).toHaveLength(2)
   })
 
+  test('an optic into another state than the program\'s is no input of it, alone or by id', () => {
+    type Other = Readonly<{ title: string; titles: Readonly<Record<string, string>> }>
+    const other = Optic.id<Other>()
+    compose({
+      init: () => ({ state: draftOf('') }),
+      // @ts-expect-error: the optic is into another state.
+      inputs: { Title: other.key('title') },
+      makeModel: (state) => state,
+    })
+    compose({
+      init: () => ({ state: draftOf('') }),
+      // @ts-expect-error: the optic of each id is into another state.
+      inputs: { Titles: (id: string) => other.key('titles').at(id) },
+      makeModel: (state) => state,
+    })
+  })
+
   test('an own message that takes the name of an input does not compile', () => {
     // @ts-expect-error: it would be routed to the input.
     compose({
       init: () => ({ state: draftOf('') }),
-      inputs: { Title: input(here.key('title')) },
+      inputs: { Title: here.key('title') },
       update: (_: Readonly<{ _tag: 'Title' }>) => (state) => ({ state }),
       makeModel: (state) => state,
     })
@@ -563,7 +654,7 @@ describe('the types of an input', () => {
   test('a subscription of the program\'s own cannot write into an input: it sends the program\'s own messages', () => {
     compose({
       init: () => ({ state: draftOf('') }),
-      inputs: { Title: input(here.key('title')) },
+      inputs: { Title: here.key('title') },
       // The state annotated, so that the own messages are inferred from `update` alone.
       update: (_: 'Dictated') => (state: Draft) => ({ state }),
       // @ts-expect-error: what is written into an input is no own message
@@ -576,7 +667,7 @@ describe('the types of an input', () => {
     const saving = composition<{ state: Draft; command: 'Load' }>()
     saving.compose({
       init: () => ({ state: draftOf('') }),
-      inputs: { Title: saving.input(here.key('title')) },
+      inputs: { Title: here.key('title') },
       // The state annotated, so that the own messages are inferred from `update` alone.
       update: (_: 'Loaded') => (state: Draft) => ({ state, commands: ['Load' as const] }),
       runCommand: () =>
@@ -586,7 +677,7 @@ describe('the types of an input', () => {
     })
     saving.compose({
       init: () => ({ state: draftOf('') }),
-      inputs: { Title: saving.input(here.key('title')) },
+      inputs: { Title: here.key('title') },
       update: (_: 'Loaded') => (state: Draft) => ({ state, commands: ['Load' as const] }),
       runCommand: () => Effect.succeedSome('Loaded' as const),
       makeModel: () => null,
@@ -598,7 +689,7 @@ describe('the types of an input', () => {
     const note = composition<{ state: Note }>()
     const noteProgram = note.compose({
       init: () => ({ state: { text: '' } }),
-      inputs: { Text: note.input(Optic.id<Note>().key('text')) },
+      inputs: { Text: Optic.id<Note>().key('text') },
       makeModel: (state) => state,
     })
     type Board = Readonly<{ note: Note }>
