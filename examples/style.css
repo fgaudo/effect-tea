@@ -251,3 +251,23 @@ time {
   flex-direction: column;
   gap: 0.5rem;
 }
+
+/* Stocktake: each item's name, what is expected of it, and its count. */
+.stocktake .name {
+  flex: 1;
+}
+
+.stocktake .expected,
+.stocktake .scanner,
+.stocktake .unknown {
+  color: var(--muted);
+}
+
+.stocktake input.count {
+  width: 6ch;
+}
+
+.stocktake .invalid {
+  color: var(--danger);
+  font-size: 0.875rem;
+}

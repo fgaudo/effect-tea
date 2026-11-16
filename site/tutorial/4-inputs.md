@@ -52,6 +52,11 @@ the one of step 3, with `Named.named` in place of `Timer.timer`. A write into a 
 do, `{ _tag: 'Timer', id, message }`, and a key typed into a timer already removed, from a frame drawn before, is
 rejected as a click is. Its view, `namedTimersView`, draws each timer with `namedView`.
 
+The name is a named timer's own: the list never reads it. Values the parent reads, such as the count of each item of a
+stock-take, which it totals and submits, are the parent's own state, an input by id that it declares with `inputById`
+(see [inputs by id](../guide/composition.md#inputs-by-id), and the example
+[`examples/stocktake`](https://github.com/fgaudo/effect-tea/tree/main/examples/stocktake)).
+
 ## Running it
 
 [`examples/timer/main.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/main.ts) runs the list of

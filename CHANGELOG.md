@@ -16,7 +16,7 @@ version, and everything else, features included, the patch version.
 - Inputs by id: `inputs: { Count: inputById({ at: (id) => at }) }`, or `get` and `set` that take the id, as
   `childById` does, written with `{ _tag: 'Count', id, message }` through `forwardTo(dispatch, 'Count', id)`. The
   guide's "Composition" shows them ("Inputs by id"), and "Structuring a program" says that a value the user writes into
-  each row, and the parent reads, is one ("Splitting a program").
+  each row, and the parent reads, is one ("Splitting a program"). The example `stocktake` counts an aisle with them.
 - `edited` and `drawn`, over an opaque `Shown`: the rule a bridge calls for the element of an input, on an edit and
   after each frame, so that the element is never replaced and never takes back what the user typed since; each gives
   the bridge its write, `edited` the message to send and `drawn` whether the element takes the frame's value.

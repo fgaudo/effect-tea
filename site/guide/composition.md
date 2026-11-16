@@ -257,3 +257,5 @@ inputs: {
 
 An input by id is no child either: its values are the parent's own state, which its `update` reads to total or submit
 them, where it never reads a child's (see [splitting a program](./structuring-a-program.md#splitting-a-program)).
+
+See [`stocktake`](https://github.com/fgaudo/effect-tea/tree/main/examples/stocktake/stocktake.ts).

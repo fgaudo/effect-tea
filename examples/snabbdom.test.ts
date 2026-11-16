@@ -1,11 +1,14 @@
 // The snabbdom bridge in a DOM (happy-dom), with screen refreshes that happen only when a test paints: the tests every
 // bridge passes (`bridge.test_suite.ts`), drawn with snabbdom, its draft memoized with `thunk`, and those of snabbdom
-// alone: an input the style module keeps on screen as it fades sends nothing, and the timer's buttons lend no
-// `disabled` to each other; then the premises of the bridge on snabbdom (`docs/premises.md`).
+// alone: an input the style module keeps on screen as it fades sends nothing, the timer's buttons lend no `disabled`
+// to each other, and the stocktake's counts keep no `readOnly` of a frame before; then the premises of the bridge on
+// snabbdom (`docs/premises.md`).
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import { type Dispatch, forwardTo, type MessageOf, type ModelOf, run } from '@fgaudo/effect-tea'
+import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
+import * as Stream from 'effect/Stream'
 import { eventListenersModule, h, init, propsModule, styleModule, thunk, type VNode } from 'snabbdom'
 import {
   type Bridge,
@@ -27,6 +30,8 @@ import {
 import { view as counterView } from './counter/view.ts'
 import { view as formView } from './form/view.ts'
 import { onClick, renderInto, shows, type View } from './snabbdom.ts'
+import { Scanner, Server, ServerError, stocktake } from './stocktake/stocktake.ts'
+import { view as stocktakeView } from './stocktake/view.ts'
 import { Bell, Phase, timer } from './timer/timer.ts'
 import { timerView } from './timer/view.ts'
 import { view as volumeView } from './volume/view.ts'
@@ -164,6 +169,38 @@ describe('the buttons of the timer', () => {
     button('Reset').click()
     paint()
     expect([button('−').disabled, button('+').disabled, button('Start').disabled]).toEqual([true, false, false])
+  })
+})
+
+// snabbdom patches a count's `<input>` from read-only to editable, and its props module never removes a prop: the lock
+// of a sheet being submitted must not outlast the failure that gives the counts back.
+describe('the counts of the stocktake', () => {
+  const items = [{ id: 'bolts', code: 'C-BOLT', name: 'Bolts', expected: 12 }]
+  const unplugged = Scanner.of({ scans: Stream.empty })
+
+  test('are read-only while submitted, and editable again once the submit has failed', () => {
+    // The submit is refused once the test opens the gate, so that a frame draws the sheet being submitted.
+    const gate = Deferred.makeUnsafe<void>()
+    const refusing = Server.of({
+      load: () => Effect.succeed(items),
+      submit: () => Effect.andThen(Deferred.await(gate), Effect.fail(new ServerError({ message: 'refused' }))),
+    })
+    mount(renderInto, stocktakeView, (render) =>
+      run(stocktake, render, { flags: { aisle: 'A3' } }).pipe(
+        Effect.provideService(Server, refusing),
+        Effect.provideService(Scanner, unplugged),
+      ))
+    settle()
+    type(element<HTMLInputElement>('input.count'), '12')
+    paint()
+    button('Submit count').click()
+    paint()
+    expect(element<HTMLInputElement>('input.count').readOnly).toBe(true)
+    Effect.runSync(Deferred.succeed(gate, undefined))
+    settle()
+    paint()
+    expect(element('p.error').textContent).toBe('refused')
+    expect(element<HTMLInputElement>('input.count').readOnly).toBe(false)
   })
 })
 
