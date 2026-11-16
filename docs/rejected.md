@@ -31,7 +31,7 @@ answer, and saying so in the proposal.
   progetto", 13 November 2026, and the commit. *Reopen if* a design tells the run's stop from a self-interruption
   with no question to the fiber, and keeps a self-interruption in a stopped fiber's release a defect.
 - **Promising the order of the defects.** Reasoned, 13 November 2026. The run keeps the order and its tests check
-  it; the README describes it as how the run is made today, and promises only that every defect is in the cause,
+  it; the guide describes it as how the run is made today, and promises only that every defect is in the cause,
   each with where (`858b819`). The reason the owner gave: binding the library's guarantees to a specific API of
   Effect is not right, even a stable and documented one; the argument for the promise was that `Cause.squash`, which
   `Effect.runPromise` and `Effect.runSync` use, takes the first defect. The principle is in
@@ -126,13 +126,13 @@ answer, and saying so in the proposal.
   failure leaves the program whole. A typed failure, in the error channel, is lost in a fiber nobody joins as a
   defect is. The one form that keeps the register's meaning, a second record read at the end, would fail a rehearsal
   whose scenario caught the failure with `Effect.exit` (tests of `rehearse.test.ts` observe one and go on), and
-  `drive`'s timeouts, which fail the calling fiber too, would need the same. The README says instead that a call's
+  `drive`'s timeouts, which fail the calling fiber too, would need the same. The guide says instead that a call's
   failure fails the fiber that made it. Weighed with a second opinion (Fable), the owner deciding. *Reopen if* a
   test that forked a call and never joined it passed on a failure an application then met.
 - **Every tool starting from `from` or `flags`.** Reasoned, 15 November 2026, on the same review. `simulate` is
   given pieces of a program, with no `init` (`simulate({ update })` is one), and folds from a step as `applyAll`
   does: giving it flags would ask for `init` to save the test a call of it. `drive` is a run, and a `from` there would
-  name `{ ...program, init: { state } }`, which the README gives for `run`. `rehearse`'s `from` was that spread under
+  name `{ ...program, init: { state } }`, which the guide gives for `run`. `rehearse`'s `from` was that spread under
   a name, and was removed instead (0.8.0), so that `drive` and `rehearse` start as `run` does. Left: under `simulate`,
   an `init` that throws on its flags is the test's own defect, not a `ProgramDefect` in `'init'`. *Reopen if* such a
   defect goes untested in a program with flags.
@@ -217,7 +217,7 @@ answer, and saying so in the proposal.
   and `on`; and an option would only name code around `run`.
   An option for the logs alone leaves out the crash report; one for the
   defect too runs the program's code as the run dies, or costs at every start outside debug, makes the key differ
-  from `onApplied`'s `origin`, and leaves a child's `id` undefined. The README says instead that the key and the id
+  from `onApplied`'s `origin`, and leaves a child's `id` undefined. The guide says instead that the key and the id
   are carried as they are, and a string message whole. Source: the sessions "Analisi invarianti progetto" and
   "Parere Fable sulle invarianti", and this one. *Reopen if* a program needs a key that must hold private data and
   cannot be built otherwise.
@@ -276,7 +276,7 @@ answer, and saying so in the proposal.
   same way, a rule of the types reaches only a composition's own tags, and a key that is a symbol, the one shape it
   could trust, would be imported by every parent's test and view and lost in a session saved as JSON. Following the
   string would log a program's own text, `{ _tag: 'ToastShown', message: '<text>' }`, which the default must not.
-  The README says what it does; `describeMessage` shows more. *Reopen if* a wrapping the describer can tell from a
+  The guide says what it does; `describeMessage` shows more. *Reopen if* a wrapping the describer can tell from a
   program's own value comes for another reason.
 
 ## The bridges
@@ -295,9 +295,9 @@ answer, and saying so in the proposal.
   native widget that meets the condition of `typed` and `drawn` would be connected by hand with them, or replaced by
   one the program draws (the snabbdom bridge's `slides`, a range, went, and `volume` draws both its sliders); a form's
   reset, a shadow tree, and in React a component with state or effects, Suspense, `memo`, portals and a run inside
-  another's root are left to the bridge that needs them, as the README's "View" and the bridges' comments say. The
-  React bridge finds the inputs to settle in its root's own elements, without the context it had: a bridge for a
-  portal, or for a run inside another's root, would need to know the run each input belongs to again. Why: such
+  another's root are left to the bridge that needs them, as the guide's "Writing a bridge" and the bridges' comments
+  say. The React bridge finds the inputs to settle in its root's own elements, without the context it had: a bridge for
+  a portal, or for a run inside another's root, would need to know the run each input belongs to again. Why: such
   features cost much review time for what is outside the library's concern, which is the program and its rule for an
   input's element, not each renderer's features; a bridge is an example to start from, and an application that needs
   more writes its own. The library (`typed`, `drawn`,

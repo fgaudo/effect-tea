@@ -49,7 +49,7 @@ forgot a field of the model.
 {@includeCode ../../examples/timer/timer.test.ts#model}
 
 That the view draws what its model holds is not checked here: it is checked with the renderer's own tools (see
-[testing](https://fgaudo.github.io/effect-tea/#testing)), as the test of the list of timers does below, which is why
+[testing](../guide/testing.md)), as the test of the list of timers does below, which is why
 the reader lists the messages in the order the view draws them.
 
 ## A scenario
@@ -87,10 +87,10 @@ returns as the parent receives it:
 ## Where next
 
 - The other tools, `simulate` for a flow with its commands answered at once and `drive` for the running program,
-  are in [testing](https://fgaudo.github.io/effect-tea/#testing), with what each fails on and what it ignores.
-- [Guarantees](https://fgaudo.github.io/effect-tea/#guarantees) says what the library promises, and what is left to
+  are in [testing](../guide/testing.md), with what each fails on and what it ignores.
+- [Guarantees](../guide/guarantees.md) says what the library promises, and what is left to
   the program.
 - The other [examples](https://fgaudo.github.io/effect-tea/#examples) show what the timer does not: an input the
   user types into, a failure as a message, events between a parent and its children.
 
-Next, [the bridge the timer is drawn with](./5-a-bridge.md).
+Next, [the bridge the timer is drawn with](../guide/writing-a-bridge.md).

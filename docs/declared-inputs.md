@@ -94,11 +94,11 @@ is worth it. And `schema: Schema.String` beside a text field says nothing its ty
 
 ## What still makes sense
 
-Under the rules as they are now: messages live in the model, a view builds none (README, "Model"), and a test
+Under the rules as they are now: messages live in the model, a view builds none (guide, "Model"), and a test
 reads them with a function of its own.
 
 - **Point 1, the one shape and its `dispatch`: its second motive is gone.** "A view never holds a message and cannot
-  build one" is now the README's rule, kept by exporting `Message` as a type only, which no spike had tried. What is
+  build one" is now the guide's rule, kept by exporting `Message` as a type only, which no spike had tried. What is
   left of the shape is point 2's.
 - **Point 2, a model that is data: reached, by the port.** An input is declared in `composition`, its value lives in
   the state, and the view writes over the value its model holds (`write(was, value)`): no model holds `changeName`,

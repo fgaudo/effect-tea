@@ -96,7 +96,7 @@ three.
   the fork, by `FiberSet.run`'s documented default, and its mutation has deterministic killers. It is a check in the
   middle of a step: decision 2 takes it out.
 - **`engine.ts`, `if (dead()) break` in `reconcile`**. The loop's own, or that of the fiber that makes the engine. The
-  check and the fork are not one thunk, and the README promises nothing of the fork ("a subscription that state lists,
+  check and the fork are not one thunk, and the guide promises nothing of the fork ("a subscription that state lists,
   is the program's"). In the middle of a step too: decision 2.
 - **`engine.ts`, `alive(dead, () => describeMessage(message))`**, for a message dropped before `update`, while debug
   logs are enabled. An open question.
@@ -108,7 +108,7 @@ three.
   deterministic test holds it. Decision 4.
 - **`run.ts`, the renderer's `alive(deaths.dead, () => render(frames))`**, deferred. Decision 3.
 - **`run.ts`, the fork of the renderer and how the run stops it**. One acquisition since step 3.
-- **`run.ts` and the renderer's frames**: the renderer reads a state the loop wrote and dispatches from it. The README
+- **`run.ts` and the renderer's frames**: the renderer reads a state the loop wrote and dispatches from it. The guide
   already answers it without any order: a message of the view may arrive in any state, and is rejected where it does
   not apply.
 - **`rehearse.ts`, `run` and `model`**: one check each, in the thunk that calls the program, since steps 1 and 2.
@@ -259,7 +259,7 @@ by no test.
    of the renderer runs before it interrupts the renderer, and the engine's own end runs before it reads its fibers.
    The test "a message the renderer sends as the run releases it does not reach update" kills its mutation, "the end
    of the run stops the renderer before the loop". "A message the renderer sends as an interrupted run releases it,
-   on which update dies, ends the run" went: that message is no longer applied. "Running" in the README says the
+   on which update dies, ends the run" went: that message is no longer applied. "Running" in the guide says the
    order of the end, and that a step under way may be interrupted before its frame.
 5. Done. The checks before `runCommand`, in `reconcile` and before `render` went, with their three mutations, the
    scheduled test of the renderer and "a subscription that dies as the run starts keeps the keys after it from
@@ -272,7 +272,7 @@ by no test.
    died is dead, never dropped, and the engine describes a dropped message with no check of its own: `alive` went.
    A gated test, "a message of a stopped subscription, taken once a command has died, is not described", and the
    core's, kill the mutation that puts the start first. In `rehearse`, a `hearNext` whose message a key gone meanwhile
-   would have dropped fails with the defect, as the README says of every call after one.
+   would have dropped fails with the defect, as the guide says of every call after one.
 7. Done. `runAll`'s mutation went, with its test under `prioritizedSchedules`, the last test under a schedule to
    kill a mutation: `ledger.test.ts` holds the take that rules its form out.
 8. Done. AGENTS.md says the three rules beside "one thunk", that no test of a check runs under a schedule, and that a

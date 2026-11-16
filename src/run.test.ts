@@ -2290,7 +2290,7 @@ describe('dispatch', () => {
   })
 })
 
-// A command that interrupts itself is a defect ("Nothing ends in silence" in the README), and its release is part of
+// A command that interrupts itself is a defect ("Nothing ends in silence" in the guide), and its release is part of
 // it: a release that interrupts itself is one too, after the defect the command died of, in the order they happened.
 // Alone, without a defect before it, the run dies of it as one.
 describe('a release that interrupts itself', () => {

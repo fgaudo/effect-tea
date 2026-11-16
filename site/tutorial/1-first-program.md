@@ -15,7 +15,7 @@ either button:
 {@includeCode ../../examples/timer/duration.ts#state}
 
 The state is always an object, `{ minutes }` rather than a number, so that any program can later become a child
-as it is (see [anatomy of a program](https://fgaudo.github.io/effect-tea/#anatomy-of-a-program)).
+as it is (see [anatomy of a program](../guide/anatomy-of-a-program.md)).
 
 ## Update
 
@@ -26,7 +26,7 @@ apply in the state, it returns `reject` instead: "−" at one minute.
 
 `update` is pure: it never runs an effect and never changes the state it is given. The run ignores a rejected
 message and keeps the state as it was, so a click that comes late, from a screen drawn before, is harmless (see
-[rejections and defects](https://fgaudo.github.io/effect-tea/#rejections-and-defects)).
+[rejections and defects](../guide/rejections-and-defects.md)).
 
 ## Model and program
 
@@ -37,7 +37,7 @@ controls send. At one minute the model has no `less`: the view cannot offer what
 
 A program is a plain object, and its type names its types: `Program<{ state; model; message }>`. `init` is the
 step it starts with, its first state and the commands it starts, none here (see
-[model](https://fgaudo.github.io/effect-tea/#model)).
+[model](../guide/model.md)).
 
 ## View
 
@@ -51,6 +51,6 @@ decides nothing on its own:
 `run(duration, renderInto(root, durationView))` starts the program and hands the renderer a stream of frames,
 each a model and the `dispatch` to send its messages with. `renderInto` draws each frame into the element `root`.
 In a browser, the run is started with `Effect.runFork`, as [step 3](./3-children.md) does, with a `tapCause` that
-reports a run that dies (see [running](https://fgaudo.github.io/effect-tea/#running)).
+reports a run that dies (see [running](../guide/running.md)).
 
 Next, [the timer itself](./2-commands-and-subscriptions.md).

@@ -1,9 +1,9 @@
 # Invariants the engine keeps
 
-The README's "Guarantees" says what a user may rely on, and the library's tests check each one
+The guide's "Guarantees" says what a user may rely on, and the library's tests check each one
 (`src/interleaving.test.ts` checks all but that of the order, the rule of an input and what a frame has seen
 included, and what the run does from the first defect on too, under random orders of clicks, writes into an input,
-current and stale, answers, subscription messages and ends, releases, defects and self-interruptions, as the README
+current and stale, answers, subscription messages and ends, releases, defects and self-interruptions, as the guide
 says). This is how they are kept, and
 what a change must not undo. What they rest on of Effect and of the JavaScript engine is in
 [`premises.md`](premises.md), and how a change of the engine or of a testing tool is made in
@@ -35,7 +35,7 @@ testing tools.
   update hears them in, under every schedule within two deviations" (`engine.test.ts`) is its alarm. Each other check
   has a mutation (`mutations/mutations.ts`), and `interleaving.test.ts` checks the count of every frame drawn.
 - **`reject` means one thing: the message does not apply in the state.** The run ignores every rejection, and
-  whether the view sends only what applies is for the tests ("Rejections and defects" in the README). Never add
+  whether the view sends only what applies is for the tests ("Rejections and defects" in the guide). Never add
   a runtime check of the model against `update`, nor a way for a model to ask `update` what it accepts: the
   model, read from the state, and `update` are two derivations that tests check against each other, and a
   model that asked would make a wrong rejection a control that silently disappears. A `defect` is only for a
@@ -70,7 +70,7 @@ testing tools.
   write the frame has not seen, or with what it shows when the frame has seen them all, and says itself whether the
   bridge sets the element, `taken`: always for a new one, never for one that stays, and for one the state has moved on
   without unless the frame's value is the very value it shows, so that no bridge compares values to decide it. What
-  a screen then shows is no guarantee of the library's, which knows no renderer: the README promises it in "Inputs
+  a screen then shows is no guarantee of the library's, which knows no renderer: the guide promises it in "Inputs
   the user types into", for elements and renderers that meet its condition and a bridge that settles them with
   `drawn`, and the bridges' tests check it in a DOM. Each check of `typed` and `drawn` has a mutation.
 - **Every program keeps its state in an object**, replaced and never mutated, so that any program can be a child: a
@@ -121,12 +121,12 @@ testing tools.
   hear each accepted, or rejected, message in order, with where it came from, before its frame is published, and
   they send no message and change no state. That is all the rule means: they watch.
   They do hold the program while they run, since the next message waits for them so that they hear every one in
-  order, and one that never ends holds it, as the README says ("Running"). A defect in them is a bug like any
+  order, and one that never ends holds it, as the guide says ("Running"). A defect in them is a bug like any
   other. Neither hears a message dropped before `update` (one left by a stopped subscription): that is the
   engine's, not the program's.
 - **Logs never carry message data by default** (`describeByTag` in `log.ts`): only tags, following a wrapped
   `message` or `command` only when it is itself tagged, since a program's own field of that name may hold data.
-  A subscription's key is logged as it is, and may hold data, as the README says ("Running"): the rule is of
+  A subscription's key is logged as it is, and may hold data, as the guide says ("Running"): the rule is of
   messages and commands.
   Level: `debug` for the message loop and for subscriptions starting, stopping and ending, nothing else. What
   is computed only to be logged (`describeMessage`, `describeCommand`) is computed only while debug logs are
@@ -163,7 +163,7 @@ testing tools.
     (`runSubscription`), so that a defect is in the order it happened, though its release lets another fiber die first;
     what the release dies of is wrapped apart, told from what the fiber died of by what the fiber kept of it, never by
     the register, where a defect another fiber recorded may be the very one a release dies with.
-  - The order of the defects is the engine's to keep, and its tests', and no promise of the README, which describes
+  - The order of the defects is the engine's to keep, and its tests', and no promise of the guide, which describes
     it: what a user relies on is that every defect is in the cause, each with where. No promise of the library's
     rests on what a function of Effect makes of a cause (`Cause.squash` gives the first defect).
   - Each defect recorded is reported once, in that order: by the run as soon as one dies, and by the end of the run,
@@ -185,7 +185,7 @@ testing tools.
   - What an effect of the program does once started is its own, until the end of the run interrupts it: no check can
     come between two of its operations. So is what the renderer pulls: a frame's model is made in the renderer's
     fiber, as it pulls the frame, and `makeModel` is pure, so the run checks nothing there, and a frame pulled after
-    the defect still makes its model, as the README says.
+    the defect still makes its model, as the guide says.
   - Never report a defect only through a `join`, or through a fiber that races: once nothing awaits it, or the race is
     lost, the defect is lost with it, and `FiberSet` and `FiberMap` discard the exits of the fibers they interrupt as
     they close. The renderer is one of them, interrupted and awaited however the run ends, once the loop has stopped and
@@ -211,7 +211,7 @@ testing tools.
   let go of.
 - **A child's dispatch is the same while anyone holds it** (`dispatchTo` in `dispatch.ts`): kept weakly by its
   parent's dispatch, its name and its id (compared with `Equal`, as subscription keys are), and removed by a
-  `FinalizationRegistry` once collected. Never hold them strongly: ids that are never reused, as the README
+  `FinalizationRegistry` once collected. Never hold them strongly: ids that are never reused, as the guide
   advises, would pile up for as long as the run lasts.
 - **No span lives as long as the run**: `run` and `Engine.make` are untraced, and the run's fibers see the span
   of whoever runs it as an external one (`withExternalSpan`), since Effect keeps every log as an event of the
@@ -248,7 +248,7 @@ testing tools.
   forks and races make it so (`docs/premises.md`). A fiber that took the region of whoever forked it would be one the
   end cannot stop, and the end would wait for it.
 
-  What cannot be one thunk with its check, as the first step of an effect of the program, is no act the README
+  What cannot be one thunk with its check, as the first step of an effect of the program, is no act the guide
   promises about.
 
   A region nothing may interrupt holds no code of the program, so no gate reaches it, and it has no mutation: one that
@@ -262,7 +262,7 @@ testing tools.
   (`ended` in `loop.ts`, the register, a call that left) each have a mutation with a deterministic killer, and the
   tests of `rehearse.test.ts` under the scheduler of the tests stay as alarms of the search, killing none.
 - **The testing tools behave like the engine** where it is deterministic, with the test as the scheduler
-  ("Testing" in the README says what each one runs, fails on and ignores); `rehearse` fails on a command left
+  ("Testing" in the guide says what each one runs, fails on and ignores); `rehearse` fails on a command left
   pending, since its answer would arrive, and `drive` acts only as a user can, through `run` and the run's
   dispatch. The end of a rehearsal reads the commands under way in the thunk that takes the scenario's exit, which
   is the one that marks the end of the loop (`end`, in `loop.ts`), which refuses what is asked after it; a scenario

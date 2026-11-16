@@ -7,13 +7,14 @@
 // `flushSync`. An input is drawn by `Shows`, over a native, uncontrolled text `<input>`: its element changes only by
 // what the user types, or by this bridge, which settles every input of its root after each frame with the frame's
 // `seen`, once `flushSync` has committed it.
-// A minimal example to start from, as the README's "View" says: it settles native text fields alone, in the base case,
-// and does not handle a value the element changes by itself. Another native widget would be connected by hand with
-// `typed` and `drawn` where it meets their condition, or replaced by one the program draws; a component with state or
-// effects of its own, Suspense, a subtree skipped by `memo`, a portal, a root in a shadow tree, a form's reset, and a
-// run whose root is inside another run's are left to a bridge that needs them. The inputs a frame settles are found
-// in the root's own elements: a portal's are elsewhere, and a run inside another's root would be settled by both, so
-// such a bridge would need to know the run each input belongs to, as a context of its own would tell it.
+// A minimal example to start from, as the guide's "Writing a bridge" says: it settles native text fields alone, in
+// the base case, and does not handle a value the element changes by itself. Another native widget would be connected
+// by hand with `typed` and `drawn` where it meets their condition, or replaced by one the program draws; a component
+// with state or effects of its own, Suspense, a subtree skipped by `memo`, a portal, a root in a shadow tree, a form's
+// reset, and a run whose root is inside another run's are left to a bridge that needs them. The inputs a frame
+// settles are found in the root's own elements: a portal's are elsewhere, and a run inside another's root would be
+// settled by both, so such a bridge would need to know the run each input belongs to, as a context of its own would
+// tell it.
 // Checked with react and react-dom 19.3.1.
 import { type Dispatch, drawn, type Frame, type Shown, typed, type Written } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'

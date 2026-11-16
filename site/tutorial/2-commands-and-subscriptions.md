@@ -13,7 +13,7 @@ of step 1 carry over: "+" and "−" now apply only while the timer is being set.
 
 Where the timer is, is one value with a case for each phase, holding only what exists in it. Flags such as
 `isRunning` and `isPaused` would allow combinations that cannot be; a union cannot hold them (see
-[state and messages](https://fgaudo.github.io/effect-tea/#state-and-messages)).
+[state and messages](../guide/structuring-a-program.md#state-and-messages)).
 
 {@includeCode ../../examples/timer/timer.ts#state}
 
@@ -23,7 +23,7 @@ Where the timer is, is one value with a case for each phase, holding only what e
 and the program's `runCommand` turns it into an Effect. Ringing needs a bell, a service the program declares and
 whoever runs it provides. Ringing gives `update` nothing to learn, so its execution answers `None`; a command that
 has an answer, such as a save, answers with one message (see
-[commands](https://fgaudo.github.io/effect-tea/#commands)).
+[commands](../guide/commands.md)).
 
 {@includeCode ../../examples/timer/timer.ts#command}
 
@@ -35,7 +35,7 @@ An execution cannot fail: its type says so. A command that can fail turns its fa
 Each message applies in some phases and is rejected in the others. A tick is different: the timer listens to
 the clock only while it runs (below), so a tick in any other phase cannot arrive, and its arrival is a bug.
 `update` throws `defect(reason)` on it, and the run dies instead of hiding it (see
-[rejections and defects](https://fgaudo.github.io/effect-tea/#rejections-and-defects)).
+[rejections and defects](../guide/rejections-and-defects.md)).
 
 {@includeCode ../../examples/timer/timer.ts#update}
 
@@ -46,7 +46,7 @@ The last tick moves the timer to `Finished` and returns the command with the new
 A **subscription** is what the program listens to. `subscriptions(state)` returns them in a `HashMap`, by key,
 and after every change of state the run compares the keys: a new key starts its subscription, a kept key leaves
 it running, and a key that went away stops it, and drops what it sent that `update` has not seen (see
-[subscriptions](https://fgaudo.github.io/effect-tea/#subscriptions)).
+[subscriptions](../guide/subscriptions.md)).
 
 The timer has the key `'ticks'` only while it runs. Pausing removes it, so the clock stops; resuming brings it
 back, and a new clock starts. The clock is an Effect `Channel` that sends `Ticked` every second and never ends:

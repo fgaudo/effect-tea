@@ -25,7 +25,7 @@ exists only to keep that copy in step. The deterministic part is exactly what a 
 scheduler. The library teaches the same split to its users: `update` is a pure core, and `runCommand` its shell.
 
 What a core does not reach is said too. A defect of a release is recorded only once the scope's close ends
-(`scopedIn`), and no core learns of a death before the shell does: that window is the README's to define (it says,
+(`scopedIn`), and no core learns of a death before the shell does: that window is the guide's to define (it says,
 under "Running", that the defect of a release counts once its scope has released all it holds), not this note's.
 
 ## Decision
@@ -54,7 +54,7 @@ under "Running", that the defect of a release counts once its scope has released
 - **The model of a state is the shells'.** `makeModel` is pure, and calling it after a defect changes nothing of the
   program, so the core has no `model`: it would be `makeModel` under a name. When the model is made, and what a read
   after a death gives, is policy: the run's frames make it as the renderer pulls them, after the sliding buffer
-  (`run.ts`), under `'render'`, with no check of the register, as the README says; `rehearse` makes it in the step of
+  (`run.ts`), under `'render'`, with no check of the register, as the guide says; `rehearse` makes it in the step of
   each new state, under `'render'`, the test being a renderer that pulls every frame, and its `model` fails once the
   run has died, as its other calls do. (Until November 2026 the run made it lazily as the renderer read it, and
   `rehearse` as the test read it: see item 7 of [`boundary.md`](boundary.md).) Whether the renderer itself may start
@@ -140,7 +140,7 @@ Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun ru
    and tells the calls waiting on it that it was stopped.
 6. `model`, once the README says whether the check holds of `makeModel`: the renderer's frames and `rehearse`'s
    `model` make it through the core, with a changelog entry if the run's behaviour changes. Done, without a `model`:
-   the README says that a frame read after a defect still makes its model, `makeModel` being pure, and the model stays
+   the guide says that a frame read after a defect still makes its model, `makeModel` being pure, and the model stays
    the shells' (see "The model of a state is the shells'"), held by two tests of `run.test.ts` on a frame read as the
    renderer releases. Nothing a consumer sees changes, so no changelog entry, and no check, so no mutation.
 7. The testing policy of decision 0292: a test under `prioritizedSchedules` goes once a deterministic test kills its
@@ -151,7 +151,7 @@ Each step leaves `bun run typecheck`, `bun run lint`, `bun run test` and `bun ru
    of `rehearse`'s `send` are gone, each mutation killed by a deterministic test; `rehearse`'s `run`, `model` and
    `runAll` keep theirs, the only killers of their mutations, as the rule allows: no program code lies between their
    check and their act, so no gate reaches it, and `run`'s act is in a fiber `orDead` forks. The counterexamples of
-   "from the first defect on" were readings of the property's, and the README now says when the defect of a release
+   "from the first defect on" were readings of the property's, and the guide now says when the defect of a release
    counts. Those of the releases together were too: a release waits by yielding, and a schedule may run one to its
    end before the other's interruption first runs, so the property checks only that the next message waits for the
    slowest, and the deterministic test of `engine.test.ts` that they are interrupted together. That of the order of

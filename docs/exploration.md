@@ -11,7 +11,7 @@ The first version is `docs/exploration.md` on `claude/explore-spike-a9de80`.
 
 ## Context
 
-A test checks a program in the states a generator written by hand invents (README, "Testing", step 1). Nothing says
+A test checks a program in the states a generator written by hand invents (guide, "Testing", step 1). Nothing says
 they are the states the program reaches. [`declared-inputs.md`](declared-inputs.md) proposed, as the last of its
 points, a tool that explores a program from `init`, after every message a program offers had become data. That
 redesign is suspended. The question of this spike is the other way round: **can a tool explore a program from
@@ -102,7 +102,7 @@ What it found on the examples:
 | `Inert`: `NameChanged` with the text the field has | `form`, 6 of 21 nodes for each text | a false alarm: it depends on the value. One line of `inert` |
 | `Inert`: a tick with the time the clock shows | `pages`, 3 of 27 nodes for each time | a false alarm of the sample |
 | `Ignored`: `SayingPicked` | `pages`, after About was asked for and left | real, and meant; no test of the example shows it |
-| `Property`: a saying shown while a command is still to answer | `pages`, with a property written for it | real, and small: the saying of an About that left is shown by the next one. The README's "ids that come back" |
+| `Property`: a saying shown while a command is still to answer | `pages`, with a property written for it | real, and small: the saying of an About that left is shown by the next one. The guide's "ids that come back" |
 
 - **No example had a `Defect`, an `Outdated`, a `Stuck`, a key `Rejected` or a violation of `dispatchViolations`.**
   The `defect`s of `form`, `timer` and `stopwatch` are never reached, with no pair to skip by hand.
@@ -118,9 +118,9 @@ The spike asked of four things whether they stand in the walk's way. Read again 
 
 - **A view needed to know what a state offers: gone.** The spike said "no obstacle where there is a bridge, and no
   way round it where there is none", and that listing a model's messages field by field "is the view written
-  again". That listing is now the reader every example's test has, 1 to 12 lines, and the contract the README
+  again". That listing is now the reader every example's test has, 1 to 12 lines, and the contract the guide
   states. The walk needs no bridge, no renderer and no preload, and is a third faster for it. What it no longer
-  does is check the real view: nothing of the library does (README, "Testing").
+  does is check the real view: nothing of the library does (guide, "Testing").
 - **A model's functions for an input: no obstacle, as before.** The walk compares states, never models; the reader
   calls `changeName` with the texts the test gives. `Inert` still cannot tell an input's message from a button's,
   and the reader, where the text is given, is where a test can tell them. The spike's other remedy, a bridge that

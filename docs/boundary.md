@@ -16,7 +16,7 @@ composition, the run and its guarantees, and the pure tests of them. After it, h
 checks that the drawing matches, are the user's and his framework's.
 
 It holds of the view, and since item 1 of the contract too: the library's promise is of the model with `update`
-(README, "Model", "What is left to you", "Testing"), a test reads a model's messages with a function of its own, and
+(guide, "Model", "What is left to you", "Testing"), a test reads a model's messages with a function of its own, and
 no bridge owes the library anything. It does not hold of the renderer, and is not meant to: the run knows a renderer
 as the effect that pulls frames and calls a dispatch, with a scope of its own, and three guarantees name it. So the
 boundary the code has is **the frame**, a model and a dispatch. What follows is what is still on the far side of it.
@@ -220,6 +220,6 @@ for them.
   is of a model's fixed messages alone: an input is a value of the model, and its writes are no message a reader
   returns.
 - **A renderer with no tree to walk** (React Native, a canvas, a terminal). The contract of the model asks nothing
-  of it now. That its drawing can be checked with its own tools is the README's word, and no such bridge was
+  of it now. That its drawing can be checked with its own tools is the guide's word, and no such bridge was
   attempted.
 - **An application.** How long a reader is for a model larger than the examples' is not measured.

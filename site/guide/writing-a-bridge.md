@@ -1,10 +1,10 @@
 ---
-title: A bridge
+title: Writing a bridge
 ---
 
-# A bridge
+# Writing a bridge
 
-The library draws nothing: a bridge connects it to a renderer, and this step shows how to write one for yours. A
+The library draws nothing: a bridge connects it to a renderer, and this page shows how to write one for yours. A
 bridge does three things: it draws each frame, sends messages from the handlers of the view, and settles, after each
 frame, the element of each text input on screen. Most of its code is the same whatever the renderer, and only two
 places are the renderer's own: where it draws, and where it lets the bridge reach an element.
@@ -14,7 +14,7 @@ The code below is the examples' bridge to snabbdom,
 drawn with. You need not know snabbdom to read it: its two places are named where they come, with what the bridge to
 React, [`examples/react.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/react.ts), does there instead.
 It is a minimal example to start from: what else a renderer can do is left to the bridge that needs it (see
-[view](https://fgaudo.github.io/effect-tea/#view)).
+[view](#the-examples-bridges)).
 
 ## Frames
 
@@ -31,7 +31,7 @@ once: when the line returns, the screen shows the frame, and nothing else change
 
 The rest is the bridge's. The run keeps only the latest frame while the renderer is busy, so waiting for the next
 animation frame draws at most once per screen refresh, and a model the renderer never takes is never made (see
-[running](https://fgaudo.github.io/effect-tea/#running)). A view that throws throws in the frame's `Effect.sync`, and
+[running](./running.md)). A view that throws throws in the frame's `Effect.sync`, and
 the run dies with it. `showsModule` and `settle` are for the inputs, below: without them, a bridge is this loop and
 its handlers.
 
@@ -84,7 +84,7 @@ the frame has not seen are rejected by the library:
 So the element is never replaced, and keeps its focus while the program changes what it shows. That holds while the
 element's value changes only by an edit of the user, which it reports with the whole value, or by the bridge, and
 while the renderer lets the bridge reach the element after each frame, before the user can act on it (see
-[inputs the user types into](https://fgaudo.github.io/effect-tea/#inputs-the-user-types-into)). The renderer must also
+[inputs the user types into](./inputs-the-user-types-into.md)). The renderer must also
 keep an element drawn in the same place from one frame to the next, as snabbdom and React do, or there is no element
 to settle.
 
@@ -99,3 +99,47 @@ sliders of [`examples/volume`](https://github.com/fgaudo/effect-tea/tree/main/ex
 Both bridges are tested in a DOM, with happy-dom, by the tests of
 [`examples/bridge.test_suite.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/bridge.test_suite.ts),
 which a bridge of your own can start from.
+
+## The examples' bridges
+
+The library ships no renderer. A bridge to one does three things: it draws each frame, runs `dispatch` in the handlers,
+and settles, after each frame, the element of each input on screen (see
+[inputs the user types into](./inputs-the-user-types-into.md)).
+[`examples/snabbdom.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/snabbdom.ts) and
+[`examples/react.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/react.ts) are two, each small enough to
+copy, and each names the type of its views, `View<Model, Message>`.
+[`counter-react`](https://github.com/fgaudo/effect-tea/tree/main/examples/counter-react) and
+[`form-react`](https://github.com/fgaudo/effect-tea/tree/main/examples/form-react) draw the programs of
+[`counter`](https://github.com/fgaudo/effect-tea/tree/main/examples/counter) and
+[`form`](https://github.com/fgaudo/effect-tea/tree/main/examples/form) with the second. React Native's bridge is written
+the same way. The sections above show how to write one for any renderer, from the first.
+
+The examples' bridges are minimal examples to start from: they show how a native element is connected to the library,
+and settle native text fields alone. They run `dispatch` from a click, a press of the pointer and the `input` event of a
+native text `<input>`, the only element of an input they settle, in the base case: a field whose value changes only by
+the user's edits and by the bridge. A value the text field changes by itself, as it strips the line breaks of what is
+written into it, they do not handle, and whether a bridge that starts from them could is left open. Another native
+widget that meets the condition of `typed` and `drawn` (see
+[inputs the user types into](./inputs-the-user-types-into.md)) would be connected by hand with them; a widget the
+program draws is preferred wherever connecting one is too complex. Any other feature of a renderer is left to the bridge
+that needs it: with either, a form's reset, by a reset button or `form.reset()` (a program may empty a field by leaving
+`''` in its place), and a root or an input in a shadow tree; with React, a component with state or effects of its own,
+Suspense, a subtree `memo` skips, a portal, and a run whose root is inside another run's, for which the bridge would
+need to know the run each input belongs to, as a context of its own would tell it.
+
+[`examples/snabbdom.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/snabbdom.ts) and
+[`examples/react.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/react.ts) are the small bridges to the two
+renderers, worth copying for your own: `renderInto` for `run`, handlers, and the element of each input (`shows` with
+snabbdom, `Shows` with React). Their tests,
+[`examples/snabbdom.test.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/snabbdom.test.ts) and
+[`examples/react.test.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/react.test.ts), run them in a DOM,
+with [happy-dom](https://github.com/capricorn86/happy-dom). The tests they share are written once, in
+[`examples/bridge.test_suite.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/bridge.test_suite.ts), and
+check how often a bridge draws, that a click reaches the program, that what the user types survives the frames drawn
+meanwhile, and that the element of an input shows what the program puts in its place. To run them on a bridge of your
+own, a test file that registers a DOM, as those two do, gives `bridgeTests` a `Bridge`: your `renderInto`, and the views
+of their scenarios drawn with your renderer. Beside the snabbdom bridge,
+[`examples/snabbdom-testing.test_messages.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/snabbdom-testing.test_messages.ts)
+has `messagesSentBy`, which finds what a view sends without a DOM: one way to check that a view draws what its model
+holds, which the library asks of no bridge (see [testing](./testing.md)), and which the test of each example drawn with
+snabbdom uses.

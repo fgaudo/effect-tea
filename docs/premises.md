@@ -1,7 +1,7 @@
 # What the invariants rest on
 
 An invariant holds only while what it rests on does: the purity of the program's code, states never mutated, and
-the behaviour of Effect's runtime and of the JavaScript engine. What the program must do is the README's ("What is
+the behaviour of Effect's runtime and of the JavaScript engine. What the program must do is the guide's ("What is
 left to you"). What Effect and the JavaScript engine must do without promising it is listed here, each with the test
 that checks it, as the rule after the list says: a guarantee that a stable API documents is no premise, and is not
 listed. A change that rests on a new premise adds it here, with its test, and only once the owner has agreed to it.
@@ -380,7 +380,7 @@ only reasoned:
   the library's. A premise of a bridge on its renderer has its test in the bridge's test file, where the DOM is
   (`AGENTS.md`, "Tests"), apart from the bridge's own and checking the renderer alone.
 
-A guarantee of the README says what it promises in the library's own terms, never in those of what a function of
+A guarantee of the guide says what it promises in the library's own terms, never in those of what a function of
 Effect makes of a value: the order of the defects in a cause is no promise, since what a user would rely on is what
 `Cause.squash` returns ([`rejected.md`](rejected.md)). What keeps a guarantee may rest on a premise listed here, as
 those of the span, of the frames and of a self-interruption do: the premise's test, which the daily job runs at the

@@ -61,7 +61,7 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
    * Hears every message `update` accepts, in order, with the state before and after it and the commands it
    * decided (e.g. for devtools, or to record a session), before its frame is drawn and its commands start: a
    * run that ends meanwhile may do neither. The next message waits for it, so a slow one holds the program: it
-   * hands slow work off to a queue (the README's "Running" shows how). A defect in it ends the run like any
+   * hands slow work off to a queue (the guide's "Running" shows how). A defect in it ends the run like any
    * other.
    */
   readonly onApplied?: (applied: Applied<State, Message, Command>) => Effect.Effect<void>

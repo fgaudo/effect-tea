@@ -18,7 +18,7 @@ export type Message = Data.TaggedEnum<{
   FormatPicked: { format: Format }
 }>
 
-// Not exported, as the README's "Model" says: a view sends only the messages its model holds, and builds none.
+// Not exported, as the guide's "Model" says: a view sends only the messages its model holds, and builds none.
 const Message = Data.taggedEnum<Message>()
 
 /** Asks for About, with the time the clock shows (none before its first tick). */

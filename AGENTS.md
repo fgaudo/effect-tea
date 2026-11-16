@@ -1,10 +1,10 @@
 # @fgaudo/effect-tea — guide for coding agents
 
-How the library is used is in [`README.md`](README.md): its "Guide" and "Testing" are the user documentation, and
-"Development" names the checks. This file holds the rules that apply to every change; how the engine keeps its
-invariants is in [`docs/invariants.md`](docs/invariants.md), and what they rest on in
-[`docs/premises.md`](docs/premises.md). What was tried or weighed and rejected is in
-[`docs/rejected.md`](docs/rejected.md): read it before proposing a change of design.
+How the library is used is in the guide, [`site/guide/`](site/guide), one page a concept, "Testing" among them: it is
+the user documentation. [`README.md`](README.md) is the landing page, and its "Development" names the checks. This file
+holds the rules that apply to every change; how the engine keeps its invariants is in
+[`docs/invariants.md`](docs/invariants.md), and what they rest on in [`docs/premises.md`](docs/premises.md). What was
+tried or weighed and rejected is in [`docs/rejected.md`](docs/rejected.md): read it before proposing a change of design.
 
 Procedures live in skills, plain Markdown that any agent or person reads, under `.agents/skills/`. Read the one
 for the task before starting it:
@@ -77,21 +77,20 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   (`upgrade-effect`).
 - **A change a consumer can notice has a changelog entry** in the same commit, and raises the version when it
   needs more than the unreleased section says (`release`).
-- **The README is a specification.** Its "Guide" and "Guarantees" say what the library promises, and
-  applications cite them as rules. Both bind alike: "Guarantees" is the list the README says the tests check, most of
-  it under the search, and a sentence of the "Guide" promises no less for standing outside it; what is described and
-  not promised says so where it stands (the order of the defects).
-  Its prose changes one section at a time, each sentence checked against the
-  old one: the same promise, no weaker and no stronger, as the code and the tests keep it. A word that looks
-  minor ("exactly when", "by `Equal`", "never more") is often the rule.
+- **The guide is a specification.** Its pages ([`site/guide/`](site/guide)), "Guarantees" among them, say what the
+  library promises, and applications cite them as rules. All bind alike: "Guarantees" is the list the guide says the
+  tests check, most of it under the search, and a sentence of another page promises no less for standing outside it;
+  what is described and not promised says so where it stands (the order of the defects). Its prose changes one section
+  at a time, each sentence checked against the old one: the same promise, no weaker and no stronger, as the code and the
+  tests keep it. A word that looks minor ("exactly when", "by `Equal`", "never more") is often the rule.
 
 ## Invariants
 
-The README's "Guarantees" says what a user may rely on. [`docs/invariants.md`](docs/invariants.md) says how the
-engine keeps each one and what a change must not undo, and [`docs/premises.md`](docs/premises.md) what they rest on
-of Effect's runtime and of the JavaScript engine, each with what checks it. Both are read before a change of the
-engine or of a testing tool (`change-engine`), and they rule where this summary says less. What every change keeps,
-an example's and a document's too:
+The guide's "Guarantees" ([`site/guide/guarantees.md`](site/guide/guarantees.md)) says what a user may rely on.
+[`docs/invariants.md`](docs/invariants.md) says how the engine keeps each one and what a change must not undo, and
+[`docs/premises.md`](docs/premises.md) what they rest on of Effect's runtime and of the JavaScript engine, each with
+what checks it. Both are read before a change of the engine or of a testing tool (`change-engine`), and they rule where
+this summary says less. What every change keeps, an example's and a document's too:
 
 - **`update` is pure and called freely**: never assume it runs once per message.
 - **`reject` means one thing: the message does not apply in the state.** Never add a runtime check of the model
@@ -186,7 +185,7 @@ an example's and a document's too:
     `dispatch.test.ts`, `input.test.ts`, `log.test.ts`, `defect.test.ts`, `core.test.ts`, `src/testing/`).
   - **invariants under random histories**: fast-check draws clicks, answers, subscription messages and ends,
     releases, defects and self-interruptions, and the seed of the order the scheduler of the tests
-    (`test/scheduled.test_scheduler.ts`) runs them in, and each promise of the README's "Guarantees" that the scenario
+    (`test/scheduled.test_scheduler.ts`) runs them in, and each promise of the guide's "Guarantees" that the scenario
     reaches is checked on every one (`interleaving.test.ts`). It is a search, from a seed drawn on each run, and runs
     apart: `bun run interleavings`, and a daily job of the CI (`.github/workflows/interleavings.yml`), never
     `bun run test`. How a lead it finds is weighed is in `change-engine`; a finding is listed in `ROADMAP.md` with its

@@ -14,15 +14,15 @@ On 15 November 2026, by the owner:
 
 - **Done**: `onEvent` does not reject (1); a step does nothing when it leaves the same state by `Equal`, with no
   commands and no events (2), one predicate in `dispatchViolations` for `ActsTwice` and `Missing`; `Missing` leaves
-  out a candidate whose step does nothing (3), so `pages` lost its `withheld` for the Clock's About; the README says
+  out a candidate whose step does nothing (3), so `pages` lost its `withheld` for the Clock's About; the guide says
   why a handler has no `reject`, and that `onApplied` hears such a message with the very same state only where the
   handler returns the one it was given (5, worded so, since the tool compares by `Equal` and `before === after` is
   identity).
 - **`withheld` kept, with an example**: the clock of `pages` has a format, ISO or Unix, which would change on the
-  page under About, so its test withholds it there. It is the use the README names, a page that another covers, and
+  page under About, so its test withholds it there. It is the use the guide names, a page that another covers, and
   `withheld` keeps one meaning: left out on purpose though it would act.
 - **`list` over an empty list**: `update` rejects `StopAllClicked`, and the model leaves it out, as an `Option`,
-  since "missing" is all the screen tells apart there. The parent's own state tells it, which is what the README's
+  since "missing" is all the screen tells apart there. The parent's own state tells it, which is what the guide's
   rule asks.
 - **`rehearse`**: does not fail on a `send` whose step does nothing. The run applies it and `onApplied` hears it, so
   `rehearse` follows the run; its failure on a rejection reports what `update` said, while doing nothing is a
@@ -43,7 +43,7 @@ On 15 November 2026, by the owner:
 ## Context
 
 A handler of `onEvent` answers with a step, and its type has no `reject`: an event that does not apply is answered
-`{ state }` (README, "Rejections and defects"; `pages` does so when About is asked for while it is open). The
+`{ state }` (guide, "Rejections and defects"; `pages` does so when About is asked for while it is open). The
 question whether a handler should be allowed to reject came up more than once, and the review raised it again as the
 one place where "`reject` means the same everywhere" does not hold across a parent and its children.
 
@@ -133,7 +133,7 @@ A step that does nothing is a mistake when whoever makes the model could tell, f
 nothing, and showed the control all the same: a "Save" over a document the parent holds locked, a "Stop all" over an
 empty list. It is meant where the model cannot tell (a parent that does not read its children's state: "Stop all"
 while every stopwatch is stopped), where it depends on the value and not on the control (an input given the text it
-has, which the README forbids to reject), or where the intent is met and the control must stay. The tool sees
+has, which the guide forbids to reject), or where the intent is met and the control must stay. The tool sees
 `{ state }` in both, so it asks.
 
 `Inert` adds nothing a program writes: `update` still answers with a rejection or a step. A value a program would
@@ -155,7 +155,7 @@ return to say "nothing, on purpose" is `{ state }` under another name, and was d
   The test of `form-react` is gone since: it had become a copy of `form`'s.
 - That those are not all false alarms: **read**. The spike counted every one as such. The smallest state of
   `StopAllClicked` has no entries, which the parent's own state tells, so the model could leave the control out; with
-  entries, all stopped, only the children know, and the README forbids a parent to read them. The spike did not
+  entries, all stopped, only the children know, and the guide forbids a parent to read them. The spike did not
   count the two apart.
 - That a control dead by its parent's decision is `Inert`, and one whose child changed its own state is not:
   **checked**, by tests built for it in the second spike. No example has such a control.

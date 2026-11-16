@@ -25,7 +25,7 @@ test of it. None is open.
 - **A devtools bridge over `onApplied`** (e.g. Redux DevTools), with time travel through `init: { state }` and
   replay through `applyAll`.
 - **An example of routing**: flags from the URL, `popstate` as a subscription, navigation as a command.
-- **An example of hot module reloading** that keeps the state, which the README hints at (the view lives in a
+- **An example of hot module reloading** that keeps the state, which the guide hints at (the view lives in a
   module of its own) without showing.
 - **What 1.0 needs**: the API looks close to stable; what `docs/rejected.md` parks would change it, and is weighed
   before freezing it.

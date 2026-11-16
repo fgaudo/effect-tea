@@ -5,18 +5,16 @@ children:
   - ./2-commands-and-subscriptions.md
   - ./3-children.md
   - ./4-testing.md
-  - ./5-a-bridge.md
 ---
 
 # Tutorial
 
-This tutorial builds one application, a list of timers, in four short steps, and a fifth reads the bridge it is
-drawn with. Each of the four is a program of the example
-[`examples/timer`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer), and every block of code on these
-pages is taken from its files, or from the bridge's, which are typechecked and tested with the library. The finished
-application runs [in the browser](https://fgaudo.github.io/effect-tea/examples/timer/).
+This tutorial builds one application, a list of timers, in four short steps. Each of the four is a program of the
+example [`examples/timer`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer), and every block of code on
+these pages is taken from its files, which are typechecked and tested with the library. The finished application runs
+[in the browser](https://fgaudo.github.io/effect-tea/examples/timer/).
 
-The tutorial shows how the pieces fit; the [Guide](https://fgaudo.github.io/effect-tea/#guide) is the
+The tutorial shows how the pieces fit; the [Guide](../guide/index.md) is the
 specification, and each page links to the rules it uses there.
 
 1. [A first program](./1-first-program.md): how long a timer lasts, set with "+" and "−". State, `update`,
@@ -25,8 +23,6 @@ specification, and each page links to the rules it uses there.
    and rings a bell when it finishes.
 3. [Children](./3-children.md): many timers, each the program of step 2 as it is, under a parent.
 4. [Testing](./4-testing.md): `update`, the model and a scenario, tested without a runtime.
-5. [A bridge](./5-a-bridge.md): how to write a bridge for any renderer, which draws frames, sends messages and
-   settles a text input.
 
 ## Before you start
 
@@ -37,7 +33,8 @@ and a service. Install the library with its peer dependency:
 bun add @fgaudo/effect-tea effect
 ```
 
-The library draws nothing: a view is a function of its model, and a small bridge draws it with a renderer. The
-tutorial draws with [snabbdom](https://github.com/snabbdom/snabbdom), through the examples' bridge,
+The library draws nothing: a view is a function of its model, and a small bridge draws it with a renderer. The tutorial
+draws with [snabbdom](https://github.com/snabbdom/snabbdom), through the examples' bridge,
 [`examples/snabbdom.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/snabbdom.ts), which you can copy:
-`renderInto` draws each frame, and `onClick` sends a message from a click. [Step 5](./5-a-bridge.md) reads it.
+`renderInto` draws each frame, and `onClick` sends a message from a click.
+[Writing a bridge](../guide/writing-a-bridge.md) reads it.

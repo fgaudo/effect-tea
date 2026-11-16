@@ -54,21 +54,21 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
 - **`index.html`** has the title `<Name> · effect-tea`, the shared `../style.css`, a header with the name,
   one sentence on what it shows and a "Source" link to `https://github.com/fgaudo/effect-tea/tree/main/examples/<name>`,
   the `#app` element and `<script type="module" src="./main.ts">`.
-- **The program** follows the README's "Guide": one state machine per concern, as a tagged union
+- **The program** follows the guide: one state machine per concern, as a tagged union
   (`form/form.ts`'s `save`, `list/stopwatch.ts`'s `watch`), never flags; `reject` for a message that may
   arrive and does not apply, and a thrown error for one that cannot arrive (a completion outside the state that
   only it leaves, a tick while stopped), which the test checks as a defect.
-- **The view** follows the README's "Guide", and is drawn with snabbdom: React is for `counter-react` and
+- **The view** follows the guide, and is drawn with snabbdom: React is for `counter-react` and
   `form-react` alone, so that the examples share one bridge. snabbdom's props module never removes a prop, so a
   view sets a prop such as `disabled` in every case of an element (`counter/view.ts`). An input is declared in
-  `compose`, as the README's "Inputs the user types into" says: the view draws it from the value its model holds,
+  `compose`, as the guide's "Inputs the user types into" says: the view draws it from the value its model holds,
   with `shows`, over a native text `<input>`, through `dispatchTo`, and gives it no key: the bridge keeps the element.
-  What the bridges do not support (the README's "View": a form's reset, a shadow tree, a value the element changes by
-  itself, and in React a component with state or effects, Suspense, `memo`, a portal) is used by no example. A
+  What the bridges do not support (the guide's "Writing a bridge": a form's reset, a shadow tree, a value the element
+  changes by itself, and in React a component with state or effects, Suspense, `memo`, a portal) is used by no example. A
   control that fits no element the bridge settles, a slider among them, is drawn by the program, its press a message
   of the model and its drag a subscription (`volume`). A child's view is
   memoized with snabbdom's `thunk`, its dispatch from `dispatchTo` among the arguments (`pages/view.ts`).
-- **Messages live in the model** (the README's "Model"): a view builds none, and a test reads them from the
+- **Messages live in the model** (the guide's "Model"): a view builds none, and a test reads them from the
   model with a reader of its own, `messagesOf(model)`, a case of the model at a time. A parent's reader calls
   its children's and wraps what they return as the parent receives it; a child's reader that two tests need
   lies in a module of its own (`timer/timer.test_reader.ts`).

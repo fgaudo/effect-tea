@@ -1,6 +1,6 @@
 ---
 name: premise-review
-description: How a review of the premises of @fgaudo/effect-tea is done: a reviewer that wrote none of the changes reads the invariants of docs/invariants.md, what they rest on (docs/premises.md) and the README's "Guarantees" against the code, and reproduces what it finds with a failing test; then what becomes of its findings, its leads and what it ruled out, and how a finding is fixed by its form. Use before a release, over the changes of the engine and of the testing tools since the last review, before 1.0, or when the author asks whether an invariant still holds.
+description: How a review of the premises of @fgaudo/effect-tea is done: a reviewer that wrote none of the changes reads the invariants of docs/invariants.md, what they rest on (docs/premises.md) and the guide's "Guarantees" against the code, and reproduces what it finds with a failing test; then what becomes of its findings, its leads and what it ruled out, and how a finding is fixed by its form. Use before a release, over the changes of the engine and of the testing tools since the last review, before 1.0, or when the author asks whether an invariant still holds.
 ---
 
 # A review of the premises
@@ -38,7 +38,7 @@ Start the reviewer with this brief, with its two places filled in:
 
 ```text
 Read AGENTS.md, docs/invariants.md and docs/premises.md first: the rules, the invariants and what they rest on bind
-you. The README's "Guarantees", and
+you. The guide's "Guarantees" (site/guide/guarantees.md), and
 "Testing" for the testing tools, say what the library promises a user.
 
 THE KIND OF BUG: a change takes away a condition an invariant or a guarantee needs, written or unwritten, and no
@@ -74,7 +74,7 @@ HOW:
    Effect's source, effect.website and its maintainers' answers rule out nothing. A property of src/interleaving.test.ts
    rules a suspect out only under the runs it made: run it with `numRuns` of a thousand at least, and name the seeds.
 5. While you read the code that keeps a row, note each place where it does otherwise than AGENTS.md,
-   docs/invariants.md or the README says, and each test whose name promises more than its assertions check.
+   docs/invariants.md or the guide says, and each test whose name promises more than its assertions check.
 
 RULES: fix nothing, and change no file other than the tests that reproduce a finding. Mark each such test
 `test.failing`, with a name that says what should hold, so that the suite stays green until the fix. Commit the tests
@@ -88,7 +88,7 @@ YOUR REPORT, the deliverable, in this order:
 - The suspects you ruled out, each with its reason in a line: the test (with its runs and seeds), or the
   documentation, with the declaration or the section of the specification.
 - Every suspect you noticed and did not check, with the sequence you suspect, and why it is left.
-- Each place where the code does otherwise than AGENTS.md, docs/invariants.md or the README says, and each test
+- Each place where the code does otherwise than AGENTS.md, docs/invariants.md or the guide says, and each test
   whose name says more than it checks, with the file and line.
 Your last message says the branch, the commit and the findings in a few lines.
 ```
@@ -122,6 +122,6 @@ Your last message says the branch, the commit and the findings in a few lines.
   session of its own, and run it: a test that fails makes it a finding, one that passes rules it out. A lead no test
   can reach yet goes under "Premises that no test reaches yet" in `docs/premises.md`, with what would decide it, once
   the owner has agreed to it.
-- A place where the code does otherwise than `AGENTS.md`, `docs/invariants.md` or the README says is a bug of the
-  one or of the other: the README is a specification, and its prose changes as `AGENTS.md` says.
+- A place where the code does otherwise than `AGENTS.md`, `docs/invariants.md` or the guide says is a bug of the
+  one or of the other: the guide is a specification, and its prose changes as `AGENTS.md` says.
 - Do not merge the reviewer's branch whole: take what the points above bring to `main`, and nothing else.

@@ -69,7 +69,7 @@ describe('dispatchTo', () => {
     }
   })
 
-  // A list whose rows get ids that are never reused, as the README advises.
+  // A list whose rows get ids that are never reused, as the guide advises.
   // Two hundred full collections take about six seconds on V8 (`bun run test:node`).
   test('keeps nothing for the ids nobody holds', async () => {
     const { dispatch } = recording()

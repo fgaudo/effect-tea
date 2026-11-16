@@ -60,7 +60,7 @@ produces; a call of the test's decides, and waits.** Five rules:
    and those cancelled are read there, before anything of the end: what happens while the end waits changes nothing
    of them.
 4. **A scenario that returned lets the loop finish what it was offered before**, in order, and only then stops it:
-   a message once sent is applied whole, as the README says of a sender that is interrupted, taken by the loop yet
+   a message once sent is applied whole, as the guide says of a sender that is interrupted, taken by the loop yet
    or not. The commands pending are read after it, so one that such a message starts fails the rehearsal, as any
    command left pending does. A scenario that failed, or was interrupted, stops the loop at once, as today: its
    result is the failure, and nothing is read.
@@ -80,7 +80,7 @@ of the library is replaced, never mutated.
   changelog entry says so.
 - **A command under way is released in the rehearsal's scope**, not in the fiber of the test's that ran it: as the
   rehearsal ends, by the end; when its `run` is interrupted, by that call, which waits for it as today.
-- **A `run` made once the rehearsal has ended is interrupted before it calls `runCommand`**, as the README says of
+- **A `run` made once the rehearsal has ended is interrupted before it calls `runCommand`**, as the guide says of
   what such a fiber asks for.
 - **A command whose `run` is interrupted as it answers** may have its answer applied and be counted as cancelled
   too: the rehearsal fails either way.
@@ -88,7 +88,7 @@ of the library is replaced, never mutated.
 `run` takes its command at once, as today, and waits for no step of the loop: a test whose release waits for what a
 command gives ends, as it does today. A release that never ends keeps the rehearsal from ending, as today, and as it
 keeps the run and `drive`: the loop waits for it in the step, where today the end waits for it once it has interrupted
-the step. The README says that a message waits for the release of the subscriptions it stopped, and says no more of
+the step. The guide says that a message waits for the release of the subscriptions it stopped, and says no more of
 it: nothing is added, so that no rule forbids a bound on that wait later.
 
 ## Plan
@@ -157,10 +157,10 @@ untouched and the seven tests of `rehearse.test.ts` without their mark.
   whose effect the end does not reach. Not spiked.
 - **A request the loop has not taken fails the rehearsal**: the second spike (74b271f). A step the loop took, under
   way as the scenario returns, is accepted by two tests, so which side of the take a request is on would decide, and
-  the scheduler draws that line, not the test. It also adds a way to fail that the README does not know.
+  the scheduler draws that line, not the test. It also adds a way to fail that the guide does not know.
 - **A request the loop has not taken is dropped**, as today, and as the run drops what its queue holds as it ends.
   The run ends because whoever runs it interrupts it; a scenario that returns is a test that says it is done, and
-  the README promises that what it sent is applied whole.
+  the guide promises that what it sent is applied whole.
 - **A subscription's message applied as it is sent**, with no call waiting, as the run applies it. Simpler, and it
   breaks "nothing happens unless the test does it": a `hearNext` interrupted would change the state later, by
   itself. Rejected.

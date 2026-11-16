@@ -181,7 +181,7 @@ type Event =
   | Readonly<{ _tag: 'Spanned'; parent: Opt.Option<string> }>
   | Readonly<{ _tag: 'Searching'; text: string }>
   | Readonly<{ _tag: 'SearchStopped'; text: string }>
-  // `released`: what died is a release, whose defect counts only once the scope it is in has closed (README), which
+  // `released`: what died is a release, whose defect counts only once the scope it is in has closed (guide), which
   // the scenario does not see.
   | Readonly<{ _tag: 'Died'; where: Where; how: Death; defect: string; released: boolean }>
 

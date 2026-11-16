@@ -69,7 +69,7 @@ export type Message = Data.TaggedEnum<{
   DragEnded: object
 }>
 
-// Not exported, as the README's "Model" says: a view sends only the messages its model holds, and builds none.
+// Not exported, as the guide's "Model" says: a view sends only the messages its model holds, and builds none.
 const Message = Data.taggedEnum<Message>()
 
 // What the subscription of a drag sends: each move of the pointer, then the release, its last message.

@@ -4,10 +4,10 @@
 // each text input on screen with `drawn` after the frame. snabbdom's handlers are plain callbacks, so they run it with
 // `send`; it patches synchronously, so each input is settled right after the patch. An input is a native text
 // `<input>`, whose element changes only by what the user types, or by this bridge.
-// A minimal example to start from, as the README's "View" says: it settles native text fields alone, in the base case,
-// and does not handle a value the element changes by itself. Another native widget would be connected by hand with
-// `typed` and `drawn` where it meets their condition, or replaced by one the program draws; a root in a shadow tree and
-// a form's reset are left to a bridge that needs them.
+// A minimal example to start from, as the guide's "Writing a bridge" says: it settles native text fields alone, in
+// the base case, and does not handle a value the element changes by itself. Another native widget would be connected
+// by hand with `typed` and `drawn` where it meets their condition, or replaced by one the program draws; a root in a
+// shadow tree and a form's reset are left to a bridge that needs them.
 // The run's dispatch, and each child's from `dispatchTo`, is the same in every frame, so a view can be
 // memoized with snabbdom's own `thunk`, its dispatch among the arguments.
 // Checked with snabbdom 3.6.4.

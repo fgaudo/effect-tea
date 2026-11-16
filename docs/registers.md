@@ -40,7 +40,7 @@ with it the split this question was about: a write names the value it was writte
 place holds another, whoever made that value. `src/input.test.ts` holds each case of the list below, in "a key typed
 into an input its parent has since replaced": what was typed before the parent started the draft again, or brought a
 kept one back, or before another row came to the same id, is rejected. What is left of it are the two limits the
-README declares, each tested there as a pure piece: a write over a value that came back is stored, and a fixed
+guide declares, each tested there as a pure piece: a write over a value that came back is stored, and a fixed
 message drawn for an old instance reaches the new one. The rest of this section is the question as it was asked.
 
 **The question.** The rule of a revision is applied after each step of the program that holds the input, and a
@@ -126,7 +126,7 @@ replaces the field or holds the value until it chooses to. A drag the program dr
 message of the model, its moves are messages of a subscription keyed by the state of dragging, and no input is
 involved; a native range stays an input. A source that streams while the user types, as a dictation sending partial
 results, may belong to the control instead, which writes what it hears as the user types it, at the revision of the
-frame on screen: a recipe of the bridges' tests, not of the examples nor of the README ("A source that belongs to the
+frame on screen: a recipe of the bridges' tests, not of the examples nor of the guide ("A source that belongs to the
 control").
 
 **The name: decided, `composition`.** The owner chose, after a sixth review by Fable 5.2 ("The name"), to rename
@@ -507,7 +507,7 @@ above for the first two.
 - **A register inside a child**, addressed by nested `dispatchTo`, and **several registers in one form**: not tried.
 - **What a stale write is.** The spike rejects a write into a replaced revision, so `onIgnored` hears it. Whether that
   is the rejection of "the message does not apply in the state", or a third way for what arrives too late
-  (the README's "Rejections and defects" now says the three as one choice).
+  (the guide's "Rejections and defects" now says the three as one choice).
 - **The testing tools.** A typed writer (way 5), and whether `dispatchViolations` is asked anything of a register:
   that it exists where `update` would read it, say.
 - **`inert-steps.md`.** Its decision holds and loses the exemption for an unchanged text; its open question on
@@ -872,7 +872,7 @@ port: only the first is still open, and each of the others says what closed it.
   Overtaken by the port: a write is no message a model holds, so no test gives one to the tool, and a model holds an
   input's plain value, which names no input to check.
 - **The recipe "a model is data"** in the README's "Testing", with the way of the second opinion: the same seed drawn
-  twice gives two equal states built apart, with no copy written by hand. Done since: the README's "Testing" has it,
+  twice gives two equal states built apart, with no copy written by hand. Done since: the guide's "Testing" has it,
   and `examples/form/form.test.ts` its test.
 - **A better name than `parent()`** for a program that has inputs and no children. It is decided before a release,
   since it stays in the API. Decided since: `composition` ("The name").

@@ -6,7 +6,7 @@ description: How a change of the engine of @fgaudo/effect-tea or of a testing to
 # Change the engine or a testing tool
 
 The engine is `core.ts`, `shell.ts`, `engine.ts`, `run.ts`, `compose.ts`, `dispatch.ts`, `input.ts` and `log.ts`; the
-testing tools are `src/testing/`. What a user may rely on is the README's "Guarantees"; how the engine keeps each one,
+testing tools are `src/testing/`. What a user may rely on is the guide's "Guarantees"; how the engine keeps each one,
 and what a change must not undo, is [`docs/invariants.md`](../../../docs/invariants.md); what they rest on of Effect
 and of the JavaScript engine, each with what checks it, is [`docs/premises.md`](../../../docs/premises.md).
 
@@ -72,7 +72,7 @@ a review.
 
 - `docs/invariants.md`, where the change alters how an invariant is kept or the names it cites, and
   `docs/premises.md`, where it adds, drops or moves a premise or renames a test one names.
-- The README, where a promise changes: it is a specification, and its prose changes as `AGENTS.md` says.
+- The guide (`site/guide/`), where a promise changes: it is a specification, and its prose changes as `AGENTS.md` says.
 - A changelog entry, where a consumer can notice the change ([`release`](../release/SKILL.md)).
 
 ## Checks
