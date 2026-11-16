@@ -12,7 +12,7 @@ import * as Stream from 'effect/Stream'
 import { collectGarbage } from '../test/gc.test_helper.ts'
 import type { Subscription } from './subscription.ts'
 import { andThen, forEach, reject, type Step } from './update.ts'
-import { type Dispatch, dispatchTo } from './dispatch.ts'
+import { type Dispatch, forwardTo } from './dispatch.ts'
 import { composition } from './compose.ts'
 import { CompositionDefect } from './defect.ts'
 import {
@@ -184,9 +184,9 @@ const asProgram = app as unknown as Program<
   { state: ParentState; model: Model; message: AppMessage; command: unknown }
 >
 
-const left = (frame: Frame<Model, AppMessage>) => dispatchTo(frame.dispatch, 'Left')
+const left = (frame: Frame<Model, AppMessage>) => forwardTo(frame.dispatch, 'Left')
 
-/** A dispatch that keeps what it is sent, for `dispatchTo` to wrap. */
+/** A dispatch that keeps what it is sent, for `forwardTo` to wrap. */
 const recording = <Message>() => {
   const sent: Array<Message> = []
   const dispatch: Dispatch<Message> = (message) => Effect.sync(() => sent.push(message))
@@ -208,18 +208,18 @@ describe('what a child\'s view sends', () => {
 
   test('a child\'s dispatch wraps its messages as its parent receives them, at every level', () => {
     const { sent, dispatch } = recording<MessageOf<typeof lists>>()
-    const row = dispatchTo(dispatchTo(dispatch, 'Lists', 'A'), 'Rows', 1)
+    const row = forwardTo(forwardTo(dispatch, 'Lists', 'A'), 'Rows', 1)
     Effect.runSync(row(CounterMessage.Increment()))
-    Effect.runSync(dispatchTo(dispatchTo(dispatch, 'Lists', 'B'), 'Rows', 1)(CounterMessage.Increment()))
+    Effect.runSync(forwardTo(forwardTo(dispatch, 'Lists', 'B'), 'Rows', 1)(CounterMessage.Increment()))
     expect(sent).toEqual(['A', 'B'].map((id) => ({
       _tag: 'Lists',
       id,
       message: { _tag: 'Rows', id: 1, message: CounterMessage.Increment() },
     })))
-    expect(dispatchTo(dispatchTo(dispatch, 'Lists', 'A'), 'Rows', 1)).toBe(row)
-    expect(dispatchTo(dispatchTo(dispatch, 'Lists', 'A'), 'Rows', 2)).not.toBe(row)
+    expect(forwardTo(forwardTo(dispatch, 'Lists', 'A'), 'Rows', 1)).toBe(row)
+    expect(forwardTo(forwardTo(dispatch, 'Lists', 'A'), 'Rows', 2)).not.toBe(row)
     // @ts-expect-error: a name that is no child's gives nothing to send with.
-    expect(() => dispatchTo(dispatch, 'Rows')(CounterMessage.Increment())).toBeDefined()
+    expect(() => forwardTo(dispatch, 'Rows')(CounterMessage.Increment())).toBeDefined()
   })
 
   test('a double tap acts once: the second message is rejected, and ignored', async () => {
@@ -380,8 +380,8 @@ describe('compose', () => {
     const model = app.makeModel({ ...app.init.state, maybeRight: Opt.some(app.init.state.left) })
     expect(Opt.getOrThrow(model.maybeRight)).toBe(model.left)
     const { sent, dispatch } = recording<AppMessage>()
-    Effect.runSync(dispatchTo(dispatch, 'Left')(model.left.increment))
-    Effect.runSync(dispatchTo(dispatch, 'Right')(model.left.increment))
+    Effect.runSync(forwardTo(dispatch, 'Left')(model.left.increment))
+    Effect.runSync(forwardTo(dispatch, 'Right')(model.left.increment))
     expect(sent).toEqual([
       { _tag: 'Left', message: CounterMessage.Increment() },
       { _tag: 'Right', message: CounterMessage.Increment() },
@@ -447,7 +447,7 @@ describe('children by id', () => {
     const [first, second] = list.makeModel(rows(1, 2))
     expect(first?.model).toBe(second?.model)
     const { sent, dispatch } = recording<MessageOf<typeof list>>()
-    Effect.runSync(dispatchTo(dispatch, 'Rows', 2)(CounterMessage.Increment()))
+    Effect.runSync(forwardTo(dispatch, 'Rows', 2)(CounterMessage.Increment()))
     expect(sent).toEqual([{ _tag: 'Rows', id: 2, message: CounterMessage.Increment() }])
   })
 
@@ -495,7 +495,7 @@ describe('children by id', () => {
             const index = seen.length - 1
             const id = index === bumpingB ? 'B' : 'A'
             const counter = frame.model.find((list) => list.id === id)?.rows[0]?.model
-            const send = dispatchTo(dispatchTo(frame.dispatch, 'Lists', id), 'Rows', 1)
+            const send = forwardTo(forwardTo(frame.dispatch, 'Lists', id), 'Rows', 1)
             return index < frames && counter !== undefined ? send(counter.increment) : Effect.void
           }),
           Stream.take(frames + 1),

@@ -8,7 +8,7 @@
 // the base case, and does not handle a value the element changes by itself. Another native widget would be connected
 // by hand with `edited` and `drawn` where it meets their condition, or replaced by one the program draws; a root in a
 // shadow tree and a form's reset are left to a bridge that needs them.
-// The run's dispatch, and each child's from `dispatchTo`, is the same in every frame, so a view can be
+// The run's dispatch, and each child's from `forwardTo`, is the same in every frame, so a view can be
 // memoized with snabbdom's own `thunk`, its dispatch among the arguments.
 // Checked with snabbdom 3.6.4.
 import { type Dispatch, drawn, edited, type Frame, type Shown, type Written } from '@fgaudo/effect-tea'
@@ -41,7 +41,7 @@ const lives = new WeakMap<Element, Live>()
 // #region shows
 /**
  * snabbdom's data for a text input that shows an input of the program, `value`, through the input's own dispatch
- * (`dispatchTo(dispatch, 'Name')`): what is typed is written over what the element showed, and the element takes the
+ * (`forwardTo(dispatch, 'Name')`): what is typed is written over what the element showed, and the element takes the
  * program's value only when the state has moved on without it (`drawn`). It needs no key: the element stays, with its
  * focus, while the program changes what it shows.
  */

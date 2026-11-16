@@ -113,7 +113,7 @@ const madeFor = (dispatch: object, name: string): Made => {
   return byId
 }
 
-/** How many entries `dispatchTo` keeps for the children `name` of `dispatch`: for the tests of its cleanup only. */
+/** How many entries `forwardTo` keeps for the children `name` of `dispatch`: for the tests of its cleanup only. */
 export const entriesOf = (dispatch: object, name: string): number => {
   let count = 0
   for (const bucket of made.get(dispatch)?.get(name)?.values() ?? []) count += bucket.length
@@ -121,7 +121,7 @@ export const entriesOf = (dispatch: object, name: string): number => {
 }
 
 /**
- * The dispatch of a child, or of an input, for its view.
+ * The dispatch of a child, or of an input, for its view: it forwards each message to `dispatch`, wrapped.
  *
  * @param dispatch - The dispatch of the program that declares the child or the input.
  * @param name - The child's or the input's name, as a literal.
@@ -132,13 +132,13 @@ export const entriesOf = (dispatch: object, name: string): number => {
  *
  * @example
  * ```ts
- * thunk('main', 'clock', clockView, [model.clock, dispatchTo(dispatch, 'Clock')])
+ * thunk('main', 'clock', clockView, [model.clock, forwardTo(dispatch, 'Clock')])
  * ```
  *
  * @remarks
  * From the guide, "Composition", "A child's view gets a dispatch of its own":
  *
- * **A child's view gets a dispatch of its own.** It sends the child's own messages: `dispatchTo(dispatch, 'Clock')`
+ * **A child's view gets a dispatch of its own.** It sends the child's own messages: `forwardTo(dispatch, 'Clock')`
  * wraps them as the parent receives them.
  *
  * From the guide, "Composition", "That dispatch is the same function in every frame":
@@ -148,12 +148,12 @@ export const entriesOf = (dispatch: object, name: string): number => {
  *
  * From the guide, "Composition", "A grandchild's dispatch is made from its parent's":
  *
- * **A grandchild's dispatch is made from its parent's**: `dispatchTo(dispatchTo(dispatch, 'Home'), 'Products')`. A view
+ * **A grandchild's dispatch is made from its parent's**: `forwardTo(forwardTo(dispatch, 'Home'), 'Products')`. A view
  * usually writes it in two steps, each view taking the dispatch its parent gave it.
  *
  * From the guide, "Composition", "`children.Row(state, id)` is a row's model":
  *
- * **`children.Row(state, id)` is a row's model**, and `dispatchTo(dispatch, 'Row', id)` its dispatch.
+ * **`children.Row(state, id)` is a row's model**, and `forwardTo(dispatch, 'Row', id)` its dispatch.
  *
  * From the guide, "Composition", "Ids are compared by value,":
  *
@@ -163,11 +163,11 @@ export const entriesOf = (dispatch: object, name: string): number => {
  * From the guide, "Inputs the user types into", "The view writes over the value its model holds":
  *
  * **The view writes over the value its model holds**: `{ _tag: 'Written', was: model.name, value: text }`, through
- * `dispatchTo(dispatch, 'Name')`.
+ * `forwardTo(dispatch, 'Name')`.
  */
 // `Name` is checked by the result rather than by a constraint on `Message`: with such a constraint, a dispatch that
-// is itself a call of `dispatchTo` (a grandchild's) would make `Message` be inferred as `unknown`.
-export const dispatchTo = <Message, Name extends string>(
+// is itself a call of `forwardTo` (a grandchild's) would make `Message` be inferred as `unknown`.
+export const forwardTo = <Message, Name extends string>(
   dispatch: Dispatch<Message>,
   name: Name,
   ...id: IdOf<Message, Name>

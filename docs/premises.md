@@ -311,7 +311,7 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   Clock.Clock keeps real time where a TestClock is the clock of the context", which fails, by the test's own timeout,
   with the `TestClock` as the clock it sleeps on.
 - **A collection reclaims what nobody holds, and a `FinalizationRegistry` then calls back for each target it
-  reclaimed**, which is how the cache of `dispatchTo` forgets the entries of ids nobody shows any more
+  reclaimed**, which is how the cache of `forwardTo` forgets the entries of ids nobody shows any more
   (`forgotten` in `dispatch.ts`), so that they do not pile up for as long as the run lasts (`invariants.md`, "A
   child's dispatch is the same while anyone holds it"): "entriesLeft" in `dispatch.test.ts` rests on it, and so do the
   tests of `compose.test.ts` that ask for a collection to reclaim a child's model. ECMAScript requires neither: a

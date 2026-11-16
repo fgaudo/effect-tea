@@ -18,7 +18,7 @@ import fc from 'fast-check'
 import { idle, prioritizedSchedules, unpreempted } from '../test/scheduled.test_scheduler.ts'
 import { composition } from './compose.ts'
 import { type DefectSite, ProgramDefect } from './defect.ts'
-import { type Dispatch, dispatchTo } from './dispatch.ts'
+import { type Dispatch, forwardTo } from './dispatch.ts'
 import type { Applied, Ignored } from './engine.ts'
 import type { Program } from './program.ts'
 import { type Frame, run } from './run.ts'
@@ -472,7 +472,7 @@ const act: fc.Arbitrary<Act> = fc.record({
 
 /** What the user types into the note drawn in `model`: a letter more, or one less. */
 const typing = (model: Model, pick: number): Control => (dispatch) =>
-  dispatchTo(dispatch, 'Note')({
+  forwardTo(dispatch, 'Note')({
     _tag: 'Written',
     was: model.note,
     value: pick % 3 === 0 ? model.note.slice(0, -1) : `${model.note}${'ab'[pick % 2]}`,
@@ -489,7 +489,7 @@ const controls = (model: Model, pick: number): ReadonlyArray<Control> => [
   ...model.rows.flatMap(({ id, remove, row }) => [
     (dispatch: Dispatch<Message>) => dispatch(remove),
     ...[...Arr.getSomes([row.work, row.mute, row.listen]), row.poke].map((message): Control => (dispatch) =>
-      dispatchTo(dispatch, 'Rows', id)(message)
+      forwardTo(dispatch, 'Rows', id)(message)
     ),
   ]),
 ]

@@ -209,7 +209,7 @@ testing tools.
   runs, or one program as two children), is lifted again: it costs time, never a wrong place. They need the state
   to be an object, which every program keeps (above): never add a cache for primitive states, which nothing could
   let go of.
-- **A child's dispatch is the same while anyone holds it** (`dispatchTo` in `dispatch.ts`): kept weakly by its
+- **A child's dispatch is the same while anyone holds it** (`forwardTo` in `dispatch.ts`): kept weakly by its
   parent's dispatch, its name and its id (compared with `Equal`, as subscription keys are), and removed by a
   `FinalizationRegistry` once collected. Never hold them strongly: ids that are never reused, as the guide
   advises, would pile up for as long as the run lasts.

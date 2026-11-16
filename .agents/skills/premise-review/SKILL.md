@@ -19,7 +19,7 @@ the documentation of a stable API, or a test for what is not documented.
 
 1. Choose what the review reads: the invariants, premises and guarantees that the changes since the last review touch
    (`git log <the last review's commit>..main`: the last review is the commit that brought its findings to `main`), by
-   the modules they changed and the names those cite (`reconcile`, `diesIn`, `dispatchTo`, `modelsOf`), or all of
+   the modules they changed and the names those cite (`reconcile`, `diesIn`, `forwardTo`, `modelsOf`), or all of
    them before 1.0. The author may name others. A review is not run after each change: changes are not held up for
    it, and it reads them together.
 2. The reviewer wrote none of the changes. Start it as a session in a worktree of its own, so that its failing tests

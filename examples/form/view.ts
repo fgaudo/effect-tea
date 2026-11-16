@@ -1,4 +1,4 @@
-import { dispatchTo } from '@fgaudo/effect-tea'
+import { forwardTo } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
 import { h } from 'snabbdom'
 import { onClick, shows, type View } from '../snabbdom.ts'
@@ -10,7 +10,7 @@ export const view: View<Model, Message> = (model, dispatch) => {
     // The same element throughout: the bridge gives it the name when the program changes it, and writes what is
     // typed over what it showed. Disabled while saving, so that nothing is typed into it.
     h('input', {
-      ...shows(model.name, dispatchTo(dispatch, 'Name')),
+      ...shows(model.name, forwardTo(dispatch, 'Name')),
       props: { disabled: editor._tag === 'Saving', placeholder: 'A name' },
     }),
     // snabbdom's props module never removes a prop: the enabled button sets `disabled` too.

@@ -4,7 +4,7 @@
 // `disabled` to each other; then the premises of the bridge on snabbdom (`docs/premises.md`).
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
-import { type Dispatch, dispatchTo, type MessageOf, type ModelOf, run } from '@fgaudo/effect-tea'
+import { type Dispatch, forwardTo, type MessageOf, type ModelOf, run } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import { eventListenersModule, h, init, propsModule, styleModule, thunk, type VNode } from 'snabbdom'
 import {
@@ -44,7 +44,7 @@ type Own = 'SendClicked' | 'DiscardClicked'
 
 const draftView = (model: ModelOf<typeof draft>, dispatch: Dispatch<MessageOf<typeof draft>>): VNode =>
   h('form', [
-    h('input', shows(model.text, dispatchTo(dispatch, 'Text'))),
+    h('input', shows(model.text, forwardTo(dispatch, 'Text'))),
     h('button', { props: { type: 'button' }, on: onClick<Own>('SendClicked', dispatch) }, 'Send'),
     h('button', { props: { type: 'button' }, on: onClick<Own>('DiscardClicked', dispatch) }, 'Discard'),
     h('output', model.text),
@@ -53,14 +53,14 @@ const draftView = (model: ModelOf<typeof draft>, dispatch: Dispatch<MessageOf<ty
 const deskView: View<ModelOf<typeof desk>, MessageOf<typeof desk>> = (model, dispatch) =>
   h('main', [
     // Skipped while the draft's state is the same object: the bridge settles its input all the same.
-    thunk('form', 'draft', draftView, [model.draft, dispatchTo(dispatch, 'Draft')]),
+    thunk('form', 'draft', draftView, [model.draft, forwardTo(dispatch, 'Draft')]),
     h('button', { on: onClick<MessageOf<typeof desk>>('Kept', dispatch) }, 'Keep'),
     h('button', { on: onClick<MessageOf<typeof desk>>('Undone', dispatch) }, 'Undo'),
     h('ul', model.sent.map((text) => h('li', text))),
   ])
 
 const noteView: View<ModelOf<typeof note>, MessageOf<typeof note>> = (model, dispatch) =>
-  h('main', [h('input', shows(model, dispatchTo(dispatch, 'Note')))])
+  h('main', [h('input', shows(model, forwardTo(dispatch, 'Note')))])
 
 // Each result is put into the element on screen, and written through its own listener.
 const dictatedView = (source: Dictation): typeof noteView => {
@@ -68,7 +68,7 @@ const dictatedView = (source: Dictation): typeof noteView => {
   return (model, dispatch) =>
     h('main', [
       h('input', {
-        ...shows(model, dispatchTo(dispatch, 'Note')),
+        ...shows(model, forwardTo(dispatch, 'Note')),
         hook: {
           insert: (vnode) => {
             const input = vnode.elm as HTMLInputElement
@@ -93,7 +93,7 @@ const dictatedView = (source: Dictation): typeof noteView => {
 const lidView: View<ModelOf<typeof lid>, MessageOf<typeof lid>> = (model, dispatch) =>
   model._tag === 'Opened'
     ? h('main', [
-      h('input', { ...shows(model.note, dispatchTo(dispatch, 'Note')), props: { readOnly: false } }),
+      h('input', { ...shows(model.note, forwardTo(dispatch, 'Note')), props: { readOnly: false } }),
       h('button', { on: onClick<MessageOf<typeof lid>>(model.close, dispatch) }, 'Close'),
       h('output', model.note),
     ])
@@ -126,7 +126,7 @@ describe('an input the style module keeps on screen as it fades', () => {
       model._tag === 'Opened'
         ? h('main', [
           h('input', {
-            ...shows(model.note, dispatchTo(dispatch, 'Note')),
+            ...shows(model.note, forwardTo(dispatch, 'Note')),
             style: { opacity: '1', transition: 'opacity 1s', remove: { opacity: '0' } },
           }),
           h('button', { on: onClick<MessageOf<typeof lid>>(model.close, dispatch) }, 'Close'),

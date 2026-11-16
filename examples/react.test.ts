@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import {
   type Dispatch,
-  dispatchTo,
+  forwardTo,
   type MessageOf,
   type ModelOf,
   ProgramDefect,
@@ -79,7 +79,7 @@ const DraftView = ({ model, dispatch }: DraftProps): ReactNode =>
   createElement(
     'form',
     null,
-    createElement(bridge.Shows, { value: model.text, dispatch: dispatchTo(dispatch, 'Text') }),
+    createElement(bridge.Shows, { value: model.text, dispatch: forwardTo(dispatch, 'Text') }),
     drawButton('Send', bridge.onClick<Own>('SendClicked', dispatch)),
     drawButton('Discard', bridge.onClick<Own>('DiscardClicked', dispatch)),
     createElement('output', null, model.text),
@@ -89,7 +89,7 @@ const deskView: View<ModelOf<typeof desk>, MessageOf<typeof desk>> = (model, dis
   createElement(
     'main',
     null,
-    createElement(DraftView, { model: model.draft, dispatch: dispatchTo(dispatch, 'Draft') }),
+    createElement(DraftView, { model: model.draft, dispatch: forwardTo(dispatch, 'Draft') }),
     drawButton('Keep', bridge.onClick<MessageOf<typeof desk>>('Kept', dispatch)),
     drawButton('Undo', bridge.onClick<MessageOf<typeof desk>>('Undone', dispatch)),
     createElement('ul', null, ...model.sent.map((text, index) => createElement('li', { key: index }, text))),
@@ -116,7 +116,7 @@ const volumeView: View<VolumeModel, VolumeMessage> = (model, dispatch) =>
   )
 
 const noteView: View<ModelOf<typeof note>, MessageOf<typeof note>> = (model, dispatch) =>
-  createElement('main', null, createElement(bridge.Shows, { value: model, dispatch: dispatchTo(dispatch, 'Note') }))
+  createElement('main', null, createElement(bridge.Shows, { value: model, dispatch: forwardTo(dispatch, 'Note') }))
 
 // `Shows` takes no ref: the element is found inside a wrapper. It listens from the wrapper's ref callback, a new one in
 // every frame, which has run when `flushSync` returns (`docs/premises.md`), so that a test dictates with no turn for
@@ -134,7 +134,7 @@ const dictatedView = (source: Dictation): typeof noteView => (model, dispatch) =
             if (shown !== null) type(shown, text)
           }),
       },
-      createElement(bridge.Shows, { value: model, dispatch: dispatchTo(dispatch, 'Note') }),
+      createElement(bridge.Shows, { value: model, dispatch: forwardTo(dispatch, 'Note') }),
     ),
   )
 
@@ -143,7 +143,7 @@ const lidView: View<ModelOf<typeof lid>, MessageOf<typeof lid>> = (model, dispat
     ? createElement(
       'main',
       null,
-      createElement(bridge.Shows, { value: model.note, dispatch: dispatchTo(dispatch, 'Note') }),
+      createElement(bridge.Shows, { value: model.note, dispatch: forwardTo(dispatch, 'Note') }),
       drawButton('Close', bridge.onClick<MessageOf<typeof lid>>(model.close, dispatch)),
       createElement('output', null, model.note),
     )

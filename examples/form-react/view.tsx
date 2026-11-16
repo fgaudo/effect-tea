@@ -1,4 +1,4 @@
-import { dispatchTo } from '@fgaudo/effect-tea'
+import { forwardTo } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
 import type { Message, Model } from '../form/form.ts'
 import { onClick, Shows, type View } from '../react.ts'
@@ -11,7 +11,7 @@ export const view: View<Model, Message> = (model, dispatch) => {
       {/* The same element throughout, as with snabbdom: disabled while saving. */}
       <Shows
         value={model.name}
-        dispatch={dispatchTo(dispatch, 'Name')}
+        dispatch={forwardTo(dispatch, 'Name')}
         disabled={editor._tag === 'Saving'}
         placeholder="A name"
       />

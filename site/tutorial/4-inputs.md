@@ -37,7 +37,7 @@ The model holds the name as it is, for the view to draw the input from and to wr
 ## The view
 
 The view draws the name with the bridge's `shows`, over a native `<input>`, through the input's own dispatch from
-`dispatchTo`. The bridge writes what is typed over what the element showed, and gives the element the program's value
+`forwardTo`. The bridge writes what is typed over what the element showed, and gives the element the program's value
 only once the state has moved on without it. The element needs no key: the bridge keeps it, and its focus, while the
 program changes what it shows (see
 [the element on screen](../guide/inputs-the-user-types-into.md#the-element-on-screen)).

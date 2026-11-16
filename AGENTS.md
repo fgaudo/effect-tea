@@ -52,7 +52,7 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   has the costs of both and keeps neither promise: users still write the representation everywhere else, so it
   cannot change. A type moves to the library's side only when the library must do with it what Effect alone
   cannot: inspect it in tests without running it, keep it the same across frames by a cache of its own (as
-  `dispatchTo` does for a dispatch), or enforce at construction what the type cannot. A subscription is already
+  `forwardTo` does for a dispatch), or enforce at construction what the type cannot. A subscription is already
   inspected by its key: that is why `Subscription` stays Effect's.
 - **A function earns its place by doing what Effect alone cannot**, or by being the one place where a rule of
   the library is applied (`reject`, `composition`). A name over a composition of Effect's combinators is not one,
@@ -204,7 +204,7 @@ this summary says less. What every change keeps, an example's and a document's t
   - **contracts**: one program and its inputs given alike to each testing tool and to the run
     (`src/testing/contract.test.ts`, where a difference found is a `test.failing` until it is fixed).
   - **the boundary of a run**, the run's or a testing tool's: its lifecycle, scopes, interruption and defects, what
-    it holds and lets go, what a tool fails on (`run.test.ts`, `engine.test.ts`, the cache of `dispatchTo` in
+    it holds and lets go, what a tool fails on (`run.test.ts`, `engine.test.ts`, the cache of `forwardTo` in
     `dispatch.test.ts`, a parent's subscriptions in a run in `compose.test.ts`, each tool's own file in
     `src/testing/`). A test of a premise (`docs/premises.md`) is of this kind, a test of its own that checks Effect or
     the JavaScript engine and nothing of the library (`test/premises.test.ts`), and so is one of the scheduler of the

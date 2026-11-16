@@ -9,7 +9,7 @@ import { reject, type Transition } from './update.ts'
 /**
  * A value written into an input, in place of the value the input showed.
  *
- * A view sends it through the input's dispatch, `dispatchTo(dispatch, 'Name')`. A bridge makes it with `edited`. A
+ * A view sends it through the input's dispatch, `forwardTo(dispatch, 'Name')`. A bridge makes it with `edited`. A
  * view without a bridge, and a test, write it by hand, over the value the model holds.
  *
  * @example

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { dispatchTo, reject, run, subscriptionsOf } from '@fgaudo/effect-tea'
+import { forwardTo, reject, run, subscriptionsOf } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
@@ -143,7 +143,7 @@ describe('list', () => {
             if (first === undefined) return dispatch(model.add)
             seconds = first.model.seconds
             return first.model.watch._tag === 'Stopped'
-              ? dispatchTo(dispatch, 'Stopwatch', first.id)(first.model.watch.start)
+              ? forwardTo(dispatch, 'Stopwatch', first.id)(first.model.watch.start)
               : Effect.void
           }),
           Stream.takeUntil(({ model }) => (model.stopwatches[0]?.model.seconds ?? 0) >= 3),

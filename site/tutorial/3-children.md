@@ -41,7 +41,7 @@ rejected. A parent never reads a child's state to decide: the parent here only a
 
 ## The view
 
-Each timer is drawn by `timerView` with a dispatch of its own, from `dispatchTo`, which wraps the timer's messages
+Each timer is drawn by `timerView` with a dispatch of its own, from `forwardTo`, which wraps the timer's messages
 as the parent receives them. It is the same function in every frame, so snabbdom's `thunk` draws again only the
 timer whose model changed (see [children's views](../guide/composition.md#childrens-views)):
 

@@ -1,6 +1,6 @@
 // `messagesSentBy`, the snabbdom bridge's own way to find what a view sends, does what its comment says, without a DOM.
 import { describe, expect, test } from 'bun:test'
-import { composition, type Dispatch, dispatchTo, type MessageOf, type ModelOf } from '@fgaudo/effect-tea'
+import { composition, type Dispatch, forwardTo, type MessageOf, type ModelOf } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Optic from 'effect/Optic'
 import { h, thunk } from 'snabbdom'
@@ -18,7 +18,7 @@ describe('messagesSentBy', () => {
   const view: View<ReadonlyArray<number>, Message> = (ids, dispatch) =>
     h('div', [
       h('button', { on: { click: [send(dispatch, { _tag: 'Cleared' }), send(dispatch, { _tag: 'Saved' })] } }),
-      ...ids.map((id) => thunk('button', String(id), rowView, [id, dispatchTo(dispatch, 'Row', id)])),
+      ...ids.map((id) => thunk('button', String(id), rowView, [id, forwardTo(dispatch, 'Row', id)])),
     ])
 
   test('calls each listener of a list, in order', () => {
@@ -41,7 +41,7 @@ describe('messagesSentBy', () => {
       makeModel: (state) => state.name,
     })
     const nameView: View<ModelOf<typeof program>, MessageOf<typeof program>> = (model, dispatch) =>
-      h('main', [h('input', shows(model, dispatchTo(dispatch, 'Name')))])
+      h('main', [h('input', shows(model, forwardTo(dispatch, 'Name')))])
     expect(messagesSentBy(nameView, '')).toEqual([])
   })
 })

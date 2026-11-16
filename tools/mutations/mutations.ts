@@ -767,7 +767,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
-    name: "dispatchTo holds a child's dispatch strongly",
+    name: "forwardTo holds a child's dispatch strongly",
     file: 'src/dispatch.ts',
     from: 'const entry: Entry = { key, ref: new WeakRef(wrapping) }',
     to: 'const entry: Entry = { key, ref: { deref: () => wrapping } as never }',
@@ -778,7 +778,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
-    name: 'dispatchTo lets go of an entry whose dispatch is alive',
+    name: 'forwardTo lets go of an entry whose dispatch is alive',
     file: 'src/dispatch.ts',
     from: 'const at = bucket?.indexOf(entry) ?? -1',
     to: 'const at = bucket === undefined ? -1 : 0',
@@ -787,7 +787,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
-    name: "dispatchTo makes a child's dispatch anew each time",
+    name: "forwardTo makes a child's dispatch anew each time",
     file: 'src/dispatch.ts',
     from: '  if (found !== undefined) return found as ChildDispatch<Message, Name>\n',
     to: '',

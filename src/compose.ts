@@ -245,7 +245,7 @@ type Start<P, Command> = Readonly<{
  *
  * From the guide, "Composition", "A child's view gets a dispatch of its own":
  *
- * **A child's view gets a dispatch of its own.** It sends the child's own messages: `dispatchTo(dispatch, 'Clock')`
+ * **A child's view gets a dispatch of its own.** It sends the child's own messages: `forwardTo(dispatch, 'Clock')`
  * wraps them as the parent receives them.
  */
 type Handles<State, C, Command, Event> = {
@@ -865,7 +865,7 @@ export const composition = <T extends CompositionTypes>() => {
      *
      * From the guide, "Composition", "`children.Row(state, id)` is a row's model":
      *
-     * **`children.Row(state, id)` is a row's model**, and `dispatchTo(dispatch, 'Row', id)` its dispatch.
+     * **`children.Row(state, id)` is a row's model**, and `forwardTo(dispatch, 'Row', id)` its dispatch.
      *
      * From the guide, "Composition", "Ids are compared by value,":
      *
@@ -901,7 +901,7 @@ export const composition = <T extends CompositionTypes>() => {
      * From the guide, "Inputs the user types into", "The view writes over the value its model holds":
      *
      * **The view writes over the value its model holds**: `{ _tag: 'Written', was: model.name, value: text }`, through
-     * `dispatchTo(dispatch, 'Name')`.
+     * `forwardTo(dispatch, 'Name')`.
      */
     input: <A>(at: Optic.Optional<State, A>): InputAt<State, A> => ({ kind: 'input', ...placed({ at }) }),
     // Its external messages are checked where it is a child (`child`, `each`): here its own messages are still being

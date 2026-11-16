@@ -13,7 +13,7 @@ and of the JavaScript engine, each with what checks it, is [`docs/premises.md`](
 ## Before the change
 
 1. Read `docs/invariants.md` whole, and in `docs/premises.md` the rule after the list and the premises of what the
-   change touches (found by the names they cite: `reconcile`, `diesIn`, `scopedIn`, `dispatchTo`, `modelsOf`). Read
+   change touches (found by the names they cite: `reconcile`, `diesIn`, `scopedIn`, `forwardTo`, `modelsOf`). Read
    [`docs/rejected.md`](../../../docs/rejected.md) too: a change of design listed there is not proposed again
    without what its entry names under "Reopen if".
 2. List the premises the change rests on. Each is checked before the change is written, and never only reasoned:

@@ -294,6 +294,28 @@ answer, and saying so in the proposal.
   string would log a program's own text, `{ _tag: 'ToastShown', message: '<text>' }`, which the default must not.
   The guide says what it does; `describeMessage` shows more. *Reopen if* a wrapping the describer can tell from a
   program's own value comes for another reason.
+- **`forwardTo` dual**, then named `dispatchTo`: `pipe(dispatch, forwardTo('Home'), forwardTo('Products'))` for a
+  grandchild's dispatch. Spiked, 16 November 2026, in the working tree and discarded uncommitted, after a survey of the
+  exports: it is the only one besides `andThen` and `forEach` that takes and gives the same type of the library's, while
+  `edited`, `drawn`, `applyAll` and `dispatchViolations` give another shape, and the rest take one argument or a
+  program. With `dual` told the forms apart by a predicate (`typeof` of the first argument, since the variadic id makes
+  the arity ambiguous) and the id checked in the result as the name is, the form in a `pipe` typed right: nested
+  children, ids that are numbers or tuples, and a missing or mistyped id, a name that is no child's and a misspelled one
+  refused. But the overloads made the errors of the form written today worse, in either order, since `tsc` reports the
+  last one: a missing id went from `Expected 3 arguments, but got 2` to a `Dispatch` not assignable to `string`, a
+  mistyped one from `string` not assignable to `number` to `No overload matches this call`; and in a `pipe` a wrong id
+  is reported as a call of something not callable, not on the id. The gain is one nesting, which the guide says a view
+  usually writes in two steps. *Reopen if* `dual`, or TypeScript, comes to report a failed call of an overloaded
+  function against the overload its arguments meant.
+- **Other names for `forwardTo`**, weighed when `dispatchTo` was renamed, 16 November 2026, before 0.8.0 was released.
+  Reasoned, with a review by Fable 5.2. `dispatchTo(dispatch, 'Clock')` read as a call that sends, with `dispatch` the
+  object of its "to", where it makes a dispatch and its target is the name; `forwardTo` reads as it works, forwarding to
+  the dispatch it is given, as Elm 0.16's `Signal.forwardTo address Tag` did, in the same order. Refused: `dispatchOf`
+  and `dispatchFor`, nouns that still read "dispatch" twice in each call; `childDispatch`, wrong for an input, which is
+  no child; `tagged` and `wrapAs`, names of the mechanism, the first a namesake of Effect's `Data.tagged`; `child`,
+  `input` and `at`, taken. The rename was made inside 0.8.0, already breaking for the same views, and would not have
+  been worth a breaking release of its own. *Reopen if* a reader of the guide finds `forwardTo` misleading where
+  `dispatchTo` was not.
 
 The six entries below were weighed on 16 November 2026, for the doc comments of the API, which the pilot of `bb7ee37`
 brought to quoting the guide (`AGENTS.md`, "A doc comment of the API promises only by quoting the guide"); the owner

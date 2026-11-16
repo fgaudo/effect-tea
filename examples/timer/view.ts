@@ -1,6 +1,6 @@
 // The views of the tutorial's steps, drawn with snabbdom. Each draws its model and formats its values, never
 // deciding: what is shown, and which messages the controls send, is the model's.
-import { dispatchTo } from '@fgaudo/effect-tea'
+import { forwardTo } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
 import { h, thunk } from 'snabbdom'
 import { onClick, shows, type View } from '../snabbdom.ts'
@@ -63,7 +63,7 @@ export const timerView: View<Timer.Model, Timer.Message> = (model, dispatch) => 
 // #endregion timer
 
 // #region timers
-// A timer's model is the same object while its state is, and `dispatchTo` gives it the same dispatch in every
+// A timer's model is the same object while its state is, and `forwardTo` gives it the same dispatch in every
 // frame: `thunk` draws again only the timer that changed.
 export const view: View<Timers.Model, Timers.Message> = (model, dispatch) =>
   h('main', [
@@ -72,7 +72,7 @@ export const view: View<Timers.Model, Timers.Message> = (model, dispatch) =>
       'ul',
       model.timers.map(({ id, model, remove }) =>
         h('li', { key: id }, [
-          thunk('div.timer', String(id), timerView, [model, dispatchTo(dispatch, 'Timer', id)]),
+          thunk('div.timer', String(id), timerView, [model, forwardTo(dispatch, 'Timer', id)]),
           h('button.secondary', { on: onClick(remove, dispatch) }, 'Remove'),
         ])
       ),
@@ -85,8 +85,8 @@ export const view: View<Timers.Model, Timers.Message> = (model, dispatch) =>
 // is typed over what it showed.
 export const namedView: View<Named.Model, Named.Message> = (model, dispatch) =>
   h('div.named', [
-    h('input', { ...shows(model.name, dispatchTo(dispatch, 'Name')), props: { placeholder: 'A name' } }),
-    thunk('div.timer', 'timer', timerView, [model.timer, dispatchTo(dispatch, 'Timer')]),
+    h('input', { ...shows(model.name, forwardTo(dispatch, 'Name')), props: { placeholder: 'A name' } }),
+    thunk('div.timer', 'timer', timerView, [model.timer, forwardTo(dispatch, 'Timer')]),
   ])
 // #endregion named
 
@@ -98,7 +98,7 @@ export const namedTimersView: View<NamedTimers.Model, NamedTimers.Message> = (mo
       'ul',
       model.timers.map(({ id, model, remove }) =>
         h('li', { key: id }, [
-          thunk('div.named', String(id), namedView, [model, dispatchTo(dispatch, 'Timer', id)]),
+          thunk('div.named', String(id), namedView, [model, forwardTo(dispatch, 'Timer', id)]),
           h('button.secondary', { on: onClick(remove, dispatch) }, 'Remove'),
         ])
       ),

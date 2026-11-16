@@ -10,7 +10,7 @@ import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import * as fc from 'fast-check'
 import { composition } from './compose.ts'
-import { type Dispatch, dispatchTo } from './dispatch.ts'
+import { type Dispatch, forwardTo } from './dispatch.ts'
 import { drawn, edited, type Shown, type Written } from './input.ts'
 import { type MessageOf, type Program, subscriptionsOf } from './program.ts'
 import type { Subscription } from './subscription.ts'
@@ -415,7 +415,7 @@ describe('an input in a child by id', () => {
   test('has a dispatch of its own, made from its note\'s', () => {
     const sent: Array<NotesMessage> = []
     const dispatch: Dispatch<NotesMessage> = (message) => Effect.sync(() => sent.push(message))
-    const toText: Dispatch<Written<string>> = dispatchTo(dispatchTo(dispatch, 'Note', 2), 'Text')
+    const toText: Dispatch<Written<string>> = forwardTo(forwardTo(dispatch, 'Note', 2), 'Text')
     expect(Effect.runSync(toText({ _tag: 'Written', was: 'b', value: 'bc' }))).toBe(1)
     expect(sent).toEqual([typing(2, 'b', 'bc')])
   })

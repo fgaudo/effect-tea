@@ -57,10 +57,13 @@ version, and everything else, features included, the patch version.
 - **Breaking**: "Model" in the guide says that a model is data: it holds no function, and compares by `Equal`.
   Upgrade: a function of the model that makes a message from what the user typed, `changeName: (name) =>
   NameChanged({ name })`, becomes an input, `inputs: { Name: input(at) }`, and the view writes over its value,
-  `{ _tag: 'Written', was: model.name, value: text }` through `dispatchTo(dispatch, 'Name')`, where it called
+  `{ _tag: 'Written', was: model.name, value: text }` through `forwardTo(dispatch, 'Name')`, where it called
   `model.changeName(text)`.
 - **Breaking**: `parent` is renamed `composition`, since a program with inputs and no children is made with it too.
   Upgrade: `parent<{ state: State }>()` becomes `composition<{ state: State }>()`, and its import likewise.
+- **Breaking**: `dispatchTo` is renamed `forwardTo`, which reads as what the call does: it forwards to the dispatch
+  it is given. Upgrade: `dispatchTo(dispatch, 'Clock')` becomes `forwardTo(dispatch, 'Clock')`, and its import
+  likewise.
 - **Breaking**: `isRejected` is removed: a rejection is `reject` itself.
   Upgrade: `isRejected(result)` becomes `result === reject`, and `expect(isRejected(result)).toBe(true)` becomes
   `expect(result).toBe(reject)`.

@@ -18,7 +18,7 @@ The form declares its input `Name` at the `name` of its state (`examples/form/fo
 inputs: { Name: input(Optic.id<State>().key('name')) },
 ```
 
-The form's view draws its field with the snabbdom bridge, `shows(model.name, dispatchTo(dispatch, 'Name'))`
+The form's view draws its field with the snabbdom bridge, `shows(model.name, forwardTo(dispatch, 'Name'))`
 (`examples/form/view.ts`). The bridge makes the write with `edited`, over what the element showed (see
 [the element on screen](#the-element-on-screen)).
 
@@ -34,7 +34,7 @@ In general, a view writes over the value its model holds, through the input's di
 - **The program declares where it goes**: `inputs: { Name: input(at) }` in `compose`, at a plain value of its state
   (see [declaring children](./composition.md#declaring-children)).
 - **The view writes over the value its model holds**: `{ _tag: 'Written', was: model.name, value: text }`, through
-  `dispatchTo(dispatch, 'Name')`.
+  `forwardTo(dispatch, 'Name')`.
 - **The library stores what is written, whatever it is**, in every state where the input's place holds, by `Equal`,
   the value it was written over.
 - **It rejects the write in any other state.** There, the state has moved on without the input that wrote it.

@@ -166,9 +166,6 @@ export type DefectSite = 'init' | 'update' | 'subscriptions' | 'subscription' | 
 export type Dispatch<Message> = (message: Message) => Effect.Effect<number>;
 
 // @public
-export const dispatchTo: <Message, Name extends string>(dispatch: Dispatch<Message>, name: Name, ...id: IdOf<Message, Name>) => ChildDispatch<Message, Name>;
-
-// @public
 export const drawn: <A>(held: Shown<A> | undefined, value: A, seen: number) => Readonly<{
     shown: Shown<A>;
     taken: boolean;
@@ -263,6 +260,9 @@ export const forEach: {
     <Item, State, Command2, Event2>(items: Iterable<Item>, next: (item: Item) => (state: State) => Step<State, Command2, Event2>): <Command1 = never, Event1 = never>(step: Step<State, Command1, Event1>) => Step<State, Command1 | Command2, Event1 | Event2>;
     <State, Command1, Event1, Item, Command2, Event2>(step: Step<State, Command1, Event1>, items: Iterable<Item>, next: (item: Item) => (state: State) => Step<State, Command2, Event2>): Step<State, Command1 | Command2, Event1 | Event2>;
 };
+
+// @public
+export const forwardTo: <Message, Name extends string>(dispatch: Dispatch<Message>, name: Name, ...id: IdOf<Message, Name>) => ChildDispatch<Message, Name>;
 
 // @public
 export type Frame<Model, Message> = Readonly<{

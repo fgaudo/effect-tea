@@ -72,7 +72,7 @@ When the user types, `edited(held, value)` gives two things:
 
 The listener is the element's own `input` event, attached as the renderer attaches any. Here `shows` gives it to
 snabbdom, with the value to show. A view draws the field with it:
-`h('input', shows(model.name, dispatchTo(dispatch, 'Name')))`.
+`h('input', shows(model.name, forwardTo(dispatch, 'Name')))`.
 
 {@includeCode ../../examples/snabbdom.ts#shows}
 

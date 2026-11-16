@@ -1,7 +1,7 @@
 // The messages of the pages are built by the test: the parent's are `{ _tag: <page>, message }`.
 import { describe, expect, test } from 'bun:test'
 import { applyAll, dispatchViolations, simulate } from '@fgaudo/effect-tea/testing'
-import { dispatchTo, run, subscriptionsOf } from '@fgaudo/effect-tea'
+import { forwardTo, run, subscriptionsOf } from '@fgaudo/effect-tea'
 import * as DateTime from 'effect/DateTime'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
@@ -135,9 +135,9 @@ describe('pages', () => {
         frames.pipe(
           Stream.tap(({ model, dispatch }) => {
             dispatches.add(dispatch)
-            clockDispatches.add(dispatchTo(dispatch, 'Clock'))
+            clockDispatches.add(forwardTo(dispatch, 'Clock'))
             return model.page._tag === 'Clock' && model.page.model.time !== ''
-              ? dispatchTo(dispatch, 'Clock')(model.page.model.openAbout)
+              ? forwardTo(dispatch, 'Clock')(model.page.model.openAbout)
               : Effect.void
           }),
           Stream.takeUntil(({ model }) => model.page._tag === 'About' && Opt.isSome(model.page.model.saying)),

@@ -36,7 +36,7 @@ const lives = new WeakMap<HTMLInputElement, Live>()
 
 /**
  * A text input that shows an input of the program, `value`, through the input's own dispatch
- * (`dispatchTo(dispatch, 'Name')`): what is typed is written over what the element showed, and the element takes the
+ * (`forwardTo(dispatch, 'Name')`): what is typed is written over what the element showed, and the element takes the
  * program's value only when the state has moved on without it (`drawn`). The `<input>` is uncontrolled and needs no
  * key: the element stays, with its focus, while the program changes what it shows. Its other props are the
  * `<input>`'s.

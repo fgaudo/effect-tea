@@ -181,7 +181,7 @@ Both take the step last as well, for a chain written with Effect's `pipe`:
 
 ## Children's views
 
-- **A child's view gets a dispatch of its own.** It sends the child's own messages: `dispatchTo(dispatch, 'Clock')`
+- **A child's view gets a dispatch of its own.** It sends the child's own messages: `forwardTo(dispatch, 'Clock')`
   wraps them as the parent receives them.
 - **That dispatch is the same function in every frame.** It is the same every time it is asked for with the same
   dispatch, name and id. So a view memoized on its model and its dispatch is drawn again only when its model changes.
@@ -191,18 +191,18 @@ const view: View<Model, Message> = (model, dispatch) =>
   model.page._tag === 'Clock'
     ? thunk('main', 'clock', clockView, [
       model.page.model,
-      dispatchTo(dispatch, 'Clock'),
+      forwardTo(dispatch, 'Clock'),
     ])
     : thunk('main', 'about', aboutView, [
       model.page.model,
-      dispatchTo(dispatch, 'About'),
+      forwardTo(dispatch, 'About'),
     ])
 ```
 
-- **Use `dispatchTo` for every child**, memoized or not, and there is nothing to remember. A lambda that wraps the
+- **Use `forwardTo` for every child**, memoized or not, and there is nothing to remember. A lambda that wraps the
   message, `(message) => dispatch({ _tag: 'Clock', message })`, sends the same messages. But it is a new function in
   every frame: a view memoized on it is drawn every time.
-- **A grandchild's dispatch is made from its parent's**: `dispatchTo(dispatchTo(dispatch, 'Home'), 'Products')`. A view
+- **A grandchild's dispatch is made from its parent's**: `forwardTo(forwardTo(dispatch, 'Home'), 'Products')`. A view
   usually writes it in two steps, each view taking the dispatch its parent gave it.
 
 ## Children by id
@@ -211,7 +211,7 @@ For children by id, such as the rows of a list, use `each` instead of `child`:
 
 - **`get` and `set` take the id** (or `at` is a function of it).
 - **`subscribed` lists the rows that listen.**
-- **`children.Row(state, id)` is a row's model**, and `dispatchTo(dispatch, 'Row', id)` its dispatch.
+- **`children.Row(state, id)` is a row's model**, and `forwardTo(dispatch, 'Row', id)` its dispatch.
 - **Ids are compared by value,** with `Equal`, wherever they go (subscription keys, dispatches): strings, numbers, or
   tuples and structs of them.
 

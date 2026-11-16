@@ -733,7 +733,7 @@ describe('a collection reclaims what nobody holds, and a FinalizationRegistry th
     }
     expect(left()).toBeLessThanOrEqual(10)
     expect(called.size).toBe(100 - left())
-    // Held to the end, as `dispatchTo` holds its own for as long as its module lives: a registry nobody holds calls back
+    // Held to the end, as `forwardTo` holds its own for as long as its module lives: a registry nobody holds calls back
     // for nothing.
     registry.unregister({})
   })

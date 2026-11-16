@@ -3,7 +3,7 @@ import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
 import * as Hash from 'effect/Hash'
 import { collectGarbage } from '../test/gc.test_helper.ts'
-import { type Dispatch, dispatchTo, entriesOf } from './dispatch.ts'
+import { type Dispatch, entriesOf, forwardTo } from './dispatch.ts'
 
 type Row = Readonly<{ _tag: 'Row'; id: number | readonly [string, number]; message: 'Inc' }>
 type Clock = Readonly<{ _tag: 'Clock'; message: 'Tick' }>
@@ -28,11 +28,11 @@ const collect = async () => {
 // Drawn by a function of its own, whose frame is gone when collecting: a collector that scans the stack could
 // otherwise take a stale reference there for a live one.
 const draw = (dispatch: Dispatch<Message>, ids: ReadonlyArray<number>) => {
-  for (const id of ids) dispatchTo(dispatch, 'Row', id)
+  for (const id of ids) forwardTo(dispatch, 'Row', id)
 }
 
 // A dispatch nobody holds, but through a weak reference that tells when it is collected.
-const drawnWeakly = (dispatch: Dispatch<Message>, id: number) => new WeakRef(dispatchTo(dispatch, 'Row', id))
+const drawnWeakly = (dispatch: Dispatch<Message>, id: number) => new WeakRef(forwardTo(dispatch, 'Row', id))
 
 const range = (from: number, count: number) => Array.from({ length: count }, (_, index) => from + index)
 
@@ -49,23 +49,23 @@ const entriesLeft = async (dispatch: Dispatch<Message>, atMost: number) => {
   return left
 }
 
-describe('dispatchTo', () => {
+describe('forwardTo', () => {
   test('wraps a child\'s messages as the parent receives them, with the id of a child by id', () => {
     const { sent, dispatch } = recording()
-    Effect.runSync(dispatchTo(dispatch, 'Clock')('Tick'))
-    Effect.runSync(dispatchTo(dispatch, 'Row', 7)('Inc'))
+    Effect.runSync(forwardTo(dispatch, 'Clock')('Tick'))
+    Effect.runSync(forwardTo(dispatch, 'Row', 7)('Inc'))
     expect(sent).toEqual([{ _tag: 'Clock', message: 'Tick' }, { _tag: 'Row', id: 7, message: 'Inc' }])
   })
 
   test('gives a function someone holds every time it is asked for, through collections and new ids', async () => {
     const { dispatch } = recording()
-    const clock = dispatchTo(dispatch, 'Clock')
-    const row = dispatchTo(dispatch, 'Row', 1)
+    const clock = forwardTo(dispatch, 'Clock')
+    const row = forwardTo(dispatch, 'Row', 1)
     for (let round = 0; round < 20; round++) {
-      for (let id = 2; id < 2_000; id++) dispatchTo(dispatch, 'Row', round * 10_000 + id)
+      for (let id = 2; id < 2_000; id++) forwardTo(dispatch, 'Row', round * 10_000 + id)
       await collect()
-      expect(dispatchTo(dispatch, 'Clock')).toBe(clock)
-      expect(dispatchTo(dispatch, 'Row', 1)).toBe(row)
+      expect(forwardTo(dispatch, 'Clock')).toBe(clock)
+      expect(forwardTo(dispatch, 'Row', 1)).toBe(row)
     }
   })
 
@@ -96,12 +96,12 @@ describe('dispatchTo', () => {
     for (let collection = 0; collection < 10 && row === undefined; collection++) {
       await new Promise((resolve) => setTimeout(resolve, 0))
       collectGarbage()
-      if (first.deref() === undefined) row = dispatchTo(dispatch, 'Row', 1)
+      if (first.deref() === undefined) row = forwardTo(dispatch, 'Row', 1)
     }
     if (row === undefined) throw new Error('The first dispatch was never collected')
     await collect()
     await collect()
-    expect(dispatchTo(dispatch, 'Row', 1)).toBe(row)
+    expect(forwardTo(dispatch, 'Row', 1)).toBe(row)
     expect(entriesOf(dispatch, 'Row')).toBe(1)
   })
 
@@ -128,7 +128,7 @@ describe('dispatchTo', () => {
     const dispatch: Dispatch<Readonly<{ _tag: 'Row'; id: Colliding; message: 'Inc' }>> = (message) =>
       Effect.sync(() => sent.push(message))
     const drawAll = () => {
-      for (const name of ['a', 'b', 'c', 'd']) dispatchTo(dispatch, 'Row', new Colliding(name))
+      for (const name of ['a', 'b', 'c', 'd']) forwardTo(dispatch, 'Row', new Colliding(name))
     }
     drawAll()
     expect(entriesOf(dispatch, 'Row')).toBe(4)
@@ -140,9 +140,9 @@ describe('dispatchTo', () => {
 
   test('tells ids apart by value, as subscription keys are', () => {
     const { sent, dispatch } = recording()
-    const row = dispatchTo(dispatch, 'Row', ['milk', 1])
-    expect(dispatchTo(dispatch, 'Row', ['milk', 1])).toBe(row)
-    expect(dispatchTo(dispatch, 'Row', ['milk', 2])).not.toBe(row)
+    const row = forwardTo(dispatch, 'Row', ['milk', 1])
+    expect(forwardTo(dispatch, 'Row', ['milk', 1])).toBe(row)
+    expect(forwardTo(dispatch, 'Row', ['milk', 2])).not.toBe(row)
     Effect.runSync(row('Inc'))
     expect(sent).toEqual([{ _tag: 'Row', id: ['milk', 1], message: 'Inc' }])
   })
@@ -151,10 +151,10 @@ describe('dispatchTo', () => {
     const { dispatch } = recording()
     const name: string = 'Clock'
     // @ts-expect-error: any string could name any child, whose messages would be mixed up.
-    expect(() => dispatchTo(dispatch, name)('Tick')).toBeDefined()
+    expect(() => forwardTo(dispatch, name)('Tick')).toBeDefined()
     // @ts-expect-error: a message of the parent's own, which would be sent without its `level`.
-    expect(() => dispatchTo(dispatch, 'Toast')('hello')).toBeDefined()
+    expect(() => forwardTo(dispatch, 'Toast')('hello')).toBeDefined()
     // @ts-expect-error: a child by id needs its id.
-    expect(() => dispatchTo(dispatch, 'Row')('Inc')).toBeDefined()
+    expect(() => forwardTo(dispatch, 'Row')('Inc')).toBeDefined()
   })
 })
