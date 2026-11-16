@@ -316,6 +316,31 @@ describe('compose', () => {
     expect(Effect.runSync(program.runCommand({ _tag: 'constructor' }))).toEqual(Opt.some({ _tag: 'toString' }))
   })
 
+  test('a child that the children object inherits is no child: it has no handle, no model and no subscriptions', () => {
+    const Inherited = composition<{ state: Ticks }>()
+    const own = { get: (s: Ticks) => Opt.some(s), set: (_: Ticks, ticks: Ticks) => ticks }
+    const Ticker = Inherited.child(ticker, own)
+    const children: { Ticker: typeof Ticker } = Object.assign(Object.create({ Ghost: Ticker }), { Ticker })
+    let handles: ReadonlyArray<string> = []
+    let models: ReadonlyArray<string> = []
+    const program = Inherited.compose({
+      init: (handed) => {
+        handles = Object.keys(handed)
+        return { state: handed.Ticker.init.state }
+      },
+      children,
+      update: (_: never) => (state) => ({ state }),
+      makeModel: (state, handed) => {
+        models = Object.keys(handed)
+        return handed.Ticker(state)
+      },
+    })
+    program.makeModel(program.init.state)
+    expect(handles).toEqual(['Ticker'])
+    expect(models).toEqual(['Ticker'])
+    expect(Arr.fromIterable(HashMap.keys(subscriptionsOf(program)(noTicks)))).toEqual([['Ticker', 'ticks']])
+  })
+
   test('the model of a child that is not there is a defect', () => {
     const Broken = composition<{ state: ParentState }>()
     const broken = Broken.compose({

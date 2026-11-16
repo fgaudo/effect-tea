@@ -1481,3 +1481,48 @@ describe('a fiber of the test\'s that sends once the tool has ended', () => {
     expect(call !== undefined && Exit.hasInterrupts(call)).toBe(true)
   })
 })
+
+// The run forks a command with `FiberSet.run`, which runs it at once (`docs/premises.md`): its effect has begun once
+// `runCommand` has been called, whatever interrupts the run then. A fork that only schedules it, as `simulate`'s did
+// until the review of the testing tools of November 2026, leaves it never begun when an interruption comes first.
+describe('a command whose runCommand is called as whoever runs the tool interrupts it', () => {
+  const begins = (tool: 'drive' | 'rehearse' | 'simulate') =>
+    Effect.runPromise(Effect.gen(function*() {
+      const called = yield* Deferred.make<void>()
+      let begun = false
+      const waiting: Program<{ state: { seen: number }; model: number; message: 'Go'; command: 'Wait' }> = {
+        init: { state: { seen: 0 } },
+        update: () => (state) => ({ state, commands: ['Wait'] }),
+        runCommand: () => {
+          Deferred.doneUnsafe(called, Effect.void)
+          return Effect.uninterruptible(Effect.sync(() => {
+            begun = true
+          })).pipe(Effect.andThen(Effect.never))
+        },
+        makeModel: ({ seen }) => seen,
+      }
+      const fiber = yield* Effect.forkChild(
+        tool === 'simulate'
+          ? simulate(waiting)(['Go'], waiting.init)
+          : tool === 'rehearse'
+          ? rehearse(waiting, (rehearsal) =>
+            rehearsal.send(() => Opt.some('Go')).pipe(Effect.andThen(rehearsal.run(() => true))))
+          : drive(waiting, (driver) => driver.send(() => Opt.some('Go')).pipe(Effect.andThen(Effect.never))),
+      )
+      yield* Deferred.await(called)
+      yield* Fiber.interrupt(fiber)
+      return begun
+    }))
+
+  test('begins its effect in the run', async () => {
+    expect(await begins('drive')).toBe(true)
+  })
+
+  test('begins its effect in rehearse, as in the run', async () => {
+    expect(await begins('rehearse')).toBe(true)
+  })
+
+  test('begins its effect in simulate, as in the run', async () => {
+    expect(await begins('simulate')).toBe(true)
+  })
+})

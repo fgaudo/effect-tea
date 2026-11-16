@@ -83,17 +83,20 @@ export const simulate = <State, Message, Command, Event, R = never>(
         return arrived.changed ? Effect.as(listen(listening), Opt.some(applied)) : Effect.succeedSome(applied)
       }),
     )
-  // A command runs in a fiber of its own, called where it is decided, and awaited, its exit then taken as the
-  // simulation's (`Fiber.await`, whose interruption leaves the fiber running, `docs/premises.md`; a `Fiber.join`'s
-  // interruption is not documented): interrupted, the simulation stops it
-  // as the run does, with its mark, and fails with what it dies of as it releases, first. Run in the fiber of whoever
-  // interrupts the simulation, it would be stopped as that fiber, which may have interrupted a fiber before. Its scope
-  // is the run's (`scopedIn`), so that what it releases is given the exit the run gives it: its defect with where.
+  // A command runs in a fiber of its own, called where it is decided, begun at once as `FiberSet.run` begins it in the
+  // run (`startImmediately`, `docs/premises.md`), so that an interruption that reaches the simulation as it awaits finds
+  // its effect begun, and awaited, its exit then taken as the simulation's (`Fiber.await`, whose interruption leaves the
+  // fiber running, `docs/premises.md`; a `Fiber.join`'s interruption is not documented): interrupted, the simulation
+  // stops it as the run does, with its mark, and fails with what it dies of as it releases, first. Run in the fiber of
+  // whoever interrupts the simulation, it would be stopped as that fiber, which may have interrupted a fiber before. Its
+  // scope is the run's (`scopedIn`), so that what it releases is given the exit the run gives it: its defect with where.
   const runOne = (deaths: Deaths, command: Command) =>
     Effect.uninterruptibleMask((restore) =>
       Effect.sync(() => runCommand(command)).pipe(
         diesIn('command'),
-        Effect.flatMap((effect) => Effect.forkChild(effect.pipe(scopedIn(deaths, 'command')))),
+        Effect.flatMap((effect) =>
+          Effect.forkChild(effect.pipe(scopedIn(deaths, 'command')), { startImmediately: true })
+        ),
         Effect.flatMap((fiber) =>
           Effect.flatMap(Effect.exit(restore(Effect.flatten(Fiber.await(fiber)))), (joined) =>
             Exit.isFailure(joined) && Cause.hasInterrupts(joined.cause)

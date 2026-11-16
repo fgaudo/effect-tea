@@ -97,6 +97,9 @@ export const runSubscription = <Message, R, RS>(
   send: (message: Message) => Effect.Effect<void, never, RS>,
 ): Effect.Effect<Message, never, R | RS | Scope.Scope> =>
   Channel.toPull(subscription).pipe(
+    // No yield of its own after each message, which made a pull of messages taken one by one three times slower: the
+    // budget of operations of the runtime still yields the fiber (`Scheduler.MaxOpsBeforeYield`), and no invariant
+    // rests on either.
     Effect.flatMap((pull) => Effect.forever(Effect.flatMap(pull, send), { disableYield: true })),
     Pull.catchDone(Effect.succeed),
   )

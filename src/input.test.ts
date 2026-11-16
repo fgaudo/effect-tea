@@ -510,6 +510,19 @@ describe('what an element on screen holds of an input', () => {
     expect(taken).toBe(false)
   })
 
+  // "The very value" is `Object.is`, not `===`: `NaN` is the very value of itself, and `0` is not that of `-0`.
+  test('a frame of a state that moved on to NaN, the very value the element shows, does not write it again', () => {
+    const element = typed(drawn(undefined, 5, 0).shown, NaN).sent(4)
+    expect(drawn(element, NaN, 3)).toMatchObject({ shown: { value: NaN }, taken: false })
+  })
+
+  test('a frame of a state that moved on to 0, where the element shows -0, gives the element its value', () => {
+    const element = typed(drawn(undefined, 5, 0).shown, -0).sent(4)
+    const { shown, taken } = drawn(element, 0, 3)
+    expect(Object.is(shown.value, 0)).toBe(true)
+    expect(taken).toBe(true)
+  })
+
   test('an element that stays is not taken, though the frame holds an equal copy', () => {
     const element = drawn(undefined, { tags: ['a'] }, 0).shown
     expect(drawn(element, { tags: ['a'] }, 1)).toEqual({ shown: element, taken: false })

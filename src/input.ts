@@ -76,7 +76,7 @@ export const drawn = <A>(
   const unseen = held[Unseen].filter((write) => write.sent > seen)
   const first = unseen[0]
   if (!Equal.equals(value, first === undefined ? held.value : first.was)) {
-    return { shown: shownOf(value), taken: value !== held.value }
+    return { shown: shownOf(value), taken: !Object.is(value, held.value) }
   }
   const shown = unseen.length === held[Unseen].length ? held : { value: held.value, [Unseen]: unseen }
   return { shown, taken: false }

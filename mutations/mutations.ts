@@ -310,6 +310,9 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a subscription's channel releases its scopes before its defect is recorded",
     file: 'src/shell.ts',
     from: 'Channel.toPull(subscription).pipe(\n'
+      + '    // No yield of its own after each message, which made a pull of messages taken one by one three times slower: the\n'
+      + '    // budget of operations of the runtime still yields the fiber (`Scheduler.MaxOpsBeforeYield`), and no invariant\n'
+      + '    // rests on either.\n'
       + '    Effect.flatMap((pull) => Effect.forever(Effect.flatMap(pull, send), { disableYield: true })),\n'
       + '    Pull.catchDone(Effect.succeed),\n'
       + '  )',
@@ -822,6 +825,30 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'a child that the children inherit gets a handle and a model',
+    file: 'src/compose.ts',
+    from: '  Object.fromEntries(Object.entries(record).map(([name, value]) => [name, f(value, name)]))',
+    to: '  Object.fromEntries([...(function*() { for (const name in record) yield [name, f(record[name] as A, name)] })()])',
+    killedBy: [
+      [
+        'src/compose.test.ts',
+        'a child that the children object inherits is no child: it has no handle, no model and no subscriptions',
+      ],
+    ],
+  },
+  {
+    name: 'a child that the children inherit has its subscriptions lifted',
+    file: 'src/compose.ts',
+    from: '  const names = Object.keys(programs)\n',
+    to: '  const names = [...(function*() { for (const name in programs) yield name })()]\n',
+    killedBy: [
+      [
+        'src/compose.test.ts',
+        'a child that the children object inherits is no child: it has no handle, no model and no subscriptions',
+      ],
+    ],
+  },
+  {
     name: "a child's lifted subscriptions are kept without their place",
     file: 'src/compose.ts',
     from: 'at !== undefined && at[0].name === place.name && Equal.equals(at[0].id, place.id)',
@@ -1053,7 +1080,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'an element the state moved on without is taken though it shows the very value of the frame',
     file: 'src/input.ts',
-    from: '    return { shown: shownOf(value), taken: value !== held.value }\n',
+    from: '    return { shown: shownOf(value), taken: !Object.is(value, held.value) }\n',
     to: '    return { shown: shownOf(value), taken: true }\n',
     killedBy: [
       [
@@ -1063,9 +1090,25 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: "an element the state moved on without tells the frame's value from what it shows by ===",
+    file: 'src/input.ts',
+    from: '    return { shown: shownOf(value), taken: !Object.is(value, held.value) }\n',
+    to: '    return { shown: shownOf(value), taken: value !== held.value }\n',
+    killedBy: [
+      [
+        'src/input.test.ts',
+        'a frame of a state that moved on to NaN, the very value the element shows, does not write it again',
+      ],
+      [
+        'src/input.test.ts',
+        'a frame of a state that moved on to 0, where the element shows -0, gives the element its value',
+      ],
+    ],
+  },
+  {
     name: "an element the state moved on without does not take the frame's value",
     file: 'src/input.ts',
-    from: '    return { shown: shownOf(value), taken: value !== held.value }\n',
+    from: '    return { shown: shownOf(value), taken: !Object.is(value, held.value) }\n',
     to: '    return { shown: shownOf(value), taken: false }\n',
     killedBy: [
       ['src/input.test.ts', 'a frame that has seen every key and holds another value gives the element that value'],
@@ -1372,6 +1415,15 @@ export const mutations: ReadonlyArray<Mutation> = [
         'src/testing/contract.test.ts',
         'simulate fails with a defect of a command joining, as it is stopped, a fiber its interrupter interrupted',
       ],
+    ],
+  },
+  {
+    name: 'simulate forks a command without beginning it',
+    file: 'src/testing/simulate.ts',
+    from: "Effect.forkChild(effect.pipe(scopedIn(deaths, 'command')), { startImmediately: true })",
+    to: "Effect.forkChild(effect.pipe(scopedIn(deaths, 'command')))",
+    killedBy: [
+      ['src/testing/contract.test.ts', 'begins its effect in simulate, as in the run'],
     ],
   },
   {

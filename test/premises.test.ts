@@ -738,3 +738,64 @@ describe('a collection reclaims what nobody holds, and a FinalizationRegistry th
     registry.unregister({})
   })
 })
+
+describe('a fiber of a FiberSet or a FiberMap that dies leaves the other fibers running, and the set takes forks after it', () => {
+  // The other fiber is interrupted by the test alone once the one that died has ended: a set that interrupted it on
+  // the death would have added its own interruption (the fiber -1) first.
+  type Run = <A, E>(effect: Effect.Effect<A, E>) => Effect.Effect<Fiber.Fiber<A, E>>
+  const leaves = (make: Effect.Effect<Run, never, Scope.Scope>) =>
+    Effect.runPromise(Effect.scoped(Effect.gen(function*() {
+      const run = yield* make
+      const other = yield* run(Effect.never)
+      const dying = yield* run(Effect.die('dies'))
+      yield* Fiber.await(dying)
+      let ran = false
+      yield* run(Effect.sync(() => {
+        ran = true
+      }))
+      yield* Fiber.interruptAs(other, 42)
+      return { other: described(yield* Fiber.await(other)), ran }
+    })))
+
+  test('FiberSet.run', async () => {
+    const result = await leaves(Effect.map(FiberSet.make(), (set): Run => (effect) => FiberSet.run(set, effect)))
+    expect(result).toEqual({ other: [['Interrupt', 42]], ran: true })
+  })
+
+  test('FiberMap.run', async () => {
+    let key = 0
+    const result = await leaves(
+      Effect.map(FiberMap.make<number>(), (map): Run => (effect) => FiberMap.run(map, key++, effect)),
+    )
+    expect(result).toEqual({ other: [['Interrupt', 42]], ran: true })
+  })
+})
+
+describe('Effect.scoped fails with what a finalizer of its scope dies of', () => {
+  const releaseDies = Effect.addFinalizer(() => Effect.die('release'))
+
+  test('of an effect that succeeds', async () => {
+    const exit = await Effect.runPromiseExit(Effect.scoped(releaseDies))
+    expect(described(exit)).toEqual([['Die', 'release']])
+  })
+
+  test('of an effect that dies, beside what it died of', async () => {
+    const exit = await Effect.runPromiseExit(Effect.scoped(Effect.andThen(releaseDies, Effect.die('own'))))
+    expect(described(exit)).toHaveLength(2)
+    expect(described(exit)).toContainEqual(['Die', 'own'])
+    expect(described(exit)).toContainEqual(['Die', 'release'])
+  })
+
+  test('of an effect that is interrupted, beside its interruption', async () => {
+    const exit = await Effect.runPromise(Effect.gen(function*() {
+      const fiber = yield* started((running) =>
+        Effect.scoped(releaseDies.pipe(Effect.andThen(running), Effect.andThen(Effect.never)))
+      )
+      yield* Fiber.interruptAs(fiber, 42)
+      return yield* Fiber.await(fiber)
+    }))
+    expect(described(exit)).toHaveLength(2)
+    expect(described(exit)).toContainEqual(['Interrupt', 42])
+    expect(described(exit)).toContainEqual(['Die', 'release'])
+  })
+})

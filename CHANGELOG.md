@@ -235,6 +235,7 @@ version, and everything else, features included, the patch version.
 - The examples' snabbdom bridge settles an `<input>` that snabbdom reuses for another vnode: drawn with `shows` in the
   place of a plain field, it shows the program's value and sends its writes; drawn as a plain field in the place of an
   input, it is let go and keeps what the view gives it.
+- `simulate` interrupted once it has called `runCommand` has begun the command's effect, as the run has.
 - `rehearse` whose `init`, `subscriptions` or `makeModel` dies at the start leaves no scope of its own open.
 - `rehearse` interrupted by whoever runs it as it sets up, before its scenario, leaves no fiber of its own running:
   its loop ran on, in a scope nothing closed.

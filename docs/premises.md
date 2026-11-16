@@ -46,9 +46,11 @@ The invariants themselves are in [`invariants.md`](invariants.md).
 - **A fiber forked with `startImmediately` runs on the stack of the fiber that forks it until it first waits**,
   which is how tests of the testing tools know, with no clock, that a call they forked is waiting, or has ended,
   before they go on (`loop.test.ts`, `rehearse.test.ts`, `contract.test.ts`), with `Effect.forkChild` and, in
-  `rehearse.test.ts`, with `Effect.forkDetach` too. Not documented: the option is in the types of both, not in their
-  JSDoc. Its test: "a fiber forked with startImmediately runs on the stack of the
-  fiber that forks it until it first waits", which fails without the option.
+  `rehearse.test.ts`, with `Effect.forkDetach` too; and how `simulate` begins a command's effect once `runCommand` has
+  been called, as the run begins it with `FiberSet.run` (below), whatever interrupts the simulation then (`runOne` in
+  `simulate.ts`): "begins its effect in simulate, as in the run" (`contract.test.ts`) rests on it, and fails without the
+  option. Not documented: the option is in the types of both, not in their JSDoc. Its test: "a fiber forked with
+  startImmediately runs on the stack of the fiber that forks it until it first waits", which fails without the option.
 - **A fiber forked with `FiberSet.run` or `FiberMap.run` runs on the stack of the fiber that runs it until it first
   waits**, through the scope and the cleanup the engine wraps around a command and a subscription, so that `run`
   returns only once `runCommand` has been called, or the subscription's channel made, where the step decided it, before
@@ -61,6 +63,15 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   effect starts immediately; that it runs on the stack of the fiber that runs it, with no yield until it first waits, is
   read in the source. Its tests: "a fiber forked with FiberSet.run or FiberMap.run runs on the stack of the fiber that
   runs it until it first waits", of each, which fail with `startImmediately: false`.
+- **A fiber of a `FiberSet` or a `FiberMap` that dies leaves the other fibers running, and the set takes forks after
+  it**, which is how a command, a subscription or the loop that dies leaves the end of the run to stop the engine's
+  other fibers itself, with the run's mark, once it has released the renderer (`stop` in `engine.ts`, `running` in
+  `run.ts`), so that what each of them dies of is recorded however it ends: "a command that dies while a run that died
+  elsewhere releases the renderer is in the cause" (`run.test.ts`) rests on it, and fails with a set that interrupts
+  its other fibers on a failure. The JSDoc says only that a failure is recorded for `FiberSet.join`, and that `join`
+  ends with the first; that the set does nothing else on it is read in the source (the observer of `addUnsafe`
+  completes the set's `Deferred` alone). Its tests: "a fiber of a FiberSet or a FiberMap that dies leaves the other
+  fibers running, and the set takes forks after it", of each, which fail with such a set.
 - **A fiber forked where nothing interrupts is interruptible all the same**, by `Effect.forkChild`, `Effect.forkIn`,
   `FiberSet.run` and `FiberMap.run` alike, which is how the end stops every fiber the engine and the testing tools fork
   in such a region (the renderer in its acquisition, the loop in the region of its assignment, a command in the
@@ -108,6 +119,17 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   configured order, sequential or parallel; that sequential is the reverse of their addition is read in the source
   (`scopeCloseFinalizers`). Its tests: "a scope runs its finalizers in the reverse order they were added", of a scope
   made with `Scope.make` and closed by hand and of the scope of `Effect.scoped`, which fail with that scope.
+- **`Effect.scoped` fails with what a finalizer of its scope dies of, beside what the effect ended with**, which is
+  how `scopedIn` (`shell.ts`) sees what a command, a subscription or the renderer dies of as it releases, once its
+  scope has closed, and records it as a defect of its site: "a renderer that dies while it releases what it holds ends
+  the run with that defect" (`run.test.ts`), "what a command dies of as the end of the engine interrupts it is what
+  the end dies of" (`engine.test.ts`) and "the run dies in a command on a release of a command that dies"
+  (`contract.test.ts`), with its twins of `simulate` and `rehearse`, rest on it, and fail, with twenty more, with an
+  `Effect.scoped` whose close catches what its finalizers fail with. The JSDoc of `Effect.scoped` says only that the
+  finalizers run however the effect ends, and those of `Scope.close` and `Scope.use` that they are given its exit;
+  that a finalizer's failure becomes the effect's is read in the source. Its tests: "Effect.scoped fails with what a
+  finalizer of its scope dies of", of an effect that succeeds, that dies and that is interrupted, which fail with such
+  a scope.
 - **A fiber interrupted while interruptible runs no failure handler**, which is how `diesIn` tells an interruption
   by the run from one the program makes: "a run interrupted by whoever runs it is no defect", "a subscription
   stopped inside an uninterruptible region is no defect" (`run.test.ts`); and beside a defect of its release, which is

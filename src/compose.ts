@@ -8,7 +8,6 @@ import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import type * as Optic from 'effect/Optic'
 import * as Predicate from 'effect/Predicate'
-import * as Record from 'effect/Record'
 import * as Result from 'effect/Result'
 import type { Execution, RunCommand } from './command.ts'
 import { CompositionDefect } from './defect.ts'
@@ -300,6 +299,11 @@ const modelsOf = (program: object) => {
   return kept
 }
 
+// The own enumerable string keys of a record alone, in the order of `Object.keys`, as the spread and `Object.hasOwn`
+// of `compose` read them: `Record.map` and `Record.keys` do not say which keys they visit.
+const mapOwn = <A, B>(record: Readonly<Record<string, A>>, f: (value: A, name: string) => B): Record<string, B> =>
+  Object.fromEntries(Object.entries(record).map(([name, value]) => [name, f(value, name)]))
+
 /** Who receives what a child at `id` sends: `undefined` for a child that is alone. */
 type Place = Readonly<{ name: string; id: unknown }>
 
@@ -347,13 +351,13 @@ const compose = <
   type Message = Own | ChildMessages<C> | InputMessages<I>
   type Command = OwnCommand | ChildCommands<C>
   const programs = (config.children ?? {}) as unknown as Readonly<Record<string, UntypedChild>>
-  const inputs = Record.map(
+  const inputs = mapOwn(
     (config.inputs ?? {}) as unknown as Readonly<Record<string, Omit<UntypedChild, 'program'>>>,
     (input): UntypedChild => ({ ...input, program: inputProgram }),
   )
   // An input is routed to as a child is: by its name, to its place.
   const children: Readonly<Record<string, UntypedChild>> = { ...programs, ...inputs }
-  const names = Record.keys(programs)
+  const names = Object.keys(programs)
   const childOf = (name: string) => children[name] as UntypedChild
   // `Object.hasOwn`, not `Record.has`, which does not say whether a key `children` inherits (`toString`) counts.
   const isChildName = (tag: unknown): tag is string => typeof tag === 'string' && Object.hasOwn(children, tag)
@@ -427,7 +431,7 @@ const compose = <
     return result
   }
   // Built once: a child's update calls `onEvent`, which may call any child's handle.
-  const handles = Record.map(programs, (child, name) =>
+  const handles = mapOwn(programs, (child, name) =>
     child.kind === 'each'
       ? {
         update: (id: unknown, message: unknown) => tell({ name, id }, message),
@@ -510,7 +514,7 @@ const compose = <
     kept.set(childState, model)
     return model
   }
-  const childModels = Record.map(programs, (child, name) =>
+  const childModels = mapOwn(programs, (child, name) =>
     child.kind === 'each'
       ? (parentState: State, id: unknown) => modelAt({ name, id }, parentState)
       : (parentState: State) => modelAt({ name, id: undefined }, parentState)) as Models<State, C>
