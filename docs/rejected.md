@@ -279,6 +279,46 @@ answer, and saying so in the proposal.
   The guide says what it does; `describeMessage` shows more. *Reopen if* a wrapping the describer can tell from a
   program's own value comes for another reason.
 
+The six entries below were weighed on 16 November 2026, for the doc comments of the API, which the pilot of `bb7ee37`
+brought to quoting the guide (`AGENTS.md`, "A doc comment of the API promises only by quoting the guide"); the owner
+decided each, with a second opinion (Fable) on the last two.
+
+- **A link from a doc comment to the page of the site that holds its rule.** Spiked in the pilot, and dropped before
+  its commit: the site is built again whole by each tag (`.github/workflows/docs.yml`) and keeps no older release, so
+  the hover of a version installed would show, after the next release, the promises of that one. `quotes/quote.ts`
+  now fails on such a link. *Reopen if* the site keeps each release at an address of its own.
+- **A site that keeps each release** (`/v0.8.0/…`, kept on a branch the deploy adds to). Reasoned: it would hold, but
+  on infrastructure (the layout of the deploy, a branch to keep, a permission to push), which the owner declined for
+  a rule of the documentation. *Reopen if* the site is versioned for a reason of its own.
+- **Links to the guide on GitHub, at the tag of the release.** Reasoned: exact by construction, but it rests on
+  hosting outside the package too, and GitHub shows the TypeDoc syntax of the guide as it is written (13 uses of
+  `{@includeCode}` then, 6 of them in "Writing a bridge"). *Reopen if* the guide no longer needs TypeDoc to read.
+- **The guide in the package, linked from the comments by a relative path.** Reasoned: the same `{@includeCode}`,
+  which a step of the pack would have to expand, and the hover never shows the rule itself. Whether an editor follows a
+  relative link in a hover was not checked. *Reopen if* both are checked, and a hover that only names a rule is
+  enough.
+- **The quotes written only into what the build makes**, not committed into `src/`. Reasoned. Into `dist/*.d.ts`
+  alone, they would miss the `src/` the package ships for the `bun` condition, and shift the lines the declaration
+  maps point to; the form that holds fills a copy of `src/` before `tsc` and ships that copy, which changes how the
+  package is built and laid out, for text that a `--check` already keeps in step. *Reopen if* the copy in `src/`
+  costs more than that, in reviews or in conflicts.
+- **Doc comments for the package's users apart from those of the implementation.** Spiked on projects of scratch,
+  not kept, with the language service of TypeScript 6 (the hover in a file that imports the entry) and TypeDoc
+  0.28.20:
+  - a comment on a re-export, `export { run } from './run.ts'` or on its name, is ignored: the hover shows the
+    declaration's;
+  - a function declared again in the index, whose body calls the internal one, works for the hover and the site, but
+    writes each signature twice, some of the most delicate (`run`, `composition`, the dual `andThen` and `forEach`);
+  - a type declared again as an alias loses its fields on the site, and its fields keep the internal comments; an
+    interface that extends it keeps them too; a class cannot be declared again without losing `instanceof`;
+  - `export * as`, an overload with the comment on its signature, and `{@inheritDoc}` separate nothing;
+  - `@privateRemarks` is hidden by TypeDoc but shown in the hover of whoever installs the package, and two doc
+    comments in a row reach the declarations both, though the hover shows the last: `quotes/quote.ts` fails on each.
+
+  Instead, the doc comment of an export is for its users, and a note on how it is implemented is a `//` comment or
+  that of an internal declaration (`AGENTS.md`, "Code"). *Reopen if* TypeScript and TypeDoc come to hide alike a part
+  of a doc comment from the users of a package.
+
 ## The bridges
 
 - **Bridges that support what a renderer does beyond drawing a frame.** Decided by the owner on 16 November 2026,

@@ -14,6 +14,14 @@ test of it. None is open.
 
 ## Possible improvements
 
+- **The doc comments of the other modules in the form `AGENTS.md` asks** ("A doc comment of the API promises only by
+  quoting the guide"). `run.ts` and `input.ts` have it (`bb7ee37`); left are `program.ts`, `compose.ts`, `update.ts`,
+  `command.ts`, `subscription.ts`, `dispatch.ts`, `engine.ts`, `defect.ts` and the five tools of `src/testing/`. A
+  module at a time, as `change-api` says: each promise a comment makes is found in the guide, or added to it first as
+  its prose changes, and then quoted; a reviewer that wrote none of it compares each old comment with the new one,
+  sentence by sentence, against the guide and the code. The pilot's found a promise of `drawn` stronger than the code.
+  What was weighed and rejected on the way is in `docs/rejected.md` ("The API").
+
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is
   drawn" from regressing. `bun run bench` (`bench/subscriptions.ts`) measures a parent's subscriptions only, and
   `bench/writes.ts`, run by hand, what a write into an input and a bridge's frame cost; neither runs in the CI.
