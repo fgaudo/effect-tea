@@ -17,6 +17,7 @@ for the task before starting it:
 | an API of a newer Effect, or a dependency upgrade       | [`upgrade-effect`](.agents/skills/upgrade-effect/SKILL.md) |
 | a changelog entry, the version, a release, the site     | [`release`](.agents/skills/release/SKILL.md)               |
 | a review of what the invariants rest on                 | [`premise-review`](.agents/skills/premise-review/SKILL.md) |
+| a reader's check of the documentation                   | [`guide-reader`](.agents/skills/guide-reader/SKILL.md)     |
 
 The engine is `src/core.ts`, `shell.ts`, `engine.ts`, `run.ts`, `compose.ts`, `dispatch.ts`, `input.ts` and `log.ts`,
 and the testing tools are `src/testing/`: a change of one, of `tools/mutations/` or of
