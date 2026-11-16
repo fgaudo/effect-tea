@@ -645,12 +645,12 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'the run does not stop the renderer',
     file: 'src/run.ts',
-    from: '      const renderer = yield* Effect.acquireRelease(\n'
-      + '        Effect.forkChild(rendering),\n'
-      + '        (renderer) =>\n'
-      + '          engine.stop.pipe(Effect.andThen(Shell.stopping(renderer))),\n'
-      + '      )\n',
-    to: '      const renderer = yield* Effect.forkChild(rendering)\n',
+    from: '    const renderer = yield* Effect.acquireRelease(\n'
+      + '      Effect.forkChild(rendering),\n'
+      + '      (renderer) =>\n'
+      + '        engine.stop.pipe(Effect.andThen(Shell.stopping(renderer))),\n'
+      + '    )\n',
+    to: '    const renderer = yield* Effect.forkChild(rendering)\n',
     killedBy: [
       ['src/run.test.ts', 'a renderer that dies while an interrupted run releases it is in the cause'],
       [
@@ -708,8 +708,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'the end of the engine does not stop its loop first',
     file: 'src/engine.ts',
-    from: '      Effect.andThen(\n        stop,\n',
-    to: '      Effect.andThen(\n        Effect.void,\n',
+    from: '    Effect.andThen(\n      stop,\n',
+    to: '    Effect.andThen(\n      Effect.void,\n',
     killedBy: [
       ['src/engine.test.ts', 'the end of the engine lets its loop end before it interrupts its commands'],
     ],

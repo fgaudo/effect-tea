@@ -97,6 +97,17 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   tests: "Effect.onExit runs its cleanup where nothing interrupts, however the effect ends", of an effect that is
   interrupted and of one that succeeds, its fiber interrupted as the cleanup runs, which fail with a cleanup run
   interruptible.
+- **A scope runs its finalizers in the reverse order they were added**, which is how the end of the engine, added
+  after its queue, its `FiberSet` and its `FiberMap`, stops their fibers with the run's mark before they close, and
+  reports what those die of as they release, and how the run releases the renderer, acquired after the engine, before
+  the engine's end (`make` in `engine.ts`, `running` in `run.ts`): "the end of the engine interrupts its commands and
+  its subscriptions at once", "what a command dies of as the end of the engine interrupts it is what the end dies of"
+  (`engine.test.ts`) and "a command that joins a fiber the fiber of the run interrupted, as the run ends, is a defect
+  in the command" (`run.test.ts`) rest on it, and fail with a scope that runs them in the order they were added,
+  though Effect's own combinators then fail too. The JSDoc of `Scope.close` says only that they run in the scope's
+  configured order, sequential or parallel; that sequential is the reverse of their addition is read in the source
+  (`scopeCloseFinalizers`). Its tests: "a scope runs its finalizers in the reverse order they were added", of a scope
+  made with `Scope.make` and closed by hand and of the scope of `Effect.scoped`, which fail with that scope.
 - **A fiber interrupted while interruptible runs no failure handler**, which is how `diesIn` tells an interruption
   by the run from one the program makes: "a run interrupted by whoever runs it is no defect", "a subscription
   stopped inside an uninterruptible region is no defect" (`run.test.ts`); and beside a defect of its release, which is

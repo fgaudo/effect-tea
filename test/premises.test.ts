@@ -333,6 +333,30 @@ describe('Effect.onExit runs its cleanup where nothing interrupts, however the e
   })
 })
 
+describe('a scope runs its finalizers in the reverse order they were added', () => {
+  const names = ['first', 'second', 'third']
+
+  test('a scope made with Scope.make, closed by hand', async () => {
+    const log: Array<string> = []
+    await Effect.runPromise(Effect.gen(function*() {
+      const scope = yield* Scope.make()
+      for (const name of names) yield* Scope.addFinalizer(scope, Effect.sync(() => log.push(name)))
+      yield* Scope.close(scope, Exit.void)
+    }))
+    expect(log).toEqual(['third', 'second', 'first'])
+  })
+
+  test('the scope of Effect.scoped, what it holds acquired with Effect.acquireRelease', async () => {
+    const log: Array<string> = []
+    await Effect.runPromise(Effect.scoped(Effect.forEach(
+      names,
+      (name) => Effect.acquireRelease(Effect.void, () => Effect.sync(() => log.push(name))),
+      { discard: true },
+    )))
+    expect(log).toEqual(['third', 'second', 'first'])
+  })
+})
+
 describe('a fiber interrupted while interruptible runs no failure handler', () => {
   test('on its interruption', async () => {
     const handled: Array<string> = []

@@ -1,13 +1,12 @@
 import * as Arr from 'effect/Array'
 import * as Effect from 'effect/Effect'
-import * as Exit from 'effect/Exit'
 import type * as Fiber from 'effect/Fiber'
 import * as FiberMap from 'effect/FiberMap'
 import * as FiberSet from 'effect/FiberSet'
 import * as LogLevel from 'effect/LogLevel'
 import * as Opt from 'effect/Option'
 import * as Queue from 'effect/Queue'
-import * as Scope from 'effect/Scope'
+import type * as Scope from 'effect/Scope'
 import type * as Stream from 'effect/Stream'
 import * as SubscriptionRef from 'effect/SubscriptionRef'
 import type { RunCommand } from './command.ts'
@@ -136,44 +135,39 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   // below), or what they acquire would stay open until the run ends, and be released before their fibers
   // are interrupted.
   const context = withExternalSpan(yield* Effect.context<Exclude<R, Scope.Scope>>())
+  const queue = yield* Effect.acquireRelease(Queue.unbounded<Envelope<Message, K>>(), Queue.shutdown)
   const deaths = given ?? (yield* makeDeaths(() => true))
   const { recorded, died, report, dead } = deaths
   // A death is checked once, in `Core.arrive`. A step that passed the check goes on whole until the end of the run
   // stops the loop, so it may still start its commands and the subscriptions of its new keys: one more check in the
   // middle of it would leave a state whose commands never started. What the program's effects do once started is
   // theirs, until the end of the run interrupts them.
+  // The loop and the commands.
+  const fibers = yield* FiberSet.make<unknown, never>()
+  // Kept by their start, never by their key: `FiberMap` compares its keys, in a fiber's observer too, where nothing
+  // could tell the defect of a key's `Equal` that throws.
+  const subscriptionFibers = yield* FiberMap.make<Core.Generation, void, never>()
   // The loop, once it runs. Stopped first as the run ends, and awaited: what is sent meanwhile is not applied, and
   // nothing forks a fiber while the end reads those to interrupt.
   let loop: Fiber.Fiber<unknown, never> | undefined
   const stop = Effect.suspend(() => loop === undefined ? Effect.void : stopping(loop))
-  // The queue and the sets of the engine's fibers are one resource, released in the order its release says, whatever
-  // order the engine's scope closes its resources in: the end of the run stops the loop, interrupts its other fibers
-  // itself, all at once, waits for them to release what they hold, and dies of what they have died of and nobody has
-  // reported, which `diesIn` already says where; then the sets close, in a scope of their own, and the queue is shut.
-  const { queue, fibers, subscriptionFibers } = yield* Effect.acquireRelease(
-    Effect.gen(function*() {
-      const queue = yield* Queue.unbounded<Envelope<Message, K>>()
-      const scope = yield* Scope.make()
-      // The loop and the commands.
-      const fibers = yield* FiberSet.make<unknown, never>().pipe(Scope.provide(scope))
-      // Kept by their start, never by their key: `FiberMap` compares its keys, in a fiber's observer too, where
-      // nothing could tell the defect of a key's `Equal` that throws.
-      const subscriptionFibers = yield* FiberMap.make<Core.Generation, void, never>().pipe(Scope.provide(scope))
-      return { queue, scope, fibers, subscriptionFibers }
-    }),
-    ({ queue, scope, fibers, subscriptionFibers }) =>
-      Effect.andThen(
-        stop,
-        Effect.suspend(() => {
-          const running: ReadonlyArray<Fiber.Fiber<unknown, never>> = [
-            ...fibers,
-            ...Arr.map(Arr.fromIterable(subscriptionFibers), ([, fiber]) => fiber),
-          ]
-          return Effect.forEach(running, stopping, { concurrency: 'unbounded', discard: true }).pipe(
-            Effect.andThen(report),
-          )
-        }),
-      ).pipe(Effect.ensuring(Effect.andThen(Scope.close(scope, Exit.void), Queue.shutdown(queue)))),
+  // Added after the queue and the sets, so run before they close, as a scope runs its finalizers in the reverse order
+  // they were added (`docs/premises.md`): the end of the run stops the loop, interrupts its other fibers itself, all
+  // at once, waits for them to release what they hold, and dies of what they have died of and nobody has reported,
+  // which `diesIn` already says where.
+  yield* Effect.addFinalizer(() =>
+    Effect.andThen(
+      stop,
+      Effect.suspend(() => {
+        const running: ReadonlyArray<Fiber.Fiber<unknown, never>> = [
+          ...fibers,
+          ...Arr.map(Arr.fromIterable(subscriptionFibers), ([, fiber]) => fiber),
+        ]
+        return Effect.forEach(running, stopping, { concurrency: 'unbounded', discard: true }).pipe(
+          Effect.andThen(report),
+        )
+      }),
+    )
   )
   const started = Core.init(first)
   // Dispatched messages are numbered as they are queued, in the thunk that offers them, so that their numbers follow

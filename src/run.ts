@@ -74,17 +74,15 @@ const running = Effect.fnUntraced(
     // of, the renderer too, and the run reports here what they have died of so far, and what they die of later, while
     // the renderer releases what it holds too, by the end of the engine. The fork and how the run stops it are one
     // acquisition, which nothing interrupts in between: forked apart, the run would leave the renderer to the end of
-    // whichever fiber runs it, unawaited. Its release comes before the engine's: its scope is one of its own, which
-    // closes before the run's, where the engine is. Forked in the acquisition, where nothing interrupts, the renderer
-    // is interruptible all the same (`docs/premises.md`).
-    yield* Effect.scoped(Effect.gen(function*() {
-      const renderer = yield* Effect.acquireRelease(
-        Effect.forkChild(rendering),
-        (renderer) =>
-          engine.stop.pipe(Effect.andThen(Shell.stopping(renderer))),
-      )
-      yield* Effect.raceFirst(engine.died, Fiber.await(renderer)).pipe(Effect.andThen(engine.report))
-    }))
+    // whichever fiber runs it, unawaited. Its release comes before the engine's, acquired after it in the same scope,
+    // which runs its finalizers in the reverse order they were added. Forked in the acquisition, where nothing
+    // interrupts, the renderer is interruptible all the same (both in `docs/premises.md`).
+    const renderer = yield* Effect.acquireRelease(
+      Effect.forkChild(rendering),
+      (renderer) =>
+        engine.stop.pipe(Effect.andThen(Shell.stopping(renderer))),
+    )
+    yield* Effect.raceFirst(engine.died, Fiber.await(renderer)).pipe(Effect.andThen(engine.report))
   },
   Effect.scoped,
 )
