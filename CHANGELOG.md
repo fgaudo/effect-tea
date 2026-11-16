@@ -54,7 +54,7 @@ version, and everything else, features included, the patch version.
 - **Breaking**: an `Origin` that the run gives `onApplied` and `onIgnored` for a dispatched message is tagged
   `'Dispatch'`, where it was `'View'`: the run knows a dispatch, which `simulate` and `rehearse` give to what a test
   sends, where no view exists. Upgrade: `origin._tag === 'View'` becomes `origin._tag === 'Dispatch'`.
-- **Breaking**: "Model" in the README says that a model is data: it holds no function, and compares by `Equal`.
+- **Breaking**: "Model" in the guide says that a model is data: it holds no function, and compares by `Equal`.
   Upgrade: a function of the model that makes a message from what the user typed, `changeName: (name) =>
   NameChanged({ name })`, becomes an input, `inputs: { Name: input(at) }`, and the view writes over its value,
   `{ _tag: 'Written', was: model.name, value: text }` through `dispatchTo(dispatch, 'Name')`, where it called
@@ -84,23 +84,23 @@ version, and everything else, features included, the patch version.
   as `examples/snabbdom.ts` and `examples/react.ts` do, and a view imports it from its bridge, `View<Model, Message>`
   where it wrote `View<Model, Message, VNode>`.
 - "View", "Inputs the user types into", "Declaring children", "Model and view", "Splitting a program", "Guarantees"
-  and "Testing" in the README describe inputs, the condition they need of elements and renderers, and that a renderer
+  and "Testing" in the guide describe inputs, the condition they need of elements and renderers, and that a renderer
   draws frames and nothing else; `examples/field.ts` is removed, and `form` and `form-react` declare one.
 - The examples' bridges keep the element of each input and settle it after each frame with `drawn` (`shows` with
   snabbdom, `Shows` with React), and have `onPress`; `volume` draws two sliders of its own, whose drags are
   subscriptions, for bounds that narrow.
 - The examples' bridges are minimal examples: they only draw each frame, run `dispatch` in plain handlers and settle
-  each native text `<input>`. "View" in the README says that another native widget that meets the condition of
+  each native text `<input>`. "View" in the guide says that another native widget that meets the condition of
   `typed` and `drawn` would be connected by hand with them, or replaced by one the program draws, and that any other
   feature of a renderer (a form's reset, a shadow tree, and in React a component with state or effects, Suspense,
   `memo`, portals and a run inside another's root) is left to the bridge that needs it; "Inputs the user types into"
   no longer says that a text field meets its condition once its form's reset is heard
   ([`docs/rejected.md`](docs/rejected.md), "The bridges").
 - `messagesSentBy` moves from `examples/snabbdom.ts` to `examples/snabbdom-testing.test_messages.ts`, so that the
-  bridge holds only what a bridge does ("Examples" and "Testing" in the README).
+  bridge holds only what a bridge does ("Testing" and "Writing a bridge" in the guide).
 - The tests the examples' two bridges share are written once, in `examples/bridge.test_suite.ts`, over a `Bridge` of
-  each renderer, its `renderInto` and the views of the scenarios, which a bridge of one's own can give too ("Examples"
-  in the README).
+  each renderer, its `renderInto` and the views of the scenarios, which a bridge of one's own can give too
+  ("Writing a bridge" in the guide).
 - `examples/preload.ts`, which `bun test` preloads (`bunfig.toml`), is `examples/preload.test_setup.ts`: a file that
   serves the tests is named `<name>.test_<kind>.ts`, as `examples/bridge.test_suite.ts` is.
 - The peer dependency on `effect` is `^4.1.4`, where it was `^4.0.0`, and starts at the Effect it is developed with.
@@ -125,45 +125,46 @@ version, and everything else, features included, the patch version.
   `hearNext` calls still waiting, in a fiber the scenario did not join too, where they waited for ever.
 - **Breaking**: as the run ends, it stops applying messages first, then the renderer, then commands and subscriptions.
   Upgrade: a renderer that sent a message for the program to act on as it is released does that work itself.
-- "Commands" in the README says that commands run concurrently, with no bound, and answer in the order they end.
-- "Running" in the README says that the run waits for `onApplied` and `onIgnored`, and how a slow observer hands off.
-- "Commands" and "Guarantees" in the README say that the end of the run interrupts the commands under way.
-- "Running" in the README says that a string message is logged whole, and that a defect's `key` and `id` are as is.
-- "Guarantees" in the README says that messages are applied one at a time, in the order they were queued.
-- "Guarantees" in the README says that nothing is bounded or times out: a release that never ends holds the program.
-- "Running" in the README says that `onApplied` may hear a step whose frame is never drawn, as the run ends.
-- "Running" in the README says that a message the run does not apply starts no command and is not heard by
+- "Commands" in the guide says that commands run concurrently, with no bound, and answer in the order they end.
+- "Running" in the guide says that the run waits for `onApplied` and `onIgnored`, and how a slow observer hands off.
+- "Commands" and "Guarantees" in the guide say that the end of the run interrupts the commands under way.
+- "Running" in the guide says that a string message is logged whole, and that a defect's `key` and `id` are as is.
+- "Guarantees" in the guide says that messages are applied one at a time, in the order they were queued.
+- "Guarantees" in the guide says that nothing is bounded or times out: a release that never ends holds the program.
+- "Running" in the guide says that `onApplied` may hear a step whose frame is never drawn, as the run ends.
+- "Running" in the guide says that a message the run does not apply starts no command and is not heard by
   `onApplied`, and that `onApplied` hears the commands a message decided, which may never start as the run ends.
-- "View" in the README says that a handler returns before `update` has seen the message it sent.
-- "Running" in the README describes the order of the defects in the cause, and no longer promises it.
+- "View" in the guide says that a handler returns before `update` has seen the message it sent.
+- "Running" in the guide describes the order of the defects in the cause, and no longer promises it.
 - **Breaking**: `DefectSite` gains `'init'` and `'log'`, for an `init` or a `Logger` that throws.
   Upgrade: a `switch` over `where` that must be exhaustive adds a `case 'init'` and a `case 'log'`.
 - A parent's subscriptions are kept by each child's state object, as its models are.
-- "Guarantees" in the README asks that `subscriptions` be pure, as `update` and `makeModel` are.
-- "Guarantees" in the README says that a subscription starts and stops once the new state is published, and
+- "Guarantees" in the guide asks that `subscriptions` be pure, as `update` and `makeModel` are.
+- "Guarantees" in the guide says that a subscription starts and stops once the new state is published, and
   that one that ended stays ended while its key stays, where it said that a subscription runs exactly while its key
   is in the state.
-- The README is reorganized: a diagram of the loop, and a "Guide" from a program's anatomy to its structure.
+- The README opens with a diagram of the loop, and the guide goes from a program's anatomy to its structure.
 - "Installation" in the README states the oldest TypeScript supported, 5.9, as Effect 4's.
 - The README and the site link effect-tea-persistent, the same architecture for long-lived entities on a server.
-- "Running" in the README, the examples and the tutorial start a program with `Effect.runFork`, an API that is stable.
+- "Running" in the guide, the examples and the tutorial start a program with `Effect.runFork`, an API that is stable.
 - The `counter-react` and `form-react` examples draw with React, through `examples/react.ts`, a bridge to copy.
-- "Model", "Guarantees" and "Testing" in the README say that the model holds what `update` accepts, as a test reads it.
-- "Model" in the README says that messages live in the model, and no longer offers a view that builds its own.
-- "View" and "Testing" in the README ask no `messagesSentBy` of a bridge, and the examples' React bridge has none.
-- The comments of `dispatchViolations` and the README's table of the tools speak of the messages a model holds.
+- "Model", "Guarantees" and "Testing" in the guide say that the model holds what `update` accepts, as a test reads it.
+- "Model" in the guide says that messages live in the model, and no longer offers a view that builds its own.
+- "View" and "Testing" in the guide ask no `messagesSentBy` of a bridge, and the examples' React bridge has none.
+- The comments of `dispatchViolations` and the table of the tools in the guide's "Testing" speak of the messages a
+  model holds.
 - The site has a tutorial that builds the new `timer` example in four steps.
 - **Breaking**: `child` and `each` refuse a program with commands and no `runCommand`.
   Upgrade: give the child the `runCommand` its commands need; one that gets there through a cast is a
   `CompositionDefect` naming the child.
-- The README says that a command, a subscription or the renderer dies once its effect ends with a defect.
-- "Rejections and defects" in the README says, as one choice, who settles what arrives too late: the run drops a
+- The guide says that a command, a subscription or the renderer dies once its effect ends with a defect.
+- "Rejections and defects" in the guide says, as one choice, who settles what arrives too late: the run drops a
   stopped subscription's message, `update` rejects a command's outdated answer, the library a write over a value
   replaced.
 - `dispatchViolations` reports as `Missing` only a candidate whose step would do something: one that leaves the same
   state by `Equal`, with no commands and no events, is no control missing, by the rule `ActsTwice` applies to a
   message sent twice. A `withheld` that listed such messages is no longer needed.
-- "Rejections and defects" in the README says why a handler of `onEvent` has no `reject`, and how `onApplied` hears
+- "Rejections and defects" in the guide says why a handler of `onEvent` has no `reject`, and how `onApplied` hears
   a message whose handler answers `{ state }`; "Model and view" and "Testing" say that a control that would do
   nothing is no control missing.
 - The clock of `pages` has a format, ISO or Unix, which its test withholds under About; `list` rejects "Stop all"
@@ -173,21 +174,20 @@ version, and everything else, features included, the patch version.
 - **Breaking**: `rehearse` starts from the program's `init`, given `flags` for a program with them, as `run` and
   `drive` do: its `from` option, and `RehearseOptions`, are gone. Upgrade: `rehearse(program, scenario, { from })`
   becomes `rehearse({ ...program, init: from }, scenario)`.
-- The README says that a parent's message wrapping a child's string is logged by the child's name alone, that a
+- The guide says that a parent's message wrapping a child's string is logged by the child's name alone, that a
   failure of a call of `rehearse` fails the fiber that made it, and that `simulate` calls no `init`.
-
 - **Breaking**: `rehearse`'s `hear` takes no write into an input, the program's or a child's, which only a view sends.
   Upgrade: a test that heard `{ _tag: 'Name', message: { _tag: 'Written', … } }` sends it with `send`, from the model
   that shows the input.
 - `Update`, `Transition`, `Rejected`, `ModelOf`, `MessageOf`, `CommandOf`, `EventOf` and `ServicesOf` have doc comments
   of their own, and `StateOf`'s speaks of `StateOf` alone.
-- "Rejections and defects" in the README says that `defect` is for `init` too, and the API reference that a
-  `ProgramDefect` holds the tags of `update`'s message, not the message.
+- "Rejections and defects" in the guide says that `defect` is for `init` too, and the doc comment of `ProgramDefect`
+  that it holds the tags of `update`'s message, not the message.
 - `CompositionDefect`'s documentation names a child whose state is not an object, and that of `Rehearsal.ignored`
   says that it holds messages.
-- "Running" in the README says that what a channel adds to the scope the run gives it is released after its defect,
+- "Running" in the guide says that what a channel adds to the scope the run gives it is released after its defect,
   where it said "a channel's own scopes".
-- The examples export `Message` as a type only, as "Model" in the README says (`pages`, `list`, `timer`, `form`,
+- The examples export `Message` as a type only, as "Model" in the guide says (`pages`, `list`, `timer`, `form`,
   `volume`): their tests write messages as data.
 - `examples/form/late-key.test.ts` is removed: its two histories of a key typed before a save completed are cases of
   `examples/bridge.test_suite.ts`, run on each bridge with `form`'s views.
@@ -198,7 +198,7 @@ version, and everything else, features included, the patch version.
 - The examples' tests list the candidates of tagged messages a tag at a time, in a record checked against `Message`
   with `satisfies`, so that a new message does not compile until the test says what a user could ask with it; and
   each example drawn with snabbdom, not `list` alone, compares what its view sends (`messagesSentBy`) with what its
-  reader returns, whose order is now the view's. "Testing" in the README, the tutorial's "Testing" and the
+  reader returns, whose order is now the view's. "Testing" in the guide, the tutorial's "Testing" and the
   `add-example` skill say so.
 
 ### Fixed
@@ -255,7 +255,7 @@ version, and everything else, features included, the patch version.
 - A message or command whose wrapping comes back to itself is described by its tags until then, `Loop › …`: its
   description overflowed the stack, and a defect it was made for died as that `RangeError`, without where.
 - `Applied`'s `revision` is a `number` in the declarations, which no longer carry the engine's internal modules, and
-  the README says what it counts ("Running").
+  the guide says what it counts ("Running").
 - The examples' snabbdom bridge settles an `<input>` that snabbdom reuses for another vnode: drawn with `shows` in the
   place of a plain field, it shows the program's value and sends its writes; drawn as a plain field in the place of an
   input, it is let go and keeps what the view gives it.
