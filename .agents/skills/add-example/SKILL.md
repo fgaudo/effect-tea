@@ -23,7 +23,7 @@ examples/<name>/
 ```
 
 What the examples share, in `examples/`: [`snabbdom.ts`](../../../examples/snabbdom.ts), the bridge to the
-renderer (`renderInto` for `run`, `onClick`, `onPress`, `shows` and `slides`), beside
+renderer (`renderInto` for `run`, `onClick`, `onPress` and `shows`), beside
 [`snabbdom-testing.test_messages.ts`](../../../examples/snabbdom-testing.test_messages.ts), its `messagesSentBy`, an
 example of how to check that a view draws what its model holds;
 [`react.ts`](../../../examples/react.ts), the same bridge for React, without `messagesSentBy`, which only
@@ -62,9 +62,11 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
   `form-react` alone, so that the examples share one bridge. snabbdom's props module never removes a prop, so a
   view sets a prop such as `disabled` in every case of an element (`counter/view.ts`). An input is declared in
   `compose`, as the README's "Inputs the user types into" says: the view draws it from the value its model holds,
-  with `shows` (a text) or `slides` (a range whose bounds never narrow), through `dispatchTo`, and gives it no key:
-  the bridge keeps the element. A control that fits no element the bridge settles is drawn by the program, its
-  press a message of the model and its drag a subscription (`volume`). A child's view is
+  with `shows`, over a native text `<input>`, through `dispatchTo`, and gives it no key: the bridge keeps the element.
+  What the bridges do not support (the README's "View": a form's reset, a shadow tree, a value the element changes by
+  itself, and in React a component with state or effects, Suspense, `memo`, a portal) is used by no example. A
+  control that fits no element the bridge settles, a slider among them, is drawn by the program, its press a message
+  of the model and its drag a subscription (`volume`). A child's view is
   memoized with snabbdom's `thunk`, its dispatch from `dispatchTo` among the arguments (`pages/view.ts`).
 - **Messages live in the model** (the README's "Model"): a view builds none, and a test reads them from the
   model with a reader of its own, `messagesOf(model)`, a case of the model at a time. A parent's reader calls

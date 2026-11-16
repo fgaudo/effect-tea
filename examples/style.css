@@ -183,7 +183,7 @@ time {
   font-weight: 600;
 }
 
-/* Volume: a native slider, and one the program draws, a track filled up to the level with a mark at its maximum. */
+/* Volume: two sliders the program draws, each a track filled up to the level with a mark at its maximum. */
 .volume {
   display: flex;
   flex-wrap: wrap;
@@ -197,7 +197,6 @@ time {
   font-size: 1rem;
 }
 
-.volume input,
 .track {
   flex: 1;
 }

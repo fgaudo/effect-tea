@@ -226,11 +226,11 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   nobody holds, and a FinalizationRegistry then calls back for each target it reclaimed", on Bun and on Node, which
   fails with a callback that never runs.
 - **React has run the ref callbacks of a commit, and called `onUncaughtError` with what a component threw, when
-  `flushSync` returns**, which is how the React bridge settles every input of its root once a frame is drawn, its
-  registry complete, and throws in the frame what a component threw, so that the run dies in the renderer: 22 of the
-  31 tests of `react.test.ts` fail with a ref that registers its element in a microtask, and "a component that throws
-  ends the run, which dies in the renderer with what it threw" with an `onUncaughtError` that keeps the error in one.
-  react.dev says only that the DOM is updated when `flushSync` returns. Its tests, in `react.test.ts`: "the ref
+  `flushSync` returns**, which is how the React bridge settles every input of its root once a frame is drawn, with the
+  value each was drawn with, and throws in the frame what a component threw, so that the run dies in the renderer: 18 of
+  the 28 tests of `react.test.ts` fail with a ref that registers its element in a microtask, and "a component that
+  throws ends the run, which dies in the renderer with what it threw" with an `onUncaughtError` that keeps the error in
+  one. react.dev says only that the DOM is updated when `flushSync` returns. Its tests, in `react.test.ts`: "the ref
   callbacks of a commit have run when flushSync returns", "onUncaughtError is called before flushSync returns", which
   fail with a ref, and an `onUncaughtError`, that does its work in a microtask.
 - **React leaves the value of an `<input>` drawn without `value` or `defaultValue` as it is when it draws it again**,
@@ -240,8 +240,8 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   leaves the value of an input drawn without value or defaultValue as it is when it draws it again", which fails with
   a React that writes the value again as it draws the input.
 - **snabbdom reuses an `<input>` with no key in the same place**, which is how an input drawn with `shows`, which needs
-  no key, stays the same element, with its focus, caret and selection, while the program changes what it shows: 18 of
-  the 27 tests of `snabbdom.test.ts` fail with a key new for each frame. snabbdom's README describes the reuse of keyed
+  no key, stays the same element, with its focus, caret and selection, while the program changes what it shows: 13 of
+  the 22 tests of `snabbdom.test.ts` fail with a key new for each frame. snabbdom's README describes the reuse of keyed
   elements only. Its test, in `snabbdom.test.ts`: "snabbdom reuses an <input> with no key in the same place", which
   fails with a key of its own for the second input.
 

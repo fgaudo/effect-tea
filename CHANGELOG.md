@@ -59,9 +59,16 @@ version, and everything else, features included, the patch version.
 - "View", "Inputs the user types into", "Declaring children", "Model and view", "Splitting a program", "Guarantees"
   and "Testing" in the README describe inputs, the condition they need of elements and renderers, and that a renderer
   draws frames and nothing else; `examples/field.ts` is removed, and `form` and `form-react` declare one.
-- The examples' bridges keep the element of each input and settle it after each frame with `drawn` (`shows` and
-  `slides` with snabbdom, `Shows` with React), and have `onPress`; `volume` draws a native slider beside one the
-  program draws, whose drag is a subscription, for bounds that narrow.
+- The examples' bridges keep the element of each input and settle it after each frame with `drawn` (`shows` with
+  snabbdom, `Shows` with React), and have `onPress`; `volume` draws two sliders of its own, whose drags are
+  subscriptions, for bounds that narrow.
+- The examples' bridges are minimal examples: they only draw each frame, run `dispatch` in plain handlers and settle
+  each native text `<input>`. "View" in the README says that another native widget that meets the condition of
+  `typed` and `drawn` would be connected by hand with them, or replaced by one the program draws, and that any other
+  feature of a renderer (a form's reset, a shadow tree, and in React a component with state or effects, Suspense,
+  `memo`, portals and a run inside another's root) is left to the bridge that needs it; "Inputs the user types into"
+  no longer says that a text field meets its condition once its form's reset is heard
+  ([`docs/rejected.md`](docs/rejected.md), "The bridges").
 - `messagesSentBy` moves from `examples/snabbdom.ts` to `examples/snabbdom-testing.test_messages.ts`, so that the
   bridge holds only what a bridge does ("Examples" and "Testing" in the README).
 - The tests the examples' two bridges share are written once, in `examples/bridge.test_suite.ts`, over a `Bridge` of
@@ -225,10 +232,6 @@ version, and everything else, features included, the patch version.
   its loop ran on, in a scope nothing closed.
 - The examples' React bridge hears an input's own `input` event, not React's `onChange`: a text a script wrote into
   the element through its `value`, as an extension that fills forms does, was lost.
-- The examples' bridges hear a reset of the form an input is drawn in, which changes its value with no `input` event,
-  as React's own resets do too, after an Action and on `requestFormReset`: the element showed the default value, and
-  the state kept what was typed. "Inputs the user types into" in the README says that a text field meets its condition
-  only so.
 
 ## 0.7.1 (2026-10-28)
 

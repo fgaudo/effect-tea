@@ -133,14 +133,14 @@ with `bun run build`, then `bun examples/<name>/index.html`.
 | [`counter-react`](examples/counter-react) | the same program, in React   | what changes with the renderer: the view, `main.ts` and the bridge, never the program                                                                        | [live](https://fgaudo.github.io/effect-tea/examples/counter-react/) |
 | [`form`](examples/form)                   | a form that saves a name     | an input declared in `compose`; a service; a failure as a message; a save only its completion ends; `rehearse`                                               | [live](https://fgaudo.github.io/effect-tea/examples/form/)          |
 | [`form-react`](examples/form-react)       | the form, in React           | an input drawn by `Shows`, an uncontrolled `<input>` the bridge settles, never a `value` prop                                                                | [live](https://fgaudo.github.io/effect-tea/examples/form-react/)    |
-| [`volume`](examples/volume)               | two sliders, side by side    | an input over a number; a slider the program draws, its drag a subscription, for bounds that narrow; a key's messages given to `dispatchViolations`; `drive` | [live](https://fgaudo.github.io/effect-tea/examples/volume/)        |
+| [`volume`](examples/volume)               | two sliders, side by side    | sliders the program draws, a drag a subscription keyed by the slider, for bounds that narrow; a key's messages given to `dispatchViolations`; `drive`        | [live](https://fgaudo.github.io/effect-tea/examples/volume/)        |
 | [`pages`](examples/pages)                 | a clock and an About page    | `composition`, optics, `dispatchTo`, events, `subscribed`, a page started from flags; `simulate`                                                             | [live](https://fgaudo.github.io/effect-tea/examples/pages/)         |
 | [`list`](examples/list)                   | stopwatches by id            | `each`, a subscription per running child, `forEach`; a test with a `TestClock`                                                                               | [live](https://fgaudo.github.io/effect-tea/examples/list/)          |
 | [`timer`](examples/timer)                 | the tutorial's application   | timers by id, each ticking only while it runs, and a bell as a command; `rehearse` with `hear`                                                               | [live](https://fgaudo.github.io/effect-tea/examples/timer/)         |
 
 [`examples/snabbdom.ts`](examples/snabbdom.ts) and [`examples/react.ts`](examples/react.ts) are the small
 bridges to the two renderers, worth copying for your own: `renderInto` for `run`, handlers, and the element of each
-input (`shows` and `slides` with snabbdom, `Shows` with React). Their tests,
+input (`shows` with snabbdom, `Shows` with React). Their tests,
 [`examples/snabbdom.test.ts`](examples/snabbdom.test.ts) and [`examples/react.test.ts`](examples/react.test.ts),
 run them in a DOM, with [happy-dom](https://github.com/capricorn86/happy-dom). The tests they share are written once, in
 [`examples/bridge.test_suite.ts`](examples/bridge.test_suite.ts), and check how often a bridge draws, that a click
@@ -220,13 +220,12 @@ const makeModel = (state: State): { name: string; editor: Editor } => ({
 
 What a model shows, and what a view may decide, is in [structuring a program](#structuring-a-program).
 
-**Messages live in the model.** Every message a view can send is in the model it draws, as a value: a control
-sends what the program fixed for it. What the user gives a control (a text, a slider's level) is no message: the
-view writes it over the value of an input the model holds (see
-[inputs the user types into](#inputs-the-user-types-into)). A view sends only what the model holds, writes only over
-the values it holds, and builds no message of the program itself: export `Message` as a type only, and no view can
-build one. The library does not enforce it, and what it says of a model rests on it: a test reads a program's
-messages from its model (see [testing](#testing)), so a message a view built is one no test has seen.
+**Messages live in the model.** Every message a view can send is in the model it draws, as a value: a control sends what
+the program fixed for it. What the user types into a text field is no message: the view writes it over the value of an
+input the model holds (see [inputs the user types into](#inputs-the-user-types-into)). A view sends only what the model
+holds, writes only over the values it holds, and builds no message of the program itself: export `Message` as a type
+only, and no view can build one. The library does not enforce it, and what it says of a model rests on it: a test reads
+a program's messages from its model (see [testing](#testing)), so a message a view built is one no test has seen.
 
 **A model is data.** It holds no function, and compares by value with `Equal`: the models of two equal states are
 equal. The testing tools compare a model's messages so, and a test checks it on the models of two equal states
@@ -256,9 +255,22 @@ handlers, and settles, after each frame, the element of each input on screen (se
 programs of [`counter`](examples/counter) and [`form`](examples/form) with the second. React Native's bridge is
 written the same way.
 
+The examples' bridges are minimal examples to start from: they show how a native element is connected to the library,
+and settle native text fields alone. They run `dispatch` from a click, a press of the pointer and the `input` event of
+a native text `<input>`, the only element of an input they settle, in the base case: a field whose value changes only
+by the user's edits and by the bridge. A value the text field changes by itself, as it strips the line breaks of what
+is written into it, they do not handle, and whether a bridge that starts from them could is left open. Another native
+widget that meets the condition of `typed` and `drawn` (see [inputs the user types into](#inputs-the-user-types-into))
+would be connected by hand with them; a widget the program draws is preferred wherever connecting one is too complex.
+Any other feature of a renderer is left to the bridge that needs it: with either, a form's reset, by a reset button or
+`form.reset()` (a program may empty a field by leaving `''` in its place), and a root or an input in a shadow tree;
+with React, a component with state or effects of its own, Suspense, a subtree `memo` skips, a portal, and a run whose
+root is inside another run's, for which the bridge would need to know the run each input belongs to, as a context of
+its own would tell it.
+
 #### Inputs the user types into
 
-A value the user gives an input (a text, a slider's level) is no message of the program: the program declares where
+A value the user gives an input (a text) is no message of the program: the program declares where
 it goes, `inputs: { Name: input(at) }` in `compose` (see [declaring children](#declaring-children)), at a plain value
 of its state, and the view writes over the value its model holds,
 `{ _tag: 'Written', was: model.name, value: text }`, through `dispatchTo(dispatch, 'Name')`. No `update` of the
@@ -279,18 +291,19 @@ returns, what the element then holds. After each frame, `drawn(held, value, seen
 it is while the frame is the element's own past or present, and takes the frame's value once the state has moved on
 without it. So the element is never replaced, and keeps its focus while the program changes what it shows. The
 examples' bridges show it, to copy, in [`form`](examples/form) and [`form-react`](examples/form-react), with snabbdom
-and with React, and in [`volume`](examples/volume), a slider.
+and with React.
 
 With a bridge that settles them with `drawn`, the element of an input never takes back what the user typed since the
 frame, and shows the program's value once the state has moved on without it. That holds for elements and renderers
 that meet one condition: an element's value changes only by an edit of the user, which it reports with the whole
 value, or by the bridge; and the renderer, after each frame and before the user can act on it, lets the bridge reach
-the element of each input with the frame's value and `seen`. A text field meets it once its bridge reports a reset of
-its form as an edit, since a reset changes its value with no event, as the examples' bridges do; so does a renderer
-that draws each frame at once. A range whose bounds narrow does not, since it brings its value within them by itself,
-and is outside what is promised here. A widget, native or not, that does not fit the bridge is replaced by one the
+the element of each input with the frame's value and `seen`. A native text field meets it, but for what changes its
+value with no edit reported: a reset of its form, and a value written into it that it sanitizes, such as one with a
+line break, which the examples' bridges do not handle (see [view](#view)); so does a renderer that draws each frame at
+once. A widget, native or not, that changes its own value does not, as a range does when its bounds narrow, and is
+outside what is promised here unless its bridge reports each such change as an edit; or it is replaced by one the
 program draws, which is no input: a press is a message of the model, and a drag the messages of a subscription keyed
-by the state of dragging, as the ringer of [`volume`](examples/volume) is. The bridges' tests check it, in a DOM.
+by the state of dragging, as the sliders of [`volume`](examples/volume) are. The bridges' tests check it, in a DOM.
 
 A message names a place, which leaves two limits, neither of which corrupts the state: a write over a value that
 came back, the same text after a reset or an undo, is stored, as what the user typed over what they saw; and a

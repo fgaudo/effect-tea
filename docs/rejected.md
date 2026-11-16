@@ -255,6 +255,31 @@ answer, and saying so in the proposal.
   The README says what it does; `describeMessage` shows more. *Reopen if* a wrapping the describer can tell from a
   program's own value comes for another reason.
 
+## The bridges
+
+- **Bridges that support what a renderer does beyond drawing a frame.** Decided by the owner on 16 November 2026,
+  after a review of the bridges' premises found four gaps, each held by a `test.failing`: a reset the user begins
+  was missed, since its microtasks run before the form resets its elements; a root in a shadow tree never heard its
+  forms' resets, which are not composed; React showed the old text in an input that Suspense showed again outside a
+  frame; and a text field that strips the line breaks of what the bridge writes showed a value the bridge held as
+  shown. Each had a fix, in a later task, on the root node of each input, on React's reattached refs, or by reading
+  back what the element took, and each fix would have brought more premises on the DOM and the renderer to check and
+  review. The examples' bridges were made minimal instead: they draw each frame whole and at once, run `dispatch` in
+  plain handlers (a click, a press, a native text `<input>`'s `input` event), and settle each text input with `drawn`
+  after the frame, and nothing more: minimal examples of connecting a native element to the library. A value the
+  element changes by itself is not handled, and whether a bridge that starts from them could is left open; another
+  native widget that meets the condition of `typed` and `drawn` would be connected by hand with them, or replaced by
+  one the program draws (the snabbdom bridge's `slides`, a range, went, and `volume` draws both its sliders); a form's
+  reset, a shadow tree, and in React a component with state or effects, Suspense, `memo`, portals and a run inside
+  another's root are left to the bridge that needs them, as the README's "View" and the bridges' comments say. The
+  React bridge finds the inputs to settle in its root's own elements, without the context it had: a bridge for a
+  portal, or for a run inside another's root, would need to know the run each input belongs to again. Why: such
+  features cost much review time for what is outside the library's concern, which is the program and its rule for an
+  input's element, not each renderer's features; a bridge is an example to start from, and an application that needs
+  more writes its own. The library (`typed`, `drawn`,
+  inputs) did not change. *Reopen if* the bridges become packages of their own (`ROADMAP.md`, "Ideas"), whose users
+  would expect a renderer's features to work.
+
 ## The checks
 
 - **A framework of mutation testing (StrykerJS) in place of `mutations/`.** Reasoned, 15 November 2026, when the run

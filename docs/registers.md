@@ -1828,6 +1828,13 @@ on it, not merged.
 
 ### Left
 
+Superseded on 16 November 2026, when the owner made the bridges minimal ([`rejected.md`](rejected.md), "The
+bridges"): `slides` went, and `volume` draws both its sliders, so a slider in React is no longer to be done; a real
+browser is no longer listed; and the React bridge settles the inputs `Shows` drew inside its root, found there after
+each frame, without the context, by the owner the same day: a portal, and a run inside another's root, are left to a
+bridge that needs them, which would need to know again the run each input belongs to. What follows is the list as it
+was.
+
 - **A slider in React**: `Shows` is a text input over a string, so the React bridge has no counterpart of `slides`,
   and its tests have no native slider; `volume` has no React view, as before.
 - **`Shows` and its context stay**, by the owner on 15 November 2026: what the context gives is not the case left
