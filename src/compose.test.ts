@@ -401,7 +401,7 @@ const List = composition<{ state: ListState }>()
 const list = List.compose({
   init: () => ({ state: { rows: [] } }),
   children: {
-    Rows: List.each(counter, {
+    Rows: List.childById(counter, {
       get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
       set: (state, id, counter) => ({ rows: state.rows.map((row) => row.id === id ? { id, counter } : row) }),
       subscribed: (state) => state.rows.map(({ id, counter }) => [id, counter] as const),
@@ -431,7 +431,7 @@ const Nested = composition<{ state: Lists }>()
 const lists = Nested.compose({
   init: () => ({ state: { rows: [] } }),
   children: {
-    Lists: Nested.each(list, {
+    Lists: Nested.childById(list, {
       get: (state, id: string) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.list),
       set: (state, id, list) => ({ rows: state.rows.map((row) => row.id === id ? { id, list } : row) }),
       subscribed: (state) => state.rows.map(({ id, list }) => [id, list] as const),
@@ -550,7 +550,7 @@ describe('children by id', () => {
     const tickerList = Tickers.compose({
       init: () => ({ state: { ids: [7, 8] } }),
       children: {
-        Tickers: Tickers.each(ticker, {
+        Tickers: Tickers.childById(ticker, {
           get: (state, id: number) => state.ids.includes(id) ? Opt.some(noTicks) : Opt.none(),
           set: (state) => state,
           subscribed: (state) => state.ids.map((id) => [id, noTicks] as const),
@@ -571,7 +571,7 @@ describe('children by id', () => {
     const twice = Tickers.compose({
       init: () => ({ state: { ids: [7, 7] } }),
       children: {
-        Tickers: Tickers.each(ticker, {
+        Tickers: Tickers.childById(ticker, {
           get: (state, id: number) => state.ids.includes(id) ? Opt.some(noTicks) : Opt.none(),
           set: (state) => state,
           subscribed: (state) => state.ids.map((id) => [id, noTicks] as const),
@@ -595,7 +595,7 @@ describe('children by id', () => {
     const counting = Tickers.compose({
       init: () => ({ state: { ids: [7] } }),
       children: {
-        Tickers: Tickers.each(ticker, {
+        Tickers: Tickers.childById(ticker, {
           get: (state, id: number) => state.ids.includes(id) ? Opt.some(primitive) : Opt.none(),
           set: (state) => state,
           subscribed: (state) => state.ids.map((id) => [id, primitive] as const),
@@ -620,7 +620,7 @@ describe('children by id', () => {
     const tickers = Tickers.compose({
       init: () => ({ state: { rows: [] } }),
       children: {
-        Tickers: Tickers.each({
+        Tickers: Tickers.childById({
           ...ticker,
           subscriptions: () => {
             counted.calls++
@@ -793,7 +793,7 @@ describe('what a parent can do with a child', () => {
     const telling = List.compose({
       init: () => ({ state: { rows: [] } }),
       children: {
-        Rows: List.each(counter, {
+        Rows: List.childById(counter, {
           get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
           set: (state, id, counter) => ({ rows: state.rows.map((row) => row.id === id ? { id, counter } : row) }),
           subscribed: () => [],
@@ -809,7 +809,7 @@ describe('what a parent can do with a child', () => {
     const rejecting = List.compose({
       init: () => ({ state: { rows: [{ id: 7, counter: { count: 0, text: '', saving: false } }] } }),
       children: {
-        Rows: List.each(refusing, {
+        Rows: List.childById(refusing, {
           get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
           set: (state, id, counter) => ({ rows: state.rows.map((row) => row.id === id ? { id, counter } : row) }),
           subscribed: () => [],
@@ -866,7 +866,7 @@ describe('what a parent can do with a child', () => {
       init: () => ({ state: { rows: [noTicks] } }),
       children: {
         // @ts-expect-error: likewise for children by id.
-        Rows: List.each(saving, {
+        Rows: List.childById(saving, {
           get: (state, id: number) => Arr.get(state.rows, id),
           set: (state, id, row) => ({ rows: state.rows.map((kept, at) => at === id ? row : kept) }),
           subscribed: () => [],
@@ -957,7 +957,7 @@ describe('steps that add up', () => {
     const clearing = Clearing.compose({
       init: () => ({ state: { rows: [] } }),
       children: {
-        Rows: Clearing.each(counter, {
+        Rows: Clearing.childById(counter, {
           get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
           set: (state, id, counter) => ({ rows: state.rows.map((row) => row.id === id ? { id, counter } : row) }),
           subscribed: () => [],
@@ -1077,7 +1077,7 @@ describe('a child placed with an optic', () => {
     const byId = ById.compose({
       init: () => ({ state: { rows: {} } }),
       children: {
-        Rows: ById.each(counter, {
+        Rows: ById.childById(counter, {
           at: (id: number) => Optic.id<Rows>().key('rows').optionalKey(id).notUndefined(),
           subscribed: () => [],
         }),
@@ -1100,7 +1100,7 @@ describe('a child placed with an optic', () => {
     const started = List.compose({
       init: () => ({ state: { rows: [] } }),
       children: {
-        Rows: List.each(starting, {
+        Rows: List.childById(starting, {
           get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
           set: (state, id, counter) => ({ rows: state.rows.map((row) => row.id === id ? { id, counter } : row) }),
           subscribed: () => [],
@@ -1170,7 +1170,7 @@ describe('flags', () => {
         get: (state) => state.maybeSeeded,
         set: (state, seeded) => ({ ...state, maybeSeeded: Opt.some(seeded) }),
       }),
-      Rows: Seeds.each(seeded, {
+      Rows: Seeds.childById(seeded, {
         get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
         set: (state, id, counter) => ({
           ...state,
@@ -1241,7 +1241,7 @@ describe('flags', () => {
           get: (state) => Opt.some(state.relay),
           set: (state, one) => ({ ...state, relay: one }),
         }),
-        Rows: Top.each(relay, {
+        Rows: Top.childById(relay, {
           get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
           set: (state, id, counter) => ({
             ...state,
@@ -1408,14 +1408,14 @@ describe('what the types reject', () => {
 
   test('an input cannot take the name of a child, which it would replace', () => {
     type Named = Readonly<{ ticks: number; name: string }>
-    const { child, compose } = composition<{ state: Named }>()
+    const { child, compose, input } = composition<{ state: Named }>()
     // @ts-expect-error: `Plain` is a child's name.
     compose({
       init: () => ({ state: { ticks: 0, name: '' } }),
       children: {
         Plain: child(plain, { get: (state) => Opt.some(state), set: (state, ticks) => ({ ...state, ...ticks }) }),
       },
-      inputs: { Plain: Optic.id<Named>().key('name') },
+      inputs: { Plain: input({ at: Optic.id<Named>().key('name') }) },
       makeModel: () => null,
     })
   })
@@ -1433,11 +1433,11 @@ describe('what the types reject', () => {
       update: (_: Tick) => (state) => ({ state }),
       makeModel: () => null,
     })
-    const { child, each } = composition<{ state: Ticks }>()
+    const { child, childById } = composition<{ state: Ticks }>()
     // @ts-expect-error: its parent may send it a `Reset`, which its `update` does not take.
     expect(child(wrapper, { get: Opt.some, set: (_, ticks) => ticks })).toBeDefined()
     // @ts-expect-error: likewise for children by id.
-    expect(each(wrapper, { get: () => Opt.some(noTicks), set: (state) => state, subscribed: () => [] })).toBeDefined()
+    expect(childById(wrapper, { get: () => Opt.some(noTicks), set: (state) => state, subscribed: () => [] })).toBeDefined()
     expect(resetting).toBeDefined()
   })
 

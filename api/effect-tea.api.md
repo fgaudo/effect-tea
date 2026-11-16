@@ -38,7 +38,7 @@ export type Applied<State, Message, Command> = Readonly<{
 }>;
 
 // @public
-type At<C> = C extends EachOf<infer Id, any> ? Readonly<{
+type At<C> = C extends ChildByIdOf<infer Id, any> ? Readonly<{
     id: Id;
 }> : unknown;
 
@@ -49,6 +49,22 @@ type Child<ParentState, P> = Readonly<{
     get: (state: ParentState) => Opt.Option<StateOf<P>>;
     set: (state: ParentState, child: StateOf<P>) => ParentState;
     subscribed?: (state: ParentState) => Opt.Option<StateOf<P>>;
+}>;
+
+// @public
+type ChildById<ParentState, Id, P> = Readonly<{
+    kind: 'byId';
+    program: P;
+    get: (state: ParentState, id: Id) => Opt.Option<StateOf<P>>;
+    set: (state: ParentState, id: Id, child: StateOf<P>) => ParentState;
+    subscribed: (state: ParentState) => Iterable<readonly [Id, StateOf<P>]>;
+}>;
+
+// @public (undocumented)
+type ChildByIdOf<Id, P> = Readonly<{
+    kind: 'byId';
+    program: P;
+    get: (state: any, id: Id) => any;
 }>;
 
 // @public
@@ -94,7 +110,7 @@ type Children<State> = Readonly<Record<string, Readonly<{
     get: (state: State) => Opt.Option<unknown>;
     set: (state: State, child: never) => State;
 }> | Readonly<{
-    kind: 'each';
+    kind: 'byId';
     program: AnyProgram;
     get: (state: State, id: never) => Opt.Option<unknown>;
     set: (state: State, id: never, child: never) => State;
@@ -113,9 +129,11 @@ export const composition: <T extends CompositionTypes>() => {
     child: <P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalAmong<MessageOf<P>, ExternalOf<P>>, place: Placement<Field<T, "state">, StateOf<P>> & Readonly<{
         subscribed?: (state: Field<T, "state">) => Opt.Option<StateOf<P>>;
     }> & ObjectState<StateOf<P>>) => Child<Field<T, "state">, P>;
-    each: <Id, P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalAmong<MessageOf<P>, ExternalOf<P>>, place: EachPlacement<Field<T, "state">, Id, StateOf<P>> & Readonly<{
+    childById: <Id, P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalAmong<MessageOf<P>, ExternalOf<P>>, place: PlacementById<Field<T, "state">, Id, StateOf<P>> & Readonly<{
         subscribed: (state: Field<T, "state">) => Iterable<readonly [Id, StateOf<P>]>;
-    }> & ObjectState<StateOf<P>>) => Each<Field<T, "state">, Id, P>;
+    }> & ObjectState<StateOf<P>>) => ChildById<Field<T, "state">, Id, P>;
+    input: <A>(place: Placement<Field<T, "state">, A>) => Input<Field<T, "state">, A>;
+    inputById: <Id, A>(place: PlacementById<Field<T, "state">, Id, A>) => InputById<Field<T, "state">, Id, A>;
     compose: <Model, C extends Children<Field<T, "state">> = None, I extends Inputs<Field<T, "state">> = None, Own = never, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, "state">, NoInfer<C>, NoInfer<I>, Own, Field<T, "command">, Field<T, "event">, Model, Ran, Heard, K, Field<T, 'flags'>> & Readonly<{
         children?: C;
         inputs?: I;
@@ -168,33 +186,6 @@ export type Dispatch<Message> = (message: Message) => Effect.Effect<number>;
 export const drawn: <A>(held: Shown<A> | undefined, value: A, seen: number) => Readonly<{
     shown: Shown<A>;
     taken: boolean;
-}>;
-
-// @public
-type Each<ParentState, Id, P> = Readonly<{
-    kind: 'each';
-    program: P;
-    get: (state: ParentState, id: Id) => Opt.Option<StateOf<P>>;
-    set: (state: ParentState, id: Id, child: StateOf<P>) => ParentState;
-    subscribed: (state: ParentState) => Iterable<readonly [Id, StateOf<P>]>;
-}>;
-
-// @public (undocumented)
-type EachOf<Id, P> = Readonly<{
-    kind: 'each';
-    program: P;
-    get: (state: any, id: Id) => any;
-}>;
-
-// @public
-type EachPlacement<ParentState, Id, ChildState> = Readonly<{
-    get: (state: ParentState, id: Id) => Opt.Option<ChildState>;
-    set: (state: ParentState, id: Id, child: ChildState) => ParentState;
-    at?: never;
-}> | Readonly<{
-    at: (id: Id) => Optic.Optional<ParentState, ChildState>;
-    get?: never;
-    set?: never;
 }>;
 
 // @public
@@ -272,7 +263,7 @@ export type Frame<Model, Message> = Readonly<{
 
 // @public
 type Handles<State, C, Command, Event> = {
-    readonly [K in keyof C & string]: C[K] extends EachOf<infer Id, infer P> ? Readonly<{
+    readonly [K in keyof C & string]: C[K] extends ChildByIdOf<infer Id, infer P> ? Readonly<{
         update: (id: Id, message: ExternalOf<P>) => (state: State) => Step<State, Command, Event>;
         init: [FlagsOf<P>] extends [never] ? (id: Id) => Start<P, Command> : (id: Id, flags: FlagsOf<P>) => Start<P, Command>;
     }> : Readonly<{
@@ -297,19 +288,46 @@ export type Ignored<State, Message> = Readonly<{
 type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, Command> : (flags: Flags) => Step<State, Command>;
 
 // @public
+type Input<State, A> = Readonly<{
+    kind: 'one';
+    get: (state: State) => Opt.Option<A>;
+    set: (state: State, value: A) => State;
+}>;
+
+// @public
+type InputById<State, Id, A> = Readonly<{
+    kind: 'byId';
+    get: (state: State, id: Id) => Opt.Option<A>;
+    set: (state: State, id: Id, value: A) => State;
+}>;
+
+// @public
 type InputMessages<I> = {
-    [K in keyof I & string]: I[K] extends (id: infer Id) => Optic.Optional<any, infer A> ? Readonly<{
+    [K in keyof I & string]: I[K] extends Readonly<{
+        kind: 'byId';
+        get: (state: any, id: infer Id) => Opt.Option<infer A>;
+    }> ? Readonly<{
         _tag: K;
         id: Id;
         message: Written<A>;
-    }> : I[K] extends Optic.Optional<any, infer A> ? Readonly<{
+    }> : I[K] extends Readonly<{
+        get: (state: any) => Opt.Option<infer A>;
+    }> ? Readonly<{
         _tag: K;
         message: Written<A>;
     }> : never;
 }[keyof I & string];
 
 // @public
-type Inputs<State> = Readonly<Record<string, Optic.Optional<State, any> | ((id: never) => Optic.Optional<State, any>)>>;
+type Inputs<State> = Readonly<Record<string, Readonly<{
+    kind: 'one';
+    get: (state: State) => Opt.Option<any>;
+    set: (state: State, value: never) => State;
+}> | Readonly<{
+    kind: 'byId';
+    get: (state: State, id: never) => Opt.Option<any>;
+    set: (state: State, id: never, value: never) => State;
+}>>>;
 
 // @public
 type Interpreter<Command, Message, R> = [Command] extends [never] ? object : Readonly<{
@@ -354,7 +372,7 @@ export type ModelOf<P> = P extends {
 
 // @public
 type Models<State, C> = {
-    readonly [K in keyof C & string]: C[K] extends EachOf<infer Id, infer P> ? (state: State, id: Id) => ModelOf<P> : (state: State) => ModelOf<ProgramOf<C[K]>>;
+    readonly [K in keyof C & string]: C[K] extends ChildByIdOf<infer Id, infer P> ? (state: State, id: Id) => ModelOf<P> : (state: State) => ModelOf<ProgramOf<C[K]>>;
 };
 
 // @public (undocumented)
@@ -389,7 +407,7 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
 
 // @public (undocumented)
 type OnEvents<State, C, Command, Event> = {
-    readonly [K in keyof C & string as [EventOf<ProgramOf<C[K]>>] extends [never] ? never : K]: C[K] extends EachOf<infer Id, infer P> ? (id: Id, event: EventOf<P>, children: Handles<State, C, Command, Event>) => (state: State) => Step<State, Command, Event> : (event: EventOf<ProgramOf<C[K]>>, children: Handles<State, C, Command, Event>) => (state: State) => Step<State, Command, Event>;
+    readonly [K in keyof C & string as [EventOf<ProgramOf<C[K]>>] extends [never] ? never : K]: C[K] extends ChildByIdOf<infer Id, infer P> ? (id: Id, event: EventOf<P>, children: Handles<State, C, Command, Event>) => (state: State) => Step<State, Command, Event> : (event: EventOf<ProgramOf<C[K]>>, children: Handles<State, C, Command, Event>) => (state: State) => Step<State, Command, Event>;
 };
 
 // @public
@@ -412,6 +430,17 @@ type Placement<ParentState, ChildState> = Readonly<{
     at?: never;
 }> | Readonly<{
     at: Optic.Optional<ParentState, ChildState>;
+    get?: never;
+    set?: never;
+}>;
+
+// @public
+type PlacementById<ParentState, Id, ChildState> = Readonly<{
+    get: (state: ParentState, id: Id) => Opt.Option<ChildState>;
+    set: (state: ParentState, id: Id, child: ChildState) => ParentState;
+    at?: never;
+}> | Readonly<{
+    at: (id: Id) => Optic.Optional<ParentState, ChildState>;
     get?: never;
     set?: never;
 }>;

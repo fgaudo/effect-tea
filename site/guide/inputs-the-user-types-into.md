@@ -15,7 +15,7 @@ library stores it, or rejects it. No `update` of the program's is involved.
 The form declares its input `Name` at the `name` of its state (`examples/form/form.ts`):
 
 ```ts
-inputs: { Name: Optic.id<State>().key('name') },
+inputs: { Name: input({ at: Optic.id<State>().key('name') }) },
 ```
 
 The form's view draws its field with the snabbdom bridge, `shows(model.name, forwardTo(dispatch, 'Name'))`
@@ -31,17 +31,18 @@ In general, a view writes over the value its model holds, through the input's di
 ## Rules
 
 - **What the user gives an input is no message of the program.** No `update` of the program's sees it.
-- **The program declares where it goes**: `inputs: { Name: at }` in `compose`, where `at` is an optic to a plain value
-  of its state (see [declaring children](./composition.md#declaring-children)). An optic that may focus nothing, as one
-  composed with `Optic.some()`, declares an input that is not always there. A function of the id that gives an optic
-  declares an input by id, one for each row, written through `forwardTo(dispatch, 'Count', id)` (see
+- **The program declares where it goes**: `inputs: { Name: input({ at }) }` in `compose`, where `at` is an optic to a
+  plain value of its state, or `get` and `set` in its place (see
+  [declaring children](./composition.md#declaring-children)). An optic that may focus nothing, as one composed with
+  `Optic.some()`, declares an input that is not always there.
+  `inputById` declares an input by id, one for each row, written through `forwardTo(dispatch, 'Count', id)` (see
   [inputs by id](./composition.md#inputs-by-id)).
 - **The view writes over the value its model holds**: `{ _tag: 'Written', was: model.name, value: text }`, through
   `forwardTo(dispatch, 'Name')`.
 - **The library stores what is written, whatever it is**, in every state where the input's place holds, by `Equal`,
   the value it was written over.
 - **It rejects the write in any other state.** There, the state has moved on without the input that wrote it. A state
-  where the input's optic focuses nothing is one.
+  where the input's optic focuses nothing, or its `get` returns `None`, is one.
 - **The program changes an input by leaving another value in its place**, such as `name: ''`.
 - **An input keeps nothing of its own.** The state stored is the state the program wrote, and a test compares it whole.
 - **Only what is drawn writes into an input.** A subscription and a command answer with messages of the program. The

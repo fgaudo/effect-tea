@@ -81,11 +81,11 @@ For each child, and for itself, a parent declares:
 - **The parent's own flags,** if it has any, are declared with its other types:
   `composition<{ state: State; flags: Flags }>()`. Its `init` then returns the function that starts it:
   `init: (children) => (flags) => ({ state, commands })`.
-- **Its inputs,** if it has any: `inputs: { Name: at }`, where `at` is an optic to a value of its own state (see
-  [inputs the user types into](./inputs-the-user-types-into.md)), or a function of the id that gives one, for inputs
-  by id (see [inputs by id](#inputs-by-id)). An input is no child: its value is the parent's own state. Its `update`
-  and `makeModel` read it as the rest. A program with inputs and no children is made with `composition` too, and
-  leaves `children` out.
+- **Its inputs,** if it has any: `inputs: { Name: input({ at }) }`, where `at` is an optic to a value of its own state
+  (see [inputs the user types into](./inputs-the-user-types-into.md)), and `inputById` for inputs by id (see
+  [inputs by id](#inputs-by-id)). An input takes the places a child takes: `at`, or `get` and `set`, and for inputs by
+  id the same, of the id. An input is no child: its value is the parent's own state. Its `update` and `makeModel` read
+  it as the rest. A program with inputs and no children is made with `composition` too, and leaves `children` out.
 
 ### What the library derives from it
 
@@ -116,7 +116,7 @@ For each child, and for itself, a parent declares:
 **What does not compile:**
 - an own message that takes a child's or an input's name;
 - an input that takes a child's name;
-- an input whose optic, or the optic its function of the id gives, is into another state than the program's;
+- an input whose optic, alone or by id, is into another state than the program's;
 - an own subscription that writes into an input;
 - a command's answer that writes into an input, the parent's or a child's, and one that gives a child its own
   business;
@@ -211,7 +211,7 @@ const view: View<Model, Message> = (model, dispatch) =>
 
 ## Children by id
 
-For children by id, such as the rows of a list, use `each` instead of `child`:
+For children by id, such as the rows of a list, use `childById` instead of `child`:
 
 - **`get` and `set` take the id** (or `at` is a function of it).
 - **`subscribed` lists the rows that listen.** It is required, since the library cannot list the ids in the state: a
@@ -229,38 +229,31 @@ old answer. Subscriptions do not need this: a row that is removed stops them.
 
 ## Inputs by id
 
-A value the user types into each row, such as the count of each item, is an input by id: a function of the id that
-gives the optic to that row's value.
+A value the user types into each row, such as the count of each item, is an input by id: use `inputById` instead of
+`input`, with the place of each id, as `childById` takes it. Rows kept in a record by id are reached with an optic of
+the id:
 
 ```ts
 inputs: {
-  Count: (id: string) => Optic.id<State>().key('rows').at(id).key('count'),
+  Count: inputById({ at: (id: string) => Optic.id<State>().key('rows').at(id).key('count') }),
+},
+```
+
+Rows kept in an array are found with `get` and `set`, which take the id:
+
+```ts
+inputs: {
+  Count: inputById({
+    get: (state, id: string) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.count),
+    set: (state, id, count) => ({ rows: state.rows.map((row) => (row.id === id ? { ...row, count } : row)) }),
+  }),
 },
 ```
 
 - **A write into an input by id names its id**: `{ _tag: 'Count', id, message: { _tag: 'Written', was, value } }`,
   through `forwardTo(dispatch, 'Count', id)`.
-- **It is stored at the place the optic of its id focuses**, by [its inputs' rule](#what-the-library-derives-from-it).
-  Where that optic focuses nothing, as for a row that is not there, the write is rejected.
-- **Rows kept in a record by id** are reached with Effect's own `.at(id)`, as above. Rows kept in an array need an
-  optic to the row that has the id, written once with `Optic.makeOptional`:
-
-  ```ts
-  const byId = <A extends Readonly<{ id: string }>>(id: string): Optic.Optional<ReadonlyArray<A>, A> => {
-    const missing = Result.fail(new SchemaIssue.Pointer([id], new SchemaIssue.MissingKey(undefined)))
-    return Optic.makeOptional(
-      (all) => Opt.match(Arr.findFirst(all, (a) => a.id === id), { onNone: () => missing, onSome: Result.succeed }),
-      (a, all) =>
-        Arr.some(all, (old) => old.id === id)
-          ? Result.succeed(Arr.map(all, (old) => old.id === id ? a : old))
-          : missing,
-    )
-  }
-
-  inputs: { Count: (id: string) => Optic.id<State>().key('rows').compose(byId<Row>(id)).key('count') },
-  ```
-
-  The library exports neither.
+- **It is stored at the place of its id**, by [its inputs' rule](#what-the-library-derives-from-it). Where the optic
+  of its id focuses nothing, or `get` returns `None`, as for a row that is not there, the write is rejected.
 
 An input by id is no child either: its values are the parent's own state, which its `update` reads to total or submit
 them, where it never reads a child's (see [splitting a program](./structuring-a-program.md#splitting-a-program)).

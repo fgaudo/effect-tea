@@ -25,12 +25,12 @@ const row: Program<{ state: RowState; model: number; message: RowMessage }> = {
 
 type State = Readonly<{ rows: ReadonlyArray<Readonly<{ id: number; row: RowState }>> }>
 
-const { compose, each } = composition<{ state: State }>()
+const { compose, childById } = composition<{ state: State }>()
 
 const list = compose({
   init: () => ({ state: { rows: [] } }),
   children: {
-    Row: each(row, {
+    Row: childById(row, {
       get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (entry) => entry.id === id), (entry) => entry.row),
       set: (state, id, row) => ({ rows: Arr.map(state.rows, (entry) => entry.id === id ? { id, row } : entry) }),
       subscribed: (state) => Arr.map(state.rows, ({ id, row }) => [id, row] as const),

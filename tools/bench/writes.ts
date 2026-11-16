@@ -98,7 +98,7 @@ const inputOf = composition<{ state: State }>()
 const inputProgram = (start: unknown) =>
   inputOf.compose({
     init: () => ({ state: { v: start } }),
-    inputs: { V: Optic.id<State>().key('v') },
+    inputs: { V: inputOf.input({ at: Optic.id<State>().key('v') }) },
     makeModel: (state) => state.v,
   })
 
@@ -114,7 +114,7 @@ const inputRows = (child: ReturnType<typeof inputProgram>) =>
   rowsOf.compose({
     init: () => ({ state: { rows: Arr.makeBy(rows, (id) => ({ id, row: child.init.state })) } }),
     children: {
-      Row: rowsOf.each(child, {
+      Row: rowsOf.childById(child, {
         get: (state, id: number) => rowAt(state, id),
         set: (state, id, row) => ({ rows: Arr.map(state.rows, (entry) => entry.id === id ? { id, row } : entry) }),
         subscribed: (state) => Arr.map(state.rows, ({ id, row }) => [id, row] as const),

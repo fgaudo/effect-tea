@@ -416,7 +416,7 @@ const makeList = (fates: Fates, events: Array<Event>) => {
   return List.compose({
     init: () => ({ state: { rows: [], born: 0, note: '' } }),
     children: {
-      Rows: List.each(row, {
+      Rows: List.childById(row, {
         get: (state, id: Id) => Opt.map(Arr.findFirst(state.rows, (entry) => entry.id === id), (entry) => entry.row),
         set: (state, id, row) => ({ ...state, rows: state.rows.map((entry) => entry.id === id ? { id, row } : entry) }),
         subscribed: (state) => state.rows.map(({ id, row }) => [id, row] as const),
@@ -439,7 +439,7 @@ const makeList = (fates: Fates, events: Array<Event>) => {
           return state.rows.length > 0 ? { state: { ...state, rows: [], note: '' } } : reject
       }
     },
-    inputs: { Note: Optic.id<ListState>().key('note') },
+    inputs: { Note: List.input({ at: Optic.id<ListState>().key('note') }) },
     subscriptions: ({ note }) =>
       note === '' ? HashMap.empty() : HashMap.make([['search', note], searching(note)]),
     makeModel: (state, children) => ({

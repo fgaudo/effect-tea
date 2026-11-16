@@ -228,7 +228,7 @@ describe('rehearse', () => {
     const Field = composition<{ state: Field }>()
     const field = Field.compose({
       init: () => ({ state: { text: '', pings: 0 } }),
-      inputs: { Text: Optic.id<Field>().key('text') },
+      inputs: { Text: Field.input({ at: Optic.id<Field>().key('text') }) },
       update: (_: 'Pinged') => (state) => ({ state: { ...state, pings: state.pings + 1 } }),
       subscriptions: () => HashMap.make(['ping', Channel.never]),
       makeModel: (state) => state,
@@ -240,7 +240,10 @@ describe('rehearse', () => {
       children: {
         Field: Form.child(field, { get: (state) => Opt.some(state.field), set: (state, f) => ({ ...state, field: f }) }),
       },
-      inputs: { Name: Optic.id<Form>().key('name'), Note: (id: string) => Optic.id<Form>().key('notes').at(id) },
+      inputs: {
+        Name: Form.input({ at: Optic.id<Form>().key('name') }),
+        Note: Form.inputById({ at: (id: string) => Optic.id<Form>().key('notes').at(id) }),
+      },
       update: (_: 'Pinged') => (state) => ({ state: { ...state, pings: state.pings + 1 } }),
       subscriptions: () => HashMap.make(['ping', Channel.never]),
       makeModel: (state) => state,

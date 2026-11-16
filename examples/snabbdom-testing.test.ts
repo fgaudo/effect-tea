@@ -37,7 +37,7 @@ describe('messagesSentBy', () => {
     const named = composition<{ state: Named }>()
     const program = named.compose({
       init: () => ({ state: { name: '' } }),
-      inputs: { Name: Optic.id<Named>().key('name') },
+      inputs: { Name: named.input({ at: Optic.id<Named>().key('name') }) },
       makeModel: (state) => state.name,
     })
     const nameView: View<ModelOf<typeof program>, MessageOf<typeof program>> = (model, dispatch) =>

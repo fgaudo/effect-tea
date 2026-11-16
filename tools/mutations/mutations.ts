@@ -1005,18 +1005,26 @@ export const mutations: ReadonlyArray<Mutation> = [
         'src/input.test.ts',
         'rejects a late write by another row that came to its id, unless that row holds the value written over',
       ],
+      [
+        'src/input.test.ts',
+        'an input by id stores a write at its id through set, and rejects one at an id get does not find',
+      ],
     ],
   },
   {
     name: 'a write into an input by id goes to its place without its id',
     file: 'src/compose.ts',
-    from: "          kind: 'each',\n          program: inputProgram,\n",
-    to: "          kind: 'one',\n          program: inputProgram,\n",
+    from: "      kind: 'byId',\n      ...placedById(place),\n",
+    to: "      kind: 'one',\n      ...placedById(place),\n",
     killedBy: [
       ['src/input.test.ts', 'stores a write at its id, and leaves the other rows and inputs as they are'],
       [
         'src/input.test.ts',
         'rejects a late write by another row that came to its id, unless that row holds the value written over',
+      ],
+      [
+        'src/input.test.ts',
+        'an input by id stores a write at its id through set, and rejects one at an id get does not find',
       ],
     ],
   },

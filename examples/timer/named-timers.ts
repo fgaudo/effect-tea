@@ -14,7 +14,7 @@ type AddClicked = Readonly<{ _tag: 'AddClicked' }>
 
 type RemoveClicked = Readonly<{ _tag: 'RemoveClicked'; id: number }>
 
-const { compose, each } = composition<{ state: State }>()
+const { compose, childById } = composition<{ state: State }>()
 
 export const namedTimers = compose({
   init: (children) => {
@@ -22,7 +22,7 @@ export const namedTimers = compose({
     return { state: { nextId: 2, entries: [{ id: 1, timer: first.state }] }, commands: first.commands }
   },
   children: {
-    Timer: each(Named.named, {
+    Timer: childById(Named.named, {
       // A removed timer is `None`: a click, or a key typed, on a frame drawn before its removal is rejected.
       get: (state, id: number) =>
         Opt.map(Arr.findFirst(state.entries, (entry) => entry.id === id), (entry) => entry.timer),

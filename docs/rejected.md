@@ -275,18 +275,23 @@ answer, and saying so in the proposal.
   16 November 2026, with the entries above: the parent would keep a copy of the value, two truths of one input, and a
   function of the program for what the user types, which inputs replaced, would come back in the child's `update`.
   *Reopen if* the same.
-- **A named declaration of an input by id, `eachInput({ at | get, set })`, beside `input`.** Spiked, 16 November
-  2026, first: `scratch/stocktake-by-id/inputs-by-id.spike.patch`, outside git, never to be merged. It worked, but it
-  adds an export, and a name to learn beside `each`, where a bare optic, and a function of the id that gives one,
-  need neither: the `getResult` an optic's type declares, which a function of the id has not, tells the two forms
-  apart. The second spike, inputs as bare optics (`scratch/stocktake-optic/`), is what was made of it,
-  and `input(at)` went with it: an input takes no `{ get, set }`, since an optic is the one form. *Reopen if* an input
-  needs a place that no Effect optic can be made for.
+- **An input declared as a bare optic, and an input by id as a function of the id that gives one**
+  (`inputs: { Name: at, Count: (id) => at }`, told apart by the `getResult` an optic's type declares), in place of
+  `input(at)`. Implemented and committed on 16 November 2026 (`38b3ac6`, with `41d788d`), and replaced on the 17th,
+  unreleased, by `input` and `inputById`, which take the places `child` and `childById` take. It needs no name, but it
+  leaves an input one form of place where a child has two: a pair `{ get, set }` written as a bare literal is not
+  typed, since the spike of children declared as literals (`scratch/children-literal/`, outside git, never to be
+  merged) had every parameter annotated by hand and the children no longer inferred, so the pair needs a function to
+  infer from; and a place that is the element of an array found by a predicate is real (`examples/list`, the stock-take,
+  and an application whose pages live in a stack found by tag), where an optic alone needs a `byId` written with
+  `Optic.makeOptional` and a `SchemaIssue`. With a function for each, children and inputs share one notion of place.
+  *Reopen if* a bare literal `{ get, set }` comes to be typed where it is declared, or an Effect optic to an element
+  found by a predicate comes to be written as easily as `get` and `set`.
 - **An exported `byId` optic**, to the element of an array that has an id, for inputs by id over rows kept in an array.
   Reasoned, 16 November 2026: a name over a composition of Effect's combinators (`Optic.makeOptional` and
   `Arr.findFirst`), which the rule of `AGENTS.md` ("A function earns its place") refuses; rows kept in a record need
-  only Effect's `.at(id)`. The guide's "Composition" shows it once ("Inputs by id"), to copy. *Reopen if* such an optic
-  must do what Effect alone cannot.
+  only Effect's `.at(id)`. Since `inputById` takes `get` and `set`, rows kept in an array need no optic at all. *Reopen
+  if* such an optic must do what Effect alone cannot.
 - **A peer range that stops at the minors of Effect tested** (`~4.1.4`, widened by a release on each green run of
   the daily job). Reasoned, 15 November 2026. Proposed by the review of the invariants of November 2026: about
   seventeen entries of [`premises.md`](premises.md) rest in part on what Effect does not document, and `^4.1.4`
@@ -343,6 +348,16 @@ answer, and saying so in the proposal.
   `input` and `at`, taken. The rename was made inside 0.8.0, already breaking for the same views, and would not have
   been worth a breaking release of its own. *Reopen if* a reader of the guide finds `forwardTo` misleading where
   `dispatchTo` was not.
+- **Other names for `childById` and `inputById`**, weighed when inputs by id were declared with a function and `each`
+  was renamed, 17 November 2026, before 0.8.0 was released. Reasoned, the owner deciding. The guide, `AGENTS.md` and
+  `invariants.md` already said "children by id" and "inputs by id", where `each` was only the function's name; the
+  message carries an `id`, and its dispatch is `forwardTo(dispatch, name, id)`, which the suffix names; and the four
+  names make a grid, the noun saying what and the suffix how. Refused: `each` with `eachInput`, an irregular pair that
+  leaves "each what?"; `eachChild` with `eachInput`, regular, but keeping the word that reads as `forEach` over steps,
+  used beside it in `forEach({ state }, rows, ({ id }) => children.Row.update(id, …))`, where `each` iterates nothing,
+  and that the guide does not use; and one `each` for both, told apart by the number of its arguments, two signatures
+  that overlap, not spiked, by the reason that refused `forwardTo` dual. *Reopen if* a reader of the guide finds the
+  suffix `ById` misleading.
 
 The six entries below were weighed on 16 November 2026, for the doc comments of the API, which the pilot of `bb7ee37`
 brought to quoting the guide (`AGENTS.md`, "A doc comment of the API promises only by quoting the guide"); the owner

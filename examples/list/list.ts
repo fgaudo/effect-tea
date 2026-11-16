@@ -14,12 +14,12 @@ type AddClicked = Readonly<{ _tag: 'AddClicked' }>
 
 type StopAllClicked = Readonly<{ _tag: 'StopAllClicked' }>
 
-const { compose, each } = composition<{ state: State }>()
+const { compose, childById } = composition<{ state: State }>()
 
 export const list = compose({
   init: () => ({ state: { nextId: 1, entries: [] } }),
   children: {
-    Stopwatch: each(Stopwatch.stopwatch, {
+    Stopwatch: childById(Stopwatch.stopwatch, {
       // A removed stopwatch is `None`: its late messages (a click on a frame drawn before) are rejected.
       get: (state, id: number) =>
         Opt.map(Arr.findFirst(state.entries, (entry) => entry.id === id), (entry) => entry.stopwatch),

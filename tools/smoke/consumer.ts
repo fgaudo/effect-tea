@@ -57,14 +57,14 @@ type State = Readonly<{ main: CounterState; rows: ReadonlyArray<Row>; fulls: num
 
 type ResetAll = Readonly<{ _tag: 'ResetAll' }>
 
-const { child, compose, each } = composition<{ state: State }>()
+const { child, compose, childById, input } = composition<{ state: State }>()
 
 const children = {
   Main: child(counter, {
     get: (state) => Opt.some(state.main),
     set: (state, main) => ({ ...state, main }),
   }),
-  Row: each(counter, {
+  Row: childById(counter, {
     get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
     set: (state, id, counter) => ({
       ...state,
@@ -180,7 +180,7 @@ compose({
 compose({
   init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
   children,
-  inputs: { Main: Optic.id<State>().key('fulls') },
+  inputs: { Main: input({ at: Optic.id<State>().key('fulls') }) },
   onEvent: { Main: () => (state) => ({ state }), Row: () => (state) => ({ state }) },
   makeModel: () => null,
 })
@@ -207,7 +207,7 @@ const drafting = composition<{ state: Draft; command: 'Load' }>()
 
 const draft = drafting.compose({
   init: () => ({ state: { title: '' } }),
-  inputs: { Title: Optic.id<Draft>().key('title') },
+  inputs: { Title: drafting.input({ at: Optic.id<Draft>().key('title') }) },
   update: (_: 'Cleared') => (state: Draft) => ({
     state: { title: '' },
     commands: state.title === '' ? [] : ['Load' as const],
@@ -227,7 +227,7 @@ const byHand: Shown<string> = { value: '' }
 // @ts-expect-error
 drafting.compose({
   init: () => ({ state: { title: '' } }),
-  inputs: { Title: Optic.id<Draft>().key('title') },
+  inputs: { Title: drafting.input({ at: Optic.id<Draft>().key('title') }) },
   update: (_: Readonly<{ _tag: 'Title' }>) => (state: Draft) => ({ state }),
   runCommand: () => Effect.succeedNone,
   makeModel: () => null,
@@ -235,19 +235,30 @@ drafting.compose({
 
 drafting.compose({
   init: () => ({ state: { title: '' } }),
-  inputs: { Title: Optic.id<Draft>().key('title') },
+  inputs: { Title: drafting.input({ at: Optic.id<Draft>().key('title') }) },
   update: (_: 'Cleared') => (state: Draft) => ({ state, commands: ['Load' as const] }),
   // @ts-expect-error
   runCommand: () => Effect.succeedSome({ _tag: 'Title' as const, message: { _tag: 'Written', was: '', value: 'a' } }),
   makeModel: () => null,
 })
 
-// An input by id: a function of the id gives the optic to the value of that row, and a write names its id.
-type Sheet = Readonly<{ counts: Readonly<Record<string, string>> }>
+// Inputs by id, at an optic of the id and at `get` and `set`, which take it: a write names its id.
+type Sheet = Readonly<{
+  counts: Readonly<Record<string, string>>
+  rows: ReadonlyArray<Readonly<{ id: number; note: string }>>
+}>
 
-const sheet = composition<{ state: Sheet }>().compose({
-  init: () => ({ state: { counts: { a: '' } } }),
-  inputs: { Count: (id: string) => Optic.id<Sheet>().key('counts').at(id) },
+const sheets = composition<{ state: Sheet }>()
+
+const sheet = sheets.compose({
+  init: () => ({ state: { counts: { a: '' }, rows: [{ id: 1, note: '' }] } }),
+  inputs: {
+    Count: sheets.inputById({ at: (id: string) => Optic.id<Sheet>().key('counts').at(id) }),
+    Note: sheets.inputById({
+      get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.note),
+      set: (state, id, note) => ({ ...state, rows: Arr.map(state.rows, (row) => row.id === id ? { id, note } : row) }),
+    }),
+  },
   makeModel: (state) => state.counts,
 })
 

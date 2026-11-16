@@ -159,7 +159,7 @@ const draftOf = composition<{ state: Draft; event: Sent }>()
 
 export const draft = draftOf.compose({
   init: () => ({ state: { text: '' } }),
-  inputs: { Text: Optic.id<Draft>().key('text') },
+  inputs: { Text: draftOf.input({ at: Optic.id<Draft>().key('text') }) },
   update: (message: Own) => (held) =>
     message === 'DiscardClicked'
       ? { state: { text: '' } }
@@ -194,7 +194,7 @@ const noteOf = composition<{ state: Note }>()
 
 export const note = noteOf.compose({
   init: () => ({ state: { note: '' } }),
-  inputs: { Note: Optic.id<Note>().key('note') },
+  inputs: { Note: noteOf.input({ at: Optic.id<Note>().key('note') }) },
   update: (_: 'Cleared') => () => ({ state: { note: '' } }),
   makeModel: (state) => state.note,
 })
@@ -206,7 +206,7 @@ const lidOf = composition<{ state: Lid; flags: Lid['lid'] }>()
 
 export const lid = lidOf.compose({
   init: () => (lid) => ({ state: { note: 'draft', lid } }),
-  inputs: { Note: Optic.id<Lid>().key('note') },
+  inputs: { Note: lidOf.input({ at: Optic.id<Lid>().key('note') }) },
   update: (message: 'Opened' | 'Closed') => (held) => ({ state: { ...held, lid: message } }),
   makeModel: (held) =>
     held.lid === 'Opened'

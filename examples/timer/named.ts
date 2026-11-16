@@ -9,7 +9,7 @@ export type State = Readonly<{ name: string; timer: Timer.State }>
 // #endregion state
 
 // #region compose
-const { child, compose } = composition<{ state: State }>()
+const { child, compose, input } = composition<{ state: State }>()
 
 const state = Optic.id<State>()
 
@@ -19,7 +19,7 @@ export const named = compose({
     commands: children.Timer.init.commands,
   }),
   children: { Timer: child(Timer.timer, { at: state.key('timer') }) },
-  inputs: { Name: state.key('name') },
+  inputs: { Name: input({ at: state.key('name') }) },
   // The name is the program's own state: the view draws the input from it, and writes over it.
   makeModel: (state, children) => ({ name: state.name, timer: children.Timer(state) }),
 })

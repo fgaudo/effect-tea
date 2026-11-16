@@ -56,8 +56,8 @@ testing tools.
   place holds, by `Equal`, the value it was written over, whatever it is, and a write of the value held leaves the
   very same value; over another value it is rejected, since the state has moved on without the element that wrote
   it: a stale write does not apply in the state, the one meaning of `reject`. A write into an input by id is routed as
-  a child's message by id is, to the place the optic of the id it names focuses (`isEach` in `compose.ts`), and is
-  rejected where that optic focuses nothing. The rule reads the state and the message
+  a child's message by id is, to the place of the id it names (`isById` in `compose.ts`), and is rejected where that
+  place is not there. The rule reads the state and the message
   alone and keeps nothing between two writes, so every other step, the parent's own, a child's and what `onEvent`
   makes of its events, leaves an input as it wrote it, and a reset, an undo by snapshot or a place that comes back
   cuts no history. A write comes only from a view: an own subscription sends the parent's own messages, and a command
@@ -78,11 +78,11 @@ testing tools.
 - **Every program keeps its state in an object**, replaced and never mutated, so that any program can be a child: a
   parent keeps a child's model and its lifted subscriptions by its state object (below), and a number or a string
   has no identity to keep them by. It binds whoever writes a program, and the types are what enforce it
-  (`ObjectState` in `program.ts`, checked by `Program`, `composition`, `child`, `each`, `run` and the testing tools). A
-  primitive state gets past them only by a cast, or from a caller without TypeScript: a program run alone never needs
-  its state to be an object, and is not checked, while a child's is checked where a parent reads it for a model or
-  for its lifted subscriptions (`objectAt` in `compose.ts`), and is a `CompositionDefect` that names the child, since
-  the state is the one the parent's `get` declared, where a `WeakMap` would raise its own `TypeError`.
+  (`ObjectState` in `program.ts`, checked by `Program`, `composition`, `child`, `childById`, `run` and the testing
+  tools). A primitive state gets past them only by a cast, or from a caller without TypeScript: a program run alone
+  never needs its state to be an object, and is not checked, while a child's is checked where a parent reads it for a
+  model or for its lifted subscriptions (`objectAt` in `compose.ts`), and is a `CompositionDefect` that names the
+  child, since the state is the one the parent's `get` declared, where a `WeakMap` would raise its own `TypeError`.
 - **Running a dispatch needs no services and completes synchronously**: it only numbers the message and offers it to
   the engine's unbounded queue, which wakes the engine on the scheduler of the run that made it, so that renderers
   send from plain callbacks with `Effect.runSync`. Keep the queue unbounded (one that waits when full would make

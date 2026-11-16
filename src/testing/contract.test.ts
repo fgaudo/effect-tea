@@ -551,11 +551,11 @@ describe('what the run dies of, and the tools fail on', () => {
     makeModel: ({ seen }) => seen,
   }
   type Table = Readonly<{ row: Row; twice: boolean }>
-  const { each, compose } = composition<{ state: Table }>()
+  const { childById, compose } = composition<{ state: Table }>()
   const table = compose({
     init: (children) => ({ state: { row: children.Row.init(1).state, twice: false } }),
     children: {
-      Row: each(row, {
+      Row: childById(row, {
         get: (state, id: number) => id === 1 ? Opt.some(state.row) : Opt.none(),
         set: (state, _, row) => ({ ...state, row }),
         subscribed: (state) => state.twice ? [[1, state.row], [1, state.row]] : [[1, state.row]],

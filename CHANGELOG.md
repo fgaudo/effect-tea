@@ -10,13 +10,13 @@ version, and everything else, features included, the patch version.
 - `forEach(step, items, (item) => (state) => step)`, the `andThen` of many: one step per item, in order.
 - `andThen` and `forEach` are dual: `andThen(next)` and `forEach(items, next)` take the step last, for a `pipe`.
 - A `CompositionDefect` says in `on`, by its tags, which external message or event broke the parent's rule.
-- Inputs: `inputs: { Name: at }` in `compose`, an Effect optic `at` to a plain value of the state, which the view
-  writes over with `{ _tag: 'Written', was, value }`; the library stores a write while the place holds `was`, by
-  `Equal`, and rejects it otherwise.
-- Inputs by id: `inputs: { Count: (id) => at }`, a function of the id that gives the optic to a row's value, written
-  with `{ _tag: 'Count', id, message }` through `forwardTo(dispatch, 'Count', id)`. The guide's "Composition" shows
-  them ("Inputs by id"), and "Structuring a program" says that a value the user writes into each row, and the parent
-  reads, is one ("Splitting a program").
+- Inputs: `inputs: { Name: input({ at }) }` in `compose`, at a plain value of the state, which the view writes over
+  with `{ _tag: 'Written', was, value }`; the library stores a write while the place holds `was`, by `Equal`, and
+  rejects it otherwise. An input takes the places a child takes, `at` or `get` and `set`.
+- Inputs by id: `inputs: { Count: inputById({ at: (id) => at }) }`, or `get` and `set` that take the id, as
+  `childById` does, written with `{ _tag: 'Count', id, message }` through `forwardTo(dispatch, 'Count', id)`. The
+  guide's "Composition" shows them ("Inputs by id"), and "Structuring a program" says that a value the user writes into
+  each row, and the parent reads, is one ("Splitting a program").
 - `edited` and `drawn`, over an opaque `Shown`: the rule a bridge calls for the element of an input, on an edit and
   after each frame, so that the element is never replaced and never takes back what the user typed since; each gives
   the bridge its write, `edited` the message to send and `drawn` whether the element takes the frame's value.
@@ -50,7 +50,7 @@ version, and everything else, features included, the patch version.
   `run` and `runAll`, `Equal` in `dispatchViolations`, the latest frame in `drive`).
 - The comments no longer say what the code does not keep: that `update` always learns that a subscription is over (a
   last message still queued when its key goes away is dropped), that a program's view lives in a module of its own
-  to be hot reloaded, and that ids of children are told apart with `Equal` (the `get` of `each` compares them).
+  to be hot reloaded, and that ids of children are told apart with `Equal` (the `get` of `childById` compares them).
 - **Breaking**: a `Dispatch` returns `Effect<number>`, the number of its message among those dispatched, and a
   `Frame` has `seen`, how many of them the run had taken when its state was made ("View", "Guarantees").
   Upgrade: a dispatch written by hand, `(message) => Effect.sync(() => void sent.push(message))`, returns a number,
@@ -60,11 +60,14 @@ version, and everything else, features included, the patch version.
   sends, where no view exists. Upgrade: `origin._tag === 'View'` becomes `origin._tag === 'Dispatch'`.
 - **Breaking**: "Model" in the guide says that a model is data: it holds no function, and compares by `Equal`.
   Upgrade: a function of the model that makes a message from what the user typed, `changeName: (name) =>
-  NameChanged({ name })`, becomes an input, `inputs: { Name: at }`, and the view writes over its value,
+  NameChanged({ name })`, becomes an input, `inputs: { Name: input({ at }) }`, and the view writes over its value,
   `{ _tag: 'Written', was: model.name, value: text }` through `forwardTo(dispatch, 'Name')`, where it called
   `model.changeName(text)`.
 - **Breaking**: `parent` is renamed `composition`, since a program with inputs and no children is made with it too.
   Upgrade: `parent<{ state: State }>()` becomes `composition<{ state: State }>()`, and its import likewise.
+- **Breaking**: `each` is renamed `childById`, beside `inputById`, as the guide already says "children by id".
+  Upgrade: `each(program, place)` becomes `childById(program, place)`, taken from `composition` as `each` was from
+  `parent`.
 - **Breaking**: `dispatchTo` is renamed `forwardTo`, which reads as what the call does: it forwards to the dispatch
   it is given. Upgrade: `dispatchTo(dispatch, 'Clock')` becomes `forwardTo(dispatch, 'Clock')`, and its import
   likewise.
@@ -163,7 +166,7 @@ version, and everything else, features included, the patch version.
   model holds.
 - The site has a tutorial that builds the new `timer` example in five steps, the fourth a name the user types into
   each timer, an input, which "Testing" writes into.
-- **Breaking**: `child` and `each` refuse a program with commands and no `runCommand`.
+- **Breaking**: `child` and `childById` refuse a program with commands and no `runCommand`.
   Upgrade: give the child the `runCommand` its commands need; one that gets there through a cast is a
   `CompositionDefect` naming the child.
 - The guide says that a command, a subscription or the renderer dies once its effect ends with a defect.

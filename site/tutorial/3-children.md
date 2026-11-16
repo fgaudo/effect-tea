@@ -19,8 +19,8 @@ messages:
 
 ## Declaring the children
 
-`composition<{ state }>()` gives the functions that declare children. `each` declares children by id: where each one
-lives in the parent's state (`get` and `set`, by id), and which of them may listen (`subscribed`). The library does
+`composition<{ state }>()` gives the functions that declare children. `childById` declares children by id: where each
+one lives in the parent's state (`get` and `set`, by id), and which of them may listen (`subscribed`). The library does
 the routing (see [composition](../guide/composition.md)):
 
 {@includeCode ../../examples/timer/timers.ts#compose}

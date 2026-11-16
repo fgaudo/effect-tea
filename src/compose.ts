@@ -62,7 +62,7 @@ type Placement<ParentState, ChildState> =
  * Where a child by id lives in its parent's state: an optic that is a function of the id, `at`, or `get` and `set`,
  * which take the id.
  */
-type EachPlacement<ParentState, Id, ChildState> =
+type PlacementById<ParentState, Id, ChildState> =
   | Readonly<{
     /** The state of the child at `id`, or `None` where it is not there. */
     get: (state: ParentState, id: Id) => Opt.Option<ChildState>
@@ -86,9 +86,9 @@ type Child<ParentState, P> = Readonly<{
   subscribed?: (state: ParentState) => Opt.Option<StateOf<P>>
 }>
 
-/** Children told apart by an id (e.g. the rows of a list), as `each` declares them, for `children` in `compose`. */
-type Each<ParentState, Id, P> = Readonly<{
-  kind: 'each'
+/** Children told apart by an id (e.g. the rows of a list), as `childById` declares them, for `children` in `compose`. */
+type ChildById<ParentState, Id, P> = Readonly<{
+  kind: 'byId'
   program: P
   get: (state: ParentState, id: Id) => Opt.Option<StateOf<P>>
   set: (state: ParentState, id: Id, child: StateOf<P>) => ParentState
@@ -106,8 +106,8 @@ const placed = <S, A>(
       set: (state, child) => place.at.replace(child, state),
     }
 
-const placedEach = <S, Id, A>(
-  place: EachPlacement<S, Id, A>,
+const placedById = <S, Id, A>(
+  place: PlacementById<S, Id, A>,
 ): Readonly<{ get: (state: S, id: Id) => Opt.Option<A>; set: (state: S, id: Id, child: A) => S }> =>
   place.at === undefined
     ? { get: place.get, set: place.set }
@@ -116,12 +116,32 @@ const placedEach = <S, Id, A>(
       set: (state, id, child) => place.at(id).replace(child, state),
     }
 
-/**
- * The inputs a parent declares, by name: an optic into its state, or a function of the id that gives one for inputs
- * by id.
- */
+/** An input alone in its program's state, as `input` declares it, for `inputs` in `compose`. */
+type Input<State, A> = Readonly<{
+  kind: 'one'
+  get: (state: State) => Opt.Option<A>
+  set: (state: State, value: A) => State
+}>
+
+/** Inputs told apart by an id (e.g. one in each row), as `inputById` declares them, for `inputs` in `compose`. */
+type InputById<State, Id, A> = Readonly<{
+  kind: 'byId'
+  get: (state: State, id: Id) => Opt.Option<A>
+  set: (state: State, id: Id, value: A) => State
+}>
+
+// `never` parameters: any `set` fits, whatever its value and id.
+/** The inputs a parent declares, by name: `{ Name: input({ at }), Count: inputById({ at }) }`. */
 type Inputs<State> = Readonly<
-  Record<string, Optic.Optional<State, any> | ((id: never) => Optic.Optional<State, any>)>
+  Record<
+    string,
+    | Readonly<{ kind: 'one'; get: (state: State) => Opt.Option<any>; set: (state: State, value: never) => State }>
+    | Readonly<{
+      kind: 'byId'
+      get: (state: State, id: never) => Opt.Option<any>
+      set: (state: State, id: never, value: never) => State
+    }>
+  >
 >
 
 /** No children, or no inputs: what a parent that declares none has. */
@@ -132,9 +152,10 @@ type None = Readonly<Record<never, never>>
  * id, as a child's message.
  */
 type InputMessages<I> = {
-  [K in keyof I & string]: I[K] extends (id: infer Id) => Optic.Optional<any, infer A>
+  [K in keyof I & string]: I[K] extends
+    Readonly<{ kind: 'byId'; get: (state: any, id: infer Id) => Opt.Option<infer A> }>
     ? Readonly<{ _tag: K; id: Id; message: Written<A> }>
-    : I[K] extends Optic.Optional<any, infer A> ? Readonly<{ _tag: K; message: Written<A> }>
+    : I[K] extends Readonly<{ get: (state: any) => Opt.Option<infer A> }> ? Readonly<{ _tag: K; message: Written<A> }>
     : never
 }[keyof I & string]
 
@@ -156,7 +177,7 @@ type Children<State> = Readonly<
       set: (state: State, child: never) => State
     }>
     | Readonly<{
-      kind: 'each'
+      kind: 'byId'
       program: AnyProgram
       get: (state: State, id: never) => Opt.Option<unknown>
       set: (state: State, id: never, child: never) => State
@@ -166,11 +187,11 @@ type Children<State> = Readonly<
 
 type ProgramOf<C> = C extends { readonly program: infer P } ? P : never
 
-// Told by `kind` and the id `get` takes: `Each<any, …>` would not match, its `set` taking `unknown` children.
-type EachOf<Id, P> = Readonly<{ kind: 'each'; program: P; get: (state: any, id: Id) => any }>
+// Told by `kind` and the id `get` takes: `ChildById<any, …>` would not match, its `set` taking `unknown` children.
+type ChildByIdOf<Id, P> = Readonly<{ kind: 'byId'; program: P; get: (state: any, id: Id) => any }>
 
 /** Where a child's messages and commands carry its id: only for children by id. */
-type At<C> = C extends EachOf<infer Id, any> ? Readonly<{ id: Id }> : unknown
+type At<C> = C extends ChildByIdOf<infer Id, any> ? Readonly<{ id: Id }> : unknown
 
 /** A child's message, as its parent receives it: `{ _tag: <child>, message }`, and its `id` for each child. */
 type ChildMessages<C> = {
@@ -253,7 +274,7 @@ type Start<P, Command> = Readonly<{
  * wraps them as the parent receives them.
  */
 type Handles<State, C, Command, Event> = {
-  readonly [K in keyof C & string]: C[K] extends EachOf<infer Id, infer P> ? Readonly<{
+  readonly [K in keyof C & string]: C[K] extends ChildByIdOf<infer Id, infer P> ? Readonly<{
       /** Sends the child at `id` an external message: the parent's step, as a function of its state. */
       update: (id: Id, message: ExternalOf<P>) => (state: State) => Step<State, Command, Event>
       /** Starts the child at `id`, from its flags when it has them. */
@@ -270,7 +291,7 @@ type Handles<State, C, Command, Event> = {
 }
 
 /**
- * The children's models, by name: `children` in `makeModel`. Each is a function of the parent's state, and of the id
+ * The children's models, by name: `children` in `makeModel`. ChildById is a function of the parent's state, and of the id
  * for children by id.
  *
  * @example
@@ -296,13 +317,13 @@ type Handles<State, C, Command, Event> = {
  * - asking for the model of a child that is not there.
  */
 type Models<State, C> = {
-  readonly [K in keyof C & string]: C[K] extends EachOf<infer Id, infer P> ? (state: State, id: Id) => ModelOf<P>
+  readonly [K in keyof C & string]: C[K] extends ChildByIdOf<infer Id, infer P> ? (state: State, id: Id) => ModelOf<P>
     : (state: State) => ModelOf<ProgramOf<C[K]>>
 }
 
 type OnEvents<State, C, Command, Event> = {
   readonly [K in keyof C & string as [EventOf<ProgramOf<C[K]>>] extends [never] ? never : K]: C[K] extends
-    EachOf<infer Id, infer P> ? (
+    ChildByIdOf<infer Id, infer P> ? (
       id: Id,
       event: EventOf<P>,
       children: Handles<State, C, Command, Event>,
@@ -394,33 +415,20 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> =
     init: (
       children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>,
     ) => Init<State, OwnCommand | ChildCommands<C>, Flags>
-    /** The children, by name: `{ Clock: child(…), Row: each(…) }`. */
+    /** The children, by name: `{ Clock: child(…), Row: childById(…) }`. */
     children?: C
     /**
-     * The inputs, by name: an optic into the state, `{ Name: Optic.id<State>().key('name') }`, or, for inputs by id, a
-     * function of the id that gives one.
+     * The inputs, by name, as `input` and `inputById` declare them.
      *
      * @example
      * ```ts
      * inputs: {
-     *   Name: Optic.id<State>().key('name'),
-     *   Count: (id: string) => Optic.id<State>().key('rows').at(id).key('count'),
+     *   Name: input({ at: Optic.id<State>().key('name') }),
+     *   Count: inputById({ at: (id: string) => Optic.id<State>().key('rows').at(id).key('count') }),
      * },
      * ```
      *
      * @remarks
-     * From the guide, "Composition", "Its inputs,":
-     *
-     * **Its inputs,** if it has any: `inputs: { Name: at }`, where `at` is an optic to a value of its own state (see
-     * "Inputs the user types into"), or a function of the id that gives one, for inputs by id (see "inputs by id"). An
-     * input is no child: its value is the parent's own state. Its `update` and `makeModel` read it as the rest. A
-     * program with inputs and no children is made with `composition` too, and leaves `children` out.
-     *
-     * From the guide, "Composition", "A write into an input by id names its id":
-     *
-     * **A write into an input by id names its id**: `{ _tag: 'Count', id, message: { _tag: 'Written', was, value } }`,
-     * through `forwardTo(dispatch, 'Count', id)`.
-     *
      * From the guide, "Composition", "Its inputs' rule":
      *
      * **Its inputs' rule.** A write is stored while the input's place holds, by `Equal`, the value it was written over.
@@ -429,11 +437,6 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> =
      * From the guide, "Inputs the user types into", "What the user gives an input is no message of the program":
      *
      * **What the user gives an input is no message of the program.** No `update` of the program's sees it.
-     *
-     * From the guide, "Inputs the user types into", "The view writes over the value its model holds":
-     *
-     * **The view writes over the value its model holds**: `{ _tag: 'Written', was: model.name, value: text }`, through
-     * `forwardTo(dispatch, 'Name')`.
      *
      * From the guide, "Inputs the user types into", "Only what is drawn writes into an input":
      *
@@ -482,7 +485,7 @@ type Lifted = ReadonlyArray<readonly [unknown, Subscription<unknown, unknown>]>
 type Kept = { call: number; met: number; readonly places: Array<readonly [Place, Lifted]> }
 
 type UntypedChild = Readonly<{
-  kind: 'one' | 'each'
+  kind: 'one' | 'byId'
   program: AnyProgram
   get: (state: unknown, id?: unknown) => Opt.Option<unknown>
   set: (state: unknown, idOrChild: unknown, child?: unknown) => unknown
@@ -517,20 +520,9 @@ const compose = <
   type Message = Own | ChildMessages<C> | InputMessages<I>
   type Command = OwnCommand | ChildCommands<C>
   const programs = (config.children ?? {}) as unknown as Readonly<Record<string, UntypedChild>>
-  // An optic has the `getResult` its type declares, and a function of the id has none: an input by id is told from an
-  // input alone by it, and is addressed by id, as a child by id is.
   const inputs = mapOwn(
-    (config.inputs ?? {}) as unknown as Readonly<
-      Record<string, Optic.Optional<unknown, unknown> | ((id: unknown) => Optic.Optional<unknown, unknown>)>
-    >,
-    (at): UntypedChild =>
-      Predicate.hasProperty(at, 'getResult')
-        ? { kind: 'one', program: inputProgram, ...placed({ at: at as Optic.Optional<unknown, unknown> }) }
-        : {
-          kind: 'each',
-          program: inputProgram,
-          ...placedEach({ at: at as (id: unknown) => Optic.Optional<unknown, unknown> }),
-        } as UntypedChild,
+    (config.inputs ?? {}) as unknown as Readonly<Record<string, Omit<UntypedChild, 'program'>>>,
+    (input): UntypedChild => ({ ...input, program: inputProgram }),
   )
   // An input is routed to as a child is: by its name, to its place.
   const children: Readonly<Record<string, UntypedChild>> = { ...programs, ...inputs }
@@ -540,14 +532,14 @@ const compose = <
   const isChildName = (tag: unknown): tag is string => typeof tag === 'string' && Object.hasOwn(children, tag)
   const field = (value: unknown, key: string): unknown => Predicate.hasProperty(value, key) ? value[key] : undefined
   const placeOf = (value: unknown): Place => ({ name: field(value, '_tag') as string, id: field(value, 'id') })
-  const isEach = (name: string) => childOf(name).kind === 'each'
-  const at = ({ name, id }: Place) => isEach(name) ? { id } : {}
+  const isById = (name: string) => childOf(name).kind === 'byId'
+  const at = ({ name, id }: Place) => isById(name) ? { id } : {}
   const wrapMessage = (place: Place) => (message: unknown) => ({ _tag: place.name, ...at(place), message }) as Message
   const wrapCommand = (place: Place) => (command: unknown) => ({ _tag: place.name, ...at(place), command }) as Command
   const getAt = ({ name, id }: Place, state: State) =>
-    isEach(name) ? childOf(name).get(state, id) : childOf(name).get(state)
+    isById(name) ? childOf(name).get(state, id) : childOf(name).get(state)
   const setAt = ({ name, id }: Place, state: State, childState: unknown) =>
-    (isEach(name) ? childOf(name).set(state, id, childState) : childOf(name).set(state, childState)) as State
+    (isById(name) ? childOf(name).set(state, id, childState) : childOf(name).set(state, childState)) as State
   const onEvents = ((config as Readonly<{ onEvent?: unknown }>).onEvent ?? {}) as Readonly<
     Record<string, (...args: ReadonlyArray<unknown>) => (state: State) => Step<State, Command, Event>>
   >
@@ -555,7 +547,7 @@ const compose = <
     new CompositionDefect({
       message,
       child: place.name,
-      ...(isEach(place.name) ? { id: place.id } : {}),
+      ...(isById(place.name) ? { id: place.id } : {}),
       ...(on === undefined ? {} : { on }),
     })
   // The types require an object, by which a child's model and lifted subscriptions are kept: only a cast, or a
@@ -571,7 +563,7 @@ const compose = <
       const on = describeByTag(event)
       throw defectAt(place, `The child "${place.name}" emitted the event ${String(on)}, which nothing handles`, on)
     }
-    return isEach(place.name) ? handle(place.id, event, handles) : handle(event, handles)
+    return isById(place.name) ? handle(place.id, event, handles) : handle(event, handles)
   }
   const updateAt = (place: Place, message: unknown) => (state: State): Transition<State, Command, Event> =>
     Opt.match(getAt(place, state), {
@@ -609,7 +601,7 @@ const compose = <
   }
   // Built once: a child's update calls `onEvent`, which may call any child's handle.
   const handles = mapOwn(programs, (child, name) =>
-    child.kind === 'each'
+    child.kind === 'byId'
       ? {
         update: (id: unknown, message: unknown) => tell({ name, id }, message),
         init: (id: unknown, flags: unknown) => startAt({ name, id }, flags),
@@ -662,14 +654,14 @@ const compose = <
     const subscriptions = Arr.map(
       Arr.fromIterable(subscriptionsAt(place, childState)),
       ([key, subscription]) =>
-        [isEach(place.name) ? [place.name, place.id, key] : [place.name, key], subscription] as const,
+        [isById(place.name) ? [place.name, place.id, key] : [place.name, key], subscription] as const,
     )
     kept.places[kept.met++] = [place, subscriptions]
     return subscriptions
   }
   const listening = (name: string, state: State): ReadonlyArray<readonly [Place, unknown]> => {
     const { get, subscribed } = childOf(name)
-    if (isEach(name)) {
+    if (isById(name)) {
       const all = (subscribed as (state: unknown) => Iterable<readonly [unknown, unknown]>)(state)
       return Arr.map(Arr.fromIterable(all), ([id, childState]) => [{ name, id }, childState] as const)
     }
@@ -692,7 +684,7 @@ const compose = <
     return model
   }
   const childModels = mapOwn(programs, (child, name) =>
-    child.kind === 'each'
+    child.kind === 'byId'
       ? (parentState: State, id: unknown) => modelAt({ name, id }, parentState)
       : (parentState: State) => modelAt({ name, id: undefined }, parentState)) as Models<State, C>
   const ownRunCommand = (
@@ -705,7 +697,7 @@ const compose = <
       const place = placeOf(command)
       if (isChildName(place.name)) {
         const childCommand = field(command, 'command')
-        // Unreachable through the types: `child` and `each` ask for a `runCommand` whenever the child has commands.
+        // Unreachable through the types: `child` and `childById` ask for a `runCommand` whenever the child has commands.
         // Read as it is, not through `runCommandOf`, whose stand-in, `absurd`, would die of an error of its own: a child that
         // has none is a `CompositionDefect` that names it.
         const run = (childOf(place.name).program as Readonly<{ runCommand?: RunCommand<unknown, unknown, unknown> }>)
@@ -787,8 +779,8 @@ export type CompositionTypes = Readonly<{
  * Fixing the types first lets `get`, `set` and the rest be typed without annotations. It also says the program's own
  * commands, events, external messages and flags, which nothing given to `compose` reveals.
  *
- * @returns `child` and `each`, which declare a child alone and children by id, and `compose`, which makes the
- * program.
+ * @returns `child` and `childById`, which declare a child alone and children by id, `input` and `inputById`, which
+ * declare an input alone and inputs by id, and `compose`, which makes the program.
  *
  * @example
  * ```ts
@@ -828,7 +820,7 @@ export type CompositionTypes = Readonly<{
  * **What does not compile:**
  * - an own message that takes a child's or an input's name;
  * - an input that takes a child's name;
- * - an input whose optic, or the optic its function of the id gives, is into another state than the program's;
+ * - an input whose optic, alone or by id, is into another state than the program's;
  * - an own subscription that writes into an input;
  * - a command's answer that writes into an input, the parent's or a child's, and one that gives a child its own
  *   business;
@@ -900,7 +892,7 @@ export const composition = <T extends CompositionTypes>() => {
      *
      * @example
      * ```ts
-     * Row: each(row, {
+     * Row: childById(row, {
      *   get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
      *   set: (state, id, counter) => ({ rows: state.rows.map((row) => (row.id === id ? { id, counter } : row)) }),
      *   subscribed: (state) => state.rows.map((row) => [row.id, row.counter] as const),
@@ -926,14 +918,66 @@ export const composition = <T extends CompositionTypes>() => {
      * **Ids are compared by value,** with `Equal`, wherever they go (subscription keys, dispatches): strings, numbers,
      * or tuples and structs of them.
      */
-    each: <Id, P extends AnyProgram>(
+    childById: <Id, P extends AnyProgram>(
       program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalAmong<MessageOf<P>, ExternalOf<P>>,
       place:
-        & EachPlacement<State, Id, StateOf<P>>
+        & PlacementById<State, Id, StateOf<P>>
         & Readonly<{ subscribed: (state: State) => Iterable<readonly [Id, StateOf<P>]> }>
         & ObjectState<StateOf<P>>,
-    ): Each<State, Id, P> => ({ kind: 'each', program, ...placedEach(place), subscribed: place.subscribed }),
-    // Its external messages are checked where it is a child (`child`, `each`): here its own messages are still being
+    ): ChildById<State, Id, P> => ({ kind: 'byId', program, ...placedById(place), subscribed: place.subscribed }),
+    /**
+     * Declares an input: a place of the program's state that the outside writes into.
+     *
+     * @param place - Where it is: an optic into the program's state, `at`, or the two functions an optic is, `get` and
+     * `set`.
+     * @returns The input, for `inputs` in `compose`.
+     *
+     * @example
+     * ```ts
+     * inputs: { Name: input({ at: Optic.id<State>().key('name') }) },
+     * ```
+     *
+     * @remarks
+     * From the guide, "Composition", "Its inputs,":
+     *
+     * **Its inputs,** if it has any: `inputs: { Name: input({ at }) }`, where `at` is an optic to a value of its own
+     * state (see "Inputs the user types into"), and `inputById` for inputs by id (see "inputs by id"). An input takes
+     * the places a child takes: `at`, or `get` and `set`, and for inputs by id the same, of the id. An input is no
+     * child: its value is the parent's own state. Its `update` and `makeModel` read it as the rest. A program with
+     * inputs and no children is made with `composition` too, and leaves `children` out.
+     *
+     * From the guide, "Inputs the user types into", "The view writes over the value its model holds":
+     *
+     * **The view writes over the value its model holds**: `{ _tag: 'Written', was: model.name, value: text }`, through
+     * `forwardTo(dispatch, 'Name')`.
+     */
+    input: <A>(place: Placement<State, A>): Input<State, A> => ({ kind: 'one', ...placed(place) }),
+    /**
+     * Declares inputs told apart by an id, such as one in each row: a place of the program's state for each id.
+     *
+     * @param place - Where the input at an id is: an optic that is a function of the id, `at`, or `get` and `set`,
+     * which take the id.
+     * @returns The inputs, for `inputs` in `compose`.
+     *
+     * @example
+     * ```ts
+     * Count: inputById({
+     *   get: (state, id: string) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.count),
+     *   set: (state, id, count) => ({ rows: state.rows.map((row) => (row.id === id ? { ...row, count } : row)) }),
+     * }),
+     * ```
+     *
+     * @remarks
+     * From the guide, "Composition", "A write into an input by id names its id":
+     *
+     * **A write into an input by id names its id**: `{ _tag: 'Count', id, message: { _tag: 'Written', was, value } }`,
+     * through `forwardTo(dispatch, 'Count', id)`.
+     */
+    inputById: <Id, A>(place: PlacementById<State, Id, A>): InputById<State, Id, A> => ({
+      kind: 'byId',
+      ...placedById(place),
+    }),
+    // Its external messages are checked where it is a child (`child`, `childById`): here its own messages are still being
     // inferred from `update`, and a check of them would fix them as `never` first.
     /**
      * Makes the program from what the parent declares.
@@ -946,7 +990,7 @@ export const composition = <T extends CompositionTypes>() => {
      * ```ts
      * const form = compose({
      *   init: () => ({ state: { name: '' } }),
-     *   inputs: { Name: Optic.id<State>().key('name') },
+     *   inputs: { Name: input({ at: Optic.id<State>().key('name') }) },
      *   makeModel: (state) => ({ name: state.name }),
      * })
      * ```
