@@ -8,7 +8,7 @@ import * as Channel from 'effect/Channel'
 import * as HashMap from 'effect/HashMap'
 import * as Num from 'effect/Number'
 import * as Opt from 'effect/Option'
-import { composition, reject, type MessageOf, type Program, type StateOf, subscriptionsOf } from '../src/index.ts'
+import { composition, reject, type MessageOf, type Program, type StateOf, subscriptionsOf } from '../../src/index.ts'
 
 type RowState = Readonly<{ seconds: number }>
 

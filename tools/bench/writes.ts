@@ -5,8 +5,8 @@
 // value that is another string or object, as a bridge that read it again from the element would send. Then what the
 // bridge pays on each frame, `drawn` for one input and the React bridge's `settle` for many, and what a rejected
 // write costs. The measures that chose this design are in `docs/registers.md` ("The cost of `was`"). Run with `bun
-// bench/writes.ts [writes] [rounds] [sections]`, or `node bench/writes.ts …`, where `sections` is a list of `writes`,
-// `drawn`, `settle` and `rejected` (all of them by default); not part of `bun run test`.
+// tools/bench/writes.ts [writes] [rounds] [sections]`, or `node tools/bench/writes.ts …`, where `sections` is a list of
+// `writes`, `drawn`, `settle` and `rejected` (all of them by default); not part of `bun run test`.
 import * as Arr from 'effect/Array'
 import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
@@ -25,8 +25,8 @@ import {
   type Transition,
   type Update,
   type Written,
-} from '../src/index.ts'
-import { written } from '../src/input.ts'
+} from '../../src/index.ts'
+import { written } from '../../src/input.ts'
 
 const writes = Number(process.argv[2] ?? 2000)
 const rounds = Number(process.argv[3] ?? 11)

@@ -18,7 +18,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { type Mutation, mutations } from './mutations.ts'
 
-const root = path.resolve(import.meta.dir, '..')
+const root = path.resolve(import.meta.dir, '../..')
 // One for each process, so that several can run at once.
 const base = path.join(root, '.mutants', String(process.pid))
 const copied = ['src', 'test', 'examples', 'bunfig.toml', 'package.json', 'tsconfig.json']

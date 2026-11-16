@@ -27,5 +27,7 @@
     "skipLibCheck": true,
     "types": ["bun"]
   },
-  "include": ["src", "test", "bench", "mutations", "build.ts", "smoke/smoke.ts", "api/report.ts", "quotes/quote.ts"]
+  "include": ["src", "test", "tools"],
+  // A consumer of the packed package, typechecked by the smoke test against its declarations.
+  "exclude": ["tools/smoke/consumer.ts"]
 }

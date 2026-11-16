@@ -14,7 +14,7 @@
 // and not of the version installed. Both fail, writing nothing, on what would ship a note meant for the implementation
 // to whoever installs the package: a doc comment right after another, or `@privateRemarks`.
 //
-//   bun quotes/quote.ts [--check]
+//   bun tools/quotes.ts [--check]
 import { Glob } from 'bun'
 import { basename, join, relative } from 'node:path'
 import { parseArgs } from 'node:util'

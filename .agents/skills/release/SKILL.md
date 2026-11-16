@@ -45,7 +45,7 @@ version never goes down. `package.json` and the changelog's section always agree
 `files` in `package.json`: `dist/`, `src/` without its tests, `README.md` and `CHANGELOG.md`; the examples and
 the site are not published. `bun pm pack` shows the package as it would be published, as
 `fgaudo-effect-tea-<version>.tgz` at the root (ignored by git): `prepack` builds `dist/` first. Lifecycle scripts
-run without `node_modules/.bin` on the `PATH`: `build.ts` resolves `tsc` itself, and `prepare` runs
+run without `node_modules/.bin` on the `PATH`: `tools/build.ts` resolves `tsc` itself, and `prepare` runs
 `effect-tsgo` through `bunx`.
 
 ## The documentation site

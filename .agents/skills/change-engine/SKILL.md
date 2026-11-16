@@ -1,6 +1,6 @@
 ---
 name: change-engine
-description: How a change of the engine of @fgaudo/effect-tea or of a testing tool is made: the invariants and the premises to read first, what to list before writing it, the deterministic test and the mutation a check leaves, how a lead of the search of interleavings is weighed, and the checks to run. Use before changing src/core.ts, shell.ts, engine.ts, run.ts, compose.ts, dispatch.ts, input.ts, log.ts or anything under src/testing/, their tests, mutations/ or test/scheduled.test_scheduler.ts.
+description: How a change of the engine of @fgaudo/effect-tea or of a testing tool is made: the invariants and the premises to read first, what to list before writing it, the deterministic test and the mutation a check leaves, how a lead of the search of interleavings is weighed, and the checks to run. Use before changing src/core.ts, shell.ts, engine.ts, run.ts, compose.ts, dispatch.ts, input.ts, log.ts or anything under src/testing/, their tests, tools/mutations/ or test/scheduled.test_scheduler.ts.
 ---
 
 # Change the engine or a testing tool
@@ -34,7 +34,7 @@ checks before the change is committed.
 
 ### Mutations
 
-**Each check an invariant rests on has a mutation** in `mutations/mutations.ts` that takes it out, with the tests
+**Each check an invariant rests on has a mutation** in `tools/mutations/mutations.ts` that takes it out, with the tests
 that must fail under it: `bun run mutations` applies them one at a time to each of several copies of the repository
 (`.mutants/`, half the processors of them, or `--jobs=<n>`), runs those tests alone, and fails when one passes under
 its mutation, or fails without it; what each did is printed in the order of the list. So a test that fails without

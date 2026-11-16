@@ -15,8 +15,8 @@ test of it. None is open.
 ## Possible improvements
 
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is
-  drawn" from regressing. `bun run bench` (`bench/subscriptions.ts`) measures a parent's subscriptions only, and
-  `bench/writes.ts`, run by hand, what a write into an input and a bridge's frame cost; neither runs in the CI.
+  drawn" from regressing. `bun run bench` (`tools/bench/subscriptions.ts`) measures a parent's subscriptions only, and
+  `tools/bench/writes.ts`, run by hand, what a write into an input and a bridge's frame cost; neither runs in the CI.
 
 ## Ideas, to be decided
 

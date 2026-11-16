@@ -2,12 +2,14 @@
 // `tsc` rewrites relative `.ts` imports to `.js` in the JavaScript it emits, but not in the declarations,
 // so they are rewritten here: otherwise a consumer's TypeScript would look for `.ts` files `dist/` lacks.
 import { $, Glob } from 'bun'
+import { join } from 'node:path'
 
-const dist = `${import.meta.dir}/dist`
+const root = join(import.meta.dir, '..')
+const dist = join(root, 'dist')
 await $`rm -rf ${dist}`
 // Resolved as a dependency: lifecycle scripts (e.g. `prepack`) do not see the workspace's binaries.
-const tsc = Bun.resolveSync('typescript/package.json', import.meta.dir).replace(/package\.json$/, 'bin/tsc')
-await $`bun ${tsc} -p tsconfig.build.json`.cwd(import.meta.dir)
+const tsc = Bun.resolveSync('typescript/package.json', root).replace(/package\.json$/, 'bin/tsc')
+await $`bun ${tsc} -p tsconfig.build.json`.cwd(root)
 for await (const path of new Glob('**/*.d.ts').scan({ cwd: dist, absolute: true })) {
   // Both forms `tsc` may write: `from './x.ts'`, and `import("./x.ts")` in an inferred type.
   const text = await Bun.file(path).text()

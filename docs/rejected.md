@@ -285,7 +285,7 @@ decided each, with a second opinion (Fable) on the last two.
 
 - **A link from a doc comment to the page of the site that holds its rule.** Spiked in the pilot, and dropped before
   its commit: the site is built again whole by each tag (`.github/workflows/docs.yml`) and keeps no older release, so
-  the hover of a version installed would show, after the next release, the promises of that one. `quotes/quote.ts`
+  the hover of a version installed would show, after the next release, the promises of that one. `tools/quotes.ts`
   now fails on such a link. *Reopen if* the site keeps each release at an address of its own.
 - **A site that keeps each release** (`/v0.8.0/…`, kept on a branch the deploy adds to). Reasoned: it would hold, but
   on infrastructure (the layout of the deploy, a branch to keep, a permission to push), which the owner declined for
@@ -313,7 +313,7 @@ decided each, with a second opinion (Fable) on the last two.
     interface that extends it keeps them too; a class cannot be declared again without losing `instanceof`;
   - `export * as`, an overload with the comment on its signature, and `{@inheritDoc}` separate nothing;
   - `@privateRemarks` is hidden by TypeDoc but shown in the hover of whoever installs the package, and two doc
-    comments in a row reach the declarations both, though the hover shows the last: `quotes/quote.ts` fails on each.
+    comments in a row reach the declarations both, though the hover shows the last: `tools/quotes.ts` fails on each.
 
   Instead, the doc comment of an export is for its users, and a note on how it is implemented is a `//` comment or
   that of an internal declaration (`AGENTS.md`, "Code"). *Reopen if* TypeScript and TypeDoc come to hide alike a part
@@ -346,13 +346,13 @@ decided each, with a second opinion (Fable) on the last two.
 
 ## The checks
 
-- **A framework of mutation testing (StrykerJS) in place of `mutations/`.** Reasoned, 15 November 2026, when the run
-  grew slow. Stryker generates mutants by syntactic operators and scores how many the suite kills; the list in
-  `mutations/mutations.ts` takes out each check an invariant rests on, names the tests that must fail under it, and
-  the runner refuses a killer that ran more or fewer times than once, or fails only beside its file. A score is no
+- **A framework of mutation testing (StrykerJS) in place of `tools/mutations/`.** Reasoned, 15 November 2026, when the
+  run grew slow. Stryker generates mutants by syntactic operators and scores how many the suite kills; the list in
+  `tools/mutations/mutations.ts` takes out each check an invariant rests on, names the tests that must fail under it,
+  and the runner refuses a killer that ran more or fewer times than once, or fails only beside its file. A score is no
   such promise, the mutants equivalent in code over Effect would each be read by hand, and Stryker has no runner for
-  `bun:test`: its command runner would run the whole suite for each mutant. The run was made parallel instead (162 s
-  to 44 s on 24 processors). *Reopen if* the list is to be judged for what it misses, beside the checks it names.
+  `bun:test`: its command runner would run the whole suite for each mutant. The run was made parallel instead (162 s to
+  44 s on 24 processors). *Reopen if* the list is to be judged for what it misses, beside the checks it names.
 - **Windows of absence awaited under the scheduler of the tests**, with `idle` (`test/scheduled.test_scheduler.ts`) in
   place of a sleep, in the tests that check that nothing happens. Reasoned, 16 November 2026, on the item of
   `ROADMAP.md`. `idle` is quiescence, and serves the search already (`interleaving.test.ts`), but no test of a check
@@ -399,4 +399,4 @@ there; one decided against becomes an entry above.
 - **Frames a bridge skips by the equality of models** (`registers.md`, "To explore"): with no function in a model,
   the models of two equal states are `Equal`, and a bridge could skip the drawing, as `thunk` and `memo` do by
   reference. Neither spiked nor measured, 15 November 2026. *Reopen if* the benchmark of a bridge's frame
-  (`bench/writes.ts`) shows the drawing of an unchanged model to be a cost that matters.
+  (`tools/bench/writes.ts`) shows the drawing of an unchanged model to be a cost that matters.

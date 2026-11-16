@@ -4,7 +4,7 @@
 // committed, so that a change of the API shows in the diff. `--check` writes nothing, and fails when a report differs
 // from the declarations, as the CI runs it.
 //
-//   bun api/report.ts [--check]
+//   bun tools/api-report.ts [--check]
 import {
   Extractor,
   ExtractorConfig,
@@ -36,7 +36,7 @@ for (const { name, declarations } of entrypoints) {
       apiReport: {
         enabled: true,
         reportFileName: name,
-        reportFolder: import.meta.dir,
+        reportFolder: join(root, 'api'),
         reportTempFolder: join(root, 'node_modules/.api'),
         includeForgottenExports: true,
       },
@@ -56,7 +56,7 @@ for (const { name, declarations } of entrypoints) {
         tsdocMessageReporting: { default: { logLevel: ExtractorLogLevel.None } },
       },
     },
-    configObjectFullPath: join(import.meta.dir, 'report.json'),
+    configObjectFullPath: join(root, 'api/report.json'),
     packageJsonFullPath: join(root, 'package.json'),
   })
   const result = Extractor.invoke(config, {

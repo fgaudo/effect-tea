@@ -4,14 +4,14 @@
 // `moduleResolution` `nodenext` and `bundler`. Under Bun the `bun` condition loads `src/`: nothing else imports
 // `dist/`.
 //
-//   bun smoke/smoke.ts [--effect <version>] [--typescript 5.9,6.0,7.0] [--keep]
+//   bun tools/smoke/smoke.ts [--effect <version>] [--typescript 5.9,6.0,7.0] [--keep]
 import { $, Glob } from 'bun'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 
-const root = join(import.meta.dir, '..')
+const root = join(import.meta.dir, '../..')
 const { values } = parseArgs({
   options: {
     // The Effect the consumer installs: by default the repository's own.
@@ -70,7 +70,7 @@ try {
   await $`npm install --no-audit --no-fund --loglevel=error`.cwd(dir)
   console.log(`effect ${effect}, @fgaudo/effect-tea from ${tarball}`)
   // TypeScript resolves a `.ts` import of a declaration to its `.d.ts` by itself, so no typecheck below would
-  // notice a broken rewrite in `build.ts`; other tools that read declarations do not.
+  // notice a broken rewrite in `tools/build.ts`; other tools that read declarations do not.
   const installed = join(dir, 'node_modules/@fgaudo/effect-tea/dist')
   const tsImport = /from\s+'\.{1,2}\/[^']*\.ts'|import\("\.{1,2}\/[^"]*\.ts"\)/
   for await (const path of new Glob('**/*.d.ts').scan({ cwd: installed })) {

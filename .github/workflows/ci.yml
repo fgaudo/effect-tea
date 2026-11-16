@@ -22,8 +22,8 @@ jobs:
       # The report of the public API (`api/`) is committed: a change of what the package exports, or of a type it
       # reaches, must show in the diff of the commit that makes it.
       - run: bun run api --check
-      # The guide's promises are quoted in the doc comments of the API (`quotes/`): a comment that differs from the
-      # guide, or a change of the guide not carried into the comments, fails here.
+      # The guide's promises are quoted in the doc comments of the API (`tools/quotes.ts`): a comment that differs from
+      # the guide, or a change of the guide not carried into the comments, fails here.
       - run: bun run quotes --check
       - run: bun install --frozen-lockfile
         working-directory: site
@@ -52,8 +52,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run test:node
 
-  # The package as a consumer outside Bun gets it (`smoke/smoke.ts`): the tarball installed with npm, run with Node
-  # and typechecked under the oldest TypeScript the package supports and the current one, with the Effect of the
+  # The package as a consumer outside Bun gets it (`tools/smoke/smoke.ts`): the tarball installed with npm, run with
+  # Node and typechecked under the oldest TypeScript the package supports and the current one, with the Effect of the
   # lockfile, which is the oldest its peer range accepts.
   package:
     runs-on: ubuntu-latest

@@ -19,8 +19,8 @@ for the task before starting it:
 | a review of what the invariants rest on                 | [`premise-review`](.agents/skills/premise-review/SKILL.md) |
 
 The engine is `src/core.ts`, `shell.ts`, `engine.ts`, `run.ts`, `compose.ts`, `dispatch.ts`, `input.ts` and `log.ts`,
-and the testing tools are `src/testing/`: a change of one, of `mutations/` or of `test/scheduled.test_scheduler.ts`
-reads `change-engine` first, whatever else it is.
+and the testing tools are `src/testing/`: a change of one, of `tools/mutations/` or of
+`test/scheduled.test_scheduler.ts` reads `change-engine` first, whatever else it is.
 
 ## Language
 
@@ -85,7 +85,7 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   tests keep it. A word that looks minor ("exactly when", "by `Equal`", "never more") is often the rule.
 - **A doc comment of the API promises only by quoting the guide.** It says, in its own words, what the export is and
   how it is called: a summary, its parameters and result, its fields, an example. What the library promises of it is
-  quoted from the guide, word for word, by `bun run quotes` (`quotes/quote.ts`), in a block after `@remarks` that is
+  quoted from the guide, word for word, by `bun run quotes` (`tools/quotes.ts`), in a block after `@remarks` that is
   never edited by hand; where the two differ, the guide rules. A comment never links the site, which shows the latest
   release, not the version installed.
 
@@ -150,7 +150,7 @@ this summary says less. What every change keeps, an example's and a document's t
   belong to the application, e.g. `Effect.fn('Save')` in a `runCommand`), and the stack frames `Effect.fn`
   records add nothing a test's name does not say. An effect that takes no arguments stays an `Effect.gen`.
 - Relative imports carry the `.ts` extension (Biome's `useImportExtensions`); `tsc` rewrites them to `.js` in
-  the build, and `build.ts` does the same in the declarations.
+  the build, and `tools/build.ts` does the same in the declarations.
 - Comments only for what the code cannot say: a reason, an invariant the types do not show, a choice that
   would look like a mistake. Never a repetition of names or of the next line.
 - The doc comment of an export is for whoever uses the package: a note on how it is implemented is a `//` comment, or
@@ -218,15 +218,15 @@ this summary says less. What every change keeps, an example's and a document's t
   a program. So do the bridges' (`examples/snabbdom.test.ts`, `examples/react.test.ts`), for a bridge: the tests of
   `renderInto` and of an input that every bridge passes, written once in `examples/bridge.test_suite.ts` and given
   each renderer's `Bridge`, with those of one renderer alone, in a DOM, and those of the snabbdom bridge's
-  `messagesSentBy`, without one (`examples/snabbdom-testing.test.ts`). The smoke test (`smoke/`) and the benchmark
-  (`bench/`) check the package and its speed. None of them is a test of the library's correctness, and they are kept
-  apart from the five.
-- **Each check an invariant rests on has a mutation** in `mutations/mutations.ts` that takes it out, with the tests
-  that must fail under it: `bun run mutations` applies them one at a time to each of several copies of the repository
-  (`.mutants/`), runs those tests alone, and fails when one passes under its mutation, or fails without it. What has
-  none, and why, is in `docs/invariants.md` and `change-engine`. A new check adds its mutation; a test of one renamed
-  or removed, or the code it replaces rewritten, updates the list. It runs before a release (`release`), and after a
-  change of a file it mutates; what a mutation is, and is not, is in `change-engine`.
+  `messagesSentBy`, without one (`examples/snabbdom-testing.test.ts`). The smoke test (`tools/smoke/`) and the benchmark
+  (`tools/bench/`) check the package and its speed. None of them is a test of the library's correctness, and they are
+  kept apart from the five.
+- **Each check an invariant rests on has a mutation** in `tools/mutations/mutations.ts` that takes it out, with the
+  tests that must fail under it: `bun run mutations` applies them one at a time to each of several copies of the
+  repository (`.mutants/`), runs those tests alone, and fails when one passes under its mutation, or fails without it.
+  What has none, and why, is in `docs/invariants.md` and `change-engine`. A new check adds its mutation; a test of one
+  renamed or removed, or the code it replaces rewritten, updates the list. It runs before a release (`release`), and
+  after a change of a file it mutates; what a mutation is, and is not, is in `change-engine`.
 - **The tests of `src/` and `test/` run on Node too**, on V8 as Chrome and Edge run the library: `bun run test:node`
   makes Node resolve `bun:test` to `test/node/bun-test.test_shim.ts`, which gives what the tests use of it over Node's
   own runner, with Jest's `expect`. A test that needs more of `bun:test` adds it there, and one that asks for a

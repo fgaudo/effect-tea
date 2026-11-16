@@ -14,7 +14,7 @@ packed package (`bun run smoke`, with the Effect of the lockfile). The range acc
 where what Effect does not document may have changed: a daily job (`.github/workflows/effect-latest.yml`) runs
 the typecheck and the tests at the newest version the range accepts, and a failure there is a lead for an upgrade.
 The oldest TypeScript the package supports is Effect's (5.9 for Effect 4): the README's "Installation" states it,
-and `smoke/smoke.ts` checks it by default. An upgrade that raises Effect's raises both, with a changelog entry.
+and `tools/smoke/smoke.ts` checks it by default. An upgrade that raises Effect's raises both, with a changelog entry.
 
 ## An API of a newer Effect
 
@@ -34,7 +34,7 @@ is preferred, and the upgrade is the author's call.
    now documents, in whole or in part, leaves the list with its own test, or keeps only the part still not promised.
    A guard, a workaround or a check of the library's that the new guarantee makes unneeded is a lead for a
    simplification: propose it to the owner, with the guarantee quoted and the code it removes, and once taken, it
-   goes with its mutation in `mutations/mutations.ts` and, for a change of the engine, follows `change-engine`.
+   goes with its mutation in `tools/mutations/mutations.ts` and, for a change of the engine, follows `change-engine`.
 5. A raised peer range is a change a consumer can notice: a `Changed` entry in `CHANGELOG.md` that names the new
    minimum, and the version a breaking change raises ([`release`](../release/SKILL.md)).
 

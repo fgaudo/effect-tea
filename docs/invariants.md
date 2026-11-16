@@ -33,7 +33,7 @@ testing tools.
   state draws no frame, so the last frame's `seen` may stay below the last number: nothing may wait for it to reach
   one. The thunk of the number holds no code of the program and has no mutation ("one thunk"): "follow the order
   update hears them in, under every schedule within two deviations" (`engine.test.ts`) is its alarm. Each other check
-  has a mutation (`mutations/mutations.ts`), and `interleaving.test.ts` checks the count of every frame drawn.
+  has a mutation (`tools/mutations/mutations.ts`), and `interleaving.test.ts` checks the count of every frame drawn.
 - **`reject` means one thing: the message does not apply in the state.** The run ignores every rejection, and
   whether the view sends only what applies is for the tests ("Rejections and defects" in the guide). Never add
   a runtime check of the model against `update`, nor a way for a model to ask `update` what it accepts: the
@@ -62,7 +62,7 @@ testing tools.
   answers with its own and its children's external ones (`RunCommandOf` in `compose.ts`), so neither compiles with a
   write, into the parent's input or a child's. Two limits are declared, not flaws: a write over a value that came
   back is stored, and a message names a place, so one drawn for an old instance reaches the new one. Each check has a
-  mutation (`mutations/mutations.ts`).
+  mutation (`tools/mutations/mutations.ts`).
 - **The rule of an element is the library's, and the bridges only keep their registry** (`edited` and `drawn` in
   `input.ts`). `edited` makes the write and what the element records of it from one value, the element's, so the two
   cannot differ; the number comes from the dispatch the bridge runs, given to a continuation, since the library
@@ -226,10 +226,10 @@ testing tools.
   `testing/ledger.ts`), tested on its own; where program code lies between the check and what the test watches, a gate
   (program code held by a `Deferred`) makes the order deterministic. A change of the engine or of a testing tool lists
   the points where another fiber can run between a check and its act, and leaves a test that fails without the check,
-  deterministic, of the core or with a gate, and a mutation that takes the check out, naming that test (`mutations/`,
-  `change-engine`). No test of a check runs under the scheduler of the tests (`test/scheduled.test_scheduler.ts`): a
-  check whose mutation no deterministic test kills is moved until one does, or goes. Three rules keep a check where such
-  a test reaches it (`docs/single-owner.md`):
+  deterministic, of the core or with a gate, and a mutation that takes the check out, naming that test
+  (`tools/mutations/`, `change-engine`). No test of a check runs under the scheduler of the tests
+  (`test/scheduled.test_scheduler.ts`): a check whose mutation no deterministic test kills is moved until one does, or
+  goes. Three rules keep a check where such a test reaches it (`docs/single-owner.md`):
   - **A function of the program is called where the call is decided**, never as the first step of a fiber forked for
     it, which starts when the scheduler says, unless the fork runs it at once on its own stack (`FiberSet.run`, a
     premise of `docs/premises.md`).

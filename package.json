@@ -37,18 +37,18 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "build": "bun build.ts",
-    "prepack": "bun build.ts",
+    "build": "bun tools/build.ts",
+    "prepack": "bun tools/build.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p examples",
     "lint": "biome lint . && oxlint --type-aware",
     "test": "bun test --path-ignore-patterns=src/interleaving.test.ts",
     "test:node": "node --expose-gc --import ./test/node/register.test_hook.ts --test \"src/**/!(interleaving).test.ts\" \"test/*.test.ts\"",
     "interleavings": "bun test src/interleaving.test.ts",
-    "bench": "bun bench/subscriptions.ts",
-    "mutations": "bun mutations/mutate.ts",
-    "smoke": "bun smoke/smoke.ts",
-    "api": "bun api/report.ts",
-    "quotes": "bun quotes/quote.ts",
+    "bench": "bun tools/bench/subscriptions.ts",
+    "mutations": "bun tools/mutations/mutate.ts",
+    "smoke": "bun tools/smoke/smoke.ts",
+    "api": "bun tools/api-report.ts",
+    "quotes": "bun tools/quotes.ts",
     "prepare": "bunx effect-tsgo patch --typescript --no-oxlint"
   },
   "overrides": {

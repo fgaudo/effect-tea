@@ -88,15 +88,15 @@ not mean to make is a change of the API all the same.
 
 Besides `bun run typecheck`, `bun run lint` and `bun run test`, check the change as a consumer outside Bun
 would see it: the `types` and `default` conditions, and the declarations in `dist/`, whose relative imports
-`build.ts` rewrites to `.js`.
+`tools/build.ts` rewrites to `.js`.
 
-`bun run smoke` (`smoke/smoke.ts`, also run by the CI) packs the package, installs the tarball with npm in a
+`bun run smoke` (`tools/smoke/smoke.ts`, also run by the CI) packs the package, installs the tarball with npm in a
 project outside the repository, runs the README's quick start and
-[`smoke/consumer.ts`](../../../smoke/consumer.ts) with Node, and typechecks both, with `skipLibCheck: false`, under
-`moduleResolution` `nodenext` and `bundler` and each supported TypeScript. It needs Node 22.18 or newer, which runs
-TypeScript as it is.
+[`tools/smoke/consumer.ts`](../../../tools/smoke/consumer.ts) with Node, and typechecks both, with
+`skipLibCheck: false`, under `moduleResolution` `nodenext` and `bundler` and each supported TypeScript. It needs Node
+22.18 or newer, which runs TypeScript as it is.
 
 - A change to what `composition` declares or derives, or to the shape of what `run` and the testing tools take, gets
-  code in `smoke/consumer.ts` that uses it, and a `// @ts-expect-error` for what its types newly reject.
+  code in `tools/smoke/consumer.ts` that uses it, and a `// @ts-expect-error` for what its types newly reject.
 - `--effect <version>` installs another Effect than the lockfile's, `--typescript 5.9,7.0` other
   TypeScripts, and `--keep` leaves the project in place to look into a failure.
