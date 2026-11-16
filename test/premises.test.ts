@@ -124,6 +124,35 @@ describe('a fiber forked with FiberSet.run or FiberMap.run is no child of the fi
   })
 })
 
+describe('FiberSet.run and FiberMap.run fork a fiber and add it in one step', () => {
+  /**
+   * Forks a fiber that forks into what `make` makes one that, as it starts, interrupts the fiber forking it, and says
+   * whether that fiber was interrupted and how many fibers were kept.
+   */
+  const kept = <C>(
+    make: Effect.Effect<C, never, Scope.Scope>,
+    fork: (kept: C, self: Effect.Effect<never>) => Effect.Effect<unknown>,
+    size: (kept: C) => Effect.Effect<number>,
+  ) =>
+    Effect.runPromise(Effect.scoped(Effect.gen(function*() {
+      const container = yield* make
+      let forking: Fiber.Fiber<unknown> | undefined
+      const interruptsItsFork = Effect.andThen(Effect.sync(() => forking?.interruptUnsafe()), Effect.never)
+      forking = yield* Effect.forkChild(fork(container, interruptsItsFork))
+      const exit = yield* Fiber.await(forking)
+      return [Exit.hasInterrupts(exit), yield* size(container)] as const
+    })))
+
+  test('FiberSet.run', async () => {
+    expect(await kept(FiberSet.make<never>(), (set, self) => FiberSet.run(set, self), FiberSet.size)).toEqual([true, 1])
+  })
+
+  test('FiberMap.run', async () => {
+    expect(await kept(FiberMap.make<string, never>(), (map, self) => FiberMap.run(map, 'k', self), FiberMap.size))
+      .toEqual([true, 1])
+  })
+})
+
 test('a fiber forked with startImmediately runs on the stack of the fiber that forks it until it first waits', async () => {
   const steps = await Effect.runPromise(Effect.gen(function*() {
     const steps: Array<string> = []
@@ -419,6 +448,24 @@ test('Effect.raceFirst waits for the effect it interrupts to end, its release in
     log.push('race ended')
   }))
   expect(log).toEqual(['released', 'race ended'])
+})
+
+test('the use of Effect.acquireUseRelease can be interrupted', async () => {
+  const log: Array<string> = []
+  await Effect.runPromise(Effect.gen(function*() {
+    const gate = yield* Deferred.make<void>()
+    const fiber = yield* started((running) =>
+      Effect.acquireUseRelease(
+        Effect.void,
+        () => Effect.andThen(running, Deferred.await(gate)).pipe(Effect.andThen(Effect.sync(() => log.push('used')))),
+        (_, exit) => Effect.sync(() => log.push(Exit.hasInterrupts(exit) ? 'released, interrupted' : 'released')),
+      )
+    )
+    const interrupting = yield* Effect.forkChild(Fiber.interrupt(fiber), { startImmediately: true })
+    yield* Deferred.succeed(gate, undefined)
+    yield* Fiber.join(interrupting)
+  }))
+  expect(log).toEqual(['released, interrupted'])
 })
 
 test('a thunk of Effect.suspend that throws makes the effect die with what it threw', async () => {

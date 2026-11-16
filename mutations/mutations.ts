@@ -1150,8 +1150,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'rehearse runs a command after the first defect',
     file: 'src/testing/rehearse.ts',
-    from: '          if (dead()) return deadOr(Effect.never)\n          if (loop.ended()) return Effect.interrupt\n',
-    to: '          if (loop.ended()) return Effect.interrupt\n',
+    from: '        if (dead()) return deadOr(Effect.never)\n        if (loop.ended()) return Effect.interrupt\n',
+    to: '        if (loop.ended()) return Effect.interrupt\n',
     killedBy: [
       ['src/testing/rehearse.test.ts', 'run calls no runCommand once a command has died'],
     ],

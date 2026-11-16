@@ -208,12 +208,9 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: enqueue(Core.fromCommand) })),
       Effect.provideContext(context),
       recorded,
-      // Interruptible by its own say, as every fiber of the engine, whatever its fork makes of where it is forked. The
-      // fork and its add to the set are one region nothing interrupts, so that the end of the engine, which reads the
-      // set, finds every fiber forked, whatever `FiberSet.run` does between the two.
+      // Interruptible by its own say, as every fiber of the engine, whatever its fork makes of where it is forked.
       Effect.interruptible,
       FiberSet.run(fibers),
-      Effect.uninterruptible,
     )
   /**
    * Interrupts the subscriptions whose key disappeared, all at once, then starts the ones whose key appeared, and
@@ -250,7 +247,6 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
         // As a command's (`runCommand`).
         Effect.interruptible,
         FiberMap.run(subscriptionFibers, generation),
-        Effect.uninterruptible,
       )
     }
     return next

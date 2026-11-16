@@ -34,6 +34,16 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   forked as a child of the loop. Not documented: read in the source (both fork with `forkUnsafe`, as a daemon). Its
   tests: "a fiber forked with FiberSet.run or FiberMap.run is no child of the fiber that forks it, which ends without
   waiting for it", of each, which fail with `Effect.forkChild` in its place.
+- **`FiberSet.run` and `FiberMap.run` fork a fiber and add it in one step**, with nothing between for an interruption
+  to fall into, which is how the end of the engine, interrupting the loop wherever it is and then reading the fibers
+  to stop, finds a command or a subscription the loop was forking: "a command whose runCommand begins the end of the
+  engine as it is called is interrupted by that end", "a subscription that begins the end of the engine as it starts
+  is interrupted by that end" (`engine.test.ts`) rest on it. The end of `rehearse` finds the same way a subscription its
+  loop was starting for `hearNext`. That the fiber is forked, added, and started at once is documented; that nothing
+  lies between the fork and the add is not, and is read in the source (`runImpl` forks with `forkUnsafe` and adds the
+  fiber in the same synchronous step). Its tests: "FiberSet.run and FiberMap.run fork a fiber and add it in one step",
+  of each, with a fiber that interrupts the one forking it as it starts, which fail with a fork and an add apart, a
+  `yieldNow` between them.
 - **A fiber forked with `startImmediately` runs on the stack of the fiber that forks it until it first waits**,
   which is how tests of the testing tools know, with no clock, that a call they forked is waiting, or has ended,
   before they go on (`loop.test.ts`, `rehearse.test.ts`, `contract.test.ts`), with `Effect.forkChild` and, in
@@ -157,6 +167,14 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   effect it interrupts to end, its release included", which fails with a race that interrupts without waiting. The
   races of `rehearse` (`orDead`) rest on the documented part alone: what they interrupt waits on a `Deferred` or joins
   a fiber, and holds nothing to release.
+- **The use of `Effect.acquireUseRelease` can be interrupted**, which is how `rehearse`'s `run` takes its command,
+  calls `runCommand` and forks the effect it returned with nothing in between for an interruption to fall into, and
+  how an interrupted `run` cancels the command and stops its fiber, waiting for its release: "when a run interrupted
+  while its command runs leaves the command unanswered", "the command is released before the interrupted call
+  returns" (`rehearse.test.ts`) rest on it. That nothing interrupts the acquisition, and that the release runs however
+  the use ends, is documented; that the use can be interrupted is not, and is read in the source (the use is
+  `restore`d inside an `uninterruptibleMask`). Its test: "the use of Effect.acquireUseRelease can be interrupted",
+  which fails with a use made uninterruptible.
 - **A thunk of `Effect.suspend` that throws makes the effect die with what it threw**, which is how a function of the
   program that the engine and the tools call in one (`onApplied`, `onIgnored` and `runCommand` in `engine.ts`, the
   renderer in `run.ts`, the scenario in `drive` and in `rehearse`) dies in the site of the effect it would have
