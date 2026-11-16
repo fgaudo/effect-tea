@@ -26,6 +26,8 @@ version, and everything else, features included, the patch version.
 - The README's "Guide", with its "Guarantees" and "Testing", moved as it was to the site's Guide, a page per section;
   the README is a short landing page, without the "API reference" table, and the bridges' paragraph under "Examples"
   and those of "View" on bridges are in the guide's "Writing a bridge".
+- Every page of the guide is reworded for readers, with the same promises: the common case first ("In short", the
+  rules), the exact conditions last ("Precisely"); "Guarantees" keeps its titles and its two lists.
 - **Breaking**: a `Dispatch` returns `Effect<number>`, the number of its message among those dispatched, and a
   `Frame` has `seen`, how many of them the run had taken when its state was made ("View", "Guarantees").
   Upgrade: a dispatch written by hand, `(message) => Effect.sync(() => void sent.push(message))`, returns a number,
