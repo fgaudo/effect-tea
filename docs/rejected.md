@@ -71,6 +71,22 @@ answer, and saying so in the proposal.
   inserted or removed among those that share a state, in that call alone. Source: the session that made the change,
   with a review by a second model. *Reopen if* a list that inserts a sharing child before the others on most changes
   of state is shown to matter, which the maps by id keep.
+- **Telling `onIgnored` whether a rejected message came from the frame of the current state**, so that a rejection
+  that cannot be a late tap reaches an application's telemetry as a bug. Reasoned, 16 November 2026, proposed by a
+  second model (Fable 5.2) asked whether `reject` is right for the view's messages; not spiked. The run cannot tell:
+  it has one dispatch, the same function in every frame, so its messages carry no frame; and a `seen` of the current
+  state one below the message's number is no proof that the user saw that state, since `seen` counts no message of a
+  command or a subscription and the renderer may not have drawn the last frame yet, so a late tap would be reported
+  as a bug. Knowing the frame would need the bridge to pass its revision with each dispatch, a change of `Dispatch`
+  and of every bridge, where [`registers.md`](registers.md) chose `seen` over a revision. And with it, reporting the
+  message the current model holds and `update` rejects is the runtime check of the model against `update` that
+  [`invariants.md`](invariants.md) rules out ("`reject` means one thing"), close to the run that reported a rejected
+  offer (above). What the proposal wanted needs no frame: a message the model of a state holds and `update` rejects in
+  that state is a bug from whatever frame it came, and `onIgnored` is given both, so an application may compare them
+  there. For an input, the model holds only the write over the value its place holds: a write over a value since
+  replaced is not among them, so is not reported, where taking any write to the input as held would report every
+  late one. Source: the session that weighed it. *Reopen if* rejections in production are shown to hide bugs the
+  property tests cannot reach, and a frame's identity can reach the run without a change of `Dispatch`.
 
 ## The testing tools
 
