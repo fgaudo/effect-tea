@@ -33,7 +33,7 @@ export type Strategy = Readonly<{
 /**
  * How a run under `controlled` takes a fiber that a `Deferred`, a `Fiber.join` or a callback resumes:
  * - `queued`, the default: it yields first, and waits for its pick as a fork does. Effect resumes it inline, on the
- *   stack of the fiber that completes it, so this reaches orders Effect's scheduler does not give at 4.1.3, as one
+ *   stack of the fiber that completes it, so this reaches orders Effect's scheduler does not give, as one
  *   whose resumptions were not inline would (decision 0104);
  * - `inline`: it runs on where Effect resumes it, as under Effect's scheduler, so that a run reaches only the orders
  *   it gives, but for the preemptions and picks a strategy decides.
@@ -200,7 +200,7 @@ const controlled = (strategy: Strategy, resumptions: Resumptions) => {
     running = undefined
     if (yielder !== undefined) {
       // The task of a yield this scheduler made resumes its fiber at the step it yielded, and Effect does not ask
-      // `shouldYield` there (`runLoop` in `internal/effect.ts` at 4.1.3, read in the source). So the fiber is let
+      // `shouldYield` there (`runLoop` in `internal/effect.ts`, read in the source). So the fiber is let
       // through here, as it would be at that step: it is the first fiber its own task runs (decision 0244). A yield
       // cancelled by an interruption leaves a task that runs no fiber, so nothing reads what it sets.
       entering = false
