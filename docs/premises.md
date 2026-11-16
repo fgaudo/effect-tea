@@ -196,7 +196,14 @@ The invariants themselves are in [`invariants.md`](invariants.md).
 - **Interrupting `Fiber.await` leaves the awaited fiber running**, which is how the run, interrupted as it races the
   death of a fiber with the end of the renderer (`running` in `run.ts`), leaves the renderer to its release, which
   stops the loop before it interrupts the renderer: "a message the renderer sends as the run releases it does not reach
-  update" (`run.test.ts`) rests on it. That `Fiber.await` waits for the fiber's exit is documented; what its
+  update" (`run.test.ts`) rests on it. So do `simulate`, which awaits each command's fiber (`runOne`) and, interrupted,
+  stops the command itself with the run's mark, and `rehearse`, which awaits the command its `run` took (`runFirst`)
+  and, interrupted, cancels it in the ledger before it stops the fiber: "simulate fails with a defect of a command
+  joining, as it is stopped, a fiber its caller interrupted" (`contract.test.ts`), "a run interrupted once its command
+  has answered applies the answer, or fails the rehearsal" and "a run interrupted before the effect of its command
+  begins fails the rehearsal" (`rehearse.test.ts`) rest on it. Both await the fiber rather than join it, since what
+  interrupting a `Fiber.join` does to the fiber is no more documented. That `Fiber.await` waits for the fiber's exit is
+  documented; what its
   interruption does to the fiber is not. Its test: "interrupting Fiber.await leaves the awaited fiber running", which
   fails with an await that interrupts the fiber as it is interrupted.
 - **`Effect.timeoutOption` measures with the `Clock` of its context**, which is how `drive` measures its patience with

@@ -518,7 +518,8 @@ export const rehearse = Effect.fnUntraced(function*<
       (taking): Effect.Effect<Ran> =>
         taking._tag === 'None'
           ? Effect.succeed(taking)
-          : Effect.map(orDead(Fiber.join(taking.fiber)), (answer) => ({
+          // Awaited, not joined, as `simulate`'s `runOne` says.
+          : Effect.map(orDead(Effect.flatten(Fiber.await(taking.fiber))), (answer) => ({
             _tag: 'Ran',
             command: taking.command,
             answer,

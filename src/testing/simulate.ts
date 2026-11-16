@@ -83,7 +83,9 @@ export const simulate = <State, Message, Command, Event, R = never>(
         return arrived.changed ? Effect.as(listen(listening), Opt.some(applied)) : Effect.succeedSome(applied)
       }),
     )
-  // A command runs in a fiber of its own, called where it is decided, and joined: interrupted, the simulation stops it
+  // A command runs in a fiber of its own, called where it is decided, and awaited, its exit then taken as the
+  // simulation's (`Fiber.await`, whose interruption leaves the fiber running, `docs/premises.md`; a `Fiber.join`'s
+  // interruption is not documented): interrupted, the simulation stops it
   // as the run does, with its mark, and fails with what it dies of as it releases, first. Run in the fiber of whoever
   // interrupts the simulation, it would be stopped as that fiber, which may have interrupted a fiber before. Its scope
   // is the run's (`scopedIn`), so that what it releases is given the exit the run gives it: its defect with where.
@@ -94,7 +96,7 @@ export const simulate = <State, Message, Command, Event, R = never>(
         // Interruptible by its own say, whatever its fork makes of the region it is forked in.
         Effect.flatMap((effect) => Effect.forkChild(Effect.interruptible(effect.pipe(scopedIn(deaths, 'command'))))),
         Effect.flatMap((fiber) =>
-          Effect.flatMap(Effect.exit(restore(Fiber.join(fiber))), (joined) =>
+          Effect.flatMap(Effect.exit(restore(Effect.flatten(Fiber.await(fiber)))), (joined) =>
             Exit.isFailure(joined) && Cause.hasInterrupts(joined.cause)
               ? Effect.andThen(stopping(fiber), Effect.suspend(() => Core.endedWith(deaths.all(), joined)))
               : joined)

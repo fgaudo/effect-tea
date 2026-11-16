@@ -39,7 +39,7 @@ let requested = 0
 // Effect's own scheduler, but for the turns of the event loop it would wait for: it keeps them until `settle`, so
 // that a test, not the clock, says when the program and the renderer go on. A renderer needs no turn of its own:
 // snabbdom patches synchronously, and React's bridge draws each frame with `flushSync`, which commits it and runs its
-// effects before it returns. What a run waits for outside Effect's scheduler (`Effect.sleep`, a promise) is not held: a
+// ref callbacks before it returns. What a run waits for outside Effect's scheduler (`Effect.sleep`, a promise) is not held: a
 // test controls it by its own means (`TestClock`, a `Deferred`).
 const held = new Set<() => void>()
 const scheduler = new Scheduler.MixedScheduler('async', (task) => {

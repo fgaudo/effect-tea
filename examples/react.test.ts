@@ -31,8 +31,7 @@ import {
   Suspense,
   startTransition,
   use,
-  useEffect,
-  useRef,
+  useCallback,
 } from 'react'
 import {
   type Bridge,
@@ -147,15 +146,15 @@ const noteView: View<ModelOf<typeof note>, MessageOf<typeof note>> = (model, dis
 
 type DictatedProps = Readonly<{ value: string; dispatch: Dispatch<Written<string>>; source: Dictation }>
 
-// `Shows` takes no ref: the element is found inside a wrapper of the control's own.
+// `Shows` takes no ref: the element is found inside a wrapper of the control's own. It listens from the wrapper's ref
+// callback, which has run when `flushSync` returns (`docs/premises.md`), so that a test dictates with no turn for React.
 const Dictated = ({ value, dispatch, source }: DictatedProps): ReactNode => {
-  const wrapper = useRef<HTMLSpanElement>(null)
-  useEffect(() =>
+  const listening = useCallback((wrapper: HTMLSpanElement) =>
     source.listen((text) => {
-      const shown = wrapper.current?.querySelector('input')
-      if (shown !== null && shown !== undefined) type(shown, text)
+      const shown = wrapper.querySelector('input')
+      if (shown !== null) type(shown, text)
     }), [source])
-  return createElement('span', { ref: wrapper }, createElement(bridge.Shows, { value, dispatch }))
+  return createElement('span', { ref: listening }, createElement(bridge.Shows, { value, dispatch }))
 }
 
 const dictatedView = (source: Dictation): typeof noteView => (model, dispatch) =>
