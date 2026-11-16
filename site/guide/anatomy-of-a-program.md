@@ -10,6 +10,26 @@ A program is a plain object with up to five pieces. `init` says where it starts,
 state, and `makeModel` what the view draws. `runCommand` and `subscriptions` are there when the program has commands or
 listens to something. The view is not part of the program.
 
+They connect in a loop. Each message `update` accepts makes the next state, and a message it rejects leaves the state as
+it was. What the user types goes another way: the view writes it into an input, declared in `compose`, and the library
+stores it with no `update` (see [inputs the user types into](./inputs-the-user-types-into.md)).
+
+```mermaid
+flowchart LR
+  init -->|first state| state([state])
+  init -->|commands| runCommand
+  update -->|next state, unless it rejects| state
+  update -->|commands| runCommand
+  runCommand -->|at most one message| update
+  state --> makeModel
+  makeModel -->|model| view
+  view -->|message| update
+  view -->|Written over the model's value| input[an input]
+  input -->|stored if its place holds that value| state
+  state --> subscriptions[subscriptions, by key]
+  subscriptions -->|messages| update
+```
+
 ## An example
 
 The first program of the timer's tutorial, a duration in minutes (`examples/timer/duration.ts`). Its state and

@@ -11,19 +11,8 @@ change it and the effects it asks for are data, so most of its tests need no run
 
 You keep one **state**. A pure **`update`** changes it in response to messages. Effects are described as
 data (**commands**) or listened to (**subscriptions**), never run inside `update`. The view draws a
-**model**, made from the state, and sends the messages it holds.
-
-```mermaid
-flowchart LR
-  update --> state([state])
-  state --> makeModel
-  makeModel -->|model| view
-  view -->|message| update
-  state --> subscriptions[subscriptions, by key]
-  subscriptions -->|messages| update
-  update -->|commands| runCommand
-  runCommand -->|at most one message| update
-```
+**model**, made from the state, and sends the messages it holds. The guide draws the loop in
+[anatomy of a program](https://fgaudo.github.io/effect-tea/documents/Guide.Anatomy_of_a_program.html).
 
 ## Why
 
@@ -146,7 +135,7 @@ with `bun run build`, then `bun examples/<name>/index.html`.
 | [`volume`](examples/volume)               | two sliders, side by side    | sliders the program draws, a drag a subscription keyed by the slider, for bounds that narrow; a key's messages given to `dispatchViolations`; `drive`        | [live](https://fgaudo.github.io/effect-tea/examples/volume/)        |
 | [`pages`](examples/pages)                 | a clock and an About page    | `composition`, optics, `dispatchTo`, events, `subscribed`, a page started from flags; `simulate`                                                             | [live](https://fgaudo.github.io/effect-tea/examples/pages/)         |
 | [`list`](examples/list)                   | stopwatches by id            | `each`, a subscription per running child, `forEach`; a test with a `TestClock`                                                                               | [live](https://fgaudo.github.io/effect-tea/examples/list/)          |
-| [`timer`](examples/timer)                 | the tutorial's application   | timers by id, each ticking only while it runs, and a bell as a command; `rehearse` with `hear`                                                               | [live](https://fgaudo.github.io/effect-tea/examples/timer/)         |
+| [`timer`](examples/timer)                 | the tutorial's application   | named timers by id, each name an input, each ticking only while it runs, and a bell as a command; `rehearse` with `hear`, and a write with `send`            | [live](https://fgaudo.github.io/effect-tea/examples/timer/)         |
 
 ## Related
 

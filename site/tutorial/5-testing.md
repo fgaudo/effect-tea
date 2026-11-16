@@ -84,13 +84,36 @@ returns as the parent receives it:
 
 {@includeCode ../../examples/timer/timers.test.ts#reader}
 
+## An input
+
+What the user writes into an input is no message of the model: the library rules on it, the same for every input. A
+test writes into an input as the view does, over the value the model shows. The tests of
+[`examples/timer/named.test.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/named.test.ts) make the
+write from a model:
+
+{@includeCode ../../examples/timer/named.test.ts#typing}
+
+A write over the name the model shows is stored, and the state is compared whole, since an input keeps nothing of its
+own. A write over a name that another write has replaced is rejected:
+
+{@includeCode ../../examples/timer/named.test.ts#update}
+
+The named timer's reader returns its timer's messages, wrapped, and nothing of the name. So the candidates of
+`dispatchViolations` list nothing under `Name`, and the record still says so, tag by tag:
+
+{@includeCode ../../examples/timer/named.test.ts#candidates}
+
+In a scenario, `send` takes the write from the current model, as it takes a click:
+
+{@includeCode ../../examples/timer/named.test.ts#rehearse}
+
 ## Where next
 
 - The other tools, `simulate` for a flow with its commands answered at once and `drive` for the running program,
   are in [testing](../guide/testing.md), with what each fails on and what it ignores.
 - [Guarantees](../guide/guarantees.md) says what the library promises, and what is left to
   the program.
-- The other [examples](https://fgaudo.github.io/effect-tea/#examples) show what the timer does not: an input the
-  user types into, a failure as a message, events between a parent and its children.
+- The other [examples](https://fgaudo.github.io/effect-tea/#examples) show what the timer does not: a failure as a
+  message, events between a parent and its children.
 
 Next, [the bridge the timer is drawn with](../guide/writing-a-bridge.md).

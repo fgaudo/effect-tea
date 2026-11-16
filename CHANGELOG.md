@@ -143,7 +143,8 @@ version, and everything else, features included, the patch version.
 - "Guarantees" in the guide says that a subscription starts and stops once the new state is published, and
   that one that ended stays ended while its key stays, where it said that a subscription runs exactly while its key
   is in the state.
-- The README opens with a diagram of the loop, and the guide goes from a program's anatomy to its structure.
+- The guide goes from a program's anatomy to its structure, and "Anatomy of a program" draws the loop: `init`,
+  `update` and what it rejects, commands, subscriptions, the model, and a write into an input; the README links it.
 - "Installation" in the README states the oldest TypeScript supported, 5.9, as Effect 4's.
 - The README and the site link effect-tea-persistent, the same architecture for long-lived entities on a server.
 - "Running" in the guide, the examples and the tutorial start a program with `Effect.runFork`, an API that is stable.
@@ -153,7 +154,8 @@ version, and everything else, features included, the patch version.
 - "View" and "Testing" in the guide ask no `messagesSentBy` of a bridge, and the examples' React bridge has none.
 - The comments of `dispatchViolations` and the table of the tools in the guide's "Testing" speak of the messages a
   model holds.
-- The site has a tutorial that builds the new `timer` example in four steps.
+- The site has a tutorial that builds the new `timer` example in five steps, the fourth a name the user types into
+  each timer, an input, which "Testing" writes into.
 - **Breaking**: `child` and `each` refuse a program with commands and no `runCommand`.
   Upgrade: give the child the `runCommand` its commands need; one that gets there through a cast is a
   `CompositionDefect` naming the child.

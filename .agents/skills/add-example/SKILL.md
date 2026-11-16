@@ -108,8 +108,10 @@ Bun bundles the page for the browser, where the package resolves to `dist/`: hen
   release ([`release`](../release/SKILL.md)).
 - Nothing to add to the site: `site/build.ts` bundles every `examples/*/index.html`.
 
-[`examples/timer`](../../../examples/timer) is the tutorial's application, one module per step: its
-`// #region` comments are the blocks the pages of [`site/tutorial`](../../../site/tutorial) include. So are those of
+[`examples/timer`](../../../examples/timer) is the tutorial's application, one module per step, and two for the
+step of inputs (`named.ts`, a timer with a name, and `named-timers.ts`, the list of the step before with named timers,
+which `main.ts` runs), so that every step's code stays as its page shows it: its `// #region` comments are the blocks
+the pages of [`site/tutorial`](../../../site/tutorial) include. So are those of
 the bridge [`examples/snabbdom.ts`](../../../examples/snabbdom.ts), which the last page reads. A change to either
 keeps them, and the pages' prose, true, and the site build shows the pages as they will be read
 ([`release`](../release/SKILL.md)).

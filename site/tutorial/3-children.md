@@ -47,11 +47,4 @@ timer whose model changed (see [children's views](../guide/composition.md#childr
 
 {@includeCode ../../examples/timer/view.ts#timers}
 
-## Running it
-
-[`examples/timer/main.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/main.ts) runs the list
-in the page, with a bell that beeps. The services of every command are provided around `run`:
-
-{@includeCode ../../examples/timer/main.ts#bell}
-
-Next, [testing it](./4-testing.md).
+Next, [a name for each timer](./4-inputs.md).

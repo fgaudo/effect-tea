@@ -50,7 +50,7 @@ decides nothing on its own:
 
 `run(duration, renderInto(root, durationView))` starts the program and hands the renderer a stream of frames,
 each a model and the `dispatch` to send its messages with. `renderInto` draws each frame into the element `root`.
-In a browser, the run is started with `Effect.runFork`, as [step 3](./3-children.md) does, with a `tapCause` that
+In a browser, the run is started with `Effect.runFork`, as [step 4](./4-inputs.md) does, with a `tapCause` that
 reports a run that dies (see [running](../guide/running.md)).
 
 Next, [the timer itself](./2-commands-and-subscriptions.md).

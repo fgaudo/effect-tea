@@ -243,3 +243,11 @@ time {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+/* Timer: a named timer, its name above its controls. */
+.named {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.5rem;
+}

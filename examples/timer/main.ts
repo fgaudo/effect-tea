@@ -2,9 +2,9 @@ import { run } from '@fgaudo/effect-tea'
 import * as Cause from 'effect/Cause'
 import * as Effect from 'effect/Effect'
 import { renderInto } from '../snabbdom.ts'
+import { namedTimers } from './named-timers.ts'
 import { Bell } from './timer.ts'
-import { timers } from './timers.ts'
-import { view } from './view.ts'
+import { namedTimersView } from './view.ts'
 
 const root = document.getElementById('app')
 if (root === null) throw new Error('index.html has no #app element')
@@ -23,7 +23,7 @@ const bell = Bell.of({
 })
 
 Effect.runFork(
-  run(timers, renderInto(root, view)).pipe(
+  run(namedTimers, renderInto(root, namedTimersView)).pipe(
     Effect.provideService(Bell, bell),
     // The failure of a program that dies is reported; an interruption is no crash.
     Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause))),

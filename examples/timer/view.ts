@@ -3,8 +3,10 @@
 import { dispatchTo } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
 import { h, thunk } from 'snabbdom'
-import { onClick, type View } from '../snabbdom.ts'
+import { onClick, shows, type View } from '../snabbdom.ts'
 import type * as Duration from './duration.ts'
+import type * as NamedTimers from './named-timers.ts'
+import type * as Named from './named.ts'
 import type * as Timer from './timer.ts'
 import type * as Timers from './timers.ts'
 
@@ -77,3 +79,28 @@ export const view: View<Timers.Model, Timers.Message> = (model, dispatch) =>
     ),
   ])
 // #endregion timers
+
+// #region named
+// The same element throughout, with no key: the bridge gives it the name when the program changes it, and writes what
+// is typed over what it showed.
+export const namedView: View<Named.Model, Named.Message> = (model, dispatch) =>
+  h('div.named', [
+    h('input', { ...shows(model.name, dispatchTo(dispatch, 'Name')), props: { placeholder: 'A name' } }),
+    thunk('div.timer', 'timer', timerView, [model.timer, dispatchTo(dispatch, 'Timer')]),
+  ])
+// #endregion named
+
+// The list of the third step's view, each timer drawn by `namedView`.
+export const namedTimersView: View<NamedTimers.Model, NamedTimers.Message> = (model, dispatch) =>
+  h('main', [
+    h('button', { on: onClick(model.add, dispatch) }, 'Add a timer'),
+    h(
+      'ul',
+      model.timers.map(({ id, model, remove }) =>
+        h('li', { key: id }, [
+          thunk('div.named', String(id), namedView, [model, dispatchTo(dispatch, 'Timer', id)]),
+          h('button.secondary', { on: onClick(remove, dispatch) }, 'Remove'),
+        ])
+      ),
+    ),
+  ])
