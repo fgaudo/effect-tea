@@ -51,8 +51,6 @@ export const make = Effect.fnUntraced(function*(
         Effect.andThen(Deferred.done(done, exit), Effect.sync(() => undelivered.delete(done))))
     ),
     Effect.forever,
-    // Interruptible by its own say, whatever its fork makes of the region it is forked in.
-    Effect.interruptible,
     Effect.forkIn(forks),
   )
   // The check and the offer are one thunk, so that nothing is offered once the end is marked, and `offered` is in it

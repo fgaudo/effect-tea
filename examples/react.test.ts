@@ -233,6 +233,15 @@ describe('React, as the bridge rests on it', () => {
     root.unmount()
   })
 
+  // react.dev says only that `unmount` removes the root's components and lets go of its DOM node.
+  test('root.unmount() has removed what the root drew from the DOM when it returns', () => {
+    document.body.innerHTML = '<div id="app"></div>'
+    const root = createRoot(element('#app'))
+    flushSync(() => root.render(createElement('main', null, createElement('input'))))
+    root.unmount()
+    expect(element('#app').childElementCount).toBe(0)
+  })
+
   test('onUncaughtError is called before flushSync returns', () => {
     document.body.innerHTML = '<div id="app"></div>'
     const heard: Array<unknown> = []

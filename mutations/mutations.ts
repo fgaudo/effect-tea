@@ -646,11 +646,11 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: 'the run does not stop the renderer',
     file: 'src/run.ts',
     from: '      const renderer = yield* Effect.acquireRelease(\n'
-      + '        Effect.forkChild(Effect.interruptible(rendering)),\n'
+      + '        Effect.forkChild(rendering),\n'
       + '        (renderer) =>\n'
       + '          engine.stop.pipe(Effect.andThen(Shell.stopping(renderer))),\n'
       + '      )\n',
-    to: '      const renderer = yield* Effect.forkChild(Effect.interruptible(rendering))\n',
+    to: '      const renderer = yield* Effect.forkChild(rendering)\n',
     killedBy: [
       ['src/run.test.ts', 'a renderer that dies while an interrupted run releases it is in the cause'],
       [
@@ -1192,10 +1192,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a call of rehearse's waits on through another fiber's death",
     file: 'src/testing/rehearse.ts',
-    from: '    Effect.raceFirst(\n'
-      + '      Effect.interruptible(waiting),\n'
-      + '      Effect.interruptible(Effect.andThen(register.died, deadOr(Effect.never))),\n'
-      + '    )',
+    from: '    Effect.raceFirst(waiting, Effect.andThen(register.died, deadOr(Effect.never)))',
     to: '    waiting',
     killedBy: [
       [
@@ -1950,8 +1947,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'scopedIn leaves what its effect dies of without a site',
     file: 'src/shell.ts',
-    from: '        diesIn(where, details),\n        (effect) =>\n',
-    to: '        (effect) =>\n',
+    from: '        diesIn(where, details),\n        Effect.onExit((exit) =>\n',
+    to: '        Effect.onExit((exit) =>\n',
     killedBy: [
       ['src/engine.test.ts', 'what a command dies of as the end of the engine interrupts it is what the end dies of'],
       ['src/run.test.ts', 'a defect in makeModel ends the run, which dies with it and with where it happened'],

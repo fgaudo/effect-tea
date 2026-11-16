@@ -157,8 +157,9 @@ testing tools.
     and given through `runWith` to the engine; `rehearse` has its own, keeping only the program's defects, and
     `simulate` one for each simulation, for the commands it runs): the engine's, the renderer, and the
     run's own as it starts the engine, as they end, in a cleanup nothing interrupts, which an interruption that reaches
-    the fiber cannot stop halfway (`cleanedUp` in `shell.ts`), and one with a scope of its own as it dies too, before the scope
-    releases what it holds (`scopedIn`), what a subscription's channel adds to that scope included
+    the fiber cannot stop halfway (the cleanup of `Effect.onExit`, `docs/premises.md`), and one with a scope of its own
+    as it dies too, before the scope releases what it holds (`scopedIn`), what a subscription's channel adds to that
+    scope included
     (`runSubscription`), so that a defect is in the order it happened, though its release lets another fiber die first;
     what the release dies of is wrapped apart, told from what the fiber died of by what the fiber kept of it, never by
     the register, where a defect another fiber recorded may be the very one a release dies with.
@@ -242,9 +243,10 @@ testing tools.
     wherever the interruption reaches it", `rehearse.test.ts`, is its alarm), or `FiberSet.run` and
     `FiberMap.run`, which fork and add in one step (`docs/premises.md`), where the end reads the set.
 
-  Every fiber the engine and the testing tools fork, each side of a race included, is interruptible by its own say
-  (`Effect.interruptible`), whatever its fork makes of the region it is forked in: a fork inside such a region, and a
-  run or a tool called inside one, would otherwise leave a fiber the end cannot stop, and the end would wait for it.
+  Every fiber the engine and the testing tools fork, each side of a race included, is interruptible, though it is
+  forked where nothing interrupts, as a fork inside such a region is, and a run or a tool called inside one: Effect's
+  forks and races make it so (`docs/premises.md`). A fiber that took the region of whoever forked it would be one the
+  end cannot stop, and the end would wait for it.
 
   What cannot be one thunk with its check, as the first step of an effect of the program, is no act the README
   promises about.

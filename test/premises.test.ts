@@ -5,6 +5,7 @@
  * the bridges on their renderers lie in the bridges' tests, where the DOM is.
  */
 import { describe, expect, test } from 'bun:test'
+import * as Arr from 'effect/Array'
 import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Clock from 'effect/Clock'
@@ -176,8 +177,8 @@ test('a fiber forked with startImmediately runs on the stack of the fiber that f
 
 describe('a fiber forked with FiberSet.run or FiberMap.run runs on the stack of the fiber that runs it until it first waits', () => {
   /**
-   * Forks, with `fork`, a call wrapped as the engine wraps `runCommand` and a subscription (a scope, a cleanup, an
-   * interruptible region), which then waits, and says what had happened when `run` returned and once the wait is over.
+   * Forks, with `fork`, a call wrapped as the engine wraps `runCommand` and a subscription (a scope, a cleanup), which
+   * then waits, and says what had happened when `run` returned and once the wait is over.
    */
   const order = <C>(
     make: Effect.Effect<C, never, Scope.Scope>,
@@ -192,7 +193,6 @@ describe('a fiber forked with FiberSet.run or FiberMap.run runs on the stack of 
         Effect.andThen(Effect.sync(() => steps.push('after the wait'))),
         Effect.scoped,
         Effect.onExit(() => Effect.void),
-        Effect.interruptible,
       )
       const fiber = yield* fork(container, call)
       steps.push('returned')
@@ -212,6 +212,76 @@ describe('a fiber forked with FiberSet.run or FiberMap.run runs on the stack of 
   })
 })
 
+describe('a fiber forked where nothing interrupts is interruptible all the same', () => {
+  /**
+   * Forks with `fork`, where nothing interrupts, a fiber that waits, interrupts it before its wait is over, and says
+   * whether it ran on past the wait and whether it ended interrupted.
+   */
+  const interrupted = (fork: (self: Effect.Effect<void>) => Effect.Effect<Fiber.Fiber<void>, never, Scope.Scope>) =>
+    Effect.runPromise(Effect.scoped(Effect.gen(function*() {
+      let ranOn = false
+      const running = yield* Deferred.make<void>()
+      const gate = yield* Deferred.make<void>()
+      const fiber = yield* Effect.uninterruptible(fork(Deferred.succeed(running, undefined).pipe(
+        Effect.andThen(Deferred.await(gate)),
+        Effect.andThen(Effect.sync(() => {
+          ranOn = true
+        })),
+      )))
+      yield* Deferred.await(running)
+      const interrupting = yield* Effect.forkChild(Fiber.interrupt(fiber), { startImmediately: true })
+      yield* Deferred.succeed(gate, undefined)
+      yield* Fiber.join(interrupting)
+      return [ranOn, Exit.hasInterrupts(yield* Fiber.await(fiber))] as const
+    })))
+
+  test('Effect.forkChild', async () => {
+    expect(await interrupted((self) => Effect.forkChild(self))).toEqual([false, true])
+  })
+
+  test('Effect.forkIn', async () => {
+    expect(await interrupted((self) => Effect.flatMap(Effect.scope, (scope) => Effect.forkIn(self, scope))))
+      .toEqual([false, true])
+  })
+
+  test('FiberSet.run', async () => {
+    expect(await interrupted((self) => Effect.flatMap(FiberSet.make<void>(), (set) => FiberSet.run(set, self))))
+      .toEqual([false, true])
+  })
+
+  test('FiberMap.run', async () => {
+    const fork = (self: Effect.Effect<void>) =>
+      Effect.flatMap(FiberMap.make<string, void>(), (map) => FiberMap.run(map, 'k', self))
+    expect(await interrupted(fork)).toEqual([false, true])
+  })
+})
+
+describe('Effect.raceFirst runs each side interruptible, where nothing interrupts too', () => {
+  /**
+   * Races, where nothing interrupts, a side that yields once against one that yields a hundred times before it notes
+   * that it ran on, and says whether it did: `raceFirst` waits for the side it interrupts, so one that runs on ends.
+   */
+  const ranOn = (race: (winning: Effect.Effect<void>, losing: Effect.Effect<void>) => Effect.Effect<void>) =>
+    Effect.runPromise(Effect.gen(function*() {
+      let ranOn = false
+      const losing = Effect.forEach(Arr.range(1, 100), () => Effect.yieldNow, { discard: true }).pipe(
+        Effect.andThen(Effect.sync(() => {
+          ranOn = true
+        })),
+      )
+      yield* Effect.uninterruptible(race(Effect.yieldNow, losing))
+      return ranOn
+    }))
+
+  test('the side that loses first', async () => {
+    expect(await ranOn((winning, losing) => Effect.raceFirst(losing, winning))).toBe(false)
+  })
+
+  test('the side that loses second', async () => {
+    expect(await ranOn((winning, losing) => Effect.raceFirst(winning, losing))).toBe(false)
+  })
+})
+
 describe('what the cleanup of Effect.onExit fails with comes after the cause of the effect', () => {
   test('of an effect that dies', async () => {
     const exit = await Effect.runPromiseExit(Effect.die('effect').pipe(Effect.onExit(() => Effect.die('cleanup'))))
@@ -227,6 +297,39 @@ describe('what the cleanup of Effect.onExit fails with comes after the cause of 
       return [yield* Effect.fiberId, yield* Fiber.await(fiber)] as const
     }))
     expect(described(exit)).toEqual([['Interrupt', id], ['Die', 'cleanup']])
+  })
+})
+
+describe('Effect.onExit runs its cleanup where nothing interrupts, however the effect ends', () => {
+  /**
+   * Forks `self` with a cleanup that waits, interrupts the fiber before the cleanup begins or once it has, and says
+   * whether the cleanup ran past its wait.
+   */
+  const cleanedUp = (self: (running: Effect.Effect<void>) => Effect.Effect<void>, interrupts: 'before' | 'during') =>
+    Effect.runPromise(Effect.gen(function*() {
+      const log: Array<string> = []
+      const cleaning = yield* Deferred.make<void>()
+      const gate = yield* Deferred.make<void>()
+      const cleanup = Deferred.succeed(cleaning, undefined).pipe(
+        Effect.andThen(Deferred.await(gate)),
+        Effect.andThen(Effect.sync(() => log.push('cleaned up'))),
+      )
+      const fiber = yield* started((running) => Effect.onExit(self(running), () => cleanup))
+      if (interrupts === 'during') yield* Deferred.await(cleaning)
+      const interrupting = yield* Effect.forkChild(Fiber.interrupt(fiber), { startImmediately: true })
+      yield* Deferred.await(cleaning)
+      yield* Deferred.succeed(gate, undefined)
+      yield* Fiber.join(interrupting)
+      return log
+    }))
+
+  // A cleanup interrupted as it begins never says that it has: the test's own timeout fails it then.
+  test('of an effect that is interrupted', async () => {
+    expect(await cleanedUp((running) => Effect.andThen(running, Effect.never), 'before')).toEqual(['cleaned up'])
+  })
+
+  test('of an effect that succeeds, its fiber interrupted as the cleanup runs', async () => {
+    expect(await cleanedUp((running) => running, 'during')).toEqual(['cleaned up'])
   })
 })
 

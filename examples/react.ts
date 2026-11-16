@@ -106,8 +106,6 @@ export const renderInto =
       }),
       ({ root }) =>
         Effect.sync(() => {
-          // Emptied at once, as `flushSync` promises of the DOM: `unmount` says no more than that React lets go of it.
-          flushSync(() => root.render(null))
           root.unmount()
         }),
     ).pipe(

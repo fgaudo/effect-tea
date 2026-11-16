@@ -1,12 +1,12 @@
 // The snabbdom bridge in a DOM (happy-dom), with screen refreshes that happen only when a test paints: the tests every
 // bridge passes (`bridge.test_suite.ts`), drawn with snabbdom, its draft memoized with `thunk`, and those of snabbdom
 // alone: an input the style module keeps on screen as it fades sends nothing, and the timer's buttons lend no
-// `disabled` to each other; then the premise of the bridge on snabbdom (`docs/premises.md`).
+// `disabled` to each other; then the premises of the bridge on snabbdom (`docs/premises.md`).
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import { type Dispatch, dispatchTo, type MessageOf, type ModelOf, run } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
-import { h, init, propsModule, thunk, type VNode } from 'snabbdom'
+import { eventListenersModule, h, init, propsModule, styleModule, thunk, type VNode } from 'snabbdom'
 import {
   type Bridge,
   bridgeTests,
@@ -189,4 +189,20 @@ test('snabbdom calls a module\'s update hook on every element h draws again, one
   const drawn = element<HTMLInputElement>('input')
   patch(first, h('main', [h('input')]))
   expect(updated).toContain(drawn)
+})
+
+// A third, on snabbdom alone: its README says that the module of listeners attaches them, not when it takes them off.
+test('snabbdom\'s module of listeners takes off those of an element a patch removes, though the style module keeps it on screen as it fades', () => {
+  document.body.innerHTML = '<div id="app"></div>'
+  const heard: Array<string> = []
+  const patch = init([styleModule, eventListenersModule])
+  const first = patch(element('#app'), h('main', [h('input', {
+    on: { input: () => void heard.push('input') },
+    style: { opacity: '1', transition: 'opacity 1s', remove: { opacity: '0' } },
+  })]))
+  const drawn = element<HTMLInputElement>('input')
+  patch(first, h('main'))
+  expect(drawn.isConnected).toBe(true)
+  drawn.dispatchEvent(new Event('input', { bubbles: true }))
+  expect(heard).toEqual([])
 })

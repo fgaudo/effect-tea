@@ -8,11 +8,10 @@ listed. A change that rests on a new premise adds it here, with its test, and on
 
 A premise is never added without the owner's consent, under the list or under "Premises that no test reaches yet",
 whether a change or a review brings it: the owner is asked before the change that rests on it is written, with the
-premise, what rests on it, and its test. Its own test is the rule, not a guard. A guard of the library's, written with
-documented APIs, that makes the premise unneeded (an explicit `Effect.interruptible`, a scope closed by hand) is
-proposed beside it only where it is cheap, a few lines, and makes the code clearer rather than adding lines that look
-redundant; one that would take in another premise, or rewrite a piece of the engine, is not. A guard the owner takes is
-seen to hold with the premise made false where a test can make it so. Without the owner's yes, the change waits.
+premise, what rests on it, and its test. A premise a test can check is listed with that test, never made unneeded by
+code of the library's written for it alone (an explicit `Effect.interruptible`, a scope closed by hand): such code looks
+redundant, no test fails when it goes, and what it stood in for would change unseen. Without the owner's yes, the
+change waits.
 
 The invariants themselves are in [`invariants.md`](invariants.md).
 
@@ -51,18 +50,29 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   JSDoc. Its test: "a fiber forked with startImmediately runs on the stack of the
   fiber that forks it until it first waits", which fails without the option.
 - **A fiber forked with `FiberSet.run` or `FiberMap.run` runs on the stack of the fiber that runs it until it first
-  waits**, through the scope, the cleanup and the interruptible region the engine wraps around a command and a
-  subscription, so that `run` returns only once `runCommand` has been called, or the subscription's channel made, where
-  the step decided it, before the loop takes the next message: "a command whose runCommand begins the end of the engine
-  as it is called is interrupted by that end", "a subscription that begins the end of the engine as it starts is
-  interrupted by that end" (`engine.test.ts`), "a log that dies as the run starts comes before what a subscription dies
-  of as the end releases it" (`run.test.ts`), "the run gives what a command that dies releases its defect, in a
-  command", "the run gives what a command that interrupts itself releases a defect, in a command"
-  (`contract.test.ts`) and "in a command it starts" (`drive.test.ts`) rest on it, and fail with both forks made with
-  `startImmediately: false`. Their JSDoc says that the effect starts immediately; that it runs on the stack of the fiber
-  that runs it, with no yield until it first waits, is read in the source. Its tests: "a fiber forked with FiberSet.run
-  or FiberMap.run runs on the stack of the fiber that runs it until it first waits", of each, which fail with
-  `startImmediately: false`.
+  waits**, through the scope and the cleanup the engine wraps around a command and a subscription, so that `run`
+  returns only once `runCommand` has been called, or the subscription's channel made, where the step decided it, before
+  the loop takes the next message: "a command whose runCommand begins the end of the engine as it is called is
+  interrupted by that end", "a subscription that begins the end of the engine as it starts is interrupted by that end"
+  (`engine.test.ts`), "a log that dies as the run starts comes before what a subscription dies of as the end releases
+  it" (`run.test.ts`), "the run gives what a command that dies releases its defect, in a command", "the run gives what
+  a command that interrupts itself releases a defect, in a command" (`contract.test.ts`) and "in a command it starts"
+  (`drive.test.ts`) rest on it, and fail with both forks made with `startImmediately: false`. Their JSDoc says that the
+  effect starts immediately; that it runs on the stack of the fiber that runs it, with no yield until it first waits, is
+  read in the source. Its tests: "a fiber forked with FiberSet.run or FiberMap.run runs on the stack of the fiber that
+  runs it until it first waits", of each, which fail with `startImmediately: false`.
+- **A fiber forked where nothing interrupts is interruptible all the same**, by `Effect.forkChild`, `Effect.forkIn`,
+  `FiberSet.run` and `FiberMap.run` alike, which is how the end stops every fiber the engine and the testing tools fork
+  in such a region (the renderer in its acquisition, the loop in the region of its assignment, a command in the
+  acquisition of `rehearse`'s `run`), and every fiber of a run or a tool called inside one (`invariants.md`, "one
+  thunk"): 343 of the 733 tests of `bun run test` fail with every fork taking the region of the fiber that forks it,
+  "called inside an uninterruptible region, ends once its renderer returns", "a subscription stopped inside an
+  uninterruptible region is no defect" (`run.test.ts`), "called inside an uninterruptible region, runs the scenario and
+  stops the program" (`drive.test.ts`) and "called inside an uninterruptible region, hears, runs a command and ends,
+  its loop stopped" (`rehearse.test.ts`) among them. Not documented: the option `uninterruptible`, `false` unless it
+  is given, is in the types of `forkChild` and `forkIn`, not in their JSDoc, and `FiberSet` and `FiberMap` fork with
+  that default, read in the source (`forkUnsafe`). Its tests: "a fiber forked where nothing interrupts is
+  interruptible all the same", of each, which fail with a fork that takes the region of the fiber that forks it.
 - **What the cleanup of `Effect.onExit` fails with comes after the cause of the effect**, which is how each fiber of the
   engine records what it dies of, interrupted or not. Interrupted: "a defect in what a subscription the run stopped
   releases ends the run", "a subscription stopped as whoever runs the run interrupts it, which dies as it releases, is
@@ -76,6 +86,17 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   fails it with a second one" (`rehearse.test.ts`). That the cleanup runs however the effect ends, and that the causes
   are merged, is documented; their order is read only in the source. Its test: "what the cleanup of Effect.onExit fails
   with comes after the cause of the effect", of an effect that dies and of one that is interrupted.
+- **`Effect.onExit` runs its cleanup where nothing interrupts, however the effect ends**, so that an interruption that
+  reaches the fiber as it cleans up cannot stop the cleanup halfway, which is how each fiber of the engine and of the
+  testing tools records what it dies of (`makeDeaths` in `shell.ts`), and `scopedIn` what its own effect died of,
+  before the fiber ends: the tests of the end of a run and of its defects rest on it, "a subscription stopped as whoever
+  runs the run interrupts it, which dies as it releases, is in the cause" and "a defect in what a subscription the run
+  stopped releases ends the run" (`run.test.ts`) among them, and fail with a cleanup run interruptible, though Effect's
+  own combinators then fail too. Its JSDoc says that the cleanup runs, not that an interruption cannot stop it; that it
+  runs uninterruptible is read in the source (`OnExitImpl`, with the `interruptible` of `onExitPrimitive` unset). Its
+  tests: "Effect.onExit runs its cleanup where nothing interrupts, however the effect ends", of an effect that is
+  interrupted and of one that succeeds, its fiber interrupted as the cleanup runs, which fail with a cleanup run
+  interruptible.
 - **A fiber interrupted while interruptible runs no failure handler**, which is how `diesIn` tells an interruption
   by the run from one the program makes: "a run interrupted by whoever runs it is no defect", "a subscription
   stopped inside an uninterruptible region is no defect" (`run.test.ts`); and beside a defect of its release, which is
@@ -203,6 +224,16 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   effect it interrupts to end, its release included", which fails with a race that interrupts without waiting. The
   races of `rehearse` (`orDead`) rest on the documented part alone: what they interrupt waits on a `Deferred` or joins
   a fiber, and holds nothing to release.
+- **`Effect.raceFirst` runs each side interruptible, where nothing interrupts too**, which is how a race of the run
+  (what the engine dies of against the end of the renderer, in `run.ts`), of `drive` (the scenario against the run) and
+  of `rehearse` (`orDead`), called where nothing interrupts, ends once one side has: "called inside an uninterruptible
+  region, ends once its renderer returns", "a subscription dying in a scope of its channel lets no message apply as the
+  channel releases" (`run.test.ts`), "called inside an uninterruptible region, runs the scenario and stops the
+  program" (`drive.test.ts`) and "called inside an uninterruptible region, hears, runs a command and ends, its loop
+  stopped" (`rehearse.test.ts`) rest on it, and fail with sides that take the region of the race. Its JSDoc says that
+  the loser is interrupted, not in what region it runs; that each side is forked interruptible is read in the source
+  (`raceAllFirst`). Its tests: "Effect.raceFirst runs each side interruptible, where nothing interrupts too", of the
+  side that loses first and of the one that loses second, which fail with sides that take the region of the race.
 - **The use of `Effect.acquireUseRelease` can be interrupted**, which is how `rehearse`'s `run` takes its command,
   calls `runCommand` and forks the effect it returned with nothing in between for an interruption to fall into, and
   how an interrupted `run` cancels the command and stops its fiber, waiting for its release: "when a run interrupted
@@ -257,7 +288,7 @@ The invariants themselves are in [`invariants.md`](invariants.md).
 - **React has run the ref callbacks of a commit, and called `onUncaughtError` with what a component threw, when
   `flushSync` returns**, which is how the React bridge settles every input of its root once a frame is drawn, with the
   value each was drawn with, and throws in the frame what a component threw, so that the run dies in the renderer: 18 of
-  the 28 tests of `react.test.ts` fail with a ref that registers its element in a microtask, and "a component that
+  the 29 tests of `react.test.ts` fail with a ref that registers its element in a microtask, and "a component that
   throws ends the run, which dies in the renderer with what it threw" with an `onUncaughtError` that keeps the error in
   one. react.dev says only that the DOM is updated when `flushSync` returns. Its tests, in `react.test.ts`: "the ref
   callbacks of a commit have run when flushSync returns", "onUncaughtError is called before flushSync returns", which
@@ -268,9 +299,14 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   an uncontrolled input does not control what its value should be right now. Its test, in `react.test.ts`: "React
   leaves the value of an input drawn without value or defaultValue as it is when it draws it again", which fails with
   a React that writes the value again as it draws the input.
+- **`root.unmount()` has removed what the root drew from the DOM when it returns**, which is how the React bridge's
+  release leaves its element empty before the run ends: "unmounts what it drew when the run ends" (`react.test.ts`)
+  rests on it, and fails with an `unmount` put off to a task of its own. react.dev says only that `unmount` removes the
+  root's components and lets go of its DOM node. Its test, in `react.test.ts`: "root.unmount() has removed what the
+  root drew from the DOM when it returns", which fails with an `unmount` put off to a microtask.
 - **snabbdom reuses an `<input>` with no key in the same place**, which is how an input drawn with `shows`, which needs
   no key, stays the same element, with its focus, caret and selection, while the program changes what it shows: 13 of
-  the 23 tests of `snabbdom.test.ts` fail with a key new for each frame. snabbdom's README describes the reuse of keyed
+  the 24 tests of `snabbdom.test.ts` fail with a key new for each frame. snabbdom's README describes the reuse of keyed
   elements only. Its test, in `snabbdom.test.ts`: "snabbdom reuses an <input> with no key in the same place", which
   fails with a key of its own for the second input.
 - **snabbdom calls a module's `update` hook on every element `h` draws again, one `h` is given no data for
@@ -280,6 +316,14 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   its source, and its README says only that `update` runs as an element is updated. Its test, in `snabbdom.test.ts`:
   "snabbdom calls a module's update hook on every element h draws again, one h is given no data for included", which
   fails with a vnode made with no data (`vnode`).
+- **snabbdom's module of listeners takes off those of an element a patch removes, though the style module keeps it on
+  screen as it fades**, which is how an `<input>` a frame removes sends nothing while it fades: the bridge's module
+  forgets it among the elements it settles (`destroy` in `snabbdom.ts`), but what `shows` hears looks it up in what the
+  bridge holds of it, which stays. "an input the style module keeps on screen as it fades › sends nothing once a frame
+  has removed it" (`snabbdom.test.ts`) rests on it, and fails with a module of listeners that has no `destroy` hook.
+  snabbdom's README says only that the module attaches listeners; that its `destroy` hook takes them off is read in its
+  source. Its test, in `snabbdom.test.ts`: "snabbdom's module of listeners takes off those of an element a patch
+  removes, though the style module keeps it on screen as it fades", which fails with that module.
 
 A premise about what code does when it runs is checked before the change that rests on it is written, and never
 only reasoned:
@@ -290,19 +334,18 @@ only reasoned:
   of the dependency where it promises is caught by no test is a risk the rule accepts. Of a behaviour documented in
   part, only the part not promised is listed, with the rest named in a line.
 - **Not documented** (read only in the source, or seen in a run): a premise, listed here, and a test that fails without
-  it, unless a guard of the library's makes it unneeded. For Effect, what is not promised may change in a minor version:
-  an upgrade of Effect runs every such test before it raises the peer range, and a daily job of the CI
-  (`.github/workflows/effect-latest.yml`) runs them at the newest Effect the peer range accepts, which a consumer may
-  already have. For the JavaScript engine, the test runs on Bun, whose engine is JavaScriptCore, and on Node, whose
-  engine is V8 (`bun run test:node`, every test of `src/` and `test/` but the search): what a browser could do otherwise
-  goes under "Premises that no test reaches yet".
+  it. For Effect, what is not promised may change in a minor version: an upgrade of Effect runs every such test before
+  it raises the peer range, and a daily job of the CI (`.github/workflows/effect-latest.yml`) runs them at the newest
+  Effect the peer range accepts, which a consumer may already have. For the JavaScript engine, the test runs on Bun,
+  whose engine is JavaScriptCore, and on Node, whose engine is V8 (`bun run test:node`, every test of `src/` and `test/`
+  but the search): what a browser could do otherwise goes under "Premises that no test reaches yet".
 - **A premise's test is its own**: a test in `test/premises.test.ts`, named after the premise, that checks what Effect
   or the JavaScript engine does and nothing of the library, or a file of its own in `test/` where it needs a harness,
   as `test/effect-scheduler.test.ts` does for the scheduler of the tests. A test of the library that the premise's
   fall would break too stays a test of what the library promises, and is not named as the premise's: so a test of a
-  premise that fails names the premise that fell, and a premise dropped, by a guard or by a change, takes its own test
-  with it and leaves the library's. A premise of a bridge on its renderer has its test in the bridge's test file, where
-  the DOM is (`AGENTS.md`, "Tests"), apart from the bridge's own and checking the renderer alone.
+  premise that fails names the premise that fell, and a premise a change drops takes its own test with it and leaves
+  the library's. A premise of a bridge on its renderer has its test in the bridge's test file, where the DOM is
+  (`AGENTS.md`, "Tests"), apart from the bridge's own and checking the renderer alone.
 
 A guarantee of the README says what it promises in the library's own terms, never in those of what a function of
 Effect makes of a value: the order of the defects in a cause is no promise, since what a user would rely on is what

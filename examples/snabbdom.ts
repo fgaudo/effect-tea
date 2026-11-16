@@ -86,11 +86,9 @@ const showsModule = (live: Set<HTMLInputElement>): Module => {
     create: (_, vnode) => drawnAs(vnode),
     update: (_, vnode) => drawnAs(vnode),
     // Forgotten as a frame removes it, though the style module may keep it on screen while it fades: what it hears
-    // meanwhile sends nothing, whatever the module of the listeners does with them.
+    // meanwhile sends nothing, since the module of the listeners has taken them off.
     destroy: (vnode) => {
-      if (!(vnode.elm instanceof HTMLInputElement)) return
-      live.delete(vnode.elm)
-      lives.delete(vnode.elm)
+      if (vnode.elm instanceof HTMLInputElement) live.delete(vnode.elm)
     },
   }
 }

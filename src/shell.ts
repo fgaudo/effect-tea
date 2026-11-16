@@ -55,13 +55,6 @@ export const diesIn =
       )
     )
 
-// `Effect.onExit`, its cleanup run whole where nothing interrupts, however `self` ends: its JSDoc says it runs, not that
-// an interruption cannot stop it halfway, in a fiber interrupted while interruptible.
-const cleanedUp = <A, E, R>(
-  self: Effect.Effect<A, E, R>,
-  cleanup: (exit: Exit.Exit<A, E>) => Effect.Effect<void>,
-): Effect.Effect<A, E, R> => Effect.uninterruptibleMask((restore) => Effect.onExit(restore(self), cleanup))
-
 /**
  * `Effect.scoped`, for a fiber of the run with a scope of its own, whose defects die in `where`: what `self` dies of
  * is recorded as it dies, before its scope releases what it holds, and what the release dies of as it ends. A
@@ -77,11 +70,11 @@ export const scopedIn =
       let own: Cause.Cause<unknown> = Cause.empty
       return Effect.scoped(self.pipe(
         diesIn(where, details),
-        (effect) =>
-          cleanedUp(effect, (exit) =>
-            Effect.sync(() => {
-              if (Exit.isFailure(exit)) own = exit.cause
-            })),
+        Effect.onExit((exit) =>
+          Effect.sync(() => {
+            if (Exit.isFailure(exit)) own = exit.cause
+          })
+        ),
         deaths.recorded,
       )).pipe(
         diesIn(
@@ -134,7 +127,7 @@ export const makeDeaths = Effect.fnUntraced(function*(keeps: (defect: unknown) =
   const died = yield* Deferred.make<void>()
   return {
     recorded: (self) =>
-      cleanedUp(self, (exit) =>
+      Effect.onExit(self, (exit) =>
         Effect.suspend(() => {
           if (Exit.isSuccess(exit)) return Effect.void
           const before = register
