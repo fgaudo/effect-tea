@@ -8,7 +8,7 @@ type Listener = Extract<NonNullable<On[string]>, (...args: never) => unknown>
  * For tests, and no part of what a bridge must do: what `view` can send in `model`, found without a DOM. The
  * library asks that a model holds what `update` accepts, which a test reads from the model itself (the README's
  * "Testing"). That a view draws what its model holds is checked with the renderer's own tools, and this is one
- * way, for snabbdom: a test compares what it returns with what it reads from the model, as `list`'s does. It
+ * way, for snabbdom: a test compares what it returns with what it reads from the model, as the examples' do. It
  * draws the view with a dispatch that records, draws each `thunk` as the renderer would, calls every listener in
  * the tree, and returns the messages recorded, in the order the tree holds them, as the root of the program
  * receives them. What is written into an input is not among them: `shows` writes only from an element on screen,

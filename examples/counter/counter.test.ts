@@ -4,11 +4,14 @@ import { applyAll, dispatchViolations, drive } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
+import { messagesSentBy } from '../snabbdom-testing.test_messages.ts'
 import { counter, type Message, type Model, update } from './counter.ts'
+import { view } from './view.ts'
 
-// What the model holds: the messages of its controls, a case at a time.
+// What the model holds: the messages of its controls, a case at a time, in the order the view draws them, for the
+// test of the view below.
 const messagesOf = (model: Model): ReadonlyArray<Message> =>
-  model._tag === 'Counting' ? [model.increment, model.decrement] : [model.increment]
+  model._tag === 'Counting' ? [model.decrement, model.increment] : [model.increment]
 
 describe('counter', () => {
   // `update` alone: pure, no runtime.
@@ -28,6 +31,15 @@ describe('counter', () => {
       const state = { count }
       const held = messagesOf(counter.makeModel(state))
       expect(violations(state, held, ['Increment', 'Decrement'])).toEqual([])
+    }))
+  })
+
+  // Beyond what the library asks: that the view draws what its model holds, each control once. `messagesSentBy`,
+  // beside the snabbdom bridge, is its way to see it without a DOM.
+  test('the view sends what its model holds', () => {
+    fc.assert(fc.property(fc.nat(1_000), (count) => {
+      const model = counter.makeModel({ count })
+      expect(messagesSentBy<Model, Message>(view, model)).toEqual(messagesOf(model))
     }))
   })
 

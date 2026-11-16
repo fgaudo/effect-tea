@@ -74,11 +74,15 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
   lies in a module of its own (`timer/timer.test_reader.ts`).
 - **A bridge owes no `messagesSentBy`.** The snabbdom bridge has one beside it, in
   `snabbdom-testing.test_messages.ts`, as an example of how to check that a view draws what its model holds, with its
-  own tests (`snabbdom-testing.test.ts`), and `list`'s test shows its use: `messagesSentBy(view, model)` equals
-  `messagesOf(model)`. A change to the two renderers' bridges is made to both for `renderInto` and the handlers alone.
+  own tests (`snabbdom-testing.test.ts`), and the test of each example drawn with snabbdom uses it:
+  `messagesSentBy(view, model)` equals `messagesOf(model)`, so the reader lists the messages in the order the view
+  draws them. A change to the two renderers' bridges is made to both for `renderInto` and the handlers alone.
 - **The test** shows the testing tools on the example, from the cheapest that proves the point: `applyAll` and
   `dispatchViolations` always (with the reader, for what the model holds, and the candidates that keep the
-  reader complete), then `simulate`, `rehearse` or `drive` for what needs them. A new check of this kind is
+  reader complete), then `simulate`, `rehearse` or `drive` for what needs them. The candidates of tagged messages
+  are a record with an entry for each tag, checked with `satisfies { [Tag in Message['_tag']]:
+  ReadonlyArray<Extract<Message, { _tag: Tag }>> }` and flattened, a parent's from its children's
+  (`pages/app.test.ts`): a tag no user sends has `[]`, and the comment says who sends it. A new check of this kind is
   seen to fail on a model that shows what `update` rejects, and on a reader that forgets a field. It runs
   without a DOM: `preload.test_setup.ts` sets `window` to `undefined` so that snabbdom loads, and only the bridges'
   tests in a DOM register happy-dom. A check that needs a DOM (how often the bridge draws, a click on a drawn button,

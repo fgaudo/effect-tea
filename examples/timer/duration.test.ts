@@ -3,10 +3,13 @@ import { reject } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations } from '@fgaudo/effect-tea/testing'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
+import { messagesSentBy } from '../snabbdom-testing.test_messages.ts'
 import { duration, type Message, type Model, update } from './duration.ts'
+import { durationView } from './view.ts'
 
-// What the model holds: the messages of its controls.
-const messagesOf = (model: Model): ReadonlyArray<Message> => [model.more, ...Opt.toArray(model.less)]
+// What the model holds: the messages of its controls, in the order the view draws them, for the test of the view
+// below.
+const messagesOf = (model: Model): ReadonlyArray<Message> => [...Opt.toArray(model.less), model.more]
 
 describe('duration', () => {
   test('sets the minutes up and down', () => {
@@ -23,6 +26,15 @@ describe('duration', () => {
       const state = { minutes }
       const held = messagesOf(duration.makeModel(state))
       expect(violations(state, held, ['More', 'Less'])).toEqual([])
+    }))
+  })
+
+  // Beyond what the library asks: that the view draws what its model holds, each control once. `messagesSentBy`,
+  // beside the snabbdom bridge, is its way to see it without a DOM.
+  test('the view sends what its model holds', () => {
+    fc.assert(fc.property(fc.integer({ min: 1, max: 1_000 }), (minutes) => {
+      const model = duration.makeModel({ minutes })
+      expect(messagesSentBy<Model, Message>(durationView, model)).toEqual(messagesOf(model))
     }))
   })
 })

@@ -150,7 +150,7 @@ those two do, gives `bridgeTests` a `Bridge`: your `renderInto`, and the views o
 renderer. Beside the snabbdom bridge,
 [`examples/snabbdom-testing.test_messages.ts`](examples/snabbdom-testing.test_messages.ts) has `messagesSentBy`, which
 finds what a view sends without a DOM: one way to check that a view draws what its model holds, which the library
-asks of no bridge (see [testing](#testing)).
+asks of no bridge (see [testing](#testing)), and which the test of each example drawn with snabbdom uses.
 
 ## Guide
 
@@ -936,11 +936,16 @@ test('the model holds what update accepts, all of it', () => {
 - **The reader is complete only as far as the candidates go.** One that forgets a field of the model passes
   `Rejected` and `ActsTwice`, which judge only what it returns. `Missing` finds the field, in a state where
   `update` accepts its message, the message would do something, and the test lists it among the `candidates`.
+  The examples whose messages are tagged list theirs a tag of `Message` at a time, in a record the compiler checks
+  against the type (`satisfies`), as [`timer`](examples/timer/timer.test.ts) does: a new message does not compile
+  there until the test says what a user could ask with it, nothing included. It is their way to keep the list, and
+  nothing the library asks.
 - **That the view draws what its model holds is not checked here**: each control once, through the right
   dispatch. It is checked with your renderer's tools. For snabbdom,
   [`examples/snabbdom-testing.test_messages.ts`](examples/snabbdom-testing.test_messages.ts) has one,
   `messagesSentBy`, which finds what a view sends without a DOM, for a test to compare with what its reader returns,
-  as [`list`](examples/list/list.test.ts) does. It is an example, and nothing a bridge must have.
+  as the examples' tests do, each with a reader in the order its view draws. It is an example, and nothing a bridge
+  must have.
 
 #### The tools
 

@@ -13,7 +13,9 @@ Most of a program is pure, so most of its tests need no runtime. The tests of th
 ## Any valid state
 
 The tests check their rules for any state the timer can be in, so they start from an arbitrary that produces
-only valid states, every phase among them, and from the messages a user could send:
+only valid states, every phase among them, and from the messages a user could send, a tag at a time: the compiler
+checks the record against `Message`, so a new message does not compile until the test says what a user could ask
+with it:
 
 {@includeCode ../../examples/timer/timer.test.ts#states}
 
@@ -47,7 +49,8 @@ forgot a field of the model.
 {@includeCode ../../examples/timer/timer.test.ts#model}
 
 That the view draws what its model holds is not checked here: it is checked with the renderer's own tools (see
-[testing](https://fgaudo.github.io/effect-tea/#testing)).
+[testing](https://fgaudo.github.io/effect-tea/#testing)), as the test of the list of timers does below, which is why
+the reader lists the messages in the order the view draws them.
 
 ## A scenario
 

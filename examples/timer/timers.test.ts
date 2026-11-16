@@ -3,9 +3,11 @@ import { reject, subscriptionsOf } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations } from '@fgaudo/effect-tea/testing'
 import * as HashMap from 'effect/HashMap'
 import * as fc from 'fast-check'
+import { messagesSentBy } from '../snabbdom-testing.test_messages.ts'
 import { timerMessages } from './timer.test_reader.ts'
 import * as Timer from './timer.ts'
 import { type Message, type Model, type State, timers } from './timers.ts'
+import { view } from './view.ts'
 
 // #region messages
 const added: Message = { _tag: 'AddClicked' }
@@ -29,7 +31,7 @@ const state: fc.Arbitrary<State> = fc
     fc.record({
       id: fc.nat(20),
       timer: fc.record({
-        minutes: fc.constant(1),
+        minutes: fc.constantFrom(1, 2),
         phase: fc.constantFrom(
           Timer.Phase.Setting(),
           Timer.Phase.Running({ secondsLeft: 30 }),
@@ -42,23 +44,29 @@ const state: fc.Arbitrary<State> = fc
   )
   .map((entries) => ({ nextId: 21, entries }))
 
-const timerClicks: ReadonlyArray<Timer.Message> = [
-  { _tag: 'MoreClicked' },
-  { _tag: 'LessClicked' },
-  { _tag: 'StartClicked' },
-  { _tag: 'PauseClicked' },
-  { _tag: 'ResumeClicked' },
-  { _tag: 'ResetClicked' },
-]
+// What a user could ask of a timer, a tag at a time: everything but the ticks, which only the clock sends.
+const timerClicks: ReadonlyArray<Timer.Message> = Object.values(
+  {
+    MoreClicked: [{ _tag: 'MoreClicked' }],
+    LessClicked: [{ _tag: 'LessClicked' }],
+    StartClicked: [{ _tag: 'StartClicked' }],
+    PauseClicked: [{ _tag: 'PauseClicked' }],
+    ResumeClicked: [{ _tag: 'ResumeClicked' }],
+    ResetClicked: [{ _tag: 'ResetClicked' }],
+    Ticked: [],
+  } satisfies { [Tag in Timer.Message['_tag']]: ReadonlyArray<Extract<Timer.Message, { _tag: Tag }>> },
+).flat()
 
-// What a user can ask of the list: adding a timer, and removing or using each one.
-const userMessages = (state: State) => [
-  added,
-  ...state.entries.flatMap(({ id }) => [
-    removed(id),
-    ...timerClicks.map((message) => to(id, message)),
-  ]),
-]
+// What a user can ask of the list, a tag at a time: adding a timer, and removing or using each one. A new message
+// of the list, or a new child, does not compile here until the test says what a user could ask with it.
+const userMessages = (state: State): ReadonlyArray<Message> =>
+  Object.values(
+    {
+      AddClicked: [{ _tag: 'AddClicked' }],
+      RemoveClicked: state.entries.map(({ id }) => ({ _tag: 'RemoveClicked', id })),
+      Timer: state.entries.flatMap(({ id }) => timerClicks.map((message) => ({ _tag: 'Timer', id, message }))),
+    } satisfies { [Tag in Message['_tag']]: ReadonlyArray<Extract<Message, { _tag: Tag }>> },
+  ).flat()
 
 describe('timers', () => {
   // #region update
@@ -90,6 +98,16 @@ describe('timers', () => {
     fc.assert(fc.property(state, (before) => {
       const held = messagesOf(timers.makeModel(before))
       expect(violations(before, held, userMessages(before))).toEqual([])
+    }))
+  })
+
+  // Beyond what the library asks: that the view draws what its model holds, each control once and each timer
+  // through its own dispatch, in every phase. `messagesSentBy`, beside the snabbdom bridge, is its way to see it
+  // without a DOM.
+  test('the view sends what its model holds', () => {
+    fc.assert(fc.property(state, (before) => {
+      const model = timers.makeModel(before)
+      expect(messagesSentBy<Model, Message>(view, model)).toEqual(messagesOf(model))
     }))
   })
 })

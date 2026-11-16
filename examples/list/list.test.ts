@@ -42,19 +42,31 @@ const messagesOf = (model: Model): ReadonlyArray<Message> => [
   ...model.stopwatches.flatMap(({ id, model }) => stopwatchMessages(model).map((message) => to(id, message))),
 ]
 
-const stopwatchClicks: ReadonlyArray<Stopwatch.Message> = [
-  { _tag: 'Started' },
-  { _tag: 'Stopped' },
-  { _tag: 'RemoveClicked' },
-]
+// What a user could ask of a stopwatch, a tag at a time: not the ticks, which only its clock sends, nor a halt,
+// which only the list sends it.
+const stopwatchClicks: ReadonlyArray<Stopwatch.Message> = Object.values(
+  {
+    Started: [{ _tag: 'Started' }],
+    Stopped: [{ _tag: 'Stopped' }],
+    RemoveClicked: [{ _tag: 'RemoveClicked' }],
+    Ticked: [],
+    Halted: [],
+  } satisfies { [Tag in Stopwatch.Message['_tag']]: ReadonlyArray<Extract<Stopwatch.Message, { _tag: Tag }>> },
+).flat()
 
-// What a user can ask of the list in `state`: adding, stopping all, and starting, stopping or removing each
-// stopwatch.
-const userMessages = (state: State) => [
-  added,
-  stoppedAll,
-  ...state.entries.flatMap(({ id }) => stopwatchClicks.map((message) => to(id, message))),
-]
+// What a user can ask of the list in `state`, a tag at a time: adding, stopping all, and starting, stopping or
+// removing each stopwatch. A new message of the list, or a new child, does not compile here until the test says
+// what a user could ask with it.
+const userMessages = (state: State): ReadonlyArray<Message> =>
+  Object.values(
+    {
+      AddClicked: [{ _tag: 'AddClicked' }],
+      StopAllClicked: [{ _tag: 'StopAllClicked' }],
+      Stopwatch: state.entries.flatMap(({ id }) =>
+        stopwatchClicks.map((message) => ({ _tag: 'Stopwatch', id, message }))
+      ),
+    } satisfies { [Tag in Message['_tag']]: ReadonlyArray<Extract<Message, { _tag: Tag }>> },
+  ).flat()
 
 describe('list', () => {
   describe('update', () => {

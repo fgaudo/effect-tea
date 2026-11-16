@@ -171,6 +171,11 @@ version, and everything else, features included, the patch version.
   the user types is an input, drawn with `shows`, and `messagesSentBy` no longer takes a text to type.
 - `messagesSentBy` calls a listener, or a list of them, as snabbdom's types say: a list nested in a list, which they do
   not show, is no longer walked.
+- The examples' tests list the candidates of tagged messages a tag at a time, in a record checked against `Message`
+  with `satisfies`, so that a new message does not compile until the test says what a user could ask with it; and
+  each example drawn with snabbdom, not `list` alone, compares what its view sends (`messagesSentBy`) with what its
+  reader returns, whose order is now the view's. "Testing" in the README, the tutorial's "Testing" and the
+  `add-example` skill say so.
 
 ### Fixed
 

@@ -7,6 +7,8 @@ import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Stream from 'effect/Stream'
 import * as fc from 'fast-check'
+import { messagesSentBy } from '../snabbdom-testing.test_messages.ts'
+import { view } from './view.ts'
 import {
   Drag,
   Limit,
@@ -32,12 +34,13 @@ const state: fc.Arbitrary<State> = fc.record({
 
 const press = (slider: Slider): Message => ({ _tag: 'DragStarted', slider })
 
-// What the model holds: the messages of its buttons and of its tracks. The moves of a drag are a subscription's.
+// What the model holds: the messages of its buttons and of its tracks, in the order the view draws them, for the
+// test of the view below. The moves of a drag are a subscription's.
 const messagesOf = ({ sound, limit, media, ringer }: Model): ReadonlyArray<Message> => [
-  sound._tag === 'Muted' ? sound.unmute : sound.mute,
-  limit._tag === 'Quiet' ? limit.full : limit.quiet,
   ...Opt.toArray(media.press),
+  sound._tag === 'Muted' ? sound.unmute : sound.mute,
   ...Opt.toArray(ringer.press),
+  limit._tag === 'Quiet' ? limit.full : limit.quiet,
 ]
 
 // What a key sends, as `messagesOf` says what the model holds: a drag sends a move to wherever the pointer is, and
@@ -115,16 +118,30 @@ describe('volume', () => {
   // `update` accepts is missing, but the moves, which no control sends.
   test('the model holds what update accepts, all of it, and each acts once when sent twice', () => {
     const violations = dispatchViolations(update)
-    const candidates: ReadonlyArray<Message> = [
-      { _tag: 'MuteClicked' },
-      { _tag: 'UnmuteClicked' },
-      { _tag: 'QuietClicked' },
-      { _tag: 'FullClicked' },
-      press('Media'),
-      press('Ringer'),
-    ]
+    // A tag at a time, so that a new message does not compile here until the test says what a user could ask with
+    // it: the moves and the release are a drag's subscription's.
+    const candidates: ReadonlyArray<Message> = Object.values(
+      {
+        MuteClicked: [{ _tag: 'MuteClicked' }],
+        UnmuteClicked: [{ _tag: 'UnmuteClicked' }],
+        QuietClicked: [{ _tag: 'QuietClicked' }],
+        FullClicked: [{ _tag: 'FullClicked' }],
+        DragStarted: [{ _tag: 'DragStarted', slider: 'Media' }, { _tag: 'DragStarted', slider: 'Ringer' }],
+        Moved: [],
+        DragEnded: [],
+      } satisfies { [Tag in Message['_tag']]: ReadonlyArray<Extract<Message, { _tag: Tag }>> },
+    ).flat()
     fc.assert(fc.property(state, (before) => {
       expect(violations(before, messagesOf(volume.makeModel(before)), candidates)).toEqual([])
+    }))
+  })
+
+  // Beyond what the library asks: that the view draws what its model holds, each control once. `messagesSentBy`,
+  // beside the snabbdom bridge, is its way to see it without a DOM.
+  test('the view sends what its model holds', () => {
+    fc.assert(fc.property(state, (before) => {
+      const model = volume.makeModel(before)
+      expect(messagesSentBy<Model, Message>(view, model)).toEqual(messagesOf(model))
     }))
   })
 

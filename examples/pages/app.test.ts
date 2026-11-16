@@ -8,13 +8,14 @@ import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Stream from 'effect/Stream'
 import * as fc from 'fast-check'
+import { messagesSentBy } from '../snabbdom-testing.test_messages.ts'
 import * as About from './about.ts'
 import { app, type Message, type Model, type State } from './app.ts'
 import type * as Clock from './clock.ts'
+import { view } from './view.ts'
 
 const aboutClicked: Message = { _tag: 'Clock', message: { _tag: 'AboutClicked' } }
 const backClicked: Message = { _tag: 'About', message: { _tag: 'BackClicked' } }
-const picked = (format: Clock.Format): Message => ({ _tag: 'Clock', message: { _tag: 'FormatPicked', format } })
 const ticked = (millis: number): Message => ({
   _tag: 'Clock',
   message: { _tag: 'Ticked', now: DateTime.makeUnsafe(millis) },
@@ -30,14 +31,41 @@ const state: fc.Arbitrary<State> = fc.record({
   maybeAbout: maybe(fc.record({ openedAt: maybe(time), maybeSaying: maybe(fc.string()) })),
 })
 
-// What the model holds: the message of the page on top, wrapped as the parent receives it.
+// What the model holds: the message of the page on top, wrapped as the parent receives it, in the order the view
+// draws them, for the test of the view below.
 const messagesOf = ({ page }: Model): ReadonlyArray<Message> =>
   page._tag === 'Clock'
     ? [
-      { _tag: 'Clock', message: page.model.openAbout },
       { _tag: 'Clock', message: page.model.format._tag === 'Iso' ? page.model.format.toUnix : page.model.format.toIso },
+      { _tag: 'Clock', message: page.model.openAbout },
     ]
     : [{ _tag: 'About', message: page.model.back }]
+
+// What a user could ask of each page, a tag at a time: not the ticks, which only the clock sends, nor the saying,
+// which only About's command answers with.
+const clockClicks: ReadonlyArray<Clock.Message> = Object.values(
+  {
+    AboutClicked: [{ _tag: 'AboutClicked' }],
+    FormatPicked: [{ _tag: 'FormatPicked', format: 'Iso' }, { _tag: 'FormatPicked', format: 'Unix' }],
+    Ticked: [],
+  } satisfies { [Tag in Clock.Message['_tag']]: ReadonlyArray<Extract<Clock.Message, { _tag: Tag }>> },
+).flat()
+
+const aboutClicks: ReadonlyArray<About.Message> = Object.values(
+  {
+    BackClicked: [{ _tag: 'BackClicked' }],
+    SayingPicked: [],
+  } satisfies { [Tag in About.Message['_tag']]: ReadonlyArray<Extract<About.Message, { _tag: Tag }>> },
+).flat()
+
+// What a user could ask of the app: a new page, or a new message of one, does not compile here until the test
+// says what a user could ask with it.
+const userMessages: ReadonlyArray<Message> = Object.values(
+  {
+    Clock: clockClicks.map((message) => ({ _tag: 'Clock', message })),
+    About: aboutClicks.map((message) => ({ _tag: 'About', message })),
+  } satisfies { [Tag in Message['_tag']]: ReadonlyArray<Extract<Message, { _tag: Tag }>> },
+).flat()
 
 /** The pages whose subscriptions run, from the keys the library namespaces (`['Clock', 'ticks']`). */
 const listening = (state: State) =>
@@ -79,7 +107,16 @@ describe('pages', () => {
     })
     fc.assert(fc.property(state, (before) => {
       const held = messagesOf(app.makeModel(before))
-      expect(violations(before, held, [aboutClicked, backClicked, picked('Iso'), picked('Unix')])).toEqual([])
+      expect(violations(before, held, userMessages)).toEqual([])
+    }))
+  })
+
+  // Beyond what the library asks: that the view draws what its model holds, each control once and each page
+  // through its own dispatch. `messagesSentBy`, beside the snabbdom bridge, is its way to see it without a DOM.
+  test('the view sends what its model holds', () => {
+    fc.assert(fc.property(state, (before) => {
+      const model = app.makeModel(before)
+      expect(messagesSentBy<Model, Message>(view, model)).toEqual(messagesOf(model))
     }))
   })
 

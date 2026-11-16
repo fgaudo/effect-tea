@@ -4,11 +4,11 @@ import * as Opt from 'effect/Option'
 import type * as Timer from './timer.ts'
 
 // #region reader
-/** What a timer's model holds: the messages of its controls, a case at a time. */
+/** What a timer's model holds: the messages of its controls, a case at a time, in the order the view draws them. */
 export const timerMessages = (model: Timer.Model): ReadonlyArray<Timer.Message> => {
   switch (model._tag) {
     case 'Setting':
-      return [model.more, ...Opt.toArray(model.less), model.start]
+      return [...Opt.toArray(model.less), model.more, model.start]
     case 'Running':
       return [model.pause, model.reset]
     case 'Paused':

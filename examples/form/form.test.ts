@@ -5,8 +5,10 @@ import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
+import { messagesSentBy } from '../snabbdom-testing.test_messages.ts'
 import { Command, form, type Message, type Model, Save, type State, update } from './form.ts'
 import { Storage, StorageError } from './storage.ts'
+import { view } from './view.ts'
 
 const empty = form.init.state
 
@@ -24,6 +26,17 @@ const state = (): fc.Arbitrary<State> =>
 
 // What the model holds: the messages of its controls, a case at a time. What is typed is none of them.
 const messagesOf = ({ editor }: Model): ReadonlyArray<Message> => editor._tag === 'Named' ? [editor.save] : []
+
+// What a user could ask of the form, a tag at a time, so that a new message does not compile here until the test
+// says what a user could ask with it: the save's answers are its command's, and what is typed is the input's.
+const userMessages: ReadonlyArray<Message> = Object.values(
+  {
+    SaveClicked: [{ _tag: 'SaveClicked' }],
+    SaveSucceeded: [],
+    SaveFailed: [],
+    Name: [],
+  } satisfies { [Tag in Message['_tag']]: ReadonlyArray<Extract<Message, { _tag: Tag }>> },
+).flat()
 
 /** What the user types into the input the model shows, as the view sends it. */
 const typing = (model: Model, text: string): Message => ({
@@ -95,7 +108,16 @@ describe('form', () => {
   test('the model holds what update accepts, all of it, and each acts once when sent twice', () => {
     const violations = dispatchViolations(update)
     fc.assert(fc.property(state(), (before) => {
-      expect(violations(before, messagesOf(form.makeModel(before)), [{ _tag: 'SaveClicked' }])).toEqual([])
+      expect(violations(before, messagesOf(form.makeModel(before)), userMessages)).toEqual([])
+    }))
+  })
+
+  // Beyond what the library asks: that the view draws what its model holds, each control once. `messagesSentBy`,
+  // beside the snabbdom bridge, is its way to see it without a DOM, where the input writes nothing.
+  test('the view sends what its model holds', () => {
+    fc.assert(fc.property(state(), (before) => {
+      const model = form.makeModel(before)
+      expect(messagesSentBy<Model, Message>(view, model)).toEqual(messagesOf(model))
     }))
   })
 
