@@ -25,8 +25,8 @@ specification, and each page links to the rules it uses there.
    and rings a bell when it finishes.
 3. [Children](./3-children.md): many timers, each the program of step 2 as it is, under a parent.
 4. [Testing](./4-testing.md): `update`, the model and a scenario, tested without a runtime.
-5. [A bridge](./5-a-bridge.md): how the examples' bridge draws frames, sends messages and settles a text input, to
-   write one for another renderer.
+5. [A bridge](./5-a-bridge.md): how to write a bridge for any renderer, which draws frames, sends messages and
+   settles a text input.
 
 ## Before you start
 
