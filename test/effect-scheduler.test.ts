@@ -648,3 +648,88 @@ test('a fiber yields where the scheduler says, and another runs between two of i
   const exit = drive(twoWriters, newest).exit
   expect(exit !== undefined && Exit.isSuccess(exit) ? exit.value : undefined).toBe('bbbbaaaa')
 })
+
+/**
+ * What a fiber tells a scheduler that answers no to every question but those `yieldAt` names, in order: each question
+ * of `shouldYield`, with the fiber's id less the first and its `currentOpCount`, each task scheduled, and each run of
+ * one, stepped by hand. The rules of `scheduled.test_scheduler.ts` read these three, with no harness of theirs between.
+ */
+const recorded = <A>(effect: Effect.Effect<A>, yieldAt: (fiber: number, count: number) => boolean) => {
+  const log: Array<string> = []
+  const ready: Array<() => void> = []
+  let first: number | undefined
+  const scheduler: Scheduler.Scheduler = {
+    executionMode: 'async',
+    shouldYield(fiber) {
+      const id = fiber.id - (first ??= fiber.id)
+      const answer = yieldAt(id, fiber.currentOpCount)
+      log.push(`asks ${id} at ${fiber.currentOpCount}${answer ? ', yields' : ''}`)
+      return answer
+    },
+    makeDispatcher: () => ({
+      scheduleTask: (task) => {
+        log.push('schedules')
+        ready.push(task)
+      },
+      flush: () => {
+        throw new Error('stepped by hand alone')
+      },
+    }),
+  }
+  const fiber = Effect.runFork(effect, { scheduler })
+  for (let steps = 0; fiber.pollUnsafe() === undefined && steps < 10_000; steps++) {
+    const task = ready.shift()
+    if (task === undefined) break
+    log.push('runs')
+    task()
+  }
+  return { exit: fiber.pollUnsafe(), log }
+}
+
+/** The counts at which `fiber` asked, in order. */
+const countsOf = (log: ReadonlyArray<string>, fiber: number) =>
+  log.flatMap((entry) => {
+    const asked = /^asks (\d+) at (\d+)/.exec(entry)
+    return asked !== null && Number(asked[1]) === fiber ? [Number(asked[2])] : []
+  })
+
+test('a fiber asks shouldYield first at a currentOpCount of 1 in each run of its loop, and higher after it', () => {
+  // The child runs twice: from its fork to its wait, and from where the Deferred resumes it, inline, to its end.
+  const { exit, log } = recorded(
+    Effect.gen(function*() {
+      const gate = yield* Deferred.make<void>()
+      const child = yield* Effect.forkChild(Effect.andThen(Deferred.await(gate), Effect.succeed('ended')))
+      yield* Effect.yieldNow
+      yield* Deferred.succeed(gate, undefined)
+      return yield* Fiber.join(child)
+    }),
+    () => false,
+  )
+  expect(exit).toEqual(Exit.succeed('ended'))
+  const counts = countsOf(log, 1)
+  expect(counts[0]).toBe(1)
+  expect(counts.filter((count) => count === 1).length).toBe(2)
+  // Within a run the count only grows: a run begins where it falls back to 1.
+  expect(counts.every((count, index) => index === 0 || count === 1 || count > (counts[index - 1] ?? 0))).toBe(true)
+})
+
+test('a fiber told to yield schedules its resumption as the very next task, which asks nothing at its first step', () => {
+  let yielded = false
+  const { exit, log } = recorded(
+    Effect.gen(function*() {
+      let steps = 0
+      for (let step = 0; step < 6; step++) yield* Effect.sync(() => steps++)
+      return steps
+    }),
+    (fiber, count) => {
+      if (yielded || fiber !== 0 || count < 3) return false
+      yielded = true
+      return true
+    },
+  )
+  expect(exit).toEqual(Exit.succeed(6))
+  const yields = log.findIndex((entry) => entry.endsWith(', yields'))
+  expect(log.slice(yields + 1, yields + 3)).toEqual(['schedules', 'runs'])
+  const [resumed] = countsOf(log.slice(yields + 3), 0)
+  expect(resumed).toBeGreaterThan(2)
+})

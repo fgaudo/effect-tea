@@ -119,8 +119,15 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   interrupted waits for its turn, as one resumed inline does". The search of `interleaving.test.ts` rests on it, and so
   does the scheduler `examples/bridge.test_suite.ts` holds, by which the bridges' tests, not the clock, say when the
   program and the renderer go on: 54 of the 58 tests of `snabbdom.test.ts` and `react.test.ts` fail with a dispatcher
-  that runs its tasks past it. No mutation's killer rests on it: a model of the scheduler gone wrong costs a false
-  alarm, or a missed one, never a test that passes where it should fail.
+  that runs its tasks past it. Two details of `runLoop` are read in the source too, and the scheduler's rules rest on
+  them: a fiber asks first at a `currentOpCount` of 1 in each run of its loop, and higher after it, which `yields` reads
+  as the fiber starting to run again; and a fiber told to yield schedules its resumption as the very next task, which
+  asks nothing at its first step, which `yielding` and `leastBudget` read. Their tests, in the same file: "a fiber asks
+  shouldYield first at a currentOpCount of 1 in each run of its loop, and higher after it", which fails with a run loop
+  that does not reset the count, as three of the tests above do, and "a fiber told to yield schedules its resumption as
+  the very next task, which asks nothing at its first step", which fails with a run loop that asks at a resumption's
+  first step. No mutation's killer rests on it: a model of the scheduler gone wrong costs a false alarm, or a missed
+  one, never a test that passes where it should fail.
 - **A `Stream.map` after `Stream.buffer` runs only for the elements the consumer pulls, in the consumer's fiber**,
   so a frame's model is made for the frames the renderer pulls, never for a state the sliding buffer dropped, and a
   defect of `makeModel` is the renderer's, which "a model is made only for the frames the renderer pulls, never for a
@@ -197,6 +204,20 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   measured with the real clock even under a TestClock" (`drive.test.ts`) rests on it. Its JSDoc names no clock. Its
   test: "Effect.timeoutOption measures with the Clock of its context", under a `TestClock` that the test adjusts,
   which fails with a timeout that waits with `setTimeout`.
+- **The default value of `Clock.Clock` keeps real time where a `TestClock` is the context's clock**, which is the
+  other half of how `drive` measures its patience with the real clock: the clock it provides (`drive.ts`) is
+  `Clock.Clock.defaultValue()`, and the same tests rest on it, which fail with that line removed. Neither the JSDoc of
+  `Clock.Clock` nor that of `Context.Reference` says what the default value is. Its test: "the default value of
+  Clock.Clock keeps real time where a TestClock is the clock of the context", which fails, by the test's own timeout,
+  with the `TestClock` as the clock it sleeps on.
+- **A collection reclaims what nobody holds, and a `FinalizationRegistry` then calls back for each target it
+  reclaimed**, which is how the cache of `dispatchTo` forgets the entries of ids nobody shows any more
+  (`forgotten` in `dispatch.ts`), so that they do not pile up for as long as the run lasts (`invariants.md`, "A
+  child's dispatch is the same while anyone holds it"): "entriesLeft" in `dispatch.test.ts` rests on it, and so do the
+  tests of `compose.test.ts` that ask for a collection to reclaim a child's model. ECMAScript requires neither: a
+  collection is never required, and a cleanup callback may never be called. Its test: "a collection reclaims what
+  nobody holds, and a FinalizationRegistry then calls back for each target it reclaimed", on Bun and on Node, which
+  fails with a callback that never runs.
 - **React has run the ref callbacks of a commit, and called `onUncaughtError` with what a component threw, when
   `flushSync` returns**, which is how the React bridge settles every input of its root once a frame is drawn, its
   registry complete, and throws in the frame what a component threw, so that the run dies in the renderer: 22 of the
@@ -205,6 +226,12 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   react.dev says only that the DOM is updated when `flushSync` returns. Its tests, in `react.test.ts`: "the ref
   callbacks of a commit have run when flushSync returns", "onUncaughtError is called before flushSync returns", which
   fail with a ref, and an `onUncaughtError`, that does its work in a microtask.
+- **React leaves the value of an `<input>` drawn without `value` or `defaultValue` as it is when it draws it again**,
+  which is how the React bridge's `Shows`, drawn again on every frame, leaves to the bridge alone what the element
+  shows, and the tests of a typed text in `react.test.ts` rest on it. react.dev ("<input>") says only that the JSX of
+  an uncontrolled input does not control what its value should be right now. Its test, in `react.test.ts`: "React
+  leaves the value of an input drawn without value or defaultValue as it is when it draws it again", which fails with
+  a React that writes the value again as it draws the input.
 - **snabbdom reuses an `<input>` with no key in the same place**, which is how an input drawn with `shows`, which needs
   no key, stays the same element, with its focus, caret and selection, while the program changes what it shows: 18 of
   the 27 tests of `snabbdom.test.ts` fail with a key new for each frame. snabbdom's README describes the reuse of keyed

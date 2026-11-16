@@ -48,6 +48,7 @@ import {
   mount,
   note,
   paint,
+  setValue,
   settle,
   state,
   stop,
@@ -365,6 +366,19 @@ describe('React, as the bridge rests on it', () => {
     }
     flushSync(() => root.render(createElement('input', { ref })))
     expect(attached).toEqual(['INPUT'])
+    root.unmount()
+  })
+
+  // react.dev ("<input>") says only that the JSX of an uncontrolled input does not control its value.
+  test('React leaves the value of an input drawn without value or defaultValue as it is when it draws it again', () => {
+    document.body.innerHTML = '<div id="app"></div>'
+    const root = createRoot(element('#app'))
+    flushSync(() => root.render(createElement('input', { placeholder: 'first' })))
+    const drawn = element<HTMLInputElement>('input')
+    setValue(drawn, 'Ada')
+    flushSync(() => root.render(createElement('input', { placeholder: 'second' })))
+    expect(element('input')).toBe(drawn)
+    expect([drawn.placeholder, drawn.value]).toEqual(['second', 'Ada'])
     root.unmount()
   })
 

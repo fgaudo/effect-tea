@@ -7,6 +7,7 @@
 import { describe, expect, test } from 'bun:test'
 import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
+import * as Clock from 'effect/Clock'
 import * as Context from 'effect/Context'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
@@ -490,6 +491,19 @@ test('interrupting Fiber.await leaves the awaited fiber running', async () => {
   expect(exit).toEqual(Exit.succeed('ran on'))
 })
 
+test('the default value of Clock.Clock keeps real time where a TestClock is the clock of the context', async () => {
+  // A sleep the TestClock held would never end, as nothing adjusts it: the test's own timeout fails it then.
+  const [before, now] = await Effect.runPromise(Effect.gen(function*() {
+    const before = Date.now()
+    yield* Effect.sleep('1 millis')
+    return [before, yield* Clock.currentTimeMillis] as const
+  }).pipe(
+    Effect.provideService(Clock.Clock, Clock.Clock.defaultValue()),
+    Effect.provide(TestClock.layer()),
+  ))
+  expect(now).toBeGreaterThanOrEqual(before)
+})
+
 test('Effect.timeoutOption measures with the Clock of its context', async () => {
   const ended = await Effect.runPromise(Effect.gen(function*() {
     const waiting = yield* Effect.forkChild(Effect.timeoutOption(Effect.never, '1 hour'))
@@ -497,4 +511,35 @@ test('Effect.timeoutOption measures with the Clock of its context', async () => 
     return yield* Fiber.join(waiting)
   }).pipe(Effect.provide(TestClock.layer())))
   expect(ended).toEqual(Opt.none())
+})
+
+describe('a collection reclaims what nobody holds, and a FinalizationRegistry then calls back for each target it reclaimed', () => {
+  // Made by a function of its own, whose frame is gone when collecting: JavaScriptCore scans the stack conservatively,
+  // and may take a stale slot there for a live reference, so a few targets are allowed to stay.
+  const registered = (registry: FinalizationRegistry<number>, count: number) =>
+    Array.from({ length: count }, (_, held) => {
+      const target = {}
+      registry.register(target, held)
+      return new WeakRef(target)
+    })
+
+  test('of a hundred targets nobody holds, a few collections reclaim nearly all, and each reclaimed is called back', async () => {
+    const called = new Set<number>()
+    const registry = new FinalizationRegistry<number>((held) => {
+      called.add(held)
+    })
+    const refs = registered(registry, 100)
+    const left = () => refs.filter((ref) => ref.deref() !== undefined).length
+    // A WeakRef keeps its target until the current job ends, and the callbacks run in a job of their own.
+    for (let collection = 0; collection < 10 && (left() > 10 || called.size < 100 - left()); collection++) {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      collectGarbage()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    }
+    expect(left()).toBeLessThanOrEqual(10)
+    expect(called.size).toBe(100 - left())
+    // Held to the end, as `dispatchTo` holds its own for as long as its module lives: a registry nobody holds calls back
+    // for nothing.
+    registry.unregister({})
+  })
 })
