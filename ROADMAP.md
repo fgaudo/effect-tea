@@ -14,10 +14,6 @@ test of it. None is open.
 
 ## Possible improvements
 
-- **Two promises of "Testing" that nothing checks**, moved there from the doc comments: that `drive`'s renderer keeps
-  only the latest frame (no test sees a frame in between skipped), and that `dispatchViolations` compares candidates
-  by `Equal` (tested, but no mutation in `mutations/mutations.ts` takes the comparison out).
-
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is
   drawn" from regressing. `bun run bench` (`bench/subscriptions.ts`) measures a parent's subscriptions only, and
   `bench/writes.ts`, run by hand, what a write into an input and a bridge's frame cost; neither runs in the CI.

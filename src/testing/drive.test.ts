@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import * as Arr from 'effect/Array'
 import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Deferred from 'effect/Deferred'
@@ -11,6 +12,7 @@ import type * as Scope from 'effect/Scope'
 import * as TestClock from 'effect/testing/TestClock'
 import { ProgramDefect } from '../defect.ts'
 import type { Program } from '../program.ts'
+import type { Subscription } from '../subscription.ts'
 import { reject, type Update } from '../update.ts'
 import { drive } from './drive.ts'
 
@@ -157,6 +159,38 @@ describe('drive', () => {
       }),
     ))
     expect(saved).toBe('eggs')
+  })
+
+  test('a wait sees the latest frame, never one drawn before it', async () => {
+    type Ticked = Readonly<{ count: number }>
+    // Each tick waits for the frame of the count before it to be made, so that every count is drawn.
+    const made = Arr.makeBy(3, () => Deferred.makeUnsafe<void>())
+    const ticks = (count: number): Subscription<'Tick', never> => {
+      const gate = made[count]
+      return gate === undefined
+        ? Channel.never
+        : Channel.fromEffect(Effect.as(Deferred.await(gate), 'Tick' as const)).pipe(
+          Channel.concatWith(() => ticks(count + 1)),
+        )
+    }
+    const program: Program<{ state: Ticked; model: number; message: 'Tick' }> = {
+      init: { state: { count: 0 } },
+      update: () => ({ count }) => ({ state: { count: count + 1 } }),
+      makeModel: ({ count }) => {
+        const gate = made[count]
+        if (gate !== undefined) Deferred.doneUnsafe(gate, Effect.void)
+        return count
+      },
+      subscriptions: () => HashMap.make(['ticks', ticks(0)]),
+    }
+    const seen = await Effect.runPromise(drive(
+      program,
+      Effect.fnUntraced(function*(driver) {
+        yield* driver.waitFor((count) => count === made.length ? Opt.some(count) : Opt.none())
+        return yield* driver.waitFor(Opt.some)
+      }),
+    ))
+    expect(seen).toBe(made.length)
   })
 
   test('a defect of the program fails the scenario', async () => {

@@ -1790,6 +1790,15 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'dispatchViolations compares a candidate with what the model holds by reference',
+    file: 'src/testing/dispatch-violations.ts',
+    from: '(each) => Equal.equals(each, message)',
+    to: '(each) => each === message',
+    killedBy: [
+      ['src/testing/dispatch-violations.test.ts', 'ignores what update rejects, and what the model holds, compared by value'],
+    ],
+  },
+  {
     name: 'drive calls the scenario outside the effect whose end is guarded',
     file: 'src/testing/drive.ts',
     from: 'Effect.suspend(() => scenario(driver))',
