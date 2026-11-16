@@ -181,7 +181,7 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    *   1. The first time it hears a key, it starts that key's subscription, with the services provided and in a scope of
    *      its own: the one listed when the key appeared, as the run starts that one.
    *   2. It keeps it for as long as the key stays, as the run does, whichever fiber of the test's first heard it.
-   *   3. Each call hears the subscription's next message, which waits for the call.
+   *   3. Each call hears the subscription's next message, which waits for the call, and succeeds with it.
    *   4. The last message is the subscription's end value. After it, neither `hearNext` nor `hear` hears that key until
    *      the key goes away and comes back. A `hearNext` that was waiting with the one that heard the end fails the
    *      test.
@@ -232,7 +232,7 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    *   1. The first time it hears a key, it starts that key's subscription, with the services provided and in a scope of
    *      its own: the one listed when the key appeared, as the run starts that one.
    *   2. It keeps it for as long as the key stays, as the run does, whichever fiber of the test's first heard it.
-   *   3. Each call hears the subscription's next message, which waits for the call.
+   *   3. Each call hears the subscription's next message, which waits for the call, and succeeds with it.
    *   4. The last message is the subscription's end value. After it, neither `hearNext` nor `hear` hears that key until
    *      the key goes away and comes back. A `hearNext` that was waiting with the one that heard the end fails the
    *      test.

@@ -936,6 +936,19 @@ describe('steps that add up', () => {
       .toEqual(andThen(forEach({ state: { ticks: 1 } }, [2, 3], times), times(5)))
   })
 
+  test('in a pipe, a first step without commands or events has the types of the steps after it', () => {
+    const load = ({ ticks }: Ticks): Step<Ticks, 'Load', 'Loaded'> => ({
+      state: { ticks: ticks + 1 },
+      commands: ['Load'],
+      events: ['Loaded'],
+    })
+    const step: Step<Ticks, 'Load', 'Loaded'> = pipe({ state: noTicks }, andThen(load), forEach([1], () => load))
+    expect(step.commands).toEqual(['Load', 'Load'])
+    const saved: Step<Ticks, 'Save'> = { state: noTicks, commands: ['Save'] }
+    // @ts-expect-error: the first step's commands are kept in the result's type.
+    expect(pipe(saved, andThen(load)) satisfies Step<Ticks, 'Load', 'Loaded'>).toEqual(andThen(saved, load))
+  })
+
   test('a parent that tells each of its children by id the same thing, with forEach, reaches every one', () => {
     const Clearing = composition<{ state: ListState }>()
     const clearing = Clearing.compose({

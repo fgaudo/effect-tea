@@ -73,6 +73,10 @@ For each child, and for itself, a parent declares:
 - **What the parent draws: `makeModel`**, from its state and its children's models.
 - **Its own messages, commands and subscriptions,** if it has any: `update`, `runCommand` and `subscriptions`. Its
   `update` takes `children` too. It may reject its own messages, as any `update` does.
+- **Its own types, by name: `composition<{ state: State }>()`.** Beside `state`, they name, if the parent has any, its
+  own commands (`command`), the events it raises (`event`), and which of its messages a parent of its own may send it
+  (`external`). Nothing given to `compose` reveals them: a type it does not name it has none, and a parent that raises
+  an event it did not name does not compile.
 - **The parent's own flags,** if it has any, are declared with its other types:
   `composition<{ state: State; flags: Flags }>()`. Its `init` then returns the function that starts it:
   `init: (children) => (flags) => ({ state, commands })`.

@@ -202,6 +202,9 @@ version, and everything else, features included, the patch version.
   each example drawn with snabbdom, not `list` alone, compares what its view sends (`messagesSentBy`) with what its
   reader returns, whose order is now the view's. "Testing" in the guide, the tutorial's "Testing" and the
   `add-example` skill say so.
+- The guide's "Composition" ("Declaring children") names the types `composition` takes beside `state` and `flags`;
+  its "Testing" says what `simulate` and `hearNext` succeed with ("`simulate`", "How a subscription is heard"), and
+  how a program run under its renderer in a DOM is tested ("The view").
 
 ### Fixed
 

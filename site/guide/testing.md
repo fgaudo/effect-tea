@@ -93,6 +93,10 @@ dispatch. That is checked with your renderer's tools. For snabbdom,
 without a DOM, for a test to compare with what its reader returns. The examples' tests do this, each with a reader in
 the order its view draws. `messagesSentBy` is an example, and nothing a bridge must have.
 
+**A program run under its renderer, in a DOM,** is tested as the examples' bridges are (see
+[their tests](./writing-a-bridge.md#their-tests)): the test file registers a DOM, and a frame is drawn when the test
+says, in place of the next animation frame.
+
 [messages]: https://github.com/fgaudo/effect-tea/tree/main/examples/snabbdom-testing.test_messages.ts
 
 ## The tools
@@ -159,6 +163,9 @@ Without candidates, it checks only the messages it is given.
   a bug.
 - Its subscriptions do not run. What it reads of them is under [precisely](#precisely).
 - It starts from the step it is given, and calls no `init`.
+- It succeeds with the last `state` and, each in order: `messages`, every message `update` accepted, the test's and
+  the commands' answers; `commands`, every command started, those of the step it started from included; `events`,
+  every event `update` raised; and `ignored`.
 
 ### `rehearse`
 
@@ -241,7 +248,7 @@ It also fails, as the run dies:
   1. The first time it hears a key, it starts that key's subscription, with the services provided and in a scope of its
      own: the one listed when the key appeared, as the run starts that one.
   2. It keeps it for as long as the key stays, as the run does, whichever fiber of the test's first heard it.
-  3. Each call hears the subscription's next message, which waits for the call.
+  3. Each call hears the subscription's next message, which waits for the call, and succeeds with it.
   4. The last message is the subscription's end value. After it, neither `hearNext` nor `hear` hears that key until the
      key goes away and comes back. A `hearNext` that was waiting with the one that heard the end fails the test.
 - **Each start of a key is heard one way**, as the run hears one subscription for each. Once `hearNext` runs it, `hear`

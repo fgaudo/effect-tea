@@ -22,7 +22,9 @@ says, for each thing the reader needed, where it found it.
 2. Choose the pages the check is for, or all of the guide and the tutorial.
 3. Choose a requirement that no example holds, and that needs every page the check is for: what `counter`, `form`,
    `list`, `pages`, `timer` and `volume` do is taken, since a reader would copy them, and so is every requirement of
-   an earlier check, listed here. None is taken yet.
+   an earlier check, listed here:
+   - a chat room: a connection status from a server feed that ends, a draft refused when blank or offline, sends that
+     may fail and are retried, a log and a composer as children, and a reconnect under a new key (2026-11-16).
 4. Run `bun run build`: the reader's compiler reads the package's declarations in `dist/`, as a user's reads them in
    `node_modules`, and a `dist/` older than `src/` shows it an API that is not the one it runs.
 5. Make sure `scratch/` does not exist, since the reader writes there. Git and Biome ignore it.

@@ -63,6 +63,9 @@ export type Simulation<State, Message, Command, Event> = Readonly<{
  *   be a bug.
  * - Its subscriptions do not run. What it reads of them is under "precisely".
  * - It starts from the step it is given, and calls no `init`.
+ * - It succeeds with the last `state` and, each in order: `messages`, every message `update` accepted, the test's and
+ *   the commands' answers; `commands`, every command started, those of the step it started from included; `events`,
+ *   every event `update` raised; and `ignored`.
  *
  * From the guide, "Testing", "`simulate`, as the run dies":
  *
