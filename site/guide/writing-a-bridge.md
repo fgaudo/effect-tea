@@ -65,7 +65,7 @@ of an input, a `Shown`. The bridge keeps one for each element, with the value th
 
 {@includeCode ../../examples/snabbdom.ts#held}
 
-When the user types, `typed(held, value)` gives two things:
+When the user types, `edited(held, value)` gives two things:
 
 - the write to send: the new value, over the one the element showed;
 - `sent`, which takes the number the dispatch returned, and gives what the element holds now.
@@ -113,7 +113,7 @@ What a bridge does, from the walkthrough above:
 - **It draws each frame whole, and at once.** Nothing but the next frame changes what the screen shows.
 - **A plain callback sends a message with `Effect.runSync`.** Sending needs no services and completes synchronously.
 - **The message is one the model holds**, never one the view builds.
-- **When the user edits an input's element, `typed` gives the write to send**, and `sent` what the element holds once
+- **When the user edits an input's element, `edited` gives the write to send**, and `sent` what the element holds once
   the dispatch returns the write's number.
 - **After each frame, the bridge settles the element of each input with `drawn`.** The element is then never
   replaced, and keeps its focus, while two conditions hold: its value changes only by an edit of the user, which it
@@ -165,7 +165,7 @@ They leave out:
 - **With React**: a component with state or effects of its own, Suspense, a subtree `memo` skips, and a portal.
 - **With React, a run whose root is inside another run's.** For it, the bridge would need to know the run each input
   belongs to, as a context of its own would tell it.
-- **Other native widgets.** One that meets the condition of `typed` and `drawn` (see
+- **Other native widgets.** One that meets the condition of `edited` and `drawn` (see
   [inputs the user types into](./inputs-the-user-types-into.md)) would be connected by hand with them. Wherever
   connecting one is too complex, a widget the program draws is preferred: its press is a message, and its drag a
   subscription. The sliders of [`examples/volume`](https://github.com/fgaudo/effect-tea/tree/main/examples/volume) are

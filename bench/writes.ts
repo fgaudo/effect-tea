@@ -17,12 +17,12 @@ import * as Stream from 'effect/Stream'
 import {
   composition,
   drawn,
+  edited,
   reject,
   type Program,
   run,
   type Shown,
   type Transition,
-  typed,
   type Update,
   type Written,
 } from '../src/index.ts'
@@ -262,7 +262,7 @@ type Situation = Readonly<{
 
 const shownOf = <A>(value: A) => drawn(undefined, value, 0).shown
 
-const sentOf = (was: unknown, value: unknown) => typed(shownOf(was), value).sent(1)
+const sentOf = (was: unknown, value: unknown) => edited(shownOf(was), value).sent(1)
 
 // What a frame meets of an element that shows `values[i]`, and may have sent `values[i + 1]`, numbered 1.
 const situations: ReadonlyArray<Situation> = [
@@ -331,7 +331,7 @@ const screenOf = (inputs: number, text: string, frame: (text: string) => string)
   const live = new Set<Element>()
   const lives = new WeakMap<Element, Live>()
   const typedOne = `${text}!`
-  const unseen = typed(shownOf(text), typedOne).sent(1)
+  const unseen = edited(shownOf(text), typedOne).sent(1)
   const first: Live = { held: unseen, value: typedOne }
   for (let i = 0; i < inputs; i++) {
     const element = { value: text }

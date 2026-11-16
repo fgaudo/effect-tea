@@ -9,14 +9,14 @@
 // `seen`, once `flushSync` has committed it.
 // A minimal example to start from, as the guide's "Writing a bridge" says: it settles native text fields alone, in
 // the base case, and does not handle a value the element changes by itself. Another native widget would be connected
-// by hand with `typed` and `drawn` where it meets their condition, or replaced by one the program draws; a component
+// by hand with `edited` and `drawn` where it meets their condition, or replaced by one the program draws; a component
 // with state or effects of its own, Suspense, a subtree skipped by `memo`, a portal, a root in a shadow tree, a form's
 // reset, and a run whose root is inside another run's are left to a bridge that needs them. The inputs a frame
 // settles are found in the root's own elements: a portal's are elsewhere, and a run inside another's root would be
 // settled by both, so such a bridge would need to know the run each input belongs to, as a context of its own would
 // tell it.
 // Checked with react and react-dom 19.3.1.
-import { type Dispatch, drawn, type Frame, type Shown, typed, type Written } from '@fgaudo/effect-tea'
+import { type Dispatch, drawn, edited, type Frame, type Shown, type Written } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 import { createElement, type InputHTMLAttributes, type ReactNode } from 'react'
@@ -67,7 +67,7 @@ export const Shows = ({
       element.addEventListener('input', () => {
         const current = lives.get(element)
         if (current?.held === undefined) return
-        const { write, sent } = typed(current.held, element.value)
+        const { write, sent } = edited(current.held, element.value)
         current.held = sent(send(current.dispatch, write))
       })
     },

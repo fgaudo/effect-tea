@@ -13,12 +13,12 @@ version, and everything else, features included, the patch version.
 - Inputs: `inputs: { Name: input(at) }` in `compose`, at a plain value of the state, which the view writes over with
   `{ _tag: 'Written', was, value }`; the library stores a write while the place holds `was`, by `Equal`, and rejects
   it otherwise.
-- `typed` and `drawn`, over an opaque `Shown`: the rule a bridge calls for the element of an input, on an edit and
+- `edited` and `drawn`, over an opaque `Shown`: the rule a bridge calls for the element of an input, on an edit and
   after each frame, so that the element is never replaced and never takes back what the user typed since; each gives
-  the bridge its write, `typed` the message to send and `drawn` whether the element takes the frame's value.
+  the bridge its write, `edited` the message to send and `drawn` whether the element takes the frame's value.
 - `children` in `compose` is optional, for a program with inputs and no children.
 - The guide has a page "Writing a bridge", which shows how to write a bridge for any renderer, from the examples'
-  bridge to snabbdom: its frames, its handlers and its text input, with `typed` and `drawn`, and the two places that
+  bridge to snabbdom: its frames, its handlers and its text input, with `edited` and `drawn`, and the two places that
   are the renderer's own.
 
 ### Changed
@@ -30,7 +30,7 @@ version, and everything else, features included, the patch version.
   Elm architecture is under "Why", and effect-tea-persistent under "Related".
 - Every page of the guide is reworded for readers, with the same promises: the common case first ("In short", the
   rules), the exact conditions last ("Precisely"); "Guarantees" keeps its titles and its two lists.
-- The doc comments of `run`, `Frame`, `Written`, `Shown`, `typed` and `drawn` say what each does in short, with a
+- The doc comments of `run`, `Frame`, `Written`, `Shown`, `edited` and `drawn` say what each does in short, with a
   comment per field and an example, and quote under "Remarks", word for word, what the guide of the same version
   promises of it. What the comment of `drawn` said of an element is now the guide's, in "Inputs the user types into"
   ("Settling an element"), and that a frame's `dispatch` is the very same function in every frame in "Running".
@@ -91,7 +91,7 @@ version, and everything else, features included, the patch version.
   subscriptions, for bounds that narrow.
 - The examples' bridges are minimal examples: they only draw each frame, run `dispatch` in plain handlers and settle
   each native text `<input>`. "View" in the guide says that another native widget that meets the condition of
-  `typed` and `drawn` would be connected by hand with them, or replaced by one the program draws, and that any other
+  `edited` and `drawn` would be connected by hand with them, or replaced by one the program draws, and that any other
   feature of a renderer (a form's reset, a shadow tree, and in React a component with state or effects, Suspense,
   `memo`, portals and a run inside another's root) is left to the bridge that needs it; "Inputs the user types into"
   no longer says that a text field meets its condition once its form's reset is heard

@@ -332,7 +332,7 @@ decided each, with a second opinion (Fable) on the last two.
   plain handlers (a click, a press, a native text `<input>`'s `input` event), and settle each text input with `drawn`
   after the frame, and nothing more: minimal examples of connecting a native element to the library. A value the
   element changes by itself is not handled, and whether a bridge that starts from them could is left open; another
-  native widget that meets the condition of `typed` and `drawn` would be connected by hand with them, or replaced by
+  native widget that meets the condition of `edited` and `drawn` would be connected by hand with them, or replaced by
   one the program draws (the snabbdom bridge's `slides`, a range, went, and `volume` draws both its sliders); a form's
   reset, a shadow tree, and in React a component with state or effects, Suspense, `memo`, portals and a run inside
   another's root are left to the bridge that needs them, as the guide's "Writing a bridge" and the bridges' comments
@@ -340,7 +340,7 @@ decided each, with a second opinion (Fable) on the last two.
   a portal, or for a run inside another's root, would need to know the run each input belongs to again. Why: such
   features cost much review time for what is outside the library's concern, which is the program and its rule for an
   input's element, not each renderer's features; a bridge is an example to start from, and an application that needs
-  more writes its own. The library (`typed`, `drawn`,
+  more writes its own. The library (`edited`, `drawn`,
   inputs) did not change. *Reopen if* the bridges become packages of their own (`ROADMAP.md`, "Ideas"), whose users
   would expect a renderer's features to work.
 

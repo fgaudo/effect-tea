@@ -19,7 +19,7 @@ inputs: { Name: input(Optic.id<State>().key('name')) },
 ```
 
 The form's view draws its field with the snabbdom bridge, `shows(model.name, dispatchTo(dispatch, 'Name'))`
-(`examples/form/view.ts`). The bridge makes the write with `typed`, over what the element showed (see
+(`examples/form/view.ts`). The bridge makes the write with `edited`, over what the element showed (see
 [the element on screen](#the-element-on-screen)).
 
 In general, a view writes over the value its model holds, through the input's dispatch:
@@ -50,7 +50,7 @@ typed.
 
 **A bridge asks the library instead.** It keeps the element of each input, and asks the library what to make of it:
 
-- When the user edits the element, `typed(held, value)` gives the write to send, over what the element showed. Given
+- When the user edits the element, `edited(held, value)` gives the write to send, over what the element showed. Given
   the number its dispatch returns, it also gives what the element then holds.
 - After each frame, `drawn(held, value, seen)` gives what the element then holds, `shown`, and whether it takes the
   frame's value, `taken`. When it is taken, the bridge then writes that value into the element.
@@ -85,7 +85,7 @@ There are three cases:
   [two limits](#two-limits)). The element shows the frame's very `value`. It is taken, unless it is the very value the
   element showed.
 
-`drawn` tells the writes a frame has seen by the numbers `sent` was given. So a bridge calls the `sent` of `typed`
+`drawn` tells the writes a frame has seen by the numbers `sent` was given. So a bridge calls the `sent` of `edited`
 once, with the number its dispatch returned for that write. Otherwise `drawn` may replace what the user typed.
 
 ### Which elements and renderers this holds for

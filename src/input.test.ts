@@ -1,6 +1,6 @@
 // The semantics of an input, as pure pieces: what `update` makes of what is written into one, what a step of the
 // program leaves of one and of its subscriptions, and what an element on screen holds of one, as a bridge asks the
-// library (`typed`, `drawn`). Nothing here runs.
+// library (`edited`, `drawn`). Nothing here runs.
 import { describe, expect, test } from 'bun:test'
 import * as Arr from 'effect/Array'
 import * as Channel from 'effect/Channel'
@@ -11,7 +11,7 @@ import * as Optic from 'effect/Optic'
 import * as fc from 'fast-check'
 import { composition } from './compose.ts'
 import { type Dispatch, dispatchTo } from './dispatch.ts'
-import { drawn, type Shown, typed, type Written } from './input.ts'
+import { drawn, edited, type Shown, type Written } from './input.ts'
 import { type MessageOf, type Program, subscriptionsOf } from './program.ts'
 import type { Subscription } from './subscription.ts'
 import { dispatchViolations } from './testing/dispatch-violations.ts'
@@ -435,11 +435,11 @@ describe('the tools of the model', () => {
   })
 })
 
-// What a bridge asks of the library for each element that shows an input: `typed` when the user edits it, `drawn`
+// What a bridge asks of the library for each element that shows an input: `edited` when the user edits it, `drawn`
 // when a frame is drawn. `sent` numbers stand for what the run's dispatch returned.
 describe('what an element on screen holds of an input', () => {
   const made = (value: string) => drawn(undefined, value, 0).shown
-  const typing = (held: Shown<string>, value: string, sent: number) => typed(held, value).sent(sent)
+  const typing = (held: Shown<string>, value: string, sent: number) => edited(held, value).sent(sent)
 
   test('a new element takes the frame\'s very value', () => {
     const value = { text: 'a' }
@@ -448,11 +448,11 @@ describe('what an element on screen holds of an input', () => {
     expect(taken).toBe(true)
   })
 
-  test('typed, the write names what the element showed, as the element records it', () => {
+  test('edited, the write names what the element showed, as the element records it', () => {
     fc.assert(fc.property(fc.string(), fc.array(fc.string(), { minLength: 1 }), (start, keys) => {
       let held = made(start)
       keys.forEach((key, index) => {
-        const { write: written, sent } = typed(held, key)
+        const { write: written, sent } = edited(held, key)
         expect(written).toEqual({ _tag: 'Written', was: held.value, value: key })
         const next = sent(index + 1)
         expect(next.value).toBe(key)
@@ -512,12 +512,12 @@ describe('what an element on screen holds of an input', () => {
 
   // "The very value" is `Object.is`, not `===`: `NaN` is the very value of itself, and `0` is not that of `-0`.
   test('a frame of a state that moved on to NaN, the very value the element shows, does not write it again', () => {
-    const element = typed(drawn(undefined, 5, 0).shown, NaN).sent(4)
+    const element = edited(drawn(undefined, 5, 0).shown, NaN).sent(4)
     expect(drawn(element, NaN, 3)).toMatchObject({ shown: { value: NaN }, taken: false })
   })
 
   test('a frame of a state that moved on to 0, where the element shows -0, gives the element its value', () => {
-    const element = typed(drawn(undefined, 5, 0).shown, -0).sent(4)
+    const element = edited(drawn(undefined, 5, 0).shown, -0).sent(4)
     const { shown, taken } = drawn(element, 0, 3)
     expect(Object.is(shown.value, 0)).toBe(true)
     expect(taken).toBe(true)
@@ -528,12 +528,12 @@ describe('what an element on screen holds of an input', () => {
     expect(drawn(element, { tags: ['a'] }, 1)).toEqual({ shown: element, taken: false })
     // The frame has not seen the write, and holds a copy of what the element showed before it: the element keeps
     // what it shows.
-    const later = typed(element, { tags: ['a', 'b'] }).sent(2)
+    const later = edited(element, { tags: ['a', 'b'] }).sent(2)
     expect(drawn(later, { tags: ['a'] }, 1)).toMatchObject({ shown: { value: { tags: ['a', 'b'] } }, taken: false })
   })
 
   test('compares the frame by Equal, so that a copy of what the element showed keeps it', () => {
-    const element = typed(drawn(undefined, ['a'], 0).shown, ['a', 'b']).sent(1)
+    const element = edited(drawn(undefined, ['a'], 0).shown, ['a', 'b']).sent(1)
     expect(drawn(element, ['a'], 0)).toEqual({ shown: element, taken: false })
     expect(drawn(element, ['b'], 0)).toMatchObject({ shown: { value: ['b'] }, taken: true })
   })
@@ -623,7 +623,7 @@ describe('the types of an input', () => {
     expect(element.value).toBe('a')
     // @ts-expect-error: what the element sent that no frame has seen is not for a bridge to read.
     expect(element.unseen).toBeUndefined()
-    // @ts-expect-error: an element is made by `drawn` and `typed`, not by hand.
+    // @ts-expect-error: an element is made by `drawn` and `edited`, not by hand.
     const byHand: Shown<string> = { value: 'a' }
     expect(byHand.value).toBe('a')
   })

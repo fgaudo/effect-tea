@@ -63,8 +63,8 @@ testing tools.
   write, into the parent's input or a child's. Two limits are declared, not flaws: a write over a value that came
   back is stored, and a message names a place, so one drawn for an old instance reaches the new one. Each check has a
   mutation (`mutations/mutations.ts`).
-- **The rule of an element is the library's, and the bridges only keep their registry** (`typed` and `drawn` in
-  `input.ts`). `typed` makes the write and what the element records of it from one value, the element's, so the two
+- **The rule of an element is the library's, and the bridges only keep their registry** (`edited` and `drawn` in
+  `input.ts`). `edited` makes the write and what the element records of it from one value, the element's, so the two
   cannot differ; the number comes from the dispatch the bridge runs, given to a continuation, since the library
   runs no dispatch. `drawn` compares the frame's value, by `Equal`, with what the element showed before its first
   write the frame has not seen, or with what it shows when the frame has seen them all, and says itself whether the
@@ -72,7 +72,7 @@ testing tools.
   without unless the frame's value is the very value it shows, so that no bridge compares values to decide it. What
   a screen then shows is no guarantee of the library's, which knows no renderer: the guide promises it in "Inputs
   the user types into", for elements and renderers that meet its condition and a bridge that settles them with
-  `drawn`, and the bridges' tests check it in a DOM. Each check of `typed` and `drawn` has a mutation.
+  `drawn`, and the bridges' tests check it in a DOM. Each check of `edited` and `drawn` has a mutation.
 - **Every program keeps its state in an object**, replaced and never mutated, so that any program can be a child: a
   parent keeps a child's model and its lifted subscriptions by its state object (below), and a number or a string
   has no identity to keep them by. It binds whoever writes a program, and the types are what enforce it

@@ -202,6 +202,12 @@ type EachPlacement<ParentState, Id, ChildState> = Readonly<{
 }>;
 
 // @public
+export const edited: <A>(held: Shown<A>, value: A) => Readonly<{
+    write: Written<A>;
+    sent: (number: number) => Shown<A>;
+}>;
+
+// @public
 export type EventOf<P> = Returned<P, 'events'>;
 
 // @public
@@ -543,12 +549,6 @@ type TagOf<M> = M extends {
 
 // @public
 export type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected;
-
-// @public
-export const typed: <A>(held: Shown<A>, value: A) => Readonly<{
-    write: Written<A>;
-    sent: (number: number) => Shown<A>;
-}>;
 
 // @public (undocumented)
 const Unseen: unique symbol;

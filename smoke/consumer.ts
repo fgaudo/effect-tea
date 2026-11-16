@@ -6,12 +6,12 @@ import {
   andThen,
   composition,
   drawn,
+  edited,
   type MessageOf,
   type Program,
   reject,
   run,
   type Shown,
-  typed,
   type Update,
 } from '@fgaudo/effect-tea'
 import { applyAll, simulate } from '@fgaudo/effect-tea/testing'
@@ -231,9 +231,9 @@ assert(late === reject && wrong !== undefined, 'a write over a value the input n
 // What a bridge does with an element: typed by the user, numbered by the dispatch, settled by a frame.
 const { shown, taken } = drawn(undefined, 'Ada', 0)
 assert(taken, 'a new element takes the frame\'s value')
-const { write: edit, sent } = typed(shown, 'Ada L')
+const { write: edit, sent } = edited(shown, 'Ada L')
 const element = sent(1)
-assert(edit.was === 'Ada' && element.value === 'Ada L', 'typed writes over what the element showed')
+assert(edit.was === 'Ada' && element.value === 'Ada L', 'edited writes over what the element showed')
 const kept = drawn(element, 'Ada', 0)
 assert(kept.shown === element && !kept.taken && byHand !== undefined, 'a frame that has not seen the write keeps it')
 assert(deaf.update({ _tag: 'Full' })(deaf.init.state) !== reject, 'a program typed past its types runs')

@@ -1,7 +1,7 @@
 // A place of a program's state that the outside writes. A value a component of the renderer decides (a text, a
 // slider's level) is no message of the program: the program declares where it goes (`input`, in `composition`), the
 // view writes over the value its model holds (a `Written`), and the library stores it. What an element on screen holds
-// of an input, and what a frame makes of it, is the rule a bridge calls (`typed`, `drawn`): the library's, so that
+// of an input, and what a frame makes of it, is the rule a bridge calls (`edited`, `drawn`): the library's, so that
 // every bridge applies the same one.
 import * as Equal from 'effect/Equal'
 import { reject, type Transition } from './update.ts'
@@ -9,7 +9,7 @@ import { reject, type Transition } from './update.ts'
 /**
  * A value written into an input, in place of the value the input showed.
  *
- * A view sends it through the input's dispatch, `dispatchTo(dispatch, 'Name')`. A bridge makes it with `typed`. A
+ * A view sends it through the input's dispatch, `dispatchTo(dispatch, 'Name')`. A bridge makes it with `edited`. A
  * view without a bridge, and a test, write it by hand, over the value the model holds.
  *
  * @example
@@ -57,7 +57,7 @@ const Unseen = Symbol('@fgaudo/effect-tea/Shown/unseen')
  * What the element of an input holds: the value it shows, and the writes it sent that no frame has seen yet (see
  * {@link Frame}'s `seen`).
  *
- * A bridge keeps one for each element on screen. Only `drawn` and `typed` make one: the bridge reads only
+ * A bridge keeps one for each element on screen. Only `drawn` and `edited` make one: the bridge reads only
  * `value`.
  */
 export type Shown<A> = Readonly<{
@@ -78,11 +78,11 @@ const shownOf = <A>(value: A): Shown<A> => ({ value, [Unseen]: [] })
  *
  * @example
  * ```ts
- * const { write, sent } = typed(held, element.value)
+ * const { write, sent } = edited(held, element.value)
  * held = sent(Effect.runSync(inputDispatch(write)))
  * ```
  */
-export const typed = <A>(
+export const edited = <A>(
   held: Shown<A>,
   value: A,
 ): Readonly<{ write: Written<A>; sent: (number: number) => Shown<A> }> => ({
@@ -128,7 +128,7 @@ export const typed = <A>(
  *   frame has not seen are rejected, unless the input's place holds again the value they were written over (see "two
  *   limits"). The element shows the frame's very `value`. It is taken, unless it is the very value the element showed.
  *
- * `drawn` tells the writes a frame has seen by the numbers `sent` was given. So a bridge calls the `sent` of `typed`
+ * `drawn` tells the writes a frame has seen by the numbers `sent` was given. So a bridge calls the `sent` of `edited`
  * once, with the number its dispatch returned for that write. Otherwise `drawn` may replace what the user typed.
  */
 export const drawn = <A>(

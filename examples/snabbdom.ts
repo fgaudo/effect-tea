@@ -6,12 +6,12 @@
 // `<input>`, whose element changes only by what the user types, or by this bridge.
 // A minimal example to start from, as the guide's "Writing a bridge" says: it settles native text fields alone, in
 // the base case, and does not handle a value the element changes by itself. Another native widget would be connected
-// by hand with `typed` and `drawn` where it meets their condition, or replaced by one the program draws; a root in a
+// by hand with `edited` and `drawn` where it meets their condition, or replaced by one the program draws; a root in a
 // shadow tree and a form's reset are left to a bridge that needs them.
 // The run's dispatch, and each child's from `dispatchTo`, is the same in every frame, so a view can be
 // memoized with snabbdom's own `thunk`, its dispatch among the arguments.
 // Checked with snabbdom 3.6.4.
-import { type Dispatch, drawn, type Frame, type Shown, typed, type Written } from '@fgaudo/effect-tea'
+import { type Dispatch, drawn, edited, type Frame, type Shown, type Written } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 import {
@@ -52,7 +52,7 @@ export const shows = (value: string, dispatch: Dispatch<Written<string>>): VNode
       const element = event.target as HTMLInputElement
       const live = lives.get(element)
       if (live?.held === undefined) return
-      const { write, sent } = typed(live.held, element.value)
+      const { write, sent } = edited(live.held, element.value)
       live.held = sent(send(dispatch, write))
     },
   },

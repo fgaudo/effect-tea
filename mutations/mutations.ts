@@ -1020,7 +1020,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: '{ sent: number, was: held.value }',
     to: '{ sent: number, was: value }',
     killedBy: [
-      ['src/input.test.ts', 'typed, the write names what the element showed, as the element records it'],
+      ['src/input.test.ts', 'edited, the write names what the element showed, as the element records it'],
       ['src/input.test.ts', 'a frame older than the keys typed since leaves the element as it is'],
     ],
   },
@@ -1029,7 +1029,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     file: 'src/input.ts',
     from: "  write: { _tag: 'Written', was: held.value, value },",
     to: "  write: { _tag: 'Written', was: value, value },",
-    killedBy: [['src/input.test.ts', 'typed, the write names what the element showed, as the element records it']],
+    killedBy: [['src/input.test.ts', 'edited, the write names what the element showed, as the element records it']],
   },
   {
     name: 'a frame keeps the writes it has seen among those to come',
@@ -1135,7 +1135,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: '  return { shown, taken: false }\n',
     to: '  return { shown, taken: true }\n',
     killedBy: [
-      ['src/input.test.ts', 'typed, the write names what the element showed, as the element records it'],
+      ['src/input.test.ts', 'edited, the write names what the element showed, as the element records it'],
       ['src/input.test.ts', 'a frame older than the keys typed since leaves the element as it is'],
       ['src/input.test.ts', 'an element that stays is not taken, though the frame holds an equal copy'],
       ['examples/snabbdom.test.ts', 'a frame drawn while the user types does not take back what they typed since'],
