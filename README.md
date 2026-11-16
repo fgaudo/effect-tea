@@ -253,7 +253,8 @@ handlers, and settles, after each frame, the element of each input on screen (se
 [`examples/react.ts`](examples/react.ts) are two, each small enough to copy, and each names the type of its views,
 `View<Model, Message>`. [`counter-react`](examples/counter-react) and [`form-react`](examples/form-react) draw the
 programs of [`counter`](examples/counter) and [`form`](examples/form) with the second. React Native's bridge is
-written the same way.
+written the same way. The tutorial's last step,
+[a bridge](https://fgaudo.github.io/effect-tea/documents/Tutorial.A_bridge.html), reads the first a piece at a time.
 
 The examples' bridges are minimal examples to start from: they show how a native element is connected to the library,
 and settle native text fields alone. They run `dispatch` from a click, a press of the pointer and the `input` event of

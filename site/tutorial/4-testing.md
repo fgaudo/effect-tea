@@ -89,3 +89,5 @@ returns as the parent receives it:
   the program.
 - The other [examples](https://fgaudo.github.io/effect-tea/#examples) show what the timer does not: an input the
   user types into, a failure as a message, events between a parent and its children.
+
+Next, [the bridge the timer is drawn with](./5-a-bridge.md).

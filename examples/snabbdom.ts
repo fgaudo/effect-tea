@@ -30,12 +30,15 @@ import {
  */
 export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => VNode
 
+// #region held
 // What the bridge holds of an element that shows an input: what the library made of it, `undefined` until the first
 // frame that draws it is settled, and the value the last frame drawn gave it.
 type Live = { held: Shown<string> | undefined; value: string }
 
 const lives = new WeakMap<Element, Live>()
+// #endregion held
 
+// #region shows
 /**
  * snabbdom's data for a text input that shows an input of the program, `value`, through the input's own dispatch
  * (`dispatchTo(dispatch, 'Name')`): what is typed is written over what the element showed, and the element takes the
@@ -54,7 +57,9 @@ export const shows = (value: string, dispatch: Dispatch<Written<string>>): VNode
     },
   },
 })
+// #endregion shows
 
+// #region module
 // The elements on screen that show an input, of one renderer: every one is settled after each frame, whether the frame
 // drew it again or a `thunk` skipped it. snabbdom patches an `<input>` into the next one drawn in its place, so an
 // element starts showing an input when a frame draws it with `shows`, created or not, as a new element, and stops when
@@ -89,7 +94,9 @@ const showsModule = (live: Set<HTMLInputElement>): Module => {
     },
   }
 }
+// #endregion module
 
+// #region settle
 const settle = (live: Set<HTMLInputElement>, seen: number): void => {
   for (const element of live) {
     const known = lives.get(element)
@@ -99,7 +106,9 @@ const settle = (live: Set<HTMLInputElement>, seen: number): void => {
     known.held = shown
   }
 }
+// #endregion settle
 
+// #region frames
 const animationFrame = Effect.callback<void>((resume) => {
   const id = requestAnimationFrame(() => resume(Effect.void))
   return Effect.sync(() => cancelAnimationFrame(id))
@@ -126,7 +135,9 @@ export const renderInto =
         }).pipe(Effect.tap(() => animationFrame)),
     ).pipe(Effect.asVoid)
   }
+// #endregion frames
 
+// #region handlers
 /**
  * Sends a message at once, from a plain callback, and returns its number. A dispatch needs no services and completes
  * synchronously, so `Effect.runSync` is enough: the run handles the message with its own services.
@@ -142,3 +153,4 @@ export const onClick = <Message>(message: Message, dispatch: Dispatch<Message>):
 export const onPress = <Message>(message: Message, dispatch: Dispatch<Message>): On => ({
   pointerdown: () => send(dispatch, message),
 })
+// #endregion handlers

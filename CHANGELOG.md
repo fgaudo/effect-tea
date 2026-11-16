@@ -17,6 +17,8 @@ version, and everything else, features included, the patch version.
   after each frame, so that the element is never replaced and never takes back what the user typed since; each gives
   the bridge its write, `typed` the message to send and `drawn` whether the element takes the frame's value.
 - `children` in `compose` is optional, for a program with inputs and no children.
+- The tutorial has a fifth step, "A bridge", which reads the examples' bridge to snabbdom a piece at a time: its
+  frames, its handlers and its text input, with `typed` and `drawn`.
 
 ### Changed
 

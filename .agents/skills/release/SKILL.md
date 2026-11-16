@@ -55,8 +55,9 @@ bundled to run under `examples/<name>/`.
 
 The tutorial, [`site/tutorial/`](../../../site/tutorial), is a TypeDoc project document (`projectDocuments`), one
 Markdown page per step. It holds no code of its own: each block is `{@includeCode}` of a `// #region` of
-[`examples/timer`](../../../examples/timer), so that what it shows is typechecked and tested. A change to that
-example keeps its regions, and the prose around them, true. Its links to the README are to the published site's
+[`examples/timer`](../../../examples/timer), or, in its last step, of the bridge
+[`examples/snabbdom.ts`](../../../examples/snabbdom.ts), so that what it shows is typechecked and tested. A change
+to that example or that bridge keeps its regions, and the prose around them, true. Its links to the README are to the published site's
 sections, since the README is no project document.
 
 ```sh
