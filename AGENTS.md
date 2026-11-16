@@ -119,8 +119,9 @@ an example's and a document's too:
 - **Logs never carry message data by default**: only tags, at `debug`. A subscription's key is logged as it is.
 - **A premise about what code does when it runs is checked before the change that rests on it is written**, and
   never only reasoned: by the documentation of a stable API, or by a test that fails without it.
-- **A new premise needs the owner's consent**: a guard of the library's that makes it unneeded is tried first, and the
-  owner is asked before the change that rests on one is written, as `docs/premises.md` says.
+- **A new premise needs the owner's consent**: the owner is asked before the change that rests on one is written, and
+  it gets a test of its own, with a guard that makes it unneeded proposed only where one is cheap and clearer, as
+  `docs/premises.md` says.
 
 ## Code
 

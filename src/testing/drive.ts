@@ -97,11 +97,13 @@ export const drive = Effect.fnUntraced(function*<
   // Stopped and awaited however `drive` ends, interrupted by whoever runs it too: its exit holds what the program
   // dies of as it releases what it holds.
   return yield* Effect.uninterruptibleMask(Effect.fnUntraced(function*(restore) {
-    const fiber = yield* Effect.forkChild(restore(running))
+    // The run, and each side of the race, are interruptible by their own say, whatever their fork makes of the region
+    // they are forked in: `restore` gives nothing where whoever runs `drive` is uninterruptible.
+    const fiber = yield* Effect.forkChild(Effect.interruptible(running))
     const ended = yield* Effect.exit(restore(Effect.raceFirst(
       // Suspended, so that a scenario that throws before it returns its effect fails here, past nothing of the end.
-      Effect.asSome(Effect.exit(Effect.suspend(() => scenario(driver)))),
-      Effect.as(Fiber.await(fiber), Opt.none()),
+      Effect.interruptible(Effect.asSome(Effect.exit(Effect.suspend(() => scenario(driver))))),
+      Effect.interruptible(Effect.as(Fiber.await(fiber), Opt.none())),
     )))
     yield* Fiber.interrupt(fiber)
     const stopped = yield* Fiber.await(fiber)

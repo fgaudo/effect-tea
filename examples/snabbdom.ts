@@ -1,7 +1,8 @@
 // The renderer the examples use. The library knows nothing of it: any renderer that can draw a model, run
 // `dispatch`, and reach the element of each input after a frame, before the user can act on it, works the same way.
 // snabbdom's handlers are plain callbacks, so they run it with `send`; it patches synchronously, so each input is
-// settled right after the patch. An input's element changes only by what the user types, or by this bridge.
+// settled right after the patch. An input's element changes only by what the user types, or by this bridge, which hears
+// a reset of its form as a key.
 // The run's dispatch, and each child's from `dispatchTo`, is the same in every frame, so a view can be
 // memoized with snabbdom's own `thunk`, its dispatch among the arguments.
 // Checked with snabbdom 3.6.4.
@@ -90,8 +91,12 @@ const showsModule = (live: Set<HTMLInputElement>): Module => {
   return {
     create: (_, vnode) => drawnAs(vnode),
     update: (_, vnode) => drawnAs(vnode),
+    // Forgotten as a frame removes it, though the style module may keep it on screen while it fades: what it hears
+    // meanwhile sends nothing, whatever the module of the listeners does with them.
     destroy: (vnode) => {
-      if (vnode.elm instanceof HTMLInputElement) live.delete(vnode.elm)
+      if (!(vnode.elm instanceof HTMLInputElement)) return
+      live.delete(vnode.elm)
+      lives.delete(vnode.elm)
     },
   }
 }
@@ -106,6 +111,17 @@ const settle = (live: Set<HTMLInputElement>, seen: number): void => {
   }
 }
 
+// A form's reset gives each of its inputs its default value, with no input event (HTML, "Resetting a form"), after the
+// `reset` event: once it has, each input of the renderer whose value it changed is heard as if the user had typed it.
+const heardAfterReset = (live: Set<HTMLInputElement>) => (event: Event) =>
+  queueMicrotask(() => {
+    for (const element of live) {
+      const known = lives.get(element)
+      if (element.form !== event.target || known?.held === undefined) continue
+      if (element.value !== String(known.held.value)) element.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+  })
+
 const animationFrame = Effect.callback<void>((resume) => {
   const id = requestAnimationFrame(() => resume(Effect.void))
   return Effect.sync(() => cancelAnimationFrame(id))
@@ -114,23 +130,36 @@ const animationFrame = Effect.callback<void>((resume) => {
 /**
  * The renderer `run` takes: patches the previous tree with each frame, starting from `root`, then settles the inputs on
  * screen with the frame's `seen`. After a patch it waits for the next animation frame before taking another, so it
- * draws at most once per screen refresh: `run` keeps only the latest frame meanwhile.
+ * draws at most once per screen refresh: `run` keeps only the latest frame meanwhile. While it draws, it listens to the
+ * resets of the forms of its document, to hear each input of its own that one changes.
  */
 export const renderInto =
   <Model, Message>(root: Element, view: View<Model, Message>) =>
   (frames: Stream.Stream<Frame<Model, Message>>) => {
     const live = new Set<HTMLInputElement>()
     const patch = init([propsModule, styleModule, eventListenersModule, showsModule(live)])
-    return Stream.runFoldEffect(
-      frames,
-      (): Element | VNode => root,
-      (previous, { model, dispatch, seen }) =>
-        Effect.sync(() => {
-          const tree = patch(previous, view(model, dispatch))
-          settle(live, seen)
-          return tree
-        }).pipe(Effect.tap(() => animationFrame)),
-    ).pipe(Effect.asVoid)
+    const document = root.ownerDocument
+    return Effect.acquireRelease(
+      Effect.sync(() => {
+        const heard = heardAfterReset(live)
+        document.addEventListener('reset', heard, true)
+        return heard
+      }),
+      (heard) => Effect.sync(() => document.removeEventListener('reset', heard, true)),
+    ).pipe(
+      Effect.andThen(Stream.runFoldEffect(
+        frames,
+        (): Element | VNode => root,
+        (previous, { model, dispatch, seen }) =>
+          Effect.sync(() => {
+            const tree = patch(previous, view(model, dispatch))
+            settle(live, seen)
+            return tree
+          }).pipe(Effect.tap(() => animationFrame)),
+      )),
+      Effect.asVoid,
+      Effect.scoped,
+    )
   }
 
 /**

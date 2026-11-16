@@ -6,7 +6,7 @@
 // of its own beside the program's: the renderer draws frames and nothing else (the README's "View").
 // An input is drawn by `Shows`, a component over an uncontrolled `<input>`: its element changes only by what the user
 // types, or by this bridge, which settles every input of its root after each frame with the frame's `seen`, once
-// `flushSync` has committed it. An input drawn from a component's own state, outside a frame, is not supported: what
+// `flushSync` has committed it, and hears a reset of its form as a key. An input drawn from a component's own state, outside a frame, is not supported: what
 // an input shows is the program's, and the renderer draws frames and nothing else.
 // Checked with react and react-dom 19.3.1.
 import { type Dispatch, drawn, type Frame, type Shown, typed, type Written } from '@fgaudo/effect-tea'
@@ -92,6 +92,18 @@ const settle = (live: Set<HTMLInputElement>, seen: number): void => {
   }
 }
 
+// A form's reset gives each of its inputs its default value, with no input event (HTML, "Resetting a form"), after the
+// `reset` event, as React's own resets do (after an Action, `requestFormReset`): once it has, each input of the root
+// whose value it changed is heard as if the user had typed it.
+const heardAfterReset = (live: Set<HTMLInputElement>) => (event: Event) =>
+  queueMicrotask(() => {
+    for (const element of live) {
+      const known = lives.get(element)
+      if (element.form !== event.target || known?.held === undefined) continue
+      if (element.value !== known.held.value) element.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+  })
+
 const animationFrame = Effect.callback<void>((resume) => {
   const id = requestAnimationFrame(() => resume(Effect.void))
   return Effect.sync(() => cancelAnimationFrame(id))
@@ -101,7 +113,8 @@ const animationFrame = Effect.callback<void>((resume) => {
  * The renderer `run` takes: draws each frame into a React root made in `element`, settles its inputs with the frame's
  * `seen` once React has committed it, and unmounts the root when the run ends. After a frame it waits for the next
  * animation frame before taking another, as the snabbdom bridge does. A view that throws throws here, its components
- * included, so the run dies with it.
+ * included, so the run dies with it. While it draws, it listens to the resets of the forms of its document, to hear
+ * each input of its root that one changes.
  */
 export const renderInto =
   <Model, Message>(element: Element, view: View<Model, Message>) =>
@@ -112,9 +125,17 @@ export const renderInto =
         // to whoever rendered: drawn at once, an error is known before the frame is done.
         const thrown: Array<unknown> = []
         const live = new Set<HTMLInputElement>()
-        return { root: createRoot(element, { onUncaughtError: (error) => thrown.push(error) }), thrown, live }
+        const heard = heardAfterReset(live)
+        element.ownerDocument.addEventListener('reset', heard, true)
+        return { root: createRoot(element, { onUncaughtError: (error) => thrown.push(error) }), thrown, live, heard }
       }),
-      ({ root }) => Effect.sync(() => root.unmount()),
+      ({ root, heard }) =>
+        Effect.sync(() => {
+          element.ownerDocument.removeEventListener('reset', heard, true)
+          // Emptied at once, as `flushSync` promises of the DOM: `unmount` says no more than that React lets go of it.
+          flushSync(() => root.render(null))
+          root.unmount()
+        }),
     ).pipe(
       Effect.flatMap(({ root, thrown, live }) =>
         Stream.runForEach(frames, ({ model, dispatch, seen }) =>

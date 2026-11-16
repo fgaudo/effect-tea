@@ -156,7 +156,8 @@ testing tools.
   - Each fiber of the run records what it dies of in one place (`makeDeaths` in `shell.ts`, made by `run` or `drive`
     and given through `runWith` to the engine; `rehearse` has its own, keeping only the program's defects, and
     `simulate` one for each simulation, for the commands it runs): the engine's, the renderer, and the
-    run's own as it starts the engine, as they end, and one with a scope of its own as it dies too, before the scope
+    run's own as it starts the engine, as they end, in a cleanup nothing interrupts, which an interruption that reaches
+    the fiber cannot stop halfway (`cleanedUp` in `shell.ts`), and one with a scope of its own as it dies too, before the scope
     releases what it holds (`scopedIn`), what a subscription's channel adds to that scope included
     (`runSubscription`), so that a defect is in the order it happened, though its release lets another fiber die first;
     what the release dies of is wrapped apart, told from what the fiber died of by what the fiber kept of it, never by
@@ -237,6 +238,10 @@ testing tools.
     its use `restore`d, where a call waits for the fiber (a command's in `rehearse`'s `run`), or the fork and what
     keeps it for the stop in one region nothing interrupts, where the stop is the end's (the loop in `engine.ts`, for
     `stop`, and every fork into a `FiberSet` or a `FiberMap`, whose end reads them).
+
+  Every fiber the engine and the testing tools fork, each side of a race included, is interruptible by its own say
+  (`Effect.interruptible`), whatever its fork makes of the region it is forked in: a fork inside such a region, and a
+  run or a tool called inside one, would otherwise leave a fiber the end cannot stop, and the end would wait for it.
 
   What cannot be one thunk with its check, as the first step of an effect of the program, is no act the README
   promises about.

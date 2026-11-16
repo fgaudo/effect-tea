@@ -223,6 +223,9 @@ version, and everything else, features included, the patch version.
 - `rehearse` whose `init`, `subscriptions` or `makeModel` dies at the start leaves no scope of its own open.
 - The examples' React bridge hears an input's own `input` event, not React's `onChange`: a text a script wrote into
   the element through its `value`, as an extension that fills forms does, was lost.
+- The examples' bridges hear a reset of the form an input is drawn in, which changes its value with no `input` event,
+  as React's own resets do too, after an Action and on `requestFormReset`: the element showed the default value, and
+  the state kept what was typed.
 
 ## 0.7.1 (2026-10-28)
 

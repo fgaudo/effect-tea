@@ -1,7 +1,8 @@
 // React's bridge in a DOM (happy-dom), with screen refreshes that happen only when a test paints: the tests every
 // bridge passes (`bridge.test_suite.ts`), drawn with React, its draft memoized with `memo`, and those of React alone:
-// the run ends with its root and with a component that throws, the draft's input is settled in StrictMode too, and an
-// input drawn through a portal is settled by the frames of its run.
+// the run ends with its root and with a component that throws, the draft's input is settled in StrictMode too, an
+// input drawn through a portal is settled by the frames of its run, and a reset React makes of a form is heard; then
+// the premises of the bridge on React (`docs/premises.md`).
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import {
@@ -19,7 +20,17 @@ import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
-import { act, createElement, Fragment, memo, type ReactNode, StrictMode, useEffect, useRef } from 'react'
+import {
+  act,
+  createElement,
+  Fragment,
+  memo,
+  type ReactNode,
+  StrictMode,
+  startTransition,
+  useEffect,
+  useRef,
+} from 'react'
 import {
   type Bridge,
   bridgeTests,
@@ -32,7 +43,7 @@ import {
   holdFrames,
   type lid,
   mount,
-  type note,
+  note,
   paint,
   settle,
   state,
@@ -49,6 +60,9 @@ let bridge: typeof import('./react.ts')
 let counterView: typeof import('./counter-react/view.tsx').view
 let formView: typeof import('./form-react/view.tsx').view
 let portal: typeof import('react-dom').createPortal
+let requestFormReset: typeof import('react-dom').requestFormReset
+let flushSync: typeof import('react-dom').flushSync
+let createRoot: typeof import('react-dom/client').createRoot
 
 beforeAll(async () => {
   GlobalRegistrator.register()
@@ -57,6 +71,9 @@ beforeAll(async () => {
   counterView = (await import('./counter-react/view.tsx')).view
   formView = (await import('./form-react/view.tsx')).view
   portal = (await import('react-dom')).createPortal
+  requestFormReset = (await import('react-dom')).requestFormReset
+  flushSync = (await import('react-dom')).flushSync
+  createRoot = (await import('react-dom/client')).createRoot
 })
 
 afterAll(() => GlobalRegistrator.unregister())
@@ -206,6 +223,42 @@ describe('renderInto, with React', () => {
   })
 })
 
+describe('a form React resets itself', () => {
+  // React resets the uncontrolled fields of a form after its Action, and on `requestFormReset`, with the form's own
+  // reset, which sends no input event.
+  test('a reset React makes in a transition is stored as the user emptying the element', async () => {
+    const view: View<ModelOf<typeof note>, MessageOf<typeof note>> = (model, dispatch) =>
+      createElement(
+        'main',
+        null,
+        createElement(
+          'form',
+          { action: () => {} },
+          createElement(bridge.Shows, { value: model, dispatch: dispatchTo(dispatch, 'Note') }),
+        ),
+        createElement('output', null, model),
+      )
+    mount(react.renderInto, view, (render) => run(note, render))
+    settle()
+    const typedInto = element<HTMLInputElement>('input')
+    type(typedInto, 'Ada')
+    paint()
+    expect(state()).toEqual(['Ada'])
+    const form = typedInto.form
+    if (form === null) throw new Error('The note is drawn in no form')
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+    try {
+      await act(async () => startTransition(() => requestFormReset(form)))
+    } finally {
+      Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: false })
+    }
+    await Promise.resolve()
+    paint()
+    expect(typedInto.value).toBe('')
+    expect(state()).toEqual([''])
+  })
+})
+
 describe('an input React draws outside the root', () => {
   // A draft that is the run's root: it starts with a text, and Discard empties it.
   type Draft = Readonly<{ text: string }>
@@ -239,5 +292,36 @@ describe('an input React draws outside the root', () => {
     paint()
     expect(state()).toEqual([''])
     expect(typedInto.value).toBe('')
+  })
+})
+
+// The premises of the bridge on React (`docs/premises.md`), each checked on React alone: what react.dev says of
+// `flushSync` is that the DOM is updated when it returns.
+describe('React, as the bridge rests on it', () => {
+  test('the ref callbacks of a commit have run when flushSync returns', () => {
+    document.body.innerHTML = '<div id="app"></div>'
+    const root = createRoot(element('#app'))
+    const attached: Array<string> = []
+    // A ref that returns its cleanup is never called with null, as the bridge's are not.
+    const ref = (node: HTMLInputElement) => {
+      attached.push(node.tagName)
+      return () => {}
+    }
+    flushSync(() => root.render(createElement('input', { ref })))
+    expect(attached).toEqual(['INPUT'])
+    root.unmount()
+  })
+
+  test('onUncaughtError is called before flushSync returns', () => {
+    document.body.innerHTML = '<div id="app"></div>'
+    const heard: Array<unknown> = []
+    const root = createRoot(element('#app'), { onUncaughtError: (error) => heard.push(error) })
+    const thrown = new Error('A component that cannot draw')
+    const Broken = (): ReactNode => {
+      throw thrown
+    }
+    flushSync(() => root.render(createElement(Broken)))
+    expect(heard).toEqual([thrown])
+    root.unmount()
   })
 })

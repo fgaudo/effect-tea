@@ -116,8 +116,8 @@ Your last message says the branch, the commit and the findings in a few lines.
   together, by one mechanism where one can hold them all, rather than one place at a time.
 - A suspect ruled out by a test, that rests on what Effect or the JavaScript engine does without promising it, is a
   premise, added to `docs/premises.md` with the test, which comes to `main`, once the owner has agreed to it as that
-  document says (a guard that makes it unneeded is tried first). One ruled out by the documentation of a
-  stable API is no premise, and is not listed there: the report names the declaration.
+  document says. One ruled out by the documentation of a stable API is no premise, and is not listed there: the
+  report names the declaration.
 - A lead, and a suspect left unchecked, are no findings yet. Write the test that would reproduce each, here or in a
   session of its own, and run it: a test that fails makes it a finding, one that passes rules it out. A lead no test
   can reach yet goes under "Premises that no test reaches yet" in `docs/premises.md`, with what would decide it, once

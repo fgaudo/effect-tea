@@ -4,7 +4,8 @@
 // and how the bridge settles each input with a frame by the library's rule: what the user types survives the frames
 // drawn while they type, with its focus, caret and selection, a frame that has not seen a key leaves the element alone,
 // and a value the program puts in an input's place is shown by the same element, through a subtree the renderer skips
-// too, as a save that completes within one screen refresh empties the input under a late key. An element the renderer
+// too, as a save that completes within one screen refresh empties the input under a late key, and a reset of its form
+// is heard as a key, though no input event tells of it. An element the renderer
 // draws in turn as an input and as a plain field shows the input only while it is one. A slider the program draws
 // listens to a drag. A source that belongs to the control writes through the element on screen. A `.test_suite.ts`, a
 // file that serves the tests, not a `*.test.ts`: `bun test` does not run it by itself, and it runs in the file of each
@@ -243,8 +244,8 @@ export type Bridge<Node> = Readonly<{
     /** `form`'s view, of the example. */
     form: View<Node, FormModel, FormMessage>
     /**
-     * The draft's input, Send and Discard buttons, and its text in an `<output>`, in a subtree skipped while the
-     * draft's model is the same object; then Keep and Undo buttons, and the texts sent, an `<li>` each.
+     * The draft's input, Send and Discard buttons, and its text in an `<output>`, in a `<form>`, a subtree skipped
+     * while the draft's model is the same object; then Keep and Undo buttons, and the texts sent, an `<li>` each.
      */
     desk: View<Node, ModelOf<typeof desk>, MessageOf<typeof desk>>
     /** `volume`'s view, with the ringer the program draws at least: its `.track`, `.fill` and `output.ringer`. */
@@ -316,6 +317,26 @@ export const draftTests = <Node>(bridge: Bridge<Node>) =>
       button('Send').click()
       paint()
       expect(state()).toEqual(['', 'hello'])
+    })
+
+    // A form's reset gives the element its default value with no input event (HTML, "Resetting a form").
+    test('a reset of its form, which sends no input event, is stored as the user emptying the element', async () => {
+      mountDesk()
+      settle()
+      const typedInto = element<HTMLInputElement>('input')
+      type(typedInto, 'Ada')
+      paint()
+      expect(state()).toEqual(['Ada'])
+      typedInto.form?.reset()
+      // The bridge hears it once the form is reset, in a microtask, before the next screen refresh.
+      await Promise.resolve()
+      paint()
+      expect(typedInto.value).toBe('')
+      // The reset empties the `<output>` of the form too: what the state holds is told by Send, which an empty draft
+      // rejects.
+      button('Send').click()
+      paint()
+      expect(state()).toEqual([''])
     })
 
     test(

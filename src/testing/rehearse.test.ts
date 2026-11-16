@@ -292,6 +292,23 @@ describe('rehearse', () => {
       expect(log).toEqual(['acquire', 'release'])
     })
 
+    test('called inside an uninterruptible region, hears, runs a command and ends, its loop stopped', async () => {
+      const log: Array<string> = []
+      const state = await Effect.runPromise(withStorage(Effect.uninterruptible(rehearse(
+        pinging(log),
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.hearNext('ping')
+          yield* rehearsal.send(typing('milk'))
+          yield* rehearsal.send(saving)
+          yield* rehearsal.run(isStore)
+          yield* rehearsal.runAll
+          return yield* rehearsal.state
+        }),
+      ))))
+      expect(state).toEqual({ text: 'milk', isSaving: false, saved: Opt.some('milk'), pings: 1 })
+      expect(log).toEqual(['acquire', 'release'])
+    })
+
     // Pings twice, writing down each ping as it makes it; the second waits for `gate`.
     const twice = (log: Array<string>, gate: Effect.Effect<void>): typeof program => ({
       ...program,

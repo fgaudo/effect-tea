@@ -181,9 +181,13 @@ export const rehearse = Effect.fnUntraced(function*<
   }
   // A call that waits for a subscription or a command fails as soon as a fiber dies, whichever, as the run dies at
   // once: what it waits for would come in a run that died. One that waits for the loop waits for a release, which the
-  // end of the rehearsal awaits all the same.
+  // end of the rehearsal awaits all the same. Each side is interruptible by its own say, whatever its fork makes of
+  // the region it is forked in.
   const orDead = <A, E, R>(waiting: Effect.Effect<A, E, R>) =>
-    Effect.raceFirst(waiting, Effect.andThen(register.died, deadOr(Effect.never)))
+    Effect.raceFirst(
+      Effect.interruptible(waiting),
+      Effect.interruptible(Effect.andThen(register.died, deadOr(Effect.never))),
+    )
   // The keys of the current state, each with its start, as the run keeps them (`Core.reconcile`): a key that stays
   // keeps its start as it is, and one that went away takes it with it. Keys are compared only in `subscriptions`, as
   // in the run. Written only by the loop.

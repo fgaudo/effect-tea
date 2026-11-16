@@ -1,13 +1,14 @@
 // The snabbdom bridge in a DOM (happy-dom), with screen refreshes that happen only when a test paints: the tests every
 // bridge passes (`bridge.test_suite.ts`), drawn with snabbdom, its draft memoized with `thunk`, and those of the
 // bridge's own `slides`: a slider writes its number, keeps it through the frames drawn while it is dragged, and a frame
-// that has not seen a drag leaves it alone.
+// that has not seen a drag leaves it alone; an input the style module keeps on screen as it fades sends nothing; then
+// the premise of the bridge on snabbdom (`docs/premises.md`).
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import { type Dispatch, dispatchTo, type MessageOf, type ModelOf, run } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
-import { h, thunk, type VNode } from 'snabbdom'
+import { h, init, propsModule, thunk, type VNode } from 'snabbdom'
 import {
   type Bridge,
   bridgeTests,
@@ -17,13 +18,14 @@ import {
   type draft,
   element,
   holdFrames,
-  type lid,
+  lid,
   mount,
   type note,
   paint,
   refresh,
   settle,
   stop,
+  type,
 } from './bridge.test_suite.ts'
 import { view as counterView } from './counter/view.ts'
 import { view as formView } from './form/view.ts'
@@ -193,6 +195,37 @@ describe('the sliders of the volume', () => {
   })
 })
 
+// The style module keeps an element a frame removes on screen until its `remove` styles are done: the bridge forgets
+// it as the frame removes it.
+describe('an input the style module keeps on screen as it fades', () => {
+  test('sends nothing once a frame has removed it', () => {
+    const applied: Array<MessageOf<typeof lid>> = []
+    const fading: View<ModelOf<typeof lid>, MessageOf<typeof lid>> = (model, dispatch) =>
+      model._tag === 'Opened'
+        ? h('main', [
+          h('input', {
+            ...shows(model.note, dispatchTo(dispatch, 'Note')),
+            style: { opacity: '1', transition: 'opacity 1s', remove: { opacity: '0' } },
+          }),
+          h('button', { on: onClick<MessageOf<typeof lid>>(model.close, dispatch) }, 'Close'),
+        ])
+        : h('main', [h('button', { on: onClick<MessageOf<typeof lid>>(model.open, dispatch) }, 'Open')])
+    mount(renderInto, fading, (render) =>
+      run(lid, render, {
+        flags: 'Opened',
+        onApplied: ({ message }) => Effect.sync(() => applied.push(message)),
+      }))
+    settle()
+    const input = element<HTMLInputElement>('input')
+    button('Close').click()
+    paint()
+    expect(input.isConnected).toBe(true)
+    type(input, 'draft!')
+    paint()
+    expect(applied).toEqual(['Closed'])
+  })
+})
+
 // snabbdom reuses the timer's buttons by position, and its props module never removes a prop: the disabled "−" of one
 // minute must not lend its `disabled` to the button drawn in its place.
 describe('the buttons of the timer', () => {
@@ -210,4 +243,16 @@ describe('the buttons of the timer', () => {
     paint()
     expect([button('−').disabled, button('+').disabled, button('Start').disabled]).toEqual([true, false, false])
   })
+})
+
+// The premise of the bridge on snabbdom (`docs/premises.md`), checked on snabbdom alone: its README describes the reuse
+// of keyed elements only.
+test('snabbdom reuses an <input> with no key in the same place', () => {
+  document.body.innerHTML = '<div id="app"></div>'
+  const patch = init([propsModule])
+  const first = patch(element('#app'), h('main', [h('input', { props: { placeholder: 'first' } })]))
+  const drawn = element<HTMLInputElement>('input')
+  patch(first, h('main', [h('input', { props: { placeholder: 'second' } })]))
+  expect(element('input')).toBe(drawn)
+  expect(drawn.placeholder).toBe('second')
 })

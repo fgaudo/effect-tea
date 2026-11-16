@@ -97,6 +97,20 @@ describe('run', () => {
     expect(counts).toEqual([0, 1, 2])
   })
 
+  test('called inside an uninterruptible region, ends once its renderer returns', async () => {
+    const counts: Array<number> = []
+    await Effect.runPromise(Effect.uninterruptible(runCounter(counter, (frames) =>
+      frames.pipe(
+        Stream.tap(Effect.fnUntraced(function*({ model, dispatch }) {
+          counts.push(model.count)
+          if (model.count < 2) yield* dispatch(model.increment)
+        })),
+        Stream.take(3),
+        Stream.runDrain,
+      ))))
+    expect(counts).toEqual([0, 1, 2])
+  })
+
   test('a message that update rejects is ignored, and the program goes on', async () => {
     const counts: Array<number> = []
     const exit = await Effect.runPromiseExit(runCounter(counter, (frames) =>
@@ -1158,6 +1172,62 @@ describe('the end of the run', () => {
     const exit = await Effect.runPromiseExit(run(counter, (frames) =>
       Effect.acquireRelease(Effect.void, () => Effect.die('boom')).pipe(Effect.andThen(Stream.runHead(frames)))))
     expect(where(exit)).toBe('render')
+  })
+
+  // A command and a subscription a step of the loop starts are its own fibers, not the loop's: the end stops the loop
+  // first, and then releases the renderer before them.
+  describe('releases the renderer before what a step of the loop started, still running', () => {
+    const released: Array<string> = []
+    const holdsTill = (holding: Deferred.Deferred<void>, what: string) =>
+      Effect.acquireRelease(Deferred.succeed(holding, undefined), () => Effect.sync(() => released.push(what))).pipe(
+        Effect.andThen(Effect.never),
+      )
+    // Sends one `Increment`, then holds what it acquired until the run ends.
+    const rendering = (frames: Stream.Stream<Frame<Model, Message>>) =>
+      Effect.acquireRelease(Effect.void, () => Effect.sync(() => released.push('renderer'))).pipe(
+        Effect.andThen(Stream.runHead(frames)),
+        Effect.flatMap(Opt.match({
+          onNone: () => Effect.void,
+          onSome: (frame) => Effect.asVoid(frame.dispatch(frame.model.increment)),
+        })),
+        Effect.andThen(Effect.never),
+      )
+    const endOnce = (program: Counter, holding: Deferred.Deferred<void>) =>
+      Effect.gen(function*() {
+        const running = yield* Effect.forkChild(run(program, rendering))
+        yield* Deferred.await(holding)
+        yield* Fiber.interrupt(running)
+      })
+
+    test('a command', async () => {
+      released.length = 0
+      await Effect.runPromise(Effect.gen(function*() {
+        const holding = yield* Deferred.make<void>()
+        const program: Counter = {
+          ...counter,
+          update: () => ({ count }) => ({ state: { count: count + 1 }, commands: ['Ping'] }),
+          runCommand: () => Effect.scoped(holdsTill(holding, 'command')),
+        }
+        yield* endOnce(program, holding)
+      }))
+      expect(released).toEqual(['renderer', 'command'])
+    })
+
+    test('a subscription', async () => {
+      released.length = 0
+      await Effect.runPromise(Effect.gen(function*() {
+        const holding = yield* Deferred.make<void>()
+        const program: Counter = {
+          ...counter,
+          subscriptions: ({ count }) =>
+            count === 0
+              ? HashMap.empty()
+              : HashMap.make(['k', Channel.fromEffectDone(Effect.scoped(holdsTill(holding, 'subscription')))]),
+        }
+        yield* endOnce(program, holding)
+      }))
+      expect(released).toEqual(['renderer', 'subscription'])
+    })
   })
 
   // A renderer whose release dies, once it is interrupted: it tells by `started` that it holds what it releases.

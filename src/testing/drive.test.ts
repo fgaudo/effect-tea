@@ -105,6 +105,23 @@ describe('drive', () => {
     expect(stopped).toBe(true)
   })
 
+  test('called inside an uninterruptible region, runs the scenario and stops the program', async () => {
+    let stopped = false
+    const program = noteProgram(Effect.sync(() => {
+      stopped = true
+    }))
+    const saved = await Effect.runPromise(Effect.uninterruptible(drive(
+      program,
+      Effect.fnUntraced(function*(driver) {
+        yield* driver.send(typing('milk'))
+        yield* driver.send((model) => model.note.text === 'milk' ? saving(model) : Opt.none())
+        return yield* driver.waitFor((model) => model.note.saved)
+      }),
+    )))
+    expect(saved).toBe('milk')
+    expect(stopped).toBe(true)
+  })
+
   test('a program with flags starts from the flags the test gives it', async () => {
     const program = noteProgram(Effect.void)
     const seeded: Program<{ state: Note; model: NoteModel; message: Edit; command: NoteCommand; flags: string }> = {

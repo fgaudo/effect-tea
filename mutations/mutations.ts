@@ -1180,8 +1180,11 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a call of rehearse's waits on through another fiber's death",
     file: 'src/testing/rehearse.ts',
-    from: 'Effect.raceFirst(waiting, Effect.andThen(register.died, deadOr(Effect.never)))',
-    to: 'waiting',
+    from: '    Effect.raceFirst(\n'
+      + '      Effect.interruptible(waiting),\n'
+      + '      Effect.interruptible(Effect.andThen(register.died, deadOr(Effect.never))),\n'
+      + '    )',
+    to: '    waiting',
     killedBy: [
       [
         'src/testing/rehearse.test.ts',
@@ -1934,8 +1937,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'scopedIn leaves what its effect dies of without a site',
     file: 'src/shell.ts',
-    from: '        diesIn(where, details),\n        Effect.onExit(',
-    to: '        Effect.onExit(',
+    from: '        diesIn(where, details),\n        (effect) =>\n',
+    to: '        (effect) =>\n',
     killedBy: [
       ['src/engine.test.ts', 'what a command dies of as the end of the engine interrupts it is what the end dies of'],
       ['src/run.test.ts', 'a defect in makeModel ends the run, which dies with it and with where it happened'],
