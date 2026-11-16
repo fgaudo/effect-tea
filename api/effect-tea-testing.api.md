@@ -208,7 +208,7 @@ type Subscriptions<State, Message, R, K = unknown> = (state: State) => HashMap.H
 // @public
 type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected;
 
-// @public (undocumented)
+// @public
 type Unwritten<Inner> = Inner extends Written<unknown> ? never : Heard<Inner>;
 
 // @public
