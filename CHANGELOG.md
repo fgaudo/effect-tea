@@ -208,13 +208,15 @@ version, and everything else, features included, the patch version.
 - The guide's "Composition" ("Declaring children") names the types `composition` takes beside `state` and `flags`;
   its "Testing" says what `simulate` and `hearNext` succeed with ("`simulate`", "How a subscription is heard"), and
   how a program run under its renderer in a DOM is tested ("The view").
-- The guide's "Composition" says how a parent whose `runCommand` and `subscriptions` need different services names
-  them ("Declaring children"), and that `subscribed` is required for children by id ("Children by id"); "Inputs the
+- The guide's "Composition" says that `subscribed` is required for children by id ("Children by id"); "Inputs the
   user types into" says that an input's optic may focus nothing, and that a write is rejected there ("Rules"); "Writing
   a bridge" says how the shared tests of a bridge are reused, and how they hold frames and fibers ("Their tests").
 
 ### Fixed
 
+- A parent's services are all those its `runCommand` and its `subscriptions` need: one whose two need different
+  services, or whose `runCommand` returns effects of different services by branch, or whose subscriptions differ in
+  theirs, compiles without an annotation. The guide's "Composition" says so ("Declaring children").
 - An input that takes a child's name no longer compiles: it replaced the child, whose messages were then rejected.
 - A program whose `external` messages are not among its `message`s no longer compiles, as a `Program<…>` or as a
   child of a `composition`: its parent's message reached an `update` that does not take it, as a `TypeError`.

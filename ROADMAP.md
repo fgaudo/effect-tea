@@ -12,10 +12,6 @@ holds only what is to be done or decided now.
 A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a deterministic
 test of it. None is open.
 
-- **The services of a composed program, by name**: `composition<{ state; services }>()`, as `Program<{ services }>`
-  names them. Today `compose` infers them from `runCommand` or from `subscriptions`, not from both, and a parent whose
-  two need different services names them all on what `runCommand` returns (a reader's check, the stock-take).
-  Decided by whether a name is better than the annotation, and whether `compose` can infer the union instead.
 - **What a parent reads of its children's inputs**: a parent that submits, or totals, the values typed into the
   inputs of its children by id reads their states, against "A parent never reads a child's state to decide"
   ("Structuring a program"); an input of the parent's cannot stand in, since `input` takes one optic, not one per id,

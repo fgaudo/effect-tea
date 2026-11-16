@@ -6,7 +6,7 @@
 
 import type * as Channel from 'effect/Channel';
 import * as Effect from 'effect/Effect';
-import type * as HashMap from 'effect/HashMap';
+import * as HashMap from 'effect/HashMap';
 import * as Opt from 'effect/Option';
 import type * as Optic from 'effect/Optic';
 import type * as Scope from 'effect/Scope';
@@ -117,10 +117,10 @@ export const composition: <T extends CompositionTypes>() => {
         subscribed: (state: Field<T, "state">) => Iterable<readonly [Id, StateOf<P>]>;
     }> & ObjectState<StateOf<P>>) => Each<Field<T, "state">, Id, P>;
     input: <A>(at: Optic.Optional<Field<T, "state">, A>) => InputAt<Field<T, "state">, A>;
-    compose: <Model, C extends Children<Field<T, "state">> = None, I extends Inputs<Field<T, "state">> = None, Own = never, R = never, K = unknown>(config: Config<Field<T, "state">, NoInfer<C>, NoInfer<I>, Own, Field<T, "command">, Field<T, "event">, Model, R, K, Field<T, 'flags'>> & Readonly<{
+    compose: <Model, C extends Children<Field<T, "state">> = None, I extends Inputs<Field<T, "state">> = None, Own = never, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, "state">, NoInfer<C>, NoInfer<I>, Own, Field<T, "command">, Field<T, "event">, Model, Ran, Heard, K, Field<T, 'flags'>> & Readonly<{
         children?: C;
         inputs?: I;
-    }>) => Shape<Field<T, "state">, Model, Own | ChildMessages<C> | InputMessages<I>, ChildCommands<C> | Field<T, "command">, R | ChildServices<C>, Field<T, "event">, Field<T, "external">, Field<T, "flags">>;
+    }>) => Shape<Field<T, "state">, Model, Own | ChildMessages<C> | InputMessages<I>, ChildCommands<C> | Field<T, "command">, ChildServices<C> | OwnServices<Ran, Heard>, Field<T, "event">, Field<T, "external">, Field<T, "flags">>;
 };
 
 // @public
@@ -147,12 +147,12 @@ type CompositionTypes = Readonly<{
 }>;
 
 // @public (undocumented)
-type Config<State, C, I, Own, OwnCommand, Event, Model, R, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own | ChildExternals<C>, R> & NoClash<Own, OwnCommand, C> & NoClash<Own, OwnCommand, I> & NoShared<C, I> & Readonly<{
+type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own | ChildExternals<C>, Ran> & NoClash<Own, OwnCommand, C> & NoClash<Own, OwnCommand, I> & NoShared<C, I> & Readonly<{
     init: (children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>) => Init<State, OwnCommand | ChildCommands<C>, Flags>;
     children?: C;
     inputs?: I;
     update?: (message: Own, children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>) => (state: State) => Transition<State, OwnCommand | ChildCommands<C>, Event>;
-    subscriptions?: Subscriptions<State, Own, R, K>;
+    subscriptions?: (state: State) => Heard & HashMap.HashMap<K, Subscription<Own, any>>;
     makeModel: (state: State, children: Models<State, C>) => Model;
 }>;
 
@@ -367,6 +367,9 @@ type Models<State, C> = {
     readonly [K in keyof C & string]: C[K] extends EachOf<infer Id, infer P> ? (state: State, id: Id) => ModelOf<P> : (state: State) => ModelOf<ProgramOf<C[K]>>;
 };
 
+// @public (undocumented)
+type Needed<Listened> = Listened extends Subscription<any, infer R> ? R : never;
+
 // @public
 type NoClash<Own, OwnCommand, C> = ([Extract<TagOf<Own>, keyof C>] extends [never] ? unknown : Readonly<{
     'an own message takes the name of a child': Extract<TagOf<Own>, keyof C>;
@@ -408,6 +411,9 @@ export type Origin = Readonly<{
     _tag: 'Subscription';
     key: unknown;
 }>;
+
+// @public (undocumented)
+type OwnServices<Ran, Heard> = (Ran extends Execution<any, infer R> ? R : never) | (Heard extends HashMap.HashMap<any, infer Listened> ? Needed<Listened> : never);
 
 // @public
 type Placement<ParentState, ChildState> = Readonly<{
@@ -476,10 +482,10 @@ export const run: <State, Model, Message, Command = never, R = never, RR = never
 export type RunCommand<Command, Message, R> = (command: Command) => Execution<Message, R>;
 
 // @public
-type RunCommandOf<OwnCommand, Message, R> = [OwnCommand] extends [never] ? Readonly<{
+type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never] ? Readonly<{
     runCommand?: never;
 }> : Readonly<{
-    runCommand: (command: OwnCommand) => Execution<Message, R>;
+    runCommand: (command: OwnCommand) => Ran & Execution<Message, any>;
 }>;
 
 // @public

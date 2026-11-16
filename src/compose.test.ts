@@ -1564,21 +1564,101 @@ describe('what the types reject', () => {
     })
   })
 
-  test('services that runCommand and subscriptions need apart are all the parent\'s, named on what runCommand returns', () => {
+  test('the services of a parent are those its runCommand, its subscriptions and its children need, wherever they are returned', () => {
     class Clock extends Context.Service<Clock, { readonly now: Effect.Effect<number> }>()('Clock') {}
+    class Disk extends Context.Service<Disk, { readonly now: Effect.Effect<number> }>()('Disk') {}
     class Feed extends Context.Service<Feed, { readonly ticks: Subscription<Tick, never> }>()('Feed') {}
-    const { compose } = composition<{ state: Ticks; command: 'Read' }>()
+    class Wire extends Context.Service<Wire, { readonly ticks: Subscription<Tick, never> }>()('Wire') {}
+    class Tape extends Context.Service<Tape, { readonly ticks: Subscription<Tick, never> }>()('Tape') {}
+    class Bell extends Context.Service<Bell, { readonly ticks: Subscription<Tick, never> }>()('Bell') {}
+    // Unlike two `extends`, it tells `any` and `unknown` from the services named.
+    type Exactly<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
+    const tick = (): Opt.Option<Tick> => Opt.some({ _tag: 'Tick' })
+    const fromClock = Effect.map(Effect.service(Clock), tick)
+    const fromDisk = Effect.map(Effect.service(Disk), tick)
+    const fromFeed = Channel.unwrap(Effect.map(Effect.service(Feed), (feed) => feed.ticks))
+    const fromWire = Channel.unwrap(Effect.map(Effect.service(Wire), (wire) => wire.ticks))
+    const fromTape = Channel.unwrap(Effect.map(Effect.service(Tape), (tape) => tape.ticks))
+    const ringing: Program<{ state: Ticks; model: null; message: Tick; services: Bell }> = {
+      init: { state: noTicks },
+      update: () => (state) => ({ state }),
+      subscriptions: () =>
+        HashMap.make(['bell', Channel.unwrap(Effect.map(Effect.service(Bell), (bell) => bell.ticks))]),
+      makeModel: () => null,
+    }
+    const { child, compose } = composition<{ state: Ticks; command: 'Read' | 'Load' }>()
+    // One service for each place they are read from: the two branches of `runCommand`, two subscriptions of one map,
+    // a second map, and a child.
     const app = compose({
       init: () => ({ state: noTicks }),
+      children: { Ringing: child(ringing, { get: (state) => Opt.some(state), set: (_, child) => child }) },
       update: (_: Tick) => (state) => ({ state }),
-      runCommand: (): Execution<Tick, Clock | Feed> =>
-        Effect.map(Effect.service(Clock), (): Opt.Option<Tick> => Opt.some({ _tag: 'Tick' })),
-      subscriptions: () => HashMap.make(['ticks', Channel.unwrap(Effect.map(Effect.service(Feed), (feed) => feed.ticks))]),
+      runCommand: (command) => command === 'Read' ? fromClock : fromDisk,
+      subscriptions: ({ ticks }) =>
+        ticks > 0 ? HashMap.make(['feed', fromFeed], ['wire', fromWire]) : HashMap.make(['tape', fromTape]),
       makeModel: () => null,
     })
-    type Needs = ServicesOf<typeof app>
-    const both: [Needs] extends [Clock | Feed] ? [Clock | Feed] extends [Needs] ? true : false : false = true
-    expect(both).toBe(true)
+    const all: Exactly<ServicesOf<typeof app>, Clock | Disk | Feed | Wire | Tape | Bell> = true
+    expect(all).toBe(true)
+    // An empty map needs nothing, wherever it is returned from.
+    const quiet = compose({
+      init: () => ({ state: noTicks }),
+      update: (_: Tick) => (state) => ({ state }),
+      runCommand: () => Effect.succeedNone,
+      subscriptions: ({ ticks }) =>
+        Opt.match(Opt.liftPredicate(ticks, (ticks) => ticks > 0), {
+          onNone: () => HashMap.empty(),
+          onSome: (ticks) => ticks > 1 ? HashMap.make(['feed', fromFeed]) : HashMap.empty(),
+        }),
+      makeModel: () => null,
+    })
+    const one: Exactly<ServicesOf<typeof quiet>, Feed> = true
+    expect(one).toBe(true)
+    const silent = compose({
+      init: () => ({ state: noTicks }),
+      update: (_: Tick) => (state) => ({ state }),
+      runCommand: () => Effect.succeedNone,
+      subscriptions: () => HashMap.empty(),
+      makeModel: () => null,
+    })
+    const none: Exactly<ServicesOf<typeof silent>, never> = true
+    expect(none).toBe(true)
+    // What a `runCommand` is annotated to need is the parent's too, whatever it returns.
+    const annotated = compose({
+      init: () => ({ state: noTicks }),
+      update: (_: Tick) => (state) => ({ state }),
+      runCommand: (): Execution<Tick, Clock | Disk> => fromClock,
+      makeModel: () => null,
+    })
+    const named: Exactly<ServicesOf<typeof annotated>, Clock | Disk> = true
+    expect(named).toBe(true)
+  })
+
+  test('one branch of a runCommand, or one subscription of a map, that answers with no message of the parent\'s', () => {
+    class Clock extends Context.Service<Clock, { readonly now: Effect.Effect<number> }>()('Clock') {}
+    type Tock = Readonly<{ _tag: 'Tock' }>
+    const fromClock = Effect.map(Effect.service(Clock), (): Opt.Option<Tick> => Opt.some({ _tag: 'Tick' }))
+    const tock: Execution<Tock, never> = Effect.succeedNone
+    const { compose } = composition<{ state: Ticks; command: 'Read' | 'Load' }>()
+    compose({
+      init: () => ({ state: noTicks }),
+      update: (_: Tick) => (state) => ({ state }),
+      // @ts-expect-error: `Tock` is no message of this parent's.
+      runCommand: (command) => command === 'Read' ? fromClock : tock,
+      makeModel: () => null,
+    })
+    compose({
+      init: () => ({ state: noTicks }),
+      update: (_: Tick) => (state) => ({ state }),
+      runCommand: () => fromClock,
+      // @ts-expect-error: `Tock` is no message of this parent's.
+      subscriptions: () =>
+        HashMap.make(
+          ['ticks', Channel.never as Subscription<Tick, Clock>],
+          ['tocks', Channel.never as Subscription<Tock, never>],
+        ),
+      makeModel: () => null,
+    })
   })
 })
 

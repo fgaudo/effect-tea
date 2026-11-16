@@ -195,6 +195,17 @@ type ChildCommands<C> = {
     : Readonly<{ _tag: K; command: CommandOf<ProgramOf<C[K]>> }> & At<C[K]>
 }[keyof C & string]
 
+// The services of a parent's own `runCommand` and `subscriptions`, read from all that each returns, `Ran` and `Heard`:
+// one parameter for the services, inferred from both, would be one of the candidates and not their union, and so
+// would one inferred from the branches of a `runCommand` or from the subscriptions of a map.
+type OwnServices<Ran, Heard> =
+  | (Ran extends Execution<any, infer R> ? R : never)
+  | (Heard extends HashMap.HashMap<any, infer Listened> ? Needed<Listened> : never)
+
+// Apart, so that it distributes over what a map holds: an empty map holds `never`, which needs nothing, where an
+// `infer` with nothing to infer from would be `unknown`.
+type Needed<Listened> = Listened extends Subscription<any, infer R> ? R : never
+
 type ChildServices<C> = { [K in keyof C]: ServicesOf<ProgramOf<C[K]>> }[keyof C]
 
 /** A new child: the state its parent puts where the child lives, and the commands it starts with, lifted. */
@@ -335,7 +346,7 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
   }>
 
 /** `runCommand` is required exactly when the parent has commands of its own, so that none goes uninterpreted. */
-type RunCommandOf<OwnCommand, Message, R> = [OwnCommand] extends [never] ? Readonly<{ runCommand?: never }>
+type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never] ? Readonly<{ runCommand?: never }>
   : Readonly<{
     /**
      * Runs one of the parent's own commands.
@@ -345,7 +356,7 @@ type RunCommandOf<OwnCommand, Message, R> = [OwnCommand] extends [never] ? Reado
      *
      * **`runCommand`** is required exactly when the parent has commands of its own.
      */
-    runCommand: (command: OwnCommand) => Execution<Message, R>
+    runCommand: (command: OwnCommand) => Ran & Execution<Message, any>
   }>
 
 type TagOf<M> = M extends { readonly _tag: infer T } ? T : never
@@ -361,11 +372,11 @@ type NoClash<Own, OwnCommand, C> =
 type NoShared<C, I> = [keyof C & keyof I] extends [never] ? unknown
   : Readonly<{ 'an input takes the name of a child': keyof C & keyof I }>
 
-type Config<State, C, I, Own, OwnCommand, Event, Model, R, K, Flags> =
+type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> =
   & OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event>
   // A command's answer is an own message, or one its parent may send a child: never a write into an input, the
   // parent's or a child's, since only what is drawn writes, nor a child's own message.
-  & RunCommandOf<OwnCommand, Own | ChildExternals<C>, R>
+  & RunCommandOf<OwnCommand, Own | ChildExternals<C>, Ran>
   & NoClash<Own, OwnCommand, C>
   & NoClash<Own, OwnCommand, I>
   & NoShared<C, I>
@@ -417,7 +428,7 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, R, K, Flags> =
       children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>,
     ) => (state: State) => Transition<State, OwnCommand | ChildCommands<C>, Event>
     /** The parent's own subscriptions. */
-    subscriptions?: Subscriptions<State, Own, R, K>
+    subscriptions?: (state: State) => Heard & HashMap.HashMap<K, Subscription<Own, any>>
     /** What the parent draws, from its state and its children's models. */
     makeModel: (state: State, children: Models<State, C>) => Model
   }>
@@ -467,18 +478,19 @@ const compose = <
   Own,
   OwnCommand,
   Event,
-  R,
+  Ran,
+  Heard,
   K,
   External,
   Flags,
 >(
-  config: Config<State, C, I, Own, OwnCommand, Event, Model, R, K, Flags>,
+  config: Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags>,
 ): Shape<
   State,
   Model,
   Own | ChildMessages<C> | InputMessages<I>,
   OwnCommand | ChildCommands<C>,
-  R | ChildServices<C>,
+  OwnServices<Ran, Heard> | ChildServices<C>,
   Event,
   External,
   Flags
@@ -654,7 +666,7 @@ const compose = <
       ? (parentState: State, id: unknown) => modelAt({ name, id }, parentState)
       : (parentState: State) => modelAt({ name, id: undefined }, parentState)) as Models<State, C>
   const ownRunCommand = (
-    config as Readonly<{ runCommand?: (command: OwnCommand) => Execution<Own | ChildExternals<C>, R> }>
+    config as Readonly<{ runCommand?: (command: OwnCommand) => Execution<Own | ChildExternals<C>, unknown> }>
   ).runCommand
   const program = {
     init: config.init(handles),
@@ -684,7 +696,7 @@ const compose = <
     // Two children's keys clash only when `subscribed` lists one id twice.
     subscriptions: (state: State) => {
       const own = HashMap.map(
-        config.subscriptions?.(state) ?? HashMap.empty<K, Subscription<Own, R>>(),
+        config.subscriptions?.(state) ?? HashMap.empty<K, Subscription<Own, unknown>>(),
         (subscription) => subscription as Subscription<Message, unknown>,
       ) as HashMap.HashMap<unknown, Subscription<Message, unknown>>
       const call = ++calls
@@ -709,7 +721,16 @@ const compose = <
     },
     makeModel: (state: State): Model => config.makeModel(state, childModels),
   }
-  return program as unknown as Shape<State, Model, Message, Command, R | ChildServices<C>, Event, External, Flags>
+  return program as unknown as Shape<
+    State,
+    Model,
+    Message,
+    Command,
+    OwnServices<Ran, Heard> | ChildServices<C>,
+    Event,
+    External,
+    Flags
+  >
 }
 
 /**
@@ -927,24 +948,26 @@ export const composition = <T extends CompositionTypes>() => {
      * From the guide, "Composition", "Its own messages, commands and subscriptions,":
      *
      * **Its own messages, commands and subscriptions,** if it has any: `update`, `runCommand` and `subscriptions`. Its
-     * `update` takes `children` too. It may reject its own messages, as any `update` does. Where its `runCommand` and
-     * its `subscriptions` need different services, the compiler takes them from one of the two: name them all on what
-     * `runCommand` returns, `Execution<Message, Server | Feed>`.
+     * `update` takes `children` too. It may reject its own messages, as any `update` does. The services it needs are
+     * all those its `runCommand` and its `subscriptions` need, and its children's: nothing names them.
      */
     compose: <
       Model,
       C extends Children<State> = None,
       I extends Inputs<State> = None,
       Own = never,
-      R = never,
+      Ran = never,
+      Heard = never,
       K = unknown,
     >(
       // The children and the inputs are inferred from where they are declared alone: a command a step returns would
       // otherwise be read as a child's, where no child is declared.
       config:
-        & Config<State, NoInfer<C>, NoInfer<I>, Own, OwnCommand, Event, Model, R, K, Field<T, 'flags'>>
+        & Config<State, NoInfer<C>, NoInfer<I>, Own, OwnCommand, Event, Model, Ran, Heard, K, Field<T, 'flags'>>
         & Readonly<{ children?: C; inputs?: I }>,
     ) =>
-      compose<State, C, I, Model, Own, OwnCommand, Event, R, K, Field<T, 'external'>, Field<T, 'flags'>>(config),
+      compose<State, C, I, Model, Own, OwnCommand, Event, Ran, Heard, K, Field<T, 'external'>, Field<T, 'flags'>>(
+        config,
+      ),
   }
 }

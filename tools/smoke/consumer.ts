@@ -11,12 +11,16 @@ import {
   type Program,
   reject,
   run,
+  type ServicesOf,
   type Shown,
   type Update,
 } from '@fgaudo/effect-tea'
 import { applyAll, simulate } from '@fgaudo/effect-tea/testing'
 import * as Arr from 'effect/Array'
+import * as Channel from 'effect/Channel'
+import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
+import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import * as Stream from 'effect/Stream'
@@ -129,6 +133,37 @@ loading.compose({
   runCommand: () => Effect.succeedSome({ _tag: 'Main' as const, message: { _tag: 'Reset' as const } }),
   makeModel: () => null,
 })
+
+// A parent's services are all those its `runCommand` and its `subscriptions` need, with no annotation.
+class Server extends Context.Service<Server, { readonly load: Effect.Effect<void> }>()('Server') {}
+class Backup extends Context.Service<Backup, { readonly load: Effect.Effect<void> }>()('Backup') {}
+class Feed extends Context.Service<Feed, { readonly resets: Stream.Stream<ResetAll> }>()('Feed') {}
+
+const served = loading.compose({
+  init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
+  update: (_: ResetAll) => (state: State) => ({ state, commands: ['Load' as const] }),
+  runCommand: () =>
+    Math.random() < 0.5
+      ? Effect.as(Effect.service(Server), Opt.none<ResetAll>())
+      : Effect.as(Effect.service(Backup), Opt.none<ResetAll>()),
+  subscriptions: () =>
+    HashMap.make([
+      'resets',
+      Channel.unwrap(Effect.map(Effect.service(Feed), (feed) =>
+        feed.resets.pipe(
+          Stream.toChannel,
+          Channel.flattenArray,
+          Channel.mapDone((): ResetAll => ({ _tag: 'ResetAll' })),
+        ))),
+    ]),
+  makeModel: () => null,
+})
+
+type Needs = ServicesOf<typeof served>
+
+type All = Server | Backup | Feed
+
+export const needsAll: [Needs] extends [All] ? [All] extends [Needs] ? true : false : false = true
 
 // An own message that takes a child's name does not compile.
 // @ts-expect-error
