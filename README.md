@@ -285,11 +285,12 @@ With a bridge that settles them with `drawn`, the element of an input never take
 frame, and shows the program's value once the state has moved on without it. That holds for elements and renderers
 that meet one condition: an element's value changes only by an edit of the user, which it reports with the whole
 value, or by the bridge; and the renderer, after each frame and before the user can act on it, lets the bridge reach
-the element of each input with the frame's value and `seen`. A text field meets it, and so does a renderer that draws
-each frame at once. A range whose bounds narrow does not, since it brings its value within them by itself, and is
-outside what is promised here. A widget, native or not, that does not fit the bridge is replaced by one the program
-draws, which is no input: a press is a message of the model, and a drag the messages of a subscription keyed by the
-state of dragging, as the ringer of [`volume`](examples/volume) is. The bridges' tests check it, in a DOM.
+the element of each input with the frame's value and `seen`. A text field meets it once its bridge reports a reset of
+its form as an edit, since a reset changes its value with no event, as the examples' bridges do; so does a renderer
+that draws each frame at once. A range whose bounds narrow does not, since it brings its value within them by itself,
+and is outside what is promised here. A widget, native or not, that does not fit the bridge is replaced by one the
+program draws, which is no input: a press is a message of the model, and a drag the messages of a subscription keyed
+by the state of dragging, as the ringer of [`volume`](examples/volume) is. The bridges' tests check it, in a DOM.
 
 A message names a place, which leaves two limits, neither of which corrupts the state: a write over a value that
 came back, the same text after a reset or an undo, is stored, as what the user typed over what they saw; and a

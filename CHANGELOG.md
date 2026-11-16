@@ -225,7 +225,8 @@ version, and everything else, features included, the patch version.
   the element through its `value`, as an extension that fills forms does, was lost.
 - The examples' bridges hear a reset of the form an input is drawn in, which changes its value with no `input` event,
   as React's own resets do too, after an Action and on `requestFormReset`: the element showed the default value, and
-  the state kept what was typed.
+  the state kept what was typed. "Inputs the user types into" in the README says that a text field meets its condition
+  only so.
 
 ## 0.7.1 (2026-10-28)
 

@@ -461,7 +461,8 @@ test('a strategy is asked to preempt a fiber from the second step of its run, ne
 
 test('a fiber started inline yields with no task ready, and gives its parent back as a budget of Effect does', () => {
   // A child started inline, on its parent's stack, gives its parent back when it yields. Effect does so under a
-  // budget the child reaches first, which gives the two orders below (spikes/effect-inline-start-yields.test.ts).
+  // budget the child reaches first, which gives the two orders below (effect-tea-persistent's
+  // `spikes/effect-inline-start-yields.test.ts`).
   // The scheduler of the tests asks the child even with no task ready, and so reaches both (decision 0117).
   const body = Effect.gen(function*() {
     const log: Array<string> = []

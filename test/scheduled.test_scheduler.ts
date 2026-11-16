@@ -72,7 +72,8 @@ const unpreemptable = new WeakSet<Fiber.Fiber<unknown, unknown>>()
 
 /**
  * A scheduler that holds every task Effect gives it and runs the one `strategy` picks, stepped by hand
- * (decision 0104). It keeps the rules its spike found, in `spikes/effect-scheduler-controlled.test.ts`:
+ * (decision 0104). It keeps the rules its spike found, effect-tea-persistent's
+ * `spikes/effect-scheduler-controlled.test.ts`, ported here as `test/effect-scheduler.test.ts`:
  * - a fiber that starts to run again yields once first, so that one resumed inline, by a `Deferred`, a `Fiber.join`
  *   or a callback, waits for its pick as one forked does;
  * - but not at its first run, which is a task already, its fork, or runs inline where Effect starts it;
