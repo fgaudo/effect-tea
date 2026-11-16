@@ -150,6 +150,19 @@ answer, and saying so in the proposal.
   name for the field. Weighed with a second opinion (Fable), the owner deciding. *Reopen if* an application's
   subscription is found sending such a message, or `Shape` gains a type of what its subscriptions send for another
   reason.
+- **`rehearse` and `simulate` taking the options of `drive`** (`RunOptions`), so that a rehearsal checks an observer
+  and its defect, as "symmetric where its tools are" (`AGENTS.md`) asks about. Reasoned, 16 November 2026, on the item
+  of `ROADMAP.md`. `RunOptions` is how a program runs (`engine.ts`): `drive` is a run and passes them on, while
+  `rehearse` and `simulate` take a program without a runtime, and `flags` is the program's input, no option of a run.
+  `describeMessage` and `describeCommand` shape debug logs, and neither tool logs, so they would be taken and never
+  called. `onApplied` and `onIgnored` watch ("Invariants" in `invariants.md`): they cannot change what a rehearsal
+  checks of the program, and that a defect in one ends the run is the engine's promise, which `run.test.ts` keeps,
+  not one an application's test checks. `simulate` runs no effect at all, and an observer returns one. In `rehearse`
+  they would be an effect that waits inside the step the loop applies, which the end may interrupt: new points
+  between a check and its act, mutations, cases of the contract and prose of the README, in the largest tool, for no
+  test of a program. Weighed with a second opinion (Fable), the owner deciding. *Reopen if* a test of a program needs
+  what an observer is told; the form would then be the records as data, not callbacks: an `applied` list of
+  `Applied`, and `ignored` widened to `Ignored`, which `Rehearsal.ignored` already half is (that widening breaks it).
 
 ## The API
 
@@ -178,6 +191,17 @@ answer, and saying so in the proposal.
   test observes, where `runCommandOf`'s is never called and `startOf` decides only for generic code. The reason is in
   `AGENTS.md` ("Code"). *Reopen if* `subscriptions` becomes required on a program's type, where it would be a property
   read.
+- **`renderToString`, a first frame for server-side rendering.** Reasoned, 16 November 2026, on the idea of
+  `ROADMAP.md`, by "A function earns its place" (`AGENTS.md`). The first frame is data a program already gives:
+  `program.makeModel(program.init.state)`, or `program.makeModel(program.init(flags).state)`, whose view a server calls
+  with a dispatch that is one literal, `() => Effect.succeed(0)`. All a function would add is the `typeof` of `startOf`,
+  which decides nothing a test can see; the string is the renderer's (`react-dom/server`, a serializer of snabbdom),
+  which the library may not import; hydration is the bridge's, inside `renderInto`; and sending the state to the
+  client is a promise of serialization, which `registers.md` ("What a model is") declined, to come with a schema of
+  its own. Weighed with a second opinion (Fable), the owner deciding. *Reopen if* a server needs the state after the
+  commands of `init` have answered, a run to quiescence that returns its state: that is what Effect alone cannot do,
+  and a feature other than this one. A first frame drawn on a server in an example goes with "Bridges as packages of
+  their own" (`ROADMAP.md`), which decides the dependencies of the bridges.
 - **Offers as tokens, checked against `update`** (`offer`, `offerInput`, `missingOffers`, a run that reported a
   rejected offer). Shipped in 0.3.0 (`ae4661b`) and removed in 0.6.0 (`3c3fdf9`, 23 October 2026): checking each
   offer against `update` made every page carry rules (offer only what `update` accepts, never probe offers, inputs
@@ -289,6 +313,16 @@ answer, and saying so in the proposal.
   such promise, the mutants equivalent in code over Effect would each be read by hand, and Stryker has no runner for
   `bun:test`: its command runner would run the whole suite for each mutant. The run was made parallel instead (162 s
   to 44 s on 24 processors). *Reopen if* the list is to be judged for what it misses, beside the checks it names.
+- **Windows of absence awaited under the scheduler of the tests**, with `idle` (`test/scheduled.test_scheduler.ts`) in
+  place of a sleep, in the tests that check that nothing happens. Reasoned, 16 November 2026, on the item of
+  `ROADMAP.md`. `idle` is quiescence, and serves the search already (`interleaving.test.ts`), but no test of a check
+  runs under that scheduler ("one thunk" in `invariants.md`, and `single-owner.md`): what it rests on of Effect is read
+  in `runLoop`'s source and is the tests' alone, so killers under it would rest on that reading and could break on an
+  upgrade of Effect. The two windows that have a witness were awaited instead, the others are the exception that
+  `AGENTS.md` writes down ("A test never rests on the clock"), and the runner of the mutations runs a killer that
+  passed again alone before it reports a survivor. Weighed with a second opinion (Fable), the owner deciding. *Reopen
+  if* a window of absence turns out to let a mutant survive on a run alone, or what the scheduler rests on becomes a
+  premise with a test of its own.
 
 ## Parked, not rejected
 

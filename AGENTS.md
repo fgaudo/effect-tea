@@ -234,7 +234,12 @@ an example's and a document's too:
   `Deferred`, a gate), never slept for: a sleep that must outlast work the machine may take longer to do is a race,
   which a loaded machine loses, as `bun run mutations --discover` running the whole suite did. A clock may only bound
   a wait that a failing test alone reaches (a mutant that never sends), wide enough never to fire otherwise, or be
-  what the test is about (a subscription that ticks), under Effect's `TestClock` where it can be.
+  what the test is about (a subscription that ticks), under Effect's `TestClock` where it can be. Or it may hold a
+  window of absence: a test that checks that something does not happen, where nothing a correct run does could be
+  awaited in its place, sleeps once a signal it awaits has come, and says so where it sleeps. A loaded machine can then
+  only let a mutant survive, never turn a correct run red, and the runner of the mutations runs a killer that passed
+  under its mutation again, alone, before it reports a survivor. Where a witness can be awaited, it is: which windows
+  have none is in `docs/invariants.md` ("Windows of absence").
 - Only the bridges' tests in a DOM, `examples/snabbdom.test.ts` and `examples/react.test.ts`, register one
   (happy-dom), for the tests of `examples/bridge.test_suite.ts` they call too; every other test runs without one,
   `examples/snabbdom-testing.test.ts` too.

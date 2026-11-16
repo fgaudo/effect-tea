@@ -760,7 +760,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: 'engine.stop.pipe(Effect.andThen(Shell.stopping(renderer)))',
     to: 'Shell.stopping(renderer)',
     killedBy: [
-      ['src/run.test.ts', 'a message the renderer sends as the run releases it does not reach update'],
+      ['src/run.test.ts', 'the run stops its loop before it releases the renderer'],
     ],
   },
   {
@@ -1568,6 +1568,7 @@ export const mutations: ReadonlyArray<Mutation> = [
       ['src/core.test.ts', 'a kept key keeps its start, and a gone key stops with its start'],
       ['src/core.test.ts', 'a key equal by value, made anew, keeps its start'],
       ['src/engine.test.ts', 'a key equal by value keeps its subscription running, untouched'],
+      ['src/engine.test.ts', 'it does not start again while its key stays'],
       ['src/compose.test.ts', 'a child whose state changes, under the same key, keeps its subscription running'],
       [
         'src/testing/contract.test.ts',

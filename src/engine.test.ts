@@ -329,8 +329,9 @@ describe('Engine subscriptions that end', () => {
       yield* until(engine, (state) => state.heard.length === 2)
       yield* send(engine, { _tag: 'Bumped' })
       yield* send(engine, { _tag: 'Bumped' })
-      yield* until(engine, (state) => state.bumps === 2)
-      yield* Effect.sleep('20 millis')
+      // The third state comes once the loop has reconciled the second, and `FiberMap.run` starts what it forks at once.
+      yield* send(engine, { _tag: 'Bumped' })
+      yield* until(engine, (state) => state.bumps === 3)
     }))
     expect(starts).toEqual([1])
   })

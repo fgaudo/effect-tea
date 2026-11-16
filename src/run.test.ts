@@ -1468,6 +1468,43 @@ describe('the end of the run', () => {
     expect(wheres(exit)).toEqual([])
   })
 
+  // `onApplied` holds the loop, and learns when the run's end interrupts it: by the release of the renderer, it has.
+  test('the run stops its loop before it releases the renderer', async () => {
+    const holding = Deferred.makeUnsafe<void>()
+    const loopStopped = Deferred.makeUnsafe<void>()
+    const stoppedAtRelease: Array<boolean> = []
+    const exit = await interruptedOnce((started) =>
+      run(
+        counter,
+        (frames) =>
+          Stream.runHead(frames).pipe(
+            Effect.flatMap(Opt.match({
+              onNone: () => Effect.never,
+              onSome: ({ model, dispatch }) =>
+                Effect.acquireRelease(
+                  Effect.void,
+                  () => Deferred.isDone(loopStopped).pipe(Effect.map((done) => stoppedAtRelease.push(done))),
+                ).pipe(
+                  Effect.andThen(dispatch(model.increment)),
+                  Effect.andThen(Deferred.await(holding)),
+                  Effect.andThen(Deferred.succeed(started, undefined)),
+                  Effect.andThen(Effect.never),
+                ),
+            })),
+          ),
+        {
+          onApplied: () =>
+            Deferred.succeed(holding, undefined).pipe(
+              Effect.andThen(Effect.never),
+              Effect.onInterrupt(() => Deferred.succeed(loopStopped, undefined)),
+            ),
+        },
+      )
+    )
+    expect(stoppedAtRelease).toEqual([true])
+    expect(wheres(exit)).toEqual([])
+  })
+
   test('a command that dies while a run that died elsewhere releases the renderer is in the cause', async () => {
     const releasing = Deferred.makeUnsafe<void>()
     const died = Deferred.makeUnsafe<void>()

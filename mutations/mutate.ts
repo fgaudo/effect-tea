@@ -10,7 +10,8 @@
 //
 // The copies are under `.mutants/` (ignored by git, and by `bun test`, which skips directories that start with a dot),
 // where `effect` resolves through the repository's `node_modules`. The working tree is never written. A copy holds one
-// mutation at a time, so the mutations run apart, and what each did is printed in the order of the list. A run
+// mutation at a time, so the mutations run apart, and what each did is printed in the order of the list, once a killer
+// that passed under its mutation has run again with no other copy running. A run
 // stopped by SIGINT or SIGTERM ends the tests under way and removes its copies too.
 import * as fs from 'node:fs'
 import * as os from 'node:os'
@@ -254,15 +255,39 @@ try {
       })
       return { ran, seconds: ((performance.now() - started) / 1000).toFixed(1) }
     }
-    await pool(copies, chosen, killedIn, ({ ran, seconds }, index) => {
-      const passed = ran.filter(([, outcome]) => outcome === 'passed')
+    const results: Array<Awaited<ReturnType<typeof killedIn>>> = []
+    await pool(copies, chosen, killedIn, (result, index) => {
+      results[index] = result
+    })
+    // A killer that holds a window of absence (`docs/invariants.md`) may pass under its mutation on a machine the other
+    // copies load. It is run again, alone and with no other copy running, before it is taken for a survivor: the
+    // killers of a check no test notices pass again, so this keeps every survivor.
+    const again = new Map<number, ReadonlyArray<Killer>>()
+    for (const [index, { ran }] of results.entries()) {
+      const passed = ran.filter(([, outcome]) => outcome === 'passed').map(([killer]) => killer)
+      if (passed.length === 0) continue
+      const copy = copies[0] as string
+      const mutation = chosen[index] as Mutation
+      const verdicts = await under(copy, mutation, async () => {
+        const verdicts: Array<readonly [Killer, Verdict]> = []
+        for (const killer of passed) verdicts.push([killer, await alone(copy, titles, killer)])
+        return verdicts
+      })
+      again.set(index, verdicts.filter(([, outcome]) => outcome !== 'passed').map(([killer]) => killer))
+    }
+    for (const [index, { ran, seconds }] of results.entries()) {
+      const failedAgain = again.get(index) ?? []
+      const passed = ran.filter(([killer, outcome]) => outcome === 'passed' && !failedAgain.includes(killer))
       const hung = ran.filter(([, outcome]) => outcome === 'hung')
       const verdict = passed.length === 0 ? 'killed' : 'SURVIVED'
       console.log(`${verdict} [${index + 1}/${chosen.length}] ${(chosen[index] as Mutation).name} (${seconds}s)`)
       for (const [killer] of hung) console.log(`  hangs under it: ${describe(killer)}`)
+      for (const killer of failedAgain) {
+        console.log(`  passes under it beside the other copies, fails alone: ${describe(killer)}`)
+      }
       for (const [killer] of passed) console.log(`  passes under it: ${describe(killer)}`)
       if (passed.length > 0) survived++
-    })
+    }
   }
 } finally {
   removeCopies()

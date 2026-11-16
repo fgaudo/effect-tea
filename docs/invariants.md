@@ -275,3 +275,15 @@ testing tools.
   depend on what a step it may interrupt writes after its thunk. When the engine or one tool changes, keep
   the others in step. `src/testing/contract.test.ts` gives the same program and inputs to each tool and to the run;
   a difference found is a `test.failing` case there, which says how, and an item of `ROADMAP.md`, until it is fixed.
+- **Windows of absence.** A test that checks that something does not happen awaits a witness where a correct run
+  gives one: "it does not start again while its key stays" (`engine.test.ts`) awaits a third state, which comes once
+  the loop has reconciled the second, and "the run stops its loop before it releases the renderer" (`run.test.ts`) has
+  an `onApplied` that holds the loop learn of its interruption, which the release of the renderer reads. Where no
+  correct run gives one, since what would signal the absence is what does not happen, the test sleeps once a signal it
+  awaits has come, as `AGENTS.md` allows ("A test never rests on the clock"): "the end of the engine lets its loop end
+  before it interrupts its commands" (`engine.test.ts`); "a message the renderer sends as the run releases it does not
+  reach update" and those of `updatesWhileHeld` (`run.test.ts`); "each call hears the next message, and the
+  subscription waits between two of them" (`rehearse.test.ts`); "in the run, it is heard once to its end, under a key
+  that stays, and again once its key comes back", and the tests of "a fiber of the test's that sends once the tool has
+  ended" (`contract.test.ts`). The scheduler of the tests could await quiescence in their place, and does not, as
+  "one thunk" says of every test of a check (`rejected.md`, "The checks").
