@@ -22,6 +22,9 @@ jobs:
       # The report of the public API (`api/`) is committed: a change of what the package exports, or of a type it
       # reaches, must show in the diff of the commit that makes it.
       - run: bun run api --check
+      # The guide's promises are quoted in the doc comments of the API (`quotes/`): a comment that differs from the
+      # guide, or a change of the guide not carried into the comments, fails here.
+      - run: bun run quotes --check
       - run: bun install --frozen-lockfile
         working-directory: site
       # TypeDoc 0.28.20 needs minimatch 10, and the fix of this advisory is in minimatch 11 alone. The site's globs

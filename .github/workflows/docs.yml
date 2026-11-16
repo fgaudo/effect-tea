@@ -36,6 +36,7 @@ jobs:
       - run: bun run test:node
       - run: bun run build
       - run: bun run api --check
+      - run: bun run quotes --check
       - run: bun run smoke
       - run: bun install --frozen-lockfile
         working-directory: site

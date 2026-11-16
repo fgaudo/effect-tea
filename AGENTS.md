@@ -83,6 +83,12 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   what is described and not promised says so where it stands (the order of the defects). Its prose changes one section
   at a time, each sentence checked against the old one: the same promise, no weaker and no stronger, as the code and the
   tests keep it. A word that looks minor ("exactly when", "by `Equal`", "never more") is often the rule.
+- **A doc comment of the API promises only by quoting the guide.** It says, in its own words, what the export is and
+  how it is called: a summary, its parameters and result, its fields, an example. What the library promises of it is
+  quoted from the guide, word for word, by `bun run quotes` (`quotes/quote.ts`), in a block after `@remarks` that is
+  never edited by hand; where the two differ, the guide rules. A comment never links the site, which shows the latest
+  release, not the version installed. The comments come to this form a module at a time: `run.ts` and `input.ts` have
+  it, and a comment changed in another module is brought to it with its module.
 
 ## Invariants
 
@@ -148,10 +154,15 @@ this summary says less. What every change keeps, an example's and a document's t
   the build, and `build.ts` does the same in the declarations.
 - Comments only for what the code cannot say: a reason, an invariant the types do not show, a choice that
   would look like a mistake. Never a repetition of names or of the next line.
+- The doc comment of an export is for whoever uses the package: a note on how it is implemented is a `//` comment, or
+  the doc comment of an internal declaration (as `running` beside `run`), which neither the hover of a user nor the
+  site shows. `@privateRemarks`, and a doc comment right after another, reach the declarations all the same, and
+  `bun run quotes --check` fails on both.
 - A reason is written once, where the check it explains is: another place that needs it names that place
   (`Core.arrive`, a section of `docs/invariants.md`) and says only what follows from it there, never the reason again.
   The documentation of an export stands alone, since a user reads it in the declarations; and a summary says that it
-  is one and what rules where it says less, as "Invariants" above does.
+  is one and what rules where it says less, as "Invariants" above does. The guide's promises quoted in a doc comment
+  are the one copy this allows: generated, and checked against the guide ("What belongs here").
 - No blank lines between the statements of a block; blank lines separate declarations and `describe`/`test`
   calls.
 - Formatting: 120 columns, two-space indentation, single quotes, no semicolons, trailing commas in multiline
@@ -248,4 +259,5 @@ Before finishing, from the repository root: `bun run typecheck` (`tsc` with the 
 library and on the examples), `bun run lint` (Biome and Oxlint) and `bun run test`; after a change of the engine or of
 a testing tool, or of their tests, `bun run test:node` and `bun run interleavings` too. `bun run build` compiles
 `src/` into `dist/` (ignored by git) and runs before `bun pm pack`. An API change is also checked as a consumer
-would see it (`change-api`).
+would see it (`change-api`). After a change of the guide or of a doc comment, `bun run quotes` carries the guide's
+promises into the comments that quote them, and `bun run quotes --check`, which the CI runs, fails when one differs.

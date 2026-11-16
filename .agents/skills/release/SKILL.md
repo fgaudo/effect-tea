@@ -29,14 +29,15 @@ version never goes down. `package.json` and the changelog's section always agree
 
 ## Releasing
 
-1. The checks pass (`bun run typecheck`, `bun run lint`, `bun run test`), every mutation is killed
+1. The checks pass (`bun run typecheck`, `bun run lint`, `bun run test`, and `bun run quotes --check`, so that the
+   doc comments the package ships quote the guide of its own version), every mutation is killed
    (`bun run mutations`, `change-engine`), and the site builds without warnings (below). `bun run interleavings`
    is run too: an order it finds goes in `ROADMAP.md`, and is weighed before the release.
 2. In `CHANGELOG.md`, replace `(unreleased)` with the date: `## 0.6.0 (2026-10-23)`.
 3. Commit that change alone, with the subject `release <version>`, and tag the commit `v<version>` (a
    lightweight tag, as the existing ones). Push the commit and the tag.
 4. The tag runs `.github/workflows/docs.yml`, which builds the site and deploys it to GitHub Pages (it can also
-   be run by hand from the repository's Actions). Nothing generated is committed.
+   be run by hand from the repository's Actions). The site is never committed.
 5. The author publishes the package: never run `npm publish` or `bun publish`.
 
 ## What the package contains

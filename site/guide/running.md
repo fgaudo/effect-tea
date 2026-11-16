@@ -14,6 +14,9 @@ and reporting the crash is the job of the app around it.
 
 **Only a program without events runs.** There is no parent to handle them.
 
+**A frame's `dispatch` is the very same function in every frame.** So a view memoized on its dispatch is not drawn
+again because of it.
+
 **A slow renderer skips frames.** It only gets the latest one. So a renderer that waits for the next animation frame
 before taking another draws at most once per screen refresh, as
 [`examples/snabbdom.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/snabbdom.ts) does.

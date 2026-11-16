@@ -92,7 +92,8 @@ whether it takes the frame's value. The bridge writes the value it takes into th
 - An element keeps what the user typed while the frame is its own past or present: a state from before the writes the
   frame has not seen, or after them all.
 - Once the state has moved on without the element, the element takes the program's value. The library rejects the
-  writes the frame has not seen.
+  writes the frame has not seen, unless the input's place holds again the value they were written over (see
+  [two limits](./inputs-the-user-types-into.md#two-limits)).
 
 {@includeCode ../../examples/snabbdom.ts#settle}
 

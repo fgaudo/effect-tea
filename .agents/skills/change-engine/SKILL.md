@@ -72,7 +72,8 @@ a review.
 
 - `docs/invariants.md`, where the change alters how an invariant is kept or the names it cites, and
   `docs/premises.md`, where it adds, drops or moves a premise or renames a test one names.
-- The guide (`site/guide/`), where a promise changes: it is a specification, and its prose changes as `AGENTS.md` says.
+- The guide (`site/guide/`), where a promise changes: it is a specification, and its prose changes as `AGENTS.md` says;
+  then `bun run quotes`, which carries it into the doc comments that quote it.
 - A changelog entry, where a consumer can notice the change ([`release`](../release/SKILL.md)).
 
 ## Checks

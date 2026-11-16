@@ -64,6 +64,30 @@ snabbdom, and [`form-react`](https://github.com/fgaudo/effect-tea/tree/main/exam
 
 ## Precisely
 
+### Settling an element
+
+After each frame, a bridge settles the element of each input with `drawn(held, value, seen)`. It is given what the
+element holds, `held`, or `undefined` for an element just made. `value` is the input's value in the frame, and `seen`
+the frame's own. It gives what the element then holds, `shown`, and whether the element takes the frame's value,
+`taken`. When it is taken, the bridge writes `shown.value` into the element.
+
+There are three cases:
+
+- **A new element** shows the frame's very `value`. It is always taken.
+- **The element's own past or present.** The frame holds, by `Equal`:
+  - when the frame has not seen all the element's writes, what the element showed before the first of them;
+  - when it has seen them all, what the element shows.
+
+  The element stays as it is, showing the very value it held, and is not taken. Only the writes the frame has seen are
+  forgotten.
+- **A state that has moved on without the element**, in any other case. The element forgets all its writes. Those the
+  frame has not seen are rejected, unless the input's place holds again the value they were written over (see
+  [two limits](#two-limits)). The element shows the frame's very `value`. It is taken, unless it is the very value the
+  element showed.
+
+`drawn` tells the writes a frame has seen by the numbers `sent` was given. So a bridge calls the `sent` of `typed`
+once, with the number its dispatch returned for that write. Otherwise `drawn` may replace what the user typed.
+
 ### Which elements and renderers this holds for
 
 With a bridge that settles them with `drawn`, the element of an input:

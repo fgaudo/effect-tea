@@ -7,13 +7,35 @@ import * as Equal from 'effect/Equal'
 import { reject, type Transition } from './update.ts'
 
 /**
- * What the outside wrote into an input: the `value` it gives now, written over the value it showed, `was`. A view
- * sends it through that input's dispatch (`dispatchTo(dispatch, 'Name')`), and it is stored only while the input's
- * place holds `was`, so that a value typed over a value the program has since replaced is rejected. A bridge makes it
- * with `typed`; a view without one, and a test, write it as data, over the value the model holds:
- * `{ _tag: 'Written', was: model.name, value: 'Ada' }`.
+ * A value written into an input, in place of the value the input showed.
+ *
+ * A view sends it through the input's dispatch, `dispatchTo(dispatch, 'Name')`. A bridge makes it with `typed`. A
+ * view without a bridge, and a test, write it by hand, over the value the model holds.
+ *
+ * @example
+ * ```ts
+ * const write: Written<string> = { _tag: 'Written', was: model.name, value: 'Ada' }
+ * ```
+ *
+ * @remarks
+ * From the guide, "Guarantees", "An input stores what is written over the value it holds":
+ *
+ * **An input stores what is written over the value it holds.** A write is stored when its place holds the value it was
+ * written over, and rejected otherwise.
+ * - The two values are compared by `Equal`.
+ * - This holds whatever the value is, and whatever else the state says.
+ * - For the element that shows an input, `drawn` keeps the element as it is while the frame is the element's own past
+ *   or present.
+ * - Once the state has moved on without it, `drawn` gives the element the frame's value.
+ * - What that makes of a screen, and for which elements and renderers, is in "Inputs the user types into".
  */
-export type Written<A> = Readonly<{ _tag: 'Written'; was: A; value: A }>
+export type Written<A> = Readonly<{
+  _tag: 'Written'
+  /** The value the input showed when the user wrote over it. */
+  was: A
+  /** The value written. */
+  value: A
+}>
 
 /**
  * The one rule of an input: what was written over the value the place holds, by `Equal`, is stored, whatever it is and
@@ -32,10 +54,14 @@ export const written = <A>(message: Written<A>) => (held: A): Transition<A> =>
 const Unseen = Symbol('@fgaudo/effect-tea/Shown/unseen')
 
 /**
- * What an element on screen holds of an input: the `value` it shows, which a bridge reads, and the writes it sent that
- * no frame has seen yet, which only `typed` and `drawn` make and read.
+ * What the element of an input holds: the value it shows, and the writes it sent that no frame has seen yet (see
+ * {@link Frame}'s `seen`).
+ *
+ * A bridge keeps one for each element on screen. Only `drawn` and `typed` make one: the bridge reads only
+ * `value`.
  */
 export type Shown<A> = Readonly<{
+  /** The value the element shows. */
   value: A
   [Unseen]: ReadonlyArray<Readonly<{ sent: number; was: A }>>
 }>
@@ -43,10 +69,18 @@ export type Shown<A> = Readonly<{
 const shownOf = <A>(value: A): Shown<A> => ({ value, [Unseen]: [] })
 
 /**
- * The element after the user gave it `value`: `write`, which the bridge sends through the input's dispatch, written
- * over what the element showed, and `sent`, which takes the number that dispatch returned and gives the element as it
- * now is. The write and what the element records of it are made from the one value, so they cannot differ; a bridge
- * calls `sent` once, with the number of that write, or `drawn` may replace what the user typed.
+ * What a bridge sends when the user gives an element a new value, and what the element holds once it is sent.
+ *
+ * @param held - What the element holds now.
+ * @param value - The value the user gave it.
+ * @returns `write`, to send through the input's dispatch, and `sent`. Call `sent` once, with the number
+ * `dispatch(write)` returned: it gives what the element holds from then on, which `drawn` then settles.
+ *
+ * @example
+ * ```ts
+ * const { write, sent } = typed(held, element.value)
+ * held = sent(Effect.runSync(inputDispatch(write)))
+ * ```
  */
 export const typed = <A>(
   held: Shown<A>,
@@ -57,15 +91,45 @@ export const typed = <A>(
 })
 
 /**
- * What a frame makes of an element, `held`, or of one just made, `undefined`: `value` is the input's in the frame, and
- * `seen` the frame's own. `shown` is what the element then holds, and `taken` whether it takes the frame's value, which
- * the bridge then writes into it, `shown.value`. There are three cases:
- * - a new element: it shows the frame's very `value`, and is always taken;
- * - the element's own past or present, when the frame holds, by `Equal`, what the element showed before its first write
- *   the frame has not seen, or what it shows when the frame has seen them all: the element stays as it is, showing the
- *   very value it held, and is not taken; only the writes the frame has seen are forgotten;
- * - a state that has moved on without the element, in any other case: the element's writes the frame has not seen will
- *   be rejected, and it shows the frame's very `value`, taken unless it is the very value the element showed.
+ * What the element of an input holds after a frame, and whether the bridge must write the frame's value into it.
+ *
+ * @param held - What the element holds, or `undefined` for an element just made.
+ * @param value - The input's value in the frame.
+ * @param seen - The frame's `seen`.
+ * @returns `shown`, what the element holds from then on, and `taken`: when it is true, the bridge writes `shown.value`
+ * into the element.
+ *
+ * @example
+ * ```ts
+ * // `value`: what the view drew for the input in this frame
+ * const { shown, taken } = drawn(held, value, frame.seen)
+ * if (taken) element.value = shown.value
+ * held = shown
+ * ```
+ *
+ * @remarks
+ * From the guide, "Inputs the user types into", "Settling an element":
+ *
+ * After each frame, a bridge settles the element of each input with `drawn(held, value, seen)`. It is given what the
+ * element holds, `held`, or `undefined` for an element just made. `value` is the input's value in the frame, and `seen`
+ * the frame's own. It gives what the element then holds, `shown`, and whether the element takes the frame's value,
+ * `taken`. When it is taken, the bridge writes `shown.value` into the element.
+ *
+ * There are three cases:
+ *
+ * - **A new element** shows the frame's very `value`. It is always taken.
+ * - **The element's own past or present.** The frame holds, by `Equal`:
+ *   - when the frame has not seen all the element's writes, what the element showed before the first of them;
+ *   - when it has seen them all, what the element shows.
+ *
+ *   The element stays as it is, showing the very value it held, and is not taken. Only the writes the frame has seen
+ *   are forgotten.
+ * - **A state that has moved on without the element**, in any other case. The element forgets all its writes. Those the
+ *   frame has not seen are rejected, unless the input's place holds again the value they were written over (see "two
+ *   limits"). The element shows the frame's very `value`. It is taken, unless it is the very value the element showed.
+ *
+ * `drawn` tells the writes a frame has seen by the numbers `sent` was given. So a bridge calls the `sent` of `typed`
+ * once, with the number its dispatch returned for that write. Otherwise `drawn` may replace what the user typed.
  */
 export const drawn = <A>(
   held: Shown<A> | undefined,

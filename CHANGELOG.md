@@ -30,6 +30,13 @@ version, and everything else, features included, the patch version.
   Elm architecture is under "Why", and effect-tea-persistent under "Related".
 - Every page of the guide is reworded for readers, with the same promises: the common case first ("In short", the
   rules), the exact conditions last ("Precisely"); "Guarantees" keeps its titles and its two lists.
+- The doc comments of `run`, `Frame`, `Written`, `Shown`, `typed` and `drawn` say what each does in short, with a
+  comment per field and an example, and quote under "Remarks", word for word, what the guide of the same version
+  promises of it. What the comment of `drawn` said of an element is now the guide's, in "Inputs the user types into"
+  ("Settling an element"), and that a frame's `dispatch` is the very same function in every frame in "Running".
+- The guide no longer says that the writes a frame has not seen are always rejected, once the state has moved on
+  without the element ("Writing a bridge", and the comment of `drawn` before): one is stored when the input's place
+  holds again the value it was written over, as "Two limits" said already.
 - **Breaking**: a `Dispatch` returns `Effect<number>`, the number of its message among those dispatched, and a
   `Frame` has `seen`, how many of them the run had taken when its state was made ("View", "Guarantees").
   Upgrade: a dispatch written by hand, `(message) => Effect.sync(() => void sent.push(message))`, returns a number,
