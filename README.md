@@ -2,14 +2,12 @@
 
 The Elm architecture on [Effect](https://effect.website) v4, for any renderer.
 
-[Documentation](https://fgaudo.github.io/effect-tea/): the guide, the API in full and the examples running in
-the browser.
+It is for an application written with Effect whose interface is one pure program: its state, the messages that
+change it and the effects it asks for are data, so most of its tests need no runtime.
 
-New to it? The [tutorial](https://fgaudo.github.io/effect-tea/documents/Tutorial.html) builds an application step
-by step.
-
-[effect-tea-persistent](https://fgaudo.github.io/effect-tea-persistent/) brings the same architecture to long-lived
-entities on a server, whose state a database keeps. It is experimental, and not published yet.
+[Try an example](https://fgaudo.github.io/effect-tea/examples/timer/) in the browser, build it step by step in the
+[tutorial](https://fgaudo.github.io/effect-tea/documents/Tutorial.html), or read the
+[documentation](https://fgaudo.github.io/effect-tea/): the guide, the API in full and every example running.
 
 You keep one **state**. A pure **`update`** changes it in response to messages. Effects are described as
 data (**commands**) or listened to (**subscriptions**), never run inside `update`. The view draws a
@@ -27,7 +25,9 @@ flowchart LR
   runCommand -->|at most one message| update
 ```
 
-What it adds to plain Elm:
+## Why
+
+The Elm architecture keeps the state in one place and changes it only through messages. This library adds:
 
 - **`update` says what does not apply.** It may **reject** a message that makes no sense in the current state,
   and the run ignores it. So a save that moves the form to "saving" runs once, however fast the user taps.
@@ -147,6 +147,11 @@ with `bun run build`, then `bun examples/<name>/index.html`.
 | [`pages`](examples/pages)                 | a clock and an About page    | `composition`, optics, `dispatchTo`, events, `subscribed`, a page started from flags; `simulate`                                                             | [live](https://fgaudo.github.io/effect-tea/examples/pages/)         |
 | [`list`](examples/list)                   | stopwatches by id            | `each`, a subscription per running child, `forEach`; a test with a `TestClock`                                                                               | [live](https://fgaudo.github.io/effect-tea/examples/list/)          |
 | [`timer`](examples/timer)                 | the tutorial's application   | timers by id, each ticking only while it runs, and a bell as a command; `rehearse` with `hear`                                                               | [live](https://fgaudo.github.io/effect-tea/examples/timer/)         |
+
+## Related
+
+[effect-tea-persistent](https://fgaudo.github.io/effect-tea-persistent/) brings the same architecture to long-lived
+entities on a server, whose state a database keeps. It is experimental, and not published yet.
 
 ## Development
 
