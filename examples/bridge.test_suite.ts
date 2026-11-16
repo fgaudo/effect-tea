@@ -5,7 +5,8 @@
 // drawn while they type, with its focus, caret and selection, a frame that has not seen a key leaves the element alone,
 // and a value the program puts in an input's place is shown by the same element, through a subtree the renderer skips
 // too, as a save that completes within one screen refresh empties the input under a late key, and a reset of its form
-// is heard as a key, though no input event tells of it. An element the renderer
+// is heard as a key, though no input event tells of it, whether a script or the user begins it, and in a root inside a
+// shadow tree too. A value the element would sanitize is shown as the program holds it. An element the renderer
 // draws in turn as an input and as a plain field shows the input only while it is one. A slider the program draws
 // listens to a drag. A source that belongs to the control writes through the element on screen. A `.test_suite.ts`, a
 // file that serves the tests, not a `*.test.ts`: `bun test` does not run it by itself, and it runs in the file of each
@@ -339,6 +340,33 @@ export const draftTests = <Node>(bridge: Bridge<Node>) =>
       expect(state()).toEqual([''])
     })
 
+    // A reset the user begins, with a click on a reset button, dispatches the `reset` event from the browser itself:
+    // the stack is empty after each listener, so its microtasks run there, before the form resets its elements (HTML,
+    // "Clean up after running a callback", then "Resetting a form"). Seen in Chromium 156: a microtask queued in a
+    // capture listener of the document reads the value before the reset, and a `setTimeout` reads it after. happy-dom
+    // dispatches every event from a script, so the order is made here: the event, its microtasks, the reset of the
+    // element, which sends no input event, and then the next task.
+    test.failing(
+      'a reset the user begins, whose microtasks run before the form resets, is stored as the user emptying the element',
+      async () => {
+        mountDesk()
+        settle()
+        const typedInto = element<HTMLInputElement>('input')
+        type(typedInto, 'Ada')
+        paint()
+        expect(state()).toEqual(['Ada'])
+        typedInto.form?.dispatchEvent(new Event('reset', { bubbles: true, cancelable: true }))
+        await Promise.resolve()
+        setValue(typedInto, typedInto.defaultValue)
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        paint()
+        expect(typedInto.value).toBe('')
+        button('Send').click()
+        paint()
+        expect(state()).toEqual([''])
+      },
+    )
+
     test(
       `a kept draft brought back as the very same state, which ${bridge.skips} skips, is shown by the element`,
       () => {
@@ -506,6 +534,37 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
 
   draftTests(bridge)
 
+  // A root in a shadow tree, as a web component draws into: a form's `reset` event is not composed (HTML, "Resetting a
+  // form": bubbles and cancelable, not composed), so it never leaves the shadow root for the document. Seen in Chromium
+  // 156 too: a capture listener of the shadow root hears it, one of the document does not.
+  describe('a root in a shadow tree', () => {
+    test.failing('a reset of an input\'s form is stored as the user emptying the element', async () => {
+      document.body.innerHTML = '<div id="host"></div>'
+      const shadow = element('#host').attachShadow({ mode: 'open' })
+      shadow.innerHTML = '<div id="app"></div>'
+      const root = shadow.getElementById('app') as HTMLElement
+      running = Effect.runFork(run(desk, bridge.renderInto(root, bridge.views.desk)), { scheduler })
+      settle()
+      const inside = <E extends Element>(selector: string) => {
+        const found = shadow.querySelector<E>(selector)
+        if (found === null) throw new Error(`Nothing drawn matches ${selector}`)
+        return found
+      }
+      const send = [...shadow.querySelectorAll('button')].find((candidate) => candidate.textContent === 'Send')
+      const typedInto = inside<HTMLInputElement>('input')
+      type(typedInto, 'Ada')
+      paint()
+      expect(inside('output').textContent).toBe('Ada')
+      typedInto.form?.reset()
+      await Promise.resolve()
+      paint()
+      expect(typedInto.value).toBe('')
+      send?.click()
+      paint()
+      expect([...shadow.querySelectorAll('output, li')].map((found) => found.textContent)).toEqual([''])
+    })
+  })
+
   describe('the sliders of the volume', () => {
     test(
       'a press on the one the program draws starts a drag, whose moves set it until the pointer is released',
@@ -585,6 +644,19 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       type(typed, 'SCANs')
       paint()
       expect(app.note()).toBe('SCANs')
+    })
+
+    // A text field strips the line breaks of a value written into it (HTML, the value sanitization algorithm of
+    // `type=text`), with no event: the element then shows a value the bridge does not hold as shown. Seen in Chromium
+    // 156: `'a\nb'` reads back as `'ab'`.
+    test.failing('a value with a line break the program puts in an input\'s place is shown by the element', () => {
+      const app = mountNote()
+      settle()
+      const typed = element<HTMLInputElement>('input')
+      app.send({ _tag: 'Note', message: { _tag: 'Written', was: app.note(), value: 'Ada\nLovelace' } })
+      paint()
+      expect(app.note()).toBe('Ada\nLovelace')
+      expect(typed.value).toBe(app.note())
     })
 
     describe('a source that belongs to the control, as a dictation that streams partial results', () => {

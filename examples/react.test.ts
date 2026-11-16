@@ -1,8 +1,9 @@
 // React's bridge in a DOM (happy-dom), with screen refreshes that happen only when a test paints: the tests every
 // bridge passes (`bridge.test_suite.ts`), drawn with React, its draft memoized with `memo`, and those of React alone:
 // the run ends with its root and with a component that throws, the draft's input is settled in StrictMode too, an
-// input drawn through a portal is settled by the frames of its run, and a reset React makes of a form is heard; then
-// the premises of the bridge on React (`docs/premises.md`).
+// input drawn through a portal is settled by the frames of its run, a reset React makes of a form is heard, and an
+// input Suspense shows again outside a frame shows the program's value; then the premises of the bridge on React
+// (`docs/premises.md`).
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import {
@@ -27,7 +28,9 @@ import {
   memo,
   type ReactNode,
   StrictMode,
+  Suspense,
   startTransition,
+  use,
   useEffect,
   useRef,
 } from 'react'
@@ -256,6 +259,59 @@ describe('a form React resets itself', () => {
     paint()
     expect(typedInto.value).toBe('')
     expect(state()).toEqual([''])
+  })
+})
+
+// Suspense hides content that suspends again in a frame, and shows it once its promise settles, in a commit of
+// React's own, outside any frame: react.dev ("Suspense", caveats) says only that it cleans up the layout effects of the
+// hidden content, and fires them again as it shows it.
+describe('an input Suspense hides as a frame suspends, and shows again outside a frame', () => {
+  test.failing('shows the value the program put in its place while it was hidden', async () => {
+    let pending: Promise<void> | undefined
+    let release = () => {}
+    const Gate = (): ReactNode => {
+      if (pending !== undefined) use(pending)
+      return null
+    }
+    let sendTo: Dispatch<MessageOf<typeof note>> | undefined
+    const view: View<ModelOf<typeof note>, MessageOf<typeof note>> = (model, dispatch) => {
+      sendTo = dispatch
+      return createElement(
+        'main',
+        null,
+        createElement(
+          Suspense,
+          { fallback: 'Loading' },
+          createElement(Gate),
+          createElement(bridge.Shows, { value: model, dispatch: dispatchTo(dispatch, 'Note') }),
+        ),
+        createElement('output', null, model),
+      )
+    }
+    mount(react.renderInto, view, (render) => run(note, render))
+    settle()
+    const typedInto = element<HTMLInputElement>('input')
+    type(typedInto, 'Ada')
+    paint()
+    expect(state()).toEqual(['Ada'])
+    pending = new Promise((resolve) => {
+      release = () => {
+        pending = undefined
+        resolve()
+      }
+    })
+    if (sendTo !== undefined) Effect.runSync(sendTo('Cleared'))
+    paint()
+    expect(state()).toEqual([''])
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+    try {
+      await act(async () => release())
+    } finally {
+      Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: false })
+    }
+    paint()
+    expect(element('input')).toBe(typedInto)
+    expect(typedInto.value).toBe('')
   })
 })
 
