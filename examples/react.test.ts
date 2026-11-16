@@ -209,14 +209,15 @@ describe('React, as the bridge rests on it', () => {
   test('the ref callbacks of a commit have run when flushSync returns', () => {
     document.body.innerHTML = '<div id="app"></div>'
     const root = createRoot(element('#app'))
-    const attached: Array<string> = []
-    // A ref that returns its cleanup is never called with null, as the bridge's are not.
-    const ref = (node: HTMLInputElement) => {
-      attached.push(node.tagName)
-      return () => {}
+    const attached: Array<string | null> = []
+    // As the bridge's: a new ref in every render, which returns no cleanup, so React calls the old one with null.
+    const ref = (frame: string) => (node: HTMLInputElement | null) => {
+      attached.push(node === null ? null : `${frame} ${node.tagName}`)
     }
-    flushSync(() => root.render(createElement('input', { ref })))
-    expect(attached).toEqual(['INPUT'])
+    flushSync(() => root.render(createElement('input', { ref: ref('first') })))
+    expect(attached).toEqual(['first INPUT'])
+    flushSync(() => root.render(createElement('input', { ref: ref('second') })))
+    expect(attached).toEqual(['first INPUT', null, 'second INPUT'])
     root.unmount()
   })
 

@@ -256,10 +256,11 @@ testing tools.
   the ledger made in the thunk of an offer to `rehearse`'s loop (`offered`, of `submit` in `loop.ts`), held by the test
   of the transition (`ledger.test.ts`); a fiber and how it stops as one primitive or one region, above; what follows
   an effect of the program outside `restore` (a command's answer, offered to the loop). The last two are held by
-  Effect's documentation, and the region of the loop by the tests of a premise Effect does not document
-  (`premises.md`). The checks beside them (`ended` in `loop.ts`, the register, a call that left) each
-  have a mutation with a deterministic killer, and the tests of `rehearse.test.ts` under the scheduler of the tests
-  stay as alarms of the search, killing none.
+  Effect's documentation and by the tests of the premises it does not document (`premises.md`): a fiber forked where
+  nothing interrupts is interruptible all the same, the region of the loop's too, `FiberSet.run` and `FiberMap.run`
+  fork and add in one step, and the use of `Effect.acquireUseRelease` can be interrupted. The checks beside them
+  (`ended` in `loop.ts`, the register, a call that left) each have a mutation with a deterministic killer, and the
+  tests of `rehearse.test.ts` under the scheduler of the tests stay as alarms of the search, killing none.
 - **The testing tools behave like the engine** where it is deterministic, with the test as the scheduler
   ("Testing" in the README says what each one runs, fails on and ignores); `rehearse` fails on a command left
   pending, since its answer would arrive, and `drive` acts only as a user can, through `run` and the run's

@@ -179,7 +179,7 @@ test('snabbdom reuses an <input> with no key in the same place', () => {
   expect(drawn.placeholder).toBe('second')
 })
 
-// The bridge's other premise, on snabbdom alone: its README says that `update` runs as an element is updated, and
+// A second premise of the bridge, on snabbdom alone: its README says that `update` runs as an element is updated, and
 // nothing of the vnodes it skips.
 test('snabbdom calls a module\'s update hook on every element h draws again, one h is given no data for included', () => {
   document.body.innerHTML = '<div id="app"></div>'

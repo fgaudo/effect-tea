@@ -233,8 +233,8 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   the scenario has released what it holds" (`drive.test.ts`) rests on. That it ends with the first of its effects to
   end, and interrupts the other, is documented; that it waits for it is not. Its test: "Effect.raceFirst waits for the
   effect it interrupts to end, its release included", which fails with a race that interrupts without waiting. The
-  races of `rehearse` (`orDead`) rest on the documented part alone: what they interrupt waits on a `Deferred` or joins
-  a fiber, and holds nothing to release.
+  races of `rehearse` (`orDead`) rest on the documented part alone: what they interrupt waits on a `Deferred` or
+  awaits a fiber, and holds nothing to release, the awaited fiber left running (below, of `Fiber.await`).
 - **`Effect.raceFirst` runs each side interruptible, where nothing interrupts too**, which is how a race of the run
   (what the engine dies of against the end of the renderer, in `run.ts`), of `drive` (the scenario against the run) and
   of `rehearse` (`orDead`), called where nothing interrupts, ends once one side has: "called inside an uninterruptible
@@ -394,5 +394,11 @@ releases what a fiber holds, and leaves a test at each place the form can reach.
 
 A lead no test can reach yet is listed here, with what would decide it.
 
-None today. The last, the loop forked and not yet known to `stop` (the sixth review, November 2026), went once
-the fork and its assignment were made one region nothing interrupts (`make` in `engine.ts`).
+- **An interruption never reaches the fiber that makes the engine between the fork of the loop and its assignment**,
+  which is how `stop` knows of every loop that runs: interrupted between them, that fiber would close its scope with a
+  loop the end does not stop, nor wait for. It comes from the sixth review (November 2026). The fork and its
+  assignment are one region nothing interrupts (`make` in `engine.ts`), so nothing rests on it. No deterministic test
+  reaches that point: an interruption from outside lands there only under the scheduler of the tests, which no test
+  of a check runs under (`invariants.md`, "one thunk"). It would be decided by a test that interrupts the fiber that
+  makes the engine right after `FiberSet.run` returns, without that scheduler. With it, the region would go and the
+  premise would join the list.
