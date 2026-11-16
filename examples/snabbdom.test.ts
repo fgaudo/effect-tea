@@ -178,3 +178,15 @@ test('snabbdom reuses an <input> with no key in the same place', () => {
   expect(element('input')).toBe(drawn)
   expect(drawn.placeholder).toBe('second')
 })
+
+// The bridge's other premise, on snabbdom alone: its README says that `update` runs as an element is updated, and
+// nothing of the vnodes it skips.
+test('snabbdom calls a module\'s update hook on every element h draws again, one h is given no data for included', () => {
+  document.body.innerHTML = '<div id="app"></div>'
+  const updated: Array<unknown> = []
+  const patch = init([propsModule, { update: (_, vnode) => void updated.push(vnode.elm) }])
+  const first = patch(element('#app'), h('main', [h('input', { props: { placeholder: 'first' } })]))
+  const drawn = element<HTMLInputElement>('input')
+  patch(first, h('main', [h('input')]))
+  expect(updated).toContain(drawn)
+})

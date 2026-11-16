@@ -20,6 +20,7 @@ import * as Hash from 'effect/Hash'
 import * as HashMap from 'effect/HashMap'
 import * as Logger from 'effect/Logger'
 import * as Opt from 'effect/Option'
+import * as Pull from 'effect/Pull'
 import * as Queue from 'effect/Queue'
 import * as Scheduler from 'effect/Scheduler'
 import * as Scope from 'effect/Scope'
@@ -171,6 +172,44 @@ test('a fiber forked with startImmediately runs on the stack of the fiber that f
     return steps
   }))
   expect(steps).toEqual(['before the wait', 'forked', 'after the wait'])
+})
+
+describe('a fiber forked with FiberSet.run or FiberMap.run runs on the stack of the fiber that runs it until it first waits', () => {
+  /**
+   * Forks, with `fork`, a call wrapped as the engine wraps `runCommand` and a subscription (a scope, a cleanup, an
+   * interruptible region), which then waits, and says what had happened when `run` returned and once the wait is over.
+   */
+  const order = <C>(
+    make: Effect.Effect<C, never, Scope.Scope>,
+    fork: (kept: C, self: Effect.Effect<void>) => Effect.Effect<Fiber.Fiber<void>>,
+  ) =>
+    Effect.runPromise(Effect.scoped(Effect.gen(function*() {
+      const container = yield* make
+      const steps: Array<string> = []
+      const gate = yield* Deferred.make<void>()
+      const call = Effect.suspend(() => Effect.sync(() => steps.push('called'))).pipe(
+        Effect.andThen(Deferred.await(gate)),
+        Effect.andThen(Effect.sync(() => steps.push('after the wait'))),
+        Effect.scoped,
+        Effect.onExit(() => Effect.void),
+        Effect.interruptible,
+      )
+      const fiber = yield* fork(container, call)
+      steps.push('returned')
+      yield* Deferred.succeed(gate, undefined)
+      yield* Fiber.join(fiber)
+      return steps
+    })))
+
+  test('FiberSet.run', async () => {
+    expect(await order(FiberSet.make<void>(), (set, self) => FiberSet.run(set, self)))
+      .toEqual(['called', 'returned', 'after the wait'])
+  })
+
+  test('FiberMap.run', async () => {
+    expect(await order(FiberMap.make<string, void>(), (map, self) => FiberMap.run(map, 'k', self)))
+      .toEqual(['called', 'returned', 'after the wait'])
+  })
 })
 
 describe('what the cleanup of Effect.onExit fails with comes after the cause of the effect', () => {
@@ -436,6 +475,35 @@ describe('while a release the channel wraps around itself runs as its pull fails
     }))
     expect(log).toEqual(['released', 'pull died'])
   })
+})
+
+test('a channel that Channel.map and Channel.mapDone make runs afresh each time it is run, one run after another or at once', async () => {
+  let runs = 0
+  const channel = Channel.fromIterator(() =>
+    (function*() {
+      const run = ++runs
+      yield run
+      yield run
+      return run
+    })()
+  ).pipe(Channel.map((run) => `message ${run}`), Channel.mapDone((run) => `end ${run}`))
+  // Each run as the engine runs a subscription (`runSubscription` in `shell.ts`).
+  const drained = Effect.scoped(Effect.gen(function*() {
+    const pull = yield* Channel.toPull(channel)
+    const messages: Array<string> = []
+    const end = yield* Effect.forever(Effect.map(pull, (message) => void messages.push(message))).pipe(
+      Pull.catchDone(Effect.succeed),
+    )
+    return [...messages, end]
+  }))
+  const once = await Effect.runPromise(drained)
+  const again = await Effect.runPromise(drained)
+  const atOnce = await Effect.runPromise(Effect.all([drained, drained], { concurrency: 'unbounded' }))
+  expect([once, again]).toEqual([['message 1', 'message 1', 'end 1'], ['message 2', 'message 2', 'end 2']])
+  expect(atOnce.map((run) => run[0]).sort()).toEqual(['message 3', 'message 4'])
+  expect(atOnce.every(([first, second, end]) => first === second && end === first?.replace('message', 'end'))).toBe(
+    true,
+  )
 })
 
 test('Effect.raceFirst waits for the effect it interrupts to end, its release included', async () => {

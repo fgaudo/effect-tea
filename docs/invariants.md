@@ -230,7 +230,8 @@ testing tools.
   check whose mutation no deterministic test kills is moved until one does, or goes. Three rules keep a check where such
   a test reaches it (`docs/single-owner.md`):
   - **A function of the program is called where the call is decided**, never as the first step of a fiber forked for
-    it, which starts when the scheduler says, unless the fork is documented to start at once (`FiberSet.run`).
+    it, which starts when the scheduler says, unless the fork runs it at once on its own stack (`FiberSet.run`, a
+    premise of `docs/premises.md`).
   - **One check for each call.** No earlier check of the same register stands in front of it in another thunk: it
     would answer in its place in every order a deterministic test reaches.
   - **A fiber and how it stops are one primitive**, `Effect.acquireRelease(fork, stop)`, with nothing in between for an

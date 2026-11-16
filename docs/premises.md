@@ -50,6 +50,19 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   `rehearse.test.ts`, with `Effect.forkDetach` too. Not documented: the option is in the types of both, not in their
   JSDoc. Its test: "a fiber forked with startImmediately runs on the stack of the
   fiber that forks it until it first waits", which fails without the option.
+- **A fiber forked with `FiberSet.run` or `FiberMap.run` runs on the stack of the fiber that runs it until it first
+  waits**, through the scope, the cleanup and the interruptible region the engine wraps around a command and a
+  subscription, so that `run` returns only once `runCommand` has been called, or the subscription's channel made, where
+  the step decided it, before the loop takes the next message: "a command whose runCommand begins the end of the engine
+  as it is called is interrupted by that end", "a subscription that begins the end of the engine as it starts is
+  interrupted by that end" (`engine.test.ts`), "a log that dies as the run starts comes before what a subscription dies
+  of as the end releases it" (`run.test.ts`), "the run gives what a command that dies releases its defect, in a
+  command", "the run gives what a command that interrupts itself releases a defect, in a command"
+  (`contract.test.ts`) and "in a command it starts" (`drive.test.ts`) rest on it, and fail with both forks made with
+  `startImmediately: false`. Their JSDoc says that the effect starts immediately; that it runs on the stack of the fiber
+  that runs it, with no yield until it first waits, is read in the source. Its tests: "a fiber forked with FiberSet.run
+  or FiberMap.run runs on the stack of the fiber that runs it until it first waits", of each, which fail with
+  `startImmediately: false`.
 - **What the cleanup of `Effect.onExit` fails with comes after the cause of the effect**, which is how each fiber of the
   engine records what it dies of, interrupted or not. Interrupted: "a defect in what a subscription the run stopped
   releases ends the run", "a subscription stopped as whoever runs the run interrupts it, which dies as it releases, is
@@ -126,8 +139,16 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   shouldYield first at a currentOpCount of 1 in each run of its loop, and higher after it", which fails with a run loop
   that does not reset the count, as three of the tests above do, and "a fiber told to yield schedules its resumption as
   the very next task, which asks nothing at its first step", which fails with a run loop that asks at a resumption's
-  first step. No mutation's killer rests on it: a model of the scheduler gone wrong costs a false alarm, or a missed
-  one, never a test that passes where it should fail.
+  first step. Two more, of where a run of the loop begins, are read in the source, and `yields` rests on them: a fiber
+  whose run ends with children runs its loop again in the same task, from a `currentOpCount` of 1, and interrupts them
+  there, which `ended` reads as the run of the fiber let run last; and a fiber that begins its run on the stack of
+  another, started or resumed inline, gives it back as it yields, in the same task, which is why `nested` asks it of
+  preemption with no task ready. Their tests, in the same file: "a fiber whose run ends with children runs its loop
+  again in the same task, from a currentOpCount of 1, and interrupts them there", which fails with the child forked as
+  a daemon, and "a fiber that begins its run on the stack of another, started or resumed inline, gives it back as it
+  yields, in the same task", which fails with a fork without `startImmediately`, and with the `Deferred` completed by a
+  fiber of its own. No mutation's killer rests on it: a model of the scheduler gone wrong costs a false alarm, or a
+  missed one, never a test that passes where it should fail.
 - **A `Stream.map` after `Stream.buffer` runs only for the elements the consumer pulls, in the consumer's fiber**,
   so a frame's model is made for the frames the renderer pulls, never for a state the sliding buffer dropped, and a
   defect of `makeModel` is the renderer's, which "a model is made only for the frames the renderer pulls, never for a
@@ -167,6 +188,14 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   wraps around itself runs as its pull fails, before the failure leaves it", of `Channel.onExit`,
   `Channel.acquireUseRelease` and `Channel.ensuring`, which fails with a channel that adds its release to the scope it
   is given.
+- **A channel that `Channel.map` and `Channel.mapDone` make runs afresh each time it is run**, one run after another
+  or several at once, which is how a child's lifted subscription, kept by the child's state object for every run of
+  its parent (`liftedAt` in `compose.ts`; `invariants.md`, "A child's model, and its lifted subscriptions, are kept by
+  its state object"), starts anew when its key comes back under the same state, and in each of two runs that share
+  the state. The JSDoc of `Channel` and of both says what a channel reads, writes and ends with, not whether one value
+  can run more than once; that each run calls the transform again is read in the source (`fromTransform`). Its test:
+  "a channel that Channel.map and Channel.mapDone make runs afresh each time it is run, one run after another or at
+  once", which fails with a channel whose iterator is made once for all its runs.
 - **`Effect.raceFirst` waits for the effect it interrupts to end, its release included**, which is how `drive`
   returns, once the run has died, only after the scenario it interrupts has released what it holds, which "returns once
   the scenario has released what it holds" (`drive.test.ts`) rests on. That it ends with the first of its effects to
@@ -241,9 +270,16 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   a React that writes the value again as it draws the input.
 - **snabbdom reuses an `<input>` with no key in the same place**, which is how an input drawn with `shows`, which needs
   no key, stays the same element, with its focus, caret and selection, while the program changes what it shows: 13 of
-  the 22 tests of `snabbdom.test.ts` fail with a key new for each frame. snabbdom's README describes the reuse of keyed
+  the 23 tests of `snabbdom.test.ts` fail with a key new for each frame. snabbdom's README describes the reuse of keyed
   elements only. Its test, in `snabbdom.test.ts`: "snabbdom reuses an <input> with no key in the same place", which
   fails with a key of its own for the second input.
+- **snabbdom calls a module's `update` hook on every element `h` draws again, one `h` is given no data for
+  included**, which is how the snabbdom bridge's module forgets an `<input>` that a frame draws without `shows`
+  (`showsModule` in `snabbdom.ts`), so that it is not settled again with a value it no longer shows. snabbdom skips the
+  `update` hooks of a vnode whose `data` is `undefined`, and `h` gives every vnode data of its own: both are read in
+  its source, and its README says only that `update` runs as an element is updated. Its test, in `snabbdom.test.ts`:
+  "snabbdom calls a module's update hook on every element h draws again, one h is given no data for included", which
+  fails with a vnode made with no data (`vnode`).
 
 A premise about what code does when it runs is checked before the change that rests on it is written, and never
 only reasoned:

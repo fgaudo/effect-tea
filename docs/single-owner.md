@@ -43,8 +43,8 @@ check out is invisible to a deterministic test for one of two reasons, and neith
   when a death falls between the two.
 
 The engine's check before `runCommand` is neither, which is why two tests with a gate kill its mutation: it is the
-first step of a fiber, but `FiberSet.run` starts that fiber at once, on the loop's stack, as its JSDoc says ("By
-default, the effect starts immediately").
+first step of a fiber, but `FiberSet.run` starts that fiber at once, on the loop's stack: its JSDoc says that it starts
+immediately, and `docs/premises.md` lists the rest.
 
 The fifth test, of the renderer's fork, has the form of the third rule. The fourth, of `runAll`, kills a mutation
 that takes no check out: it writes a second read of `pending` apart from the take, a form the ledger already rules

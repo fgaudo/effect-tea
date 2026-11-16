@@ -13,6 +13,7 @@
  * so needed nothing of the platform's, no timer and no microtask, or it would be left waiting.
  */
 import { expect, test } from 'bun:test'
+import * as Arr from 'effect/Array'
 import * as Clock from 'effect/Clock'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
@@ -732,4 +733,77 @@ test('a fiber told to yield schedules its resumption as the very next task, whic
   expect(log.slice(yields + 1, yields + 3)).toEqual(['schedules', 'runs'])
   const [resumed] = countsOf(log.slice(yields + 3), 0)
   expect(resumed).toBeGreaterThan(2)
+})
+
+/** The log split into its tasks: what the first run did, then what each task the log runs did. */
+const tasksOf = (log: ReadonlyArray<string>) =>
+  log.reduce<Array<Array<string>>>((tasks, entry) => {
+    if (entry === 'runs') tasks.push([])
+    else tasks[tasks.length - 1]?.push(entry)
+    return tasks
+  }, [[]])
+
+test('a fiber whose run ends with children runs its loop again in the same task, from a currentOpCount of 1, and interrupts them there', () => {
+  // The parent, fiber 1, forks a child, fiber 2, which waits for its task, and ends.
+  const { exit, log } = recorded(
+    Effect.gen(function*() {
+      const parent = yield* Effect.forkChild(Effect.gen(function*() {
+        yield* Effect.forkChild(Effect.never)
+        yield* Effect.sync(() => {})
+      }))
+      yield* Fiber.await(parent)
+    }),
+    () => false,
+  )
+  expect(exit).toEqual(Exit.void)
+  const ended = tasksOf(log).find((task) => countsOf(task, 1).filter((count) => count === 1).length === 2)
+  expect(ended).toBeDefined()
+  const again = ended?.lastIndexOf('asks 1 at 1') ?? -1
+  expect(ended?.indexOf('asks 2 at 1', again)).toBeGreaterThan(again)
+})
+
+test('a fiber that begins its run on the stack of another, started or resumed inline, gives it back as it yields, in the same task', () => {
+  // The root, fiber 0, starts or resumes fiber 1 inline, which yields at the second step of that run of its loop: the
+  // root goes on before the next task runs.
+  const yieldsOnce = (run: number) => {
+    let runs = 0
+    let yielded = false
+    return (fiber: number, count: number) => {
+      if (fiber === 1 && count === 1) runs++
+      if (yielded || fiber !== 1 || count !== 2 || runs !== run) return false
+      yielded = true
+      return true
+    }
+  }
+  const steps = Effect.forEach(Arr.range(1, 4), () => Effect.sync(() => {}), { discard: true })
+  const givesBack = (log: ReadonlyArray<string>) => {
+    const task = tasksOf(log).find((task) => task.includes('asks 1 at 2, yields')) ?? []
+    return task.slice(task.indexOf('asks 1 at 2, yields')).some((entry) => entry.startsWith('asks 0 at'))
+  }
+  const started = recorded(
+    Effect.gen(function*() {
+      const child = yield* Effect.forkChild(steps, { startImmediately: true })
+      yield* steps
+      yield* Fiber.await(child)
+    }),
+    yieldsOnce(1),
+  )
+  expect(started.exit).toEqual(Exit.void)
+  expect(givesBack(started.log)).toBe(true)
+  const resumed = recorded(
+    Effect.gen(function*() {
+      const gate = yield* Deferred.make<void>()
+      let waiting = false
+      const child = yield* Effect.forkChild(
+        Effect.sync(() => waiting = true).pipe(Effect.andThen(Deferred.await(gate)), Effect.andThen(steps)),
+      )
+      while (!waiting) yield* Effect.yieldNow
+      yield* Deferred.succeed(gate, undefined)
+      yield* steps
+      yield* Fiber.await(child)
+    }),
+    yieldsOnce(2),
+  )
+  expect(resumed.exit).toEqual(Exit.void)
+  expect(givesBack(resumed.log)).toBe(true)
 })
