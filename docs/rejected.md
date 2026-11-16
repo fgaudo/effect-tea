@@ -136,6 +136,20 @@ answer, and saying so in the proposal.
   a name, and was removed instead (0.8.0), so that `drive` and `rehearse` start as `run` does. Left: under `simulate`,
   an `init` that throws on its flags is the test's own defect, not a `ProgramDefect` in `'init'`. *Reopen if* such a
   defect goes untested in a program with flags.
+- **`hear` typed by what a program's subscriptions send**, in place of reading a write by its shape. Reasoned, 16
+  November 2026, on the item of `ROADMAP.md`, confirmed by a type test: `Rehearsal.hear` refuses
+  `{ _tag, message: Written }` at any depth, so an own message of that shape, holding a `Written` as data, is refused
+  too, though `update` takes it and its subscription may send it ("hear refuses, by its shape, an own message that
+  holds a write as data, …", `rehearse.test.ts`, a known limit). The exact form was a trailing `Heard` parameter of
+  `Shape`, typing `subscriptions` (`Own | ChildHeard<C>` from `composition`, the `message` of a `Program<…>`), taken
+  by `hear` and returned by `hearNext`. It would be invariant in `Rehearsal`, which takes and returns it, so a
+  `Rehearsal<…>` annotated by hand, as tests write it, breaks unless the test names it, with a new `HeardOf`; a
+  `Program<…>` annotation, which gives `message`, loses the rule again; and it serves one method of one tool. The
+  collision of a program's own value with the library's wrapping was accepted already, for `describeByTag` (under
+  "The API"). Workarounds: `hearNext` with a subscription that sends the message, a cast at the call, or another
+  name for the field. Weighed with a second opinion (Fable), the owner deciding. *Reopen if* an application's
+  subscription is found sending such a message, or `Shape` gains a type of what its subscriptions send for another
+  reason.
 
 ## The API
 

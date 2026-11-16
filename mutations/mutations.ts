@@ -1090,22 +1090,22 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'rehearse writes a state once the subscriptions it stops are released',
     file: 'src/testing/rehearse.ts',
-    from: '              return Effect.sync(() => {\n'
-      + '                now = { ...before, ...next, events: [...before.events, ...events] }\n'
-      + '              }).pipe(\n'
-      + '                Effect.andThen(\n'
-      + '                  changed\n'
-      + '                    ? Effect.flatMap(listen(next.state), (release) => Effect.andThen(draw(next.state), release))\n'
-      + '                    : Effect.void,\n'
-      + '                ),\n'
-      + '                Effect.andThen(Effect.sync(() => {\n'
-      + '                  ledger = Ledger.owe(ledger, commands)\n',
-    to: '              return Effect.void.pipe(\n'
-      + '                Effect.andThen(changed ? Effect.flatten(listen(next.state)) : Effect.void),\n'
-      + '                Effect.andThen(changed ? draw(next.state) : Effect.void),\n'
-      + '                Effect.andThen(Effect.sync(() => {\n'
+    from: '                return Effect.sync(() => {\n'
       + '                  now = { ...before, ...next, events: [...before.events, ...events] }\n'
-      + '                  ledger = Ledger.owe(ledger, commands)\n',
+      + '                }).pipe(\n'
+      + '                  Effect.andThen(\n'
+      + '                    changed\n'
+      + '                      ? Effect.flatMap(listen(next.state), (release) => Effect.andThen(draw(next.state), release))\n'
+      + '                      : Effect.void,\n'
+      + '                  ),\n'
+      + '                  Effect.andThen(Effect.sync(() => {\n'
+      + '                    ledger = Ledger.owe(ledger, commands)\n',
+    to: '                return Effect.void.pipe(\n'
+      + '                  Effect.andThen(changed ? Effect.flatten(listen(next.state)) : Effect.void),\n'
+      + '                  Effect.andThen(changed ? draw(next.state) : Effect.void),\n'
+      + '                  Effect.andThen(Effect.sync(() => {\n'
+      + '                    now = { ...before, ...next, events: [...before.events, ...events] }\n'
+      + '                    ledger = Ledger.owe(ledger, commands)\n',
     killedBy: [
       [
         'src/testing/contract.test.ts',
@@ -1150,8 +1150,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'rehearse runs a command after the first defect',
     file: 'src/testing/rehearse.ts',
-    from: '        if (dead()) return deadOr(Effect.never)\n        if (loop.ended()) return Effect.interrupt\n',
-    to: '        if (loop.ended()) return Effect.interrupt\n',
+    from: '          if (dead()) return deadOr(Effect.never)\n          if (loop.ended()) return Effect.interrupt\n',
+    to: '          if (loop.ended()) return Effect.interrupt\n',
     killedBy: [
       ['src/testing/rehearse.test.ts', 'run calls no runCommand once a command has died'],
     ],
@@ -1522,9 +1522,9 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse's hearNext lets no call leave as it ends",
     file: 'src/testing/rehearse.ts',
-    from: '      Effect.ensuring(Effect.sync(() => {\n'
-      + '        ledger = Ledger.leave(ledger, call)\n'
-      + '      })),\n',
+    from: '        Effect.ensuring(Effect.sync(() => {\n'
+      + '          ledger = Ledger.leave(ledger, call)\n'
+      + '        })),\n',
     to: '',
     killedBy: [
       ['src/testing/rehearse.test.ts', 'a call interrupted while the subscription waits leaves its message to the next one'],
@@ -2006,7 +2006,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a defect of a key's Equal in rehearse's hear has no site",
     file: 'src/testing/rehearse.ts',
-    from: "Effect.sync(() => HashMap.get(active.keys, key)).pipe(\n      diesIn('subscriptions'),\n",
+    from: "Effect.sync(() => HashMap.get(active.keys, key)).pipe(\n        diesIn('subscriptions'),\n",
     to: 'Effect.sync(() => HashMap.get(active.keys, key)).pipe(\n',
     killedBy: [
       ['src/testing/rehearse.test.ts', "dies in subscriptions when a key's Equal throws, as the run does"],

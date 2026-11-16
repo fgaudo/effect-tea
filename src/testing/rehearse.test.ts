@@ -9,12 +9,14 @@ import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
 import * as Hash from 'effect/Hash'
 import * as HashMap from 'effect/HashMap'
+import * as Metric from 'effect/Metric'
 import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import type * as Scope from 'effect/Scope'
-import { prioritizedSchedules } from '../../test/scheduled.test_scheduler.ts'
+import { prioritizedSchedules, scheduled } from '../../test/scheduled.test_scheduler.ts'
 import { composition } from '../compose.ts'
 import { ProgramDefect } from '../defect.ts'
+import type { Written } from '../input.ts'
 import type { MessageOf, Program } from '../program.ts'
 import { reject, type Update } from '../update.ts'
 import { type Rehearsal, rehearse } from './rehearse.ts'
@@ -260,6 +262,18 @@ describe('rehearse', () => {
       rehearsal.hear(['Field', 'ping'], { _tag: 'Field', message: { _tag: 'Text', message: written } }),
     ]
     expect(never).toBeDefined()
+  })
+
+  // A known limit (`docs/rejected.md`, "The testing tools"): `hear` tells a write by its shape, so an own message
+  // holding one as data, which its subscription may send, is refused too.
+  test('hear refuses, by its shape, an own message that holds a write as data, though a subscription sends it', () => {
+    type Audit = Readonly<{ writes: ReadonlyArray<Written<string>> }>
+    type Recorded = Readonly<{ _tag: 'Recorded'; message: Written<string> }>
+    const written: Written<string> = { _tag: 'Written', was: '', value: 'Ada' }
+    const refused = (rehearsal: Rehearsal<Audit, Audit, Recorded, never>) =>
+      // @ts-expect-error: an own message of the shape of a write into an input.
+      rehearsal.hear('audit', { _tag: 'Recorded', message: written })
+    expect(refused).toBeDefined()
   })
 
   describe('hearNext', () => {
@@ -1990,5 +2004,48 @@ describe('rehearse, as a scenario that failed stops its loop in the release of a
       })
     }))
     expect(outcome).toContain('The subscription under a was stopped while hearNext waited for its message')
+  })
+})
+
+describe('rehearse, interrupted by whoever runs it as it sets up', () => {
+  type Count = Readonly<{ count: number }>
+  const program: Program<{ state: Count; model: Count; message: 'Tick' }> = {
+    init: { state: { count: 0 } },
+    update: () => (state) => ({ state: { count: state.count + 1 } }),
+    makeModel: (state) => state,
+  }
+  // The rehearsal yields at its `step`th step, where a fiber of the caller's interrupts it, and no fiber it forked
+  // may outlive it: each is counted as it starts and as it ends. Past the steps of its setup, the interruption meets
+  // the scenario.
+  const interruptedAt = (step: number) => {
+    let started = 0
+    let live = 0
+    const metrics: Metric.FiberRuntimeMetricsService = {
+      recordFiberStart: () => {
+        started += 1
+        live += 1
+      },
+      recordFiberEnd: () => {
+        live -= 1
+      },
+    }
+    let asked = 0
+    const run = scheduled(
+      Effect.gen(function*() {
+        const rehearsing = yield* Effect.forkChild(rehearse(program, () => Effect.never))
+        const interrupting = yield* Effect.forkChild(Fiber.interrupt(rehearsing))
+        yield* Fiber.await(interrupting)
+      }).pipe(Effect.provideService(Metric.FiberRuntimeMetrics, metrics)),
+      { pick: () => 0, preempt: (fiber) => fiber === 1 && ++asked === step },
+      'inline',
+    )
+    return { ended: run.exit !== undefined && Exit.isSuccess(run.exit), started, live }
+  }
+
+  test('leaves no fiber of its own running, wherever the interruption reaches it', () => {
+    const runs = Array.from({ length: 200 }, (_, index) => ({ step: index + 1, ...interruptedAt(index + 1) }))
+    expect(runs.filter(({ ended, live }) => !ended || live !== 0)).toEqual([])
+    // Some step meets the scenario, once the rehearsal has forked its loop.
+    expect(Math.max(...runs.map(({ started }) => started))).toBeGreaterThan(2)
   })
 })

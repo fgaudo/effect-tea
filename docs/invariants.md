@@ -236,7 +236,9 @@ testing tools.
   - **A fiber and how it stops are one primitive**, `Effect.acquireRelease(fork, stop)`, with nothing in between for an
     interruption to fall into (the renderer in `run.ts`), or `Effect.acquireUseRelease` where a call waits for the
     fiber (a command's in `rehearse`'s `run`), or the fork and what keeps it for the stop in one region nothing
-    interrupts, where the stop is the end's (the loop in `engine.ts`, for `stop`), or `FiberSet.run` and
+    interrupts, where the stop is the end's (the loop in `engine.ts`, for `stop`; `rehearse`'s scope and the loop forked
+    in it, one region with its end from the scope on, as `drive` forks its run: "leaves no fiber of its own running,
+    wherever the interruption reaches it", `rehearse.test.ts`, is its alarm), or `FiberSet.run` and
     `FiberMap.run`, which fork and add in one step (`docs/premises.md`), where the end reads the set.
 
   Every fiber the engine and the testing tools fork, each side of a race included, is interruptible by its own say

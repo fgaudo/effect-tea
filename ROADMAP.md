@@ -15,12 +15,6 @@ test of it. None is open.
 The rest of this section, and the items marked "(review)" below, come from a review of the whole repository
 (November 2026); each was reproduced where it says "confirmed", and only reasoned elsewhere.
 
-- **`rehearse` interrupted while it sets up** (reasoned): its `forks` scope is made once the program has started, so
-  a start that dies leaves nothing open; an interruption from outside between the scope and the scenario could still
-  leave the loop's fiber running.
-- **`hear`'s type reads a write by its shape** (reasoned): `Rehearsal.hear` refuses `{ _tag, message: Written }` at
-  any depth, as no subscription sends one; an own message of that shape, holding a `Written` as data, is refused too.
-
 The four below come from a review of the bridges' premises (November 2026), each confirmed by a `test.failing`.
 
 - **A reset the user begins is missed** (confirmed): both bridges hear a reset in a microtask queued by a capture

@@ -221,6 +221,8 @@ version, and everything else, features included, the patch version.
   place of a plain field, it shows the program's value and sends its writes; drawn as a plain field in the place of an
   input, it is let go and keeps what the view gives it.
 - `rehearse` whose `init`, `subscriptions` or `makeModel` dies at the start leaves no scope of its own open.
+- `rehearse` interrupted by whoever runs it as it sets up, before its scenario, leaves no fiber of its own running:
+  its loop ran on, in a scope nothing closed.
 - The examples' React bridge hears an input's own `input` event, not React's `onChange`: a text a script wrote into
   the element through its `value`, as an extension that fills forms does, was lost.
 - The examples' bridges hear a reset of the form an input is drawn in, which changes its value with no `input` event,
