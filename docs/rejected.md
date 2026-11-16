@@ -463,5 +463,17 @@ there; one decided against becomes an entry above.
   `update` rejects, or that does nothing, is found in an application, and such a test does not find it.
 - **Frames a bridge skips by the equality of models** (`registers.md`, "To explore"): with no function in a model,
   the models of two equal states are `Equal`, and a bridge could skip the drawing, as `thunk` and `memo` do by
-  reference. Neither spiked nor measured, 15 November 2026. *Reopen if* the benchmark of a bridge's frame
-  (`tools/bench/writes.ts`) shows the drawing of an unchanged model to be a cost that matters.
+  reference. Parked unmeasured on 15 November 2026, and measured on 16 and 17 November 2026 by
+  `scratch/bench-rows/rows.ts`, outside git and not kept: one keystroke into a list of N rows that are the parent's own
+  data, each with an input by id, from the input event to the end of the frame, through `run` and the snabbdom bridge
+  as shipped, in happy-dom, on Bun 1.4.4 on Windows, a row of six cells, three runs that agreed. At 100, 1000 and 5000
+  rows, the median per keystroke was 0.20, 1.1 and 10.4 ms with every row drawn again, 0.15, 0.5 and 4.8 ms with each
+  row's model kept by the application in a `WeakMap` and drawn through `thunk` by reference, 0.30, 2.3 and 17.2 ms with
+  a skip by `Equal.equals` of the row's model, and 0.19, 1.2 and 10.7 ms with the rows as children by id, whose models
+  the library keeps, through `thunk`. So the skip by `Equal` cost about twice the drawing it would save, drawing every
+  row again costs about 1 ms at a thousand rows, and children by id were no faster than rows of the parent's data. A
+  helper of the library that keeps a row's model by identity was weighed with it and not added: a name over a
+  `WeakMap`, which halves a millisecond. The measure has limits: happy-dom lays out and paints nothing, the row is
+  small, and it was not run in a browser. It stays parked: the evidence is of happy-dom alone, and no decision was
+  taken on it. *Reopen if* a browser, or a heavier row, shows the drawing of an unchanged model to cost more than its
+  comparison by `Equal`.
