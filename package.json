@@ -33,6 +33,11 @@
     "src",
     "!src/**/*.test.ts",
     "!src/**/*.test_*.ts",
+    "site/guide",
+    "site/tutorial",
+    "examples",
+    "!examples/tsconfig.json",
+    "skills",
     "README.md",
     "CHANGELOG.md"
   ],

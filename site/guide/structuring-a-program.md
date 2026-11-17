@@ -18,14 +18,14 @@ holds, and its tests can check it. The library does not enforce them. The exampl
 - **One-shot actions move to a state that rejects them.** After `SaveClicked` the form is saving, and it rejects a
   second `SaveClicked`. So a click that arrives while it saves does nothing.
 - **An operation is a state that only its completion leaves.** The save of
-  [`form`](https://github.com/fgaudo/effect-tea/tree/main/examples/form/form.ts) is one. When its answer arrives, the
+  [`form`](../../examples/form/form.ts) is one. When its answer arrives, the
   state cannot have moved on. A completion anywhere else is a `defect`.
 - **One state machine per concern, no flags.** The save, the selection, the data being loaded: each is a union with a
   case per state (`Idle | Saving | Failed`). Each case holds only what exists in it. Flags that combine (`isSaving`,
   `hasFailed`) allow combinations that cannot be. A union makes them fail to compile, and `update` matches on the case.
 - **No derived data in the state.** What follows from the state is computed in `makeModel`. So is a value that depends
   on time: it is computed from a `now` that a subscription keeps in the state. The clock of
-  [`pages`](https://github.com/fgaudo/effect-tea/tree/main/examples/pages/clock.ts) does this.
+  [`pages`](../../examples/pages/clock.ts) does this.
 
 ## Model and view
 

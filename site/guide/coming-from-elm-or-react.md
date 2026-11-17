@@ -63,6 +63,6 @@ program's (see [structuring a program](./structuring-a-program.md#model-and-view
 
 What the examples' bridge to React leaves out: a component with state or effects of its own, Suspense, a subtree
 `memo` skips, and a portal (see [what is left out](./writing-a-bridge.md#what-is-left-out)). The bridge is a file to
-copy and to own, [`examples/react.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/react.ts), and
-[`counter-react`](https://github.com/fgaudo/effect-tea/tree/main/examples/counter-react) and
-[`form-react`](https://github.com/fgaudo/effect-tea/tree/main/examples/form-react) are drawn with it.
+copy and to own, [`examples/react.ts`](../../examples/react.ts), and
+[`counter-react`](../../examples/counter-react) and
+[`form-react`](../../examples/form-react) are drawn with it.

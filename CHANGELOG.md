@@ -24,6 +24,9 @@ version, and everything else, features included, the patch version.
 - The guide has a page "Writing a bridge", which shows how to write a bridge for any renderer, from the examples'
   bridge to snabbdom: its frames, its handlers and its text input, with `edited` and `drawn`, and the two places that
   are the renderer's own.
+- The package ships its documentation, at its version: the guide in `site/guide/`, the tutorial in `site/tutorial/`,
+  the examples with their bridges in `examples/`, and a skill for coding agents, `skills/effect-tea/SKILL.md`, which
+  leads to them. The README's last section, "For coding agents", says so.
 
 ### Changed
 
@@ -42,6 +45,8 @@ version, and everything else, features included, the patch version.
 - The guide lists "Commands", "Subscriptions", "Rejections and defects" and "Composition" before "Inputs the user types
   into", and "Writing a bridge" last; eight of its sentences are reworded, with the same promises ("Anatomy of a
   program", "Model", "Commands", "Rejections and defects", "Composition", "Inputs the user types into").
+- The guide and the tutorial link the examples at the version they are built from, in the package and on the site,
+  where they linked the repository's main branch.
 - The guide has two more pages, summaries that link the pages that rule: "Coming from Elm or React", which maps what
   a reader knows to the library's words, and "Glossary"; the README links both.
 - The tutorial is reworded for a first reader, with the same code: each step says why before how and ends with "What

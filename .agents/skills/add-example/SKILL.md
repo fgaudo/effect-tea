@@ -46,7 +46,8 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
   `@fgaudo/effect-tea/testing`), never by a relative path. `tsc -p examples` checks it with the `bun` condition
   (the sources) and the `DOM` lib; Biome allows renderer imports there. Unstable APIs are not used there either:
   the typecheck refuses one, as in the library.
-  The examples are not published (`files` in `package.json`), and snabbdom, React and
+  The examples are published (`files` in `package.json`, all but `examples/tsconfig.json`), for the guide, the
+  tutorial and the skill that link them, but nothing of the package imports them: snabbdom, React and
   `@happy-dom/global-registrator` are only dev dependencies.
 - **`main.ts`** finds `#app` and starts the program with `Effect.runFork(run(program, renderInto(root, view)))`,
   through an `Effect.tapCause` that logs the failure of a dying program, unless it is only an interruption

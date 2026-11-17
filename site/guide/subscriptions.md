@@ -38,8 +38,8 @@ subscriptions: (state) => state.phase._tag === 'Running' ? HashMap.make(['ticks'
 **An ended subscription is not restarted** until its key goes away and comes back.
 
 **The type says all of it.** A subscription is a `Channel` whose end value is a message. It is written with Effect's own
-combinators, as the clock of [`pages`](https://github.com/fgaudo/effect-tea/tree/main/examples/pages/clock.ts) and the
-stopwatch of [`list`](https://github.com/fgaudo/effect-tea/tree/main/examples/list/stopwatch.ts) are.
+combinators, as the clock of [`pages`](../../examples/pages/clock.ts) and the
+stopwatch of [`list`](../../examples/list/stopwatch.ts) are.
 
 **Pick a subscription or a command by what the work is for:**
 

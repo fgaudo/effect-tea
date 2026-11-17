@@ -42,9 +42,12 @@ version never goes down. `package.json` and the changelog's section always agree
 
 ## What the package contains
 
-`files` in `package.json`: `dist/`, `src/` without its tests, `README.md` and `CHANGELOG.md`; the examples and
-the site are not published. `bun pm pack` shows the package as it would be published, as
-`fgaudo-effect-tea-<version>.tgz` at the root (ignored by git): `prepack` builds `dist/` first. Lifecycle scripts
+`files` in `package.json`: `dist/`, `src/` without its tests, the guide (`site/guide/`), the tutorial
+(`site/tutorial/`), the examples without their `tsconfig.json`, the skill for coding agents (`skills/`), `README.md`
+and `CHANGELOG.md`; the rest of the site is not published. A user and their agent read the documentation there, at the
+version installed, and `bun run smoke` checks that it finds in the package every file it links. `bun pm pack` shows
+the package as it would be published, as `fgaudo-effect-tea-<version>.tgz` at the root (ignored by git): `prepack`
+builds `dist/` first. Lifecycle scripts
 run without `node_modules/.bin` on the `PATH`: `tools/build.ts` resolves `tsc` itself, and `prepare` runs
 `effect-tsgo` through `bunx`.
 
@@ -57,12 +60,15 @@ and each example bundled to run under `examples/<name>/`.
 The guide, [`site/guide/`](../../../site/guide), one page per concept, and the tutorial,
 [`site/tutorial/`](../../../site/tutorial), one page per step, are TypeDoc project documents (`projectDocuments`).
 Their links to each other are relative (`../guide/running.md#…`), which TypeDoc resolves to the pages and their
-sections; their links to the repository's files are to `https://github.com/fgaudo/effect-tea/tree/main/…`, since the
-site has no copy of the files. The tutorial holds no code of its own: each block is `{@includeCode}` of a `// #region`
-of [`examples/timer`](../../../examples/timer), and each block of the guide's "Writing a bridge" one of the bridge
-[`examples/snabbdom.ts`](../../../examples/snabbdom.ts), so that what they show is typechecked and tested. A change
-to that example or that bridge keeps its regions, and the prose around them, true. The README's links to the guide
-are to the published site's pages, since the README is no project document.
+sections. Their links to the repository's files are relative too (`../../examples/form/form.ts`), as the package that
+ships them all resolves them. The site has no copy of the files, so `site/build.ts` builds the pages from a copy in
+`site/.build/`, where such a link goes to the repository at the built commit, as the README's do. The one link to a
+file the package does not ship, the test of the guarantees in "Guarantees", is to `tree/main`. The tutorial holds no
+code of its own: each block is `{@includeCode}` of a `// #region` of [`examples/timer`](../../../examples/timer), and
+each block of the guide's "Writing a bridge" one of the bridge [`examples/snabbdom.ts`](../../../examples/snabbdom.ts),
+so that what they show is typechecked and tested. A change to that example or that bridge keeps its regions, and the
+prose around them, true. The README's links to the guide are to the published site's pages, since the README is no
+project document.
 
 ```sh
 cd site && bun install && bun run build

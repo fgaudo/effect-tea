@@ -10,7 +10,7 @@ what the user just typed whenever a frame came late. Here the library takes care
 Once more the timer of step 2 stays as it is. A named timer is a program of its own, which holds the timer as a child,
 beside the name.
 
-The code is [`examples/timer/named.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/named.ts).
+The code is [`examples/timer/named.ts`](../../examples/timer/named.ts).
 
 ## An input
 
@@ -62,7 +62,7 @@ The element needs no key: the bridge keeps it, and its focus, while the program 
 ## The list
 
 The list of
-[`examples/timer/named-timers.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/named-timers.ts) is
+[`examples/timer/named-timers.ts`](../../examples/timer/named-timers.ts) is
 the one of step 3, with `Named.named` in place of `Timer.timer`. Nothing else changes:
 
 - a write into a timer's name reaches it as its clicks do, `{ _tag: 'Timer', id, message }`;
@@ -72,11 +72,11 @@ the one of step 3, with `Named.named` in place of `Timer.timer`. Nothing else ch
 The name is a named timer's own: the list never reads it. Values the parent reads, such as the count of each item of a
 stock-take, which it totals and submits, are the parent's own state, an input by id that it declares with `inputById`
 (see [inputs by id](../guide/composition.md#inputs-by-id), and the example
-[`examples/stocktake`](https://github.com/fgaudo/effect-tea/tree/main/examples/stocktake)).
+[`examples/stocktake`](../../examples/stocktake)).
 
 ## Running it
 
-[`examples/timer/main.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/main.ts) runs the list of
+[`examples/timer/main.ts`](../../examples/timer/main.ts) runs the list of
 named timers in the page, with a bell that beeps. The services of every command are provided around `run`:
 
 {@includeCode ../../examples/timer/main.ts#bell}

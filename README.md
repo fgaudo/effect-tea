@@ -286,3 +286,9 @@ building the documentation site) in [`.agents/skills/`](.agents/skills).
 ## License
 
 [MIT](LICENSE) © Francesco Gaudenzi
+
+## For coding agents
+
+The package holds its documentation, at the version installed: the guide, the tutorial and the examples. Read
+`skills/effect-tea/SKILL.md` in the package (`node_modules/@fgaudo/effect-tea/skills/effect-tea/SKILL.md`) first: it
+says where each thing is. The rules for changing the library itself are in [`AGENTS.md`](AGENTS.md).

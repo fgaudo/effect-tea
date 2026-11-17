@@ -10,7 +10,7 @@ every second while it runs, and rings a bell when the time is up.
 Two new things happen here: the program acts on the world (the bell), and the world acts on the program (the clock).
 Neither happens inside `update`.
 
-The code is [`examples/timer/timer.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/timer.ts). The
+The code is [`examples/timer/timer.ts`](../../examples/timer/timer.ts). The
 rules of step 1 carry over: "+" and "−" now apply only while the timer is being set.
 
 ## One state machine
@@ -37,7 +37,7 @@ execution answers `None` (see [commands](../guide/commands.md)).
 {@includeCode ../../examples/timer/timer.ts#command}
 
 An execution cannot fail: its type says so. A command that can fail turns its failure into a message, as
-[`examples/form`](https://github.com/fgaudo/effect-tea/tree/main/examples/form/form.ts) does with a save.
+[`examples/form`](../../examples/form/form.ts) does with a save.
 
 ## Update
 
@@ -82,7 +82,7 @@ The program now declares its commands and its services, and has `runCommand` and
 {@includeCode ../../examples/timer/timer.ts#program}
 
 Its view, `timerView` in
-[`examples/timer/view.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/view.ts), draws each case
+[`examples/timer/view.ts`](../../examples/timer/view.ts), draws each case
 as the duration's view did, and formats the seconds left as `m:ss`.
 
 ## What you have

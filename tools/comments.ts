@@ -81,5 +81,19 @@ for await (const path of new Glob('src/**/*.ts').scan({ cwd: root })) {
     }
   })
 }
+// The skill the package ships names the sections of the guide its rules sum up the same way, `The guide, "<page>",
+// "<section>"`, within its prose, where a name may be wrapped onto the next line. Inline code only shows the form.
+for await (const path of new Glob('skills/*/SKILL.md').scan({ cwd: root })) {
+  const name = path.replaceAll('\\', '/')
+  const text = (await Bun.file(join(root, path)).text()).replace(/`[^`\n]*`/g, '``').replace(/\s+/g, ' ')
+  for (const [, page = '', section] of text.matchAll(/The guide, "([^"]+)"(?:, "([^"]+)")?/g)) {
+    const guide = pages.get(page)
+    const found = guide === undefined || section === undefined ? 1 : sectionsOf(guide, section)
+    if (guide === undefined) problems.push(`${name}: the guide has no page "${page}".`)
+    else if (found !== 1) {
+      problems.push(`${name}: "${page}", "${section}" is ${found === 0 ? 'not there' : 'there more than once'}.`)
+    }
+  }
+}
 for (const problem of problems) console.error(problem)
 if (problems.length > 0) process.exit(1)

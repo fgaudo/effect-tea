@@ -64,8 +64,8 @@ typed.
 the frame has not seen, or a state after all of them. It takes the frame's value once the state has moved on without it.
 So the element is never replaced, and keeps its focus while the program changes what it shows.
 
-The examples' bridges show it, to copy: [`form`](https://github.com/fgaudo/effect-tea/tree/main/examples/form) with
-snabbdom, and [`form-react`](https://github.com/fgaudo/effect-tea/tree/main/examples/form-react) with React.
+The examples' bridges show it, to copy: [`form`](../../examples/form) with
+snabbdom, and [`form-react`](../../examples/form-react) with React.
 
 ## Precisely
 
@@ -119,7 +119,7 @@ What meets it, and what does not:
   is outside what is promised here, unless its bridge reports each such change as an edit.
 - **Or the widget is replaced by one the program draws.** That widget is not an input: a press is a message of the
   model, and a drag is the messages of a subscription keyed by the state of dragging. The sliders of
-  [`volume`](https://github.com/fgaudo/effect-tea/tree/main/examples/volume) are drawn this way.
+  [`volume`](../../examples/volume) are drawn this way.
 
 The bridges' tests check it, in a DOM.
 

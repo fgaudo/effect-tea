@@ -16,9 +16,9 @@ Most of a bridge's code is the same whatever the renderer. Only two places are t
 where it lets the bridge reach an element.
 
 The code below is the examples' bridge to snabbdom,
-[`examples/snabbdom.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/snabbdom.ts), which the timer is drawn
+[`examples/snabbdom.ts`](../../examples/snabbdom.ts), which the timer is drawn
 with. You need not know snabbdom to read it. The two places of the renderer are named where they come, each with what
-the bridge to React, [`examples/react.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/react.ts), does there
+the bridge to React, [`examples/react.ts`](../../examples/react.ts), does there
 instead. It is a minimal example to start from. What else a renderer can do is left to the bridge that needs it (see
 [what is left out](#what-is-left-out)).
 
@@ -132,17 +132,17 @@ and settles, after each frame, the element of each input on screen (see
 
 The examples have two:
 
-- [`examples/snabbdom.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/snabbdom.ts), the bridge to
+- [`examples/snabbdom.ts`](../../examples/snabbdom.ts), the bridge to
   snabbdom;
-- [`examples/react.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/react.ts), the bridge to React.
+- [`examples/react.ts`](../../examples/react.ts), the bridge to React.
 
 Each is small enough to copy, and worth copying for your own. Each names the type of its views, `View<Model, Message>`.
 Each has `renderInto` for `run`, handlers, and the element of each input: `shows` with snabbdom, `Shows` with React.
 
-[`counter-react`](https://github.com/fgaudo/effect-tea/tree/main/examples/counter-react) and
-[`form-react`](https://github.com/fgaudo/effect-tea/tree/main/examples/form-react) draw the programs of
-[`counter`](https://github.com/fgaudo/effect-tea/tree/main/examples/counter) and
-[`form`](https://github.com/fgaudo/effect-tea/tree/main/examples/form) with the bridge to React. React Native's bridge
+[`counter-react`](../../examples/counter-react) and
+[`form-react`](../../examples/form-react) draw the programs of
+[`counter`](../../examples/counter) and
+[`form`](../../examples/form) with the bridge to React. React Native's bridge
 is written the same way. The sections above show how to write one for any renderer, from the bridge to snabbdom.
 
 ### What is left out
@@ -168,7 +168,7 @@ They leave out:
 - **Other native widgets.** One that meets the condition of `edited` and `drawn` (see
   [inputs the user types into](./inputs-the-user-types-into.md)) would be connected by hand with them. Where
   connecting one is too complex, prefer a widget that the program draws: its press is a message, and its drag a
-  subscription. The sliders of [`examples/volume`](https://github.com/fgaudo/effect-tea/tree/main/examples/volume) are
+  subscription. The sliders of [`examples/volume`](../../examples/volume) are
   drawn this way.
 
 Any other feature of a renderer is left to the bridge that needs it.
@@ -176,11 +176,11 @@ Any other feature of a renderer is left to the bridge that needs it.
 ### Their tests
 
 Both bridges are tested in a DOM, with [happy-dom](https://github.com/capricorn86/happy-dom):
-[`examples/snabbdom.test.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/snabbdom.test.ts) and
-[`examples/react.test.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/react.test.ts) run them.
+[`examples/snabbdom.test.ts`](../../examples/snabbdom.test.ts) and
+[`examples/react.test.ts`](../../examples/react.test.ts) run them.
 
 The tests they share are written once, in
-[`examples/bridge.test_suite.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/bridge.test_suite.ts). They
+[`examples/bridge.test_suite.ts`](../../examples/bridge.test_suite.ts). They
 check:
 
 - how often a bridge draws;
@@ -203,4 +203,4 @@ Beside the snabbdom bridge, [`examples/snabbdom-testing.test_messages.ts`][messa
 what a view sends, without a DOM. It is one way to check that a view draws what its model holds. The library does not
 ask it of any bridge (see [testing](./testing.md)). The test of each example drawn with snabbdom uses it.
 
-[messages]: https://github.com/fgaudo/effect-tea/tree/main/examples/snabbdom-testing.test_messages.ts
+[messages]: ../../examples/snabbdom-testing.test_messages.ts

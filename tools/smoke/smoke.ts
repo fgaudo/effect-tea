@@ -2,10 +2,11 @@
 // own outside the repository, runs the README's quick start and `consumer.ts` with Node (the `default` condition,
 // `dist/`), and typechecks both against the declarations (`types`) under each TypeScript of `--typescript`, with
 // `moduleResolution` `nodenext` and `bundler`. Under Bun the `bun` condition loads `src/`: nothing else imports
-// `dist/`.
+// `dist/`. It also checks that the documentation the package ships finds in it every file it links.
 //
 //   bun tools/smoke/smoke.ts [--effect <version>] [--typescript 5.9,6.0,7.0] [--keep]
 import { $, Glob } from 'bun'
+import { existsSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -76,6 +77,25 @@ try {
   for await (const path of new Glob('**/*.d.ts').scan({ cwd: installed })) {
     if (tsImport.test(await Bun.file(join(installed, path)).text())) {
       throw new Error(`dist/${path} imports a .ts file`)
+    }
+  }
+  // The guide, the tutorial and the skill are read in the package, at the version installed: what they link
+  // relatively, and the files whose code the tutorial includes, must be in it. The README's links are left out, since
+  // npm sends them to the repository.
+  const packageRoot = join(dir, 'node_modules/@fgaudo/effect-tea')
+  const relativeLink =
+    /\]\((?!https?:|#|mailto:)([^)#\s]+)|^\[[^\]]+\]: (?!https?:)([^\s#]+)|\{@includeCode ([^}#\s]+)/gm
+  const documents = [
+    ...(await Array.fromAsync(new Glob('site/{guide,tutorial}/*.md').scan({ cwd: packageRoot }))),
+    ...(await Array.fromAsync(new Glob('skills/*/*.md').scan({ cwd: packageRoot }))),
+  ]
+  if (documents.length === 0) throw new Error('The package ships no guide, tutorial or skill')
+  for (const path of documents) {
+    // Inline code is emptied: a link's text may be code, but code that only shows a tag links nothing.
+    const text = (await Bun.file(join(packageRoot, path)).text()).replace(/`[^`\n]*`/g, '``')
+    for (const [, ...targets] of text.matchAll(relativeLink)) {
+      const target = targets.find((target) => target !== undefined) ?? ''
+      if (!existsSync(join(packageRoot, path, '..', target))) throw new Error(`${path} links ${target}, not packed`)
     }
   }
   const logged = await $`node quickstart.ts`.cwd(dir).text()

@@ -8,7 +8,7 @@ This is the step the others were for. Most of a program is pure, so most of its 
 and no clock to wait for.
 
 The tests of the timer are in
-[`examples/timer/timer.test.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/timer.test.ts). They use
+[`examples/timer/timer.test.ts`](../../examples/timer/timer.test.ts). They use
 `bun:test`, [fast-check](https://fast-check.dev) to generate states, and the tools of `@fgaudo/effect-tea/testing`:
 
 {@includeCode ../../examples/timer/timer.test.ts#imports}
@@ -47,7 +47,7 @@ parts.
 **First, a reader.** It is a function of the test's own, which returns the messages a model holds, a case of the model
 at a time ([`examples/timer/timer.test_reader.ts`][reader]):
 
-[reader]: https://github.com/fgaudo/effect-tea/tree/main/examples/timer/timer.test_reader.ts
+[reader]: ../../examples/timer/timer.test_reader.ts
 
 {@includeCode ../../examples/timer/timer.test_reader.ts#reader}
 
@@ -100,7 +100,7 @@ same tools.
 What changes is the wrapping. Its messages for a child are `{ _tag: 'Timer', id, message }`, and so are its commands
 and the keys of its children's subscriptions. That is what `subscriptionsOf`, `rehearsal.run` and `rehearsal.hear`
 see. The tests of
-[`examples/timer/timers.test.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/timers.test.ts)
+[`examples/timer/timers.test.ts`](../../examples/timer/timers.test.ts)
 name its messages:
 
 {@includeCode ../../examples/timer/timers.test.ts#messages}
@@ -119,7 +119,7 @@ timer's reader lies in a module of its own:
 
 What the user writes into an input is no message of the model: the library rules on it, the same for every input. A
 test writes into an input as the view does, over the value the model shows. The tests of
-[`examples/timer/named.test.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/named.test.ts) make the
+[`examples/timer/named.test.ts`](../../examples/timer/named.test.ts) make the
 write from a model:
 
 {@includeCode ../../examples/timer/named.test.ts#typing}

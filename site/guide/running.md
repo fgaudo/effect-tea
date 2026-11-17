@@ -19,7 +19,7 @@ again because of it.
 
 **A slow renderer skips frames.** It only gets the latest one. So a renderer that waits for the next animation frame
 before taking another draws at most once per screen refresh, as
-[`examples/snabbdom.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/snabbdom.ts) does.
+[`examples/snabbdom.ts`](../../examples/snabbdom.ts) does.
 
 ### Options
 

@@ -13,7 +13,7 @@ messages.
 ## An example
 
 An app of two pages, a clock and an about page, adapted from
-[`pages`](https://github.com/fgaudo/effect-tea/tree/main/examples/pages/app.ts):
+[`pages`](../../examples/pages/app.ts):
 
 ```ts
 const { child, compose } = composition<{ state: State }>()
@@ -103,7 +103,7 @@ For each child, and for itself, a parent declares:
 
 - **A child's model is kept.** `children.About(state)` in `makeModel` is the child's model. It is the same object while
   the child's state is the same object. So a renderer can skip redrawing it (see `thunk` in
-  [`pages`](https://github.com/fgaudo/effect-tea/tree/main/examples/pages/view.ts)). A number or a string has no
+  [`pages`](../../examples/pages/view.ts)). A number or a string has no
   identity by which a model could be kept: this is why a program's state is always an object.
 - **A test reads a child's subscriptions by key.** `HashMap.has(subscriptionsOf(app)(state), ['Clock', 'ticks'])`
   tells a test whether the Clock ticks.
@@ -222,7 +222,7 @@ For children by id, such as the rows of a list, use `childById` instead of `chil
 - **Ids are compared by value,** with `Equal`, wherever they go (subscription keys, dispatches): strings, numbers, or
   tuples and structs of them.
 
-See [`list`](https://github.com/fgaudo/effect-tea/tree/main/examples/list/list.ts).
+See [`list`](../../examples/list/list.ts).
 
 **Mind ids that come back.** A command's answer goes to the id it was started for. It reaches whichever row has that id
 when it arrives. So if a row is removed and another is added with its id, the new row may get the old row's answer.
@@ -261,4 +261,4 @@ An input by id is not a child either. Its values are part of the parent's own st
 them to total or submit them, while it never reads the state of a child (see
 [splitting a program](./structuring-a-program.md#splitting-a-program)).
 
-See [`stocktake`](https://github.com/fgaudo/effect-tea/tree/main/examples/stocktake/stocktake.ts).
+See [`stocktake`](../../examples/stocktake/stocktake.ts).

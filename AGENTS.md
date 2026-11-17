@@ -92,8 +92,15 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   latest release, not the version installed. A change of a section of the guide rereads the comments that name it,
   and a change of a comment rereads the sections it names. `bun run comments` (`tools/comments.ts`) fails on a name
   the guide does not have.
-- **The guide and the doc comments are in plain English**, for readers who are not native speakers: short sentences,
-  one idea each, common words, and the words the guide defines.
+- **The package ships its documentation, at its version**: the guide, the tutorial and the examples, beside the code,
+  and the skill [`skills/effect-tea/SKILL.md`](skills/effect-tea/SKILL.md), which leads a user's coding agent to them.
+  So their links to the repository's files are relative, as the package holds them (`../../examples/form/form.ts`):
+  the site's build sends them to the repository at the built commit, and `bun run smoke` fails on one the package
+  lacks. The skill sums up the guide as a doc comment does: it promises nothing the guide does not, and names the
+  section of each rule as `The guide, "<page>", "<section>"`, which `bun run comments` checks. A change of a section
+  rereads the skill's rules that name it too.
+- **The guide, the doc comments and the skill are in plain English**, for readers who are not native speakers: short
+  sentences, one idea each, common words, and the words the guide defines.
 
 ## Invariants
 

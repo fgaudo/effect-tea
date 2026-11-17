@@ -13,6 +13,15 @@ const readme = (await Bun.file(`${root}/README.md`).text()).replace(
   `](https://github.com/fgaudo/effect-tea/tree/${revision}/$1)`,
 )
 await Bun.write(`${here}/.build/README.md`, readme)
+// The guide and the tutorial link the repository's files relatively, as the package that ships them all resolves
+// them. Here they are built from a copy one directory deeper: a link into the repository goes to it at the built
+// commit, and an included file is one `../` further away.
+for (const path of await Array.fromAsync(new Glob('{guide,tutorial}/*.md').scan({ cwd: here }))) {
+  const text = (await Bun.file(`${here}/${path}`).text())
+    .replace(/(\]\(|^\[[^\]]+\]: )\.\.\/\.\.\//gm, `$1https://github.com/fgaudo/effect-tea/tree/${revision}/`)
+    .replaceAll('{@includeCode ../../', '{@includeCode ../../../')
+  await Bun.write(`${here}/.build/${path}`, text)
+}
 await $`bun build custom.ts --outfile .build/custom.js --format iife --target browser --minify`.cwd(here)
 await $`bunx typedoc --readme .build/README.md --gitRevision ${revision}`.cwd(here)
 // Split, so that a page loads only the kinds of diagram it draws.

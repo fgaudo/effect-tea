@@ -33,7 +33,7 @@ drops what a stopped subscription sent (see [what "cannot arrive" rests on](#wha
 **`reject` changes nothing.** A second click, or an answer that arrives once the state has moved on, leaves the state
 as it was.
 
-**`defect` makes a bug loud.** [`form`](https://github.com/fgaudo/effect-tea/tree/main/examples/form/form.ts) throws it
+**`defect` makes a bug loud.** [`form`](../../examples/form/form.ts) throws it
 on a save that completes while nothing is saving. A rejection there would hide the bug.
 - The run dies as it dies with any defect (an `Effect.die`, a thrown error: broken code).
 - The `InvariantDefect` lets a crash report tell a broken rule of the program from any other error.
@@ -84,7 +84,7 @@ A child that raises an event for a click raises it whenever the click comes. So 
 out from its own state either.
 
 A handler answers with a step, and its type has no `reject`. A handler that does not apply answers `{ state }`, as
-[`pages`](https://github.com/fgaudo/effect-tea/tree/main/examples/pages/app.ts) does when About is asked for while it
+[`pages`](../../examples/pages/app.ts) does when About is asked for while it
 is open. A rejection there would take back a step that the child has accepted, including the child's own change of
 state. And a child tested alone would then promise what the program does not.
 

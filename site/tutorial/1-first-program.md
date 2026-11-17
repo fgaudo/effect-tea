@@ -8,7 +8,7 @@ Start small: a control that sets how many minutes a timer lasts. "+" adds a minu
 one. That last rule is the interesting part, and by the end of this page it holds in one place only.
 
 The code is
-[`examples/timer/duration.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/duration.ts).
+[`examples/timer/duration.ts`](../../examples/timer/duration.ts).
 
 ## State and messages
 

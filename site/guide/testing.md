@@ -60,7 +60,7 @@ test('the model holds what update accepts, all of it', () => {
 
 **That the model is data** is checked on two equal states built apart. The same seed drawn twice gives them: call
 `fc.sample(states, { seed, numRuns: 1 })` twice, and compare their models with `Equal.equals`, as
-[`form`](https://github.com/fgaudo/effect-tea/tree/main/examples/form/form.test.ts) does. If one state object were used
+[`form`](../../examples/form/form.test.ts) does. If one state object were used
 twice, the check would pass whatever its model holds, because a parent keeps a child's model for each state object.
 
 ### The reader
@@ -73,15 +73,15 @@ written one case of the model at a time. The library cannot write it: a message 
   `{ _tag: 'Name', message: { _tag: 'Written', was: model.name, value: 'Ada' } }`.
 - **Children.** A parent's reader calls its children's readers. It wraps what they return as the parent receives it:
   `{ _tag: 'Clock', message }`, with the `id` for children by id. So do
-  [`pages`](https://github.com/fgaudo/effect-tea/tree/main/examples/pages/app.test.ts) and
-  [`list`](https://github.com/fgaudo/effect-tea/tree/main/examples/list/list.test.ts).
+  [`pages`](../../examples/pages/app.test.ts) and
+  [`list`](../../examples/list/list.test.ts).
 - **The reader is complete only as far as the candidates go.** A reader that forgets a field of the model still passes
   `Rejected` and `ActsTwice`: they judge only what it returns. `Missing` finds the field when three things hold:
   `update` accepts its message in the state, the message would do something, and the test lists it among the
   `candidates`.
 - **Keeping the candidates.** The examples whose messages are tagged list their candidates one tag of `Message` at a
   time. They keep them in a record the compiler checks against the type (`satisfies`), as
-  [`timer`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/timer.test.ts) does. There, a new message does
+  [`timer`](../../examples/timer/timer.test.ts) does. There, a new message does
   not compile until the test says what a user could ask for with it, even if that is nothing. That is the examples' way
   to keep the list, and not something the library asks for.
 
@@ -97,7 +97,7 @@ the order its view draws. `messagesSentBy` is an example, and not something a br
 [their tests](./writing-a-bridge.md#their-tests)): the test file registers a DOM, and a frame is drawn when the test
 says, in place of the next animation frame.
 
-[messages]: https://github.com/fgaudo/effect-tea/tree/main/examples/snabbdom-testing.test_messages.ts
+[messages]: ../../examples/snabbdom-testing.test_messages.ts
 
 ## The tools
 

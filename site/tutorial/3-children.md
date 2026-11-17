@@ -10,7 +10,7 @@ one away.
 Here is the good news: the timer of step 2 does not change by a line. Any program can be a child as it is. What you
 write on this page is only the parent, the list.
 
-The code is [`examples/timer/timers.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/timers.ts).
+The code is [`examples/timer/timers.ts`](../../examples/timer/timers.ts).
 
 ## The parent's state
 
