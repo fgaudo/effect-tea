@@ -233,6 +233,9 @@ version, and everything else, features included, the patch version.
 - The guide's "Composition" says that `subscribed` is required for children by id ("Children by id"); "Inputs the
   user types into" says that an input's optic may focus nothing, and that a write is rejected there ("Rules"); "Writing
   a bridge" says how the shared tests of a bridge are reused, and how they hold frames and fibers ("Their tests").
+- The guide's prose is reworded for readers who are not native English speakers, with the same promises: "Anatomy of a
+  program", "Update", "Model", "Commands", "Subscriptions", "Rejections and defects", "Composition", "Inputs the user
+  types into", "Structuring a program", "Running", "Guarantees", "Testing" and "Writing a bridge".
 
 ### Fixed
 
