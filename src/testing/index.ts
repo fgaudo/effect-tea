@@ -1,5 +1,8 @@
 /**
  * The testing tools of the package, from the cheapest to the most complete.
+ *
+ * The package holds its documentation, for the version installed: the guide in `site/guide/`, the tutorial in
+ * `site/tutorial/` and the examples in `examples/`. A coding agent starts from `skills/effect-tea/SKILL.md`.
  * @module @fgaudo/effect-tea/testing
  */
 export { applyAll } from './apply-all.ts'

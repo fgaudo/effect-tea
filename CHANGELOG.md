@@ -26,7 +26,8 @@ version, and everything else, features included, the patch version.
   are the renderer's own.
 - The package ships its documentation, at its version: the guide in `site/guide/`, the tutorial in `site/tutorial/`,
   the examples with their bridges in `examples/`, and a skill for coding agents, `skills/effect-tea/SKILL.md`, which
-  leads to them. The README's last section, "For coding agents", says so.
+  leads to them. The README's last section, "For coding agents", says so, and so do the module comments of
+  `effect-tea` and `effect-tea/testing`.
 
 ### Changed
 
