@@ -241,6 +241,29 @@ answer, and saying so in the proposal.
   before the proposal of declared inputs: typed-then-Save would rest on scheduling, a typed message would be checked
   by nothing, a key that goes away drops what it sent, and the renderer would feed the run by a service.
   [`declared-inputs.md`](records/declared-inputs.md), "What was proposed".
+- **Undo at every write of an input, as a recipe of the guide, an example, or a message on each write.** Spiked on 17
+  November 2026, in `scratch/undo-by-subscription/undo.test.ts`, outside git and not kept, on a question of the owner:
+  whether a parent can undo each write into an input it reads, since no `update` sees a write. It can, today. The
+  state keeps a history and a position in it, a subscription keyed by the input's value ends at once with that value
+  as a message of the parent's own, which `update` records, and `Undo` and `Redo` put a recorded value back in the
+  input's place. Run through `run` on Bun:
+  - **The recipe is correct under every order.** A pure search of its `update` over every arrival of the records, or
+    none, to nine steps, and 150 runs with random pauses between the writes, found no history that breaks.
+  - **How many writes are recorded is not promised.** Writes sent in one synchronous block are one entry, by the
+    guide's own rules: a key that goes away drops what its subscription sent. Writes a microtask apart were one entry,
+    and writes a task of the event loop apart were each recorded: that rests on when Effect's scheduler starts a
+    subscription, a premise no test holds (`premises.md`).
+  - **Two traps**, each a bug of `update` that a pure test finds: an undo or a redo changes the key too, so its own
+    record must be ignored; and an undo that arrives before a write is recorded loses that write, unless it records
+    the write first and then undoes it.
+  - **An undo by step**, on a message of the parent's, needs no subscription and nothing of the scheduler.
+
+  Not kept as a section of the guide: it would teach a recipe to remember, with two traps, which the owner asked an
+  answer not to need (`registers.md`, "What the owner asks of an answer"), and describe a granularity that rests on
+  scheduling. Not kept as an example, which users copy, for the same reasons. Nothing in the library: the one support
+  that removes both traps is a message on each write, which an input with behaviour of its own would be (the `Field`
+  entry below) and the parked "What reaches `update`, declared as data" would reach. *Reopen if* an application needs
+  an undo at every write of a value its parent reads, and an undo by step is not enough.
 - **An input as a `Field`, `{ value, revision }`, with `field`, `renewed` and a revision derived by value.**
   Implemented on 14 November 2026 and replaced, unreleased, on 15 November by the plain input of the ninth review
   ([`registers.md`](records/registers.md), "A plain input, and a frame that says what it has seen"). The rule of a revision is
