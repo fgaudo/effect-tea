@@ -58,6 +58,10 @@ in the state while the work is wanted.
 **A subscription sees the state only through its key.** Whatever it depends on goes into the key. A new value of the
 key starts it anew. That is cheap for a timer whose interval changes.
 
+**A value that stays the same while the key is kept need not go into it.** A child's own id is such a value: its
+`init` sets it once. While a key is kept, its subscription keeps running, and the new one is not used. Under a parent,
+the keys of a child by id are already under its id.
+
 **A connection that stays open is split three ways.** Some things should stay open while a value they use changes,
 such as a connection whose filter the user picks. Split such a thing in three:
 

@@ -40,7 +40,8 @@ version, and everything else, features included, the patch version.
 - The skill says how a test file loads snabbdom before a DOM is registered, one that registers it in `beforeAll`
   included, and that the examples import with `.ts`.
 - The guide's "Testing" shows how `simulate` is called ("`simulate`"), and how a program is run under its renderer in
-  a test, in a DOM ("The view"). "Commands" says where a retry goes ("Rules").
+  a test, in a DOM ("The view"). "Commands" says where a retry goes ("Rules"), and "Subscriptions" that a value which stays the same while
+  its key is kept, as a child's own id, need not go into the key ("Rules").
 - What a type does not need defaults to `never`, as in `Step` and in Effect's own types: `R` in `Execution`,
   `RunCommand`, `Subscription` and `Subscriptions`, `Command` in `Applied`, `Simulation` and `Rehearsal`, and `Event`
   in `Simulation`. So `Subscription<Message>` is a subscription that needs no services, and `Rehearsal<State, Model,
