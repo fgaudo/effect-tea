@@ -210,8 +210,8 @@ export const forEach: {
  *
  * From the guide, "Update", "It may be called at any time":
  *
- * **It may be called at any time.** Never assume it runs once per message, nor only for a message that was sent: the
- * testing tools call it on the messages a model holds, twice, and on others a test lists.
+ * **It may be called at any time.** Never assume that it runs once per message, or only for a message that was sent.
+ * The testing tools call it twice on each message that a model holds, and also on other messages that a test lists.
  *
  * From the guide, "Update", "Never mutate the state":
  *
