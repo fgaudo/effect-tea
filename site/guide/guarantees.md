@@ -56,12 +56,12 @@ second list is what the library leaves to you.
   - Each message a dispatch sends is numbered, from 1, in the order the run takes it.
   - `seen` includes rejected ones.
   - `seen` counts no message of a command or a subscription.
-  - A message that makes no new state draws no frame. So the last frame may have seen fewer than were dispatched:
-    never wait for it to see them all.
+  - A message that makes no new state draws no frame. So the last frame may have seen fewer messages than were
+    dispatched: never wait for it to see them all.
 
 ## What is left to you
 
-- **Commands run to their end, or to the end of the run.** The end of the run interrupts those under way.
+- **Commands run to their end, or to the end of the run.** The end of the run interrupts the commands under way.
   - Until then, their answer goes where it is addressed, even if the state has moved on.
   - `update` decides whether the answer still applies. See [commands](./commands.md), and ids that come back in
     [children by id](./composition.md#children-by-id).
@@ -69,9 +69,9 @@ second list is what the library leaves to you.
   - The run queues every message as it is sent, however many wait.
   - It starts every command, however many run.
   - It waits for `onApplied`, for `onIgnored` and for each release for as long as they take. One that never ends holds
-    the program, and no defect says so.
-  - As it ends, the run waits for every release before it dies. So a release that never ends holds the defects the run
-    would die with too.
+    up the program, and no defect says so.
+  - As it ends, the run waits for every release before it dies. So a release that never ends also holds back the
+    defects that the run would die with.
 - **A slow renderer skips frames.** It gets only the latest one.
 - **The model holds what `update` accepts, all of it but what it withholds on purpose.** The run does not check it.
   - `dispatchViolations` checks it, in tests, on the messages a test reads from the model (see
@@ -84,7 +84,7 @@ second list is what the library leaves to you.
 
 The library's tests check each guarantee.
 
-The guarantee of the order is the run's one loop over one queue. The tests of the run check it.
+The run keeps the guarantee of the order with one loop over one queue. The tests of the run check it.
 
 [`src/interleaving.test.ts`][interleaving] checks the other eight. It runs them under random orders of clicks, writes
 into an input (current and stale), command answers, subscription messages and ends, releases, defects and
@@ -104,9 +104,10 @@ self-interruptions. It checks:
 
 It also checks that the run dies with each defect, and that from the first one on it applies no message (see
 [running](./running.md)). It checks that the defects come in the order they happened. That order is how the run is
-made today, and no promise.
+made today, and not a promise.
 
 What `drawn` makes of an element is checked by the tests of the rule itself, as data. What a screen then shows is the
-bridges', checked in a DOM (see [inputs the user types into](./inputs-the-user-types-into.md)).
+business of the bridges, and their tests check it in a DOM (see
+[inputs the user types into](./inputs-the-user-types-into.md)).
 
 [interleaving]: https://github.com/fgaudo/effect-tea/tree/main/src/interleaving.test.ts

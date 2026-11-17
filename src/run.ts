@@ -27,8 +27,8 @@ import * as Shell from './shell.ts'
  * - Each message a dispatch sends is numbered, from 1, in the order the run takes it.
  * - `seen` includes rejected ones.
  * - `seen` counts no message of a command or a subscription.
- * - A message that makes no new state draws no frame. So the last frame may have seen fewer than were dispatched: never
- *   wait for it to see them all.
+ * - A message that makes no new state draws no frame. So the last frame may have seen fewer messages than were
+ *   dispatched: never wait for it to see them all.
  *
  * From the guide, "Running", "A frame's `dispatch` is the very same function in every frame":
  *
