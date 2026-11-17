@@ -76,8 +76,8 @@ For each child, and for itself, a parent declares:
   those its `runCommand` and its `subscriptions` need, and its children's: nothing names them.
 - **Its own types, by name: `composition<{ state: State }>()`.** Beside `state`, they name, if the parent has any, its
   own commands (`command`), the events it raises (`event`), and which of its messages a parent of its own may send it
-  (`external`). Nothing given to `compose` reveals them: a type it does not name it has none, and a parent that raises
-  an event it did not name does not compile.
+  (`external`). Nothing given to `compose` reveals them: a type it does not name is one it does not have, and a parent
+  that raises an event it did not name does not compile.
 - **The parent's own flags,** if it has any, are declared with its other types:
   `composition<{ state: State; flags: Flags }>()`. Its `init` then returns the function that starts it:
   `init: (children) => (flags) => ({ state, commands })`.

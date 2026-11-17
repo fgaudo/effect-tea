@@ -47,10 +47,10 @@ any state. It is rejected where it does not apply, whatever the model showed. An
 whichever frame it was sent from: a message that must not apply to a later state says what it was for, so that
 `update` rejects it there.
 
-**What arrives too late is judged where what it was for is known.** Nothing is cancelled when the state moves on: not
-a command under way, not what a subscription sent before its key went away, not a frame already drawn. A message of the
-view, as above, is rejected by `update` where it does not apply. Besides it, three kinds of message may arrive for a
-state that has left them behind. Each is settled by whoever knows what it was for:
+**A message that arrives too late is judged by whoever knows what it was for.** Nothing is cancelled when the state
+moves on: not a command under way, not what a subscription sent before its key went away, not a frame already drawn. A
+message of the view, as above, is rejected by `update` where it does not apply. Besides it, three kinds of message may
+arrive for a state that has left them behind. Each is settled by whoever knows what it was for:
 
 - **A subscription's message once its key is gone** is dropped by the run before `update`, even if the key has come
   back since. The run stopped that subscription. `onIgnored` does not hear it, and the run logs it at the debug level.

@@ -55,10 +55,10 @@ What a model shows, and what a view may decide, is in [structuring a program](./
 
 ## Precisely
 
-**What a view keeps to is not enforced.** A view sends only what the model holds, writes only over the values it holds,
-and builds no message of the program itself. The library does not enforce it, and what it says of a model rests on it. A
-test reads a program's messages from its model (see [testing](./testing.md)). So a message a view built is one no test
-has seen.
+**The rules a view keeps to are not enforced.** A view sends only what the model holds, writes only over the values it
+holds, and builds no message of the program itself. The library does not enforce it, and what it says of a model rests
+on it. A test reads a program's messages from its model (see [testing](./testing.md)). So a message a view built is one
+no test has seen.
 
 **Why a model holds no function.** The testing tools compare a model's messages by value with `Equal`. A test checks
 this on the models of two equal states built apart (see [testing](./testing.md)). A function made anew by each

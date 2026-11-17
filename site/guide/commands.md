@@ -58,9 +58,9 @@ const save = Effect.fn('Save')(
 
 **Commands cannot be cancelled.** Once started, a command runs to its end, and its message arrives, even if the state
 has moved on. Nothing the program does stops it. Only the end of the run does: it interrupts the commands under way. So
-a command bears being interrupted at any point. `update` then decides whether the answer still applies (see
-[rejections and defects](./rejections-and-defects.md)). An operation that is a state only its completion leaves has no
-outdated answer (see [structuring a program](./structuring-a-program.md)).
+a command must bear being interrupted at any point. `update` then decides whether the answer still applies (see
+[rejections and defects](./rejections-and-defects.md)). Where an operation is a state that only its completion leaves,
+its answer is never outdated (see [structuring a program](./structuring-a-program.md)).
 
 **Work that should stop is a [subscription](./subscriptions.md).**
 

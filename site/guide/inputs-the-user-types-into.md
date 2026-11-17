@@ -39,8 +39,8 @@ In general, a view writes over the value its model holds, through the input's di
   [inputs by id](./composition.md#inputs-by-id)).
 - **The view writes over the value its model holds**: `{ _tag: 'Written', was: model.name, value: text }`, through
   `forwardTo(dispatch, 'Name')`.
-- **The library stores what is written, whatever it is**, in every state where the input's place holds, by `Equal`,
-  the value it was written over.
+- **The library stores what is written, whatever it is**, in every state where the value in the input's place equals, by
+  `Equal`, the value it was written over.
 - **It rejects the write in any other state.** There, the state has moved on without the input that wrote it. A state
   where the input's optic focuses nothing, or its `get` returns `None`, is one.
 - **The program changes an input by leaving another value in its place**, such as `name: ''`.
@@ -60,9 +60,9 @@ typed.
 - After each frame, `drawn(held, value, seen)` gives what the element then holds, `shown`, and whether it takes the
   frame's value, `taken`. When it is taken, the bridge then writes that value into the element.
 
-**The element stays as it is while the frame is the element's own past or present.** It takes the frame's value once
-the state has moved on without it. So the element is never replaced, and keeps its focus while the program changes
-what it shows.
+**The element stays as it is while the frame is the element's own past or present**: a state from before the writes the
+frame has not seen, or after them all. It takes the frame's value once the state has moved on without it. So the element
+is never replaced, and keeps its focus while the program changes what it shows.
 
 The examples' bridges show it, to copy: [`form`](https://github.com/fgaudo/effect-tea/tree/main/examples/form) with
 snabbdom, and [`form-react`](https://github.com/fgaudo/effect-tea/tree/main/examples/form-react) with React.

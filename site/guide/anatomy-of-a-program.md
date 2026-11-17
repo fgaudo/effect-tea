@@ -51,8 +51,8 @@ Its `update` is on [update](./update.md). The program itself:
 | `runCommand`    | how each command happens, as an Effect                                                     | when it has commands |
 | `subscriptions` | what it listens to in each state                                                           | when it listens      |
 
-- **Its type names its types.** It is `Program<{ state; model; message }>`, plus `command`, `services`, `event`,
-  `external` and `flags` when it has them.
+- **Its type lists the types it is made of.** It is `Program<{ state; model; message }>`, plus `command`, `services`,
+  `event`, `external` and `flags` when it has them.
 - **Its state is always an object**: `{ count }` rather than `count`. That way any program can become a child as it is
   (see [composition](./composition.md)).
 - **The view is not part of it.** `run` hands your renderer a stream of **frames** (`{ model, dispatch, seen }`). The

@@ -5,16 +5,16 @@ children:
   - ./update.md
   - ./model.md
   - ./view.md
-  - ./inputs-the-user-types-into.md
-  - ./writing-a-bridge.md
   - ./commands.md
   - ./subscriptions.md
   - ./rejections-and-defects.md
   - ./composition.md
+  - ./inputs-the-user-types-into.md
   - ./structuring-a-program.md
   - ./running.md
   - ./guarantees.md
   - ./testing.md
+  - ./writing-a-bridge.md
 ---
 
 # Guide
@@ -26,13 +26,13 @@ the pieces fit.
 - [Update](./update.md)
 - [Model](./model.md)
 - [View](./view.md)
-- [Inputs the user types into](./inputs-the-user-types-into.md)
-- [Writing a bridge](./writing-a-bridge.md)
 - [Commands](./commands.md)
 - [Subscriptions](./subscriptions.md)
 - [Rejections and defects](./rejections-and-defects.md)
 - [Composition](./composition.md)
+- [Inputs the user types into](./inputs-the-user-types-into.md)
 - [Structuring a program](./structuring-a-program.md)
 - [Running](./running.md)
 - [Guarantees](./guarantees.md)
 - [Testing](./testing.md)
+- [Writing a bridge](./writing-a-bridge.md)
