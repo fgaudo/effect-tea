@@ -1,7 +1,7 @@
 # Where the library ends: what is left across and after the model
 
 **Status:** items 1 to 5 done on `main`, 14 November 2026, and items 8, 6 and 7 on 15 November 2026; item 9, the
-question of the wrapping, was answered no on 15 November 2026 ([`rejected.md`](rejected.md)). Rewritten the same
+question of the wrapping, was answered no on 15 November 2026 ([`rejected.md`](../rejected.md)). Rewritten the same
 day from the inventory it
 was (`d13bd6f`, whose tables and sections 1 to 3 describe the repository before item 1 and are kept there, in the
 history). Made by one model (Fable 5.2) on Effect 4.1.4 and Bun 1.4.4. "What it rests on" says what was read again in
@@ -192,7 +192,7 @@ between `compose.ts` and `dispatch.ts`, which have none.
 **Answered, 15 November 2026:** neither. The owner decided against the public function and the internal one, after
 the claims above were checked with a scratch probe of `tsc` against the `list` and `pages` examples (outside the
 repository, deleted), by Fable 5.2: the probe found the stray `id` and the inference from the parent program. The
-entry, and what would reopen it, is in [`rejected.md`](rejected.md).
+entry, and what would reopen it, is in [`rejected.md`](../rejected.md).
 
 ## Not on the list
 
@@ -214,7 +214,7 @@ for them.
 
 ## Open questions
 
-- **Who checks the reader** (answered: `Missing` is enough, 15 November 2026, [`rejected.md`](rejected.md)). A model's
+- **Who checks the reader** (answered: `Missing` is enough, 15 November 2026, [`rejected.md`](../rejected.md)). A model's
   messages are not marked, so no function of the library finds them. Whether trusting the reader as the candidates are
   trusted is enough is the one thing the third spike of `declared-inputs.md` still answers. Since the port, the question
   is of a model's fixed messages alone: an input is a value of the model, and its writes are no message a reader

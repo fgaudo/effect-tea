@@ -92,8 +92,8 @@ continuation that takes its number; `Shown` opaque but for `value`; `shown` drop
 **Done since**: adopted by the owner and ported ("The port of the ninth review").
 
 **Open**: what "The port of the ninth review" › "Left" lists, and a `File`, now possible improvements of
-[`ROADMAP.md`](../ROADMAP.md); and, of the ideas of "To explore", the one the port did not overtake, frames skipped by
-the equality of models, spiked or measured before it is proposed, and parked in [`rejected.md`](rejected.md). A
+[`ROADMAP.md`](../../ROADMAP.md); and, of the ideas of "To explore", the one the port did not overtake, frames skipped by
+the equality of models, spiked or measured before it is proposed, and parked in [`rejected.md`](../rejected.md). A
 reaction to every keystroke, a subscription keyed by the input's value, was run again on the plain input and is
 closed ("The port of the ninth review").
 
@@ -197,7 +197,7 @@ the subscriptions (`d686ddf`) and `late-key.test.ts`, on a branch cut from `main
 - The search of interleavings draws writes into a note of the list, from the frame on screen and from an older one,
   which `Clear` replaces, with a search keyed by the note's text; three properties check the rule of a write, the
   revision of a replacement, and the search that follows the text.
-- The README, `docs/invariants.md`, `docs/boundary.md` (item 4 reopened), the changelog, `examples/form` and
+- The README, `docs/invariants.md`, `docs/records/boundary.md` (item 4 reopened), the changelog, `examples/form` and
   `form-react`; `examples/field.ts` removed.
 - Not done: a slider in an example, done since ("A slider, in an example"); the bridge's parting of screen and
   state, and the focus a replacement loses in snabbdom and React, which "Only what is drawn writes" asks to test,
@@ -396,7 +396,7 @@ or the register's own, would keep the tools symmetric: what a view can write, a 
 They do what they do today. The line above takes from them the temptation of input: no control drawn on screen goes
 through a key. What stays open is what it was: a key's messages are judged by no tool, and whether the test lists
 them, the program exports them or the subscription declares them is still the question of "What a key sends is not
-data", parked in [`rejected.md`](rejected.md). It now concerns only sources that exist whatever is drawn.
+data", parked in [`rejected.md`](../rejected.md). It now concerns only sources that exist whatever is drawn.
 
 ### What is to be checked of them, with an input declared in `compose`
 
@@ -438,7 +438,7 @@ review judged the push source, and named the data slot as cheaper and exact on t
 above for the first two.
 
 - **Input through a subscription, with every control that depends on it.** Refused before
-  ([`rejected.md`](rejected.md)), and weighed again with the owner's answer to the order: the text field and its Save
+  ([`rejected.md`](../rejected.md)), and weighed again with the owner's answer to the order: the text field and its Save
   go together into one subscription. The order holds then, by construction. What it costs:
   - "depends on the text" spreads: Cancel, Enter, a reset race with a keystroke as Save does, so a form, or a page,
     becomes one subscription;
@@ -1828,7 +1828,7 @@ on it, not merged.
 
 ### Left
 
-Superseded on 16 November 2026, when the owner made the bridges minimal ([`rejected.md`](rejected.md), "The
+Superseded on 16 November 2026, when the owner made the bridges minimal ([`rejected.md`](../rejected.md), "The
 bridges"): `slides` went, and `volume` draws both its sliders, so a slider in React is no longer to be done; a real
 browser is no longer listed; and the React bridge settles the inputs `Shows` drew inside its root, found there after
 each frame, without the context, by the owner the same day: a portal, and a run inside another's root, are left to a

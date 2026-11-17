@@ -1,0 +1,18 @@
+# Records of designs
+
+Each file here records one design: what was proposed, the spikes and reviews it had, and what the owner decided. Its
+status, at its head, says whether it was done, suspended, deferred or rejected, and at which commit it was last read
+against the code. A record is history, not a rule: where it and the code differ, the code, the guide,
+[`invariants.md`](../invariants.md) and [`premises.md`](../premises.md) rule. What was rejected, and what would reopen
+it, is indexed in [`rejected.md`](../rejected.md).
+
+| Record                                                   | Status                                                   |
+| -------------------------------------------------------- | -------------------------------------------------------- |
+| [`shared-core.md`](shared-core.md)                       | done: the core the run and the testing tools share       |
+| [`single-owner.md`](single-owner.md)                     | done: a run that needs no test of the order of yields    |
+| [`rehearse-owned-effects.md`](rehearse-owned-effects.md) | done: a rehearsal that owns what the test starts         |
+| [`boundary.md`](boundary.md)                             | done, its last item rejected: where the library ends     |
+| [`registers.md`](registers.md)                           | done: what the outside writes into a program's state     |
+| [`inert-steps.md`](inert-steps.md)                       | done in part, `Inert` deferred: a step that does nothing |
+| [`declared-inputs.md`](declared-inputs.md)               | suspended: what reaches `update`, declared as data       |
+| [`exploration.md`](exploration.md)                       | rejected: exploring a program from `init`                |

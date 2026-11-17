@@ -4,7 +4,7 @@
 // `was` is the very value the state holds, as the snabbdom bridge sends it, or, in the cases marked "copy", an equal
 // value that is another string or object, as a bridge that read it again from the element would send. Then what the
 // bridge pays on each frame, `drawn` for one input and the React bridge's `settle` for many, and what a rejected
-// write costs. The measures that chose this design are in `docs/registers.md` ("The cost of `was`"). Run with `bun
+// write costs. The measures that chose this design are in `docs/records/registers.md` ("The cost of `was`"). Run with `bun
 // tools/bench/writes.ts [writes] [rounds] [sections]`, or `node tools/bench/writes.ts …`, where `sections` is a list of
 // `writes`, `drawn`, `settle` and `rejected` (all of them by default); not part of `bun run test`.
 import * as Arr from 'effect/Array'

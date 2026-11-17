@@ -3,7 +3,7 @@ import * as Opt from 'effect/Option'
 import type { Generation } from '../core.ts'
 
 // What `rehearse` keeps of its commands and of the starts it hears, as pure transitions of data
-// (`docs/shared-core.md`, step 5). Several fibers of the test's write it: the shell runs each transition in one
+// (`docs/records/shared-core.md`, step 5). Several fibers of the test's write it: the shell runs each transition in one
 // synchronous thunk, so that a check of the ledger and the act it guards are one transition.
 
 /** Counts the commands taken from `pending`, so that two runs of equal commands stay apart. */

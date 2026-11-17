@@ -2,7 +2,7 @@
 
 **Status:** decided in part by the owner, 15 November 2026, after a review by Fable 5.2: points 1, 2, 3 and 5 of
 "Decision" are done, and point 4, `Inert`, is **deferred**, not rejected ("What was decided"), and parked in
-[`rejected.md`](rejected.md). The rest of this record is the proposal as it was, 14 November 2026, with what it rests
+[`rejected.md`](../rejected.md). The rest of this record is the proposal as it was, 14 November 2026, with what it rests
 on: a review of the invariants by three models (Fable 5.2 twice, Opus 5.5 once), an earlier discussion in an application
 that uses the library (26 October 2026), and two spikes, each on a worktree of its own, on Effect 4.1.4 and Bun 1.4.4,
 which are not kept. Its words were aligned with the contract of the model ([`boundary.md`](boundary.md), item 1), and

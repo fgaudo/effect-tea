@@ -1,7 +1,7 @@
 # A rehearsal that owns what the test starts
 
 **Status:** accepted, November 2026, and done: the five steps of the "Plan" are. It follows the sixth review
-of the premises, whose findings in `rehearse` are open problems of [`ROADMAP.md`](../ROADMAP.md), three spikes on a
+of the premises, whose findings in `rehearse` are open problems of [`ROADMAP.md`](../../ROADMAP.md), three spikes on a
 copy of the repository at 0ff58b4, on Effect 4.1.4 and Bun 1.4.4, and a second reading of the first by a session
 that wrote none, which corrected it: "Alternatives" says how. The spikes are the three commits of the local branch
 `spike/rehearse-one-owner` (cb7dfd0, 74b271f, then db8309a, the one accepted here), deleted once the plan was done,
@@ -35,7 +35,7 @@ fourth of another kind.
 4. **A scenario that throws before it returns its effect skips the end**, being called outside the effect whose end
    is guarded. `drive` has the same.
 
-`docs/single-owner.md` dropped "one fiber makes every decision" for the run, kept a function of the program called
+`docs/records/single-owner.md` dropped "one fiber makes every decision" for the run, kept a function of the program called
 where the call is decided (its rule 5), and left `rehearse` as it was, "since nothing found needs it to change". This
 note changes it, and keeps both.
 
@@ -104,7 +104,7 @@ Each step leaves the suite green, and removes the `test.failing` marks and the i
 4. Rule 2, with its transitions in the ledger. Closes "a message hearNext took is applied, or heard by the next
    call…".
 5. Done. `run`'s take and fork, and how an interrupted call stops the fiber, are one `Effect.acquireUseRelease`, as
-   rule 7 of `docs/single-owner.md` has the renderer's; the transition an offer makes is a function of the ledger
+   rule 7 of `docs/records/single-owner.md` has the renderer's; the transition an offer makes is a function of the ledger
    that `submit` applies in its thunk; a command's fiber settles its ticket however it ends. The mutations of
    `rehearse.ts` are written on the new text, with three more, each with a deterministic test that fails under it:
    "rehearse offers the loop a step once it has ended", "rehearse lets the loop finish after a scenario that failed"

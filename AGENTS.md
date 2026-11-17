@@ -5,6 +5,8 @@ the user documentation. [`README.md`](README.md) is the landing page, and its "D
 holds the rules that apply to every change; how the engine keeps its invariants is in
 [`docs/invariants.md`](docs/invariants.md), and what they rest on in [`docs/premises.md`](docs/premises.md). What was
 tried or weighed and rejected is in [`docs/rejected.md`](docs/rejected.md): read it before proposing a change of design.
+These three are kept true of the code. The records of designs proposed, spiked, done or set aside are under
+[`docs/records/`](docs/records), each as it was decided, with its status at its head: history, not rules.
 
 Procedures live in skills, plain Markdown that any agent or person reads, under `.agents/skills/`. Read the one
 for the task before starting it:
@@ -145,7 +147,7 @@ this summary says less. What every change keeps, an example's and a document's t
   dispatch), `program.ts` (the program and its types), `compose.ts` (`composition`), `input.ts` (an input, and the
   rule a bridge calls for the element that shows one), `log.ts`, `defect.ts`; `core.ts` is what the run and the
   testing tools share as pure functions of data, and `shell.ts` what they share that has effects
-  (`docs/shared-core.md`); `engine.ts` is the runtime only (with `RunOptions`), and `run.ts` connects it to a
+  (`docs/records/shared-core.md`); `engine.ts` is the runtime only (with `RunOptions`), and `run.ts` connects it to a
   renderer. `testing/` holds
   one module per testing tool (and `unexpected.ts`, the failure they share, `ledger.ts`, what `rehearse` keeps of
   its commands and starts, as pure transitions, and `loop.ts`, the loop that applies its steps one at a time).

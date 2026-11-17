@@ -50,7 +50,7 @@ testing tools.
   named like a child. A program written without `Program<…>` has `unknown` types, read as `never` (`Known` in
   `program.ts`), so that it does not open these checks.
 - **A write is stored over the value it names, and only what is drawn writes into an input** (`written` in
-  `input.ts`, applied in `compose.ts` as an input's program; [`registers.md`](registers.md) says why). A write is a
+  `input.ts`, applied in `compose.ts` as an input's program; [`registers.md`](records/registers.md) says why). A write is a
   message of the composed program like any other, so the state stays the fold of `update` over the messages,
   `applyAll` replays it, and neither the engine nor the testing tools know of inputs. It is stored when the input's
   place holds, by `Equal`, the value it was written over, whatever it is, and a write of the value held leaves the
@@ -183,7 +183,7 @@ testing tools.
     nothing is promised of which. Never add a check in the middle of a step, nor
     before the renderer: it would leave a state whose commands never started, which `onApplied` heard of, and protect
     nothing a correct program needs, since a command that died is, to `update`, one that has not answered yet
-    (`docs/single-owner.md`).
+    (`docs/records/single-owner.md`).
   - What an effect of the program does once started is its own, until the end of the run interrupts it: no check can
     come between two of its operations. So is what the renderer pulls: a frame's model is made in the renderer's
     fiber, as it pulls the frame, and `makeModel` is pure, so the run checks nothing there, and a frame pulled after
@@ -231,7 +231,7 @@ testing tools.
   deterministic, of the core or with a gate, and a mutation that takes the check out, naming that test
   (`tools/mutations/`, `change-engine`). No test of a check runs under the scheduler of the tests
   (`test/scheduled.test_scheduler.ts`): a check whose mutation no deterministic test kills is moved until one does, or
-  goes. Three rules keep a check where such a test reaches it (`docs/single-owner.md`):
+  goes. Three rules keep a check where such a test reaches it (`docs/records/single-owner.md`):
   - **A function of the program is called where the call is decided**, never as the first step of a fiber forked for
     it, which starts when the scheduler says, unless the fork runs it at once on its own stack (`FiberSet.run`, a
     premise of `docs/premises.md`).

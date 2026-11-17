@@ -52,9 +52,9 @@ answer, and saying so in the proposal.
   queued as a message of the loop; no check at all, the loop stopped first, and the renderer stopped first; the
   death interrupting the loop; the loop calling `runCommand`. Reasoned only: `forkChild` with `startImmediately`,
   and one mode of resumption in `test/scheduled.ts`. Each, with its counts and why, is in
-  [`single-owner.md`](single-owner.md), "Alternatives".
+  [`single-owner.md`](records/single-owner.md), "Alternatives".
 - **The shared core in a smaller form**: the guard alone, a core for `rehearse` alone, and the register of deaths as
-  part of the step's state. Reasoned; the document records no spike of them. [`shared-core.md`](shared-core.md),
+  part of the step's state. Reasoned; the document records no spike of them. [`shared-core.md`](records/shared-core.md),
   "Alternatives".
 - **Other caches of a parent's lifted subscriptions, for children that share one state object.** Spiked, 15
   November 2026, on `compose.ts` in the working tree and in a copy, neither kept; measured with `bun run bench`, per
@@ -78,7 +78,7 @@ answer, and saying so in the proposal.
   state one below the message's number is no proof that the user saw that state, since `seen` counts no message of a
   command or a subscription and the renderer may not have drawn the last frame yet, so a late tap would be reported
   as a bug. Knowing the frame would need the bridge to pass its revision with each dispatch, a change of `Dispatch`
-  and of every bridge, where [`registers.md`](registers.md) chose `seen` over a revision. And with it, reporting the
+  and of every bridge, where [`registers.md`](records/registers.md) chose `seen` over a revision. And with it, reporting the
   message the current model holds and `update` rejects is the runtime check of the model against `update` that
   [`invariants.md`](invariants.md) rules out ("`reject` means one thing"), close to the run that reported a rejected
   offer (above). What the proposal wanted needs no frame: a message the model of a state holds and `update` rejects in
@@ -93,9 +93,9 @@ answer, and saying so in the proposal.
 - **`rehearse`, owning what the test starts, in other forms**: the loop calling `runCommand` (spiked, `cb7dfd0`),
   a request the loop has not taken failing the rehearsal (spiked, `74b271f`), a subscription's message applied as it
   is sent (reasoned), and three more reasoned only. The accepted form was `db8309a`. Each is in
-  [`rehearse-owned-effects.md`](rehearse-owned-effects.md), "Alternatives".
+  [`rehearse-owned-effects.md`](records/rehearse-owned-effects.md), "Alternatives".
 - **What the tools do with a step that does nothing.** These were refused inside a proposal the owner decided in
-  part on 15 November 2026 ([`inert-steps.md`](inert-steps.md), "What was decided"): with `onEvent` left without
+  part on 15 November 2026 ([`inert-steps.md`](records/inert-steps.md), "What was decided"): with `onEvent` left without
   `reject`, the first three entries and the last stand rejected. `Inert` itself is deferred, not rejected, and the
   two entries on it are to be weighed again with it. Each is in its "Alternatives":
   - `reject` in `onEvent`, the whole message rejected. Spiked (sixteen tests over seven cases): a child could no
@@ -112,7 +112,7 @@ answer, and saying so in the proposal.
     this repository; the reasons are the document's, and that discussion was not read again for this index.
 - **A tool that explores a program from `init`**, breadth first, by what each state offers, to a bound. Spiked, 14
   November 2026: `spike/explore` (`5476871`), never to be merged; the account is
-  [`exploration.md`](exploration.md). Rejected by the owner the same day, as neither practicable nor useful. Its
+  [`exploration.md`](records/exploration.md). Rejected by the owner the same day, as neither practicable nor useful. Its
   measures (the spike's, not run again): one timer of twenty-five minutes from `init` is 39,050 states in 0.9 s, and
   children multiply, so two would be the square (reasoned, not run): a composed program, the usual one, is walked
   only within a bound so tight that the test chooses the states again, as a generator does. What it found on the
@@ -126,12 +126,12 @@ answer, and saying so in the proposal.
   walked alone, ids told as names), or a bug put into an example is found by it and by no test the library's tools
   already make possible.
 - **A mark on a model's messages, so that a tool finds a reader that forgets one.** Reasoned, 15 November 2026,
-  from the third spike of [`declared-inputs.md`](declared-inputs.md), whose walk found every marked message of a
-  model, and from the port of the plain input ([`registers.md`](registers.md)), after which the question is of a
+  from the third spike of [`declared-inputs.md`](records/declared-inputs.md), whose walk found every marked message of a
+  model, and from the port of the plain input ([`registers.md`](records/registers.md)), after which the question is of a
   model's fixed messages alone: an input's writes are no reader's. A test's reader is trusted as its candidates are,
   and one that forgets a fixed message is found by `Missing`, given a candidate that acts; the mark's price is the
   spike's, a constructor every model calls and the limits of identity, for a check no example needed. The owner
-  judged `Missing` enough. [`boundary.md`](boundary.md) and `declared-inputs.md`, "Open questions". Source: the
+  judged `Missing` enough. [`boundary.md`](records/boundary.md) and `declared-inputs.md`, "Open questions". Source: the
   session that removed it from `ROADMAP.md`. *Reopen if* a reader forgets a fixed message of a model, in an example
   or an application, and no test with `Missing` finds it.
 
@@ -240,10 +240,10 @@ answer, and saying so in the proposal.
 - **Input through a subscription**, a keystroke sent through a key in place of a dispatch. Reasoned, November 2026,
   before the proposal of declared inputs: typed-then-Save would rest on scheduling, a typed message would be checked
   by nothing, a key that goes away drops what it sent, and the renderer would feed the run by a service.
-  [`declared-inputs.md`](declared-inputs.md), "What was proposed".
+  [`declared-inputs.md`](records/declared-inputs.md), "What was proposed".
 - **An input as a `Field`, `{ value, revision }`, with `field`, `renewed` and a revision derived by value.**
   Implemented on 14 November 2026 and replaced, unreleased, on 15 November by the plain input of the ninth review
-  ([`registers.md`](registers.md), "A plain input, and a frame that says what it has seen"). The rule of a revision is
+  ([`registers.md`](records/registers.md), "A plain input, and a frame that says what it has seen"). The rule of a revision is
   applied after each step of the program that holds the input, and a hierarchical composition splits that ownership:
   a child its parent starts again, a kept state brought back and a row whose id comes back gave the input a revision
   it had, and a late key was stored into the new instance, run in `src/input-swap.test.ts` of
@@ -257,7 +257,7 @@ answer, and saying so in the proposal.
   place a lens, and a generation for what is left): they close the reset and the undo, but patch the split of
   ownership rather than remove it, need a recipe for what they leave, and widen what a parent's `compose` does to a
   child's state. The owner judged the complexity of parents and children too much and asked for another way, which
-  the ninth review gave. [`registers.md`](registers.md), "Whoever steps replaces what is below" and "The channel of a
+  the ninth review gave. [`registers.md`](records/registers.md), "Whoever steps replaces what is below" and "The channel of a
   replacement, declared". *Reopen if* the plain input is dropped and an input must again keep a history between two
   writes.
 - **A parent that reads its children's inputs**, as an exception to "A parent never reads a child's state to decide"
@@ -313,9 +313,9 @@ answer, and saying so in the proposal.
   parent's `Message` from the parent program was found easy, so that was no reason against. The internal function
   would share only the spread: `compose` and `dispatchTo` decide differently whether a child is by id, and it would
   add an import between `compose.ts` and `dispatch.ts`, which have none. The owner decided against both.
-  [`boundary.md`](boundary.md), "A question". Source: the session that removed it from `ROADMAP.md`, with a review by
+  [`boundary.md`](records/boundary.md), "A question". Source: the session that removed it from `ROADMAP.md`, with a review by
   Fable 5.2. *Reopen if* a tool must lift a child's message without a type to lean on (as the third spike of
-  [`declared-inputs.md`](declared-inputs.md) did), or the stray `id` is found in an application's tests.
+  [`declared-inputs.md`](records/declared-inputs.md) did), or the stray `id` is found in an application's tests.
 
 - **Following a string in a child's wrapping, in the default description of a message.** Reasoned, 15 November
   2026, on the same review: `describeByTag` describes `{ _tag: 'Counter', message: 'Increment' }` as `Counter`. It is
@@ -473,12 +473,12 @@ there; one decided against becomes an entry above.
   the mutation of it survive, which such a selection does not run; and the files of the engine hold most of the list.
   *Reopen if* the parallel run grows slow again; the whole run stays before a release.
 
-- **What reaches `update`, declared as data** ([`declared-inputs.md`](declared-inputs.md)): suspended by the owner on
+- **What reaches `update`, declared as data** ([`declared-inputs.md`](records/declared-inputs.md)): suspended by the owner on
   14 November 2026, not revoked. The decisions taken in it stand only if it is taken up again, and what its spikes
   refuted is there; its first aim, a model with no function for what the user types, was reached by the plain input.
   *Reopen if* the owner takes it up again; the one case the owner named, exploring made awkward on today's API
   because a model's functions do not compare, the exploration did not find (`exploration.md`).
-- **`Inert`, a message a model holds that does nothing** ([`inert-steps.md`](inert-steps.md), "What was decided"):
+- **`Inert`, a message a model holds that does nothing** ([`inert-steps.md`](records/inert-steps.md), "What was decided"):
   deferred by the owner on 15 November 2026, not rejected; the rest of the proposal is done. It would flag the guard
   `{ state }` against a double tap and a parent's broadcast, and found one real case in the examples, fixed without
   it. *Reopen if* an application has a message that does nothing where it should act, which a test with `Inert`
@@ -486,7 +486,7 @@ there; one decided against becomes an entry above.
 - **What a key sends is not data** (`declared-inputs.md`, "What still makes sense", point 3): no tool judges a
   subscription's message, and whether a test lists a key's messages, a program exports them or a subscription
   declares them is open. Deferred with the suspension above, 15 November 2026; no control drawn goes through a key
-  in the examples, so it concerns only sources that exist whatever is drawn ([`registers.md`](registers.md)).
+  in the examples, so it concerns only sources that exist whatever is drawn ([`registers.md`](records/registers.md)).
   Weighed again the same day as a second `makeModel`, whose messages `subscriptions` would be given, and left parked
   (reasoned): a subscription starts once for a key, where a view is drawn again from each model, so the messages
   could depend on the key alone; most carry a value from the world, so that model would hold functions again; and

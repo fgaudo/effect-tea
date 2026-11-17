@@ -1,7 +1,7 @@
 # What reaches `update`, declared as data
 
 **Status:** suspended by the owner, 14 November 2026, the day it was proposed: suspended, not revoked, and parked in
-[`rejected.md`](rejected.md) with what would reopen it. Nothing of it is done, and nothing of it is to be done now. This
+[`rejected.md`](../rejected.md) with what would reopen it. Nothing of it is done, and nothing of it is to be done now. This
 is a short record, rewritten the same day after the contract of the library became the model's with `update`
 ([`boundary.md`](boundary.md), item 1). The record in full, with every finding of its three spikes, is
 `docs/declared-inputs.md` on the branch `claude/declared-inputs-spike-8af3b8`. The spikes' code is on
@@ -120,7 +120,7 @@ reads them with a function of its own.
   key. No tool asks a subscription what it will send; a key that is listed and whose message `update` rejects, or
   that does nothing, is found by none. The exploration found it to be what its walk trusts most blindly. Short of a
   declaration, a test can list a key's messages and give them to `dispatchViolations` as it is, with every one
-  `repeatable`, and so have `Rejected` asked of them: [`volume`](../examples/volume/volume.test.ts)'s test does
+  `repeatable`, and so have `Rejected` asked of them: [`volume`](../../examples/volume/volume.test.ts)'s test does
   since 15 November 2026, with a reader of the keys as it has one of the model, and was seen to fail, alone of its
   file, on an `update` that rejects the release of a drag while muted. Nothing checks that the reader lists what the
   channel sends. `Inert` would be asked of them too, once it exists.
@@ -143,7 +143,7 @@ end of a subscription, a schema in a bridge, a key that changes its message) are
 - **Whether a key's messages are listed by the test, exported by the program, or declared.** The first costs no
   API and is trusted; only the last is true by construction.
 - **Whether the reader's completeness is worth a mark**: no, 15 November 2026; `Missing` is enough
-  ([`rejected.md`](rejected.md)).
+  ([`rejected.md`](../rejected.md)).
 - **Whether it is taken up again.** What is left of its context is the key and the command, since what the user
   types is no message now, and a model holds no function for it. The owner named one case: if exploring on today's
   API were awkward because a model's functions do not compare. The spike found them no obstacle (`exploration.md`).

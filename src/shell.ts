@@ -16,7 +16,7 @@ import type { Subscription } from './subscription.ts'
 // What the run and the testing tools share that has effects, beside what they share as data (`core.ts`): how a fiber
 // of the program is stopped, where its defects die and are recorded, how a subscription runs, and what its fibers see
 // of the span of whoever runs them. The shells, `engine.ts` with `run.ts` and `src/testing/`, each have a loop of
-// their own (`docs/shared-core.md`).
+// their own (`docs/records/shared-core.md`).
 
 /**
  * Interrupts `fiber` as the current fiber does, with a mark of its own (`Core.Stopped`), and waits for it to end, its

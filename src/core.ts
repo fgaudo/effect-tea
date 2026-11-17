@@ -7,7 +7,7 @@ import * as Opt from 'effect/Option'
 import { type DefectSite, ProgramDefect } from './defect.ts'
 import { reject, type Step, type Update } from './update.ts'
 
-// The semantics shared by the run and the testing tools, as pure functions of data (`docs/shared-core.md`): the
+// The semantics shared by the run and the testing tools, as pure functions of data (`docs/records/shared-core.md`): the
 // shells, `engine.ts` and `src/testing/`, decide when they run and perform what they return.
 
 /**

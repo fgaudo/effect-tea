@@ -15,7 +15,7 @@ that order from Effect's source (`currentOpCount`, a resumption that runs on the
 it), in two modes, `'inline'` and `'queued'`, neither of which reaches every order of the other. A runtime whose tests
 need such a model rests on what its dependency does not promise.
 
-After `docs/shared-core.md` the dependence is small. It is in two places:
+After `docs/records/shared-core.md` the dependence is small. It is in two places:
 
 - **five tests under `prioritizedSchedules`, each the only killer of a mutation** (`mutations/mutations.ts`): "a
   renderer is not called once a subscription of init has died" and "a run interrupted as it starts the renderer stops
@@ -194,7 +194,7 @@ A draft, to be checked sentence by sentence against the one it replaces:
 | runAll runs what is pending, though another call takes the last command | none can: `ledger.test.ts` holds that a take finds none on an empty `pending`, which is the check there is |
 
 `src/interleaving.test.ts` kills no mutation, so nothing has to replace it. Each guarantee it checks has
-deterministic tests, of the core or with a gate (`docs/shared-core.md`, step 7). What only it does is look for an
+deterministic tests, of the core or with a gate (`docs/records/shared-core.md`, step 7). What only it does is look for an
 order nobody thought of. Its property "from the first defect on, the run applies no message and starts no command"
 becomes "applies no message". Whether the search stays is an open question. If it goes, `test/scheduled.ts`, its two
 test files and its two modes go with it.
@@ -285,7 +285,7 @@ by no test.
 ## What it rests on
 
 - That a function of JavaScript runs to its end before any other code, and `Effect.sync` and `Effect.suspend`
-  evaluate theirs synchronously: **documented**, as in `docs/shared-core.md`.
+  evaluate theirs synchronously: **documented**, as in `docs/records/shared-core.md`.
 - That `Effect.acquireRelease` protects the acquisition from interruption and runs the release when its scope closes:
   **documented**, in its JSDoc at 4.1.4, `@stability stable`.
 - That the mutations of the renderer's check, of `rehearse`'s `run` and of its `model` survived a test with no
@@ -356,6 +356,6 @@ that dies at once, the call being the first step of a fiber `Effect.forkChild` d
 went, not the fork: `render` is called at most once, and nothing is said of a run that died meanwhile
 (`docs/invariants.md`). And of the premises "AGENTS.md's premises" lists as remaining, that of `Effect.forkIn` and
 its scope went with the fix of the seventh review's finding in `rehearse`, which keeps its subscriptions in a
-`FiberSet` (`docs/rehearse-owned-effects.md`). Still open:
+`FiberSet` (`docs/records/rehearse-owned-effects.md`). Still open:
 
 - Whether step 2 was a change a consumer can notice, and so has a changelog entry.
