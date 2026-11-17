@@ -798,197 +798,230 @@ export type DeclaredTypes = Readonly<{
  * @see The guide, "Composition", "What does not compile:".
  * @see The guide, "Composition", "What is a defect".
  */
-export const program = <T extends DeclaredTypes>() => {
-  type State = Field<T, 'state'>
-  type OwnCommand = Field<T, 'command'>
-  type Event = Field<T, 'event'>
-  // A type `T` names is checked; one it does not name is inferred.
-  type Named<K extends 'model' | 'message', Inferred> = [Field<T, K>] extends [never] ? Inferred : Field<T, K>
-  return {
-    /**
-     * Declares a child alone in its parent's state.
-     *
-     * The child lives where the optic `at` focuses, or where `get` and `set` put it. Where the optic focuses nothing,
-     * or `get` returns `None`, the child is not there. By default, its subscriptions run whenever it is there.
-     *
-     * @param program - The child.
-     * @param place - Where it lives, and `subscribed`, a function of the parent's state that gives the child's state
-     * where its subscriptions run, and `None` elsewhere.
-     * @returns The child, for `children` in `make`.
-     *
-     * @example
-     * ```ts
-     * About: child(about, { at: Optic.id<State>().key('maybeAbout').compose(Optic.some()) }),
-     * ```
-     *
-     * @see The guide, "Composition", "Where the child lives: `at`".
-     * @see The guide, "Composition", "When the child is not there".
-     * @see The guide, "Composition", "When its subscriptions run: `subscribed`".
-     */
-    child: <P extends AnyProgram>(
-      program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalTaken<P>,
-      place:
-        & Placement<State, StateOf<P>>
-        & Readonly<{ subscribed?: (state: State) => Opt.Option<StateOf<P>> }>
-        & ObjectState<StateOf<P>>,
-    ): Child<State, P> => ({
-      kind: 'one',
-      program,
-      ...placed(place),
-      ...(place.subscribed === undefined ? {} : { subscribed: place.subscribed }),
-    }),
-    /**
-     * Declares children told apart by an id, such as the rows of a list, each with a state of its own.
-     *
-     * - `get` and `set` take the id, or `at` is a function of it.
-     * - `subscribed` is required. A row that it leaves out runs no subscription.
-     * - `children.Row(state, id)` is a row's model, and `forwardTo(dispatch, 'Row', id)` its dispatch.
-     * - Ids are compared by value, with `Equal`.
-     *
-     * @param program - The program of each child.
-     * @param place - Where the child at an id lives, and `subscribed`, a function of the parent's state that lists the
-     * ids whose subscriptions run, each with its child's state.
-     * @returns The children, for `children` in `make`.
-     *
-     * @example
-     * ```ts
-     * Row: childById(row, {
-     *   get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
-     *   set: (state, id, counter) => ({ rows: state.rows.map((row) => (row.id === id ? { id, counter } : row)) }),
-     *   subscribed: (state) => state.rows.map((row) => [row.id, row.counter] as const),
-     * }),
-     * ```
-     *
-     * @see The guide, "Composition", "`get` and `set` take the id".
-     * @see The guide, "Composition", "`subscribed` lists the rows that listen".
-     * @see The guide, "Composition", "`children.Row(state, id)` is a row's model".
-     * @see The guide, "Composition", "Ids are compared by value,".
-     */
-    childById: <Id, P extends AnyProgram>(
-      program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalTaken<P>,
-      place:
-        & PlacementById<State, Id, StateOf<P>>
-        & Readonly<{ subscribed: (state: State) => Iterable<readonly [Id, StateOf<P>]> }>
-        & ObjectState<StateOf<P>>,
-    ): ChildById<State, Id, P> => ({ kind: 'byId', program, ...placedById(place), subscribed: place.subscribed }),
-    /**
-     * Declares an input: a place of the program's state that the outside writes into.
-     *
-     * An input is not a child. Its value is part of the program's own state, and its `update` and `makeModel` read it
-     * like the rest of the state. The view writes over the value its model holds,
-     * `{ _tag: 'Written', was: model.name, value }`, through `forwardTo(dispatch, 'Name')`.
-     *
-     * @param place - Where it is: an optic into the program's state, `at`, or the two functions an optic is, `get` and
-     * `set`.
-     * @returns The input, for `inputs` in `make`.
-     *
-     * @example
-     * ```ts
-     * inputs: { Name: input({ at: Optic.id<State>().key('name') }) },
-     * ```
-     *
-     * @see The guide, "Composition", "Its inputs,".
-     * @see The guide, "Inputs the user types into", "The view writes over the value its model holds".
-     */
-    input: <A>(place: Placement<State, A>): Input<State, A> => ({ kind: 'one', ...placed(place) }),
-    /**
-     * Declares inputs told apart by an id, such as one in each row: a place of the program's state for each id.
-     *
-     * A write names its id, `{ _tag: 'Count', id, message }`, through `forwardTo(dispatch, 'Count', id)`.
-     *
-     * @param place - Where the input at an id is: an optic that is a function of the id, `at`, or `get` and `set`,
-     * which take the id.
-     * @returns The inputs, for `inputs` in `make`.
-     *
-     * @example
-     * ```ts
-     * Count: inputById({
-     *   get: (state, id: string) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.count),
-     *   set: (state, id, count) => ({ rows: state.rows.map((row) => (row.id === id ? { ...row, count } : row)) }),
-     * }),
-     * ```
-     *
-     * @see The guide, "Composition", "A write into an input by id names its id".
-     */
-    inputById: <Id, A>(place: PlacementById<State, Id, A>): InputById<State, Id, A> => ({
-      kind: 'byId',
-      ...placedById(place),
-    }),
-    // Its external messages are checked where it is a child (`child`, `childById`): a check here would read its own
-    // messages in the compiler's first pass, which skips a context-sensitive `update` and takes them as `never`
-    // (`docs/rejected.md`).
-    /**
-     * Makes the program from what the parent declares.
-     *
-     * Its own `update` takes `children` too, and may reject its own messages. Its commands need the services of its
-     * `runCommand` and of its children's commands, and its subscriptions those of its own and of its children's: nothing
-     * names them.
-     *
-     * @param config - Its `init` and `makeModel`, its `children` and its `inputs`, and its own `update`,
-     * `subscriptions`, `runCommand` and `onEvent`, where it has them.
-     * @returns The program, which runs alone or as a child of another.
-     *
-     * @example
-     * ```ts
-     * const form = make({
-     *   init: { state: { name: '' } },
-     *   inputs: { Name: input({ at: Optic.id<State>().key('name') }) },
-     *   makeModel: (state) => ({ name: state.name }),
-     * })
-     * ```
-     *
-     * @see The guide, "Composition", "Its own messages, commands and subscriptions,".
-     */
-    make: <
-      Model,
-      C extends Children<State> = None,
-      I extends Inputs<State> = None,
-      Own = never,
-      Ran = never,
-      Heard = never,
-      K = unknown,
-    >(
-      // The children and the inputs are inferred from where they are declared alone: a command a step returns would
-      // otherwise be read as a child's, where no child is declared.
-      config:
-        & Config<
-          State,
-          NoInfer<C>,
-          NoInfer<I>,
-          Named<'message', Own>,
-          OwnCommand,
-          Event,
-          Named<'model', Model>,
-          Ran,
-          Heard,
-          K,
-          Field<T, 'flags'>
-        >
-        & Readonly<{ children?: C; inputs?: I }>,
-    ): Program<{
-      state: State
-      model: Named<'model', Model>
-      message: Named<'message', Own> | ChildMessages<C> | InputMessages<I>
-      command: OwnCommand | ChildCommands<C>
-      commandServices: RanServices<Ran> | ChildCommandServices<C>
-      subscriptionServices: HeardServices<Heard> | ChildSubscriptionServices<C>
-      event: Event
-      external: Field<T, 'external'>
-      flags: Field<T, 'flags'>
-    }> =>
-      make<
-        State,
-        C,
-        I,
-        Named<'model', Model>,
-        Named<'message', Own>,
-        OwnCommand,
-        Event,
-        Ran,
-        Heard,
-        K,
-        Field<T, 'external'>,
-        Field<T, 'flags'>
-      >(config) as never,
-  }
+export const program = <T extends DeclaredTypes>(): ProgramMaker<T> => ({
+  child: (program, place) => ({
+    kind: 'one',
+    program,
+    ...placed(place),
+    ...(place.subscribed === undefined ? {} : { subscribed: place.subscribed }),
+  }),
+  childById: (program, place) => ({ kind: 'byId', program, ...placedById(place), subscribed: place.subscribed }),
+  input: (place) => ({ kind: 'one', ...placed(place) }),
+  inputById: (place) => ({ kind: 'byId', ...placedById(place) }),
+  make: (config) => make(config as never) as never,
+})
+
+// A type `T` names is checked; one it does not name is inferred.
+type Named<T, K extends 'model' | 'message', Inferred> = [Field<T, K>] extends [never] ? Inferred : Field<T, K>
+
+// What `program` returns, and each of its functions, have names of their own: the declarations of a package that
+// exports one name it, where they would spell out every type of this module, for each field of the state.
+/**
+ * What `program<T>()` returns: the functions that declare a program's children and inputs, and make it.
+ *
+ * @see The guide, "Composition", "In short".
+ */
+export interface ProgramMaker<T extends DeclaredTypes> {
+  /**
+   * Declares a child alone in its parent's state.
+   *
+   * The child lives where the optic `at` focuses, or where `get` and `set` put it. Where the optic focuses nothing,
+   * or `get` returns `None`, the child is not there. By default, its subscriptions run whenever it is there.
+   *
+   * @param program - The child.
+   * @param place - Where it lives, and `subscribed`, a function of the parent's state that gives the child's state
+   * where its subscriptions run, and `None` elsewhere.
+   * @returns The child, for `children` in `make`.
+   *
+   * @example
+   * ```ts
+   * About: child(about, { at: Optic.id<State>().key('maybeAbout').compose(Optic.some()) }),
+   * ```
+   *
+   * @see The guide, "Composition", "Where the child lives: `at`".
+   * @see The guide, "Composition", "When the child is not there".
+   * @see The guide, "Composition", "When its subscriptions run: `subscribed`".
+   */
+  readonly child: DeclareChild<T>
+  /**
+   * Declares children told apart by an id, such as the rows of a list, each with a state of its own.
+   *
+   * - `get` and `set` take the id, or `at` is a function of it.
+   * - `subscribed` is required. A row that it leaves out runs no subscription.
+   * - `children.Row(state, id)` is a row's model, and `forwardTo(dispatch, 'Row', id)` its dispatch.
+   * - Ids are compared by value, with `Equal`.
+   *
+   * @param program - The program of each child.
+   * @param place - Where the child at an id lives, and `subscribed`, a function of the parent's state that lists the
+   * ids whose subscriptions run, each with its child's state.
+   * @returns The children, for `children` in `make`.
+   *
+   * @example
+   * ```ts
+   * Row: childById(row, {
+   *   get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
+   *   set: (state, id, counter) => ({ rows: state.rows.map((row) => (row.id === id ? { id, counter } : row)) }),
+   *   subscribed: (state) => state.rows.map((row) => [row.id, row.counter] as const),
+   * }),
+   * ```
+   *
+   * @see The guide, "Composition", "`get` and `set` take the id".
+   * @see The guide, "Composition", "`subscribed` lists the rows that listen".
+   * @see The guide, "Composition", "`children.Row(state, id)` is a row's model".
+   * @see The guide, "Composition", "Ids are compared by value,".
+   */
+  readonly childById: DeclareChildById<T>
+  /**
+   * Declares an input: a place of the program's state that the outside writes into.
+   *
+   * An input is not a child. Its value is part of the program's own state, and its `update` and `makeModel` read it
+   * like the rest of the state. The view writes over the value its model holds,
+   * `{ _tag: 'Written', was: model.name, value }`, through `forwardTo(dispatch, 'Name')`.
+   *
+   * @param place - Where it is: an optic into the program's state, `at`, or the two functions an optic is, `get` and
+   * `set`.
+   * @returns The input, for `inputs` in `make`.
+   *
+   * @example
+   * ```ts
+   * inputs: { Name: input({ at: Optic.id<State>().key('name') }) },
+   * ```
+   *
+   * @see The guide, "Composition", "Its inputs,".
+   * @see The guide, "Inputs the user types into", "The view writes over the value its model holds".
+   */
+  readonly input: DeclareInput<T>
+  /**
+   * Declares inputs told apart by an id, such as one in each row: a place of the program's state for each id.
+   *
+   * A write names its id, `{ _tag: 'Count', id, message }`, through `forwardTo(dispatch, 'Count', id)`.
+   *
+   * @param place - Where the input at an id is: an optic that is a function of the id, `at`, or `get` and `set`,
+   * which take the id.
+   * @returns The inputs, for `inputs` in `make`.
+   *
+   * @example
+   * ```ts
+   * Count: inputById({
+   *   get: (state, id: string) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.count),
+   *   set: (state, id, count) => ({ rows: state.rows.map((row) => (row.id === id ? { ...row, count } : row)) }),
+   * }),
+   * ```
+   *
+   * @see The guide, "Composition", "A write into an input by id names its id".
+   */
+  readonly inputById: DeclareInputById<T>
+  // Its external messages are checked where it is a child (`child`, `childById`): a check here would read its own
+  // messages in the compiler's first pass, which skips a context-sensitive `update` and takes them as `never`
+  // (`docs/rejected.md`).
+  /**
+   * Makes the program from what the parent declares.
+   *
+   * Its own `update` takes `children` too, and may reject its own messages. Its commands need the services of its
+   * `runCommand` and of its children's commands, and its subscriptions those of its own and of its children's: nothing
+   * names them.
+   *
+   * @param config - Its `init` and `makeModel`, its `children` and its `inputs`, and its own `update`,
+   * `subscriptions`, `runCommand` and `onEvent`, where it has them.
+   * @returns The program, which runs alone or as a child of another.
+   *
+   * @example
+   * ```ts
+   * const form = make({
+   *   init: { state: { name: '' } },
+   *   inputs: { Name: input({ at: Optic.id<State>().key('name') }) },
+   *   makeModel: (state) => ({ name: state.name }),
+   * })
+   * ```
+   *
+   * @see The guide, "Composition", "Its own messages, commands and subscriptions,".
+   */
+  readonly make: MakeProgram<T>
 }
+
+/**
+ * The function of `program` that declares a child alone in its parent's state.
+ *
+ * @see The guide, "Composition", "Where the child lives: `at`".
+ */
+export type DeclareChild<T extends DeclaredTypes> = <P extends AnyProgram>(
+  program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalTaken<P>,
+  place:
+    & Placement<Field<T, 'state'>, StateOf<P>>
+    & Readonly<{ subscribed?: (state: Field<T, 'state'>) => Opt.Option<StateOf<P>> }>
+    & ObjectState<StateOf<P>>,
+) => Child<Field<T, 'state'>, P>
+
+/**
+ * The function of `program` that declares children told apart by an id.
+ *
+ * @see The guide, "Composition", "`get` and `set` take the id".
+ */
+export type DeclareChildById<T extends DeclaredTypes> = <Id, P extends AnyProgram>(
+  program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalTaken<P>,
+  place:
+    & PlacementById<Field<T, 'state'>, Id, StateOf<P>>
+    & Readonly<{ subscribed: (state: Field<T, 'state'>) => Iterable<readonly [Id, StateOf<P>]> }>
+    & ObjectState<StateOf<P>>,
+) => ChildById<Field<T, 'state'>, Id, P>
+
+/**
+ * The function of `program` that declares an input.
+ *
+ * @see The guide, "Composition", "Its inputs,".
+ */
+export type DeclareInput<T extends DeclaredTypes> = <A>(
+  place: Placement<Field<T, 'state'>, A>,
+) => Input<Field<T, 'state'>, A>
+
+/**
+ * The function of `program` that declares inputs told apart by an id.
+ *
+ * @see The guide, "Composition", "A write into an input by id names its id".
+ */
+export type DeclareInputById<T extends DeclaredTypes> = <Id, A>(
+  place: PlacementById<Field<T, 'state'>, Id, A>,
+) => InputById<Field<T, 'state'>, Id, A>
+
+/**
+ * The function of `program` that makes the program from what the parent declares.
+ *
+ * @see The guide, "Composition", "Its own messages, commands and subscriptions,".
+ */
+export type MakeProgram<T extends DeclaredTypes> = <
+  Model,
+  C extends Children<Field<T, 'state'>> = None,
+  I extends Inputs<Field<T, 'state'>> = None,
+  Own = never,
+  Ran = never,
+  Heard = never,
+  K = unknown,
+>(
+  // The children and the inputs are inferred from where they are declared alone: a command a step returns would
+  // otherwise be read as a child's, where no child is declared.
+  config:
+    & Config<
+      Field<T, 'state'>,
+      NoInfer<C>,
+      NoInfer<I>,
+      Named<T, 'message', Own>,
+      Field<T, 'command'>,
+      Field<T, 'event'>,
+      Named<T, 'model', Model>,
+      Ran,
+      Heard,
+      K,
+      Field<T, 'flags'>
+    >
+    & Readonly<{ children?: C; inputs?: I }>,
+) => Program<{
+  state: Field<T, 'state'>
+  model: Named<T, 'model', Model>
+  message: Named<T, 'message', Own> | ChildMessages<C> | InputMessages<I>
+  command: Field<T, 'command'> | ChildCommands<C>
+  commandServices: RanServices<Ran> | ChildCommandServices<C>
+  subscriptionServices: HeardServices<Heard> | ChildSubscriptionServices<C>
+  event: Field<T, 'event'>
+  external: Field<T, 'external'>
+  flags: Field<T, 'flags'>
+}>

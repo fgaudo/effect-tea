@@ -5,7 +5,16 @@ import type { RunCommand } from './command.ts'
 import type { Subscriptions } from './subscription.ts'
 import type { Step, Update } from './update.ts'
 
-/** Required exactly when `Command` has values, so that none can go uninterpreted. */
+/**
+ * A program's `runCommand`, required exactly when `Command` has values, so that none goes uninterpreted.
+ *
+ * @example
+ * ```ts
+ * type Saving = Interpreter<'Save', Message, never> // Readonly<{ runCommand: RunCommand<'Save', Message> }>
+ * ```
+ *
+ * @see The guide, "Anatomy of a program", "`runCommand` is required exactly when the program has commands".
+ */
 export type Interpreter<Command, Message, R> = [Command] extends [never] ? object
   : Readonly<{ runCommand: RunCommand<Command, Message, R> }>
 
@@ -124,8 +133,18 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: ne
   : Readonly<{ flags: Flags }>
 
 /**
- * A program keeps its state in an object: a parent keeps a child's model for as long as the child's state is the
- * same object, and a number or a string has no identity to keep it by. Every program, so that any can be a child.
+ * The check that a program keeps its state in an object: `unknown` when it does, and otherwise a property that no
+ * program has, so that the program does not compile.
+ *
+ * A parent keeps a child's model for as long as the child's state is the same object, and a number or a string has
+ * no identity to keep it by. Every program is checked, so that any can be a child.
+ *
+ * @example
+ * ```ts
+ * type Checked = ObjectState<number> // Readonly<{ 'a program keeps its state in an object': number }>
+ * ```
+ *
+ * @see The guide, "Anatomy of a program", "What does not compile".
  */
 export type ObjectState<State> = [State] extends [object] ? unknown
   : Readonly<{ 'a program keeps its state in an object': State }>
@@ -145,6 +164,14 @@ export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags
   & Interpreter<Command, Message, RC>
 
 // Only what every program has: `Shape<any, …>` would demand a `runCommand` (`[any] extends [never]` is false).
+/**
+ * Any program: only what every program has, for a type parameter that takes one.
+ *
+ * @example
+ * ```ts
+ * type Messages<P extends AnyProgram> = MessageOf<P>
+ * ```
+ */
 export type AnyProgram = Readonly<
   { init: Step<any, any> | ((flags: any) => Step<any, any>); update: any; makeModel: any }
 >

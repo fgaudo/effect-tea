@@ -58,7 +58,8 @@ type State = Readonly<{ main: CounterState; rows: ReadonlyArray<Row>; fulls: num
 
 type ResetAll = Readonly<{ _tag: 'ResetAll' }>
 
-const { child, make, childById, input } = program<{ state: State }>()
+// Exported, as a module that declares a program for others: its declarations name the types of `program`.
+export const { child, make, childById, input } = program<{ state: State }>()
 
 // Exported, as a package that publishes a program would: its declarations name what `child` and `make` give.
 export const children = {
@@ -115,7 +116,7 @@ make({
 })
 
 // So does a command's answer.
-const loading = program<{ state: State; command: 'Load' }>()
+export const loading = program<{ state: State; command: 'Load' }>()
 
 loading.make({
   init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
@@ -311,7 +312,8 @@ assert(taken, 'a new element takes the frame\'s value')
 const { write: edit, sent } = edited(shown, 'Ada L')
 const element = sent(1)
 assert(edit.was === 'Ada' && element.value === 'Ada L', 'edited writes over what the element showed')
-const kept = drawn(element, 'Ada', 0)
+// Exported, as a bridge's module may: its declarations spell out what the element holds.
+export const kept = drawn(element, 'Ada', 0)
 assert(kept.shown === element && !kept.taken && byHand !== undefined, 'a frame that has not seen the write keeps it')
 assert(deaf.update({ _tag: 'Full' })(deaf.init.state) !== reject, 'a program typed past its types runs')
 const moved = drawn(element, '', 1)

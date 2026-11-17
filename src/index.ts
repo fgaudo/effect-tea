@@ -6,21 +6,34 @@
  * @module @fgaudo/effect-tea
  */
 
-// A program, the types read back from one, and a program composed of children and inputs.
+// A program, the types read back from one, and a program composed of children and inputs. `AnyProgram`,
+// `Interpreter` and `ObjectState` are in the signatures of `program`: exported, so that a package that exports what it
+// returns can name them in its declarations.
 export {
+  type AnyProgram,
   type CommandOf,
   type CommandServicesOf,
   type EventOf,
   type ExternalOf,
   type FlagsOf,
+  type Interpreter,
   type MessageOf,
   type ModelOf,
+  type ObjectState,
   type Program,
   type StateOf,
   subscriptionsOf,
   type SubscriptionServicesOf,
 } from './program.ts'
-export { program } from './compose.ts'
+export {
+  type DeclareChild,
+  type DeclareChildById,
+  type DeclareInput,
+  type DeclareInputById,
+  type MakeProgram,
+  program,
+  type ProgramMaker,
+} from './compose.ts'
 
 // What `update` returns.
 export {

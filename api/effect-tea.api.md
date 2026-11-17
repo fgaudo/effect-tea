@@ -20,8 +20,8 @@ export const andThen: {
     <State, Command1, Event1, Command2, Event2>(step: Step<State, Command1, Event1>, next: (state: State) => Step<State, Command2, Event2>): Step<State, Command1 | Command2, Event1 | Event2>;
 };
 
-// @public (undocumented)
-type AnyProgram = Readonly<{
+// @public
+export type AnyProgram = Readonly<{
     init: Step<any, any> | ((flags: any) => Step<any, any>);
     update: any;
     makeModel: any;
@@ -159,6 +159,16 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> = 
 }>;
 
 // @public
+export type DeclareChild<T extends DeclaredTypes> = <P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalTaken<P>, place: Placement<Field<T, 'state'>, StateOf<P>> & Readonly<{
+    subscribed?: (state: Field<T, 'state'>) => Opt.Option<StateOf<P>>;
+}> & ObjectState<StateOf<P>>) => Child<Field<T, 'state'>, P>;
+
+// @public
+export type DeclareChildById<T extends DeclaredTypes> = <Id, P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalTaken<P>, place: PlacementById<Field<T, 'state'>, Id, StateOf<P>> & Readonly<{
+    subscribed: (state: Field<T, 'state'>) => Iterable<readonly [Id, StateOf<P>]>;
+}> & ObjectState<StateOf<P>>) => ChildById<Field<T, 'state'>, Id, P>;
+
+// @public
 type DeclaredTypes = Readonly<{
     state: object;
     model?: unknown;
@@ -168,6 +178,12 @@ type DeclaredTypes = Readonly<{
     external?: unknown;
     flags?: unknown;
 }>;
+
+// @public
+export type DeclareInput<T extends DeclaredTypes> = <A>(place: Placement<Field<T, 'state'>, A>) => Input<Field<T, 'state'>, A>;
+
+// @public
+export type DeclareInputById<T extends DeclaredTypes> = <Id, A>(place: PlacementById<Field<T, 'state'>, Id, A>) => InputById<Field<T, 'state'>, Id, A>;
 
 // @public
 export const defect: (reason: string) => never;
@@ -331,7 +347,7 @@ type Inputs<State> = Readonly<Record<string, Readonly<{
 }>>>;
 
 // @public
-type Interpreter<Command, Message, R> = [Command] extends [never] ? object : Readonly<{
+export type Interpreter<Command, Message, R> = [Command] extends [never] ? object : Readonly<{
     runCommand: RunCommand<Command, Message, R>;
 }>;
 
@@ -362,6 +378,22 @@ type Listed<T, Key extends 'commands' | 'events'> = T extends {
 } ? Items<L> : never;
 
 // @public
+export type MakeProgram<T extends DeclaredTypes> = <Model, C extends Children<Field<T, 'state'>> = None, I extends Inputs<Field<T, 'state'>> = None, Own = never, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, 'state'>, NoInfer<C>, NoInfer<I>, Named<T, 'message', Own>, Field<T, 'command'>, Field<T, 'event'>, Named<T, 'model', Model>, Ran, Heard, K, Field<T, 'flags'>> & Readonly<{
+    children?: C;
+    inputs?: I;
+}>) => Program<{
+    state: Field<T, 'state'>;
+    model: Named<T, 'model', Model>;
+    message: Named<T, 'message', Own> | ChildMessages<C> | InputMessages<I>;
+    command: Field<T, 'command'> | ChildCommands<C>;
+    commandServices: RanServices<Ran> | ChildCommandServices<C>;
+    subscriptionServices: HeardServices<Heard> | ChildSubscriptionServices<C>;
+    event: Field<T, 'event'>;
+    external: Field<T, 'external'>;
+    flags: Field<T, 'flags'>;
+}>;
+
+// @public
 export type MessageOf<P> = P extends {
     readonly update: (message: infer M) => any;
 } ? M : never;
@@ -375,6 +407,9 @@ export type ModelOf<P> = P extends {
 type Models<State, C> = {
     readonly [K in keyof C & string]: C[K] extends ChildByIdOf<infer Id, infer P> ? (state: State, id: Id) => ModelOf<P> : (state: State) => ModelOf<ProgramOf<C[K]>>;
 };
+
+// @public (undocumented)
+type Named<T, K extends 'model' | 'message', Inferred> = [Field<T, K>] extends [never] ? Inferred : Field<T, K>;
 
 // @public (undocumented)
 type Needed<Listened> = unknown extends Listened ? unknown : Listened extends Subscription<any, infer R> ? R : never;
@@ -398,7 +433,7 @@ type NoShared<C, I> = [keyof C & keyof I] extends [never] ? unknown : Readonly<{
 }>;
 
 // @public
-type ObjectState<State> = [State] extends [object] ? unknown : Readonly<{
+export type ObjectState<State> = [State] extends [object] ? unknown : Readonly<{
     'a program keeps its state in an object': State;
 }>;
 
@@ -450,30 +485,7 @@ type PlacementById<ParentState, Id, ChildState> = Readonly<{
 export type Program<T extends ProgramTypes> = Shape<Field<T, 'state'>, Field<T, 'model'>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'commandServices'>, Field<T, 'subscriptionServices'>, Field<T, 'event'>, Field<T, 'external'>, Field<T, 'flags'>> & ExternalAmong<Field<T, 'message'>, Field<T, 'external'>>;
 
 // @public
-export const program: <T extends DeclaredTypes>() => {
-    child: <P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalTaken<P>, place: Placement<Field<T, "state">, StateOf<P>> & Readonly<{
-        subscribed?: (state: Field<T, "state">) => Opt.Option<StateOf<P>>;
-    }> & ObjectState<StateOf<P>>) => Child<Field<T, "state">, P>;
-    childById: <Id, P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalTaken<P>, place: PlacementById<Field<T, "state">, Id, StateOf<P>> & Readonly<{
-        subscribed: (state: Field<T, "state">) => Iterable<readonly [Id, StateOf<P>]>;
-    }> & ObjectState<StateOf<P>>) => ChildById<Field<T, "state">, Id, P>;
-    input: <A>(place: Placement<Field<T, "state">, A>) => Input<Field<T, "state">, A>;
-    inputById: <Id, A>(place: PlacementById<Field<T, "state">, Id, A>) => InputById<Field<T, "state">, Id, A>;
-    make: <Model, C extends Children<Field<T, "state">> = None, I extends Inputs<Field<T, "state">> = None, Own = never, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, "state">, NoInfer<C>, NoInfer<I>, [Field<T, "message">] extends [never] ? Own : Field<T, "message">, Field<T, "command">, Field<T, "event">, [Field<T, "model">] extends [never] ? Model : Field<T, "model">, Ran, Heard, K, Field<T, 'flags'>> & Readonly<{
-        children?: C;
-        inputs?: I;
-    }>) => Program<{
-        state: Field<T, "state">;
-        model: [Field<T, "model">] extends [never] ? Model : Field<T, "model">;
-        message: ([Field<T, "message">] extends [never] ? Own : Field<T, "message">) | ChildMessages<C> | InputMessages<I>;
-        command: Field<T, "command"> | ChildCommands<C>;
-        commandServices: RanServices<Ran> | ChildCommandServices<C>;
-        subscriptionServices: HeardServices<Heard> | ChildSubscriptionServices<C>;
-        event: Field<T, "event">;
-        external: Field<T, 'external'>;
-        flags: Field<T, 'flags'>;
-    }>;
-};
+export const program: <T extends DeclaredTypes>() => ProgramMaker<T>;
 
 // @public
 export class ProgramDefect extends ProgramDefect_base<Fields & Readonly<{
@@ -486,6 +498,15 @@ export class ProgramDefect extends ProgramDefect_base<Fields & Readonly<{
 const ProgramDefect_base: new <A extends Record<string, any> = {}>(args: VoidIfEmpty<    { readonly [P in keyof A as P extends "_tag" ? never : P]: A[P]; }>) => YieldableError & {
     readonly _tag: "ProgramDefect";
 } & Readonly<A>;
+
+// @public
+export interface ProgramMaker<T extends DeclaredTypes> {
+    readonly child: DeclareChild<T>;
+    readonly childById: DeclareChildById<T>;
+    readonly input: DeclareInput<T>;
+    readonly inputById: DeclareInputById<T>;
+    readonly make: MakeProgram<T>;
+}
 
 // @public (undocumented)
 type ProgramOf<C> = C extends {
@@ -605,7 +626,7 @@ type TagOf<M> = M extends {
 export type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected;
 
 // @public (undocumented)
-const Unseen: unique symbol;
+const Unseen = "~@fgaudo/effect-tea/Shown/unseen";
 
 // @public
 export type Update<State, Message, Command = never, Event = never> = (message: Message) => (state: State) => Transition<State, Command, Event>;

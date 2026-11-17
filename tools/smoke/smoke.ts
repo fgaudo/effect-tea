@@ -115,14 +115,25 @@ try {
     for (const resolution of ['nodenext', 'bundler']) {
       const tsc = join(dir, `node_modules/typescript-${version}/bin/tsc`)
       const { exitCode, stdout } = await $`node ${tsc} -p tsconfig.${resolution}.json`.cwd(dir).nothrow().quiet()
-      console.log(`typescript ${exact}, ${resolution}: ${exitCode === 0 ? 'ok' : 'failed'}`)
+      // What `program` returns is named, not spelled out: spelled out, it repeats the state for each of its types.
+      const declared = exitCode === 0
+        ? await Bun.file(join(dir, `declarations/${resolution}/consumer.d.ts`)).text()
+        : ''
+      const unnamed = ['ProgramMaker', 'DeclareChild', 'DeclareChildById', 'DeclareInput', 'MakeProgram']
+        .filter((name) => !declared.includes(`${name}<`))
+      console.log(`typescript ${exact}, ${resolution}: ${exitCode === 0 && unnamed.length === 0 ? 'ok' : 'failed'}`)
       if (exitCode !== 0) {
         failed.push(`typescript ${exact}, ${resolution}`)
         console.log(stdout.toString())
+      } else if (unnamed.length > 0) {
+        failed.push(`typescript ${exact}, ${resolution}`)
+        console.log(`consumer.d.ts spells out ${unnamed.join(', ')}`)
       }
     }
   }
-  if (failed.length > 0) throw new Error(`The declarations do not typecheck with ${failed.join('; ')}`)
+  if (failed.length > 0) {
+    throw new Error(`The declarations do not typecheck, or spell out what program returns, with ${failed.join('; ')}`)
+  }
 } finally {
   if (values.keep) console.log(`kept ${dir}`)
   else await rm(dir, { recursive: true, force: true })

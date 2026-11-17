@@ -43,8 +43,9 @@ export const written = <A>(message: Written<A>) => (held: A): Transition<A> =>
     ? { state: held }
     : { state: message.value }
 
-// Hidden: what a bridge holds of an element is the library's to make and read, but for the value it shows.
-const Unseen = Symbol('@fgaudo/effect-tea/Shown/unseen')
+// Hidden: what a bridge holds of an element is the library's to make and read, but for the value it shows. A string,
+// as the key of a program's external messages: an application that exports a `Shown` emits its declarations.
+const Unseen = '~@fgaudo/effect-tea/Shown/unseen'
 
 /**
  * What the element of an input holds: the value it shows, and the writes it sent that no frame has seen yet (see

@@ -1014,8 +1014,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'a write into an input by id goes to its place without its id',
     file: 'src/compose.ts',
-    from: "      kind: 'byId',\n      ...placedById(place),\n",
-    to: "      kind: 'one',\n      ...placedById(place),\n",
+    from: "  inputById: (place) => ({ kind: 'byId', ...placedById(place) }),\n",
+    to: "  inputById: (place) => ({ kind: 'one', ...placedById(place) }),\n",
     killedBy: [
       ['src/input.test.ts', 'stores a write at its id, and leaves the other rows and inputs as they are'],
       [
