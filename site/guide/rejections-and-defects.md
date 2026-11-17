@@ -43,7 +43,9 @@ on a save that completes while nothing is saving. A rejection there would hide t
 
 **What the view draws never rules a message out.** A tap may come from a frame drawn before. It may come from two
 fingers in one frame, or from a control still on screen while it animates away. So a message of the view may arrive in
-any state. It is rejected where it does not apply, whatever the model showed.
+any state. It is rejected where it does not apply, whatever the model showed. And it is applied where it applies,
+whichever frame it was sent from: a message that must not apply to a later state says what it was for, so that
+`update` rejects it there.
 
 **What arrives too late is judged where what it was for is known.** Nothing is cancelled when the state moves on: not
 a command under way, not what a subscription sent before its key went away, not a frame already drawn. A message of the

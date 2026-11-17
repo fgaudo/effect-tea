@@ -185,6 +185,7 @@ check:
 
 - how often a bridge draws;
 - that a click reaches the program;
+- what a second click on a button does before the next frame is drawn;
 - that what the user types survives the frames drawn meanwhile;
 - that the element of an input shows what the program puts in its place;
 - that an element drawn in turn as an input and as a plain field shows the input only while it is one.

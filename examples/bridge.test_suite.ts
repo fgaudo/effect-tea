@@ -1,6 +1,7 @@
 // The tests every bridge passes, in a DOM, whatever its renderer: a bridge's test file registers the DOM, holds its
 // screen refreshes (`holdFrames`) and calls `bridgeTests` with what its renderer draws the scenarios with, a `Bridge`.
 // What the other tests cannot see: how often `renderInto` draws, that a click on a drawn button reaches the program,
+// what a second click on it does before the next frame is drawn,
 // and how the bridge settles each input with a frame by the library's rule: what the user types survives the frames
 // drawn while they type, with its focus, caret and selection, a frame that has not seen a key leaves the element alone,
 // and a value the program puts in an input's place is shown by the same element, as a save that completes within one
@@ -19,6 +20,7 @@ import {
   reject,
   run,
 } from '@fgaudo/effect-tea'
+import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Fiber from 'effect/Fiber'
 import * as Opt from 'effect/Option'
@@ -27,7 +29,7 @@ import * as Scheduler from 'effect/Scheduler'
 import * as Stream from 'effect/Stream'
 import { counter, type Message as CounterMessage, type Model as CounterModel } from './counter/counter.ts'
 import { form, type Message as FormMessage, type Model as FormModel } from './form/form.ts'
-import { Storage } from './form/storage.ts'
+import { Storage, StorageError } from './form/storage.ts'
 import { type Message as VolumeMessage, type Model as VolumeModel, Pointer, volume } from './volume/volume.ts'
 
 // The callbacks waiting for the next screen refresh: none runs until `paint`.
@@ -478,6 +480,77 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
         expect(element('li').textContent).toBe('Ada')
         expect(applied).toEqual(['Name', 'SaveClicked', 'SaveSucceeded'])
       })
+    })
+  })
+
+  // The screen has not caught up: a slow frame, a frozen page. Both clicks are on the button of the one frame drawn.
+  describe('a second click on "Save", before a frame is drawn for the first', () => {
+    const mountNamed = (save: (name: string) => Effect.Effect<void, StorageError>) => {
+      const saves: Array<string> = []
+      const applied: Array<FormMessage['_tag']> = []
+      const ignored: Array<FormMessage['_tag']> = []
+      const storage = Storage.of({ save: (name) => Effect.andThen(Effect.sync(() => saves.push(name)), save(name)) })
+      mount(bridge.renderInto, bridge.views.form, (render) =>
+        run(form, render, {
+          onApplied: ({ message }) => Effect.sync(() => applied.push(message._tag)),
+          onIgnored: ({ message }) => Effect.sync(() => ignored.push(message._tag)),
+        }).pipe(Effect.provideService(Storage, storage)))
+      settle()
+      type(element<HTMLInputElement>('input'), 'Ada')
+      paint()
+      return { saves, applied, ignored }
+    }
+    const underWay = () => Deferred.await(Deferred.makeUnsafe<void>())
+
+    // The order when both clicks are delivered before the run's loop wakes.
+    test('is rejected while the save is under way, when the run has taken neither click', () => {
+      const { saves, applied, ignored } = mountNamed(underWay)
+      const save = button('Save')
+      save.click()
+      save.click()
+      settle()
+      expect(saves).toEqual(['Ada'])
+      expect(applied).toEqual(['Name', 'SaveClicked'])
+      expect(ignored).toEqual(['SaveClicked'])
+    })
+
+    // The order when the run's loop wakes between the two clicks: the form is saving, and the screen does not say so.
+    test('is rejected while the save is under way, when the run has taken the first click', () => {
+      const { saves, applied, ignored } = mountNamed(underWay)
+      const save = button('Save')
+      save.click()
+      settle()
+      expect([button('Save'), save.disabled]).toEqual([save, false])
+      save.click()
+      settle()
+      expect(saves).toEqual(['Ada'])
+      expect(applied).toEqual(['Name', 'SaveClicked'])
+      expect(ignored).toEqual(['SaveClicked'])
+    })
+
+    test('is rejected once the save has succeeded, which left a blank name', () => {
+      const { saves, applied, ignored } = mountNamed(() => Effect.void)
+      const save = button('Save')
+      save.click()
+      settle()
+      save.click()
+      settle()
+      expect(saves).toEqual(['Ada'])
+      expect(applied).toEqual(['Name', 'SaveClicked', 'SaveSucceeded'])
+      expect(ignored).toEqual(['SaveClicked'])
+    })
+
+    // A message is applied where it applies, whichever frame it was sent from: the form that failed takes a save.
+    test('saves again once the save has failed, as a click on the frame of the failure would', () => {
+      const { saves, applied, ignored } = mountNamed((name) => Effect.fail(new StorageError({ cause: name })))
+      const save = button('Save')
+      save.click()
+      settle()
+      save.click()
+      settle()
+      expect(saves).toEqual(['Ada', 'Ada'])
+      expect(applied).toEqual(['Name', 'SaveClicked', 'SaveFailed', 'SaveClicked', 'SaveFailed'])
+      expect(ignored).toEqual([])
     })
   })
 

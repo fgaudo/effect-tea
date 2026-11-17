@@ -16,7 +16,7 @@ holds, and its tests can check it. The library does not enforce them. The exampl
 - **Name intents, not toggles.** Write `MenuOpened` and `MenuClosed`, not `MenuToggled`. An intent sent twice does what
   it did once. A toggle undoes itself.
 - **One-shot actions move to a state that rejects them.** After `SaveClicked` the form is saving, and it rejects a
-  second `SaveClicked`. So a double click saves once.
+  second `SaveClicked`. So a click that arrives while it saves does nothing.
 - **An operation is a state that only its completion leaves.** The save of
   [`form`](https://github.com/fgaudo/effect-tea/tree/main/examples/form/form.ts) is one. When its answer arrives, the
   state cannot have moved on. A completion anywhere else is a `defect`.

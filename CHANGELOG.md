@@ -32,6 +32,13 @@ version, and everything else, features included, the patch version.
   and those of "View" on bridges are in the guide's "Writing a bridge".
 - The README opens with whom the library is for and a link to an example running in the browser; what it adds to the
   Elm architecture is under "Why", and effect-tea-persistent under "Related".
+- The README shows a test first ("A taste"), says whom the library fits and whom it does not ("Is it for you?"), draws
+  the quick start's counter in React and tests it ("Quick start"), and says how the guarantees are checked ("How it
+  is checked"); its "Examples" table is reworded, and "Documentation" groups the guide's pages.
+- The guide's "Structuring a program" says that a click that arrives while the form saves does nothing, where it said
+  that a double click saves once ("State and messages"); "Rejections and defects" says that a message of the view is
+  applied where it applies, whichever frame it was sent from ("Rules"). The bridges' shared tests click "Save" twice
+  before a frame is drawn, and "Writing a bridge" lists it ("Their tests").
 - Every page of the guide is reworded for readers, with the same promises: the common case first ("In short", the
   rules), the exact conditions last ("Precisely"); "Guarantees" keeps its titles and its two lists.
 - The doc comments of `run`, `Frame`, `Written`, `Shown`, `edited` and `drawn` say what each does in short, with a
