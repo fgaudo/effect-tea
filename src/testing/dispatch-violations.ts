@@ -23,8 +23,9 @@ import { reject, type Step, type Update } from '../update.ts'
  *   structural equality compares by reference. Actions meant to repeat (a "+1") are marked `repeatable`.
  * - **Each candidate `update` accepts must be among those held** (`Missing`), compared by `Equal`. The `candidates` are
  *   what the test lists: what a user could ask for, the program's fixed messages. A candidate whose step does nothing,
- *   by the rule of `ActsTwice`, is excepted: a control that would do nothing is no control missing. Those `withheld` on
- *   purpose are excepted too, e.g. the controls of a page that another covers, which would act on its hidden state.
+ *   by the rule of `ActsTwice`, is excepted: a control that would do nothing is not a missing control. The candidates
+ *   `withheld` on purpose are excepted too, for example the controls of a page that another page covers, which would
+ *   act on its hidden state.
  *
  * Without candidates, it checks only the messages it is given.
  */
@@ -75,8 +76,9 @@ const doesNothing = <State, Command, Event>(step: Step<State, Command, Event>, s
  *   structural equality compares by reference. Actions meant to repeat (a "+1") are marked `repeatable`.
  * - **Each candidate `update` accepts must be among those held** (`Missing`), compared by `Equal`. The `candidates` are
  *   what the test lists: what a user could ask for, the program's fixed messages. A candidate whose step does nothing,
- *   by the rule of `ActsTwice`, is excepted: a control that would do nothing is no control missing. Those `withheld` on
- *   purpose are excepted too, e.g. the controls of a page that another covers, which would act on its hidden state.
+ *   by the rule of `ActsTwice`, is excepted: a control that would do nothing is not a missing control. The candidates
+ *   `withheld` on purpose are excepted too, for example the controls of a page that another page covers, which would
+ *   act on its hidden state.
  *
  * Without candidates, it checks only the messages it is given.
  *

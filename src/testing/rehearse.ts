@@ -36,22 +36,22 @@ import * as Loop from './loop.ts'
  *
  * From the guide, "Testing", "Fibers the test forks or detaches":
  *
- * - A call that fails the test fails the fiber that made it: a `send` the model does not show or `update` rejects, a
- *   `run` that matches nothing, a `hearNext` stopped while it waited.
- * - So a call forked from the scenario is joined, or its failure is lost, as in any effect.
+ * - A call that fails the test fails the fiber that made it: a `send` that the model does not show or that `update`
+ *   rejects, a `run` that matches nothing, a `hearNext` stopped while it waited.
+ * - So a call forked from the scenario must be joined, or its failure is lost, as in any effect.
  * - A fiber that the test detaches from the scenario (`Effect.forkDetach`) is beyond the rehearsal's reach. What such a
  *   fiber asks for after the rehearsal ended is interrupted, and a defect it meets then is lost.
  *
  * From the guide, "Testing", "After a defect of the program":
  *
- * 1. A defect of the program fails the rehearsal whichever fiber of the test's it reached, one that nobody joins
- *    included.
- * 2. It fails it however the rehearsal ends, once what the defect stopped has released what it held.
+ * 1. A defect of the program fails the rehearsal whichever fiber of the test it reached, including a fiber that nobody
+ *    joins.
+ * 2. It fails the rehearsal however the rehearsal ends, once what the defect stopped has released what it held.
  * 3. The defect comes first in the cause, before what the scenario ended with.
- * 4. A rehearsal that died checks nothing more of its commands.
+ * 4. A rehearsal that died checks nothing more about its commands.
  *
- * A scenario that catches the defect, with `Effect.exit` say, does not keep it from failing the rehearsal. A test that
- * expects a defect wraps `rehearse` itself.
+ * A scenario that catches the defect, with `Effect.exit` for example, does not keep it from failing the rehearsal. A
+ * test that expects a defect wraps `rehearse` itself.
  *
  * After a defect, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail with it. So do a `hearNext` and a `run`
  * already waiting for their subscription or their command, as nothing happens in a run that died. `state`, `pending`,
@@ -73,7 +73,7 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    * From the guide, "Testing", "What fails the test":
    *
    * - A `send` that finds nothing to send on the model.
-   * - A message `send` sends that `update` rejects: a control the model shows and its own state rejects.
+   * - A message that `send` sends and `update` rejects: a control that the model shows and that its own state rejects.
    * - A `run` that matches nothing.
    * - A command left at the end (see "commands at the end").
    * - A misuse of `hear` and `hearNext` (see "how a subscription is heard").
@@ -83,7 +83,8 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    *
    * - on a state whose subscriptions are a defect. It reads them on each new state. A key whose `Equal` throws against
    *   a key of the state before is such a defect too;
-   * - on a state whose model is a defect. It makes the model on each new state, as a renderer that pulls every frame;
+   * - on a state whose model is a defect. It makes the model on each new state, as a renderer that pulls every frame
+   *   does;
    * - on a command or a subscription that interrupts itself.
    */
   send: (select: (model: Model) => Opt.Option<Message>) => Effect.Effect<void>
@@ -97,12 +98,12 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    *
    * **Each command waits until the test runs it** (`run`, `runAll`). It runs through the program's `runCommand`, with
    * the services provided, in a scope of its own. `run` runs the oldest pending command it matches. `runAll` runs the
-   * oldest until none is left, those they start included.
+   * oldest pending command until none is left, including the commands that they start.
    *
    * From the guide, "Testing", "What fails the test":
    *
    * - A `send` that finds nothing to send on the model.
-   * - A message `send` sends that `update` rejects: a control the model shows and its own state rejects.
+   * - A message that `send` sends and `update` rejects: a control that the model shows and that its own state rejects.
    * - A `run` that matches nothing.
    * - A command left at the end (see "commands at the end").
    * - A misuse of `hear` and `hearNext` (see "how a subscription is heard").
@@ -112,7 +113,8 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    *
    * - on a state whose subscriptions are a defect. It reads them on each new state. A key whose `Equal` throws against
    *   a key of the state before is such a defect too;
-   * - on a state whose model is a defect. It makes the model on each new state, as a renderer that pulls every frame;
+   * - on a state whose model is a defect. It makes the model on each new state, as a renderer that pulls every frame
+   *   does;
    * - on a command or a subscription that interrupts itself.
    *
    * From the guide, "Testing", "Commands at the end":
@@ -125,14 +127,14 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    *
    * From the guide, "Testing", "After a defect of the program":
    *
-   * 1. A defect of the program fails the rehearsal whichever fiber of the test's it reached, one that nobody joins
-   *    included.
-   * 2. It fails it however the rehearsal ends, once what the defect stopped has released what it held.
+   * 1. A defect of the program fails the rehearsal whichever fiber of the test it reached, including a fiber that
+   *    nobody joins.
+   * 2. It fails the rehearsal however the rehearsal ends, once what the defect stopped has released what it held.
    * 3. The defect comes first in the cause, before what the scenario ended with.
-   * 4. A rehearsal that died checks nothing more of its commands.
+   * 4. A rehearsal that died checks nothing more about its commands.
    *
-   * A scenario that catches the defect, with `Effect.exit` say, does not keep it from failing the rehearsal. A test
-   * that expects a defect wraps `rehearse` itself.
+   * A scenario that catches the defect, with `Effect.exit` for example, does not keep it from failing the rehearsal. A
+   * test that expects a defect wraps `rehearse` itself.
    *
    * After a defect, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail with it. So do a `hearNext` and a
    * `run` already waiting for their subscription or their command, as nothing happens in a run that died. `state`,
@@ -147,7 +149,7 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    *
    * **Each command waits until the test runs it** (`run`, `runAll`). It runs through the program's `runCommand`, with
    * the services provided, in a scope of its own. `run` runs the oldest pending command it matches. `runAll` runs the
-   * oldest until none is left, those they start included.
+   * oldest pending command until none is left, including the commands that they start.
    *
    * From the guide, "Testing", "Commands at the end":
    *
@@ -179,17 +181,18 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    * - `hear` runs nothing. The test answers for what it says was heard, and for whether the subscription had ended.
    * - `hearNext` runs the subscription:
    *   1. The first time it hears a key, it starts that key's subscription, with the services provided and in a scope of
-   *      its own: the one listed when the key appeared, as the run starts that one.
-   *   2. It keeps it for as long as the key stays, as the run does, whichever fiber of the test's first heard it.
-   *   3. Each call hears the subscription's next message, which waits for the call, and succeeds with it.
+   *      its own. The subscription it starts is the one listed when the key appeared, as the run starts that one.
+   *   2. It keeps the subscription for as long as the key stays, as the run does, whichever fiber of the test first
+   *      heard it.
+   *   3. Each call hears the subscription's next message, and succeeds with it. That message waits for the call.
    *   4. The last message is the subscription's end value. After it, neither `hearNext` nor `hear` hears that key until
-   *      the key goes away and comes back. A `hearNext` that was waiting with the one that heard the end fails the
-   *      test.
+   *      the key goes away and comes back. A `hearNext` that was waiting at the same time as the one that heard the end
+   *      fails the test.
    * - **Each start of a key is heard one way**, as the run hears one subscription for each. Once `hearNext` runs it,
    *   `hear` fails the test on that key. Once `hear` has played it, `hearNext` fails the test on that key. Both hold
    *   until the key goes away and comes back.
-   * - **A key that goes away interrupts its subscription.** So does the end of the scenario, or of the rehearsal
-   *   however it ends. Then:
+   * - **A key that goes away interrupts its subscription.** So does the end of the scenario, and the end of the
+   *   rehearsal, however it ends. Then:
    *   - a defect in what the subscription releases fails the test;
    *   - what the subscription sent that `update` has not seen is dropped, as the run drops it, and a `hearNext` still
    *     waiting for it fails the test.
@@ -198,7 +201,7 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    * From the guide, "Testing", "What fails the test":
    *
    * - A `send` that finds nothing to send on the model.
-   * - A message `send` sends that `update` rejects: a control the model shows and its own state rejects.
+   * - A message that `send` sends and `update` rejects: a control that the model shows and that its own state rejects.
    * - A `run` that matches nothing.
    * - A command left at the end (see "commands at the end").
    * - A misuse of `hear` and `hearNext` (see "how a subscription is heard").
@@ -208,7 +211,8 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    *
    * - on a state whose subscriptions are a defect. It reads them on each new state. A key whose `Equal` throws against
    *   a key of the state before is such a defect too;
-   * - on a state whose model is a defect. It makes the model on each new state, as a renderer that pulls every frame;
+   * - on a state whose model is a defect. It makes the model on each new state, as a renderer that pulls every frame
+   *   does;
    * - on a command or a subscription that interrupts itself.
    */
   hear: (key: unknown, message: Heard<Message>) => Effect.Effect<void>
@@ -230,17 +234,18 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    * - `hear` runs nothing. The test answers for what it says was heard, and for whether the subscription had ended.
    * - `hearNext` runs the subscription:
    *   1. The first time it hears a key, it starts that key's subscription, with the services provided and in a scope of
-   *      its own: the one listed when the key appeared, as the run starts that one.
-   *   2. It keeps it for as long as the key stays, as the run does, whichever fiber of the test's first heard it.
-   *   3. Each call hears the subscription's next message, which waits for the call, and succeeds with it.
+   *      its own. The subscription it starts is the one listed when the key appeared, as the run starts that one.
+   *   2. It keeps the subscription for as long as the key stays, as the run does, whichever fiber of the test first
+   *      heard it.
+   *   3. Each call hears the subscription's next message, and succeeds with it. That message waits for the call.
    *   4. The last message is the subscription's end value. After it, neither `hearNext` nor `hear` hears that key until
-   *      the key goes away and comes back. A `hearNext` that was waiting with the one that heard the end fails the
-   *      test.
+   *      the key goes away and comes back. A `hearNext` that was waiting at the same time as the one that heard the end
+   *      fails the test.
    * - **Each start of a key is heard one way**, as the run hears one subscription for each. Once `hearNext` runs it,
    *   `hear` fails the test on that key. Once `hear` has played it, `hearNext` fails the test on that key. Both hold
    *   until the key goes away and comes back.
-   * - **A key that goes away interrupts its subscription.** So does the end of the scenario, or of the rehearsal
-   *   however it ends. Then:
+   * - **A key that goes away interrupts its subscription.** So does the end of the scenario, and the end of the
+   *   rehearsal, however it ends. Then:
    *   - a defect in what the subscription releases fails the test;
    *   - what the subscription sent that `update` has not seen is dropped, as the run drops it, and a `hearNext` still
    *     waiting for it fails the test.
@@ -249,7 +254,7 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    * From the guide, "Testing", "What fails the test":
    *
    * - A `send` that finds nothing to send on the model.
-   * - A message `send` sends that `update` rejects: a control the model shows and its own state rejects.
+   * - A message that `send` sends and `update` rejects: a control that the model shows and that its own state rejects.
    * - A `run` that matches nothing.
    * - A command left at the end (see "commands at the end").
    * - A misuse of `hear` and `hearNext` (see "how a subscription is heard").
@@ -259,19 +264,20 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    *
    * - on a state whose subscriptions are a defect. It reads them on each new state. A key whose `Equal` throws against
    *   a key of the state before is such a defect too;
-   * - on a state whose model is a defect. It makes the model on each new state, as a renderer that pulls every frame;
+   * - on a state whose model is a defect. It makes the model on each new state, as a renderer that pulls every frame
+   *   does;
    * - on a command or a subscription that interrupts itself.
    *
    * From the guide, "Testing", "After a defect of the program":
    *
-   * 1. A defect of the program fails the rehearsal whichever fiber of the test's it reached, one that nobody joins
-   *    included.
-   * 2. It fails it however the rehearsal ends, once what the defect stopped has released what it held.
+   * 1. A defect of the program fails the rehearsal whichever fiber of the test it reached, including a fiber that
+   *    nobody joins.
+   * 2. It fails the rehearsal however the rehearsal ends, once what the defect stopped has released what it held.
    * 3. The defect comes first in the cause, before what the scenario ended with.
-   * 4. A rehearsal that died checks nothing more of its commands.
+   * 4. A rehearsal that died checks nothing more about its commands.
    *
-   * A scenario that catches the defect, with `Effect.exit` say, does not keep it from failing the rehearsal. A test
-   * that expects a defect wraps `rehearse` itself.
+   * A scenario that catches the defect, with `Effect.exit` for example, does not keep it from failing the rehearsal. A
+   * test that expects a defect wraps `rehearse` itself.
    *
    * After a defect, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail with it. So do a `hearNext` and a
    * `run` already waiting for their subscription or their command, as nothing happens in a run that died. `state`,
@@ -355,7 +361,7 @@ type Current<State, Message, Event> = Readonly<{
  *
  * **Each command waits until the test runs it** (`run`, `runAll`). It runs through the program's `runCommand`, with the
  * services provided, in a scope of its own. `run` runs the oldest pending command it matches. `runAll` runs the oldest
- * until none is left, those they start included.
+ * pending command until none is left, including the commands that they start.
  *
  * From the guide, "Testing", "A subscription's message is one the test says was heard":
  *
@@ -369,7 +375,7 @@ type Current<State, Message, Event> = Readonly<{
  * From the guide, "Testing", "What fails the test":
  *
  * - A `send` that finds nothing to send on the model.
- * - A message `send` sends that `update` rejects: a control the model shows and its own state rejects.
+ * - A message that `send` sends and `update` rejects: a control that the model shows and that its own state rejects.
  * - A `run` that matches nothing.
  * - A command left at the end (see "commands at the end").
  * - A misuse of `hear` and `hearNext` (see "how a subscription is heard").
@@ -379,7 +385,8 @@ type Current<State, Message, Event> = Readonly<{
  *
  * - on a state whose subscriptions are a defect. It reads them on each new state. A key whose `Equal` throws against a
  *   key of the state before is such a defect too;
- * - on a state whose model is a defect. It makes the model on each new state, as a renderer that pulls every frame;
+ * - on a state whose model is a defect. It makes the model on each new state, as a renderer that pulls every frame
+ *   does;
  * - on a command or a subscription that interrupts itself.
  *
  * From the guide, "Testing", "Commands at the end":
@@ -392,9 +399,9 @@ type Current<State, Message, Event> = Readonly<{
  *
  * From the guide, "Testing", "Messages that arrive together":
  *
- * - Messages that arrive together, from fibers of the test's, are applied one at a time, as the run takes them.
- * - Each waits for the state the one before left, the release of the subscriptions it stopped included. `send` selects
- *   on the model of that state.
+ * - Messages that arrive together, from fibers of the test, are applied one at a time, as the run takes them.
+ * - Each waits for the state that the one before it left, including the release of the subscriptions that the one
+ *   before stopped. `send` selects on the model of that state.
  * - A message once sent is applied whole, even if the fiber that sent it is interrupted meanwhile, or the scenario
  *   returns.
  * - A rehearsal whose scenario returned applies what was sent before. One whose scenario failed or was interrupted does
@@ -402,14 +409,14 @@ type Current<State, Message, Event> = Readonly<{
  *
  * From the guide, "Testing", "After a defect of the program":
  *
- * 1. A defect of the program fails the rehearsal whichever fiber of the test's it reached, one that nobody joins
- *    included.
- * 2. It fails it however the rehearsal ends, once what the defect stopped has released what it held.
+ * 1. A defect of the program fails the rehearsal whichever fiber of the test it reached, including a fiber that nobody
+ *    joins.
+ * 2. It fails the rehearsal however the rehearsal ends, once what the defect stopped has released what it held.
  * 3. The defect comes first in the cause, before what the scenario ended with.
- * 4. A rehearsal that died checks nothing more of its commands.
+ * 4. A rehearsal that died checks nothing more about its commands.
  *
- * A scenario that catches the defect, with `Effect.exit` say, does not keep it from failing the rehearsal. A test that
- * expects a defect wraps `rehearse` itself.
+ * A scenario that catches the defect, with `Effect.exit` for example, does not keep it from failing the rehearsal. A
+ * test that expects a defect wraps `rehearse` itself.
  *
  * After a defect, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail with it. So do a `hearNext` and a `run`
  * already waiting for their subscription or their command, as nothing happens in a run that died. `state`, `pending`,
@@ -417,7 +424,7 @@ type Current<State, Message, Event> = Readonly<{
  *
  * From the guide, "Testing", "Defects of the program":
  *
- * A defect of the program fails `simulate`, `rehearse` and `drive` as it ends the run when the program runs. They fail
+ * A defect of the program fails `simulate`, `rehearse` and `drive`, as it ends the run when the program runs. They fail
  * with the `ProgramDefect` the run dies with, in the same `where`, with the same `on` or `key`. That holds wherever the
  * tool calls the program: `init`, `update`, `makeModel`, `subscriptions`, a subscription, `runCommand`. (`simulate`
  * calls no `init`.)

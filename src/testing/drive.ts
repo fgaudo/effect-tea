@@ -78,8 +78,8 @@ export type DriveOptions<Message, State = unknown, Command = unknown> =
  * - Its time is real: a frame may be past by the time its message arrives. So, as when the program runs, a rejected
  *   message is ignored, and a scenario checks what it expects to see.
  * - Its renderer keeps only the latest frame. A wait looks at that frame and at later ones.
- * - Its commands run as soon as they start. To hold one, give the program a service of the test's that waits on a
- *   `Deferred` the scenario completes.
+ * - Its commands run as soon as they start. To hold one, give the program a service, written by the test, that waits on
+ *   a `Deferred` that the scenario completes.
  * - A program with flags gets them as `run` does, in the options.
  *
  * From the guide, "Testing", "How `drive` ends":
@@ -92,7 +92,7 @@ export type DriveOptions<Message, State = unknown, Command = unknown> =
  *
  * From the guide, "Testing", "Defects of the program":
  *
- * A defect of the program fails `simulate`, `rehearse` and `drive` as it ends the run when the program runs. They fail
+ * A defect of the program fails `simulate`, `rehearse` and `drive`, as it ends the run when the program runs. They fail
  * with the `ProgramDefect` the run dies with, in the same `where`, with the same `on` or `key`. That holds wherever the
  * tool calls the program: `init`, `update`, `makeModel`, `subscriptions`, a subscription, `runCommand`. (`simulate`
  * calls no `init`.)

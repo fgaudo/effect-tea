@@ -60,16 +60,16 @@ test('the model holds what update accepts, all of it', () => {
 
 **That the model is data** is checked on two equal states built apart. The same seed drawn twice gives them: call
 `fc.sample(states, { seed, numRuns: 1 })` twice, and compare their models with `Equal.equals`, as
-[`form`](https://github.com/fgaudo/effect-tea/tree/main/examples/form/form.test.ts) does. A state reused would pass
-whatever its model holds: a parent keeps a child's model for each state object.
+[`form`](https://github.com/fgaudo/effect-tea/tree/main/examples/form/form.test.ts) does. If one state object were used
+twice, the check would pass whatever its model holds, because a parent keeps a child's model for each state object.
 
 ### The reader
 
 **The reader is the test's own.** It is a function from a model to the messages the model holds (`messagesOf` above),
 written one case of the model at a time. The library cannot write it: a message in a model is a value like any other.
 
-- **Inputs.** What the user writes into an input is none of those messages. The library keeps its rule for that, the
-  same for every input. A test writes into an input as the view does:
+- **Inputs.** What the user writes into an input is not one of those messages. The library keeps the rule for it, the
+  same rule for every input. A test writes into an input as the view does:
   `{ _tag: 'Name', message: { _tag: 'Written', was: model.name, value: 'Ada' } }`.
 - **Children.** A parent's reader calls its children's readers. It wraps what they return as the parent receives it:
   `{ _tag: 'Clock', message }`, with the `id` for children by id. So do
@@ -82,8 +82,8 @@ written one case of the model at a time. The library cannot write it: a message 
 - **Keeping the candidates.** The examples whose messages are tagged list their candidates one tag of `Message` at a
   time. They keep them in a record the compiler checks against the type (`satisfies`), as
   [`timer`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/timer.test.ts) does. There, a new message does
-  not compile until the test says what a user could ask with it, nothing included. That is the examples' way to keep
-  the list, and nothing the library asks.
+  not compile until the test says what a user could ask for with it, even if that is nothing. That is the examples' way
+  to keep the list, and not something the library asks for.
 
 ### The view
 
@@ -91,7 +91,7 @@ written one case of the model at a time. The library cannot write it: a message 
 dispatch. That is checked with your renderer's tools. For snabbdom,
 [`examples/snabbdom-testing.test_messages.ts`][messages] has one, `messagesSentBy`. It finds what a view sends,
 without a DOM, for a test to compare with what its reader returns. The examples' tests do this, each with a reader in
-the order its view draws. `messagesSentBy` is an example, and nothing a bridge must have.
+the order its view draws. `messagesSentBy` is an example, and not something a bridge must have.
 
 **A program run under its renderer, in a DOM,** is tested as the examples' bridges are (see
 [their tests](./writing-a-bridge.md#their-tests)): the test file registers a DOM, and a frame is drawn when the test
@@ -111,9 +111,9 @@ From `@fgaudo/effect-tea/testing`:
 | `rehearse`           | a user's scenario without a runtime, the test deciding when each command runs     |
 | `drive`              | a user's scenario on the running program, subscriptions included                  |
 
-**When a rejected message fails the test.** Where the test decides when each message arrives, a rejected message fails
-the test if the test sent it, or the view did through the test. What arrives by itself is ignored, as when the program
-runs. In `drive` time is real, so every rejection is ignored:
+**When a rejected message fails the test.** In a tool where the test decides when each message arrives, a rejected
+message fails the test if the test sent it, or if the view sent it through the test. What arrives by itself is ignored,
+as when the program runs. In `drive` time is real, so every rejection is ignored:
 
 | Rejected…                           | a message the test or the view sends | a command's answer    | a subscription's message      |
 | ----------------------------------- | ------------------------------------ | --------------------- | ----------------------------- |
@@ -143,8 +143,9 @@ the second test of [how a program is tested](#how-a-program-is-tested) does. It 
   structural equality compares by reference. Actions meant to repeat (a "+1") are marked `repeatable`.
 - **Each candidate `update` accepts must be among those held** (`Missing`), compared by `Equal`. The `candidates` are
   what the test lists: what a user could ask for, the program's fixed messages. A candidate whose step does nothing, by
-  the rule of `ActsTwice`, is excepted: a control that would do nothing is no control missing. Those `withheld` on
-  purpose are excepted too, e.g. the controls of a page that another covers, which would act on its hidden state.
+  the rule of `ActsTwice`, is excepted: a control that would do nothing is not a missing control. The candidates
+  `withheld` on purpose are excepted too, for example the controls of a page that another page covers, which would act
+  on its hidden state.
 
 Without candidates, it checks only the messages it is given.
 
@@ -154,18 +155,20 @@ Without candidates, it checks only the messages it is given.
 
 - It takes the test's messages, and among them those a subscription would send.
 - It fails when `update` rejects one of them.
-- Each command runs after those started before it. So the commands of one step all answer before those their answers
-  start, as when the program runs commands that answer at once. All of them run before the next of the test's messages
-  is applied.
+- Each command runs after those started before it. So all the commands of one step answer before the commands that
+  their answers start, as when the program runs commands that answer at once. All of them run before the next of the
+  test's messages is applied.
 - Each command has a scope of its own, as when the program runs. The scope is closed before the command's message is
   applied.
-- The command answers that `update` rejected are listed in `ignored`. Assert `ignored` when one being dropped would be
-  a bug.
-- Its subscriptions do not run. What it reads of them is under [precisely](#precisely).
+- The command answers that `update` rejected are listed in `ignored`. Assert `ignored` when dropping one of them would
+  be a bug.
+- Its subscriptions do not run. What it reads from them is under [precisely](#precisely).
 - It starts from the step it is given, and calls no `init`.
-- It succeeds with the last `state` and, each in order: `messages`, every message `update` accepted, the test's and
-  the commands' answers; `commands`, every command started, those of the step it started from included; `events`,
-  every event `update` raised; and `ignored`.
+- It succeeds with the last `state` and with these lists, each in order:
+  - `messages`: every message that `update` accepted, the test's and the commands' answers;
+  - `commands`: every command started, including those of the step it started from;
+  - `events`: every event that `update` raised;
+  - `ignored`.
 
 ### `rehearse`
 
@@ -194,7 +197,7 @@ rehearse(
 - **Nothing reaches `update` by itself.**
 - **Each command waits until the test runs it** (`run`, `runAll`). It runs through the program's `runCommand`, with the
   services provided, in a scope of its own. `run` runs the oldest pending command it matches. `runAll` runs the oldest
-  until none is left, those they start included.
+  pending command until none is left, including the commands that they start.
 - **A subscription's message is one the test says was heard** (`hear`), or the next one the subscription itself sends
   (`hearNext`). Either is heard only while its key is in the state.
 - **It starts from the program's `init`.** A program with flags gets them as `run` does, in the options.
@@ -208,8 +211,8 @@ rehearse(
 - Its time is real: a frame may be past by the time its message arrives. So, as when the program runs, a rejected
   message is ignored, and a scenario checks what it expects to see.
 - Its renderer keeps only the latest frame. A wait looks at that frame and at later ones.
-- Its commands run as soon as they start. To hold one, give the program a service of the test's that waits on a
-  `Deferred` the scenario completes.
+- Its commands run as soon as they start. To hold one, give the program a service, written by the test, that waits on a
+  `Deferred` that the scenario completes.
 - A program with flags gets them as `run` does, in the options.
 
 ## Precisely
@@ -226,7 +229,7 @@ rehearse(
 #### What fails the test
 
 - A `send` that finds nothing to send on the model.
-- A message `send` sends that `update` rejects: a control the model shows and its own state rejects.
+- A message that `send` sends and `update` rejects: a control that the model shows and that its own state rejects.
 - A `run` that matches nothing.
 - A command left at the end (see [commands at the end](#commands-at-the-end)).
 - A misuse of `hear` and `hearNext` (see [how a subscription is heard](#how-a-subscription-is-heard)).
@@ -236,7 +239,7 @@ It also fails, as the run dies:
 
 - on a state whose subscriptions are a defect. It reads them on each new state. A key whose `Equal` throws against a key
   of the state before is such a defect too;
-- on a state whose model is a defect. It makes the model on each new state, as a renderer that pulls every frame;
+- on a state whose model is a defect. It makes the model on each new state, as a renderer that pulls every frame does;
 - on a command or a subscription that interrupts itself.
 
 #### How a subscription is heard
@@ -246,16 +249,18 @@ It also fails, as the run dies:
 - `hear` runs nothing. The test answers for what it says was heard, and for whether the subscription had ended.
 - `hearNext` runs the subscription:
   1. The first time it hears a key, it starts that key's subscription, with the services provided and in a scope of its
-     own: the one listed when the key appeared, as the run starts that one.
-  2. It keeps it for as long as the key stays, as the run does, whichever fiber of the test's first heard it.
-  3. Each call hears the subscription's next message, which waits for the call, and succeeds with it.
+     own. The subscription it starts is the one listed when the key appeared, as the run starts that one.
+  2. It keeps the subscription for as long as the key stays, as the run does, whichever fiber of the test first heard
+     it.
+  3. Each call hears the subscription's next message, and succeeds with it. That message waits for the call.
   4. The last message is the subscription's end value. After it, neither `hearNext` nor `hear` hears that key until the
-     key goes away and comes back. A `hearNext` that was waiting with the one that heard the end fails the test.
+     key goes away and comes back. A `hearNext` that was waiting at the same time as the one that heard the end fails
+     the test.
 - **Each start of a key is heard one way**, as the run hears one subscription for each. Once `hearNext` runs it, `hear`
   fails the test on that key. Once `hear` has played it, `hearNext` fails the test on that key. Both hold until the key
   goes away and comes back.
-- **A key that goes away interrupts its subscription.** So does the end of the scenario, or of the rehearsal however it
-  ends. Then:
+- **A key that goes away interrupts its subscription.** So does the end of the scenario, and the end of the rehearsal,
+  however it ends. Then:
   - a defect in what the subscription releases fails the test;
   - what the subscription sent that `update` has not seen is dropped, as the run drops it, and a `hearNext` still
     waiting for it fails the test.
@@ -271,14 +276,14 @@ It also fails, as the run dies:
 
 #### After a defect of the program
 
-1. A defect of the program fails the rehearsal whichever fiber of the test's it reached, one that nobody joins
-   included.
-2. It fails it however the rehearsal ends, once what the defect stopped has released what it held.
+1. A defect of the program fails the rehearsal whichever fiber of the test it reached, including a fiber that nobody
+   joins.
+2. It fails the rehearsal however the rehearsal ends, once what the defect stopped has released what it held.
 3. The defect comes first in the cause, before what the scenario ended with.
-4. A rehearsal that died checks nothing more of its commands.
+4. A rehearsal that died checks nothing more about its commands.
 
-A scenario that catches the defect, with `Effect.exit` say, does not keep it from failing the rehearsal. A test that
-expects a defect wraps `rehearse` itself.
+A scenario that catches the defect, with `Effect.exit` for example, does not keep it from failing the rehearsal. A test
+that expects a defect wraps `rehearse` itself.
 
 After a defect, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail with it. So do a `hearNext` and a `run`
 already waiting for their subscription or their command, as nothing happens in a run that died. `state`, `pending`,
@@ -286,17 +291,17 @@ already waiting for their subscription or their command, as nothing happens in a
 
 #### Fibers the test forks or detaches
 
-- A call that fails the test fails the fiber that made it: a `send` the model does not show or `update` rejects, a `run`
-  that matches nothing, a `hearNext` stopped while it waited.
-- So a call forked from the scenario is joined, or its failure is lost, as in any effect.
+- A call that fails the test fails the fiber that made it: a `send` that the model does not show or that `update`
+  rejects, a `run` that matches nothing, a `hearNext` stopped while it waited.
+- So a call forked from the scenario must be joined, or its failure is lost, as in any effect.
 - A fiber that the test detaches from the scenario (`Effect.forkDetach`) is beyond the rehearsal's reach. What such a
   fiber asks for after the rehearsal ended is interrupted, and a defect it meets then is lost.
 
 #### Messages that arrive together
 
-- Messages that arrive together, from fibers of the test's, are applied one at a time, as the run takes them.
-- Each waits for the state the one before left, the release of the subscriptions it stopped included. `send` selects on
-  the model of that state.
+- Messages that arrive together, from fibers of the test, are applied one at a time, as the run takes them.
+- Each waits for the state that the one before it left, including the release of the subscriptions that the one before
+  stopped. `send` selects on the model of that state.
 - A message once sent is applied whole, even if the fiber that sent it is interrupted meanwhile, or the scenario
   returns.
 - A rehearsal whose scenario returned applies what was sent before. One whose scenario failed or was interrupted does
@@ -312,7 +317,7 @@ Once the scenario ends, or whoever runs `drive` interrupts it:
 
 ### Defects of the program
 
-A defect of the program fails `simulate`, `rehearse` and `drive` as it ends the run when the program runs. They fail
+A defect of the program fails `simulate`, `rehearse` and `drive`, as it ends the run when the program runs. They fail
 with the `ProgramDefect` the run dies with, in the same `where`, with the same `on` or `key`. That holds wherever the
 tool calls the program: `init`, `update`, `makeModel`, `subscriptions`, a subscription, `runCommand`. (`simulate` calls
 no `init`.)

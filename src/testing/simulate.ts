@@ -54,18 +54,20 @@ export type Simulation<State, Message, Command, Event> = Readonly<{
  *
  * - It takes the test's messages, and among them those a subscription would send.
  * - It fails when `update` rejects one of them.
- * - Each command runs after those started before it. So the commands of one step all answer before those their answers
- *   start, as when the program runs commands that answer at once. All of them run before the next of the test's
- *   messages is applied.
+ * - Each command runs after those started before it. So all the commands of one step answer before the commands that
+ *   their answers start, as when the program runs commands that answer at once. All of them run before the next of the
+ *   test's messages is applied.
  * - Each command has a scope of its own, as when the program runs. The scope is closed before the command's message is
  *   applied.
- * - The command answers that `update` rejected are listed in `ignored`. Assert `ignored` when one being dropped would
- *   be a bug.
- * - Its subscriptions do not run. What it reads of them is under "precisely".
+ * - The command answers that `update` rejected are listed in `ignored`. Assert `ignored` when dropping one of them
+ *   would be a bug.
+ * - Its subscriptions do not run. What it reads from them is under "precisely".
  * - It starts from the step it is given, and calls no `init`.
- * - It succeeds with the last `state` and, each in order: `messages`, every message `update` accepted, the test's and
- *   the commands' answers; `commands`, every command started, those of the step it started from included; `events`,
- *   every event `update` raised; and `ignored`.
+ * - It succeeds with the last `state` and with these lists, each in order:
+ *   - `messages`: every message that `update` accepted, the test's and the commands' answers;
+ *   - `commands`: every command started, including those of the step it started from;
+ *   - `events`: every event that `update` raised;
+ *   - `ignored`.
  *
  * From the guide, "Testing", "`simulate`, as the run dies":
  *
@@ -76,7 +78,7 @@ export type Simulation<State, Message, Command, Event> = Readonly<{
  *
  * From the guide, "Testing", "Defects of the program":
  *
- * A defect of the program fails `simulate`, `rehearse` and `drive` as it ends the run when the program runs. They fail
+ * A defect of the program fails `simulate`, `rehearse` and `drive`, as it ends the run when the program runs. They fail
  * with the `ProgramDefect` the run dies with, in the same `where`, with the same `on` or `key`. That holds wherever the
  * tool calls the program: `init`, `update`, `makeModel`, `subscriptions`, a subscription, `runCommand`. (`simulate`
  * calls no `init`.)
