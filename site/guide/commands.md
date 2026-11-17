@@ -53,14 +53,14 @@ const save = Effect.fn('Save')(
 **A command carries everything it needs.** `runCommand` does not see the state. Its services are provided around
 `run`.
 
-**Commands run concurrently.** Their answers reach `update` in the order they end, not the order they started. So
-`update` handles them in any order.
+**Commands run concurrently.** Their answers reach `update` in the order in which the commands end, not the order in
+which they started. So `update` must handle them in any order.
 
 **Commands cannot be cancelled.** Once started, a command runs to its end, and its message arrives, even if the state
-has moved on. Nothing the program does stops it. Only the end of the run does: it interrupts the commands under way. So
-a command must bear being interrupted at any point. `update` then decides whether the answer still applies (see
-[rejections and defects](./rejections-and-defects.md)). Where an operation is a state that only its completion leaves,
-its answer is never outdated (see [structuring a program](./structuring-a-program.md)).
+has moved on. Nothing the program does stops it. Only the end of the run stops it: the end interrupts the commands
+under way. So a command must accept being interrupted at any point. When the answer arrives, `update` decides whether it
+still applies (see [rejections and defects](./rejections-and-defects.md)). When an operation is a state that only its
+completion leaves, its answer is never outdated (see [structuring a program](./structuring-a-program.md)).
 
 **Work that should stop is a [subscription](./subscriptions.md).**
 
@@ -73,21 +73,23 @@ loop goes on without waiting for it.
 
 ### Why a command cannot be cancelled
 
-This keeps commands plain data, and no change of state cuts a save in half. The end of the run interrupts the commands
-under way, whether a defect, an interruption or a renderer that ends brings it (see [running](./running.md)).
+This keeps commands plain data, and it means that no change of state cuts a save in half. The end of the run
+interrupts the commands under way, whatever brings that end: a defect, an interruption, or a renderer that ends (see
+[running](./running.md)).
 
 ### A command's scope
 
 A command has a scope of its own. What it acquires (`Effect.acquireRelease`, `Effect.forkScoped`) is released when it
 ends, before its message reaches `update`. So `run` never asks for a `Scope`.
 
-What must outlive a command is a service provided around `run`, or a subscription. Acquired there rather than in a
-scope of the command's own, it lets a defect end the run before the release, not after (see [running](./running.md)).
+What must outlive a command belongs in a service provided around `run`, or in a subscription. When it is acquired
+there, and not in the command's own scope, a defect ends the run before the release, not after (see
+[running](./running.md)).
 
 ### Services, handlers and events
 
-A command's services are its operations, and the layer around `run` their handlers. This is where a program performs
-effects, in the algebraic sense, and where a handler lives. `update` performs none.
+A command's services are its operations, and the layer around `run` holds their handlers. This is where a program
+performs effects, in the algebraic sense, and where a handler lives. `update` performs none.
 
-What a child asks of its parent is an event: data the parent handles after the child's step, never an operation the
-child resumes from.
+When a child asks its parent for something, it raises an event. An event is data that the parent handles after the
+child's step, never an operation that the child resumes from.
