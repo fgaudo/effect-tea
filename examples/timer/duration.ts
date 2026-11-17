@@ -1,6 +1,6 @@
 // The tutorial's first step: how many minutes a timer lasts, never less than one. `update` rejects `Less` at one
 // minute, so the model has no `less` there.
-import { type Program, reject, type Update } from '@fgaudo/effect-tea'
+import { program, reject, type Update } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
 
 // #region state
@@ -24,7 +24,7 @@ export type Model = Readonly<{
   less: Opt.Option<Message>
 }>
 
-export const duration: Program<{ state: State; model: Model; message: Message }> = {
+export const duration = program<{ state: State; model: Model; message: Message }>().make({
   init: { state: { minutes: 25 } },
   update,
   makeModel: ({ minutes }) => ({
@@ -32,5 +32,5 @@ export const duration: Program<{ state: State; model: Model; message: Message }>
     more: 'More',
     less: minutes > 1 ? Opt.some('Less') : Opt.none(),
   }),
-}
+})
 // #endregion program

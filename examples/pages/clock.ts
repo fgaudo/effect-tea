@@ -1,5 +1,5 @@
 // A page with a clock that ticks every second while the page is shown, in the format the user picks.
-import { type Program, reject, type Subscription, type Update } from '@fgaudo/effect-tea'
+import { program, reject, type Subscription, type Update } from '@fgaudo/effect-tea'
 import * as Channel from 'effect/Channel'
 import * as Data from 'effect/Data'
 import * as DateTime from 'effect/DateTime'
@@ -51,7 +51,7 @@ export type Model = Readonly<{
 const formatted = (now: DateTime.Utc, format: Format): string =>
   format === 'Iso' ? DateTime.formatIso(now) : String(Math.floor(DateTime.toEpochMillis(now) / 1000))
 
-export const clock: Program<{ state: State; model: Model; message: Message; event: Event }> = {
+export const clock = program<{ state: State; model: Model; message: Message; event: Event }>().make({
   init: { state: { maybeNow: Opt.none(), format: 'Iso' } },
   update,
   subscriptions: () => HashMap.make(['ticks', ticks]),
@@ -62,4 +62,4 @@ export const clock: Program<{ state: State; model: Model; message: Message; even
       ? { _tag: 'Iso', toUnix: Message.FormatPicked({ format: 'Unix' }) }
       : { _tag: 'Unix', toIso: Message.FormatPicked({ format: 'Iso' }) },
   }),
-}
+})

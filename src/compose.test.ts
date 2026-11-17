@@ -1543,8 +1543,20 @@ describe('what the types reject', () => {
     expect([command, other]).toHaveLength(2)
   })
 
-  test('a parent raises only the events its own type includes', () => {
+  test('a program raises only the events its own type includes, with or without children', () => {
     type Gone = Readonly<{ _tag: 'Gone' }>
+    program<{ state: Ticks }>().make({
+      init: { state: noTicks },
+      // @ts-expect-error: it names no event.
+      update: (_: Tick) => (state) => ({ state, events: [{ _tag: 'Gone' } as Gone] }),
+      makeModel: ({ ticks }) => ticks,
+    })
+    const leaving = program<{ state: Ticks; event: Gone }>().make({
+      init: { state: noTicks },
+      update: (_: Tick) => (state) => ({ state, events: [{ _tag: 'Gone' } as Gone] }),
+      makeModel: ({ ticks }) => ticks,
+    })
+    expect(leaving.update({ _tag: 'Tick' })(noTicks)).toEqual({ state: noTicks, events: [{ _tag: 'Gone' }] })
     const gone = {
       init: { state: noTicks },
       update: (_: Tick) => (state: Ticks) => ({ state, events: [{ _tag: 'Gone' } as Gone] }),

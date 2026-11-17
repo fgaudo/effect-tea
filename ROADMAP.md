@@ -27,17 +27,9 @@ test of it. None is open.
 - **An example of routing**: flags from the URL, `popstate` as a subscription, navigation as a command.
 - **An example of hot module reloading** that keeps the state, which the guide hints at (the view lives in a
   module of its own) without showing.
-- **One constructor for every program**, in progress: `program<…>().make(…)` makes a program without children too,
-  and `: Program<…>` stops being the way the guide teaches to write one (`Program` stays a type, for signatures and
-  tests). What is done: a type `program` names is checked and one it does not name is inferred, `model` and `message`
-  are nameable, the services are always inferred, `init` without children is a `Program`'s, and `make` returns a
-  `Program<…>`, whose declarations a package that publishes it can emit. Left: the seven leaves of `examples/`, the
-  guide (the rule of the types named moves from "Composition" to "Anatomy of a program"), the tutorial, the README, the
-  skill, the changelog and the API reports. Not `satisfies Program<…>` with services as `unknown`: it loses services,
-  commands and messages (`typeof` reads the literal), and confuses.
 - **Children declared apart from the parent's own state**, kept inside it by `program`: a parent's state type
   would hold only its own, with no `at`, `get` or `set` for a child, and children born and removed some other way.
-  Not spiked; weighed after the constructor above.
+  Not spiked.
 - **A check of the names given to `Program<{ … }>`**: an unknown field (`subscriptionService`) is accepted silently
   today, since `ProgramTypes` is only a constraint. Fable tried an intersection in the style of `ExternalAmong` that
   fails with `'not a type of a program'`. Not decided.

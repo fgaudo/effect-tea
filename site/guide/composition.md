@@ -76,14 +76,10 @@ For each child, and for itself, a parent declares:
   `update` takes `children` too. It may reject its own messages, as any `update` does. Its commands need the services
   that its `runCommand` and its children's commands need. Its subscriptions need the services that its own
   `subscriptions` and its children's need. Nothing names them.
-- **Its own types, by name: `program<{ state: State }>()`.** Besides `state`, they name the parent's own commands
-  (`command`), the events it raises (`event`), and which of its messages a parent of its own may send it (`external`),
-  if it has any. Nothing given to `make` reveals them: a type that it does not name is a type that it does not have,
-  and a parent that raises an event it did not name does not compile. Its model (`model`) and its own messages
-  (`message`) may be named too: a type named is checked, and one not named is inferred, from `makeModel` and from
-  `update`. Each type names what is the program's own, and what its children and its inputs bring is added to it. The
-  services are never named: they are inferred.
-- **The parent's own flags,** if it has any, are declared with its other types:
+- **Its own types,** named in `program` as any program's are (see
+  [anatomy of a program](./anatomy-of-a-program.md)). Each type names what is the parent's own, and what its children
+  and its inputs bring is added to it.
+- **The parent's own flags,** if it has any, are named with its other types:
   `program<{ state: State; flags: Flags }>()`. Its `init` then returns the function that starts it:
   `init: (children) => (flags) => ({ state, commands })`, and `init: (flags) => ({ state, commands })` without
   children.
@@ -92,7 +88,7 @@ For each child, and for itself, a parent declares:
   [inputs by id](#inputs-by-id)). An input is placed in the same ways as a child: with `at`, or with `get` and `set`.
   An input by id is placed in the same ways, as functions of the id. An input is not a child: its value is part of the
   parent's own state, and the parent's `update` and `makeModel` read it like the rest of the state. A program with
-  inputs and no children is made with `program` too, and leaves `children` out.
+  inputs and no children leaves `children` out.
 
 ### What the library derives from it
 

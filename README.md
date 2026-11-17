@@ -100,7 +100,7 @@ A counter that cannot go below zero, in one file you can run as it is. There is 
 only logs each frame, and clicks "increment" until the count reaches 3.
 
 ```ts
-import { type Program, reject, run, type Update } from '@fgaudo/effect-tea'
+import { program, reject, run, type Update } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 
@@ -124,7 +124,7 @@ type Model =
     decrement: Message
   }>
 
-const counter: Program<{ state: State; model: Model; message: Message }> = {
+const counter = program<{ state: State; model: Model; message: Message }>().make({
   init: { state: { count: 0 } },
   update,
   makeModel: ({ count }) =>
@@ -136,7 +136,7 @@ const counter: Program<{ state: State; model: Model; message: Message }> = {
         decrement: 'Decrement',
       }
       : { _tag: 'AtZero', count, increment: 'Increment' },
-}
+})
 
 const main = run(counter, (frames) =>
   frames.pipe(

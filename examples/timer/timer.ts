@@ -1,6 +1,6 @@
 // The tutorial's second step: the duration becomes a timer. Its phase is one state machine: it is set, then runs,
 // may pause, and finishes. It ticks every second only while it runs, and rings a bell when it finishes.
-import { defect, type Execution, type Program, reject, type Subscription, type Update } from '@fgaudo/effect-tea'
+import { defect, type Execution, program, reject, type Subscription, type Update } from '@fgaudo/effect-tea'
 import * as Channel from 'effect/Channel'
 import * as Context from 'effect/Context'
 import * as Data from 'effect/Data'
@@ -123,17 +123,11 @@ const makeModel = ({ minutes, phase }: State): Model => {
 // #endregion model
 
 // #region program
-export const timer: Program<{
-  state: State
-  model: Model
-  message: Message
-  command: Command
-  commandServices: Bell
-}> = {
+export const timer = program<{ state: State; model: Model; message: Message; command: Command }>().make({
   init: { state: { minutes: 25, phase: Phase.Setting() } },
   update,
   runCommand,
   subscriptions: (state) => state.phase._tag === 'Running' ? HashMap.make(['ticks', ticks]) : HashMap.empty(),
   makeModel,
-}
+})
 // #endregion program

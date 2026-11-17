@@ -739,7 +739,8 @@ const make = <
  * - Each is the program's own: what its children and its inputs bring is added to it.
  * - The services are never named: they are inferred from `runCommand`, `subscriptions` and the children.
  *
- * @see The guide, "Composition", "Its own types, by name: `program<{ state: State }>()`".
+ * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
+ * @see The guide, "Composition", "Its own types,".
  */
 type DeclaredTypes = Readonly<{
   /** Its state, an object. */
@@ -759,11 +760,13 @@ type DeclaredTypes = Readonly<{
 }>
 
 /**
- * The way to make a program of children, inputs or both: its types fixed once, by name, then the functions that
- * declare and make it.
+ * The way to make a program: its types named once, then the functions that declare its children and its inputs, and
+ * `make`, which makes it.
  *
- * Fixing the types first lets `get`, `set` and the rest be typed without annotations. It also says the program's own
- * commands, events, external messages and flags, which nothing given to `make` reveals.
+ * Naming the types first lets `update`, `get`, `set` and the rest be typed without annotations. It also says the
+ * program's own commands, events, external messages and flags, which nothing given to `make` reveals: a type it does
+ * not name is a type it does not have. Its model and its messages may be named too. A type named is checked, and one
+ * not named is inferred. The services are never named: they are inferred.
  *
  * A child is any program. The library does the routing. A parent and its children talk only through events and
  * external messages. The parent's messages, commands and subscriptions are its own, plus each child's and each
@@ -782,6 +785,15 @@ type DeclaredTypes = Readonly<{
  *
  * @example
  * ```ts
+ * const counter = program<{ state: State; model: Model; message: Message }>().make({
+ *   init: { state: { count: 0 } },
+ *   update,
+ *   makeModel: (state) => ({ count: state.count, increment: 'Increment' }),
+ * })
+ * ```
+ *
+ * @example
+ * ```ts
  * const { child, make } = program<{ state: State }>()
  *
  * const app = make({
@@ -791,6 +803,7 @@ type DeclaredTypes = Readonly<{
  * })
  * ```
  *
+ * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
  * @see The guide, "Composition", "In short".
  * @see The guide, "Composition", "The parent's messages".
  * @see The guide, "Composition", "The parent's commands".
@@ -819,6 +832,7 @@ type Named<T, K extends 'model' | 'message', Inferred> = [Field<T, K>] extends [
 /**
  * What `program<T>()` returns: the functions that declare a program's children and inputs, and make it.
  *
+ * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
  * @see The guide, "Composition", "In short".
  */
 export interface ProgramMaker<T extends DeclaredTypes> {
@@ -915,14 +929,15 @@ export interface ProgramMaker<T extends DeclaredTypes> {
   // messages in the compiler's first pass, which skips a context-sensitive `update` and takes them as `never`
   // (`docs/rejected.md`).
   /**
-   * Makes the program from what the parent declares.
+   * Makes the program from its pieces, and from the children and the inputs it declares.
    *
-   * Its own `update` takes `children` too, and may reject its own messages. Its commands need the services of its
+   * A type named in `program` is checked against the pieces, and one not named is inferred from them. A parent's own
+   * `update` takes `children` too, and may reject its own messages. Its commands need the services of its
    * `runCommand` and of its children's commands, and its subscriptions those of its own and of its children's: nothing
    * names them.
    *
-   * @param config - Its `init` and `makeModel`, its `children` and its `inputs`, and its own `update`,
-   * `subscriptions`, `runCommand` and `onEvent`, where it has them.
+   * @param config - Its `init` and `makeModel`, its `update`, `runCommand` and `subscriptions` where it has them, and
+   * for a parent its `children`, its `inputs` and `onEvent`.
    * @returns The program, which runs alone or as a child of another.
    *
    * @example
@@ -934,6 +949,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * })
    * ```
    *
+   * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
    * @see The guide, "Composition", "Its own messages, commands and subscriptions,".
    */
   readonly make: MakeProgram<T>
@@ -984,7 +1000,7 @@ export type DeclareInputById<T extends DeclaredTypes> = <Id, A>(
 ) => InputById<Field<T, 'state'>, Id, A>
 
 /**
- * The function of `program` that makes the program from what the parent declares.
+ * The function of `program` that makes the program from its pieces.
  *
  * @see The guide, "Composition", "Its own messages, commands and subscriptions,".
  */

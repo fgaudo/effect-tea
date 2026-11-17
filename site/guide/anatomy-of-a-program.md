@@ -6,9 +6,9 @@ title: Anatomy of a program
 
 ## In short
 
-A program is a plain object with up to five pieces. `init` says where it starts, `update` how each message changes the
-state, and `makeModel` what the view draws. `runCommand` and `subscriptions` are there when the program has commands or
-listens to something. The view is not part of the program.
+A program is a plain object with up to five pieces, made with `program`. `init` says where it starts, `update` how
+each message changes the state, and `makeModel` what the view draws. `runCommand` and `subscriptions` are there when
+the program has commands or listens to something. The view is not part of the program.
 
 They connect in a loop. Each message that `update` accepts makes the next state, and a message that it rejects leaves
 the state as it was. What the user types takes another path: the view writes it into an input declared in `make`, and
@@ -51,8 +51,16 @@ Its `update` is on [update](./update.md). The program itself:
 | `runCommand`    | how each command happens, as an Effect                                                     | when it has commands |
 | `subscriptions` | what it listens to in each state                                                           | when it listens      |
 
+- **Its types are named first, then it is made**: `program<{ state: State }>().make({ … })`. Besides `state`,
+  they name its commands (`command`), the events it raises (`event`), which of its messages a parent may send it
+  (`external`), and its flags (`flags`), if it has any. Nothing given to `make` reveals them: a type that it does not
+  name is a type that it does not have, and a program that raises an event it did not name does not compile. Its model
+  (`model`) and its messages (`message`) may be named too: a type named is checked, and one not named is inferred, from
+  `makeModel` and from `update`. The services are never named: they are inferred, from `runCommand` and
+  `subscriptions`.
 - **Its type lists the types it is made of.** It is `Program<{ state; model; message }>`, plus `command`,
-  `commandServices`, `subscriptionServices`, `event`, `external` and `flags` when it has them.
+  `commandServices`, `subscriptionServices`, `event`, `external` and `flags` when it has them. It is what `make`
+  returns, and what a function that takes a program names.
 - **Its state is always an object**: `{ count }` rather than `count`. That way any program can become a child as it is
   (see [composition](./composition.md)).
 - **The view is not part of it.** `run` hands your renderer a stream of **frames** (`{ model, dispatch, seen }`). The

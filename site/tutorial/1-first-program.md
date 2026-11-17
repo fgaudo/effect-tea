@@ -44,8 +44,9 @@ the state and the view.
 
 {@includeCode ../../examples/timer/duration.ts#program}
 
-A program is a plain object, and its type names the types it is made of: `Program<{ state; model; message }>`. `init`
-is the step it starts with: its first state, and the commands it starts, none here (see [model](../guide/model.md)).
+`program` makes it. You name its types first, `program<{ state; model; message }>()`, and `make` checks each piece
+against them. What you get is a plain object, a `Program<{ state; model; message }>`. `init` is the step it starts
+with: its first state, and the commands it starts, none here (see [model](../guide/model.md)).
 
 ## View
 

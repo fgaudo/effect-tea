@@ -28,7 +28,7 @@ hold them (see [state and messages](../guide/structuring-a-program.md#state-and-
 `update` never runs an effect. When the timer finishes, it returns a **command**: data that says what to do. The
 program's `runCommand` turns that command into an Effect.
 
-Ringing needs a bell. The bell is a service: the program declares it, and whoever runs the program provides it, a
+Ringing needs a bell. The bell is a service: the program asks for it, and whoever runs the program provides it, a
 beep in the browser and a counter in a test.
 
 A command may answer with one message, as a save does when it ends. Ringing gives `update` nothing to learn, so its
@@ -77,7 +77,8 @@ The model has a case for each phase the screen tells apart, each with the messag
 
 {@includeCode ../../examples/timer/timer.ts#model}
 
-The program now declares its commands and its services, and has `runCommand` and `subscriptions`:
+The program now names its commands, and has `runCommand` and `subscriptions`. You never name its services: the
+library reads them from `runCommand` and `subscriptions`, here the bell.
 
 {@includeCode ../../examples/timer/timer.ts#program}
 

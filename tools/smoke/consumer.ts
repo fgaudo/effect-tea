@@ -42,17 +42,17 @@ const counterUpdate: Update<CounterState, CounterMessage, never, Full> = (messag
   return count === 2 ? { state: { count: 3 }, events: [{ _tag: 'Full' }] } : { state: { count: count + 1 } }
 }
 
-const counter: Program<{
+export const counter = program<{
   state: CounterState
   model: CounterState
   message: CounterMessage
   event: Full
   external: Reset
-}> = {
+}>().make({
   init: { state: { count: 0 } },
   update: counterUpdate,
   makeModel: (state) => state,
-}
+})
 
 type Row = Readonly<{ id: number; counter: CounterState }>
 

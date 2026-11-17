@@ -5,7 +5,7 @@
 // within the bounds it holds, whatever they were when the drag began. The media's bounds never change, and muting draws
 // it at 0, with no press, without touching the level, which unmuting gives back; a mute ends a drag of it. The ringer's
 // bounds narrow: quiet hours bring its maximum down to 30, under a drag in progress too.
-import { defect, type Program, reject, type Subscription, type Update } from '@fgaudo/effect-tea'
+import { defect, program, reject, type Subscription, type Update } from '@fgaudo/effect-tea'
 import * as Channel from 'effect/Channel'
 import * as Context from 'effect/Context'
 import * as Data from 'effect/Data'
@@ -148,7 +148,7 @@ const press = (state: State, slider: Slider): Opt.Option<Message> =>
     ? Opt.some(Message.DragStarted({ slider }))
     : Opt.none()
 
-export const volume: Program<{ state: State; model: Model; message: Message; subscriptionServices: Pointer }> = {
+export const volume = program<{ state: State; model: Model; message: Message }>().make({
   init: { state: { media: 50, sound: Sound.Audible(), ringer: 80, limit: Limit.Full(), drag: Drag.Idle() } },
   update,
   subscriptions: (state) =>
@@ -167,4 +167,4 @@ export const volume: Program<{ state: State; model: Model; message: Message; sub
       ? { _tag: 'Quiet', full: Message.FullClicked() }
       : { _tag: 'Full', quiet: Message.QuietClicked() },
   }),
-}
+})

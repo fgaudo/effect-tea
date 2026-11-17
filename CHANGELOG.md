@@ -22,7 +22,7 @@ version, and everything else, features included, the patch version.
   the bridge its write, `edited` the message to send and `drawn` whether the element takes the frame's value.
 - `program<{ state; model; message }>()` may name the program's model and its own messages, beside its other types: a
   type named is checked, and one not named is inferred from `makeModel` and `update`, as before. The guide says so in
-  "Composition" ("Declaring children").
+  "Anatomy of a program" ("Rules").
 - `children` in `make` is optional, for a program with inputs and no children. Its `init` is then a `Program`'s:
   its first step, or the function of its flags, since it has no `children` to start.
 - The guide has a page "Writing a bridge", which shows how to write a bridge for any renderer, from the examples'
@@ -46,6 +46,13 @@ version, and everything else, features included, the patch version.
 
 ### Changed
 
+- Every program is made with `program<{ … }>().make({ … })`, one without children or inputs too, and its services are
+  inferred: the guide ("Anatomy of a program", "Rules"), the tutorial, the README, the skill and the examples write it
+  so. `Program<…>` is the type of what `make` returns, for a function that takes a program, and a program written as
+  a `Program<…>` still compiles. Upgrade, if you like:
+  `const counter: Program<{ state: State; model: Model; message: Message }> = { … }` becomes
+  `const counter = program<{ state: State; model: Model; message: Message }>().make({ … })`, without
+  `commandServices` and `subscriptionServices`.
 - The README's "Guide", with its "Guarantees" and "Testing", moved as it was to the site's Guide, a page per section;
   the README is a short landing page, without the "API reference" table, and the bridges' paragraph under "Examples"
   and those of "View" on bridges are in the guide's "Writing a bridge".
@@ -259,7 +266,7 @@ version, and everything else, features included, the patch version.
   each example drawn with snabbdom, not `list` alone, compares what its view sends (`messagesSentBy`) with what its
   reader returns, whose order is now the view's. "Testing" in the guide, the tutorial's "Testing" and the
   `add-example` skill say so.
-- The guide's "Composition" ("Declaring children") names the types `program` takes beside `state` and `flags`;
+- The guide's "Anatomy of a program" ("Rules") names the types `program` takes beside `state` and `flags`;
   its "Testing" says what `simulate` and `hearNext` succeed with ("`simulate`", "How a subscription is heard"), and
   how a program run under its renderer in a DOM is tested ("The view").
 - The guide's "Composition" says that `subscribed` is required for children by id ("Children by id"); "Inputs the

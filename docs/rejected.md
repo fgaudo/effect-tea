@@ -228,6 +228,12 @@ answer, and saying so in the proposal.
   type it declares, or hands to `run` unannotated (`RC` gets no candidate from it, and keeps its default, `never`):
   that is TypeScript's own escape, and nothing of the library sees through it. *Reopen if* one of those can be told
   apart from a program that needs no services.
+- **`satisfies Program<…>` as the way to write a program without children**, with its services as `unknown`, in place
+  of `program<…>().make(…)`. Reasoned, 17 November 2026, when every program came to be made with `program`.
+  `satisfies` checks the literal and leaves it its own type: `typeof` the program reads the literal, so a command, a
+  message or a service that its pieces do not show is lost, and services named `unknown` say nothing of what it needs.
+  A second way of writing the same program would only confuse. *Reopen if* a program that `make` cannot express is
+  written that way.
 - **`renderToString`, a first frame for server-side rendering.** Reasoned, 16 November 2026, on the idea of
   `ROADMAP.md`, by "A function earns its place" (`AGENTS.md`). The first frame is data a program already gives:
   `program.makeModel(program.init.state)`, or `program.makeModel(program.init(flags).state)`, whose view a server calls

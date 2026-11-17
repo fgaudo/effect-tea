@@ -1,6 +1,6 @@
 // A page that starts from the time it was opened at, its flags, picks a saying when it opens, and asks its parent
 // to leave with an event.
-import type { Execution, Program, Update } from '@fgaudo/effect-tea'
+import { type Execution, program, type Update } from '@fgaudo/effect-tea'
 import * as Data from 'effect/Data'
 import * as DateTime from 'effect/DateTime'
 import * as Effect from 'effect/Effect'
@@ -44,9 +44,9 @@ export const update: Update<State, Message, Command, Event> = (message) => (stat
 
 export type Model = Readonly<{ openedAt: Opt.Option<string>; saying: Opt.Option<string>; back: Message }>
 
-export const about: Program<
+export const about = program<
   { state: State; model: Model; message: Message; command: Command; event: Event; flags: Flags }
-> = {
+>().make({
   init: ({ openedAt }) => ({ state: { openedAt, maybeSaying: Opt.none() }, commands: [Command.PickSaying()] }),
   update,
   runCommand: (command) => {
@@ -60,4 +60,4 @@ export const about: Program<
     saying: state.maybeSaying,
     back: Message.BackClicked(),
   }),
-}
+})

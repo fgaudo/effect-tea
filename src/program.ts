@@ -83,7 +83,7 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  *
  * `init` is where it starts, `update` how each message changes the state, and `makeModel` what the view draws.
  * `runCommand` is how its commands happen, when it has some, and `subscriptions` what it listens to, when it listens.
- * A program of children or inputs is made with `program`.
+ * It is made with `program`, and is what `make` returns: a function that takes a program names this type.
  *
  * - The view is not part of it: `run` gives the renderer frames, `{ model, dispatch, seen }`.
  * - Its state is an object, and its `external` messages are among its `message`s. Otherwise it does not compile.
@@ -94,13 +94,16 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  *
  * @example
  * ```ts
- * const counter: Program<{ state: State; model: State; message: Message }> = {
+ * const counter = program<{ state: State; model: State; message: Message }>().make({
  *   init: { state: { count: 0 } },
  *   update: (message) => (state) => ({ state: { count: state.count + (message === 'Increment' ? 1 : -1) } }),
  *   makeModel: (state) => state,
- * }
+ * })
+ *
+ * const started = (counter: Program<{ state: State; model: State; message: Message }>) => run(counter, renderer)
  * ```
  *
+ * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
  * @see The guide, "Anatomy of a program", "The view is not part of it".
  * @see The guide, "Anatomy of a program", "What does not compile".
  * @see The guide, "Anatomy of a program", "`runCommand` is required exactly when the program has commands".
