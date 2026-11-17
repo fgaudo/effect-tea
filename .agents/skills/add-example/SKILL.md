@@ -22,7 +22,7 @@ examples/<name>/
 └─ <name>.test.ts   its tests, showing the testing tools on it
 ```
 
-What the examples share is in [`examples/bridges/`](../../../examples/bridges), apart from the examples:
+The bridges the examples share are in [`examples/bridges/`](../../../examples/bridges), apart from the examples:
 
 ```
 examples/bridges/
@@ -30,7 +30,6 @@ examples/bridges/
 ├─ snabbdom-testing.ts       messagesSentBy, how to check that a view draws what its model holds
 ├─ snabbdom-preload.ts       what bun test loads first (bunfig.toml), so that snabbdom loads without a DOM
 ├─ react.ts                  the same bridge for React, without messagesSentBy
-├─ together.ts               one run drawn by two renderers, for counter and form
 ├─ snabbdom.test.ts          the snabbdom bridge's tests, in a DOM
 ├─ snabbdom-testing.test.ts  the tests of messagesSentBy, without a DOM
 ├─ react.test.ts             the React bridge's tests and together's, in a DOM
@@ -48,7 +47,9 @@ the others, and none of the library's five kinds (`AGENTS.md`, "Tests"). `snabbd
 tests of that renderer alone.
 
 In `examples/` itself are [`README.md`](../../../examples/README.md), which says where a user starts, the shared
-[`style.css`](../../../examples/style.css) and [`tsconfig.json`](../../../examples/tsconfig.json).
+[`style.css`](../../../examples/style.css) and [`tsconfig.json`](../../../examples/tsconfig.json), and
+[`together.ts`](../../../examples/together.ts), one run drawn by two renderers, for `counter` and `form`: it composes
+renderers and is no bridge.
 
 ## The rules
 

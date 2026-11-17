@@ -1,5 +1,5 @@
 // The examples' second renderer, React's. With it, `counter` and `form` draw their programs a second time, under
-// snabbdom in the same run (`together.ts`): only the view (`view-react.tsx`) and this bridge change with the renderer,
+// snabbdom in the same run (`../together.ts`): only the view (`view-react.tsx`) and this bridge change with the renderer,
 // and the program and its tests stay as they are.
 // A bridge does three things: it draws each frame whole and at once, runs `dispatch` in plain handlers, and settles
 // each text input on screen with `drawn` after the frame. A view is a plain function of its model, called here on each

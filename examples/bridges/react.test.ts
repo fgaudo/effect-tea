@@ -45,7 +45,7 @@ import { Storage } from '../form/storage.ts'
 import { view as snabbdomFormView } from '../form/view-snabbdom.ts'
 import type { View } from './react.ts'
 import { renderInto as renderWithSnabbdom } from './snabbdom.ts'
-import { together } from './together.ts'
+import { together } from '../together.ts'
 import type { Message as VolumeMessage, Model as VolumeModel } from '../volume/volume.ts'
 
 // React DOM reads the DOM when it is loaded, so the bridge, the views and React DOM are loaded once there is one:

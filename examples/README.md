@@ -25,7 +25,8 @@ counter/
 
 A parent has a module for each child too (`pages/about.ts`, `pages/clock.ts`). Only `counter/` and `form/` have a view
 for each renderer, and their `main.ts` draws one run with both: the program and its tests do not change with the
-renderer. The other examples are drawn with snabbdom alone, by a `view.ts`.
+renderer. Both give `run` the two renderers through [`together.ts`](together.ts), which makes one renderer of two. The
+other examples are drawn with snabbdom alone, by a `view.ts`.
 
 ## The bridges
 
@@ -40,9 +41,8 @@ The bridges are in [`bridges/`](bridges):
 | [`react.ts`](bridges/react.ts)                         | The same bridge for React: `renderInto`, `onClick`, `onPress` and `Shows`.  | draw a program with React                     |
 
 The other files of `bridges/` serve this repository. `snabbdom.test.ts` and `react.test.ts` test each bridge in a DOM.
-`bridge.test_suite.ts` holds the tests that every bridge passes. `together.ts` draws one run with two renderers, for
-`counter` and `form`. Read them when you write a bridge of your own, with the guide's
-["Writing a bridge"](../site/guide/writing-a-bridge.md). How the examples' tests use `messagesSentBy` is in its
+`bridge.test_suite.ts` holds the tests that every bridge passes. Read them when you write a bridge of your own, with the
+guide's ["Writing a bridge"](../site/guide/writing-a-bridge.md). How the examples' tests use `messagesSentBy` is in its
 ["Testing"](../site/guide/testing.md).
 
 ## Run one
