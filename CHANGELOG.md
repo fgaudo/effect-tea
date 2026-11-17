@@ -56,6 +56,9 @@ version, and everything else, features included, the patch version.
   `const counter: Program<{ state: State; model: Model; message: Message }> = { … }` becomes
   `const counter = program<{ state: State; model: Model; message: Message }>().make({ … })`, without
   `commandServices` and `subscriptionServices`.
+- The peer dependency on `effect` is `~4.1.4`, where it was `^4.1.4`: a later patch of 4.1 still works, a later minor
+  of Effect needs a release of the library that names it. What the library rests on of Effect is tested at one minor,
+  and Effect may change in a minor what it does not document.
 - The README's "Guide", with its "Guarantees" and "Testing", moved as it was to the site's Guide, a page per section;
   the README is a short landing page, without the "API reference" table, and the bridges' paragraph under "Examples"
   and those of "View" on bridges are in the guide's "Writing a bridge".

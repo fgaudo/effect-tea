@@ -1,18 +1,20 @@
 ---
 name: upgrade-effect
-description: How @fgaudo/effect-tea depends on Effect: the peer range starts at the version the library is developed with, and an upgrade raises both together; what to do when an API it needs is in a newer Effect, unstable or deprecated, and how to upgrade the development dependencies (Effect, the language service, TypeScript, TypeDoc). Use when an Effect API is missing, unstable or deprecated, or when upgrading a dependency.
+description: How @fgaudo/effect-tea depends on Effect: the peer range is the patches of the version the library is developed with, and an upgrade raises both together; what to do when an API it needs is in a newer Effect, unstable or deprecated, and how to upgrade the development dependencies (Effect, the language service, TypeScript, TypeDoc). Use when an Effect API is missing, unstable or deprecated, or when upgrading a dependency.
 ---
 
 # Upgrade Effect and the dependencies
 
 ## The peer range
 
-`peerDependencies.effect` (`^4.1.4` today) is the version of `devDependencies.effect` with a caret, and the lockfile
+`peerDependencies.effect` (`~4.1.4` today) is the version of `devDependencies.effect` with a tilde, and the lockfile
 holds exactly that version: the library supports no older Effect, so that it is checked, and what it rests on of
 Effect read and tested, at one version only. The CI's `check` job runs the library at it, and the `package` job the
-packed package (`bun run smoke`, with the Effect of the lockfile). The range accepts every later Effect 4 too,
-where what Effect does not document may have changed: a daily job (`.github/workflows/effect-latest.yml`) runs
-the typecheck and the tests at the newest version the range accepts, and a failure there is a lead for an upgrade.
+packed package (`bun run smoke`, with the Effect of the lockfile). The range accepts the later patches of that minor
+too, and no later minor (`AGENTS.md`, "What belongs here", says why): a new minor of Effect is supported only by an
+upgrade to it and a release. A patch may still change what Effect does not document: a daily job
+(`.github/workflows/effect-latest.yml`) runs the typecheck and the tests at the newest version the range accepts, and
+a failure there is a lead for an upgrade.
 The oldest TypeScript the package supports is Effect's (5.9 for Effect 4): the README's "Installation" states it,
 and `tools/smoke/smoke.ts` checks it by default. An upgrade that raises Effect's raises both, with a changelog entry.
 
@@ -24,8 +26,8 @@ is preferred, and the upgrade is the author's call.
 
 ## Upgrading Effect
 
-1. `bun add --dev effect@^4.<minor>.<patch>`, so that `devDependencies` and the lockfile name the new version.
-2. Set `peerDependencies.effect` to the same caret range, and the version in the README's "Installation".
+1. `bun add --dev effect@~4.<minor>.<patch>`, so that `devDependencies` and the lockfile name the new version.
+2. Set `peerDependencies.effect` to the same tilde range, and the version in the README's "Installation".
 3. Read what changed in Effect's source between the two versions, in the modules the premises of
    `docs/premises.md` name and in the runtime (`internal/effect.ts`); run every test the premises name, which
    `bun run test` does.

@@ -368,9 +368,10 @@ only reasoned:
   of the dependency where it promises is caught by no test is a risk the rule accepts. Of a behaviour documented in
   part, only the part not promised is listed, with the rest named in a line.
 - **Not documented** (read only in the source, or seen in a run): a premise, listed here, and a test that fails without
-  it. For Effect, what is not promised may change in a minor version: an upgrade of Effect runs every such test before
-  it raises the peer range, and a daily job of the CI (`.github/workflows/effect-latest.yml`) runs them at the newest
-  Effect the peer range accepts, which a consumer may already have. For the JavaScript engine, the test runs on Bun,
+  it. For Effect, what is not promised may change in a minor version, and the peer range accepts only the patches of
+  the version of the lockfile (`AGENTS.md`, "What belongs here"): an upgrade of Effect runs every such test before it
+  raises the peer range, and a daily job of the CI (`.github/workflows/effect-latest.yml`) runs them at the newest
+  patch the peer range accepts, which a consumer may already have. For the JavaScript engine, the test runs on Bun,
   whose engine is JavaScriptCore, and on Node, whose engine is V8 (`bun run test:node`, every test of `src/` and `test/`
   but the search): what a browser could do otherwise goes under "Premises that no test reaches yet".
 - **A premise's test is its own**: a test in `test/premises.test.ts`, named after the premise, that checks what Effect

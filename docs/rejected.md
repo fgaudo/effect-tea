@@ -385,16 +385,6 @@ answer, and saying so in the proposal.
   `Arr.findFirst`), which the rule of `AGENTS.md` ("A function earns its place") refuses; rows kept in a record need
   only Effect's `.at(id)`. Since `inputById` takes `get` and `set`, rows kept in an array need no optic at all. *Reopen
   if* such an optic must do what Effect alone cannot.
-- **A peer range that stops at the minors of Effect tested** (`~4.1.4`, widened by a release on each green run of
-  the daily job). Reasoned, 15 November 2026. Proposed by the review of the invariants of November 2026: about
-  seventeen entries of [`premises.md`](premises.md) rest in part on what Effect does not document, and `^4.1.4`
-  accepts minors no test has run on, so the daily job (`.github/workflows/effect-latest.yml`) tells of a break and
-  does not protect a consumer already on that minor. The owner chose the wide range with the daily job, and acts only
-  when it fails: the narrow one would ask for a release at each minor of Effect, even one that changes nothing, and
-  warn every consumer who upgrades Effect before it. The evidence at the time: the newest Effect 4 published was
-  4.1.4, the version of the lockfile, and the job was green on 14 and 15 November. Source: the session that removed
-  it from `ROADMAP.md`. *Reopen if* a minor of Effect breaks a premise and reaches consumers before a release of the
-  library follows it.
 - **The wrapping of a child's message as a public function** (`{ _tag, id?, message }`, for `dispatchTo` and a
   test's reader to share), **and as an internal one** for the two places of `src/` that build it. Reasoned, with a
   scratch probe of `tsc` against the `list` and `pages` examples, outside the repository and deleted, 15 November
