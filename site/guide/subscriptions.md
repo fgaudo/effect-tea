@@ -55,8 +55,8 @@ in the state while the work is wanted.
   released.
 - When the work ends by itself, its last message says so.
 
-**A subscription sees the state only through its key.** What it depends on goes into the key. A new value starts it
-anew. That is cheap for a timer whose interval changes.
+**A subscription sees the state only through its key.** Whatever it depends on goes into the key. A new value of the
+key starts it anew. That is cheap for a timer whose interval changes.
 
 **A connection that stays open is split three ways.** Some things should stay open while a value they use changes,
 such as a connection whose filter the user picks. Split such a thing in three:
@@ -93,8 +93,8 @@ runCommand: (command) =>
 
 ## Precisely
 
-**What a stopped subscription sent.** A missing key stops its subscription, and drops what it sent that `update` has
-not seen.
+**What a stopped subscription sent.** A missing key stops its subscription. It also drops the messages that the
+subscription sent and that `update` has not seen.
 
 **A `Stream` as a subscription.** A `Stream` becomes one with `Stream.toChannel`, `Channel.flattenArray` and
-`Channel.mapDone`. `Channel.mapDone` asks what the stream's end means.
+`Channel.mapDone`. `Channel.mapDone` is where you say what the stream's end means.
