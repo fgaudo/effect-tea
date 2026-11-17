@@ -59,6 +59,11 @@ export type Driver<Model, Message> = Readonly<{
 // @public
 type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, never, R>;
 
+// @public (undocumented)
+type Fielded<State> = 0 extends 1 & State ? unknown : [keyof State] extends [never] ? [Extract<Primitive, State>] extends [never] ? unknown : Readonly<{
+    'a program keeps its state in an object': State;
+}> : unknown;
+
 // @public
 type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{
     flags?: never;
@@ -104,7 +109,7 @@ type Interpreter<Command, Message, R> = [Command] extends [never] ? object : Rea
 }>;
 
 // @public
-type ObjectState<State> = [State] extends [object] ? unknown : Readonly<{
+type ObjectState<State> = [State] extends [object] ? Fielded<State> : Readonly<{
     'a program keeps its state in an object': State;
 }>;
 
@@ -117,6 +122,9 @@ type Origin = Readonly<{
     _tag: 'Subscription';
     key: unknown;
 }>;
+
+// @public (undocumented)
+type Primitive = string | number | bigint | boolean | symbol;
 
 // @public
 export type Rehearsal<State, Model, Message, Command = never, Event = never, RC = never, RS = never> = Readonly<{

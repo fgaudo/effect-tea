@@ -1359,6 +1359,21 @@ describe('what the types reject', () => {
     expect([typed, counting]).toHaveLength(2)
   })
 
+  test('a program without fields keeps its state in an object, not in a type that holds a number too', () => {
+    type Empty = Record<never, never>
+    const empty = { init: { state: {} }, update: () => (state: Empty) => ({ state }), makeModel: () => null }
+    // @ts-expect-error: a type without fields holds a number too.
+    const typed: Program<{ state: Empty; model: null; message: never }> = empty
+    const loose = program<{ state: Empty }>().make({ init: { state: 0 }, makeModel: () => null })
+    const { child } = program<{ state: Readonly<{ inner: object }> }>()
+    // @ts-expect-error: its state could be a number, which as a child is a defect.
+    expect(child(loose, { get: (state) => Opt.some(state.inner), set: (_, inner) => ({ inner }) })).toBeDefined()
+    const bare = program<{ state: object }>().make({ init: { state: {} }, makeModel: () => null })
+    const kept: Program<{ state: object; model: null; message: never }> = bare
+    expect(child(bare, { get: (state) => Opt.some(state.inner), set: (_, inner) => ({ inner }) })).toBeDefined()
+    expect([typed, kept]).toHaveLength(2)
+  })
+
   test('a child whose type names no external message takes none from its parent', () => {
     const { child, make } = program<{ state: Ticks; message: Reset }>()
     const tested = make({
@@ -1401,6 +1416,27 @@ describe('what the types reject', () => {
     expect(Effect.runSync(tested.runCommand('Load'))).toEqual(
       Opt.some({ _tag: 'Counter', message: { _tag: 'Reset' } }),
     )
+  })
+
+  test('a parent takes from its own parent, for a child, only what the child may be sent', () => {
+    const resettable: Program<{ state: Ticks; model: number; message: Tick | Reset; external: Reset }> = {
+      init: { state: noTicks },
+      update: (message) => ({ ticks }) => ({ state: { ticks: message._tag === 'Tick' ? ticks + 1 : 0 } }),
+      makeModel: ({ ticks }) => ticks,
+    }
+    type Wrapped<M> = Readonly<{ _tag: 'Counter'; message: M }>
+    const counter = <M>() => {
+      const { child, make } = program<{ state: Ticks; external: Wrapped<M> }>()
+      return { make, children: { Counter: child(resettable, { get: Opt.some, set: (_, ticks) => ticks }) } }
+    }
+    const passing = counter<Reset>()
+    const tested = passing.make({ init: () => ({ state: noTicks }), children: passing.children, makeModel: () => null })
+    const private_ = counter<Tick>()
+    // @ts-expect-error: `Tick` is the child's own business.
+    private_.make({ init: () => ({ state: noTicks }), children: private_.children, makeModel: () => null })
+    expect(tested.update({ _tag: 'Counter', message: { _tag: 'Reset' } })({ ticks: 2 })).toMatchObject({
+      state: { ticks: 0 },
+    })
   })
 
   test('an own message cannot take the name of a child, which would receive it', () => {
@@ -1788,6 +1824,11 @@ describe('what the types reject', () => {
       update: () => (state) => ({ state }),
       // @ts-expect-error: its model is a number.
       makeModel: ({ ticks }) => String(ticks),
+    })
+    program<{ state: Ticks; model: never }>().make({
+      init: { state: noTicks },
+      // @ts-expect-error: a model named `never` is named all the same, and no model is one.
+      makeModel: ({ ticks }) => ticks,
     })
     const inferred = program<{ state: Ticks; message: Reset }>().make({
       init: { state: noTicks },

@@ -182,6 +182,16 @@ answer, and saying so in the proposal.
 
 ## The API
 
+- **Checks that hold for a type parameter**, so that a function over any program (`<P extends AnyProgram>(p: P)`)
+  could declare it a child and call `make` without erasing its types. Probed with `tsc` on 17 November 2026, with a
+  second opinion (Opus), the owner deciding. What a child needs from its parent (`onEvent`, flags, `runCommand`) is a
+  rule "exactly when" over its types, which the compiler cannot decide for a type parameter: its conditional stays
+  deferred and accepts nothing. Even `Program<{ state: S; model: M; message: Msg }>` stays deferred, since every reader
+  infers through the conditional of `ObjectState<S>`. Making them hold would rework `Program`, `Shape`, every `*Of`
+  reader, `Handles`, `OnEventOf` and `Config`, on how the compiler treats generic types, and risk types that read
+  differently by how the code is written, while a rule over a truly generic `P` still could not be decided. Such a
+  function is written as an overload over erased types instead ("Composition", "Precisely"), and a frame is better a
+  child beside its content. *Reopen if* a library of components over this one needs such functions often.
 - **`attempt`**, which turned an effect that may fail into an execution with a message for each outcome. Removed in
   0.7.0 (`775f140`, 26 October 2026) by "A function earns its place" (`AGENTS.md`): it only named two combinators of
   Effect (`Effect.match` and `Effect.asSome`), and the type of an execution already says it cannot fail. Reasoned.
@@ -218,7 +228,12 @@ answer, and saying so in the proposal.
   somewhere. The form only moves that error, at the cost of a type parameter and a union in every hover and every error
   of `make`, on an order of inference no documentation states. A check only where `message` is named was refused too:
   the rule would depend on how the types are written, and `message: never` would escape it. *Reopen if* a program with
-  a wrong `external` can compile everywhere, or the compiler documents its two passes.
+  a wrong `external` can compile everywhere, or the compiler documents its two passes. Reopened in part on 17 November
+  2026: a parent's `external` that named a message its child keeps to itself compiled everywhere, and the child's
+  rejection of it was a `CompositionDefect` (found by the matrix of inference). `make` checks that part alone
+  (`ExternalPassed` in `compose.ts`), from the children, which no pass skips; an `external` that is no message at all is
+  still refused where the program is a child. Since messages are named, the first pass no longer skips them either, but
+  the rest of the check would still only move an error.
 - **An error at `make` for a `runCommand` that returns `any`** (Fable: `0 extends 1 & Ran`, "a runCommand returns
   any"), listed in `ROADMAP.md`. Reasoned, 17 November 2026, on probes with `tsc`: such services were read as `never`
   by `CommandServicesOf` and `SubscriptionServicesOf` alone (`Known` in `program.ts`), and so by a parent, while `run`

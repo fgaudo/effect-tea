@@ -127,6 +127,34 @@ For each child, and for itself, a parent declares:
 
 A command's answer is a message of the parent's own, or an external message of a child.
 
+**A function that makes a parent of any program.** What a child needs from its parent is decided from the child's
+types: an `onEvent` when it has events, flags when it starts from them, a `runCommand` when it has commands. For a type
+parameter, such as `P` in `<P extends AnyProgram>(p: P) => …`, the compiler cannot decide it, so `make` does not
+compile there. A frame around content, such as a dialog, is better a child beside the content than a parent of it: the
+parent of both is a program like any other. A function over any program can still be written: its signature names the
+types, and its body makes the parent from a program whose types are `object` and `unknown`. The compiler checks the
+body, but not that the signature says what the body makes.
+
+```ts
+type Dialog<S> = Readonly<{ open: boolean; content: S }>
+type DialogModel<M> = Readonly<{ open: boolean; content: M }>
+type Toggle = Readonly<{ _tag: 'Opened' }> | Readonly<{ _tag: 'Closed' }>
+type InDialog<Msg> = Toggle | Readonly<{ _tag: 'Content'; message: Msg }>
+
+export function inDialog<S extends object, M, Msg>(
+  content: Program<{ state: S; model: M; message: Msg }>,
+): Program<{ state: Dialog<S>; model: DialogModel<M>; message: InDialog<Msg> }>
+export function inDialog(content: Program<{ state: object; model: unknown; message: unknown }>) {
+  const dialog = program<{ state: Dialog<object>; message: Toggle }>()
+  return dialog.make({
+    init: (children) => ({ state: { open: false, content: children.Content.init.state } }),
+    children: { Content: dialog.child(content, { at: Optic.id<Dialog<object>>().key('content') }) },
+    update: (message) => (state) => ({ state: { ...state, open: message._tag === 'Opened' } }),
+    makeModel: (state, children) => ({ open: state.open, content: children.Content(state) }),
+  })
+}
+```
+
 **What is a defect** (a `CompositionDefect`):
 - a child with commands and no `runCommand` that gets there through a cast: the defect comes when its command runs;
 - a child with events and no handler in `onEvent` that gets there through a cast: the defect comes when it raises one;
@@ -197,6 +225,9 @@ one, and the parent hands it down:
 - **`onEvent`** is required exactly when a child has events.
 - **A parent that raises a child's event as its own** has an `Event` that includes the child's, or this does not
   compile.
+- **A parent that passes on an external message of a child** names it in its own `external`, wrapped as it receives
+  it: `{ _tag: 'Page', message: … }`. It is one of the child's external messages, or this does not compile: a message
+  that the child keeps to itself does not pass through its parent either.
 - **A rejection of an external message is a defect**: a `CompositionDefect` that names the child, and names the
   message by its tags. So is sending an external message to a child that is not there.
 

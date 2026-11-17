@@ -171,7 +171,8 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: ne
  * program has, so that the program does not compile.
  *
  * A parent keeps a child's model for as long as the child's state is the same object, and a number or a string has
- * no identity to keep it by. Every program is checked, so that any can be a child.
+ * no identity to keep it by. Every program is checked, so that any can be a child. A type without fields, such as
+ * `{}`, holds a number too: a state without fields is an `object`.
  *
  * @example
  * ```ts
@@ -180,8 +181,15 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: ne
  *
  * @see The guide, "Anatomy of a program", "What does not compile".
  */
-export type ObjectState<State> = [State] extends [object] ? unknown
+export type ObjectState<State> = [State] extends [object] ? Fielded<State>
   : Readonly<{ 'a program keeps its state in an object': State }>
+// Only a type without fields: one with a field that a primitive has too, `{ length: number }`, is a state as any other.
+// `any` is let through, as before.
+type Fielded<State> = 0 extends 1 & State ? unknown
+  : [keyof State] extends [never] ? [Extract<Primitive, State>] extends [never] ? unknown
+    : Readonly<{ 'a program keeps its state in an object': State }>
+  : unknown
+type Primitive = string | number | bigint | boolean | symbol
 
 /**
  * A program's pieces, of the types given in a row: what `run` and the testing tools take. `Program<…>` gives the same

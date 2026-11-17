@@ -841,8 +841,17 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> => ({
 type NamesTaken<T> = [Exclude<keyof T, keyof DeclaredTypes>] extends [never] ? unknown
   : Readonly<{ 'a name is not one of the types of a program': Exclude<keyof T, keyof DeclaredTypes> }>
 
-// A type `T` names is checked; one it does not name is inferred.
-type Named<T, K extends 'model', Inferred> = [Field<T, K>] extends [never] ? Inferred : Field<T, K>
+// On `make`'s config, which alone knows the children: the program's type holds all their messages, those they keep to
+// themselves too, so `ExternalAmong` in `program.ts` would let one through, and the child would get it as external.
+// Only a child's message is checked here: one that is no message at all is refused where the program is a child, as
+// for any program (`docs/rejected.md`).
+/** A parent's external messages for a child are the child's external messages, which it answers in every state. */
+type ExternalPassed<External, Messages, Externals> = Unpassed<Exclude<Extract<External, Messages>, Externals>>
+type Unpassed<Kept> = [Kept] extends [never] ? unknown
+  : Readonly<{ "an external message for a child is not among the child's": Kept }>
+
+// A type `T` names is checked, `never` too; one it does not name is inferred.
+type Named<T, K extends 'model', Inferred> = T extends { readonly [P in K]: infer V } ? V : Inferred
 
 // What `program` returns, and each of its functions, have names of their own: the declarations of a package that
 // exports one name it, where they would spell out every type of this module, for each field of the state.
@@ -1044,7 +1053,8 @@ export type MakeProgram<T extends DeclaredTypes> = <
       Field<T, 'flags'>
     >
     & Readonly<{ children?: C; inputs?: I }>
-    & NamesTaken<T>,
+    & NamesTaken<T>
+    & ExternalPassed<Field<T, 'external'>, ChildMessages<NoInfer<C>>, ChildExternals<NoInfer<C>>>,
 ) => Program<{
   state: Field<T, 'state'>
   model: Named<T, 'model', Model>

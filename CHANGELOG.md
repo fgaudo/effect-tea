@@ -118,6 +118,12 @@ version, and everything else, features included, the patch version.
 - **Breaking**: a name in `program<{ … }>()` or `Program<{ … }>` that is none of a program's types does not compile,
   where its type was lost ("Anatomy of a program", "What does not compile"). Upgrade: `modl: Model` becomes
   `model: Model`, `subscriptionService: Bell` becomes `subscriptionServices: Bell`.
+- **Breaking**: a parent's `external` that names a message of a child names one of the child's external messages, or
+  `make` does not compile ("Composition", "Events and external messages"). A message the child kept to itself passed
+  through, and the child's rejection of it was a `CompositionDefect`.
+- **Breaking**: a state whose type has no fields, such as `{}`, does not compile, since a number is one too: such a
+  program could start from `0`, and as a child it died ("Anatomy of a program", "What does not compile"). Upgrade:
+  `state: {}` becomes `state: object`.
 - **Breaking**: `each` is renamed `childById`, beside `inputById`, as the guide already says "children by id".
   Upgrade: `each(program, place)` becomes `childById(program, place)`, taken from `program` as `each` was from
   `parent`.
@@ -294,6 +300,8 @@ version, and everything else, features included, the patch version.
 - A program that names no `external` is a child without `exactOptionalPropertyTypes` too: `child` and `childById`
   refused it, as if its external messages were not among its messages. `ExternalOf` gives `never` for it, and an
   external message that is `undefined` is kept, under either setting.
+- A model named `never` in `program<{ … }>()` is checked as any other named model: it was taken as not named, and
+  inferred from `makeModel`.
 - A program that names its events and no messages has those events: `EventOf` and `CommandOf` gave `never` for it, and
   a parent's `onEvent` for it had no types.
 - Services whose type does not say which they are, a `runCommand` or `subscriptions` of type `any`, or services of type

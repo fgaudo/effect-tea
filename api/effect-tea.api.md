@@ -221,6 +221,9 @@ export type ExternalOf<P> = P extends {
     readonly '~@fgaudo/effect-tea/Program/external'?: infer E;
 } ? Unboxed<E> : never;
 
+// @public
+type ExternalPassed<External, Messages, Externals> = Unpassed<Exclude<Extract<External, Messages>, Externals>>;
+
 // @public (undocumented)
 type ExternalTaken<P> = [Exclude<ExternalOf<P>, MessageOf<P>>] extends [never] ? unknown : Readonly<{
     "a child's external messages are not among its messages": Exclude<ExternalOf<P>, MessageOf<P>>;
@@ -230,6 +233,11 @@ type ExternalTaken<P> = [Exclude<ExternalOf<P>, MessageOf<P>>] extends [never] ?
 export type Field<T, K extends string> = T extends {
     readonly [P in K]: infer V;
 } ? V : never;
+
+// @public (undocumented)
+type Fielded<State> = 0 extends 1 & State ? unknown : [keyof State] extends [never] ? [Extract<Primitive, State>] extends [never] ? unknown : Readonly<{
+    'a program keeps its state in an object': State;
+}> : unknown;
 
 // @public (undocumented)
 type Fields = Readonly<{
@@ -384,7 +392,7 @@ type Listed<T, Key extends 'commands' | 'events'> = T extends {
 export type MakeProgram<T extends DeclaredTypes> = <Model, C extends Children<Field<T, 'state'>> = None, I extends Inputs<Field<T, 'state'>> = None, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, 'state'>, NoInfer<C>, NoInfer<I>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'event'>, Named<T, 'model', Model>, Ran, Heard, K, Field<T, 'flags'>> & Readonly<{
     children?: C;
     inputs?: I;
-}> & NamesTaken<T>) => Program<{
+}> & NamesTaken<T> & ExternalPassed<Field<T, 'external'>, ChildMessages<NoInfer<C>>, ChildExternals<NoInfer<C>>>) => Program<{
     state: Field<T, 'state'>;
     model: Named<T, 'model', Model>;
     message: Field<T, 'message'> | ChildMessages<C> | InputMessages<I>;
@@ -412,7 +420,9 @@ type Models<State, C> = {
 };
 
 // @public (undocumented)
-type Named<T, K extends 'model', Inferred> = [Field<T, K>] extends [never] ? Inferred : Field<T, K>;
+type Named<T, K extends 'model', Inferred> = T extends {
+    readonly [P in K]: infer V;
+} ? V : Inferred;
 
 // @public
 type NamesAmong<T, Types> = [Exclude<keyof T, keyof Types>] extends [never] ? unknown : Readonly<{
@@ -446,7 +456,7 @@ type NoShared<C, I> = [keyof C & keyof I] extends [never] ? unknown : Readonly<{
 }>;
 
 // @public
-export type ObjectState<State> = [State] extends [object] ? unknown : Readonly<{
+export type ObjectState<State> = [State] extends [object] ? Fielded<State> : Readonly<{
     'a program keeps its state in an object': State;
 }>;
 
@@ -493,6 +503,9 @@ type PlacementById<ParentState, Id, ChildState> = Readonly<{
     get?: never;
     set?: never;
 }>;
+
+// @public (undocumented)
+type Primitive = string | number | bigint | boolean | symbol;
 
 // @public
 export type Program<T extends ProgramTypes> = Shape<Field<T, 'state'>, Field<T, 'model'>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'commandServices'>, Field<T, 'subscriptionServices'>, Field<T, 'event'>, Field<T, 'external'>, Field<T, 'flags'>> & ExternalAmong<Field<T, 'message'>, Field<T, 'external'>> & NamesAmong<T, ProgramTypes>;
@@ -640,6 +653,11 @@ export type Transition<State, Command = never, Event = never> = Step<State, Comm
 
 // @public (undocumented)
 type Unboxed<E> = E extends readonly [infer External] ? External : never;
+
+// @public (undocumented)
+type Unpassed<Kept> = [Kept] extends [never] ? unknown : Readonly<{
+    "an external message for a child is not among the child's": Kept;
+}>;
 
 // @public (undocumented)
 const Unseen = "~@fgaudo/effect-tea/Shown/unseen";
