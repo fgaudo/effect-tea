@@ -1,6 +1,6 @@
 ---
 name: guide-reader
-description: How a reader's check of the documentation of @fgaudo/effect-tea is done: a subagent that has never seen the code builds a program for a requirement of its own, from what a user sees alone (the guide, the tutorial, the declarations of the package, and all the examples in an open check or only the bridges in a closed one), and reports every gap, with where it found each answer; then what becomes of its report. Use when the author asks for a reader's check of the guide, or of pages of it.
+description: How a reader's check of the documentation of @fgaudo/effect-tea is done: a subagent that has never seen the code builds a program for a requirement of its own, from what a user sees alone (the guide, the tutorial, the declarations of the package, and all the examples in an open check or only the bridges in a closed one; or, in a package check, only the installed package), and reports every gap, with where it found each answer; then what becomes of its report. Use when the author asks for a reader's check of the guide, or of pages of it, or of the package alone.
 ---
 
 # A reader's check of the documentation
@@ -28,6 +28,8 @@ A check is of one of two modes, which differ only in what of `examples/` the rea
 
 The two may run on one requirement, a closed check of the guide and an open one of the tutorial: the difference of
 their reports is what the guide leaves to the examples.
+
+A third check, of the **package**, reads none of it: it is set up and briefed apart ("A check of the package", below).
 
 ## Before it starts
 
@@ -118,3 +120,97 @@ Of examples/, you may read only the bridges and the files of the tests they shar
   (`release`).
 - Commit the documents alone, never `scratch/`. Ask the author before deleting `scratch/`.
 - Name the requirement in step 3's list of requirements taken, with its date and its mode, in the same commit.
+
+## A check of the package
+
+Whoever installs the package, and an agent that works in their project, often reads nothing but `node_modules`: the
+declarations and their doc comments, which the hover shows, and the package's `README.md` and `CHANGELOG.md`. The
+package holds no guide, no tutorial, no examples and no bridge. A reader of the package alone checks that the doc
+comments are enough to use the library ("A doc comment of the API follows the guide, in its own words", in
+`AGENTS.md`): what it must guess is a rule a caller needs that no comment states, and a `@see` it would have followed
+is a comment that says too little. The package also ships `src/` for Bun, but that is the implementation: the reader
+does not read it, as a reader of the guide does not read `src/` of the repository.
+
+The reader works in a project of its own outside the repository, so that the guide, the examples and the code are out
+of its reach by where it stands, not only by its rules.
+
+### Before it starts
+
+1. Ask the author whether the reader is a subagent, unless the author has just asked for one.
+2. Choose a requirement as for a closed check (step 3 above): the examples are out of reach, but every requirement of
+   an earlier check is taken, whatever its mode. It may need no renderer: the reader has no bridge, and tests the
+   program with the testing tools alone.
+3. Make the project, from the repository's root, with the versions the repository is developed with:
+
+   ```bash
+   bun run build
+   dir=$(mktemp -d)
+   bun pm pack --quiet --destination "$dir"
+   version() { bun -e "console.log(require('./node_modules/$1/package.json').version)"; }
+   cat > "$dir/package.json" <<EOF
+   { "name": "reader", "private": true, "type": "module",
+     "dependencies": { "@fgaudo/effect-tea": "file:./$(cd "$dir" && ls *.tgz)", "effect": "$(version effect)" },
+     "devDependencies": { "typescript": "$(version typescript)", "@types/bun": "$(version @types/bun)" } }
+   EOF
+   cat > "$dir/tsconfig.json" <<'EOF'
+   { "compilerOptions": { "target": "ES2022", "lib": ["ES2022"], "module": "preserve",
+       "moduleResolution": "bundler", "strict": true, "exactOptionalPropertyTypes": true, "noEmit": true,
+       "types": ["bun"] },
+     "include": ["**/*.ts"] }
+   EOF
+   (cd "$dir" && bun install)
+   ```
+
+   `bun run build` comes first, since the package is packed from `dist/`. The tsconfig includes `**/*.ts`, not `.`:
+   the compiler finds no input under `.` in a directory whose name has a dot, as `mktemp` names it.
+
+### The reader's brief
+
+Start a `general-purpose` subagent with this brief, with the project's path, the requirement and the tests filled in:
+
+```text
+You are a reader checking a library's documentation by building a program from it alone, as a new user would who has
+just installed it. Your project is <the project's path>, where @fgaudo/effect-tea, an Elm-style architecture over
+Effect v4, is installed with effect, typescript and @types/bun.
+
+RULES, strict:
+- You may read, list and write only inside your project. Open nothing outside it, by any tool: no other directory of
+  this machine, no web page, no repository of the library. The README's links lead outside: do not follow them.
+- Of node_modules/@fgaudo/effect-tea, you may read README.md, CHANGELOG.md, package.json and everything under dist/
+  that ends in .d.ts: the doc comments of the declarations are the API reference a user reads in a hover. You may not
+  open its src/ nor its .js files: that is the implementation. A path of them in a stack trace may be read as a user
+  reads a stack trace, not the file it names.
+- You may read node_modules/effect, Effect's own sources and JSDoc, and the compiler's messages, as a user would.
+- Write your files in the project's root. Import the library only as a user does: @fgaudo/effect-tea and
+  @fgaudo/effect-tea/testing. Run `bun test` and `bunx tsc -p .` there. Do not change tsconfig.json or package.json,
+  and install nothing.
+- A doc comment's `@see` line names a section of the library's guide, which you do not have.
+
+THE REQUIREMENT: <the requirement, as numbered points a business would write>
+
+WHAT TO WRITE: the program, and tests of its main scenarios with the library's testing tools <say which: simulate,
+rehearse, drive>. You have no renderer: where a program needs a view, give it a node type of your own. Make it compile
+and pass. Where the documentation does not say enough, guess as a user would, then let the compiler and the tests tell
+you.
+
+YOUR REPORT, the deliverable: every thing you needed to know, with where you found it: (1) in a declaration's doc
+comment, with the export; (2) in the package's README.md or CHANGELOG.md; (3) nowhere, so that you guessed. For each
+of (3), say what you needed, what you guessed, and what the compiler or a test told you. Then each `@see` line you
+would have followed, with the export, the section it names, and what you needed from it. Then the gaps, each with the
+export or the file you were reading: (a) what was wrong, (b) what was missing, (c) what was unclear and you resolved.
+Say whether the program compiles and how many tests pass, list the files you wrote, and list any behaviour of the
+library that surprised you, as possible bugs. Say too if you read anything the rules forbid.
+```
+
+### What to do with the report
+
+- A possible bug is checked and fixed as in a check of the guide (above).
+- A gap, a guess of (3) a user relies on, and a `@see` the reader needed, go into the doc comment of the export where
+  the reader looked, as `change-api` says: the rule a caller needs there, in short and in plain English, as the guide
+  says it. A rule the guide does not hold yet goes into the guide first, checked against `src/` and its tests. A gap
+  of the README is fixed in the README.
+- Run `bun run comments`, `bun run typecheck`, `bun run lint` and `bun run test`; a doc comment changed is a change a
+  consumer can notice, with a changelog entry (`release`).
+- Commit the documents alone. Ask the author before deleting the reader's project.
+- Name the requirement in the list of requirements taken (step 3 of a check of the guide), with its date and the mode
+  `package`, in the same commit.
