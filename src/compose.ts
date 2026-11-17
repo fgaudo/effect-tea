@@ -741,7 +741,7 @@ const make = <
  *
  * @see The guide, "Composition", "Its own types, by name: `program<{ state: State }>()`".
  */
-export type DeclaredTypes = Readonly<{
+type DeclaredTypes = Readonly<{
   /** Its state, an object. */
   state: object
   /** What its view draws. Inferred from `makeModel` when it is not named. */

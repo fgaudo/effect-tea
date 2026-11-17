@@ -16,7 +16,9 @@ import {
   type SubscriptionServicesOf,
   type Update,
 } from '@fgaudo/effect-tea'
+import * as Library from '@fgaudo/effect-tea'
 import { applyAll, simulate } from '@fgaudo/effect-tea/testing'
+import * as Testing from '@fgaudo/effect-tea/testing'
 import * as Arr from 'effect/Array'
 import * as Channel from 'effect/Channel'
 import * as Context from 'effect/Context'
@@ -318,6 +320,11 @@ assert(kept.shown === element && !kept.taken && byHand !== undefined, 'a frame t
 assert(deaf.update({ _tag: 'Full' })(deaf.init.state) !== reject, 'a program typed past its types runs')
 const moved = drawn(element, '', 1)
 assert(moved.shown.value === '' && moved.taken, 'a frame that has seen it and moved on gives its value')
+
+// Every value of the package, as a module that wraps the library would export it: its declarations name every type
+// of their signatures.
+export const library = { ...Library }
+export const testing = { ...Testing }
 
 const main = Effect.gen(function*() {
   const simulation = yield* simulate(app)([increment(), { _tag: 'ResetAll' }], app.init)

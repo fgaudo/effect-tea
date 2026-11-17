@@ -65,7 +65,16 @@ export type Rejected = typeof reject
  */
 export type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected
 
-/** A step with both its lists present: what a fold of steps accumulates. */
+/**
+ * A step with both its lists present: what a fold of steps accumulates, and what `applyAll` returns.
+ *
+ * @example
+ * ```ts
+ * const none: Folded<State, never, never> = { state, commands: [], events: [] }
+ * ```
+ *
+ * @see The guide, "Testing", "The tools".
+ */
 export type Folded<State, Command, Event> = Readonly<{
   state: State
   commands: ReadonlyArray<Command>

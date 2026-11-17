@@ -228,7 +228,7 @@ type ExternalTaken<P> = [Exclude<ExternalOf<P>, MessageOf<P>>] extends [never] ?
 }>;
 
 // @public
-type Field<T, K extends string> = T extends {
+export type Field<T, K extends string> = T extends {
     readonly [P in K]: infer V;
 } ? V : never;
 
@@ -253,10 +253,17 @@ export type FlagsOf<P> = P extends {
 } ? F : never;
 
 // @public
-type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{
+export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{
     flags?: never;
 }> : Readonly<{
     flags: Flags;
+}>;
+
+// @public
+export type Folded<State, Command, Event> = Readonly<{
+    state: State;
+    commands: ReadonlyArray<Command>;
+    events: ReadonlyArray<Event>;
 }>;
 
 // @public
@@ -302,7 +309,7 @@ export type Ignored<State, Message> = Readonly<{
 }>;
 
 // @public
-type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, Command> : (flags: Flags) => Step<State, Command>;
+export type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, Command> : (flags: Flags) => Step<State, Command>;
 
 // @public
 type Input<State, A> = Readonly<{
@@ -568,7 +575,7 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
 }
 
 // @public
-type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & Readonly<{
+export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & Readonly<{
     readonly '~@fgaudo/effect-tea/Program/external'?: External;
     init: Init<State, Command, Flags>;
     update: Update<State, Message, Command, Event>;

@@ -86,6 +86,14 @@ when they differ from the declarations. Read their diff as a consumer would: a l
 breaking change, and needs the changelog's `**Breaking**:` (`release`). A diff of the reports that the change did
 not mean to make is a change of the API all the same.
 
+A type the API reaches is exported by the package, or kept to its module: a consumer's declarations spell out a type
+alias that no module exports, and must import any other by name, which only an entrypoint allows (TS2742, TS2883,
+TS4023). So `bun run api` fails on one that a module of `dist/` exports and the package does not, on an interface or a
+class of a module's own, and on a key that is a `unique symbol` of a module's own, which is a string instead
+(`~@fgaudo/effect-tea/<Type>/<part>`, as `AGENTS.md` names keys). What the API returns has a name that declarations
+use, as `ProgramMaker` for what `program` returns: spelled out, it repeats the consumer's types in each of the
+library's.
+
 ## Check it as a consumer
 
 Besides `bun run typecheck`, `bun run lint` and `bun run test`, check the change as a consumer outside Bun
@@ -100,5 +108,8 @@ project outside the repository, runs the README's quick start and
 
 - A change to what `program` declares or derives, or to the shape of what `run` and the testing tools take, gets
   code in `tools/smoke/consumer.ts` that uses it, and a `// @ts-expect-error` for what its types newly reject.
+- The consumer emits its declarations, as a package that publishes a program does, and exports what an application
+  exports: programs, children, inputs, what `program` and `drawn` return, and every value of the package
+  (`{ ...Library }`). A form of export that a change makes newly possible is exported there too.
 - `--effect <version>` installs another Effect than the lockfile's, `--typescript 5.9,7.0` other
   TypeScripts, and `--keep` leaves the project in place to look into a failure.

@@ -4,6 +4,13 @@
 // committed, so that a change of the API shows in the diff. `--check` writes nothing, and fails when a report differs
 // from the declarations, as the CI runs it.
 //
+// Both fail on a type of the library that the API reaches and a consumer's declarations could not name: one that a
+// module of `dist/` exports and the package does not, which TypeScript would import from that module, a path the
+// `exports` of `package.json` do not open (TS2742, TS2883); and an interface, a class or a key that is a
+// `unique symbol` that no module exports, which it cannot spell out either (TS4023). A type alias that its module
+// keeps to itself is spelled out, and needs nothing. `tools/smoke/` checks the same with the compiler, on what a
+// consumer exports.
+//
 //   bun tools/api-report.ts [--check]
 import {
   Extractor,
@@ -12,6 +19,7 @@ import {
   ExtractorMessageCategory,
   type ExtractorMessage,
 } from '@microsoft/api-extractor'
+import { Glob } from 'bun'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 
@@ -24,6 +32,8 @@ const entrypoints = [
 // What the analysis finds wrong in the declarations; the messages of the report itself (written, or out of date) are
 // of the `console` category, and decided below.
 const problems: Array<ExtractorMessage> = []
+// The names the API reaches without exporting them: `includeForgottenExports` puts them in the report.
+const forgotten = new Set<string>()
 let stale = false
 for (const { name, declarations } of entrypoints) {
   const config = ExtractorConfig.prepare({
@@ -45,8 +55,8 @@ for (const { name, declarations } of entrypoints) {
       tsdocMetadata: { enabled: false },
       messages: {
         // The report is for the diff, and these are the library's choices: every export is public, a type the API
-        // reaches without exporting it stays internal (`change-api`), and the doc comments are checked by TypeDoc, for
-        // the site, where one comment may document a group of exports.
+        // reaches without exporting it stays internal to its module (`change-api`, and below), and the doc comments
+        // are checked by TypeDoc, for the site, where one comment may document a group of exports.
         extractorMessageReporting: {
           default: { logLevel: ExtractorLogLevel.Warning },
           'ae-missing-release-tag': { logLevel: ExtractorLogLevel.None },
@@ -62,6 +72,8 @@ for (const { name, declarations } of entrypoints) {
   const result = Extractor.invoke(config, {
     localBuild: !values.check,
     messageCallback: (message) => {
+      const name = message.messageId === 'ae-forgotten-export' ? /"(\w+)"/.exec(message.text)?.[1] : undefined
+      if (name !== undefined) forgotten.add(name)
       if (
         message.category !== ExtractorMessageCategory.Console &&
         (message.logLevel === ExtractorLogLevel.Error || message.logLevel === ExtractorLogLevel.Warning)
@@ -74,4 +86,44 @@ for (const { name, declarations } of entrypoints) {
     console.error(`The API of ${declarations} differs from api/${name}.api.md: run \`bun run api\` and commit it.`)
   }
 }
-if (problems.length > 0 || stale) process.exit(1)
+const files = await Promise.all(
+  (await Array.fromAsync(new Glob('dist/**/*.d.ts').scan({ cwd: root }))).map(async (path) => ({
+    path,
+    text: await Bun.file(join(root, path)).text(),
+  })),
+)
+// What one entrypoint forgets, the other may export: `testing` reaches `Update`, which `.` exports.
+const exportedNames = (text: string) =>
+  [...text.matchAll(/^export (?:type )?\{([^}]*)\}/gm)].flatMap(([, list = '']) =>
+    list.split(',').map((item) => item.trim().replace(/^type /, '').split(/\s+as\s+/).at(-1) ?? '')
+  )
+const exported = new Set(
+  files.filter(({ path }) => entrypoints.some((entrypoint) => join(root, entrypoint.declarations) === join(root, path)))
+    .flatMap(({ text }) => exportedNames(text)),
+)
+const unnameable = [
+  ...[...forgotten].filter((name) => !exported.has(name)).flatMap((name) =>
+    files.flatMap(({ path, text }) => {
+      const exported = new RegExp(
+        String.raw`^export (declare )?(type|interface|const|class|function) ${name}\b|^export \{[^}]*\b${name}\b`,
+        'm',
+      )
+      const opaque = new RegExp(String.raw`^(declare )?(interface|class) ${name}\b`, 'm')
+      if (exported.test(text)) {
+        return [`${name}, which ${path} exports and the package does not: export it, or keep it local`]
+      }
+      if (opaque.test(text)) {
+        return [`${name}, in ${path}, which TypeScript cannot spell out: export it, or make it a type alias`]
+      }
+      return []
+    })
+  ),
+  // A key that is a `unique symbol` of a module's own: api-extractor does not list it among what the API reaches.
+  ...files.flatMap(({ path, text }) =>
+    [...text.matchAll(/^declare const (\w+): unique symbol/gm)]
+      .filter(([, name]) => text.includes(`[${name}]`))
+      .map(([, name]) => `${name}, a key in ${path} that TypeScript cannot spell out: make it a string`)
+  ),
+]
+for (const reason of unnameable) console.error(`A consumer's declarations cannot name ${reason}.`)
+if (problems.length > 0 || stale || unnameable.length > 0) process.exit(1)

@@ -278,12 +278,14 @@ version, and everything else, features included, the patch version.
   services, or whose `runCommand` returns effects of different services by branch, or whose subscriptions differ in
   theirs, compiles without an annotation. The guide's "Composition" says so ("Declaring children").
 - A package that exports a program made with `make`, a child that `child` declares, a copy of a program, what
-  `drawn` and `edited` return, or what `program` returns, emits its declarations: TypeScript could not name the type of
-  a program that `make` returns, the keys of a program's external messages and of a `Shown`'s writes, nor the types in
-  the signatures of `child` and `childById` (`TS2742`, `TS2883`, `TS4023`). `make` returns a `Program<…>`, the keys are
-  strings, and `AnyProgram`, `Interpreter` and `ObjectState` are exported. What `program` returns is a `ProgramMaker`,
-  whose functions are a `DeclareChild`, a `DeclareChildById`, a `DeclareInput`, a `DeclareInputById` and a
-  `MakeProgram`: declarations name them, where they spelled out every type of the library, for each field of the state.
+  `drawn`, `edited` or `program` returns, or a function of the library as it is (`export const start = run`), emits
+  its declarations: TypeScript could not name the type of a program that `make` returns, the keys of a program's
+  external messages and of a `Shown`'s writes, nor the types in the signatures of the API (`TS2742`, `TS2883`,
+  `TS4023`). `make` returns a `Program<…>`, the keys are strings, and those types are exported: `AnyProgram`, `Field`,
+  `FlagsOption`, `Folded`, `Init`, `Interpreter`, `ObjectState` and `Shape`. What `program` returns is a
+  `ProgramMaker`, whose functions are a `DeclareChild`, a `DeclareChildById`, a `DeclareInput`, a `DeclareInputById`
+  and a `MakeProgram`: declarations name them, where they spelled out every type of the library, for each field of the
+  state.
 - An input that takes a child's name no longer compiles: it replaced the child, whose messages were then rejected.
 - A program whose `external` messages are not among its `message`s no longer compiles, as a `Program<…>` or as a
   child that `program` declares: its parent's message reached an `update` that does not take it, as a `TypeError`.

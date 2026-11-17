@@ -47,7 +47,7 @@ export const subscriptionsOf = <State, Message, R, K>(
 ): Subscriptions<State, Message, R, K> => program.subscriptions ?? (() => HashMap.empty())
 
 /** The types of a program, by name: `state`, `model` and `message` always, the others only when it has them. */
-export type ProgramTypes = Readonly<{
+type ProgramTypes = Readonly<{
   /** Its state, an object. */
   state: object
   /** What its view draws. */
@@ -68,7 +68,14 @@ export type ProgramTypes = Readonly<{
   flags?: unknown
 }>
 
-/** A type `T` names, or `never` when it does not name it. */
+/**
+ * A type that `T` names, or `never` when it does not name it.
+ *
+ * @example
+ * ```ts
+ * type Command = Field<{ state: State; command: 'Save' }, 'command'> // 'Save'
+ * ```
+ */
 export type Field<T, K extends string> = T extends { readonly [P in K]: infer V } ? V : never
 
 /**
@@ -118,17 +125,33 @@ export type Program<T extends ProgramTypes> =
  * A program's external messages are among its messages: one that is not would reach an `update` that does not take
  * it, with no `CompositionDefect` to say so.
  */
-export type ExternalAmong<Message, External> = [Exclude<External, Message>] extends [never] ? unknown
+type ExternalAmong<Message, External> = [Exclude<External, Message>] extends [never] ? unknown
   : Readonly<{ 'an external message is not among the program messages': Exclude<External, Message> }>
 
 /**
  * How a program starts: its first step, or, for a program with flags, the function that makes it from the
  * flags. A step is never a function, so the two are told apart when the program runs.
+ *
+ * @example
+ * ```ts
+ * const init: Init<State, never, number> = (start) => ({ state: { count: start } })
+ * ```
+ *
+ * @see The guide, "Anatomy of a program", "A program with flags".
  */
 export type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, Command>
   : (flags: Flags) => Step<State, Command>
 
-/** What the program starts from, among the options of whoever starts it: required exactly when it has flags. */
+/**
+ * What the program starts from, among the options of whoever starts it: required exactly when it has flags.
+ *
+ * @example
+ * ```ts
+ * const options: FlagsOption<number> = { flags: 1 }
+ * ```
+ *
+ * @see The guide, "Anatomy of a program", "A program with flags".
+ */
 export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: never }>
   : Readonly<{ flags: Flags }>
 
@@ -149,7 +172,17 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: ne
 export type ObjectState<State> = [State] extends [object] ? unknown
   : Readonly<{ 'a program keeps its state in an object': State }>
 
-/** A program's pieces. `External` is only in its type: no program has the property. */
+/**
+ * A program's pieces, of the types given in a row: what `run` and the testing tools take. `Program<…>` gives the same
+ * types by name. `External` is only in its type: no program has the property.
+ *
+ * @example
+ * ```ts
+ * type Counter = Shape<State, State, Message, never, never, never, never, never>
+ * ```
+ *
+ * @see The guide, "Anatomy of a program", "In short".
+ */
 export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> =
   & ObjectState<State>
   & Readonly<{
