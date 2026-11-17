@@ -48,18 +48,20 @@ In the same change:
     `Effect.fnUntraced`, whose type keeps no names of parameters (`drive`, `rehearse`), says its parameters in a
     sentence instead, which TypeDoc would otherwise warn of;
   - an `@example` of the common case, as code, never inside the prose;
-  - short sentences, one idea each, and only the words the guide defines; what the export is before what it is not;
+  - plain English, always, for readers who are not native speakers ("The guide and the doc comments are in plain
+    English", in `AGENTS.md`): short sentences, one idea each, common words, and only the words the guide defines;
+    what the export is before what it is not;
   - no note on how it is implemented, which is a `//` comment ("Code" in `AGENTS.md`).
 
-  What it promises is not written there but quoted ("A doc comment of the API promises only by quoting the guide",
-  in `AGENTS.md`): after `@remarks`, a line `From the guide, "<page>", "<title>":` for each promise, where `<page>`
-  is the page's `title` and `<title>` a heading of it, or the bold title a list item or a paragraph starts with,
-  without its final period. The first such line comes right after `@remarks`, which is the last tag of the comment
-  (after `@param`, `@returns` and `@example`), and the comment ends with `*/` on a line of its own: `bun run quotes`
-  writes the text under each line, and everything from the first one to the end of the comment is its own.
-  `bun run quotes --check` fails when one differs from the guide, and both fail, writing nothing, on a line they
-  cannot read. A promise the guide does not hold yet is added to the guide first, as its prose changes (`AGENTS.md`).
-  A promise that concerns the whole run (the order of messages, scopes, logs) is quoted on `run`, and one of a single
+  What it promises follows the guide ("A doc comment of the API follows the guide, in its own words", in
+  `AGENTS.md`). After the summary, a few sentences or a short list give the rules a caller needs at that point,
+  checked one by one against the guide and the code: the same rule in fewer words, never a stronger one. The detail,
+  the reasons and the examples stay in the guide. A comment that grows past a screen says too much: keep what a
+  caller needs before calling, and leave the rest to the guide. Last come the `@see` lines, one for each section it
+  follows: `@see The guide, "<page>", "<section>".`, where `<page>` is the page's `title` and `<section>` a heading
+  of it, or the bold title a list item or a paragraph starts with, without its final period. `bun run comments` fails
+  on a name the guide does not have. A rule the guide does not hold yet is added to the guide first, as its prose
+  changes (`AGENTS.md`). A rule of the whole run (the order of messages, scopes, logs) is on `run`, and one of a single
   export on that export.
 - **The guide** ([`site/guide/`](../../../site/guide)): the page of the concept that uses it, and "Testing" for a
   testing tool. Every code block, there and in `README.md`, uses the current API as it would be written in its

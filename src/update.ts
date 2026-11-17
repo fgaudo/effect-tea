@@ -6,21 +6,16 @@ import { dual } from 'effect/Function'
  *
  * A program without events leaves `Event` as `never`, and one without commands leaves `Command` as `never`.
  *
+ * - A command is data. Only the program's `runCommand` runs it, and it may answer with one message.
+ * - A child raises an event to ask its parent for something.
+ *
  * @example
  * ```ts
  * const step: Step<State, Command> = { state: { ...state, saving: true }, commands: [Command.Save({ name })] }
  * ```
  *
- * @remarks
- * From the guide, "Commands", "In short":
- *
- * A command is **data** that says what `update` decided, usually a `Data.TaggedEnum`: `Command.Save({ name })`. The
- * program's `runCommand` alone turns it into an Effect that may produce one message back. Since the decision is data,
- * tests can assert it without running it.
- *
- * From the guide, "Composition", "A child raises an event":
- *
- * **A child raises an event** to ask its parent for something, like leaving the page.
+ * @see The guide, "Commands", "In short".
+ * @see The guide, "Composition", "A child raises an event".
  */
 export type Step<State, Command = never, Event = never> = Readonly<{
   /** The next state. */
@@ -35,6 +30,8 @@ export type Step<State, Command = never, Event = never> = Readonly<{
  * What `update` returns for a message that does not apply in the state, such as a second click or an answer that
  * came too late.
  *
+ * A message that `update` rejects is ignored: the state stays as it was, however many messages came in between.
+ *
  * @example
  * ```ts
  * case 'SaveClicked':
@@ -43,11 +40,7 @@ export type Step<State, Command = never, Event = never> = Readonly<{
  *     : { state: { ...state, save: { _tag: 'Saving' } }, commands: [Command.Save({ name: state.name })] }
  * ```
  *
- * @remarks
- * From the guide, "Guarantees", "Outdated clicks are harmless":
- *
- * **Outdated clicks are harmless.** A message that `update` rejects is ignored: the state stays as it was.
- * - This holds however many messages came in between.
+ * @see The guide, "Guarantees", "Outdated clicks are harmless".
  */
 export const reject: unique symbol = Symbol.for('@fgaudo/effect-tea/Rejected')
 /**
@@ -95,6 +88,9 @@ export const appendStep = <State, Command, Event>(
 /**
  * A step followed by another, made from its state.
  *
+ * The result has the second step's state, and the commands and events of both steps, in order. Both lists are always
+ * there. Do not take a step's `state` by hand to make the next step: you would drop its commands and events.
+ *
  * It is dual: `andThen(next)` takes the step last, for a chain of steps written with `pipe`.
  *
  * @param step - The first step.
@@ -107,12 +103,7 @@ export const appendStep = <State, Command, Event>(
  * andThen(leave(state), children.Home.update({ _tag: 'ProductGone', at }))
  * ```
  *
- * @remarks
- * From the guide, "Composition", "`andThen`":
- *
- * **`andThen`**: `andThen(leave(state), children.Home.update({ _tag: 'ProductGone', at }))`. The result has the second
- * step's state, and both steps' commands and events, in order, both lists always there. If you take a step's `.state`
- * by hand to make the next step, you drop its commands and its events.
+ * @see The guide, "Composition", "`andThen`".
  */
 export const andThen: {
   <State, Command2, Event2>(
@@ -139,6 +130,9 @@ export const andThen: {
 /**
  * A step followed by one more for each item, in order.
  *
+ * Each step is made from the state the previous one left. The result has the last step's state, and the commands and
+ * events of every step, in order. Both lists are always there.
+ *
  * It is dual: `forEach(items, next)` takes the step last, for a chain of steps written with `pipe`.
  *
  * @param step - The first step.
@@ -152,13 +146,7 @@ export const andThen: {
  * forEach({ state }, state.rows, ({ id }) => children.Row.update(id, Cleared()))
  * ```
  *
- * @remarks
- * From the guide, "Composition", "`forEach`":
- *
- * **`forEach`** is the `andThen` of many: one step for each item, each made from the state the previous one left. The
- * result has the last step's state, and every step's commands and events, in order, both lists always there. For
- * example, a message to every child by id: `forEach({ state }, state.rows, ({ id }) => children.Row.update(id,
- * Cleared()))`.
+ * @see The guide, "Composition", "`forEach`".
  */
 export const forEach: {
   <Item, State, Command2, Event2>(
@@ -191,31 +179,22 @@ export const forEach: {
 /**
  * A program's `update`: given a message, then a state, what the message does in that state.
  *
+ * It returns a step, or `reject` when the message makes no sense in the state.
+ *
+ * - Keep it pure: return commands instead of running effects.
+ * - It may be called at any time. Never assume that it runs once per message, or only for a message that was sent.
+ * - Never mutate the state, nested objects included. Return a new one.
+ *
  * @example
  * ```ts
  * const update: Update<State, Message> = (message) => (state) =>
  *   message === 'Increment' ? { state: { count: state.count + 1 } } : { state: { count: state.count - 1 } }
  * ```
  *
- * @remarks
- * From the guide, "Update", "In short":
- *
- * `update` takes a message, then the state, and returns the next step: `{ state, commands?, events? }`. When the
- * message makes no sense in that state, it returns `reject` instead. Commands say what should happen, and `runCommand`
- * says how (see "Anatomy of a program"). Events are for a parent (see "Composition").
- *
- * From the guide, "Update", "Keep it pure":
- *
- * **Keep it pure.** It returns commands instead of running effects.
- *
- * From the guide, "Update", "It may be called at any time":
- *
- * **It may be called at any time.** Never assume that it runs once per message, or only for a message that was sent.
- * The testing tools call it twice on each message that a model holds, and also on other messages that a test lists.
- *
- * From the guide, "Update", "Never mutate the state":
- *
- * **Never mutate the state**, nested objects included. Return a new one.
+ * @see The guide, "Update", "In short".
+ * @see The guide, "Update", "Keep it pure".
+ * @see The guide, "Update", "It may be called at any time".
+ * @see The guide, "Update", "Never mutate the state".
  */
 export type Update<State, Message, Command = never, Event = never> = (
   message: Message,

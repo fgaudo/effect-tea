@@ -19,6 +19,9 @@ export const runCommandOf = <Command, Message, R>(
 /**
  * What a program listens to in a state, by key.
  *
+ * It gives the subscriptions as `run` reconciles them, and none for a program without `subscriptions`. A parent lists
+ * the subscriptions of each child under `[<child>, key]`, or under `[<child>, id, key]` for children by id.
+ *
  * @param program - The program, with or without `subscriptions`.
  * @returns A function from a state to the program's subscriptions in it.
  *
@@ -27,17 +30,8 @@ export const runCommandOf = <Command, Message, R>(
  * expect(HashMap.has(subscriptionsOf(app)(state), ['Clock', 'ticks'])).toBe(true)
  * ```
  *
- * @remarks
- * From the guide, "Anatomy of a program", "What a program listens to":
- *
- * **What a program listens to.** `subscriptionsOf(program)(state)` is what the program listens to in `state`, by key,
- * as `run` reconciles it. It is empty for a program without `subscriptions`. A parent lists the subscriptions of each
- * child under `[<child>, key]`, or under `[<child>, id, key]` for children by id (see "Composition").
- *
- * From the guide, "Composition", "A test reads a child's subscriptions by key":
- *
- * **A test reads a child's subscriptions by key.** `HashMap.has(subscriptionsOf(app)(state), ['Clock', 'ticks'])` tells
- * a test whether the Clock ticks.
+ * @see The guide, "Anatomy of a program", "What a program listens to".
+ * @see The guide, "Composition", "A test reads a child's subscriptions by key".
  */
 export const subscriptionsOf = <State, Message, R, K>(
   program: Readonly<{ subscriptions?: Subscriptions<State, Message, R, K> }>,
@@ -75,6 +69,13 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * `runCommand` is how its commands happen, when it has some, and `subscriptions` what it listens to, when it listens.
  * A program of children or inputs is made with `composition`.
  *
+ * - The view is not part of it: `run` gives the renderer frames, `{ model, dispatch, seen }`.
+ * - Its state is an object, and its `external` messages are among its `message`s. Otherwise it does not compile.
+ * - `runCommand` is required exactly when the program has commands.
+ * - `run` makes a frame's model with `makeModel(state)`. A test can call it the same way, on any state.
+ * - `update`, `makeModel` and `subscriptions` are pure, and states are never mutated. The library reuses a child's
+ *   model and subscriptions while the child's state is the same object.
+ *
  * @example
  * ```ts
  * const counter: Program<{ state: State; model: State; message: Message }> = {
@@ -84,30 +85,11 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * }
  * ```
  *
- * @remarks
- * From the guide, "Anatomy of a program", "The view is not part of it":
- *
- * **The view is not part of it.** `run` hands your renderer a stream of **frames** (`{ model, dispatch, seen }`). The
- * renderer draws them however it likes (see "View").
- *
- * From the guide, "Anatomy of a program", "What does not compile":
- *
- * **What does not compile.** A program whose state is a number or a string does not compile. Nor does one whose
- * `external` messages are not among its `message`s.
- *
- * From the guide, "Anatomy of a program", "`runCommand` is required exactly when the program has commands":
- *
- * **`runCommand` is required exactly when the program has commands.** So no command goes uninterpreted.
- *
- * From the guide, "Anatomy of a program", "A test makes a model as `run` does":
- *
- * **A test makes a model as `run` does.** `run` makes a frame's model with `program.makeModel(state)`, and a test can
- * call it the same way, on any state.
- *
- * From the guide, "Guarantees", "`update`, `makeModel` and `subscriptions` are pure, and states are never mutated":
- *
- * **`update`, `makeModel` and `subscriptions` are pure, and states are never mutated.** The library reuses a child's
- * model, and its subscriptions, while the child's state is the same object.
+ * @see The guide, "Anatomy of a program", "The view is not part of it".
+ * @see The guide, "Anatomy of a program", "What does not compile".
+ * @see The guide, "Anatomy of a program", "`runCommand` is required exactly when the program has commands".
+ * @see The guide, "Anatomy of a program", "A test makes a model as `run` does".
+ * @see The guide, "Guarantees", "`update`, `makeModel` and `subscriptions` are pure, and states are never mutated".
  */
 export type Program<T extends ProgramTypes> =
   & Shape<

@@ -365,7 +365,7 @@ decided each, with a second opinion (Fable) on the last two.
 
 - **A link from a doc comment to the page of the site that holds its rule.** Spiked in the pilot, and dropped before
   its commit: the site is built again whole by each tag (`.github/workflows/docs.yml`) and keeps no older release, so
-  the hover of a version installed would show, after the next release, the promises of that one. `tools/quotes.ts`
+  the hover of a version installed would show, after the next release, the promises of that one. `tools/comments.ts`
   now fails on such a link. *Reopen if* the site keeps each release at an address of its own.
 - **A site that keeps each release** (`/v0.8.0/…`, kept on a branch the deploy adds to). Reasoned: it would hold, but
   on infrastructure (the layout of the deploy, a branch to keep, a permission to push), which the owner declined for
@@ -393,11 +393,29 @@ decided each, with a second opinion (Fable) on the last two.
     interface that extends it keeps them too; a class cannot be declared again without losing `instanceof`;
   - `export * as`, an overload with the comment on its signature, and `{@inheritDoc}` separate nothing;
   - `@privateRemarks` is hidden by TypeDoc but shown in the hover of whoever installs the package, and two doc
-    comments in a row reach the declarations both, though the hover shows the last: `tools/quotes.ts` fails on each.
+    comments in a row reach the declarations both, though the hover shows the last: `tools/comments.ts` fails on each.
 
   Instead, the doc comment of an export is for its users, and a note on how it is implemented is a `//` comment or
   that of an internal declaration (`AGENTS.md`, "Code"). *Reopen if* TypeScript and TypeDoc come to hide alike a part
   of a doc comment from the users of a package.
+
+The two entries below were tried on 16 and 17 November 2026 and dropped on 17 November, the owner deciding: the doc
+comments are written by hand since, in plain English, and name the sections of the guide they follow (`AGENTS.md`,
+"A doc comment of the API follows the guide, in its own words").
+
+- **Doc comments that quote the guide, word for word**, copied after `@remarks` by a script (`tools/quotes.ts`, now
+  `tools/comments.ts`, which checks the comments and copies nothing). Spiked from the pilot of `bb7ee37`, and kept a
+  day. Each promise was written once, and the hover of a version installed showed that version's. But the guide is
+  written to be read in order, and a section copied alone is not a hover: it keeps the guide's reasons and examples,
+  its lists of cases, its pointers to sections the comment does not hold ("see 'two limits'") and to the examples,
+  and two sections that say one thing twice. `drawn`'s comment held 42 lines, 26 of them copied, before the entry
+  below made it 103. *Reopen if* a hover can show a short form of a section that the guide itself writes, and keep it
+  in step with the version installed.
+- **Every line of the guide quoted by a doc comment, or set aside with a reason** (`tools/unquoted.ts`), so that a
+  promise added to the guide reached the declarations. Spiked, commits `0e1738d` to `ca9b91b`, never pushed. Sorted
+  page by page, it made quoting the easy path, since setting aside needs a reason: 481 lines came into the comments
+  of `src/`, and `run`'s grew from 57 lines to 136. *Reopen if* the comments quote the guide again, and only with a
+  bound on how long a comment may grow.
 
 ## The bridges
 

@@ -6,6 +6,11 @@ import type * as HashMap from 'effect/HashMap'
  *
  * It takes no input and cannot fail. Its end value is a message, or `never` for one that never ends.
  *
+ * - It never ends in silence: either it never ends, or it ends with one last message, its end value.
+ * - It starts when a new state brings its key, and it is interrupted when a new state takes its key away.
+ * - An ended subscription is not restarted until its key goes away and comes back.
+ * - When its key goes away, it releases what it holds, and nothing it sent reaches `update` any more.
+ *
  * @example
  * ```ts
  * // `Ticked` once a second, forever: its end value is `never`.
@@ -16,28 +21,17 @@ import type * as HashMap from 'effect/HashMap'
  * )
  * ```
  *
- * @remarks
- * From the guide, "Subscriptions", "A subscription never ends in silence":
- *
- * **A subscription never ends in silence.** Either it never ends, or it ends with **one last message**, its end value.
- *
- * From the guide, "Subscriptions", "An ended subscription is not restarted":
- *
- * **An ended subscription is not restarted** until its key goes away and comes back.
- *
- * From the guide, "Guarantees", "Subscriptions follow their keys":
- *
- * **Subscriptions follow their keys.** A subscription starts when a new state brings its key. It is interrupted when a
- * new state takes its key away.
- * - Both happen once that state is published for the renderer, and before the run takes the next message.
- * - A subscription that ends stays ended while its key stays, until the key goes away and comes back.
- * - When the key goes away, the subscription releases what it holds.
- * - After that, nothing it sent reaches `update`, even if the same key comes back later.
+ * @see The guide, "Subscriptions", "A subscription never ends in silence".
+ * @see The guide, "Subscriptions", "An ended subscription is not restarted".
+ * @see The guide, "Guarantees", "Subscriptions follow their keys".
  */
 export type Subscription<Message, R> = Channel.Channel<Message, never, Message, unknown, unknown, unknown, R>
 
 /**
  * What a program listens to in a state, by key.
+ *
+ * Keys are compared by value after every change of state. A new key starts its subscription, a kept key leaves it
+ * running, and a missing key stops it.
  *
  * @example
  * ```ts
@@ -45,22 +39,8 @@ export type Subscription<Message, R> = Channel.Channel<Message, never, Message, 
  *   state.phase._tag === 'Running' ? HashMap.make(['ticks', ticks]) : HashMap.empty()
  * ```
  *
- * @remarks
- * From the guide, "Subscriptions", "Keys are compared by value, after every change of state:":
- *
- * **Keys are compared by value, after every change of state:**
- * - a new key starts its subscription;
- * - a kept key leaves it running;
- * - a missing key stops it.
- *
- * From the guide, "Guarantees", "Subscriptions follow their keys":
- *
- * **Subscriptions follow their keys.** A subscription starts when a new state brings its key. It is interrupted when a
- * new state takes its key away.
- * - Both happen once that state is published for the renderer, and before the run takes the next message.
- * - A subscription that ends stays ended while its key stays, until the key goes away and comes back.
- * - When the key goes away, the subscription releases what it holds.
- * - After that, nothing it sent reaches `update`, even if the same key comes back later.
+ * @see The guide, "Subscriptions", "Keys are compared by value, after every change of state:".
+ * @see The guide, "Guarantees", "Subscriptions follow their keys".
  */
 export type Subscriptions<State, Message, R, K = unknown> = (
   state: State,

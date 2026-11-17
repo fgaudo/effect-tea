@@ -50,14 +50,15 @@ version, and everything else, features included, the patch version.
 - Every page of the guide is reworded for readers, with the same promises: the common case first ("In short", the
   rules), the exact conditions last ("Precisely"); "Guarantees" keeps its titles and its two lists.
 - The doc comments of `run`, `Frame`, `Written`, `Shown`, `edited` and `drawn` say what each does in short, with a
-  comment per field and an example, and quote under "Remarks", word for word, what the guide of the same version
-  promises of it. What the comment of `drawn` said of an element is now the guide's, in "Inputs the user types into"
-  ("Settling an element"), and that a frame's `dispatch` is the very same function in every frame in "Running".
+  comment per field and an example. What the comment of `drawn` said of an element is now the guide's, in "Inputs
+  the user types into" ("Settling an element"), and that a frame's `dispatch` is the very same function in every
+  frame in "Running".
 - The guide no longer says that the writes a frame has not seen are always rejected, once the state has moved on
   without the element ("Writing a bridge", and the comment of `drawn` before): one is stored when the input's place
   holds again the value it was written over, as "Two limits" said already.
 - Every other doc comment of the API, of `effect-tea` and `effect-tea/testing`, has the same form: a summary, a
-  comment per field and an example, and what the guide promises of the export quoted under "Remarks". The promises
+  comment per field and an example, the rules of the guide that a caller needs there, in short and in plain English,
+  and a line `@see` for each section of the guide that it follows, which has the full rules. The promises
   only the comments made are now the guide's: in "Anatomy of a program" (`runCommand`, `makeModel` and
   `subscriptionsOf`), "Update" (it may be called at any time), "Composition" (the messages of children by id, a
   dispatch asked for again, and every case of a `CompositionDefect`), "View" (the scheduler a message is handled on),

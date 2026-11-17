@@ -55,6 +55,15 @@ export type DriveOptions<Message, State = unknown, Command = unknown> =
  * It takes the program to run, one without events; the scenario, what the user does through the {@link Driver} it is
  * given; and its options: `flags`, when the program has them, `patience`, and the options of `RunOptions`.
  *
+ * - It sends what the frames show, through the run's dispatch. Its subscriptions run.
+ * - It fails on a wait longer than `patience` (2 seconds).
+ * - Its time is real. A frame may be past when its message arrives, so a rejected message is ignored, as in a run.
+ * - A wait looks at the latest frame and at later ones.
+ * - Its commands run as soon as they start. To hold one, give the program a service that waits on a `Deferred`.
+ * - To start from another state, give it the program with another `init`.
+ * - When the scenario ends, it interrupts the run and waits for it. A defect of the program fails it with the
+ *   `ProgramDefect` the run dies with, before what the scenario ended with.
+ *
  * @returns What `scenario` returns, once the program has stopped.
  *
  * @example
@@ -68,43 +77,10 @@ export type DriveOptions<Message, State = unknown, Command = unknown> =
  * )
  * ```
  *
- * @remarks
- * From the guide, "Testing", "`drive`":
- *
- * `drive` tests a user's scenario on the running program, subscriptions included.
- *
- * - It sends what the frames show, through the run's dispatch.
- * - It fails on a wait longer than `patience` (2 seconds).
- * - Its time is real: a frame may be past by the time its message arrives. So, as when the program runs, a rejected
- *   message is ignored, and a scenario checks what it expects to see.
- * - Its renderer keeps only the latest frame. A wait looks at that frame and at later ones.
- * - Its commands run as soon as they start. To hold one, give the program a service, written by the test, that waits on
- *   a `Deferred` that the scenario completes.
- * - A program with flags gets them as `run` does, in the options.
- *
- * From the guide, "Testing", "How `drive` ends":
- *
- * Once the scenario ends, or whoever runs `drive` interrupts it:
- *
- * 1. it interrupts the run, and waits for it;
- * 2. it fails, as the run dies, on a defect of what the program releases as it stops. The defect comes first in the
- *    cause, before what the scenario ended with.
- *
- * From the guide, "Testing", "Defects of the program":
- *
- * A defect of the program fails `simulate`, `rehearse` and `drive`, as it ends the run when the program runs. They fail
- * with the `ProgramDefect` the run dies with, in the same `where`, with the same `on` or `key`. That holds wherever the
- * tool calls the program: `init`, `update`, `makeModel`, `subscriptions`, a subscription, `runCommand`. (`simulate`
- * calls no `init`.)
- *
- * **`applyAll` and `dispatchViolations` call `update` without a run**, and fail with the defect itself.
- *
- * From the guide, "Running", "Starting from another state":
- *
- * A program starts where its `init` says. To start it elsewhere, give `run` the program with another first step: `{
- * ...program, init: { state } }`, with its commands, if any. The state may be one saved by `onApplied`, or one kept
- * across a reload in development. In a test, give it to `drive` and `rehearse` the same way. A session recorded with
- * `onApplied` plays again the same way, with `applyAll` in a test.
+ * @see The guide, "Testing", "`drive`".
+ * @see The guide, "Testing", "How `drive` ends".
+ * @see The guide, "Testing", "Defects of the program".
+ * @see The guide, "Running", "Starting from another state".
  */
 export const drive = Effect.fnUntraced(function*<
   State,

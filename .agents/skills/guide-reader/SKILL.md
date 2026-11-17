@@ -113,7 +113,7 @@ Of examples/, you may read only the bridges and the files of the tests they shar
   the tests already keep, and is checked against `src/` and its tests, or with the compiler, before it is committed,
   since a reader's guess may have passed by luck. A promise that no test keeps yet gets its test first. A changed
   section of the guide is checked one sentence at a time against the old one (`AGENTS.md`, "What belongs here").
-- Run `bun run quotes`, since the doc comments quote the guide, then `bun run quotes --check`, `bun run typecheck`,
+- Reread the doc comments that name each section changed (`@see`), then run `bun run comments`, `bun run typecheck`,
   `bun run lint` and `bun run test`. A change a consumer can notice in the guide's promises has a changelog entry
   (`release`).
 - Commit the documents alone, never `scratch/`. Ask the author before deleting `scratch/`.

@@ -84,11 +84,16 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   what is described and not promised says so where it stands (the order of the defects). Its prose changes one section
   at a time, each sentence checked against the old one: the same promise, no weaker and no stronger, as the code and the
   tests keep it. A word that looks minor ("exactly when", "by `Equal`", "never more") is often the rule.
-- **A doc comment of the API promises only by quoting the guide.** It says, in its own words, what the export is and
-  how it is called: a summary, its parameters and result, its fields, an example. What the library promises of it is
-  quoted from the guide, word for word, by `bun run quotes` (`tools/quotes.ts`), in a block after `@remarks` that is
-  never edited by hand; where the two differ, the guide rules. A comment never links the site, which shows the latest
-  release, not the version installed.
+- **A doc comment of the API follows the guide, in its own words.** It is written by hand, for whoever meets the
+  export in a hover: what the export is and how it is called (a summary, its parameters and result, its fields, an
+  example), and the rules of the guide that a caller needs at that point, in short. It promises nothing the guide
+  does not, and where the two differ, the guide rules. It names the sections it follows, with a line
+  `@see The guide, "<page>", "<section>".` for each, as plain text: a comment never links the site, which shows the
+  latest release, not the version installed. A change of a section of the guide rereads the comments that name it,
+  and a change of a comment rereads the sections it names. `bun run comments` (`tools/comments.ts`) fails on a name
+  the guide does not have.
+- **The guide and the doc comments are in plain English**, for readers who are not native speakers: short sentences,
+  one idea each, common words, and the words the guide defines.
 
 ## Invariants
 
@@ -157,12 +162,12 @@ this summary says less. What every change keeps, an example's and a document's t
 - The doc comment of an export is for whoever uses the package: a note on how it is implemented is a `//` comment, or
   the doc comment of an internal declaration (as `running` beside `run`), which neither the hover of a user nor the
   site shows. `@privateRemarks`, and a doc comment right after another, reach the declarations all the same, and
-  `bun run quotes --check` fails on both.
+  `bun run comments` fails on both.
 - A reason is written once, where the check it explains is: another place that needs it names that place
   (`Core.arrive`, a section of `docs/invariants.md`) and says only what follows from it there, never the reason again.
   The documentation of an export stands alone, since a user reads it in the declarations; and a summary says that it
-  is one and what rules where it says less, as "Invariants" above does. The guide's promises quoted in a doc comment
-  are the one copy this allows: generated, and checked against the guide ("What belongs here").
+  is one and what rules where it says less, as "Invariants" above does. A doc comment's rules, in short, are such a
+  summary of the guide's, and its `@see` lines name what rules ("What belongs here").
 - No blank lines between the statements of a block; blank lines separate declarations and `describe`/`test`
   calls.
 - Formatting: 120 columns, two-space indentation, single quotes, no semicolons, trailing commas in multiline
@@ -259,5 +264,5 @@ Before finishing, from the repository root: `bun run typecheck` (`tsc` with the 
 library and on the examples), `bun run lint` (Biome and Oxlint) and `bun run test`; after a change of the engine or of
 a testing tool, or of their tests, `bun run test:node` and `bun run interleavings` too. `bun run build` compiles
 `src/` into `dist/` (ignored by git) and runs before `bun pm pack`. An API change is also checked as a consumer
-would see it (`change-api`). After a change of the guide or of a doc comment, `bun run quotes` carries the guide's
-promises into the comments that quote them, and `bun run quotes --check`, which the CI runs, fails when one differs.
+would see it (`change-api`). After a change of the guide or of a doc comment, `bun run comments`, which the CI runs,
+checks the doc comments and the sections of the guide they name.
