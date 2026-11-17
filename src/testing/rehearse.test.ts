@@ -161,23 +161,28 @@ describe('rehearse', () => {
     expect(() => rehearse(seeded, () => Effect.void, { flags: 'eggs', from })).toBeDefined()
   })
 
-  test('asks for the services of what its scenario runs: those of the commands for run, of the subscriptions for hearNext', () => {
-    class Pings extends Context.Service<Pings, { readonly pings: Subscription<Edit, never> }>()('Pings') {}
-    const pinged: Program<
-      {
-        state: Note
-        model: NoteModel
-        message: Edit
-        command: NoteCommand
-        commandServices: Storage
-        subscriptionServices: Pings
-        event: 'Stored'
-      }
-    > = {
-      ...program,
-      subscriptions: () =>
-        HashMap.make(['ping', Channel.unwrap(Effect.map(Effect.service(Pings), (pings) => pings.pings))]),
+  class Pings extends Context.Service<Pings, { readonly pings: Subscription<Edit, never> }>()('Pings') {}
+
+  // The note, whose pings come from a service of the subscriptions.
+  const pinged: Program<
+    {
+      state: Note
+      model: NoteModel
+      message: Edit
+      command: NoteCommand
+      commandServices: Storage
+      subscriptionServices: Pings
+      event: 'Stored'
     }
+  > = {
+    ...program,
+    subscriptions: (note) =>
+      note.isSaving
+        ? HashMap.empty()
+        : HashMap.make(['ping', Channel.unwrap(Effect.map(Effect.service(Pings), (pings) => pings.pings))]),
+  }
+
+  test('asks for the services of what its scenario runs: those of the commands for run, of the subscriptions for hearNext', () => {
     // Unlike two `extends`, it tells `any` and `unknown` from the services named.
     type Exactly<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
     const reading = rehearse(pinged, (rehearsal) => rehearsal.state)
@@ -189,6 +194,28 @@ describe('rehearse', () => {
     const hearing = rehearse(pinged, (rehearsal) => rehearsal.hearNext('ping'))
     const subscriptions: Exactly<Effect.Services<typeof hearing>, Pings> = true
     expect(subscriptions).toBe(true)
+  })
+
+  test('runs a command with the services provided around run, and a subscription with those around the hearNext that starts it', async () => {
+    const kept: Array<string> = []
+    const storage = Storage.of({ store: (text) => Effect.sync(() => void kept.push(text)) })
+    const pings = Pings.of({
+      pings: Channel.succeed<Edit>({ _tag: 'Pinged' }).pipe(Channel.concatWith(() => Channel.never)),
+    })
+    // Nothing is provided around `rehearse`: each call gets only what the test gives it.
+    const note = await Effect.runPromise(rehearse(
+      pinged,
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.hearNext('ping').pipe(Effect.provideService(Pings, pings))
+        yield* rehearsal.send(typing('milk'))
+        yield* rehearsal.send(saving)
+        yield* rehearsal.runAll.pipe(Effect.provideService(Storage, storage))
+        return yield* rehearsal.state
+      }),
+    ))
+    expect(note.pings).toBe(1)
+    expect(note.saved).toEqual(Opt.some('milk'))
+    expect(kept).toEqual(['milk'])
   })
 
   test('a program written as a plain object, without commands, needs no runCommand', async () => {

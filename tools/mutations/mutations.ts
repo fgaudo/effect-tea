@@ -1469,6 +1469,18 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: "rehearse's loop runs a step without the services of the fiber that offers it",
+    file: 'src/testing/loop.ts',
+    from: '{ step: Effect.provideContext(step, context), done }',
+    to: '{ step, done }',
+    killedBy: [
+      [
+        'src/testing/rehearse.test.ts',
+        'runs a command with the services provided around run, and a subscription with those around the hearNext that starts it',
+      ],
+    ],
+  },
+  {
     name: "rehearse's loop lets a call refused once it has ended wait",
     file: 'src/testing/loop.ts',
     from: 'return quiet ? Effect.never : Effect.interrupt',
