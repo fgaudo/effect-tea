@@ -14,7 +14,10 @@ jobs:
         with:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
-      - run: bun audit
+      # picomatch comes only through `expect`, Jest's, which the tests' shim on Node uses: a development dependency,
+      # given the repository's own globs. No release of picomatch has the fix of this advisory yet. Remove the ignore
+      # once one does.
+      - run: bun audit --ignore=GHSA-fc5q-39xc-vjpf
       - run: bun run typecheck
       - run: bun run lint
       - run: bun run test
