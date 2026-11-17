@@ -14,7 +14,9 @@ packed package (`bun run smoke`, with the Effect of the lockfile). The range acc
 too, and no later minor (`AGENTS.md`, "What belongs here", says why): a new minor of Effect is supported only by an
 upgrade to it and a release. A patch may still change what Effect does not document: a daily job
 (`.github/workflows/effect-latest.yml`) runs the typecheck and the tests at the newest version the range accepts, and
-a failure there is a lead for an upgrade.
+a failure there is a lead for an upgrade. The same workflow runs them at the newest minor of Effect 4 when it is later
+than the range, once per version, and opens an issue with the result, `Effect <version> passes the tests` or
+`… fails the tests`: a green one is the lead for this upgrade, a red one names a premise to read first.
 The oldest TypeScript the package supports is Effect's (5.9 for Effect 4): the README's "Installation" states it,
 and `tools/smoke/smoke.ts` checks it by default. An upgrade that raises Effect's raises both, with a changelog entry.
 

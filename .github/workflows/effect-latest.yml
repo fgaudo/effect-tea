@@ -32,3 +32,69 @@ jobs:
       - run: bun run lint
       - run: bun run test
       - run: bun run test:node
+
+  # A minor of Effect after the one of the lockfile, which the peer range does not accept: its tests are a lead for an
+  # upgrade, and an issue tells the owner of the result, green or red, since GitHub mails nobody when a scheduled run
+  # passes. One issue per version, and none while the newest is in the range.
+  next-minor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: newest
+        run: |
+          version=$(npm view effect versions --json | node -e '
+            const range = require("./package.json").devDependencies.effect
+            const [major, minor] = range.replace(/^[~^]/, "").split(".").map(Number)
+            const stable = JSON.parse(require("fs").readFileSync(0, "utf8"))
+              .filter((v) => /^\d+\.\d+\.\d+$/.test(v))
+              .map((v) => v.split(".").map(Number))
+              .filter(([a]) => a === major)
+              .sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2])
+            const [, m] = stable.at(-1)
+            if (m > minor) console.log(stable.at(-1).join("."))
+          ')
+          if [ -n "$version" ] && [ -n "$(gh issue list --state all --search "\"Effect $version\" in:title" \
+              --json title --jq ".[] | select(.title | startswith(\"Effect $version \")) | .title")" ]; then
+            version=
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - if: steps.newest.outputs.version != ''
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      # Node runs the tests' TypeScript as it is, which needs Node 22.18 or newer.
+      - if: steps.newest.outputs.version != ''
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - id: checks
+        if: steps.newest.outputs.version != ''
+        continue-on-error: true
+        run: |
+          bun install --frozen-lockfile
+          bun add --dev "effect@${{ steps.newest.outputs.version }}"
+          bun pm ls | grep effect
+          bun run typecheck
+          bun run lint
+          bun run test
+          bun run test:node
+      - if: steps.newest.outputs.version != ''
+        run: |
+          version=${{ steps.newest.outputs.version }}
+          run=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          if [ "${{ steps.checks.outcome }}" = success ]; then
+            title="Effect $version passes the tests"
+            body="The typecheck, the lint, \`test\` and \`test:node\` pass at Effect $version, outside the peer range: \
+          a lead for an upgrade (\`.agents/skills/upgrade-effect/SKILL.md\`). The run: $run"
+          else
+            title="Effect $version fails the tests"
+            body="The typecheck, the lint, \`test\` or \`test:node\` fails at Effect $version, outside the peer range: \
+          a premise may have fallen (\`docs/premises.md\`). The run: $run"
+          fi
+          gh issue create --title "$title" --body "$body"
