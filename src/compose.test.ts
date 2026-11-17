@@ -1545,6 +1545,20 @@ describe('what the types reject', () => {
     expect([read, other, none, anything]).toHaveLength(4)
   })
 
+  test('a program that names events and no messages has those events, for its parent too', () => {
+    type Rang = Readonly<{ _tag: 'Rang' }>
+    const bell = program<{ state: Ticks; event: Rang }>().make({ init: { state: noTicks }, makeModel: () => null })
+    const event: EventOf<typeof bell> = { _tag: 'Rang' }
+    const { child, make } = program<{ state: Ticks }>()
+    make({
+      init: () => ({ state: noTicks }),
+      children: { Bell: child(bell, { get: Opt.some, set: (_, ticks) => ticks }) },
+      onEvent: { Bell: (rang) => (state) => ({ state: { ticks: rang._tag.length + state.ticks } }) },
+      makeModel: () => null,
+    })
+    expect(event).toEqual({ _tag: 'Rang' })
+  })
+
   test('a child that starts with no command still has those its update returns', () => {
     const saving = {
       init: { state: noTicks },

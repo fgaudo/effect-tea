@@ -294,6 +294,8 @@ version, and everything else, features included, the patch version.
 - A program that names no `external` is a child without `exactOptionalPropertyTypes` too: `child` and `childById`
   refused it, as if its external messages were not among its messages. `ExternalOf` gives `never` for it, and an
   external message that is `undefined` is kept, under either setting.
+- A program that names its events and no messages has those events: `EventOf` and `CommandOf` gave `never` for it, and
+  a parent's `onEvent` for it had no types.
 - Services whose type does not say which they are, a `runCommand` or `subscriptions` of type `any`, or services of type
   `unknown`, are read as `unknown`, by `CommandServicesOf`, `SubscriptionServicesOf` and a parent: they were read as
   `never`, so that a parent of such a child ran without them, and died on the first that was missing.

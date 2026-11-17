@@ -266,8 +266,9 @@ type Listed<T, Key extends 'commands' | 'events'> = T extends { readonly [K in K
 type Items<L> = L extends ReadonlyArray<infer I> ? I : never
 
 /** What the steps `update` may return list under `Key`. */
+// `never` for the message, which any `update` takes: one of a program that names no messages takes nothing else.
 type Returned<P, Key extends 'commands' | 'events'> = P extends
-  { readonly update: (message: any) => (state: any) => infer T } ? Listed<T, Key> : never
+  { readonly update: (message: never) => (state: any) => infer T } ? Listed<T, Key> : never
 
 // Read from `update` too: a program written without `Program<…>` may start with no command and still return some.
 /**

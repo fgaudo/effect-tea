@@ -550,7 +550,7 @@ export type Rejected = typeof reject;
 
 // @public
 type Returned<P, Key extends 'commands' | 'events'> = P extends {
-    readonly update: (message: any) => (state: any) => infer T;
+    readonly update: (message: never) => (state: any) => infer T;
 } ? Listed<T, Key> : never;
 
 // @public
