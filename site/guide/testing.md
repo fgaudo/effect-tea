@@ -93,9 +93,20 @@ dispatch. That is checked with your renderer's tools. For snabbdom,
 without a DOM, for a test to compare with what its reader returns. The examples' tests do this, each with a reader in
 the order its view draws. `messagesSentBy` is an example, and not something a bridge must have.
 
-**A program run under its renderer, in a DOM,** is tested as the examples' bridges are (see
-[their tests](./writing-a-bridge.md#their-tests)): the test file registers a DOM, and a frame is drawn when the test
-says, in place of the next animation frame.
+**A program run under its renderer, in a DOM,** is run as the app runs it:
+
+- The test file registers a DOM, as happy-dom's `GlobalRegistrator.register()` does in a `beforeAll`.
+- With snabbdom, the file loads [`examples/bridges/snabbdom-preload.ts`][preload] before its imports, even when it
+  registers a DOM: snabbdom reads `window` when it loads.
+- The test starts the run with `Effect.runFork(run(program, renderInto(root, view), options))`, with its services
+  provided.
+- It acts on the page, and waits until the page shows what it expects: a frame is drawn at the next animation frame.
+- It interrupts the run's fiber at the end.
+
+The examples' bridges are tested further (see [their tests](./writing-a-bridge.md#their-tests)): there, a frame is
+drawn when the test says, in place of the next animation frame.
+
+[preload]: ../../examples/bridges/snabbdom-preload.ts
 
 [messages]: ../../examples/bridges/snabbdom-testing.ts
 
@@ -151,7 +162,14 @@ Without candidates, it checks only the messages it is given.
 
 ### `simulate`
 
-`simulate` tests a flow with its commands answered at once, without a runtime.
+`simulate` tests a flow with its commands answered at once, without a runtime. It takes the program first, then the
+test's messages and the step to start from:
+
+```ts
+const { state, commands, ignored } = yield* simulate(form)(typedAndSaved, form.init).pipe(
+  Effect.provideService(Storage, working),
+)
+```
 
 - It takes the test's messages, and among them those a subscription would send.
 - It fails when `update` rejects one of them.

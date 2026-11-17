@@ -37,7 +37,10 @@ version, and everything else, features included, the patch version.
   how `hearNext` hears one under a `TestClock` ("How a subscription is heard"), as the doc comment of `hearNext` does.
 - The guide gives the handlers of `onEvent` and a child's `external` type ("Composition", "Events and external
   messages").
-- The skill says how a test without a DOM loads snabbdom, and that the examples import with `.ts`.
+- The skill says how a test file loads snabbdom before a DOM is registered, one that registers it in `beforeAll`
+  included, and that the examples import with `.ts`.
+- The guide's "Testing" shows how `simulate` is called ("`simulate`"), and how a program is run under its renderer in
+  a test, in a DOM ("The view"). "Commands" says where a retry goes ("Rules").
 - What a type does not need defaults to `never`, as in `Step` and in Effect's own types: `R` in `Execution`,
   `RunCommand`, `Subscription` and `Subscriptions`, `Command` in `Applied`, `Simulation` and `Rehearsal`, and `Event`
   in `Simulation`. So `Subscription<Message>` is a subscription that needs no services, and `Rehearsal<State, Model,

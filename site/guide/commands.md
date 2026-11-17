@@ -46,6 +46,9 @@ const save = Effect.fn('Save')(
 )
 ```
 
+**A retry is part of the execution.** Put it before the failure becomes a message, as `Effect.retry({ times: 2 })`
+before `Effect.match`. Then `update` gets one answer, after the last try.
+
 **An effect that only acts on the world answers `None`**: `Effect.as(effect, Opt.none())`, as the bell does.
 
 **A defect (`Effect.die`, a thrown error) ends the run.**

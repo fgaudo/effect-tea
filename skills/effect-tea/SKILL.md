@@ -23,8 +23,9 @@ versions. The paths below are relative to this file.
   [`examples/bridges/snabbdom.test.ts`](../../examples/bridges/snabbdom.test.ts),
   [`examples/bridges/react.test.ts`](../../examples/bridges/react.test.ts) and the suite both run,
   [`examples/bridges/bridge.test_suite.ts`](../../examples/bridges/bridge.test_suite.ts). snabbdom reads the global
-  `window` when it loads. So a test that imports a snabbdom view and has no DOM must first load
-  [`examples/bridges/snabbdom-preload.ts`](../../examples/bridges/snabbdom-preload.ts). Its comment says how. The
+  `window` when it loads. So a test file that imports snabbdom before a DOM is registered must first load
+  [`examples/bridges/snabbdom-preload.ts`](../../examples/bridges/snabbdom-preload.ts). This holds for a file that
+  registers a DOM in `beforeAll` too: its imports run first. The preload's comment says how. The
   examples import their own files with the `.ts` extension. If your `tsconfig.json` does not set
   `allowImportingTsExtensions`, remove the extension.
 - **The API**: the declarations in `dist/`, with their doc comments. A line `@see The guide, "<page>", "<section>".`

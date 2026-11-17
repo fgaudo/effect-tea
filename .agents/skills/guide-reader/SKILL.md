@@ -54,6 +54,10 @@ reports is what the guide leaves to the examples.
    - an auction panel: lots as children by id, each with a price feed that ends when the lot closes, a typed bid
      refused when invalid, not above the price, closed or in flight, sends that may fail and are retried, an event the
      parent counts, and a region whose switch listens to each feed anew under a new key (2026-11-17, package).
+   - a courier dispatch board: started from flags, couriers as children by id, each with a position feed that ends with
+     the shift and is listened to anew, a typed note whose assignment is refused when blank, off shift, in flight or
+     paused, sends that may fail and are retried, an event the parent counts, a pause the parent tells every child,
+     and a run under snabbdom in a DOM (2026-11-17, package).
 4. Make the project, from the repository's root, with the versions the repository is developed with:
 
    ```bash
