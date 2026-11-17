@@ -16,10 +16,10 @@ Most of a bridge's code is the same whatever the renderer. Only two places are t
 where it lets the bridge reach an element.
 
 The code below is the examples' bridge to snabbdom,
-[`examples/snabbdom.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/snabbdom.ts), which the timer is
-drawn with. You need not know snabbdom to read it. Its two places are named where they come, with what the bridge to
-React, [`examples/react.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/react.ts), does there instead.
-It is a minimal example to start from. What else a renderer can do is left to the bridge that needs it (see
+[`examples/snabbdom.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/snabbdom.ts), which the timer is drawn
+with. You need not know snabbdom to read it. The two places of the renderer are named where they come, each with what
+the bridge to React, [`examples/react.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/react.ts), does there
+instead. It is a minimal example to start from. What else a renderer can do is left to the bridge that needs it (see
 [what is left out](#what-is-left-out)).
 
 ### Frames
@@ -33,13 +33,13 @@ dispatch, draws what the view returns, and waits for the next animation frame be
 **The first place of the renderer** is the line that draws: `patch(previous, view(model, dispatch))`. There, snabbdom
 patches the tree drawn before into the one the view returned. The bridge to React calls
 `flushSync(() => root.render(view(model, dispatch)))` there instead. Whatever the renderer, the frame is drawn whole,
-and at once. When the line returns, the screen shows the frame, and nothing else changes it but the next one.
+and at once. When the line returns, the screen shows the frame, and nothing but the next frame changes it.
 
-The rest is the bridge's:
+The rest is the bridge's own code:
 
 - The run keeps only the latest frame while the renderer is busy. So waiting for the next animation frame draws at
   most once per screen refresh, and a model the renderer never takes is never made (see [running](./running.md)).
-- A view that throws throws in the frame's `Effect.sync`, and the run dies with it.
+- If a view throws, it throws inside the frame's `Effect.sync`, and the run dies with it.
 - `showsModule` and `settle` are for the inputs, below. Without them, a bridge is this loop and its handlers.
 
 ### Handlers
@@ -57,11 +57,11 @@ writes it `on: onClick(model.more, dispatch)`.
 ### A text input
 
 A text field could be drawn as any other element: its `value` from the model, and each keystroke sent as a message.
-It would lose keystrokes. A frame may be older than the user's last keystroke, made before the run took it. Writing
-that frame's value into the field takes back what was just typed.
+But it would lose keystrokes. A frame may be older than the user's last keystroke: the frame may have been made before
+the run took that keystroke. Writing that frame's value into the field takes back what was just typed.
 
-Instead, the library gives the bridge the rule for that element. The rule is two functions over what the element holds
-of an input, a `Shown`. The bridge keeps one for each element, with the value the last frame drew for it:
+Instead, the library gives the bridge the rule for that element. The rule is two functions over a `Shown`, which is
+what the element holds of an input. The bridge keeps one for each element, with the value the last frame drew for it:
 
 {@includeCode ../../examples/snabbdom.ts#held}
 
@@ -70,8 +70,8 @@ When the user types, `edited(held, value)` gives two things:
 - the write to send: the new value, over the one the element showed;
 - `sent`, which takes the number the dispatch returned, and gives what the element holds now.
 
-The listener is the element's own `input` event, attached as the renderer attaches any. Here `shows` gives it to
-snabbdom, with the value to show. A view draws the field with it:
+The listener is the element's own `input` event, attached as the renderer attaches any listener. Here `shows` gives it
+to snabbdom, with the value to show. A view draws the field with it:
 `h('input', shows(model.name, forwardTo(dispatch, 'Name')))`.
 
 {@includeCode ../../examples/snabbdom.ts#shows}
@@ -82,17 +82,17 @@ with what value. snabbdom calls a module of the bridge as it creates, patches or
 {@includeCode ../../examples/snabbdom.ts#module}
 
 The bridge to React has no module. `Shows`, the component that draws its field, keeps the value of each render from a
-ref callback. The bridge finds the fields `Shows` drew among the elements of its root. Another renderer needs one way
-or the other, as long as it gives the elements before the user can act on them.
+ref callback. The bridge finds the fields `Shows` drew among the elements of its root. Another renderer needs some way
+to do this, as long as it gives the elements before the user can act on them.
 
-The rest is the bridge's again. After each frame, `drawn(held, value, seen)` says what the element then holds, and
-whether it takes the frame's value. The bridge writes the value it takes into the element:
+The rest is the bridge's own code again. After each frame, `drawn(held, value, seen)` says what the element then holds,
+and whether it takes the frame's value. The bridge writes the value it takes into the element:
 
 - A new element takes it.
-- An element keeps what the user typed while the frame is its own past or present: a state from before the writes the
-  frame has not seen, or after them all.
+- An element keeps what the user typed while the frame is its own past or present: a state from before the writes that
+  the frame has not seen, or a state after all of them.
 - Once the state has moved on without the element, the element takes the program's value. The library rejects the
-  writes the frame has not seen, unless the input's place holds again the value they were written over (see
+  writes that the frame has not seen, unless the input's place again holds the value they were written over (see
   [two limits](./inputs-the-user-types-into.md#two-limits)).
 
 {@includeCode ../../examples/snabbdom.ts#settle}
@@ -116,9 +116,9 @@ What a bridge does, from the walkthrough above:
 - **When the user edits an input's element, `edited` gives the write to send**, and `sent` what the element holds once
   the dispatch returns the write's number.
 - **After each frame, the bridge settles the element of each input with `drawn`.** The element is then never
-  replaced, and keeps its focus, while two conditions hold: its value changes only by an edit of the user, which it
-  reports with the whole value, or by the bridge; and the renderer lets the bridge reach it after each frame, before
-  the user can act on it.
+  replaced, and keeps its focus, while two conditions hold:
+  - its value changes only by an edit of the user, which it reports with the whole value, or by the bridge;
+  - the renderer lets the bridge reach it after each frame, before the user can act on it.
 - **The renderer keeps an element drawn in the same place from one frame to the next**, or there is no element to
   settle.
 
@@ -148,26 +148,26 @@ is written the same way. The sections above show how to write one for any render
 ### What is left out
 
 The examples' bridges are minimal examples to start from. They show how a native element is connected to the library.
-They handle the base case alone:
+They handle only the base case:
 
 - **They run `dispatch` from three events**: a click, a press of the pointer, and the `input` event of a native text
   `<input>`.
-- **They settle native text fields alone.** A native text `<input>` is the only element of an input they settle.
+- **They settle only native text fields.** A native text `<input>` is the only element of an input they settle.
 - **The base case** is a field whose value changes only by the user's edits and by the bridge.
 
 They leave out:
 
-- **A value the text field changes by itself**, as it strips the line breaks of what is written into it. They do not
-  handle it, and whether a bridge that starts from them could is left open.
+- **A value the text field changes by itself**, as when it strips the line breaks from what is written into it. They do
+  not handle it, and it is left open whether a bridge that starts from them could handle it.
 - **A form's reset**, by a reset button or `form.reset()`, with either bridge. A program may empty a field by leaving
   `''` in its place.
 - **A root or an input in a shadow tree**, with either bridge.
-- **With React**: a component with state or effects of its own, Suspense, a subtree `memo` skips, and a portal.
-- **With React, a run whose root is inside another run's.** For it, the bridge would need to know the run each input
-  belongs to, as a context of its own would tell it.
+- **With React**: a component with state or effects of its own, Suspense, a subtree that `memo` skips, and a portal.
+- **With React, a run whose root is inside another run's.** For that, the bridge would need to know which run each
+  input belongs to, which a context of its own would tell it.
 - **Other native widgets.** One that meets the condition of `edited` and `drawn` (see
-  [inputs the user types into](./inputs-the-user-types-into.md)) would be connected by hand with them. Wherever
-  connecting one is too complex, a widget the program draws is preferred: its press is a message, and its drag a
+  [inputs the user types into](./inputs-the-user-types-into.md)) would be connected by hand with them. Where
+  connecting one is too complex, prefer a widget that the program draws: its press is a message, and its drag a
   subscription. The sliders of [`examples/volume`](https://github.com/fgaudo/effect-tea/tree/main/examples/volume) are
   drawn this way.
 
@@ -190,13 +190,17 @@ check:
 - that the element of an input shows what the program puts in its place;
 - that an element drawn in turn as an input and as a plain field shows the input only while it is one.
 
-A bridge of your own can start from them. To run them on it, copy the file with the examples whose programs it draws,
-and have a test file register a DOM, as those two do, and give `bridgeTests` a `Bridge`: your `renderInto`, and the
-views of their scenarios drawn with your renderer. The file holds the screen refreshes and Effect's scheduler, so that
-the test says when a frame is drawn and when the run's fibers go on: `holdFrames`, `settle`, `refresh` and `paint`.
+A bridge of your own can start from them. To run them on it:
+
+- copy the file, with the examples whose programs it draws;
+- have a test file register a DOM, as those two do;
+- give `bridgeTests` a `Bridge`: your `renderInto`, and the views of their scenarios drawn with your renderer.
+
+The file holds the screen refreshes and Effect's scheduler, so that the test says when a frame is drawn and when the
+run's fibers go on: `holdFrames`, `settle`, `refresh` and `paint`.
 
 Beside the snabbdom bridge, [`examples/snabbdom-testing.test_messages.ts`][messages] has `messagesSentBy`. It finds
-what a view sends, without a DOM. It is one way to check that a view draws what its model holds. The library asks that
-of no bridge (see [testing](./testing.md)). The test of each example drawn with snabbdom uses it.
+what a view sends, without a DOM. It is one way to check that a view draws what its model holds. The library does not
+ask it of any bridge (see [testing](./testing.md)). The test of each example drawn with snabbdom uses it.
 
 [messages]: https://github.com/fgaudo/effect-tea/tree/main/examples/snabbdom-testing.test_messages.ts
