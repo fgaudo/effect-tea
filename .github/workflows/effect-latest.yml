@@ -38,7 +38,7 @@ jobs:
   # passes. One issue per version, and none while the newest is in the range.
   next-minor:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
     permissions:
       contents: read
       issues: write
@@ -73,9 +73,13 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24
+      # The search draws a new seed on each run, so it runs ten times, once a version: what the newest minor changes in
+      # the runtime of Effect may break a premise no one has named, which only an order of the fibers shows. Its own
+      # timeout, short of the job's, lets a search that hangs still reach the issue, as a failure.
       - id: checks
         if: steps.newest.outputs.version != ''
         continue-on-error: true
+        timeout-minutes: 45
         run: |
           bun install --frozen-lockfile
           bun add --dev "effect@${{ steps.newest.outputs.version }}"
@@ -84,17 +88,21 @@ jobs:
           bun run lint
           bun run test
           bun run test:node
+          for run in $(seq 10); do bun run interleavings; done
       - if: steps.newest.outputs.version != ''
         run: |
           version=${{ steps.newest.outputs.version }}
           run=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           if [ "${{ steps.checks.outcome }}" = success ]; then
             title="Effect $version passes the tests"
-            body="The typecheck, the lint, \`test\` and \`test:node\` pass at Effect $version, outside the peer range: \
-          a lead for an upgrade (\`.agents/skills/upgrade-effect/SKILL.md\`). The run: $run"
+            body="The typecheck, the lint, \`test\`, \`test:node\` and ten runs of \`interleavings\` pass at Effect \
+          $version, outside the peer range: a lead for an upgrade (\`.agents/skills/upgrade-effect/SKILL.md\`). \
+          The run: $run"
           else
             title="Effect $version fails the tests"
-            body="The typecheck, the lint, \`test\` or \`test:node\` fails at Effect $version, outside the peer range: \
-          a premise may have fallen (\`docs/premises.md\`). The run: $run"
+            body="The typecheck, the lint, \`test\`, \`test:node\` or one of ten runs of \`interleavings\` fails at \
+          Effect \
+          $version, outside the peer range: a premise may have fallen (\`docs/premises.md\`); a search that fails \
+          prints its seed and path in the run. The run: $run"
           fi
           gh issue create --title "$title" --body "$body"
