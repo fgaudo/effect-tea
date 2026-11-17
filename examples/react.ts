@@ -1,6 +1,6 @@
 // The examples' second renderer, React's. With it, `counter-react` and `form-react` draw the programs of
-// `counter` and `form`: only the view, `main.ts` and this bridge change with the renderer, and the program and
-// its tests stay as they are.
+// `counter` and `form`, under snabbdom in the same run (`together.ts`): only the view, `main.ts` and this bridge change
+// with the renderer, and the program and its tests stay as they are.
 // A bridge does three things: it draws each frame whole and at once, runs `dispatch` in plain handlers, and settles
 // each text input on screen with `drawn` after the frame. A view is a plain function of its model, called here on each
 // frame, outside React, so it uses no hooks itself: React draws the tree it returns, whole and at once with

@@ -1,7 +1,8 @@
 // React's bridge in a DOM (happy-dom), with screen refreshes that happen only when a test paints: the tests every
 // bridge passes (`bridge.test_suite.ts`), drawn with React, and those of React alone: the run ends with its root and
-// with a component that throws, and the draft's input is settled in StrictMode too; then the premises of the bridge
-// on React (`docs/premises.md`).
+// with a component that throws, and the draft's input is settled in StrictMode too; one run drawn by React and by
+// snabbdom together, as `counter-react` and `form-react` draw theirs; then the premises of the bridge on React
+// (`docs/premises.md`).
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import {
@@ -17,6 +18,7 @@ import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as Opt from 'effect/Option'
 import { act, createElement, type ReactNode, StrictMode } from 'react'
+import type { VNode } from 'snabbdom'
 import {
   type Bridge,
   bridgeTests,
@@ -29,13 +31,21 @@ import {
   type lid,
   mount,
   type note,
+  paint,
+  type RenderInto,
   setValue,
   settle,
   stop,
   type,
 } from './bridge.test_suite.ts'
 import { counter } from './counter/counter.ts'
+import { view as snabbdomCounterView } from './counter/view.ts'
+import { form } from './form/form.ts'
+import { Storage } from './form/storage.ts'
+import { view as snabbdomFormView } from './form/view.ts'
 import type { View } from './react.ts'
+import { renderInto as renderWithSnabbdom } from './snabbdom.ts'
+import { together } from './together.ts'
 import type { Message as VolumeMessage, Model as VolumeModel } from './volume/volume.ts'
 
 // React DOM reads the DOM when it is loaded, so the bridge, the views and React DOM are loaded once there is one:
@@ -200,6 +210,68 @@ describe('renderInto, with React', () => {
     const died = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
     expect(died).toBeInstanceOf(ProgramDefect)
     expect(died).toMatchObject({ where: 'render', cause: thrown })
+  })
+})
+
+// Each renderer in a root of its own inside `#app`, given the half of a view's pair that is its own: snabbdom's first,
+// which patches its root into the tree it draws, then React's.
+type Both = Readonly<{ snabbdom: VNode; react: ReactNode }>
+
+const bothInto: RenderInto<Both> = (root, view) => {
+  root.innerHTML = '<div id="snabbdom"></div><div id="react"></div>'
+  return together(
+    renderWithSnabbdom(element('#snabbdom'), (model, dispatch) => view(model, dispatch).snabbdom),
+    bridge.renderInto(element('#react'), (model, dispatch) => view(model, dispatch).react),
+  )
+}
+
+const drawnBySnabbdom = <E extends Element>(selector: string): E => element(`#app > main ${selector}`)
+
+const drawnByReact = <E extends Element>(selector: string): E => element(`#react ${selector}`)
+
+describe('together, React beside snabbdom', () => {
+  test('a click in either renderer is drawn by both at the next refresh', () => {
+    mount(
+      bothInto,
+      (model: ModelOf<typeof counter>, dispatch: Dispatch<MessageOf<typeof counter>>) => ({
+        snabbdom: snabbdomCounterView(model, dispatch),
+        react: counterView(model, dispatch),
+      }),
+      (render) => run(counter, render),
+    )
+    settle()
+    const counts = () => [drawnBySnabbdom('output').textContent, drawnByReact('output').textContent]
+    expect(counts()).toEqual(['0', '0'])
+    drawnByReact<HTMLButtonElement>('button:last-of-type').click()
+    paint()
+    expect(counts()).toEqual(['1', '1'])
+    drawnBySnabbdom<HTMLButtonElement>('button:last-of-type').click()
+    paint()
+    expect(counts()).toEqual(['2', '2'])
+  })
+
+  test('each input keeps what the user typed into it since the frame, and shows what was typed into the other', () => {
+    mount(
+      bothInto,
+      (model: ModelOf<typeof form>, dispatch: Dispatch<MessageOf<typeof form>>) => ({
+        snabbdom: snabbdomFormView(model, dispatch),
+        react: formView(model, dispatch),
+      }),
+      (render) => run(form, render).pipe(Effect.provideService(Storage, Storage.of({ save: () => Effect.void }))),
+    )
+    settle()
+    const inReact = drawnByReact<HTMLInputElement>('input')
+    const inSnabbdom = drawnBySnabbdom<HTMLInputElement>('input')
+    type(inReact, 'A')
+    settle()
+    // The next key is in React's input before its message reaches the program: the frame drawn now knows only "A".
+    setValue(inReact, 'Ad')
+    paint()
+    expect([inSnabbdom.value, inReact.value]).toEqual(['A', 'Ad'])
+    type(inSnabbdom, 'Ada')
+    paint()
+    expect([drawnBySnabbdom('input'), drawnByReact('input')]).toEqual([inSnabbdom, inReact])
+    expect([inSnabbdom.value, inReact.value]).toEqual(['Ada', 'Ada'])
   })
 })
 

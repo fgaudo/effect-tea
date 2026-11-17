@@ -271,3 +271,16 @@ time {
   color: var(--danger);
   font-size: 0.875rem;
 }
+
+/* counter-react and form-react: one run, drawn by each renderer in a card of its own, one under the other. */
+.renderer {
+  max-width: 28rem;
+  margin: 0 auto 1.5rem;
+}
+
+.renderer h2 {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}

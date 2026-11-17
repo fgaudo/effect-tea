@@ -142,7 +142,8 @@ Each has `renderInto` for `run`, handlers, and the element of each input: `shows
 [`counter-react`](../../examples/counter-react) and
 [`form-react`](../../examples/form-react) draw the programs of
 [`counter`](../../examples/counter) and
-[`form`](../../examples/form) with the bridge to React. React Native's bridge
+[`form`](../../examples/form) with the bridge to snabbdom and with the bridge to
+React, one under the other. Both draw the frames of one run. React Native's bridge
 is written the same way. The sections above show how to write one for any renderer, from the bridge to snabbdom.
 
 ### What is left out

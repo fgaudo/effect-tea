@@ -28,8 +28,10 @@ renderer (`renderInto` for `run`, `onClick`, `onPress` and `shows`), beside
 example of how to check that a view draws what its model holds;
 [`react.ts`](../../../examples/react.ts), the same bridge for React, without `messagesSentBy`, which only
 [`counter-react`](../../../examples/counter-react) and [`form-react`](../../../examples/form-react) use, to show
-that a program does not change with its renderer (each imports the program of `counter` or `form`, and has a
-`view.tsx` and no test: the program's tests are those of `counter` and `form`), with
+that a program does not change with its renderer (each imports the program and the snabbdom view of `counter` or
+`form`, has a `view.tsx` and no test, and its `main.ts` draws one run with both renderers through
+[`together.ts`](../../../examples/together.ts), into the `#snabbdom` and `#react` of its page: the program's tests are
+those of `counter` and `form`, and `together`'s are in `react.test.ts`), with
 [`react.test.ts`](../../../examples/react.test.ts), its test in a DOM;
 [`style.css`](../../../examples/style.css); [`preload.test_setup.ts`](../../../examples/preload.test_setup.ts), which
 `bun test` loads first (`bunfig.toml`); [`snabbdom.test.ts`](../../../examples/snabbdom.test.ts), the bridge's own test,

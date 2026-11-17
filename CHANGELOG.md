@@ -275,6 +275,9 @@ version, and everything else, features included, the patch version.
 - The guide's prose is reworded for readers who are not native English speakers, with the same promises: "Anatomy of a
   program", "Update", "Model", "Commands", "Subscriptions", "Rejections and defects", "Composition", "Inputs the user
   types into", "Structuring a program", "Running", "Guarantees", "Testing" and "Writing a bridge".
+- The `counter-react` and `form-react` examples draw their program in one run, with snabbdom and with React, one under
+  the other, so that what either sends is drawn by both: `examples/together.ts` gives the run's frames to both
+  renderers, with `Stream.broadcastN`.
 
 ### Fixed
 
