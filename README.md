@@ -171,8 +171,9 @@ const view: View<Model, Message> = (model, dispatch) => (
 Effect.runFork(run(counter, renderInto(root, view)))
 ```
 
-`View`, `onClick` and `renderInto` are the examples' bridge to React, [`examples/react.ts`](examples/react.ts).
-[`examples/counter`](examples/counter) draws the same program with snabbdom.
+`View`, `onClick` and `renderInto` are the examples' bridge to React,
+[`examples/bridges/react.ts`](examples/bridges/react.ts). [`examples/counter`](examples/counter) draws the same program
+with snabbdom.
 
 ### With its tests
 
@@ -206,7 +207,9 @@ builds a larger application the same way, a step at a time.
 
 [`examples/`](examples) holds complete programs, each with its tests, drawn with
 [snabbdom](https://github.com/snabbdom/snabbdom), and two of them with React too, in the same run. Try one in the
-browser, or run it with `bun run build`, then `bun examples/<name>/index.html`.
+browser, or run it with `bun run build`, then `bun examples/<name>/index.html`. The bridges they are drawn with, which
+you copy into your project, are in [`examples/bridges/`](examples/bridges), and
+[`examples/README.md`](examples/README.md) says where to start.
 
 | Example                                   | What it is                   | What it shows                                                                                                                                                        | Try it                                                              |
 | ----------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |

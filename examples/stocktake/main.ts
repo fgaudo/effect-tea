@@ -3,7 +3,7 @@ import * as Arr from 'effect/Array'
 import * as Cause from 'effect/Cause'
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
-import { renderInto } from '../snabbdom.ts'
+import { renderInto } from '../bridges/snabbdom.ts'
 import { Scanner, Server, ServerError, type ServerItem, stocktake } from './stocktake.ts'
 import { view } from './view.ts'
 

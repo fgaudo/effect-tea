@@ -17,7 +17,7 @@ The first view of the timer's tutorial, drawn with snabbdom (`examples/timer/vie
 {@includeCode ../../examples/timer/view.ts#duration}
 
 `View` is the snabbdom bridge's type for such a function, and `onClick` its handler for a click. The handler sends
-the message with `Effect.runSync` (`examples/snabbdom.ts`):
+the message with `Effect.runSync` (`examples/bridges/snabbdom.ts`):
 
 ```ts
 const send = <Message>(dispatch: Dispatch<Message>, message: Message): number => Effect.runSync(dispatch(message))

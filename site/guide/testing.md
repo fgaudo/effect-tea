@@ -89,7 +89,7 @@ written one case of the model at a time. The library cannot write it: a message 
 
 **That the view draws what its model holds is not checked here**: that it draws each control once, through the right
 dispatch. That is checked with your renderer's tools. For snabbdom,
-[`examples/snabbdom-testing.test_messages.ts`][messages] has one, `messagesSentBy`. It finds what a view sends,
+[`examples/bridges/snabbdom-testing.ts`][messages] has one, `messagesSentBy`. It finds what a view sends,
 without a DOM, for a test to compare with what its reader returns. The examples' tests do this, each with a reader in
 the order its view draws. `messagesSentBy` is an example, and not something a bridge must have.
 
@@ -97,7 +97,7 @@ the order its view draws. `messagesSentBy` is an example, and not something a br
 [their tests](./writing-a-bridge.md#their-tests)): the test file registers a DOM, and a frame is drawn when the test
 says, in place of the next animation frame.
 
-[messages]: ../../examples/snabbdom-testing.test_messages.ts
+[messages]: ../../examples/bridges/snabbdom-testing.ts
 
 ## The tools
 

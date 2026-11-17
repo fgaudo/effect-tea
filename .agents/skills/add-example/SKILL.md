@@ -22,25 +22,33 @@ examples/<name>/
 └─ <name>.test.ts   its tests, showing the testing tools on it
 ```
 
-What the examples share, in `examples/`: [`snabbdom.ts`](../../../examples/snabbdom.ts), the bridge to the
-renderer (`renderInto` for `run`, `onClick`, `onPress` and `shows`), beside
-[`snabbdom-testing.test_messages.ts`](../../../examples/snabbdom-testing.test_messages.ts), its `messagesSentBy`, an
-example of how to check that a view draws what its model holds;
-[`react.ts`](../../../examples/react.ts), the same bridge for React, without `messagesSentBy`, which only
-[`counter-react`](../../../examples/counter-react) and [`form-react`](../../../examples/form-react) use, to show
-that a program does not change with its renderer (each imports the program and the snabbdom view of `counter` or
-`form`, has a `view.tsx` and no test, and its `main.ts` draws one run with both renderers through
-[`together.ts`](../../../examples/together.ts), into the `#snabbdom` and `#react` of its page: the program's tests are
-those of `counter` and `form`, and `together`'s are in `react.test.ts`), with
-[`react.test.ts`](../../../examples/react.test.ts), its test in a DOM;
-[`style.css`](../../../examples/style.css); [`preload.test_setup.ts`](../../../examples/preload.test_setup.ts), which
-`bun test` loads first (`bunfig.toml`); [`snabbdom.test.ts`](../../../examples/snabbdom.test.ts), the bridge's own test,
-and [`snabbdom-testing.test.ts`](../../../examples/snabbdom-testing.test.ts), that of its `messagesSentBy`,
-examples' tests like the others and none of the library's five kinds (`AGENTS.md`, "Tests");
-[`bridge.test_suite.ts`](../../../examples/bridge.test_suite.ts), the tests every bridge passes, which
-`snabbdom.test.ts` and `react.test.ts` call with their renderer's `Bridge` (its `renderInto` and the views of the
-scenarios), beside the tests of that renderer alone;
-and [`tsconfig.json`](../../../examples/tsconfig.json).
+What the examples share is in [`examples/bridges/`](../../../examples/bridges), apart from the examples:
+
+```
+examples/bridges/
+├─ snabbdom.ts               the bridge the examples use: renderInto for run, onClick, onPress, shows
+├─ snabbdom-testing.ts       messagesSentBy, how to check that a view draws what its model holds
+├─ snabbdom-preload.ts       what bun test loads first (bunfig.toml), so that snabbdom loads without a DOM
+├─ react.ts                  the same bridge for React, without messagesSentBy
+├─ together.ts               one run drawn by two renderers, for counter-react and form-react
+├─ snabbdom.test.ts          the snabbdom bridge's tests, in a DOM
+├─ snabbdom-testing.test.ts  the tests of messagesSentBy, without a DOM
+├─ react.test.ts             the React bridge's tests and together's, in a DOM
+└─ bridge.test_suite.ts      the tests every bridge passes
+```
+
+The first three are what a user copies to draw and test a program with snabbdom, and the fourth to draw one with
+React: they are named as a user would name them (`AGENTS.md`, "Tests"). React is used only by
+[`counter-react`](../../../examples/counter-react) and [`form-react`](../../../examples/form-react), to show that a
+program does not change with its renderer: each imports the program and the snabbdom view of `counter` or `form`, has a
+`view.tsx` and no test, and its `main.ts` draws one run with both renderers through `together`, into the `#snabbdom` and
+`#react` of its page. The program's tests are those of `counter` and `form`. The bridges' tests are examples' tests like
+the others, and none of the library's five kinds (`AGENTS.md`, "Tests"). `snabbdom.test.ts` and `react.test.ts` call
+`bridge.test_suite.ts` with their renderer's `Bridge` (its `renderInto` and the views of the scenarios), beside the
+tests of that renderer alone.
+
+In `examples/` itself are [`README.md`](../../../examples/README.md), which says where a user starts, the shared
+[`style.css`](../../../examples/style.css) and [`tsconfig.json`](../../../examples/tsconfig.json).
 
 ## The rules
 
@@ -76,7 +84,7 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
   its children's and wraps what they return as the parent receives it; a child's reader that two tests need
   lies in a module of its own (`timer/timer.test_reader.ts`).
 - **A bridge owes no `messagesSentBy`.** The snabbdom bridge has one beside it, in
-  `snabbdom-testing.test_messages.ts`, as an example of how to check that a view draws what its model holds, with its
+  `snabbdom-testing.ts`, as an example of how to check that a view draws what its model holds, with its
   own tests (`snabbdom-testing.test.ts`), and the test of each example drawn with snabbdom uses it:
   `messagesSentBy(view, model)` equals `messagesOf(model)`, so the reader lists the messages in the order the view
   draws them. A change to the two renderers' bridges is made to both for `renderInto` and the handlers alone.
@@ -87,7 +95,7 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
   ReadonlyArray<Extract<Message, { _tag: Tag }>> }` and flattened, a parent's from its children's
   (`pages/app.test.ts`): a tag no user sends has `[]`, and the comment says who sends it. A new check of this kind is
   seen to fail on a model that shows what `update` rejects, and on a reader that forgets a field. It runs
-  without a DOM: `preload.test_setup.ts` sets `window` to `undefined` so that snabbdom loads, and only the bridges'
+  without a DOM: `snabbdom-preload.ts` sets `window` to `undefined` so that snabbdom loads, and only the bridges'
   tests in a DOM register happy-dom. A check that needs a DOM (how often the bridge draws, a click on a drawn button,
   typing while frames are drawn) goes into the bridges' tests: `bridge.test_suite.ts` when every bridge must pass it,
   the test of the bridge the example uses when it is about that renderer alone.
@@ -115,6 +123,6 @@ Bun bundles the page for the browser, where the package resolves to `dist/`: hen
 step of inputs (`named.ts`, a timer with a name, and `named-timers.ts`, the list of the step before with named timers,
 which `main.ts` runs), so that every step's code stays as its page shows it: its `// #region` comments are the blocks
 the pages of [`site/tutorial`](../../../site/tutorial) include. So are those of
-the bridge [`examples/snabbdom.ts`](../../../examples/snabbdom.ts), which the last page reads. A change to either
-keeps them, and the pages' prose, true, and the site build shows the pages as they will be read
+the bridge [`examples/bridges/snabbdom.ts`](../../../examples/bridges/snabbdom.ts), which the last page reads. A change
+to either keeps them, and the pages' prose, true, and the site build shows the pages as they will be read
 ([`release`](../release/SKILL.md)).

@@ -5,7 +5,7 @@ import * as Effect from 'effect/Effect'
 import * as Optic from 'effect/Optic'
 import { h, thunk } from 'snabbdom'
 import { onClick, shows, type View } from './snabbdom.ts'
-import { messagesSentBy } from './snabbdom-testing.test_messages.ts'
+import { messagesSentBy } from './snabbdom-testing.ts'
 
 describe('messagesSentBy', () => {
   type Row = 'Tapped'

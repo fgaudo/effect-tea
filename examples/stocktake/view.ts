@@ -3,7 +3,7 @@
 import { type Dispatch, forwardTo, type Written } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
 import { h, type VNode } from 'snabbdom'
-import { onClick, shows, type View } from '../snabbdom.ts'
+import { onClick, shows, type View } from '../bridges/snabbdom.ts'
 import type { ItemLine, ItemModel, Message, Model } from './stocktake.ts'
 
 // snabbdom patches the one `<input>` in each case, and its props module never removes a prop: the editable count sets

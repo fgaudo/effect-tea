@@ -184,9 +184,10 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   (`test/effect-scheduler.test.ts`): "driven by hand, every fiber resumes through the scheduler, that of the test clock
   included", "fibers a Deferred resumes inline run in the order the test picks", "a fiber that yielded and is
   interrupted waits for its turn, as one resumed inline does". The search of `interleaving.test.ts` rests on it, and so
-  does the scheduler `examples/bridge.test_suite.ts` holds, by which the bridges' tests, not the clock, say when the
-  program and the renderer go on: 54 of the 58 tests of `snabbdom.test.ts` and `react.test.ts` fail with a dispatcher
-  that runs its tasks past it. Two details of `runLoop` are read in the source too, and the scheduler's rules rest on
+  does the scheduler `examples/bridges/bridge.test_suite.ts` holds, by which the bridges' tests, not the clock, say when
+  the program and the renderer go on: 54 of the 58 tests of `snabbdom.test.ts` and `react.test.ts` fail with a
+  dispatcher that runs its tasks past it. Two details of `runLoop` are read in the source too, and the scheduler's rules
+  rest on
   them: a fiber asks first at a `currentOpCount` of 1 in each run of its loop, and higher after it, which `yields` reads
   as the fiber starting to run again; and a fiber told to yield schedules its resumption as the very next task, which
   asks nothing at its first step, which `yielding` and `leastBudget` read. Their tests, in the same file: "a fiber asks
@@ -387,9 +388,9 @@ those of the span, of the frames and of a self-interruption do: the premise's te
 newest Effect the peer range accepts, is what tells that it fell.
 
 What the dependencies of development do (fast-check, happy-dom, the renderers of the examples) is no premise of the
-library, and the rule leaves it out, with two exceptions. The bridges, `examples/snabbdom.ts` and
-`examples/react.ts`, are copied by users: their premises about the renderer follow the rule at the version of the
-lockfile, each bridge's opening comment names the versions it was checked with, and what they rest on of the DOM is
+library, and the rule leaves it out, with two exceptions. The bridges, `examples/bridges/snabbdom.ts` and
+`examples/bridges/react.ts`, are copied by users: their premises about the renderer follow the rule at the version of
+the lockfile, each bridge's opening comment names the versions it was checked with, and what they rest on of the DOM is
 documented by its specification (WHATWG), since their tests run on happy-dom, which no browser is; one that is not
 goes under "Premises that no test reaches yet". A bridge that becomes a package of its own makes its renderer a peer,
 whose range starts at the version it is developed with, as Effect's does. And a test resting on what a dependency of

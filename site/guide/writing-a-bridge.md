@@ -16,9 +16,9 @@ Most of a bridge's code is the same whatever the renderer. Only two places are t
 where it lets the bridge reach an element.
 
 The code below is the examples' bridge to snabbdom,
-[`examples/snabbdom.ts`](../../examples/snabbdom.ts), which the timer is drawn
+[`examples/bridges/snabbdom.ts`](../../examples/bridges/snabbdom.ts), which the timer is drawn
 with. You need not know snabbdom to read it. The two places of the renderer are named where they come, each with what
-the bridge to React, [`examples/react.ts`](../../examples/react.ts), does there
+the bridge to React, [`examples/bridges/react.ts`](../../examples/bridges/react.ts), does there
 instead. It is a minimal example to start from. What else a renderer can do is left to the bridge that needs it (see
 [what is left out](#what-is-left-out)).
 
@@ -28,7 +28,7 @@ instead. It is a minimal example to start from. What else a renderer can do is l
 ends. A bridge's `renderInto(root, view)` is that `render`. For each frame, it calls the view with the model and the
 dispatch, draws what the view returns, and waits for the next animation frame before it takes another.
 
-{@includeCode ../../examples/snabbdom.ts#frames}
+{@includeCode ../../examples/bridges/snabbdom.ts#frames}
 
 **The first place of the renderer** is the line that draws: `patch(previous, view(model, dispatch))`. There, snabbdom
 patches the tree drawn before into the one the view returned. The bridge to React calls
@@ -48,7 +48,7 @@ Sending a message returns an `Effect<number>`. It needs no services and complete
 message to the run. The run handles it in its own fiber. A plain callback of any renderer runs it with
 `Effect.runSync`:
 
-{@includeCode ../../examples/snabbdom.ts#handlers}
+{@includeCode ../../examples/bridges/snabbdom.ts#handlers}
 
 What `onClick` returns is the renderer's way to attach a listener: `{ click }` in snabbdom's `on`, and React's
 `onClick` prop in the other bridge. The message is one the model holds, never one the view builds. The timer's view
@@ -63,7 +63,7 @@ the run took that keystroke. Writing that frame's value into the field takes bac
 Instead, the library gives the bridge the rule for that element. The rule is two functions over a `Shown`, which is
 what the element holds of an input. The bridge keeps one for each element, with the value the last frame drew for it:
 
-{@includeCode ../../examples/snabbdom.ts#held}
+{@includeCode ../../examples/bridges/snabbdom.ts#held}
 
 When the user types, `edited(held, value)` gives two things:
 
@@ -74,12 +74,12 @@ The listener is the element's own `input` event, attached as the renderer attach
 to snabbdom, with the value to show. A view draws the field with it:
 `h('input', shows(model.name, forwardTo(dispatch, 'Name')))`.
 
-{@includeCode ../../examples/snabbdom.ts#shows}
+{@includeCode ../../examples/bridges/snabbdom.ts#shows}
 
 **The second place of the renderer** is how the bridge learns, after each frame, which elements show an input, and
 with what value. snabbdom calls a module of the bridge as it creates, patches or removes an element:
 
-{@includeCode ../../examples/snabbdom.ts#module}
+{@includeCode ../../examples/bridges/snabbdom.ts#module}
 
 The bridge to React has no module. `Shows`, the component that draws its field, keeps the value of each render from a
 ref callback. The bridge finds the fields `Shows` drew among the elements of its root. Another renderer needs some way
@@ -95,7 +95,7 @@ and whether it takes the frame's value. The bridge writes the value it takes int
   writes that the frame has not seen, unless the input's place again holds the value they were written over (see
   [two limits](./inputs-the-user-types-into.md#two-limits)).
 
-{@includeCode ../../examples/snabbdom.ts#settle}
+{@includeCode ../../examples/bridges/snabbdom.ts#settle}
 
 So the element is never replaced, and keeps its focus while the program changes what it shows. That holds while
 (see [inputs the user types into](./inputs-the-user-types-into.md)):
@@ -132,9 +132,9 @@ and settles, after each frame, the element of each input on screen (see
 
 The examples have two:
 
-- [`examples/snabbdom.ts`](../../examples/snabbdom.ts), the bridge to
+- [`examples/bridges/snabbdom.ts`](../../examples/bridges/snabbdom.ts), the bridge to
   snabbdom;
-- [`examples/react.ts`](../../examples/react.ts), the bridge to React.
+- [`examples/bridges/react.ts`](../../examples/bridges/react.ts), the bridge to React.
 
 Each is small enough to copy, and worth copying for your own. Each names the type of its views, `View<Model, Message>`.
 Each has `renderInto` for `run`, handlers, and the element of each input: `shows` with snabbdom, `Shows` with React.
@@ -177,11 +177,11 @@ Any other feature of a renderer is left to the bridge that needs it.
 ### Their tests
 
 Both bridges are tested in a DOM, with [happy-dom](https://github.com/capricorn86/happy-dom):
-[`examples/snabbdom.test.ts`](../../examples/snabbdom.test.ts) and
-[`examples/react.test.ts`](../../examples/react.test.ts) run them.
+[`examples/bridges/snabbdom.test.ts`](../../examples/bridges/snabbdom.test.ts) and
+[`examples/bridges/react.test.ts`](../../examples/bridges/react.test.ts) run them.
 
 The tests they share are written once, in
-[`examples/bridge.test_suite.ts`](../../examples/bridge.test_suite.ts). They
+[`examples/bridges/bridge.test_suite.ts`](../../examples/bridges/bridge.test_suite.ts). They
 check:
 
 - how often a bridge draws;
@@ -200,8 +200,8 @@ A bridge of your own can start from them. To run them on it:
 The file holds the screen refreshes and Effect's scheduler, so that the test says when a frame is drawn and when the
 run's fibers go on: `holdFrames`, `settle`, `refresh` and `paint`.
 
-Beside the snabbdom bridge, [`examples/snabbdom-testing.test_messages.ts`][messages] has `messagesSentBy`. It finds
+Beside the snabbdom bridge, [`examples/bridges/snabbdom-testing.ts`][messages] has `messagesSentBy`. It finds
 what a view sends, without a DOM. It is one way to check that a view draws what its model holds. The library does not
 ask it of any bridge (see [testing](./testing.md)). The test of each example drawn with snabbdom uses it.
 
-[messages]: ../../examples/snabbdom-testing.test_messages.ts
+[messages]: ../../examples/bridges/snabbdom-testing.ts

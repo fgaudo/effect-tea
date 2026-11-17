@@ -195,13 +195,16 @@ this summary says less. What every change keeps, an example's and a document's t
   is a test or serves the tests. So a file of neither form is no file of the tests: in `src/` and `examples/` it is,
   at a glance, code of the library or of an example. One that serves the tests takes the `<name>` of the test file it
   goes with, as `test/scheduled.test_scheduler.ts`, the scheduler of the tests, goes with `test/scheduled.test.ts`,
-  which tests it, and `examples/snabbdom-testing.test_messages.ts`, `messagesSentBy`, with
-  `examples/snabbdom-testing.test.ts`; one that several test files call has a name of its own, as
-  `examples/bridge.test_suite.ts`, which runs in each bridge's test, and `test/gc.test_helper.ts`, which the tests that
-  ask for a collection call. `bun test` does not collect a `.test_<kind>.ts` (it collects `*.test.ts`, `*_test.ts`,
-  `*.spec.ts` and `*_spec.ts`), so it runs only where a test file imports it, or where a runner loads it before the
-  tests: `bun test` preloads `examples/preload.test_setup.ts` (`bunfig.toml`), and `bun run test:node` has Node import
-  `test/node/register.test_hook.ts`.
+  which tests it, and `examples/timer/timer.test_reader.ts`, the reader of a timer's model, with
+  `examples/timer/timer.test.ts`; one that several test files call has a name of its own, as
+  `examples/bridges/bridge.test_suite.ts`, which runs in each bridge's test, and `test/gc.test_helper.ts`, which the
+  tests that ask for a collection call. `bun test` does not collect a `.test_<kind>.ts` (it collects `*.test.ts`,
+  `*_test.ts`, `*.spec.ts` and `*_spec.ts`), so it runs only where a test file imports it, or where a runner loads it
+  before the tests: `bun run test:node` has Node import `test/node/register.test_hook.ts`.
+- **What a bridge gives a user's tests is code of the bridge**, in `examples/bridges/` beside it, and is named as a
+  user who copies it would name it in a project: `snabbdom-testing.ts`, with `messagesSentBy`, and
+  `snabbdom-preload.ts`, which `bun test` preloads (`bunfig.toml`). It serves the examples' tests too, but it is what a
+  user takes, not a file of the repository's tests, so it has no `.test_<kind>`.
 - Test through behaviour: what a module gives the rest of the library (`run`, `Engine.make`, the public functions, a
   transition of `core.ts` or of `testing/ledger.ts`), never what it keeps to itself. An export made for a test alone
   says so (`entriesOf` in `dispatch.ts`).
@@ -231,14 +234,14 @@ this summary says less. What every change keeps, an example's and a document's t
   - **the types**: what the compiler refuses (`@ts-expect-error`), or infers (`expectTypeOf`), next to the tests
     of the function whose types they are.
 
-  A bug found is held by a case of one of them: a rule of a pure piece, an invariant, a contract, a boundary or a
-  type, and gets a scenario of its own only where none can hold it. The examples' own tests show users how to test
-  a program. So do the bridges' (`examples/snabbdom.test.ts`, `examples/react.test.ts`), for a bridge: the tests of
-  `renderInto` and of an input that every bridge passes, written once in `examples/bridge.test_suite.ts` and given
-  each renderer's `Bridge`, with those of one renderer alone, in a DOM, and those of the snabbdom bridge's
-  `messagesSentBy`, without one (`examples/snabbdom-testing.test.ts`). The smoke test (`tools/smoke/`) and the benchmark
-  (`tools/bench/`) check the package and its speed. None of them is a test of the library's correctness, and they are
-  kept apart from the five.
+  A bug found is held by a case of one of them: a rule of a pure piece, an invariant, a contract, a boundary or a type,
+  and gets a scenario of its own only where none can hold it. The examples' own tests show users how to test a program.
+  So do the bridges' (`examples/bridges/snabbdom.test.ts`, `examples/bridges/react.test.ts`), for a bridge: the tests of
+  `renderInto` and of an input that every bridge passes, written once in `examples/bridges/bridge.test_suite.ts` and
+  given each renderer's `Bridge`, with those of one renderer alone, in a DOM, and those of the snabbdom bridge's
+  `messagesSentBy`, without one (`examples/bridges/snabbdom-testing.test.ts`). The smoke test (`tools/smoke/`) and the
+  benchmark (`tools/bench/`) check the package and its speed. None of them is a test of the library's correctness, and
+  they are kept apart from the five.
 - **Each check an invariant rests on has a mutation** in `tools/mutations/mutations.ts` that takes it out, with the
   tests that must fail under it: `bun run mutations` applies them one at a time to each of several copies of the
   repository (`.mutants/`), runs those tests alone, and fails when one passes under its mutation, or fails without it.
@@ -266,9 +269,9 @@ this summary says less. What every change keeps, an example's and a document's t
   only let a mutant survive, never turn a correct run red, and the runner of the mutations runs a killer that passed
   under its mutation again, alone, before it reports a survivor. Where a witness can be awaited, it is: which windows
   have none is in `docs/invariants.md` ("Windows of absence").
-- Only the bridges' tests in a DOM, `examples/snabbdom.test.ts` and `examples/react.test.ts`, register one
-  (happy-dom), for the tests of `examples/bridge.test_suite.ts` they call too; every other test runs without one,
-  `examples/snabbdom-testing.test.ts` too.
+- Only the bridges' tests in a DOM, `examples/bridges/snabbdom.test.ts` and `examples/bridges/react.test.ts`, register
+  one (happy-dom), for the tests of `examples/bridges/bridge.test_suite.ts` they call too; every other test runs without
+  one, `examples/bridges/snabbdom-testing.test.ts` too.
 
 ## Checks
 

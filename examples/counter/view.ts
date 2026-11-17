@@ -1,5 +1,5 @@
 import { h } from 'snabbdom'
-import { onClick, type View } from '../snabbdom.ts'
+import { onClick, type View } from '../bridges/snabbdom.ts'
 import type { Message, Model } from './counter.ts'
 
 // snabbdom's props module never removes a prop, so both cases of a button set `disabled`: a button patched

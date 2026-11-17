@@ -4,7 +4,7 @@
 import { type Dispatch, forwardTo } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
 import { h, thunk, type VNode } from 'snabbdom'
-import { onClick, type View } from '../snabbdom.ts'
+import { onClick, type View } from '../bridges/snabbdom.ts'
 import type { Message, Model } from './list.ts'
 import type * as Stopwatch from './stopwatch.ts'
 

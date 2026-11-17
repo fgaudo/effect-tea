@@ -17,16 +17,16 @@ versions. The paths below are relative to this file.
   that file.
 - **The examples**, [`examples/`](../../examples): complete programs, each with its tests. The README lists what each
   one shows.
-- **The bridges**, [`examples/snabbdom.ts`](../../examples/snabbdom.ts) and
-  [`examples/react.ts`](../../examples/react.ts): the library ships no renderer. Copy a bridge into the project, or
-  write one ("Writing a bridge" in the guide). Their tests are
-  [`examples/snabbdom.test.ts`](../../examples/snabbdom.test.ts),
-  [`examples/react.test.ts`](../../examples/react.test.ts) and the suite both run,
-  [`examples/bridge.test_suite.ts`](../../examples/bridge.test_suite.ts). snabbdom reads the global `window` when it
-  loads. So a test that imports a snabbdom view and has no DOM must first load
-  [`examples/preload.test_setup.ts`](../../examples/preload.test_setup.ts). Its comment says how. The examples import
-  their own files with the `.ts` extension. If your `tsconfig.json` does not set `allowImportingTsExtensions`, remove
-  the extension.
+- **The bridges**, [`examples/bridges/snabbdom.ts`](../../examples/bridges/snabbdom.ts) and
+  [`examples/bridges/react.ts`](../../examples/bridges/react.ts): the library ships no renderer. Copy a bridge into the
+  project, or write one ("Writing a bridge" in the guide). Their tests are
+  [`examples/bridges/snabbdom.test.ts`](../../examples/bridges/snabbdom.test.ts),
+  [`examples/bridges/react.test.ts`](../../examples/bridges/react.test.ts) and the suite both run,
+  [`examples/bridges/bridge.test_suite.ts`](../../examples/bridges/bridge.test_suite.ts). snabbdom reads the global
+  `window` when it loads. So a test that imports a snabbdom view and has no DOM must first load
+  [`examples/bridges/snabbdom-preload.ts`](../../examples/bridges/snabbdom-preload.ts). Its comment says how. The
+  examples import their own files with the `.ts` extension. If your `tsconfig.json` does not set
+  `allowImportingTsExtensions`, remove the extension.
 - **The API**: the declarations in `dist/`, with their doc comments. A line `@see The guide, "<page>", "<section>".`
   names a page of the guide by its title, and a heading or a bold title in that page.
 

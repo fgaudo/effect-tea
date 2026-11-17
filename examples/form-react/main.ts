@@ -4,9 +4,9 @@ import * as Effect from 'effect/Effect'
 import { form } from '../form/form.ts'
 import { Storage, StorageError } from '../form/storage.ts'
 import { view as snabbdomView } from '../form/view.ts'
-import { renderInto as renderWithReact } from '../react.ts'
-import { renderInto as renderWithSnabbdom } from '../snabbdom.ts'
-import { together } from '../together.ts'
+import { renderInto as renderWithReact } from '../bridges/react.ts'
+import { renderInto as renderWithSnabbdom } from '../bridges/snabbdom.ts'
+import { together } from '../bridges/together.ts'
 import { view as reactView } from './view.tsx'
 
 const element = (id: string) => {

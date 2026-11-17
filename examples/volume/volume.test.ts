@@ -7,7 +7,7 @@ import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Stream from 'effect/Stream'
 import * as fc from 'fast-check'
-import { messagesSentBy } from '../snabbdom-testing.test_messages.ts'
+import { messagesSentBy } from '../bridges/snabbdom-testing.ts'
 import { view } from './view.ts'
 import {
   Drag,

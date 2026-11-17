@@ -1,7 +1,7 @@
 import { run } from '@fgaudo/effect-tea'
 import * as Cause from 'effect/Cause'
 import * as Effect from 'effect/Effect'
-import { renderInto } from '../snabbdom.ts'
+import { renderInto } from '../bridges/snabbdom.ts'
 import { form } from './form.ts'
 import { Storage, StorageError } from './storage.ts'
 import { view } from './view.ts'

@@ -28,10 +28,10 @@ version, and everything else, features included, the patch version.
 - The guide has a page "Writing a bridge", which shows how to write a bridge for any renderer, from the examples'
   bridge to snabbdom: its frames, its handlers and its text input, with `edited` and `drawn`, and the two places that
   are the renderer's own.
-- The package ships its documentation, at its version: the guide in `site/guide/`, the tutorial in `site/tutorial/`,
-  the examples with their bridges in `examples/`, and a skill for coding agents, `skills/effect-tea/SKILL.md`, which
-  leads to them. The README's last section, "For coding agents", says so, and so do the module comments of
-  `effect-tea` and `effect-tea/testing`.
+- The package ships its documentation, at its version: the guide in `site/guide/`, the tutorial in `site/tutorial/`, the
+  examples in `examples/` with their bridges in `examples/bridges/`, and a skill for coding agents,
+  `skills/effect-tea/SKILL.md`, which leads to them. The README's last section, "For coding agents", says so, and so do
+  the module comments of `effect-tea` and `effect-tea/testing`.
 - The guide's "Composition" says that a row the parent must read is no child ("Children by id"), how a parent locks
   its rows while an operation runs ("Inputs by id"), and how a child waits for its parent ("Events and external
   messages"). "Subscriptions" shows a subscription that ends with a message of its own ("Precisely"), and "Testing"
@@ -136,9 +136,9 @@ version, and everything else, features included, the patch version.
   scenario of `rehearse` or `drive` no longer meets a defect of `makeModel` in `model`, `send` or `waitFor`, since the
   tool fails on the state whose model dies: a test that expects one wraps the tool, as for any other defect.
 - **Breaking**: `View` is no longer exported: the library ends at the frame, and a view's type is its renderer's.
-  Upgrade: a bridge declares it, `type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => VNode`,
-  as `examples/snabbdom.ts` and `examples/react.ts` do, and a view imports it from its bridge, `View<Model, Message>`
-  where it wrote `View<Model, Message, VNode>`.
+  Upgrade: a bridge declares it, `type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => VNode`, as
+  `examples/bridges/snabbdom.ts` and `examples/bridges/react.ts` do, and a view imports it from its bridge,
+  `View<Model, Message>` where it wrote `View<Model, Message, VNode>`.
 - "View", "Inputs the user types into", "Declaring children", "Model and view", "Splitting a program", "Guarantees"
   and "Testing" in the guide describe inputs, the condition they need of elements and renderers, and that a renderer
   draws frames and nothing else; `examples/field.ts` is removed, and `form` and `form-react` declare one.
@@ -152,13 +152,15 @@ version, and everything else, features included, the patch version.
   `memo`, portals and a run inside another's root) is left to the bridge that needs it; "Inputs the user types into"
   no longer says that a text field meets its condition once its form's reset is heard
   ([`docs/rejected.md`](docs/rejected.md), "The bridges").
-- `messagesSentBy` moves from `examples/snabbdom.ts` to `examples/snabbdom-testing.test_messages.ts`, so that the
+- `messagesSentBy` moves from `examples/snabbdom.ts` to `examples/bridges/snabbdom-testing.ts`, so that the
   bridge holds only what a bridge does ("Testing" and "Writing a bridge" in the guide).
-- The tests the examples' two bridges share are written once, in `examples/bridge.test_suite.ts`, over a `Bridge` of
-  each renderer, its `renderInto` and the views of the scenarios, which a bridge of one's own can give too
+- The tests the examples' two bridges share are written once, in `examples/bridges/bridge.test_suite.ts`, over a
+  `Bridge` of each renderer, its `renderInto` and the views of the scenarios, which a bridge of one's own can give too
   ("Writing a bridge" in the guide).
-- `examples/preload.ts`, which `bun test` preloads (`bunfig.toml`), is `examples/preload.test_setup.ts`: a file that
-  serves the tests is named `<name>.test_<kind>.ts`, as `examples/bridge.test_suite.ts` is.
+- The bridges, and what they give a user's tests, are in `examples/bridges/`, apart from the examples:
+  `examples/snabbdom.ts` is `examples/bridges/snabbdom.ts`, and `examples/preload.ts`, which `bun test` preloads
+  (`bunfig.toml`), is `examples/bridges/snabbdom-preload.ts`. `examples/README.md` says where to start, and which files
+  a user copies.
 - The peer dependency on `effect` is `^4.1.4`, where it was `^4.0.0`, and starts at the Effect it is developed with.
 - A child whose state is not an object, past the types, is a `CompositionDefect` that names it, not a `TypeError`.
 - A parent lifts once the subscriptions of children that share one state object, as those a step's `init` starts do,
@@ -204,7 +206,7 @@ version, and everything else, features included, the patch version.
 - "Installation" in the README states the oldest TypeScript supported, 5.9, as Effect 4's.
 - The README and the site link effect-tea-persistent, the same architecture for long-lived entities on a server.
 - "Running" in the guide, the examples and the tutorial start a program with `Effect.runFork`, an API that is stable.
-- The `counter-react` and `form-react` examples draw with React, through `examples/react.ts`, a bridge to copy.
+- The `counter-react` and `form-react` examples draw with React, through `examples/bridges/react.ts`, a bridge to copy.
 - "Model", "Guarantees" and "Testing" in the guide say that the model holds what `update` accepts, as a test reads it.
 - "Model" in the guide says that messages live in the model, and no longer offers a view that builds its own.
 - "View" and "Testing" in the guide ask no `messagesSentBy` of a bridge, and the examples' React bridge has none.
@@ -256,7 +258,7 @@ version, and everything else, features included, the patch version.
 - The examples export `Message` as a type only, as "Model" in the guide says (`pages`, `list`, `timer`, `form`,
   `volume`): their tests write messages as data.
 - `examples/form/late-key.test.ts` is removed: its two histories of a key typed before a save completed are cases of
-  `examples/bridge.test_suite.ts`, run on each bridge with `form`'s views.
+  `examples/bridges/bridge.test_suite.ts`, run on each bridge with `form`'s views.
 - The examples' snabbdom bridge no longer has `onInput`, which turned what is typed into a message in the view: what
   the user types is an input, drawn with `shows`, and `messagesSentBy` no longer takes a text to type.
 - `messagesSentBy` calls a listener, or a list of them, as snabbdom's types say: a list nested in a list, which they do
@@ -276,7 +278,7 @@ version, and everything else, features included, the patch version.
   program", "Update", "Model", "Commands", "Subscriptions", "Rejections and defects", "Composition", "Inputs the user
   types into", "Structuring a program", "Running", "Guarantees", "Testing" and "Writing a bridge".
 - The `counter-react` and `form-react` examples draw their program in one run, with snabbdom and with React, one under
-  the other, so that what either sends is drawn by both: `examples/together.ts` gives the run's frames to both
+  the other, so that what either sends is drawn by both: `examples/bridges/together.ts` gives the run's frames to both
   renderers, with `Stream.broadcastN`.
 
 ### Fixed

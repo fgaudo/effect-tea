@@ -65,10 +65,10 @@ ships them all resolves them. The site has no copy of the files, so `site/build.
 `site/.build/`, where such a link goes to the repository at the built commit, as the README's do. The one link to a
 file the package does not ship, the test of the guarantees in "Guarantees", is to `tree/main`. The tutorial holds no
 code of its own: each block is `{@includeCode}` of a `// #region` of [`examples/timer`](../../../examples/timer), and
-each block of the guide's "Writing a bridge" one of the bridge [`examples/snabbdom.ts`](../../../examples/snabbdom.ts),
-so that what they show is typechecked and tested. A change to that example or that bridge keeps its regions, and the
-prose around them, true. The README's links to the guide are to the published site's pages, since the README is no
-project document.
+each block of the guide's "Writing a bridge" one of the bridge
+[`examples/bridges/snabbdom.ts`](../../../examples/bridges/snabbdom.ts), so that what they show is typechecked and
+tested. A change to that example or that bridge keeps its regions, and the prose around them, true. The README's links
+to the guide are to the published site's pages, since the README is no project document.
 
 ```sh
 cd site && bun install && bun run build
