@@ -207,6 +207,18 @@ answer, and saying so in the proposal.
   test observes, where `runCommandOf`'s is never called and `startOf` decides only for generic code. The reason is in
   `AGENTS.md` ("Code"). *Reopen if* `subscriptions` becomes required on a program's type, where it would be a property
   read.
+- **Checking a program's external messages in `make`**, where `child` and `childById` check them today. Spiked on 17
+  November 2026, with a second opinion (Fable), the owner deciding. A check in `config`, or in a rest parameter after
+  it, reads the own messages in the compiler's first pass, which skips a context-sensitive `update` (one whose
+  `children` or inner `(state) =>` takes its type from the signature) and gives them their default, `never`: valid
+  parents stop compiling. Fable found a form that holds, a type parameter `U = unknown` inferred from `update` that
+  keeps the check silent while it is `unknown`, beside a branch for a config without `update`; checked with `tsc`
+  (7.0.2, and 6.0.3 and 5.9.3 on a copy). It is not adopted: a wrong `external` is already an error, where the program
+  is a child, and the owner asks of the types only that every program can be written and every invalid one fails
+  somewhere. The form only moves that error, at the cost of a type parameter and a union in every hover and every error
+  of `make`, on an order of inference no documentation states. A check only where `message` is named was refused too:
+  the rule would depend on how the types are written, and `message: never` would escape it. *Reopen if* a program with
+  a wrong `external` can compile everywhere, or the compiler documents its two passes.
 - **`renderToString`, a first frame for server-side rendering.** Reasoned, 16 November 2026, on the idea of
   `ROADMAP.md`, by "A function earns its place" (`AGENTS.md`). The first frame is data a program already gives:
   `program.makeModel(program.init.state)`, or `program.makeModel(program.init(flags).state)`, whose view a server calls

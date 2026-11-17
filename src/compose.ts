@@ -909,8 +909,9 @@ export const program = <T extends DeclaredTypes>() => {
       kind: 'byId',
       ...placedById(place),
     }),
-    // Its external messages are checked where it is a child (`child`, `childById`): here its own messages are still being
-    // inferred from `update`, and a check of them would fix them as `never` first.
+    // Its external messages are checked where it is a child (`child`, `childById`): a check here would read its own
+    // messages in the compiler's first pass, which skips a context-sensitive `update` and takes them as `never`
+    // (`docs/rejected.md`).
     /**
      * Makes the program from what the parent declares.
      *
