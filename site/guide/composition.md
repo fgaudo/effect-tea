@@ -140,13 +140,14 @@ A parent and its children talk only through events and external messages.
 
 - **A child raises an event** to ask its parent for something, like leaving the page.
 - **The parent handles it in `onEvent`**, which has one handler per child that has events, so that no event goes
-  unhandled.
+  unhandled. A handler is `(event, children) => (state) => step`. For children by id, the id comes before the event:
+  `(id, event, children) => (state) => step`.
 - **An event to pass on.** When the parent has nothing to say about an event, and its own parent handles it, the parent
-  raises it as its own: `onEvent: { Products: (event) => (state) => ({ state, events: [event] }) }`. For children by
-  id, the id comes before the event.
+  raises it as its own: `onEvent: { Products: (event) => (state) => ({ state, events: [event] }) }`.
 - **A parent sends an external message** to a child with `children.<child>.update`, in its own `update` and `onEvent`.
   It is one of the messages the child's type declares as `external` (e.g. a back button). The parent decides when to
-  send, and the child's type says it takes the message.
+  send, and the child's type says it takes the message. The child's `external` is a part of its messages, such as
+  `Data.TaggedEnum.Value<Message, 'Halted'>` in [`list`](../../examples/list/stopwatch.ts).
 - **The child answers in every state**, with its state or with an event, never with `reject`.
 
 A back button closes what the page has open, or the page asks to be left:

@@ -51,6 +51,9 @@ reports is what the guide leaves to the examples.
    - a warehouse stock-take: items loaded by a command that may fail and is retried, an item per id with a typed
      count, a barcode scanner feed that ends and is listened to again, a submit refused while a count is invalid or a
      submit is in flight, and a summary once it succeeds (2026-11-16, open).
+   - an auction panel: lots as children by id, each with a price feed that ends when the lot closes, a typed bid
+     refused when invalid, not above the price, closed or in flight, sends that may fail and are retried, an event the
+     parent counts, and a region whose switch listens to each feed anew under a new key (2026-11-17, package).
 4. Make the project, from the repository's root, with the versions the repository is developed with:
 
    ```bash

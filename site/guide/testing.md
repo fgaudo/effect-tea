@@ -163,6 +163,8 @@ Without candidates, it checks only the messages it is given.
 - The command answers that `update` rejected are listed in `ignored`. Assert `ignored` when dropping one of them would
   be a bug.
 - Its subscriptions do not run. What it reads from them is under [precisely](#precisely).
+- Its type still asks for every service the program needs, those of its subscriptions too: a program names its
+  services once. Provide those that no command uses with any value, since nothing calls them.
 - It starts from the step it is given, and calls no `init`.
 - It succeeds with the last `state` and with these lists, each in order:
   - `messages`: every message that `update` accepted, the test's and the commands' answers;

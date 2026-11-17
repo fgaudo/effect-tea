@@ -32,6 +32,10 @@ version, and everything else, features included, the patch version.
   its rows while an operation runs ("Inputs by id"), and how a child waits for its parent ("Events and external
   messages"). "Subscriptions" shows a subscription that ends with a message of its own ("Precisely"), and "Testing"
   how `hearNext` hears one under a `TestClock` ("How a subscription is heard"), as the doc comment of `hearNext` does.
+- The guide's "Composition" gives the handlers of `onEvent`, the id first for children by id, and shows how a child
+  declares its `external` messages ("Events and external messages"); "Testing" says that `simulate` asks for the
+  services of the subscriptions it does not run ("`simulate`"). The doc comments of `onEvent` and `simulate` say so too,
+  and the skill says how a test without a DOM loads snabbdom, and that the examples import with `.ts`.
 - What a type does not need defaults to `never`, as in `Step` and in Effect's own types: `R` in `Execution`,
   `RunCommand`, `Subscription` and `Subscriptions`, `Command` in `Applied`, `Simulation` and `Rehearsal`, and `Event`
   in `Simulation`. So `Subscription<Message>` is a subscription that needs no services, and `Rehearsal<State, Model,

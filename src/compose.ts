@@ -312,8 +312,10 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
     /**
      * What the parent does with each child's events, by child: one handler for each child that has events.
      *
-     * It is required exactly when a child has events.
+     * It is required exactly when a child has events. A handler takes the event and `children`, and returns the
+     * parent's step as a function of its state. For children by id, it takes the id first.
      *
+     * @see The guide, "Composition", "The parent handles it in `onEvent`".
      * @see The guide, "Composition", "`onEvent`".
      */
     onEvent?: OnEvents<State, C, Command, Event>
@@ -322,8 +324,10 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
     /**
      * What the parent does with each child's events, by child: one handler for each child that has events.
      *
-     * It is required exactly when a child has events.
+     * It is required exactly when a child has events. A handler takes the event and `children`, and returns the
+     * parent's step as a function of its state. For children by id, it takes the id first.
      *
+     * @see The guide, "Composition", "The parent handles it in `onEvent`".
      * @see The guide, "Composition", "`onEvent`".
      */
     onEvent: OnEvents<State, C, Command, Event>
@@ -723,7 +727,7 @@ export type CompositionTypes = Readonly<{
   command?: unknown
   /** The events it raises, if it raises any. */
   event?: unknown
-  /** Which of its messages a parent of its own may send it, if any. */
+  /** Which of its messages a parent of its own may send it, if any: a part of its messages. */
   external?: unknown
   /** What it starts from, if it has flags. */
   flags?: unknown

@@ -22,7 +22,11 @@ versions. The paths below are relative to this file.
   write one ("Writing a bridge" in the guide). Their tests are
   [`examples/snabbdom.test.ts`](../../examples/snabbdom.test.ts),
   [`examples/react.test.ts`](../../examples/react.test.ts) and the suite both run,
-  [`examples/bridge.test_suite.ts`](../../examples/bridge.test_suite.ts).
+  [`examples/bridge.test_suite.ts`](../../examples/bridge.test_suite.ts). snabbdom reads the global `window` when it is
+  loaded: a test without a DOM that imports a snabbdom view preloads
+  [`examples/preload.test_setup.ts`](../../examples/preload.test_setup.ts), as its comment says. The examples import
+  their own files with the `.ts` extension: a project whose `tsconfig.json` does not set `allowImportingTsExtensions`
+  drops it.
 - **The API**: the declarations in `dist/`, with their doc comments. A line `@see The guide, "<page>", "<section>".`
   names a page of the guide by its title, and a heading or a bold title in that page.
 

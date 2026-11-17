@@ -27,5 +27,10 @@ test of it. None is open.
 - **An example of routing**: flags from the URL, `popstate` as a subscription, navigation as a command.
 - **An example of hot module reloading** that keeps the state, which the guide hints at (the view lives in a
   module of its own) without showing.
+- **`simulate` asking only for the services of `runCommand`**: it runs no subscription, yet a program names its
+  services once, so a test provides those of its subscriptions with any value (a reader's check of the package,
+  17 November 2026). It would need a program to name the services of its commands apart from those of its
+  subscriptions, `composition` to keep them apart, and every tool to say which it asks for: decided by whether that
+  split is worth a second type parameter on every program.
 - **What 1.0 needs**: the API looks close to stable; what `docs/rejected.md` parks would change it, and is weighed
   before freezing it.
