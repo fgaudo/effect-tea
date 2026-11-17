@@ -40,14 +40,15 @@ holds, and its tests can check it. The library does not enforce them. The exampl
   What a view would decide, `makeModel` decides. It does so as a case named for the state the screen tells apart
   (`Empty | Listed`, `Loading | Loaded`), never as a boolean. An `Option` is such a case only when "missing" is all the
   screen tells apart.
-- **The renderer draws frames, and nothing else.** A hover, an animation or the focus that the platform keeps by itself
-  is no state of the program's. A state kept in a component of the renderer, beside the program's, is neither supported
-  nor advised (see [view](./view.md)). What the program decides stays in its state, and reaches the view as its model.
+-  **The renderer draws frames, and nothing else.** A hover, an animation or the focus that the platform keeps by itself
+  is not a state of the program. A state kept in a component of the renderer, beside the program's state, is neither
+  supported nor advised (see [view](./view.md)). What the program decides stays in its state, and reaches the view as
+  its model.
 - **Input is never a reason to reject.** The input keeps what the user typed, whatever the program decides, and the
   library stores it (see [inputs the user types into](./inputs-the-user-types-into.md)). So no rule of the program
-  rejects a value. Make its validity model data instead: show "Save" only for a name that is not blank. A control whose
-  bounds narrow under what the user gives it is drawn by the program. Its moves are messages, and `update` puts them
-  within the bounds it holds.
+  rejects a value. Instead, put its validity in the model, as data: show "Save" only for a name that is not blank. A
+  control whose bounds narrow below what the user gives it is drawn by the program. Its moves are messages, and `update`
+  puts them within the bounds it holds.
 
 ## Splitting a program
 
@@ -62,6 +63,6 @@ A program lives in one module until it is too large. Then it splits into childre
 - **Children that read each other's state are one child**, whatever its size. A parent that grows logic between two
   siblings is a sign that they are one child.
 - **Not every part is a child.** A child whose controls the parent would enable from its state is not one. Nor is a
-  child whose state the parent would copy down and back up. A value the user writes, and the parent reads, is an input
-  of the parent's, and an input by id where the user writes one into each row (see
+  child whose state the parent would copy down and back up. A value that the user writes and the parent reads is an
+  input of the parent, and an input by id where the user writes one value into each row (see
   [inputs by id](./composition.md#inputs-by-id)).
