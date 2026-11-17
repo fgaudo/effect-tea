@@ -56,6 +56,15 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   cannot: inspect it in tests without running it, keep it the same across frames by a cache of its own (as
   `forwardTo` does for a dispatch), or enforce at construction what the type cannot. A subscription is already
   inspected by its key: that is why `Subscription` stays Effect's.
+- **The types of a program keep three rules, and only these.** Every correct program can be written (a concrete
+  one: a function over any program is an overload over erased types, "Composition" in the guide). No broken
+  combination can: pieces that cannot work together, as an `update` without an `init`, and what compiles and then dies
+  by the engine's rules where the types could have prevented it, as a parent's `external` that names a message its
+  child keeps to itself; a cast takes that risk on itself. And what a program names is what its types give back,
+  however it is written: no type widened, or narrowed to a `never` that is false. The rest is not a gap: a misspelled
+  name is a name not given, a form that repeats another is allowed, and a type that is empty but true, as
+  `update: (message: never) => …`, says that something does not happen. A check that only moves an error that exists
+  elsewhere is not worth its complexity. What was weighed by these rules is in `docs/rejected.md`.
 - **A function earns its place by doing what Effect alone cannot**, or by being the one place where a rule of
   the library is applied (`reject`, `program`). A name over a composition of Effect's combinators is not one,
   however often the composition recurs in an application: `attempt`, `silent` and `Subscription.every` were
