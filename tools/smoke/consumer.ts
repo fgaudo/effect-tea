@@ -80,6 +80,19 @@ export const children = {
   }),
 }
 
+// A child that names no external message, which `nodenext` checks without `exactOptionalPropertyTypes`.
+export const quiet = program<{ state: CounterState; model: CounterState; message: Readonly<{ _tag: 'Increment' }> }>()
+  .make({
+    init: { state: { count: 0 } },
+    update: () => ({ count }) => ({ state: { count: count + 1 } }),
+    makeModel: (state) => state,
+  })
+
+export const quietChild = child(quiet, {
+  get: (state) => Opt.some(state.main),
+  set: (state, main) => ({ ...state, main }),
+})
+
 export const app = make({
   init: (children) => ({
     state: { main: children.Main.init.state, rows: [{ id: 1, counter: children.Row.init(1).state }], fulls: 0 },

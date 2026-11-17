@@ -156,7 +156,7 @@ interface RunOptions<Message, State = unknown, Command = unknown> {
 
 // @public
 type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & Readonly<{
-    readonly '~@fgaudo/effect-tea/Program/external'?: External;
+    readonly '~@fgaudo/effect-tea/Program/external'?: readonly [External];
     init: Init<State, Command, Flags>;
     update: Update<State, Message, Command, Event>;
     subscriptions?: Subscriptions<State, Message, RS, unknown>;

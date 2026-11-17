@@ -199,7 +199,9 @@ export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags
   & Readonly<{
     // A string, as Effect's own type ids: a declaration that spells the type out can always name it, where a
     // `unique symbol` the package does not export stops it (TS4023).
-    readonly '~@fgaudo/effect-tea/Program/external'?: External
+    // In a tuple: the `undefined` that an optional property adds without `exactOptionalPropertyTypes` stays out of
+    // it, and an external message that is `undefined` stays in.
+    readonly '~@fgaudo/effect-tea/Program/external'?: readonly [External]
     init: Init<State, Command, Flags>
     update: Update<State, Message, Command, Event>
     subscriptions?: Subscriptions<State, Message, RS, unknown>
@@ -258,10 +260,6 @@ export type ModelOf<P> = P extends { readonly makeModel: (state: any) => infer M
  * ```
  */
 export type MessageOf<P> = P extends { readonly update: (message: infer M) => any } ? M : never
-// What a program's type does not say reads back as `unknown` (an optional property it lacks): none, then, rather
-// than anything. Only where nothing else tells "absent" from `unknown`.
-type Known<T> = unknown extends T ? never : T
-
 /** What the lists under `Key` hold, for each step of a union: none in a step without the list. */
 type Listed<T, Key extends 'commands' | 'events'> = T extends { readonly [K in Key]?: infer L } ? Items<L> : never
 // `L` is `undefined` where an object literal of the union lacks the list, and `unknown` where no type names it.
@@ -304,7 +302,11 @@ export type FlagsOf<P> = P extends { readonly init: (flags: infer F) => any } ? 
  * type External = ExternalOf<typeof page>
  * ```
  */
-export type ExternalOf<P> = P extends { readonly '~@fgaudo/effect-tea/Program/external'?: infer E } ? Known<E> : never
+export type ExternalOf<P> = P extends { readonly '~@fgaudo/effect-tea/Program/external'?: infer E } ? Unboxed<E>
+  : never
+// Each member of the union apart: the tuple, and the `undefined` of an optional property, which holds none. A program
+// whose type lacks the property reads it back as `unknown`, which holds none either, rather than anything.
+type Unboxed<E> = E extends readonly [infer External] ? External : never
 /**
  * The events a program's `update` returns for its parent.
  *

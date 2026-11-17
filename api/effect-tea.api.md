@@ -220,7 +220,7 @@ type ExternalAmong<Message, External> = [Exclude<External, Message>] extends [ne
 // @public
 export type ExternalOf<P> = P extends {
     readonly '~@fgaudo/effect-tea/Program/external'?: infer E;
-} ? Known<E> : never;
+} ? Unboxed<E> : never;
 
 // @public (undocumented)
 type ExternalTaken<P> = [Exclude<ExternalOf<P>, MessageOf<P>>] extends [never] ? unknown : Readonly<{
@@ -375,9 +375,6 @@ const InvariantDefect_base: new <A extends Record<string, any> = {}>(args: VoidI
 
 // @public (undocumented)
 type Items<L> = L extends ReadonlyArray<infer I> ? I : never;
-
-// @public (undocumented)
-type Known<T> = unknown extends T ? never : T;
 
 // @public
 type Listed<T, Key extends 'commands' | 'events'> = T extends {
@@ -586,7 +583,7 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
 
 // @public
 export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & Readonly<{
-    readonly '~@fgaudo/effect-tea/Program/external'?: External;
+    readonly '~@fgaudo/effect-tea/Program/external'?: readonly [External];
     init: Init<State, Command, Flags>;
     update: Update<State, Message, Command, Event>;
     subscriptions?: Subscriptions<State, Message, RS, unknown>;
@@ -641,6 +638,9 @@ type TagOf<M> = M extends {
 
 // @public
 export type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected;
+
+// @public (undocumented)
+type Unboxed<E> = E extends readonly [infer External] ? External : never;
 
 // @public (undocumented)
 const Unseen = "~@fgaudo/effect-tea/Shown/unseen";
