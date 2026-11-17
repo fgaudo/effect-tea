@@ -777,8 +777,7 @@ type DeclaredTypes = Readonly<{
  * Naming the types first lets `update`, `get`, `set` and the rest be typed without annotations. It also says the
  * program's own messages, commands, events, external messages and flags: a type it does not name is a type it does not
  * have, so a program that names no messages has no `update`. Its model may be named too: a model named is checked, and
- * one not named is inferred. The services are never named: they are inferred. A name that is none of these, such as
- * `modl` for `model`, does not compile.
+ * one not named is inferred. The services are never named: they are inferred.
  *
  * A child is any program. The library does the routing. A parent and its children talk only through events and
  * external messages. The parent's messages, commands and subscriptions are its own, plus each child's and each
@@ -836,10 +835,6 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> => ({
   inputById: (place) => ({ kind: 'byId', ...placedById(place) }),
   make: (config) => make(config as never) as never,
 })
-
-// As `NamesAmong` in `program.ts`, for the names `program` takes: on `make`'s config, which every program goes through.
-type NamesTaken<T> = [Exclude<keyof T, keyof DeclaredTypes>] extends [never] ? unknown
-  : Readonly<{ 'a name is not one of the types of a program': Exclude<keyof T, keyof DeclaredTypes> }>
 
 // On `make`'s config, which alone knows the children: the program's type holds all their messages, those they keep to
 // themselves too, so `ExternalAmong` in `program.ts` would let one through, and the child would get it as external.
@@ -1053,7 +1048,6 @@ export type MakeProgram<T extends DeclaredTypes> = <
       Field<T, 'flags'>
     >
     & Readonly<{ children?: C; inputs?: I }>
-    & NamesTaken<T>
     & ExternalPassed<Field<T, 'external'>, ChildMessages<NoInfer<C>>, ChildExternals<NoInfer<C>>>,
 ) => Program<{
   state: Field<T, 'state'>

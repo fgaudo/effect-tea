@@ -182,6 +182,14 @@ answer, and saying so in the proposal.
 
 ## The API
 
+- **A check of the names in `program<{ … }>()` and `Program<{ … }>`**, which refused one that is none of a program's
+  types (`modl` for `model`). Added on 17 November 2026 (`738f49c`) and removed the same day, before a release, the
+  owner deciding: a misspelled name is a name not given, and a program that does not name a type is correct as it is.
+  The developer finds the mistake where the type is missing. The owner asks three things of the types: every correct
+  program can be written, no broken combination can, and what is named is what the types give back. The check kept
+  none of them, at the cost of two twin markers, one in `program.ts` and one on `make`'s config, since API
+  Extractor refuses a module's type that the package does not export. *Reopen if* a misspelled name can make a broken
+  program compile.
 - **Checks that hold for a type parameter**, so that a function over any program (`<P extends AnyProgram>(p: P)`)
   could declare it a child and call `make` without erasing its types. Probed with `tsc` on 17 November 2026, with a
   second opinion (Opus), the owner deciding. What a child needs from its parent (`onEvent`, flags, `runCommand`) is a

@@ -220,10 +220,6 @@ const deaf: Program<{ state: CounterState; model: null; message: Full; external:
   makeModel: () => null,
 }
 
-// A name that is none of a program's types does not compile.
-// @ts-expect-error
-program<{ state: CounterState; modl: null }>().make({ init: { state: { count: 0 } }, makeModel: () => null })
-
 // A child with commands has a `runCommand`, even when written without `Program<…>`.
 child(
   // @ts-expect-error

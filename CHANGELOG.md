@@ -115,9 +115,6 @@ version, and everything else, features included, the patch version.
   narrow them to what a command answers ("Anatomy of a program", "Rules"). A parent that only routes, or a program with
   only inputs, names none. Upgrade: `program<{ state: State }>().make({ update: (message: Message) => … })` becomes
   `program<{ state: State; message: Message }>().make({ update: (message) => … })`.
-- **Breaking**: a name in `program<{ … }>()` or `Program<{ … }>` that is none of a program's types does not compile,
-  where its type was lost ("Anatomy of a program", "What does not compile"). Upgrade: `modl: Model` becomes
-  `model: Model`, `subscriptionService: Bell` becomes `subscriptionServices: Bell`.
 - **Breaking**: a parent's `external` that names a message of a child names one of the child's external messages, or
   `make` does not compile ("Composition", "Events and external messages"). A message the child kept to itself passed
   through, and the child's rejection of it was a `CompositionDefect`.

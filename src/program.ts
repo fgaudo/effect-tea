@@ -87,7 +87,6 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  *
  * - The view is not part of it: `run` gives the renderer frames, `{ model, dispatch, seen }`.
  * - Its state is an object, and its `external` messages are among its `message`s. Otherwise it does not compile.
- * - Each name in `T` is the name of one of a program's types. A name such as `modl` for `model` does not compile.
  * - `runCommand` is required exactly when the program has commands.
  * - `run` makes a frame's model with `makeModel(state)`. A test can call it the same way, on any state.
  * - `update`, `makeModel` and `subscriptions` are pure, and states are never mutated. The library reuses a child's
@@ -124,7 +123,6 @@ export type Program<T extends ProgramTypes> =
     Field<T, 'flags'>
   >
   & ExternalAmong<Field<T, 'message'>, Field<T, 'external'>>
-  & NamesAmong<T, ProgramTypes>
 
 /**
  * A program's external messages are among its messages: one that is not would reach an `update` that does not take
@@ -132,12 +130,6 @@ export type Program<T extends ProgramTypes> =
  */
 type ExternalAmong<Message, External> = [Exclude<External, Message>] extends [never] ? unknown
   : Readonly<{ 'an external message is not among the program messages': Exclude<External, Message> }>
-
-// A marker on the result, not a constraint: a constraint that reads `T` would refuse a type parameter passed on as it
-// is (`<T extends …>(p: Program<T>)`), which a check here must not.
-/** The names `T` gives are names of `Types`: one misspelled would declare nothing, and the type it names is lost. */
-type NamesAmong<T, Types> = [Exclude<keyof T, keyof Types>] extends [never] ? unknown
-  : Readonly<{ 'a name is not one of the types of a program': Exclude<keyof T, keyof Types> }>
 
 /**
  * How a program starts: its first step, or, for a program with flags, the function that makes it from the

@@ -392,7 +392,7 @@ type Listed<T, Key extends 'commands' | 'events'> = T extends {
 export type MakeProgram<T extends DeclaredTypes> = <Model, C extends Children<Field<T, 'state'>> = None, I extends Inputs<Field<T, 'state'>> = None, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, 'state'>, NoInfer<C>, NoInfer<I>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'event'>, Named<T, 'model', Model>, Ran, Heard, K, Field<T, 'flags'>> & Readonly<{
     children?: C;
     inputs?: I;
-}> & NamesTaken<T> & ExternalPassed<Field<T, 'external'>, ChildMessages<NoInfer<C>>, ChildExternals<NoInfer<C>>>) => Program<{
+}> & ExternalPassed<Field<T, 'external'>, ChildMessages<NoInfer<C>>, ChildExternals<NoInfer<C>>>) => Program<{
     state: Field<T, 'state'>;
     model: Named<T, 'model', Model>;
     message: Field<T, 'message'> | ChildMessages<C> | InputMessages<I>;
@@ -423,16 +423,6 @@ type Models<State, C> = {
 type Named<T, K extends 'model', Inferred> = T extends {
     readonly [P in K]: infer V;
 } ? V : Inferred;
-
-// @public
-type NamesAmong<T, Types> = [Exclude<keyof T, keyof Types>] extends [never] ? unknown : Readonly<{
-    'a name is not one of the types of a program': Exclude<keyof T, keyof Types>;
-}>;
-
-// @public (undocumented)
-type NamesTaken<T> = [Exclude<keyof T, keyof DeclaredTypes>] extends [never] ? unknown : Readonly<{
-    'a name is not one of the types of a program': Exclude<keyof T, keyof DeclaredTypes>;
-}>;
 
 // @public (undocumented)
 type Needed<Listened> = unknown extends Listened ? unknown : Listened extends Subscription<any, infer R> ? R : never;
@@ -508,7 +498,7 @@ type PlacementById<ParentState, Id, ChildState> = Readonly<{
 type Primitive = string | number | bigint | boolean | symbol;
 
 // @public
-export type Program<T extends ProgramTypes> = Shape<Field<T, 'state'>, Field<T, 'model'>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'commandServices'>, Field<T, 'subscriptionServices'>, Field<T, 'event'>, Field<T, 'external'>, Field<T, 'flags'>> & ExternalAmong<Field<T, 'message'>, Field<T, 'external'>> & NamesAmong<T, ProgramTypes>;
+export type Program<T extends ProgramTypes> = Shape<Field<T, 'state'>, Field<T, 'model'>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'commandServices'>, Field<T, 'subscriptionServices'>, Field<T, 'event'>, Field<T, 'external'>, Field<T, 'flags'>> & ExternalAmong<Field<T, 'message'>, Field<T, 'external'>>;
 
 // @public
 export const program: <T extends DeclaredTypes>() => ProgramMaker<T>;
