@@ -7,7 +7,7 @@ description: How to add or change an example of @fgaudo/effect-tea under example
 
 The examples are complete programs, checked like the library, that show its concepts and its testing tools to
 its users; the documentation site runs them in the browser. The ones to copy are
-[`examples/counter`](../../../examples/counter) (one program, one view, the cheapest tests) and
+[`examples/counter`](../../../examples/counter) (one program, the cheapest tests, a view for each renderer) and
 [`examples/pages`](../../../examples/pages) (a parent, children placed with optics and started from flags,
 events, `forwardTo`).
 
@@ -16,7 +16,7 @@ events, `forwardTo`).
 ```
 examples/<name>/
 ├─ <name>.ts        the program; a parent's children in a module each (pages/about.ts, pages/clock.ts)
-├─ view.ts          its view, with snabbdom
+├─ view.ts          its view, with snabbdom (view-snabbdom.ts and view-react.tsx in counter and form)
 ├─ main.ts          starts it in the browser
 ├─ index.html       the page that runs it
 └─ <name>.test.ts   its tests, showing the testing tools on it
@@ -30,7 +30,7 @@ examples/bridges/
 ├─ snabbdom-testing.ts       messagesSentBy, how to check that a view draws what its model holds
 ├─ snabbdom-preload.ts       what bun test loads first (bunfig.toml), so that snabbdom loads without a DOM
 ├─ react.ts                  the same bridge for React, without messagesSentBy
-├─ together.ts               one run drawn by two renderers, for counter-react and form-react
+├─ together.ts               one run drawn by two renderers, for counter and form
 ├─ snabbdom.test.ts          the snabbdom bridge's tests, in a DOM
 ├─ snabbdom-testing.test.ts  the tests of messagesSentBy, without a DOM
 ├─ react.test.ts             the React bridge's tests and together's, in a DOM
@@ -39,10 +39,10 @@ examples/bridges/
 
 The first three are what a user copies to draw and test a program with snabbdom, and the fourth to draw one with
 React: they are named as a user would name them (`AGENTS.md`, "Tests"). React is used only by
-[`counter-react`](../../../examples/counter-react) and [`form-react`](../../../examples/form-react), to show that a
-program does not change with its renderer: each imports the program and the snabbdom view of `counter` or `form`, has a
-`view.tsx` and no test, and its `main.ts` draws one run with both renderers through `together`, into the `#snabbdom` and
-`#react` of its page. The program's tests are those of `counter` and `form`. The bridges' tests are examples' tests like
+[`counter`](../../../examples/counter) and [`form`](../../../examples/form), to show that a program does not change
+with its renderer: each has a `view-snabbdom.ts` and a `view-react.tsx`, and its `main.ts` draws one run with both
+renderers through `together`, into the `#snabbdom` and `#react` of its page. Its test checks the snabbdom view; the
+React view is checked by the bridges' tests. The bridges' tests are examples' tests like
 the others, and none of the library's five kinds (`AGENTS.md`, "Tests"). `snabbdom.test.ts` and `react.test.ts` call
 `bridge.test_suite.ts` with their renderer's `Bridge` (its `renderInto` and the views of the scenarios), beside the
 tests of that renderer alone.
@@ -61,7 +61,7 @@ In `examples/` itself are [`README.md`](../../../examples/README.md), which says
   `@happy-dom/global-registrator` are only dev dependencies.
 - **`main.ts`** finds `#app` and starts the program with `Effect.runFork(run(program, renderInto(root, view)))`,
   through an `Effect.tapCause` that logs the failure of a dying program, unless it is only an interruption
-  (`counter/main.ts`).
+  (`list/main.ts`). Those of `counter` and `form` give `run` the two renderers through `together` instead.
 - **`index.html`** has the title `<Name> · effect-tea`, the shared `../style.css`, a header with the name,
   one sentence on what it shows and a "Source" link to `https://github.com/fgaudo/effect-tea/tree/main/examples/<name>`,
   the `#app` element and `<script type="module" src="./main.ts">`.
@@ -69,9 +69,9 @@ In `examples/` itself are [`README.md`](../../../examples/README.md), which says
   (`form/form.ts`'s `save`, `list/stopwatch.ts`'s `watch`), never flags; `reject` for a message that may
   arrive and does not apply, and a thrown error for one that cannot arrive (a completion outside the state that
   only it leaves, a tick while stopped), which the test checks as a defect.
-- **The view** follows the guide, and is drawn with snabbdom: React is for `counter-react` and
-  `form-react` alone, so that the examples share one bridge. snabbdom's props module never removes a prop, so a
-  view sets a prop such as `disabled` in every case of an element (`counter/view.ts`). An input is declared in
+- **The view** follows the guide, and is drawn with snabbdom: React is for `counter` and
+  `form` alone, so that the examples share one bridge. snabbdom's props module never removes a prop, so a
+  view sets a prop such as `disabled` in every case of an element (`counter/view-snabbdom.ts`). An input is declared in
   `make`, as the guide's "Inputs the user types into" says: the view draws it from the value its model holds,
   with `shows`, over a native text `<input>`, through `forwardTo`, and gives it no key: the bridge keeps the element.
   What the bridges do not support (the guide's "Writing a bridge": a form's reset, a shadow tree, a value the element

@@ -19,7 +19,7 @@ inputs: { Name: input({ at: Optic.id<State>().key('name') }) },
 ```
 
 The form's view draws its field with the snabbdom bridge, `shows(model.name, forwardTo(dispatch, 'Name'))`
-(`examples/form/view.ts`). The bridge makes the write with `edited`, over what the element showed (see
+(`examples/form/view-snabbdom.ts`). The bridge makes the write with `edited`, over what the element showed (see
 [the element on screen](#the-element-on-screen)).
 
 In general, a view writes over the value its model holds, through the input's dispatch:
@@ -64,8 +64,8 @@ typed.
 the frame has not seen, or a state after all of them. It takes the frame's value once the state has moved on without it.
 So the element is never replaced, and keeps its focus while the program changes what it shows.
 
-The examples' bridges show it, to copy: [`form`](../../examples/form) with
-snabbdom, and [`form-react`](../../examples/form-react) with React.
+The examples' bridges show it, to copy: [`form`](../../examples/form) draws its input with
+snabbdom and with React.
 
 ## Precisely
 

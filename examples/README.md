@@ -5,7 +5,9 @@ shows, with a link to try it in the browser.
 
 ## Where to start
 
-- [`counter/`](counter): one program, one view and the cheapest tests. Read it first.
+- [`counter/`](counter): one program and the cheapest tests. Read it first. Its run is drawn twice, by snabbdom and by
+  React, through `together`: a program with one renderer gives `run` that renderer alone, as
+  [`timer/`](timer) does.
 - [`pages/`](pages): a parent and its children, placed with optics, started from flags, and talking through events.
 - [`timer/`](timer): the application of the [tutorial](../site/tutorial/index.md), one module for each step.
 
@@ -14,14 +16,16 @@ shows, with a link to try it in the browser.
 ```
 counter/
 ├─ counter.ts        the program
-├─ view.ts           its view, drawn with snabbdom
+├─ view-snabbdom.ts  its view, drawn with snabbdom
+├─ view-react.tsx    the same view, drawn with React
 ├─ main.ts           starts it in the browser
 ├─ index.html        the page that runs it
 └─ counter.test.ts   its tests, with the testing tools of @fgaudo/effect-tea/testing
 ```
 
-A parent has a module for each child too (`pages/about.ts`, `pages/clock.ts`). `counter-react/` and `form-react/` hold
-only a view and a `main.ts`: they draw the programs of `counter/` and `form/` with React and snabbdom in the same run.
+A parent has a module for each child too (`pages/about.ts`, `pages/clock.ts`). Only `counter/` and `form/` have a view
+for each renderer, and their `main.ts` draws one run with both: the program and its tests do not change with the
+renderer. The other examples are drawn with snabbdom alone, by a `view.ts`.
 
 ## The bridges
 
@@ -37,7 +41,7 @@ The bridges are in [`bridges/`](bridges):
 
 The other files of `bridges/` serve this repository. `snabbdom.test.ts` and `react.test.ts` test each bridge in a DOM.
 `bridge.test_suite.ts` holds the tests that every bridge passes. `together.ts` draws one run with two renderers, for
-`counter-react` and `form-react`. Read them when you write a bridge of your own, with the guide's
+`counter` and `form`. Read them when you write a bridge of your own, with the guide's
 ["Writing a bridge"](../site/guide/writing-a-bridge.md). How the examples' tests use `messagesSentBy` is in its
 ["Testing"](../site/guide/testing.md).
 

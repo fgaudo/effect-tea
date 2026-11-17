@@ -10,12 +10,22 @@
     <header>
       <h1>Form</h1>
       <p>
-        A name saved to a slow storage. Type “error” to see a failure.
-        <a href="https://github.com/fgaudo/effect-tea/tree/main/examples/form"
+        A name saved to a slow storage. One run, drawn by snabbdom and by React
+        at once: what is typed or saved in either is drawn by both. Type
+        “error” to see a failure.
+        <a
+          href="https://github.com/fgaudo/effect-tea/tree/main/examples/form"
         >Source</a>
       </p>
     </header>
-    <div id="app"></div>
+    <section class="renderer">
+      <h2>snabbdom</h2>
+      <div id="snabbdom"></div>
+    </section>
+    <section class="renderer">
+      <h2>React</h2>
+      <div id="react"></div>
+    </section>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

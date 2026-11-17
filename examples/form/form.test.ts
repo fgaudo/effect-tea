@@ -8,7 +8,7 @@ import * as fc from 'fast-check'
 import { messagesSentBy } from '../bridges/snabbdom-testing.ts'
 import { Command, form, type Message, type Model, Save, type State, update } from './form.ts'
 import { Storage, StorageError } from './storage.ts'
-import { view } from './view.ts'
+import { view } from './view-snabbdom.ts'
 
 const empty = form.init.state
 

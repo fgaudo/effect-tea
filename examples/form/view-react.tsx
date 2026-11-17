@@ -1,9 +1,9 @@
 import { forwardTo } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
-import type { Message, Model } from '../form/form.ts'
+import type { Message, Model } from './form.ts'
 import { onClick, Shows, type View } from '../bridges/react.ts'
 
-// The view of `form/view.ts`, in React: the same model, the same messages.
+// The view of `form/view-snabbdom.ts`, in React: the same model, the same messages.
 export const view: View<Model, Message> = (model, dispatch) => {
   const { editor } = model
   return (

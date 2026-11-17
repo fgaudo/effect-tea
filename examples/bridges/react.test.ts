@@ -1,7 +1,7 @@
 // React's bridge in a DOM (happy-dom), with screen refreshes that happen only when a test paints: the tests every
 // bridge passes (`bridge.test_suite.ts`), drawn with React, and those of React alone: the run ends with its root and
 // with a component that throws, and the draft's input is settled in StrictMode too; one run drawn by React and by
-// snabbdom together, as `counter-react` and `form-react` draw theirs; then the premises of the bridge on React
+// snabbdom together, as `counter` and `form` draw theirs; then the premises of the bridge on React
 // (`docs/premises.md`).
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
@@ -39,10 +39,10 @@ import {
   type,
 } from './bridge.test_suite.ts'
 import { counter } from '../counter/counter.ts'
-import { view as snabbdomCounterView } from '../counter/view.ts'
+import { view as snabbdomCounterView } from '../counter/view-snabbdom.ts'
 import { form } from '../form/form.ts'
 import { Storage } from '../form/storage.ts'
-import { view as snabbdomFormView } from '../form/view.ts'
+import { view as snabbdomFormView } from '../form/view-snabbdom.ts'
 import type { View } from './react.ts'
 import { renderInto as renderWithSnabbdom } from './snabbdom.ts'
 import { together } from './together.ts'
@@ -51,8 +51,8 @@ import type { Message as VolumeMessage, Model as VolumeModel } from '../volume/v
 // React DOM reads the DOM when it is loaded, so the bridge, the views and React DOM are loaded once there is one:
 // what the shared tests are given reaches them when a test runs.
 let bridge: typeof import('./react.ts')
-let counterView: typeof import('../counter-react/view.tsx').view
-let formView: typeof import('../form-react/view.tsx').view
+let counterView: typeof import('../counter/view-react.tsx').view
+let formView: typeof import('../form/view-react.tsx').view
 let flushSync: typeof import('react-dom').flushSync
 let createRoot: typeof import('react-dom/client').createRoot
 
@@ -60,8 +60,8 @@ beforeAll(async () => {
   GlobalRegistrator.register()
   holdFrames()
   bridge = await import('./react.ts')
-  counterView = (await import('../counter-react/view.tsx')).view
-  formView = (await import('../form-react/view.tsx')).view
+  counterView = (await import('../counter/view-react.tsx')).view
+  formView = (await import('../form/view-react.tsx')).view
   flushSync = (await import('react-dom')).flushSync
   createRoot = (await import('react-dom/client')).createRoot
 })

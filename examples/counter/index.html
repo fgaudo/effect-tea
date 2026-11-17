@@ -11,13 +11,21 @@
       <h1>Counter</h1>
       <p>
         A counter that cannot go below zero: at zero, its model has no
-        decrement.
+        decrement. One run, drawn by snabbdom and by React at once: a click in
+        either is drawn by both.
         <a
           href="https://github.com/fgaudo/effect-tea/tree/main/examples/counter"
         >Source</a>
       </p>
     </header>
-    <div id="app"></div>
+    <section class="renderer">
+      <h2>snabbdom</h2>
+      <div id="snabbdom"></div>
+    </section>
+    <section class="renderer">
+      <h2>React</h2>
+      <div id="react"></div>
+    </section>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

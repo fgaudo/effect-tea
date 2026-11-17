@@ -27,8 +27,8 @@ import {
   stop,
   type,
 } from './bridge.test_suite.ts'
-import { view as counterView } from '../counter/view.ts'
-import { view as formView } from '../form/view.ts'
+import { view as counterView } from '../counter/view-snabbdom.ts'
+import { view as formView } from '../form/view-snabbdom.ts'
 import { onClick, renderInto, shows, type View } from './snabbdom.ts'
 import { Scanner, Server, ServerError, stocktake } from '../stocktake/stocktake.ts'
 import { view as stocktakeView } from '../stocktake/view.ts'

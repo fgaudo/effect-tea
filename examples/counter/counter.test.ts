@@ -6,7 +6,7 @@ import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
 import { messagesSentBy } from '../bridges/snabbdom-testing.ts'
 import { counter, type Message, type Model, update } from './counter.ts'
-import { view } from './view.ts'
+import { view } from './view-snabbdom.ts'
 
 // What the model holds: the messages of its controls, a case at a time, in the order the view draws them, for the
 // test of the view below.

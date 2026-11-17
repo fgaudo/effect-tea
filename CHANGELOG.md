@@ -141,7 +141,7 @@ version, and everything else, features included, the patch version.
   `View<Model, Message>` where it wrote `View<Model, Message, VNode>`.
 - "View", "Inputs the user types into", "Declaring children", "Model and view", "Splitting a program", "Guarantees"
   and "Testing" in the guide describe inputs, the condition they need of elements and renderers, and that a renderer
-  draws frames and nothing else; `examples/field.ts` is removed, and `form` and `form-react` declare one.
+  draws frames and nothing else; `examples/field.ts` is removed, and `form` declares one.
 - The examples' bridges keep the element of each input and settle it after each frame with `drawn` (`shows` with
   snabbdom, `Shows` with React), and have `onPress`; `volume` draws two sliders of its own, whose drags are
   subscriptions, for bounds that narrow.
@@ -206,7 +206,8 @@ version, and everything else, features included, the patch version.
 - "Installation" in the README states the oldest TypeScript supported, 5.9, as Effect 4's.
 - The README and the site link effect-tea-persistent, the same architecture for long-lived entities on a server.
 - "Running" in the guide, the examples and the tutorial start a program with `Effect.runFork`, an API that is stable.
-- The `counter-react` and `form-react` examples draw with React, through `examples/bridges/react.ts`, a bridge to copy.
+- The `counter` and `form` examples draw with React too, through `examples/bridges/react.ts`, a bridge to copy, with a
+  view for each renderer: `view-snabbdom.ts` and `view-react.tsx`.
 - "Model", "Guarantees" and "Testing" in the guide say that the model holds what `update` accepts, as a test reads it.
 - "Model" in the guide says that messages live in the model, and no longer offers a view that builds its own.
 - "View" and "Testing" in the guide ask no `messagesSentBy` of a bridge, and the examples' React bridge has none.
@@ -277,9 +278,9 @@ version, and everything else, features included, the patch version.
 - The guide's prose is reworded for readers who are not native English speakers, with the same promises: "Anatomy of a
   program", "Update", "Model", "Commands", "Subscriptions", "Rejections and defects", "Composition", "Inputs the user
   types into", "Structuring a program", "Running", "Guarantees", "Testing" and "Writing a bridge".
-- The `counter-react` and `form-react` examples draw their program in one run, with snabbdom and with React, one under
-  the other, so that what either sends is drawn by both: `examples/bridges/together.ts` gives the run's frames to both
-  renderers, with `Stream.broadcastN`.
+- The `counter` and `form` examples draw their program in one run, with snabbdom and with React, one under the other,
+  so that what either sends is drawn by both: `examples/bridges/together.ts` gives the run's frames to both renderers,
+  with `Stream.broadcastN`.
 
 ### Fixed
 
