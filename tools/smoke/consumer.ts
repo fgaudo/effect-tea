@@ -56,6 +56,7 @@ const counter: Program<{
 
 type Row = Readonly<{ id: number; counter: CounterState }>
 
+// `fulls` is a field of this state alone: `smoke.ts` counts it in the declarations, to see how often they spell it out.
 type State = Readonly<{ main: CounterState; rows: ReadonlyArray<Row>; fulls: number }>
 
 type ResetAll = Readonly<{ _tag: 'ResetAll' }>

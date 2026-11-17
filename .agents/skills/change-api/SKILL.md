@@ -110,6 +110,8 @@ project outside the repository, runs the README's quick start and
   code in `tools/smoke/consumer.ts` that uses it, and a `// @ts-expect-error` for what its types newly reject.
 - The consumer emits its declarations, as a package that publishes a program does, and exports what an application
   exports: programs, children, inputs, what `program` and `drawn` return, and every value of the package
-  (`{ ...Library }`). A form of export that a change makes newly possible is exported there too.
+  (`{ ...Library }`). A form of export that a change makes newly possible is exported there too. The smoke test counts
+  how often those declarations spell out the consumer's state, by a field of its own, and fails past a bound: a type
+  of the library that repeats a consumer's types inside its own multiplies it, wherever it is, and is given a name.
 - `--effect <version>` installs another Effect than the lockfile's, `--typescript 5.9,7.0` other
   TypeScripts, and `--keep` leaves the project in place to look into a failure.

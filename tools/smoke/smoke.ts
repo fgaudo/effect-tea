@@ -121,13 +121,19 @@ try {
         : ''
       const unnamed = ['ProgramMaker', 'DeclareChild', 'DeclareChildById', 'DeclareInput', 'MakeProgram']
         .filter((name) => !declared.includes(`${name}<`))
-      console.log(`typescript ${exact}, ${resolution}: ${exitCode === 0 && unnamed.length === 0 ? 'ok' : 'failed'}`)
+      // How often the consumer's state is spelled out, by a field of its own: about once for each export that holds
+      // it (15 today), and many times more when a type of the library repeats it inside each of its own (80 when
+      // `make` was spelled out).
+      const spelled = declared.match(/\bfulls\b/g)?.length ?? 0
+      const ok = exitCode === 0 && unnamed.length === 0 && spelled <= 30
+      console.log(`typescript ${exact}, ${resolution}: ${ok ? 'ok' : 'failed'}`)
       if (exitCode !== 0) {
         failed.push(`typescript ${exact}, ${resolution}`)
         console.log(stdout.toString())
-      } else if (unnamed.length > 0) {
+      } else if (!ok) {
         failed.push(`typescript ${exact}, ${resolution}`)
-        console.log(`consumer.d.ts spells out ${unnamed.join(', ')}`)
+        if (unnamed.length > 0) console.log(`consumer.d.ts spells out ${unnamed.join(', ')}`)
+        if (spelled > 30) console.log(`consumer.d.ts spells out the state ${spelled} times, more than 30`)
       }
     }
   }
