@@ -50,8 +50,8 @@ export type Origin =
  *
  * **`onApplied`**: hears every accepted message, for devtools or session recording. It hears where the message came
  * from (`origin`: a dispatch, a command, or a subscription with its key), the state before and after it, the `revision`
- * of the state after it, and the commands it decided. The first state is revision 0, and each new one the next. A
- * message whose `update` returns the very state it was given leaves the revision as it was.
+ * of the state after it, and the commands it decided. The first state is revision 0, and each new one the next. When
+ * `update` returns the very state it was given, the same object, the message leaves the revision as it was.
  */
 export type Applied<State, Message, Command> = Readonly<{
   /** The message. */
@@ -83,8 +83,8 @@ export type Applied<State, Message, Command> = Readonly<{
  * @remarks
  * From the guide, "Running", "`onIgnored`":
  *
- * **`onIgnored`**: hears every message `update` rejected, with where it came from and the state it did not apply in. It
- * only watches: the message stays ignored. Use it for devtools, or to count the taps that did nothing.
+ * **`onIgnored`**: hears every message that `update` rejected, with where it came from and the state it did not apply
+ * in. It only watches: the message stays ignored. Use it for devtools, or to count the taps that did nothing.
  */
 export type Ignored<State, Message> = Readonly<{
   /** The message. */
@@ -119,7 +119,8 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
    *
    * From the guide, "Running", "How messages and commands appear in the logs":
    *
-   * - One that is a string is its own tag, and appears whole. Data goes in a field of a tagged value.
+   * - A message or a command that is a string is its own tag, and appears whole. Data goes in a field of a tagged
+   *   value.
    * - A parent's wrapping is followed only to a tagged value. So the message of a child whose messages are strings
    *   appears by the child's name alone: `{ _tag: 'Counter', message: 'Increment' }` appears as `Counter`. A string in
    *   a field named `message` may be the program's own data.
@@ -138,7 +139,8 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
    *
    * From the guide, "Running", "How messages and commands appear in the logs":
    *
-   * - One that is a string is its own tag, and appears whole. Data goes in a field of a tagged value.
+   * - A message or a command that is a string is its own tag, and appears whole. Data goes in a field of a tagged
+   *   value.
    * - A parent's wrapping is followed only to a tagged value. So the message of a child whose messages are strings
    *   appears by the child's name alone: `{ _tag: 'Counter', message: 'Increment' }` appears as `Counter`. A string in
    *   a field named `message` may be the program's own data.
@@ -163,35 +165,38 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
    * **`onApplied`**: hears every accepted message, for devtools or session recording. It hears where the message came
    * from (`origin`: a dispatch, a command, or a subscription with its key), the state before and after it, the
    * `revision` of the state after it, and the commands it decided. The first state is revision 0, and each new one the
-   * next. A message whose `update` returns the very state it was given leaves the revision as it was.
+   * next. When `update` returns the very state it was given, the same object, the message leaves the revision as it
+   * was.
    *
    * From the guide, "Running", "The run waits for `onApplied` and `onIgnored`":
    *
    * **The run waits for `onApplied` and `onIgnored`.** It takes the next message only after them, so that they hear
-   * every message in order. It waits for `onApplied` before the message's frame and its commands too. So a slow one
-   * holds the whole program. A defect in one ends the run, as any other.
+   * every message in order. It waits for `onApplied` before the message's frame and its commands too. So a slow
+   * `onApplied` or `onIgnored` holds up the whole program. A defect in one of them ends the run, as any other defect
+   * does.
    *
    * From the guide, "Running", "Hand slow work off":
    *
    * **Hand slow work off.** An `onApplied` or an `onIgnored` with slow work to do, such as a devtools that sends each
-   * step away, hands it off. It offers what it hears to an unbounded queue, which takes it at once. A fiber of whoever
-   * runs the program takes it from there. Raced with the run, that fiber ends with it, and a defect in it ends the run.
-   * What is still in the queue when the run ends is not reported.
+   * step away, hands that work off. It offers what it hears to an unbounded queue, which takes it at once. A fiber of
+   * whoever runs the program takes it from the queue. Since that fiber is raced with the run, it ends with the run, and
+   * a defect in it ends the run. What is still in the queue when the run ends is not reported.
    *
    * From the guide, "Running", "What the run still does after a defect":
    *
    * - From the defect on, the run applies no message: it does not call `update`.
    * - A message it does not apply starts no command and no subscription, and `onApplied` does not hear it. So a session
-   *   recorded there ends with the step under way at the defect, at the latest.
-   * - That is a bound on what the run still does: at most the step under way. It is nothing `update` can count on. To
+   *   recorded with `onApplied` ends, at the latest, with the step that was under way at the defect.
+   * - That is a bound on what the run still does: at most the step under way. It is nothing `update` can count on. For
    *   `update`, a command that died is one that has not answered yet.
-   * - A message whose `update` the run called before goes on until the run stops applying messages. That may be before
-   *   its frame. It may still start its commands and the subscriptions of its new keys. And `onApplied` may have heard
-   *   a step whose frame is never drawn and whose commands never start.
-   * - What a command or a subscription does once started is the program's, until the run interrupts it.
-   * - So is what the renderer does. This holds in a run that died as it started too, as when a subscription of `init`
-   *   dies. A frame the renderer pulls meanwhile still makes its model, since `makeModel` is pure, and calling it
-   *   changes nothing of the program.
+   * -  A message for which the run called `update` before the defect goes on until the run stops applying messages.
+   *   That may be before its frame. It may still start its commands and the subscriptions of its new keys. And
+   *   `onApplied` may have heard a step whose frame is never drawn and whose commands never start.
+   * - Once a command or a subscription has started, what it does is the program's business, until the run interrupts
+   *   it.
+   * - So is what the renderer does. This also holds in a run that died as it started, for example when a subscription
+   *   of `init` dies. A frame that the renderer pulls meanwhile still makes its model, since `makeModel` is pure, and
+   *   calling it changes nothing in the program.
    */
   readonly onApplied?: (applied: Applied<State, Message, Command>) => Effect.Effect<void>
   /**
@@ -200,21 +205,22 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
    * @remarks
    * From the guide, "Running", "`onIgnored`":
    *
-   * **`onIgnored`**: hears every message `update` rejected, with where it came from and the state it did not apply in.
-   * It only watches: the message stays ignored. Use it for devtools, or to count the taps that did nothing.
+   * **`onIgnored`**: hears every message that `update` rejected, with where it came from and the state it did not apply
+   * in. It only watches: the message stays ignored. Use it for devtools, or to count the taps that did nothing.
    *
    * From the guide, "Running", "The run waits for `onApplied` and `onIgnored`":
    *
    * **The run waits for `onApplied` and `onIgnored`.** It takes the next message only after them, so that they hear
-   * every message in order. It waits for `onApplied` before the message's frame and its commands too. So a slow one
-   * holds the whole program. A defect in one ends the run, as any other.
+   * every message in order. It waits for `onApplied` before the message's frame and its commands too. So a slow
+   * `onApplied` or `onIgnored` holds up the whole program. A defect in one of them ends the run, as any other defect
+   * does.
    *
    * From the guide, "Running", "Hand slow work off":
    *
    * **Hand slow work off.** An `onApplied` or an `onIgnored` with slow work to do, such as a devtools that sends each
-   * step away, hands it off. It offers what it hears to an unbounded queue, which takes it at once. A fiber of whoever
-   * runs the program takes it from there. Raced with the run, that fiber ends with it, and a defect in it ends the run.
-   * What is still in the queue when the run ends is not reported.
+   * step away, hands that work off. It offers what it hears to an unbounded queue, which takes it at once. A fiber of
+   * whoever runs the program takes it from the queue. Since that fiber is raced with the run, it ends with the run, and
+   * a defect in it ends the run. What is still in the queue when the run ends is not reported.
    */
   readonly onIgnored?: (ignored: Ignored<State, Message>) => Effect.Effect<void>
 }

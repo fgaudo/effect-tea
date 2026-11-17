@@ -22,7 +22,7 @@ import * as Data from 'effect/Data'
  * - an option's name: in that option;
  * - `'log'`: in one of the run's own debug logs (a `Logger` that throws).
  *
- * What the program logs itself is in the place it logs from.
+ * When the program logs something itself, a defect there is in the place it logs from.
  */
 export type DefectSite =
   | 'init'
@@ -90,19 +90,20 @@ type Fields = Readonly<{
  * - an option's name: in that option;
  * - `'log'`: in one of the run's own debug logs (a `Logger` that throws).
  *
- * What the program logs itself is in the place it logs from.
+ * When the program logs something itself, a defect there is in the place it logs from.
  *
  * From the guide, "Running", "How messages and commands appear in the logs":
  *
- * - One that is a string is its own tag, and appears whole. Data goes in a field of a tagged value.
+ * - A message or a command that is a string is its own tag, and appears whole. Data goes in a field of a tagged value.
  * - A parent's wrapping is followed only to a tagged value. So the message of a child whose messages are strings
  *   appears by the child's name alone: `{ _tag: 'Counter', message: 'Increment' }` appears as `Counter`. A string in a
  *   field named `message` may be the program's own data.
  *
  * From the guide, "Running", "The run never recovers from a defect, and does not log it":
  *
- * **The run never recovers from a defect, and does not log it.** Reporting it, and what the user sees next, are the
- * app's, around the run. The screen keeps the last frame: show a crash screen, or run the program again.
+ * **The run never recovers from a defect, and does not log it.** Reporting the defect, and choosing what the user sees
+ * next, are the job of the app around the run. The screen keeps the last frame: show a crash screen, or run the program
+ * again.
  *
  * From the guide, "Running", "What leaves the device is chosen there":
  *
@@ -146,7 +147,7 @@ export class ProgramDefect extends Data.TaggedError('ProgramDefect')<Fields & Re
  *
  * From the guide, "Running", "How messages and commands appear in the logs":
  *
- * - One that is a string is its own tag, and appears whole. Data goes in a field of a tagged value.
+ * - A message or a command that is a string is its own tag, and appears whole. Data goes in a field of a tagged value.
  * - A parent's wrapping is followed only to a tagged value. So the message of a child whose messages are strings
  *   appears by the child's name alone: `{ _tag: 'Counter', message: 'Increment' }` appears as `Counter`. A string in a
  *   field named `message` may be the program's own data.
