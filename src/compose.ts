@@ -27,6 +27,7 @@ import {
   type MessageOf,
   type ModelOf,
   type ObjectState,
+  type ProgramShape,
   type Shape,
   startOf,
   type StateOf,
@@ -78,7 +79,7 @@ type PlacementById<ParentState, Id, ChildState> =
     set?: never
   }>
 
-/** A child alone in its parent's state, as `child` declares it, for `children` in `compose`. */
+/** A child alone in its parent's state, as `child` declares it, for `children` in `make`. */
 type Child<ParentState, P> = Readonly<{
   kind: 'one'
   program: P
@@ -87,7 +88,7 @@ type Child<ParentState, P> = Readonly<{
   subscribed?: (state: ParentState) => Opt.Option<StateOf<P>>
 }>
 
-/** Children told apart by an id (e.g. the rows of a list), as `childById` declares them, for `children` in `compose`. */
+/** Children told apart by an id (e.g. the rows of a list), as `childById` declares them, for `children` in `make`. */
 type ChildById<ParentState, Id, P> = Readonly<{
   kind: 'byId'
   program: P
@@ -117,14 +118,14 @@ const placedById = <S, Id, A>(
       set: (state, id, child) => place.at(id).replace(child, state),
     }
 
-/** An input alone in its program's state, as `input` declares it, for `inputs` in `compose`. */
+/** An input alone in its program's state, as `input` declares it, for `inputs` in `make`. */
 type Input<State, A> = Readonly<{
   kind: 'one'
   get: (state: State) => Opt.Option<A>
   set: (state: State, value: A) => State
 }>
 
-/** Inputs told apart by an id (e.g. one in each row), as `inputById` declares them, for `inputs` in `compose`. */
+/** Inputs told apart by an id (e.g. one in each row), as `inputById` declares them, for `inputs` in `make`. */
 type InputById<State, Id, A> = Readonly<{
   kind: 'byId'
   get: (state: State, id: Id) => Opt.Option<A>
@@ -371,18 +372,19 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> =
   & NoShared<C, I>
   & Readonly<{
     /**
-     * The parent's first state and commands, made with its children: a step, or, for a parent with flags, the
-     * function that makes one from them (`(children) => (flags) => …`).
+     * The first state and commands: a step, or, for a program with flags, the function that makes one from them. A
+     * parent makes it with its children (`(children) => …`, `(children) => (flags) => …`).
      *
      * A child that is there from the start is started with `children.<child>.init`, which holds its state and its
-     * commands. The parent's own flags are declared with its other types, in `composition`.
+     * commands. The program's own flags are declared with its other types, in `program`.
      *
      * @see The guide, "Composition", "How it starts".
      * @see The guide, "Composition", "The parent's own flags,".
      */
-    init: (
-      children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>,
-    ) => Init<State, OwnCommand | ChildCommands<C>, Flags>
+    init: [keyof C] extends [never] ? Init<State, OwnCommand, Flags>
+      : (
+        children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>,
+      ) => Init<State, OwnCommand | ChildCommands<C>, Flags>
     /** The children, by name: `{ Clock: child(…), Row: childById(…) }`. */
     children?: C
     /**
@@ -431,7 +433,7 @@ const modelsOf = (program: object) => {
 }
 
 // The own enumerable string keys of a record alone, in the order of `Object.keys`, as the spread and `Object.hasOwn`
-// of `compose` read them: `Record.map` and `Record.keys` do not say which keys they visit.
+// of `make` read them: `Record.map` and `Record.keys` do not say which keys they visit.
 const mapOwn = <A, B>(record: Readonly<Record<string, A>>, f: (value: A, name: string) => B): Record<string, B> =>
   Object.fromEntries(Object.entries(record).map(([name, value]) => [name, f(value, name)]))
 
@@ -455,7 +457,7 @@ type UntypedChild = Readonly<{
   subscribed?: (state: unknown) => Opt.Option<unknown> | Iterable<readonly [unknown, unknown]>
 }>
 
-const compose = <
+const make = <
   State,
   C extends Children<State>,
   I extends Inputs<State>,
@@ -655,7 +657,11 @@ const compose = <
     config as Readonly<{ runCommand?: (command: OwnCommand) => Execution<Own | ChildExternals<C>, unknown> }>
   ).runCommand
   const program = {
-    init: config.init(handles),
+    // Without children, `init` is the program's own, as `Program` writes it: a step is never a function, but a
+    // function of the flags and one of the children cannot be told apart, so the children declared decide.
+    init: names.length === 0
+      ? config.init as Init<State, Command, Flags>
+      : (config.init as (children: typeof handles) => Init<State, Command, Flags>)(handles),
     update,
     runCommand: (command: Command): Execution<Message, unknown> => {
       const place = placeOf(command)
@@ -673,7 +679,7 @@ const compose = <
         return Effect.map(run(childCommand), Opt.map(wrapMessage(place)))
       }
       // Unreachable through the types: `runCommand` is required whenever the parent has commands of its own.
-      if (ownRunCommand === undefined) throw new Error('compose: a command of its own, and no runCommand')
+      if (ownRunCommand === undefined) throw new Error('make: a command of its own, and no runCommand')
       return ownRunCommand(command as OwnCommand)
     },
     // A child's keys are under its name and id, so two children never clash: only an own key shaped like one
@@ -721,12 +727,22 @@ const compose = <
 }
 
 /**
- * What a composed program declares of itself, by name: its state, and its own commands, events, external messages
- * and flags.
+ * What a program declares of itself, by name, for `program`: its state, and its own commands, events, external
+ * messages and flags. Its model and its own messages may be named too. A type named is checked, and one not named is
+ * inferred.
+ *
+ * - Each is the program's own: what its children and its inputs bring is added to it.
+ * - The services are never named: they are inferred from `runCommand`, `subscriptions` and the children.
+ *
+ * @see The guide, "Composition", "Its own types, by name: `program<{ state: State }>()`".
  */
-export type CompositionTypes = Readonly<{
+export type DeclaredTypes = Readonly<{
   /** Its state, an object. */
   state: object
+  /** What its view draws. Inferred from `makeModel` when it is not named. */
+  model?: unknown
+  /** Its own messages, those its `update` takes. Inferred from `update` when they are not named. */
+  message?: unknown
   /** Its own commands, if it has any. */
   command?: unknown
   /** The events it raises, if it raises any. */
@@ -742,7 +758,7 @@ export type CompositionTypes = Readonly<{
  * declare and make it.
  *
  * Fixing the types first lets `get`, `set` and the rest be typed without annotations. It also says the program's own
- * commands, events, external messages and flags, which nothing given to `compose` reveals.
+ * commands, events, external messages and flags, which nothing given to `make` reveals.
  *
  * A child is any program. The library does the routing. A parent and its children talk only through events and
  * external messages. The parent's messages, commands and subscriptions are its own, plus each child's and each
@@ -757,13 +773,13 @@ export type CompositionTypes = Readonly<{
  * that is the key of a child's subscription is a defect, a `CompositionDefect`.
  *
  * @returns `child` and `childById`, which declare a child alone and children by id, `input` and `inputById`, which
- * declare an input alone and inputs by id, and `compose`, which makes the program.
+ * declare an input alone and inputs by id, and `make`, which makes the program.
  *
  * @example
  * ```ts
- * const { child, compose } = composition<{ state: State }>()
+ * const { child, make } = program<{ state: State }>()
  *
- * const app = compose({
+ * const app = make({
  *   init: (children) => ({ state: { clock: children.Clock.init.state }, commands: children.Clock.init.commands }),
  *   children: { Clock: child(clock, { at: Optic.id<State>().key('clock') }) },
  *   makeModel: (state, children) => ({ clock: children.Clock(state) }),
@@ -777,10 +793,12 @@ export type CompositionTypes = Readonly<{
  * @see The guide, "Composition", "What does not compile:".
  * @see The guide, "Composition", "What is a defect".
  */
-export const composition = <T extends CompositionTypes>() => {
+export const program = <T extends DeclaredTypes>() => {
   type State = Field<T, 'state'>
   type OwnCommand = Field<T, 'command'>
   type Event = Field<T, 'event'>
+  // A type `T` names is checked; one it does not name is inferred.
+  type Named<K extends 'model' | 'message', Inferred> = [Field<T, K>] extends [never] ? Inferred : Field<T, K>
   return {
     /**
      * Declares a child alone in its parent's state.
@@ -791,7 +809,7 @@ export const composition = <T extends CompositionTypes>() => {
      * @param program - The child.
      * @param place - Where it lives, and `subscribed`, a function of the parent's state that gives the child's state
      * where its subscriptions run, and `None` elsewhere.
-     * @returns The child, for `children` in `compose`.
+     * @returns The child, for `children` in `make`.
      *
      * @example
      * ```ts
@@ -825,7 +843,7 @@ export const composition = <T extends CompositionTypes>() => {
      * @param program - The program of each child.
      * @param place - Where the child at an id lives, and `subscribed`, a function of the parent's state that lists the
      * ids whose subscriptions run, each with its child's state.
-     * @returns The children, for `children` in `compose`.
+     * @returns The children, for `children` in `make`.
      *
      * @example
      * ```ts
@@ -857,7 +875,7 @@ export const composition = <T extends CompositionTypes>() => {
      *
      * @param place - Where it is: an optic into the program's state, `at`, or the two functions an optic is, `get` and
      * `set`.
-     * @returns The input, for `inputs` in `compose`.
+     * @returns The input, for `inputs` in `make`.
      *
      * @example
      * ```ts
@@ -875,7 +893,7 @@ export const composition = <T extends CompositionTypes>() => {
      *
      * @param place - Where the input at an id is: an optic that is a function of the id, `at`, or `get` and `set`,
      * which take the id.
-     * @returns The inputs, for `inputs` in `compose`.
+     * @returns The inputs, for `inputs` in `make`.
      *
      * @example
      * ```ts
@@ -906,8 +924,8 @@ export const composition = <T extends CompositionTypes>() => {
      *
      * @example
      * ```ts
-     * const form = compose({
-     *   init: () => ({ state: { name: '' } }),
+     * const form = make({
+     *   init: { state: { name: '' } },
      *   inputs: { Name: input({ at: Optic.id<State>().key('name') }) },
      *   makeModel: (state) => ({ name: state.name }),
      * })
@@ -915,7 +933,7 @@ export const composition = <T extends CompositionTypes>() => {
      *
      * @see The guide, "Composition", "Its own messages, commands and subscriptions,".
      */
-    compose: <
+    make: <
       Model,
       C extends Children<State> = None,
       I extends Inputs<State> = None,
@@ -927,11 +945,44 @@ export const composition = <T extends CompositionTypes>() => {
       // The children and the inputs are inferred from where they are declared alone: a command a step returns would
       // otherwise be read as a child's, where no child is declared.
       config:
-        & Config<State, NoInfer<C>, NoInfer<I>, Own, OwnCommand, Event, Model, Ran, Heard, K, Field<T, 'flags'>>
+        & Config<
+          State,
+          NoInfer<C>,
+          NoInfer<I>,
+          Named<'message', Own>,
+          OwnCommand,
+          Event,
+          Named<'model', Model>,
+          Ran,
+          Heard,
+          K,
+          Field<T, 'flags'>
+        >
         & Readonly<{ children?: C; inputs?: I }>,
-    ) =>
-      compose<State, C, I, Model, Own, OwnCommand, Event, Ran, Heard, K, Field<T, 'external'>, Field<T, 'flags'>>(
-        config,
-      ),
+    ): ProgramShape<{
+      state: State
+      model: Named<'model', Model>
+      message: Named<'message', Own> | ChildMessages<C> | InputMessages<I>
+      command: OwnCommand | ChildCommands<C>
+      commandServices: RanServices<Ran> | ChildCommandServices<C>
+      subscriptionServices: HeardServices<Heard> | ChildSubscriptionServices<C>
+      event: Event
+      external: Field<T, 'external'>
+      flags: Field<T, 'flags'>
+    }> =>
+      make<
+        State,
+        C,
+        I,
+        Named<'model', Model>,
+        Named<'message', Own>,
+        OwnCommand,
+        Event,
+        Ran,
+        Heard,
+        K,
+        Field<T, 'external'>,
+        Field<T, 'flags'>
+      >(config) as never,
   }
 }

@@ -8,7 +8,7 @@ import * as Channel from 'effect/Channel'
 import * as HashMap from 'effect/HashMap'
 import * as Num from 'effect/Number'
 import * as Opt from 'effect/Option'
-import { composition, reject, type MessageOf, type Program, type StateOf, subscriptionsOf } from '../../src/index.ts'
+import { program, reject, type MessageOf, type Program, type StateOf, subscriptionsOf } from '../../src/index.ts'
 
 type RowState = Readonly<{ seconds: number }>
 
@@ -25,9 +25,9 @@ const row: Program<{ state: RowState; model: number; message: RowMessage }> = {
 
 type State = Readonly<{ rows: ReadonlyArray<Readonly<{ id: number; row: RowState }>> }>
 
-const { compose, childById } = composition<{ state: State }>()
+const { make, childById } = program<{ state: State }>()
 
-const list = compose({
+const list = make({
   init: () => ({ state: { rows: [] } }),
   children: {
     Row: childById(row, {

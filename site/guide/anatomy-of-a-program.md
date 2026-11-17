@@ -11,7 +11,7 @@ state, and `makeModel` what the view draws. `runCommand` and `subscriptions` are
 listens to something. The view is not part of the program.
 
 They connect in a loop. Each message that `update` accepts makes the next state, and a message that it rejects leaves
-the state as it was. What the user types takes another path: the view writes it into an input declared in `compose`, and
+the state as it was. What the user types takes another path: the view writes it into an input declared in `make`, and
 the library stores it without calling `update` (see [inputs the user types into](./inputs-the-user-types-into.md)).
 
 ```mermaid

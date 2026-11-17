@@ -157,7 +157,7 @@ answer, and saying so in the proposal.
   `{ _tag, message: Written }` at any depth, so an own message of that shape, holding a `Written` as data, is refused
   too, though `update` takes it and its subscription may send it ("hear refuses, by its shape, an own message that
   holds a write as data, …", `rehearse.test.ts`, a known limit). The exact form was a trailing `Heard` parameter of
-  `Shape`, typing `subscriptions` (`Own | ChildHeard<C>` from `composition`, the `message` of a `Program<…>`), taken
+  `Shape`, typing `subscriptions` (`Own | ChildHeard<C>` from `program`, the `message` of a `Program<…>`), taken
   by `hear` and returned by `hearNext`. It would be invariant in `Rehearsal`, which takes and returns it, so a
   `Rehearsal<…>` annotated by hand, as tests write it, breaks unless the test names it, with a new `HeardOf`; a
   `Program<…>` annotation, which gives `message`, loses the rule again; and it serves one method of one tool. The
@@ -201,7 +201,7 @@ answer, and saying so in the proposal.
 - **Making `subscriptionsOf` internal**, as `write`, `isRejected` and `raise` were removed: it stays public. Reasoned,
   15 November 2026, with a second opinion (Opus 5.5), the owner deciding: it is `program.subscriptions ?? (() =>
   HashMap.empty())`, and its siblings `runCommandOf` and `startOf` are internal. It stays, since it is no name over a
-  literal: `subscriptions` is optional on every type a test holds (`Shape` in `program.ts`, which `compose` returns too,
+  literal: `subscriptions` is optional on every type a test holds (`Shape` in `program.ts`, which `make` returns too,
   though it always sets the piece), so that without it each test would write again what a missing piece means, which is
   the library's rule; nothing else tells a pure test what a program listens to in a state; and its fallback is one a
   test observes, where `runCommandOf`'s is never called and `startOf` decides only for generic code. The reason is in
@@ -278,7 +278,7 @@ answer, and saying so in the proposal.
   `worktree-agent-a04cfe354d300ce70`, never to be merged. The rule of a revision applied by whichever program steps to
   every input below it, through a channel from a child to its parent (`replacing`, with `all` in `each`, an input's
   place a lens, and a generation for what is left): they close the reset and the undo, but patch the split of
-  ownership rather than remove it, need a recipe for what they leave, and widen what a parent's `compose` does to a
+  ownership rather than remove it, need a recipe for what they leave, and widen what a parent's `make` does to a
   child's state. The owner judged the complexity of parents and children too much and asked for another way, which
   the ninth review gave. [`registers.md`](records/registers.md), "Whoever steps replaces what is below" and "The channel of a
   replacement, declared". *Reopen if* the plain input is dropped and an input must again keep a history between two
@@ -334,7 +334,7 @@ answer, and saying so in the proposal.
   typed as the parent's `Message`, and found the one check a function would add: a stray `id` on a child that is
   alone compiles when the literal is not fresh (a `const` assigned later, or the result of a `map`). Inferring the
   parent's `Message` from the parent program was found easy, so that was no reason against. The internal function
-  would share only the spread: `compose` and `dispatchTo` decide differently whether a child is by id, and it would
+  would share only the spread: `make` and `dispatchTo` decide differently whether a child is by id, and it would
   add an import between `compose.ts` and `dispatch.ts`, which have none. The owner decided against both.
   [`boundary.md`](records/boundary.md), "A question". Source: the session that removed it from `ROADMAP.md`, with a review by
   Fable 5.2. *Reopen if* a tool must lift a child's message without a type to lean on (as the third spike of
@@ -411,7 +411,7 @@ decided each, with a second opinion (Fable) on the last two.
   - a comment on a re-export, `export { run } from './run.ts'` or on its name, is ignored: the hover shows the
     declaration's;
   - a function declared again in the index, whose body calls the internal one, works for the hover and the site, but
-    writes each signature twice, some of the most delicate (`run`, `composition`, the dual `andThen` and `forEach`);
+    writes each signature twice, some of the most delicate (`run`, `program`, the dual `andThen` and `forEach`);
   - a type declared again as an alias loses its fields on the site, and its fields keep the internal comments; an
     interface that extends it keeps them too; a class cannot be declared again without losing `instanceof`;
   - `export * as`, an overload with the comment on its signature, and `{@inheritDoc}` separate nothing;

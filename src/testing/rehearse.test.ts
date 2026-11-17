@@ -14,7 +14,7 @@ import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import type * as Scope from 'effect/Scope'
 import { prioritizedSchedules, scheduled } from '../../test/scheduled.test_scheduler.ts'
-import { composition } from '../compose.ts'
+import { program } from '../compose.ts'
 import { ProgramDefect } from '../defect.ts'
 import type { Written } from '../input.ts'
 import type { MessageOf, Program } from '../program.ts'
@@ -65,7 +65,7 @@ describe('rehearse', () => {
 
   const announced: Array<string> = []
 
-  const program: Program<
+  const editor: Program<
     { state: Note; model: NoteModel; message: Edit; command: NoteCommand; commandServices: Storage; event: 'Stored' }
   > = {
     init: { state: { text: '', isSaving: false, saved: Opt.none(), pings: 0 } },
@@ -106,10 +106,10 @@ describe('rehearse', () => {
     return Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
   }
 
-  test('a command waits until the test runs it, while the program goes on', async () => {
+  test('a command waits until the test runs it, while the editor goes on', async () => {
     stored.length = 0
     const result = await Effect.runPromise(withStorage(rehearse(
-      program,
+      editor,
       Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.send(typing('milk'))
         yield* rehearsal.send(saving)
@@ -130,7 +130,7 @@ describe('rehearse', () => {
     })
   })
 
-  test('a program with flags starts from the flags the test gives it, or from the step of another init', async () => {
+  test('a editor with flags starts from the flags the test gives it, or from the step of another init', async () => {
     const seeded: Program<
       {
         state: Note
@@ -141,7 +141,7 @@ describe('rehearse', () => {
         event: 'Stored'
         flags: string
       }
-    > = { ...program, init: (text) => ({ state: { text, isSaving: false, saved: Opt.none(), pings: 0 } }) }
+    > = { ...editor, init: (text) => ({ state: { text, isSaving: false, saved: Opt.none(), pings: 0 } }) }
     const text = await Effect.runPromise(withStorage(rehearse(
       seeded,
       (rehearsal) => Effect.map(rehearsal.state, (note) => note.text),
@@ -149,7 +149,7 @@ describe('rehearse', () => {
     )))
     expect(text).toBe('eggs')
     const from = { state: { text: 'milk', isSaving: false, saved: Opt.none(), pings: 0 } }
-    // As the run starts elsewhere: a program whose init is that step, and which then has no flags.
+    // As the run starts elsewhere: a editor whose init is that step, and which then has no flags.
     const fromStep = await Effect.runPromise(withStorage(rehearse(
       { ...seeded, init: from },
       (rehearsal) => Effect.map(rehearsal.state, (note) => note.text),
@@ -175,7 +175,7 @@ describe('rehearse', () => {
       event: 'Stored'
     }
   > = {
-    ...program,
+    ...editor,
     subscriptions: (note) =>
       note.isSaving
         ? HashMap.empty()
@@ -218,7 +218,7 @@ describe('rehearse', () => {
     expect(kept).toEqual(['milk'])
   })
 
-  test('a program written as a plain object, without commands, needs no runCommand', async () => {
+  test('a editor written as a plain object, without commands, needs no runCommand', async () => {
     const plain = {
       init: { state: { count: 0 } },
       update: () => ({ count }: Readonly<{ count: number }>) => ({ state: { count: count + 1 } }),
@@ -231,9 +231,9 @@ describe('rehearse', () => {
     announced.length = 0
     const pending = await Effect.runPromise(withStorage(rehearse(
       {
-        ...program,
+        ...editor,
         init: {
-          state: { ...program.init.state, text: 'tea', isSaving: true },
+          state: { ...editor.init.state, text: 'tea', isSaving: true },
           commands: [{ _tag: 'Store', text: 'tea' }],
         },
       },
@@ -248,7 +248,7 @@ describe('rehearse', () => {
 
   test('a command\'s answer that no longer applies is ignored, and listed', async () => {
     const ignored = await Effect.runPromise(withStorage(rehearse(
-      { ...program, init: { state: program.init.state, commands: [{ _tag: 'Store', text: 'old' }] } },
+      { ...editor, init: { state: editor.init.state, commands: [{ _tag: 'Store', text: 'old' }] } },
       Effect.fnUntraced(function*(rehearsal) {
         // Answered while nothing is saving.
         yield* rehearsal.run(isStore)
@@ -260,7 +260,7 @@ describe('rehearse', () => {
 
   test('a subscription\'s message is heard while its key is in the state, and fails the test otherwise', async () => {
     const pings = await Effect.runPromise(withStorage(rehearse(
-      program,
+      editor,
       Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.hear('ping', { _tag: 'Pinged' })
         return (yield* rehearsal.state).pings
@@ -268,7 +268,7 @@ describe('rehearse', () => {
     )))
     expect(pings).toBe(1)
     const failure = await failureOf(rehearse(
-      program,
+      editor,
       Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.send(typing('milk'))
         yield* rehearsal.send(saving)
@@ -277,23 +277,23 @@ describe('rehearse', () => {
     ))
     expect(String(failure)).toContain('Nothing listens under ping in the current state')
     // Keys may hold any value a `HashMap` compares, JSON or not.
-    const unheard = await failureOf(rehearse(program, (rehearsal) => rehearsal.hear(['Row', 1n], { _tag: 'Pinged' })))
+    const unheard = await failureOf(rehearse(editor, (rehearsal) => rehearsal.hear(['Row', 1n], { _tag: 'Pinged' })))
     expect(String(unheard)).toContain('Nothing listens under ["Row","1n"] in the current state')
   })
 
-  test('hear takes what a subscription sends, and no write into an input, the program\'s, by id or not, or a child\'s', async () => {
+  test('hear takes what a subscription sends, and no write into an input, the editor\'s, by id or not, or a child\'s', async () => {
     type Field = Readonly<{ text: string; pings: number }>
-    const Field = composition<{ state: Field }>()
-    const field = Field.compose({
-      init: () => ({ state: { text: '', pings: 0 } }),
+    const Field = program<{ state: Field }>()
+    const field = Field.make({
+      init: { state: { text: '', pings: 0 } },
       inputs: { Text: Field.input({ at: Optic.id<Field>().key('text') }) },
       update: (_: 'Pinged') => (state) => ({ state: { ...state, pings: state.pings + 1 } }),
       subscriptions: () => HashMap.make(['ping', Channel.never]),
       makeModel: (state) => state,
     })
     type Form = Readonly<{ name: string; notes: Readonly<Record<string, string>>; field: Field; pings: number }>
-    const Form = composition<{ state: Form }>()
-    const form = Form.compose({
+    const Form = program<{ state: Form }>()
+    const form = Form.make({
       init: (children) => ({ state: { name: '', notes: {}, field: children.Field.init.state, pings: 0 } }),
       children: {
         Field: Form.child(field, { get: (state) => Opt.some(state.field), set: (state, f) => ({ ...state, field: f }) }),
@@ -317,9 +317,9 @@ describe('rehearse', () => {
     expect(state).toEqual({ name: '', notes: {}, field: { text: '', pings: 1 }, pings: 1 })
     const written = { _tag: 'Written', was: '', value: 'Ada' } as const
     const never = (rehearsal: Rehearsal<Form, Form, MessageOf<typeof form>>) => [
-      // @ts-expect-error: a write into the program's input.
+      // @ts-expect-error: a write into the editor's input.
       rehearsal.hear('ping', { _tag: 'Name', message: written }),
-      // @ts-expect-error: a write into the program's input by id.
+      // @ts-expect-error: a write into the editor's input by id.
       rehearsal.hear('ping', { _tag: 'Note', id: 'a', message: written }),
       // @ts-expect-error: a write into a child's input.
       rehearsal.hear(['Field', 'ping'], { _tag: 'Field', message: { _tag: 'Text', message: written } }),
@@ -341,8 +341,8 @@ describe('rehearse', () => {
 
   describe('hearNext', () => {
     // Pings once at once, and holds a resource while it listens.
-    const pinging = (log: Array<string>): typeof program => ({
-      ...program,
+    const pinging = (log: Array<string>): typeof editor => ({
+      ...editor,
       subscriptions: (note) =>
         note.isSaving ? HashMap.empty() : HashMap.make([
           'ping',
@@ -387,8 +387,8 @@ describe('rehearse', () => {
     })
 
     // Pings twice, writing down each ping as it makes it; the second waits for `gate`.
-    const twice = (log: Array<string>, gate: Effect.Effect<void>): typeof program => ({
-      ...program,
+    const twice = (log: Array<string>, gate: Effect.Effect<void>): typeof editor => ({
+      ...editor,
       subscriptions: () =>
         HashMap.make([
           'ping',
@@ -601,8 +601,8 @@ describe('rehearse', () => {
     })
 
     test('a subscription that ends before sending anything is heard by its last message', async () => {
-      const ending: typeof program = {
-        ...program,
+      const ending: typeof editor = {
+        ...editor,
         subscriptions: () => HashMap.make(['ping', Channel.end<Edit>({ _tag: 'Pinged' })]),
       }
       const message = await Effect.runPromise(withStorage(rehearse(ending, (rehearsal) => rehearsal.hearNext('ping'))))
@@ -657,7 +657,7 @@ describe('rehearse', () => {
 
     test('fails the test when nothing listens under the key', async () => {
       const failure = await failureOf(rehearse(
-        program,
+        editor,
         Effect.fnUntraced(function*(rehearsal) {
           yield* rehearsal.send(typing('milk'))
           yield* rehearsal.send(saving)
@@ -677,7 +677,7 @@ describe('rehearse', () => {
         }
       }
       const failure = await failureOf(rehearse(
-        { ...program, subscriptions: () => HashMap.make([new Key(), Channel.never]) },
+        { ...editor, subscriptions: () => HashMap.make([new Key(), Channel.never]) },
         (rehearsal) => rehearsal.hearNext(new Key()),
       ))
       expect(failure instanceof ProgramDefect && failure.where).toBe('subscriptions')
@@ -686,16 +686,16 @@ describe('rehearse', () => {
 
   describe('fails the test', () => {
     test('when the model does not show what the test sends', async () => {
-      expect(String(await failureOf(rehearse(program, (rehearsal) => rehearsal.send(saving)))))
+      expect(String(await failureOf(rehearse(editor, (rehearsal) => rehearsal.send(saving)))))
         .toContain('does not show')
     })
 
     test('when update rejects what the model of the same state shows: a control that does nothing', async () => {
-      expect(String(await failureOf(rehearse(program, (rehearsal) => rehearsal.send(typing('a\nb'))))))
+      expect(String(await failureOf(rehearse(editor, (rehearsal) => rehearsal.send(typing('a\nb'))))))
         .toContain('a control that does nothing')
       // A tap on an older frame is a message applied to a later state: `send` is not the way to test it.
       const failure = await failureOf(rehearse(
-        program,
+        editor,
         Effect.fnUntraced(function*(rehearsal) {
           yield* rehearsal.send(typing('milk'))
           const written = yield* rehearsal.model
@@ -707,13 +707,13 @@ describe('rehearse', () => {
     })
 
     test('when no pending command matches', async () => {
-      expect(String(await failureOf(rehearse(program, (rehearsal) => rehearsal.run(isStore)))))
+      expect(String(await failureOf(rehearse(editor, (rehearsal) => rehearsal.run(isStore)))))
         .toContain('No pending command matches (pending: none)')
     })
 
     test('when a command is still pending at the end, since its answer would still arrive', async () => {
       const failure = await failureOf(rehearse(
-        program,
+        editor,
         Effect.fnUntraced(function*(rehearsal) {
           yield* rehearsal.send(typing('milk'))
           yield* rehearsal.send(saving)
@@ -726,7 +726,7 @@ describe('rehearse', () => {
     test('when a run interrupted while its command runs leaves the command unanswered', async () => {
       const started = Deferred.makeUnsafe<void>()
       const failure = await failureOf(rehearse(
-        { ...program, runCommand: () => Effect.andThen(Deferred.succeed(started, undefined), Effect.never) },
+        { ...editor, runCommand: () => Effect.andThen(Deferred.succeed(started, undefined), Effect.never) },
         Effect.fnUntraced(function*(rehearsal) {
           yield* rehearsal.send(typing('milk'))
           yield* rehearsal.send(saving)
@@ -741,7 +741,7 @@ describe('rehearse', () => {
     test('when a command is still under way at the end, since its answer would still arrive', async () => {
       const started = Deferred.makeUnsafe<void>()
       const failure = await failureOf(rehearse(
-        { ...program, runCommand: () => Effect.andThen(Deferred.succeed(started, undefined), Effect.never) },
+        { ...editor, runCommand: () => Effect.andThen(Deferred.succeed(started, undefined), Effect.never) },
         Effect.fnUntraced(function*(rehearsal) {
           yield* rehearsal.send(typing('milk'))
           yield* rehearsal.send(saving)

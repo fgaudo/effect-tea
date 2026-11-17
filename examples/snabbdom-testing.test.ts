@@ -1,6 +1,6 @@
 // `messagesSentBy`, the snabbdom bridge's own way to find what a view sends, does what its comment says, without a DOM.
 import { describe, expect, test } from 'bun:test'
-import { composition, type Dispatch, forwardTo, type MessageOf, type ModelOf } from '@fgaudo/effect-tea'
+import { program, type Dispatch, forwardTo, type MessageOf, type ModelOf } from '@fgaudo/effect-tea'
 import * as Effect from 'effect/Effect'
 import * as Optic from 'effect/Optic'
 import { h, thunk } from 'snabbdom'
@@ -34,13 +34,13 @@ describe('messagesSentBy', () => {
 
   test('leaves out what is written into an input, which only an element on screen writes', () => {
     type Named = Readonly<{ name: string }>
-    const named = composition<{ state: Named }>()
-    const program = named.compose({
-      init: () => ({ state: { name: '' } }),
+    const named = program<{ state: Named }>()
+    const form = named.make({
+      init: { state: { name: '' } },
       inputs: { Name: named.input({ at: Optic.id<Named>().key('name') }) },
       makeModel: (state) => state.name,
     })
-    const nameView: View<ModelOf<typeof program>, MessageOf<typeof program>> = (model, dispatch) =>
+    const nameView: View<ModelOf<typeof form>, MessageOf<typeof form>> = (model, dispatch) =>
       h('main', [h('input', shows(model, forwardTo(dispatch, 'Name')))])
     expect(messagesSentBy(nameView, '')).toEqual([])
   })

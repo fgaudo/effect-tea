@@ -12,7 +12,7 @@
 // bridge that calls it, under that file's name.
 import { describe, expect, test } from 'bun:test'
 import {
-  composition,
+  program,
   type Dispatch,
   type Frame,
   type MessageOf,
@@ -157,10 +157,10 @@ type Own = 'SendClicked' | 'DiscardClicked'
 type Sent = Readonly<{ _tag: 'Sent'; text: string }>
 type Draft = Readonly<{ text: string }>
 type Desk = Readonly<{ draft: Draft; kept: Opt.Option<Draft>; sent: ReadonlyArray<string> }>
-const draftOf = composition<{ state: Draft; event: Sent }>()
+const draftOf = program<{ state: Draft; event: Sent }>()
 
-export const draft = draftOf.compose({
-  init: () => ({ state: { text: '' } }),
+export const draft = draftOf.make({
+  init: { state: { text: '' } },
   inputs: { Text: draftOf.input({ at: Optic.id<Draft>().key('text') }) },
   update: (message: Own) => (held) =>
     message === 'DiscardClicked'
@@ -171,9 +171,9 @@ export const draft = draftOf.compose({
   makeModel: (held) => held,
 })
 
-const deskOf = composition<{ state: Desk }>()
+const deskOf = program<{ state: Desk }>()
 
-export const desk = deskOf.compose({
+export const desk = deskOf.make({
   init: (children) => ({ state: { draft: children.Draft.init.state, kept: Opt.none(), sent: [] } }),
   children: { Draft: deskOf.child(draft, { at: Optic.id<Desk>().key('draft') }) },
   update: (message: 'Kept' | 'Undone') => (held) =>
@@ -192,10 +192,10 @@ export const desk = deskOf.compose({
 // A note the program clears on a message that no control drawn sends, as a source that exists whatever is drawn
 // would.
 type Note = Readonly<{ note: string }>
-const noteOf = composition<{ state: Note }>()
+const noteOf = program<{ state: Note }>()
 
-export const note = noteOf.compose({
-  init: () => ({ state: { note: '' } }),
+export const note = noteOf.make({
+  init: { state: { note: '' } },
   inputs: { Note: noteOf.input({ at: Optic.id<Note>().key('note') }) },
   update: (_: 'Cleared') => () => ({ state: { note: '' } }),
   makeModel: (state) => state.note,
@@ -204,10 +204,10 @@ export const note = noteOf.compose({
 // A note behind a lid, which starts open or closed: open, it is drawn by its input; closed, a plain field that is no
 // input of the program stands in the input's place, which a renderer may draw with the same element.
 type Lid = Readonly<{ note: string; lid: 'Opened' | 'Closed' }>
-const lidOf = composition<{ state: Lid; flags: Lid['lid'] }>()
+const lidOf = program<{ state: Lid; flags: Lid['lid'] }>()
 
-export const lid = lidOf.compose({
-  init: () => (lid) => ({ state: { note: 'draft', lid } }),
+export const lid = lidOf.make({
+  init: (lid) => ({ state: { note: 'draft', lid } }),
   inputs: { Note: lidOf.input({ at: Optic.id<Lid>().key('note') }) },
   update: (message: 'Opened' | 'Closed') => (held) => ({ state: { ...held, lid: message } }),
   makeModel: (held) =>

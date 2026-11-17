@@ -7,7 +7,7 @@
 // was disabled is still stored, so that the form never shows a text the state does not have. A failure gives the
 // form back, as it was, and says which name it could not save.
 import {
-  composition,
+  program,
   defect,
   type Execution,
   type MessageOf,
@@ -76,10 +76,10 @@ export type Editor = Data.TaggedEnum<{
 
 export const Editor = Data.taggedEnum<Editor>()
 
-const { compose, input } = composition<{ state: State; command: Command }>()
+const { make, input } = program<{ state: State; command: Command }>()
 
-export const form = compose({
-  init: () => ({ state: { name: '', save: Save.Idle(), saved: [] } }),
+export const form = make({
+  init: { state: { name: '', save: Save.Idle(), saved: [] } },
   inputs: { Name: input({ at: Optic.id<State>().key('name') }) },
   update: (message: Own) => (state) => {
     switch (message._tag) {

@@ -31,7 +31,7 @@ In general, a view writes over the value its model holds, through the input's di
 ## Rules
 
 - **What the user gives an input is no message of the program.** No `update` of the program sees it.
-- **The program declares where it goes**: `inputs: { Name: input({ at }) }` in `compose`, where `at` is an optic to a
+- **The program declares where it goes**: `inputs: { Name: input({ at }) }` in `make`, where `at` is an optic to a
   plain value of its state, or `get` and `set` in its place (see
   [declaring children](./composition.md#declaring-children)). An optic that may focus nothing, as one composed with
   `Optic.some()`, declares an input that is not always there.

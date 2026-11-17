@@ -1,6 +1,6 @@
 // The application the tutorial's fourth step ends with: the list of the third step, each timer now a named one. Only
 // the child changed: adding one and removing one are the list's own messages, as before.
-import { composition, type MessageOf, type ModelOf, reject } from '@fgaudo/effect-tea'
+import { program, type MessageOf, type ModelOf, reject } from '@fgaudo/effect-tea'
 import * as Arr from 'effect/Array'
 import * as Opt from 'effect/Option'
 import * as Named from './named.ts'
@@ -14,9 +14,9 @@ type AddClicked = Readonly<{ _tag: 'AddClicked' }>
 
 type RemoveClicked = Readonly<{ _tag: 'RemoveClicked'; id: number }>
 
-const { compose, childById } = composition<{ state: State }>()
+const { make, childById } = program<{ state: State }>()
 
-export const namedTimers = compose({
+export const namedTimers = make({
   init: (children) => {
     const first = children.Timer.init(1)
     return { state: { nextId: 2, entries: [{ id: 1, timer: first.state }] }, commands: first.commands }

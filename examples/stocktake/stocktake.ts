@@ -1,7 +1,7 @@
 // The stock-take of one aisle, as one program: the items are loaded from the server, a scanner feed adds to the item
 // it scans, and the counts are submitted once every item holds a whole number. The count of each item is an input by
 // id: what is typed is stored by the library, and no `update` sees it. An item is no child: the sheet reads its count.
-import { composition, defect, type MessageOf, type ModelOf, reject } from '@fgaudo/effect-tea'
+import { program, defect, type MessageOf, type ModelOf, reject } from '@fgaudo/effect-tea'
 import * as Arr from 'effect/Array'
 import * as Channel from 'effect/Channel'
 import * as Context from 'effect/Context'
@@ -162,10 +162,10 @@ const withText = (sheet: Sheet, id: string, text: (was: string) => string): Shee
   lines: Arr.map(sheet.lines, (line) => line.id === id ? { ...line, text: text(line.text) } : line),
 })
 
-const { compose, inputById } = composition<{ state: State; command: Command; flags: Flags }>()
+const { make, inputById } = program<{ state: State; command: Command; flags: Flags }>()
 
-export const stocktake = compose({
-  init: () => ({ aisle }) => ({ state: { aisle, load: Load.Loading() }, commands: [Command.Load({ aisle })] }),
+export const stocktake = make({
+  init: ({ aisle }) => ({ state: { aisle, load: Load.Loading() }, commands: [Command.Load({ aisle })] }),
   inputs: {
     // Only the count of an open sheet is a place to write into: a write over a locked one finds no place, and is
     // rejected.

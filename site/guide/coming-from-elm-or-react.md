@@ -24,7 +24,7 @@ The loop is the one you know. Most names carry over, and one does not: Elm's `Mo
 | `subscriptions : Model -> Sub Msg`                     | `subscriptions(state)` returns them by key: a new key starts one, a missing key stops it                    | [subscriptions](./subscriptions.md)                           |
 | `view : Model -> Html Msg`                             | Two steps: `makeModel(state)` makes a model that holds the messages, and a view draws it with your renderer | [model](./model.md), [view](./view.md)                        |
 | `init : flags -> ( Model, Cmd Msg )`                   | `init`: a step, or a function of the flags                                                                  | [anatomy of a program](./anatomy-of-a-program.md)             |
-| `Html.map`, `Cmd.map` and `Sub.map`, by hand           | `composition`: a parent says where each child lives, and the library routes                                 | [composition](./composition.md)                               |
+| `Html.map`, `Cmd.map` and `Sub.map`, by hand           | `program`: a parent says where each child lives, and the library routes                                     | [composition](./composition.md)                               |
 | A child's `update` that returns a value for its parent | An event the child raises, which the parent handles in `onEvent`                                            | [composition](./composition.md#events-and-external-messages)  |
 | `onInput`, a message for each key                      | An input: the view writes over a value of the state, and no `update` of the program's sees it               | [inputs the user types into](./inputs-the-user-types-into.md) |
 

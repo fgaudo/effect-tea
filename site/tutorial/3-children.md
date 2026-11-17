@@ -27,7 +27,7 @@ old timer could reach the new one (see [children by id](../guide/composition.md#
 A parent does not route messages by hand. It declares its children, and the library does the routing (see
 [composition](../guide/composition.md)).
 
-`composition<{ state }>()` gives the functions to declare them with. `childById` declares children by id, and asks
+`program<{ state }>()` gives the functions to declare them with. `childById` declares children by id, and asks
 three things:
 
 - where each one lives in the parent's state: `get` and `set`, by id;

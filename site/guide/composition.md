@@ -6,7 +6,7 @@ title: Composition
 
 ## In short
 
-A child is any program. A parent declares its children, and its inputs, with `composition`, and says where each child
+A child is any program. A parent declares its children, and its inputs, with `program`, and says where each child
 lives in its state. The library does the routing. A parent and its children talk only through events and external
 messages.
 
@@ -16,11 +16,11 @@ An app of two pages, a clock and an about page, adapted from
 [`pages`](../../examples/pages/app.ts):
 
 ```ts
-const { child, compose } = composition<{ state: State }>()
+const { child, make } = program<{ state: State }>()
 
 const state = Optic.id<State>()
 
-export const app = compose({
+export const app = make({
   init: (children) => ({
     state: { clock: children.Clock.init.state, maybeAbout: Opt.none() },
     commands: children.Clock.init.commands,
@@ -67,7 +67,8 @@ For each child, and for itself, a parent declares:
 - **When its subscriptions run: `subscribed`.** By default, they run whenever the child is there.
 - **How it starts.** A parent's `init` is a function of `children`, so that a child that is there from the start is
   started like any other. `children.Clock.init` holds the child's state and its commands, lifted. Reading
-  `Clock.clock.init.state` instead would leave its commands behind.
+  `Clock.clock.init.state` instead would leave its commands behind. A program without children has no `children` to
+  start: its `init` is its first step, `init: { state }`.
 - **A child with `flags`** is started from them: `children.About.init({ openedAt })`, and `init(id, flags)` for
   children by id.
 - **What the parent draws: `makeModel`**, from its state and its children's models.
@@ -75,19 +76,23 @@ For each child, and for itself, a parent declares:
   `update` takes `children` too. It may reject its own messages, as any `update` does. Its commands need the services
   that its `runCommand` and its children's commands need. Its subscriptions need the services that its own
   `subscriptions` and its children's need. Nothing names them.
-- **Its own types, by name: `composition<{ state: State }>()`.** Besides `state`, they name the parent's own commands
+- **Its own types, by name: `program<{ state: State }>()`.** Besides `state`, they name the parent's own commands
   (`command`), the events it raises (`event`), and which of its messages a parent of its own may send it (`external`),
-  if it has any. Nothing given to `compose` reveals them: a type that it does not name is a type that it does not have,
-  and a parent that raises an event it did not name does not compile.
+  if it has any. Nothing given to `make` reveals them: a type that it does not name is a type that it does not have,
+  and a parent that raises an event it did not name does not compile. Its model (`model`) and its own messages
+  (`message`) may be named too: a type named is checked, and one not named is inferred, from `makeModel` and from
+  `update`. Each type names what is the program's own, and what its children and its inputs bring is added to it. The
+  services are never named: they are inferred.
 - **The parent's own flags,** if it has any, are declared with its other types:
-  `composition<{ state: State; flags: Flags }>()`. Its `init` then returns the function that starts it:
-  `init: (children) => (flags) => ({ state, commands })`.
+  `program<{ state: State; flags: Flags }>()`. Its `init` then returns the function that starts it:
+  `init: (children) => (flags) => ({ state, commands })`, and `init: (flags) => ({ state, commands })` without
+  children.
 - **Its inputs,** if it has any: `inputs: { Name: input({ at }) }`, where `at` is an optic to a value of its own state
   (see [inputs the user types into](./inputs-the-user-types-into.md)), and `inputById` for inputs by id (see
   [inputs by id](#inputs-by-id)). An input is placed in the same ways as a child: with `at`, or with `get` and `set`.
   An input by id is placed in the same ways, as functions of the id. An input is not a child: its value is part of the
   parent's own state, and the parent's `update` and `makeModel` read it like the rest of the state. A program with
-  inputs and no children is made with `composition` too, and leaves `children` out.
+  inputs and no children is made with `program` too, and leaves `children` out.
 
 ### What the library derives from it
 

@@ -20,7 +20,7 @@ export {
   subscriptionsOf,
   type SubscriptionServicesOf,
 } from './program.ts'
-export { composition } from './compose.ts'
+export { program } from './compose.ts'
 
 // What `update` returns.
 export {
@@ -33,7 +33,7 @@ export {
   type Update,
 } from './update.ts'
 
-// What the outside writes into a program's state: an input, declared in `composition`, and the rule a bridge calls
+// What the outside writes into a program's state: an input, declared in `program`, and the rule a bridge calls
 // for the element that shows one.
 export { drawn, edited, type Shown, type Written } from './input.ts'
 

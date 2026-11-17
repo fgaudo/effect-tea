@@ -62,7 +62,7 @@ and [`tsconfig.json`](../../../examples/tsconfig.json).
 - **The view** follows the guide, and is drawn with snabbdom: React is for `counter-react` and
   `form-react` alone, so that the examples share one bridge. snabbdom's props module never removes a prop, so a
   view sets a prop such as `disabled` in every case of an element (`counter/view.ts`). An input is declared in
-  `compose`, as the guide's "Inputs the user types into" says: the view draws it from the value its model holds,
+  `make`, as the guide's "Inputs the user types into" says: the view draws it from the value its model holds,
   with `shows`, over a native text `<input>`, through `forwardTo`, and gives it no key: the bridge keeps the element.
   What the bridges do not support (the guide's "Writing a bridge": a form's reset, a shadow tree, a value the element
   changes by itself, and in React a component with state or effects, Suspense, `memo`, a portal) is used by no example. A

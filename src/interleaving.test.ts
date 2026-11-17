@@ -16,7 +16,7 @@ import * as Stream from 'effect/Stream'
 import type * as Tracer from 'effect/Tracer'
 import fc from 'fast-check'
 import { idle, prioritizedSchedules, unpreempted } from '../test/scheduled.test_scheduler.ts'
-import { composition } from './compose.ts'
+import { program } from './compose.ts'
 import { type DefectSite, ProgramDefect } from './defect.ts'
 import { type Dispatch, forwardTo } from './dispatch.ts'
 import type { Applied, Ignored } from './engine.ts'
@@ -412,8 +412,8 @@ const makeList = (fates: Fates, events: Array<Event>) => {
         Effect.onInterrupt(() => Effect.sync(() => events.push({ _tag: 'SearchStopped', text }))),
       ),
     )
-  const List = composition<{ state: ListState }>()
-  return List.compose({
+  const List = program<{ state: ListState }>()
+  return List.make({
     init: () => ({ state: { rows: [], born: 0, note: '' } }),
     children: {
       Rows: List.childById(row, {

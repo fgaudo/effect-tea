@@ -1,11 +1,11 @@
 // A consumer of the packed package, run with Node and typechecked by `smoke.ts` under several TypeScript versions
-// and module resolutions. It instantiates the types of `composition` (a child, children by id, events and external
+// and module resolutions. It instantiates the types of `program` (a child, children by id, events and external
 // messages, an input, and the rule a bridge calls for the element that shows one) and checks that what they reject
 // does not compile.
 import {
   andThen,
   type CommandServicesOf,
-  composition,
+  program,
   drawn,
   edited,
   type MessageOf,
@@ -58,7 +58,7 @@ type State = Readonly<{ main: CounterState; rows: ReadonlyArray<Row>; fulls: num
 
 type ResetAll = Readonly<{ _tag: 'ResetAll' }>
 
-const { child, compose, childById, input } = composition<{ state: State }>()
+const { child, make, childById, input } = program<{ state: State }>()
 
 const children = {
   Main: child(counter, {
@@ -75,7 +75,7 @@ const children = {
   }),
 }
 
-const app = compose({
+const app = make({
   init: (children) => ({
     state: { main: children.Main.init.state, rows: [{ id: 1, counter: children.Row.init(1).state }], fulls: 0 },
   }),
@@ -97,13 +97,13 @@ type Message = MessageOf<typeof app>
 
 // `onEvent` is required exactly when a child has events.
 // @ts-expect-error
-compose({
+make({
   init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
   children,
   makeModel: () => null,
 })
 
-compose({
+make({
   init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
   children,
   onEvent: { Main: () => (state) => ({ state }), Row: () => (state) => ({ state }) },
@@ -114,9 +114,9 @@ compose({
 })
 
 // So does a command's answer.
-const loading = composition<{ state: State; command: 'Load' }>()
+const loading = program<{ state: State; command: 'Load' }>()
 
-loading.compose({
+loading.make({
   init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
   children: { Main: loading.child(counter, { at: Optic.id<State>().key('main') }) },
   onEvent: { Main: () => (state) => ({ state }) },
@@ -126,7 +126,7 @@ loading.compose({
   makeModel: () => null,
 })
 
-loading.compose({
+loading.make({
   init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
   children: { Main: loading.child(counter, { at: Optic.id<State>().key('main') }) },
   onEvent: { Main: () => (state) => ({ state }) },
@@ -140,8 +140,8 @@ class Server extends Context.Service<Server, { readonly load: Effect.Effect<void
 class Backup extends Context.Service<Backup, { readonly load: Effect.Effect<void> }>()('Backup') {}
 class Feed extends Context.Service<Feed, { readonly resets: Stream.Stream<ResetAll> }>()('Feed') {}
 
-const served = loading.compose({
-  init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
+const served = loading.make({
+  init: { state: { main: { count: 0 }, rows: [], fulls: 0 } },
   update: (_: ResetAll) => (state: State) => ({ state, commands: ['Load' as const] }),
   runCommand: () =>
     Math.random() < 0.5
@@ -173,7 +173,7 @@ export const simulated: Effect.Effect<unknown, never, Server | Backup> = simulat
 
 // An own message that takes a child's name does not compile.
 // @ts-expect-error
-compose({
+make({
   init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
   children,
   update: (_: Readonly<{ _tag: 'Main' }>) => (state) => ({ state }),
@@ -183,7 +183,7 @@ compose({
 
 // Nor does an input that takes a child's name.
 // @ts-expect-error
-compose({
+make({
   init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
   children,
   inputs: { Main: input({ at: Optic.id<State>().key('fulls') }) },
@@ -209,10 +209,10 @@ child(
 // An input and no children: the title is the program's own state, which the outside writes over.
 type Draft = Readonly<{ title: string }>
 
-const drafting = composition<{ state: Draft; command: 'Load' }>()
+const drafting = program<{ state: Draft; command: 'Load' }>()
 
-const draft = drafting.compose({
-  init: () => ({ state: { title: '' } }),
+const draft = drafting.make({
+  init: { state: { title: '' } },
   inputs: { Title: drafting.input({ at: Optic.id<Draft>().key('title') }) },
   update: (_: 'Cleared') => (state: Draft) => ({
     state: { title: '' },
@@ -231,16 +231,16 @@ const wrong: MessageOf<typeof draft> = { _tag: 'Title', message: { _tag: 'Writte
 const byHand: Shown<string> = { value: '' }
 
 // @ts-expect-error
-drafting.compose({
-  init: () => ({ state: { title: '' } }),
+drafting.make({
+  init: { state: { title: '' } },
   inputs: { Title: drafting.input({ at: Optic.id<Draft>().key('title') }) },
   update: (_: Readonly<{ _tag: 'Title' }>) => (state: Draft) => ({ state }),
   runCommand: () => Effect.succeedNone,
   makeModel: () => null,
 })
 
-drafting.compose({
-  init: () => ({ state: { title: '' } }),
+drafting.make({
+  init: { state: { title: '' } },
   inputs: { Title: drafting.input({ at: Optic.id<Draft>().key('title') }) },
   update: (_: 'Cleared') => (state: Draft) => ({ state, commands: ['Load' as const] }),
   // @ts-expect-error
@@ -254,10 +254,10 @@ type Sheet = Readonly<{
   rows: ReadonlyArray<Readonly<{ id: number; note: string }>>
 }>
 
-const sheets = composition<{ state: Sheet }>()
+const sheets = program<{ state: Sheet }>()
 
-const sheet = sheets.compose({
-  init: () => ({ state: { counts: { a: '' }, rows: [{ id: 1, note: '' }] } }),
+const sheet = sheets.make({
+  init: { state: { counts: { a: '' }, rows: [{ id: 1, note: '' }] } },
   inputs: {
     Count: sheets.inputById({ at: (id: string) => Optic.id<Sheet>().key('counts').at(id) }),
     Note: sheets.inputById({

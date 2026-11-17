@@ -15,7 +15,7 @@ import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import * as Stream from 'effect/Stream'
 import {
-  composition,
+  program,
   drawn,
   edited,
   reject,
@@ -93,25 +93,25 @@ const cases: ReadonlyArray<Case> = [
 
 type State = Readonly<{ v: unknown }>
 
-const inputOf = composition<{ state: State }>()
+const inputOf = program<{ state: State }>()
 
 const inputProgram = (start: unknown) =>
-  inputOf.compose({
-    init: () => ({ state: { v: start } }),
+  inputOf.make({
+    init: { state: { v: start } },
     inputs: { V: inputOf.input({ at: Optic.id<State>().key('v') }) },
     makeModel: (state) => state.v,
   })
 
 type Rows = Readonly<{ rows: ReadonlyArray<Readonly<{ id: number; row: State }>> }>
 
-const rowsOf = composition<{ state: Rows }>()
+const rowsOf = program<{ state: Rows }>()
 
 const rowAt = (state: Rows, id: number): Opt.Option<State> =>
   Opt.map(Arr.findFirst(state.rows, (entry) => entry.id === id), (entry) => entry.row)
 
 // The child, among `rows`, by id: found and replaced by a walk of the array, as the list of `subscriptions.ts`.
 const inputRows = (child: ReturnType<typeof inputProgram>) =>
-  rowsOf.compose({
+  rowsOf.make({
     init: () => ({ state: { rows: Arr.makeBy(rows, (id) => ({ id, row: child.init.state })) } }),
     children: {
       Row: rowsOf.childById(child, {

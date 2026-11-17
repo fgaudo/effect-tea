@@ -26,7 +26,7 @@ The name is a plain string of the state:
 
 ## Declaring it
 
-A program with inputs is made with `composition`, as a parent is. Here it declares the timer as a child at `timer`,
+A program with inputs is made with `program`, as a parent is. Here it declares the timer as a child at `timer`,
 and the input `Name` at `name`, both with an optic into its state:
 
 {@includeCode ../../examples/timer/named.ts#compose}

@@ -10,7 +10,7 @@ version, and everything else, features included, the patch version.
 - `forEach(step, items, (item) => (state) => step)`, the `andThen` of many: one step per item, in order.
 - `andThen` and `forEach` are dual: `andThen(next)` and `forEach(items, next)` take the step last, for a `pipe`.
 - A `CompositionDefect` says in `on`, by its tags, which external message or event broke the parent's rule.
-- Inputs: `inputs: { Name: input({ at }) }` in `compose`, at a plain value of the state, which the view writes over
+- Inputs: `inputs: { Name: input({ at }) }` in `make`, at a plain value of the state, which the view writes over
   with `{ _tag: 'Written', was, value }`; the library stores a write while the place holds `was`, by `Equal`, and
   rejects it otherwise. An input takes the places a child takes, `at` or `get` and `set`.
 - Inputs by id: `inputs: { Count: inputById({ at: (id) => at }) }`, or `get` and `set` that take the id, as
@@ -20,7 +20,11 @@ version, and everything else, features included, the patch version.
 - `edited` and `drawn`, over an opaque `Shown`: the rule a bridge calls for the element of an input, on an edit and
   after each frame, so that the element is never replaced and never takes back what the user typed since; each gives
   the bridge its write, `edited` the message to send and `drawn` whether the element takes the frame's value.
-- `children` in `compose` is optional, for a program with inputs and no children.
+- `program<{ state; model; message }>()` may name the program's model and its own messages, beside its other types: a
+  type named is checked, and one not named is inferred from `makeModel` and `update`, as before. The guide says so in
+  "Composition" ("Declaring children").
+- `children` in `make` is optional, for a program with inputs and no children. Its `init` is then a `Program`'s:
+  its first step, or the function of its flags, since it has no `children` to start.
 - The guide has a page "Writing a bridge", which shows how to write a bridge for any renderer, from the examples'
   bridge to snabbdom: its frames, its handlers and its text input, with `edited` and `drawn`, and the two places that
   are the renderer's own.
@@ -96,10 +100,12 @@ version, and everything else, features included, the patch version.
   NameChanged({ name })`, becomes an input, `inputs: { Name: input({ at }) }`, and the view writes over its value,
   `{ _tag: 'Written', was: model.name, value: text }` through `forwardTo(dispatch, 'Name')`, where it called
   `model.changeName(text)`.
-- **Breaking**: `parent` is renamed `composition`, since a program with inputs and no children is made with it too.
-  Upgrade: `parent<{ state: State }>()` becomes `composition<{ state: State }>()`, and its import likewise.
+- **Breaking**: `parent` is renamed `program`, and its `compose` is renamed `make`, since a program without children
+  is made with them too. Upgrade: `const { child, compose } = parent<{ state: State }>()` becomes
+  `const { child, make } = program<{ state: State }>()`, `compose({ … })` becomes `make({ … })`, and the import
+  likewise.
 - **Breaking**: `each` is renamed `childById`, beside `inputById`, as the guide already says "children by id".
-  Upgrade: `each(program, place)` becomes `childById(program, place)`, taken from `composition` as `each` was from
+  Upgrade: `each(program, place)` becomes `childById(program, place)`, taken from `program` as `each` was from
   `parent`.
 - **Breaking**: `dispatchTo` is renamed `forwardTo`, which reads as what the call does: it forwards to the dispatch
   it is given. Upgrade: `dispatchTo(dispatch, 'Clock')` becomes `forwardTo(dispatch, 'Clock')`, and its import
@@ -224,7 +230,7 @@ version, and everything else, features included, the patch version.
 - **Breaking**: `rehearse`'s `hear` takes no write into an input, the program's or a child's, which only a view sends.
   Upgrade: a test that heard `{ _tag: 'Name', message: { _tag: 'Written', … } }` sends it with `send`, from the model
   that shows the input.
-- **Breaking**: a program names the services of its commands and those of its subscriptions apart, and `composition`
+- **Breaking**: a program names the services of its commands and those of its subscriptions apart, and `program`
   keeps them apart. So `simulate` asks only for those of the commands, and `rehearse` for those of what the test runs:
   `run` and `runAll` for the commands', `hearNext` for the subscriptions'. `CommandServicesOf` and
   `SubscriptionServicesOf` read them, and `ServicesOf` is gone.
@@ -253,7 +259,7 @@ version, and everything else, features included, the patch version.
   each example drawn with snabbdom, not `list` alone, compares what its view sends (`messagesSentBy`) with what its
   reader returns, whose order is now the view's. "Testing" in the guide, the tutorial's "Testing" and the
   `add-example` skill say so.
-- The guide's "Composition" ("Declaring children") names the types `composition` takes beside `state` and `flags`;
+- The guide's "Composition" ("Declaring children") names the types `program` takes beside `state` and `flags`;
   its "Testing" says what `simulate` and `hearNext` succeed with ("`simulate`", "How a subscription is heard"), and
   how a program run under its renderer in a DOM is tested ("The view").
 - The guide's "Composition" says that `subscribed` is required for children by id ("Children by id"); "Inputs the
@@ -270,7 +276,7 @@ version, and everything else, features included, the patch version.
   theirs, compiles without an annotation. The guide's "Composition" says so ("Declaring children").
 - An input that takes a child's name no longer compiles: it replaced the child, whose messages were then rejected.
 - A program whose `external` messages are not among its `message`s no longer compiles, as a `Program<…>` or as a
-  child of a `composition`: its parent's message reached an `update` that does not take it, as a `TypeError`.
+  child that `program` declares: its parent's message reached an `update` that does not take it, as a `TypeError`.
 - A child whose `flags`, events or commands are of type `unknown`, or whose `init` is a function written without
   `Program<…>`, is typed as having them: its handle takes flags, `onEvent` is required, and so is `runCommand`, where
   the types read them as absent and the run met them. `FlagsOf`, `EventOf` and `CommandOf` read them as `unknown`.

@@ -135,22 +135,6 @@ export type CommandServicesOf<P> = P extends {
 } ? Known<R> : never;
 
 // @public
-export const composition: <T extends CompositionTypes>() => {
-    child: <P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalAmong<MessageOf<P>, ExternalOf<P>>, place: Placement<Field<T, "state">, StateOf<P>> & Readonly<{
-        subscribed?: (state: Field<T, "state">) => Opt.Option<StateOf<P>>;
-    }> & ObjectState<StateOf<P>>) => Child<Field<T, "state">, P>;
-    childById: <Id, P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalAmong<MessageOf<P>, ExternalOf<P>>, place: PlacementById<Field<T, "state">, Id, StateOf<P>> & Readonly<{
-        subscribed: (state: Field<T, "state">) => Iterable<readonly [Id, StateOf<P>]>;
-    }> & ObjectState<StateOf<P>>) => ChildById<Field<T, "state">, Id, P>;
-    input: <A>(place: Placement<Field<T, "state">, A>) => Input<Field<T, "state">, A>;
-    inputById: <Id, A>(place: PlacementById<Field<T, "state">, Id, A>) => InputById<Field<T, "state">, Id, A>;
-    compose: <Model, C extends Children<Field<T, "state">> = None, I extends Inputs<Field<T, "state">> = None, Own = never, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, "state">, NoInfer<C>, NoInfer<I>, Own, Field<T, "command">, Field<T, "event">, Model, Ran, Heard, K, Field<T, 'flags'>> & Readonly<{
-        children?: C;
-        inputs?: I;
-    }>) => Shape<Field<T, "state">, Model, Own | ChildMessages<C> | InputMessages<I>, ChildCommands<C> | Field<T, "command">, ChildCommandServices<C> | RanServices<Ran>, ChildSubscriptionServices<C> | HeardServices<Heard>, Field<T, "event">, Field<T, "external">, Field<T, "flags">>;
-};
-
-// @public
 export class CompositionDefect extends CompositionDefect_base<Readonly<{
     message: string;
     child: string;
@@ -164,23 +148,25 @@ const CompositionDefect_base: new <A extends Record<string, any> = {}>(args: Voi
     readonly _tag: "CompositionDefect";
 } & Readonly<A>;
 
-// @public
-type CompositionTypes = Readonly<{
-    state: object;
-    command?: unknown;
-    event?: unknown;
-    external?: unknown;
-    flags?: unknown;
-}>;
-
 // @public (undocumented)
 type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own | ChildExternals<C>, Ran> & NoClash<Own, OwnCommand, C> & NoClash<Own, OwnCommand, I> & NoShared<C, I> & Readonly<{
-    init: (children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>) => Init<State, OwnCommand | ChildCommands<C>, Flags>;
+    init: [keyof C] extends [never] ? Init<State, OwnCommand, Flags> : (children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>) => Init<State, OwnCommand | ChildCommands<C>, Flags>;
     children?: C;
     inputs?: I;
     update?: (message: Own, children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>) => (state: State) => Transition<State, OwnCommand | ChildCommands<C>, Event>;
     subscriptions?: (state: State) => Heard & HashMap.HashMap<K, Subscription<Own, any>>;
     makeModel: (state: State, children: Models<State, C>) => Model;
+}>;
+
+// @public
+type DeclaredTypes = Readonly<{
+    state: object;
+    model?: unknown;
+    message?: unknown;
+    command?: unknown;
+    event?: unknown;
+    external?: unknown;
+    flags?: unknown;
 }>;
 
 // @public
@@ -456,7 +442,33 @@ type PlacementById<ParentState, Id, ChildState> = Readonly<{
 }>;
 
 // @public
-export type Program<T extends ProgramTypes> = Shape<Field<T, 'state'>, Field<T, 'model'>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'commandServices'>, Field<T, 'subscriptionServices'>, Field<T, 'event'>, Field<T, 'external'>, Field<T, 'flags'>> & ExternalAmong<Field<T, 'message'>, Field<T, 'external'>>;
+export type Program<T extends ProgramTypes> = ProgramShape<T> & ExternalAmong<Field<T, 'message'>, Field<T, 'external'>>;
+
+// @public
+export const program: <T extends DeclaredTypes>() => {
+    child: <P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalAmong<MessageOf<P>, ExternalOf<P>>, place: Placement<Field<T, "state">, StateOf<P>> & Readonly<{
+        subscribed?: (state: Field<T, "state">) => Opt.Option<StateOf<P>>;
+    }> & ObjectState<StateOf<P>>) => Child<Field<T, "state">, P>;
+    childById: <Id, P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalAmong<MessageOf<P>, ExternalOf<P>>, place: PlacementById<Field<T, "state">, Id, StateOf<P>> & Readonly<{
+        subscribed: (state: Field<T, "state">) => Iterable<readonly [Id, StateOf<P>]>;
+    }> & ObjectState<StateOf<P>>) => ChildById<Field<T, "state">, Id, P>;
+    input: <A>(place: Placement<Field<T, "state">, A>) => Input<Field<T, "state">, A>;
+    inputById: <Id, A>(place: PlacementById<Field<T, "state">, Id, A>) => InputById<Field<T, "state">, Id, A>;
+    make: <Model, C extends Children<Field<T, "state">> = None, I extends Inputs<Field<T, "state">> = None, Own = never, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, "state">, NoInfer<C>, NoInfer<I>, [Field<T, "message">] extends [never] ? Own : Field<T, "message">, Field<T, "command">, Field<T, "event">, [Field<T, "model">] extends [never] ? Model : Field<T, "model">, Ran, Heard, K, Field<T, 'flags'>> & Readonly<{
+        children?: C;
+        inputs?: I;
+    }>) => ProgramShape<{
+        state: Field<T, "state">;
+        model: [Field<T, "model">] extends [never] ? Model : Field<T, "model">;
+        message: ([Field<T, "message">] extends [never] ? Own : Field<T, "message">) | ChildMessages<C> | InputMessages<I>;
+        command: Field<T, "command"> | ChildCommands<C>;
+        commandServices: RanServices<Ran> | ChildCommandServices<C>;
+        subscriptionServices: HeardServices<Heard> | ChildSubscriptionServices<C>;
+        event: Field<T, "event">;
+        external: Field<T, 'external'>;
+        flags: Field<T, 'flags'>;
+    }>;
+};
 
 // @public
 export class ProgramDefect extends ProgramDefect_base<Fields & Readonly<{
@@ -474,6 +486,9 @@ const ProgramDefect_base: new <A extends Record<string, any> = {}>(args: VoidIfE
 type ProgramOf<C> = C extends {
     readonly program: infer P;
 } ? P : never;
+
+// @public
+type ProgramShape<T extends ProgramTypes> = Shape<Field<T, 'state'>, Field<T, 'model'>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'commandServices'>, Field<T, 'subscriptionServices'>, Field<T, 'event'>, Field<T, 'external'>, Field<T, 'flags'>>;
 
 // @public
 type ProgramTypes = Readonly<{

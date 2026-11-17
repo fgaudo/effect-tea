@@ -69,7 +69,7 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  *
  * `init` is where it starts, `update` how each message changes the state, and `makeModel` what the view draws.
  * `runCommand` is how its commands happen, when it has some, and `subscriptions` what it listens to, when it listens.
- * A program of children or inputs is made with `composition`.
+ * A program of children or inputs is made with `program`.
  *
  * - The view is not part of it: `run` gives the renderer frames, `{ model, dispatch, seen }`.
  * - Its state is an object, and its `external` messages are among its `message`s. Otherwise it does not compile.
@@ -93,19 +93,20 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * @see The guide, "Anatomy of a program", "A test makes a model as `run` does".
  * @see The guide, "Guarantees", "`update`, `makeModel` and `subscriptions` are pure, and states are never mutated".
  */
-export type Program<T extends ProgramTypes> =
-  & Shape<
-    Field<T, 'state'>,
-    Field<T, 'model'>,
-    Field<T, 'message'>,
-    Field<T, 'command'>,
-    Field<T, 'commandServices'>,
-    Field<T, 'subscriptionServices'>,
-    Field<T, 'event'>,
-    Field<T, 'external'>,
-    Field<T, 'flags'>
-  >
-  & ExternalAmong<Field<T, 'message'>, Field<T, 'external'>>
+export type Program<T extends ProgramTypes> = ProgramShape<T> & ExternalAmong<Field<T, 'message'>, Field<T, 'external'>>
+
+/** The pieces of a program of the types `T` names, without the check of its external messages. */
+export type ProgramShape<T extends ProgramTypes> = Shape<
+  Field<T, 'state'>,
+  Field<T, 'model'>,
+  Field<T, 'message'>,
+  Field<T, 'command'>,
+  Field<T, 'commandServices'>,
+  Field<T, 'subscriptionServices'>,
+  Field<T, 'event'>,
+  Field<T, 'external'>,
+  Field<T, 'flags'>
+>
 
 /**
  * A program's external messages are among its messages: one that is not would reach an `update` that does not take

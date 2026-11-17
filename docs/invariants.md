@@ -78,7 +78,7 @@ testing tools.
 - **Every program keeps its state in an object**, replaced and never mutated, so that any program can be a child: a
   parent keeps a child's model and its lifted subscriptions by its state object (below), and a number or a string
   has no identity to keep them by. It binds whoever writes a program, and the types are what enforce it
-  (`ObjectState` in `program.ts`, checked by `Program`, `composition`, `child`, `childById`, `run` and the testing
+  (`ObjectState` in `program.ts`, checked by `Program`, `program`, `child`, `childById`, `run` and the testing
   tools). A primitive state gets past them only by a cast, or from a caller without TypeScript: a program run alone
   never needs its state to be an object, and is not checked, while a child's is checked where a parent reads it for a
   model or for its lifted subscriptions (`objectAt` in `compose.ts`), and is a `CompositionDefect` that names the

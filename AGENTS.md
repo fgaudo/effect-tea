@@ -49,7 +49,7 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   (`Subscription` is a `Channel`, `Execution` an `Effect`): it is built and transformed with Effect's own
   combinators, and the library defines no function over it. One of the library's own has a shape the library
   defines and documents, public where it is meant to be written by hand (an `update` writes a `Step`,
-  `{ state, commands?, events? }`, as data) and hidden where it is not (a program `composition` makes); the
+  `{ state, commands?, events? }`, as data) and hidden where it is not (a program that `program` makes); the
   library gives the functions over it (`andThen` and `forEach` over `Step`). An alias with a few helpers over it
   has the costs of both and keeps neither promise: users still write the representation everywhere else, so it
   cannot change. A type moves to the library's side only when the library must do with it what Effect alone
@@ -57,7 +57,7 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   `forwardTo` does for a dispatch), or enforce at construction what the type cannot. A subscription is already
   inspected by its key: that is why `Subscription` stays Effect's.
 - **A function earns its place by doing what Effect alone cannot**, or by being the one place where a rule of
-  the library is applied (`reject`, `composition`). A name over a composition of Effect's combinators is not one,
+  the library is applied (`reject`, `program`). A name over a composition of Effect's combinators is not one,
   however often the composition recurs in an application: `attempt`, `silent` and `Subscription.every` were
   removed by this rule. Nor is a name over a literal of a shape the library documents, or over an operator: `write`,
   `isRejected` and `raise` went by it too. A type that already imposes a rule (`Execution` cannot fail, a
@@ -144,7 +144,7 @@ this summary says less. What every change keeps, an example's and a document's t
 ## Code
 
 - One module per concept: `update.ts`, `command.ts`, `subscription.ts`, `dispatch.ts` (views and their
-  dispatch), `program.ts` (the program and its types), `compose.ts` (`composition`), `input.ts` (an input, and the
+  dispatch), `program.ts` (the program and its types), `compose.ts` (`program`), `input.ts` (an input, and the
   rule a bridge calls for the element that shows one), `log.ts`, `defect.ts`; `core.ts` is what the run and the
   testing tools share as pure functions of data, and `shell.ts` what they share that has effects
   (`docs/records/shared-core.md`); `engine.ts` is the runtime only (with `RunOptions`), and `run.ts` connects it to a
@@ -154,7 +154,7 @@ this summary says less. What every change keeps, an example's and a document's t
 - A piece of a program that may be missing (`runCommand` without commands, `subscriptions`) is read through
   `runCommandOf` and `subscriptionsOf`, never directly: the engine always gets the complete set. Likewise
   `init`, a step or a function of the flags, is read through `startOf`: a step is never a function, so `typeof`
-  tells them apart, and so does `compose` for a child's handle. Of the three, `subscriptionsOf` alone is public: that
+  tells them apart, and so does `make` for a child's handle. Of the three, `subscriptionsOf` alone is public: that
   a missing `subscriptions` means listening to nothing is a rule of the library which a test of a program observes,
   on a type where the piece is optional, and that function is the one place it is applied. The other two decide
   nothing such a test can see.
