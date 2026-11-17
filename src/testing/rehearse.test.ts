@@ -258,7 +258,7 @@ describe('rehearse', () => {
     ))
     expect(state).toEqual({ name: '', notes: {}, field: { text: '', pings: 1 }, pings: 1 })
     const written = { _tag: 'Written', was: '', value: 'Ada' } as const
-    const never = (rehearsal: Rehearsal<Form, Form, MessageOf<typeof form>, never>) => [
+    const never = (rehearsal: Rehearsal<Form, Form, MessageOf<typeof form>>) => [
       // @ts-expect-error: a write into the program's input.
       rehearsal.hear('ping', { _tag: 'Name', message: written }),
       // @ts-expect-error: a write into the program's input by id.
@@ -275,7 +275,7 @@ describe('rehearse', () => {
     type Audit = Readonly<{ writes: ReadonlyArray<Written<string>> }>
     type Recorded = Readonly<{ _tag: 'Recorded'; message: Written<string> }>
     const written: Written<string> = { _tag: 'Written', was: '', value: 'Ada' }
-    const refused = (rehearsal: Rehearsal<Audit, Audit, Recorded, never>) =>
+    const refused = (rehearsal: Rehearsal<Audit, Audit, Recorded>) =>
       // @ts-expect-error: an own message of the shape of a write into an input.
       rehearsal.hear('audit', { _tag: 'Recorded', message: written })
     expect(refused).toBeDefined()
@@ -1804,7 +1804,7 @@ describe('rehearse, as the scenario ends while its loop waits for a release', ()
 
   // A `runAll` with nothing pending is interrupted once the rehearsal has ended, and does nothing before: the fiber
   // asks until it is.
-  const untilEnded = (rehearsal: Rehearsal<Listening, Listening, Message, never, never, never>) =>
+  const untilEnded = (rehearsal: Rehearsal<Listening, Listening, Message>) =>
     Effect.exit(rehearsal.runAll).pipe(
       Effect.tap(() => Effect.yieldNow),
       Effect.repeat({ until: Exit.isFailure }),

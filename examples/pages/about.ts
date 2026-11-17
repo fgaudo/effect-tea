@@ -28,7 +28,7 @@ export type Event = Readonly<{ _tag: 'LeaveRequested' }>
 
 const sayings = ['Make it work, make it right, make it fast.', 'Simple is better than complex.'] as const
 
-const pickSaying: Execution<Message, never> = Effect.map(
+const pickSaying: Execution<Message> = Effect.map(
   Random.choice(sayings),
   (saying) => Opt.some(Message.SayingPicked({ saying })),
 )

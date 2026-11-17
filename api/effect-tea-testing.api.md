@@ -12,7 +12,7 @@ import * as Opt from 'effect/Option';
 import * as Scope from 'effect/Scope';
 
 // @public
-type Applied<State, Message, Command> = Readonly<{
+type Applied<State, Message, Command = never> = Readonly<{
     message: Message;
     origin: Origin;
     before: State;
@@ -57,7 +57,7 @@ export type Driver<Model, Message> = Readonly<{
 }>;
 
 // @public
-type Execution<Message, R> = Effect.Effect<Opt.Option<Message>, never, R>;
+type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, never, R>;
 
 // @public (undocumented)
 const ExternalTypeId: unique symbol;
@@ -122,7 +122,7 @@ type Origin = Readonly<{
 }>;
 
 // @public
-export type Rehearsal<State, Model, Message, Command, Event = never, R = never> = Readonly<{
+export type Rehearsal<State, Model, Message, Command = never, Event = never, R = never> = Readonly<{
     state: Effect.Effect<State>;
     model: Effect.Effect<Model>;
     send: (select: (model: Model) => Opt.Option<Message>) => Effect.Effect<void>;
@@ -147,7 +147,7 @@ const reject: unique symbol;
 type Rejected = typeof reject;
 
 // @public
-type RunCommand<Command, Message, R> = (command: Command) => Execution<Message, R>;
+type RunCommand<Command, Message, R = never> = (command: Command) => Execution<Message, R>;
 
 // @public
 interface RunOptions<Message, State = unknown, Command = unknown> {
@@ -184,7 +184,7 @@ export const simulate: <State, Message, Command, Event, R = never>(program: Read
 }>, never, Exclude<R, Scope.Scope>>;
 
 // @public
-export type Simulation<State, Message, Command, Event> = Readonly<{
+export type Simulation<State, Message, Command = never, Event = never> = Readonly<{
     state: State;
     messages: ReadonlyArray<Message>;
     commands: ReadonlyArray<Command>;
@@ -200,10 +200,10 @@ type Step<State, Command = never, Event = never> = Readonly<{
 }>;
 
 // @public
-type Subscription<Message, R> = Channel.Channel<Message, never, Message, unknown, unknown, unknown, R>;
+type Subscription<Message, R = never> = Channel.Channel<Message, never, Message, unknown, unknown, unknown, R>;
 
 // @public
-type Subscriptions<State, Message, R, K = unknown> = (state: State) => HashMap.HashMap<K, Subscription<Message, R>>;
+type Subscriptions<State, Message, R = never, K = unknown> = (state: State) => HashMap.HashMap<K, Subscription<Message, R>>;
 
 // @public
 type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected;

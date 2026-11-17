@@ -5,7 +5,7 @@ import type * as HashMap from 'effect/HashMap'
  * Listens to the world while its key is among a program's subscriptions: an Effect `Channel` of messages.
  *
  * It takes no input and cannot fail. Its end value is a message, or `never` for one that never ends. `R` is the
- * services it needs.
+ * services it needs: one that needs none leaves `R` as `never`.
  *
  * - It never ends in silence: either it never ends, or it ends with one last message, its end value.
  * - It starts when a new state brings its key, and it is interrupted when a new state takes its key away.
@@ -14,8 +14,8 @@ import type * as HashMap from 'effect/HashMap'
  *
  * @example
  * ```ts
- * // `Ticked` once a second, forever. It needs no services, so `R` is `never`.
- * const ticks: Subscription<Message, never> = Channel.forever(
+ * // `Ticked` once a second, forever, with no services.
+ * const ticks: Subscription<Message> = Channel.forever(
  *   Channel.fromEffectDrain(Effect.sleep('1 second')).pipe(
  *     Channel.concatWith(() => Channel.succeed(Message.Ticked())),
  *   ),
@@ -26,7 +26,7 @@ import type * as HashMap from 'effect/HashMap'
  * @see The guide, "Subscriptions", "An ended subscription is not restarted".
  * @see The guide, "Guarantees", "Subscriptions follow their keys".
  */
-export type Subscription<Message, R> = Channel.Channel<Message, never, Message, unknown, unknown, unknown, R>
+export type Subscription<Message, R = never> = Channel.Channel<Message, never, Message, unknown, unknown, unknown, R>
 
 /**
  * What a program listens to in a state, by key.
@@ -36,13 +36,13 @@ export type Subscription<Message, R> = Channel.Channel<Message, never, Message, 
  *
  * @example
  * ```ts
- * const subscriptions: Subscriptions<State, Message, never, string> = (state) =>
+ * const subscriptions: Subscriptions<State, Message> = (state) =>
  *   state.phase._tag === 'Running' ? HashMap.make(['ticks', ticks]) : HashMap.empty()
  * ```
  *
  * @see The guide, "Subscriptions", "Keys are compared by value, after every change of state:".
  * @see The guide, "Guarantees", "Subscriptions follow their keys".
  */
-export type Subscriptions<State, Message, R, K = unknown> = (
+export type Subscriptions<State, Message, R = never, K = unknown> = (
   state: State,
 ) => HashMap.HashMap<K, Subscription<Message, R>>

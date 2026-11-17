@@ -15,12 +15,14 @@ import { unexpectedRejection } from './unexpected.ts'
 /**
  * What a simulation ends with.
  *
+ * A program without commands leaves `Command` as `never`, and one without events leaves `Event` as `never`.
+ *
  * @example
  * ```ts
  * const { state, commands, ignored } = yield* simulate(form)(typedAndSaved, form.init)
  * ```
  */
-export type Simulation<State, Message, Command, Event> = Readonly<{
+export type Simulation<State, Message, Command = never, Event = never> = Readonly<{
   /** The last state. */
   state: State
   /** Every message `update` accepted, the test's and the commands' answers, in order. */

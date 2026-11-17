@@ -25,6 +25,8 @@ import * as Loop from './loop.ts'
  *
  * Nothing reaches `update` by itself: each message comes through one of these calls.
  *
+ * A program without commands, events or services leaves `Command`, `Event` or `R` as `never`.
+ *
  * - A call that fails the test fails the fiber that made it. Join a call forked from the scenario, or its failure is
  *   lost.
  * - A fiber detached from the scenario (`Effect.forkDetach`) is beyond the rehearsal's reach.
@@ -41,7 +43,7 @@ import * as Loop from './loop.ts'
  * @see The guide, "Testing", "Fibers the test forks or detaches".
  * @see The guide, "Testing", "After a defect of the program".
  */
-export type Rehearsal<State, Model, Message, Command, Event = never, R = never> = Readonly<{
+export type Rehearsal<State, Model, Message, Command = never, Event = never, R = never> = Readonly<{
   /** The current state. */
   state: Effect.Effect<State>
   /** The model of the current state. */

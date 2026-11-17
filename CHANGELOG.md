@@ -32,6 +32,10 @@ version, and everything else, features included, the patch version.
   its rows while an operation runs ("Inputs by id"), and how a child waits for its parent ("Events and external
   messages"). "Subscriptions" shows a subscription that ends with a message of its own ("Precisely"), and "Testing"
   how `hearNext` hears one under a `TestClock` ("How a subscription is heard"), as the doc comment of `hearNext` does.
+- What a type does not need defaults to `never`, as in `Step` and in Effect's own types: `R` in `Execution`,
+  `RunCommand`, `Subscription` and `Subscriptions`, `Command` in `Applied`, `Simulation` and `Rehearsal`, and `Event`
+  in `Simulation`. So `Subscription<Message>` is a subscription that needs no services, and `Rehearsal<State, Model,
+  Message>` the rehearsal of a program without commands.
 
 ### Changed
 

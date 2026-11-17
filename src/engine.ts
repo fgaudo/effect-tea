@@ -36,6 +36,8 @@ export type Origin =
 /**
  * A message that `update` accepted, as `onApplied` hears it.
  *
+ * A program without commands leaves `Command` as `never`.
+ *
  * The first state is revision 0, and each new one the next. When `update` returns the same object it was given, the
  * revision stays as it was.
  *
@@ -50,7 +52,7 @@ export type Origin =
  *
  * @see The guide, "Running", "`onApplied`".
  */
-export type Applied<State, Message, Command> = Readonly<{
+export type Applied<State, Message, Command = never> = Readonly<{
   /** The message. */
   message: Message
   /** Where it came from. */

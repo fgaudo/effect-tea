@@ -86,7 +86,7 @@ export const update: Update<State, Message, Command> = (message) => (state) => {
 // #endregion update
 
 // #region subscriptions
-const ticks: Subscription<Message, never> = Channel.forever(
+const ticks: Subscription<Message> = Channel.forever(
   Channel.fromEffectDrain(Effect.sleep('1 second')).pipe(
     Channel.concatWith(() => Channel.succeed(Message.Ticked())),
   ),

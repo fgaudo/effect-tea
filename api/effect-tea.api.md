@@ -28,7 +28,7 @@ type AnyProgram = Readonly<{
 }>;
 
 // @public
-export type Applied<State, Message, Command> = Readonly<{
+export type Applied<State, Message, Command = never> = Readonly<{
     message: Message;
     origin: Origin;
     before: State;
@@ -198,7 +198,7 @@ export const edited: <A>(held: Shown<A>, value: A) => Readonly<{
 export type EventOf<P> = Returned<P, 'events'>;
 
 // @public
-export type Execution<Message, R> = Effect.Effect<Opt.Option<Message>, never, R>;
+export type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, never, R>;
 
 // @public
 type ExternalAmong<Message, External> = [Exclude<External, Message>] extends [never] ? unknown : Readonly<{
@@ -498,7 +498,7 @@ type Routed<Message> = Message extends Readonly<{
 export const run: <State, Model, Message, Command = never, R = never, RR = never, Flags = never>(program: Shape<State, Model, Message, Command, R, never, unknown, Flags>, render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>] : [options: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<void, never, Exclude<R | RR, Scope.Scope>>;
 
 // @public
-export type RunCommand<Command, Message, R> = (command: Command) => Execution<Message, R>;
+export type RunCommand<Command, Message, R = never> = (command: Command) => Execution<Message, R>;
 
 // @public
 type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never] ? Readonly<{
@@ -557,10 +557,10 @@ export type Step<State, Command = never, Event = never> = Readonly<{
 }>;
 
 // @public
-export type Subscription<Message, R> = Channel.Channel<Message, never, Message, unknown, unknown, unknown, R>;
+export type Subscription<Message, R = never> = Channel.Channel<Message, never, Message, unknown, unknown, unknown, R>;
 
 // @public
-export type Subscriptions<State, Message, R, K = unknown> = (state: State) => HashMap.HashMap<K, Subscription<Message, R>>;
+export type Subscriptions<State, Message, R = never, K = unknown> = (state: State) => HashMap.HashMap<K, Subscription<Message, R>>;
 
 // @public
 export const subscriptionsOf: <State, Message, R, K>(program: Readonly<{

@@ -46,7 +46,7 @@ export const update: Update<State, Message, never, Event> = (message) => (state)
   }
 }
 
-const ticks: Subscription<Message, never> = Channel.forever(
+const ticks: Subscription<Message> = Channel.forever(
   Channel.fromEffectDrain(Effect.sleep('1 second')).pipe(
     Channel.concatWith(() => Channel.succeed(Message.Ticked())),
   ),
