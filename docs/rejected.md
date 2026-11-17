@@ -234,6 +234,16 @@ answer, and saying so in the proposal.
   message or a service that its pieces do not show is lost, and services named `unknown` say nothing of what it needs.
   A second way of writing the same program would only confuse. *Reopen if* a program that `make` cannot express is
   written that way.
+- **`child`, `childById`, `input` and `inputById` as free functions, and `make` as `program` itself**, in place of the
+  functions that `program<T>()` returns. Reasoned, 17 November 2026, the owner deciding. TypeScript does not infer
+  some type arguments when others are given: `make<{ state: State }>(config)` would take the defaults of `Model`, the
+  children, the inputs, the own messages and the services, not infer them. So a `make` given `T` is still
+  `make<T>()(config)`, the curried call of today under another name, or it infers `T` too, and the types are no longer
+  named first and checked. Free declarations would not know the parent's state: `at` carries it (`Optic.id<State>()`),
+  but `get`, `set` and `subscribed` would annotate `state` in each function, or take its type from `children` in
+  `make`, whose children are themselves inferred, on an order of inference no documentation states (as the check of
+  external messages in `make`, above). And a place of the wrong state would fail inside `make`, not where it is
+  declared. *Reopen if* TypeScript infers the type arguments that a call does not give (microsoft/TypeScript#26242).
 - **`renderToString`, a first frame for server-side rendering.** Reasoned, 16 November 2026, on the idea of
   `ROADMAP.md`, by "A function earns its place" (`AGENTS.md`). The first frame is data a program already gives:
   `program.makeModel(program.init.state)`, or `program.makeModel(program.init(flags).state)`, whose view a server calls
