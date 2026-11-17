@@ -81,7 +81,7 @@ const { make, input } = program<{ state: State; command: Command; message: Own }
 export const form = make({
   init: { state: { name: '', save: Save.Idle(), saved: [] } },
   inputs: { Name: input({ at: Optic.id<State>().key('name') }) },
-  update: (message: Own) => (state) => {
+  update: (message) => (state) => {
     switch (message._tag) {
       case 'SaveClicked':
         return state.save._tag === 'Saving' || isBlank(state.name)

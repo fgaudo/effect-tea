@@ -180,7 +180,7 @@ export const stocktake = make({
         }),
     }),
   },
-  update: (message: Own) => (state) => {
+  update: (message) => (state) => {
     switch (message._tag) {
       case 'RetryClicked':
         return state.load._tag === 'Failed'

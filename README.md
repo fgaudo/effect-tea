@@ -279,6 +279,8 @@ JavaScriptCore.
 `bun run mutations` takes out each check the engine's invariants rest on, one at a time, and fails when a test that
 must catch it passes. `bun run interleavings` runs `src/interleaving.test.ts`, which `bun run test` leaves out: it
 searches random histories from a seed drawn on each run, and the CI runs it every day.
+`bun run inference` checks the types of programs written in each way they can be, with each supported TypeScript. It
+runs by hand, after a change of the types of `src/program.ts` or `src/compose.ts`.
 Changes are in [`CHANGELOG.md`](CHANGELOG.md), open problems and possible improvements in
 [`ROADMAP.md`](ROADMAP.md). The rules for contributors and coding agents are in
 [`AGENTS.md`](AGENTS.md), and the procedures (changing the API, adding an example, upgrading Effect, releasing and

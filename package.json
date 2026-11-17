@@ -52,6 +52,7 @@
     "bench": "bun tools/bench/subscriptions.ts",
     "mutations": "bun tools/mutations/mutate.ts",
     "smoke": "bun tools/smoke/smoke.ts",
+    "inference": "bun tools/inference/generate.ts",
     "api": "bun tools/api-report.ts",
     "comments": "bun tools/comments.ts",
     "prepare": "bunx effect-tsgo patch --typescript --no-oxlint"
