@@ -130,17 +130,19 @@ export class ProgramDefect extends Data.TaggedError('ProgramDefect')<Fields & Re
  * From the guide, "Composition", "What is a defect":
  *
  * **What is a defect** (a `CompositionDefect`):
- * - a child with commands and no `runCommand` that gets there through a cast, when its command runs;
- * - a child with events and no handler in `onEvent` that gets there through a cast, when it raises one;
- * - a child whose state is not an object, which only a cast gets there, as its model or its subscriptions are made;
- * - an own subscription key that is the key of a child's subscription;
+ * - a child with commands and no `runCommand` that gets there through a cast: the defect comes when its command runs;
+ * - a child with events and no handler in `onEvent` that gets there through a cast: the defect comes when it raises
+ *   one;
+ * - a child whose state is not an object, which only a cast gets there: the defect comes when its model or its
+ *   subscriptions are made;
+ * - a subscription key of the parent's own that is the key of a child's subscription;
  * - a `subscribed` that lists one id twice;
  * - asking for the model of a child that is not there.
  *
  * From the guide, "Composition", "A rejection of an external message is a defect":
  *
- * **A rejection of an external message is a defect**: a `CompositionDefect`, naming the child, and the message by its
- * tags. So is sending an external message to a child that is not there.
+ * **A rejection of an external message is a defect**: a `CompositionDefect` that names the child, and names the message
+ * by its tags. So is sending an external message to a child that is not there.
  *
  * From the guide, "Running", "How messages and commands appear in the logs":
  *

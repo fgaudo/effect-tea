@@ -65,27 +65,28 @@ For each child, and for itself, a parent declares:
   optic, give the two functions an optic is, `get` and `set`.
 - **When the child is not there.** Where the optic focuses nothing, or `get` returns `None`, the child is not there.
 - **When its subscriptions run: `subscribed`.** By default, they run whenever the child is there.
-- **How it starts.** A parent's `init` is a function of `children`, so that a child there from the start is started
-  like any other. `children.Clock.init` holds the child's state and its commands, lifted. Reading
+- **How it starts.** A parent's `init` is a function of `children`, so that a child that is there from the start is
+  started like any other. `children.Clock.init` holds the child's state and its commands, lifted. Reading
   `Clock.clock.init.state` instead would leave its commands behind.
 - **A child with `flags`** is started from them: `children.About.init({ openedAt })`, and `init(id, flags)` for
   children by id.
 - **What the parent draws: `makeModel`**, from its state and its children's models.
 - **Its own messages, commands and subscriptions,** if it has any: `update`, `runCommand` and `subscriptions`. Its
   `update` takes `children` too. It may reject its own messages, as any `update` does. The services it needs are all
-  those its `runCommand` and its `subscriptions` need, and its children's: nothing names them.
-- **Its own types, by name: `composition<{ state: State }>()`.** Beside `state`, they name, if the parent has any, its
-  own commands (`command`), the events it raises (`event`), and which of its messages a parent of its own may send it
-  (`external`). Nothing given to `compose` reveals them: a type it does not name is one it does not have, and a parent
-  that raises an event it did not name does not compile.
+  the services that its `runCommand`, its `subscriptions` and its children need: nothing names them.
+- **Its own types, by name: `composition<{ state: State }>()`.** Besides `state`, they name the parent's own commands
+  (`command`), the events it raises (`event`), and which of its messages a parent of its own may send it (`external`),
+  if it has any. Nothing given to `compose` reveals them: a type that it does not name is a type that it does not have,
+  and a parent that raises an event it did not name does not compile.
 - **The parent's own flags,** if it has any, are declared with its other types:
   `composition<{ state: State; flags: Flags }>()`. Its `init` then returns the function that starts it:
   `init: (children) => (flags) => ({ state, commands })`.
 - **Its inputs,** if it has any: `inputs: { Name: input({ at }) }`, where `at` is an optic to a value of its own state
   (see [inputs the user types into](./inputs-the-user-types-into.md)), and `inputById` for inputs by id (see
-  [inputs by id](#inputs-by-id)). An input takes the places a child takes: `at`, or `get` and `set`, and for inputs by
-  id the same, of the id. An input is no child: its value is the parent's own state. Its `update` and `makeModel` read
-  it as the rest. A program with inputs and no children is made with `composition` too, and leaves `children` out.
+  [inputs by id](#inputs-by-id)). An input is placed in the same ways as a child: with `at`, or with `get` and `set`.
+  An input by id is placed in the same ways, as functions of the id. An input is not a child: its value is part of the
+  parent's own state, and the parent's `update` and `makeModel` read it like the rest of the state. A program with
+  inputs and no children is made with `composition` too, and leaves `children` out.
 
 ### What the library derives from it
 
@@ -103,7 +104,7 @@ For each child, and for itself, a parent declares:
 - **A child's model is kept.** `children.About(state)` in `makeModel` is the child's model. It is the same object while
   the child's state is the same object. So a renderer can skip redrawing it (see `thunk` in
   [`pages`](https://github.com/fgaudo/effect-tea/tree/main/examples/pages/view.ts)). A number or a string has no
-  identity to keep a model by: this is why a program's state is always an object.
+  identity by which a model could be kept: this is why a program's state is always an object.
 - **A test reads a child's subscriptions by key.** `HashMap.has(subscriptionsOf(app)(state), ['Clock', 'ticks'])`
   tells a test whether the Clock ticks.
 - **Its inputs' rule.** A write is stored while the input's place holds, by `Equal`, the value it was written over. It
@@ -114,21 +115,22 @@ For each child, and for itself, a parent declares:
 **`runCommand`** is required exactly when the parent has commands of its own.
 
 **What does not compile:**
-- an own message that takes a child's or an input's name;
-- an input that takes a child's name;
-- an input whose optic, alone or by id, is into another state than the program's;
-- an own subscription that writes into an input;
-- a command's answer that writes into an input, the parent's or a child's, and one that gives a child its own
-  business;
-- a child with commands and no `runCommand`, which a program written without `Program<…>` can be.
+- a message of the parent's own that takes the name of a child or of an input;
+- an input that takes the name of a child;
+- an input whose optic, alone or by id, points into a state other than the program's;
+- a subscription of the parent's own that writes into an input;
+- a command's answer that writes into an input, the parent's or a child's, and one that gives a child a message that is
+  the child's own business;
+- a child with commands and no `runCommand` (a program written without `Program<…>` can be one).
 
-A command's answer is an own message, or an external message of a child's.
+A command's answer is a message of the parent's own, or an external message of a child.
 
 **What is a defect** (a `CompositionDefect`):
-- a child with commands and no `runCommand` that gets there through a cast, when its command runs;
-- a child with events and no handler in `onEvent` that gets there through a cast, when it raises one;
-- a child whose state is not an object, which only a cast gets there, as its model or its subscriptions are made;
-- an own subscription key that is the key of a child's subscription;
+- a child with commands and no `runCommand` that gets there through a cast: the defect comes when its command runs;
+- a child with events and no handler in `onEvent` that gets there through a cast: the defect comes when it raises one;
+- a child whose state is not an object, which only a cast gets there: the defect comes when its model or its
+  subscriptions are made;
+- a subscription key of the parent's own that is the key of a child's subscription;
 - a `subscribed` that lists one id twice;
 - asking for the model of a child that is not there.
 
@@ -139,9 +141,9 @@ A parent and its children talk only through events and external messages.
 - **A child raises an event** to ask its parent for something, like leaving the page.
 - **The parent handles it in `onEvent`**, which has one handler per child that has events, so that no event goes
   unhandled.
-- **An event to pass on.** An event the parent has nothing to say about, and its own parent handles, the parent raises
-  as its own: `onEvent: { Products: (event) => (state) => ({ state, events: [event] }) }`. For children by id, the id
-  comes before the event.
+- **An event to pass on.** When the parent has nothing to say about an event, and its own parent handles it, the parent
+  raises it as its own: `onEvent: { Products: (event) => (state) => ({ state, events: [event] }) }`. For children by
+  id, the id comes before the event.
 - **A parent sends an external message** to a child with `children.<child>.update`, in its own `update` and `onEvent`.
   It is one of the messages the child's type declares as `external` (e.g. a back button). The parent decides when to
   send, and the child's type says it takes the message.
@@ -161,18 +163,18 @@ update: (_: BackPressed, children) => children.Page.update({ _tag: 'BackPressed'
 onEvent: { Page: () => (state) => ({ state: leavePage(state) }) },
 ```
 
-`children.Page.update` returns the parent's step, as a function of its state. To take a step of its own before a
-child's, a parent adds them up:
+`children.Page.update` returns the parent's step, as a function of its state. To take a step of its own before the
+child's step, a parent combines the two:
 
 - **`andThen`**: `andThen(leave(state), children.Home.update({ _tag: 'ProductGone', at }))`. The result has the second
-  step's state, and both steps' commands and events, in order, both lists always there. Taking a step's `.state` by
-  hand to make the next one drops its commands and its events.
+  step's state, and both steps' commands and events, in order, both lists always there. If you take a step's `.state`
+  by hand to make the next step, you drop its commands and its events.
 - **`forEach`** is the `andThen` of many: one step for each item, each made from the state the previous one left. The
   result has the last step's state, and every step's commands and events, in order, both lists always there. For
   example, a message to every child by id:
   `forEach({ state }, state.rows, ({ id }) => children.Row.update(id, Cleared()))`.
 
-Both take the step last as well, for a chain written with Effect's `pipe`:
+Both also have a form that takes the step last, for a chain written with Effect's `pipe`:
 `pipe({ state }, andThen(leave), forEach(ids, clear))`.
 
 ### Precisely
@@ -180,8 +182,8 @@ Both take the step last as well, for a chain written with Effect's `pipe`:
 - **`onEvent`** is required exactly when a child has events.
 - **A parent that raises a child's event as its own** has an `Event` that includes the child's, or this does not
   compile.
-- **A rejection of an external message is a defect**: a `CompositionDefect`, naming the child, and the message by its
-  tags. So is sending an external message to a child that is not there.
+- **A rejection of an external message is a defect**: a `CompositionDefect` that names the child, and names the
+  message by its tags. So is sending an external message to a child that is not there.
 
 ## Children's views
 
@@ -214,8 +216,8 @@ const view: View<Model, Message> = (model, dispatch) =>
 For children by id, such as the rows of a list, use `childById` instead of `child`:
 
 - **`get` and `set` take the id** (or `at` is a function of it).
-- **`subscribed` lists the rows that listen.** It is required, since the library cannot list the ids in the state: a
-  row it leaves out runs no subscription, so list every row, as `list` does, unless some must not listen.
+- **`subscribed` lists the rows that listen.** It is required, because the library cannot list the ids in the state.
+  A row that it leaves out runs no subscription. So list every row, as `list` does, unless some rows must not listen.
 - **`children.Row(state, id)` is a row's model**, and `forwardTo(dispatch, 'Row', id)` its dispatch.
 - **Ids are compared by value,** with `Equal`, wherever they go (subscription keys, dispatches): strings, numbers, or
   tuples and structs of them.
@@ -230,7 +232,7 @@ old answer. Subscriptions do not need this: a row that is removed stops them.
 ## Inputs by id
 
 A value the user types into each row, such as the count of each item, is an input by id: use `inputById` instead of
-`input`, with the place of each id, as `childById` takes it. Rows kept in a record by id are reached with an optic of
+`input`, and give the place of each id as `childById` takes it. Rows kept in a record by id are reached with an optic of
 the id:
 
 ```ts
@@ -255,7 +257,8 @@ inputs: {
 - **It is stored at the place of its id**, by [its inputs' rule](#what-the-library-derives-from-it). Where the optic
   of its id focuses nothing, or `get` returns `None`, as for a row that is not there, the write is rejected.
 
-An input by id is no child either: its values are the parent's own state, which its `update` reads to total or submit
-them, where it never reads a child's (see [splitting a program](./structuring-a-program.md#splitting-a-program)).
+An input by id is not a child either. Its values are part of the parent's own state, and the parent's `update` reads
+them to total or submit them, while it never reads the state of a child (see
+[splitting a program](./structuring-a-program.md#splitting-a-program)).
 
 See [`stocktake`](https://github.com/fgaudo/effect-tea/tree/main/examples/stocktake/stocktake.ts).

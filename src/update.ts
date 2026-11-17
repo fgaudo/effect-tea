@@ -111,8 +111,8 @@ export const appendStep = <State, Command, Event>(
  * From the guide, "Composition", "`andThen`":
  *
  * **`andThen`**: `andThen(leave(state), children.Home.update({ _tag: 'ProductGone', at }))`. The result has the second
- * step's state, and both steps' commands and events, in order, both lists always there. Taking a step's `.state` by
- * hand to make the next one drops its commands and its events.
+ * step's state, and both steps' commands and events, in order, both lists always there. If you take a step's `.state`
+ * by hand to make the next step, you drop its commands and its events.
  */
 export const andThen: {
   <State, Command2, Event2>(

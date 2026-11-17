@@ -244,8 +244,8 @@ type Start<P, Command> = Readonly<{
  * @remarks
  * From the guide, "Composition", "How it starts":
  *
- * **How it starts.** A parent's `init` is a function of `children`, so that a child there from the start is started
- * like any other. `children.Clock.init` holds the child's state and its commands, lifted. Reading
+ * **How it starts.** A parent's `init` is a function of `children`, so that a child that is there from the start is
+ * started like any other. `children.Clock.init` holds the child's state and its commands, lifted. Reading
  * `Clock.clock.init.state` instead would leave its commands behind.
  *
  * From the guide, "Composition", "A child with `flags`":
@@ -265,8 +265,8 @@ type Start<P, Command> = Readonly<{
  *
  * From the guide, "Composition", "A rejection of an external message is a defect":
  *
- * **A rejection of an external message is a defect**: a `CompositionDefect`, naming the child, and the message by its
- * tags. So is sending an external message to a child that is not there.
+ * **A rejection of an external message is a defect**: a `CompositionDefect` that names the child, and names the message
+ * by its tags. So is sending an external message to a child that is not there.
  *
  * From the guide, "Composition", "A child's view gets a dispatch of its own":
  *
@@ -304,15 +304,17 @@ type Handles<State, C, Command, Event> = {
  *
  * **A child's model is kept.** `children.About(state)` in `makeModel` is the child's model. It is the same object while
  * the child's state is the same object. So a renderer can skip redrawing it (see `thunk` in `pages`). A number or a
- * string has no identity to keep a model by: this is why a program's state is always an object.
+ * string has no identity by which a model could be kept: this is why a program's state is always an object.
  *
  * From the guide, "Composition", "What is a defect":
  *
  * **What is a defect** (a `CompositionDefect`):
- * - a child with commands and no `runCommand` that gets there through a cast, when its command runs;
- * - a child with events and no handler in `onEvent` that gets there through a cast, when it raises one;
- * - a child whose state is not an object, which only a cast gets there, as its model or its subscriptions are made;
- * - an own subscription key that is the key of a child's subscription;
+ * - a child with commands and no `runCommand` that gets there through a cast: the defect comes when its command runs;
+ * - a child with events and no handler in `onEvent` that gets there through a cast: the defect comes when it raises
+ *   one;
+ * - a child whose state is not an object, which only a cast gets there: the defect comes when its model or its
+ *   subscriptions are made;
+ * - a subscription key of the parent's own that is the key of a child's subscription;
  * - a `subscribed` that lists one id twice;
  * - asking for the model of a child that is not there.
  */
@@ -402,8 +404,8 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> =
      * @remarks
      * From the guide, "Composition", "How it starts":
      *
-     * **How it starts.** A parent's `init` is a function of `children`, so that a child there from the start is started
-     * like any other. `children.Clock.init` holds the child's state and its commands, lifted. Reading
+     * **How it starts.** A parent's `init` is a function of `children`, so that a child that is there from the start is
+     * started like any other. `children.Clock.init` holds the child's state and its commands, lifted. Reading
      * `Clock.clock.init.state` instead would leave its commands behind.
      *
      * From the guide, "Composition", "The parent's own flags,":
@@ -818,21 +820,23 @@ export type CompositionTypes = Readonly<{
  * From the guide, "Composition", "What does not compile:":
  *
  * **What does not compile:**
- * - an own message that takes a child's or an input's name;
- * - an input that takes a child's name;
- * - an input whose optic, alone or by id, is into another state than the program's;
- * - an own subscription that writes into an input;
- * - a command's answer that writes into an input, the parent's or a child's, and one that gives a child its own
- *   business;
- * - a child with commands and no `runCommand`, which a program written without `Program<…>` can be.
+ * - a message of the parent's own that takes the name of a child or of an input;
+ * - an input that takes the name of a child;
+ * - an input whose optic, alone or by id, points into a state other than the program's;
+ * - a subscription of the parent's own that writes into an input;
+ * - a command's answer that writes into an input, the parent's or a child's, and one that gives a child a message that
+ *   is the child's own business;
+ * - a child with commands and no `runCommand` (a program written without `Program<…>` can be one).
  *
  * From the guide, "Composition", "What is a defect":
  *
  * **What is a defect** (a `CompositionDefect`):
- * - a child with commands and no `runCommand` that gets there through a cast, when its command runs;
- * - a child with events and no handler in `onEvent` that gets there through a cast, when it raises one;
- * - a child whose state is not an object, which only a cast gets there, as its model or its subscriptions are made;
- * - an own subscription key that is the key of a child's subscription;
+ * - a child with commands and no `runCommand` that gets there through a cast: the defect comes when its command runs;
+ * - a child with events and no handler in `onEvent` that gets there through a cast: the defect comes when it raises
+ *   one;
+ * - a child whose state is not an object, which only a cast gets there: the defect comes when its model or its
+ *   subscriptions are made;
+ * - a subscription key of the parent's own that is the key of a child's subscription;
  * - a `subscribed` that lists one id twice;
  * - asking for the model of a child that is not there.
  */
@@ -906,8 +910,9 @@ export const composition = <T extends CompositionTypes>() => {
      *
      * From the guide, "Composition", "`subscribed` lists the rows that listen":
      *
-     * **`subscribed` lists the rows that listen.** It is required, since the library cannot list the ids in the state:
-     * a row it leaves out runs no subscription, so list every row, as `list` does, unless some must not listen.
+     * **`subscribed` lists the rows that listen.** It is required, because the library cannot list the ids in the
+     * state. A row that it leaves out runs no subscription. So list every row, as `list` does, unless some rows must
+     * not listen.
      *
      * From the guide, "Composition", "`children.Row(state, id)` is a row's model":
      *
@@ -941,10 +946,11 @@ export const composition = <T extends CompositionTypes>() => {
      * From the guide, "Composition", "Its inputs,":
      *
      * **Its inputs,** if it has any: `inputs: { Name: input({ at }) }`, where `at` is an optic to a value of its own
-     * state (see "Inputs the user types into"), and `inputById` for inputs by id (see "inputs by id"). An input takes
-     * the places a child takes: `at`, or `get` and `set`, and for inputs by id the same, of the id. An input is no
-     * child: its value is the parent's own state. Its `update` and `makeModel` read it as the rest. A program with
-     * inputs and no children is made with `composition` too, and leaves `children` out.
+     * state (see "Inputs the user types into"), and `inputById` for inputs by id (see "inputs by id"). An input is
+     * placed in the same ways as a child: with `at`, or with `get` and `set`. An input by id is placed in the same
+     * ways, as functions of the id. An input is not a child: its value is part of the parent's own state, and the
+     * parent's `update` and `makeModel` read it like the rest of the state. A program with inputs and no children is
+     * made with `composition` too, and leaves `children` out.
      *
      * From the guide, "Inputs the user types into", "The view writes over the value its model holds":
      *
@@ -1000,7 +1006,7 @@ export const composition = <T extends CompositionTypes>() => {
      *
      * **Its own messages, commands and subscriptions,** if it has any: `update`, `runCommand` and `subscriptions`. Its
      * `update` takes `children` too. It may reject its own messages, as any `update` does. The services it needs are
-     * all those its `runCommand` and its `subscriptions` need, and its children's: nothing names them.
+     * all the services that its `runCommand`, its `subscriptions` and its children need: nothing names them.
      */
     compose: <
       Model,
