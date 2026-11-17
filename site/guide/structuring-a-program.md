@@ -40,7 +40,7 @@ holds, and its tests can check it. The library does not enforce them. The exampl
   What a view would decide, `makeModel` decides. It does so as a case named for the state the screen tells apart
   (`Empty | Listed`, `Loading | Loaded`), never as a boolean. An `Option` is such a case only when "missing" is all the
   screen tells apart.
--  **The renderer draws frames, and nothing else.** A hover, an animation or the focus that the platform keeps by itself
+- **The renderer draws frames, and nothing else.** A hover, an animation or the focus that the platform keeps by itself
   is not a state of the program. A state kept in a component of the renderer, beside the program's state, is neither
   supported nor advised (see [view](./view.md)). What the program decides stays in its state, and reaches the view as
   its model.

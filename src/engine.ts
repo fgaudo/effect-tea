@@ -189,9 +189,9 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
    *   recorded with `onApplied` ends, at the latest, with the step that was under way at the defect.
    * - That is a bound on what the run still does: at most the step under way. It is nothing `update` can count on. For
    *   `update`, a command that died is one that has not answered yet.
-   * -  A message for which the run called `update` before the defect goes on until the run stops applying messages.
-   *   That may be before its frame. It may still start its commands and the subscriptions of its new keys. And
-   *   `onApplied` may have heard a step whose frame is never drawn and whose commands never start.
+   * - A message for which the run called `update` before the defect goes on until the run stops applying messages. That
+   *   may be before its frame. It may still start its commands and the subscriptions of its new keys. And `onApplied`
+   *   may have heard a step whose frame is never drawn and whose commands never start.
    * - Once a command or a subscription has started, what it does is the program's business, until the run interrupts
    *   it.
    * - So is what the renderer does. This also holds in a run that died as it started, for example when a subscription
