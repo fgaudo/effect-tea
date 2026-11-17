@@ -27,19 +27,14 @@ test of it. None is open.
 - **An example of routing**: flags from the URL, `popstate` as a subscription, navigation as a command.
 - **An example of hot module reloading** that keeps the state, which the guide hints at (the view lives in a
   module of its own) without showing.
-- **One constructor for every program**, in progress: `program<…>()` (once `composition`) makes a program without
-  children too, and `: Program<…>` stops being the way the guide teaches to write one (`Program` stays a type, for
-  signatures and tests). A type `program` names is checked, one it does not name is inferred: `model` and `message`
-  (the program's own messages) become nameable, and the services are always inferred. A spike of 17 November 2026,
-  uncommitted, holds it: `make` returns a `ProgramShape<{ … }>` (a `Program` without its check of external
-  messages, whose marker would otherwise satisfy the check of `child`), a leaf infers its services exactly over two
-  branches of `runCommand` and a map of subscriptions with an empty branch, is assignable to `Program<…>`, and rejects
-  a wrong command, model or message and a missing `makeModel` or `runCommand`. Without children, `init` is already a
-  `Program`'s, a step or a function of the flags (the children declared decide, at run time too). Left: a `TS4023` on
-  declaration emit (`ExternalTypeId` cannot be named) seen once in the spike and not isolated, which would hit whoever
-  publishes a program; then the seven leaves of `examples/`, the guide, the tutorial, the README, the skill, the
-  changelog and the API reports. Why not `satisfies Program<…>` with
-  services as `unknown`: it loses services, commands and messages (`typeof` reads the literal), and confuses.
+- **One constructor for every program**, in progress: `program<…>().make(…)` makes a program without children too,
+  and `: Program<…>` stops being the way the guide teaches to write one (`Program` stays a type, for signatures and
+  tests). What is done: a type `program` names is checked and one it does not name is inferred, `model` and `message`
+  are nameable, the services are always inferred, `init` without children is a `Program`'s, and `make` returns a
+  `Program<…>`, whose declarations a package that publishes it can emit. Left: the seven leaves of `examples/`, the
+  guide (the rule of the types named moves from "Composition" to "Anatomy of a program"), the tutorial, the README, the
+  skill, the changelog and the API reports. Not `satisfies Program<…>` with services as `unknown`: it loses services,
+  commands and messages (`typeof` reads the literal), and confuses.
 - **Children declared apart from the parent's own state**, kept inside it by `program`: a parent's state type
   would hold only its own, with no `at`, `get` or `set` for a child, and children born and removed some other way.
   Not spiked; weighed after the constructor above.

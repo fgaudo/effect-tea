@@ -1,7 +1,7 @@
 // A consumer of the packed package, run with Node and typechecked by `smoke.ts` under several TypeScript versions
 // and module resolutions. It instantiates the types of `program` (a child, children by id, events and external
-// messages, an input, and the rule a bridge calls for the element that shows one) and checks that what they reject
-// does not compile.
+// messages, an input, and the rule a bridge calls for the element that shows one), checks that what they reject
+// does not compile, and that the declarations of what it exports can be emitted.
 import {
   andThen,
   type CommandServicesOf,
@@ -60,7 +60,8 @@ type ResetAll = Readonly<{ _tag: 'ResetAll' }>
 
 const { child, make, childById, input } = program<{ state: State }>()
 
-const children = {
+// Exported, as a package that publishes a program would: its declarations name what `child` and `make` give.
+export const children = {
   Main: child(counter, {
     get: (state) => Opt.some(state.main),
     set: (state, main) => ({ ...state, main }),
@@ -75,7 +76,7 @@ const children = {
   }),
 }
 
-const app = make({
+export const app = make({
   init: (children) => ({
     state: { main: children.Main.init.state, rows: [{ id: 1, counter: children.Row.init(1).state }], fulls: 0 },
   }),
@@ -140,7 +141,7 @@ class Server extends Context.Service<Server, { readonly load: Effect.Effect<void
 class Backup extends Context.Service<Backup, { readonly load: Effect.Effect<void> }>()('Backup') {}
 class Feed extends Context.Service<Feed, { readonly resets: Stream.Stream<ResetAll> }>()('Feed') {}
 
-const served = loading.make({
+export const served = loading.make({
   init: { state: { main: { count: 0 }, rows: [], fulls: 0 } },
   update: (_: ResetAll) => (state: State) => ({ state, commands: ['Load' as const] }),
   runCommand: () =>
@@ -159,6 +160,9 @@ const served = loading.make({
     ]),
   makeModel: () => null,
 })
+
+// A copy spells its type out, the key of its external messages included.
+export const copied = { ...served, makeModel: () => 0 }
 
 type Ran = CommandServicesOf<typeof served>
 

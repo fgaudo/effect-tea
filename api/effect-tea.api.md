@@ -203,11 +203,13 @@ type ExternalAmong<Message, External> = [Exclude<External, Message>] extends [ne
 
 // @public
 export type ExternalOf<P> = P extends {
-    readonly [ExternalTypeId]?: infer E;
+    readonly '~@fgaudo/effect-tea/Program/external'?: infer E;
 } ? Known<E> : never;
 
 // @public (undocumented)
-const ExternalTypeId: unique symbol;
+type ExternalTaken<P> = [Exclude<ExternalOf<P>, MessageOf<P>>] extends [never] ? unknown : Readonly<{
+    "a child's external messages are not among its messages": Exclude<ExternalOf<P>, MessageOf<P>>;
+}>;
 
 // @public
 type Field<T, K extends string> = T extends {
@@ -445,14 +447,14 @@ type PlacementById<ParentState, Id, ChildState> = Readonly<{
 }>;
 
 // @public
-export type Program<T extends ProgramTypes> = ProgramShape<T> & ExternalAmong<Field<T, 'message'>, Field<T, 'external'>>;
+export type Program<T extends ProgramTypes> = Shape<Field<T, 'state'>, Field<T, 'model'>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'commandServices'>, Field<T, 'subscriptionServices'>, Field<T, 'event'>, Field<T, 'external'>, Field<T, 'flags'>> & ExternalAmong<Field<T, 'message'>, Field<T, 'external'>>;
 
 // @public
 export const program: <T extends DeclaredTypes>() => {
-    child: <P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalAmong<MessageOf<P>, ExternalOf<P>>, place: Placement<Field<T, "state">, StateOf<P>> & Readonly<{
+    child: <P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalTaken<P>, place: Placement<Field<T, "state">, StateOf<P>> & Readonly<{
         subscribed?: (state: Field<T, "state">) => Opt.Option<StateOf<P>>;
     }> & ObjectState<StateOf<P>>) => Child<Field<T, "state">, P>;
-    childById: <Id, P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalAmong<MessageOf<P>, ExternalOf<P>>, place: PlacementById<Field<T, "state">, Id, StateOf<P>> & Readonly<{
+    childById: <Id, P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalTaken<P>, place: PlacementById<Field<T, "state">, Id, StateOf<P>> & Readonly<{
         subscribed: (state: Field<T, "state">) => Iterable<readonly [Id, StateOf<P>]>;
     }> & ObjectState<StateOf<P>>) => ChildById<Field<T, "state">, Id, P>;
     input: <A>(place: Placement<Field<T, "state">, A>) => Input<Field<T, "state">, A>;
@@ -460,7 +462,7 @@ export const program: <T extends DeclaredTypes>() => {
     make: <Model, C extends Children<Field<T, "state">> = None, I extends Inputs<Field<T, "state">> = None, Own = never, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, "state">, NoInfer<C>, NoInfer<I>, [Field<T, "message">] extends [never] ? Own : Field<T, "message">, Field<T, "command">, Field<T, "event">, [Field<T, "model">] extends [never] ? Model : Field<T, "model">, Ran, Heard, K, Field<T, 'flags'>> & Readonly<{
         children?: C;
         inputs?: I;
-    }>) => ProgramShape<{
+    }>) => Program<{
         state: Field<T, "state">;
         model: [Field<T, "model">] extends [never] ? Model : Field<T, "model">;
         message: ([Field<T, "message">] extends [never] ? Own : Field<T, "message">) | ChildMessages<C> | InputMessages<I>;
@@ -489,9 +491,6 @@ const ProgramDefect_base: new <A extends Record<string, any> = {}>(args: VoidIfE
 type ProgramOf<C> = C extends {
     readonly program: infer P;
 } ? P : never;
-
-// @public
-type ProgramShape<T extends ProgramTypes> = Shape<Field<T, 'state'>, Field<T, 'model'>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'commandServices'>, Field<T, 'subscriptionServices'>, Field<T, 'event'>, Field<T, 'external'>, Field<T, 'flags'>>;
 
 // @public
 type ProgramTypes = Readonly<{
@@ -549,7 +548,7 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
 
 // @public
 type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & Readonly<{
-    readonly [ExternalTypeId]?: External;
+    readonly '~@fgaudo/effect-tea/Program/external'?: External;
     init: Init<State, Command, Flags>;
     update: Update<State, Message, Command, Event>;
     subscriptions?: Subscriptions<State, Message, RS, unknown>;

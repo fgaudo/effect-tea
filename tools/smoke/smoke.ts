@@ -1,8 +1,9 @@
 // Checks the package as a consumer outside Bun gets it: packs it, installs the tarball with npm in a project of its
 // own outside the repository, runs the README's quick start and `consumer.ts` with Node (the `default` condition,
 // `dist/`), and typechecks both against the declarations (`types`) under each TypeScript of `--typescript`, with
-// `moduleResolution` `nodenext` and `bundler`. Under Bun the `bun` condition loads `src/`: nothing else imports
-// `dist/`. It also checks that the documentation the package ships finds in it every file it links.
+// `moduleResolution` `nodenext` and `bundler`, emitting their own. Under Bun the `bun` condition loads `src/`:
+// nothing else imports `dist/`. It also checks that the documentation the package ships finds in it every file it
+// links.
 //
 //   bun tools/smoke/smoke.ts [--effect <version>] [--typescript 5.9,6.0,7.0] [--keep]
 import { $, Glob } from 'bun'
@@ -61,7 +62,10 @@ try {
           exactOptionalPropertyTypes: exact,
           verbatimModuleSyntax: true,
           skipLibCheck: false,
-          noEmit: true,
+          // As a package that publishes a program would: a type its declarations cannot name fails.
+          declaration: true,
+          emitDeclarationOnly: true,
+          outDir: `declarations/${resolution}`,
           types: [],
         },
         files: ['quickstart.ts', 'consumer.ts'],

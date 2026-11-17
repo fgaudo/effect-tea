@@ -158,6 +158,9 @@ this summary says less. What every change keeps, an example's and a document's t
   a missing `subscriptions` means listening to nothing is a rule of the library which a test of a program observes,
   on a type where the piece is optional, and that function is the one place it is applied. The other two decide
   nothing such a test can see.
+- A key or symbol of the library is named `@fgaudo/effect-tea/<Type>` after the type it belongs to (`Rejected`, the
+  service `Stopped`), and `@fgaudo/effect-tea/<Type>/<part>` for a part of one (`Shown/unseen`). A property keyed by a
+  string starts with `~`, as Effect's own type ids: `~@fgaudo/effect-tea/Program/external`.
 - Effect modules are imported as namespaces (`import * as Effect from 'effect/Effect'`), with `Arr`, `Opt` for
   `Array`, `Option`.
 - A function that returns an effect made with `Effect.gen` is an `Effect.fnUntraced` instead, with what would

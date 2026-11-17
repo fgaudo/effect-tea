@@ -18,7 +18,6 @@ import {
   type CommandOf,
   type CommandServicesOf,
   type EventOf,
-  type ExternalAmong,
   type ExternalOf,
   type Field,
   type FlagsOf,
@@ -27,7 +26,7 @@ import {
   type MessageOf,
   type ModelOf,
   type ObjectState,
-  type ProgramShape,
+  type Program,
   type Shape,
   startOf,
   type StateOf,
@@ -78,6 +77,12 @@ type PlacementById<ParentState, Id, ChildState> =
     get?: never
     set?: never
   }>
+
+// A child's external messages are among its messages: one that is not would reach an `update` that does not take it.
+// Its own key, not that of `ExternalAmong`: `make` does not check them, so a program it makes with a wrong `external`
+// carries the marker of `Program`, which would satisfy a check asking for the same one.
+type ExternalTaken<P> = [Exclude<ExternalOf<P>, MessageOf<P>>] extends [never] ? unknown
+  : Readonly<{ "a child's external messages are not among its messages": Exclude<ExternalOf<P>, MessageOf<P>> }>
 
 /** A child alone in its parent's state, as `child` declares it, for `children` in `make`. */
 type Child<ParentState, P> = Readonly<{
@@ -821,7 +826,7 @@ export const program = <T extends DeclaredTypes>() => {
      * @see The guide, "Composition", "When its subscriptions run: `subscribed`".
      */
     child: <P extends AnyProgram>(
-      program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalAmong<MessageOf<P>, ExternalOf<P>>,
+      program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalTaken<P>,
       place:
         & Placement<State, StateOf<P>>
         & Readonly<{ subscribed?: (state: State) => Opt.Option<StateOf<P>> }>
@@ -860,7 +865,7 @@ export const program = <T extends DeclaredTypes>() => {
      * @see The guide, "Composition", "Ids are compared by value,".
      */
     childById: <Id, P extends AnyProgram>(
-      program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalAmong<MessageOf<P>, ExternalOf<P>>,
+      program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalTaken<P>,
       place:
         & PlacementById<State, Id, StateOf<P>>
         & Readonly<{ subscribed: (state: State) => Iterable<readonly [Id, StateOf<P>]> }>
@@ -960,7 +965,7 @@ export const program = <T extends DeclaredTypes>() => {
           Field<T, 'flags'>
         >
         & Readonly<{ children?: C; inputs?: I }>,
-    ): ProgramShape<{
+    ): Program<{
       state: State
       model: Named<'model', Model>
       message: Named<'message', Own> | ChildMessages<C> | InputMessages<I>

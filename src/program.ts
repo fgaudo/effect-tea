@@ -37,8 +37,6 @@ export const subscriptionsOf = <State, Message, R, K>(
   program: Readonly<{ subscriptions?: Subscriptions<State, Message, R, K> }>,
 ): Subscriptions<State, Message, R, K> => program.subscriptions ?? (() => HashMap.empty())
 
-declare const ExternalTypeId: unique symbol
-
 /** The types of a program, by name: `state`, `model` and `message` always, the others only when it has them. */
 export type ProgramTypes = Readonly<{
   /** Its state, an object. */
@@ -93,20 +91,19 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * @see The guide, "Anatomy of a program", "A test makes a model as `run` does".
  * @see The guide, "Guarantees", "`update`, `makeModel` and `subscriptions` are pure, and states are never mutated".
  */
-export type Program<T extends ProgramTypes> = ProgramShape<T> & ExternalAmong<Field<T, 'message'>, Field<T, 'external'>>
-
-/** The pieces of a program of the types `T` names, without the check of its external messages. */
-export type ProgramShape<T extends ProgramTypes> = Shape<
-  Field<T, 'state'>,
-  Field<T, 'model'>,
-  Field<T, 'message'>,
-  Field<T, 'command'>,
-  Field<T, 'commandServices'>,
-  Field<T, 'subscriptionServices'>,
-  Field<T, 'event'>,
-  Field<T, 'external'>,
-  Field<T, 'flags'>
->
+export type Program<T extends ProgramTypes> =
+  & Shape<
+    Field<T, 'state'>,
+    Field<T, 'model'>,
+    Field<T, 'message'>,
+    Field<T, 'command'>,
+    Field<T, 'commandServices'>,
+    Field<T, 'subscriptionServices'>,
+    Field<T, 'event'>,
+    Field<T, 'external'>,
+    Field<T, 'flags'>
+  >
+  & ExternalAmong<Field<T, 'message'>, Field<T, 'external'>>
 
 /**
  * A program's external messages are among its messages: one that is not would reach an `update` that does not take
@@ -137,7 +134,9 @@ export type ObjectState<State> = [State] extends [object] ? unknown
 export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> =
   & ObjectState<State>
   & Readonly<{
-    readonly [ExternalTypeId]?: External
+    // A string, as Effect's own type ids: a declaration that spells the type out can always name it, where a
+    // `unique symbol` the package does not export stops it (TS4023).
+    readonly '~@fgaudo/effect-tea/Program/external'?: External
     init: Init<State, Command, Flags>
     update: Update<State, Message, Command, Event>
     subscriptions?: Subscriptions<State, Message, RS, unknown>
@@ -234,7 +233,7 @@ export type FlagsOf<P> = P extends { readonly init: (flags: infer F) => any } ? 
  * type External = ExternalOf<typeof page>
  * ```
  */
-export type ExternalOf<P> = P extends { readonly [ExternalTypeId]?: infer E } ? Known<E> : never
+export type ExternalOf<P> = P extends { readonly '~@fgaudo/effect-tea/Program/external'?: infer E } ? Known<E> : never
 /**
  * The events a program's `update` returns for its parent.
  *

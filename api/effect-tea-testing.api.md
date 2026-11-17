@@ -59,9 +59,6 @@ export type Driver<Model, Message> = Readonly<{
 // @public
 type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, never, R>;
 
-// @public (undocumented)
-const ExternalTypeId: unique symbol;
-
 // @public
 type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{
     flags?: never;
@@ -159,7 +156,7 @@ interface RunOptions<Message, State = unknown, Command = unknown> {
 
 // @public
 type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & Readonly<{
-    readonly [ExternalTypeId]?: External;
+    readonly '~@fgaudo/effect-tea/Program/external'?: External;
     init: Init<State, Command, Flags>;
     update: Update<State, Message, Command, Event>;
     subscriptions?: Subscriptions<State, Message, RS, unknown>;
