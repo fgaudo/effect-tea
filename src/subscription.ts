@@ -4,7 +4,8 @@ import type * as HashMap from 'effect/HashMap'
 /**
  * Listens to the world while its key is among a program's subscriptions: an Effect `Channel` of messages.
  *
- * It takes no input and cannot fail. Its end value is a message, or `never` for one that never ends.
+ * It takes no input and cannot fail. Its end value is a message, or `never` for one that never ends. `R` is the
+ * services it needs.
  *
  * - It never ends in silence: either it never ends, or it ends with one last message, its end value.
  * - It starts when a new state brings its key, and it is interrupted when a new state takes its key away.
@@ -13,7 +14,7 @@ import type * as HashMap from 'effect/HashMap'
  *
  * @example
  * ```ts
- * // `Ticked` once a second, forever: its end value is `never`.
+ * // `Ticked` once a second, forever. It needs no services, so `R` is `never`.
  * const ticks: Subscription<Message, never> = Channel.forever(
  *   Channel.fromEffectDrain(Effect.sleep('1 second')).pipe(
  *     Channel.concatWith(() => Channel.succeed(Message.Ticked())),

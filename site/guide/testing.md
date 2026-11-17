@@ -265,6 +265,16 @@ It also fails, as the run dies:
   - what the subscription sent that `update` has not seen is dropped, as the run drops it, and a `hearNext` still
     waiting for it fails the test.
 - A subscription's message that no longer applies is ignored, as when the program runs, and listed in `ignored`.
+- **Under Effect's `TestClock`, move time while `hearNext` waits.** A subscription that sleeps does not wait for
+  real time. It waits for the test to move the clock. But time moved before the subscription starts to sleep does
+  not count, and the test then waits until it times out. So race the call against a clock that keeps moving, as
+  [`list`](../../examples/list/list.test.ts) does with a run:
+
+  ```ts
+  const message = yield* rehearsal.hearNext('ticks').pipe(
+    Effect.raceFirst(Effect.forever(TestClock.adjust('1 second').pipe(Effect.andThen(Effect.yieldNow)))),
+  )
+  ```
 
 #### Commands at the end
 

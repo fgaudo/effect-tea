@@ -97,4 +97,19 @@ runCommand: (command) =>
 subscription sent and that `update` has not seen.
 
 **A `Stream` as a subscription.** A `Stream` becomes one with `Stream.toChannel`, `Channel.flattenArray` and
-`Channel.mapDone`. `Channel.mapDone` is where you say what the stream's end means.
+`Channel.mapDone`. `Channel.mapDone` is where you say what the stream's end means. A drag sends each move of the
+pointer, then one last message when the user lets go:
+
+```ts
+const dragging: Subscription<Message, Pointer> = Channel.unwrap(
+  Effect.map(Effect.service(Pointer), (pointer) =>
+    Stream.toChannel(pointer.moves).pipe(
+      Channel.flattenArray,
+      Channel.map((at) => Message.Moved({ at })),
+      Channel.mapDone(() => Message.DragEnded()),
+    )),
+)
+```
+
+The whole program is in [`volume`](../../examples/volume/volume.ts). The scanner feed of
+[`stocktake`](../../examples/stocktake/stocktake.ts) ends the same way, with a message that says the scanner is gone.

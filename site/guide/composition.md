@@ -177,6 +177,18 @@ child's step, a parent combines the two:
 Both also have a form that takes the step last, for a chain written with Effect's `pipe`:
 `pipe({ state }, andThen(leave), forEach(ids, clear))`.
 
+**A child that must wait for its parent.** Sometimes an operation of the parent, such as a payment, must stop its
+children from acting. First ask whether they are children at all: a part whose controls the parent would lock from
+its state is not one (see [splitting a program](./structuring-a-program.md#splitting-a-program)). A part that has
+commands or subscriptions of its own may still be one. Then the operation is a fact that all the children see as
+one, and the parent hands it down:
+- it sends each child an external message when the operation starts, and another when it ends (with `forEach` for
+  children by id);
+- the child keeps the fact in its state;
+- while the fact holds, the child's `update` rejects what its view sends, but still takes the answers of its
+  commands;
+- the `get` of its inputs returns `None`, so their writes are rejected, and its model shows no controls.
+
 ### Precisely
 
 - **`onEvent`** is required exactly when a child has events.
@@ -224,6 +236,11 @@ For children by id, such as the rows of a list, use `childById` instead of `chil
 
 See [`list`](../../examples/list/list.ts).
 
+**A row the parent must read is not a child.** Say the parent totals what the user types into each row, refuses to
+submit while one is blank, or locks the rows while it saves. Then those values belong to the parent: make them
+[inputs by id](#inputs-by-id), and keep the rest of the row in the parent's state too. A parent never reads a child's
+state (see [splitting a program](./structuring-a-program.md#splitting-a-program)).
+
 **Mind ids that come back.** A command's answer goes to the id it was started for. It reaches whichever row has that id
 when it arrives. So if a row is removed and another is added with its id, the new row may get the old row's answer.
 Use ids that are never reused, or put in the message which row it is for, so that the new row's `update` rejects the
@@ -256,6 +273,25 @@ inputs: {
   through `forwardTo(dispatch, 'Count', id)`.
 - **It is stored at the place of its id**, by [its inputs' rule](#what-the-library-derives-from-it). Where the optic
   of its id focuses nothing, or `get` returns `None`, as for a row that is not there, the write is rejected.
+
+**Lock the rows while an operation runs.** A `get` that returns `None` gives a write no place, and the write is
+rejected. So a parent locks every row by giving no place while it saves, and its model shows no editor. `stocktake`
+does this while the sheet is submitted:
+
+```ts
+Count: inputById({
+  get: (state, id: string) =>
+    Opt.flatMap(Opt.filter(sheetOf(state), isOpen), (sheet) =>
+      Opt.map(Arr.findFirst(sheet.lines, (line) => line.id === id), (line) => line.text)),
+  set: (state, id, text) =>
+    Opt.match(sheetOf(state), {
+      onNone: () => state,
+      onSome: (sheet) => withSheet(state, withText(sheet, id, () => text)),
+    }),
+}),
+```
+
+The parent's own messages for a row, such as a choice from a list, are rejected by its `update` in the same states.
 
 An input by id is not a child either. Its values are part of the parent's own state, and the parent's `update` reads
 them to total or submit them, while it never reads the state of a child (see

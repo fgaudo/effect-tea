@@ -111,6 +111,8 @@ export type Rehearsal<State, Model, Message, Command, Event = never, R = never> 
    * - It fails the test when the key is not in the state, or when `hear` has played it.
    * - A key that goes away interrupts its subscription. A `hearNext` still waiting for it fails the test.
    * - After a defect of the program, it fails with it, also when it was already waiting.
+   * - Under a `TestClock`, move the clock while it waits: race it against `TestClock.adjust` in a loop. Time moved
+   *   before the subscription starts to sleep does not count.
    *
    * @param key - The subscription's key, as `hear` takes it.
    *

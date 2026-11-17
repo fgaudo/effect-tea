@@ -28,6 +28,10 @@ version, and everything else, features included, the patch version.
   the examples with their bridges in `examples/`, and a skill for coding agents, `skills/effect-tea/SKILL.md`, which
   leads to them. The README's last section, "For coding agents", says so, and so do the module comments of
   `effect-tea` and `effect-tea/testing`.
+- The guide's "Composition" says that a row the parent must read is no child ("Children by id"), how a parent locks
+  its rows while an operation runs ("Inputs by id"), and how a child waits for its parent ("Events and external
+  messages"). "Subscriptions" shows a subscription that ends with a message of its own ("Precisely"), and "Testing"
+  how `hearNext` hears one under a `TestClock` ("How a subscription is heard"), as the doc comment of `hearNext` does.
 
 ### Changed
 
