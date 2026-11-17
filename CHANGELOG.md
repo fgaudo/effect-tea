@@ -39,6 +39,9 @@ version, and everything else, features included, the patch version.
   that a double click saves once ("State and messages"); "Rejections and defects" says that a message of the view is
   applied where it applies, whichever frame it was sent from ("Rules"). The bridges' shared tests click "Save" twice
   before a frame is drawn, and "Writing a bridge" lists it ("Their tests").
+- The tutorial is reworded for a first reader, with the same code: each step says why before how and ends with "What
+  you have", "Before you start" says how to run the example and its tests, and "Testing" names the candidates where
+  the model's check uses them and lists what `rehearse` fails on.
 - Every page of the guide is reworded for readers, with the same promises: the common case first ("In short", the
   rules), the exact conditions last ("Precisely"); "Guarantees" keeps its titles and its two lists.
 - The doc comments of `run`, `Frame`, `Written`, `Shown`, `edited` and `drawn` say what each does in short, with a

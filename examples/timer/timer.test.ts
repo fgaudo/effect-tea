@@ -24,6 +24,10 @@ const state: fc.Arbitrary<State> = fc.integer({ min: 1, max: 120 }).chain((minut
   })
 )
 
+const setting = timer.init.state
+// #endregion states
+
+// #region candidates
 // What a user could ask of a timer, a tag at a time: everything but the ticks, which only the clock sends. A new
 // message of the timer does not compile here until the test says what a user could ask with it.
 const userMessages: ReadonlyArray<Message> = Object.values(
@@ -37,9 +41,7 @@ const userMessages: ReadonlyArray<Message> = Object.values(
     Ticked: [],
   } satisfies { [Tag in Message['_tag']]: ReadonlyArray<Extract<Message, { _tag: Tag }>> },
 ).flat()
-
-const setting = timer.init.state
-// #endregion states
+// #endregion candidates
 
 describe('timer', () => {
   // #region update

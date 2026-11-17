@@ -4,70 +4,101 @@ title: Testing
 
 # Testing
 
-Most of a program is pure, so most of its tests need no runtime. The tests of the timer, in
-[`examples/timer/timer.test.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/timer.test.ts), use
-`bun:test`, [fast-check](https://fast-check.dev) for states, and the tools of `@fgaudo/effect-tea/testing`:
+This is the step the others were for. Most of a program is pure, so most of its tests need no runtime: no browser,
+and no clock to wait for.
+
+The tests of the timer are in
+[`examples/timer/timer.test.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/timer.test.ts). They use
+`bun:test`, [fast-check](https://fast-check.dev) to generate states, and the tools of `@fgaudo/effect-tea/testing`:
 
 {@includeCode ../../examples/timer/timer.test.ts#imports}
 
 ## Any valid state
 
-The tests check their rules for any state the timer can be in, so they start from an arbitrary that produces
-only valid states, every phase among them, and from the messages a user could send, a tag at a time: the compiler
-checks the record against `Message`, so a new message does not compile until the test says what a user could ask
-with it:
+A rule of the timer should hold in every state the timer can be in, not only in the two or three a test happens to
+write down. So the tests start from an arbitrary that produces only valid states, every phase among them:
 
 {@includeCode ../../examples/timer/timer.test.ts#states}
 
 ## `update`
 
-`applyAll(update)` applies messages one after the other, and fails the test when `update` rejects one of them. A
-rejection is asserted as `reject` itself, a defect with `InvariantDefect`, and the commands by value, since they are
-data:
+`update` is a function, and is tested as one. `applyAll(update)` applies messages one after the other, and fails the
+test when `update` rejects one of them. Three things to notice in these tests:
+
+- a rejection is asserted as `reject` itself;
+- a defect is asserted with `InvariantDefect`;
+- the commands are asserted by value, since they are data. The bell never rings here.
 
 {@includeCode ../../examples/timer/timer.test.ts#update}
 
-`subscriptionsOf(timer)(state)` says what the program listens to in a state:
+The second test runs a whole minute, sixty ticks, in no time at all: a tick is only a message.
+
+`subscriptionsOf(timer)(state)` says what the program listens to in a state. So "the clock runs exactly while the
+timer does" is one line, checked for any state:
 
 {@includeCode ../../examples/timer/timer.test.ts#subscriptions}
 
 ## The model
 
-The run does not check that the model holds only what `update` accepts. A test does, for any state. It reads the
-messages a model holds with a function of its own, a case of the model at a time
-([`examples/timer/timer.test_reader.ts`][reader]):
+Here is a bug no test of `update` can find: a button on screen that does nothing, or a button that should be there and
+is not. The run does not check that the model holds only what `update` accepts. A test does, for any state, in three
+parts.
+
+**First, a reader.** It is a function of the test's own, which returns the messages a model holds, a case of the model
+at a time ([`examples/timer/timer.test_reader.ts`][reader]):
 
 [reader]: https://github.com/fgaudo/effect-tea/tree/main/examples/timer/timer.test_reader.ts
 
 {@includeCode ../../examples/timer/timer.test_reader.ts#reader}
 
-and gives them to `dispatchViolations`: each message the model holds must be accepted, and act once when sent twice
-unless it is meant to repeat (`repeatable`), and each of the messages a user could send that `update` accepts, and
-whose step would do something, must be among those the model holds. That last check is what finds a reader that
-forgot a field of the model.
+**Second, the candidates:** the messages a user could send, a tag at a time. The compiler checks the record against
+`Message`, so a new message does not compile until the test says what a user could ask with it:
+
+{@includeCode ../../examples/timer/timer.test.ts#candidates}
+
+**Third, `dispatchViolations`,** which is given both. It checks that:
+
+- each message the model holds is accepted;
+- each one acts once when sent twice, unless it is meant to repeat (`repeatable`), as "+" and "−" are;
+- each candidate that `update` accepts, and whose step would do something, is among those the model holds.
+
+That last check is what finds a reader that forgot a field of the model.
 
 {@includeCode ../../examples/timer/timer.test.ts#model}
 
-That the view draws what its model holds is not checked here: it is checked with the renderer's own tools (see
-[testing](../guide/testing.md)), as the test of the list of timers does below, which is why
-the reader lists the messages in the order the view draws them.
+That the view draws what its model holds is not checked here. It is checked with the renderer's own tools (see
+[testing](../guide/testing.md)), as the test of the list of timers does below. That is why the reader lists the
+messages in the order the view draws them.
 
 ## A scenario
 
-`rehearse` acts on the program as a user does, through what the current model shows, but nothing runs by itself:
-the test says when a subscription's message is heard (`hear`) and when a command runs (`run`), through the
-program's `runCommand`, with the services the test provides. It fails when the test sends what the model does not
-show or `update` rejects, when it runs or hears what is not there, on a defect of the program, as the run dies of it,
-and at the end when a command is still pending or under way, or its `run` was interrupted before it answered, since
-its answer would still arrive, or a call of `hearNext`, which runs a subscription, still waits for its message.
+The tests so far look at one function at a time. `rehearse` plays a scenario: it acts on the program as a user does,
+through what the current model shows. But nothing runs by itself. The test says when each thing happens:
+
+- when a subscription's message is heard: `hear`;
+- when a command runs: `run`. It runs through the program's `runCommand`, with the services the test provides.
+
+So the test below can look at the timer between its last tick and its bell, a moment a running program would not hold
+still for.
 
 {@includeCode ../../examples/timer/timer.test.ts#rehearse}
+
+`rehearse` is strict, so that a scenario cannot pass by accident. It fails:
+
+- when the test sends what the model does not show, or what `update` rejects;
+- when it runs or hears what is not there;
+- on a defect of the program, as the run dies of it;
+- at the end, when a command is still pending or under way, or its `run` was interrupted before it answered, since
+  its answer would still arrive;
+- at the end, when a call of `hearNext`, which runs a subscription, still waits for its message.
 
 ## A parent
 
 A parent is a program like any other: `timers.update`, `timers.makeModel` and `timers.init` are tested with the
-same tools. Its messages for a child are wrapped, `{ _tag: 'Timer', id, message }`, and so are its commands and
-the keys of its children's subscriptions, which is what `subscriptionsOf`, `rehearsal.run` and `rehearsal.hear`
+same tools.
+
+What changes is the wrapping. Its messages for a child are `{ _tag: 'Timer', id, message }`, and so are its commands
+and the keys of its children's subscriptions. That is what `subscriptionsOf`, `rehearsal.run` and `rehearsal.hear`
 see. The tests of
 [`examples/timer/timers.test.ts`](https://github.com/fgaudo/effect-tea/tree/main/examples/timer/timers.test.ts)
 name its messages:
@@ -79,8 +110,8 @@ and check its own rules, each timer's state, and the keys of the timers that tic
 {@includeCode ../../examples/timer/timers.test.ts#update}
 
 `dispatchViolations` checks the parent's model the same way, with candidates for every timer, each wrapped with its
-id. The parent's reader calls the timer's, which is why that one lies in a module of its own, and wraps what it
-returns as the parent receives it:
+id. The parent's reader calls the timer's, and wraps what it returns as the parent receives it. That is why the
+timer's reader lies in a module of its own:
 
 {@includeCode ../../examples/timer/timers.test.ts#reader}
 
@@ -93,7 +124,7 @@ write from a model:
 
 {@includeCode ../../examples/timer/named.test.ts#typing}
 
-A write over the name the model shows is stored, and the state is compared whole, since an input keeps nothing of its
+A write over the name the model shows is stored. The state is compared whole, since an input keeps nothing of its
 own. A write over a name that another write has replaced is rejected:
 
 {@includeCode ../../examples/timer/named.test.ts#update}
@@ -108,6 +139,9 @@ In a scenario, `send` takes the write from the current model, as it takes a clic
 {@includeCode ../../examples/timer/named.test.ts#rehearse}
 
 ## Where next
+
+You have built an application, and tested it without a browser and without waiting a second. From
+here:
 
 - The other tools, `simulate` for a flow with its commands answered at once and `drive` for the running program,
   are in [testing](../guide/testing.md), with what each fails on and what it ignores.
