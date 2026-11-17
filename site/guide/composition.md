@@ -146,8 +146,8 @@ A parent and its children talk only through events and external messages.
   raises it as its own: `onEvent: { Products: (event) => (state) => ({ state, events: [event] }) }`.
 - **A parent sends an external message** to a child with `children.<child>.update`, in its own `update` and `onEvent`.
   It is one of the messages the child's type declares as `external` (e.g. a back button). The parent decides when to
-  send, and the child's type says it takes the message. The child's `external` is a part of its messages, such as
-  `Data.TaggedEnum.Value<Message, 'Halted'>` in [`list`](../../examples/list/stopwatch.ts).
+  send, and the child's type says it takes the message. In the child's type, `external` names some of the child's
+  messages, for example `Data.TaggedEnum.Value<Message, 'Halted'>` in [`list`](../../examples/list/stopwatch.ts).
 - **The child answers in every state**, with its state or with an event, never with `reject`.
 
 A back button closes what the page has open, or the page asks to be left:

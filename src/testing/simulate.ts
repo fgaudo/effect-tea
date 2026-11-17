@@ -43,7 +43,7 @@ export type Simulation<State, Message, Command = never, Event = never> = Readonl
  *   test's messages is applied.
  * - The command answers that `update` rejects are listed in `ignored`.
  * - Subscriptions do not run. It reads them on each new state, and fails on a defect there, as the run dies of one.
- *   Its type still asks for their services: provide those that no command uses with any value.
+ *   Its type still asks for the services of the subscriptions. A service that no command uses can be any value.
  * - It starts from the step it is given, and calls no `init`.
  * - A defect of the program fails it with the `ProgramDefect` the run dies with.
  *
