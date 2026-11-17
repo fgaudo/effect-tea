@@ -111,6 +111,9 @@ version, and everything else, features included, the patch version.
   is made with them too. Upgrade: `const { child, compose } = parent<{ state: State }>()` becomes
   `const { child, make } = program<{ state: State }>()`, `compose({ … })` becomes `make({ … })`, and the import
   likewise.
+- **Breaking**: a name in `program<{ … }>()` or `Program<{ … }>` that is none of a program's types does not compile,
+  where its type was lost ("Anatomy of a program", "What does not compile"). Upgrade: `modl: Model` becomes
+  `model: Model`, `subscriptionService: Bell` becomes `subscriptionServices: Bell`.
 - **Breaking**: `each` is renamed `childById`, beside `inputById`, as the guide already says "children by id".
   Upgrade: `each(program, place)` becomes `childById(program, place)`, taken from `program` as `each` was from
   `parent`.

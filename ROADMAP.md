@@ -27,11 +27,5 @@ test of it. None is open.
 - **An example of routing**: flags from the URL, `popstate` as a subscription, navigation as a command.
 - **An example of hot module reloading** that keeps the state, which the guide hints at (the view lives in a
   module of its own) without showing.
-- **Children declared apart from the parent's own state**, kept inside it by `program`: a parent's state type
-  would hold only its own, with no `at`, `get` or `set` for a child, and children born and removed some other way.
-  Not spiked.
-- **A check of the names given to `Program<{ … }>`**: an unknown field (`subscriptionService`) is accepted silently
-  today, since `ProgramTypes` is only a constraint. Fable tried an intersection in the style of `ExternalAmong` that
-  fails with `'not a type of a program'`. Not decided.
 - **What 1.0 needs**: the API looks close to stable; what `docs/rejected.md` parks would change it, and is weighed
   before freezing it.

@@ -766,7 +766,8 @@ type DeclaredTypes = Readonly<{
  * Naming the types first lets `update`, `get`, `set` and the rest be typed without annotations. It also says the
  * program's own commands, events, external messages and flags, which nothing given to `make` reveals: a type it does
  * not name is a type it does not have. Its model and its messages may be named too. A type named is checked, and one
- * not named is inferred. The services are never named: they are inferred.
+ * not named is inferred. The services are never named: they are inferred. A name that is none of these, such as `modl`
+ * for `model`, does not compile.
  *
  * A child is any program. The library does the routing. A parent and its children talk only through events and
  * external messages. The parent's messages, commands and subscriptions are its own, plus each child's and each
@@ -804,6 +805,7 @@ type DeclaredTypes = Readonly<{
  * ```
  *
  * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
+ * @see The guide, "Anatomy of a program", "What does not compile".
  * @see The guide, "Composition", "In short".
  * @see The guide, "Composition", "The parent's messages".
  * @see The guide, "Composition", "The parent's commands".
@@ -823,6 +825,10 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> => ({
   inputById: (place) => ({ kind: 'byId', ...placedById(place) }),
   make: (config) => make(config as never) as never,
 })
+
+// As `NamesAmong` in `program.ts`, for the names `program` takes: on `make`'s config, which every program goes through.
+type NamesTaken<T> = [Exclude<keyof T, keyof DeclaredTypes>] extends [never] ? unknown
+  : Readonly<{ 'a name is not one of the types of a program': Exclude<keyof T, keyof DeclaredTypes> }>
 
 // A type `T` names is checked; one it does not name is inferred.
 type Named<T, K extends 'model' | 'message', Inferred> = [Field<T, K>] extends [never] ? Inferred : Field<T, K>
@@ -1029,7 +1035,8 @@ export type MakeProgram<T extends DeclaredTypes> = <
       K,
       Field<T, 'flags'>
     >
-    & Readonly<{ children?: C; inputs?: I }>,
+    & Readonly<{ children?: C; inputs?: I }>
+    & NamesTaken<T>,
 ) => Program<{
   state: Field<T, 'state'>
   model: Named<T, 'model', Model>

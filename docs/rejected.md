@@ -244,6 +244,16 @@ answer, and saying so in the proposal.
   `make`, whose children are themselves inferred, on an order of inference no documentation states (as the check of
   external messages in `make`, above). And a place of the wrong state would fail inside `make`, not where it is
   declared. *Reopen if* TypeScript infers the type arguments that a call does not give (microsoft/TypeScript#26242).
+- **Children declared apart from the parent's own state**, kept by `program` in a part of the state of its own, with
+  no `at`, `get` or `set`, and children born and removed by something other than the parent's state. Reasoned, 17
+  November 2026, from `ROADMAP.md`, the owner deciding; not spiked. The ids of children by id, and their order, stay in
+  the parent's state, which its view draws: the states kept apart would be a second record of the same list, which can
+  disagree with the first (an id with no child, a child with no id), where one array cannot. Birth and removal would
+  need a part of a step of their own, a third way between a parent and its children beside external messages and
+  events, as the children's models given to `update` would have been (below). `init: { state }`, `applyAll` and the
+  testing tools take whole states, so the part kept apart would need a shape that users write all the same. And what
+  it saves is the `at` of each child, one line. *Reopen if* an application shows that keeping its children in its state
+  costs more than that line.
 - **`renderToString`, a first frame for server-side rendering.** Reasoned, 16 November 2026, on the idea of
   `ROADMAP.md`, by "A function earns its place" (`AGENTS.md`). The first frame is data a program already gives:
   `program.makeModel(program.init.state)`, or `program.makeModel(program.init(flags).state)`, whose view a server calls

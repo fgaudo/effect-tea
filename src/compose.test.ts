@@ -1458,6 +1458,26 @@ describe('what the types reject', () => {
     expect(resetting).toBeDefined()
   })
 
+  test('a name that is none of a program\'s types does not compile, however the program is made', () => {
+    const misnamed = program<{ state: Ticks; modl: string }>()
+    // @ts-expect-error: `modl` names no type, so the model it gives would go unchecked.
+    const made = misnamed.make({ init: { state: noTicks }, makeModel: ({ ticks }) => ticks })
+    const counting = program<{ state: Ticks; model: number; message: Tick }>().make(plain)
+    // @ts-expect-error: `subscriptionService` names no type either.
+    const annotated: Program<{ state: Ticks; model: number; message: Tick; subscriptionService: never }> = counting
+    expect([made, annotated]).toHaveLength(2)
+  })
+
+  test('a function over programs passes its type parameter on to them', () => {
+    const counting = program<{ state: Ticks; model: number; message: Tick }>().make(plain)
+    const same = <T extends { state: object; model: unknown; message: unknown }>(p: Program<T>) => p
+    const maker = <T extends { state: object }>() => program<T>()
+    expect(same(counting)).toBe(counting)
+    expect(maker<{ state: Ticks }>().make({ init: { state: noTicks }, makeModel: () => null }).init).toEqual({
+      state: noTicks,
+    })
+  })
+
   // What a program's type does not name is read back as none, and what it names as `unknown` as anything.
   test('a child whose init is a function starts from flags, whatever their type', () => {
     const unknowing: Program<{ state: Ticks; model: number; message: Tick; flags: unknown }> = {

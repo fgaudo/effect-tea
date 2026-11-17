@@ -71,7 +71,9 @@ Its `update` is on [update](./update.md). The program itself:
 ## Precisely
 
 **What does not compile.** A program whose state is a number or a string does not compile. Nor does one whose
-`external` messages are not among its `message`s.
+`external` messages are not among its `message`s. Nor does one whose types, in `program<{ … }>()` or in
+`Program<{ … }>`, give a name that is not one of the names above, such as `modl` for `model`: otherwise the type it
+gives would be lost.
 
 **`runCommand` is required exactly when the program has commands.** So no command goes uninterpreted.
 
