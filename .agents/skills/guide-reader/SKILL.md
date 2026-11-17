@@ -1,6 +1,6 @@
 ---
 name: guide-reader
-description: How a reader's check of the documentation of @fgaudo/effect-tea is done: a subagent that has never seen the code builds a program for a requirement no example holds, from what a user sees alone (the guide, the tutorial, the examples and the declarations of the package), and reports every gap, with where it found each answer; then what becomes of its report. Use when the author asks for a reader's check of the guide, or of pages of it.
+description: How a reader's check of the documentation of @fgaudo/effect-tea is done: a subagent that has never seen the code builds a program for a requirement of its own, from what a user sees alone (the guide, the tutorial, the declarations of the package, and all the examples in an open check or only the bridges in a closed one), and reports every gap, with where it found each answer; then what becomes of its report. Use when the author asks for a reader's check of the guide, or of pages of it.
 ---
 
 # A reader's check of the documentation
@@ -16,33 +16,49 @@ The guide is the specification ([`AGENTS.md`](../../../AGENTS.md), "What belongs
 learn from the code of an example is a gap too, since what the guide does not say it does not promise. So the report
 says, for each thing the reader needed, where it found it.
 
+A check is of one of two modes, which differ only in what of `examples/` the reader reads:
+
+- **Open**: all of it, as a user of the site does. It checks whether the guide and the examples together are enough,
+  and is the mode for the tutorial, whose pages are built on the code of `examples/timer/` and link to it.
+- **Closed**: only the bridges and the files of the tests they share, which a user copies as they are, since the
+  library ships no renderer: `examples/snabbdom.ts`, `examples/react.ts`, `examples/snabbdom-testing.test_messages.ts`
+  and `examples/preload.test_setup.ts`. It checks the guide as the specification: a rule that an open reader would
+  copy from an example without noticing shows instead as a guess, or as what the compiler or a test told it. It is the
+  mode for pages of the guide.
+
+The two may run on one requirement, a closed check of the guide and an open one of the tutorial: the difference of
+their reports is what the guide leaves to the examples.
+
 ## Before it starts
 
 1. Ask the author whether the reader is a subagent, unless the author has just asked for one.
-2. Choose the pages the check is for, or all of the guide and the tutorial.
-3. Choose a requirement that no example holds, and that needs every page the check is for: what `counter`, `form`,
-   `list`, `pages`, `timer` and `volume` do is taken, since a reader would copy them, and so is every requirement of
-   an earlier check, listed here:
+2. Choose the pages the check is for, or all of the guide and the tutorial, and the mode: closed for pages of the
+   guide, open where the tutorial is among them, unless the author says otherwise.
+3. Choose a requirement that needs every page the check is for. In an open check no example may hold it: what
+   `counter`, `form`, `list`, `pages`, `timer` and `volume` do is taken, since a reader would copy them. In either
+   mode, so is every requirement of an earlier check, listed here:
    - a chat room: a connection status from a server feed that ends, a draft refused when blank or offline, sends that
-     may fail and are retried, a log and a composer as children, and a reconnect under a new key (2026-11-16).
+     may fail and are retried, a log and a composer as children, and a reconnect under a new key (2026-11-16, open).
    - a warehouse stock-take: items loaded by a command that may fail and is retried, an item per id with a typed
      count, a barcode scanner feed that ends and is listened to again, a submit refused while a count is invalid or a
-     submit is in flight, and a summary once it succeeds (2026-11-16).
+     submit is in flight, and a summary once it succeeds (2026-11-16, open).
 4. Run `bun run build`: the reader's compiler reads the package's declarations in `dist/`, as a user's reads them in
    `node_modules`, and a `dist/` older than `src/` shows it an API that is not the one it runs.
 5. Make sure `scratch/` does not exist, since the reader writes there. Git and Biome ignore it.
 
 ## The reader's brief
 
-Start a `general-purpose` subagent with this brief, with the requirement, the pages and the tests filled in:
+Start a `general-purpose` subagent with this brief, with the requirement, the pages, the tests and the rule of the
+mode filled in:
 
 ```text
 You are a reader checking a library's documentation by building a program from it alone, as a new user would. The
 repository is <the repository's path>. The library is @fgaudo/effect-tea, an Elm-style architecture over Effect v4.
 
 RULES, strict:
-- You may read README.md, everything under site/guide/ and site/tutorial/, and everything under examples/, which the
-  guide and the tutorial link to. Start with site/guide/index.md, then <the pages checked>.
+- You may read README.md and everything under site/guide/ and site/tutorial/. Start with site/guide/index.md, then
+  <the pages checked>.
+- <the rule of the mode, below>
 - You may read the package's declarations, dist/index.d.ts, dist/testing/index.d.ts and the .d.ts files they import:
   their doc comments are the API reference a user reads. You may read node_modules/effect, Effect's own sources and
   JSDoc, and the compiler's messages, as a user would.
@@ -70,6 +86,22 @@ compiles and how many tests pass, list the files you wrote, and list any behavio
 you, as possible bugs. Say too if you read anything the rules forbid.
 ```
 
+The rule of an open check:
+
+```text
+You may read everything under examples/, which the guide and the tutorial link to.
+```
+
+The rule of a closed check:
+
+```text
+Of examples/, you may read only the bridges and the files of the tests they share: examples/snabbdom.ts,
+  examples/react.ts, examples/snabbdom-testing.test_messages.ts and examples/preload.test_setup.ts. Use them as a
+  user who copies them does, by what they export, and count what you learn from their code under (2), with the file.
+  Every other file of examples/ is forbidden, though the guide and the tutorial link to it: where a page sends you to
+  one, say in the report which page, what you needed from the file, and how you did without it.
+```
+
 ## What to do with the report
 
 - Check each possible bug against `src/`, `docs/invariants.md` and the guide before acting on it. A defect of the code
@@ -85,4 +117,4 @@ you, as possible bugs. Say too if you read anything the rules forbid.
   `bun run lint` and `bun run test`. A change a consumer can notice in the guide's promises has a changelog entry
   (`release`).
 - Commit the documents alone, never `scratch/`. Ask the author before deleting `scratch/`.
-- Name the requirement in step 3's list of requirements taken, in the same commit.
+- Name the requirement in step 3's list of requirements taken, with its date and its mode, in the same commit.
