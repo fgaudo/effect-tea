@@ -10,9 +10,9 @@ A program is a plain object with up to five pieces. `init` says where it starts,
 state, and `makeModel` what the view draws. `runCommand` and `subscriptions` are there when the program has commands or
 listens to something. The view is not part of the program.
 
-They connect in a loop. Each message `update` accepts makes the next state, and a message it rejects leaves the state as
-it was. What the user types goes another way: the view writes it into an input, declared in `compose`, and the library
-stores it with no `update` (see [inputs the user types into](./inputs-the-user-types-into.md)).
+They connect in a loop. Each message that `update` accepts makes the next state, and a message that it rejects leaves
+the state as it was. What the user types takes another path: the view writes it into an input declared in `compose`, and
+the library stores it without calling `update` (see [inputs the user types into](./inputs-the-user-types-into.md)).
 
 ```mermaid
 flowchart LR
@@ -71,8 +71,8 @@ Its `update` is on [update](./update.md). The program itself:
 call it the same way, on any state.
 
 **What a program listens to.** `subscriptionsOf(program)(state)` is what the program listens to in `state`, by key, as
-`run` reconciles it. It is empty for a program without `subscriptions`. A parent lists each child's under
-`[<child>, key]`, or `[<child>, id, key]` for children by id (see [composition](./composition.md)).
+`run` reconciles it. It is empty for a program without `subscriptions`. A parent lists the subscriptions of each child
+under `[<child>, key]`, or under `[<child>, id, key]` for children by id (see [composition](./composition.md)).
 
 **A program with flags.** Its `init` is a function of them: `init: ({ id }) => ({ state, commands })`. Whoever starts
 the program gives them. A parent gives them to its child (see [composition](./composition.md)), and `run` to the root

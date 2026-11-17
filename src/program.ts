@@ -31,8 +31,8 @@ export const runCommandOf = <Command, Message, R>(
  * From the guide, "Anatomy of a program", "What a program listens to":
  *
  * **What a program listens to.** `subscriptionsOf(program)(state)` is what the program listens to in `state`, by key,
- * as `run` reconciles it. It is empty for a program without `subscriptions`. A parent lists each child's under
- * `[<child>, key]`, or `[<child>, id, key]` for children by id (see "Composition").
+ * as `run` reconciles it. It is empty for a program without `subscriptions`. A parent lists the subscriptions of each
+ * child under `[<child>, key]`, or under `[<child>, id, key]` for children by id (see "Composition").
  *
  * From the guide, "Composition", "A test reads a child's subscriptions by key":
  *
