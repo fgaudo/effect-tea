@@ -438,7 +438,7 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> =
      *
      * From the guide, "Inputs the user types into", "What the user gives an input is no message of the program":
      *
-     * **What the user gives an input is no message of the program.** No `update` of the program's sees it.
+     * **What the user gives an input is no message of the program.** No `update` of the program sees it.
      *
      * From the guide, "Inputs the user types into", "Only what is drawn writes into an input":
      *
