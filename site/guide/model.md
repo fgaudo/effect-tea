@@ -43,10 +43,10 @@ state it generates.
 **Messages live in the model.** Every message a view can send is in the model it draws, as a value. A control sends
 what the program fixed for it.
 
-- What the user types into a text field is no message. The view writes it over the value of an input the model holds
+- What the user types into a text field is not a message. The view writes it over the value of an input the model holds
   (see [inputs the user types into](./inputs-the-user-types-into.md)).
-- A view sends only what the model holds, and writes only over the values it holds. It builds no message of the program
-  itself.
+- A view sends only what the model holds, and writes only over the values it holds. It never builds a message of the
+  program itself.
 - Export `Message` as a type only, and no view can build one.
 
 **A model is data.** It holds no function. It compares by value with `Equal`: the models of two equal states are equal.
@@ -56,9 +56,9 @@ What a model shows, and what a view may decide, is in [structuring a program](./
 ## Precisely
 
 **The rules a view keeps to are not enforced.** A view sends only what the model holds, writes only over the values it
-holds, and builds no message of the program itself. The library does not enforce it, and what it says of a model rests
-on it. A test reads a program's messages from its model (see [testing](./testing.md)). So a message a view built is one
-no test has seen.
+holds, and never builds a message of the program itself. The library does not enforce these rules, and what it says
+about a model rests on them. A test reads a program's messages from its model (see [testing](./testing.md)). So no test
+has seen a message that a view built itself.
 
 **Why a model holds no function.** The testing tools compare a model's messages by value with `Equal`. A test checks
 this on the models of two equal states built apart (see [testing](./testing.md)). A function made anew by each
