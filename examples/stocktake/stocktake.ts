@@ -162,7 +162,7 @@ const withText = (sheet: Sheet, id: string, text: (was: string) => string): Shee
   lines: Arr.map(sheet.lines, (line) => line.id === id ? { ...line, text: text(line.text) } : line),
 })
 
-const { make, inputById } = program<{ state: State; command: Command; flags: Flags }>()
+const { make, inputById } = program<{ state: State; command: Command; flags: Flags; message: Own }>()
 
 export const stocktake = make({
   init: ({ aisle }) => ({ state: { aisle, load: Load.Loading() }, commands: [Command.Load({ aisle })] }),

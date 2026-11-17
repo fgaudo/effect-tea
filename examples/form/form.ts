@@ -76,7 +76,7 @@ export type Editor = Data.TaggedEnum<{
 
 export const Editor = Data.taggedEnum<Editor>()
 
-const { make, input } = program<{ state: State; command: Command }>()
+const { make, input } = program<{ state: State; command: Command; message: Own }>()
 
 export const form = make({
   init: { state: { name: '', save: Save.Idle(), saved: [] } },

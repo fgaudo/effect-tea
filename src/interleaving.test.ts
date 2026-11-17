@@ -412,7 +412,7 @@ const makeList = (fates: Fates, events: Array<Event>) => {
         Effect.onInterrupt(() => Effect.sync(() => events.push({ _tag: 'SearchStopped', text }))),
       ),
     )
-  const List = program<{ state: ListState }>()
+  const List = program<{ state: ListState; message: Own }>()
   return List.make({
     init: () => ({ state: { rows: [], born: 0, note: '' } }),
     children: {

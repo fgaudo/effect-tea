@@ -14,7 +14,7 @@ type AddClicked = Readonly<{ _tag: 'AddClicked' }>
 
 type StopAllClicked = Readonly<{ _tag: 'StopAllClicked' }>
 
-const { make, childById } = program<{ state: State }>()
+const { make, childById } = program<{ state: State; message: AddClicked | StopAllClicked }>()
 
 export const list = make({
   init: () => ({ state: { nextId: 1, entries: [] } }),

@@ -551,7 +551,7 @@ describe('what the run dies of, and the tools fail on', () => {
     makeModel: ({ seen }) => seen,
   }
   type Table = Readonly<{ row: Row; twice: boolean }>
-  const { childById, make } = program<{ state: Table }>()
+  const { childById, make } = program<{ state: Table; message: 'Doubled' }>()
   const table = make({
     init: (children) => ({ state: { row: children.Row.init(1).state, twice: false } }),
     children: {

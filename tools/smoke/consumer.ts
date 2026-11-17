@@ -62,7 +62,7 @@ type State = Readonly<{ main: CounterState; rows: ReadonlyArray<Row>; fulls: num
 type ResetAll = Readonly<{ _tag: 'ResetAll' }>
 
 // Exported, as a module that declares a program for others: its declarations name the types of `program`.
-export const { child, make, childById, input } = program<{ state: State }>()
+export const { child, make, childById, input } = program<{ state: State; message: ResetAll }>()
 
 // Exported, as a package that publishes a program would: its declarations name what `child` and `make` give.
 export const children = {
@@ -115,7 +115,7 @@ type Message = MessageOf<typeof app>
 
 // `onEvent` is required exactly when a child has events.
 // @ts-expect-error
-make({
+program<{ state: State }>().make({
   init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
   children,
   makeModel: () => null,
@@ -132,7 +132,7 @@ make({
 })
 
 // So does a command's answer.
-export const loading = program<{ state: State; command: 'Load' }>()
+export const loading = program<{ state: State; command: 'Load'; message: ResetAll }>()
 
 loading.make({
   init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
@@ -194,17 +194,17 @@ export const simulated: Effect.Effect<unknown, never, Server | Backup> = simulat
 
 // An own message that takes a child's name does not compile.
 // @ts-expect-error
-make({
+program<{ state: State; message: Readonly<{ _tag: 'Main' }> }>().make({
   init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
   children,
-  update: (_: Readonly<{ _tag: 'Main' }>) => (state) => ({ state }),
+  update: () => (state) => ({ state }),
   onEvent: { Main: () => (state) => ({ state }), Row: () => (state) => ({ state }) },
   makeModel: () => null,
 })
 
 // Nor does an input that takes a child's name.
 // @ts-expect-error
-make({
+program<{ state: State }>().make({
   init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
   children,
   inputs: { Main: input({ at: Optic.id<State>().key('fulls') }) },
@@ -234,7 +234,7 @@ child(
 // An input and no children: the title is the program's own state, which the outside writes over.
 type Draft = Readonly<{ title: string }>
 
-const drafting = program<{ state: Draft; command: 'Load' }>()
+const drafting = program<{ state: Draft; command: 'Load'; message: 'Cleared' }>()
 
 const draft = drafting.make({
   init: { state: { title: '' } },
@@ -256,10 +256,10 @@ const wrong: MessageOf<typeof draft> = { _tag: 'Title', message: { _tag: 'Writte
 const byHand: Shown<string> = { value: '' }
 
 // @ts-expect-error
-drafting.make({
+program<{ state: Draft; command: 'Load'; message: Readonly<{ _tag: 'Title' }> }>().make({
   init: { state: { title: '' } },
   inputs: { Title: drafting.input({ at: Optic.id<Draft>().key('title') }) },
-  update: (_: Readonly<{ _tag: 'Title' }>) => (state: Draft) => ({ state }),
+  update: () => (state) => ({ state }),
   runCommand: () => Effect.succeedNone,
   makeModel: () => null,
 })

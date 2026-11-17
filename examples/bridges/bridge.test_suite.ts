@@ -157,7 +157,7 @@ type Own = 'SendClicked' | 'DiscardClicked'
 type Sent = Readonly<{ _tag: 'Sent'; text: string }>
 type Draft = Readonly<{ text: string }>
 type Desk = Readonly<{ draft: Draft; kept: Opt.Option<Draft>; sent: ReadonlyArray<string> }>
-const draftOf = program<{ state: Draft; event: Sent }>()
+const draftOf = program<{ state: Draft; event: Sent; message: Own }>()
 
 export const draft = draftOf.make({
   init: { state: { text: '' } },
@@ -171,7 +171,7 @@ export const draft = draftOf.make({
   makeModel: (held) => held,
 })
 
-const deskOf = program<{ state: Desk }>()
+const deskOf = program<{ state: Desk; message: 'Kept' | 'Undone' }>()
 
 export const desk = deskOf.make({
   init: (children) => ({ state: { draft: children.Draft.init.state, kept: Opt.none(), sent: [] } }),
@@ -192,7 +192,7 @@ export const desk = deskOf.make({
 // A note the program clears on a message that no control drawn sends, as a source that exists whatever is drawn
 // would.
 type Note = Readonly<{ note: string }>
-const noteOf = program<{ state: Note }>()
+const noteOf = program<{ state: Note; message: 'Cleared' }>()
 
 export const note = noteOf.make({
   init: { state: { note: '' } },
@@ -204,7 +204,7 @@ export const note = noteOf.make({
 // A note behind a lid, which starts open or closed: open, it is drawn by its input; closed, a plain field that is no
 // input of the program stands in the input's place, which a renderer may draw with the same element.
 type Lid = Readonly<{ note: string; lid: 'Opened' | 'Closed' }>
-const lidOf = program<{ state: Lid; flags: Lid['lid'] }>()
+const lidOf = program<{ state: Lid; flags: Lid['lid']; message: 'Opened' | 'Closed' }>()
 
 export const lid = lidOf.make({
   init: (lid) => ({ state: { note: 'draft', lid } }),

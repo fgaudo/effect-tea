@@ -14,7 +14,7 @@ type AddClicked = Readonly<{ _tag: 'AddClicked' }>
 
 type RemoveClicked = Readonly<{ _tag: 'RemoveClicked'; id: number }>
 
-const { make, childById } = program<{ state: State }>()
+const { make, childById } = program<{ state: State; message: AddClicked | RemoveClicked }>()
 
 export const namedTimers = make({
   init: (children) => {

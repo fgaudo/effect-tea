@@ -36,7 +36,7 @@ const here = Optic.id<Draft>()
 
 const { make, inputById, input } = program<{ state: Draft }>()
 
-const draft = make({
+const draft = program<{ state: Draft; message: Own }>().make({
   init: { state: draftOf('') },
   inputs: { Title: input({ at: here.key('title') }), Level: input({ at: here.key('level') }) },
   update: (message: Own) => (state) => {
@@ -171,7 +171,7 @@ describe('a step of the program', () => {
 
   test('that puts a subscription\'s value into an input rejects what was typed over the value before', () => {
     type Note = Readonly<{ text: string }>
-    const note = program<{ state: Note }>()
+    const note = program<{ state: Note; message: Readonly<{ _tag: 'Dictated'; text: string }> }>()
     const tested = note.make({
       init: { state: { text: '' } },
       inputs: { Text: note.input({ at: Optic.id<Note>().key('text') }) },
@@ -234,7 +234,7 @@ describe('an input among the subscriptions', () => {
 describe('a key typed into an input its parent has since replaced', () => {
   type Sent = Readonly<{ _tag: 'Sent'; text: string }>
   type Text = Readonly<{ text: string }>
-  const text = program<{ state: Text; event: Sent }>()
+  const text = program<{ state: Text; event: Sent; message: 'SendClicked' | 'DiscardClicked' }>()
   const textDraft = text.make({
     init: { state: { text: '' } },
     inputs: { Text: text.input({ at: Optic.id<Text>().key('text') }) },
@@ -257,7 +257,7 @@ describe('a key typed into an input its parent has since replaced', () => {
     rows: ReadonlyArray<Readonly<{ id: number; draft: Text }>>
     sent: ReadonlyArray<string>
   }>
-  const deskOf = program<{ state: Desk }>()
+  const deskOf = program<{ state: Desk; message: DeskOwn }>()
   const rowAt = (state: Desk, id: number) =>
     Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.draft)
   const desk = deskOf.make({
@@ -426,7 +426,7 @@ describe('an input by id', () => {
   type Sheet = Readonly<{ title: string; counts: Readonly<Record<string, string>> }>
   type Own = Readonly<{ _tag: 'Removed'; id: string }> | Readonly<{ _tag: 'Added'; id: string; count: string }>
   const sheet = Optic.id<Sheet>()
-  const sheets = program<{ state: Sheet }>()
+  const sheets = program<{ state: Sheet; message: Own }>()
   const tested = sheets.make({
     init: { state: { title: '', counts: { a: '1', b: '2' } } },
     inputs: {
@@ -574,7 +574,7 @@ describe('inputs at get and set, alone and by id', () => {
 describe('the tools of the model', () => {
   // What a model holds is what the program fixes: no value is drawn, and what is written is asked of nothing.
   test('judge a step that empties an input as any message: on an empty one it changes nothing, so it does not act twice', () => {
-    const always = make({
+    const always = program<{ state: Draft; message: 'Cleared' }>().make({
       init: { state: draftOf('') },
       inputs: { Title: input({ at: here.key('title') }) },
       update: (_: 'Cleared') => (state) => ({ state: { ...state, title: '' } }),
@@ -723,20 +723,19 @@ describe('the types of an input', () => {
 
   test('an own message that takes the name of an input does not compile', () => {
     // @ts-expect-error: it would be routed to the input.
-    make({
+    program<{ state: Draft; message: Readonly<{ _tag: 'Title' }> }>().make({
       init: { state: draftOf('') },
       inputs: { Title: input({ at: here.key('title') }) },
-      update: (_: Readonly<{ _tag: 'Title' }>) => (state) => ({ state }),
+      update: () => (state) => ({ state }),
       makeModel: (state) => state,
     })
   })
 
   test('a subscription of the program\'s own cannot write into an input: it sends the program\'s own messages', () => {
-    make({
+    program<{ state: Draft; message: 'Dictated' }>().make({
       init: { state: draftOf('') },
       inputs: { Title: input({ at: here.key('title') }) },
-      // The state annotated, so that the own messages are inferred from `update` alone.
-      update: (_: 'Dictated') => (state: Draft) => ({ state }),
+      update: () => (state) => ({ state }),
       // @ts-expect-error: what is written into an input is no own message
       subscriptions: () => HashMap.make(['dictation', idle<Extract<Message, { _tag: 'Title' }>>()]),
       makeModel: () => null,
@@ -744,12 +743,11 @@ describe('the types of an input', () => {
   })
 
   test('a command\'s answer cannot write into an input: it is an own message or a child\'s', () => {
-    const saving = program<{ state: Draft; command: 'Load' }>()
+    const saving = program<{ state: Draft; command: 'Load'; message: 'Loaded' }>()
     saving.make({
       init: { state: draftOf('') },
       inputs: { Title: saving.input({ at: here.key('title') }) },
-      // The state annotated, so that the own messages are inferred from `update` alone.
-      update: (_: 'Loaded') => (state: Draft) => ({ state, commands: ['Load' as const] }),
+      update: () => (state) => ({ state, commands: ['Load'] }),
       runCommand: () =>
         // @ts-expect-error: the answer would write into the input, over the value the command started with
         Effect.succeedSome({ _tag: 'Title' as const, message: { _tag: 'Written' as const, was: '', value: 'Ada' } }),
@@ -773,7 +771,7 @@ describe('the types of an input', () => {
       makeModel: (state) => state,
     })
     type Board = Readonly<{ note: Note }>
-    const board = program<{ state: Board; command: 'Load' }>()
+    const board = program<{ state: Board; command: 'Load'; message: 'Loaded' }>()
     const written = {
       _tag: 'Note' as const,
       message: { _tag: 'Text' as const, message: { _tag: 'Written' as const, was: '', value: 'Ada' } },
@@ -781,8 +779,7 @@ describe('the types of an input', () => {
     board.make({
       init: (children) => ({ state: { note: children.Note.init.state } }),
       children: { Note: board.child(noteProgram, { at: Optic.id<Board>().key('note') }) },
-      // The state annotated, so that the own messages are inferred from `update` alone.
-      update: (_: 'Loaded') => (state: Board) => ({ state, commands: ['Load' as const] }),
+      update: () => (state) => ({ state, commands: ['Load'] }),
       // @ts-expect-error: the answer would write into the child's input, over the value the command started with
       runCommand: () => Effect.succeedSome(written),
       makeModel: () => null,

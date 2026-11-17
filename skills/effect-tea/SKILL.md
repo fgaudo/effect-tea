@@ -54,9 +54,9 @@ Each rule is a summary. The section it names rules where the summary says less.
   never mutate one. The guide, "Update", "It may be called at any time". The guide, "Update", "Never mutate the state".
 - **A state is always an object**, never a number or a string. The guide, "Anatomy of a program", "Its state is always
   an object".
-- **Every program names its types first, then is made**: `program<{ state: State }>().make({ … })`. Its
-  commands, events, external messages and flags are named there, or it has none. Its services are never named: they are
-  inferred. The guide, "Anatomy of a program", "Its types are named first, then it is made".
+- **Every program names its types first, then is made**: `program<{ state: State; message: Message }>().make({ … })`.
+  Its messages, commands, events, external messages and flags are named there, or it has none: a program that names no
+  messages has no `update`. Its services are never named: they are inferred. The guide, "Anatomy of a program", "Its types are named first, then it is made".
 - **`reject` is for a message that may arrive and does not apply in the state. `defect` is for one that cannot
   arrive.** What the view draws never rules a message out: a tap may come from an older frame. The guide, "Rejections
   and defects", "In short". The guide, "Rejections and defects", "What the view draws never rules a message out".

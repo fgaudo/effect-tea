@@ -13,7 +13,7 @@ import * as Stream from 'effect/Stream'
 import { collectGarbage } from '../test/gc.test_helper.ts'
 import type { Execution } from './command.ts'
 import type { Subscription } from './subscription.ts'
-import { andThen, forEach, reject, type Step } from './update.ts'
+import { andThen, forEach, reject, type Step, type Update } from './update.ts'
 import { type Dispatch, forwardTo } from './dispatch.ts'
 import { program } from './compose.ts'
 import { CompositionDefect } from './defect.ts'
@@ -115,7 +115,7 @@ const ticker: Program<{ state: Ticks; model: number; message: Tick }> = {
 type ParentState = Readonly<{ left: Counter; maybeRight: Opt.Option<Counter>; saves: number; ticks: Ticks }>
 type Reset = Readonly<{ _tag: 'Reset' }>
 
-const Parent = program<{ state: ParentState }>()
+const Parent = program<{ state: ParentState; message: Reset }>()
 
 const app = Parent.make({
   init: (children) => {
@@ -308,7 +308,7 @@ describe('compose', () => {
   test('an own message or command whose tag a plain object inherits is the parent\'s own, not a child\'s', () => {
     type Own = Readonly<{ _tag: 'toString' }>
     type OwnCommand = Readonly<{ _tag: 'constructor' }>
-    const Inherited = program<{ state: Ticks; command: OwnCommand }>()
+    const Inherited = program<{ state: Ticks; command: OwnCommand; message: Own }>()
     const tested = Inherited.make({
       init: (children) => ({ state: children.Ticker.init.state }),
       children: { Ticker: Inherited.child(ticker, { get: (s) => Opt.some(s), set: (_, ticks) => ticks }) },
@@ -334,7 +334,6 @@ describe('compose', () => {
         return { state: handed.Ticker.init.state }
       },
       children,
-      update: (_: never) => (state) => ({ state }),
       makeModel: (state, handed) => {
         models = Object.keys(handed)
         return handed.Ticker(state)
@@ -399,6 +398,9 @@ type Row = Readonly<{ id: number; counter: Counter }>
 type ListState = Readonly<{ rows: ReadonlyArray<Row> }>
 
 const List = program<{ state: ListState }>()
+
+// The same list, with a message of its own.
+const Clearable = program<{ state: ListState; message: Reset }>()
 
 const list = List.make({
   init: () => ({ state: { rows: [] } }),
@@ -736,7 +738,7 @@ describe('what a parent can do with a child', () => {
     makeModel: () => null,
   }
   type Pages = Readonly<{ page: Opt.Option<Page> }>
-  const Pages = program<{ state: Pages }>()
+  const Pages = program<{ state: Pages; message: BackPressed }>()
   const shown = Pages.child(page, { get: (state) => state.page, set: (_, page) => ({ page: Opt.some(page) }) })
 
   test('a child answers its parent with its state or an event, handled in the same step', () => {
@@ -792,10 +794,10 @@ describe('what a parent can do with a child', () => {
     expect(alone).toBeInstanceOf(CompositionDefect)
     expect(alone).toMatchObject({ _tag: 'CompositionDefect', child: 'Page', on: 'BackPressed' })
     expect(Object.hasOwn(alone as object, 'id')).toBe(false)
-    const telling = List.make({
+    const telling = Clearable.make({
       init: () => ({ state: { rows: [] } }),
       children: {
-        Rows: List.childById(counter, {
+        Rows: Clearable.childById(counter, {
           get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
           set: (state, id, counter) => ({ rows: state.rows.map((row) => row.id === id ? { id, counter } : row) }),
           subscribed: () => [],
@@ -808,10 +810,10 @@ describe('what a parent can do with a child', () => {
     expect(thrown(() => telling.update({ _tag: 'Reset' })({ rows: [] })))
       .toMatchObject({ _tag: 'CompositionDefect', child: 'Rows', id: 7, on: 'Cleared' })
     const refusing: typeof counter = { ...counter, update: () => () => reject }
-    const rejecting = List.make({
+    const rejecting = Clearable.make({
       init: () => ({ state: { rows: [{ id: 7, counter: { count: 0, text: '', saving: false } }] } }),
       children: {
-        Rows: List.childById(refusing, {
+        Rows: Clearable.childById(refusing, {
           get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
           set: (state, id, counter) => ({ rows: state.rows.map((row) => row.id === id ? { id, counter } : row) }),
           subscribed: () => [],
@@ -882,7 +884,7 @@ describe('what a parent can do with a child', () => {
   })
 
   test('an own subscription key that is the lifted key of a child\'s is a defect, never a silent replacement', () => {
-    const { child, make } = program<{ state: Ticks }>()
+    const { child, make } = program<{ state: Ticks; message: Tick }>()
     const clashing = make({
       init: () => ({ state: noTicks }),
       children: { Ticker: child(ticker, { get: Opt.some, set: (_, ticks) => ticks }) },
@@ -955,7 +957,7 @@ describe('steps that add up', () => {
   })
 
   test('a parent that tells each of its children by id the same thing, with forEach, reaches every one', () => {
-    const Clearing = program<{ state: ListState }>()
+    const Clearing = program<{ state: ListState; message: Reset }>()
     const clearing = Clearing.make({
       init: () => ({ state: { rows: [] } }),
       children: {
@@ -996,7 +998,7 @@ describe('steps that add up', () => {
     makeModel: () => null,
   }
   type Home = Readonly<{ page: Readonly<{ left: boolean }> }>
-  const Home = program<{ state: Home; event: Left; external: Leave }>()
+  const Home = program<{ state: Home; event: Left; external: Leave; message: Leave }>()
   const home = Home.make({
     init: (children) => ({ state: { page: children.Page.init.state } }),
     children: { Page: Home.child(leaving, { get: (state) => Opt.some(state.page), set: (_, page) => ({ page }) }) },
@@ -1005,7 +1007,7 @@ describe('steps that add up', () => {
     makeModel: () => null,
   })
   type App = Readonly<{ home: Home; heard: ReadonlyArray<boolean>; resets: number }>
-  const App = program<{ state: App }>()
+  const App = program<{ state: App; message: Reset }>()
   const app = App.make({
     init: (children) => ({ state: { home: children.Home.init.state, heard: [], resets: 0 } }),
     children: {
@@ -1099,10 +1101,10 @@ describe('a child placed with an optic', () => {
       ...counter,
       init: { ...counter.init, commands: [CounterCommand.Save({ count: 0 })] },
     }
-    const started = List.make({
+    const started = Clearable.make({
       init: () => ({ state: { rows: [] } }),
       children: {
-        Rows: List.childById(starting, {
+        Rows: Clearable.childById(starting, {
           get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
           set: (state, id, counter) => ({ rows: state.rows.map((row) => row.id === id ? { id, counter } : row) }),
           subscribed: () => [],
@@ -1127,13 +1129,14 @@ describe('a child placed with an optic', () => {
       ...counter,
       init: { ...counter.init, commands: [CounterCommand.Save({ count: 0 })] },
     }
-    const started = Parent.make({
+    const Starting = program<{ state: ParentState }>()
+    const started = Starting.make({
       init: (children) => {
         const left = children.Left.init
         return { state: { ...app.init.state, left: left.state }, commands: left.commands }
       },
       children: {
-        Left: Parent.child(starting, { get: (s) => Opt.some(s.left), set: (s, left) => ({ ...s, left }) }),
+        Left: Starting.child(starting, { get: (s) => Opt.some(s.left), set: (s, left) => ({ ...s, left }) }),
       },
       onEvent: { Left: () => (state) => ({ state }) },
       makeModel: () => null,
@@ -1163,7 +1166,7 @@ describe('flags', () => {
 
   type Seed = Readonly<{ _tag: 'Seed'; count: number }>
 
-  const Seeds = program<{ state: Seeds }>()
+  const Seeds = program<{ state: Seeds; message: Seed }>()
 
   const seeds = Seeds.make({
     init: () => ({ state: { maybeSeeded: Opt.none(), rows: [] } }),
@@ -1312,7 +1315,7 @@ describe('flags', () => {
   })
 
   test('a child with flags starts only from its flags', () => {
-    const { child, make } = program<{ state: Opt.Option<Counter> }>()
+    const { child, make } = program<{ state: Opt.Option<Counter>; message: Reset }>()
     const tested = make({
       init: () => ({ state: Opt.none() }),
       children: { Seeded: child(seeded, { get: (state) => state, set: (_, seeded) => Opt.some(seeded) }) },
@@ -1357,7 +1360,7 @@ describe('what the types reject', () => {
   })
 
   test('a child whose type names no external message takes none from its parent', () => {
-    const { child, make } = program<{ state: Ticks }>()
+    const { child, make } = program<{ state: Ticks; message: Reset }>()
     const tested = make({
       init: () => ({ state: noTicks }),
       children: { Plain: child(plain, { get: (state) => Opt.some(state), set: (_, child) => child }) },
@@ -1376,15 +1379,14 @@ describe('what the types reject', () => {
       update: (message) => ({ ticks }) => ({ state: { ticks: message._tag === 'Tick' ? ticks + 1 : 0 } }),
       makeModel: ({ ticks }) => ticks,
     }
-    const { child, make } = program<{ state: Ticks; command: 'Load' }>()
+    const { child, make } = program<{ state: Ticks; command: 'Load'; message: 'Loaded' }>()
     const children = {
       Counter: child(resettable, { get: (state: Ticks) => Opt.some(state), set: (_: Ticks, child: Ticks) => child }),
     }
     make({
       init: () => ({ state: noTicks }),
       children,
-      // The state annotated, so that the own messages are inferred from `update` alone.
-      update: (_: 'Loaded') => (state: Ticks) => ({ state, commands: ['Load' as const] }),
+      update: () => (state) => ({ state, commands: ['Load'] }),
       // @ts-expect-error: `Tick` is the child's own business.
       runCommand: () => Effect.succeedSome({ _tag: 'Counter' as const, message: { _tag: 'Tick' as const } }),
       makeModel: () => null,
@@ -1402,7 +1404,7 @@ describe('what the types reject', () => {
   })
 
   test('an own message cannot take the name of a child, which would receive it', () => {
-    const { child, make } = program<{ state: Ticks }>()
+    const { child, make } = program<{ state: Ticks; message: Readonly<{ _tag: 'Plain' }> }>()
     // @ts-expect-error: `Plain` is a child's name.
     make({
       init: () => ({ state: noTicks }),
@@ -1444,7 +1446,7 @@ describe('what the types reject', () => {
       update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
       makeModel: ({ ticks }) => ticks,
     }
-    const Wrapper = program<{ state: Ticks; external: Reset }>()
+    const Wrapper = program<{ state: Ticks; external: Reset; message: Tick }>()
     const wrapper = Wrapper.make({
       init: { state: noTicks },
       update: (_: Tick) => (state) => ({ state }),
@@ -1571,7 +1573,7 @@ describe('what the types reject', () => {
       update: (_: Tick) => (state) => ({ state, events: [{ _tag: 'Gone' } as Gone] }),
       makeModel: ({ ticks }) => ticks,
     })
-    const leaving = program<{ state: Ticks; event: Gone }>().make({
+    const leaving = program<{ state: Ticks; event: Gone; message: Tick }>().make({
       init: { state: noTicks },
       update: (_: Tick) => (state) => ({ state, events: [{ _tag: 'Gone' } as Gone] }),
       makeModel: ({ ticks }) => ticks,
@@ -1639,7 +1641,7 @@ describe('what the types reject', () => {
         HashMap.make(['bell', Channel.unwrap(Effect.map(Effect.service(Bell), (bell) => bell.ticks))]),
       makeModel: () => null,
     }
-    const { child, make } = program<{ state: Ticks; command: 'Read' | 'Load' }>()
+    const { child, make } = program<{ state: Ticks; command: 'Read' | 'Load'; message: Tick }>()
     // One service for each place they are read from: the two branches of `runCommand`, two subscriptions of one map,
     // a second map, and a child's command and subscription.
     const app = make({
@@ -1696,11 +1698,11 @@ describe('what the types reject', () => {
   test('services that a type does not say, any or unknown, are needed as unknown, by the program and by its parent', () => {
     type Exactly<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
     const loose: any = Effect.succeedNone
-    const Leaf = program<{ state: Ticks; command: 'Read' }>()
+    const Leaf = program<{ state: Ticks; message: Tick; command: 'Read' }>()
     const base = { init: { state: noTicks }, update: (_: Tick) => (state: Ticks) => ({ state }), makeModel: () => null }
     const untyped = Leaf.make({ ...base, runCommand: () => loose })
     const unknowing = Leaf.make({ ...base, runCommand: () => Effect.succeedNone as Execution<Tick, unknown> })
-    const unheard = program<{ state: Ticks }>().make({ ...base, subscriptions: () => loose })
+    const unheard = program<{ state: Ticks; message: Tick }>().make({ ...base, subscriptions: () => loose })
     const declared: Program<{ state: Ticks; model: null; message: Tick; subscriptionServices: unknown }> = base
     const commands: Exactly<CommandServicesOf<typeof untyped>, unknown> = true
     const unknownCommands: Exactly<CommandServicesOf<typeof unknowing>, unknown> = true
@@ -1728,7 +1730,7 @@ describe('what the types reject', () => {
     type Tock = Readonly<{ _tag: 'Tock' }>
     const fromClock = Effect.map(Effect.service(Clock), (): Opt.Option<Tick> => Opt.some({ _tag: 'Tick' }))
     const tock: Execution<Tock, never> = Effect.succeedNone
-    const { make } = program<{ state: Ticks; command: 'Read' | 'Load' }>()
+    const { make } = program<{ state: Ticks; command: 'Read' | 'Load'; message: Tick }>()
     make({
       init: { state: noTicks },
       update: (_: Tick) => (state) => ({ state }),
@@ -1750,7 +1752,7 @@ describe('what the types reject', () => {
     })
   })
 
-  test('a model and own messages that are named are checked, and those that are not are inferred', () => {
+  test('a model that is named is checked, one that is not is inferred, and own messages are those named', () => {
     type Exactly<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
     type Reset = 'Reset'
     const Named = program<{ state: Ticks; model: number; message: Tick | Reset }>()
@@ -1773,13 +1775,13 @@ describe('what the types reject', () => {
       // @ts-expect-error: its model is a number.
       makeModel: ({ ticks }) => String(ticks),
     })
-    const inferred = program<{ state: Ticks }>().make({
+    const inferred = program<{ state: Ticks; message: Reset }>().make({
       init: { state: noTicks },
-      update: (_: Reset) => (state) => ({ state }),
+      update: () => (state) => ({ state }),
       makeModel: ({ ticks }) => ticks,
     })
     const inferredModel: Exactly<ModelOf<typeof inferred>, number> = true
-    const inferredMessages: Exactly<MessageOf<typeof inferred>, Reset> = true
+    const namedMessages: Exactly<MessageOf<typeof inferred>, Reset> = true
     // A parent's own messages are its own: its child's are added.
     type Clock = Readonly<{ clock: Ticks }>
     const Parent = program<{ state: Clock; message: Reset }>()
@@ -1790,7 +1792,30 @@ describe('what the types reject', () => {
       makeModel: (state, children) => children.Clock(state),
     })
     const parentMessages: Exactly<MessageOf<typeof parent>, Reset | Readonly<{ _tag: 'Clock'; message: Tick }>> = true
-    expect([model, messages, inferredModel, inferredMessages, parentMessages]).toEqual([true, true, true, true, true])
+    expect([model, messages, inferredModel, namedMessages, parentMessages]).toEqual([true, true, true, true, true])
+  })
+
+  test('an update is there exactly when the program names messages of its own', () => {
+    type Exactly<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
+    program<{ state: Ticks }>().make({
+      init: { state: noTicks },
+      // @ts-expect-error: it names no messages, so it has none to update on.
+      update: (_: Tick) => (state) => ({ state }),
+      makeModel: () => null,
+    })
+    // @ts-expect-error: it names messages, and nothing updates on them.
+    program<{ state: Ticks; message: Tick }>().make({ init: { state: noTicks }, makeModel: () => null })
+    // An update given by name, and a command that answers with fewer messages than it takes.
+    const update: Update<Ticks, Tick | Reset, 'Beep'> = (message) => ({ ticks }) =>
+      message._tag === 'Tick' ? { state: { ticks: ticks + 1 }, commands: ['Beep'] } : { state: noTicks }
+    const answered = program<{ state: Ticks; message: Tick | Reset; command: 'Beep' }>().make({
+      init: { state: noTicks },
+      update,
+      runCommand: () => Effect.succeedSome<Tick>({ _tag: 'Tick' }),
+      makeModel: ({ ticks }) => ticks,
+    })
+    const byName: Exactly<MessageOf<typeof answered>, Tick | Reset> = true
+    expect(byName).toBe(true)
   })
 })
 

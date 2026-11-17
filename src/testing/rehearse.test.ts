@@ -283,7 +283,7 @@ describe('rehearse', () => {
 
   test('hear takes what a subscription sends, and no write into an input, the editor\'s, by id or not, or a child\'s', async () => {
     type Field = Readonly<{ text: string; pings: number }>
-    const Field = program<{ state: Field }>()
+    const Field = program<{ state: Field; message: 'Pinged' }>()
     const field = Field.make({
       init: { state: { text: '', pings: 0 } },
       inputs: { Text: Field.input({ at: Optic.id<Field>().key('text') }) },
@@ -292,7 +292,7 @@ describe('rehearse', () => {
       makeModel: (state) => state,
     })
     type Form = Readonly<{ name: string; notes: Readonly<Record<string, string>>; field: Field; pings: number }>
-    const Form = program<{ state: Form }>()
+    const Form = program<{ state: Form; message: 'Pinged' }>()
     const form = Form.make({
       init: (children) => ({ state: { name: '', notes: {}, field: children.Field.init.state, pings: 0 } }),
       children: {

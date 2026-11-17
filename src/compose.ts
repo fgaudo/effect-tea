@@ -341,6 +341,22 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
     onEvent: OnEvents<State, C, Command, Event>
   }>
 
+/** `update` is required exactly when the program names messages of its own, and refused when it names none. */
+type UpdateOf<State, C, Own, Command, Event> = [Own] extends [never] ? Readonly<{ update?: never }>
+  : Readonly<{
+    /**
+     * What the program's own messages do, given its children.
+     *
+     * It is required exactly when the program names messages of its own, in `program`.
+     *
+     * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
+     */
+    update: (
+      message: Own,
+      children: Handles<State, C, Command, Event>,
+    ) => (state: State) => Transition<State, Command, Event>
+  }>
+
 /** `runCommand` is required exactly when the parent has commands of its own, so that none goes uninterpreted. */
 type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never] ? Readonly<{ runCommand?: never }>
   : Readonly<{
@@ -372,6 +388,7 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> =
   // A command's answer is an own message, or one its parent may send a child: never a write into an input, the
   // parent's or a child's, since only what is drawn writes, nor a child's own message.
   & RunCommandOf<OwnCommand, Own | ChildExternals<C>, Ran>
+  & UpdateOf<State, C, Own, OwnCommand | ChildCommands<C>, Event>
   & NoClash<Own, OwnCommand, C>
   & NoClash<Own, OwnCommand, I>
   & NoShared<C, I>
@@ -414,11 +431,6 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> =
      * @see The guide, "Inputs the user types into", "Only what is drawn writes into an input".
      */
     inputs?: I
-    /** What the parent's own messages do, given its children. */
-    update?: (
-      message: Own,
-      children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>,
-    ) => (state: State) => Transition<State, OwnCommand | ChildCommands<C>, Event>
     /** The parent's own subscriptions. */
     subscriptions?: (state: State) => Heard & HashMap.HashMap<K, Subscription<Own, any>>
     /** What the parent draws, from its state and its children's models. */
@@ -732,9 +744,8 @@ const make = <
 }
 
 /**
- * What a program declares of itself, by name, for `program`: its state, and its own commands, events, external
- * messages and flags. Its model and its own messages may be named too. A type named is checked, and one not named is
- * inferred.
+ * What a program declares of itself, by name, for `program`: its state, and its own messages, commands, events,
+ * external messages and flags. Its model may be named too: a model named is checked, and one not named is inferred.
  *
  * - Each is the program's own: what its children and its inputs bring is added to it.
  * - The services are never named: they are inferred from `runCommand`, `subscriptions` and the children.
@@ -747,7 +758,7 @@ type DeclaredTypes = Readonly<{
   state: object
   /** What its view draws. Inferred from `makeModel` when it is not named. */
   model?: unknown
-  /** Its own messages, those its `update` takes. Inferred from `update` when they are not named. */
+  /** Its own messages, those its `update` takes, if it has any: a program that names none has no `update`. */
   message?: unknown
   /** Its own commands, if it has any. */
   command?: unknown
@@ -764,10 +775,10 @@ type DeclaredTypes = Readonly<{
  * `make`, which makes it.
  *
  * Naming the types first lets `update`, `get`, `set` and the rest be typed without annotations. It also says the
- * program's own commands, events, external messages and flags, which nothing given to `make` reveals: a type it does
- * not name is a type it does not have. Its model and its messages may be named too. A type named is checked, and one
- * not named is inferred. The services are never named: they are inferred. A name that is none of these, such as `modl`
- * for `model`, does not compile.
+ * program's own messages, commands, events, external messages and flags: a type it does not name is a type it does not
+ * have, so a program that names no messages has no `update`. Its model may be named too: a model named is checked, and
+ * one not named is inferred. The services are never named: they are inferred. A name that is none of these, such as
+ * `modl` for `model`, does not compile.
  *
  * A child is any program. The library does the routing. A parent and its children talk only through events and
  * external messages. The parent's messages, commands and subscriptions are its own, plus each child's and each
@@ -831,7 +842,7 @@ type NamesTaken<T> = [Exclude<keyof T, keyof DeclaredTypes>] extends [never] ? u
   : Readonly<{ 'a name is not one of the types of a program': Exclude<keyof T, keyof DeclaredTypes> }>
 
 // A type `T` names is checked; one it does not name is inferred.
-type Named<T, K extends 'model' | 'message', Inferred> = [Field<T, K>] extends [never] ? Inferred : Field<T, K>
+type Named<T, K extends 'model', Inferred> = [Field<T, K>] extends [never] ? Inferred : Field<T, K>
 
 // What `program` returns, and each of its functions, have names of their own: the declarations of a package that
 // exports one name it, where they would spell out every type of this module, for each field of the state.
@@ -931,9 +942,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * @see The guide, "Composition", "A write into an input by id names its id".
    */
   readonly inputById: DeclareInputById<T>
-  // Its external messages are checked where it is a child (`child`, `childById`): a check here would read its own
-  // messages in the compiler's first pass, which skips a context-sensitive `update` and takes them as `never`
-  // (`docs/rejected.md`).
+  // Its external messages are checked where it is a child (`child`, `childById`), not here (`docs/rejected.md`).
   /**
    * Makes the program from its pieces, and from the children and the inputs it declares.
    *
@@ -1014,7 +1023,6 @@ export type MakeProgram<T extends DeclaredTypes> = <
   Model,
   C extends Children<Field<T, 'state'>> = None,
   I extends Inputs<Field<T, 'state'>> = None,
-  Own = never,
   Ran = never,
   Heard = never,
   K = unknown,
@@ -1026,7 +1034,7 @@ export type MakeProgram<T extends DeclaredTypes> = <
       Field<T, 'state'>,
       NoInfer<C>,
       NoInfer<I>,
-      Named<T, 'message', Own>,
+      Field<T, 'message'>,
       Field<T, 'command'>,
       Field<T, 'event'>,
       Named<T, 'model', Model>,
@@ -1040,7 +1048,7 @@ export type MakeProgram<T extends DeclaredTypes> = <
 ) => Program<{
   state: Field<T, 'state'>
   model: Named<T, 'model', Model>
-  message: Named<T, 'message', Own> | ChildMessages<C> | InputMessages<I>
+  message: Field<T, 'message'> | ChildMessages<C> | InputMessages<I>
   command: Field<T, 'command'> | ChildCommands<C>
   commandServices: RanServices<Ran> | ChildCommandServices<C>
   subscriptionServices: HeardServices<Heard> | ChildSubscriptionServices<C>

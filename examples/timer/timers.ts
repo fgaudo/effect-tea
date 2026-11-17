@@ -17,7 +17,7 @@ type RemoveClicked = Readonly<{ _tag: 'RemoveClicked'; id: number }>
 // #endregion state
 
 // #region compose
-const { make, childById } = program<{ state: State }>()
+const { make, childById } = program<{ state: State; message: AddClicked | RemoveClicked }>()
 
 export const timers = make({
   init: (children) => {

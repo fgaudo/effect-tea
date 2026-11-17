@@ -20,9 +20,8 @@ version, and everything else, features included, the patch version.
 - `edited` and `drawn`, over an opaque `Shown`: the rule a bridge calls for the element of an input, on an edit and
   after each frame, so that the element is never replaced and never takes back what the user typed since; each gives
   the bridge its write, `edited` the message to send and `drawn` whether the element takes the frame's value.
-- `program<{ state; model; message }>()` may name the program's model and its own messages, beside its other types: a
-  type named is checked, and one not named is inferred from `makeModel` and `update`, as before. The guide says so in
-  "Anatomy of a program" ("Rules").
+- `program<{ state; model }>()` may name the program's model, beside its other types: a model named is checked, and
+  one not named is inferred from `makeModel`, as before. The guide says so in "Anatomy of a program" ("Rules").
 - `children` in `make` is optional, for a program with inputs and no children. Its `init` is then a `Program`'s:
   its first step, or the function of its flags, since it has no `children` to start.
 - The guide has a page "Writing a bridge", which shows how to write a bridge for any renderer, from the examples'
@@ -111,6 +110,11 @@ version, and everything else, features included, the patch version.
   is made with them too. Upgrade: `const { child, compose } = parent<{ state: State }>()` becomes
   `const { child, make } = program<{ state: State }>()`, `compose({ … })` becomes `make({ … })`, and the import
   likewise.
+- **Breaking**: a program names its own messages in `program<{ … }>()`, as it names its commands, and has an `update`
+  exactly when it names them: they are no longer inferred from `update`, `runCommand` or `subscriptions`, which could
+  narrow them to what a command answers ("Anatomy of a program", "Rules"). A parent that only routes, or a program with
+  only inputs, names none. Upgrade: `program<{ state: State }>().make({ update: (message: Message) => … })` becomes
+  `program<{ state: State; message: Message }>().make({ update: (message) => … })`.
 - **Breaking**: a name in `program<{ … }>()` or `Program<{ … }>` that is none of a program's types does not compile,
   where its type was lost ("Anatomy of a program", "What does not compile"). Upgrade: `modl: Model` becomes
   `model: Model`, `subscriptionService: Bell` becomes `subscriptionServices: Bell`.

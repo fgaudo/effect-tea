@@ -46,17 +46,17 @@ Its `update` is on [update](./update.md). The program itself:
 | Piece           | What it does                                                                               | Needed               |
 | --------------- | ------------------------------------------------------------------------------------------ | -------------------- |
 | `init`          | the first state and the commands to start with, or a function of its flags that makes them | always               |
-| `update`        | `(message) => (state) =>` the next state, commands and events, or `reject`                 | always               |
+| `update`        | `(message) => (state) =>` the next state, commands and events, or `reject`                 | when it has messages |
 | `makeModel`     | `(state) =>` what the view draws, with the messages it sends                               | always               |
 | `runCommand`    | how each command happens, as an Effect                                                     | when it has commands |
 | `subscriptions` | what it listens to in each state                                                           | when it listens      |
 
-- **Its types are named first, then it is made**: `program<{ state: State }>().make({ … })`. Besides `state`,
-  they name its commands (`command`), the events it raises (`event`), which of its messages a parent may send it
-  (`external`), and its flags (`flags`), if it has any. Nothing given to `make` reveals them: a type that it does not
-  name is a type that it does not have, and a program that raises an event it did not name does not compile. Its model
-  (`model`) and its messages (`message`) may be named too: a type named is checked, and one not named is inferred, from
-  `makeModel` and from `update`. The services are never named: they are inferred, from `runCommand` and
+- **Its types are named first, then it is made**: `program<{ state: State; message: Message }>().make({ … })`.
+  Besides `state`, they name its messages (`message`), its commands (`command`), the events it raises (`event`), which
+  of its messages a parent may send it (`external`), and its flags (`flags`), if it has any. A type that it does not
+  name is a type that it does not have. So a program that names no messages has no `update`, and one that raises an
+  event it did not name does not compile. Its model (`model`) may be named too: a model named is checked, and one not
+  named is inferred from `makeModel`. The services are never named: they are inferred, from `runCommand` and
   `subscriptions`.
 - **Its type lists the types it is made of.** It is `Program<{ state; model; message }>`, plus `command`,
   `commandServices`, `subscriptionServices`, `event`, `external` and `flags` when it has them. It is what `make`

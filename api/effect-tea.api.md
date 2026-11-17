@@ -149,11 +149,10 @@ const CompositionDefect_base: new <A extends Record<string, any> = {}>(args: Voi
 } & Readonly<A>;
 
 // @public (undocumented)
-type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own | ChildExternals<C>, Ran> & NoClash<Own, OwnCommand, C> & NoClash<Own, OwnCommand, I> & NoShared<C, I> & Readonly<{
+type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own | ChildExternals<C>, Ran> & UpdateOf<State, C, Own, OwnCommand | ChildCommands<C>, Event> & NoClash<Own, OwnCommand, C> & NoClash<Own, OwnCommand, I> & NoShared<C, I> & Readonly<{
     init: [keyof C] extends [never] ? Init<State, OwnCommand, Flags> : (children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>) => Init<State, OwnCommand | ChildCommands<C>, Flags>;
     children?: C;
     inputs?: I;
-    update?: (message: Own, children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>) => (state: State) => Transition<State, OwnCommand | ChildCommands<C>, Event>;
     subscriptions?: (state: State) => Heard & HashMap.HashMap<K, Subscription<Own, any>>;
     makeModel: (state: State, children: Models<State, C>) => Model;
 }>;
@@ -382,13 +381,13 @@ type Listed<T, Key extends 'commands' | 'events'> = T extends {
 } ? Items<L> : never;
 
 // @public
-export type MakeProgram<T extends DeclaredTypes> = <Model, C extends Children<Field<T, 'state'>> = None, I extends Inputs<Field<T, 'state'>> = None, Own = never, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, 'state'>, NoInfer<C>, NoInfer<I>, Named<T, 'message', Own>, Field<T, 'command'>, Field<T, 'event'>, Named<T, 'model', Model>, Ran, Heard, K, Field<T, 'flags'>> & Readonly<{
+export type MakeProgram<T extends DeclaredTypes> = <Model, C extends Children<Field<T, 'state'>> = None, I extends Inputs<Field<T, 'state'>> = None, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, 'state'>, NoInfer<C>, NoInfer<I>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'event'>, Named<T, 'model', Model>, Ran, Heard, K, Field<T, 'flags'>> & Readonly<{
     children?: C;
     inputs?: I;
 }> & NamesTaken<T>) => Program<{
     state: Field<T, 'state'>;
     model: Named<T, 'model', Model>;
-    message: Named<T, 'message', Own> | ChildMessages<C> | InputMessages<I>;
+    message: Field<T, 'message'> | ChildMessages<C> | InputMessages<I>;
     command: Field<T, 'command'> | ChildCommands<C>;
     commandServices: RanServices<Ran> | ChildCommandServices<C>;
     subscriptionServices: HeardServices<Heard> | ChildSubscriptionServices<C>;
@@ -413,7 +412,7 @@ type Models<State, C> = {
 };
 
 // @public (undocumented)
-type Named<T, K extends 'model' | 'message', Inferred> = [Field<T, K>] extends [never] ? Inferred : Field<T, K>;
+type Named<T, K extends 'model', Inferred> = [Field<T, K>] extends [never] ? Inferred : Field<T, K>;
 
 // @public
 type NamesAmong<T, Types> = [Exclude<keyof T, keyof Types>] extends [never] ? unknown : Readonly<{
@@ -647,6 +646,13 @@ const Unseen = "~@fgaudo/effect-tea/Shown/unseen";
 
 // @public
 export type Update<State, Message, Command = never, Event = never> = (message: Message) => (state: State) => Transition<State, Command, Event>;
+
+// @public
+type UpdateOf<State, C, Own, Command, Event> = [Own] extends [never] ? Readonly<{
+    update?: never;
+}> : Readonly<{
+    update: (message: Own, children: Handles<State, C, Command, Event>) => (state: State) => Transition<State, Command, Event>;
+}>;
 
 // @public
 export type Written<A> = Readonly<{
