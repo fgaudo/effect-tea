@@ -20,4 +20,5 @@ await $`bun build mermaid.ts --outdir ${dist}/assets/mermaid --splitting --targe
 // The examples import the package by its name, which a browser bundle resolves to the package's `dist/`.
 await $`bun run build`.cwd(root)
 const examples = await Array.fromAsync(new Glob('examples/*/index.html').scan({ cwd: root, absolute: true }))
-await $`bun build ${examples} --outdir ${dist}/examples --minify`
+// The root is named: left to `bun build`, on Windows the examples land under `_.._/examples/`.
+await $`bun build ${examples} --root ${root}/examples --outdir ${dist}/examples --minify`

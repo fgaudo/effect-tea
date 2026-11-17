@@ -57,7 +57,9 @@ the state, and sends the messages it holds. The guide draws the loop in
 [anatomy of a program](https://fgaudo.github.io/effect-tea/documents/Guide.Anatomy_of_a_program.html).
 
 Coming from Elm? Elm's `Model` is the **state** here. The **model** is what the view reads: what to show, and the
-message each control sends.
+message each control sends. The guide maps the rest, for Elm and for React, in
+[coming from Elm or React](https://fgaudo.github.io/effect-tea/documents/Guide.Coming_from_Elm_or_React.html),
+and lists its words in a [glossary](https://fgaudo.github.io/effect-tea/documents/Guide.Glossary.html).
 
 ## Is it for you?
 
@@ -241,7 +243,10 @@ with `bun run build`, then `bun examples/<name>/index.html`.
     [running](https://fgaudo.github.io/effect-tea/documents/Guide.Running.html),
     [testing](https://fgaudo.github.io/effect-tea/documents/Guide.Testing.html),
     [guarantees](https://fgaudo.github.io/effect-tea/documents/Guide.Guarantees.html),
-    [writing a bridge](https://fgaudo.github.io/effect-tea/documents/Guide.Writing_a_bridge.html).
+    [writing a bridge](https://fgaudo.github.io/effect-tea/documents/Guide.Writing_a_bridge.html);
+  - finding your way:
+    [coming from Elm or React](https://fgaudo.github.io/effect-tea/documents/Guide.Coming_from_Elm_or_React.html),
+    [glossary](https://fgaudo.github.io/effect-tea/documents/Guide.Glossary.html).
 - The [API](https://fgaudo.github.io/effect-tea/modules.html) documents each export in full.
 
 ## How it is checked

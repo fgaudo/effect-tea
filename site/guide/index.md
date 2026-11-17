@@ -15,6 +15,8 @@ children:
   - ./guarantees.md
   - ./testing.md
   - ./writing-a-bridge.md
+  - ./coming-from-elm-or-react.md
+  - ./glossary.md
 ---
 
 # Guide
@@ -36,3 +38,5 @@ the pieces fit.
 - [Guarantees](./guarantees.md)
 - [Testing](./testing.md)
 - [Writing a bridge](./writing-a-bridge.md)
+- [Coming from Elm or React](./coming-from-elm-or-react.md)
+- [Glossary](./glossary.md)

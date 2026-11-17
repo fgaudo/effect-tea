@@ -42,6 +42,8 @@ version, and everything else, features included, the patch version.
 - The guide lists "Commands", "Subscriptions", "Rejections and defects" and "Composition" before "Inputs the user types
   into", and "Writing a bridge" last; eight of its sentences are reworded, with the same promises ("Anatomy of a
   program", "Model", "Commands", "Rejections and defects", "Composition", "Inputs the user types into").
+- The guide has two more pages, summaries that link the pages that rule: "Coming from Elm or React", which maps what
+  a reader knows to the library's words, and "Glossary"; the README links both.
 - The tutorial is reworded for a first reader, with the same code: each step says why before how and ends with "What
   you have", "Before you start" says how to run the example and its tests, and "Testing" names the candidates where
   the model's check uses them and lists what `rehearse` fails on.
