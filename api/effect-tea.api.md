@@ -132,7 +132,7 @@ export type CommandOf<P> = Listed<FirstStepOf<P>, 'commands'> | Returned<P, 'com
 // @public
 export type CommandServicesOf<P> = P extends {
     readonly runCommand: RunCommand<any, any, infer R>;
-} ? Known<R> : never;
+} ? R : never;
 
 // @public
 export class CompositionDefect extends CompositionDefect_base<Readonly<{
@@ -375,7 +375,10 @@ type Models<State, C> = {
 };
 
 // @public (undocumented)
-type Needed<Listened> = Listened extends Subscription<any, infer R> ? R : never;
+type Needed<Listened> = unknown extends Listened ? unknown : Listened extends Subscription<any, infer R> ? R : never;
+
+// @public (undocumented)
+type NeededBy<S> = S extends Subscriptions<any, any, infer R, any> ? R : never;
 
 // @public
 type NoClash<Own, OwnCommand, C> = ([Extract<TagOf<Own>, keyof C>] extends [never] ? unknown : Readonly<{
@@ -586,8 +589,8 @@ export type Subscriptions<State, Message, R = never, K = unknown> = (state: Stat
 
 // @public
 export type SubscriptionServicesOf<P> = P extends {
-    readonly subscriptions?: Subscriptions<any, any, infer R, any>;
-} ? Known<R> : never;
+    readonly subscriptions?: infer S;
+} ? NeededBy<S> : never;
 
 // @public
 export const subscriptionsOf: <State, Message, R, K>(program: Readonly<{

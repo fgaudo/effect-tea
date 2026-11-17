@@ -217,9 +217,9 @@ type ChildCommands<C> = {
 type RanServices<Ran> = Ran extends Execution<any, infer R> ? R : never
 type HeardServices<Heard> = Heard extends HashMap.HashMap<any, infer Listened> ? Needed<Listened> : never
 
-// Apart, so that it distributes over what a map holds: an empty map holds `never`, which needs nothing, where an
-// `infer` with nothing to infer from would be `unknown`.
-type Needed<Listened> = Listened extends Subscription<any, infer R> ? R : never
+// Apart, so that it distributes over what a map holds: an empty map holds `never`, which needs nothing. What a map of
+// type `any` holds reads back as `unknown`, and needs anything: as `never`, it would run without its services.
+type Needed<Listened> = unknown extends Listened ? unknown : Listened extends Subscription<any, infer R> ? R : never
 
 // A child's commands and subscriptions are lifted into its parent's, with what they need.
 type ChildCommandServices<C> = { [K in keyof C]: CommandServicesOf<ProgramOf<C[K]>> }[keyof C]

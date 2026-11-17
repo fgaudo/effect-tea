@@ -219,6 +219,15 @@ answer, and saying so in the proposal.
   of `make`, on an order of inference no documentation states. A check only where `message` is named was refused too:
   the rule would depend on how the types are written, and `message: never` would escape it. *Reopen if* a program with
   a wrong `external` can compile everywhere, or the compiler documents its two passes.
+- **An error at `make` for a `runCommand` that returns `any`** (Fable: `0 extends 1 & Ran`, "a runCommand returns
+  any"), listed in `ROADMAP.md`. Reasoned, 17 November 2026, on probes with `tsc`: such services were read as `never`
+  by `CommandServicesOf` and `SubscriptionServicesOf` alone (`Known` in `program.ts`), and so by a parent, while `run`
+  and the testing tools, given the program itself, already asked for `unknown`. Reading them as `unknown` closes it for
+  `any` and `unknown` alike, in commands and subscriptions, made or annotated; the guard would have covered one of the
+  four, and moved an error that `run` gives. What neither reaches is an `any` that a program written by hand gives to a
+  type it declares, or hands to `run` unannotated (`RC` gets no candidate from it, and keeps its default, `never`):
+  that is TypeScript's own escape, and nothing of the library sees through it. *Reopen if* one of those can be told
+  apart from a program that needs no services.
 - **`renderToString`, a first frame for server-side rendering.** Reasoned, 16 November 2026, on the idea of
   `ROADMAP.md`, by "A function earns its place" (`AGENTS.md`). The first frame is data a program already gives:
   `program.makeModel(program.init.state)`, or `program.makeModel(program.init(flags).state)`, whose view a server calls

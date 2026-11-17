@@ -1661,6 +1661,36 @@ describe('what the types reject', () => {
     expect(unheard).toBe(true)
   })
 
+  test('services that a type does not say, any or unknown, are needed as unknown, by the program and by its parent', () => {
+    type Exactly<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
+    const loose: any = Effect.succeedNone
+    const Leaf = program<{ state: Ticks; command: 'Read' }>()
+    const base = { init: { state: noTicks }, update: (_: Tick) => (state: Ticks) => ({ state }), makeModel: () => null }
+    const untyped = Leaf.make({ ...base, runCommand: () => loose })
+    const unknowing = Leaf.make({ ...base, runCommand: () => Effect.succeedNone as Execution<Tick, unknown> })
+    const unheard = program<{ state: Ticks }>().make({ ...base, subscriptions: () => loose })
+    const declared: Program<{ state: Ticks; model: null; message: Tick; subscriptionServices: unknown }> = base
+    const commands: Exactly<CommandServicesOf<typeof untyped>, unknown> = true
+    const unknownCommands: Exactly<CommandServicesOf<typeof unknowing>, unknown> = true
+    const subscriptions: Exactly<SubscriptionServicesOf<typeof unheard>, unknown> = true
+    const declaredSubscriptions: Exactly<SubscriptionServicesOf<typeof declared>, unknown> = true
+    const none: Exactly<SubscriptionServicesOf<typeof base>, never> = true
+    type Pair = Readonly<{ left: Ticks; right: Ticks }>
+    const Parent = program<{ state: Pair }>()
+    const parent = Parent.make({
+      init: (children) => ({ state: { left: children.Left.init.state, right: children.Right.init.state } }),
+      children: {
+        Left: Parent.child(untyped, { at: Optic.id<Pair>().key('left') }),
+        Right: Parent.child(unheard, { at: Optic.id<Pair>().key('right') }),
+      },
+      makeModel: () => null,
+    })
+    const parentCommands: Exactly<CommandServicesOf<typeof parent>, unknown> = true
+    const parentSubscriptions: Exactly<SubscriptionServicesOf<typeof parent>, unknown> = true
+    expect([commands, unknownCommands, subscriptions, declaredSubscriptions, none, parentCommands, parentSubscriptions])
+      .toEqual([true, true, true, true, true, true, true])
+  })
+
   test('one branch of a runCommand, or one subscription of a map, that answers with no message of the parent\'s', () => {
     class Clock extends Context.Service<Clock, { readonly now: Effect.Effect<number> }>()('Clock') {}
     type Tock = Readonly<{ _tag: 'Tock' }>

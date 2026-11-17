@@ -271,6 +271,9 @@ version, and everything else, features included, the patch version.
 
 ### Fixed
 
+- Services whose type does not say which they are, a `runCommand` or `subscriptions` of type `any`, or services of type
+  `unknown`, are read as `unknown`, by `CommandServicesOf`, `SubscriptionServicesOf` and a parent: they were read as
+  `never`, so that a parent of such a child ran without them, and died on the first that was missing.
 - A parent's services are all those its `runCommand` and its `subscriptions` need: one whose two need different
   services, or whose `runCommand` returns effects of different services by branch, or whose subscriptions differ in
   theirs, compiles without an annotation. The guide's "Composition" says so ("Declaring children").

@@ -37,9 +37,8 @@ test of it. None is open.
   a wrong command, model or message and a missing `makeModel` or `runCommand`. Without children, `init` is already a
   `Program`'s, a step or a function of the flags (the children declared decide, at run time too). Left: a `TS4023` on
   declaration emit (`ExternalTypeId` cannot be named) seen once in the spike and not isolated, which would hit whoever
-  publishes a program; a guard against a `runCommand` that returns `any`, whose services read back as `never` (Fable:
-  `0 extends 1 & Ran`, "a runCommand returns any"), in `make` today too; then the seven leaves of `examples/`, the
-  guide, the tutorial, the README, the skill, the changelog and the API reports. Why not `satisfies Program<…>` with
+  publishes a program; then the seven leaves of `examples/`, the guide, the tutorial, the README, the skill, the
+  changelog and the API reports. Why not `satisfies Program<…>` with
   services as `unknown`: it loses services, commands and messages (`typeof` reads the literal), and confuses.
 - **Children declared apart from the parent's own state**, kept inside it by `program`: a parent's state type
   would hold only its own, with no `at`, `get` or `set` for a child, and children born and removed some other way.

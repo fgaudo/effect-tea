@@ -249,23 +249,27 @@ export type EventOf<P> = Returned<P, 'events'>
 /**
  * The services a program's commands need: those its `runCommand` requires.
  *
- * It is `never` unless its type names some.
+ * It is `never` when they need none, and `unknown` when their type does not say which they need (`any`, `unknown`):
+ * then whoever runs the program cannot provide them, and is told so.
  *
  * @example
  * ```ts
  * type Services = CommandServicesOf<typeof app>
  * ```
  */
-export type CommandServicesOf<P> = P extends { readonly runCommand: RunCommand<any, any, infer R> } ? Known<R> : never
+export type CommandServicesOf<P> = P extends { readonly runCommand: RunCommand<any, any, infer R> } ? R : never
 /**
  * The services a program's subscriptions need.
  *
- * It is `never` unless their type names some.
+ * It is `never` when they need none, and `unknown` when their type does not say which they need (`any`, `unknown`):
+ * then whoever runs the program cannot provide them, and is told so.
  *
  * @example
  * ```ts
  * type Services = SubscriptionServicesOf<typeof app>
  * ```
  */
-export type SubscriptionServicesOf<P> = P extends
-  { readonly subscriptions?: Subscriptions<any, any, infer R, any> } ? Known<R> : never
+export type SubscriptionServicesOf<P> = P extends { readonly subscriptions?: infer S } ? NeededBy<S> : never
+// Apart, so that a program without `subscriptions`, whose `S` reads back as `unknown`, needs none, while one whose
+// subscriptions need `unknown` keeps it: either would be read as `never`, and run without the services.
+type NeededBy<S> = S extends Subscriptions<any, any, infer R, any> ? R : never
