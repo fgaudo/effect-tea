@@ -75,6 +75,11 @@ type ChildCommands<C> = {
     }> & At<C[K]>;
 }[keyof C & string];
 
+// @public (undocumented)
+type ChildCommandServices<C> = {
+    [K in keyof C]: CommandServicesOf<ProgramOf<C[K]>>;
+}[keyof C];
+
 // @public
 type ChildDispatch<Message, Name extends string> = string extends Name ? Readonly<{
     'is not the literal name of a child': Name;
@@ -117,12 +122,17 @@ type Children<State> = Readonly<Record<string, Readonly<{
 }>>>;
 
 // @public (undocumented)
-type ChildServices<C> = {
-    [K in keyof C]: ServicesOf<ProgramOf<C[K]>>;
+type ChildSubscriptionServices<C> = {
+    [K in keyof C]: SubscriptionServicesOf<ProgramOf<C[K]>>;
 }[keyof C];
 
 // @public
 export type CommandOf<P> = Listed<FirstStepOf<P>, 'commands'> | Returned<P, 'commands'>;
+
+// @public
+export type CommandServicesOf<P> = P extends {
+    readonly runCommand: RunCommand<any, any, infer R>;
+} ? Known<R> : never;
 
 // @public
 export const composition: <T extends CompositionTypes>() => {
@@ -137,7 +147,7 @@ export const composition: <T extends CompositionTypes>() => {
     compose: <Model, C extends Children<Field<T, "state">> = None, I extends Inputs<Field<T, "state">> = None, Own = never, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, "state">, NoInfer<C>, NoInfer<I>, Own, Field<T, "command">, Field<T, "event">, Model, Ran, Heard, K, Field<T, 'flags'>> & Readonly<{
         children?: C;
         inputs?: I;
-    }>) => Shape<Field<T, "state">, Model, Own | ChildMessages<C> | InputMessages<I>, ChildCommands<C> | Field<T, "command">, ChildServices<C> | OwnServices<Ran, Heard>, Field<T, "event">, Field<T, "external">, Field<T, "flags">>;
+    }>) => Shape<Field<T, "state">, Model, Own | ChildMessages<C> | InputMessages<I>, ChildCommands<C> | Field<T, "command">, ChildCommandServices<C> | RanServices<Ran>, ChildSubscriptionServices<C> | HeardServices<Heard>, Field<T, "event">, Field<T, "external">, Field<T, "flags">>;
 };
 
 // @public
@@ -271,6 +281,9 @@ type Handles<State, C, Command, Event> = {
         init: [FlagsOf<ProgramOf<C[K]>>] extends [never] ? Start<ProgramOf<C[K]>, Command> : (flags: FlagsOf<ProgramOf<C[K]>>) => Start<ProgramOf<C[K]>, Command>;
     }>;
 };
+
+// @public (undocumented)
+type HeardServices<Heard> = Heard extends HashMap.HashMap<any, infer Listened> ? Needed<Listened> : never;
 
 // @public
 type IdOf<Message, Name> = [ChildOf<Message, Name>] extends [never] ? [] : ChildOf<Message, Name> extends Readonly<{
@@ -420,9 +433,6 @@ export type Origin = Readonly<{
     key: unknown;
 }>;
 
-// @public (undocumented)
-type OwnServices<Ran, Heard> = (Ran extends Execution<any, infer R> ? R : never) | (Heard extends HashMap.HashMap<any, infer Listened> ? Needed<Listened> : never);
-
 // @public
 type Placement<ParentState, ChildState> = Readonly<{
     get: (state: ParentState) => Opt.Option<ChildState>;
@@ -446,7 +456,7 @@ type PlacementById<ParentState, Id, ChildState> = Readonly<{
 }>;
 
 // @public
-export type Program<T extends ProgramTypes> = Shape<Field<T, 'state'>, Field<T, 'model'>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'services'>, Field<T, 'event'>, Field<T, 'external'>, Field<T, 'flags'>> & ExternalAmong<Field<T, 'message'>, Field<T, 'external'>>;
+export type Program<T extends ProgramTypes> = Shape<Field<T, 'state'>, Field<T, 'model'>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'commandServices'>, Field<T, 'subscriptionServices'>, Field<T, 'event'>, Field<T, 'external'>, Field<T, 'flags'>> & ExternalAmong<Field<T, 'message'>, Field<T, 'external'>>;
 
 // @public
 export class ProgramDefect extends ProgramDefect_base<Fields & Readonly<{
@@ -471,11 +481,15 @@ type ProgramTypes = Readonly<{
     model: unknown;
     message: unknown;
     command?: unknown;
-    services?: unknown;
+    commandServices?: unknown;
+    subscriptionServices?: unknown;
     event?: unknown;
     external?: unknown;
     flags?: unknown;
 }>;
+
+// @public (undocumented)
+type RanServices<Ran> = Ran extends Execution<any, infer R> ? R : never;
 
 // @public
 export const reject: unique symbol;
@@ -495,7 +509,7 @@ type Routed<Message> = Message extends Readonly<{
 }> ? [Exclude<keyof Message, '_tag' | 'message' | 'id'>] extends [never] ? Message : never : never;
 
 // @public
-export const run: <State, Model, Message, Command = never, R = never, RR = never, Flags = never>(program: Shape<State, Model, Message, Command, R, never, unknown, Flags>, render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>] : [options: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<void, never, Exclude<R | RR, Scope.Scope>>;
+export const run: <State, Model, Message, Command = never, RC = never, RS = never, RR = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, unknown, Flags>, render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>] : [options: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<void, never, Exclude<RC | RS | RR, Scope.Scope>>;
 
 // @public
 export type RunCommand<Command, Message, R = never> = (command: Command) => Execution<Message, R>;
@@ -516,20 +530,13 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
 }
 
 // @public
-export type ServicesOf<P> = (P extends {
-    readonly runCommand: RunCommand<any, any, infer R>;
-} ? Known<R> : never) | (P extends {
-    readonly subscriptions?: Subscriptions<any, any, infer R, any>;
-} ? Known<R> : never);
-
-// @public
-type Shape<State, Model, Message, Command, R, Event, External, Flags = never> = ObjectState<State> & Readonly<{
+type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & Readonly<{
     readonly [ExternalTypeId]?: External;
     init: Init<State, Command, Flags>;
     update: Update<State, Message, Command, Event>;
-    subscriptions?: Subscriptions<State, Message, R, unknown>;
+    subscriptions?: Subscriptions<State, Message, RS, unknown>;
     makeModel: (state: State) => Model;
-}> & Interpreter<Command, Message, R>;
+}> & Interpreter<Command, Message, RC>;
 
 // @public
 export type Shown<A> = Readonly<{
@@ -561,6 +568,11 @@ export type Subscription<Message, R = never> = Channel.Channel<Message, never, M
 
 // @public
 export type Subscriptions<State, Message, R = never, K = unknown> = (state: State) => HashMap.HashMap<K, Subscription<Message, R>>;
+
+// @public
+export type SubscriptionServicesOf<P> = P extends {
+    readonly subscriptions?: Subscriptions<any, any, infer R, any>;
+} ? Known<R> : never;
 
 // @public
 export const subscriptionsOf: <State, Message, R, K>(program: Readonly<{

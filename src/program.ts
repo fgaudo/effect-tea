@@ -49,8 +49,10 @@ export type ProgramTypes = Readonly<{
   message: unknown
   /** What its `update` asks done, for `runCommand`. */
   command?: unknown
-  /** What its commands and its subscriptions need. */
-  services?: unknown
+  /** What its commands need. */
+  commandServices?: unknown
+  /** What its subscriptions need. */
+  subscriptionServices?: unknown
   /** What it tells its parent. */
   event?: unknown
   /** The messages its parent may send it, e.g. a back button, among its `message`s. */
@@ -97,7 +99,8 @@ export type Program<T extends ProgramTypes> =
     Field<T, 'model'>,
     Field<T, 'message'>,
     Field<T, 'command'>,
-    Field<T, 'services'>,
+    Field<T, 'commandServices'>,
+    Field<T, 'subscriptionServices'>,
     Field<T, 'event'>,
     Field<T, 'external'>,
     Field<T, 'flags'>
@@ -130,16 +133,16 @@ export type ObjectState<State> = [State] extends [object] ? unknown
   : Readonly<{ 'a program keeps its state in an object': State }>
 
 /** A program's pieces. `External` is only in its type: no program has the property. */
-export type Shape<State, Model, Message, Command, R, Event, External, Flags = never> =
+export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> =
   & ObjectState<State>
   & Readonly<{
     readonly [ExternalTypeId]?: External
     init: Init<State, Command, Flags>
     update: Update<State, Message, Command, Event>
-    subscriptions?: Subscriptions<State, Message, R, unknown>
+    subscriptions?: Subscriptions<State, Message, RS, unknown>
     makeModel: (state: State) => Model
   }>
-  & Interpreter<Command, Message, R>
+  & Interpreter<Command, Message, RC>
 
 // Only what every program has: `Shape<any, …>` would demand a `runCommand` (`[any] extends [never]` is false).
 export type AnyProgram = Readonly<
@@ -243,15 +246,25 @@ export type ExternalOf<P> = P extends { readonly [ExternalTypeId]?: infer E } ? 
  */
 export type EventOf<P> = Returned<P, 'events'>
 /**
- * The services a program needs to run: those its `runCommand` and its `subscriptions` require.
+ * The services a program's commands need: those its `runCommand` requires.
  *
- * It is `never` unless their types name some.
+ * It is `never` unless its type names some.
  *
  * @example
  * ```ts
- * type Services = ServicesOf<typeof app>
+ * type Services = CommandServicesOf<typeof app>
  * ```
  */
-export type ServicesOf<P> =
-  | (P extends { readonly runCommand: RunCommand<any, any, infer R> } ? Known<R> : never)
-  | (P extends { readonly subscriptions?: Subscriptions<any, any, infer R, any> } ? Known<R> : never)
+export type CommandServicesOf<P> = P extends { readonly runCommand: RunCommand<any, any, infer R> } ? Known<R> : never
+/**
+ * The services a program's subscriptions need.
+ *
+ * It is `never` unless their type names some.
+ *
+ * @example
+ * ```ts
+ * type Services = SubscriptionServicesOf<typeof app>
+ * ```
+ */
+export type SubscriptionServicesOf<P> = P extends
+  { readonly subscriptions?: Subscriptions<any, any, infer R, any> } ? Known<R> : never

@@ -19,12 +19,13 @@ import { composition } from './compose.ts'
 import { CompositionDefect } from './defect.ts'
 import {
   type CommandOf,
+  type CommandServicesOf,
   type EventOf,
   type FlagsOf,
   type MessageOf,
   type Program,
-  type ServicesOf,
   subscriptionsOf,
+  type SubscriptionServicesOf,
 } from './program.ts'
 import { type Frame, run } from './run.ts'
 
@@ -1564,9 +1565,10 @@ describe('what the types reject', () => {
     })
   })
 
-  test('the services of a parent are those its runCommand, its subscriptions and its children need, wherever they are returned', () => {
+  test('the commands of a parent need what its runCommand and those of its children need, and its subscriptions what its own and those of its children need, wherever they are returned', () => {
     class Clock extends Context.Service<Clock, { readonly now: Effect.Effect<number> }>()('Clock') {}
     class Disk extends Context.Service<Disk, { readonly now: Effect.Effect<number> }>()('Disk') {}
+    class Gong extends Context.Service<Gong, { readonly now: Effect.Effect<number> }>()('Gong') {}
     class Feed extends Context.Service<Feed, { readonly ticks: Subscription<Tick, never> }>()('Feed') {}
     class Wire extends Context.Service<Wire, { readonly ticks: Subscription<Tick, never> }>()('Wire') {}
     class Tape extends Context.Service<Tape, { readonly ticks: Subscription<Tick, never> }>()('Tape') {}
@@ -1579,16 +1581,19 @@ describe('what the types reject', () => {
     const fromFeed = Channel.unwrap(Effect.map(Effect.service(Feed), (feed) => feed.ticks))
     const fromWire = Channel.unwrap(Effect.map(Effect.service(Wire), (wire) => wire.ticks))
     const fromTape = Channel.unwrap(Effect.map(Effect.service(Tape), (tape) => tape.ticks))
-    const ringing: Program<{ state: Ticks; model: null; message: Tick; services: Bell }> = {
+    const ringing: Program<
+      { state: Ticks; model: null; message: Tick; command: 'Ring'; commandServices: Gong; subscriptionServices: Bell }
+    > = {
       init: { state: noTicks },
       update: () => (state) => ({ state }),
+      runCommand: () => Effect.map(Effect.service(Gong), tick),
       subscriptions: () =>
         HashMap.make(['bell', Channel.unwrap(Effect.map(Effect.service(Bell), (bell) => bell.ticks))]),
       makeModel: () => null,
     }
     const { child, compose } = composition<{ state: Ticks; command: 'Read' | 'Load' }>()
     // One service for each place they are read from: the two branches of `runCommand`, two subscriptions of one map,
-    // a second map, and a child.
+    // a second map, and a child's command and subscription.
     const app = compose({
       init: () => ({ state: noTicks }),
       children: { Ringing: child(ringing, { get: (state) => Opt.some(state), set: (_, child) => child }) },
@@ -1598,8 +1603,10 @@ describe('what the types reject', () => {
         ticks > 0 ? HashMap.make(['feed', fromFeed], ['wire', fromWire]) : HashMap.make(['tape', fromTape]),
       makeModel: () => null,
     })
-    const all: Exactly<ServicesOf<typeof app>, Clock | Disk | Feed | Wire | Tape | Bell> = true
-    expect(all).toBe(true)
+    const commands: Exactly<CommandServicesOf<typeof app>, Clock | Disk | Gong> = true
+    expect(commands).toBe(true)
+    const subscriptions: Exactly<SubscriptionServicesOf<typeof app>, Feed | Wire | Tape | Bell> = true
+    expect(subscriptions).toBe(true)
     // An empty map needs nothing, wherever it is returned from.
     const quiet = compose({
       init: () => ({ state: noTicks }),
@@ -1612,7 +1619,9 @@ describe('what the types reject', () => {
         }),
       makeModel: () => null,
     })
-    const one: Exactly<ServicesOf<typeof quiet>, Feed> = true
+    const quietCommands: Exactly<CommandServicesOf<typeof quiet>, never> = true
+    expect(quietCommands).toBe(true)
+    const one: Exactly<SubscriptionServicesOf<typeof quiet>, Feed> = true
     expect(one).toBe(true)
     const silent = compose({
       init: () => ({ state: noTicks }),
@@ -1621,7 +1630,7 @@ describe('what the types reject', () => {
       subscriptions: () => HashMap.empty(),
       makeModel: () => null,
     })
-    const none: Exactly<ServicesOf<typeof silent>, never> = true
+    const none: Exactly<SubscriptionServicesOf<typeof silent>, never> = true
     expect(none).toBe(true)
     // What a `runCommand` is annotated to need is the parent's too, whatever it returns.
     const annotated = compose({
@@ -1630,8 +1639,10 @@ describe('what the types reject', () => {
       runCommand: (): Execution<Tick, Clock | Disk> => fromClock,
       makeModel: () => null,
     })
-    const named: Exactly<ServicesOf<typeof annotated>, Clock | Disk> = true
+    const named: Exactly<CommandServicesOf<typeof annotated>, Clock | Disk> = true
     expect(named).toBe(true)
+    const unheard: Exactly<SubscriptionServicesOf<typeof annotated>, never> = true
+    expect(unheard).toBe(true)
   })
 
   test('one branch of a runCommand, or one subscription of a map, that answers with no message of the parent\'s', () => {

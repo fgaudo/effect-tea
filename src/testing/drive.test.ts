@@ -257,7 +257,7 @@ describe('drive', () => {
   test('a program whose commands acquire needs no scope: each command has its own', async () => {
     const released: Array<string> = []
     type Holding = Readonly<{ count: number }>
-    const holding: Program<{ state: Holding; model: number; message: 'Held'; command: 'Hold'; services: Scope.Scope }> =
+    const holding: Program<{ state: Holding; model: number; message: 'Held'; command: 'Hold'; commandServices: Scope.Scope }> =
       {
         init: { state: { count: 0 }, commands: ['Hold'] },
         update: () => ({ count }) => ({ state: { count: count + 1 } }),

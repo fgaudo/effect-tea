@@ -174,7 +174,7 @@ describe('run', () => {
     const resource = (name: string) => Effect.acquireRelease(note(`acquire ${name}`), () => note(`release ${name}`))
     const holding = Deferred.makeUnsafe<void>()
     const drawing = Deferred.makeUnsafe<void>()
-    const program: Program<{ state: object; model: null; message: never; command: 'Hold'; services: Scope.Scope }> = {
+    const program: Program<{ state: object; model: null; message: never; command: 'Hold'; commandServices: Scope.Scope }> = {
       init: { state: {}, commands: ['Hold'] },
       update: () => (state) => ({ state }),
       runCommand: () =>

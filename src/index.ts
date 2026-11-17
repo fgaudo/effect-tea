@@ -9,15 +9,16 @@
 // A program, the types read back from one, and a program composed of children and inputs.
 export {
   type CommandOf,
+  type CommandServicesOf,
   type EventOf,
   type ExternalOf,
   type FlagsOf,
   type MessageOf,
   type ModelOf,
   type Program,
-  type ServicesOf,
   type StateOf,
   subscriptionsOf,
+  type SubscriptionServicesOf,
 } from './program.ts'
 export { composition } from './compose.ts'
 

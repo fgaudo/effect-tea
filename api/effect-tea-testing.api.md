@@ -40,9 +40,9 @@ export const dispatchViolations: <State, Message, Command, Event>(update: Update
 }>) => (state: State, held: Iterable<Message>, candidates?: Iterable<Message>) => ReadonlyArray<DispatchViolation<Message>>;
 
 // @public
-export const drive: <State, Model, Message, Command = never, R = never, A = unknown, E = never, RS = never, Flags = never>(program: Shape<State, Model, Message, Command, R, never, unknown, Flags>, scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RS>, ...args: [Flags] extends [never] ? [options?: DriveOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>] : [options: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & Readonly<{
+export const drive: <State, Model, Message, Command = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, unknown, Flags>, scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>, ...args: [Flags] extends [never] ? [options?: DriveOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>] : [options: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & Readonly<{
     patience?: Duration.Input;
-}> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<A, E, RS | Exclude<R, Scope.Scope>>;
+}> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<A, E, RT | Exclude<RC, Scope.Scope> | Exclude<RS, Scope.Scope>>;
 
 // @public
 export type DriveOptions<Message, State = unknown, Command = unknown> = RunOptions<Message, State, Command> & Readonly<{
@@ -122,23 +122,23 @@ type Origin = Readonly<{
 }>;
 
 // @public
-export type Rehearsal<State, Model, Message, Command = never, Event = never, R = never> = Readonly<{
+export type Rehearsal<State, Model, Message, Command = never, Event = never, RC = never, RS = never> = Readonly<{
     state: Effect.Effect<State>;
     model: Effect.Effect<Model>;
     send: (select: (model: Model) => Opt.Option<Message>) => Effect.Effect<void>;
     pending: Effect.Effect<ReadonlyArray<Command>>;
-    run: (select: (command: Command) => boolean) => Effect.Effect<Command, never, Exclude<R, Scope.Scope>>;
-    runAll: Effect.Effect<void, never, Exclude<R, Scope.Scope>>;
+    run: (select: (command: Command) => boolean) => Effect.Effect<Command, never, Exclude<RC, Scope.Scope>>;
+    runAll: Effect.Effect<void, never, Exclude<RC, Scope.Scope>>;
     hear: (key: unknown, message: Heard<Message>) => Effect.Effect<void>;
-    hearNext: (key: unknown) => Effect.Effect<Message, never, Exclude<R, Scope.Scope>>;
+    hearNext: (key: unknown) => Effect.Effect<Message, never, Exclude<RS, Scope.Scope>>;
     events: Effect.Effect<ReadonlyArray<Event>>;
     ignored: Effect.Effect<ReadonlyArray<Message>>;
 }>;
 
 // @public
-export const rehearse: <State, Model, Message, Command = never, Event = never, R = never, A = unknown, E = never, RS = never, Flags = never>(program: Shape<State, Model, Message, Command, R, Event, unknown, Flags>, scenario: (rehearsal: Rehearsal<State, Model, Message, Command, Event, R>) => Effect.Effect<A, E, RS>, ...args: [Flags] extends [never] ? [options?: Readonly<{
+export const rehearse: <State, Model, Message, Command = never, Event = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, Event, unknown, Flags>, scenario: (rehearsal: Rehearsal<State, Model, Message, Command, Event, RC, RS>) => Effect.Effect<A, E, RT>, ...args: [Flags] extends [never] ? [options?: Readonly<{
     flags?: never;
-}>] : [options: FlagsOption<NoInfer<Flags>>]) => Effect.Effect<A, E, RS | Exclude<R, Scope.Scope>>;
+}>] : [options: FlagsOption<NoInfer<Flags>>]) => Effect.Effect<A, E, RT>;
 
 // @public
 const reject: unique symbol;
@@ -158,13 +158,13 @@ interface RunOptions<Message, State = unknown, Command = unknown> {
 }
 
 // @public
-type Shape<State, Model, Message, Command, R, Event, External, Flags = never> = ObjectState<State> & Readonly<{
+type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & Readonly<{
     readonly [ExternalTypeId]?: External;
     init: Init<State, Command, Flags>;
     update: Update<State, Message, Command, Event>;
-    subscriptions?: Subscriptions<State, Message, R, unknown>;
+    subscriptions?: Subscriptions<State, Message, RS, unknown>;
     makeModel: (state: State) => Model;
-}> & Interpreter<Command, Message, R>;
+}> & Interpreter<Command, Message, RC>;
 
 // @public
 export const simulate: <State, Message, Command, Event, R = never>(program: Readonly<{

@@ -72,8 +72,9 @@ For each child, and for itself, a parent declares:
   children by id.
 - **What the parent draws: `makeModel`**, from its state and its children's models.
 - **Its own messages, commands and subscriptions,** if it has any: `update`, `runCommand` and `subscriptions`. Its
-  `update` takes `children` too. It may reject its own messages, as any `update` does. The services it needs are all
-  the services that its `runCommand`, its `subscriptions` and its children need: nothing names them.
+  `update` takes `children` too. It may reject its own messages, as any `update` does. Its commands need the services
+  that its `runCommand` and its children's commands need. Its subscriptions need the services that its own
+  `subscriptions` and its children's need. Nothing names them.
 - **Its own types, by name: `composition<{ state: State }>()`.** Besides `state`, they name the parent's own commands
   (`command`), the events it raises (`event`), and which of its messages a parent of its own may send it (`external`),
   if it has any. Nothing given to `compose` reveals them: a type that it does not name is a type that it does not have,

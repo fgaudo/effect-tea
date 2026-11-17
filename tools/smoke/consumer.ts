@@ -4,6 +4,7 @@
 // does not compile.
 import {
   andThen,
+  type CommandServicesOf,
   composition,
   drawn,
   edited,
@@ -11,8 +12,8 @@ import {
   type Program,
   reject,
   run,
-  type ServicesOf,
   type Shown,
+  type SubscriptionServicesOf,
   type Update,
 } from '@fgaudo/effect-tea'
 import { applyAll, simulate } from '@fgaudo/effect-tea/testing'
@@ -134,7 +135,7 @@ loading.compose({
   makeModel: () => null,
 })
 
-// A parent's services are all those its `runCommand` and its `subscriptions` need, with no annotation.
+// A parent's services are those its `runCommand` needs, and those its `subscriptions` need, with no annotation.
 class Server extends Context.Service<Server, { readonly load: Effect.Effect<void> }>()('Server') {}
 class Backup extends Context.Service<Backup, { readonly load: Effect.Effect<void> }>()('Backup') {}
 class Feed extends Context.Service<Feed, { readonly resets: Stream.Stream<ResetAll> }>()('Feed') {}
@@ -159,11 +160,16 @@ const served = loading.compose({
   makeModel: () => null,
 })
 
-type Needs = ServicesOf<typeof served>
+type Ran = CommandServicesOf<typeof served>
 
-type All = Server | Backup | Feed
+type Heard = SubscriptionServicesOf<typeof served>
 
-export const needsAll: [Needs] extends [All] ? [All] extends [Needs] ? true : false : false = true
+export const ranBoth: [Ran] extends [Server | Backup] ? [Server | Backup] extends [Ran] ? true : false : false = true
+
+export const heardFeed: [Heard] extends [Feed] ? [Feed] extends [Heard] ? true : false : false = true
+
+// `simulate` asks only for what the commands need: the subscriptions do not run.
+export const simulated: Effect.Effect<unknown, never, Server | Backup> = simulate(served)([], served.init)
 
 // An own message that takes a child's name does not compile.
 // @ts-expect-error

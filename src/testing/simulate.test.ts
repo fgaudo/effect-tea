@@ -1,11 +1,15 @@
 import { describe, expect, test } from 'bun:test'
 import * as Cause from 'effect/Cause'
+import * as Channel from 'effect/Channel'
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
+import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import type * as Scope from 'effect/Scope'
 import type { RunCommand } from '../command.ts'
+import type { Program } from '../program.ts'
+import type { Subscription } from '../subscription.ts'
 import { reject, type Update } from '../update.ts'
 import { simulate } from './simulate.ts'
 
@@ -96,6 +100,33 @@ describe('simulate', () => {
     const simulation = await Effect.runPromise(simulate({ update: chained, runCommand })(['Start'], { state: {} }))
     expect(simulation.messages).toEqual(['Start', 'First', 'Second'])
     expect(log).toEqual(['acquire A', 'release A', 'acquire B', 'release B'])
+  })
+
+  test('asks only for the services of the commands, not for those of the subscriptions it never runs', () => {
+    class Feed extends Context.Service<Feed, { readonly flows: Subscription<Flow, never> }>()('Feed') {}
+    const listening: Program<
+      {
+        state: Saving
+        model: Saving
+        message: Flow
+        command: 'Store'
+        commandServices: Storage
+        subscriptionServices: Feed
+        event: 'Done'
+      }
+    > = {
+      init: { state: idle },
+      update: flow,
+      runCommand: store,
+      subscriptions: () =>
+        HashMap.make(['feed', Channel.unwrap(Effect.map(Effect.service(Feed), (feed) => feed.flows))]),
+      makeModel: (state) => state,
+    }
+    // Unlike two `extends`, it tells `any` and `unknown` from the services named.
+    type Exactly<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
+    const simulation = simulate(listening)([], listening.init)
+    const commands: Exactly<Effect.Services<typeof simulation>, Storage> = true
+    expect(commands).toBe(true)
   })
 
   test('takes only a program that keeps its state in an object', () => {

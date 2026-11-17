@@ -340,7 +340,7 @@ const makeList = (fates: Fates, events: Array<Event>) => {
     finished: false,
   }
   const row: Program<
-    { state: Row; model: RowModel; message: RowMessage; command: RowCommand; services: Scope.Scope }
+    { state: Row; model: RowModel; message: RowMessage; command: RowCommand; commandServices: Scope.Scope }
   > = {
     init: { state: initial },
     update: (message) => (state) => {

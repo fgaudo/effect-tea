@@ -87,18 +87,19 @@ export const drive = Effect.fnUntraced(function*<
   Model,
   Message,
   Command = never,
-  R = never,
+  RC = never,
+  RS = never,
   A = unknown,
   E = never,
-  RS = never,
+  RT = never,
   Flags = never,
 >(
-  program: Shape<State, Model, Message, Command, R, never, unknown, Flags>,
-  scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RS>,
+  program: Shape<State, Model, Message, Command, RC, RS, never, unknown, Flags>,
+  scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>,
   ...[{ patience = '2 seconds', ...options } = {}]: [Flags] extends [never]
     ? [options?: DriveOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>]
     : [options: DriveOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
-): Effect.fn.Return<A, E, Exclude<R, Scope.Scope> | RS> {
+): Effect.fn.Return<A, E, Exclude<RC | RS, Scope.Scope> | RT> {
   const frames = yield* SubscriptionRef.make<Opt.Option<Frame<Model, Message>>>(Opt.none())
   const first = <B>(select: (frame: Frame<Model, Message>) => Effect.Effect<Opt.Option<B>>): Effect.Effect<B> =>
     SubscriptionRef.changes(frames).pipe(

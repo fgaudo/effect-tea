@@ -33,7 +33,7 @@ version, and everything else, features included, the patch version.
   messages"). "Subscriptions" shows a subscription that ends with a message of its own ("Precisely"), and "Testing"
   how `hearNext` hears one under a `TestClock` ("How a subscription is heard"), as the doc comment of `hearNext` does.
 - The guide gives the handlers of `onEvent` and a child's `external` type ("Composition", "Events and external
-  messages"), and says that `simulate` asks for the services of its subscriptions ("Testing", "`simulate`").
+  messages").
 - The skill says how a test without a DOM loads snabbdom, and that the examples import with `.ts`.
 - What a type does not need defaults to `never`, as in `Step` and in Effect's own types: `R` in `Execution`,
   `RunCommand`, `Subscription` and `Subscriptions`, `Command` in `Applied`, `Simulation` and `Rehearsal`, and `Event`
@@ -224,6 +224,14 @@ version, and everything else, features included, the patch version.
 - **Breaking**: `rehearse`'s `hear` takes no write into an input, the program's or a child's, which only a view sends.
   Upgrade: a test that heard `{ _tag: 'Name', message: { _tag: 'Written', … } }` sends it with `send`, from the model
   that shows the input.
+- **Breaking**: a program names the services of its commands and those of its subscriptions apart, and `composition`
+  keeps them apart. So `simulate` asks only for those of the commands, and `rehearse` for those of what the test runs:
+  `run` and `runAll` for the commands', `hearNext` for the subscriptions'. `CommandServicesOf` and
+  `SubscriptionServicesOf` read them, and `ServicesOf` is gone.
+  Upgrade: `Program<{ …; services: Storage }>` becomes `Program<{ …; commandServices: Storage }>`, or
+  `subscriptionServices` for a service of the subscriptions; `ServicesOf<P>` becomes
+  `CommandServicesOf<P> | SubscriptionServicesOf<P>`; a test that gave `simulate` a service only the subscriptions use
+  no longer gives it.
 - `Update`, `Transition`, `Rejected`, `ModelOf`, `MessageOf`, `CommandOf`, `EventOf` and `ServicesOf` have doc comments
   of their own, and `StateOf`'s speaks of `StateOf` alone.
 - "Rejections and defects" in the guide says that `defect` is for `init` too, and the doc comment of `ProgramDefect`

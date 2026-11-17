@@ -287,8 +287,6 @@ describe('the model', () => {
   })
 })
 
-const quietScanner = Scanner.of({ scans: Stream.never })
-
 const serverOf = (options: Readonly<{ loadFailures?: number; submitFailures?: number }> = {}) => {
   let loadFailures = options.loadFailures ?? 0
   let submitFailures = options.submitFailures ?? 0
@@ -319,7 +317,7 @@ describe('simulate', () => {
         { _tag: 'Count', id: 'i1', message: { _tag: 'Written', was: '', value: '10' } },
         { _tag: 'Count', id: 'i2', message: { _tag: 'Written', was: '', value: '3' } },
         { _tag: 'SubmitClicked' },
-      ], start).pipe(Effect.provideService(Server, server), Effect.provideService(Scanner, quietScanner)),
+      ], start).pipe(Effect.provideService(Server, server)),
     )
     expect(stocktake.makeModel(state)).toMatchObject({ _tag: 'Closed', total: 13, differing: 1 })
     expect(commands.map((command) => command._tag)).toEqual(['Load', 'Submit'])

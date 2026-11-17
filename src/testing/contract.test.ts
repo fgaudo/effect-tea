@@ -1113,7 +1113,7 @@ describe('what the run dies of, and the tools fail on', () => {
   // A command that answers, and whose scope, released as it ends, dies: the defect is the command's, not the
   // renderer's nor the run's own, wherever its scope is released.
   const releasing: Program<
-    { state: Row; model: number; message: 'Go' | 'Saved'; command: 'Save'; services: Scope.Scope }
+    { state: Row; model: number; message: 'Go' | 'Saved'; command: 'Save'; commandServices: Scope.Scope }
   > = {
     init: { state: { seen: 0 } },
     update: (message) => (state) =>
@@ -1145,7 +1145,7 @@ describe('what the run dies of, and the tools fail on', () => {
   // What a command holds is released once its defect says where: its scope closes with the exit the run dies with,
   // a defect for a command that interrupted itself too. So a release that dies of the very defect of its command is
   // a second defect, which `Cause` would take for the first before either said where.
-  type Witness = Program<{ state: Row; model: number; message: 'Go'; command: 'Save'; services: Scope.Scope }>
+  type Witness = Program<{ state: Row; model: number; message: 'Go'; command: 'Save'; commandServices: Scope.Scope }>
   const wheres = (exit: Exit.Exit<unknown, unknown>): ReadonlyArray<unknown> =>
     Exit.isFailure(exit)
       ? exit.cause.reasons.map((reason) =>

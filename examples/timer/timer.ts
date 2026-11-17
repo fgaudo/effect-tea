@@ -128,7 +128,7 @@ export const timer: Program<{
   model: Model
   message: Message
   command: Command
-  services: Bell
+  commandServices: Bell
 }> = {
   init: { state: { minutes: 25, phase: Phase.Setting() } },
   update,

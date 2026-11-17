@@ -163,9 +163,7 @@ Without candidates, it checks only the messages it is given.
 - The command answers that `update` rejected are listed in `ignored`. Assert `ignored` when dropping one of them would
   be a bug.
 - Its subscriptions do not run. What it reads from them is under [precisely](#precisely).
-- Its type still asks for all the services of the program, also those of its subscriptions. A program has one list of
-  services, for its commands and its subscriptions together. A service that no command uses can be any value:
-  `simulate` never calls it.
+- It asks only for the services of the commands. Its subscriptions do not run, so it does not ask for theirs.
 - It starts from the step it is given, and calls no `init`.
 - It succeeds with the last `state` and with these lists, each in order:
   - `messages`: every message that `update` accepted, the test's and the commands' answers;
@@ -203,6 +201,8 @@ rehearse(
   pending command until none is left, including the commands that they start.
 - **A subscription's message is one the test says was heard** (`hear`), or the next one the subscription itself sends
   (`hearNext`). Either is heard only while its key is in the state.
+- **It asks for the services of what the test runs.** `run` and `runAll` ask for those of the commands, and `hearNext`
+  for those of the subscriptions. A test that runs neither provides none.
 - **It starts from the program's `init`.** A program with flags gets them as `run` does, in the options.
 
 ### `drive`

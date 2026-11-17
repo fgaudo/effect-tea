@@ -148,7 +148,7 @@ const press = (state: State, slider: Slider): Opt.Option<Message> =>
     ? Opt.some(Message.DragStarted({ slider }))
     : Opt.none()
 
-export const volume: Program<{ state: State; model: Model; message: Message; services: Pointer }> = {
+export const volume: Program<{ state: State; model: Model; message: Message; subscriptionServices: Pointer }> = {
   init: { state: { media: 50, sound: Sound.Audible(), ringer: 80, limit: Limit.Full(), drag: Drag.Idle() } },
   update,
   subscriptions: (state) =>

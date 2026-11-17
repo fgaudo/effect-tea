@@ -18,6 +18,7 @@ import { composition } from '../compose.ts'
 import { ProgramDefect } from '../defect.ts'
 import type { Written } from '../input.ts'
 import type { MessageOf, Program } from '../program.ts'
+import type { Subscription } from '../subscription.ts'
 import { reject, type Update } from '../update.ts'
 import { type Rehearsal, rehearse } from './rehearse.ts'
 
@@ -65,7 +66,7 @@ describe('rehearse', () => {
   const announced: Array<string> = []
 
   const program: Program<
-    { state: Note; model: NoteModel; message: Edit; command: NoteCommand; services: Storage; event: 'Stored' }
+    { state: Note; model: NoteModel; message: Edit; command: NoteCommand; commandServices: Storage; event: 'Stored' }
   > = {
     init: { state: { text: '', isSaving: false, saved: Opt.none(), pings: 0 } },
     update: editNote,
@@ -136,7 +137,7 @@ describe('rehearse', () => {
         model: NoteModel
         message: Edit
         command: NoteCommand
-        services: Storage
+        commandServices: Storage
         event: 'Stored'
         flags: string
       }
@@ -158,6 +159,36 @@ describe('rehearse', () => {
     expect(() => rehearse(seeded, () => Effect.void)).toBeDefined()
     // @ts-expect-error: it starts from its init, given its flags.
     expect(() => rehearse(seeded, () => Effect.void, { flags: 'eggs', from })).toBeDefined()
+  })
+
+  test('asks for the services of what its scenario runs: those of the commands for run, of the subscriptions for hearNext', () => {
+    class Pings extends Context.Service<Pings, { readonly pings: Subscription<Edit, never> }>()('Pings') {}
+    const pinged: Program<
+      {
+        state: Note
+        model: NoteModel
+        message: Edit
+        command: NoteCommand
+        commandServices: Storage
+        subscriptionServices: Pings
+        event: 'Stored'
+      }
+    > = {
+      ...program,
+      subscriptions: () =>
+        HashMap.make(['ping', Channel.unwrap(Effect.map(Effect.service(Pings), (pings) => pings.pings))]),
+    }
+    // Unlike two `extends`, it tells `any` and `unknown` from the services named.
+    type Exactly<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
+    const reading = rehearse(pinged, (rehearsal) => rehearsal.state)
+    const none: Exactly<Effect.Services<typeof reading>, never> = true
+    expect(none).toBe(true)
+    const running = rehearse(pinged, (rehearsal) => rehearsal.runAll)
+    const commands: Exactly<Effect.Services<typeof running>, Storage> = true
+    expect(commands).toBe(true)
+    const hearing = rehearse(pinged, (rehearsal) => rehearsal.hearNext('ping'))
+    const subscriptions: Exactly<Effect.Services<typeof hearing>, Pings> = true
+    expect(subscriptions).toBe(true)
   })
 
   test('a program written as a plain object, without commands, needs no runCommand', async () => {
@@ -1214,7 +1245,16 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
   // `First` and the subscription under `first` die of `first`; `Second` and the one under `second`, of `second`.
   const ordered = (
     released: Deferred.Deferred<void>,
-  ): Program<{ state: Still; model: Still; message: 'Heard'; command: 'First' | 'Second'; services: Scope.Scope }> => ({
+  ): Program<
+    {
+      state: Still
+      model: Still
+      message: 'Heard'
+      command: 'First' | 'Second'
+      commandServices: Scope.Scope
+      subscriptionServices: Scope.Scope
+    }
+  > => ({
     init: { state: { still: true }, commands: ['First', 'Second'] },
     update: () => (state) => ({ state }),
     runCommand: (command) => command === 'First' ? diesThenReleases(released) : diesOnceReleased(released),
@@ -1263,7 +1303,7 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const released = yield* Deferred.make<void>()
       const dying = yield* Deferred.make<void>()
-      const program: Program<{ state: Still; model: Still; message: 'Heard'; services: Scope.Scope }> = {
+      const program: Program<{ state: Still; model: Still; message: 'Heard'; subscriptionServices: Scope.Scope }> = {
         init: { state: { still: true } },
         update: () => (state) => ({ state }),
         subscriptions: () =>
@@ -1333,7 +1373,7 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
         model: Still
         message: 'Done'
         command: 'Held' | 'Dies'
-        services: Scope.Scope
+        commandServices: Scope.Scope
       }> = {
         init: { state: { still: true }, commands: ['Held', 'Dies'] },
         update: () => (state) => ({ state }),

@@ -25,7 +25,8 @@ import * as Loop from './loop.ts'
  *
  * Nothing reaches `update` by itself: each message comes through one of these calls.
  *
- * A program without commands, events or services leaves `Command`, `Event` or `R` as `never`.
+ * A program without commands or events leaves `Command` or `Event` as `never`. `RC` is the services its commands need,
+ * and `RS` those its subscriptions need. `run` and `runAll` ask for `RC`, and `hearNext` for `RS`.
  *
  * - A call that fails the test fails the fiber that made it. Join a call forked from the scenario, or its failure is
  *   lost.
@@ -40,10 +41,11 @@ import * as Loop from './loop.ts'
  * ```
  *
  * @see The guide, "Testing", "Nothing reaches `update` by itself".
+ * @see The guide, "Testing", "It asks for the services of what the test runs".
  * @see The guide, "Testing", "Fibers the test forks or detaches".
  * @see The guide, "Testing", "After a defect of the program".
  */
-export type Rehearsal<State, Model, Message, Command = never, Event = never, R = never> = Readonly<{
+export type Rehearsal<State, Model, Message, Command = never, Event = never, RC = never, RS = never> = Readonly<{
   /** The current state. */
   state: Effect.Effect<State>
   /** The model of the current state. */
@@ -74,7 +76,7 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, R =
    * @see The guide, "Testing", "Commands at the end".
    * @see The guide, "Testing", "After a defect of the program".
    */
-  run: (select: (command: Command) => boolean) => Effect.Effect<Command, never, Exclude<R, Scope.Scope>>
+  run: (select: (command: Command) => boolean) => Effect.Effect<Command, never, Exclude<RC, Scope.Scope>>
   /**
    * Runs the pending commands, and those they start, until none is left.
    *
@@ -84,7 +86,7 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, R =
    * @see The guide, "Testing", "Each command waits until the test runs it".
    * @see The guide, "Testing", "Commands at the end".
    */
-  runAll: Effect.Effect<void, never, Exclude<R, Scope.Scope>>
+  runAll: Effect.Effect<void, never, Exclude<RC, Scope.Scope>>
   /**
    * Applies a message as the subscription under `key` would send it, without running the subscription.
    *
@@ -123,7 +125,7 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, R =
    * @see The guide, "Testing", "What fails the test".
    * @see The guide, "Testing", "After a defect of the program".
    */
-  hearNext: (key: unknown) => Effect.Effect<Message, never, Exclude<R, Scope.Scope>>
+  hearNext: (key: unknown) => Effect.Effect<Message, never, Exclude<RS, Scope.Scope>>
   /** The events `update` raised for the program's parent, in order. */
   events: Effect.Effect<ReadonlyArray<Event>>
   /**
@@ -207,17 +209,18 @@ export const rehearse = Effect.fnUntraced(function*<
   Message,
   Command = never,
   Event = never,
-  R = never,
+  RC = never,
+  RS = never,
   A = unknown,
   E = never,
-  RS = never,
+  RT = never,
   Flags = never,
 >(
-  program: Shape<State, Model, Message, Command, R, Event, unknown, Flags>,
-  scenario: (rehearsal: Rehearsal<State, Model, Message, Command, Event, R>) => Effect.Effect<A, E, RS>,
+  program: Shape<State, Model, Message, Command, RC, RS, Event, unknown, Flags>,
+  scenario: (rehearsal: Rehearsal<State, Model, Message, Command, Event, RC, RS>) => Effect.Effect<A, E, RT>,
   ...[{ flags } = {}]: [Flags] extends [never] ? [options?: FlagsOption<never>]
     : [options: FlagsOption<NoInfer<Flags>>]
-): Effect.fn.Return<A, E, Exclude<R, Scope.Scope> | RS> {
+): Effect.fn.Return<A, E, RT> {
   const started = Core.init(yield* Effect.sync(() => startOf(program.init, flags)).pipe(diesIn('init')))
   type Now = Current<State, Message, Event>
   const runCommand = runCommandOf(program)
@@ -257,7 +260,7 @@ export const rehearse = Effect.fnUntraced(function*<
   let active: Core.Active<unknown> = Core.noneActive
   // The commands, and how each start is heard, by its generation, as the run keeps its fibers. Written by every fiber
   // of the test's, each time by one transition in one thunk.
-  type LedgerOf = Ledger.Ledger<Command, Subscription<Message, R>, Opened, Call<Message>, Message>
+  type LedgerOf = Ledger.Ledger<Command, Subscription<Message, RS>, Opened, Call<Message>, Message>
   let ledger: LedgerOf = Ledger.start(started.commands)
   const stoppedWhileWaiting = (key: unknown) =>
     new Error(
@@ -460,7 +463,7 @@ export const rehearse = Effect.fnUntraced(function*<
     const open = Effect.fnUntraced(function*(
       key: unknown,
       generation: Core.Generation,
-      subscription: Subscription<Message, R>,
+      subscription: Subscription<Message, RS>,
     ) {
       const asks = yield* Queue.unbounded<void>()
       const fiber = yield* Queue.take(asks).pipe(
@@ -613,13 +616,13 @@ export const rehearse = Effect.fnUntraced(function*<
           : Effect.die(new Error(`No pending command matches (pending: ${describeAll(ran.pending)})`)))
     // Ends on a take that finds nothing, never on a count of `pending` made before it: another call may take the last
     // command in between.
-    const runAll: Effect.Effect<void, never, Exclude<R, Scope.Scope>> = Effect.flatMap(
+    const runAll: Effect.Effect<void, never, Exclude<RC, Scope.Scope>> = Effect.flatMap(
       runFirst(() => true),
       (ran) => ran._tag === 'None' ? Effect.void : runAll,
     )
     // What the test reads of the state stays readable once the rehearsal died; what it asks of the program, its model
     // included, fails.
-    const rehearsal: Rehearsal<State, Model, Message, Command, Event, R> = {
+    const rehearsal: Rehearsal<State, Model, Message, Command, Event, RC, RS> = {
       state: Effect.sync(() => now.state),
       model: deadOr(Effect.sync(() => shown)),
       send: (select) => ask(Effect.suspend(() => send(select))),

@@ -16,6 +16,7 @@ import { describeByTag } from './log.ts'
 import {
   type AnyProgram,
   type CommandOf,
+  type CommandServicesOf,
   type EventOf,
   type ExternalAmong,
   type ExternalOf,
@@ -26,11 +27,11 @@ import {
   type MessageOf,
   type ModelOf,
   type ObjectState,
-  type ServicesOf,
   type Shape,
   startOf,
   type StateOf,
   subscriptionsOf,
+  type SubscriptionServicesOf,
 } from './program.ts'
 import type { Subscription, Subscriptions } from './subscription.ts'
 import { appendStep, type Folded, reject, type Step, type Transition, type Update } from './update.ts'
@@ -210,17 +211,18 @@ type ChildCommands<C> = {
 }[keyof C & string]
 
 // The services of a parent's own `runCommand` and `subscriptions`, read from all that each returns, `Ran` and `Heard`:
-// one parameter for the services, inferred from both, would be one of the candidates and not their union, and so
-// would one inferred from the branches of a `runCommand` or from the subscriptions of a map.
-type OwnServices<Ran, Heard> =
-  | (Ran extends Execution<any, infer R> ? R : never)
-  | (Heard extends HashMap.HashMap<any, infer Listened> ? Needed<Listened> : never)
+// one parameter for the services, inferred from the branches of a `runCommand` or from the subscriptions of a map,
+// would be one of the candidates and not their union.
+type RanServices<Ran> = Ran extends Execution<any, infer R> ? R : never
+type HeardServices<Heard> = Heard extends HashMap.HashMap<any, infer Listened> ? Needed<Listened> : never
 
 // Apart, so that it distributes over what a map holds: an empty map holds `never`, which needs nothing, where an
 // `infer` with nothing to infer from would be `unknown`.
 type Needed<Listened> = Listened extends Subscription<any, infer R> ? R : never
 
-type ChildServices<C> = { [K in keyof C]: ServicesOf<ProgramOf<C[K]>> }[keyof C]
+// A child's commands and subscriptions are lifted into its parent's, with what they need.
+type ChildCommandServices<C> = { [K in keyof C]: CommandServicesOf<ProgramOf<C[K]>> }[keyof C]
+type ChildSubscriptionServices<C> = { [K in keyof C]: SubscriptionServicesOf<ProgramOf<C[K]>> }[keyof C]
 
 /** A new child: the state its parent puts where the child lives, and the commands it starts with, lifted. */
 type Start<P, Command> = Readonly<{
@@ -473,7 +475,8 @@ const compose = <
   Model,
   Own | ChildMessages<C> | InputMessages<I>,
   OwnCommand | ChildCommands<C>,
-  OwnServices<Ran, Heard> | ChildServices<C>,
+  RanServices<Ran> | ChildCommandServices<C>,
+  HeardServices<Heard> | ChildSubscriptionServices<C>,
   Event,
   External,
   Flags
@@ -709,7 +712,8 @@ const compose = <
     Model,
     Message,
     Command,
-    OwnServices<Ran, Heard> | ChildServices<C>,
+    RanServices<Ran> | ChildCommandServices<C>,
+    HeardServices<Heard> | ChildSubscriptionServices<C>,
     Event,
     External,
     Flags
@@ -892,8 +896,9 @@ export const composition = <T extends CompositionTypes>() => {
     /**
      * Makes the program from what the parent declares.
      *
-     * Its own `update` takes `children` too, and may reject its own messages. The services the program needs are those
-     * of its `runCommand`, its `subscriptions` and its children: nothing names them.
+     * Its own `update` takes `children` too, and may reject its own messages. Its commands need the services of its
+     * `runCommand` and of its children's commands, and its subscriptions those of its own and of its children's: nothing
+     * names them.
      *
      * @param config - Its `init` and `makeModel`, its `children` and its `inputs`, and its own `update`,
      * `subscriptions`, `runCommand` and `onEvent`, where it has them.
