@@ -56,11 +56,13 @@ them.
   - The subscription adds the time between two frames of the screen to an accumulator. It sends one step for each
     whole `dt` in the accumulator, and keeps the rest. A limit on the time that one frame adds stops a long pause from
     sending thousands of steps.
-  - The renderer draws between the step before and the current one, by the part of a step that the accumulator keeps.
-    This is the renderer's business: the model gives it both positions, and the state holds no clock.
+  - After the steps of a frame, the subscription sends a second message. It says what part of the next step the
+    screen is into: the rest in the accumulator, divided by `dt`. The state keeps this part, and `update` decides
+    nothing by it.
+  - `makeModel` gives the position to draw, between the step before and the current one, by that part. So the
+    renderer draws frames, and nothing else.
 
-  The example [`bounce`](../../examples/bounce/bounce.ts) is written this way, with a renderer that draws between two
-  steps ([`interpolated.ts`](../../examples/bounce/interpolated.ts)).
+  The example [`bounce`](../../examples/bounce/bounce.ts) is written this way.
 - **Input is never a reason to reject.** The input keeps what the user typed, whatever the program decides, and the
   library stores it (see [inputs the user types into](./inputs-the-user-types-into.md)). So no rule of the program
   rejects a value. Instead, put the validity of the value in the model, as data. For example, show "Save" only for a
