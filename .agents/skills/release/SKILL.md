@@ -11,13 +11,24 @@ The version in `package.json` is the one the next release will have, decided by 
 
 A change a consumer can notice adds an entry to [`CHANGELOG.md`](../../../CHANGELOG.md), in the same commit,
 under the `(unreleased)` version: `Changed`, `Added` or `Fixed`, and a breaking change says how to upgrade, with
-the old and the new spelling. Changes only to tests, tooling or internals add none.
+the old and the new spelling.
+
+The changelog is for whoever uses the library, and holds only what they notice when they upgrade: what they call,
+what compiles, what the run, the testing tools and the bridges they copied do, and what they may now rely on.
+Everything else adds no entry: tests, tooling, internals, the examples' tests, the repository's documents, and the
+rewording of the guide, the tutorial, the README or the doc comments with the same promises. Of the documentation,
+only a new promise, a new page, or a page or section that a user cites moving gets an entry, a line each.
+
+An unreleased section says what changes since the last release, not how the work went. A change to something the
+section already lists edits that entry, and never adds one after it: a rename of what the section added renames it
+there, a fix of what the section added is no fix for whoever upgrades, and a change made in steps is one entry with
+its final result (the old spelling of the last release, the new one of this). Changes of one kind (the defects of the
+run, the fixes of one testing tool) are one entry together, not one each.
 
 An entry is one line, which says what changes for whoever upgrades, so that a reader scans a section a line each:
 the why, the details and the examples are read in the guide and the doc comments, not retold here. A breaking
 change starts with `**Breaking**:`, and adds below it, indented, `Upgrade:` with the old and the new spelling, in as
-few lines as that takes. A change to the guide, the README or the examples names the sections: what they now say is
-read there.
+few lines as that takes. An entry for the guide names its pages or sections: what they now say is read there.
 
 ## The version
 
