@@ -81,7 +81,6 @@ Each pair sums up a rule of this page. The rule itself is above.
 | Do                                                                   | Don't                                                                          |
 | -------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | Turn an expected failure into a message with `Effect.match`.         | Return an Effect that can fail. The type of an execution refuses it.           |
-| Put `Effect.retry` before `Effect.match`.                            | Put the retry after the failure has become a message.                          |
 | Put in the command everything that `runCommand` needs.               | Expect `runCommand` to read the state. It does not see the state.              |
 | Let `update` decide whether an answer still applies when it arrives. | Expect a change of state to stop a command. Nothing the program does stops it. |
 | Handle the answers of commands in any order.                         | Expect the answers in the order in which the commands started.                 |

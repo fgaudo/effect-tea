@@ -77,6 +77,14 @@ The library's tests check each guarantee. The second list is what the library le
   - `dispatchViolations` checks it, in tests, on the messages a test reads from the model (see
     [testing tools](./testing-tools.md)).
   - That the view draws what its model holds is checked with your renderer's tools.
+- **A view sends only what its model holds.** It writes only over the values its model holds, and never builds a
+  message itself. The library does not enforce this (see [model](./model.md#precisely)).
+- **The renderer keeps no state beside the program's state**, except what a bridge keeps of the element of an input
+  (see [view](./view.md#rules)).
+- **The rules of [structuring a program](./structuring-a-program.md).** The library does not enforce them: the shape
+  of the state, a view that draws and never decides, a parent that never reads a child's state to decide.
+- **Whatever a subscription depends on is in its key.** A new value left out of the key is not used while the key is
+  kept (see [subscriptions](./subscriptions.md)).
 - **`update`, `makeModel` and `subscriptions` are pure, and states are never mutated.** The library reuses a child's
   model, and its subscriptions, while the child's state is the same object.
 

@@ -135,10 +135,8 @@ Each pair sums up a rule of this page. The rule itself is above.
 | Do                                                                              | Don't                                                              |
 | ------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | Assert a rejection with `toBe(reject)`.                                         | Assert a rejection as "the state did not change".                  |
-| Generate only valid states, with every case of each state machine.              | Generate invalid states, or leave out a case of a state machine.   |
 | Check that the model is data on two equal states built apart.                   | Check that the model is data on one state object used twice.       |
 | Check the pairs the invariants rule out apart, with `toThrow(InvariantDefect)`. | Expect a step or `reject` for a pair that the invariants rule out. |
-| Write the reader yourself, one case of the model at a time.                     | Expect the library to write the reader for you.                    |
 | List the candidates, so that `Missing` can find a field the reader forgot.      | Count on `Rejected` and `ActsTwice` to find a forgotten field.     |
 
 ```ts

@@ -36,8 +36,14 @@ const send = <Message>(dispatch: Dispatch<Message>, message: Message): number =>
 - **Sending only hands the message to the run.** The run handles the message in its own fiber, with its own services,
   on the scheduler that the run started with. So a handler returns before `update` has seen the handler's message.
 - **The renderer draws frames, and nothing else.** The library gives a frame. The renderer reads the frame and draws
-  it. Nothing else is supported or advised. What the screen shows comes from frames alone. The renderer keeps no state
-  beside the program's state.
+  it. Nothing else is supported or advised. What the screen shows comes from one of three places:
+  - a frame, which the view draws from its model;
+  - the platform: a hover, the focus or an animation that the platform keeps by itself;
+  - the element of an input, which may show what the user typed after the frame was made (see
+    [the element on screen](./inputs-the-user-types-into.md#the-element-on-screen)).
+
+  The renderer keeps no state beside the program's state. What a bridge keeps of the element of an input, by the
+  library's rule, is the one exception (see [a text input](./writing-a-bridge.md#a-text-input)).
 - **A frame is drawn whole and at once.** No frame is drawn in parts, and no frame is postponed.
 
 How a bridge is written, and what the bridges of the examples do and leave out, is in
@@ -49,8 +55,7 @@ Each pair sums up a rule of this page. The rule itself is above.
 
 | Do                                                            | Don't                                                              |
 | ------------------------------------------------------------- | ------------------------------------------------------------------ |
-| Draw each frame whole and at once.                            | Draw a frame in parts, or postpone a frame.                        |
-| Draw what the screen shows from frames alone.                 | Keep a state in a component, beside the program's state.           |
+| Draw from frames alone.                                       | Keep a state in a component, beside the program's state.           |
 | Expect `update` to see the message after the handler returns. | Expect `update` to have seen the message when the handler returns. |
 
 ## Precisely

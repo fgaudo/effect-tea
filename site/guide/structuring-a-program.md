@@ -10,21 +10,46 @@ The pages before this one say what the library does. This page says how to write
 promises holds, and so that its tests can check it. The library does not enforce these rules. The examples follow
 them.
 
+## What kind of thing is it
+
+A design answers this question for each part of a program. The table is a summary: the page that each row links rules
+where the row says less.
+
+| The thing                                                                     | What it is                                                     | Where                                                                                                          |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Something happened: a click, an answer, a tick                                | A message. `update` decides what it means                      | [update](./update.md)                                                                                          |
+| A text that the user types                                                    | An input. No `update` sees it                                  | [inputs the user types into](./inputs-the-user-types-into.md)                                                  |
+| Work whose answer must arrive, even if the state has moved on                 | A command                                                      | [commands](./commands.md)                                                                                      |
+| Listening, or work that stops when the state no longer wants it               | A subscription, under a key                                    | [subscriptions](./subscriptions.md)                                                                            |
+| What stays open while a value it uses changes, such as a connection           | A service, from a layer provided to `run`                      | [subscriptions](./subscriptions.md)                                                                            |
+| What follows from the state                                                   | Computed in `makeModel`, not kept in the state                 | [state and messages](#state-and-messages)                                                                      |
+| What the platform keeps by itself: a hover, the focus                         | Not a state of the program                                     | [model and view](#model-and-view), [view](./view.md)                                                           |
+| A message that may arrive, and does not apply in the state                    | `reject`                                                       | [rejections and defects](./rejections-and-defects.md)                                                          |
+| A message that only a bug can bring                                           | `defect`                                                       | [rejections and defects](./rejections-and-defects.md)                                                          |
+| An expected failure of a command                                              | A message, as the success is                                   | [commands](./commands.md)                                                                                      |
+| A part that the parent reads, or whose controls it enables from its own state | Not a child: the parent's own state, or an input of the parent | [splitting a program](#splitting-a-program), [composition](./composition.md#the-parents-inputs)                |
+| What a child asks of its parent                                               | An event                                                       | [events and external messages](./events-and-external-messages.md)                                              |
+| A fact that several children must see as one                                  | An external message, which the parent sends down               | [splitting a program](#splitting-a-program), [events and external messages](./events-and-external-messages.md) |
+
 ## State and messages
 
 - **Conditions live in `update`.** A question such as "Can the user save now?" is answered once, by rejecting. The
   view never repeats the check.
-- **Name intents, not toggles.** Write `MenuOpened` and `MenuClosed`, not `MenuToggled`. An intent sent twice does
-  what it did once. A toggle sent twice undoes itself.
-- **A one-shot action moves to a state that rejects it.** After `SaveClicked`, the form is saving. In that state, the
-  form rejects a second `SaveClicked`. So a click that arrives while the form saves does nothing.
-- **An operation is a state that only its completion leaves.** The save of [`form`](../../examples/form/form.ts) is
-  such a state. When the answer of the save arrives, the state cannot have moved on. A completion in any other state
-  is a `defect`.
+- **A message sent twice from one frame acts once.** The second one is rejected, or changes nothing. Two cases:
+  - Name intents, not toggles. Write `MenuOpened` and `MenuClosed`, not `MenuToggled`. An intent sent twice does what
+    it did once. A toggle sent twice undoes itself.
+  - A one-shot action moves to a state that rejects it. After `SaveClicked`, the form is saving. In that state, the
+    form rejects a second `SaveClicked`. So a click that arrives while the form saves does nothing.
+
+  An action meant to repeat, such as a "+1", is marked `repeatable`. `dispatchViolations` checks the rule (see
+  [testing tools](./testing-tools.md#dispatchviolations)).
 - **One state machine per concern, no flags.** The save, the selection and the data being loaded are examples of
   concerns. Each concern is a union with a case per state (`Idle | Saving | Failed`). Each case holds only what exists
   in that case. Flags that combine (`isSaving`, `hasFailed`) allow combinations that cannot be. A union makes those
   combinations fail to compile, and `update` matches on the case.
+  - An operation is a state that only its completion leaves. The save of [`form`](../../examples/form/form.ts) is such
+    a state. When the answer of the save arrives, the state cannot have moved on. A completion in any other state is a
+    `defect`.
 - **No derived data in the state.** What follows from the state is computed in `makeModel`. A value that depends on
   time is computed in `makeModel` too, from a `now` that a subscription keeps in the state. The clock of
   [`pages`](../../examples/pages/clock.ts) does this.
@@ -43,26 +68,22 @@ them.
   What a view would decide, `makeModel` decides. `makeModel` decides it as a case named for the state that the screen
   tells apart (`Empty | Listed`, `Loading | Loaded`), never as a boolean. An `Option` is such a case only when
   "missing" is all that the screen tells apart.
-- **The renderer draws frames, and nothing else.** A hover, an animation, or the focus that the platform keeps by
-  itself is not a state of the program. A state kept in a component of the renderer, beside the program's state, is
-  neither supported nor advised (see [view](./view.md)). What the program decides stays in the program's state, and
-  reaches the view as the model.
-- **An animation that the program decides by is state, and moves by equal steps.** A ball that bounces until it
-  rests, or the pieces of a game, are such animations: where they are changes what the program does. The program
-  holds the length of a step, `dt`, which it can take from its flags. A subscription sends one message for each step,
-  and a plain function of the state lists its key only while something moves. The message carries no time: each step
-  moves the state on by the same `dt`. So `update` stays deterministic, and a test replays a motion as a list of
-  steps.
-  - The subscription adds the time between two frames of the screen to an accumulator. It sends one step for each
-    whole `dt` in the accumulator, and keeps the rest. A limit on the time that one frame adds stops a long pause from
-    sending thousands of steps.
-  - After the steps of a frame, the subscription sends a second message. It says what part of the next step the
-    screen is into: the rest in the accumulator, divided by `dt`. The state keeps this part, and `update` decides
-    nothing by it.
-  - `makeModel` gives the position to draw, between the step before and the current one, by that part. So the
-    renderer draws frames, and nothing else.
+- **What the platform keeps by itself is not a state of the program.** A hover, the focus, or an animation that the
+  platform keeps by itself are examples. The rest of what the screen shows comes from the program's state, and reaches
+  the view as the model, except the element of an input (see [view](./view.md#rules)). A state kept in a component of
+  the renderer, beside the program's state, is neither supported nor advised.
 
-  The example [`bounce`](../../examples/bounce/bounce.ts) is written this way.
+  To choose where a thing goes:
+  - What the program decides by is state.
+  - What the platform cannot keep by itself is state.
+  - For the rest, either is right. In the state, a test sees it. [`bounce`](../../examples/bounce/bounce.ts) keeps in
+    its state the part of a step that it draws by, and its `update` decides nothing by that part.
+- **An animation that the program decides by is state, and moves by equal steps.** A ball that bounces until it
+  rests, or the pieces of a game, are such animations: where they are changes what the program does. A subscription
+  sends one message for each step, only while something moves. The message carries no time: each step moves the state
+  on by the same length, `dt`. So `update` stays deterministic, and a test replays a motion as a list of steps. The
+  example [`bounce`](../../examples/bounce/bounce.ts) shows how the steps are counted from the screen's frames, and how
+  the ball is drawn between two steps, from the state.
 - **Input is never a reason to reject.** The input keeps what the user typed, whatever the program decides, and the
   library stores it (see [inputs the user types into](./inputs-the-user-types-into.md)). So no rule of the program
   rejects a value. Instead, put the validity of the value in the model, as data. For example, show "Save" only for a
@@ -94,14 +115,10 @@ program of its own. Split a program this way:
 
 Each pair sums up a rule of this page.
 
-| Do                                                                     | Don't                                                             |
-| ---------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Answer "Can the user save now?" once, in `update`, by rejecting.       | Repeat the check in the view.                                     |
-| After a one-shot action, move to a state that rejects that action.     | Accept a second `SaveClicked` while the form saves.               |
-| Compute what follows from the state in `makeModel`.                    | Keep derived data in the state.                                   |
-| Split a program by concern.                                            | Split it into modules named `messages`, `state` and `update`.     |
-| Give a child what it needs through its own services and subscriptions. | Let a parent read a child's state to decide.                      |
-| Make one child of children that read each other's state.               | Keep them as two children, with logic between them in the parent. |
+| Do                                                       | Don't                                                             |
+| -------------------------------------------------------- | ----------------------------------------------------------------- |
+| Split a program by concern.                              | Split it into modules named `messages`, `state` and `update`.     |
+| Make one child of children that read each other's state. | Keep them as two children, with logic between them in the parent. |
 
 Name intents, not toggles:
 

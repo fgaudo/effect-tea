@@ -48,7 +48,6 @@ Each pair sums up a rule of this page. The rule itself is above.
 | Return commands, and let `runCommand` say how they happen.       | Run an effect inside `update`.                                                   |
 | Return a new state, and copy each nested object that you change. | Change the state you were given, or an object inside it.                         |
 | Expect `update` to be called at any time.                        | Assume that `update` runs once per message, or only for a message that was sent. |
-| Return `reject` for a message that makes no sense in the state.  | Return a step for that message.                                                  |
 | Throw `defect(reason)` for a message that cannot arrive.         | Return `reject` for a message that only a bug can bring.                         |
 
 ```ts

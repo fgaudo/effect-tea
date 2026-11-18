@@ -50,23 +50,75 @@ versions. The paths below are relative to this file.
 | connect a renderer                          | "Writing a bridge"                            |
 | know what is promised, and what is not      | "Guarantees"                                  |
 
-## Rules that are easy to break
+## What kind of thing is it
 
-Each rule is a summary. The section it names rules where the summary says less.
+A design answers this question for each part of a program. Each line below is a summary: the section it names rules
+where the summary says less.
 
-- **`update` may be called at any time.** Never assume it runs once per message. Keep it pure, and return a new state:
-  never mutate one. The guide, "Update", "It may be called at any time". The guide, "Update", "Never mutate the state".
-- **A state is always an object**, never a number or a string. The guide, "Anatomy of a program", "Its state is always
-  an object".
-- **Every program names its types first, then is made**: `program<{ state: State; message: Message }>().make({ … })`.
-  Its messages, commands, events, external messages and flags are named there, or it has none: a program that names no
-  messages has no `update`. Its services are never named: they are inferred. The guide, "Anatomy of a program", "Its
-  types are named first, then it is made".
-- **`reject` is for a message that may arrive and does not apply in the state. `defect` is for one that cannot
-  arrive.** What the view draws never rules a message out: a tap may come from an older frame. The guide, "Rejections
+| The thing                                                       | What it is                                       |
+| --------------------------------------------------------------- | ------------------------------------------------ |
+| something happened: a click, an answer, a tick                  | a message; `update` decides what it means        |
+| a text that the user types                                      | an input; no `update` sees it                    |
+| work whose answer must arrive, even if the state has moved on   | a command                                        |
+| listening, or work that stops when the state no longer wants it | a subscription, under a key                      |
+| what stays open while a value it uses changes, as a connection  | a service, from a layer provided to `run`        |
+| what follows from the state                                     | computed in `makeModel`, not kept in the state   |
+| what the platform keeps by itself: a hover, the focus           | not a state of the program                       |
+| a message that may arrive, and does not apply in the state      | `reject`                                         |
+| a message that only a bug can bring                             | `defect`                                         |
+| an expected failure of a command                                | a message, as the success is                     |
+| a part that the parent reads, or enables from its own state     | not a child: the parent's state, or its input    |
+| what a child asks of its parent                                 | an event                                         |
+| a fact that several children must see as one                    | an external message, which the parent sends down |
+
+The guide, "Structuring a program", "What kind of thing is it": its rows name the page of each.
+
+## Rules that nothing checks
+
+The library does not enforce these rules: no type refuses a break of them, and the run goes on. So check each one by
+reading the code. The guide, "Guarantees", "What is left to you". The guide, "Structuring a program", "In short".
+
+- **`update`, `makeModel` and `subscriptions` are pure, and a state is never mutated.** The library reuses a child's
+  model and subscriptions while the child's state is the same object. The guide, "Update", "Keep it pure". The guide,
+  "Update", "Never mutate the state".
+- **One state machine per concern, and no flags.** Each concern is a union with a case per state. Each case holds only
+  what exists in it. What follows from the state is computed in `makeModel`, not kept. The guide, "Structuring a
+  program", "One state machine per concern, no flags". The guide, "Structuring a program", "No derived data in the
+  state".
+- **A view draws its model, and decides nothing.** A view is a function `(model, dispatch) => Node`. It matches tags
+  and formats values. What it would decide, `makeModel` decides, as a case of the model. The guide, "View", "In short".
+  The guide, "Structuring a program", "A view draws, it never decides".
+- **What the screen shows comes from the program's frames.** It comes from nowhere else, with two exceptions: what the
+  platform keeps by itself, as a hover or the focus, and the element of an input, which may show what the user typed
+  after the frame. The renderer keeps no state beside the program's, except what a bridge keeps of that element. The
+  guide, "View", "The renderer draws frames, and nothing else". The guide, "Inputs the user types into", "The element
+  on screen".
+- **A parent never reads a child's state to decide.** A child gets what it needs from its own services and
+  subscriptions. The guide, "Structuring a program", "A parent never reads a child's state to decide".
+- **Whatever a subscription depends on is in its key.** A new subscription under a kept key is not used. A value that
+  stays the same while the key is kept, as a child's own id, can stay out. The guide, "Subscriptions", "A subscription
+  sees the state only through its key". The guide, "Subscriptions", "A value that stays the same while the key is kept
+  can stay out of the key".
+
+## Rules that a test checks
+
+The run does not check these. A test does, with the tool named.
+
+- **The model holds what `update` accepts, all of it**, but what it withholds on purpose: `dispatchViolations`. The
+  guide, "Testing tools", "dispatchViolations".
+- **A message sent twice from one frame acts once**, unless it is marked `repeatable`: `dispatchViolations`, with
+  `ActsTwice`. The guide, "Testing tools", "Each message must act once when sent twice".
+- **A view sends only the messages its model holds**: your renderer's tools, as `messagesSentBy` for snabbdom. The
+  guide, "Testing", "The view". The guide, "Model", "Precisely".
+- **A rejection is asserted as `reject` itself**, with `toBe(reject)`. The guide, "Testing", "Do and don't".
+
+## Rules of the run
+
+- **`update` may be called at any time.** Never assume it runs once per message. The guide, "Update", "It may be
+  called at any time".
+- **`reject` is for a message that may arrive and does not apply in the state. `defect` is for one that only a bug can
+  bring.** What the view draws never rules a message out: a tap may come from an older frame. The guide, "Rejections
   and defects", "In short". The guide, "Rejections and defects", "What the view draws never rules a message out".
-- **Every message a view can send is in its model, as a value.** A model is data: it holds no function. The guide,
-  "Model", "Messages live in the model". The guide, "Model", "A model is data".
 - **A command is data, and `runCommand` runs it.** An expected failure becomes a message, as the success does. A
   command cannot be cancelled: work that should stop is a subscription. The guide, "Commands", "An expected failure
   becomes a message, as the success does". The guide, "Commands", "Commands cannot be cancelled".
@@ -81,3 +133,42 @@ Each rule is a summary. The section it names rules where the summary says less.
 - **A defect ends the run.** The library does not log it or recover from it: reporting it is the application's job.
   The guide, "Running", "When a defect happens".
 - **Each testing tool has its use.** The guide, "Testing", "The tools".
+
+## What the compiler refuses
+
+A break of these rules does not compile, so they need no remembering. A state is always an object, never a number or a
+string. A program names its types, then is made, and a type it does not name is one it does not have. The guide lists
+the rest: The guide, "Anatomy of a program", "What does not compile". The guide, "Composition", "Precisely". The guide,
+"Anatomy of a program", "Its state is always an object". The guide, "Anatomy of a program", "Its types are named
+first, then it is made".
+
+## Signs that the design went wrong
+
+Each sign breaks the rule named after it.
+
+- A view that takes more than its model and its dispatch, or reads a clock or a global. The guide, "View", "In
+  short". The guide, "Structuring a program", "No derived data in the state".
+- A boolean such as `isSaving` in the state. The guide, "Structuring a program", "One state machine per concern, no
+  flags".
+- A condition on data in a view, such as `items.length === 0`. The guide, "Structuring a program", "A view draws, it
+  never decides".
+- A variable outside the state that the screen depends on, or a service that the renderer reads. The guide, "View",
+  "The renderer draws frames, and nothing else".
+- A renderer written for one program, in place of a bridge's `renderInto`. The guide, "View", "The renderer draws
+  frames, and nothing else".
+- A message built in a view, or `Message` exported as a value. The guide, "Model", "Messages live in the model".
+- A message for each keystroke. The guide, "Inputs the user types into", "What the user gives an input is no message
+  of the program".
+- `defect` on a message of the view. The guide, "Rejections and defects", "What the view draws never rules a message
+  out".
+- A child's `init` read by hand, as `Clock.clock.init.state`: it leaves the child's commands behind. The guide,
+  "Composition", "Do and don't".
+- The `.state` of a step taken by hand: it drops that step's commands and its events. The guide, "Events and external
+  messages", "Combining steps".
+- A parent that reads a child's state. The guide, "Structuring a program", "A parent never reads a child's state to
+  decide".
+- A rejection asserted as "the state did not change". The guide, "Testing", "Do and don't".
+- An attempt to cancel a command. The guide, "Commands", "Commands cannot be cancelled".
+
+At such a sign, stop, and go back to the table of "What kind of thing is it". To make the design work, do not add a
+state outside the program, a renderer, or a parameter of a view.

@@ -112,6 +112,13 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   what is described and not promised says so where it stands (the order of the defects). Its prose changes one section
   at a time, each sentence checked against the old one: the same promise, no weaker and no stronger, as the code and the
   tests keep it. A word that looks minor ("exactly when", "by `Equal`", "never more") is often the rule.
+- **A rule of the guide is added last, and stated alike wherever it stands.** Before a rule is added, the rule it is a
+  case of is looked for: a case goes under that rule, as an example of it, and how one program does something goes in
+  an example's code, not in a list of rules. A place that states a rule another page has names that page, and states
+  it with the same exceptions and the same strength: a change of a rule rereads every place that states it. A rule
+  that nothing checks (not the compiler, not the run, not a testing tool) is where a person or an AI goes wrong in
+  silence: it is listed in "Guarantees", under "What is left to you", and first in the skill. And an example never
+  brings the rule that allows it: a change of the guide that an example needs is asked first.
 - **A doc comment of the API follows the guide, in its own words.** It is written by hand, for whoever meets the
   export in a hover: what the export is and how it is called (a summary, its parameters and result, its fields, an
   example), and the rules of the guide that a caller needs at that point, in short. It promises nothing the guide

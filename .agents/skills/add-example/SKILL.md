@@ -80,6 +80,11 @@ renderers and is no bridge.
   control that fits no element the bridge settles, a slider among them, is drawn by the program, its press a message
   of the model and its drag a subscription (`volume`). A child's view is
   memoized with snabbdom's `thunk`, its dispatch from `forwardTo` among the arguments (`pages/view.ts`).
+- **An example that needs more than the guide gives is a change of design**, and the owner is asked before it is
+  written: a renderer other than the bridges' `renderInto`; a view that takes more than its model and its dispatch;
+  something the screen shows that is kept outside the program's state (a variable of `main.ts`, a service the renderer
+  reads, what a subscription or a command writes beside its messages); a new or changed rule of the guide that the
+  example needs in order to be allowed. The first `bounce` did all four.
 - **Messages live in the model** (the guide's "Model"): a view builds none, and a test reads them from the
   model with a reader of its own, `messagesOf(model)`, a case of the model at a time. A parent's reader calls
   its children's and wraps what they return as the parent receives it; a child's reader that two tests need

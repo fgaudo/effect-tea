@@ -177,7 +177,6 @@ Each pair sums up a rule of this page. The rule itself is above.
 
 | Do                                                                       | Don't                                                                             |
 | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| Write over the value the model holds: `was: model.name`.                 | Write over a value other than the one the model holds.                            |
 | Let the bridge settle the element with `drawn` after each frame.         | Write each frame's value into the element: it can take back what the user typed.  |
 | Answer in a subscription or a command with a message of the program.     | Write into an input from a subscription or a command.                             |
 | Lock the rows while an operation runs, with a `get` that returns `None`. | Keep the rows' places while the operation runs: their writes can still be stored. |

@@ -69,7 +69,6 @@ Each pair sums up a rule of this page. The rule itself is above.
 | Put every message that a view can send in the model, as a value.   | Build a message of the program in the view.                   |
 | Pick the case of the model from the state, as `update` reads it.   | Show a control in a state where `update` rejects its message. |
 | Let the view write what the user types over the value of an input. | Make a message of what the user types into a text field.      |
-| Export `Message` as a type only.                                   | Export to the view what builds a `Message`.                   |
 | Keep the model data, compared by value with `Equal`.               | Put a function in the model.                                  |
 
 ```ts

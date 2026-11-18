@@ -39,7 +39,8 @@ ends. A bridge's `renderInto(root, view)` is that `render`. For each frame, `ren
 **The first place of the renderer** is the line that draws: `patch(previous, view(model, dispatch))`. There, snabbdom
 patches the tree drawn before into the one the view returned. The bridge to React calls
 `flushSync(() => root.render(view(model, dispatch)))` there instead. Whatever the renderer, the frame is drawn whole,
-and at once. When the line returns, the screen shows the frame, and nothing but the next frame changes it.
+and at once. When the line returns, the screen shows the frame. Between two frames, the bridge draws nothing. What else
+the screen may show is in [view](./view.md#rules).
 
 The rest is the bridge's own code:
 
@@ -112,7 +113,8 @@ React do.
 
 What a bridge does, from the walkthrough above:
 
-- **It draws each frame whole, and at once.** Nothing but the next frame changes what the screen shows.
+- **It draws each frame whole, and at once.** Between two frames, it draws nothing. What else the screen may show is
+  in [view](./view.md#rules).
 - **A plain callback sends a message with `Effect.runSync`.** Sending needs no services and completes synchronously.
 - **The message is one the model holds**, never one the view builds.
 - **When the user edits an input's element, `edited` gives the write to send**, and `sent` what the element holds once
