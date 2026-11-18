@@ -1376,6 +1376,63 @@ describe('a defect of makeModel', () => {
     expect(diedIn(exit)).toBe('render')
   })
 
+  // `Go` starts `Note` and takes `ticks` away, on a state whose model throws: the run's renderer is a fiber of its own,
+  // so the step goes on whole, its commands started and the subscription it stops released.
+  const noting = (
+    released: Array<boolean>,
+  ): Program<{ state: Count; model: number; message: 'Go' | 'Tick'; command: 'Note' }> => ({
+    init: { state: { count: 0 } },
+    update: (message) => ({ count }) =>
+      message === 'Go' ? { state: { count: count + 1 }, commands: ['Note'] } : { state: { count } },
+    runCommand: () => Effect.succeedNone,
+    subscriptions: ({ count }) =>
+      count === 0
+        ? HashMap.make([
+          'ticks',
+          Channel.succeed<'Go' | 'Tick'>('Tick').pipe(
+            Channel.concatWith(() => Channel.never),
+            Channel.onExit(() => Effect.sync(() => released.push(true))),
+          ),
+        ])
+        : HashMap.empty(),
+    makeModel: ({ count }) => {
+      if (count > 0) throw new Error('boom')
+      return count
+    },
+  })
+
+  test('in the run, the message whose model dies is applied whole, with its commands', async () => {
+    const applied: Array<unknown> = []
+    const exit = await Effect.runPromiseExit(drive(
+      noting([]),
+      (driver) => Effect.andThen(driver.send(() => Opt.some('Go')), Effect.never),
+      {
+        onApplied: ({ message, after, commands }) =>
+          Effect.sync(() => {
+            if (message === 'Go') applied.push({ after, commands })
+          }),
+      },
+    ))
+    expect(reasons(exit)).toEqual(['render'])
+    expect(applied).toEqual([{ after: { count: 1 }, commands: ['Note'] }])
+  })
+
+  // The call that sent it returns, as the run's dispatch does, once the subscription the state stops is released; what
+  // is asked after it fails with the defect, and so does the rehearsal.
+  test('rehearse applies the message whose model dies whole, as the run does, its commands owed', async () => {
+    const released: Array<boolean> = []
+    const seen: Array<unknown> = []
+    const exit = await Effect.runPromiseExit(rehearse(noting(released), Effect.fnUntraced(function*(rehearsal) {
+      yield* rehearsal.hearNext('ticks')
+      const sent = yield* Effect.exit(rehearsal.send(() => Opt.some('Go')))
+      seen.push(Exit.isSuccess(sent), [...released])
+      const after = yield* Effect.exit(rehearsal.model)
+      seen.push(yield* rehearsal.state, yield* rehearsal.pending, reasons(after))
+    })))
+    expect(reasons(exit)).toEqual(['render'])
+    expect(seen).toEqual([true, [true], { count: 1 }, ['Note'], ['render']])
+  })
+
   const reasons = (exit: Exit.Exit<unknown, unknown>) =>
     Exit.isFailure(exit)
       ? exit.cause.reasons.map((reason) =>

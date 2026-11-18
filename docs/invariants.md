@@ -120,7 +120,8 @@ testing tools.
   make models before the buffer: "a model is made only for the frames the renderer pulls, never for a state the
   buffer dropped" (`run.test.ts`) and its mutation keep it. `rehearse` makes the model of each new state in the step
   that makes it, the test being a renderer that pulls every frame, so that a defect of `makeModel` ends each tool as
-  it ends the run, and no scenario meets it.
+  it ends the run, and no scenario meets it. Since the run's renderer is a fiber of its own, a defect of a later
+  model is recorded and never cuts that step short: its release and its commands go on (`draw` in `rehearse.ts`).
 - **`onApplied` and `onIgnored` are given no dispatch, and nothing they return is kept** (an `Effect<void>`): they
   hear each accepted, or rejected, message in order, with where it came from, before its frame is published, and
   they send no message and change no state. That is all the rule means: they watch.

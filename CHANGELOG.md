@@ -352,6 +352,10 @@ version, and everything else, features included, the patch version.
 
 ### Fixed
 
+- `rehearse` applies whole a message whose state `makeModel` dies on, as the run does, whose renderer is a fiber of its
+  own: its commands are in `pending`, the subscriptions its state stops are released, and the call that sent it
+  returns. What is asked after it fails with the defect, and so does the rehearsal. The commands were dropped, and the
+  call failed.
 - A program that names no `external` is a child without `exactOptionalPropertyTypes` too: `child` and `childById`
   refused it, as if its external messages were not among its messages. `ExternalOf` gives `never` for it, and an
   external message that is `undefined` is kept, under either setting.

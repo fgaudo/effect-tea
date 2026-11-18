@@ -172,12 +172,24 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'a defect of makeModel on a later state in rehearse has no site',
     file: 'src/testing/rehearse.ts',
-    from: "      shown = program.makeModel(state)\n    }).pipe(diesIn('render'))",
-    to: '      shown = program.makeModel(state)\n    })',
+    from: "      shown = program.makeModel(state)\n    }).pipe(diesIn('render'), recorded,",
+    to: '      shown = program.makeModel(state)\n    }).pipe(recorded,',
     killedBy: [
       [
         'src/testing/contract.test.ts',
         'rehearse fails, as the run dies, in render, on a makeModel that throws on a later state',
+      ],
+    ],
+  },
+  {
+    name: 'a defect of makeModel on a later state in rehearse cuts its step short',
+    file: 'src/testing/rehearse.ts',
+    from: "    }).pipe(diesIn('render'), recorded, Effect.exit, Effect.asVoid)",
+    to: "    }).pipe(diesIn('render'))",
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'rehearse applies the message whose model dies whole, as the run does, its commands owed',
       ],
     ],
   },

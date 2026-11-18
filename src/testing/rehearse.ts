@@ -306,10 +306,12 @@ export const rehearse = Effect.fnUntraced(function*<
   // makes it for each frame it pulls, and a defect of `makeModel` is in `'render'` all the same. The test, which reads
   // every state, is a renderer that pulls every frame. Written only by the loop.
   let shown: Model = yield* Effect.sync(() => program.makeModel(started.current.state)).pipe(diesIn('render'))
+  // A defect of a later model is recorded, never raised into the step that made the state, which goes on whole
+  // ("Frames cost only what is drawn", `docs/invariants.md`): what is asked after it fails with the defect.
   const draw = (state: State) =>
     Effect.sync(() => {
       shown = program.makeModel(state)
-    }).pipe(diesIn('render'))
+    }).pipe(diesIn('render'), recorded, Effect.exit, Effect.asVoid)
   // From its scope on, nothing interrupts the rehearsal but in its scenario: the scope and the loop forked in it are
   // one region with the end that closes and stops them, as `drive` forks its run, so that an interruption from outside
   // as it sets up meets the end too.

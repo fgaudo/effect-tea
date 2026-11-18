@@ -49,12 +49,6 @@ outside git, not kept, with TypeScript 7.0.2, unless it says otherwise:
 
 Found in a review of 18 November 2026, each reproduced:
 
-- **`rehearse` drops a step's commands from `pending` when `makeModel` dies on its state.** `applyNow`
-  (`src/testing/rehearse.ts`, case `Applied`) owes the commands after `draw`, in one chain, so a defect in `'render'`
-  skips `Ledger.owe`, and the release of the keys that went away. The run starts those commands, as a step goes on
-  whole ("Defects always die", `docs/invariants.md`), and the guide says `pending` is read after a defect. The rehearsal
-  still fails with the right `ProgramDefect`. A case for `contract.test.ts` compares the commands after a render defect
-  on a step that has some; then owe them whatever the draw's exit, with a mutation.
 - **An own message or command whose `_tag` is `string` gets past `NoClash`** (`src/compose.ts`):
   `Extract<TagOf<Own>, keyof C>` is `never` for `string` (and a template tag), so `{ _tag: 'Page' }` reaches the child
   `Page` with no `message`, and a command's answer `{ _tag: 'Name', message: … }` is stored as a write into the
