@@ -71,8 +71,9 @@ It fits when:
 
 It probably does not when:
 
-- you want state in your components. Here the renderer draws frames and keeps no state beside the program's. What the
-  platform keeps by itself, such as a hover, the focus or an animation, is fine;
+- you want state in your components. Here the state is the program's, and a view is a plain function of its model
+  ([view](https://fgaudo.github.io/effect-tea/documents/Guide.View.html)). What the platform keeps by itself, such as
+  a hover, the focus or an animation, is fine;
 - you want a renderer integration from npm. The bridges to snabbdom and to React are files of `bridges/`, about 150
   lines each, to copy and own
   ([writing a bridge](https://fgaudo.github.io/effect-tea/documents/Guide.Writing_a_bridge.html) explains one);

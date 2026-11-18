@@ -59,7 +59,7 @@ where the summary says less.
 | --------------------------------------------------------------- | ------------------------------------------------ |
 | something happened: a click, an answer, a tick                  | a message; `update` decides what it means        |
 | a text that the user types                                      | an input; no `update` sees it                    |
-| work whose answer must arrive, even if the state has moved on   | a command                                        |
+| work whose answer must arrive, even if the state has moved on   | a command: data, which `runCommand` runs         |
 | listening, or work that stops when the state no longer wants it | a subscription, under a key                      |
 | what stays open while a value it uses changes, as a connection  | a service, from a layer provided to `run`        |
 | what follows from the state                                     | computed in `makeModel`, not kept in the state   |
@@ -78,9 +78,10 @@ The guide, "Structuring a program", "What kind of thing is it": its rows name th
 The library does not enforce these rules: no type refuses a break of them, and the run goes on. So check each one by
 reading the code. The guide, "Guarantees", "What is left to you". The guide, "Structuring a program", "In short".
 
-- **`update`, `makeModel` and `subscriptions` are pure, and a state is never mutated.** The library reuses a child's
-  model and subscriptions while the child's state is the same object. The guide, "Update", "Keep it pure". The guide,
-  "Update", "Never mutate the state".
+- **`update`, `makeModel` and `subscriptions` are pure, and a state is never mutated.** `update` may be called at any
+  time: never assume it runs once per message. The library reuses a child's model and subscriptions while the child's
+  state is the same object. The guide, "Update", "Keep it pure". The guide, "Update", "It may be called at any time".
+  The guide, "Update", "Never mutate the state".
 - **One state machine per concern, and no flags.** Each concern is a union with a case per state. Each case holds only
   what exists in it. What follows from the state is computed in `makeModel`, not kept. The guide, "Structuring a
   program", "One state machine per concern, no flags". The guide, "Structuring a program", "No derived data in the
@@ -112,35 +113,16 @@ The run does not check these. A test does, with the tool named.
   guide, "Testing", "The view". The guide, "Model", "Precisely".
 - **A rejection is asserted as `reject` itself**, with `toBe(reject)`. The guide, "Testing", "Do and don't".
 
-## Rules of the run
-
-- **`update` may be called at any time.** Never assume it runs once per message. The guide, "Update", "It may be
-  called at any time".
-- **`reject` is for a message that may arrive and does not apply in the state. `defect` is for one that only a bug can
-  bring.** What the view draws never rules a message out: a tap may come from an older frame. The guide, "Rejections
-  and defects", "In short". The guide, "Rejections and defects", "What the view draws never rules a message out".
-- **A command is data, and `runCommand` runs it.** An expected failure becomes a message, as the success does. A
-  command cannot be cancelled: work that should stop is a subscription. The guide, "Commands", "An expected failure
-  becomes a message, as the success does". The guide, "Commands", "Commands cannot be cancelled".
-- **A subscription has a key, and never ends in silence.** Its end value is a message. The guide, "Subscriptions",
-  "A subscription never ends in silence".
-- **A parent and its children talk only through external messages and events.** The guide, "Events and external
-  messages".
-- **What the user types into an input is no message of the program.** The program declares where it goes. The guide,
-  "Inputs the user types into", "Rules".
-- **A plain callback sends a message with `Effect.runSync(dispatch(message))`.** The guide, "View", "A handler may run
-  it either way".
-- **A defect ends the run.** The library does not log it or recover from it: reporting it is the application's job.
-  The guide, "Running", "When a defect happens".
-- **Each testing tool has its use.** The guide, "Testing", "The tools".
-
 ## What the compiler refuses
 
 A break of these rules does not compile, so they need no remembering. A state is always an object, never a number or a
-string. A program names its types, then is made, and a type it does not name is one it does not have. The guide lists
-the rest: The guide, "Anatomy of a program", "What does not compile". The guide, "Composition", "Precisely". The guide,
-"Anatomy of a program", "Its state is always an object". The guide, "Anatomy of a program", "Its types are named
-first, then it is made".
+string. A program names its types, then is made, and a type it does not name is one it does not have. An execution
+cannot fail: an expected failure becomes a message. A subscription is a `Channel` whose end value is a message. A
+parent passes on only the external messages of a child, never one the child keeps to itself. The guide lists the rest:
+The guide, "Anatomy of a program", "What does not compile". The guide, "Composition", "Precisely". The guide, "Anatomy
+of a program", "Its state is always an object". The guide, "Anatomy of a program", "Its types are named first, then it
+is made". The guide, "Commands", "An execution cannot fail". The guide, "Subscriptions", "The type says all of it".
+The guide, "Events and external messages", "A parent that passes on an external message of a child".
 
 ## Signs that the design went wrong
 
@@ -169,6 +151,8 @@ Each sign breaks the rule named after it.
   decide".
 - A rejection asserted as "the state did not change". The guide, "Testing", "Do and don't".
 - An attempt to cancel a command. The guide, "Commands", "Commands cannot be cancelled".
+- A `main` that runs the program and does not report its failure. A defect ends the run, and the run does not log it:
+  reporting it is the job of the app around the run. The guide, "Running", "When a defect happens".
 
 At such a sign, stop, and go back to the table of "What kind of thing is it". To make the design work, do not add a
 state outside the program, a renderer, or a parameter of a view.
