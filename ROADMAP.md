@@ -12,14 +12,6 @@ holds only what is to be done or decided now.
 A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a deterministic
 test of it. None is open.
 
-To be done first. Found in a review of the exported types, 18 November 2026, each tried on a copy of the repository
-outside git, not kept, with TypeScript 7.0.2, unless it says otherwise:
-
-- **`RunOptions<Message, State, Command>` and `DriveOptions` order their parameters unlike every other type**, which
-  starts from the state (`Applied<State, Message, Command>`, `Ignored<State, Message>`,
-  `Update<State, Message, Command, Event>`). Changing the order breaks whoever annotates options: to decide before 1.0.
-  Not tried.
-
 Found in a review of 18 November 2026, each reproduced:
 
 - **An own message or command whose `_tag` is `string` gets past `NoClash`** (`src/compose.ts`):

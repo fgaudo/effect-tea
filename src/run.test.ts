@@ -369,7 +369,7 @@ describe('defects', () => {
    */
   const failsWithBoom = async (
     program: Counter,
-    { view = () => undefined, ...options }: Partial<RunOptions<Message, Count, Command>> & {
+    { view = () => undefined, ...options }: Partial<RunOptions<Count, Message, Command>> & {
       view?: (model: Model) => void
     } = {},
   ) => {
@@ -835,7 +835,7 @@ describe('logs', () => {
 // `update` ran meanwhile.
 const updatesWhileHeld = (
   first: Message,
-  observe: (held: Effect.Effect<void>) => RunOptions<Message, Count, Command>,
+  observe: (held: Effect.Effect<void>) => RunOptions<Count, Message, Command>,
 ) =>
   Effect.gen(function*() {
     const holding = yield* Deferred.make<void>()

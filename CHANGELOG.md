@@ -365,6 +365,9 @@ version, and everything else, features included, the patch version.
   program has commands; a hover names the `Rehearsal` a scenario gets. Upgrade: a call that names them,
   `rehearse<State, Model, Message>(…)`, names the program first, `rehearse<typeof app, State, Model, Message>(…)`, or
   none.
+- **Breaking**: `RunOptions` and `DriveOptions` start from the state, as `Applied`, `Ignored` and `Update` do, and the
+  state is required. Upgrade: `RunOptions<Message, State, Command>` becomes `RunOptions<State, Message, Command>`, and
+  `DriveOptions<Message>` becomes `DriveOptions<State, Message>`.
 
 ### Fixed
 

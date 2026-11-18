@@ -41,7 +41,7 @@ export type Frame<Model, Message> = {
 export const runWith = <State, Model, Message, Command, RC, RS, RR, Flags>(
   program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
   render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
-  options: RunOptions<Message, State, Command> & Readonly<{ flags?: unknown }>,
+  options: RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>,
   deaths: Shell.Deaths,
 ): Effect.Effect<void, never, Exclude<RC | RS | RR, Scope.Scope>> =>
   // The renderer, the fiber of the run as it starts the engine, and the engine's fibers record what they die of in
@@ -57,7 +57,7 @@ const running = Effect.fnUntraced(
   function*<State, Model, Message, Command, RC, RS, RR, Flags>(
     program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
     render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
-    options: RunOptions<Message, State, Command> & Readonly<{ flags?: unknown }>,
+    options: RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>,
     deaths: Shell.Deaths,
   ): Effect.fn.Return<void, never, RC | RS | RR | Scope.Scope> {
     const { flags, ...runOptions } = options
@@ -135,7 +135,7 @@ export const run = <State, Model, Message, Command = never, RC = never, RS = nev
   program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
   render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
   ...[options = {}]: [Flags] extends [never]
-    ? [options?: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>]
-    : [options: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
+    ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>]
+    : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
 ): Effect.Effect<void, never, Exclude<RC | RS | RR, Scope.Scope>> =>
   Effect.flatMap(Shell.makeDeaths(() => true), (deaths) => runWith(program, render, options, deaths))

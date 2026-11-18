@@ -55,12 +55,12 @@ export const dispatchViolations: <State, Message, Command, Event>(update: Update
 }>) => ReadonlyArray<DispatchViolation<Message>>;
 
 // @public
-export const drive: <State, Model, Message, Command = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>, scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>, ...args: [Flags] extends [never] ? [options?: DriveOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>] : [options: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & {
+export const drive: <State, Model, Message, Command = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>, scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>, ...args: [Flags] extends [never] ? [options?: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & {
     readonly patience?: Duration.Input;
 } & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<A, E, RT | Exclude<RC, Scope.Scope> | Exclude<RS, Scope.Scope>>;
 
 // @public
-export type DriveOptions<Message, State = unknown, Command = unknown> = RunOptions<Message, State, Command> & {
+export type DriveOptions<State, Message, Command = unknown> = RunOptions<State, Message, Command> & {
     readonly patience?: Duration.Input;
 };
 
@@ -168,7 +168,7 @@ type Rejected = typeof reject;
 type RunCommand<Command, Message, R = never> = (command: Command) => Execution<Message, R>;
 
 // @public
-interface RunOptions<Message, State = unknown, Command = unknown> {
+interface RunOptions<State, Message, Command = unknown> {
     readonly describeCommand?: (command: Command) => unknown;
     readonly describeMessage?: (message: Message) => unknown;
     readonly onApplied?: (applied: Applied<State, Message, Command>) => Effect.Effect<void>;

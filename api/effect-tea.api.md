@@ -583,7 +583,7 @@ type Routed<Message> = Message extends Readonly<{
 }> ? [Exclude<keyof Message, '_tag' | 'message' | 'id'>] extends [never] ? Message : never : never;
 
 // @public
-export const run: <State, Model, Message, Command = never, RC = never, RS = never, RR = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>, render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>] : [options: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<void, never, Exclude<RC | RS | RR, Scope.Scope>>;
+export const run: <State, Model, Message, Command = never, RC = never, RS = never, RR = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>, render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<void, never, Exclude<RC | RS | RR, Scope.Scope>>;
 
 // @public
 export type RunCommand<Command, Message, R = never> = (command: Command) => Execution<Message, R>;
@@ -596,7 +596,7 @@ type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never] ? Rea
 }>;
 
 // @public
-export interface RunOptions<Message, State = unknown, Command = unknown> {
+export interface RunOptions<State, Message, Command = unknown> {
     readonly describeCommand?: (command: Command) => unknown;
     readonly describeMessage?: (message: Message) => unknown;
     readonly onApplied?: (applied: Applied<State, Message, Command>) => Effect.Effect<void>;

@@ -105,7 +105,7 @@ export type Ignored<State, Message> = {
  *
  * @see The guide, "Running", "Options".
  */
-export interface RunOptions<Message, State = unknown, Command = unknown> {
+export interface RunOptions<State, Message, Command = unknown> {
   /**
    * How a message appears in the logs.
    *
@@ -220,7 +220,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     runCommand: RunCommand<Command, Message, R>
     subscriptions: Subscriptions<State, Message, R, K>
   }>
-  & RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>)
+  & RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>)
 {
   // The run's context, its scope included: what a command or a subscription acquires goes into a scope of its own,
   // which `scopedIn` puts in front of this one ("Each command, each subscription and the renderer has a scope of its

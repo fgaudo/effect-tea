@@ -42,8 +42,8 @@ export type Driver<Model, Message> = {
  * drive(program, scenario, { patience: '5 seconds' })
  * ```
  */
-export type DriveOptions<Message, State = unknown, Command = unknown> =
-  & RunOptions<Message, State, Command>
+export type DriveOptions<State, Message, Command = unknown> =
+  & RunOptions<State, Message, Command>
   & {
     /** How long a wait of the scenario lasts before it fails: 2 seconds by default, measured with the real clock. */
     readonly patience?: Duration.Input
@@ -100,8 +100,8 @@ export const drive = Effect.fnUntraced(function*<
   program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
   scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>,
   ...[{ patience = '2 seconds', ...options } = {}]: [Flags] extends [never]
-    ? [options?: DriveOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>]
-    : [options: DriveOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
+    ? [options?: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>]
+    : [options: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
 ): Effect.fn.Return<A, E, Exclude<RC | RS, Scope.Scope> | RT> {
   const frames = yield* SubscriptionRef.make<Opt.Option<Frame<Model, Message>>>(Opt.none())
   const first = <B>(select: (frame: Frame<Model, Message>) => Effect.Effect<Opt.Option<B>>): Effect.Effect<B> =>
@@ -139,7 +139,7 @@ export const drive = Effect.fnUntraced(function*<
     program,
     (rendered) => Stream.runForEach(rendered, (frame) => SubscriptionRef.set(frames, Opt.some(frame))),
     // The rest of the options keeps the flags the parameter's type requires.
-    options as RunOptions<Message, State, Command>,
+    options as RunOptions<State, Message, Command>,
     deaths,
   ).pipe(Effect.andThen(Effect.die(new Error('The program ended before the scenario'))))
   // Stopped and awaited however `drive` ends, interrupted by whoever runs it too: its exit holds what the program
