@@ -82,9 +82,9 @@ type ChildCommandServices<C> = {
 
 // @public
 type ChildDispatch<Message, Name extends string> = string extends Name ? Readonly<{
-    'is not the literal name of a child': Name;
+    'is not the literal name of a child or of an input': Name;
 }> : [ChildOf<Message, Name>] extends [never] ? Readonly<{
-    'is not a child': Name;
+    'is not a child or an input': Name;
 }> : Dispatch<ChildOf<Message, Name>['message']>;
 
 // @public
@@ -149,7 +149,7 @@ const CompositionDefect_base: new <A extends Record<string, any> = {}>(args: Voi
 } & Readonly<A>;
 
 // @public (undocumented)
-type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own | ChildExternals<C>, Ran> & UpdateOf<State, C, Own, OwnCommand | ChildCommands<C>, Event> & NoClash<Own, OwnCommand, C> & NoClash<Own, OwnCommand, I> & NoShared<C, I> & Readonly<{
+type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own | ChildExternals<C>, Ran> & UpdateOf<State, C, Own, OwnCommand | ChildCommands<C>, Event> & NoClash<Own, OwnCommand, C, 'a child'> & NoClash<Own, OwnCommand, I, 'an input'> & NoShared<C, I> & Readonly<{
     init: [keyof C] extends [never] ? Init<State, OwnCommand, Flags> : (children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>) => Init<State, OwnCommand | ChildCommands<C>, Flags>;
     children?: C;
     inputs?: I;
@@ -431,11 +431,11 @@ type Needed<Listened> = unknown extends Listened ? unknown : Listened extends Su
 type NeededBy<S> = S extends Subscriptions<any, any, infer R, any> ? R : never;
 
 // @public
-type NoClash<Own, OwnCommand, C> = ([Extract<TagOf<Own>, keyof C>] extends [never] ? unknown : Readonly<{
-    'an own message takes the name of a child': Extract<TagOf<Own>, keyof C>;
-}>) & ([Extract<TagOf<OwnCommand>, keyof C>] extends [never] ? unknown : Readonly<{
-    'an own command takes the name of a child': Extract<TagOf<OwnCommand>, keyof C>;
-}>);
+type NoClash<Own, OwnCommand, C, Of extends string> = ([Extract<TagOf<Own>, keyof C>] extends [never] ? unknown : {
+    readonly [K in `an own message takes the name of ${Of}`]: Extract<TagOf<Own>, keyof C>;
+}) & ([Extract<TagOf<OwnCommand>, keyof C>] extends [never] ? unknown : {
+    readonly [K in `an own command takes the name of ${Of}`]: Extract<TagOf<OwnCommand>, keyof C>;
+});
 
 // @public
 type None = Readonly<Record<never, never>>;

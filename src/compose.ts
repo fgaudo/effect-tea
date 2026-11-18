@@ -372,12 +372,15 @@ type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never] ? Rea
 
 type TagOf<M> = M extends { readonly _tag: infer T } ? T : never
 
-/** An own message or command that takes a child's name would be routed to the child: it does not compile. */
-type NoClash<Own, OwnCommand, C> =
+/**
+ * An own message or command that takes the name of a child or of an input, `Of`, would be routed to it: it does not
+ * compile.
+ */
+type NoClash<Own, OwnCommand, C, Of extends string> =
   & ([Extract<TagOf<Own>, keyof C>] extends [never] ? unknown
-    : Readonly<{ 'an own message takes the name of a child': Extract<TagOf<Own>, keyof C> }>)
+    : { readonly [K in `an own message takes the name of ${Of}`]: Extract<TagOf<Own>, keyof C> })
   & ([Extract<TagOf<OwnCommand>, keyof C>] extends [never] ? unknown
-    : Readonly<{ 'an own command takes the name of a child': Extract<TagOf<OwnCommand>, keyof C> }>)
+    : { readonly [K in `an own command takes the name of ${Of}`]: Extract<TagOf<OwnCommand>, keyof C> })
 
 /** An input that takes a child's name would replace the child, whose messages would then be the input's. */
 type NoShared<C, I> = [keyof C & keyof I] extends [never] ? unknown
@@ -389,8 +392,8 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> =
   // parent's or a child's, since only what is drawn writes, nor a child's own message.
   & RunCommandOf<OwnCommand, Own | ChildExternals<C>, Ran>
   & UpdateOf<State, C, Own, OwnCommand | ChildCommands<C>, Event>
-  & NoClash<Own, OwnCommand, C>
-  & NoClash<Own, OwnCommand, I>
+  & NoClash<Own, OwnCommand, C, 'a child'>
+  & NoClash<Own, OwnCommand, I, 'an input'>
   & NoShared<C, I>
   & Readonly<{
     /**

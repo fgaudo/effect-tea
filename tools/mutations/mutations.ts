@@ -513,6 +513,10 @@ export const mutations: ReadonlyArray<Mutation> = [
         'src/testing/contract.test.ts',
         'drive fails, as rehearse does, with the defect first, then with what the scenario ended with',
       ],
+      [
+        'src/testing/drive.test.ts',
+        'a defect of what the program releases as it stops comes first, before what the scenario failed with',
+      ],
     ],
   },
   {
