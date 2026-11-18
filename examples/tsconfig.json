@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@effect/tsgo/schema.json",
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "lib": ["ES2022", "DOM"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "customConditions": ["bun"],
     "jsx": "react-jsx"
   },
