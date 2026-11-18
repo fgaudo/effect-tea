@@ -22,17 +22,17 @@ import { makeDeaths } from '../shell.ts'
  * const count = yield* driver.waitFor((model) => (model.count === 1 ? Opt.some(model.count) : Opt.none()))
  * ```
  */
-export type Driver<Model, Message> = Readonly<{
+export type Driver<Model, Message> = {
   /** Waits for a frame whose model `select` maps to `Some`, and returns that value. */
-  waitFor: <A>(select: (model: Model) => Opt.Option<A>) => Effect.Effect<A>
+  readonly waitFor: <A>(select: (model: Model) => Opt.Option<A>) => Effect.Effect<A>
   /**
    * Waits for a frame on which `select` finds a message, and sends it through that frame's dispatch, as a control drawn
    * from that model would.
    */
-  send: (select: (model: Model) => Opt.Option<Message>) => Effect.Effect<void>
+  readonly send: (select: (model: Model) => Opt.Option<Message>) => Effect.Effect<void>
   /** Waits for the first frame, and returns the latest. */
-  latest: Effect.Effect<Frame<Model, Message>>
-}>
+  readonly latest: Effect.Effect<Frame<Model, Message>>
+}
 
 /**
  * The options of `drive`: those of `run`, and how long a wait lasts.
@@ -44,10 +44,10 @@ export type Driver<Model, Message> = Readonly<{
  */
 export type DriveOptions<Message, State = unknown, Command = unknown> =
   & RunOptions<Message, State, Command>
-  & Readonly<{
+  & {
     /** How long a wait of the scenario lasts before it fails: 2 seconds by default, measured with the real clock. */
-    patience?: Duration.Input
-  }>
+    readonly patience?: Duration.Input
+  }
 
 /**
  * Runs a program and plays a scenario on its frames, as a user would.

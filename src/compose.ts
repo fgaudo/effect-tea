@@ -84,23 +84,62 @@ type PlacementById<ParentState, Id, ChildState> =
 type ExternalTaken<P> = [Exclude<ExternalOf<P>, MessageOf<P>>] extends [never] ? unknown
   : Readonly<{ "a child's external messages are not among its messages": Exclude<ExternalOf<P>, MessageOf<P>> }>
 
-/** A child alone in its parent's state, as `child` declares it, for `children` in `make`. */
-type Child<ParentState, P> = Readonly<{
-  kind: 'one'
-  program: P
-  get: (state: ParentState) => Opt.Option<StateOf<P>>
-  set: (state: ParentState, child: StateOf<P>) => ParentState
-  subscribed?: (state: ParentState) => Opt.Option<StateOf<P>>
-}>
+/**
+ * A child alone in its parent's state: what `child` returns, for `children` in `make`.
+ *
+ * - Where `get` returns `None`, the child is not there, and a message for it is rejected.
+ * - Its subscriptions run where `subscribed` returns `Some`. Without `subscribed`, they run whenever the child is there.
+ *
+ * @example
+ * ```ts
+ * export const clock: Child<State, typeof Clock.clock> = child(Clock.clock, { at: Optic.id<State>().key('clock') })
+ * ```
+ *
+ * @see The guide, "Composition", "Where the child lives: `at`".
+ * @see The guide, "Composition", "When the child is not there".
+ * @see The guide, "Composition", "When a child's subscriptions run: `subscribed`".
+ */
+export type Child<ParentState, P> = {
+  /** A child alone, not one of children by id. */
+  readonly kind: 'one'
+  /** The child's program. */
+  readonly program: P
+  /** The child's state in the parent's state, or `None` where the child is not there. */
+  readonly get: (state: ParentState) => Opt.Option<StateOf<P>>
+  /** The parent's state with the child's state put where `get` finds it. */
+  readonly set: (state: ParentState, child: StateOf<P>) => ParentState
+  /** The child's state in the states where its subscriptions run, and `None` in the others. */
+  readonly subscribed?: (state: ParentState) => Opt.Option<StateOf<P>>
+}
 
-/** Children told apart by an id (e.g. the rows of a list), as `childById` declares them, for `children` in `make`. */
-type ChildById<ParentState, Id, P> = Readonly<{
-  kind: 'byId'
-  program: P
-  get: (state: ParentState, id: Id) => Opt.Option<StateOf<P>>
-  set: (state: ParentState, id: Id, child: StateOf<P>) => ParentState
-  subscribed: (state: ParentState) => Iterable<readonly [Id, StateOf<P>]>
-}>
+/**
+ * Children told apart by an id, such as the rows of a list: what `childById` returns, for `children` in `make`.
+ *
+ * - `get` and `set` take the id. Where `get` returns `None`, no child has that id.
+ * - Only the rows that `subscribed` lists run their subscriptions.
+ * - Ids are compared by value, with `Equal`.
+ *
+ * @example
+ * ```ts
+ * export const rows: ChildById<State, number, typeof Row.row> = childById(Row.row, { get, set, subscribed })
+ * ```
+ *
+ * @see The guide, "Composition", "`get` and `set` take the id".
+ * @see The guide, "Composition", "`subscribed` lists the rows that listen".
+ * @see The guide, "Composition", "Ids are compared by value".
+ */
+export type ChildById<ParentState, Id, P> = {
+  /** Children by id, not a child alone. */
+  readonly kind: 'byId'
+  /** The program of each child. */
+  readonly program: P
+  /** The state of the child at `id`, or `None` where it is not there. */
+  readonly get: (state: ParentState, id: Id) => Opt.Option<StateOf<P>>
+  /** The parent's state with the state of the child at `id` put where `get` finds it. */
+  readonly set: (state: ParentState, id: Id, child: StateOf<P>) => ParentState
+  /** The ids and the states of the children whose subscriptions run. */
+  readonly subscribed: (state: ParentState) => Iterable<readonly [Id, StateOf<P>]>
+}
 
 // An optic focuses or not: `None` where it does not, and `replace` is only called where `get` focused.
 const placed = <S, A>(
@@ -123,19 +162,53 @@ const placedById = <S, Id, A>(
       set: (state, id, child) => place.at(id).replace(child, state),
     }
 
-/** An input alone in its program's state, as `input` declares it, for `inputs` in `make`. */
-type Input<State, A> = Readonly<{
-  kind: 'one'
-  get: (state: State) => Opt.Option<A>
-  set: (state: State, value: A) => State
-}>
+/**
+ * An input alone in its program's state: what `input` returns, for `inputs` in `make`.
+ *
+ * - Its value is part of the program's own state.
+ * - The library stores a write in every state where the value in its place equals the write's `was`, by `Equal`.
+ * - It rejects the write in any other state, and where `get` returns `None`.
+ *
+ * @example
+ * ```ts
+ * export const name: Input<State, string> = input({ at: Optic.id<State>().key('name') })
+ * ```
+ *
+ * @see The guide, "Composition", "The parent's inputs".
+ * @see The guide, "Inputs the user types into", "The program declares where it goes".
+ * @see The guide, "Inputs the user types into", "The library stores what is written, whatever it is".
+ * @see The guide, "Inputs the user types into", "The library rejects the write in any other state".
+ */
+export type Input<State, A> = {
+  /** An input alone, not one of inputs by id. */
+  readonly kind: 'one'
+  /** The input's value in the state, or `None` where the input is not there. */
+  readonly get: (state: State) => Opt.Option<A>
+  /** The state with the input's value put where `get` finds it. */
+  readonly set: (state: State, value: A) => State
+}
 
-/** Inputs told apart by an id (e.g. one in each row), as `inputById` declares them, for `inputs` in `make`. */
-type InputById<State, Id, A> = Readonly<{
-  kind: 'byId'
-  get: (state: State, id: Id) => Opt.Option<A>
-  set: (state: State, id: Id, value: A) => State
-}>
+/**
+ * Inputs told apart by an id, such as one in each row: what `inputById` returns, for `inputs` in `make`.
+ *
+ * `get` and `set` take the id. A write names its id, and is stored at the place of that id, by the rule of every input.
+ *
+ * @example
+ * ```ts
+ * export const counts: InputById<State, string, number> = inputById({ get, set })
+ * ```
+ *
+ * @see The guide, "Inputs the user types into", "A write into an input by id names its id".
+ * @see The guide, "Inputs the user types into", "A write is stored at the place of its id".
+ */
+export type InputById<State, Id, A> = {
+  /** Inputs by id, not an input alone. */
+  readonly kind: 'byId'
+  /** The value of the input at `id`, or `None` where it is not there. */
+  readonly get: (state: State, id: Id) => Opt.Option<A>
+  /** The state with the value of the input at `id` put where `get` finds it. */
+  readonly set: (state: State, id: Id, value: A) => State
+}
 
 // `never` parameters: any `set` fits, whatever its value and id.
 /** The inputs a parent declares, by name: `{ Name: input({ at }), Count: inputById({ at }) }`. */

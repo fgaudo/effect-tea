@@ -49,6 +49,8 @@ version, and everything else, features included, the patch version.
   Message>` the rehearsal of a program without commands.
 - The guide's "Anatomy of a program" ("The types need `strict`") and the README's "Installation" say that the types
   need the compiler option `strict`.
+- `Child`, `ChildById`, `Input` and `InputById`, what `child`, `childById`, `input` and `inputById` return, are
+  exported, so that a consumer's declarations name them instead of spelling them out.
 
 ### Changed
 
@@ -349,9 +351,18 @@ version, and everything else, features included, the patch version.
   with `Stream.broadcastN`.
 - `andThen` and `forEach` return a `Folded`: their type says that both lists are there, so reading one needs no
   `?? []`.
+- The exported records are written with `readonly` members, not as `Readonly<{ … }>`, so that a consumer's
+  declarations and hovers name them (`Step<…>`, not `Readonly<{ state: …; … }>`); their types are the same.
+- **Breaking**: `rehearse`'s type parameters start with the program's type, `P`, through which it reads whether the
+  program has commands; a hover names the `Rehearsal` a scenario gets. Upgrade: a call that names them,
+  `rehearse<State, Model, Message>(…)`, names the program first, `rehearse<typeof app, State, Model, Message>(…)`, or
+  none.
 
 ### Fixed
 
+- The doc comments of `CommandServicesOf` and `SubscriptionServicesOf` no longer say that services typed `any` read
+  back as `unknown`: they read back as their type says. Each reader of a program's types names the sections of the
+  guide it follows.
 - `rehearse` applies whole a message whose state `makeModel` dies on, as the run does, whose renderer is a fiber of its
   own: its commands are in `pending`, the subscriptions its state stops are released, and the call that sent it
   returns. What is asked after it fails with the defect, and so does the rehearsal. The commands were dropped, and the

@@ -115,17 +115,31 @@ try {
     for (const resolution of ['nodenext', 'bundler']) {
       const tsc = join(dir, `node_modules/typescript-${version}/bin/tsc`)
       const { exitCode, stdout } = await $`node ${tsc} -p tsconfig.${resolution}.json`.cwd(dir).nothrow().quiet()
-      // What `program` returns is named, not spelled out: spelled out, it repeats the state for each of its types.
+      // What `program`, its functions and `rehearse` give is named, not spelled out: spelled out, it repeats the state
+      // for each of its types.
       const declared = exitCode === 0
         ? await Bun.file(join(dir, `declarations/${resolution}/consumer.d.ts`)).text()
         : ''
-      const unnamed = ['ProgramMaker', 'DeclareChild', 'DeclareChildById', 'DeclareInput', 'MakeProgram']
-        .filter((name) => !declared.includes(`${name}<`))
+      const named = [
+        'ProgramMaker',
+        'DeclareChild',
+        'DeclareChildById',
+        'DeclareInput',
+        'DeclareInputById',
+        'MakeProgram',
+        'Child',
+        'ChildById',
+        'Input',
+        'InputById',
+        'Rehearsal',
+      ]
+      // At a word's start: `DeclareChild<` is no `Child<`.
+      const unnamed = named.filter((name) => !new RegExp(`\\b${name}<`).test(declared))
       // How often the consumer's state is spelled out, by a field of its own: about once for each export that holds
-      // it (15 today), and many times more when a type of the library repeats it inside each of its own (80 when
-      // `make` was spelled out).
+      // it (12 today), and many times more when a type of the library repeats it inside each of its own (80 when
+      // `make` was spelled out, 25 when `Child` and `Step` were).
       const spelled = declared.match(/\bfulls\b/g)?.length ?? 0
-      const ok = exitCode === 0 && unnamed.length === 0 && spelled <= 30
+      const ok = exitCode === 0 && unnamed.length === 0 && spelled <= 12
       console.log(`typescript ${exact}, ${resolution}: ${ok ? 'ok' : 'failed'}`)
       if (exitCode !== 0) {
         failed.push(`typescript ${exact}, ${resolution}`)
@@ -133,7 +147,7 @@ try {
       } else if (!ok) {
         failed.push(`typescript ${exact}, ${resolution}`)
         if (unnamed.length > 0) console.log(`consumer.d.ts spells out ${unnamed.join(', ')}`)
-        if (spelled > 30) console.log(`consumer.d.ts spells out the state ${spelled} times, more than 30`)
+        if (spelled > 12) console.log(`consumer.d.ts spells out the state ${spelled} times, more than 12`)
       }
     }
   }

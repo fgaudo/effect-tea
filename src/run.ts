@@ -24,14 +24,14 @@ import * as Shell from './shell.ts'
  * @see The guide, "Guarantees", "A frame says what it has seen".
  * @see The guide, "Running", "A frame's `dispatch` is the very same function in every frame".
  */
-export type Frame<Model, Message> = Readonly<{
+export type Frame<Model, Message> = {
   /** What the view draws, made from the frame's state. */
-  model: Model
+  readonly model: Model
   /** Sends a message to the program. */
-  dispatch: Dispatch<Message>
+  readonly dispatch: Dispatch<Message>
   /** How many dispatched messages the run had taken when the frame's state was made. */
-  seen: number
-}>
+  readonly seen: number
+}
 
 /**
  * `run`, with its options as one value, recording what its fibers die of in `deaths`: for `drive`, which passes the

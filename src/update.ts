@@ -17,14 +17,14 @@ import { dual } from 'effect/Function'
  * @see The guide, "Commands", "In short".
  * @see The guide, "Events and external messages", "A child raises an event".
  */
-export type Step<State, Command = never, Event = never> = Readonly<{
+export type Step<State, Command = never, Event = never> = {
   /** The next state. */
-  state: State
+  readonly state: State
   /** What `update` decided to do in the world, as data, for the program's `runCommand`. */
-  commands?: ReadonlyArray<Command>
+  readonly commands?: ReadonlyArray<Command>
   /** The events for the program's parent: what the program asks of it, such as a page that asks to be left. */
-  events?: ReadonlyArray<Event>
-}>
+  readonly events?: ReadonlyArray<Event>
+}
 
 /**
  * What `update` returns for a message that does not apply in the state, such as a second click or an answer that
@@ -82,11 +82,11 @@ export type Transition<State, Command = never, Event = never> = Step<State, Comm
  * @see The guide, "Events and external messages", "`forEach`".
  * @see The guide, "Testing", "The tools".
  */
-export type Folded<State, Command, Event> = Readonly<{
-  state: State
-  commands: ReadonlyArray<Command>
-  events: ReadonlyArray<Event>
-}>
+export type Folded<State, Command, Event> = {
+  readonly state: State
+  readonly commands: ReadonlyArray<Command>
+  readonly events: ReadonlyArray<Event>
+}
 
 /**
  * How steps add up, for the library's own folds: the state is the last one's, and the commands and the events

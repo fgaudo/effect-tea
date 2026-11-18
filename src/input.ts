@@ -22,13 +22,13 @@ import { reject, type Transition } from './update.ts'
  *
  * @see The guide, "Guarantees", "An input stores what is written over the value it holds".
  */
-export type Written<A> = Readonly<{
-  _tag: 'Written'
+export type Written<A> = {
+  readonly _tag: 'Written'
   /** The value the input showed when the user wrote over it. */
-  was: A
+  readonly was: A
   /** The value written. */
-  value: A
-}>
+  readonly value: A
+}
 
 /**
  * The one rule of an input: what was written over the value the place holds, by `Equal`, is stored, whatever it is and
@@ -56,11 +56,11 @@ const Unseen = '~@fgaudo/effect-tea/Shown/unseen'
  *
  * @see The guide, "Inputs the user types into", "A bridge asks the library instead".
  */
-export type Shown<A> = Readonly<{
+export type Shown<A> = {
   /** The value the element shows. */
-  value: A
-  [Unseen]: ReadonlyArray<Readonly<{ sent: number; was: A }>>
-}>
+  readonly value: A
+  readonly [Unseen]: ReadonlyArray<{ readonly sent: number; readonly was: A }>
+}
 
 const shownOf = <A>(value: A): Shown<A> => ({ value, [Unseen]: [] })
 

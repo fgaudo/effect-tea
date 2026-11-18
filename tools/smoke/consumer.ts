@@ -17,7 +17,7 @@ import {
   type Update,
 } from '@fgaudo/effect-tea'
 import * as Library from '@fgaudo/effect-tea'
-import { applyAll, simulate } from '@fgaudo/effect-tea/testing'
+import { applyAll, rehearse, simulate } from '@fgaudo/effect-tea/testing'
 import * as Testing from '@fgaudo/effect-tea/testing'
 import * as Arr from 'effect/Array'
 import * as Channel from 'effect/Channel'
@@ -62,7 +62,7 @@ type State = Readonly<{ main: CounterState; rows: ReadonlyArray<Row>; fulls: num
 type ResetAll = Readonly<{ _tag: 'ResetAll' }>
 
 // Exported, as a module that declares a program for others: its declarations name the types of `program`.
-export const { child, make, childById, input } = program<{ state: State; message: ResetAll }>()
+export const { child, make, childById, input, inputById } = program<{ state: State; message: ResetAll }>()
 
 // Exported, as a package that publishes a program would: its declarations name what `child` and `make` give.
 export const children = {
@@ -92,6 +92,18 @@ export const quietChild = child(quiet, {
   get: (state) => Opt.some(state.main),
   set: (state, main) => ({ ...state, main }),
 })
+
+// Exported, as a package that publishes a program would: its declarations name what `input` and `inputById` give.
+export const inputs = {
+  Fulls: input({ at: Optic.id<State>().key('fulls') }),
+  Count: inputById({
+    get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter.count),
+    set: (state, id, count) => ({
+      ...state,
+      rows: Arr.map(state.rows, (row) => row.id === id ? { id, counter: { count } } : row),
+    }),
+  }),
+}
 
 export const app = make({
   init: (children) => ({
@@ -191,6 +203,17 @@ export const heardFeed: [Heard] extends [Feed] ? [Feed] extends [Heard] ? true :
 
 // `simulate` asks only for what the commands need: the subscriptions do not run.
 export const simulated: Effect.Effect<unknown, never, Server | Backup> = simulate(served)([], served.init)
+
+// A scenario made with `Effect.fnUntraced`, of a program without commands: it keeps its errors and services, and the
+// declarations name the rehearsal it returns.
+export const rehearsed = rehearse(
+  quiet,
+  Effect.fnUntraced(function*(rehearsal) {
+    yield* rehearsal.send(() => Opt.some({ _tag: 'Increment' }))
+    return rehearsal
+  }),
+)
+export const rehearsedChecked: Effect.Effect<unknown, never, never> = rehearsed
 
 // An own message that takes a child's name does not compile.
 // @ts-expect-error

@@ -13,7 +13,7 @@ import { reject, type Step, type Update } from '../update.ts'
  *
  * @see The guide, "Testing tools", "dispatchViolations".
  */
-export type DispatchViolation<Message> = Readonly<{
+export type DispatchViolation<Message> = {
   /**
    * Which check the message breaks:
    * - `Rejected`, a message the model holds that `update` rejects: a button shown in the wrong state;
@@ -21,10 +21,10 @@ export type DispatchViolation<Message> = Readonly<{
    *   would: a one-shot action would happen twice;
    * - `Missing`, a candidate `update` accepts that the model does not hold: a control missing from the screen.
    */
-  _tag: 'Rejected' | 'ActsTwice' | 'Missing'
+  readonly _tag: 'Rejected' | 'ActsTwice' | 'Missing'
   /** The message that breaks it. */
-  message: Message
-}>
+  readonly message: Message
+}
 
 // The one meaning the tool gives to "changes nothing", for a message sent twice and for a candidate alike.
 const doesNothing = <State, Command, Event>(step: Step<State, Command, Event>, state: State): boolean =>

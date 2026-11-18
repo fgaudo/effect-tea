@@ -22,18 +22,18 @@ import { unexpectedRejection } from './unexpected.ts'
  * const { state, commands, ignored } = yield* simulate(form)(typedAndSaved, form.init)
  * ```
  */
-export type Simulation<State, Message, Command = never, Event = never> = Readonly<{
+export type Simulation<State, Message, Command = never, Event = never> = {
   /** The last state. */
-  state: State
+  readonly state: State
   /** Every message `update` accepted, the test's and the commands' answers, in order. */
-  messages: ReadonlyArray<Message>
+  readonly messages: ReadonlyArray<Message>
   /** Every command started, in order, including the commands of the step the simulation started from. */
-  commands: ReadonlyArray<Command>
+  readonly commands: ReadonlyArray<Command>
   /** Every event `update` raised, in order. */
-  events: ReadonlyArray<Event>
+  readonly events: ReadonlyArray<Event>
   /** Every command's answer that `update` rejected, in order. */
-  ignored: ReadonlyArray<Message>
-}>
+  readonly ignored: ReadonlyArray<Message>
+}
 
 /**
  * Plays a program's flow without running the program, each command answered as soon as it runs.

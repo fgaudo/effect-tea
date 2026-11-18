@@ -15,21 +15,9 @@ test of it. None is open.
 To be done first. Found in a review of the exported types, 18 November 2026, each tried on a copy of the repository
 outside git, not kept, with TypeScript 7.0.2, unless it says otherwise:
 
-- **A type written as `Readonly<{ … }>` loses its name in a consumer's declarations and hovers.** TypeScript prints
-  `Readonly<{ … }>` for it, not the alias. So `Step`, `Folded`, `Frame`, `Written`, `Applied`, `Ignored`, `Simulation`,
-  `Rehearsal`, `Driver` and `DispatchViolation` are exported and never named there: a program's `init` reads `Readonly<{
-  state: …; commands?: readonly never[]; events?: readonly never[] }>`, not `Step<…>`. And what `child`, `childById`,
-  `input` and `inputById` return (`Child`, `ChildById`, `Input`, `InputById` in `src/compose.ts`) is spelled out, with
-  the parent's state four times for each, while the functions themselves have names (`DeclareChild`, …): `change-api`
-  ("Report it") asks for a name for what the API returns. Exporting the four alone changes nothing, for the same reason.
-  Tried: `Step`, `Folded`, `Child` and `ChildById` written with `readonly` members in place of the wrapper (`{ readonly
-  state: State; … }`), the last two exported. The declarations of `tools/smoke/consumer.ts` then name them
-  (`Library.Child<…>`, `Library.Step<…, never>`), go from 17,072 to 14,391 bytes, and spell out the consumer's state 10
-  times, not 19; `bun run typecheck`, `bun run test` and `bun run inference` passed. To do: decide which types the rule
-  covers (every exported record, or those the API returns), write it in `AGENTS.md` ("Code"), apply it, export the four
-  with doc comments, add them to `unnamed` in `tools/smoke/smoke.ts` and lower its bound, and try TypeScript 5.9 and
-  6.0, which were not. Left open: the child's program inside `Child<…>` is still spelled out, since `P` is inferred from
-  the intersection `P & Interpreter<…> & ExternalTaken<P>` of `DeclareChild`, which drops the alias `Program<…>`.
+- **The child's program is spelled out inside `Child<…>` and `ChildById<…>`** in a consumer's declarations: `P` is
+  inferred from the intersection `P & Interpreter<…> & ExternalTaken<P>` of `DeclareChild`, which drops the alias
+  `Program<…>`. Not tried.
 - **`make` returns a `Program<…>` that names six types as `never`** (`command: never; commandServices: never;
   subscriptionServices: never; event: never; external: never; flags: never`), in the hover and the declarations of every
   program, where the program named three. Tried: `MakeProgram` (`src/compose.ts`) returning `Program<{ state; model;
@@ -59,16 +47,11 @@ Found in a review of 18 November 2026, each reproduced:
   `Own | ChildExternals<C>`, `subscriptions` only `Own`. Every program can still be written, through an own message
   and `children.<child>.update`, and both are sources of messages the run handles alike. To decide: allow it, or say
   in "Composition" why the two differ.
-- **The readers of a program's services promise a rule the guide does not hold**: `CommandServicesOf` and
-  `SubscriptionServicesOf` (`src/program.ts`) say they are `unknown` when the program's type does not say which
-  services it needs, and then whoever runs it is told so. No section states it, and the type readers (`StateOf`,
-  `ModelOf`, `CommandOf`, `FlagsOf`, `ExternalOf`, `EventOf` and those two) have no `@see`. Either the rule goes into
-  "Anatomy of a program" ("Precisely") with the `@see` lines, or it leaves the comments.
 - **`simulate`'s declaration spells out `Simulation` and `Step`**: it has no return type written, so
   `api/effect-tea-testing.api.md` writes its `from` and its result inline, though `Simulation` is exported
   (`change-api`, "Report it"). So does `drive`'s, for a program with flags: `DriveOptions` is an alias of an
   intersection, and intersected again with `FlagsOption` it reads
-  `RunOptions<…> & Readonly<{ patience?: … }> & …`.
+  `RunOptions<…> & { readonly patience?: … } & …`.
 - **The failure of `drive`'s `patience` carries an `Option` of the model** as its `cause`, not the model: say so where
   the guide describes it, or give the model itself.
 

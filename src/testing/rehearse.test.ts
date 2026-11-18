@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, expectTypeOf, test } from 'bun:test'
 import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Context from 'effect/Context'
@@ -225,6 +225,25 @@ describe('rehearse', () => {
       makeModel: ({ count }: Readonly<{ count: number }>) => count,
     }
     expect(await Effect.runPromise(rehearse(plain, (rehearsal) => rehearsal.state))).toEqual({ count: 0 })
+  })
+
+  test('a scenario made with Effect.fnUntraced, of a program without commands, keeps its errors and services', () => {
+    type Count = Readonly<{ count: number }>
+    const counting: Program<{ state: Count; model: number; message: 'Increment' }> = {
+      init: { state: { count: 0 } },
+      update: () => ({ count }) => ({ state: { count: count + 1 } }),
+      makeModel: ({ count }) => count,
+    }
+    const rehearsed = rehearse(
+      counting,
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.send(() => Opt.some('Increment'))
+        return rehearsal
+      }),
+    )
+    expectTypeOf(rehearsed).toEqualTypeOf<
+      Effect.Effect<Rehearsal<Count, number, 'Increment', never, never, never, never>, never, never>
+    >()
   })
 
   test('runAll runs the commands that the commands it runs start', async () => {

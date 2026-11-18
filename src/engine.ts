@@ -28,13 +28,13 @@ export type { Revision, Revisioned } from './core.ts'
  * @see The guide, "Running", "`onIgnored`".
  */
 export type Origin =
-  | Readonly<{ _tag: 'Dispatch' }>
-  | Readonly<{ _tag: 'Command' }>
-  | Readonly<{
-    _tag: 'Subscription'
+  | { readonly _tag: 'Dispatch' }
+  | { readonly _tag: 'Command' }
+  | {
+    readonly _tag: 'Subscription'
     /** The key of the subscription that sent the message. */
-    key: unknown
-  }>
+    readonly key: unknown
+  }
 
 /**
  * A message that `update` accepted, as `onApplied` hears it.
@@ -55,20 +55,20 @@ export type Origin =
  *
  * @see The guide, "Running", "`onApplied`".
  */
-export type Applied<State, Message, Command = never> = Readonly<{
+export type Applied<State, Message, Command = never> = {
   /** The message. */
-  message: Message
+  readonly message: Message
   /** Where it came from. */
-  origin: Origin
+  readonly origin: Origin
   /** The state it was applied in. */
-  before: State
+  readonly before: State
   /** The state it came to. */
-  after: State
+  readonly after: State
   /** The revision of `after`. */
-  revision: number
+  readonly revision: number
   /** The commands it decided. */
-  commands: ReadonlyArray<Command>
-}>
+  readonly commands: ReadonlyArray<Command>
+}
 
 /**
  * A message that `update` rejected, as `onIgnored` hears it.
@@ -84,14 +84,14 @@ export type Applied<State, Message, Command = never> = Readonly<{
  *
  * @see The guide, "Running", "`onIgnored`".
  */
-export type Ignored<State, Message> = Readonly<{
+export type Ignored<State, Message> = {
   /** The message. */
-  message: Message
+  readonly message: Message
   /** Where it came from. */
-  origin: Origin
+  readonly origin: Origin
   /** The state it did not apply in. */
-  state: State
-}>
+  readonly state: State
+}
 
 /**
  * The options of a run: how messages and commands appear in the logs, and what hears each message.

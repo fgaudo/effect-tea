@@ -10,13 +10,13 @@ import type { Step, Update } from './update.ts'
  *
  * @example
  * ```ts
- * type Saving = Interpreter<'Save', Message, never> // Readonly<{ runCommand: RunCommand<'Save', Message> }>
+ * type Saving = Interpreter<'Save', Message, never> // { readonly runCommand: RunCommand<'Save', Message> }
  * ```
  *
  * @see The guide, "Anatomy of a program", "`runCommand` is required exactly when the program has commands".
  */
 export type Interpreter<Command, Message, R> = [Command] extends [never] ? object
-  : Readonly<{ runCommand: RunCommand<Command, Message, R> }>
+  : { readonly runCommand: RunCommand<Command, Message, R> }
 
 // `runCommand` is missing only when `Command` is `never`, so that `absurd` is never called.
 export const runCommandOf = <Command, Message, R>(
@@ -133,7 +133,7 @@ export type Program<T extends ProgramTypes> =
  * it, with no `CompositionDefect` to say so.
  */
 type ExternalAmong<Message, External> = [Exclude<External, Message>] extends [never] ? unknown
-  : Readonly<{ 'an external message is not among the program messages': Exclude<External, Message> }>
+  : { readonly 'an external message is not among the program messages': Exclude<External, Message> }
 
 /**
  * How a program starts: its first step, or, for a program with flags, a function that makes the first step from the
@@ -160,8 +160,8 @@ export type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, 
  *
  * @see The guide, "Anatomy of a program", "A program with flags".
  */
-export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: never }>
-  : Readonly<{ flags: Flags }>
+export type FlagsOption<Flags> = [Flags] extends [never] ? { readonly flags?: never }
+  : { readonly flags: Flags }
 
 /**
  * The check that a program keeps its state in an object. It is `unknown` when the program does. Otherwise it is a
@@ -175,7 +175,7 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: ne
  *
  * @example
  * ```ts
- * type Checked = ObjectState<number> // Readonly<{ 'a program keeps its state in an object': number }>
+ * type Checked = ObjectState<number> // { readonly 'a program keeps its state in an object': number }
  * ```
  *
  * @see The guide, "Anatomy of a program", "What does not compile".
@@ -183,12 +183,12 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: ne
  * @see The guide, "Composition", "A child's model is kept".
  */
 export type ObjectState<State> = [State] extends [object] ? Fielded<State>
-  : Readonly<{ 'a program keeps its state in an object': State }>
+  : { readonly 'a program keeps its state in an object': State }
 // Only a type without fields: one with a field that a primitive has too, `{ length: number }`, is a state as any other.
 // `any` is let through, as before.
 type Fielded<State> = 0 extends 1 & State ? unknown
   : [keyof State] extends [never] ? [Extract<Primitive, State>] extends [never] ? unknown
-    : Readonly<{ 'a program keeps its state in an object': State }>
+    : { readonly 'a program keeps its state in an object': State }
   : unknown
 type Primitive = string | number | bigint | boolean | symbol
 
@@ -205,7 +205,7 @@ type Primitive = string | number | bigint | boolean | symbol
  */
 export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> =
   & ObjectState<State>
-  & Readonly<{
+  & {
     // A string, as Effect's own type ids: a declaration that spells the type out can always name it, where a
     // `unique symbol` the package does not export stops it (TS4023).
     // In a tuple: the `undefined` that an optional property adds without `exactOptionalPropertyTypes` stays out of
@@ -213,11 +213,11 @@ export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags
     // As a parameter: a program may be given a type that names fewer external messages than it takes, never more, so
     // what takes any program names `never`.
     readonly '~@fgaudo/effect-tea/Program/external'?: readonly [(external: External) => void]
-    init: Init<State, Command, Flags>
-    update: Update<State, Message, Command, Event>
-    subscriptions?: Subscriptions<State, Message, RS, unknown>
-    makeModel: (state: State) => Model
-  }>
+    readonly init: Init<State, Command, Flags>
+    readonly update: Update<State, Message, Command, Event>
+    readonly subscriptions?: Subscriptions<State, Message, RS, unknown>
+    readonly makeModel: (state: State) => Model
+  }
   & Interpreter<Command, Message, RC>
 
 // Only what every program has: `Shape<any, …>` would demand a `runCommand` (`[any] extends [never]` is false).
@@ -229,9 +229,11 @@ export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags
  * type Messages<P extends AnyProgram> = MessageOf<P>
  * ```
  */
-export type AnyProgram = Readonly<
-  { init: Step<any, any> | ((flags: any) => Step<any, any>); update: any; makeModel: any }
->
+export type AnyProgram = {
+  readonly init: Step<any, any> | ((flags: any) => Step<any, any>)
+  readonly update: any
+  readonly makeModel: any
+}
 
 /** The first step of a program, or the one its `init` makes from flags. */
 type FirstStepOf<P> = P extends { readonly init: (flags: any) => infer S } ? S
@@ -253,6 +255,8 @@ export const startOf = <State, Command>(
  * ```ts
  * type State = StateOf<typeof app>
  * ```
+ *
+ * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
  */
 export type StateOf<P> = FirstStepOf<P> extends Step<infer S, any> ? S : never
 /**
@@ -262,6 +266,9 @@ export type StateOf<P> = FirstStepOf<P> extends Step<infer S, any> ? S : never
  * ```ts
  * type Model = ModelOf<typeof app>
  * ```
+ *
+ * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
+ * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
  */
 export type ModelOf<P> = P extends { readonly makeModel: (state: any) => infer M } ? M : never
 /**
@@ -271,6 +278,9 @@ export type ModelOf<P> = P extends { readonly makeModel: (state: any) => infer M
  * ```ts
  * type Message = MessageOf<typeof app>
  * ```
+ *
+ * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
+ * @see The guide, "Composition", "What the library derives".
  */
 export type MessageOf<P> = P extends { readonly update: (message: infer M) => any } ? M : never
 /** What the lists under `Key` hold, for each step of a union: none in a step without the list. */
@@ -293,6 +303,8 @@ type Returned<P, Key extends 'commands' | 'events'> = P extends
  * ```ts
  * type Command = CommandOf<typeof app>
  * ```
+ *
+ * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
  */
 export type CommandOf<P> = Listed<FirstStepOf<P>, 'commands'> | Returned<P, 'commands'>
 /**
@@ -304,6 +316,9 @@ export type CommandOf<P> = Listed<FirstStepOf<P>, 'commands'> | Returned<P, 'com
  * ```ts
  * type Flags = FlagsOf<typeof product>
  * ```
+ *
+ * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
+ * @see The guide, "Anatomy of a program", "A program with flags".
  */
 export type FlagsOf<P> = P extends { readonly init: (flags: infer F) => any } ? F : never
 /**
@@ -315,6 +330,9 @@ export type FlagsOf<P> = P extends { readonly init: (flags: infer F) => any } ? 
  * ```ts
  * type External = ExternalOf<typeof page>
  * ```
+ *
+ * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
+ * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
  */
 export type ExternalOf<P> = P extends { readonly '~@fgaudo/effect-tea/Program/external'?: infer E } ? Unboxed<E>
   : never
@@ -330,30 +348,36 @@ type Unboxed<E> = E extends readonly [(external: infer External) => void] ? Exte
  * ```ts
  * type Event = EventOf<typeof page>
  * ```
+ *
+ * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
  */
 export type EventOf<P> = Returned<P, 'events'>
 /**
  * The services a program's commands need: those its `runCommand` requires.
  *
- * It is `never` when they need none, and `unknown` when their type does not say which they need (`any`, `unknown`):
- * then whoever runs the program cannot provide them, and is told so.
+ * It is `never` when they need none.
  *
  * @example
  * ```ts
  * type Services = CommandServicesOf<typeof app>
  * ```
+ *
+ * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
+ * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
  */
 export type CommandServicesOf<P> = P extends { readonly runCommand: RunCommand<any, any, infer R> } ? R : never
 /**
  * The services a program's subscriptions need.
  *
- * It is `never` when they need none, and `unknown` when their type does not say which they need (`any`, `unknown`):
- * then whoever runs the program cannot provide them, and is told so.
+ * It is `never` when they need none.
  *
  * @example
  * ```ts
  * type Services = SubscriptionServicesOf<typeof app>
  * ```
+ *
+ * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
+ * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
  */
 export type SubscriptionServicesOf<P> = P extends { readonly subscriptions?: infer S } ? NeededBy<S> : never
 // Apart, so that a program without `subscriptions`, whose `S` reads back as `unknown`, needs none, while one whose

@@ -21,21 +21,21 @@ export const andThen: {
 };
 
 // @public
-export type AnyProgram = Readonly<{
-    init: Step<any, any> | ((flags: any) => Step<any, any>);
-    update: any;
-    makeModel: any;
-}>;
+export type AnyProgram = {
+    readonly init: Step<any, any> | ((flags: any) => Step<any, any>);
+    readonly update: any;
+    readonly makeModel: any;
+};
 
 // @public
-export type Applied<State, Message, Command = never> = Readonly<{
-    message: Message;
-    origin: Origin;
-    before: State;
-    after: State;
-    revision: number;
-    commands: ReadonlyArray<Command>;
-}>;
+export type Applied<State, Message, Command = never> = {
+    readonly message: Message;
+    readonly origin: Origin;
+    readonly before: State;
+    readonly after: State;
+    readonly revision: number;
+    readonly commands: ReadonlyArray<Command>;
+};
 
 // @public
 type At<C> = C extends ChildByIdOf<infer Id, any> ? Readonly<{
@@ -43,22 +43,22 @@ type At<C> = C extends ChildByIdOf<infer Id, any> ? Readonly<{
 }> : unknown;
 
 // @public
-type Child<ParentState, P> = Readonly<{
-    kind: 'one';
-    program: P;
-    get: (state: ParentState) => Opt.Option<StateOf<P>>;
-    set: (state: ParentState, child: StateOf<P>) => ParentState;
-    subscribed?: (state: ParentState) => Opt.Option<StateOf<P>>;
-}>;
+export type Child<ParentState, P> = {
+    readonly kind: 'one';
+    readonly program: P;
+    readonly get: (state: ParentState) => Opt.Option<StateOf<P>>;
+    readonly set: (state: ParentState, child: StateOf<P>) => ParentState;
+    readonly subscribed?: (state: ParentState) => Opt.Option<StateOf<P>>;
+};
 
 // @public
-type ChildById<ParentState, Id, P> = Readonly<{
-    kind: 'byId';
-    program: P;
-    get: (state: ParentState, id: Id) => Opt.Option<StateOf<P>>;
-    set: (state: ParentState, id: Id, child: StateOf<P>) => ParentState;
-    subscribed: (state: ParentState) => Iterable<readonly [Id, StateOf<P>]>;
-}>;
+export type ChildById<ParentState, Id, P> = {
+    readonly kind: 'byId';
+    readonly program: P;
+    readonly get: (state: ParentState, id: Id) => Opt.Option<StateOf<P>>;
+    readonly set: (state: ParentState, id: Id, child: StateOf<P>) => ParentState;
+    readonly subscribed: (state: ParentState) => Iterable<readonly [Id, StateOf<P>]>;
+};
 
 // @public (undocumented)
 type ChildByIdOf<Id, P> = Readonly<{
@@ -212,9 +212,9 @@ export type EventOf<P> = Returned<P, 'events'>;
 export type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, never, R>;
 
 // @public
-type ExternalAmong<Message, External> = [Exclude<External, Message>] extends [never] ? unknown : Readonly<{
-    'an external message is not among the program messages': Exclude<External, Message>;
-}>;
+type ExternalAmong<Message, External> = [Exclude<External, Message>] extends [never] ? unknown : {
+    readonly 'an external message is not among the program messages': Exclude<External, Message>;
+};
 
 // @public
 export type ExternalOf<P> = P extends {
@@ -240,9 +240,9 @@ export type Field<T, K extends string> = T extends {
 } ? V : never;
 
 // @public (undocumented)
-type Fielded<State> = 0 extends 1 & State ? unknown : [keyof State] extends [never] ? [Extract<Primitive, State>] extends [never] ? unknown : Readonly<{
-    'a program keeps its state in an object': State;
-}> : unknown;
+type Fielded<State> = 0 extends 1 & State ? unknown : [keyof State] extends [never] ? [Extract<Primitive, State>] extends [never] ? unknown : {
+    readonly 'a program keeps its state in an object': State;
+} : unknown;
 
 // @public (undocumented)
 type Fields = Readonly<{
@@ -265,18 +265,18 @@ export type FlagsOf<P> = P extends {
 } ? F : never;
 
 // @public
-export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{
-    flags?: never;
-}> : Readonly<{
-    flags: Flags;
-}>;
+export type FlagsOption<Flags> = [Flags] extends [never] ? {
+    readonly flags?: never;
+} : {
+    readonly flags: Flags;
+};
 
 // @public
-export type Folded<State, Command, Event> = Readonly<{
-    state: State;
-    commands: ReadonlyArray<Command>;
-    events: ReadonlyArray<Event>;
-}>;
+export type Folded<State, Command, Event> = {
+    readonly state: State;
+    readonly commands: ReadonlyArray<Command>;
+    readonly events: ReadonlyArray<Event>;
+};
 
 // @public
 export const forEach: {
@@ -288,11 +288,11 @@ export const forEach: {
 export const forwardTo: <Message, Name extends string>(dispatch: Dispatch<Message>, name: Name, ...id: IdOf<Message, Name>) => ChildDispatch<Message, Name>;
 
 // @public
-export type Frame<Model, Message> = Readonly<{
-    model: Model;
-    dispatch: Dispatch<Message>;
-    seen: number;
-}>;
+export type Frame<Model, Message> = {
+    readonly model: Model;
+    readonly dispatch: Dispatch<Message>;
+    readonly seen: number;
+};
 
 // @public
 type Handles<State, C, Command, Event> = {
@@ -314,28 +314,28 @@ type IdOf<Message, Name> = [ChildOf<Message, Name>] extends [never] ? [] : Child
 }> ? [id: Id] : [];
 
 // @public
-export type Ignored<State, Message> = Readonly<{
-    message: Message;
-    origin: Origin;
-    state: State;
-}>;
+export type Ignored<State, Message> = {
+    readonly message: Message;
+    readonly origin: Origin;
+    readonly state: State;
+};
 
 // @public
 export type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, Command> : (flags: Flags) => Step<State, Command>;
 
 // @public
-type Input<State, A> = Readonly<{
-    kind: 'one';
-    get: (state: State) => Opt.Option<A>;
-    set: (state: State, value: A) => State;
-}>;
+export type Input<State, A> = {
+    readonly kind: 'one';
+    readonly get: (state: State) => Opt.Option<A>;
+    readonly set: (state: State, value: A) => State;
+};
 
 // @public
-type InputById<State, Id, A> = Readonly<{
-    kind: 'byId';
-    get: (state: State, id: Id) => Opt.Option<A>;
-    set: (state: State, id: Id, value: A) => State;
-}>;
+export type InputById<State, Id, A> = {
+    readonly kind: 'byId';
+    readonly get: (state: State, id: Id) => Opt.Option<A>;
+    readonly set: (state: State, id: Id, value: A) => State;
+};
 
 // @public
 type InputMessages<I> = {
@@ -366,9 +366,9 @@ type Inputs<State> = Readonly<Record<string, Readonly<{
 }>>>;
 
 // @public
-export type Interpreter<Command, Message, R> = [Command] extends [never] ? object : Readonly<{
-    runCommand: RunCommand<Command, Message, R>;
-}>;
+export type Interpreter<Command, Message, R> = [Command] extends [never] ? object : {
+    readonly runCommand: RunCommand<Command, Message, R>;
+};
 
 // @public
 export class InvariantDefect extends InvariantDefect_base<Readonly<{
@@ -451,9 +451,9 @@ type NoShared<C, I> = [keyof C & keyof I] extends [never] ? unknown : Readonly<{
 }>;
 
 // @public
-export type ObjectState<State> = [State] extends [object] ? Fielded<State> : Readonly<{
-    'a program keeps its state in an object': State;
-}>;
+export type ObjectState<State> = [State] extends [object] ? Fielded<State> : {
+    readonly 'a program keeps its state in an object': State;
+};
 
 // @public
 type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Event>] extends [never] ? Readonly<{
@@ -468,14 +468,14 @@ type OnEvents<State, C, Command, Event> = {
 };
 
 // @public
-export type Origin = Readonly<{
-    _tag: 'Dispatch';
-}> | Readonly<{
-    _tag: 'Command';
-}> | Readonly<{
-    _tag: 'Subscription';
-    key: unknown;
-}>;
+export type Origin = {
+    readonly _tag: 'Dispatch';
+} | {
+    readonly _tag: 'Command';
+} | {
+    readonly _tag: 'Subscription';
+    readonly key: unknown;
+};
 
 // @public
 type Placement<ParentState, ChildState> = Readonly<{
@@ -589,22 +589,22 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
 }
 
 // @public
-export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & Readonly<{
+export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & {
     readonly '~@fgaudo/effect-tea/Program/external'?: readonly [(external: External) => void];
-    init: Init<State, Command, Flags>;
-    update: Update<State, Message, Command, Event>;
-    subscriptions?: Subscriptions<State, Message, RS, unknown>;
-    makeModel: (state: State) => Model;
-}> & Interpreter<Command, Message, RC>;
+    readonly init: Init<State, Command, Flags>;
+    readonly update: Update<State, Message, Command, Event>;
+    readonly subscriptions?: Subscriptions<State, Message, RS, unknown>;
+    readonly makeModel: (state: State) => Model;
+} & Interpreter<Command, Message, RC>;
 
 // @public
-export type Shown<A> = Readonly<{
-    value: A;
-    [Unseen]: ReadonlyArray<Readonly<{
-        sent: number;
-        was: A;
-    }>>;
-}>;
+export type Shown<A> = {
+    readonly value: A;
+    readonly [Unseen]: ReadonlyArray<{
+        readonly sent: number;
+        readonly was: A;
+    }>;
+};
 
 // @public
 type Start<P, Command> = Readonly<{
@@ -616,11 +616,11 @@ type Start<P, Command> = Readonly<{
 export type StateOf<P> = FirstStepOf<P> extends Step<infer S, any> ? S : never;
 
 // @public
-export type Step<State, Command = never, Event = never> = Readonly<{
-    state: State;
-    commands?: ReadonlyArray<Command>;
-    events?: ReadonlyArray<Event>;
-}>;
+export type Step<State, Command = never, Event = never> = {
+    readonly state: State;
+    readonly commands?: ReadonlyArray<Command>;
+    readonly events?: ReadonlyArray<Event>;
+};
 
 // @public
 export type Subscription<Message, R = never> = Channel.Channel<Message, never, Message, unknown, unknown, unknown, R>;
@@ -668,11 +668,11 @@ type UpdateOf<State, C, Own, Command, Event> = [Own] extends [never] ? Readonly<
 }>;
 
 // @public
-export type Written<A> = Readonly<{
-    _tag: 'Written';
-    was: A;
-    value: A;
-}>;
+export type Written<A> = {
+    readonly _tag: 'Written';
+    readonly was: A;
+    readonly value: A;
+};
 
 // (No @packageDocumentation comment for this package)
 

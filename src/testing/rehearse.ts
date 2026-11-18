@@ -14,7 +14,14 @@ import * as Core from '../core.ts'
 import { ProgramDefect } from '../defect.ts'
 import type { Written } from '../input.ts'
 import { describeByTag } from '../log.ts'
-import { type FlagsOption, runCommandOf, type Shape, startOf, subscriptionsOf } from '../program.ts'
+import {
+  type AnyProgram,
+  type FlagsOption,
+  runCommandOf,
+  type Shape,
+  startOf,
+  subscriptionsOf,
+} from '../program.ts'
 import { diesIn, makeDeaths, runSubscription, scopedIn, stopping as stopFiber } from '../shell.ts'
 import type { Subscription } from '../subscription.ts'
 import * as Ledger from './ledger.ts'
@@ -45,11 +52,11 @@ import * as Loop from './loop.ts'
  * @see The guide, "Testing tools", "Fibers the test forks or detaches".
  * @see The guide, "Testing tools", "After a defect of the program".
  */
-export type Rehearsal<State, Model, Message, Command = never, Event = never, RC = never, RS = never> = Readonly<{
+export type Rehearsal<State, Model, Message, Command = never, Event = never, RC = never, RS = never> = {
   /** The current state. */
-  state: Effect.Effect<State>
+  readonly state: Effect.Effect<State>
   /** The model of the current state. */
-  model: Effect.Effect<Model>
+  readonly model: Effect.Effect<Model>
   /**
    * Applies the message `select` finds on the current model, as a control drawn from it would send it.
    *
@@ -59,9 +66,9 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
    * @see The guide, "Testing tools", "`rehearse` acts through what the current model shows".
    * @see The guide, "Testing tools", "What fails the test".
    */
-  send: (select: (model: Model) => Opt.Option<Message>) => Effect.Effect<void>
+  readonly send: (select: (model: Model) => Opt.Option<Message>) => Effect.Effect<void>
   /** The commands `update` started that have not run yet, oldest first. */
-  pending: Effect.Effect<ReadonlyArray<Command>>
+  readonly pending: Effect.Effect<ReadonlyArray<Command>>
   /**
    * Runs a pending command that `select` matches, applies its message, and returns the command.
    *
@@ -76,7 +83,7 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
    * @see The guide, "Testing tools", "Commands at the end".
    * @see The guide, "Testing tools", "After a defect of the program".
    */
-  run: (select: (command: Command) => boolean) => Effect.Effect<Command, never, Exclude<RC, Scope.Scope>>
+  readonly run: (select: (command: Command) => boolean) => Effect.Effect<Command, never, Exclude<RC, Scope.Scope>>
   /**
    * Runs the pending commands, and those they start, until none is left.
    *
@@ -86,7 +93,7 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
    * @see The guide, "Testing tools", "Each command waits until the test runs it".
    * @see The guide, "Testing tools", "Commands at the end".
    */
-  runAll: Effect.Effect<void, never, Exclude<RC, Scope.Scope>>
+  readonly runAll: Effect.Effect<void, never, Exclude<RC, Scope.Scope>>
   /**
    * Applies a message as the subscription under `key` would send it, without running the subscription.
    *
@@ -105,7 +112,7 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
    * @see The guide, "Testing tools", "How a subscription is heard".
    * @see The guide, "Testing tools", "What fails the test".
    */
-  hear: (key: unknown, message: Heard<Message>) => Effect.Effect<void>
+  readonly hear: (key: unknown, message: Heard<Message>) => Effect.Effect<void>
   /**
    * Hears the next message of the subscription under `key`, applies it as `hear` would, and returns it.
    *
@@ -128,15 +135,15 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
    * @see The guide, "Testing tools", "What fails the test".
    * @see The guide, "Testing tools", "After a defect of the program".
    */
-  hearNext: (key: unknown) => Effect.Effect<Message, never, Exclude<RS, Scope.Scope>>
+  readonly hearNext: (key: unknown) => Effect.Effect<Message, never, Exclude<RS, Scope.Scope>>
   /** The events `update` raised for the program's parent, in order. */
-  events: Effect.Effect<ReadonlyArray<Event>>
+  readonly events: Effect.Effect<ReadonlyArray<Event>>
   /**
    * The messages of commands and subscriptions that `update` rejected, in order: an answer that came when the state
    * had moved on, a subscription's message about something no longer there.
    */
-  ignored: Effect.Effect<ReadonlyArray<Message>>
-}>
+  readonly ignored: Effect.Effect<ReadonlyArray<Message>>
+}
 
 /**
  * What a subscription may send of a program's `Message`: all of it but a write into an input, the program's or a
@@ -168,45 +175,8 @@ type Current<State, Message, Event> = Readonly<{
   ignored: ReadonlyArray<Message>
 }>
 
-/**
- * Rehearses a program without running it, step by step: the test decides when each message arrives.
- *
- * It takes the program to rehearse; the scenario, what the test does through the {@link Rehearsal} it is given; and
- * its options: `flags`, when the program has them.
- *
- * - It starts from the program's `init`. To start elsewhere, give it the program with another `init`.
- * - It acts through what the current model shows. Commands wait until the test runs them, and a subscription's
- *   message is one the test hears.
- * - The test fails when a command is still pending or under way at the end.
- * - Messages sent from fibers of the test are applied one at a time, each one whole.
- * - A defect of the program fails the rehearsal with the `ProgramDefect` the run dies with, even when the scenario
- *   catches it. The defect comes first in the cause.
- *
- * @returns What `scenario` returns.
- *
- * @example
- * ```ts
- * rehearse(
- *   form,
- *   Effect.fnUntraced(function*(rehearsal) {
- *     yield* rehearsal.send(({ name, editor }) =>
- *       editor._tag === 'Saving'
- *         ? Opt.none()
- *         : Opt.some({ _tag: 'Name', message: { _tag: 'Written', was: name, value: 'Ada' } })
- *     )
- *     yield* rehearsal.send(({ editor }) => (editor._tag === 'Named' ? Opt.some(editor.save) : Opt.none()))
- *     expect((yield* rehearsal.model).editor._tag).toBe('Saving')
- *     yield* rehearsal.run((command) => command._tag === 'Save')
- *   }),
- * )
- * ```
- *
- * @see The guide, "Testing tools", "rehearse".
- * @see The guide, "Testing tools", "`rehearse`, in detail".
- * @see The guide, "Testing tools", "Defects of the program".
- * @see The guide, "Running", "Starting from another state".
- */
-export const rehearse = Effect.fnUntraced(function*<
+// The rehearsal itself: `rehearse`, below, gives it its types (`Commanded`).
+const rehearsing = Effect.fnUntraced(function*<
   State,
   Model,
   Message,
@@ -708,3 +678,68 @@ const nothingListensUnder = (key: unknown) =>
 
 const describeAll = (values: ReadonlyArray<unknown>) =>
   values.length === 0 ? 'none' : values.map((value) => String(describeByTag(value))).join(', ')
+
+/**
+ * Rehearses a program without running it, step by step: the test decides when each message arrives.
+ *
+ * - It starts from the program's `init`. To start elsewhere, give it the program with another `init`.
+ * - It acts through what the current model shows. Commands wait until the test runs them, and a subscription's
+ *   message is one the test hears.
+ * - The test fails when a command is still pending or under way at the end.
+ * - Messages sent from fibers of the test are applied one at a time, each one whole.
+ * - A defect of the program fails the rehearsal with the `ProgramDefect` the run dies with, even when the scenario
+ *   catches it. The defect comes first in the cause.
+ *
+ * @param program - The program to rehearse.
+ * @param scenario - What the test does, through the {@link Rehearsal} it is given.
+ * @param options - `flags`, when the program has them.
+ * @returns What `scenario` returns.
+ *
+ * @example
+ * ```ts
+ * rehearse(
+ *   form,
+ *   Effect.fnUntraced(function*(rehearsal) {
+ *     yield* rehearsal.send(({ name, editor }) =>
+ *       editor._tag === 'Saving'
+ *         ? Opt.none()
+ *         : Opt.some({ _tag: 'Name', message: { _tag: 'Written', was: name, value: 'Ada' } })
+ *     )
+ *     yield* rehearsal.send(({ editor }) => (editor._tag === 'Named' ? Opt.some(editor.save) : Opt.none()))
+ *     expect((yield* rehearsal.model).editor._tag).toBe('Saving')
+ *     yield* rehearsal.run((command) => command._tag === 'Save')
+ *   }),
+ * )
+ * ```
+ *
+ * @see The guide, "Testing tools", "rehearse".
+ * @see The guide, "Testing tools", "`rehearse`, in detail".
+ * @see The guide, "Testing tools", "Defects of the program".
+ * @see The guide, "Running", "Starting from another state".
+ */
+export const rehearse = <
+  P extends AnyProgram,
+  State,
+  Model,
+  Message,
+  Command = never,
+  Event = never,
+  RC = never,
+  RS = never,
+  A = unknown,
+  E = never,
+  RT = never,
+  Flags = never,
+>(
+  program: P & Shape<State, Model, Message, Commanded<P, Command>, Commanded<P, RC>, RS, Event, never, Flags>,
+  scenario: (
+    rehearsal: Rehearsal<State, Model, Message, Commanded<P, Command>, Event, Commanded<P, RC>, RS>,
+  ) => Effect.Effect<A, E, RT>,
+  ...options: [Flags] extends [never] ? [options?: FlagsOption<never>] : [options: FlagsOption<NoInfer<Flags>>]
+): Effect.Effect<A, E, RT> => rehearsing(program, scenario, ...options)
+
+// A program without commands gives `Command` and `RC` nothing to be inferred from, and an alias that carries one still
+// unfixed leaves the errors and the services of a scenario written `Effect.fnUntraced(function*(rehearsal) { … })`
+// `unknown` wherever it reads `rehearsal`. So each is read through the program, whose type is always inferred: `never`
+// when it has no `runCommand`, and otherwise inferred as any type, from every piece that names it.
+type Commanded<P, T> = P extends { readonly runCommand: unknown } ? T : never

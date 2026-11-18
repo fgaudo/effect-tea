@@ -30,10 +30,14 @@ export {
   type SubscriptionServicesOf,
 } from './program.ts'
 export {
+  type Child,
+  type ChildById,
   type DeclareChild,
   type DeclareChildById,
   type DeclareInput,
   type DeclareInputById,
+  type Input,
+  type InputById,
   type MakeProgram,
   program,
   type ProgramMaker,
