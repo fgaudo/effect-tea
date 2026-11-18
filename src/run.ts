@@ -14,10 +14,11 @@ import * as Shell from './shell.ts'
  *
  * `run` hands its renderer a stream of them.
  *
- * - A message that returns the same state draws no new frame. A model is made only for the frames the renderer pulls.
+ * - A message that returns the very same state draws no new frame. A model is made only for the frames the renderer
+ *   pulls.
  * - `seen` counts the dispatched messages, rejected ones included, but no message of a command or a subscription.
  *   The last frame may have seen fewer messages than were dispatched: never wait for it to see them all.
- * - `dispatch` is the same function in every frame.
+ * - `dispatch` is the very same function in every frame.
  *
  * @see The guide, "Guarantees", "Frames cost only what is drawn".
  * @see The guide, "Guarantees", "A frame says what it has seen".
@@ -105,8 +106,8 @@ const running = Effect.fnUntraced(
  * Runs a program, and hands its frames to `render`.
  *
  * - A renderer slower than the program only gets the latest frame. The run ends when the renderer ends.
- * - The run takes one message at a time, in the order they were queued. The next waits until the step of the one
- *   before is over, its releases included: keep releases quick.
+ * - The run takes one message at a time, in the order they were queued. The next message waits until the step of the
+ *   one before is over, its releases included. So keep releases quick.
  * - A message that `update` rejects is ignored, and the state stays as it was.
  * - Each command, each subscription and the renderer has a scope of its own. What one acquires is released when it
  *   ends, never while it still runs.

@@ -57,10 +57,11 @@ type Fields = Readonly<{
 /**
  * The defect a run dies with: the one that happened, and where.
  *
- * Its `message` says where, with the message it happened on for one in `update`, for whoever reads the error.
+ * Its `message` says where the defect happened, for whoever reads the error. For a defect in `update`, it also names
+ * the message.
  *
  * - `cause` is what was thrown: an `InvariantDefect` for one thrown with `defect`.
- * - `on` names the message by its tags, as the logs do. A message that is a string appears whole.
+ * - `on` names the message by its tags, as the logs do by default. A message that is a string appears whole.
  * - `key` is the subscription's key as it is. Like `cause`, it may hold the program's data.
  * - The run does not log the defect and does not recover from it. Report it, and choose what the user sees next.
  *
@@ -73,7 +74,7 @@ type Fields = Readonly<{
  * @see The guide, "Running", "Its `where` says where it happened".
  * @see The guide, "Running", "How messages and commands appear in the logs".
  * @see The guide, "Running", "The run never recovers from a defect, and does not log it".
- * @see The guide, "Running", "What leaves the device is chosen there".
+ * @see The guide, "Running", "The app around the run chooses what leaves the device".
  */
 export class ProgramDefect extends Data.TaggedError('ProgramDefect')<Fields & Readonly<{ message: string }>> {
   constructor(fields: Fields) {
@@ -87,9 +88,10 @@ export class ProgramDefect extends Data.TaggedError('ProgramDefect')<Fields & Re
 /**
  * A parent that breaks what it declared of a child.
  *
- * It is thrown when a child rejects an external message, or gets one while it is not there. Among other cases, it is
- * thrown for a parent's subscription key that a child uses too, and for a `subscribed` that lists an id twice. `on`
- * names the message by its tags, as the logs do. `id` is the child's id as it is, and may hold the program's data.
+ * It is thrown when a child rejects an external message, or when a parent sends one to a child that is not there.
+ * Among other cases, it is thrown for a parent's subscription key that a child uses too, and for a `subscribed` that
+ * lists an id twice. `on` names the message by its tags, as the logs do by default. `id` is the child's id as it is,
+ * and may hold the program's data.
  *
  * @example
  * ```ts
@@ -97,9 +99,9 @@ export class ProgramDefect extends Data.TaggedError('ProgramDefect')<Fields & Re
  * ```
  *
  * @see The guide, "Composition", "What is a defect".
- * @see The guide, "Composition", "A rejection of an external message is a defect".
+ * @see The guide, "Events and external messages", "A rejection of an external message is a defect".
  * @see The guide, "Running", "How messages and commands appear in the logs".
- * @see The guide, "Running", "What leaves the device is chosen there".
+ * @see The guide, "Running", "The app around the run chooses what leaves the device".
  */
 export class CompositionDefect extends Data.TaggedError('CompositionDefect')<
   Readonly<{

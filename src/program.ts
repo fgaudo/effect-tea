@@ -28,8 +28,8 @@ export const runCommandOf = <Command, Message, R>(
 /**
  * What a program listens to in a state, by key.
  *
- * It gives the subscriptions as `run` reconciles them, and none for a program without `subscriptions`. A parent lists
- * the subscriptions of each child under `[<child>, key]`, or under `[<child>, id, key]` for children by id.
+ * It gives the subscriptions that `run` reconciles. For a program without `subscriptions`, it gives none. A parent
+ * lists the subscriptions of each child under `[<child>, key]`, or under `[<child>, id, key]` for children by id.
  *
  * @param program - The program, with or without `subscriptions`.
  * @returns A function from a state to the program's subscriptions in it.
@@ -81,14 +81,14 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
 /**
  * A program, of the types `T` names.
  *
- * `init` is where it starts, `update` how each message changes the state, and `makeModel` what the view draws.
- * `runCommand` is how its commands happen, when it has some, and `subscriptions` what it listens to, when it listens.
- * It is made with `program`, and is what `make` returns: a function that takes a program names this type.
+ * `init` says where the program starts. `update` says how each message changes the state. `makeModel` says what the
+ * view draws. `runCommand` is there when the program has commands, and `subscriptions` when it listens to something.
+ * A program is made with `program`. `make` returns this type, and a function that takes a program names this type.
  *
  * - The view is not part of it: `run` gives the renderer frames, `{ model, dispatch, seen }`.
  * - Its state is an object, and its `external` messages are among its `message`s. Otherwise it does not compile.
  * - `runCommand` is required exactly when the program has commands.
- * - `run` makes a frame's model with `makeModel(state)`. A test can call it the same way, on any state.
+ * - `run` makes a frame's model with `makeModel(state)`. A test can call `makeModel` the same way, on any state.
  * - `update`, `makeModel` and `subscriptions` are pure, and states are never mutated. The library reuses a child's
  *   model and subscriptions while the child's state is the same object.
  *
@@ -132,7 +132,7 @@ type ExternalAmong<Message, External> = [Exclude<External, Message>] extends [ne
   : Readonly<{ 'an external message is not among the program messages': Exclude<External, Message> }>
 
 /**
- * How a program starts: its first step, or, for a program with flags, the function that makes it from the
+ * How a program starts: its first step, or, for a program with flags, a function that makes the first step from the
  * flags. A step is never a function, so the two are told apart when the program runs.
  *
  * @example
@@ -146,7 +146,8 @@ export type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, 
   : (flags: Flags) => Step<State, Command>
 
 /**
- * What the program starts from, among the options of whoever starts it: required exactly when it has flags.
+ * What a program starts from, among the options of whoever starts the program: required exactly when the program has
+ * flags.
  *
  * @example
  * ```ts
@@ -159,12 +160,12 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: ne
   : Readonly<{ flags: Flags }>
 
 /**
- * The check that a program keeps its state in an object: `unknown` when it does, and otherwise a property that no
- * program has, so that the program does not compile.
+ * The check that a program keeps its state in an object. It is `unknown` when the program does. Otherwise it is a
+ * property that no program has, so that the program does not compile.
  *
- * A parent keeps a child's model for as long as the child's state is the same object, and a number or a string has
- * no identity to keep it by. Every program is checked, so that any can be a child. A type without fields, such as
- * `{}`, holds a number too: a state without fields is an `object`.
+ * A parent keeps a child's model while the child's state is the same object. A number or a string has no identity
+ * by which a model could be kept. Every program is checked, so that any program can be a child. A type without
+ * fields, such as `{}`, holds a number too: a state without fields is an `object`.
  *
  * @example
  * ```ts
@@ -172,6 +173,8 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: ne
  * ```
  *
  * @see The guide, "Anatomy of a program", "What does not compile".
+ * @see The guide, "Anatomy of a program", "Its state is always an object".
+ * @see The guide, "Composition", "A child's model is kept".
  */
 export type ObjectState<State> = [State] extends [object] ? Fielded<State>
   : Readonly<{ 'a program keeps its state in an object': State }>

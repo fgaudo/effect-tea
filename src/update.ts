@@ -6,7 +6,7 @@ import { dual } from 'effect/Function'
  *
  * A program without events leaves `Event` as `never`, and one without commands leaves `Command` as `never`.
  *
- * - A command is data. Only the program's `runCommand` runs it, and it may answer with one message.
+ * - A command is data. Only the program's `runCommand` runs a command, and the command may answer with one message.
  * - A child raises an event to ask its parent for something.
  *
  * @example
@@ -15,14 +15,14 @@ import { dual } from 'effect/Function'
  * ```
  *
  * @see The guide, "Commands", "In short".
- * @see The guide, "Composition", "A child raises an event".
+ * @see The guide, "Events and external messages", "A child raises an event".
  */
 export type Step<State, Command = never, Event = never> = Readonly<{
   /** The next state. */
   state: State
   /** What `update` decided to do in the world, as data, for the program's `runCommand`. */
   commands?: ReadonlyArray<Command>
-  /** What the program tells its parent: what happened that it does not handle itself, e.g. a page asking to be left. */
+  /** The events for the program's parent: what the program asks of it, such as a page that asks to be left. */
   events?: ReadonlyArray<Event>
 }>
 
@@ -95,7 +95,7 @@ export const appendStep = <State, Command, Event>(
 })
 
 /**
- * A step followed by another, made from its state.
+ * A step followed by another, which is made from the first step's state.
  *
  * The result has the second step's state, and the commands and events of both steps, in order. Both lists are always
  * there. Do not take a step's `state` by hand to make the next step: you would drop its commands and events.
@@ -112,7 +112,7 @@ export const appendStep = <State, Command, Event>(
  * andThen(leave(state), children.Home.update({ _tag: 'ProductGone', at }))
  * ```
  *
- * @see The guide, "Composition", "`andThen`".
+ * @see The guide, "Events and external messages", "`andThen`".
  */
 export const andThen: {
   <State, Command2, Event2>(
@@ -155,7 +155,7 @@ export const andThen: {
  * forEach({ state }, state.rows, ({ id }) => children.Row.update(id, Cleared()))
  * ```
  *
- * @see The guide, "Composition", "`forEach`".
+ * @see The guide, "Events and external messages", "`forEach`".
  */
 export const forEach: {
   <Item, State, Command2, Event2>(

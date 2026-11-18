@@ -257,11 +257,11 @@ type Start<P, Command> = Readonly<{
  * update: (_: BackPressed, children) => children.Page.update({ _tag: 'BackPressed' }),
  * ```
  *
- * @see The guide, "Composition", "How it starts".
+ * @see The guide, "Composition", "How a child starts".
  * @see The guide, "Composition", "A child with `flags`".
- * @see The guide, "Composition", "A parent sends an external message".
- * @see The guide, "Composition", "The child answers in every state".
- * @see The guide, "Composition", "A rejection of an external message is a defect".
+ * @see The guide, "Events and external messages", "A parent sends an external message".
+ * @see The guide, "Events and external messages", "The child answers in every state".
+ * @see The guide, "Events and external messages", "A rejection of an external message is a defect".
  * @see The guide, "Composition", "A child's view gets a dispatch of its own".
  */
 type Handles<State, C, Command, Event> = {
@@ -323,8 +323,8 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
      * It is required exactly when a child has events. A handler takes the event and `children`, and returns the
      * parent's step as a function of its state. For children by id, it takes the id first.
      *
-     * @see The guide, "Composition", "The parent handles it in `onEvent`".
-     * @see The guide, "Composition", "`onEvent`".
+     * @see The guide, "Events and external messages", "The parent handles an event in `onEvent`".
+     * @see The guide, "Events and external messages", "`onEvent`".
      */
     onEvent?: OnEvents<State, C, Command, Event>
   }>
@@ -335,8 +335,8 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
      * It is required exactly when a child has events. A handler takes the event and `children`, and returns the
      * parent's step as a function of its state. For children by id, it takes the id first.
      *
-     * @see The guide, "Composition", "The parent handles it in `onEvent`".
-     * @see The guide, "Composition", "`onEvent`".
+     * @see The guide, "Events and external messages", "The parent handles an event in `onEvent`".
+     * @see The guide, "Events and external messages", "`onEvent`".
      */
     onEvent: OnEvents<State, C, Command, Event>
   }>
@@ -400,8 +400,8 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> =
      * A child that is there from the start is started with `children.<child>.init`, which holds its state and its
      * commands. The program's own flags are declared with its other types, in `program`.
      *
-     * @see The guide, "Composition", "How it starts".
-     * @see The guide, "Composition", "The parent's own flags,".
+     * @see The guide, "Composition", "How a child starts".
+     * @see The guide, "Composition", "The parent's own flags".
      */
     init: [keyof C] extends [never] ? Init<State, OwnCommand, Flags>
       : (
@@ -426,7 +426,7 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> =
      * },
      * ```
      *
-     * @see The guide, "Composition", "Its inputs' rule".
+     * @see The guide, "Composition", "The rule of an input".
      * @see The guide, "Inputs the user types into", "What the user gives an input is no message of the program".
      * @see The guide, "Inputs the user types into", "Only what is drawn writes into an input".
      */
@@ -751,7 +751,7 @@ const make = <
  * - The services are never named: they are inferred from `runCommand`, `subscriptions` and the children.
  *
  * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
- * @see The guide, "Composition", "Its own types,".
+ * @see The guide, "Composition", "The parent's own types".
  */
 type DeclaredTypes = Readonly<{
   /** Its state, an object. */
@@ -774,22 +774,23 @@ type DeclaredTypes = Readonly<{
  * The way to make a program: its types named once, then the functions that declare its children and its inputs, and
  * `make`, which makes it.
  *
- * Naming the types first lets `update`, `get`, `set` and the rest be typed without annotations. It also says the
- * program's own messages, commands, events, external messages and flags: a type it does not name is a type it does not
- * have, so a program that names no messages has no `update`. Its model may be named too: a model named is checked, and
- * one not named is inferred. The services are never named: they are inferred.
+ * Naming the types first lets `update`, `get`, `set` and the rest be typed without annotations. The types also say
+ * the program's own messages, commands, events, external messages and flags. A type that the program does not name is
+ * a type that the program does not have: a program that names no messages has no `update`. The model may be named
+ * too. A model that is named is checked, and a model that is not named is inferred. The services are never named:
+ * they are inferred.
  *
  * A child is any program. The library does the routing. A parent and its children talk only through events and
- * external messages. The parent's messages, commands and subscriptions are its own, plus each child's and each
- * input's, wrapped:
+ * external messages. The parent's messages, commands and subscriptions are its own, plus each child's, wrapped. The
+ * parent's messages also include the writes into each input:
  *
  * - a message as `{ _tag: <child>, message }`, and a write as `{ _tag: <input>, message }`;
  * - a command as `{ _tag: <child>, command }`, run by the child's `runCommand`;
  * - a subscription under the key `[<child>, key]`.
  *
- * For children and inputs by id, each also carries the `id`, as `[<child>, id, key]` in a key. A name of the parent's
- * own messages that is the name of a child or of an input does not compile. A key of the parent's own subscriptions
- * that is the key of a child's subscription is a defect, a `CompositionDefect`.
+ * For children and inputs by id, each of these also carries the `id`: a key is then `[<child>, id, key]`. A message of
+ * the parent's own that takes the name of a child or of an input does not compile. A key of the parent's own
+ * subscriptions that is the key of a child's subscription is a defect, a `CompositionDefect`.
  *
  * @returns `child` and `childById`, which declare a child alone and children by id, `input` and `inputById`, which
  * declare an input alone and inputs by id, and `make`, which makes the program.
@@ -861,11 +862,12 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * Declares a child alone in its parent's state.
    *
    * The child lives where the optic `at` focuses, or where `get` and `set` put it. Where the optic focuses nothing,
-   * or `get` returns `None`, the child is not there. By default, its subscriptions run whenever it is there.
+   * or `get` returns `None`, the child is not there. By default, the child's subscriptions run whenever the child is
+   * there.
    *
    * @param program - The child.
-   * @param place - Where it lives, and `subscribed`, a function of the parent's state that gives the child's state
-   * where its subscriptions run, and `None` elsewhere.
+   * @param place - Where the child lives, and `subscribed`, a function of the parent's state. `subscribed` gives the
+   * child's state in the states where the child's subscriptions run, and `None` in the others.
    * @returns The child, for `children` in `make`.
    *
    * @example
@@ -875,7 +877,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    *
    * @see The guide, "Composition", "Where the child lives: `at`".
    * @see The guide, "Composition", "When the child is not there".
-   * @see The guide, "Composition", "When its subscriptions run: `subscribed`".
+   * @see The guide, "Composition", "When a child's subscriptions run: `subscribed`".
    */
   readonly child: DeclareChild<T>
   /**
@@ -883,7 +885,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    *
    * - `get` and `set` take the id, or `at` is a function of it.
    * - `subscribed` is required. A row that it leaves out runs no subscription.
-   * - `children.Row(state, id)` is a row's model, and `forwardTo(dispatch, 'Row', id)` its dispatch.
+   * - `children.Row(state, id)` is a row's model, and `forwardTo(dispatch, 'Row', id)` is the row's dispatch.
    * - Ids are compared by value, with `Equal`.
    *
    * @param program - The program of each child.
@@ -903,18 +905,18 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * @see The guide, "Composition", "`get` and `set` take the id".
    * @see The guide, "Composition", "`subscribed` lists the rows that listen".
    * @see The guide, "Composition", "`children.Row(state, id)` is a row's model".
-   * @see The guide, "Composition", "Ids are compared by value,".
+   * @see The guide, "Composition", "Ids are compared by value".
    */
   readonly childById: DeclareChildById<T>
   /**
-   * Declares an input: a place of the program's state that the outside writes into.
+   * Declares an input: a place of the program's state that the view writes into.
    *
-   * An input is not a child. Its value is part of the program's own state, and its `update` and `makeModel` read it
-   * like the rest of the state. The view writes over the value its model holds,
+   * An input is not a child. The input's value is part of the program's own state. The program's `update` and
+   * `makeModel` read that value like the rest of the state. The view writes over the value its model holds,
    * `{ _tag: 'Written', was: model.name, value }`, through `forwardTo(dispatch, 'Name')`.
    *
-   * @param place - Where it is: an optic into the program's state, `at`, or the two functions an optic is, `get` and
-   * `set`.
+   * @param place - Where the input is: an optic into the program's state, `at`, or the two functions an optic is,
+   * `get` and `set`.
    * @returns The input, for `inputs` in `make`.
    *
    * @example
@@ -922,7 +924,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * inputs: { Name: input({ at: Optic.id<State>().key('name') }) },
    * ```
    *
-   * @see The guide, "Composition", "Its inputs,".
+   * @see The guide, "Composition", "The parent's inputs".
    * @see The guide, "Inputs the user types into", "The view writes over the value its model holds".
    */
   readonly input: DeclareInput<T>
@@ -943,17 +945,18 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * }),
    * ```
    *
-   * @see The guide, "Composition", "A write into an input by id names its id".
+   * @see The guide, "Inputs the user types into", "A write into an input by id names its id".
    */
   readonly inputById: DeclareInputById<T>
   // Its external messages are checked where it is a child (`child`, `childById`), not here (`docs/rejected.md`).
   /**
    * Makes the program from its pieces, and from the children and the inputs it declares.
    *
-   * A type named in `program` is checked against the pieces, and one not named is inferred from them. A parent's own
-   * `update` takes `children` too, and may reject its own messages. Its commands need the services of its
-   * `runCommand` and of its children's commands, and its subscriptions those of its own and of its children's: nothing
-   * names them.
+   * A model named in `program` is checked against `makeModel`, and a model not named is inferred from it. A parent's
+   * own `update` takes `children` too. It may reject the parent's own messages, as any `update` does. The parent's
+   * commands need the services of its `runCommand` and of its children's commands. The parent's subscriptions need the
+   * services of its own `subscriptions` and of its children's subscriptions. Nothing names these services: they are
+   * inferred.
    *
    * @param config - Its `init` and `makeModel`, its `update`, `runCommand` and `subscriptions` where it has them, and
    * for a parent its `children`, its `inputs` and `onEvent`.
@@ -969,7 +972,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * ```
    *
    * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
-   * @see The guide, "Composition", "Its own messages, commands and subscriptions,".
+   * @see The guide, "Composition", "The parent's own messages, commands and subscriptions".
    */
   readonly make: MakeProgram<T>
 }
@@ -1003,7 +1006,7 @@ export type DeclareChildById<T extends DeclaredTypes> = <Id, P extends AnyProgra
 /**
  * The function of `program` that declares an input.
  *
- * @see The guide, "Composition", "Its inputs,".
+ * @see The guide, "Composition", "The parent's inputs".
  */
 export type DeclareInput<T extends DeclaredTypes> = <A>(
   place: Placement<Field<T, 'state'>, A>,
@@ -1012,7 +1015,7 @@ export type DeclareInput<T extends DeclaredTypes> = <A>(
 /**
  * The function of `program` that declares inputs told apart by an id.
  *
- * @see The guide, "Composition", "A write into an input by id names its id".
+ * @see The guide, "Inputs the user types into", "A write into an input by id names its id".
  */
 export type DeclareInputById<T extends DeclaredTypes> = <Id, A>(
   place: PlacementById<Field<T, 'state'>, Id, A>,
@@ -1021,7 +1024,7 @@ export type DeclareInputById<T extends DeclaredTypes> = <Id, A>(
 /**
  * The function of `program` that makes the program from its pieces.
  *
- * @see The guide, "Composition", "Its own messages, commands and subscriptions,".
+ * @see The guide, "Composition", "The parent's own messages, commands and subscriptions".
  */
 export type MakeProgram<T extends DeclaredTypes> = <
   Model,

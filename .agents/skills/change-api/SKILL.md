@@ -63,8 +63,8 @@ In the same change:
   on a name the guide does not have. A rule the guide does not hold yet is added to the guide first, as its prose
   changes (`AGENTS.md`). A rule of the whole run (the order of messages, scopes, logs) is on `run`, and one of a single
   export on that export.
-- **The guide** ([`site/guide/`](../../../site/guide)): the page of the concept that uses it, and "Testing" for a
-  testing tool. Every code block, there and in `README.md`, uses the current API as it would be written in its
+- **The guide** ([`site/guide/`](../../../site/guide)): the page of the concept that uses it, and "Testing tools"
+  for a testing tool. Every code block, there and in `README.md`, uses the current API as it would be written in its
   context (names, signatures, the shape of what it returns), and agrees with the blocks it refers to. Nothing
   checks them: read every block that mentions what changed. The README's quick start is complete and must run as
   it is; this extracts and runs it (it logs 0, 1, 2, 3):

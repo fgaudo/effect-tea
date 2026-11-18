@@ -6,8 +6,8 @@ title: Guarantees
 
 ## In short
 
-This page lists what the library promises about a running program. The library's tests check each guarantee. The
-second list is what the library leaves to you.
+This page lists what the library promises about a running program, so that you know what your program can count on.
+The library's tests check each guarantee. The second list is what the library leaves to you.
 
 ## What you can rely on
 
@@ -75,7 +75,7 @@ second list is what the library leaves to you.
 - **A slow renderer skips frames.** It gets only the latest one.
 - **The model holds what `update` accepts, all of it but what it withholds on purpose.** The run does not check it.
   - `dispatchViolations` checks it, in tests, on the messages a test reads from the model (see
-    [testing](./testing.md)).
+    [testing tools](./testing-tools.md)).
   - That the view draws what its model holds is checked with your renderer's tools.
 - **`update`, `makeModel` and `subscriptions` are pure, and states are never mutated.** The library reuses a child's
   model, and its subscriptions, while the child's state is the same object.

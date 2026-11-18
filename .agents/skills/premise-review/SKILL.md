@@ -39,7 +39,7 @@ Start the reviewer with this brief, with its two places filled in:
 ```text
 Read AGENTS.md, docs/invariants.md and docs/premises.md first: the rules, the invariants and what they rest on bind
 you. The guide's "Guarantees" (site/guide/guarantees.md), and
-"Testing" for the testing tools, say what the library promises a user.
+"Testing tools" for the testing tools, say what the library promises a user.
 
 THE KIND OF BUG: a change takes away a condition an invariant or a guarantee needs, written or unwritten, and no
 test fails until a run meets the case. It often does so where a value is taken to its end (none, the same state,

@@ -31,8 +31,8 @@ import * as Loop from './loop.ts'
  * - A call that fails the test fails the fiber that made it. Join a call forked from the scenario, or its failure is
  *   lost.
  * - A fiber detached from the scenario (`Effect.forkDetach`) is beyond the rehearsal's reach.
- * - After a defect of the program, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail with it. `state`,
- *   `pending`, `events` and `ignored` stay readable.
+ * - After a defect of the program, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail with the defect.
+ *   `state`, `pending`, `events` and `ignored` stay readable.
  *
  * @example
  * ```ts
@@ -40,10 +40,10 @@ import * as Loop from './loop.ts'
  * expect(yield* rehearsal.ignored).toEqual([])
  * ```
  *
- * @see The guide, "Testing", "Nothing reaches `update` by itself".
- * @see The guide, "Testing", "It asks for the services of what the test runs".
- * @see The guide, "Testing", "Fibers the test forks or detaches".
- * @see The guide, "Testing", "After a defect of the program".
+ * @see The guide, "Testing tools", "Nothing reaches `update` by itself".
+ * @see The guide, "Testing tools", "`rehearse` asks for the services of what the test runs".
+ * @see The guide, "Testing tools", "Fibers the test forks or detaches".
+ * @see The guide, "Testing tools", "After a defect of the program".
  */
 export type Rehearsal<State, Model, Message, Command = never, Event = never, RC = never, RS = never> = Readonly<{
   /** The current state. */
@@ -56,8 +56,8 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
    * It sends only what the current model shows. It fails the test when `select` finds nothing, or when `update`
    * rejects the message.
    *
-   * @see The guide, "Testing", "It acts through what the current model shows".
-   * @see The guide, "Testing", "What fails the test".
+   * @see The guide, "Testing tools", "`rehearse` acts through what the current model shows".
+   * @see The guide, "Testing tools", "What fails the test".
    */
   send: (select: (model: Model) => Opt.Option<Message>) => Effect.Effect<void>
   /** The commands `update` started that have not run yet, oldest first. */
@@ -65,16 +65,16 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
   /**
    * Runs a pending command that `select` matches, applies its message, and returns the command.
    *
-   * - It runs the oldest pending command that `select` matches. It fails the test when it matches nothing.
+   * - It runs the oldest pending command that `select` matches. It fails the test when `select` matches nothing.
    * - The command runs through the program's `runCommand`, with the services provided, in a scope of its own.
    * - An answer that `update` rejects is listed in `ignored`.
    * - The test fails when this `run` is interrupted before the command answers: a command cannot be cancelled.
-   * - After a defect of the program, it fails with it, also when it was already waiting for its command.
+   * - After a defect of the program, `run` fails with the defect, also when it was already waiting for its command.
    *
-   * @see The guide, "Testing", "Each command waits until the test runs it".
-   * @see The guide, "Testing", "What fails the test".
-   * @see The guide, "Testing", "Commands at the end".
-   * @see The guide, "Testing", "After a defect of the program".
+   * @see The guide, "Testing tools", "Each command waits until the test runs it".
+   * @see The guide, "Testing tools", "What fails the test".
+   * @see The guide, "Testing tools", "Commands at the end".
+   * @see The guide, "Testing tools", "After a defect of the program".
    */
   run: (select: (command: Command) => boolean) => Effect.Effect<Command, never, Exclude<RC, Scope.Scope>>
   /**
@@ -83,8 +83,8 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
    * It runs the oldest pending command again and again, as `run` does, until none is left. An answer that `update`
    * rejects is listed in `ignored`.
    *
-   * @see The guide, "Testing", "Each command waits until the test runs it".
-   * @see The guide, "Testing", "Commands at the end".
+   * @see The guide, "Testing tools", "Each command waits until the test runs it".
+   * @see The guide, "Testing tools", "Commands at the end".
    */
   runAll: Effect.Effect<void, never, Exclude<RC, Scope.Scope>>
   /**
@@ -95,35 +95,36 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
    * - It fails the test on a key whose subscription `hearNext` runs, until the key goes away and comes back.
    * - A message that `update` rejects is listed in `ignored`.
    *
-   * @param key - The subscription's key, as the program lists it. A child's is under its name, as its parent lists it:
-   * `['Clock', 'ticks']`, with the id for children by id.
+   * @param key - The subscription's key, as the program lists it. A child's key is under the child's name, as its
+   * parent lists it: `['Clock', 'ticks']`, with the id for children by id.
    * @param message - What the subscription sends: any message of the program but a write into an input, the program's
    * or a child's, which only a view sends.
    *
-   * @see The guide, "Testing", "A subscription's message is one the test says was heard".
-   * @see The guide, "Testing", "How a subscription is heard".
-   * @see The guide, "Testing", "What fails the test".
+   * @see The guide, "Testing tools", "A subscription's message is one the test says was heard".
+   * @see The guide, "Testing tools", "How a subscription is heard".
+   * @see The guide, "Testing tools", "What fails the test".
    */
   hear: (key: unknown, message: Heard<Message>) => Effect.Effect<void>
   /**
    * Hears the next message of the subscription under `key`, applies it as `hear` would, and returns it.
    *
-   * - The first call on a key starts its subscription, with the services provided, in a scope of its own. It runs for
-   *   as long as the key stays in the state.
-   * - Each call waits for the subscription's next message. The last message is its end value: after it, the key is
-   *   heard no more until it goes away and comes back.
-   * - It fails the test when the key is not in the state, or when `hear` has played it.
-   * - A key that goes away interrupts its subscription. A `hearNext` still waiting for it fails the test.
-   * - After a defect of the program, it fails with it, also when it was already waiting.
-   * - Under a `TestClock`, move the clock while it waits: race it against `TestClock.adjust` in a loop. Time moved
-   *   before the subscription starts to sleep does not count.
+   * - The first call on a key starts its subscription, with the services provided, in a scope of its own. The
+   *   subscription runs for as long as the key stays in the state.
+   * - Each call waits for the subscription's next message. The last message is the subscription's end value. After
+   *   it, the key is not heard until the key goes away and comes back.
+   * - It fails the test when the key is not in the state, or when `hear` has played the key's current start.
+   * - A key that goes away interrupts its subscription. A `hearNext` still waiting for a message of that subscription
+   *   fails the test.
+   * - After a defect of the program, `hearNext` fails with the defect, also when it was already waiting.
+   * - Under a `TestClock`, move the clock while `hearNext` waits: race the call against `TestClock.adjust` in a loop.
+   *   Time moved before the subscription starts to sleep does not count.
    *
    * @param key - The subscription's key, as `hear` takes it.
    *
-   * @see The guide, "Testing", "A subscription's message is one the test says was heard".
-   * @see The guide, "Testing", "How a subscription is heard".
-   * @see The guide, "Testing", "What fails the test".
-   * @see The guide, "Testing", "After a defect of the program".
+   * @see The guide, "Testing tools", "A subscription's message is one the test says was heard".
+   * @see The guide, "Testing tools", "How a subscription is heard".
+   * @see The guide, "Testing tools", "What fails the test".
+   * @see The guide, "Testing tools", "After a defect of the program".
    */
   hearNext: (key: unknown) => Effect.Effect<Message, never, Exclude<RS, Scope.Scope>>
   /** The events `update` raised for the program's parent, in order. */
@@ -174,7 +175,7 @@ type Current<State, Message, Event> = Readonly<{
  * - It starts from the program's `init`. To start elsewhere, give it the program with another `init`.
  * - It acts through what the current model shows. Commands wait until the test runs them, and a subscription's
  *   message is one the test hears.
- * - The test fails when a command is still pending or under way as the scenario ends.
+ * - The test fails when a command is still pending or under way at the end.
  * - Messages sent from fibers of the test are applied one at a time, each one whole.
  * - A defect of the program fails the rehearsal with the `ProgramDefect` the run dies with, even when the scenario
  *   catches it. The defect comes first in the cause.
@@ -198,9 +199,9 @@ type Current<State, Message, Event> = Readonly<{
  * )
  * ```
  *
- * @see The guide, "Testing", "`rehearse`".
- * @see The guide, "Testing", "`rehearse`, in detail".
- * @see The guide, "Testing", "Defects of the program".
+ * @see The guide, "Testing tools", "rehearse".
+ * @see The guide, "Testing tools", "`rehearse`, in detail".
+ * @see The guide, "Testing tools", "Defects of the program".
  * @see The guide, "Running", "Starting from another state".
  */
 export const rehearse = Effect.fnUntraced(function*<

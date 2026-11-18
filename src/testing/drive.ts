@@ -55,14 +55,17 @@ export type DriveOptions<Message, State = unknown, Command = unknown> =
  * It takes the program to run, one without events; the scenario, what the user does through the {@link Driver} it is
  * given; and its options: `flags`, when the program has them, `patience`, and the options of `RunOptions`.
  *
- * - It sends what the frames show, through the run's dispatch. Its subscriptions run.
+ * - It sends what the frames show, through the run's dispatch. The program's subscriptions run.
  * - It fails on a wait longer than `patience` (2 seconds).
- * - Its time is real. A frame may be past when its message arrives, so a rejected message is ignored, as in a run.
+ * - Time in `drive` is real. A frame may be past when its message arrives, so a rejected message is ignored, as in a
+ *   run.
  * - A wait looks at the latest frame and at later ones.
- * - Its commands run as soon as they start. To hold one, give the program a service that waits on a `Deferred`.
+ * - The program's commands run as soon as they start. To hold a command, give the program a service that waits on a
+ *   `Deferred` that the scenario completes.
  * - To start from another state, give it the program with another `init`.
- * - When the scenario ends, it interrupts the run and waits for it. A defect of the program fails it with the
- *   `ProgramDefect` the run dies with, before what the scenario ended with.
+ * - When the scenario ends, `drive` interrupts the run and waits for it.
+ * - A defect of the program fails `drive` with the `ProgramDefect` the run dies with. A defect of what the program
+ *   releases as it stops comes first in the cause, before what the scenario ended with.
  *
  * @returns What `scenario` returns, once the program has stopped.
  *
@@ -77,9 +80,9 @@ export type DriveOptions<Message, State = unknown, Command = unknown> =
  * )
  * ```
  *
- * @see The guide, "Testing", "`drive`".
- * @see The guide, "Testing", "How `drive` ends".
- * @see The guide, "Testing", "Defects of the program".
+ * @see The guide, "Testing tools", "drive".
+ * @see The guide, "Testing tools", "How `drive` ends".
+ * @see The guide, "Testing tools", "Defects of the program".
  * @see The guide, "Running", "Starting from another state".
  */
 export const drive = Effect.fnUntraced(function*<

@@ -11,7 +11,9 @@ versions. The paths below are relative to this file.
 ## Where things are
 
 - **The guide**, [`site/guide/`](../../site/guide/index.md): what the library does and promises, one concept a page.
-  It is the specification. What it does not say, the library does not promise. Start with its index.
+  It is the specification. What it does not say, the library does not promise. Start with its index. Most pages have
+  the same sections, in this order: "In short", "An example", "Rules", "Do and don't" on some pages, and "Precisely",
+  whose details are promises too.
 - **The tutorial**, [`site/tutorial/`](../../site/tutorial/index.md): one application, built step by step. A line
   `{@includeCode <file>#<name>}` in a page stands for the code between `// #region <name>` and `// #endregion` in
   that file.
@@ -33,19 +35,19 @@ versions. The paths below are relative to this file.
 
 ## Which page to read
 
-| To…                                         | read in the guide                         |
-| ------------------------------------------- | ----------------------------------------- |
-| write a first program                       | "Anatomy of a program", then the tutorial |
-| decide what `update` does with a message    | "Update", "Rejections and defects"        |
-| shape the state, the messages and the model | "Structuring a program", "Model"          |
-| draw a view and send messages from it       | "View"                                    |
-| talk to the world                           | "Commands", "Subscriptions"               |
-| split a program into children               | "Composition"                             |
-| keep what the user types                    | "Inputs the user types into"              |
-| start the program and handle its defects    | "Running"                                 |
-| test it                                     | "Testing"                                 |
-| connect a renderer                          | "Writing a bridge"                        |
-| know what is promised, and what is not      | "Guarantees"                              |
+| To…                                         | read in the guide                             |
+| ------------------------------------------- | --------------------------------------------- |
+| write a first program                       | "Anatomy of a program", then the tutorial     |
+| decide what `update` does with a message    | "Update", "Rejections and defects"            |
+| shape the state, the messages and the model | "Structuring a program", "Model"              |
+| draw a view and send messages from it       | "View"                                        |
+| talk to the world                           | "Commands", "Subscriptions"                   |
+| split a program into children               | "Composition", "Events and external messages" |
+| keep what the user types                    | "Inputs the user types into"                  |
+| start the program and handle its defects    | "Running"                                     |
+| test it                                     | "Testing", "Testing tools"                    |
+| connect a renderer                          | "Writing a bridge"                            |
+| know what is promised, and what is not      | "Guarantees"                                  |
 
 ## Rules that are easy to break
 
@@ -57,7 +59,8 @@ Each rule is a summary. The section it names rules where the summary says less.
   an object".
 - **Every program names its types first, then is made**: `program<{ state: State; message: Message }>().make({ … })`.
   Its messages, commands, events, external messages and flags are named there, or it has none: a program that names no
-  messages has no `update`. Its services are never named: they are inferred. The guide, "Anatomy of a program", "Its types are named first, then it is made".
+  messages has no `update`. Its services are never named: they are inferred. The guide, "Anatomy of a program", "Its
+  types are named first, then it is made".
 - **`reject` is for a message that may arrive and does not apply in the state. `defect` is for one that cannot
   arrive.** What the view draws never rules a message out: a tap may come from an older frame. The guide, "Rejections
   and defects", "In short". The guide, "Rejections and defects", "What the view draws never rules a message out".
@@ -68,8 +71,8 @@ Each rule is a summary. The section it names rules where the summary says less.
   becomes a message, as the success does". The guide, "Commands", "Commands cannot be cancelled".
 - **A subscription has a key, and never ends in silence.** Its end value is a message. The guide, "Subscriptions",
   "A subscription never ends in silence".
-- **A parent and its children talk only through external messages and events.** The guide, "Composition", "Events and
-  external messages".
+- **A parent and its children talk only through external messages and events.** The guide, "Events and external
+  messages".
 - **What the user types into an input is no message of the program.** The program declares where it goes. The guide,
   "Inputs the user types into", "Rules".
 - **A plain callback sends a message with `Effect.runSync(dispatch(message))`.** The guide, "View", "A handler may run

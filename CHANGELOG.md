@@ -15,8 +15,9 @@ version, and everything else, features included, the patch version.
   rejects it otherwise. An input takes the places a child takes, `at` or `get` and `set`.
 - Inputs by id: `inputs: { Count: inputById({ at: (id) => at }) }`, or `get` and `set` that take the id, as
   `childById` does, written with `{ _tag: 'Count', id, message }` through `forwardTo(dispatch, 'Count', id)`. The
-  guide's "Composition" shows them ("Inputs by id"), and "Structuring a program" says that a value the user writes into
-  each row, and the parent reads, is one ("Splitting a program"). The example `stocktake` counts an aisle with them.
+  guide's "Inputs the user types into" shows them ("Inputs by id"), and "Structuring a program" says that a value the
+  user writes into each row, and the parent reads, is one ("Splitting a program"). The example `stocktake` counts an
+  aisle with them.
 - `edited` and `drawn`, over an opaque `Shown`: the rule a bridge calls for the element of an input, on an edit and
   after each frame, so that the element is never replaced and never takes back what the user typed since; each gives
   the bridge its write, `edited` the message to send and `drawn` whether the element takes the frame's value.
@@ -31,17 +32,17 @@ version, and everything else, features included, the patch version.
   examples in `examples/` with their bridges in `examples/bridges/`, and a skill for coding agents,
   `skills/effect-tea/SKILL.md`, which leads to them. The README's last section, "For coding agents", says so, and so do
   the module comments of `effect-tea` and `effect-tea/testing`.
-- The guide's "Composition" says that a row the parent must read is no child ("Children by id"), how a parent locks
-  its rows while an operation runs ("Inputs by id"), and how a child waits for its parent ("Events and external
-  messages"). "Subscriptions" shows a subscription that ends with a message of its own ("Precisely"), and "Testing"
-  how `hearNext` hears one under a `TestClock` ("How a subscription is heard"), as the doc comment of `hearNext` does.
-- The guide gives the handlers of `onEvent` and a child's `external` type ("Composition", "Events and external
-  messages").
+- The guide's "Composition" says that a row the parent must read is no child ("Children by id"), "Inputs the user
+  types into" how a parent locks its rows while an operation runs ("Inputs by id"), and "Events and external messages"
+  how a child waits for its parent ("Rules"). "Subscriptions" shows a subscription that ends with a message of its own
+  ("Precisely"), and "Testing tools" how `hearNext` hears one under a `TestClock` ("How a subscription is heard"), as
+  the doc comment of `hearNext` does.
+- The guide gives the handlers of `onEvent` and a child's `external` type ("Events and external messages", "Rules").
 - The skill says how a test file loads snabbdom before a DOM is registered, one that registers it in `beforeAll`
   included, and that the examples import with `.ts`.
-- The guide's "Testing" shows how `simulate` is called ("`simulate`"), and how a program is run under its renderer in
-  a test, in a DOM ("The view"). "Commands" says where a retry goes ("Rules"), and "Subscriptions" that a value which stays the same while
-  its key is kept, as a child's own id, need not go into the key ("Rules").
+- The guide's "Testing tools" shows how `simulate` is called ("simulate"), and "Testing" how a program is run under
+  its renderer in a test, in a DOM ("The view"). "Commands" says where a retry goes ("Rules"), and "Subscriptions" that
+  a value which stays the same while its key is kept, as a child's own id, can stay out of the key ("Rules").
 - What a type does not need defaults to `never`, as in `Step` and in Effect's own types: `R` in `Execution`,
   `RunCommand`, `Subscription` and `Subscriptions`, `Command` in `Applied`, `Simulation` and `Rehearsal`, and `Event`
   in `Simulation`. So `Subscription<Message>` is a subscription that needs no services, and `Rehearsal<State, Model,
@@ -49,6 +50,34 @@ version, and everything else, features included, the patch version.
 
 ### Changed
 
+- The guide, the tutorial, the README and the doc comments are reworded in plainer English, with the same promises;
+  several pages of the guide have a "Do and don't" section, the guide's index is a map of the pages, and the glossary
+  has seventeen more words. These sections of the guide are renamed, old → new:
+  - "Subscriptions": "A value that stays the same while the key is kept need not go into it" → "A value that stays the
+    same while the key is kept can stay out of the key".
+  - "Running": "What leaves the device is chosen there" → "The app around the run chooses what leaves the device";
+    "Hand slow work off" → "Give slow work to a queue".
+  - "Structuring a program": "One-shot actions move to a state that rejects them" → "A one-shot action moves to a
+    state that rejects it"; "By concern, never by kind" → "Split by concern, never by kind".
+  - "Composition": "How it starts" → "How a child starts"; "When its subscriptions run: `subscribed`" → "When a
+    child's subscriptions run: `subscribed`"; "Its own messages, commands and subscriptions," → "The parent's own
+    messages, commands and subscriptions"; "Its own types," → "The parent's own types"; "The parent's own flags," →
+    "The parent's own flags"; "Ids are compared by value," → "Ids are compared by value"; "Its inputs' rule" → "The
+    rule of an input"; "Its inputs," → "The parent's inputs"; "What the library derives from it" → "What the library
+    derives"; "Mind ids that come back" → "Ids that come back".
+  - "Events and external messages": "The parent handles it in `onEvent`" → "The parent handles an event in
+    `onEvent`".
+  - "Inputs the user types into": "It is stored at the place of its id" → "A write is stored at the place of its id";
+    "It rejects the write in any other state" → "The library rejects the write in any other state".
+  - "Testing tools": "It starts from the program's `init`", "It acts through what the current model shows" and "It
+    asks for the services of what the test runs" → "`rehearse` starts from the program's `init`", "`rehearse` acts
+    through what the current model shows" and "`rehearse` asks for the services of what the test runs"; "Each one
+    must act once when sent twice" → "Each message must act once when sent twice"; "`applyAll`",
+    "`dispatchViolations`", "`simulate`", "`rehearse`" and "`drive`" → "applyAll", "dispatchViolations", "simulate",
+    "rehearse" and "drive".
+- The guide's "Events and external messages" and "Testing tools" are pages of their own: the first is the section of
+  "Composition" it was, "Inputs by id" moves from "Composition" to "Inputs the user types into", and "Testing tools"
+  takes from "Testing" the five tools with their "Precisely", while "Testing" keeps the method and the table of tools.
 - Every program is made with `program<{ … }>().make({ … })`, one without children or inputs too, and its services are
   inferred: the guide ("Anatomy of a program", "Rules"), the tutorial, the README, the skill and the examples write it
   so. `Program<…>` is the type of what `make` returns, for a function that takes a program, and a program written as

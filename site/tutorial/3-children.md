@@ -4,11 +4,11 @@ title: Children
 
 # Children
 
-One timer is not much of a kitchen. The application shows a list of them: "Add a timer" adds one, and "Remove" takes
-one away.
+A kitchen needs more than one timer. You will build a list of timers: "Add a timer" adds one, and "Remove" takes one
+away. You will learn how a parent declares its children, and what the library then does for the parent.
 
-Here is the good news: the timer of step 2 does not change by a line. Any program can be a child as it is. What you
-write on this page is only the parent, the list.
+Here is the good news: the timer of step 2 does not change at all. Any program can be a child as it is. On this page
+you write only the parent, the list.
 
 The code is [`examples/timer/timers.ts`](../../examples/timer/timers.ts).
 
@@ -19,15 +19,15 @@ messages:
 
 {@includeCode ../../examples/timer/timers.ts#state}
 
-Ids are never reused, so that a removed timer's id never comes back to another one. Otherwise a message meant for the
-old timer could reach the new one (see [children by id](../guide/composition.md#children-by-id)).
+Ids are never reused, so that a removed timer's id never goes to another timer. Otherwise a message meant for the old
+timer could reach the new one (see [children by id](../guide/composition.md#children-by-id)).
 
 ## Declaring the children
 
 A parent does not route messages by hand. It declares its children, and the library does the routing (see
 [composition](../guide/composition.md)).
 
-`program<{ … }>()` gives the functions to declare them with, beside `make`. `childById` declares children by id,
+`program<{ … }>()` gives the functions that declare children, beside `make`. `childById` declares children by id,
 and asks three things:
 
 - where each one lives in the parent's state: `get` and `set`, by id;
@@ -43,8 +43,8 @@ What the parent gets from the declaration:
 - **Its messages:** its own, plus `{ _tag: 'Timer', id, message }` for each timer's. `MessageOf` names them.
 - **Its commands:** each timer's, as `{ _tag: 'Timer', id, command }`, run by the timer's `runCommand`.
 - **Its subscriptions:** each running timer's `'ticks'`, under `['Timer', id, 'ticks']`.
-- **Its children's models:** `children.Timer(state, id)` in `makeModel`, the same object while the timer's state
-  is.
+- **Its children's models:** `children.Timer(state, id)` in `makeModel`. It is the same object while the timer's
+  state is the same object.
 
 A timer that is not there is `None` in `get`. So a click on a removed timer, from a frame drawn before, is rejected:
 the rule of step 1, with nothing more to write.
@@ -57,8 +57,9 @@ Notice what the parent does not do: it never reads a timer's state to decide. It
 Each timer is drawn by `timerView`, the view of step 2, with a dispatch of its own. `forwardTo` makes that dispatch:
 it wraps the timer's messages as the parent receives them.
 
-It is the same function in every frame. So snabbdom's `thunk` draws again only the timer whose model changed, and ten
-timers ticking do not redraw each other (see [children's views](../guide/composition.md#childrens-views)):
+That dispatch is the same function in every frame. So snabbdom's `thunk` draws again only the timer whose model
+changed, and ten timers ticking do not redraw each other (see
+[children's views](../guide/composition.md#childrens-views)):
 
 {@includeCode ../../examples/timer/view.ts#timers}
 

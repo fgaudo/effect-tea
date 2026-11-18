@@ -27,7 +27,7 @@ export type Simulation<State, Message, Command = never, Event = never> = Readonl
   state: State
   /** Every message `update` accepted, the test's and the commands' answers, in order. */
   messages: ReadonlyArray<Message>
-  /** Every command started, in order, those of the step it started from included. */
+  /** Every command started, in order, including the commands of the step the simulation started from. */
   commands: ReadonlyArray<Command>
   /** Every event `update` raised, in order. */
   events: ReadonlyArray<Event>
@@ -38,11 +38,13 @@ export type Simulation<State, Message, Command = never, Event = never> = Readonl
 /**
  * Plays a program's flow without a runtime, each command answered as soon as it runs.
  *
- * - It takes the test's messages, those a subscription would send among them. It fails when `update` rejects one.
- * - Each command runs after those started before it, in a scope of its own. All of them answer before the next of the
- *   test's messages is applied.
+ * - It takes the test's messages, including those a subscription would send. It fails when `update` rejects one of
+ *   the test's messages.
+ * - Each command runs after the commands started before it, in a scope of its own. All these commands answer before
+ *   the next of the test's messages is applied.
  * - The command answers that `update` rejects are listed in `ignored`.
- * - Subscriptions do not run. It reads them on each new state, and fails on a defect there, as the run dies of one.
+ * - Subscriptions do not run. It reads the subscriptions on each new state, and fails on a defect there, as the run
+ *   dies of one.
  *   It asks only for the services of the commands.
  * - It starts from the step it is given, and calls no `init`.
  * - A defect of the program fails it with the `ProgramDefect` the run dies with.
@@ -58,9 +60,9 @@ export type Simulation<State, Message, Command = never, Event = never> = Readonl
  * const { state } = yield* simulate(form)(typedAndSaved, form.init).pipe(Effect.provideService(Storage, working))
  * ```
  *
- * @see The guide, "Testing", "`simulate`".
- * @see The guide, "Testing", "`simulate`, as the run dies".
- * @see The guide, "Testing", "Defects of the program".
+ * @see The guide, "Testing tools", "simulate".
+ * @see The guide, "Testing tools", "`simulate`, as the run dies".
+ * @see The guide, "Testing tools", "Defects of the program".
  */
 export const simulate = <State, Message, Command, Event, R = never>(
   program:

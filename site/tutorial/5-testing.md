@@ -5,7 +5,8 @@ title: Testing
 # Testing
 
 This is the step the others were for. Most of a program is pure, so most of its tests need no runtime: no browser,
-and no clock to wait for.
+and no clock to wait for. You will test the timer's `update` and its model, play a scenario, and then test a parent
+and an input, with the tools of `@fgaudo/effect-tea/testing`.
 
 The tests of the timer are in
 [`examples/timer/timer.test.ts`](../../examples/timer/timer.test.ts). They use
@@ -31,7 +32,7 @@ test when `update` rejects one of them. Three things to notice in these tests:
 
 {@includeCode ../../examples/timer/timer.test.ts#update}
 
-The second test runs a whole minute, sixty ticks, in no time at all: a tick is only a message.
+The second test runs a whole minute, sixty ticks, without waiting: a tick is only a message.
 
 `subscriptionsOf(timer)(state)` says what the program listens to in a state. So "the clock runs exactly while the
 timer does" is one line, checked for any state:
@@ -78,8 +79,8 @@ through what the current model shows. But nothing runs by itself. The test says 
 - when a subscription's message is heard: `hear`;
 - when a command runs: `run`. It runs through the program's `runCommand`, with the services the test provides.
 
-So the test below can look at the timer between its last tick and its bell, a moment a running program would not hold
-still for.
+So the test below can look at the timer between its last tick and its bell. A running program would not stop at that
+moment.
 
 {@includeCode ../../examples/timer/timer.test.ts#rehearse}
 
@@ -117,8 +118,8 @@ timer's reader lies in a module of its own:
 
 ## An input
 
-What the user writes into an input is no message of the model: the library rules on it, the same for every input. A
-test writes into an input as the view does, over the value the model shows. The tests of
+What the user writes into an input is not a message of the model. The library rules on it, with the same rule for
+every input. A test writes into an input as the view does, over the value the model shows. The tests of
 [`examples/timer/named.test.ts`](../../examples/timer/named.test.ts) make the
 write from a model:
 
@@ -138,13 +139,16 @@ In a scenario, `send` takes the write from the current model, as it takes a clic
 
 {@includeCode ../../examples/timer/named.test.ts#rehearse}
 
+## What you have
+
+An application that you built, and tested without a browser and without waiting a second.
+
 ## Where next
 
-You have built an application, and tested it without a browser and without waiting a second. From
-here:
+From here:
 
 - The other tools, `simulate` for a flow with its commands answered at once and `drive` for the running program,
-  are in [testing](../guide/testing.md), with what each fails on and what it ignores.
+  are in [testing tools](../guide/testing-tools.md), with what each fails on and what it ignores.
 - [Guarantees](../guide/guarantees.md) says what the library promises, and what is left to
   the program.
 - The other [examples](https://fgaudo.github.io/effect-tea/#examples) show what the timer does not: a failure as a

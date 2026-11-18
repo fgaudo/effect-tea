@@ -88,13 +88,13 @@ export const edited = <A>(
  * Tells a bridge what to do with the element of an input after a frame.
  *
  * Call it after each frame, once for each input. A frame can be older than what the user just typed. So the element
- * keeps the user's text while the frame is behind it, and shows the program's value when the state has changed in
- * another way. There are three cases:
+ * stays as it is while the frame is the element's own past or present. The element shows the program's value once the
+ * state has moved on without it. There are three cases:
  *
  * - A new element shows `value`.
- * - The frame is behind the element: `value` is what the element showed before the writes that the frame has not
- *   seen yet, or what it shows now if the frame has seen them all (compared with `Equal`). The element does not
- *   change.
+ * - The frame is the element's own past or present: `value` is what the element showed before the writes that the
+ *   frame has not seen yet, or what it shows now if the frame has seen them all (compared by `Equal`). The element
+ *   does not change.
  * - Any other case: the element shows `value`.
  *
  * `drawn` knows which writes the frame has seen from the numbers you give to `sent` in {@link edited}. Call `sent`
@@ -105,7 +105,7 @@ export const edited = <A>(
  * @param value - The value of the input in the frame.
  * @param seen - The frame's `seen`.
  * @returns `shown`, what the element holds from now on, and `taken`. When `taken` is true, write `shown.value` into
- * the element. It is false when the element already shows that value.
+ * the element. It is false when the element already shows that very value.
  *
  * @example
  * ```ts

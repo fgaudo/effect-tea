@@ -11,14 +11,14 @@ import { reject, type Step, type Update } from '../update.ts'
  * expect(check({ count: 0 }, ['Decrement'])).toEqual([{ _tag: 'Rejected', message: 'Decrement' }])
  * ```
  *
- * @see The guide, "Testing", "`dispatchViolations`".
+ * @see The guide, "Testing tools", "dispatchViolations".
  */
 export type DispatchViolation<Message> = Readonly<{
   /**
    * Which check the message breaks:
    * - `Rejected`, a message the model holds that `update` rejects: a button shown in the wrong state;
-   * - `ActsTwice`, one the model holds that acts again when sent twice from the same frame, as a double tap would: a
-   *   one-shot action would happen twice;
+   * - `ActsTwice`, a message the model holds that acts again when sent twice from the same frame, as a double tap
+   *   would: a one-shot action would happen twice;
    * - `Missing`, a candidate `update` accepts that the model does not hold: a control missing from the screen.
    */
   _tag: 'Rejected' | 'ActsTwice' | 'Missing'
@@ -37,12 +37,12 @@ const doesNothing = <State, Command, Event>(step: Step<State, Command, Event>, s
  *
  * It finds three kinds of violation:
  *
- * - `Rejected`: a message the model holds is rejected by `update`.
+ * - `Rejected`: `update` rejects a message the model holds.
  * - `ActsTwice`: a message the model holds acts again when sent twice from the same frame. Acting means a different
  *   state by `Equal`, or a command, or an event. Keep states data: a value without structural equality compares by
  *   reference.
  * - `Missing`: a candidate that `update` accepts is not among the messages held, compared by `Equal`. A candidate whose
- *   step does nothing is not missing, and neither is one that is `withheld`.
+ *   step does nothing is not missing. A `withheld` candidate is not missing either.
  *
  * Without candidates, it checks only the messages it is given. It calls `update` without a run, and fails with the
  * defect itself when `update` dies.
@@ -60,8 +60,8 @@ const doesNothing = <State, Command, Event>(step: Step<State, Command, Event>, s
  * expect(check({ count }, messagesOf(counter.makeModel({ count })), ['Increment', 'Decrement'])).toEqual([])
  * ```
  *
- * @see The guide, "Testing", "`dispatchViolations`".
- * @see The guide, "Testing", "`applyAll` and `dispatchViolations` call `update` without a run".
+ * @see The guide, "Testing tools", "dispatchViolations".
+ * @see The guide, "Testing tools", "`applyAll` and `dispatchViolations` call `update` without a run".
  */
 export const dispatchViolations = <State, Message, Command, Event>(
   update: Update<State, Message, Command, Event>,

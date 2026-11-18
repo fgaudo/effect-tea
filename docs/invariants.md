@@ -264,7 +264,7 @@ testing tools.
   (`ended` in `loop.ts`, the register, a call that left) each have a mutation with a deterministic killer, and the
   tests of `rehearse.test.ts` under the scheduler of the tests stay as alarms of the search, killing none.
 - **The testing tools behave like the engine** where it is deterministic, with the test as the scheduler
-  ("Testing" in the guide says what each one runs, fails on and ignores); `rehearse` fails on a command left
+  ("Testing tools" in the guide says what each one runs, fails on and ignores); `rehearse` fails on a command left
   pending, since its answer would arrive, and `drive` acts only as a user can, through `run` and the run's
   dispatch. The end of a rehearsal reads the commands under way in the thunk that takes the scenario's exit, which
   is the one that marks the end of the loop (`end`, in `loop.ts`), which refuses what is asked after it; a scenario

@@ -141,7 +141,7 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
    *
    * @see The guide, "Running", "`onApplied`".
    * @see The guide, "Running", "The run waits for `onApplied` and `onIgnored`".
-   * @see The guide, "Running", "Hand slow work off".
+   * @see The guide, "Running", "Give slow work to a queue".
    * @see The guide, "Running", "What the run still does after a defect".
    */
   readonly onApplied?: (applied: Applied<State, Message, Command>) => Effect.Effect<void>
@@ -155,7 +155,7 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
    *
    * @see The guide, "Running", "`onIgnored`".
    * @see The guide, "Running", "The run waits for `onApplied` and `onIgnored`".
-   * @see The guide, "Running", "Hand slow work off".
+   * @see The guide, "Running", "Give slow work to a queue".
    */
   readonly onIgnored?: (ignored: Ignored<State, Message>) => Effect.Effect<void>
 }

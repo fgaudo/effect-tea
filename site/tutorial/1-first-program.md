@@ -4,8 +4,11 @@ title: A first program
 
 # A first program
 
-Start small: a control that sets how many minutes a timer lasts. "+" adds a minute, "−" takes one away, never below
-one. That last rule is the interesting part, and by the end of this page it holds in one place only.
+Start small. You will build a control that sets how many minutes a timer lasts: "+" adds a minute, and "−" takes one
+away, never below one. In this step, you will meet the pieces of every program: the state, `update`, `reject`, the
+model, a view and `run`.
+
+The rule "never below one" is the interesting part. By the end of this page, that rule holds in one place only.
 
 The code is
 [`examples/timer/duration.ts`](../../examples/timer/duration.ts).
@@ -13,7 +16,7 @@ The code is
 ## State and messages
 
 The **state** is everything the program knows. A **message** is something that happened to it. Here the program knows
-a number of minutes, and two things can happen, a click on either button:
+a number of minutes. Two things can happen, a click on either button:
 
 {@includeCode ../../examples/timer/duration.ts#state}
 
@@ -23,7 +26,7 @@ is, as the timer of step 2 does in step 3 (see [anatomy of a program](../guide/a
 ## Update
 
 `update` is where the rules live. It takes a message, then the state, and returns the next state, as `{ state }`. When
-a message does not apply in the state, it returns `reject` instead. Here that is "−" at one minute:
+a message does not apply in the state, `update` returns `reject` instead. Here that is "−" at one minute:
 
 {@includeCode ../../examples/timer/duration.ts#update}
 
@@ -31,7 +34,7 @@ a message does not apply in the state, it returns `reject` instead. Here that is
 any other function.
 
 What about `reject`? The running program ignores a rejected message and keeps the state as it was. A click can always
-come late, from a screen drawn a moment before, and here such a click is harmless (see
+come late, from a screen drawn a moment before. Here such a click is harmless (see
 [rejections and defects](../guide/rejections-and-defects.md)).
 
 ## Model and program
@@ -39,14 +42,15 @@ come late, from a screen drawn a moment before, and here such a click is harmles
 The view does not read the state. It draws a **model**, which `makeModel` makes from the state: what to show, and the
 message each control sends. At one minute the model has no `less`, so the view cannot offer what `update` rejects.
 
-If you come from Elm, mind the word: Elm's `Model` is the state here. This model is a step Elm does not have, between
-the state and the view.
+If you come from Elm, note the word: Elm's `Model` is the state here. This model is something that Elm does not have.
+It sits between the state and the view.
 
 {@includeCode ../../examples/timer/duration.ts#program}
 
-`program` makes it. You name its types first, `program<{ state; model; message }>()`, and `make` checks each piece
-against them. What you get is a plain object, a `Program<{ state; model; message }>`. `init` is the step it starts
-with: its first state, and the commands it starts, none here (see [model](../guide/model.md)).
+`program` makes the program. You name its types first, `program<{ state; model; message }>()`, and `make` checks each
+piece against them. The result is a plain object, a `Program<{ state; model; message }>`. `init` is the step that the
+program starts with: its first state, and the commands it starts, none here (see [model](../guide/model.md) and
+[anatomy of a program](../guide/anatomy-of-a-program.md)).
 
 ## View
 
@@ -57,8 +61,9 @@ It decides nothing on its own: whether "−" can be clicked is already in the mo
 
 ## Running it
 
-`run(duration, renderInto(root, durationView))` starts the program and hands the renderer a stream of frames, each a
-model and the `dispatch` to send its messages with. `renderInto` draws each frame into the element `root`.
+`run(duration, renderInto(root, durationView))` starts the program, and hands the renderer a stream of frames. Each
+frame holds a model, and the `dispatch` to send its messages with. `renderInto` draws each frame into the element
+`root`.
 
 In a browser, the run is started with `Effect.runFork`, with a `tapCause` that reports a run that dies.
 [Step 4](./4-inputs.md) shows it for the finished application (see [running](../guide/running.md)).

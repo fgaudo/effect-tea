@@ -29,8 +29,9 @@ export type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, n
 /**
  * The interpreter of a program's commands: it turns each one into the execution that makes it happen.
  *
- * A command is data, and only `runCommand` runs it. It does not see the state, so a command carries everything it
- * needs. Its services are provided around `run`. An interpreter that needs none leaves `R` as `never`.
+ * A command is data, and only `runCommand` runs it. `runCommand` does not see the state, so a command carries
+ * everything it needs. The services of the commands are provided around `run`. An interpreter that needs none leaves
+ * `R` as `never`.
  *
  * @example
  * ```ts

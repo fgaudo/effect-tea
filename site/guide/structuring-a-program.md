@@ -6,63 +6,127 @@ title: Structuring a program
 
 ## In short
 
-The pages before this one say what the library does. These rules say how to write a program so that what it promises
-holds, and its tests can check it. The library does not enforce them. The examples follow them.
+The pages before this one say what the library does. This page says how to write a program so that what the program
+promises holds, and so that its tests can check it. The library does not enforce these rules. The examples follow
+them.
 
 ## State and messages
 
-- **Conditions live in `update`.** "Can the user save now?" is answered once, by rejecting. The view never repeats the
-  check.
-- **Name intents, not toggles.** Write `MenuOpened` and `MenuClosed`, not `MenuToggled`. An intent sent twice does what
-  it did once. A toggle undoes itself.
-- **One-shot actions move to a state that rejects them.** After `SaveClicked` the form is saving, and it rejects a
-  second `SaveClicked`. So a click that arrives while it saves does nothing.
-- **An operation is a state that only its completion leaves.** The save of
-  [`form`](../../examples/form/form.ts) is one. When its answer arrives, the
-  state cannot have moved on. A completion anywhere else is a `defect`.
-- **One state machine per concern, no flags.** The save, the selection, the data being loaded: each is a union with a
-  case per state (`Idle | Saving | Failed`). Each case holds only what exists in it. Flags that combine (`isSaving`,
-  `hasFailed`) allow combinations that cannot be. A union makes them fail to compile, and `update` matches on the case.
-- **No derived data in the state.** What follows from the state is computed in `makeModel`. So is a value that depends
-  on time: it is computed from a `now` that a subscription keeps in the state. The clock of
+- **Conditions live in `update`.** A question such as "Can the user save now?" is answered once, by rejecting. The
+  view never repeats the check.
+- **Name intents, not toggles.** Write `MenuOpened` and `MenuClosed`, not `MenuToggled`. An intent sent twice does
+  what it did once. A toggle sent twice undoes itself.
+- **A one-shot action moves to a state that rejects it.** After `SaveClicked`, the form is saving. In that state, the
+  form rejects a second `SaveClicked`. So a click that arrives while the form saves does nothing.
+- **An operation is a state that only its completion leaves.** The save of [`form`](../../examples/form/form.ts) is
+  such a state. When the answer of the save arrives, the state cannot have moved on. A completion in any other state
+  is a `defect`.
+- **One state machine per concern, no flags.** The save, the selection and the data being loaded are examples of
+  concerns. Each concern is a union with a case per state (`Idle | Saving | Failed`). Each case holds only what exists
+  in that case. Flags that combine (`isSaving`, `hasFailed`) allow combinations that cannot be. A union makes those
+  combinations fail to compile, and `update` matches on the case.
+- **No derived data in the state.** What follows from the state is computed in `makeModel`. A value that depends on
+  time is computed in `makeModel` too, from a `now` that a subscription keeps in the state. The clock of
   [`pages`](../../examples/pages/clock.ts) does this.
 
 ## Model and view
 
-- **Show less than `update` accepts, never more.** A test lists what the model leaves out on purpose as `withheld` (see
-  [testing](./testing.md)). Anything else left out is a control missing from the screen, unless it would do nothing
-  there.
-- **A view draws, it never decides.** It matches the model's tags and formats its values (a date, a count, a text).
+- **Show less than `update` accepts, never more.** A test lists, as `withheld`, what the model leaves out on purpose
+  (see [testing tools](./testing-tools.md)). Anything else that the model leaves out is a control missing from the
+  screen, unless that control would do nothing there.
+- **A view draws, it never decides.** A view matches the model's tags and formats the model's values (a date, a count,
+  a text).
   - It computes no condition from data (`items.length === 0`).
   - It combines no fields.
   - It applies no rule and no fallback.
 
-  What a view would decide, `makeModel` decides. It does so as a case named for the state the screen tells apart
-  (`Empty | Listed`, `Loading | Loaded`), never as a boolean. An `Option` is such a case only when "missing" is all the
-  screen tells apart.
-- **The renderer draws frames, and nothing else.** A hover, an animation or the focus that the platform keeps by itself
-  is not a state of the program. A state kept in a component of the renderer, beside the program's state, is neither
-  supported nor advised (see [view](./view.md)). What the program decides stays in its state, and reaches the view as
-  its model.
+  What a view would decide, `makeModel` decides. `makeModel` decides it as a case named for the state that the screen
+  tells apart (`Empty | Listed`, `Loading | Loaded`), never as a boolean. An `Option` is such a case only when
+  "missing" is all that the screen tells apart.
+- **The renderer draws frames, and nothing else.** A hover, an animation, or the focus that the platform keeps by
+  itself is not a state of the program. A state kept in a component of the renderer, beside the program's state, is
+  neither supported nor advised (see [view](./view.md)). What the program decides stays in the program's state, and
+  reaches the view as the model.
 - **Input is never a reason to reject.** The input keeps what the user typed, whatever the program decides, and the
   library stores it (see [inputs the user types into](./inputs-the-user-types-into.md)). So no rule of the program
-  rejects a value. Instead, put its validity in the model, as data: show "Save" only for a name that is not blank. A
-  control whose bounds narrow below what the user gives it is drawn by the program. Its moves are messages, and `update`
-  puts them within the bounds it holds.
+  rejects a value. Instead, put the validity of the value in the model, as data. For example, show "Save" only for a
+  name that is not blank. A control whose bounds narrow below what the user gives it is drawn by the program. The
+  moves of that control are messages, and `update` puts them within the bounds it holds.
 
 ## Splitting a program
 
-A program lives in one module until it is too large. Then it splits into children, each a program of its own:
+A program lives in one module until the program is too large. Then the program splits into children. Each child is a
+program of its own. Split a program this way:
 
-- **By concern, never by kind.** Modules named `messages`, `state` and `update` would import each other in cycles.
+- **Split by concern, never by kind.** Modules named `messages`, `state` and `update` would import each other in cycles.
 - **What spans the children stays in the parent**, such as a menu or the back button. What concerns one child stays in
-  the child, even how the user learns of its failure.
+  that child, even how the user learns that the child failed.
 - **A parent never reads a child's state to decide.** A child gets what it needs from its own services and
-  subscriptions. Only a fact that several children must see as one truth is the parent's. The parent hands it down as
-  an external message.
-- **Children that read each other's state are one child**, whatever its size. A parent that grows logic between two
-  siblings is a sign that they are one child.
-- **Not every part is a child.** A child whose controls the parent would enable from its state is not one. Nor is a
-  child whose state the parent would copy down and back up. A value that the user writes and the parent reads is an
-  input of the parent, and an input by id where the user writes one value into each row (see
-  [inputs by id](./composition.md#inputs-by-id)).
+  subscriptions. A fact belongs to the parent only when several children must see the fact as one truth. The parent
+  sends that fact down to the children as an external message.
+- **Children that read each other's state are one child**, whatever the size of that child. When a parent grows logic
+  between two siblings, this is a sign that the two siblings are one child.
+- **Not every part is a child.** These parts are not children:
+  - a part whose controls the parent would enable from its state;
+  - a part whose state the parent would copy down and back up.
+
+  A value that the user writes and the parent reads is an input of the parent. Where the user writes one value into
+  each row, the value is an input by id (see [inputs by id](./inputs-the-user-types-into.md#inputs-by-id)).
+
+## Do and don't
+
+Each pair sums up a rule of this page.
+
+| Do                                                                     | Don't                                                             |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Answer "Can the user save now?" once, in `update`, by rejecting.       | Repeat the check in the view.                                     |
+| After a one-shot action, move to a state that rejects that action.     | Accept a second `SaveClicked` while the form saves.               |
+| Compute what follows from the state in `makeModel`.                    | Keep derived data in the state.                                   |
+| Split a program by concern.                                            | Split it into modules named `messages`, `state` and `update`.     |
+| Give a child what it needs through its own services and subscriptions. | Let a parent read a child's state to decide.                      |
+| Make one child of children that read each other's state.               | Keep them as two children, with logic between them in the parent. |
+
+Name intents, not toggles:
+
+```ts
+// Don't: a toggle, which undoes itself when it is sent twice
+type Toggle = 'MenuToggled'
+const toggling: Update<Menu, Toggle> = () => ({ open }) => ({ state: { open: !open } })
+
+// Do: intents, which do what they did once when they are sent twice
+type Intent = 'MenuOpened' | 'MenuClosed'
+const opening: Update<Menu, Intent> = (message) => () => ({ state: { open: message === 'MenuOpened' } })
+```
+
+One state machine per concern, no flags:
+
+```ts
+// Don't: flags that combine, and allow a save that is saving and has failed at once
+type Flags = Readonly<{ isSaving: boolean; hasFailed: boolean; failedName: string }>
+
+// Do: one union, with a case per state, and in each case only what exists in it
+type Save = Data.TaggedEnum<{
+  Idle: object
+  Saving: object
+  Failed: { name: string }
+}>
+```
+
+A view draws, it never decides:
+
+```ts
+// Don't: the view computes a condition from data
+const listView = (model: { items: ReadonlyArray<string> }) =>
+  model.items.length === 0 ? 'Nothing yet' : model.items.join(', ')
+
+// Do: makeModel decides, as a case named for the state that the screen tells apart
+type Listing = Data.TaggedEnum<{
+  Empty: object
+  Listed: { items: Arr.NonEmptyReadonlyArray<string> }
+}>
+
+const makeListing = (items: ReadonlyArray<string>): Listing =>
+  Arr.isReadonlyArrayNonEmpty(items) ? { _tag: 'Listed', items } : { _tag: 'Empty' }
+
+const listingView = (listing: Listing) => listing._tag === 'Empty' ? 'Nothing yet' : listing.items.join(', ')
+```

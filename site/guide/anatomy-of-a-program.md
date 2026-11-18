@@ -6,13 +6,23 @@ title: Anatomy of a program
 
 ## In short
 
-A program is a plain object with up to five pieces, made with `program`. `init` says where it starts, `update` how
-each message changes the state, and `makeModel` what the view draws. `runCommand` and `subscriptions` are there when
-the program has commands or listens to something. The view is not part of the program.
+This page shows the pieces of a program and how they connect. The other pages of the guide describe each piece in
+detail, so start here.
 
-They connect in a loop. Each message that `update` accepts makes the next state, and a message that it rejects leaves
-the state as it was. What the user types takes another path: the view writes it into an input declared in `make`, and
-the library stores it without calling `update` (see [inputs the user types into](./inputs-the-user-types-into.md)).
+A program is a plain object, made with `program`. It has up to five pieces:
+
+- `init` says where the program starts.
+- `update` says how each message changes the state.
+- `makeModel` says what the view draws.
+- `runCommand` is there when the program has commands.
+- `subscriptions` is there when the program listens to something.
+
+The view is not part of the program.
+
+The pieces connect in a loop. Each message that `update` accepts makes the next state. A message that `update` rejects
+leaves the state as it was. What the user types takes another path. The view writes it into an input declared in
+`make`, and the library stores it without calling `update` (see
+[inputs the user types into](./inputs-the-user-types-into.md)).
 
 ```mermaid
 flowchart LR
@@ -32,12 +42,12 @@ flowchart LR
 
 ## An example
 
-The first program of the timer's tutorial, a duration in minutes (`examples/timer/duration.ts`). Its state and
-messages:
+The first program of the timer's tutorial is a duration in minutes (`examples/timer/duration.ts`). Here are its state
+and its messages:
 
 {@includeCode ../../examples/timer/duration.ts#state}
 
-Its `update` is on [update](./update.md). The program itself:
+Its `update` is on the page [update](./update.md). Here is the program itself:
 
 {@includeCode ../../examples/timer/duration.ts#program}
 
@@ -51,38 +61,58 @@ Its `update` is on [update](./update.md). The program itself:
 | `runCommand`    | how each command happens, as an Effect                                                     | when it has commands |
 | `subscriptions` | what it listens to in each state                                                           | when it listens      |
 
-- **Its types are named first, then it is made**: `program<{ state: State; message: Message }>().make({ … })`.
-  Besides `state`, they name its messages (`message`), its commands (`command`), the events it raises (`event`), which
-  of its messages a parent may send it (`external`), and its flags (`flags`), if it has any. A type that it does not
-  name is a type that it does not have. So a program that names no messages has no `update`, and one that raises an
-  event it did not name does not compile. Its model (`model`) may be named too: a model named is checked, and one not
-  named is inferred from `makeModel`. The services are never named: they are inferred, from `runCommand` and
-  `subscriptions`.
-- **Its type lists the types it is made of.** It is `Program<{ state; model; message }>`, plus `command`,
-  `commandServices`, `subscriptionServices`, `event`, `external` and `flags` when it has them. It is what `make`
-  returns, and what a function that takes a program names.
-- **Its state is always an object**: `{ count }` rather than `count`. That way any program can become a child as it is
-  (see [composition](./composition.md)).
-- **The view is not part of it.** `run` hands your renderer a stream of **frames** (`{ model, dispatch, seen }`). The
-  renderer draws them however it likes (see [view](./view.md)).
-- **A program that cannot start the same way every time declares `flags`**, as in Elm. An example is a page that shows
-  the product it was opened for.
+- **Its types are named first, then it is made**: `program<{ state: State; message: Message }>().make({ … })`. Besides
+  `state`, the types may name these:
+
+  | Name       | What it names                              |
+  | ---------- | ------------------------------------------ |
+  | `message`  | the program's messages                     |
+  | `command`  | the program's commands                     |
+  | `event`    | the events the program raises              |
+  | `external` | which of its messages a parent may send it |
+  | `flags`    | the program's flags                        |
+  | `model`    | the program's model                        |
+
+  A type that the program does not name is a type that the program does not have. So:
+
+  - A program that names no messages has no `update`.
+  - A program that raises an event it did not name does not compile.
+
+  A model that is named is checked. A model that is not named is inferred from `makeModel`. The services are never
+  named. They are inferred from `runCommand` and `subscriptions`.
+
+- **Its type lists the types it is made of.** A program's type is `Program<{ state; model; message }>`. It also lists
+  `command`, `commandServices`, `subscriptionServices`, `event`, `external` and `flags` when the program has them.
+  `make` returns this type, and a function that takes a program names this type.
+- **Its state is always an object**: `{ count }` rather than `count`. So any program can become a child as it is (see
+  [composition](./composition.md)).
+- **The view is not part of it.** `run` hands your renderer a stream of **frames**, each `{ model, dispatch, seen }`.
+  The renderer draws the frames however it likes (see [view](./view.md)).
+- **A program that cannot start the same way every time declares `flags`**, as in Elm. For example, a page that shows
+  the product it was opened for declares flags.
 
 ## Precisely
 
-**What does not compile.** A program whose state is a number or a string does not compile. Nor does one whose state
-is a type without fields, such as `{}`, which holds a number too: a state without fields is an `object`. Nor does one
-whose `external` messages are not among its `message`s.
+**What does not compile.** A program does not compile in these cases:
 
-**`runCommand` is required exactly when the program has commands.** So no command goes uninterpreted.
+- Its state is a number or a string.
+- Its state is a type without fields, such as `{}`. Such a type holds a number too. A state without fields is an
+  `object`.
+- Its `external` messages are not among its `message`s.
 
-**A test makes a model as `run` does.** `run` makes a frame's model with `program.makeModel(state)`, and a test can
-call it the same way, on any state.
+**`runCommand` is required exactly when the program has commands.** So every command has a `runCommand` that
+interprets it.
 
-**What a program listens to.** `subscriptionsOf(program)(state)` is what the program listens to in `state`, by key, as
-`run` reconciles it. It is empty for a program without `subscriptions`. A parent lists the subscriptions of each child
-under `[<child>, key]`, or under `[<child>, id, key]` for children by id (see [composition](./composition.md)).
+**A test makes a model as `run` does.** `run` makes the model of a frame with `program.makeModel(state)`. A test can
+call `program.makeModel` the same way, on any state.
 
-**A program with flags.** Its `init` is a function of them: `init: ({ id }) => ({ state, commands })`. Whoever starts
-the program gives them. A parent gives them to its child (see [composition](./composition.md)), and `run` to the root
-(see [running](./running.md)).
+**What a program listens to.** `subscriptionsOf(program)(state)` is what the program listens to in `state`, by key.
+It is what `run` reconciles. For a program without `subscriptions`, it is empty. A parent lists the subscriptions of
+each child under `[<child>, key]`. For children by id, the parent lists them under `[<child>, id, key]` (see
+[composition](./composition.md)).
+
+**A program with flags.** Its `init` is a function of the flags: `init: ({ id }) => ({ state, commands })`. Whoever
+starts the program gives the flags:
+
+- A parent gives them to its child (see [composition](./composition.md)).
+- `run` gives them to the root (see [running](./running.md)).
