@@ -11,8 +11,13 @@ its section says what the tool does, what fails the test and what the tool ignor
 program is tested with them.
 
 - `applyAll` and `dispatchViolations` test `update` and the model as plain functions.
-- `simulate` and `rehearse` play a flow without a runtime.
+- `simulate` and `rehearse` play a flow without running the program.
 - `drive` plays a scenario on the running program.
+
+`simulate` and `rehearse` do not call `run`. Each calls the program's own functions itself, in an order that the tool
+or the test decides. The result is still an effect, which the test runs. When a tool runs a command or a subscription
+of the program, the test provides the services of that command or subscription: see [simulate](#simulate) and
+[rehearse](#rehearse).
 
 [Precisely](#precisely) gives the edge cases of `simulate`, `rehearse` and `drive`.
 
@@ -69,8 +74,8 @@ Without candidates, `dispatchViolations` checks only the messages it is given.
 
 ### simulate
 
-`simulate` tests a flow with its commands answered at once, without a runtime. `simulate` takes the program first.
-Then it takes the test's messages and the step to start from:
+`simulate` tests a flow with its commands answered at once, without running the program. `simulate` takes the program
+first. Then it takes the test's messages and the step to start from:
 
 ```ts
 const { state, commands, ignored } = yield* simulate(form)(typedAndSaved, form.init).pipe(
@@ -99,8 +104,8 @@ const { state, commands, ignored } = yield* simulate(form)(typedAndSaved, form.i
 
 ### rehearse
 
-`rehearse` tests a user's scenario without a runtime. In a rehearsal, the test decides when each command runs. So a test
-says what the user does while a save is under way, and when the save's answer arrives:
+`rehearse` tests a user's scenario without running the program. In a rehearsal, the test decides when each command runs.
+So a test says what the user does while a save is under way, and when the save's answer arrives:
 
 ```ts
 rehearse(

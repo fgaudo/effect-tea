@@ -169,7 +169,7 @@ type Current<State, Message, Event> = Readonly<{
 }>
 
 /**
- * Rehearses a program without a runtime, step by step: the test decides when each message arrives.
+ * Rehearses a program without running it, step by step: the test decides when each message arrives.
  *
  * It takes the program to rehearse; the scenario, what the test does through the {@link Rehearsal} it is given; and
  * its options: `flags`, when the program has them.

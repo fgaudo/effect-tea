@@ -36,7 +36,7 @@ export type Simulation<State, Message, Command = never, Event = never> = Readonl
 }>
 
 /**
- * Plays a program's flow without a runtime, each command answered as soon as it runs.
+ * Plays a program's flow without running the program, each command answered as soon as it runs.
  *
  * - It takes the test's messages, including those a subscription would send. It fails when `update` rejects one of
  *   the test's messages.

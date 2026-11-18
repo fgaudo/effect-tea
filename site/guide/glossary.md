@@ -72,11 +72,11 @@ rules where a line here says less.
 
 ## In a test
 
-| Word           | What it is                                                                                                 | Defined in                                             |
-| -------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| **Reader**     | A function of the test's own, from a model to the messages the model holds                                 | [testing](./testing.md#the-reader)                     |
-| **Candidates** | The messages a user could ask for, which a test lists for `dispatchViolations`                             | [testing tools](./testing-tools.md#dispatchviolations) |
-| **Withheld**   | The candidates a model leaves out on purpose                                                               | [testing tools](./testing-tools.md#dispatchviolations) |
-| **Violation**  | What `dispatchViolations` returns for a check that fails: `Rejected`, `ActsTwice` or `Missing`             | [testing tools](./testing-tools.md#dispatchviolations) |
-| **Scenario**   | What a user does, played by a test: by `rehearse` without a runtime, and by `drive` on the running program | [testing tools](./testing-tools.md#rehearse)           |
-| **Rehearsal**  | What `rehearse` gives the scenario to act with, such as `send`, `run` and `hear`                           | [testing tools](./testing-tools.md#rehearse)           |
+| Word           | What it is                                                                                                           | Defined in                                             |
+| -------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| **Reader**     | A function of the test's own, from a model to the messages the model holds                                           | [testing](./testing.md#the-reader)                     |
+| **Candidates** | The messages a user could ask for, which a test lists for `dispatchViolations`                                       | [testing tools](./testing-tools.md#dispatchviolations) |
+| **Withheld**   | The candidates a model leaves out on purpose                                                                         | [testing tools](./testing-tools.md#dispatchviolations) |
+| **Violation**  | What `dispatchViolations` returns for a check that fails: `Rejected`, `ActsTwice` or `Missing`                       | [testing tools](./testing-tools.md#dispatchviolations) |
+| **Scenario**   | What a user does, played by a test: by `rehearse` without running the program, and by `drive` on the running program | [testing tools](./testing-tools.md#rehearse)           |
+| **Rehearsal**  | What `rehearse` gives the scenario to act with, such as `send`, `run` and `hear`                                     | [testing tools](./testing-tools.md#rehearse)           |

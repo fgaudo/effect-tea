@@ -173,11 +173,11 @@ answer, and saying so in the proposal.
   `describeMessage` and `describeCommand` shape debug logs, and neither tool logs, so they would be taken and never
   called. `onApplied` and `onIgnored` watch ("Invariants" in `invariants.md`): they cannot change what a rehearsal
   checks of the program, and that a defect in one ends the run is the engine's promise, which `run.test.ts` keeps,
-  not one an application's test checks. `simulate` runs no effect at all, and an observer returns one. In `rehearse`
-  they would be an effect that waits inside the step the loop applies, which the end may interrupt: new points
-  between a check and its act, mutations, cases of the contract and prose of the README, in the largest tool, for no
-  test of a program. Weighed with a second opinion (Fable), the owner deciding. *Reopen if* a test of a program needs
-  what an observer is told; the form would then be the records as data, not callbacks: an `applied` list of
+  not one an application's test checks. `simulate` runs no effect but its commands', and an observer returns one. In
+  `rehearse` they would be an effect that waits inside the step the loop applies, which the end may interrupt: new
+  points between a check and its act, mutations, cases of the contract and prose of the README, in the largest tool,
+  for no test of a program. Weighed with a second opinion (Fable), the owner deciding. *Reopen if* a test of a program
+  needs what an observer is told; the form would then be the records as data, not callbacks: an `applied` list of
   `Applied`, and `ignored` widened to `Ignored`, which `Rehearsal.ignored` already half is (that widening breaks it).
 
 ## The API

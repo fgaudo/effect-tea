@@ -27,7 +27,7 @@ here links to the rules it uses there.
    and rings a bell when it finishes.
 3. [Children](./3-children.md): many timers, each the program of step 2 as it is, under a parent.
 4. [Inputs](./4-inputs.md): a name for each timer, typed by the user, which the library stores.
-5. [Testing](./5-testing.md): `update`, the model, an input and a scenario, tested without a runtime.
+5. [Testing](./5-testing.md): `update`, the model, an input and a scenario, tested without running the program.
 
 ## Before you start
 

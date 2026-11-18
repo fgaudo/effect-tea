@@ -10,7 +10,7 @@ This page shows you how to test a program, step by step, and which tool to use a
 pure, so most tests need no runtime:
 
 - `applyAll` and `dispatchViolations` test `update` and the model as plain functions.
-- `simulate` and `rehearse` play a flow without a runtime.
+- `simulate` and `rehearse` play a flow without running the program.
 - `drive` plays a scenario on the running program.
 
 The table under [the tools](#the-tools) says which tool answers which question. [Testing tools](./testing-tools.md)
@@ -157,12 +157,12 @@ expect(Equal.equals(counter.makeModel(one), counter.makeModel(other))).toBe(true
 
 From `@fgaudo/effect-tea/testing`:
 
-| Tool                                                          | Use it to test                                                                    |
-| ------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| [`applyAll`](./testing-tools.md#applyall)                     | `update`'s rules: apply messages, check the state, commands and events            |
-| [`dispatchViolations`](./testing-tools.md#dispatchviolations) | that the model holds what `update` accepts, all of it, and a double tap acts once |
-| [`simulate`](./testing-tools.md#simulate)                     | a flow with its commands answered at once, without a runtime                      |
-| [`rehearse`](./testing-tools.md#rehearse)                     | a user's scenario without a runtime, the test deciding when each command runs     |
-| [`drive`](./testing-tools.md#drive)                           | a user's scenario on the running program, subscriptions included                  |
+| Tool                                                          | Use it to test                                                                          |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| [`applyAll`](./testing-tools.md#applyall)                     | `update`'s rules: apply messages, check the state, commands and events                  |
+| [`dispatchViolations`](./testing-tools.md#dispatchviolations) | that the model holds what `update` accepts, all of it, and a double tap acts once       |
+| [`simulate`](./testing-tools.md#simulate)                     | a flow with its commands answered at once, without running the program                  |
+| [`rehearse`](./testing-tools.md#rehearse)                     | a user's scenario without running the program, the test deciding when each command runs |
+| [`drive`](./testing-tools.md#drive)                           | a user's scenario on the running program, subscriptions included                        |
 
 What each tool does, what fails the test and what it ignores are in [testing tools](./testing-tools.md).

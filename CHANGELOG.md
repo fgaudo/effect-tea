@@ -83,6 +83,10 @@ version, and everything else, features included, the patch version.
 - The guide's "Testing tools" says what `applyAll` and `dispatchViolations` return, that `drive` takes the options of
   `run` and `patience`, measured with the real clock, and that any defect of the program comes first in the cause of
   `drive`, before what the scenario ended with ("How `drive` ends").
+- The guide says that `simulate` and `rehearse` play a flow "without running the program", where it said "without a
+  runtime" ("Testing", "In short" and "The tools"; "Testing tools", "In short", "simulate" and "rehearse"), and that
+  their result is still an effect, which asks for the services of what the tool runs ("Testing tools", "In short"). The
+  glossary, the tutorial and the doc comments of `simulate` and `rehearse` say so too.
 - The guide's "Events and external messages" and "Testing tools" are pages of their own: the first is the section of
   "Composition" it was, "Inputs by id" moves from "Composition" to "Inputs the user types into", and "Testing tools"
   takes from "Testing" the five tools with their "Precisely", while "Testing" keeps the method and the table of tools.
