@@ -107,6 +107,10 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
   is typed `Program<…>`. `program` and `make` accept such messages. The program that `make` returns is refused when it
   becomes a child, by `child` and `childById`.
 
+**The types need `strict`.** The library's types are checked under the compiler option `strict` alone. Without
+`strictFunctionTypes`, which `strict` turns on, the compiler accepts programs that it should refuse. For example, it
+accepts a program typed with more `external` messages than the program takes.
+
 **`runCommand` is required exactly when the program has commands.** So every command has a `runCommand` that
 interprets it.
 

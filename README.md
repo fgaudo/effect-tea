@@ -92,8 +92,9 @@ npm install @fgaudo/effect-tea effect
 ```
 
 `effect` is a peer dependency: 4.1.4, or a newer 4.1.x. The package ships JavaScript with declarations. Use
-`moduleResolution` `nodenext` or `bundler`, and TypeScript 5.9 or newer, as Effect 4 does. Under Bun, the `bun` export
-condition loads the TypeScript sources instead.
+`moduleResolution` `nodenext` or `bundler`, and TypeScript 5.9 or newer, as Effect 4 does. Keep the compiler option
+`strict` on: the library's types are checked under it alone. Under Bun, the `bun` export condition loads the TypeScript
+sources instead.
 
 ## Quick start
 

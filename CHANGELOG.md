@@ -47,6 +47,8 @@ version, and everything else, features included, the patch version.
   `RunCommand`, `Subscription` and `Subscriptions`, `Command` in `Applied`, `Simulation` and `Rehearsal`, and `Event`
   in `Simulation`. So `Subscription<Message>` is a subscription that needs no services, and `Rehearsal<State, Model,
   Message>` the rehearsal of a program without commands.
+- The guide's "Anatomy of a program" ("The types need `strict`") and the README's "Installation" say that the types
+  need the compiler option `strict`.
 
 ### Changed
 
