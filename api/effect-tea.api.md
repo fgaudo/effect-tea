@@ -231,7 +231,7 @@ export type ExternalOf<P> = P extends {
 } ? Unboxed<E> : never;
 
 // @public
-type ExternalPassed<External, Messages, Externals> = Unpassed<Exclude<Extract<External, Messages>, Externals>>;
+type ExternalPassed<External, C> = Unpassed<External extends unknown ? Unsent<External, TagsTaken<External, keyof C & string>, C> : never>;
 
 // @public (undocumented)
 type ExternalTaken<P> = [Exclude<ExternalOf<P>, MessageOf<P>>] extends [never] ? unknown : Readonly<{
@@ -403,7 +403,7 @@ type Listed<T, Key extends 'commands' | 'events'> = T extends {
 export type MakeProgram<T extends DeclaredTypes> = <Model, C extends Children<Field<T, 'state'>> = None, I extends Inputs<Field<T, 'state'>> = None, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, 'state'>, NoInfer<C>, NoInfer<I>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'event'>, Named<T, 'model', Model>, Ran, Heard, K, Field<T, 'flags'>> & Readonly<{
     children?: C;
     inputs?: I;
-}> & ExternalPassed<Field<T, 'external'>, ChildMessages<NoInfer<C>>, ChildExternals<NoInfer<C>>> & ExternalWritten<Extract<keyof NoInfer<I> & string, TagOf<Field<T, 'external'>>>> & ObjectState<Field<T, 'state'>>) => Program<Present<{
+}> & ExternalPassed<Field<T, 'external'>, NoInfer<C>> & ExternalWritten<TagsTaken<Field<T, 'external'>, keyof NoInfer<I> & string>> & ObjectState<Field<T, 'state'>>) => Program<Present<{
     state: Field<T, 'state'>;
     model: Named<T, 'model', Model>;
     message: Field<T, 'message'> | ChildMessages<C> | InputMessages<I>;
@@ -442,10 +442,10 @@ type Needed<Listened> = unknown extends Listened ? unknown : Listened extends Su
 type NeededBy<S> = S extends Subscriptions<any, any, infer R, any> ? R : never;
 
 // @public
-type NoClash<Own, OwnCommand, C, Of extends string> = ([Extract<TagOf<Own>, keyof C>] extends [never] ? unknown : {
-    readonly [K in `an own message takes the name of ${Of}`]: Extract<TagOf<Own>, keyof C>;
-}) & ([Extract<TagOf<OwnCommand>, keyof C>] extends [never] ? unknown : {
-    readonly [K in `an own command takes the name of ${Of}`]: Extract<TagOf<OwnCommand>, keyof C>;
+type NoClash<Own, OwnCommand, C, Of extends string> = ([TagsTaken<Own, keyof C & string>] extends [never] ? unknown : {
+    readonly [K in `an own message takes the name of ${Of}`]: TagsTaken<Own, keyof C & string>;
+}) & ([TagsTaken<OwnCommand, keyof C & string>] extends [never] ? unknown : {
+    readonly [K in `an own command takes the name of ${Of}`]: TagsTaken<OwnCommand, keyof C & string>;
 });
 
 // @public
@@ -652,10 +652,10 @@ export const subscriptionsOf: <State, Message, R, K>(program: Readonly<{
     subscriptions?: Subscriptions<State, Message, R, K>;
 }>) => Subscriptions<State, Message, R, K>;
 
-// @public (undocumented)
-type TagOf<M> = M extends {
-    readonly _tag: infer T;
-} ? T : never;
+// @public
+type TagsTaken<M, Names> = 0 extends 1 & M ? Names : M extends unknown ? '_tag' extends keyof M ? Extract<Names, M[keyof M & '_tag']> | Extract<M[keyof M & '_tag'], Names> : Names extends unknown ? Readonly<{
+    _tag: Names;
+}> extends M ? Names : never : never : never;
 
 // @public
 export type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected;
@@ -670,6 +670,11 @@ type Unpassed<Kept> = [Kept] extends [never] ? unknown : Readonly<{
 
 // @public (undocumented)
 const Unseen = "~@fgaudo/effect-tea/Shown/unseen";
+
+// @public (undocumented)
+type Unsent<External, Names, C> = Names extends keyof C ? [External extends {
+    readonly message: infer M;
+} ? M : unknown] extends [ExternalOf<ProgramOf<C[Names]>>] ? never : External : never;
 
 // @public
 export type Update<State, Message, Command = never, Event = never> = (message: Message) => (state: State) => Transition<State, Command, Event>;
