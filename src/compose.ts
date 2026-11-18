@@ -10,7 +10,7 @@ import type * as Optic from 'effect/Optic'
 import * as Predicate from 'effect/Predicate'
 import * as Result from 'effect/Result'
 import type { Execution, RunCommand } from './command.ts'
-import { CompositionDefect } from './defect.ts'
+import { compositionDefect } from './defect.ts'
 import { type Written, written } from './input.ts'
 import { describeByTag } from './log.ts'
 import {
@@ -621,7 +621,7 @@ const make = <
     Record<string, (...args: ReadonlyArray<unknown>) => (state: State) => Step<State, Command, Event>>
   >
   const defectAt = (place: Place, message: string, on?: unknown) =>
-    new CompositionDefect({
+    compositionDefect({
       message,
       child: place.name,
       ...(isById(place.name) ? { id: place.id } : {}),

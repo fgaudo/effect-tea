@@ -4,7 +4,7 @@ import * as Context from 'effect/Context'
 import * as Exit from 'effect/Exit'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
-import { type DefectSite, ProgramDefect } from './defect.ts'
+import { type DefectSite, programDefect } from './defect.ts'
 import { reject, type Step, type Update } from './update.ts'
 
 // The semantics shared by the run and the testing tools, as pure functions of data (`docs/records/shared-core.md`): the
@@ -76,7 +76,7 @@ export const wrapDefects = <E>(
   Cause.fromReasons(cause.reasons.flatMap((reason): ReadonlyArray<Cause.Reason<E>> =>
     Cause.isDieReason(reason) && !wrapped(reason.defect)
       ? Cause.annotate(
-        Cause.die(new ProgramDefect({ where, cause: reason.defect, ...details })),
+        Cause.die(programDefect({ where, cause: reason.defect, ...details })),
         Cause.reasonAnnotations(reason),
       ).reasons
       : [reason]

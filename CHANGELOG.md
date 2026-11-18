@@ -85,6 +85,11 @@ version, and everything else, features included, the patch version.
   Upgrade: a step starting `A` and `B`, with `A`'s answer starting `C`, is heard `A, B, C`, where it was `A, C, B`.
 - **Breaking**: as the run ends, it stops applying messages first, then the renderer, then commands and subscriptions.
   Upgrade: a renderer that sent a message for the program to act on as it is released does that work itself.
+- **Breaking**: only the library builds an `InvariantDefect`, a `ProgramDefect` or a `CompositionDefect`: their
+  constructors are private, so a `new` of one, or a class that extends one, no longer compiles. Read them as before,
+  with `instanceof`, `toThrow` and their fields.
+  Upgrade: `throw new InvariantDefect({ reason })` becomes `defect(reason)`; any other error of a program's own is an
+  `Error` of its own, or an Effect `Data.TaggedError`.
 - The peer dependency on `effect` is `~4.1.4`, where it was `^4.0.0`: a later minor of Effect needs a release of the
   library.
 - A parent lifts once the subscriptions of children that share one state object, and keeps them by that object.

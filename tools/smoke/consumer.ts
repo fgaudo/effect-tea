@@ -5,7 +5,10 @@
 import {
   andThen,
   type CommandServicesOf,
+  CompositionDefect,
+  InvariantDefect,
   program,
+  ProgramDefect,
   drawn,
   edited,
   type MessageOf,
@@ -286,6 +289,24 @@ const wrong: MessageOf<typeof draft> = { _tag: 'Title', message: { _tag: 'Writte
 
 // @ts-expect-error
 const byHand: Shown<string> = { value: '' }
+
+// A defect is read, never built: only the library makes one.
+export const crashed = (error: unknown) =>
+  error instanceof InvariantDefect
+    ? error.reason
+    : error instanceof ProgramDefect
+    ? error.where
+    : error instanceof CompositionDefect
+    ? error.child
+    : undefined
+export const built = () => [
+  // @ts-expect-error
+  new InvariantDefect('A save completed while nothing was saving'),
+  // @ts-expect-error
+  new ProgramDefect({ where: 'update', cause: 'boom' }),
+  // @ts-expect-error
+  new CompositionDefect({ message: 'Broken', child: 'Page' }),
+]
 
 // @ts-expect-error
 program<{ state: Draft; command: 'Load'; message: Readonly<{ _tag: 'Title' }> }>().make({

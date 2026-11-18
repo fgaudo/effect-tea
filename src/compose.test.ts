@@ -16,7 +16,7 @@ import type { Subscription } from './subscription.ts'
 import { andThen, type Folded, forEach, reject, type Step, type Update } from './update.ts'
 import { type Dispatch, forwardTo } from './dispatch.ts'
 import { program } from './compose.ts'
-import { CompositionDefect } from './defect.ts'
+import { CompositionDefect, compositionDefect } from './defect.ts'
 import type { Written } from './input.ts'
 import {
   type CommandOf,
@@ -595,7 +595,7 @@ describe('children by id', () => {
       makeModel: () => null,
     })
     expect(() => subscriptionsOf(twice)(twice.init.state))
-      .toThrow(new CompositionDefect({
+      .toThrow(compositionDefect({
         message: 'The subscribed children of "Tickers" list the same id twice',
         child: 'Tickers',
         id: 7,
@@ -618,7 +618,7 @@ describe('children by id', () => {
       onEvent: {},
       makeModel: (state, children) => state.ids.map((id) => children.Tickers(state, id)),
     })
-    const defect = new CompositionDefect({
+    const defect = compositionDefect({
       message: 'The state of "Tickers" is a number, where a program keeps its state in an object',
       child: 'Tickers',
       id: 7,
@@ -903,7 +903,7 @@ describe('what a parent can do with a child', () => {
       makeModel: () => null,
     })
     expect(() => subscriptionsOf(clashing)(noTicks))
-      .toThrow(new CompositionDefect({
+      .toThrow(compositionDefect({
         message: 'An own subscription key is the key of a subscription of "Ticker"',
         child: 'Ticker',
       }))

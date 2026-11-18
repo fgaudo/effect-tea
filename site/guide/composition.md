@@ -225,6 +225,9 @@ export function inDialog(content: Program<{ state: object; model: unknown; messa
 - a `subscribed` that lists one id twice;
 - asking for the model of a child that is not there.
 
+Only `program` makes a `CompositionDefect`. A test reads one. The types refuse to build one, with `new` or with a
+class that extends it.
+
 ## Children's views
 
 - **A child's view gets a dispatch of its own.** The child's view sends the child's own messages through it.

@@ -22,7 +22,7 @@ import {
   Stopped,
   wrapDefects,
 } from './core.ts'
-import { ProgramDefect } from './defect.ts'
+import { programDefect } from './defect.ts'
 import { reject, type Update } from './update.ts'
 
 class Request extends Context.Service<Request, string>()('Request') {}
@@ -100,9 +100,9 @@ describe('what a fiber dies of', () => {
     ])
     const wrapped = wrapDefects(cause, 'command', { on: 'Save' }, () => false)
     expect(defects(wrapped)).toEqual([
-      new ProgramDefect({ where: 'command', cause: 'boom', on: 'Save' }),
+      programDefect({ where: 'command', cause: 'boom', on: 'Save' }),
       'Fail',
-      new ProgramDefect({ where: 'command', cause: 'again', on: 'Save' }),
+      programDefect({ where: 'command', cause: 'again', on: 'Save' }),
     ])
     expect(wrapped.reasons[1]).toEqual(cause.reasons[1])
     // What `Effect.die` annotates a defect with (its stack and span) is not in the type of the annotations.
@@ -113,7 +113,7 @@ describe('what a fiber dies of', () => {
   })
 
   test('a defect already wrapped is left as it is', () => {
-    const inner = new ProgramDefect({ where: 'subscription', cause: 'boom' })
+    const inner = programDefect({ where: 'subscription', cause: 'boom' })
     const wrapped = wrapDefects(Cause.die(inner), 'command', {}, (defect) => defect === inner)
     expect(defects(wrapped)).toEqual([inner])
   })

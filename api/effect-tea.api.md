@@ -141,18 +141,21 @@ export type CommandServicesOf<P> = P extends {
 type CommandsRun<P> = [CommandOf<P>] extends [never] ? unknown : Interpreter<CommandOf<P>, unknown, unknown>;
 
 // @public
-export class CompositionDefect extends CompositionDefect_base<Readonly<{
-    message: string;
-    child: string;
-    id?: unknown;
-    on?: unknown;
-}>> {
+export class CompositionDefect extends CompositionDefect_base<CompositionFields> {
 }
 
 // @public (undocumented)
 const CompositionDefect_base: new <A extends Record<string, any> = {}>(args: VoidIfEmpty<    { readonly [P in keyof A as P extends "_tag" ? never : P]: A[P]; }>) => YieldableError & {
     readonly _tag: "CompositionDefect";
 } & Readonly<A>;
+
+// @public (undocumented)
+type CompositionFields = Readonly<{
+    message: string;
+    child: string;
+    id?: unknown;
+    on?: unknown;
+}>;
 
 // @public (undocumented)
 type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own | ChildExternals<C>, Ran> & UpdateOf<State, C, Own, OwnCommand | ChildCommands<C>, Event> & NoClash<Own, OwnCommand, C, 'a child'> & NoClash<Own, OwnCommand, I, 'an input'> & NoShared<C, I> & Readonly<{
@@ -381,9 +384,6 @@ export class InvariantDefect extends InvariantDefect_base<Readonly<{
     reason: string;
     message: string;
 }>> {
-    constructor(input: Readonly<{
-        reason: string;
-    }>);
 }
 
 // @public (undocumented)
@@ -527,7 +527,6 @@ export const program: <T extends DeclaredTypes>() => ProgramMaker<T>;
 export class ProgramDefect extends ProgramDefect_base<Fields & Readonly<{
     message: string;
 }>> {
-    constructor(fields: Fields);
 }
 
 // @public (undocumented)
