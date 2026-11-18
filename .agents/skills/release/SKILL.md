@@ -9,26 +9,33 @@ The version in `package.json` is the one the next release will have, decided by 
 
 ## The changelog entry
 
-A change a consumer can notice adds an entry to [`CHANGELOG.md`](../../../CHANGELOG.md), in the same commit,
-under the `(unreleased)` version: `Changed`, `Added` or `Fixed`, and a breaking change says how to upgrade, with
-the old and the new spelling.
+[`CHANGELOG.md`](../../../CHANGELOG.md) is for whoever uses the library, and for nobody else: it holds only what
+they notice when they upgrade from the last release. Its `(unreleased)` section is the net change since that release,
+not a log of the work: whoever reads it upgrades once, from the last release to this one.
 
-The changelog is for whoever uses the library, and holds only what they notice when they upgrade: what they call,
-what compiles, what the run, the testing tools and the bridges they copied do, and what they may now rely on.
-Everything else adds no entry: tests, tooling, internals, the examples' tests, the repository's documents, and the
-rewording of the guide, the tutorial, the README or the doc comments with the same promises. Of the documentation,
-only a new promise, a new page, or a page or section that a user cites moving gets an entry, a line each.
+Before a commit, answer these in order:
 
-An unreleased section says what changes since the last release, not how the work went. A change to something the
-section already lists edits that entry, and never adds one after it: a rename of what the section added renames it
-there, a fix of what the section added is no fix for whoever upgrades, and a change made in steps is one entry with
-its final result (the old spelling of the last release, the new one of this). Changes of one kind (the defects of the
-run, the fixes of one testing tool) are one entry together, not one each.
+1. **Does a user who upgrades notice it?** What they call, what compiles, what the run, the testing tools and the
+   bridges they copied do, and what the guide now promises that it did not. If not, there is no entry. Never an entry
+   for tests, tooling, internals, the examples' tests, the repository's documents (`AGENTS.md`, `docs/`, the skills,
+   `ROADMAP.md`), the API reports, or a rewording of the guide, the tutorial, the README or a doc comment that keeps
+   the same promises. Of the documentation, only a new promise, a new page, or a section a user cites moving gets an
+   entry.
+2. **Did it exist in the last release?** Compare with its tag (`git show v<last>:src/index.ts`). A fix or change of
+   something the unreleased section added is no fix for whoever upgrades: it edits that entry, or needs none.
+3. **Does the section already cover it?** Read the whole section first. A change to what an entry describes, a rename,
+   a further case of a rule, a later step of the same change, edits that entry, never adds one after it: the entry
+   says the final result, the old spelling of the last release and the new one of this. Changes of one kind (the
+   defects of the run, the fixes of one testing tool, the programs that no longer compile) are one entry together.
+4. **Which heading?** `Added` for what is new; `Changed` for what behaves or is spelled otherwise; `Fixed` for what
+   did not do what the last release promised. A program that compiled and no longer does is `**Breaking**`, under
+   `Changed`, even when the types were wrong before.
 
-An entry is one line, which says what changes for whoever upgrades, so that a reader scans a section a line each:
-the why, the details and the examples are read in the guide and the doc comments, not retold here. A breaking
-change starts with `**Breaking**:`, and adds below it, indented, `Upgrade:` with the old and the new spelling, in as
-few lines as that takes. An entry for the guide names its pages or sections: what they now say is read there.
+An entry is one line, at most two at 120 columns: what changes, in the user's words, with no why, no list of cases and
+no example, which the guide and the doc comments hold. An entry that groups changes of one kind lists them, a few
+words each, and is the one place that may run longer. A breaking entry starts with `**Breaking**:` and adds below it,
+indented, `Upgrade:` with the old and the new spelling, in at most three lines. An entry for the guide names its pages
+or sections. A longer entry is cut, not kept because it is true.
 
 ## The version
 

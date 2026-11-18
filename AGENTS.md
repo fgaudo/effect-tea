@@ -101,8 +101,10 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   [`Effect-TS/effect`](https://github.com/Effect-TS/effect): its sources, issues and changes are read there.
 - **A change a consumer can notice has a changelog entry** in the same commit, and raises the version when it
   needs more than the unreleased section says (`release`). The changelog holds only what a user of the library notices
-  on upgrading, as the net change since the last release: nothing for tests, tooling, internals or a rewording with the
-  same promises, and a change to what the unreleased section already lists edits that entry instead of adding one.
+  on upgrading, as the net change since the last release: nothing for tests, tooling, internals, the repository's
+  documents or a rewording with the same promises; a change to what the unreleased section already lists, or to what
+  it added, edits that entry instead of adding one; an entry is a line or two. Every entry answers the four questions
+  of `release` first.
 - **The guide is a specification.** Its pages ([`site/guide/`](site/guide)), "Guarantees" among them, say what the
   library promises, and applications cite them as rules. All bind alike: "Guarantees" is the list the guide says the
   tests check, most of it under the search, and a sentence of another page promises no less for standing outside it;

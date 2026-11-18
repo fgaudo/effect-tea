@@ -322,8 +322,8 @@ export const valueOf = (selector: string): string | undefined => {
   that rules it: it sums up the guide and promises nothing the guide does not. A gap of the README is fixed in the
   README.
 - Reread the doc comments that name each section changed (`@see`), and the rules of the skill that name it, then run
-  `bun run comments`, `bun run typecheck`, `bun run lint` and `bun run test`. A change a consumer can notice in the
-  guide's promises, a doc comment or the skill has a changelog entry (`release`).
+  `bun run comments`, `bun run typecheck`, `bun run lint` and `bun run test`. A new promise, a new page or a moved
+  section has a changelog entry; a rewording with the same promises has none (`release`).
 - Commit the documents alone. Ask the author before deleting the reader's project.
 - Name the requirement in step 3's list of requirements taken, with its date and its mode, in the same commit. Where
   acceptance tests ran, add how many passed of how many, and how many failures were the program's.

@@ -74,7 +74,8 @@ a review.
   `docs/premises.md`, where it adds, drops or moves a premise or renames a test one names.
 - The guide (`site/guide/`), where a promise changes: it is a specification, and its prose changes as `AGENTS.md` says;
   then the doc comments that name the section (`@see`), which are read again and follow it.
-- A changelog entry, where a consumer can notice the change ([`release`](../release/SKILL.md)).
+- A changelog entry, where a consumer can notice the change, after the four questions of
+  [`release`](../release/SKILL.md).
 
 ## Checks
 

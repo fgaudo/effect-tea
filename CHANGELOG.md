@@ -63,11 +63,13 @@ version, and everything else, features included, the patch version.
   Upgrade: `isRejected(result)` becomes `result === reject`; `onEvent: { Products: raise }` becomes
   `onEvent: { Products: (event) => (state) => ({ state, events: [event] }) }`; a bridge declares its own `View`, as
   `examples/bridges/snabbdom.ts` does.
-- **Breaking**: these no longer compile: a parent's `external` that names a message its child keeps to itself; a
-  parent's command whose answer is a child's own message; a state whose type has no fields, such as `{}`, or that is a
-  type parameter in `make`; a child with commands and no `runCommand`.
-  Upgrade: send a child only its external messages, through its handle; write `state: object` where it was `state: {}`;
-  give the child its `runCommand`.
+- **Breaking**: these no longer compile: a parent's `external` that names, or can take, a message its child keeps to
+  itself; a parent's command whose answer is a child's own message; a parent's own message or command whose tag can
+  take a child's name, as a `string` tag does; a state whose type has no fields, such as `{}`, or that is a type
+  parameter in `make`; a child with commands and no `runCommand`; a `Program<…>` that names more `external` messages
+  than it takes, or ones that are not among its messages.
+  Upgrade: send a child only its external messages, through its handle; tag own messages with literals; write
+  `state: object` where it was `state: {}`; give the child its `runCommand`.
 - **Breaking**: `dispatchViolations` is called once, and reports as `Missing` only a candidate whose step would do
   something, so `withheld` is gone.
   Upgrade: `dispatchViolations(update, { repeatable, withheld })(state, sent, candidates)` becomes
@@ -85,11 +87,9 @@ version, and everything else, features included, the patch version.
   Upgrade: a step starting `A` and `B`, with `A`'s answer starting `C`, is heard `A, B, C`, where it was `A, C, B`.
 - **Breaking**: as the run ends, it stops applying messages first, then the renderer, then commands and subscriptions.
   Upgrade: a renderer that sent a message for the program to act on as it is released does that work itself.
-- **Breaking**: only the library builds an `InvariantDefect`, a `ProgramDefect` or a `CompositionDefect`: their
-  constructors are private, so a `new` of one, or a class that extends one, no longer compiles. Read them as before,
-  with `instanceof`, `toThrow` and their fields.
-  Upgrade: `throw new InvariantDefect({ reason })` becomes `defect(reason)`; any other error of a program's own is an
-  `Error` of its own, or an Effect `Data.TaggedError`.
+- **Breaking**: the constructors of `InvariantDefect`, `ProgramDefect` and `CompositionDefect` are private.
+  Upgrade: `throw new InvariantDefect({ reason })` becomes `defect(reason)`; another error of a program's own is an
+  error class of its own.
 - The peer dependency on `effect` is `~4.1.4`, where it was `^4.0.0`: a later minor of Effect needs a release of the
   library.
 - A parent lifts once the subscriptions of children that share one state object, and keeps them by that object.
@@ -108,30 +108,18 @@ version, and everything else, features included, the patch version.
 
 - A package that exports a program, a child or what the API returns emits its declarations, where TypeScript failed
   with `TS2742`, `TS2883` or `TS4023`; `Applied`'s `revision` is a `number` in them.
-- The types of a program read what it has: a child that names no `external`, without `exactOptionalPropertyTypes`; a
-  child whose `flags`, events or commands are `unknown`; services typed `any` or `unknown`, which a parent read as
-  `never` and ran without; and a parent whose `runCommand` and `subscriptions` need different services compiles
-  without an annotation.
-- A `Program<…>` that names more `external` messages than it takes, or ones that are not among its messages, no longer
-  compiles; one that names fewer does.
+- A child's types read the `external`, `flags`, events, commands and services it has, where some read as `never` or
+  as absent, and a `Program<…>` that names fewer `external` messages than it takes compiles.
 - `andThen` over steps that list no commands or no events gives a step that has none, where they were `unknown`.
-- The run ends with every defect, in the order they happened, and says where: a defect of a release, of a renderer
-  being released, of a subscription key's `Equal` or `Hash`, of an effect that interrupts itself or fails against its
-  type, and one already among the run's. A run that died applies no message, even one taken before the defect, and an
-  interrupted fork of the renderer no longer leaves it running.
-- `drive` puts a defect of the program before the scenario's failure, waits for the run to release what it holds, also
-  when interrupted, and says its patience with a unit, `within 500ms`.
-- `rehearse` no longer loses a command's answer, nor a message sent before its scenario returned; it applies messages
-  one at a time, runs the subscription listed when its key appeared, keeps it while its key stays, fails on a command
-  interrupted or still under way at the end, and leaves no scope or fiber of its own running.
-- `simulate` closes a command's scope as the run does, and has begun the command's effect once interrupted after
-  `runCommand`.
+- The run ends with every defect of its pieces and their releases, in the order they happened and saying where, and
+  applies no message once one happened.
+- `drive` puts a defect of the program before the scenario's failure, waits for the run's release, and says its
+  patience with a unit, `within 500ms`.
+- `rehearse` no longer loses a command's answer or a message, and hears, applies and ends as the run does.
+- `simulate` closes a command's scope as the run does.
 - A message or command whose wrapping comes back to itself is described by its tags until then, `Loop › …`, where its
   description overflowed the stack.
 - A parent whose `subscribed` lists an id twice says so, not that an own key took a child's.
-- A parent's own message or command that can take the name of a child or of an input no longer compiles: one tagged
-  `string`, or with a template the name matches, or an optional tag, and one of `unknown` or `object`. Nor does an
-  external message that can take a child's name and gives it a message the child keeps to itself.
 
 ## 0.7.1 (2026-10-28)
 

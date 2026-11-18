@@ -73,8 +73,9 @@ In the same change:
   awk '/^## Quick start/{f=1} f&&/^```ts/{g=1;next} g&&/^```/{exit} g' README.md > quickstart.check.ts && bun quickstart.check.ts; rm quickstart.check.ts
   ```
 - **The examples** that use it.
-- **`CHANGELOG.md`**, under the unreleased version, with the version the change needs
-  ([`release`](../release/SKILL.md)): a breaking change says how to upgrade, with the old and the new spelling.
+- **`CHANGELOG.md`**, under the unreleased version, with the version the change needs, after the four questions of
+  [`release`](../release/SKILL.md): an existing entry edited where it covers the change, a breaking change with how to
+  upgrade.
 
 ## Report it
 
