@@ -47,11 +47,9 @@ Found in a review of 18 November 2026, each reproduced:
   `Own | ChildExternals<C>`, `subscriptions` only `Own`. Every program can still be written, through an own message
   and `children.<child>.update`, and both are sources of messages the run handles alike. To decide: allow it, or say
   in "Composition" why the two differ.
-- **`simulate`'s declaration spells out `Simulation` and `Step`**: it has no return type written, so
-  `api/effect-tea-testing.api.md` writes its `from` and its result inline, though `Simulation` is exported
-  (`change-api`, "Report it"). So does `drive`'s, for a program with flags: `DriveOptions` is an alias of an
-  intersection, and intersected again with `FlagsOption` it reads
-  `RunOptions<…> & { readonly patience?: … } & …`.
+- **`drive`'s declaration spells out `DriveOptions` for a program with flags** (`change-api`, "Report it"):
+  `DriveOptions` is an alias of an intersection, and intersected again with `FlagsOption` it reads
+  `RunOptions<…> & { readonly patience?: … } & …` in `api/effect-tea-testing.api.md`.
 - **The failure of `drive`'s `patience` carries an `Option` of the model** as its `cause`, not the model: say so where
   the guide describes it, or give the model itself.
 
