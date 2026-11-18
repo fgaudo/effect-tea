@@ -233,6 +233,14 @@ describe('the keys of a new state, against those before', () => {
     expect(active.starts).toEqual(new Set([1]))
   })
 
+  test('the same keys, made anew, leave the active ones the very same', () => {
+    const first = reconcile(noneActive, listing(['row', 1], ['row', 2])).active
+    const { gone, fresh, active } = reconcile(first, listing(['row', 2], ['row', 1]))
+    expect(gone).toEqual([])
+    expect(fresh).toEqual([])
+    expect(active).toBe(first)
+  })
+
   test('under any history of listings, starts follow the keys', () => {
     const keys = fc.uniqueArray(fc.constantFrom<string>('a', 'b', 'c', 'd', 'e'), { maxLength: 5 })
     fc.assert(fc.property(fc.array(keys, { maxLength: 20 }), (history) => {
@@ -256,6 +264,7 @@ describe('the keys of a new state, against those before', () => {
           used.add(start)
         }
         expect(after.starts).toEqual(new Set(Object.values(now)))
+        expect(after === before).toBe(gone.length === 0 && fresh.length === 0)
         active = after
       }
     }))

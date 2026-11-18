@@ -161,23 +161,25 @@ export type Reconciled<K, S> = Readonly<{
 
 /**
  * Compares the keys `listed` with those `active`, by their `Equal` and `Hash`, which are the program's: whoever calls
- * it calls it where a defect of theirs dies in `subscriptions`, the only place where the keys are compared.
+ * it calls it where a defect of theirs dies in `subscriptions`, the only place where the keys are compared. The same
+ * keys leave `active` the very same, and a key that stays is kept as the listing that started it gave it.
  */
 export const reconcile = <K, S>(active: Active<K>, listed: HashMap.HashMap<K, S>): Reconciled<K, S> => {
-  const gone = Arr.filter(Arr.fromIterable(active.keys), ([key]) => !HashMap.has(listed, key))
   const fresh: Array<readonly [K, S, Generation]> = []
-  let keys = HashMap.empty<K, Generation>()
   let started = active.started
   for (const [key, subscription] of listed) {
-    const running = HashMap.get(active.keys, key)
-    if (Opt.isSome(running)) {
-      keys = HashMap.set(keys, key, running.value)
-      continue
-    }
+    if (HashMap.has(active.keys, key)) continue
     started += 1
-    keys = HashMap.set(keys, key, started)
     fresh.push([key, subscription, started])
   }
+  // Most states change no key, and a long list of children lists a key for each on every one of them: where no key
+  // appeared, among as many keys as were active, none went away either, and nothing is made.
+  if (fresh.length === 0 && HashMap.size(listed) === HashMap.size(active.keys)) return { gone: [], fresh, active }
+  const gone = Arr.filter(Arr.fromIterable(active.keys), ([key]) => !HashMap.has(listed, key))
+  const keys = HashMap.mutate(active.keys, (keys) => {
+    for (const [key] of gone) HashMap.remove(keys, key)
+    for (const [key, , generation] of fresh) HashMap.set(keys, key, generation)
+  })
   return { gone, fresh, active: { keys, starts: new Set(HashMap.values(keys)), started } }
 }
 

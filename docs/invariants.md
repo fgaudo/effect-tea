@@ -214,6 +214,13 @@ testing tools.
   runs, or one program as two children), is lifted again: it costs time, never a wrong place. They need the state
   to be an object, which every program keeps (above): never add a cache for primitive states, which nothing could
   let go of.
+- **A state that changes no key costs a lookup for each key** (`reconcile` in `core.ts`): where no key appeared, among
+  as many keys as were active, none went away either, so the active ones are left the very same and nothing is made,
+  where a long list of children lists a key for each on every change of state. Whether a key is active is asked once,
+  for that shortcut and for the starts alike, so that no check stands in front of another ("one thunk", below). A key
+  that stays is kept as the listing that started it gave it, equal to those listed since. "the same keys, made anew,
+  leave the active ones the very same" (`core.test.ts`) holds that the shortcut is taken, and each half of its check
+  has a mutation.
 - **A child's dispatch is the same while anyone holds it** (`forwardTo` in `dispatch.ts`): kept weakly by its
   parent's dispatch, its name and its id (compared with `Equal`, as subscription keys are), and removed by a
   `FinalizationRegistry` once collected. Never hold them strongly: ids that are never reused, as the guide

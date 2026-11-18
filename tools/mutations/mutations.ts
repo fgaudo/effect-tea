@@ -68,6 +68,25 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'as many keys are taken for the same keys',
+    file: 'src/core.ts',
+    from: 'fresh.length === 0 && HashMap.size(listed) === HashMap.size(active.keys)',
+    to: 'HashMap.size(listed) === HashMap.size(active.keys)',
+    killedBy: [
+      ['src/core.test.ts', 'a kept key keeps its start, and a gone key stops with its start'],
+      ['src/engine.test.ts', 'a key that changes stops the old subscription and starts the new one'],
+    ],
+  },
+  {
+    name: 'keys all active are taken for the same keys, though one went away',
+    file: 'src/core.ts',
+    from: 'fresh.length === 0 && HashMap.size(listed) === HashMap.size(active.keys)',
+    to: 'fresh.length === 0',
+    killedBy: [
+      ['src/core.test.ts', 'a key that comes back gets a new start'],
+    ],
+  },
+  {
     name: 'keys start before the gone keys are released',
     file: 'src/engine.ts',
     from: 'onSome: stopping })),',
@@ -1685,8 +1704,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'a kept key starts again',
     file: 'src/core.ts',
-    from: 'if (Opt.isSome(running)) {',
-    to: 'if (false) {',
+    from: 'if (HashMap.has(active.keys, key)) continue',
+    to: 'if (false) continue',
     // The rest of the suite hangs under it.
     killedBy: [
       ['src/core.test.ts', 'a kept key keeps its start, and a gone key stops with its start'],
