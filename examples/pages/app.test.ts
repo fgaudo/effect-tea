@@ -101,13 +101,14 @@ describe('pages', () => {
   test('the model holds what update accepts, all of it, and each acts once when sent twice', () => {
     // Under About, the Clock's format would change on the page hidden below it: held back on purpose. Its About
     // would do nothing there, so it is no control missing.
-    const violations = dispatchViolations(app.update, {
-      withheld: (message, state) =>
-        message._tag === 'Clock' && message.message._tag === 'FormatPicked' && Opt.isSome(state.maybeAbout),
-    })
     fc.assert(fc.property(state, (before) => {
-      const held = messagesOf(app.makeModel(before))
-      expect(violations(before, held, userMessages)).toEqual([])
+      expect(dispatchViolations(app.update, {
+        state: before,
+        held: messagesOf(app.makeModel(before)),
+        candidates: userMessages,
+        withheld: (message, state) =>
+          message._tag === 'Clock' && message.message._tag === 'FormatPicked' && Opt.isSome(state.maybeAbout),
+      })).toEqual([])
     }))
   })
 

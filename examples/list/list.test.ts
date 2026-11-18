@@ -107,10 +107,13 @@ describe('list', () => {
   })
 
   test('the model holds what update accepts, all of it, and each acts once when sent twice', () => {
-    const violations = dispatchViolations(list.update, { repeatable: (message) => message._tag === 'AddClicked' })
     fc.assert(fc.property(state, (before) => {
-      const held = messagesOf(list.makeModel(before))
-      expect(violations(before, held, userMessages(before))).toEqual([])
+      expect(dispatchViolations(list.update, {
+        state: before,
+        held: messagesOf(list.makeModel(before)),
+        candidates: userMessages(before),
+        repeatable: (message) => message._tag === 'AddClicked',
+      })).toEqual([])
     }))
   })
 

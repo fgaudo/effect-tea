@@ -261,9 +261,12 @@ const userMessages: ReadonlyArray<Message> = Object.values(
 
 describe('the model', () => {
   test('holds what update accepts, all of it, and each acts once when sent twice', () => {
-    const violations = dispatchViolations(update)
     fc.assert(fc.property(states(), (state) => {
-      expect(violations(state, messagesOf(stocktake.makeModel(state)), userMessages)).toEqual([])
+      expect(dispatchViolations(update, {
+        state,
+        held: messagesOf(stocktake.makeModel(state)),
+        candidates: userMessages,
+      })).toEqual([])
     }))
   })
 

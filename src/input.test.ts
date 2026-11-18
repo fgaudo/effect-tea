@@ -580,8 +580,9 @@ describe('the tools of the model', () => {
       update: (_: 'Cleared') => (state) => ({ state: { ...state, title: '' } }),
       makeModel: (state) => state,
     })
-    expect(dispatchViolations(always.update)(draftOf('Ada'), ['Cleared'])).toEqual([])
-    expect(dispatchViolations(draft.update)(draftOf('Ada'), ['Cleared'], ['Cleared'])).toEqual([])
+    expect(dispatchViolations(always.update, { state: draftOf('Ada'), held: ['Cleared'] })).toEqual([])
+    expect(dispatchViolations(draft.update, { state: draftOf('Ada'), held: ['Cleared'], candidates: ['Cleared'] }))
+      .toEqual([])
   })
 })
 

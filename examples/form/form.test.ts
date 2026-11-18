@@ -106,9 +106,12 @@ describe('form', () => {
   // The model, for any state: every message it holds is accepted, a double click saves once, and nothing
   // `update` accepts is missing. No text is drawn: what is typed is no message of the model's.
   test('the model holds what update accepts, all of it, and each acts once when sent twice', () => {
-    const violations = dispatchViolations(update)
     fc.assert(fc.property(state(), (before) => {
-      expect(violations(before, messagesOf(form.makeModel(before)), userMessages)).toEqual([])
+      expect(dispatchViolations(update, {
+        state: before,
+        held: messagesOf(form.makeModel(before)),
+        candidates: userMessages,
+      })).toEqual([])
     }))
   })
 

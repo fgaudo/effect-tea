@@ -7,8 +7,8 @@ import { reject, type Step, type Update } from '../update.ts'
  *
  * @example
  * ```ts
- * const check = dispatchViolations(update)
- * expect(check({ count: 0 }, ['Decrement'])).toEqual([{ _tag: 'Rejected', message: 'Decrement' }])
+ * expect(dispatchViolations(update, { state: { count: 0 }, held: ['Decrement'] }))
+ *   .toEqual([{ _tag: 'Rejected', message: 'Decrement' }])
  * ```
  *
  * @see The guide, "Testing tools", "dispatchViolations".
@@ -48,16 +48,19 @@ const doesNothing = <State, Command, Event>(step: Step<State, Command, Event>, s
  * defect itself when `update` dies.
  *
  * @param update - The program's `update`.
- * @param options - `repeatable`, the messages meant to act again when sent twice (a "+1"); `withheld`, the messages a
- * model may leave out on purpose in a state.
- * @returns A function of `state`; of `held`, the messages the model of that state holds, as the test reads them from
- * `program.makeModel(state)`; and of `candidates`, what a user could ask for. It returns every violation it finds, so
- * that a test asserts there are none.
+ * @param options - `state`, the state to check in; `held`, the messages the model of that state holds, as the test
+ * reads them from `program.makeModel(state)`; `candidates`, what a user could ask for; `repeatable`, the messages
+ * meant to act again when sent twice (a "+1"); `withheld`, the messages a model may leave out on purpose in a state.
+ * @returns Every violation it finds, so that a test asserts there are none.
  *
  * @example
  * ```ts
- * const check = dispatchViolations(update, { repeatable: () => true })
- * expect(check({ count }, messagesOf(counter.makeModel({ count })), ['Increment', 'Decrement'])).toEqual([])
+ * expect(dispatchViolations(update, {
+ *   state: { count },
+ *   held: messagesOf(counter.makeModel({ count })),
+ *   candidates: ['Increment', 'Decrement'],
+ *   repeatable: () => true,
+ * })).toEqual([])
  * ```
  *
  * @see The guide, "Testing tools", "dispatchViolations".
@@ -65,15 +68,13 @@ const doesNothing = <State, Command, Event>(step: Step<State, Command, Event>, s
  */
 export const dispatchViolations = <State, Message, Command, Event>(
   update: Update<State, Message, Command, Event>,
-  { repeatable = () => false, withheld = () => false }: Readonly<{
+  { state, held, candidates = [], repeatable = () => false, withheld = () => false }: Readonly<{
+    state: State
+    held: Iterable<Message>
+    candidates?: Iterable<Message>
     repeatable?: (message: Message) => boolean
     withheld?: (message: Message, state: State) => boolean
-  }> = {},
-) =>
-(
-  state: State,
-  held: Iterable<Message>,
-  candidates: Iterable<Message> = [],
+  }>,
 ): ReadonlyArray<DispatchViolation<Message>> => {
   const shown = Arr.fromIterable(held)
   const wrong = Arr.flatMap(shown, (message): ReadonlyArray<DispatchViolation<Message>> => {

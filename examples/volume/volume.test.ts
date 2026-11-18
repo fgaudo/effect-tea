@@ -117,7 +117,6 @@ describe('volume', () => {
   // The model, for any state: every message it holds is accepted, each acts once when sent twice, and nothing
   // `update` accepts is missing, but the moves, which no control sends.
   test('the model holds what update accepts, all of it, and each acts once when sent twice', () => {
-    const violations = dispatchViolations(update)
     // A tag at a time, so that a new message does not compile here until the test says what a user could ask with
     // it: the moves and the release are a drag's subscription's.
     const candidates: ReadonlyArray<Message> = Object.values(
@@ -132,7 +131,8 @@ describe('volume', () => {
       } satisfies { [Tag in Message['_tag']]: ReadonlyArray<Extract<Message, { _tag: Tag }>> },
     ).flat()
     fc.assert(fc.property(state, (before) => {
-      expect(violations(before, messagesOf(volume.makeModel(before)), candidates)).toEqual([])
+      expect(dispatchViolations(update, { state: before, held: messagesOf(volume.makeModel(before)), candidates }))
+        .toEqual([])
     }))
   })
 
@@ -155,13 +155,12 @@ describe('volume', () => {
   // The keys, for any state: `update` accepts what each key the state lists may send, wherever the pointer is. A
   // key's messages are meant to repeat, and no control sends them, so only a rejection is asked of them.
   test('update accepts what each key it listens to sends', () => {
-    const violations = dispatchViolations(update, { repeatable: () => true })
     fc.assert(fc.property(state, fc.double({ min: -50, max: 150, noNaN: true }), (before, at) => {
       const heard = Arr.flatMap(
         Arr.fromIterable(HashMap.keys(subscriptionsOf(volume)(before))),
         (key) => heardFrom(key, at),
       )
-      expect(violations(before, heard)).toEqual([])
+      expect(dispatchViolations(update, { state: before, held: heard, repeatable: () => true })).toEqual([])
     }))
   })
 

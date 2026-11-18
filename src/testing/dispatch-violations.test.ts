@@ -1,6 +1,6 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, expectTypeOf, test } from 'bun:test'
 import { reject, type Update } from '../update.ts'
-import { dispatchViolations } from './dispatch-violations.ts'
+import { type DispatchViolation, dispatchViolations } from './dispatch-violations.ts'
 
 type State = Readonly<{ count: number; isOpen: boolean }>
 
@@ -29,28 +29,63 @@ const update: Update<State, Message, 'Ping', 'Notify'> = (message) => (state) =>
 const closed: State = { count: 0, isOpen: false }
 
 describe('dispatchViolations', () => {
-  const check = dispatchViolations(update, { repeatable: (message) => message === 'Increment' })
+  const repeatable = (message: Message) => message === 'Increment'
 
   test('accepts one-shot actions that guard themselves, repeatable ones, and messages that change nothing again', () => {
-    expect(check(closed, ['Opened', 'Increment', 'Closed'])).toEqual([])
+    expect(dispatchViolations(update, { state: closed, held: ['Opened', 'Increment', 'Closed'], repeatable }))
+      .toEqual([])
   })
 
   test('reports a message update rejects in the state the model was made from', () => {
-    expect(check(closed, ['Forbidden'])).toEqual([{ _tag: 'Rejected', message: 'Forbidden' }])
+    expect(dispatchViolations(update, { state: closed, held: ['Forbidden'], repeatable }))
+      .toEqual([{ _tag: 'Rejected', message: 'Forbidden' }])
   })
 
   test('reports a message that changes the state again when sent twice', () => {
-    expect(dispatchViolations(update)(closed, ['Increment'])).toEqual([{ _tag: 'ActsTwice', message: 'Increment' }])
+    expect(dispatchViolations(update, { state: closed, held: ['Increment'] }))
+      .toEqual([{ _tag: 'ActsTwice', message: 'Increment' }])
   })
 
   test('reports a message that starts a command again when sent twice, though the state stays the same', () => {
-    expect(check(closed, ['Pinged'])).toEqual([{ _tag: 'ActsTwice', message: 'Pinged' }])
+    expect(dispatchViolations(update, { state: closed, held: ['Pinged'], repeatable }))
+      .toEqual([{ _tag: 'ActsTwice', message: 'Pinged' }])
   })
 
   test('reports a message that raises an event again when sent twice, unless it repeats on purpose', () => {
-    expect(check(closed, ['Notified'])).toEqual([{ _tag: 'ActsTwice', message: 'Notified' }])
-    expect(dispatchViolations(update, { repeatable: (message) => message === 'Notified' })(closed, ['Notified']))
-      .toEqual([])
+    expect(dispatchViolations(update, { state: closed, held: ['Notified'], repeatable }))
+      .toEqual([{ _tag: 'ActsTwice', message: 'Notified' }])
+    expect(dispatchViolations(update, {
+      state: closed,
+      held: ['Notified'],
+      repeatable: (message) => message === 'Notified',
+    })).toEqual([])
+  })
+
+  test('takes the state and the messages from update, and checks the record against them', () => {
+    expectTypeOf(dispatchViolations(update, { state: closed, held: ['Opened'], candidates: ['Closed'] }))
+      .toEqualTypeOf<ReadonlyArray<DispatchViolation<Message>>>()
+    dispatchViolations(update, {
+      state: closed,
+      held: [],
+      repeatable: (message) => {
+        expectTypeOf(message).toEqualTypeOf<Message>()
+        return false
+      },
+      withheld: (message, state) => {
+        expectTypeOf(message).toEqualTypeOf<Message>()
+        expectTypeOf(state).toEqualTypeOf<State>()
+        return false
+      },
+    })
+    const never = () => [
+      // @ts-expect-error: a candidate that is no message of `update`'s.
+      dispatchViolations(update, { state: closed, held: [], candidates: ['Unknown'] }),
+      // @ts-expect-error: a state that is not `update`'s.
+      dispatchViolations(update, { state: { count: 0 }, held: [] }),
+      // @ts-expect-error: no messages held.
+      dispatchViolations(update, { state: closed }),
+    ]
+    expect(never).toBeDefined()
   })
 })
 
@@ -93,37 +128,41 @@ const notified: FormMessage = { _tag: 'Notified' }
 const idle: Form = { isOpen: false, isSaving: false, text: '' }
 
 describe('dispatchViolations, of the candidates', () => {
-  const check = dispatchViolations(updateForm)
-
   test('reports what update accepts and the model does not hold', () => {
-    expect(check({ ...idle, isOpen: true }, [], [opened, shut])).toEqual([{ _tag: 'Missing', message: shut }])
+    expect(dispatchViolations(updateForm, { state: { ...idle, isOpen: true }, held: [], candidates: [opened, shut] }))
+      .toEqual([{ _tag: 'Missing', message: shut }])
   })
 
   test('ignores what update rejects, and what the model holds, compared by value', () => {
-    expect(check(idle, [{ _tag: 'Opened' }], [opened, shut])).toEqual([])
-    expect(check(idle, [typed('milk')], [typed('milk')])).toEqual([])
+    expect(dispatchViolations(updateForm, { state: idle, held: [{ _tag: 'Opened' }], candidates: [opened, shut] }))
+      .toEqual([])
+    expect(dispatchViolations(updateForm, { state: idle, held: [typed('milk')], candidates: [typed('milk')] }))
+      .toEqual([])
   })
 
   test('ignores what the model withholds on purpose', () => {
-    const withholding = dispatchViolations(updateForm, {
-      withheld: (message, state) => message._tag === 'Typed' && state.isSaving,
-    })
-    expect(withholding({ ...idle, isSaving: true }, [], [typed('milk')])).toEqual([])
-    expect(withholding(idle, [], [typed('milk')]))
+    const withheld = (message: FormMessage, state: Form) => message._tag === 'Typed' && state.isSaving
+    expect(dispatchViolations(updateForm, {
+      state: { ...idle, isSaving: true },
+      held: [],
+      candidates: [typed('milk')],
+      withheld,
+    })).toEqual([])
+    expect(dispatchViolations(updateForm, { state: idle, held: [], candidates: [typed('milk')], withheld }))
       .toEqual([{ _tag: 'Missing', message: typed('milk') }])
   })
 
   test('leaves out a candidate whose step does nothing: the same state by Equal, a copy included', () => {
-    expect(check(idle, [], [typed(''), copied])).toEqual([])
+    expect(dispatchViolations(updateForm, { state: idle, held: [], candidates: [typed(''), copied] })).toEqual([])
   })
 
   test('reports a candidate that starts a command or raises an event, though the state stays the same', () => {
-    expect(check(idle, [], [pinged, notified]))
+    expect(dispatchViolations(updateForm, { state: idle, held: [], candidates: [pinged, notified] }))
       .toEqual([{ _tag: 'Missing', message: pinged }, { _tag: 'Missing', message: notified }])
   })
 
   test('reports both ways at once, what is sent first', () => {
-    expect(check(idle, [shut], [opened]))
+    expect(dispatchViolations(updateForm, { state: idle, held: [shut], candidates: [opened] }))
       .toEqual([{ _tag: 'Rejected', message: shut }, { _tag: 'Missing', message: opened }])
   })
 })

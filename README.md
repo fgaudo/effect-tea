@@ -191,10 +191,14 @@ const messagesOf = (model: Model): ReadonlyArray<Message> =>
   model._tag === 'Counting' ? [model.decrement, model.increment] : [model.increment]
 
 test('the model holds what update accepts, all of it', () => {
-  const violations = dispatchViolations(update, { repeatable: () => true })
   fc.assert(fc.property(fc.nat(1_000), (count) => {
-    const held = messagesOf(counter.makeModel({ count }))
-    expect(violations({ count }, held, ['Increment', 'Decrement'])).toEqual([])
+    const state = { count }
+    expect(dispatchViolations(update, {
+      state,
+      held: messagesOf(counter.makeModel(state)),
+      candidates: ['Increment', 'Decrement'],
+      repeatable: () => true,
+    })).toEqual([])
   }))
 })
 ```

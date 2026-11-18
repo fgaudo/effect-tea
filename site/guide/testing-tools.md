@@ -59,6 +59,9 @@ acts once. The test `the model holds what update accepts, all of it` in
   - The candidates `withheld` on purpose. An example is the controls of a page that another page covers: those
     controls would act on the hidden state of the covered page.
 
+`dispatchViolations` takes `update` first. Then it takes one object: `state`, the state to check; `held`, the messages
+the model of that state holds; and, when the test needs them, `candidates`, `repeatable` and `withheld`.
+
 Without candidates, `dispatchViolations` checks only the messages it is given.
 
 `dispatchViolations` returns a list of the violations it finds, empty when there is none. Each violation holds its kind

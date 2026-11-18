@@ -191,6 +191,10 @@ version, and everything else, features included, the patch version.
   renderer that pulls a frame it does not draw pays for its model, and meets a defect of `makeModel` as it pulls it; a
   scenario of `rehearse` or `drive` no longer meets a defect of `makeModel` in `model`, `send` or `waitFor`, since the
   tool fails on the state whose model dies: a test that expects one wraps the tool, as for any other defect.
+- **Breaking**: `dispatchViolations` is called once, with `update` and one object of named arguments, where it took
+  the state and the messages held, and the candidates, in a second call ("Testing tools", "dispatchViolations").
+  Upgrade: `dispatchViolations(update, { repeatable })(state, held, candidates)` becomes
+  `dispatchViolations(update, { state, held, candidates, repeatable })`.
 - **Breaking**: `View` is no longer exported: the library ends at the frame, and a view's type is its renderer's.
   Upgrade: a bridge declares it, `type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => VNode`, as
   `examples/bridges/snabbdom.ts` and `examples/bridges/react.ts` do, and a view imports it from its bridge,

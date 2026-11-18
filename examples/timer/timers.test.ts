@@ -89,15 +89,16 @@ describe('timers', () => {
   // #endregion update
 
   test('the model holds what update accepts, all of it, and each acts once when sent twice', () => {
-    const violations = dispatchViolations(timers.update, {
-      repeatable: (message) =>
-        message._tag === 'AddClicked'
-        || (message._tag === 'Timer'
-          && (message.message._tag === 'MoreClicked' || message.message._tag === 'LessClicked')),
-    })
     fc.assert(fc.property(state, (before) => {
-      const held = messagesOf(timers.makeModel(before))
-      expect(violations(before, held, userMessages(before))).toEqual([])
+      expect(dispatchViolations(timers.update, {
+        state: before,
+        held: messagesOf(timers.makeModel(before)),
+        candidates: userMessages(before),
+        repeatable: (message) =>
+          message._tag === 'AddClicked'
+          || (message._tag === 'Timer'
+            && (message.message._tag === 'MoreClicked' || message.message._tag === 'LessClicked')),
+      })).toEqual([])
     }))
   })
 

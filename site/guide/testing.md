@@ -49,11 +49,14 @@ test('counts up and down', () => {
 // The model, for any count: every message it holds is accepted, and nothing `update` accepts is missing from
 // it. Both buttons are meant to repeat.
 test('the model holds what update accepts, all of it', () => {
-  const violations = dispatchViolations(update, { repeatable: () => true })
   fc.assert(fc.property(fc.nat(1_000), (count) => {
     const state = { count }
-    const held = messagesOf(counter.makeModel(state))
-    expect(violations(state, held, ['Increment', 'Decrement'])).toEqual([])
+    expect(dispatchViolations(update, {
+      state,
+      held: messagesOf(counter.makeModel(state)),
+      candidates: ['Increment', 'Decrement'],
+      repeatable: () => true,
+    })).toEqual([])
   }))
 })
 ```

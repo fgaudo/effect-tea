@@ -21,11 +21,14 @@ describe('duration', () => {
   })
 
   test('the model holds what update accepts, all of it', () => {
-    const violations = dispatchViolations(update, { repeatable: () => true })
     fc.assert(fc.property(fc.integer({ min: 1, max: 1_000 }), (minutes) => {
       const state = { minutes }
-      const held = messagesOf(duration.makeModel(state))
-      expect(violations(state, held, ['More', 'Less'])).toEqual([])
+      expect(dispatchViolations(update, {
+        state,
+        held: messagesOf(duration.makeModel(state)),
+        candidates: ['More', 'Less'],
+        repeatable: () => true,
+      })).toEqual([])
     }))
   })
 
