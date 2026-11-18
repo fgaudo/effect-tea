@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { InvariantDefect, reject, subscriptionsOf } from '@fgaudo/effect-tea'
+import { InvariantDefect, reject } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations, drive, rehearse } from '@fgaudo/effect-tea/testing'
 import * as Arr from 'effect/Array'
 import * as Effect from 'effect/Effect'
@@ -147,7 +147,7 @@ describe('volume', () => {
 
   test('listens to a drag exactly while a slider is dragged, by the slider', () => {
     fc.assert(fc.property(state, (before) => {
-      expect(Arr.fromIterable(HashMap.keys(subscriptionsOf(volume)(before))))
+      expect(Arr.fromIterable(HashMap.keys(volume.subscriptions(before))))
         .toEqual(before.drag._tag === 'Dragging' ? [before.drag.slider] : [])
     }))
   })
@@ -157,7 +157,7 @@ describe('volume', () => {
   test('update accepts what each key it listens to sends', () => {
     fc.assert(fc.property(state, fc.double({ min: -50, max: 150, noNaN: true }), (before, at) => {
       const heard = Arr.flatMap(
-        Arr.fromIterable(HashMap.keys(subscriptionsOf(volume)(before))),
+        Arr.fromIterable(HashMap.keys(volume.subscriptions(before))),
         (key) => heardFrom(key, at),
       )
       expect(dispatchViolations(update, { state: before, held: heard, repeatable: () => true })).toEqual([])

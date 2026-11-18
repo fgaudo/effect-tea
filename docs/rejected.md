@@ -146,12 +146,12 @@ answer, and saying so in the proposal.
   failure fails the fiber that made it. Weighed with a second opinion (Fable), the owner deciding. *Reopen if* a
   test that forked a call and never joined it passed on a failure an application then met.
 - **Every tool starting from `from` or `flags`.** Reasoned, 15 November 2026, on the same review. `simulate` is
-  given pieces of a program, with no `init` (`simulate({ update })` is one), and folds from a step as `applyAll`
-  does: giving it flags would ask for `init` to save the test a call of it. `drive` is a run, and a `from` there would
-  name `{ ...program, init: { state } }`, which the guide gives for `run`. `rehearse`'s `from` was that spread under
-  a name, and was removed instead (0.8.0), so that `drive` and `rehearse` start as `run` does. Left: under `simulate`,
-  an `init` that throws on its flags is the test's own defect, not a `ProgramDefect` in `'init'`. *Reopen if* such a
-  defect goes untested in a program with flags.
+  given pieces of a program, with no `init` (`simulate({ update, subscriptions })` is one), and folds from a step as
+  `applyAll` does: giving it flags would ask for `init` to save the test a call of it. `drive` is a run, and a `from`
+  there would name `{ ...program, init: { state } }`, which the guide gives for `run`. `rehearse`'s `from` was that
+  spread under a name, and was removed instead (0.8.0), so that `drive` and `rehearse` start as `run` does. Left: under
+  `simulate`, an `init` that throws on its flags is the test's own defect, not a `ProgramDefect` in `'init'`. *Reopen
+  if* such a defect goes untested in a program with flags.
 - **`hear` typed by what a program's subscriptions send**, in place of reading a write by its shape. Reasoned, 16
   November 2026, on the item of `ROADMAP.md`, confirmed by a type test: `Rehearsal.hear` refuses
   `{ _tag, message: Written }` at any depth, so an own message of that shape, holding a `Written` as data, is refused
@@ -240,15 +240,15 @@ answer, and saying so in the proposal.
   raises only the events its own type includes", `compose.test.ts`), since the check is `onEvent`'s. `raise` was
   weighed with a second opinion (Opus 5.5), the owner deciding; `write` was never released. *Reopen if* one of them
   comes to do what the literal or the operator cannot: a check as it is made, or a shape that is hidden.
-- **Making `subscriptionsOf` internal**, as `write`, `isRejected` and `raise` were removed: it stays public. Reasoned,
-  15 November 2026, with a second opinion (Opus 5.5), the owner deciding: it is `program.subscriptions ?? (() =>
-  HashMap.empty())`, and its siblings `runCommandOf` and `startOf` are internal. It stays, since it is no name over a
-  literal: `subscriptions` is optional on every type a test holds (`Shape` in `program.ts`, which `make` returns too,
-  though it always sets the piece), so that without it each test would write again what a missing piece means, which is
-  the library's rule; nothing else tells a pure test what a program listens to in a state; and its fallback is one a
-  test observes, where `runCommandOf`'s is never called and `startOf` decides only for generic code. The reason is in
-  `AGENTS.md` ("Code"). *Reopen if* `subscriptions` becomes required on a program's type, where it would be a property
-  read.
+- **`subscriptions` optional on a program's type, with a public `subscriptionsOf` to read it**, as from 0.4.0 to
+  0.7: the piece is required on `Shape` and `Program`, and a test reads `program.subscriptions(state)`. Decided on 18
+  November 2026, the owner deciding, over the entry of 15 November that kept `subscriptionsOf` public because the piece
+  was optional. A name whose only use was to apply the meaning of a missing piece goes by the rule of `AGENTS.md` ("A
+  function earns its place") once no program on a type lacks it: `make`, which always set the piece, is the one place
+  where a config without it means listening to nothing, as `update` is optional in the config of `make` and required
+  on `Program`. Spiked: the `?` taken off `Shape` broke 44 lines, all in the library's own tests and 38 of them a
+  program written as an object, none in `src/` and none in the examples. *Reopen if* a program the library takes cannot
+  be written with `subscriptions`, or a test of a program has no other way to read what it listens to.
 - **Checking a program's external messages in `make`**, where `child` and `childById` check them today. Spiked on 17
   November 2026, with a second opinion (Fable), the owner deciding. A check in `config`, or in a rest parameter after
   it, reads the own messages in the compiler's first pass, which skips a context-sensitive `update` (one whose

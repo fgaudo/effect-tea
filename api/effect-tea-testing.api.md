@@ -15,6 +15,7 @@ import * as Scope from 'effect/Scope';
 type AnyProgram = {
     readonly init: Step<any, any> | ((flags: any) => Step<any, any>);
     readonly update: any;
+    readonly subscriptions: any;
     readonly makeModel: any;
 };
 
@@ -180,7 +181,7 @@ type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = neve
     readonly '~@fgaudo/effect-tea/Program/external'?: readonly [(external: External) => void];
     readonly init: Init<State, Command, Flags>;
     readonly update: Update<State, Message, Command, Event>;
-    readonly subscriptions?: Subscriptions<State, Message, RS, unknown>;
+    readonly subscriptions: Subscriptions<State, Message, RS, unknown>;
     readonly makeModel: (state: State) => Model;
 } & Interpreter<Command, Message, RC>;
 
@@ -188,7 +189,7 @@ type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = neve
 export const simulate: <State, Message, Command, Event, R = never>(program: Readonly<{
     update: Update<State, Message, Command, Event>;
 }> & Interpreter<Command, Message, R> & Readonly<{
-    subscriptions?: Subscriptions<State, Message, unknown, unknown>;
+    subscriptions: Subscriptions<State, Message, unknown, unknown>;
 }> & ObjectState<State>) => (messages: readonly Message[], from: Step<State, Command>) => Effect.Effect<Simulation<State, Message, Command, Event>, never, Exclude<R, Scope.Scope>>;
 
 // @public

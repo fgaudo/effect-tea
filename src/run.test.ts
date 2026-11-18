@@ -51,6 +51,7 @@ const counter: Counter = {
   init: { state: { count: 0 } },
   update,
   runCommand: (command) => command === 'Ping' ? Effect.succeedSome<Message>('Increment') : Effect.die('boom'),
+  subscriptions: () => HashMap.empty(),
   makeModel: ({ count }) => ({
     count,
     increment: 'Increment',
@@ -155,6 +156,7 @@ describe('run', () => {
     const plain = {
       init: { state: { count: 0 } },
       update: () => ({ count }: Count) => ({ state: { count: count + 1 } }),
+      subscriptions: () => HashMap.empty(),
       makeModel: ({ count }: Count) => count,
     }
     const counts: Array<number> = []
@@ -183,6 +185,7 @@ describe('run', () => {
           Effect.andThen(Effect.never),
           Effect.onInterrupt(() => note('command interrupted')),
         ),
+      subscriptions: () => HashMap.empty(),
       makeModel: () => null,
     }
     const running: Effect.Effect<void> = run(
@@ -215,6 +218,7 @@ describe('run', () => {
       update: (message) => ({ heard }) => ({ state: { heard: [...heard, message] } }),
       runCommand: (command) =>
         command === 'Slow' ? Effect.as(Deferred.await(slow), Opt.some(command)) : Effect.succeedSome(command),
+      subscriptions: () => HashMap.empty(),
       makeModel: (heard) => heard,
     }
     let last: ReadonlyArray<string> = []

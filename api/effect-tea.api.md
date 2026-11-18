@@ -24,6 +24,7 @@ export const andThen: {
 export type AnyProgram = {
     readonly init: Step<any, any> | ((flags: any) => Step<any, any>);
     readonly update: any;
+    readonly subscriptions: any;
     readonly makeModel: any;
 };
 
@@ -438,9 +439,6 @@ type Named<T, K extends 'model', Inferred> = T extends {
 // @public (undocumented)
 type Needed<Listened> = unknown extends Listened ? unknown : Listened extends Subscription<any, infer R> ? R : never;
 
-// @public (undocumented)
-type NeededBy<S> = S extends Subscriptions<any, any, infer R, any> ? R : never;
-
 // @public
 type NoClash<Own, OwnCommand, C, Of extends string> = ([TagsTaken<Own, keyof C & string>] extends [never] ? unknown : {
     readonly [K in `an own message takes the name of ${Of}`]: TagsTaken<Own, keyof C & string>;
@@ -607,7 +605,7 @@ export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags
     readonly '~@fgaudo/effect-tea/Program/external'?: readonly [(external: External) => void];
     readonly init: Init<State, Command, Flags>;
     readonly update: Update<State, Message, Command, Event>;
-    readonly subscriptions?: Subscriptions<State, Message, RS, unknown>;
+    readonly subscriptions: Subscriptions<State, Message, RS, unknown>;
     readonly makeModel: (state: State) => Model;
 } & Interpreter<Command, Message, RC>;
 
@@ -644,13 +642,8 @@ export type Subscriptions<State, Message, R = never, K = unknown> = (state: Stat
 
 // @public
 export type SubscriptionServicesOf<P> = P extends {
-    readonly subscriptions?: infer S;
-} ? NeededBy<S> : never;
-
-// @public
-export const subscriptionsOf: <State, Message, R, K>(program: Readonly<{
-    subscriptions?: Subscriptions<State, Message, R, K>;
-}>) => Subscriptions<State, Message, R, K>;
+    readonly subscriptions: Subscriptions<any, any, infer R, any>;
+} ? R : never;
 
 // @public
 type TagsTaken<M, Names> = 0 extends 1 & M ? Names : M extends unknown ? '_tag' extends keyof M ? Extract<Names, M[keyof M & '_tag']> | Extract<M[keyof M & '_tag'], Names> : Names extends unknown ? Readonly<{

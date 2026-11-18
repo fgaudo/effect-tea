@@ -144,6 +144,7 @@ describe('drive', () => {
     const plain = {
       init: { state: { count: 0 } },
       update: () => ({ count }: Readonly<{ count: number }>) => ({ state: { count: count + 1 } }),
+      subscriptions: () => HashMap.empty(),
       makeModel: ({ count }: Readonly<{ count: number }>) => count,
     }
     expect(await Effect.runPromise(drive(plain, (driver) => driver.waitFor(Opt.some)))).toBe(0)
@@ -286,6 +287,7 @@ describe('drive', () => {
           Effect.acquireRelease(Effect.void, () => Effect.sync(() => released.push('resource'))).pipe(
             Effect.as(Opt.some<'Held'>('Held')),
           ),
+        subscriptions: () => HashMap.empty(),
         makeModel: ({ count }) => count,
       }
     const driven: Effect.Effect<number> = drive(
@@ -333,6 +335,7 @@ describe('drive and a defect of the step the scenario waits for', () => {
         ...counting,
         update: () => (state) => ({ state: next(state), commands: ['Crash'] }),
         runCommand: () => Effect.die('boom'),
+        subscriptions: () => HashMap.empty(),
       }),
     ).toBe('command')
   })

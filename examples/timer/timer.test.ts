@@ -1,6 +1,6 @@
 // #region imports
 import { describe, expect, test } from 'bun:test'
-import { InvariantDefect, reject, subscriptionsOf } from '@fgaudo/effect-tea'
+import { InvariantDefect, reject } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations, rehearse } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
@@ -79,7 +79,7 @@ describe('timer', () => {
   // #region subscriptions
   test('ticks exactly while running', () => {
     fc.assert(fc.property(state, (before) => {
-      expect(HashMap.has(subscriptionsOf(timer)(before), 'ticks')).toBe(before.phase._tag === 'Running')
+      expect(HashMap.has(timer.subscriptions(before), 'ticks')).toBe(before.phase._tag === 'Running')
     }))
   })
   // #endregion subscriptions

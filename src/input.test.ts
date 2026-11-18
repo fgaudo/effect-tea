@@ -12,7 +12,7 @@ import * as fc from 'fast-check'
 import { program } from './compose.ts'
 import { type Dispatch, forwardTo } from './dispatch.ts'
 import { drawn, edited, type Shown, type Written } from './input.ts'
-import { type MessageOf, type Program, subscriptionsOf } from './program.ts'
+import type { MessageOf, Program } from './program.ts'
 import type { Subscription } from './subscription.ts'
 import { dispatchViolations } from './testing/dispatch-violations.ts'
 import { reject, type Step, type Transition } from './update.ts'
@@ -151,6 +151,7 @@ describe('a step of the program', () => {
         state: { pressed: state.pressed + 1 },
         events: ['Reset'],
       }),
+      subscriptions: () => HashMap.empty(),
       makeModel: (state: Button) => state,
     }
     type Form = Readonly<{ name: string; reset: Button }>
@@ -211,7 +212,7 @@ describe('an input among the subscriptions', () => {
   })
 
   test('lifts no key: the program keeps its own and its children\'s, and none is under the input\'s name', () => {
-    const keys = subscriptionsOf(page)({ name: 'Ada', ticking: { ticks: 0 } })
+    const keys = page.subscriptions({ name: 'Ada', ticking: { ticks: 0 } })
     expect(HashMap.size(keys)).toBe(2)
     expect(HashMap.has(keys, 'own')).toBe(true)
     expect(HashMap.has(keys, ['Ticking', 'ticks'])).toBe(true)
@@ -223,7 +224,7 @@ describe('an input among the subscriptions', () => {
       page.update({ _tag: 'Name', message: { _tag: 'Written', was: before.name, value: 'Ada' } })(before),
     )
     expect(written.state.ticking).toBe(before.ticking)
-    const lifted = (state: Page) => Opt.getOrThrow(HashMap.get(subscriptionsOf(page)(state), ['Ticking', 'ticks']))
+    const lifted = (state: Page) => Opt.getOrThrow(HashMap.get(page.subscriptions(state), ['Ticking', 'ticks']))
     expect(lifted(written.state)).toBe(lifted(before))
   })
 })

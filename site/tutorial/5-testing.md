@@ -34,7 +34,7 @@ test when `update` rejects one of them. Three things to notice in these tests:
 
 The second test runs a whole minute, sixty ticks, without waiting: a tick is only a message.
 
-`subscriptionsOf(timer)(state)` says what the program listens to in a state. So "the clock runs exactly while the
+`timer.subscriptions(state)` says what the program listens to in a state. So "the clock runs exactly while the
 timer does" is one line, checked for any state:
 
 {@includeCode ../../examples/timer/timer.test.ts#subscriptions}
@@ -99,7 +99,7 @@ A parent is a program like any other: `timers.update`, `timers.makeModel` and `t
 same tools.
 
 What changes is the wrapping. Its messages for a child are `{ _tag: 'Timer', id, message }`, and so are its commands
-and the keys of its children's subscriptions. That is what `subscriptionsOf`, `rehearsal.run` and `rehearsal.hear`
+and the keys of its children's subscriptions. That is what `timers.subscriptions`, `rehearsal.run` and `rehearsal.hear`
 see. The tests of
 [`examples/timer/timers.test.ts`](../../examples/timer/timers.test.ts)
 name its messages:

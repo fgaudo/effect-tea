@@ -6,7 +6,7 @@ import * as Core from './core.ts'
 import type { Dispatch } from './dispatch.ts'
 import * as Engine from './engine.ts'
 import type { RunOptions } from './engine.ts'
-import { type FlagsOption, runCommandOf, type Shape, startOf, subscriptionsOf } from './program.ts'
+import { type FlagsOption, runCommandOf, type Shape, startOf } from './program.ts'
 import * as Shell from './shell.ts'
 
 /**
@@ -69,7 +69,7 @@ const running = Effect.fnUntraced(
       init,
       update: program.update,
       runCommand: runCommandOf(program),
-      subscriptions: subscriptionsOf(program),
+      subscriptions: program.subscriptions,
     })
     const frames = engine.states.pipe(
       Stream.buffer({ capacity: 1, strategy: 'sliding' }),

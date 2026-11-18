@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { InvariantDefect, reject, subscriptionsOf } from '@fgaudo/effect-tea'
+import { InvariantDefect, reject } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations, drive, rehearse, simulate } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
@@ -134,13 +134,13 @@ describe('update', () => {
   })
 
   test('the scanner is listened to while open, and its end shows Reconnect, which listens again', () => {
-    expect(HashMap.has(subscriptionsOf(stocktake)(start.state), 'scanner')).toBe(false)
-    expect(HashMap.has(subscriptionsOf(stocktake)(loaded), 'scanner')).toBe(true)
+    expect(HashMap.has(stocktake.subscriptions(start.state), 'scanner')).toBe(false)
+    expect(HashMap.has(stocktake.subscriptions(loaded), 'scanner')).toBe(true)
     const ended = applyAll(update)([{ _tag: 'ScannerDisconnected' }], loaded).state
-    expect(HashMap.has(subscriptionsOf(stocktake)(ended), 'scanner')).toBe(false)
+    expect(HashMap.has(stocktake.subscriptions(ended), 'scanner')).toBe(false)
     expect(counting(stocktake.makeModel(ended)).scanner._tag).toBe('Disconnected')
     const again = applyAll(update)([{ _tag: 'ReconnectClicked' }], ended).state
-    expect(HashMap.has(subscriptionsOf(stocktake)(again), 'scanner')).toBe(true)
+    expect(HashMap.has(stocktake.subscriptions(again), 'scanner')).toBe(true)
     expect(update({ _tag: 'ReconnectClicked' })(again)).toBe(reject)
   })
 
@@ -174,7 +174,7 @@ describe('update', () => {
     const { state } = applyAll(update)([{ _tag: 'SubmitClicked' }, { _tag: 'SubmitSucceeded' }], ready)
     const model = stocktake.makeModel(state)
     expect(model).toMatchObject({ _tag: 'Closed', total: 15, differing: 1 })
-    expect(HashMap.isEmpty(subscriptionsOf(stocktake)(state))).toBe(true)
+    expect(HashMap.isEmpty(stocktake.subscriptions(state))).toBe(true)
     expect(update(write(ready, 'i1', '11'))(state)).toBe(reject)
   })
 

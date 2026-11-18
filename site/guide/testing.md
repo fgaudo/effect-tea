@@ -26,7 +26,7 @@ The tests of a program follow its shape, in four steps:
    - that `update` answers every message with a step or `reject`, the same each time;
    - that the model holds what `update` accepts (`dispatchViolations`);
    - that the model is data;
-   - what the program listens to (`subscriptionsOf`).
+   - what the program listens to (`program.subscriptions`).
 3. **Write one test per message.** Assert the next state, the commands and the events by value. The state includes
    the inputs, which hold what the program wrote. Assert a rejection as `reject` itself, with `toBe(reject)`. Never
    assert it as "the state did not change": a step that keeps the state would pass that test too.
@@ -64,7 +64,7 @@ test('the model holds what update accepts, all of it', () => {
 ### The model of any state
 
 `program.makeModel(state)` makes a model as `run` does. So a property test can read the model of any state.
-`subscriptionsOf(program)(state)` says what the program listens to in that state.
+`program.subscriptions(state)` says what the program listens to in that state.
 
 **That the model is data** is checked on two equal states built apart. To get them, draw the same seed twice: call
 `fc.sample(states, { seed, numRuns: 1 })` two times. Then compare the two models with `Equal.equals`, as

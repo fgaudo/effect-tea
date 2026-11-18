@@ -243,8 +243,21 @@ program<{ state: State }>().make({
 const deaf: Program<{ state: CounterState; model: null; message: Full; external: Reset }> = {
   init: { state: { count: 0 } },
   update: () => (state) => ({ state }),
+  subscriptions: () => HashMap.empty(),
   makeModel: () => null,
 }
+
+// A program written as an object has `subscriptions`, even one that listens to nothing: only `make` fills them in.
+// @ts-expect-error
+const unlistening: Program<{ state: CounterState; model: null; message: Full }> = {
+  init: { state: { count: 0 } },
+  update: () => (state) => ({ state }),
+  makeModel: () => null,
+}
+
+// And so do the pieces of a program that `simulate` takes.
+// @ts-expect-error
+simulate({ update: counterUpdate })
 
 // A program may be typed with fewer external messages than it takes, never with more.
 export const sealed: Program<{ state: CounterState; model: CounterState; message: CounterMessage; event: Full }> =
@@ -262,7 +275,12 @@ const opened: Program<{
 // A child with commands has a `runCommand`, even when written without `Program<…>`.
 child(
   // @ts-expect-error
-  { init: { state: { count: 0 }, commands: ['Save' as const] }, update: counterUpdate, makeModel: () => null },
+  {
+    init: { state: { count: 0 }, commands: ['Save' as const] },
+    update: counterUpdate,
+    subscriptions: () => HashMap.empty(),
+    makeModel: () => null,
+  },
   { get: (state) => Opt.some(state.main), set: (state, main) => ({ ...state, main }) },
 )
 
@@ -407,6 +425,7 @@ assert(edit.was === 'Ada' && element.value === 'Ada L', 'edited writes over what
 export const kept = drawn(element, 'Ada', 0)
 assert(kept.shown === element && !kept.taken && byHand !== undefined, 'a frame that has not seen the write keeps it')
 assert(deaf.update({ _tag: 'Full' })(deaf.init.state) !== reject, 'a program typed past its types runs')
+assert(!('subscriptions' in unlistening), 'a program typed past its types has only the pieces written')
 assert(opened === sealed, 'a program typed with other external messages is the same program')
 const moved = drawn(element, '', 1)
 assert(moved.shown.value === '' && moved.taken, 'a frame that has seen it and moved on gives its value')

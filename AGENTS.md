@@ -176,13 +176,11 @@ this summary says less. What every change keeps, an example's and a document's t
   renderer. `testing/` holds
   one module per testing tool (and `unexpected.ts`, the failure they share, `ledger.ts`, what `rehearse` keeps of
   its commands and starts, as pure transitions, and `loop.ts`, the loop that applies its steps one at a time).
-- A piece of a program that may be missing (`runCommand` without commands, `subscriptions`) is read through
-  `runCommandOf` and `subscriptionsOf`, never directly: the engine always gets the complete set. Likewise
-  `init`, a step or a function of the flags, is read through `startOf`: a step is never a function, so `typeof`
-  tells them apart, and so does `make` for a child's handle. Of the three, `subscriptionsOf` alone is public: that
-  a missing `subscriptions` means listening to nothing is a rule of the library which a test of a program observes,
-  on a type where the piece is optional, and that function is the one place it is applied. The other two decide
-  nothing such a test can see.
+- `runCommand`, missing from a program without commands, is read through `runCommandOf`, never directly: the engine
+  always gets the complete set. Likewise `init`, a step or a function of the flags, is read through `startOf`: a step
+  is never a function, so `typeof` tells them apart, and so does `make` for a child's handle. Both are internal. A
+  program always has `subscriptions`: `make` is the one place where a config without them means listening to nothing,
+  and a test reads `program.subscriptions(state)` as it reads `program.makeModel(state)`.
 - A key or symbol of the library is named `@fgaudo/effect-tea/<Type>` after the type it belongs to (`Rejected`, the
   service `Stopped`), and `@fgaudo/effect-tea/<Type>/<part>` for a part of one (`Shown/unseen`). A property keyed by a
   string starts with `~`, as Effect's own type ids: `~@fgaudo/effect-tea/Program/external`.

@@ -1,6 +1,5 @@
 // A program: its pieces, its types named rather than in a row, and the types read back from one.
 import { absurd } from 'effect/Function'
-import * as HashMap from 'effect/HashMap'
 import type { RunCommand } from './command.ts'
 import type { Subscriptions } from './subscription.ts'
 import type { Step, Update } from './update.ts'
@@ -24,27 +23,6 @@ export const runCommandOf = <Command, Message, R>(
 ): RunCommand<Command, Message, R> =>
   (program as Partial<Readonly<{ runCommand: RunCommand<Command, Message, R> }>>).runCommand
     ?? (absurd as RunCommand<Command, Message, R>)
-
-/**
- * What a program listens to in a state, by key.
- *
- * It gives the subscriptions that `run` reconciles. For a program without `subscriptions`, it gives none. A parent
- * lists the subscriptions of each child under `[<child>, key]`, or under `[<child>, id, key]` for children by id.
- *
- * @param program - The program, with or without `subscriptions`.
- * @returns A function from a state to the program's subscriptions in it.
- *
- * @example
- * ```ts
- * expect(HashMap.has(subscriptionsOf(app)(state), ['Clock', 'ticks'])).toBe(true)
- * ```
- *
- * @see The guide, "Anatomy of a program", "What a program listens to".
- * @see The guide, "Composition", "A test reads a child's subscriptions by key".
- */
-export const subscriptionsOf = <State, Message, R, K>(
-  program: Readonly<{ subscriptions?: Subscriptions<State, Message, R, K> }>,
-): Subscriptions<State, Message, R, K> => program.subscriptions ?? (() => HashMap.empty())
 
 /** The types of a program, by name: `state`, `model` and `message` always, the others only when it has them. */
 type ProgramTypes = Readonly<{
@@ -82,8 +60,9 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * A program, of the types `T` names.
  *
  * `init` says where the program starts. `update` says how each message changes the state. `makeModel` says what the
- * view draws. `runCommand` is there when the program has commands, and `subscriptions` when it listens to something.
- * A program is made with `program`. `make` returns this type, and a function that takes a program names this type.
+ * view draws. `subscriptions` says what it listens to in each state. `runCommand` is there when the program has
+ * commands. A program is made with `program`. `make` returns this type, and a function that takes a program names this
+ * type.
  *
  * - The view is not part of it: `run` gives the renderer frames, `{ model, dispatch, seen }`.
  * - Its state is an object, and its `external` messages are among its `message`s. A program written as an object
@@ -93,6 +72,8 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  *   returns.
  * - `runCommand` is required exactly when the program has commands.
  * - `run` makes a frame's model with `makeModel(state)`. A test can call `makeModel` the same way, on any state.
+ * - Every program has `subscriptions`. One that `make` makes without them listens to nothing. A test calls
+ *   `subscriptions(state)` as `run` does, on any state.
  * - `update`, `makeModel` and `subscriptions` are pure, and states are never mutated. The library reuses a child's
  *   model and subscriptions while the child's state is the same object.
  *
@@ -112,6 +93,7 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * @see The guide, "Anatomy of a program", "What does not compile".
  * @see The guide, "Anatomy of a program", "`runCommand` is required exactly when the program has commands".
  * @see The guide, "Anatomy of a program", "A test makes a model as `run` does".
+ * @see The guide, "Anatomy of a program", "What a program listens to".
  * @see The guide, "Guarantees", "`update`, `makeModel` and `subscriptions` are pure, and states are never mutated".
  */
 export type Program<T extends ProgramTypes> =
@@ -215,7 +197,7 @@ export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags
     readonly '~@fgaudo/effect-tea/Program/external'?: readonly [(external: External) => void]
     readonly init: Init<State, Command, Flags>
     readonly update: Update<State, Message, Command, Event>
-    readonly subscriptions?: Subscriptions<State, Message, RS, unknown>
+    readonly subscriptions: Subscriptions<State, Message, RS, unknown>
     readonly makeModel: (state: State) => Model
   }
   & Interpreter<Command, Message, RC>
@@ -232,6 +214,7 @@ export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags
 export type AnyProgram = {
   readonly init: Step<any, any> | ((flags: any) => Step<any, any>)
   readonly update: any
+  readonly subscriptions: any
   readonly makeModel: any
 }
 
@@ -379,7 +362,5 @@ export type CommandServicesOf<P> = P extends { readonly runCommand: RunCommand<a
  * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
  * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
  */
-export type SubscriptionServicesOf<P> = P extends { readonly subscriptions?: infer S } ? NeededBy<S> : never
-// Apart, so that a program without `subscriptions`, whose `S` reads back as `unknown`, needs none, while one whose
-// subscriptions need `unknown` keeps it: either would be read as `never`, and run without the services.
-type NeededBy<S> = S extends Subscriptions<any, any, infer R, any> ? R : never
+export type SubscriptionServicesOf<P> = P extends { readonly subscriptions: Subscriptions<any, any, infer R, any> } ? R
+  : never

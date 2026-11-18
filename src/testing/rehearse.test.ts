@@ -222,6 +222,7 @@ describe('rehearse', () => {
     const plain = {
       init: { state: { count: 0 } },
       update: () => ({ count }: Readonly<{ count: number }>) => ({ state: { count: count + 1 } }),
+      subscriptions: () => HashMap.empty(),
       makeModel: ({ count }: Readonly<{ count: number }>) => count,
     }
     expect(await Effect.runPromise(rehearse(plain, (rehearsal) => rehearsal.state))).toEqual({ count: 0 })
@@ -232,6 +233,7 @@ describe('rehearse', () => {
     const counting: Program<{ state: Count; model: number; message: 'Increment' }> = {
       init: { state: { count: 0 } },
       update: () => ({ count }) => ({ state: { count: count + 1 } }),
+      subscriptions: () => HashMap.empty(),
       makeModel: ({ count }) => count,
     }
     const rehearsed = rehearse(
@@ -1399,6 +1401,7 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
         init: { state: { still: true }, commands: ['First'] },
         update: () => (state: Still) => ({ state }),
         runCommand: () => diesThenDiesInItsRelease,
+        subscriptions: () => HashMap.empty(),
         makeModel: (state: Still) => state,
       },
       (rehearsal) => rehearsal.run(() => true),
@@ -1429,6 +1432,7 @@ describe('rehearse, as the release of what died lets another fiber die', () => {
               Deferred.await(handed).pipe(Effect.andThen(Effect.suspend(() => Effect.die(caught))))
             ).pipe(Effect.andThen(Deferred.succeed(holding, undefined)), Effect.andThen(Effect.never))
             : Effect.die('first'),
+        subscriptions: () => HashMap.empty(),
         makeModel: (state) => state,
       }
       return yield* rehearse(program, Effect.fnUntraced(function*(rehearsal) {
@@ -1461,6 +1465,7 @@ describe('rehearse after the first defect', () => {
         return { state: { n: n + 1 } }
       },
       runCommand: () => Effect.die('boom'),
+      subscriptions: () => HashMap.empty(),
       makeModel: (state) => state,
     }
     const exit = await Effect.runPromiseExit(rehearse(program, (rehearsal) =>
@@ -1487,6 +1492,7 @@ describe('rehearse after the first defect', () => {
         if (died) late += 1
         return command === 'Die' ? Effect.die('boom') : Effect.succeedNone
       },
+      subscriptions: () => HashMap.empty(),
       makeModel: (state) => state,
     }
     const exit = await Effect.runPromiseExit(rehearse(
@@ -1515,6 +1521,7 @@ test(quitting, async () => {
       init: { state: { still: true }, commands: ['Boom'] },
       update: () => (state: Still) => ({ state }),
       runCommand: () => Effect.addFinalizer(() => Effect.interrupt).pipe(Effect.andThen(Effect.die('boom'))),
+      subscriptions: () => HashMap.empty(),
       makeModel: (state: Still) => state,
     },
     (rehearsal) => rehearsal.run(() => true),
@@ -1594,6 +1601,7 @@ describe('rehearse, as a fiber of the test\'s runs a command while it ends', () 
           ran.push(command)
           return Effect.succeedSome<Counted>('Answered')
         },
+        subscriptions: () => HashMap.empty(),
         makeModel: (state) => state,
       }
       yield* Effect.exit(rehearse(program, Effect.fnUntraced(function*(rehearsal) {
@@ -1631,6 +1639,7 @@ describe('rehearse, as a call is interrupted between what it took and the loop',
           Effect.as(Opt.some<Answered>('Answered')),
         )
       },
+      subscriptions: () => HashMap.empty(),
       makeModel: (state) => state,
     }
     const exit = yield* Effect.exit(rehearse(program, Effect.fnUntraced(function*(rehearsal) {
@@ -1804,6 +1813,7 @@ describe('rehearse, as a fiber of the test\'s has sent a message when the scenar
         return { state: { count: count + 1 }, commands: ['Fetch'] }
       },
       runCommand: () => Effect.succeedNone,
+      subscriptions: () => HashMap.empty(),
       makeModel: (state) => state,
     }
     const exit = await Effect.runPromiseExit(rehearse(
@@ -1822,6 +1832,7 @@ describe('rehearse, as a fiber of the test\'s has sent a message when the scenar
         applied += 1
         return { state: { count: count + 1 } }
       },
+      subscriptions: () => HashMap.empty(),
       makeModel: (state) => state,
     }
     const exit = await Effect.runPromiseExit(rehearse(
@@ -1954,6 +1965,7 @@ describe('rehearse, as a run is interrupted while its command runs', () => {
         Effect.andThen(Deferred.succeed(started, undefined), Effect.never).pipe(
           Effect.ensuring(Effect.sync(() => log.push('released'))),
         ),
+      subscriptions: () => HashMap.empty(),
       makeModel: (state) => state,
     }
     await Effect.runPromiseExit(rehearse(program, Effect.fnUntraced(function*(rehearsal) {
@@ -2103,6 +2115,7 @@ describe('rehearse, interrupted by whoever runs it as it sets up', () => {
   const program: Program<{ state: Count; model: Count; message: 'Tick' }> = {
     init: { state: { count: 0 } },
     update: () => (state) => ({ state: { count: state.count + 1 } }),
+    subscriptions: () => HashMap.empty(),
     makeModel: (state) => state,
   }
   // The rehearsal yields at its `step`th step, where a fiber of the caller's interrupts it, and no fiber it forked

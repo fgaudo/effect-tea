@@ -18,17 +18,16 @@ import { type Dispatch, forwardTo } from './dispatch.ts'
 import { program } from './compose.ts'
 import { CompositionDefect, compositionDefect } from './defect.ts'
 import type { Written } from './input.ts'
-import {
-  type CommandOf,
-  type CommandServicesOf,
-  type EventOf,
-  type ExternalOf,
-  type FlagsOf,
-  type MessageOf,
-  type ModelOf,
-  type Program,
-  subscriptionsOf,
-  type SubscriptionServicesOf,
+import type {
+  CommandOf,
+  CommandServicesOf,
+  EventOf,
+  ExternalOf,
+  FlagsOf,
+  MessageOf,
+  ModelOf,
+  Program,
+  SubscriptionServicesOf,
 } from './program.ts'
 import { type Frame, run } from './run.ts'
 import { drive } from './testing/drive.ts'
@@ -91,6 +90,7 @@ const counter: Program<{
     }
   },
   runCommand: () => Effect.succeedSome(CounterMessage.Saved()),
+  subscriptions: () => HashMap.empty(),
   makeModel: (state) => ({
     count: state.count,
     increment: CounterMessage.Increment(),
@@ -279,6 +279,7 @@ describe('compose', () => {
       init: { state: { pings: 0 } },
       update: () => (state) => ({ state, commands: ['Pong'], events: ['Pinged'] }),
       runCommand: () => Effect.succeedNone,
+      subscriptions: () => HashMap.empty(),
       makeModel: (state) => state.pings,
     }
     type Pinged = Readonly<{ pinger: Pinger; heard: number }>
@@ -352,7 +353,7 @@ describe('compose', () => {
     tested.makeModel(tested.init.state)
     expect(handles).toEqual(['Ticker'])
     expect(models).toEqual(['Ticker'])
-    expect(Arr.fromIterable(HashMap.keys(subscriptionsOf(tested)(noTicks)))).toEqual([['Ticker', 'ticks']])
+    expect(Arr.fromIterable(HashMap.keys(tested.subscriptions(noTicks)))).toEqual([['Ticker', 'ticks']])
   })
 
   test('the model of a child that is not there is a defect', () => {
@@ -373,8 +374,18 @@ describe('compose', () => {
     expect(thrown).toMatchObject({ _tag: 'CompositionDefect', child: 'Right' })
   })
 
+  test('a program made without subscriptions listens to nothing, in any state', () => {
+    const silent = program<{ state: Ticks; message: Tick }>().make({
+      init: { state: noTicks },
+      update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
+      makeModel: ({ ticks }) => ticks,
+    })
+    expect(HashMap.isEmpty(silent.subscriptions(noTicks))).toBe(true)
+    expect(HashMap.isEmpty(silent.subscriptions({ ticks: 3 }))).toBe(true)
+  })
+
   test('a child listens under its name, and only when subscribed', () => {
-    const subscriptions = app.subscriptions ?? (() => HashMap.empty())
+    const { subscriptions } = app
     expect(HashMap.size(subscriptions(app.init.state))).toBe(0)
     const keys = Array.from(
       HashMap.keys(subscriptions({ ...app.init.state, maybeRight: Opt.some(counter.init.state) })),
@@ -594,7 +605,7 @@ describe('children by id', () => {
       onEvent: {},
       makeModel: () => null,
     })
-    expect(() => subscriptionsOf(twice)(twice.init.state))
+    expect(() => twice.subscriptions(twice.init.state))
       .toThrow(compositionDefect({
         message: 'The subscribed children of "Tickers" list the same id twice',
         child: 'Tickers',
@@ -624,7 +635,7 @@ describe('children by id', () => {
       id: 7,
     })
     expect(() => counting.makeModel(counting.init.state)).toThrow(defect)
-    expect(() => subscriptionsOf(counting)(counting.init.state)).toThrow(defect)
+    expect(() => counting.subscriptions(counting.init.state)).toThrow(defect)
   })
 
   // Rows of tickers, each in a state of its own; `calls` counts the calls of the ticker's `subscriptions`.
@@ -648,7 +659,7 @@ describe('children by id', () => {
       },
       makeModel: () => null,
     })
-    return { counted, subscriptions: subscriptionsOf(tickers) }
+    return { counted, subscriptions: tickers.subscriptions }
   }
 
   test('a child\'s subscriptions are kept while its state is the same object, and made again for a new one', () => {
@@ -745,6 +756,7 @@ describe('what a parent can do with a child', () => {
   }> = {
     init: { state: { menu: true } },
     update: () => (state) => state.menu ? { state: { menu: false } } : { state, events: [{ _tag: 'LeaveRequested' }] },
+    subscriptions: () => HashMap.empty(),
     makeModel: () => null,
   }
   type Pages = Readonly<{ page: Opt.Option<Page> }>
@@ -838,6 +850,7 @@ describe('what a parent can do with a child', () => {
     const raising = {
       init: { state: noTicks },
       update: (_: Tick) => (state: Ticks) => ({ state, events: [{ _tag: 'Beeped' }] }),
+      subscriptions: () => HashMap.empty(),
       makeModel: ({ ticks }: Ticks) => ticks,
     }
     const Unheard = program<{ state: Ticks }>()
@@ -855,6 +868,7 @@ describe('what a parent can do with a child', () => {
     const saving = {
       init: { state: noTicks, commands: [{ _tag: 'Save' as const }] },
       update: (_: Tick) => (state: Ticks) => ({ state }),
+      subscriptions: () => HashMap.empty(),
       makeModel: ({ ticks }: Ticks) => ticks,
     }
     const thrown = (run: () => unknown) => {
@@ -902,7 +916,7 @@ describe('what a parent can do with a child', () => {
       subscriptions: () => HashMap.make([['Ticker', 'ticks'] as const, ticks]),
       makeModel: () => null,
     })
-    expect(() => subscriptionsOf(clashing)(noTicks))
+    expect(() => clashing.subscriptions(noTicks))
       .toThrow(compositionDefect({
         message: 'An own subscription key is the key of a subscription of "Ticker"',
         child: 'Ticker',
@@ -1029,6 +1043,7 @@ describe('steps that add up', () => {
     init: { state: { left: false } },
     update: () => () => ({ state: { left: true }, commands: ['Forget'], events: [{ _tag: 'Left' }] }),
     runCommand: () => Effect.succeedNone,
+    subscriptions: () => HashMap.empty(),
     makeModel: () => null,
   }
   type Home = Readonly<{ page: Readonly<{ left: boolean }> }>
@@ -1371,6 +1386,7 @@ describe('what the types reject', () => {
   const plain = {
     init: { state: noTicks },
     update: (message: Tick) => ({ ticks }: Ticks) => message._tag === 'Tick' ? { state: { ticks: ticks + 1 } } : reject,
+    subscriptions: () => HashMap.empty(),
     makeModel: ({ ticks }: Ticks) => ticks,
   }
 
@@ -1379,6 +1395,7 @@ describe('what the types reject', () => {
     const counting = {
       init: { state: 0 },
       update: () => (count: number) => ({ state: count + 1 }),
+      subscriptions: () => HashMap.empty(),
       makeModel: (count: number) => count,
     }
     // @ts-expect-error: a number is no object.
@@ -1401,9 +1418,27 @@ describe('what the types reject', () => {
     expect([typed, counting]).toHaveLength(2)
   })
 
+  test('a program written as an object has subscriptions, even when it listens to nothing', () => {
+    const silent = {
+      init: { state: noTicks },
+      update: () => ({ ticks }: Ticks) => ({ state: { ticks: ticks + 1 } }),
+      makeModel: ({ ticks }: Ticks) => ticks,
+    }
+    // @ts-expect-error: only `make` fills in the subscriptions of a program that has none.
+    const typed: Program<{ state: Ticks; model: number; message: Tick }> = silent
+    // @ts-expect-error: so `run` does not take it either.
+    expect(run(silent, () => Effect.void)).toBeDefined()
+    expect([typed, silent]).toHaveLength(2)
+  })
+
   test('a state without fields holds a number too: refused as written, by make, and where a program is a child', () => {
     type Empty = Record<never, never>
-    const empty = { init: { state: {} }, update: () => (state: Empty) => ({ state }), makeModel: () => null }
+    const empty = {
+      init: { state: {} },
+      update: () => (state: Empty) => ({ state }),
+      subscriptions: () => HashMap.empty(),
+      makeModel: () => null,
+    }
     // @ts-expect-error: a type without fields holds a number too.
     const typed: Program<{ state: Empty; model: null; message: never }> = empty
     // @ts-expect-error: so a program written as an object does not run with it.
@@ -1471,6 +1506,7 @@ describe('what the types reject', () => {
     const resettable: Program<{ state: Ticks; model: number; message: Tick | Reset; external: Reset }> = {
       init: { state: noTicks },
       update: (message) => ({ ticks }) => ({ state: { ticks: message._tag === 'Tick' ? ticks + 1 : 0 } }),
+      subscriptions: () => HashMap.empty(),
       makeModel: ({ ticks }) => ticks,
     }
     const { child, make } = program<{ state: Ticks; command: 'Load'; message: 'Loaded' }>()
@@ -1501,6 +1537,7 @@ describe('what the types reject', () => {
     const resettable: Program<{ state: Ticks; model: number; message: Tick | Reset; external: Reset }> = {
       init: { state: noTicks },
       update: (message) => ({ ticks }) => ({ state: { ticks: message._tag === 'Tick' ? ticks + 1 : 0 } }),
+      subscriptions: () => HashMap.empty(),
       makeModel: ({ ticks }) => ticks,
     }
     type Wrapped<M> = Readonly<{ _tag: 'Counter'; message: M }>
@@ -1596,6 +1633,7 @@ describe('what the types reject', () => {
     const resettable: Program<{ state: Ticks; model: number; message: Tick | Reset; external: Reset }> = {
       init: { state: noTicks },
       update: (message) => ({ ticks }) => ({ state: { ticks: message._tag === 'Tick' ? ticks + 1 : 0 } }),
+      subscriptions: () => HashMap.empty(),
       makeModel: ({ ticks }) => ticks,
     }
     const counter = <M>() => {
@@ -1661,6 +1699,7 @@ describe('what the types reject', () => {
     const resetting: Program<{ state: Ticks; model: number; message: Tick; external: Reset }> = {
       init: { state: noTicks },
       update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
+      subscriptions: () => HashMap.empty(),
       makeModel: ({ ticks }) => ticks,
     }
     const Wrapper = program<{ state: Ticks; external: Reset; message: Tick }>()
@@ -1706,6 +1745,7 @@ describe('what the types reject', () => {
     const unknowing: Program<{ state: Ticks; model: number; message: Tick; flags: unknown }> = {
       init: () => ({ state: noTicks }),
       update: () => (state) => ({ state }),
+      subscriptions: () => HashMap.empty(),
       makeModel: ({ ticks }) => ticks,
     }
     const thunk = { ...plain, init: () => ({ state: noTicks }) }
@@ -1737,6 +1777,7 @@ describe('what the types reject', () => {
     const telling: Program<{ state: Ticks; model: number; message: Tick; event: unknown }> = {
       init: { state: noTicks },
       update: () => (state) => ({ state, events: [state.ticks] }),
+      subscriptions: () => HashMap.empty(),
       makeModel: ({ ticks }) => ticks,
     }
     const { child, make } = program<{ state: Ticks }>()
@@ -1786,6 +1827,7 @@ describe('what the types reject', () => {
       update: (_: Tick) => (state: Ticks) =>
         state.ticks > 0 ? { state, commands: ['Save' as const] } : { state: { ticks: 1 } },
       runCommand: () => Effect.succeedNone,
+      subscriptions: () => HashMap.empty(),
       makeModel: ({ ticks }: Ticks) => ticks,
     }
     const { child, make } = program<{ state: Ticks }>()
@@ -1817,6 +1859,7 @@ describe('what the types reject', () => {
     const gone = {
       init: { state: noTicks },
       update: (_: Tick) => (state: Ticks) => ({ state, events: [{ _tag: 'Gone' } as Gone] }),
+      subscriptions: () => HashMap.empty(),
       makeModel: ({ ticks }: Ticks) => ticks,
     }
     const Silent = program<{ state: Ticks; event: Readonly<{ _tag: 'Other' }> }>()
@@ -1938,7 +1981,10 @@ describe('what the types reject', () => {
     const untyped = Leaf.make({ ...base, runCommand: () => loose })
     const unknowing = Leaf.make({ ...base, runCommand: () => Effect.succeedNone as Execution<Tick, unknown> })
     const unheard = program<{ state: Ticks; message: Tick }>().make({ ...base, subscriptions: () => loose })
-    const declared: Program<{ state: Ticks; model: null; message: Tick; subscriptionServices: unknown }> = base
+    const declared: Program<{ state: Ticks; model: null; message: Tick; subscriptionServices: unknown }> = {
+      ...base,
+      subscriptions: () => HashMap.empty(),
+    }
     const commands: Exactly<CommandServicesOf<typeof untyped>, unknown> = true
     const unknownCommands: Exactly<CommandServicesOf<typeof unknowing>, unknown> = true
     const subscriptions: Exactly<SubscriptionServicesOf<typeof unheard>, unknown> = true

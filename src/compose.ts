@@ -30,10 +30,9 @@ import {
   type Shape,
   startOf,
   type StateOf,
-  subscriptionsOf,
   type SubscriptionServicesOf,
 } from './program.ts'
-import type { Subscription, Subscriptions } from './subscription.ts'
+import type { Subscription } from './subscription.ts'
 import { appendStep, type Folded, reject, type Step, type Transition, type Update } from './update.ts'
 
 /**
@@ -253,6 +252,7 @@ type InputMessages<I> = {
 const inputProgram: AnyProgram = {
   init: { state: undefined },
   update: written,
+  subscriptions: () => HashMap.empty(),
   makeModel: (held: unknown) => held,
 }
 
@@ -700,10 +700,9 @@ const make = <
   }
   const subscriptionsAt = (place: Place, childState: unknown) =>
     HashMap.map(
-      subscriptionsOf(
-        childOf(place.name).program as Readonly<{ subscriptions?: Subscriptions<unknown, unknown, unknown, unknown> }>,
-      )(childState),
-      (subscription) => subscription.pipe(Channel.map(wrapMessage(place)), Channel.mapDone(wrapMessage(place))),
+      childOf(place.name).program.subscriptions(childState),
+      (subscription: Subscription<unknown, unknown>) =>
+        subscription.pipe(Channel.map(wrapMessage(place)), Channel.mapDone(wrapMessage(place))),
     )
   // `subscriptions` is pure, as `makeModel` is: a child's, lifted under its place, are kept by its state object, for
   // every run of this parent, at the places that object held in the last call that met it, in their order. So

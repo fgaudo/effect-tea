@@ -438,7 +438,11 @@ const generateHand = (c: HandCase): string => {
         : "    runCommand: (command) => Effect.succeedSome({ _tag: 'Inc' } as const),",
     )
   }
-  if (c.subs) lines.push("    subscriptions: (state) => state.n > 0 ? HashMap.make(['own', feed]) : HashMap.empty(),")
+  lines.push(
+    c.subs
+      ? "    subscriptions: (state) => state.n > 0 ? HashMap.make(['own', feed]) : HashMap.empty(),"
+      : '    subscriptions: () => HashMap.empty(),',
+  )
   lines.push('    makeModel: (state) => ({ count: state.n }),')
   lines.push('  }')
   const expected: Record<string, string> = {
@@ -653,6 +657,7 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
     body: `  const made: Program<{ state: SNone; model: MNone; message: Own; evnt: Ev }> = {
     init: { state: { n: 0 } },
     update: () => (state) => ({ state }),
+    subscriptions: () => HashMap.empty(),
     makeModel: (state) => ({ count: state.n }),
   }
   const event: Exactly<EventOf<typeof made>, never> = true

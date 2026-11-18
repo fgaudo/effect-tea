@@ -9,25 +9,24 @@
 // A program, the types read back from one, and a program composed of children and inputs. The types in the signatures
 // of the API are exported too, all but those their module keeps to itself: a package that exports what the API
 // returns names them in its declarations (`tools/api-report.ts`).
-export {
-  type AnyProgram,
-  type CommandOf,
-  type CommandServicesOf,
-  type EventOf,
-  type ExternalOf,
-  type Field,
-  type FlagsOf,
-  type FlagsOption,
-  type Init,
-  type Interpreter,
-  type MessageOf,
-  type ModelOf,
-  type ObjectState,
-  type Program,
-  type Shape,
-  type StateOf,
-  subscriptionsOf,
-  type SubscriptionServicesOf,
+export type {
+  AnyProgram,
+  CommandOf,
+  CommandServicesOf,
+  EventOf,
+  ExternalOf,
+  Field,
+  FlagsOf,
+  FlagsOption,
+  Init,
+  Interpreter,
+  MessageOf,
+  ModelOf,
+  ObjectState,
+  Program,
+  Shape,
+  StateOf,
+  SubscriptionServicesOf,
 } from './program.ts'
 export {
   type Child,

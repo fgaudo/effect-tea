@@ -13,7 +13,7 @@ rules where a line here says less.
 
 | Word        | What it is                                                                                               | Defined in                                        |
 | ----------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| **Program** | A plain object: `init`, `update` and `makeModel`, with `runCommand` and `subscriptions` when it has them | [anatomy of a program](./anatomy-of-a-program.md) |
+| **Program** | A plain object: `init`, `update`, `makeModel`, `subscriptions`, and `runCommand` when it has commands    | [anatomy of a program](./anatomy-of-a-program.md) |
 | **State**   | What the program knows. Always an object, replaced and never mutated                                     | [anatomy of a program](./anatomy-of-a-program.md) |
 | **Message** | What `update` is given: a click the model holds, a command's answer, what a subscription sends           | [update](./update.md)                             |
 | **Step**    | What `update` returns for a message it accepts: `{ state, commands?, events? }`                          | [update](./update.md)                             |

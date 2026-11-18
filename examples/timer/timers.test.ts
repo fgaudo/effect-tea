@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { reject, subscriptionsOf } from '@fgaudo/effect-tea'
+import { reject } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations } from '@fgaudo/effect-tea/testing'
 import * as HashMap from 'effect/HashMap'
 import * as fc from 'fast-check'
@@ -84,7 +84,7 @@ describe('timers', () => {
 
   test('only running timers tick, each under its own key', () => {
     const { state } = applyAll(timers.update)([added, to(2, { _tag: 'StartClicked' })], timers.init.state)
-    expect(Array.from(HashMap.keys(subscriptionsOf(timers)(state)))).toEqual([['Timer', 2, 'ticks']])
+    expect(Array.from(HashMap.keys(timers.subscriptions(state)))).toEqual([['Timer', 2, 'ticks']])
   })
   // #endregion update
 

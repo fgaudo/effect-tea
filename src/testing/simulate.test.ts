@@ -36,7 +36,7 @@ describe('simulate', () => {
       (total) => Opt.some<Flow>({ _tag: 'Saved', total }),
     )
 
-  const saving = { update: flow, runCommand: store }
+  const saving = { update: flow, runCommand: store, subscriptions: () => HashMap.empty() }
 
   const idle: Saving = { isSaving: false, saved: 0 }
 
@@ -66,7 +66,11 @@ describe('simulate', () => {
   })
 
   test('a test\'s own interpreter answers the commands, with no services', async () => {
-    const answered = { update: flow, runCommand: () => Effect.succeedSome<Flow>({ _tag: 'Saved', total: 3 }) }
+    const answered = {
+      update: flow,
+      runCommand: () => Effect.succeedSome<Flow>({ _tag: 'Saved', total: 3 }),
+      subscriptions: () => HashMap.empty(),
+    }
     const simulation = await Effect.runPromise(simulate(answered)([{ _tag: 'Save' }], { state: idle }))
     expect(simulation.state).toEqual({ isSaving: false, saved: 3 })
   })
@@ -97,7 +101,9 @@ describe('simulate', () => {
       message === 'Start' ? { state, commands: ['A'] } : message === 'First' ? { state, commands: ['B'] } : { state }
     const runCommand: RunCommand<'A' | 'B', Step, Scope.Scope> = (command) =>
       resource(command).pipe(Effect.as(Opt.some<Step>(command === 'A' ? 'First' : 'Second')))
-    const simulation = await Effect.runPromise(simulate({ update: chained, runCommand })(['Start'], { state: {} }))
+    const simulation = await Effect.runPromise(
+      simulate({ update: chained, runCommand, subscriptions: () => HashMap.empty() })(['Start'], { state: {} }),
+    )
     expect(simulation.messages).toEqual(['Start', 'First', 'Second'])
     expect(log).toEqual(['acquire A', 'release A', 'acquire B', 'release B'])
   })
@@ -129,10 +135,17 @@ describe('simulate', () => {
     expect(commands).toBe(true)
   })
 
+  test('takes the subscriptions of a program as well as its update', () => {
+    const counting: Update<Saving, 'Increment'> = () => (state) => ({ state })
+    // @ts-expect-error: it reads the subscriptions on each new state.
+    expect(simulate({ update: counting })).toBeDefined()
+    expect(simulate({ update: counting, subscriptions: () => HashMap.empty() })).toBeDefined()
+  })
+
   test('takes only a program that keeps its state in an object', () => {
     const counting: Update<number, 'Increment'> = () => (count) => ({ state: count + 1 })
     // @ts-expect-error: a number is no object.
-    expect(simulate({ update: counting })).toBeDefined()
+    expect(simulate({ update: counting, subscriptions: () => HashMap.empty() })).toBeDefined()
   })
 
   test('a rejection of one of the messages fails, naming it', async () => {

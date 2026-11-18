@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { InvariantDefect, ProgramDefect, subscriptionsOf } from '@fgaudo/effect-tea'
+import { InvariantDefect, ProgramDefect } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations, drive } from '@fgaudo/effect-tea/testing'
 import * as Arr from 'effect/Array'
 import * as Cause from 'effect/Cause'
@@ -161,7 +161,7 @@ describe('bounce', () => {
 
   test('listens to the screen exactly while the ball flies', () => {
     fc.assert(fc.property(state, (before) => {
-      expect(Arr.fromIterable(HashMap.keys(subscriptionsOf(bounce)(before)))).toEqual(flying(before) ? ['steps'] : [])
+      expect(Arr.fromIterable(HashMap.keys(bounce.subscriptions(before)))).toEqual(flying(before) ? ['steps'] : [])
     }))
   })
 
@@ -169,7 +169,7 @@ describe('bounce', () => {
   // control sends it, so only a rejection is asked of it.
   test('update accepts what each key it listens to sends', () => {
     fc.assert(fc.property(state, (before) => {
-      const heard = Arr.flatMap(Arr.fromIterable(HashMap.keys(subscriptionsOf(bounce)(before))), heardFrom)
+      const heard = Arr.flatMap(Arr.fromIterable(HashMap.keys(bounce.subscriptions(before))), heardFrom)
       expect(dispatchViolations(update, { state: before, held: heard, repeatable: () => true })).toEqual([])
     }))
   })
@@ -177,7 +177,7 @@ describe('bounce', () => {
   // The subscription itself, from the state, with frames half a step apart: it sends a step for every second frame,
   // none for a frame that adds less than `dt`, and tells the renderer how far into the next step it is after each.
   test('the subscription sends a step for each whole dt of the screen\'s frames, and none for less', async () => {
-    const steps = Opt.getOrThrow(HashMap.get(subscriptionsOf(bounce)(bounce.init({ dt: 20 }).state), 'steps'))
+    const steps = Opt.getOrThrow(HashMap.get(bounce.subscriptions(bounce.init({ dt: 20 }).state), 'steps'))
     const sent: Array<Message> = []
     const leads: Array<Lead> = []
     const screen = Screen.of({

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { forwardTo, reject, run, subscriptionsOf } from '@fgaudo/effect-tea'
+import { forwardTo, reject, run } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
@@ -97,12 +97,12 @@ describe('list', () => {
         Stopwatch.Watch.Stopped(),
         Stopwatch.Watch.Stopped(),
       ])
-      expect(HashMap.size(subscriptionsOf(list)(state))).toBe(0)
+      expect(HashMap.size(list.subscriptions(state))).toBe(0)
     })
 
     test('only running stopwatches tick, each under its own key', () => {
       const { state } = applyAll(list.update)([added, added, to(2, { _tag: 'Started' })], list.init.state)
-      expect(Array.from(HashMap.keys(subscriptionsOf(list)(state)))).toEqual([['Stopwatch', 2, 'ticks']])
+      expect(Array.from(HashMap.keys(list.subscriptions(state)))).toEqual([['Stopwatch', 2, 'ticks']])
     })
   })
 

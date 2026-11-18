@@ -20,7 +20,6 @@ import {
   runCommandOf,
   type Shape,
   startOf,
-  subscriptionsOf,
 } from '../program.ts'
 import { diesIn, makeDeaths, runSubscription, scopedIn, stopping as stopFiber } from '../shell.ts'
 import type { Subscription } from '../subscription.ts'
@@ -197,7 +196,7 @@ const rehearsing = Effect.fnUntraced(function*<
   const started = Core.init(yield* Effect.sync(() => startOf(program.init, flags)).pipe(diesIn('init')))
   type Now = Current<State, Message, Event>
   const runCommand = runCommandOf(program)
-  const subscriptions = subscriptionsOf(program)
+  const { subscriptions } = program
   // Each fiber of the rehearsal records the defects of the program it dies of, as the engine's fibers record theirs:
   // the loop, a command's, a subscription's. The run dies of the first, so the rehearsal fails with them at its end,
   // and what the test asks for after the first fails with them, as nothing happens in a run that died. The tool's own

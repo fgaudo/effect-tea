@@ -15,7 +15,7 @@ A program is a plain object, made with `program`. It has up to five pieces:
 - `update` says how each message changes the state.
 - `makeModel` says what the view draws.
 - `runCommand` is there when the program has commands.
-- `subscriptions` is there when the program listens to something.
+- `subscriptions` says what the program listens to in each state.
 
 The view is not part of the program.
 
@@ -93,7 +93,7 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
 
 ## Precisely
 
-**What does not compile.** The compiler refuses three kinds of program. Each kind is refused in the places below:
+**What does not compile.** The compiler refuses four kinds of program. Each kind is refused in the places below:
 
 - A state that is a number or a string. It is refused by `Program<…>` and `program`, by `child` and `childById`, by
   `run`, and by `simulate`, `rehearse` and `drive`.
@@ -106,6 +106,9 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
 - `external` messages that are not among the program's `message`s. A program written as an object is refused when it
   is typed `Program<…>`. `program` and `make` accept such messages. The program that `make` returns is refused when it
   becomes a child, by `child` and `childById`.
+- A program written as an object without `subscriptions`. It is refused when it is typed `Program<…>`, and when
+  `child`, `childById`, `run`, `rehearse` or `drive` takes it. `simulate` refuses the pieces of a program without
+  `subscriptions` too. `make` accepts a program without them, and the program it returns has them.
 
 **The types need `strict`.** The library's types are checked under the compiler option `strict` alone. Without
 `strictFunctionTypes`, which `strict` turns on, the compiler accepts programs that it should refuse. For example, it
@@ -117,9 +120,9 @@ interprets it.
 **A test makes a model as `run` does.** `run` makes the model of a frame with `program.makeModel(state)`. A test can
 call `program.makeModel` the same way, on any state.
 
-**What a program listens to.** `subscriptionsOf(program)(state)` is what the program listens to in `state`, by key.
-It is what `run` reconciles. For a program without `subscriptions`, it is empty. A parent lists the subscriptions of
-each child under `[<child>, key]`. For children by id, the parent lists them under `[<child>, id, key]` (see
+**What a program listens to.** `program.subscriptions(state)` is what the program listens to in `state`, by key.
+It is what `run` reconciles. For a program made without `subscriptions`, it is empty. A parent lists the subscriptions
+of each child under `[<child>, key]`. For children by id, the parent lists them under `[<child>, id, key]` (see
 [composition](./composition.md)).
 
 **A program with flags.** Its `init` is a function of the flags: `init: ({ id }) => ({ state, commands })`. Whoever

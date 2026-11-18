@@ -6,7 +6,7 @@ import * as Opt from 'effect/Option'
 import type * as Scope from 'effect/Scope'
 import * as Core from '../core.ts'
 import { describeByTag } from '../log.ts'
-import { type Interpreter, type ObjectState, runCommandOf, subscriptionsOf } from '../program.ts'
+import { type Interpreter, type ObjectState, runCommandOf } from '../program.ts'
 import { type Deaths, diesIn, makeDeaths, scopedIn, stopping } from '../shell.ts'
 import type { Subscriptions } from '../subscription.ts'
 import type { Step, Update } from '../update.ts'
@@ -49,8 +49,8 @@ export type Simulation<State, Message, Command = never, Event = never> = {
  * - It starts from the step it is given, and calls no `init`.
  * - A defect of the program fails it with the `ProgramDefect` the run dies with.
  *
- * @param program - The program, or the pieces of it a simulation calls: `update`, and `runCommand` and `subscriptions`
- * when it has them. Give it the program's own `runCommand`, with its services provided, or one of the test's that
+ * @param program - The program, or the pieces of it a simulation calls: `update`, `subscriptions`, and `runCommand`
+ * when it has commands. Give it the program's own `runCommand`, with its services provided, or one of the test's that
  * answers each command without any.
  * @returns A function of `messages`, the test's, and of `from`, the step to start from, e.g. the program's `init`. Its
  * effect runs the commands of `from`, then applies each message in turn, and succeeds with the {@link Simulation}.
@@ -68,14 +68,13 @@ export const simulate = <State, Message, Command, Event, R = never>(
   program:
     & Readonly<{ update: Update<State, Message, Command, Event> }>
     & Interpreter<Command, Message, R>
-    & Readonly<{ subscriptions?: Subscriptions<State, Message, unknown, unknown> }>
+    & Readonly<{ subscriptions: Subscriptions<State, Message, unknown, unknown> }>
     & ObjectState<State>,
 ) => {
   // What a simulation has made so far, but for its state, which `Listening` holds.
   type Current = Omit<Simulation<State, Message, Command, Event>, 'state'>
-  const { update } = program
+  const { update, subscriptions } = program
   const runCommand = runCommandOf(program)
-  const subscriptions = subscriptionsOf(program)
   // The current state, at its revision, and the keys of the state before, which a new state's are compared with.
   type Listening = { current: Core.Revisioned<State>; active: Core.Active<unknown> }
   // Read, never run, as the run reads them on each new state, and reconciled with those of the state before as the

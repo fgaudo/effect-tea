@@ -154,7 +154,7 @@ Three more facts hold for children and inputs:
   the child's state is the same object. So a renderer can skip redrawing it (see `thunk` in
   [`pages`](../../examples/pages/view.ts)). A number or a string has no identity by which a model could be kept. This
   is why a program's state is always an object.
-- **A test reads a child's subscriptions by key.** `HashMap.has(subscriptionsOf(app)(state), ['Clock', 'ticks'])`
+- **A test reads a child's subscriptions by key.** `HashMap.has(app.subscriptions(state), ['Clock', 'ticks'])`
   tells a test whether the Clock ticks.
 - **The rule of an input.** A write is stored while the input's place holds, by `Equal`, the value that the write was
   written over. Otherwise the write is rejected. Every other step leaves an input as that step wrote it.

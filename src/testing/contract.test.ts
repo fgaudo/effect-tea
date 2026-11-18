@@ -209,6 +209,7 @@ describe('the order of the answers of commands started together', () => {
         ? { state: { heard }, commands: ['A', 'B'] }
         : { state: { heard: [...heard, message.by] }, commands: message.by === 'A' ? ['C'] : [] },
     runCommand: (command) => Effect.succeedSome<Answer>({ _tag: 'Answered', by: command }),
+    subscriptions: () => HashMap.empty(),
     makeModel: (order) => order,
   }
 
@@ -642,6 +643,7 @@ describe('what the run dies of, and the tools fail on', () => {
     init: { state: { seen: 0 } },
     update: () => (state) => ({ state, commands: ['Quit'] }),
     runCommand: () => Effect.interrupt,
+    subscriptions: () => HashMap.empty(),
     makeModel: ({ seen }) => seen,
   }
 
@@ -973,6 +975,7 @@ describe('what the run dies of, and the tools fail on', () => {
   const seeded: Seeded = {
     init: (seen) => ({ state: { seen } }),
     update: () => (state) => ({ state: { seen: state.seen + 1 } }),
+    subscriptions: () => HashMap.empty(),
     makeModel: ({ seen }) => seen,
   }
   const throwing = (): never => {
@@ -989,6 +992,7 @@ describe('what the run dies of, and the tools fail on', () => {
     init: { state: { seen: 0 } },
     update: () => (state) => ({ state, commands: ['Explode'] }),
     runCommand: () => Effect.die(new Boom()),
+    subscriptions: () => HashMap.empty(),
     makeModel: ({ seen }) => seen,
   }
 
@@ -1085,6 +1089,7 @@ describe('what the run dies of, and the tools fail on', () => {
       Effect.scoped(Effect.addFinalizer(() => Effect.yieldNow).pipe(Effect.andThen(Effect.die(new Boom())))).pipe(
         Effect.catchCause(() => Effect.succeedSome<'Go' | 'Saved'>('Saved')),
       ),
+    subscriptions: () => HashMap.empty(),
     makeModel: ({ seen }) => seen,
   }
 
@@ -1120,6 +1125,7 @@ describe('what the run dies of, and the tools fail on', () => {
       message === 'Go' ? { state, commands: ['Save'] } : { state: { seen: state.seen + 1 } },
     runCommand: () =>
       Effect.addFinalizer(() => Effect.die(new Boom())).pipe(Effect.as(Opt.some<'Go' | 'Saved'>('Saved'))),
+    subscriptions: () => HashMap.empty(),
     makeModel: ({ seen }) => seen,
   }
 
@@ -1159,6 +1165,7 @@ describe('what the run dies of, and the tools fail on', () => {
       Effect.addFinalizer((exit) => Effect.andThen(Effect.sync(() => seen.push(...wheres(exit))), release)).pipe(
         Effect.andThen(body),
       ),
+    subscriptions: () => HashMap.empty(),
     makeModel: ({ seen }) => seen,
   })
   const tools = {
@@ -1336,6 +1343,7 @@ describe('a defect of makeModel', () => {
   const modeling: Program<{ state: Count; model: number; message: 'Go' }> = {
     init: { state: { count: 0 } },
     update: () => ({ count }) => ({ state: { count: count + 1 } }),
+    subscriptions: () => HashMap.empty(),
     makeModel: () => {
       throw new Error('boom')
     },
@@ -1499,6 +1507,7 @@ describe('a fiber of the test\'s that sends once the tool has ended', () => {
       applied.push(message)
       return { state: { count: count + 1 } }
     },
+    subscriptions: () => HashMap.empty(),
     makeModel: (state) => state,
   })
   // The fiber is forked in the test's own fiber, which outlives the tool: it sends once `ended` opens.
@@ -1556,6 +1565,7 @@ describe('a command whose runCommand is called as whoever runs the tool interrup
             begun = true
           })).pipe(Effect.andThen(Effect.never))
         },
+        subscriptions: () => HashMap.empty(),
         makeModel: ({ seen }) => seen,
       }
       const fiber = yield* Effect.forkChild(

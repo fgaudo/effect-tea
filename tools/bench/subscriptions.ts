@@ -8,7 +8,7 @@ import * as Channel from 'effect/Channel'
 import * as HashMap from 'effect/HashMap'
 import * as Num from 'effect/Number'
 import * as Opt from 'effect/Option'
-import { program, reject, type MessageOf, type Program, type StateOf, subscriptionsOf } from '../../src/index.ts'
+import { program, reject, type MessageOf, type Program, type StateOf } from '../../src/index.ts'
 
 type RowState = Readonly<{ seconds: number }>
 
@@ -57,7 +57,7 @@ const statesOf = (shared: boolean) => {
   return all
 }
 
-const subscriptions = subscriptionsOf(list)
+const subscriptions = list.subscriptions
 
 const round = (states: ReadonlyArray<StateOf<typeof list>>) => {
   const start = performance.now()

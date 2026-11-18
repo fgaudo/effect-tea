@@ -1,7 +1,7 @@
 // The messages of the pages are built by the test: the parent's are `{ _tag: <page>, message }`.
 import { describe, expect, test } from 'bun:test'
 import { applyAll, dispatchViolations, simulate } from '@fgaudo/effect-tea/testing'
-import { forwardTo, run, subscriptionsOf } from '@fgaudo/effect-tea'
+import { forwardTo, run } from '@fgaudo/effect-tea'
 import * as DateTime from 'effect/DateTime'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
@@ -69,7 +69,7 @@ const userMessages: ReadonlyArray<Message> = Object.values(
 
 /** The pages whose subscriptions run, from the keys the library namespaces (`['Clock', 'ticks']`). */
 const listening = (state: State) =>
-  Array.from(HashMap.keys(subscriptionsOf(app)(state))).flatMap((key) => Array.isArray(key) ? [key[0]] : [])
+  Array.from(HashMap.keys(app.subscriptions(state))).flatMap((key) => Array.isArray(key) ? [key[0]] : [])
 
 describe('pages', () => {
   describe('navigation', () => {
