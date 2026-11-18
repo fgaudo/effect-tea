@@ -41,7 +41,8 @@ as it was.
 **`defect` makes a bug loud.** [`form`](../../examples/form/form.ts) throws `defect` on a save that completes while
 nothing is saving. A rejection of that save would hide the bug.
 
-- The run dies as it dies with any defect (an `Effect.die`, a thrown error: broken code).
+- The run dies as it dies with any defect (an `Effect.die`, a thrown error: broken code). An `update` that throws an
+  error of its own ends the run the same way, and the `cause` is then that error.
 - The `InvariantDefect` lets a crash report tell a broken rule of the program from any other error.
 - Only `defect` makes an `InvariantDefect`, so that it means only this. A program reads one, as a test or a crash
   report does. The types refuse to build one, with `new` or with a class that extends it.
