@@ -284,3 +284,20 @@ time {
   font-size: 0.875rem;
   font-weight: 600;
 }
+
+/* Bounce: a court with a ball, placed by its height from the floor. */
+.court {
+  position: relative;
+  height: 16rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.ball {
+  position: absolute;
+  left: calc(50% - 1rem);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--accent);
+}

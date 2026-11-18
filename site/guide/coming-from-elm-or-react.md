@@ -65,7 +65,8 @@ program, outside the components.
 | A test that renders a component                | A test of `update` and of the model, without a DOM                                                                                       | [testing](./testing.md)                                                                            |
 
 Some things stay with the platform. A hover, an animation or the focus that the platform keeps by itself is not a state
-of the program (see [structuring a program](./structuring-a-program.md#model-and-view)).
+of the program (see [structuring a program](./structuring-a-program.md#model-and-view)). An animation that the program
+decides by is state, and moves by equal steps (see the same section).
 
 The examples' bridge to React leaves out a component with state or effects of its own, Suspense, a subtree that `memo`
 skips, and a portal (see [what is left out](./writing-a-bridge.md#what-is-left-out)). The bridge is a file to copy and

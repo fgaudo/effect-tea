@@ -47,6 +47,20 @@ them.
   itself is not a state of the program. A state kept in a component of the renderer, beside the program's state, is
   neither supported nor advised (see [view](./view.md)). What the program decides stays in the program's state, and
   reaches the view as the model.
+- **An animation that the program decides by is state, and moves by equal steps.** A ball that bounces until it
+  rests, or the pieces of a game, are such animations: where they are changes what the program does. The program
+  holds the length of a step, `dt`, which it can take from its flags. A subscription sends one message for each step,
+  and a plain function of the state lists its key only while something moves. The message carries no time: each step
+  moves the state on by the same `dt`. So `update` stays deterministic, and a test replays a motion as a list of
+  steps.
+  - The subscription adds the time between two frames of the screen to an accumulator. It sends one step for each
+    whole `dt` in the accumulator, and keeps the rest. A limit on the time that one frame adds stops a long pause from
+    sending thousands of steps.
+  - The renderer draws between the step before and the current one, by the part of a step that the accumulator keeps.
+    This is the renderer's business: the model gives it both positions, and the state holds no clock.
+
+  The example [`bounce`](../../examples/bounce/bounce.ts) is written this way, with a renderer that draws between two
+  steps ([`interpolated.ts`](../../examples/bounce/interpolated.ts)).
 - **Input is never a reason to reject.** The input keeps what the user typed, whatever the program decides, and the
   library stores it (see [inputs the user types into](./inputs-the-user-types-into.md)). So no rule of the program
   rejects a value. Instead, put the validity of the value in the model, as data. For example, show "Save" only for a
