@@ -38,26 +38,22 @@ Here are two tests of a counter. The first test checks `update` with `applyAll`.
 `dispatchViolations`, for any count:
 
 ```ts
+// What the model holds: the messages of its controls, a case at a time, in the order the view draws them.
+const messagesOf = (model: Model): ReadonlyArray<Message> =>
+  model._tag === 'Counting' ? [model.decrement, model.increment] : [model.increment]
+
 test('counts up and down', () => {
-  expect(
-    applyAll(update)(['Increment', 'Increment', 'Decrement'], { count: 0 })
-      .state,
-  )
-    .toEqual({ count: 1 })
+  expect(applyAll(update)(['Increment', 'Increment', 'Decrement'], { count: 0 }).state).toEqual({ count: 1 })
 })
 
-// What the model holds: the messages of its controls, a case at a time.
-const messagesOf = (model: Model): ReadonlyArray<Message> =>
-  model._tag === 'Counting'
-    ? [model.increment, model.decrement]
-    : [model.increment]
-
-// For any count, the model and `update` agree both ways.
+// The model, for any count: every message it holds is accepted, and nothing `update` accepts is missing from
+// it. Both buttons are meant to repeat.
 test('the model holds what update accepts, all of it', () => {
+  const violations = dispatchViolations(update, { repeatable: () => true })
   fc.assert(fc.property(fc.nat(1_000), (count) => {
-    const held = messagesOf(counter.makeModel({ count }))
-    const check = dispatchViolations(update, { repeatable: () => true })
-    expect(check({ count }, held, ['Increment', 'Decrement'])).toEqual([])
+    const state = { count }
+    const held = messagesOf(counter.makeModel(state))
+    expect(violations(state, held, ['Increment', 'Decrement'])).toEqual([])
   }))
 })
 ```

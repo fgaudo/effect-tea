@@ -259,7 +259,8 @@ What the library promises about a running program is written down, in the guide'
 [guarantees](https://fgaudo.github.io/effect-tea/documents/Guide.Guarantees.html), and checked:
 
 - **Under random histories.** A property test draws clicks, command answers, subscription messages and ends, releases
-  and defects, in random orders, and checks the guarantees on each. It runs every day in the CI, from a new seed.
+  and defects, among others, in random orders, and checks the guarantees on each. The guarantees list all that it
+  draws. It runs every day in the CI, from a new seed.
 - **By mutation.** Each check a guarantee rests on is taken out of the engine, one at a time, and a test must fail
   without it.
 - **On two engines.** The tests run on JavaScriptCore, under Bun, and on V8, under Node.
@@ -284,6 +285,8 @@ entities on a server, whose state a database keeps. It is experimental, and not 
   that must catch the missing check passes.
 - `bun run interleavings` runs `src/interleaving.test.ts`, which `bun run test` leaves out. It searches random
   histories from a seed drawn on each run, and the CI runs it every day.
+- `bun run comments` checks the doc comments of `src/`, and that each section of the guide that they and the skill
+  name exists, once.
 - `bun run inference` checks the types of programs written in each way they can be, with each supported TypeScript.
   It runs by hand, after a change of the types of `src/program.ts` or `src/compose.ts`.
 

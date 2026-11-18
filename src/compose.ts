@@ -862,8 +862,8 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * Declares a child alone in its parent's state.
    *
    * The child lives where the optic `at` focuses, or where `get` and `set` put it. Where the optic focuses nothing,
-   * or `get` returns `None`, the child is not there. By default, the child's subscriptions run whenever the child is
-   * there.
+   * or `get` returns `None`, the child is not there, and a message for it is rejected. By default, the child's
+   * subscriptions run whenever the child is there.
    *
    * @param program - The child.
    * @param place - Where the child lives, and `subscribed`, a function of the parent's state. `subscribed` gives the

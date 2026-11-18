@@ -142,8 +142,9 @@ Each bridge is small enough to copy, and worth copying for your own. Each bridge
 - has the element of each input: `shows` with snabbdom, `Shows` with React.
 
 [`counter`](../../examples/counter) and [`form`](../../examples/form) draw their programs with the bridge to snabbdom
-and with the bridge to React, one under the other. Both bridges draw the frames of one run. React Native's bridge is
-written the same way. The sections above show how to write a bridge for any renderer, from the bridge to snabbdom.
+and with the bridge to React, one under the other. Both bridges draw the frames of one run. A bridge to React Native
+would be written the same way, but the repository has none. The sections above show how to write a bridge for any
+renderer, from the bridge to snabbdom.
 
 ### What is left out
 

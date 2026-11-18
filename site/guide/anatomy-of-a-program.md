@@ -87,18 +87,23 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
 - **Its state is always an object**: `{ count }` rather than `count`. So any program can become a child as it is (see
   [composition](./composition.md)).
 - **The view is not part of it.** `run` hands your renderer a stream of **frames**, each `{ model, dispatch, seen }`.
-  The renderer draws the frames however it likes (see [view](./view.md)).
+  The library does not say how the renderer draws them. What the renderer must keep to is in [view](./view.md).
 - **A program that cannot start the same way every time declares `flags`**, as in Elm. For example, a page that shows
   the product it was opened for declares flags.
 
 ## Precisely
 
-**What does not compile.** A program does not compile in these cases:
+**What does not compile.** The compiler refuses three kinds of program. Each kind is refused in the places below:
 
-- Its state is a number or a string.
-- Its state is a type without fields, such as `{}`. Such a type holds a number too. A state without fields is an
-  `object`.
-- Its `external` messages are not among its `message`s.
+- A state that is a number or a string. It is refused by `Program<…>` and `program`, by `child` and `childById`, by
+  `run`, and by `simulate`, `rehearse` and `drive`.
+- A state whose type has no fields, such as `{}`. Such a type holds a number too, so name the type of a state without
+  fields `object`. A program written as an object is refused when it is typed `Program<…>`, and when `child`,
+  `childById`, `run`, `simulate`, `rehearse` or `drive` takes it. `program` and `make` accept such a state. The program
+  that `make` returns is refused when it becomes a child, by `child` and `childById`.
+- `external` messages that are not among the program's `message`s. A program written as an object is refused when it
+  is typed `Program<…>`. `program` and `make` accept such messages. The program that `make` returns is refused when it
+  becomes a child, by `child` and `childById`.
 
 **`runCommand` is required exactly when the program has commands.** So every command has a `runCommand` that
 interprets it.

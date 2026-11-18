@@ -51,6 +51,8 @@ export const reject: unique symbol = Symbol.for('@fgaudo/effect-tea/Rejected')
  * const result = update(message)(state)
  * if (result === reject) return
  * ```
+ *
+ * @see The guide, "Update", "In short".
  */
 export type Rejected = typeof reject
 
@@ -62,6 +64,8 @@ export type Rejected = typeof reject
  * const decrement = (state: State): Transition<State> =>
  *   state.count === 0 ? reject : { state: { count: state.count - 1 } }
  * ```
+ *
+ * @see The guide, "Update", "In short".
  */
 export type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected
 

@@ -51,7 +51,8 @@ them.
   library stores it (see [inputs the user types into](./inputs-the-user-types-into.md)). So no rule of the program
   rejects a value. Instead, put the validity of the value in the model, as data. For example, show "Save" only for a
   name that is not blank. A control whose bounds narrow below what the user gives it is drawn by the program. The
-  moves of that control are messages, and `update` puts them within the bounds it holds.
+  moves of that control are messages, and `update` puts each move within the bounds that the state holds when the move
+  arrives.
 
 ## Splitting a program
 
@@ -67,7 +68,7 @@ program of its own. Split a program this way:
 - **Children that read each other's state are one child**, whatever the size of that child. When a parent grows logic
   between two siblings, this is a sign that the two siblings are one child.
 - **Not every part is a child.** These parts are not children:
-  - a part whose controls the parent would enable from its state;
+  - a part whose controls the parent would enable from the parent's own state;
   - a part whose state the parent would copy down and back up.
 
   A value that the user writes and the parent reads is an input of the parent. Where the user writes one value into

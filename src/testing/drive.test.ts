@@ -207,6 +207,27 @@ describe('drive', () => {
     expect(defect instanceof ProgramDefect && String(defect.cause)).toContain('boom')
   })
 
+  test('a defect of what the program releases as it stops comes first, before what the scenario failed with', async () => {
+    const exit = await Effect.runPromiseExit(drive(
+      noteProgram(Effect.die('release')),
+      Effect.fnUntraced(function*(driver) {
+        yield* driver.waitFor((model) => model.note.pings === 1 ? Opt.some(true) : Opt.none())
+        return yield* Effect.fail('scenario')
+      }),
+    ))
+    expect(
+      Exit.isFailure(exit)
+        ? exit.cause.reasons.map((reason) =>
+          Cause.isDieReason(reason) && reason.defect instanceof ProgramDefect
+            ? `${reason.defect.where}: ${String(reason.defect.cause)}`
+            : Cause.isFailReason(reason)
+            ? reason.error
+            : reason._tag
+        )
+        : [],
+    ).toEqual(['subscription: release', 'scenario'])
+  })
+
   // The run may not start the renderer at all, which `drive` gives the scenario its frames through.
   test('a subscription of init that dies fails a scenario waiting for a frame, before its patience', async () => {
     type Still = Readonly<{ still: boolean }>

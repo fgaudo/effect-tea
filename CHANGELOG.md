@@ -50,9 +50,9 @@ version, and everything else, features included, the patch version.
 
 ### Changed
 
-- The guide, the tutorial, the README and the doc comments are reworded in plainer English, with the same promises;
-  several pages of the guide have a "Do and don't" section, the guide's index is a map of the pages, and the glossary
-  has seventeen more words. These sections of the guide are renamed, old → new:
+- The guide, the tutorial, the README and the doc comments are reworded in plainer English, with the same promises.
+  Twelve pages of the guide have a "Do and don't", its index is a map of the pages, and its glossary has eighteen
+  more words. Sections of the guide renamed, old → new:
   - "Subscriptions": "A value that stays the same while the key is kept need not go into it" → "A value that stays the
     same while the key is kept can stay out of the key".
   - "Running": "What leaves the device is chosen there" → "The app around the run chooses what leaves the device";
@@ -61,8 +61,7 @@ version, and everything else, features included, the patch version.
     state that rejects it"; "By concern, never by kind" → "Split by concern, never by kind".
   - "Composition": "How it starts" → "How a child starts"; "When its subscriptions run: `subscribed`" → "When a
     child's subscriptions run: `subscribed`"; "Its own messages, commands and subscriptions," → "The parent's own
-    messages, commands and subscriptions"; "Its own types," → "The parent's own types"; "The parent's own flags," →
-    "The parent's own flags"; "Ids are compared by value," → "Ids are compared by value"; "Its inputs' rule" → "The
+    messages, commands and subscriptions"; "Its own types," → "The parent's own types"; "Its inputs' rule" → "The
     rule of an input"; "Its inputs," → "The parent's inputs"; "What the library derives from it" → "What the library
     derives"; "Mind ids that come back" → "Ids that come back".
   - "Events and external messages": "The parent handles it in `onEvent`" → "The parent handles an event in
@@ -75,6 +74,15 @@ version, and everything else, features included, the patch version.
     must act once when sent twice" → "Each message must act once when sent twice"; "`applyAll`",
     "`dispatchViolations`", "`simulate`", "`rehearse`" and "`drive`" → "applyAll", "dispatchViolations", "simulate",
     "rehearse" and "drive".
+- The guide's "Anatomy of a program" says where each program that does not compile is refused ("What does not
+  compile"): a state type without fields, such as `{}`, and an `external` message that is no message pass `make`, and
+  are refused in a `Program<…>` written by hand and where the program becomes a child.
+- The guide's "Composition" says that a message for a child that is not there is rejected ("When the child is not
+  there"), what `subscribed` returns for a child, and that an own command cannot take the name of a child or of an
+  input ("What does not compile").
+- The guide's "Testing tools" says what `applyAll` and `dispatchViolations` return, that `drive` takes the options of
+  `run` and `patience`, measured with the real clock, and that any defect of the program comes first in the cause of
+  `drive`, before what the scenario ended with ("How `drive` ends").
 - The guide's "Events and external messages" and "Testing tools" are pages of their own: the first is the section of
   "Composition" it was, "Inputs by id" moves from "Composition" to "Inputs the user types into", and "Testing tools"
   takes from "Testing" the five tools with their "Precisely", while "Testing" keeps the method and the table of tools.

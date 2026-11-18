@@ -29,6 +29,9 @@ import {
   type SubscriptionServicesOf,
 } from './program.ts'
 import { type Frame, run } from './run.ts'
+import { drive } from './testing/drive.ts'
+import { rehearse } from './testing/rehearse.ts'
+import { simulate } from './testing/simulate.ts'
 
 // A counter that cannot go below zero, that saves on request, and that accepts typed numbers only.
 type CounterMessage = Data.TaggedEnum<{
@@ -301,8 +304,13 @@ describe('compose', () => {
     expect(heard !== reject && heard.state.heard).toBe(1)
   })
 
-  test('a message for a child that is not there is rejected', () => {
+  test('a message for a child that is not there is rejected, from its view or as the answer of a command', () => {
     expect(app.update({ _tag: 'Right', message: CounterMessage.Increment() })(app.init.state)).toBe(reject)
+    const answer = Effect.runSync(app.runCommand({ _tag: 'Right', command: CounterCommand.Save({ count: 0 }) }))
+    expect(answer).toEqual(Opt.some({ _tag: 'Right', message: CounterMessage.Saved() }))
+    expect(app.update(Opt.getOrThrow(answer))(app.init.state)).toBe(reject)
+    // An external message too, as the parent's own command may answer: through the handle, it would be a defect.
+    expect(app.update({ _tag: 'Right', message: CounterMessage.Cleared() })(app.init.state)).toBe(reject)
   })
 
   test('an own message or command whose tag a plain object inherits is the parent\'s own, not a child\'s', () => {
@@ -1351,23 +1359,58 @@ describe('what the types reject', () => {
     const typed: Program<{ state: number; model: number; message: Tick }> = counting
     // @ts-expect-error: nor is a string, a parent's included.
     expect(program<{ state: string }>()).toBeDefined()
-    const { child } = program<{ state: Ticks }>()
+    const { child, childById } = program<{ state: Ticks }>()
     // @ts-expect-error: a child's state is an object.
     expect(child(counting, { get: () => Opt.some(0), set: (state) => state })).toBeDefined()
+    // @ts-expect-error: a child's by id too.
+    expect(childById(counting, { get: () => Opt.some(0), set: (state) => state, subscribed: () => [] })).toBeDefined()
     // @ts-expect-error: and so is the state of the program that runs.
     expect(run(counting, () => Effect.void)).toBeDefined()
+    // @ts-expect-error: or that a testing tool takes.
+    expect(simulate(counting)).toBeDefined()
+    // @ts-expect-error: `rehearse` too.
+    expect(rehearse(counting, () => Effect.void)).toBeDefined()
+    // @ts-expect-error: and `drive`.
+    expect(drive(counting, () => Effect.void)).toBeDefined()
     expect([typed, counting]).toHaveLength(2)
   })
 
-  test('a program without fields keeps its state in an object, not in a type that holds a number too', () => {
+  test('a state without fields holds a number too: refused as written, and where a made program is a child', () => {
     type Empty = Record<never, never>
     const empty = { init: { state: {} }, update: () => (state: Empty) => ({ state }), makeModel: () => null }
     // @ts-expect-error: a type without fields holds a number too.
     const typed: Program<{ state: Empty; model: null; message: never }> = empty
+    // @ts-expect-error: so a program written as an object does not run with it.
+    expect(run(empty, () => Effect.void)).toBeDefined()
+    // @ts-expect-error: nor does a testing tool take it.
+    expect(simulate(empty)).toBeDefined()
+    // @ts-expect-error: `rehearse` neither.
+    expect(rehearse(empty, () => Effect.void)).toBeDefined()
+    // @ts-expect-error: nor `drive`.
+    expect(drive(empty, () => Effect.void)).toBeDefined()
+    // `make` takes it, and its state may then be a number.
     const loose = program<{ state: Empty }>().make({ init: { state: 0 }, makeModel: () => null })
-    const { child } = program<{ state: Readonly<{ inner: object }> }>()
+    const { child, childById } = program<{ state: Readonly<{ inner: object }> }>()
     // @ts-expect-error: its state could be a number, which as a child is a defect.
     expect(child(loose, { get: (state) => Opt.some(state.inner), set: (_, inner) => ({ inner }) })).toBeDefined()
+    expect(
+      // @ts-expect-error: likewise for children by id.
+      childById(loose, {
+        get: (state) => Opt.some(state.inner),
+        set: (_, __, inner) => ({ inner }),
+        subscribed: () => [],
+      }),
+    ).toBeDefined()
+    // @ts-expect-error: and for a program written as an object.
+    expect(child(empty, { get: (state) => Opt.some(state.inner), set: (_, inner) => ({ inner }) })).toBeDefined()
+    expect(
+      // @ts-expect-error: by id too.
+      childById(empty, {
+        get: (state) => Opt.some(state.inner),
+        set: (_, __, inner) => ({ inner }),
+        subscribed: () => [],
+      }),
+    ).toBeDefined()
     const bare = program<{ state: object }>().make({ init: { state: {} }, makeModel: () => null })
     const kept: Program<{ state: object; model: null; message: never }> = bare
     expect(child(bare, { get: (state) => Opt.some(state.inner), set: (_, inner) => ({ inner }) })).toBeDefined()
@@ -1456,6 +1499,18 @@ describe('what the types reject', () => {
     make({
       init: () => ({ state: noTicks }),
       children: { Plain: child(plain, { get: (state) => Opt.some(state), set: (_, child) => child }) },
+      runCommand: () => Effect.succeedNone,
+      makeModel: () => null,
+    })
+  })
+
+  test('an own command cannot take the name of an input', () => {
+    type Named = Readonly<{ name: string }>
+    const { input, make } = program<{ state: Named; command: Readonly<{ _tag: 'Name' }> }>()
+    // @ts-expect-error: `Name` is an input's name.
+    make({
+      init: { state: { name: '' } },
+      inputs: { Name: input({ at: Optic.id<Named>().key('name') }) },
       runCommand: () => Effect.succeedNone,
       makeModel: () => null,
     })

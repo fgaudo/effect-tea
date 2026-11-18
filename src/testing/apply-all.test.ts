@@ -30,6 +30,14 @@ describe('applyAll', () => {
     expect(commands).toEqual(['Ping'])
   })
 
+  test('collects the commands of every step in order', () => {
+    const echo: Update<number, string, string> = (message) => (count) => ({
+      state: count + 1,
+      commands: [`${message}${count}`, `${message}!`],
+    })
+    expect(applyAll(echo)(['a', 'b'], 0).commands).toEqual(['a0', 'a!', 'b1', 'b!'])
+  })
+
   test('collects the events in order', () => {
     const announce: Update<number, string, never, string> = (message) => (count) => ({
       state: count + 1,

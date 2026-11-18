@@ -83,9 +83,9 @@ before the child's step, a parent combines the two steps:
 
 Sometimes an operation of the parent, such as a payment, must stop the parent's children from acting.
 
-First, ask whether they are children at all. A part whose controls the parent would lock from its state is not a child
-(see [splitting a program](./structuring-a-program.md#splitting-a-program)). A part that has commands or subscriptions
-of its own may still be a child.
+First, ask whether they are children at all. A part whose controls the parent would lock from the parent's own state
+is not a child (see [splitting a program](./structuring-a-program.md#splitting-a-program)). A part that has commands or
+subscriptions of its own may still be a child.
 
 If the parts are children, the operation is a fact that all the children see as one. The parent hands this fact down:
 

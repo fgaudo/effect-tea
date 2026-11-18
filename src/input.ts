@@ -53,6 +53,8 @@ const Unseen = '~@fgaudo/effect-tea/Shown/unseen'
  *
  * A bridge keeps one for each element on screen. Only `drawn` and `edited` make one: the bridge reads only
  * `value`.
+ *
+ * @see The guide, "Inputs the user types into", "A bridge asks the library instead".
  */
 export type Shown<A> = Readonly<{
   /** The value the element shows. */
@@ -75,6 +77,9 @@ const shownOf = <A>(value: A): Shown<A> => ({ value, [Unseen]: [] })
  * const { write, sent } = edited(held, element.value)
  * held = sent(Effect.runSync(inputDispatch(write)))
  * ```
+ *
+ * @see The guide, "Inputs the user types into", "A bridge asks the library instead".
+ * @see The guide, "Inputs the user types into", "Settling an element".
  */
 export const edited = <A>(
   held: Shown<A>,

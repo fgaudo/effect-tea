@@ -72,8 +72,18 @@ For each child, and for itself, a parent declares what follows. The sections bel
   optic, you can give the two functions that an optic is: `get` and `set`.
 - **When the child is not there.** In a state where the child's optic focuses nothing, or where its `get` returns
   `None`, the child is not there.
+  - A message for a child that is not there is rejected. This holds for a message of the child's view, sent through
+    `forwardTo`, and for the answer of a command, the child's or the parent's own. For children by id, it holds for a
+    message for an id that is not there.
+  - A message of the child's subscriptions does not reach the parent's `update` once its key is gone: the run drops it
+    (see [a message that arrives too late](./rejections-and-defects.md#rules)).
+  - An external message that the parent's `update` gives, through `children.About.update`, to a child that is not
+    there is a defect, not a rejection (see
+    [events and external messages](./events-and-external-messages.md#precisely)).
 - **When a child's subscriptions run: `subscribed`.** By default, a child's subscriptions run whenever the child is
   there. In the example above, `subscribed` stops the clock's subscriptions while About is open.
+  - `subscribed` is a function of the parent's state. It returns `Opt.some` of the child's state in the states where
+    the child's subscriptions run, and `Opt.none()` in the others.
 
 ### How a parent and its children start
 
@@ -151,7 +161,7 @@ Three more facts hold for children and inputs:
 
 **What does not compile:**
 
-- a message of the parent's own that takes the name of a child or of an input;
+- a message or a command of the parent's own that takes the name of a child or of an input;
 - an input that takes the name of a child;
 - an input whose optic, alone or by id, points into a state other than the program's;
 - a subscription of the parent's own that writes into an input;
@@ -213,8 +223,8 @@ export function inDialog(content: Program<{ state: object; model: unknown; messa
 - **A child's view gets a dispatch of its own.** The child's view sends the child's own messages through it.
   `forwardTo(dispatch, 'Clock')` gives this dispatch: it wraps each message of the child as the parent receives it.
 - **That dispatch is the same function in every frame.** `forwardTo` returns the same function every time it is asked
-  with the same dispatch, name and id. So a view memoized on its model and its dispatch is drawn again only when its
-  model changes.
+  with the same dispatch, name and id. So a view [memoized](./glossary.md#what-the-user-sees) on its model and its
+  dispatch is drawn again only when its model changes.
 
 ```ts
 const view: View<Model, Message> = (model, dispatch) =>

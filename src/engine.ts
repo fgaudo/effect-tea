@@ -23,6 +23,9 @@ export type { Revision, Revisioned } from './core.ts'
  * Where a message came from: a dispatch, a command, or a subscription.
  *
  * `onApplied` and `onIgnored` hear it with each message.
+ *
+ * @see The guide, "Running", "`onApplied`".
+ * @see The guide, "Running", "`onIgnored`".
  */
 export type Origin =
   | Readonly<{ _tag: 'Dispatch' }>
@@ -99,6 +102,8 @@ export type Ignored<State, Message> = Readonly<{
  * ```ts
  * run(program, render, { describeMessage: (message) => (message._tag === 'Searched' ? message : message._tag) })
  * ```
+ *
+ * @see The guide, "Running", "Options".
  */
 export interface RunOptions<Message, State = unknown, Command = unknown> {
   /**

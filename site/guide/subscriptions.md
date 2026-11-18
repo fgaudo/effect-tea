@@ -9,9 +9,9 @@ title: Subscriptions
 This page shows how a program listens to the world for as long as its state wants: a clock that ticks while a timer
 runs, or a download that stops when the user leaves the page.
 
-A subscription is input or work the program keeps while its state wants it: a clock, a scroll, a download. The
-program's `subscriptions(state)` returns its subscriptions in a `HashMap`, by key. Each subscription is an Effect
-`Channel` of messages. When the state changes, a new key starts its subscription, and a missing key stops its
+A subscription is what the program listens to, or work it keeps going, while its state wants it: a clock, a scroll, a
+download. The program's `subscriptions(state)` returns its subscriptions in a `HashMap`, by key. Each subscription is an
+Effect `Channel` of messages. When the state changes, a new key starts its subscription, and a missing key stops its
 subscription.
 
 ## An example

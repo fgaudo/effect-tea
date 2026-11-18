@@ -39,6 +39,7 @@ in that later state, use `applyAll`, or `update` itself.
 
 - `applyAll` takes only the test's messages.
 - `applyAll` fails when `update` rejects one of those messages.
+- `applyAll` returns the last `state`, with the `commands` and the `events` of every step, each list in order.
 
 ### dispatchViolations
 
@@ -59,6 +60,9 @@ acts once. The test `the model holds what update accepts, all of it` in
     controls would act on the hidden state of the covered page.
 
 Without candidates, `dispatchViolations` checks only the messages it is given.
+
+`dispatchViolations` returns a list of the violations it finds, empty when there is none. Each violation holds its kind
+(`_tag`: `Rejected`, `ActsTwice` or `Missing`) and the `message` that breaks the rule.
 
 ### simulate
 
@@ -133,11 +137,14 @@ rehearse(
 `drive` tests a user's scenario on the running program, subscriptions included.
 
 - A program with flags gets them as `run` does, in the options.
+- `drive` takes the other options of `run` too, such as `onApplied` and `onIgnored` (see
+  [running](./running.md#options)).
 - `drive` sends what the frames show, through the run's dispatch.
 - The program's commands run as soon as they start. To hold a command, give the program a service written by the
   test. The service waits on a `Deferred` that the scenario completes.
 - The renderer of `drive` keeps only the latest frame. A wait looks at that frame and at later ones.
-- `drive` fails on a wait longer than `patience` (2 seconds).
+- A wait that lasts longer than `patience` fails. `patience` is an option of `drive`, 2 seconds by default. It is
+  measured with the real clock, even under Effect's `TestClock`.
 - Time in `drive` is real: a frame may be past by the time its message arrives. So, as when the program runs, a
   rejected message is ignored, and a scenario checks what it expects to see.
 - How `drive` ends is under [precisely](#precisely).
@@ -254,8 +261,10 @@ that is already waiting for its subscription or its command fails with it too, a
 `drive` ends in two steps, once the scenario ends, or once whoever runs `drive` interrupts it:
 
 1. `drive` interrupts the run, and waits for it;
-2. `drive` fails, as the run dies, on a defect of what the program releases as it stops. The defect comes first in the
-   cause, before what the scenario ended with.
+2. `drive` fails, as the run dies, on a defect of what the program releases as it stops.
+
+A defect of the program comes first in the cause of `drive`, before what the scenario ended with. This holds for a
+defect while the scenario runs, and for a defect of what the program releases as it stops.
 
 ### Defects of the program
 

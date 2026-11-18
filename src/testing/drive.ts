@@ -45,7 +45,7 @@ export type Driver<Model, Message> = Readonly<{
 export type DriveOptions<Message, State = unknown, Command = unknown> =
   & RunOptions<Message, State, Command>
   & Readonly<{
-    /** How long a wait of the scenario lasts before `drive` fails: 2 seconds by default. */
+    /** How long a wait of the scenario lasts before it fails: 2 seconds by default, measured with the real clock. */
     patience?: Duration.Input
   }>
 
@@ -56,16 +56,16 @@ export type DriveOptions<Message, State = unknown, Command = unknown> =
  * given; and its options: `flags`, when the program has them, `patience`, and the options of `RunOptions`.
  *
  * - It sends what the frames show, through the run's dispatch. The program's subscriptions run.
- * - It fails on a wait longer than `patience` (2 seconds).
+ * - A wait that lasts longer than `patience` fails. `patience` is 2 seconds by default, measured with the real clock.
  * - Time in `drive` is real. A frame may be past when its message arrives, so a rejected message is ignored, as in a
  *   run.
  * - A wait looks at the latest frame and at later ones.
  * - The program's commands run as soon as they start. To hold a command, give the program a service that waits on a
  *   `Deferred` that the scenario completes.
  * - To start from another state, give it the program with another `init`.
- * - When the scenario ends, `drive` interrupts the run and waits for it.
- * - A defect of the program fails `drive` with the `ProgramDefect` the run dies with. A defect of what the program
- *   releases as it stops comes first in the cause, before what the scenario ended with.
+ * - When the scenario ends, or when whoever runs `drive` interrupts it, `drive` interrupts the run and waits for it.
+ * - A defect of the program fails `drive` with the `ProgramDefect` the run dies with. The defect comes first in the
+ *   cause, before what the scenario ended with.
  *
  * @returns What `scenario` returns, once the program has stopped.
  *

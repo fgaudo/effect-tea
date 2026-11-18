@@ -64,9 +64,9 @@ moves on:
 - not what a subscription sent before its key went away;
 - not a frame already drawn.
 
-A message of the view, as above, is rejected by `update` where it does not apply. Apart from messages of the view,
-three kinds of message may arrive for a state that has left them behind. Each kind is settled by whoever knows what the
-message was for:
+A message of the view that is not a write into an input is rejected by `update` where it does not apply, as above.
+Three other kinds of message may arrive for a state that has left them behind. Each kind is settled by whoever knows
+what the message was for:
 
 | A late message                                          | Who settles it                                                                                                                 | How                                                                                                                                                                     | `onIgnored`                            |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |

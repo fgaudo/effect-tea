@@ -131,8 +131,9 @@ after (see [running](./running.md)).
 ### Services, handlers and events
 
 The services of a command are its operations: `storage.save` in the example above is one. The layer provided around
-`run` holds their handlers: the code that does the save. This is where a program performs effects, in the algebraic
-sense, and where a handler lives. `update` performs no effect.
+`run` holds their handlers: the code that does the save. This is where a program performs effects, and where a handler
+lives. A command only calls the operation, and the handler that the layer holds does the work. `update` performs no
+effect.
 
 When a child asks its parent for something, the child raises an event. An event is data. The parent handles the event
 after the child's step. An event is never an operation that the child resumes from (see

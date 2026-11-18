@@ -46,6 +46,7 @@ export type Simulation<State, Message, Command = never, Event = never> = Readonl
  * - Subscriptions do not run. It reads the subscriptions on each new state, and fails on a defect there, as the run
  *   dies of one.
  *   It asks only for the services of the commands.
+ * - It fails on a command that interrupts itself, as the run dies of one.
  * - It starts from the step it is given, and calls no `init`.
  * - A defect of the program fails it with the `ProgramDefect` the run dies with.
  *

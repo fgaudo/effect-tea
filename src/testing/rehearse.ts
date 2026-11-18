@@ -93,6 +93,7 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
    * - The test answers for what it says was heard, and for whether the subscription had ended.
    * - It fails the test when the key is not in the state. Keys compare by value, as the run compares them.
    * - It fails the test on a key whose subscription `hearNext` runs, until the key goes away and comes back.
+   * - After the subscription's end value, `hear` does not hear the key until the key goes away and comes back.
    * - A message that `update` rejects is listed in `ignored`.
    *
    * @param key - The subscription's key, as the program lists it. A child's key is under the child's name, as its
@@ -111,7 +112,8 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
    * - The first call on a key starts its subscription, with the services provided, in a scope of its own. The
    *   subscription runs for as long as the key stays in the state.
    * - Each call waits for the subscription's next message. The last message is the subscription's end value. After
-   *   it, the key is not heard until the key goes away and comes back.
+   *   it, the key is not heard until the key goes away and comes back. A `hearNext` that was waiting at the same time as
+   *   the one that heard the end fails the test.
    * - It fails the test when the key is not in the state, or when `hear` has played the key's current start.
    * - A key that goes away interrupts its subscription. A `hearNext` still waiting for a message of that subscription
    *   fails the test.

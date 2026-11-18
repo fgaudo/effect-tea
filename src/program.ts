@@ -86,7 +86,10 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * A program is made with `program`. `make` returns this type, and a function that takes a program names this type.
  *
  * - The view is not part of it: `run` gives the renderer frames, `{ model, dispatch, seen }`.
- * - Its state is an object, and its `external` messages are among its `message`s. Otherwise it does not compile.
+ * - Its state is an object, and its `external` messages are among its `message`s. A program written as an object
+ *   and typed `Program<…>` does not compile otherwise: with a state that is a number or a string, with a state type
+ *   without fields, such as `{}`, or with an `external` message that is not among its `message`s. `make` accepts the
+ *   last two, and `child` and `childById` refuse the program it returns.
  * - `runCommand` is required exactly when the program has commands.
  * - `run` makes a frame's model with `makeModel(state)`. A test can call `makeModel` the same way, on any state.
  * - `update`, `makeModel` and `subscriptions` are pure, and states are never mutated. The library reuses a child's
@@ -133,7 +136,7 @@ type ExternalAmong<Message, External> = [Exclude<External, Message>] extends [ne
 
 /**
  * How a program starts: its first step, or, for a program with flags, a function that makes the first step from the
- * flags. A step is never a function, so the two are told apart when the program runs.
+ * flags.
  *
  * @example
  * ```ts
@@ -164,8 +167,10 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: ne
  * property that no program has, so that the program does not compile.
  *
  * A parent keeps a child's model while the child's state is the same object. A number or a string has no identity
- * by which a model could be kept. Every program is checked, so that any program can be a child. A type without
- * fields, such as `{}`, holds a number too: a state without fields is an `object`.
+ * by which a model could be kept. A state that is a number or a string is refused by `Program<…>`, `program`,
+ * `child`, `childById`, `run` and the testing tools that take a program. A type without fields, such as `{}`, holds a
+ * number too, so name the type of a state without fields `object`. `make` accepts a type without fields, and `child`
+ * and `childById` refuse the program it returns.
  *
  * @example
  * ```ts
@@ -234,7 +239,9 @@ type FirstStepOf<P> = P extends { readonly init: (flags: any) => infer S } ? S
 export const startOf = <State, Command>(
   init: Step<State, Command> | ((flags: any) => Step<State, Command>),
   flags: unknown,
-): Step<State, Command> => typeof init === 'function' ? init(flags) : init
+): Step<State, Command> =>
+  // A step is never a function, so `typeof` tells the two forms of `init` apart.
+  typeof init === 'function' ? init(flags) : init
 
 /**
  * A program's state, read back from the step its `init` starts with.
