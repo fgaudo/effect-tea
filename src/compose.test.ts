@@ -1428,6 +1428,20 @@ describe('what the types reject', () => {
     const typed: Program<{ state: Ticks; model: number; message: Tick }> = silent
     // @ts-expect-error: so `run` does not take it either.
     expect(run(silent, () => Effect.void)).toBeDefined()
+    const { child, childById } = program<{ state: Readonly<{ one: Ticks; rows: Readonly<Record<string, Ticks>> }> }>()
+    const one = { get: (state: { one: Ticks }) => Opt.some(state.one), set: <S>(state: S) => state }
+    const rows = {
+      get: (state: { rows: Readonly<Record<string, Ticks>> }, id: string) => Opt.fromNullishOr(state.rows[id]),
+      set: <S>(state: S) => state,
+      subscribed: () => [],
+    }
+    // @ts-expect-error: nor does `child`, whose parent would call the missing piece.
+    expect(child(silent, one)).toBeDefined()
+    // @ts-expect-error: nor `childById`.
+    expect(childById(silent, rows)).toBeDefined()
+    // With the piece, each takes it: nothing else refuses it above.
+    const listening = { ...silent, subscriptions: () => HashMap.empty() }
+    expect([child(listening, one), childById(listening, rows)]).toHaveLength(2)
     expect([typed, silent]).toHaveLength(2)
   })
 
