@@ -12,6 +12,35 @@ holds only what is to be done or decided now.
 A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a deterministic
 test of it. None is open.
 
+Found in a review of 18 November 2026, each reproduced:
+
+- **`rehearse` drops a step's commands from `pending` when `makeModel` dies on its state.** `applyNow`
+  (`src/testing/rehearse.ts`, case `Applied`) owes the commands after `draw`, in one chain, so a defect in `'render'`
+  skips `Ledger.owe`, and the release of the keys that went away. The run starts those commands, as a step goes on
+  whole ("Defects always die", `docs/invariants.md`), and the guide says `pending` is read after a defect. The rehearsal
+  still fails with the right `ProgramDefect`. A case for `contract.test.ts` compares the commands after a render defect
+  on a step that has some; then owe them whatever the draw's exit, with a mutation.
+- **An own message or command whose `_tag` is `string` gets past `NoClash`** (`src/compose.ts`):
+  `Extract<TagOf<Own>, keyof C>` is `never` for `string` (and a template tag), so `{ _tag: 'Page' }` reaches the child
+  `Page` with no `message`, and a command's answer `{ _tag: 'Name', message: … }` is stored as a write into the
+  program's own input, which "Composition" ("What does not compile") says does not compile. Turning the test around,
+  `Extract<keyof C, TagOf<Own>>`, as `ExternalWritten` does, would refuse them; whether it refuses a correct program
+  (`message: any`) is for the inference matrix.
+- **A parent's subscriptions cannot send a child's external messages, though its commands can**: `runCommand` answers
+  `Own | ChildExternals<C>`, `subscriptions` only `Own`. Every program can still be written, through an own message
+  and `children.<child>.update`, and both are sources of messages the run handles alike. To decide: allow it, or say
+  in "Composition" why the two differ.
+- **The readers of a program's services promise a rule the guide does not hold**: `CommandServicesOf` and
+  `SubscriptionServicesOf` (`src/program.ts`) say they are `unknown` when the program's type does not say which
+  services it needs, and then whoever runs it is told so. No section states it, and the type readers (`StateOf`,
+  `ModelOf`, `CommandOf`, `FlagsOf`, `ExternalOf`, `EventOf` and those two) have no `@see`. Either the rule goes into
+  "Anatomy of a program" ("Precisely") with the `@see` lines, or it leaves the comments.
+- **`simulate`'s declaration spells out `Simulation` and `Step`**: it has no return type written, so
+  `api/effect-tea-testing.api.md` writes its `from` and its result inline, though `Simulation` is exported
+  (`change-api`, "Report it").
+- **The failure of `drive`'s `patience` carries an `Option` of the model** as its `cause`, not the model: say so where
+  the guide describes it, or give the model itself.
+
 ## Possible improvements
 
 - **A benchmark that runs in the CI** (many children, many messages per second), to keep "frames cost only what is

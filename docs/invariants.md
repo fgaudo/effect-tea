@@ -50,21 +50,20 @@ testing tools.
   named like a child. A program written without `Program<…>` has `unknown` types, read as `never` (`Known` in
   `program.ts`), so that it does not open these checks.
 - **A write is stored over the value it names, and only what is drawn writes into an input** (`written` in
-  `input.ts`, applied in `compose.ts` as an input's program; [`registers.md`](records/registers.md) says why). A write is a
-  message of the composed program like any other, so the state stays the fold of `update` over the messages,
+  `input.ts`, applied in `compose.ts` as an input's program; [`registers.md`](records/registers.md) says why). A write
+  is a message of the composed program like any other, so the state stays the fold of `update` over the messages,
   `applyAll` replays it, and neither the engine nor the testing tools know of inputs. It is stored when the input's
-  place holds, by `Equal`, the value it was written over, whatever it is, and a write of the value held leaves the
-  very same value; over another value it is rejected, since the state has moved on without the element that wrote
-  it: a stale write does not apply in the state, the one meaning of `reject`. A write into an input by id is routed as
-  a child's message by id is, to the place of the id it names (`isById` in `compose.ts`), and is rejected where that
-  place is not there. The rule reads the state and the message
-  alone and keeps nothing between two writes, so every other step, the parent's own, a child's and what `onEvent`
-  makes of its events, leaves an input as it wrote it, and a reset, an undo by snapshot or a place that comes back
-  cuts no history. A write comes only from a view: an own subscription sends the parent's own messages, and a command
-  answers with its own and its children's external ones (`RunCommandOf` in `compose.ts`), so neither compiles with a
-  write, into the parent's input or a child's. Two limits are declared, not flaws: a write over a value that came
-  back is stored, and a message names a place, so one drawn for an old instance reaches the new one. Each check has a
-  mutation (`tools/mutations/mutations.ts`).
+  place holds, by `Equal`, the value it was written over, whatever it is, and a write of the value held leaves the very
+  same value; over another value it is rejected, since the state has moved on without the element that wrote it: a stale
+  write does not apply in the state, the one meaning of `reject`. A write into an input by id is routed as a child's
+  message by id is, to the place of the id it names (`isById` in `compose.ts`), and is rejected where that place is not
+  there. The rule reads the state and the message alone and keeps nothing between two writes, so every other step, the
+  parent's own, a child's and what `onEvent` makes of its events, leaves an input as it wrote it, and a reset, an undo
+  by snapshot or a place that comes back cuts no history. A write comes only from a view: an own subscription sends the
+  parent's own messages, and a command answers with its own and its children's external ones (`RunCommandOf` in
+  `compose.ts`), so neither compiles with a write, into the parent's input or a child's. Two limits are declared, not
+  flaws: a write over a value that came back is stored, and a message names a place, so one drawn for an old instance
+  reaches the new one. Each check has a mutation (`tools/mutations/mutations.ts`).
 - **The rule of an element is the library's, and the bridges only keep their registry** (`edited` and `drawn` in
   `input.ts`). `edited` makes the write and what the element records of it from one value, the element's, so the two
   cannot differ; the number comes from the dispatch the bridge runs, given to a continuation, since the library

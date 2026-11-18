@@ -343,7 +343,7 @@ version, and everything else, features included, the patch version.
   program", "Update", "Model", "Commands", "Subscriptions", "Rejections and defects", "Composition", "Inputs the user
   types into", "Structuring a program", "Running", "Guarantees", "Testing" and "Writing a bridge".
 - The `counter` and `form` examples draw their program in one run, with snabbdom and with React, one under the other,
-  so that what either sends is drawn by both: `examples/bridges/together.ts` gives the run's frames to both renderers,
+  so that what either sends is drawn by both: `examples/together.ts` gives the run's frames to both renderers,
   with `Stream.broadcastN`.
 
 ### Fixed

@@ -68,8 +68,8 @@ That last check is what finds a reader that forgot a field of the model.
 {@includeCode ../../examples/timer/timer.test.ts#model}
 
 That the view draws what its model holds is not checked here. It is checked with the renderer's own tools (see
-[testing](../guide/testing.md)), as the test of the list of timers does below. That is why the reader lists the
-messages in the order the view draws them.
+[testing](../guide/testing.md)), as [the test of the list of timers](../../examples/timer/timers.test.ts) does. That is
+why the reader lists the messages in the order the view draws them.
 
 ## A scenario
 

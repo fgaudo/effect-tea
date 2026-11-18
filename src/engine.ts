@@ -222,17 +222,15 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   }>
   & RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>)
 {
-  // Captured in the run's scope, which no command or subscription gets: each has its own (`Effect.scoped`
-  // below), or what they acquire would stay open until the run ends, and be released before their fibers
-  // are interrupted.
+  // The run's context, its scope included: what a command or a subscription acquires goes into a scope of its own,
+  // which `scopedIn` puts in front of this one ("Each command, each subscription and the renderer has a scope of its
+  // own", `docs/invariants.md`).
   const context = withExternalSpan(yield* Effect.context<Exclude<R, Scope.Scope>>())
   const queue = yield* Effect.acquireRelease(Queue.unbounded<Envelope<Message, K>>(), Queue.shutdown)
   const deaths = given ?? (yield* makeDeaths(() => true))
   const { recorded, died, report, dead } = deaths
-  // A death is checked once, in `Core.arrive`. A step that passed the check goes on whole until the end of the run
-  // stops the loop, so it may still start its commands and the subscriptions of its new keys: one more check in the
-  // middle of it would leave a state whose commands never started. What the program's effects do once started is
-  // theirs, until the end of the run interrupts them.
+  // A death is checked once, in `Core.arrive`, and a step that passed it goes on whole: no check is added in the middle
+  // of one ("Defects always die", `docs/invariants.md`).
   // The loop and the commands.
   const fibers = yield* FiberSet.make<unknown, never>()
   // Kept by their start, never by their key: `FiberMap` compares its keys, in a fiber's observer too, where nothing

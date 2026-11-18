@@ -78,15 +78,15 @@ answer, and saying so in the proposal.
   state one below the message's number is no proof that the user saw that state, since `seen` counts no message of a
   command or a subscription and the renderer may not have drawn the last frame yet, so a late tap would be reported
   as a bug. Knowing the frame would need the bridge to pass its revision with each dispatch, a change of `Dispatch`
-  and of every bridge, where [`registers.md`](records/registers.md) chose `seen` over a revision. And with it, reporting the
-  message the current model holds and `update` rejects is the runtime check of the model against `update` that
+  and of every bridge, where [`registers.md`](records/registers.md) chose `seen` over a revision. And with it, reporting
+  the message the current model holds and `update` rejects is the runtime check of the model against `update` that
   [`invariants.md`](invariants.md) rules out ("`reject` means one thing"), close to the run that reported a rejected
   offer (above). What the proposal wanted needs no frame: a message the model of a state holds and `update` rejects in
   that state is a bug from whatever frame it came, and `onIgnored` is given both, so an application may compare them
   there. For an input, the model holds only the write over the value its place holds: a write over a value since
-  replaced is not among them, so is not reported, where taking any write to the input as held would report every
-  late one. Source: the session that weighed it. *Reopen if* rejections in production are shown to hide bugs the
-  property tests cannot reach, and a frame's identity can reach the run without a change of `Dispatch`.
+  replaced is not among them, so is not reported, where taking any write to the input as held would report every late
+  one. Source: the session that weighed it. *Reopen if* rejections in production are shown to hide bugs the property
+  tests cannot reach, and a frame's identity can reach the run without a change of `Dispatch`.
 
 ## The testing tools
 
@@ -344,10 +344,10 @@ answer, and saying so in the proposal.
   an undo at every write of a value its parent reads, and an undo by step is not enough.
 - **An input as a `Field`, `{ value, revision }`, with `field`, `renewed` and a revision derived by value.**
   Implemented on 14 November 2026 and replaced, unreleased, on 15 November by the plain input of the ninth review
-  ([`registers.md`](records/registers.md), "A plain input, and a frame that says what it has seen"). The rule of a revision is
-  applied after each step of the program that holds the input, and a hierarchical composition splits that ownership:
-  a child its parent starts again, a kept state brought back and a row whose id comes back gave the input a revision
-  it had, and a late key was stored into the new instance, run in `src/input-swap.test.ts` of
+  ([`registers.md`](records/registers.md), "A plain input, and a frame that says what it has seen"). The rule of a
+  revision is applied after each step of the program that holds the input, and a hierarchical composition splits that
+  ownership: a child its parent starts again, a kept state brought back and a row whose id comes back gave the input a
+  revision it had, and a late key was stored into the new instance, run in `src/input-swap.test.ts` of
   `worktree-agent-a02816c77ebec330c` (`4757546`). `renewed` was a recipe to remember for a slider whose bounds narrow,
   and the state stored differed from the state written. *Reopen if* the numbering of a frame (`seen`) or the condition
   on elements and renderers it rests on fails where no revision would.
@@ -358,8 +358,8 @@ answer, and saying so in the proposal.
   place a lens, and a generation for what is left): they close the reset and the undo, but patch the split of
   ownership rather than remove it, need a recipe for what they leave, and widen what a parent's `make` does to a
   child's state. The owner judged the complexity of parents and children too much and asked for another way, which
-  the ninth review gave. [`registers.md`](records/registers.md), "Whoever steps replaces what is below" and "The channel of a
-  replacement, declared". *Reopen if* the plain input is dropped and an input must again keep a history between two
+  the ninth review gave. [`registers.md`](records/registers.md), "Whoever steps replaces what is below" and "The channel
+  of a replacement, declared". *Reopen if* the plain input is dropped and an input must again keep a history between two
   writes.
 - **A parent that reads its children's inputs**, as an exception to "A parent never reads a child's state to decide"
   ("Structuring a program"), for a parent that totals or submits what was typed into its rows. Reasoned, 16 November
@@ -404,8 +404,8 @@ answer, and saying so in the proposal.
   parent's `Message` from the parent program was found easy, so that was no reason against. The internal function
   would share only the spread: `make` and `dispatchTo` decide differently whether a child is by id, and it would
   add an import between `compose.ts` and `dispatch.ts`, which have none. The owner decided against both.
-  [`boundary.md`](records/boundary.md), "A question". Source: the session that removed it from `ROADMAP.md`, with a review by
-  Fable 5.2. *Reopen if* a tool must lift a child's message without a type to lean on (as the third spike of
+  [`boundary.md`](records/boundary.md), "A question". Source: the session that removed it from `ROADMAP.md`, with a
+  review by Fable 5.2. *Reopen if* a tool must lift a child's message without a type to lean on (as the third spike of
   [`declared-inputs.md`](records/declared-inputs.md) did), or the stray `id` is found in an application's tests.
 
 - **Following a string in a child's wrapping, in the default description of a message.** Reasoned, 15 November
@@ -564,15 +564,15 @@ there; one decided against becomes an entry above.
   the mutation of it survive, which such a selection does not run; and the files of the engine hold most of the list.
   *Reopen if* the parallel run grows slow again; the whole run stays before a release.
 
-- **What reaches `update`, declared as data** ([`declared-inputs.md`](records/declared-inputs.md)): suspended by the owner on
-  14 November 2026, not revoked. The decisions taken in it stand only if it is taken up again, and what its spikes
-  refuted is there; its first aim, a model with no function for what the user types, was reached by the plain input.
-  *Reopen if* the owner takes it up again; the one case the owner named, exploring made awkward on today's API
+- **What reaches `update`, declared as data** ([`declared-inputs.md`](records/declared-inputs.md)): suspended by the
+  owner on 14 November 2026, not revoked. The decisions taken in it stand only if it is taken up again, and what its
+  spikes refuted is there; its first aim, a model with no function for what the user types, was reached by the plain
+  input. *Reopen if* the owner takes it up again; the one case the owner named, exploring made awkward on today's API
   because a model's functions do not compare, the exploration did not find (`exploration.md`).
-- **`Inert`, a message a model holds that does nothing** ([`inert-steps.md`](records/inert-steps.md), "What was decided"):
-  deferred by the owner on 15 November 2026, not rejected; the rest of the proposal is done. It would flag the guard
-  `{ state }` against a double tap and a parent's broadcast, and found one real case in the examples, fixed without
-  it. *Reopen if* an application has a message that does nothing where it should act, which a test with `Inert`
+- **`Inert`, a message a model holds that does nothing** ([`inert-steps.md`](records/inert-steps.md), "What was
+  decided"): deferred by the owner on 15 November 2026, not rejected; the rest of the proposal is done. It would flag
+  the guard `{ state }` against a double tap and a parent's broadcast, and found one real case in the examples, fixed
+  without it. *Reopen if* an application has a message that does nothing where it should act, which a test with `Inert`
   would have found, or a key's messages are given to the tools (below).
 - **What a key sends is not data** (`declared-inputs.md`, "What still makes sense", point 3): no tool judges a
   subscription's message, and whether a test lists a key's messages, a program exports them or a subscription

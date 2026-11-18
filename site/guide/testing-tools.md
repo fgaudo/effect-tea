@@ -279,6 +279,6 @@ defect while the scenario runs, and for a defect of what the program releases as
 A defect of the program fails `simulate`, `rehearse` and `drive`, as it ends the run when the program runs. These three
 tools fail with the `ProgramDefect` the run dies with, in the same `where`, with the same `on` or `key`. That holds
 wherever the tool calls the program: `init`, `update`, `makeModel`, `subscriptions`, a subscription, `runCommand`.
-(`simulate` calls no `init`.)
+(`simulate` calls no `init` and no `makeModel`, and runs no subscription.)
 
 **`applyAll` and `dispatchViolations` call `update` without a run**, and fail with the defect itself.

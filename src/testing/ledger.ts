@@ -170,7 +170,10 @@ export const script = <Command, S, H, W, M>(
  * The ledger with `call`, a call of `hearNext` offered to the loop, among those it has not made wait yet, and among
  * its calls until it leaves.
  */
-export const enter = <Command, S, H, W, M>(ledger: Ledger<Command, S, H, W, M>, call: W): Ledger<Command, S, H, W, M> => ({
+export const enter = <Command, S, H, W, M>(
+  ledger: Ledger<Command, S, H, W, M>,
+  call: W,
+): Ledger<Command, S, H, W, M> => ({
   ...ledger,
   asking: new Set([...ledger.asking, call]),
   calls: new Set([...ledger.calls, call]),

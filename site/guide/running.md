@@ -73,7 +73,8 @@ The run logs only at the debug level. It logs:
 
 - each message;
 - a rejected message;
-- subscriptions starting, stopping and ending.
+- subscriptions starting, stopping and ending;
+- a message of a subscription that has stopped, which the run drops before `update`.
 
 Effect's default minimum level, `Info`, hides all these logs. The debug logs of subscriptions show their keys. A key
 may hold data (an id, the text of a search).

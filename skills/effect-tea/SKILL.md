@@ -29,7 +29,8 @@ versions. The paths below are relative to this file.
   [`examples/bridges/snabbdom-preload.ts`](../../examples/bridges/snabbdom-preload.ts). This holds for a file that
   registers a DOM in `beforeAll` too: its imports run first. The preload's comment says how. The
   examples import their own files with the `.ts` extension. If your `tsconfig.json` does not set
-  `allowImportingTsExtensions`, remove the extension.
+  `allowImportingTsExtensions`, write `.js` instead under `moduleResolution` `nodenext`, or remove the extension under
+  `bundler`.
 - **The API**: the declarations in `dist/`, with their doc comments. A line `@see The guide, "<page>", "<section>".`
   names a page of the guide by its title, and a heading or a bold title in that page.
 

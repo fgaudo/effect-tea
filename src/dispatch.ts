@@ -123,7 +123,7 @@ export const entriesOf = (dispatch: object, name: string): number => {
  * @param id - The id, for children and inputs by id, and nothing otherwise.
  * @returns A dispatch of the child's own messages, or of what is written into the input, which wraps each as the
  * program receives it. A name that is neither a child's nor an input's, or that is not a literal, gives a value that
- * cannot be called and says why.
+ * cannot be called and says why, unless a message of the program's own has the shape `{ _tag: name, message }`.
  *
  * @example
  * ```ts

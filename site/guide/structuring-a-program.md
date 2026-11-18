@@ -103,7 +103,7 @@ One state machine per concern, no flags:
 
 ```ts
 // Don't: flags that combine, and allow a save that is saving and has failed at once
-type Flags = Readonly<{ isSaving: boolean; hasFailed: boolean; failedName: string }>
+type SaveStatus = Readonly<{ isSaving: boolean; hasFailed: boolean; failedName: string }>
 
 // Do: one union, with a case per state, and in each case only what exists in it
 type Save = Data.TaggedEnum<{

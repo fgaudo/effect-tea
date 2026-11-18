@@ -112,8 +112,8 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
    * - The first call on a key starts its subscription, with the services provided, in a scope of its own. The
    *   subscription runs for as long as the key stays in the state.
    * - Each call waits for the subscription's next message. The last message is the subscription's end value. After
-   *   it, the key is not heard until the key goes away and comes back. A `hearNext` that was waiting at the same time as
-   *   the one that heard the end fails the test.
+   *   it, the key is not heard until the key goes away and comes back. A `hearNext` that was waiting at the same time
+   *   as the one that heard the end fails the test.
    * - It fails the test when the key is not in the state, or when `hear` has played the key's current start.
    * - A key that goes away interrupts its subscription. A `hearNext` still waiting for a message of that subscription
    *   fails the test.

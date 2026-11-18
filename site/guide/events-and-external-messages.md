@@ -77,7 +77,7 @@ before the child's step, a parent combines the two steps:
   `forEach({ state }, state.rows, ({ id }) => children.Row.update(id, Cleared()))`.
 
 `andThen` and `forEach` also have a form that takes the step last, for a chain written with Effect's `pipe`:
-`pipe({ state }, andThen(leave), forEach(ids, clear))`.
+`pipe({ state }, andThen(leave), forEach(ids, clearRow))`.
 
 ### A child that must wait for its parent
 

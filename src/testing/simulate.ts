@@ -44,8 +44,7 @@ export type Simulation<State, Message, Command = never, Event = never> = Readonl
  *   the next of the test's messages is applied.
  * - The command answers that `update` rejects are listed in `ignored`.
  * - Subscriptions do not run. It reads the subscriptions on each new state, and fails on a defect there, as the run
- *   dies of one.
- *   It asks only for the services of the commands.
+ *   dies of one. It asks only for the services of the commands.
  * - It fails on a command that interrupts itself, as the run dies of one.
  * - It starts from the step it is given, and calls no `init`.
  * - A defect of the program fails it with the `ProgramDefect` the run dies with.
@@ -110,12 +109,13 @@ export const simulate = <State, Message, Command, Event, R = never>(
       }),
     )
   // A command runs in a fiber of its own, called where it is decided, begun at once as `FiberSet.run` begins it in the
-  // run (`startImmediately`, `docs/premises.md`), so that an interruption that reaches the simulation as it awaits finds
-  // its effect begun, and awaited, its exit then taken as the simulation's (`Fiber.await`, whose interruption leaves the
-  // fiber running, `docs/premises.md`; a `Fiber.join`'s interruption is not documented): interrupted, the simulation
-  // stops it as the run does, with its mark, and fails with what it dies of as it releases, first. Run in the fiber of
-  // whoever interrupts the simulation, it would be stopped as that fiber, which may have interrupted a fiber before. Its
-  // scope is the run's (`scopedIn`), so that what it releases is given the exit the run gives it: its defect with where.
+  // run (`startImmediately`, `docs/premises.md`), so that an interruption that reaches the simulation as it awaits
+  // finds its effect begun, and awaited, its exit then taken as the simulation's (`Fiber.await`, whose interruption
+  // leaves the fiber running, `docs/premises.md`; a `Fiber.join`'s interruption is not documented): interrupted, the
+  // simulation stops it as the run does, with its mark, and fails with what it dies of as it releases, first. Run in
+  // the fiber of whoever interrupts the simulation, it would be stopped as that fiber, which may have interrupted a
+  // fiber before. Its scope is the run's (`scopedIn`), so that what it releases is given the exit the run gives it: its
+  // defect with where.
   const runOne = (deaths: Deaths, command: Command) =>
     Effect.uninterruptibleMask((restore) =>
       Effect.sync(() => runCommand(command)).pipe(

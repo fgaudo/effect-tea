@@ -118,9 +118,10 @@ export const drive = Effect.fnUntraced(function*<
         onNone: () =>
           Effect.flatMap(SubscriptionRef.get(frames), (latest) =>
             Effect.die(
-              new Error(`No frame showed what the test waits for within ${Duration.format(Duration.fromInputUnsafe(patience))}`, {
-                cause: Opt.map(latest, (frame) => frame.model),
-              }),
+              new Error(
+                `No frame showed what the test waits for within ${Duration.format(Duration.fromInputUnsafe(patience))}`,
+                { cause: Opt.map(latest, (frame) => frame.model) },
+              ),
             )),
         onSome: Effect.succeed,
       })),

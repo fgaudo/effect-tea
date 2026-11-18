@@ -14,7 +14,7 @@ So most of its tests are plain function calls: no runtime, no DOM, nothing to mo
 ## A taste
 
 A form saves a name. The user taps "Save" twice, before the screen shows the first tap: a slow frame or a frozen app is
-enough. Here is the whole test that the second tap does nothing, from the tests of [`examples/form`](examples/form):
+enough. Here is a test that the second tap does nothing, adapted from the tests of [`examples/form`](examples/form):
 
 ```ts
 test('a second tap while saving does nothing', () => {
