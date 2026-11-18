@@ -43,6 +43,8 @@ nothing is saving. A rejection of that save would hide the bug.
 
 - The run dies as it dies with any defect (an `Effect.die`, a thrown error: broken code).
 - The `InvariantDefect` lets a crash report tell a broken rule of the program from any other error.
+- Only `defect` makes an `InvariantDefect`, so that it means only this. A program reads one, as a test or a crash
+  report does. The types refuse to build one, with `new` or with a class that extends it.
 - `defect` is an expression, for a branch of a ternary or a `Match`.
 - `defect` is for the synchronous functions: `init`, `update`, `onEvent`, `makeModel`, `subscriptions`. Inside an
   Effect, `Effect.die` stays.

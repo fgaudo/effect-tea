@@ -110,6 +110,9 @@ A defect anywhere ends the run, which dies with a `ProgramDefect`:
 
 From the defect on, the run applies no message. Every defect is in the cause, each with where it happened.
 
+Only the run makes a `ProgramDefect`. The app around the run reads one, and a test does too. The types refuse to build
+one, with `new` or with a class that extends it.
+
 **The run never recovers from a defect, and does not log it.** Reporting the defect, and choosing what the user sees
 next, are the job of the app around the run. The screen keeps the last frame: show a crash screen, or run the program
 again.

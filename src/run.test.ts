@@ -568,11 +568,8 @@ describe('defects', () => {
       (frames) => Stream.runForEach(frames, ({ model, dispatch }) => dispatch(model.increment)),
     ))
     const thrown = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
-    expect(thrown instanceof ProgramDefect && [thrown.where, thrown.on, thrown.cause]).toEqual([
-      'update',
-      'Increment',
-      new InvariantDefect({ reason: 'An increment cannot arrive' }),
-    ])
+    expect(thrown instanceof ProgramDefect && thrown.cause instanceof InvariantDefect
+      && [thrown.where, thrown.on, thrown.cause.reason]).toEqual(['update', 'Increment', 'An increment cannot arrive'])
   })
 
   test('a defect in a subscription carries its key', async () => {
