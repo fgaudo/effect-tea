@@ -48,7 +48,9 @@ rejects `SaveClicked`. Then the "Save" button does nothing. The run does not che
 control sends the message that the program fixed for it.
 
 - What the user types into a text field is not a message. The view writes the text over the value of an input that
-  the model holds (see [inputs the user types into](./inputs-the-user-types-into.md)).
+  the model holds (see [inputs the user types into](./inputs-the-user-types-into.md)). The program cannot fix such a
+  message as a value, since the text is known only when the user types it (see
+  [why what the user types is no message](./inputs-the-user-types-into.md#why-what-the-user-types-is-no-message)).
 - A view sends only the messages that the model holds. A view writes only over the values that the model holds. A view
   never builds a message of the program itself.
 - Export `Message` as a type only. Then no view can build a message.

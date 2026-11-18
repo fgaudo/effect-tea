@@ -11,6 +11,7 @@ import { messagesSentBy } from '../bridges/snabbdom-testing.ts'
 import {
   Command,
   type Counted,
+  Counts,
   Listening,
   Load,
   type Message,
@@ -19,9 +20,9 @@ import {
   Server,
   ServerError,
   type ServerItem,
+  Sheet,
   type State,
   stocktake,
-  Submit,
 } from './stocktake.ts'
 import { view } from './view.ts'
 
@@ -190,7 +191,7 @@ describe('update', () => {
   })
 })
 
-// Any valid state: fields open while editing, locked and whole numbers while submitting and once submitted.
+// Any valid state: any text in an open sheet, whole numbers in one that is submitted or closed.
 const text = fc.oneof(fc.constant(''), fc.nat(30).map(String), fc.constantFrom('3x', ' 2', '-1'))
 const whole = fc.nat(30).map(String)
 
@@ -201,27 +202,16 @@ const states = (): fc.Arbitrary<State> => {
     tag === 'Listening' ? Listening.Listening() : Listening.Disconnected()
   )
   const unknown = fc.array(fc.constantFrom('u1', 'u2', 'u3'), { maxLength: 5 })
-  const open = fc.record({
-    texts: fc.array(text, { minLength: 2, maxLength: 2 }),
-    scanner,
-    unknown,
-    submit: fc.oneof(
-      fc.constant(null).map(() => Submit.Editing()),
-      fc.string().map((error) => Submit.Failed({ error })),
-    ),
-  }).map(({ texts, scanner, unknown, submit }) => ({ lines: lines(texts), unknown, scanner, submit }))
-  const locked = fc.record({
-    texts: fc.array(whole, { minLength: 2, maxLength: 2 }),
-    scanner,
-    unknown,
-    submit: fc.constantFrom('Submitting', 'Submitted').map((tag) =>
-      tag === 'Submitting' ? Submit.Submitting() : Submit.Submitted()
-    ),
-  }).map(({ texts, scanner, unknown, submit }) => ({ lines: lines(texts), unknown, scanner, submit }))
+  const wholes = fc.array(whole, { minLength: 2, maxLength: 2 })
+  const open = fc.record({ texts: fc.array(text, { minLength: 2, maxLength: 2 }), error: fc.option(fc.string()) })
+    .map(({ texts, error }) => Counts.Open({ lines: lines(texts), error: Opt.fromNullishOr(error) }))
+  const locked = wholes.map((texts) => Counts.Locked({ lines: lines(texts) }))
+  const counting = fc.record({ scanner, unknown, counts: fc.oneof(open, locked) }).map(Sheet.Counting)
+  const closed = wholes.map((texts) => Sheet.Closed({ lines: lines(texts) }))
   return fc.oneof(
     fc.constant(null).map(() => Load.Loading()),
     fc.string().map((error) => Load.Failed({ error })),
-    fc.oneof(open, locked).map((sheet) => Load.Loaded({ sheet })),
+    fc.oneof(counting, closed).map((sheet) => Load.Loaded({ sheet })),
   ).map((load) => ({ aisle: 'A3', load }))
 }
 

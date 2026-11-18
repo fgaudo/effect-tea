@@ -406,6 +406,38 @@ answer, and saying so in the proposal.
   `Arr.findFirst`), which the rule of `AGENTS.md` ("A function earns its place") refuses; rows kept in a record need
   only Effect's `.at(id)`. Since `inputById` takes `get` and `set`, rows kept in an array need no optic at all. *Reopen
   if* such an optic must do what Effect alone cannot.
+- **A value changed as the library stores it** (`input({ at, normalize })`, or a `set` that stores another value than
+  the one written), for upper case, a mask or a limit of length. Weighed on 18 November 2026, with the three entries
+  below, on the owner's questions of how a typed value is normalized and whether the rule of a place can leave the
+  optic; the owner asked to record them. A scratch probe, run on Bun, outside git and not kept: a program whose `set`
+  upper-cases, with `edited` and `drawn` as a bridge calls them. After `a` is stored as `A`, the write of `ab` over
+  `a`, sent before any frame, is rejected, since the place holds `A`; the frame of the first write is then taken, and
+  replaces what the user typed. Reasoned from there, and not run: the rule would hold only if `written` and `drawn`
+  compared values after the same function, so a bridge would need the program's function, which must be idempotent,
+  and would write into the element between two keystrokes, with the caret to restore. The guide says instead where a
+  value takes another form ("Inputs the user types into", "What is typed, in another form"): parsed where the program
+  reads it, replaced on a message of the program, or formatted in the element before the write. *Reopen if* a value
+  must be normal in the state as it is typed, and neither a parse where it is read nor a mask in the element gives it.
+- **A condition on an input's declaration** (`input({ at, when })`), to say in which states a write applies, in place
+  of a `get` that returns `None`. Reasoned, 18 November 2026: it is that `get` under another name, an option for what a
+  place already says. What it answered, a rule of the program written inside a `get`
+  (`Opt.filter(sheetOf(state), isOpen)` in `examples/stocktake`), was the example's: with the counts a tagged union,
+  `Open` or `Locked`, the place is an optic through the case `Open`, and the input, `update` and `makeModel` read the
+  same case (the guide, "Inputs the user types into", "Inputs by id"). Tried on the example the same day: a `set` that
+  writes into the locked counts does not compile, while a `get` that reads them does, and a test fails on it. *Reopen
+  if* a lock cannot be a case of the state.
+- **A write that `update` sees and may reject**, so that what applies in a state is said in one place. Reasoned, 18
+  November 2026: the element already shows what was written, so a write that `update` refused would leave the element
+  unlike the state until a frame takes back what the user typed, which "Input is never a reason to reject"
+  ("Structuring a program") rules out. It is the function of the program for what the user types, which inputs
+  replaced, as in "A write into a child's input that raises an event" above. *Reopen if* a program must refuse a
+  write for a reason that no place of its state can say.
+- **A lock derived from the model**: a write rejected when the model does not show the input's value. Reasoned, 18
+  November 2026: the library would have to know which value of a model is an input's, a mark in the model, with the
+  limits of identity that the third spike of [`declared-inputs.md`](records/declared-inputs.md) found (a copy is not
+  recognised), and the run would check at run time what a view sends, as it checked the offers against `update`
+  before they were removed ("Offers as tokens, checked against `update`" above). *Reopen if* the parked "What reaches
+  `update`, declared as data" is taken up, whose declarations would say it.
 - **The wrapping of a child's message as a public function** (`{ _tag, id?, message }`, for `dispatchTo` and a
   test's reader to share), **and as an internal one** for the two places of `src/` that build it. Reasoned, with a
   scratch probe of `tsc` against the `list` and `pages` examples, outside the repository and deleted, 15 November

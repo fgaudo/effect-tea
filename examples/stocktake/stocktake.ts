@@ -9,6 +9,8 @@ import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
+import * as Optic from 'effect/Optic'
+import * as Result from 'effect/Result'
 import * as Stream from 'effect/Stream'
 
 /** An item as the server lists it. */
@@ -37,21 +39,26 @@ export type Listening = Data.TaggedEnum<{ Listening: object; Disconnected: objec
 
 export const Listening = Data.taggedEnum<Listening>()
 
-export type Submit = Data.TaggedEnum<{
-  Editing: object
-  Submitting: object
-  Failed: { error: string }
-  Submitted: object
+/** The counts of the aisle. Only open counts are a place to write into: locked ones are another case. */
+export type Counts = Data.TaggedEnum<{
+  /** Typed and scanned. `error` is why the last submit failed, when one did. */
+  Open: { lines: ReadonlyArray<Line>; error: Opt.Option<string> }
+  /** Being submitted. */
+  Locked: { lines: ReadonlyArray<Line> }
 }>
 
-export const Submit = Data.taggedEnum<Submit>()
+export const Counts = Data.taggedEnum<Counts>()
 
-export type Sheet = Readonly<{
-  lines: ReadonlyArray<Line>
-  unknown: ReadonlyArray<string>
-  scanner: Listening
-  submit: Submit
+type Open = Data.TaggedEnum.Value<Counts, 'Open'>
+
+export type Sheet = Data.TaggedEnum<{
+  /** The aisle is counted: the scanner, the codes it read that are no item's, and the counts. */
+  Counting: { scanner: Listening; unknown: ReadonlyArray<string>; counts: Counts }
+  /** The counts were submitted: nothing is scanned any more. */
+  Closed: { lines: ReadonlyArray<Line> }
 }>
+
+export const Sheet = Data.taggedEnum<Sheet>()
 
 export type Load = Data.TaggedEnum<{
   Loading: object
@@ -139,27 +146,38 @@ const scans = Channel.unwrap(Effect.map(Effect.service(Scanner), (scanner) =>
     Channel.mapDone((): Own => Own.ScannerDisconnected()),
   )))
 
-const sheetOf = (state: State): Opt.Option<Sheet> =>
-  state.load._tag === 'Loaded' ? Opt.some(state.load.sheet) : Opt.none()
+// Where each part of a sheet is, through the cases of the state that hold it. A state in another case has no such
+// place: nothing is read there, and a change leaves the state as it is.
+const atCounting = Optic.id<State>().key('load').tag('Loaded').key('sheet').tag('Counting')
 
-/** The counts are open while the sheet is edited: read-only while it is submitted, and once it is closed. */
-const isOpen = (sheet: Sheet): boolean => sheet.submit._tag === 'Editing' || sheet.submit._tag === 'Failed'
+const atScanner = atCounting.key('scanner')
 
-/** The scanner is listened to while the sheet is open and the scanner plugged. */
-const listens = (sheet: Sheet): boolean => sheet.scanner._tag === 'Listening' && sheet.submit._tag !== 'Submitted'
+const atCounts = atCounting.key('counts')
+
+/** The counts while they are open: no place while they are submitted, nor once the sheet is closed. */
+const atOpen = atCounts.tag('Open')
+
+const atLocked = atCounts.tag('Locked')
+
+/** What a place holds, or `None` in a state that has no such place. */
+const read = <A>(at: Optic.Optional<State, A>) => (state: State): Opt.Option<A> =>
+  Result.getSuccess(at.getResult(state))
+
+/** The scanner is listened to while the aisle is counted and the scanner plugged. */
+const listens = (state: State): boolean => Opt.exists(read(atScanner)(state), ({ _tag }) => _tag === 'Listening')
 
 /** Each item's whole number, or `None` when any is empty or invalid. */
-const countsOf = (sheet: Sheet): Opt.Option<ReadonlyArray<Counted>> =>
-  Opt.all(Arr.map(sheet.lines, ({ id, text }) => {
+const countsOf = (lines: ReadonlyArray<Line>): Opt.Option<ReadonlyArray<Counted>> =>
+  Opt.all(Arr.map(lines, ({ id, text }) => {
     const count = countOf(text)
     return count._tag === 'Valid' ? Opt.some({ id, counted: count.count }) : Opt.none()
   }))
 
 const withSheet = (state: State, sheet: Sheet): State => ({ ...state, load: Load.Loaded({ sheet }) })
 
-const withText = (sheet: Sheet, id: string, text: (was: string) => string): Sheet => ({
-  ...sheet,
-  lines: Arr.map(sheet.lines, (line) => line.id === id ? { ...line, text: text(line.text) } : line),
+const withText = (id: string, text: (was: string) => string) => (counts: Open): Open => ({
+  ...counts,
+  lines: Arr.map(counts.lines, (line) => line.id === id ? { ...line, text: text(line.text) } : line),
 })
 
 const { make, inputById } = program<{ state: State; command: Command; flags: Flags; message: Own }>()
@@ -167,17 +185,12 @@ const { make, inputById } = program<{ state: State; command: Command; flags: Fla
 export const stocktake = make({
   init: ({ aisle }) => ({ state: { aisle, load: Load.Loading() }, commands: [Command.Load({ aisle })] }),
   inputs: {
-    // Only the count of an open sheet is a place to write into: a write over a locked one finds no place, and is
-    // rejected.
+    // Only an open count is a place to write into: a write over a locked one finds no place, and is rejected.
     Count: inputById({
       get: (state, id: string) =>
-        Opt.flatMap(Opt.filter(sheetOf(state), isOpen), (sheet) =>
-          Opt.map(Arr.findFirst(sheet.lines, (line) => line.id === id), (line) => line.text)),
-      set: (state, id, text) =>
-        Opt.match(sheetOf(state), {
-          onNone: () => state,
-          onSome: (sheet) => withSheet(state, withText(sheet, id, () => text)),
-        }),
+        Opt.flatMap(read(atOpen)(state), ({ lines }) =>
+          Opt.map(Arr.findFirst(lines, (line) => line.id === id), (line) => line.text)),
+      set: (state, id, text) => atOpen.modify(withText(id, () => text))(state),
     }),
   },
   update: (message) => (state) => {
@@ -189,69 +202,72 @@ export const stocktake = make({
       case 'Loaded':
         return state.load._tag === 'Loading'
           ? {
-            state: withSheet(state, {
-              lines: Arr.map(message.items, (item) => ({ ...item, text: '' })),
-              unknown: [],
-              scanner: Listening.Listening(),
-              submit: Submit.Editing(),
-            }),
+            state: withSheet(
+              state,
+              Sheet.Counting({
+                scanner: Listening.Listening(),
+                unknown: [],
+                counts: Counts.Open({
+                  lines: Arr.map(message.items, (item) => ({ ...item, text: '' })),
+                  error: Opt.none(),
+                }),
+              }),
+            ),
           }
           : defect('A load completed while nothing was loading')
       case 'LoadFailed':
         return state.load._tag === 'Loading'
           ? { state: { ...state, load: Load.Failed({ error: message.error }) } }
           : defect('A load failed while nothing was loading')
-      case 'Scanned': {
-        if (state.load._tag !== 'Loaded' || !listens(state.load.sheet)) {
-          return defect('A scan while the scanner was not listened to')
-        }
-        const sheet = state.load.sheet
-        // A scan while the counts are being submitted does not apply: the counts are locked.
-        if (sheet.submit._tag === 'Submitting') return reject
-        return Opt.match(Arr.findFirst(sheet.lines, (line) => line.code === message.code), {
-          onSome: ({ id }) => ({ state: withSheet(state, withText(sheet, id, scanned)) }),
-          onNone: () => ({
-            state: withSheet(state, { ...sheet, unknown: Arr.take([message.code, ...sheet.unknown], 5) }),
-          }),
+      case 'Scanned':
+        if (!listens(state)) return defect('A scan while the scanner was not listened to')
+        return Opt.match(read(atOpen)(state), {
+          // A scan while the counts are being submitted does not apply: the counts are locked.
+          onNone: () => reject,
+          onSome: ({ lines }) =>
+            Opt.match(Arr.findFirst(lines, (line) => line.code === message.code), {
+              onSome: ({ id }) => ({ state: atOpen.modify(withText(id, scanned))(state) }),
+              onNone: () => ({
+                state: atCounting.key('unknown').modify((codes) => Arr.take([message.code, ...codes], 5))(state),
+              }),
+            }),
         })
-      }
       case 'ScannerDisconnected':
-        return state.load._tag === 'Loaded' && listens(state.load.sheet)
-          ? { state: withSheet(state, { ...state.load.sheet, scanner: Listening.Disconnected() }) }
+        return listens(state)
+          ? { state: atScanner.replace(Listening.Disconnected(), state) }
           : defect('The scanner ended while it was not listened to')
       case 'ReconnectClicked':
-        return state.load._tag === 'Loaded' && state.load.sheet.scanner._tag === 'Disconnected'
-          && state.load.sheet.submit._tag !== 'Submitted'
-          ? { state: withSheet(state, { ...state.load.sheet, scanner: Listening.Listening() }) }
+        return Opt.exists(read(atScanner)(state), ({ _tag }) => _tag === 'Disconnected')
+          ? { state: atScanner.replace(Listening.Listening(), state) }
           : reject
-      case 'SubmitClicked': {
-        if (state.load._tag !== 'Loaded') return reject
-        const sheet = state.load.sheet
-        if (!isOpen(sheet)) return reject
-        return Opt.match(countsOf(sheet), {
+      case 'SubmitClicked':
+        return Opt.match(read(atOpen)(state), {
           onNone: () => reject,
-          onSome: (counts) => ({
-            state: withSheet(state, { ...sheet, submit: Submit.Submitting() }),
-            commands: [Command.Submit({ aisle: state.aisle, counts })],
+          onSome: ({ lines }) =>
+            Opt.match(countsOf(lines), {
+              onNone: () => reject,
+              onSome: (counts) => ({
+                state: atCounts.replace(Counts.Locked({ lines }), state),
+                commands: [Command.Submit({ aisle: state.aisle, counts })],
+              }),
+            }),
+        })
+      case 'SubmitSucceeded':
+        return Opt.match(read(atLocked)(state), {
+          onNone: () => defect('A submit completed while nothing was submitted'),
+          onSome: ({ lines }) => ({ state: withSheet(state, Sheet.Closed({ lines })) }),
+        })
+      case 'SubmitFailed':
+        return Opt.match(read(atLocked)(state), {
+          onNone: () => defect('A submit failed while nothing was submitted'),
+          onSome: ({ lines }) => ({
+            state: atCounts.replace(Counts.Open({ lines, error: Opt.some(message.error) }), state),
           }),
         })
-      }
-      case 'SubmitSucceeded':
-        return state.load._tag === 'Loaded' && state.load.sheet.submit._tag === 'Submitting'
-          ? { state: withSheet(state, { ...state.load.sheet, submit: Submit.Submitted() }) }
-          : defect('A submit completed while nothing was submitted')
-      case 'SubmitFailed':
-        return state.load._tag === 'Loaded' && state.load.sheet.submit._tag === 'Submitting'
-          ? { state: withSheet(state, { ...state.load.sheet, submit: Submit.Failed({ error: message.error }) }) }
-          : defect('A submit failed while nothing was submitted')
     }
   },
   runCommand,
-  subscriptions: (state) =>
-    Opt.match(sheetOf(state), {
-      onNone: () => HashMap.empty(),
-      onSome: (sheet) => listens(sheet) ? HashMap.make(['scanner', scans]) : HashMap.empty(),
-    }),
+  subscriptions: (state) => listens(state) ? HashMap.make(['scanner', scans]) : HashMap.empty(),
   makeModel: (state): Model => {
     switch (state.load._tag) {
       case 'Loading':
@@ -260,19 +276,20 @@ export const stocktake = make({
         return { _tag: 'LoadFailed', error: state.load.error, retry: Own.RetryClicked() }
       case 'Loaded': {
         const sheet = state.load.sheet
-        const open = isOpen(sheet)
-        const items = Arr.map(sheet.lines, ({ id, name, expected, text }): ItemLine => ({
+        const lines = sheet._tag === 'Closed' ? sheet.lines : sheet.counts.lines
+        const editable = sheet._tag === 'Counting' && sheet.counts._tag === 'Open'
+        const items = Arr.map(lines, ({ id, name, expected, text }): ItemLine => ({
           id,
           model: {
             name,
             expected,
             count: countOf(text),
-            entry: open ? { _tag: 'Editable', text } : { _tag: 'ReadOnly', text },
+            entry: editable ? { _tag: 'Editable', text } : { _tag: 'ReadOnly', text },
           },
         }))
         const total = Arr.reduce(items, 0, (sum, { model }) =>
           sum + (model.count._tag === 'Valid' ? model.count.count : 0))
-        if (sheet.submit._tag === 'Submitted') {
+        if (sheet._tag === 'Closed') {
           const differing = Arr.filter(items, ({ model }) =>
             model.count._tag !== 'Valid' || model.count.count !== model.expected).length
           return { _tag: 'Closed', items, total, differing }
@@ -285,12 +302,12 @@ export const stocktake = make({
             : { _tag: 'Disconnected', reconnect: Own.ReconnectClicked() },
           items,
           total,
-          submit: sheet.submit._tag === 'Submitting'
+          submit: sheet.counts._tag === 'Locked'
             ? { _tag: 'Submitting' }
-            : Opt.isSome(countsOf(sheet))
+            : Opt.isSome(countsOf(lines))
               ? { _tag: 'Ready', submit: Own.SubmitClicked() }
               : { _tag: 'Blocked' },
-          error: sheet.submit._tag === 'Failed' ? Opt.some(sheet.submit.error) : Opt.none(),
+          error: sheet.counts._tag === 'Open' ? sheet.counts.error : Opt.none(),
         }
       }
     }

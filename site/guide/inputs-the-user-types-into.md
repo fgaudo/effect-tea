@@ -33,7 +33,8 @@ In general, a view writes over the value its model holds, through the input's di
 
 ## Rules
 
-- **What the user gives an input is no message of the program.** No `update` of the program sees it.
+- **What the user gives an input is no message of the program.** No `update` of the program sees it (see
+  [why](#why-what-the-user-types-is-no-message)).
 - **The program declares where it goes**: `inputs: { Name: input({ at }) }` in `make`.
   - `at` is an optic to a plain value of the program's state. In place of `at`, you can give `get` and `set` (see
     [declaring children](./composition.md#declaring-children)).
@@ -80,6 +81,27 @@ and keeps its focus while the program changes what it shows.
 The examples' bridges show this rule, and you can copy them: [`form`](../../examples/form) draws its input with
 snabbdom and with React.
 
+### What is typed, in another form
+
+The library stores what is written as it is, because the element already shows that value. A program that wants the
+value in another form has three ways:
+
+- **Parse the text where the program reads it.** The state holds the text as typed. A function of the program says
+  what the text means, to `update` and to `makeModel`. `stocktake` reads each count with `countOf`: a whole number,
+  nothing typed, or anything else.
+- **Replace the text on a message of the program.** `update` leaves another value in the input's place: for example,
+  the name without the spaces around it, when the user saves. The state has then moved on without the element, and
+  the element takes the program's value (see [the element on screen](#the-element-on-screen)).
+- **Format the text in the element, before the write.** A limit that the element keeps by itself, such as
+  `maxlength`, needs nothing: the element reports the value that it holds. A mask changes the element's own value. So
+  it is outside what this page promises, unless its bridge reports each such change as an edit (see
+  [which elements and renderers this holds for](#which-elements-and-renderers-this-holds-for)). The examples' bridges
+  show no mask.
+
+Do not change the value in `set`. The element shows what the user typed, so the user's next write is over that value,
+and the place holds another one. A write sent before the next frame is then rejected, and that frame takes back what
+the user typed.
+
 ## Inputs by id
 
 A value that the user types into each row, such as the count of each item, is an input by id. Use `inputById` instead
@@ -114,20 +136,32 @@ inputs: {
 
 **Lock the rows while an operation runs.** A `get` that returns `None` gives a write no place, and the write is
 rejected. So a parent locks every row by giving no place while it saves. Its model then shows no editor. `stocktake`
-does this while the sheet is submitted:
+does this while the sheet is submitted. Its counts are a tagged union, and only the case `Open` is a place to write
+into:
 
 ```ts
+type Counts = Data.TaggedEnum<{
+  Open: { lines: ReadonlyArray<Line>; error: Opt.Option<string> }
+  Locked: { lines: ReadonlyArray<Line> }
+}>
+
+const atOpen = atCounts.tag('Open')
+
 Count: inputById({
   get: (state, id: string) =>
-    Opt.flatMap(Opt.filter(sheetOf(state), isOpen), (sheet) =>
-      Opt.map(Arr.findFirst(sheet.lines, (line) => line.id === id), (line) => line.text)),
-  set: (state, id, text) =>
-    Opt.match(sheetOf(state), {
-      onNone: () => state,
-      onSome: (sheet) => withSheet(state, withText(sheet, id, () => text)),
-    }),
+    Opt.flatMap(read(atOpen)(state), ({ lines }) =>
+      Opt.map(Arr.findFirst(lines, (line) => line.id === id), (line) => line.text)),
+  set: (state, id, text) => atOpen.modify(withText(id, () => text))(state),
 }),
 ```
+
+Here `atCounts` is an optic to the counts, and `read` gives what an optic focuses on, as an `Option`. While the counts
+are `Locked`, `atOpen` focuses nothing. So `get` returns `None`, and `set` leaves the state as it is.
+
+**Keep what the user types in the case of the state where it can be typed.** The lock is then the shape of the state,
+and no condition beside it: the input, `update` and `makeModel` read the same case. In `stocktake`, a `set` that wrote
+into the locked counts would not compile. A `get` that read them would compile: a test checks that a write over a
+locked row is rejected.
 
 In the same states, the parent's `update` rejects the parent's own messages for a row, such as a choice from a list.
 
@@ -147,8 +181,32 @@ Each pair sums up a rule of this page. The rule itself is above.
 | Let the bridge settle the element with `drawn` after each frame.         | Write each frame's value into the element: it can take back what the user typed.  |
 | Answer in a subscription or a command with a message of the program.     | Write into an input from a subscription or a command.                             |
 | Lock the rows while an operation runs, with a `get` that returns `None`. | Keep the rows' places while the operation runs: their writes can still be stored. |
+| Parse the text where the program reads it.                               | Change the value in `set`: the user's next write can then be rejected.            |
 
 ## Precisely
+
+### Why what the user types is no message
+
+A text field could send a message for each keystroke, with the text in it, and `update` could store the text. An input
+is there instead, for three reasons:
+
+- **There is nothing to decide.** A click says that something happened, and `update` decides what it means. A text is
+  different: the element already shows it. The one question is whether the state has moved on without the element.
+  The answer is the same for every input. So the library keeps the rule, and a bridge and a test rely on the same one.
+- **A frame may be older than the user's last keystroke.** So a write says what it was written over, and the library
+  rejects a write over a value that the place no longer holds. A program that stored the text in its `update` would
+  write this check itself, for each field.
+- **The model could not hold the message.** Every message that a view can send is in the model, as a value that the
+  program fixed (see [model](./model.md)). A text is known only when the user types it. So the model would hold a
+  function from the text to a message, and a model holds no function. Or the view would build the message itself, and
+  no test sees a message that a view built.
+
+So no `update` runs when the user types. A program that must act on what is typed does not wait for a message:
+
+- What the text says, such as whether a name is blank, `update` and `makeModel` compute from the state where they
+  read it.
+- Work that follows the text, such as a search while the user types, is a subscription with the text in its key. A
+  new value of the key starts the subscription anew (see [subscriptions](./subscriptions.md)).
 
 ### Settling an element
 

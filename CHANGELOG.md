@@ -37,6 +37,10 @@ version, and everything else, features included, the patch version.
   how a child waits for its parent ("Rules"). "Subscriptions" shows a subscription that ends with a message of its own
   ("Precisely"), and "Testing tools" how `hearNext` hears one under a `TestClock` ("How a subscription is heard"), as
   the doc comment of `hearNext` does.
+- The guide's "Inputs the user types into" says why what the user types is no message ("Why what the user types is no
+  message"), how a program gets what is typed in another form ("What is typed, in another form"), and that a lock is
+  best a case of the state ("Inputs by id"), as the example `stocktake` now keeps it. "Model" ("Rules") and "Coming
+  from Elm or React" ("From Elm") point to the first.
 - The guide gives the handlers of `onEvent` and a child's `external` type ("Events and external messages", "Rules").
 - The skill says how a test file loads snabbdom before a DOM is registered, one that registers it in `beforeAll`
   included, and that the examples import with `.ts`.

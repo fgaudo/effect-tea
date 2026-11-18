@@ -38,6 +38,10 @@ What is new:
   [rejections and defects](./rejections-and-defects.md)).
 - **The model, between the state and the view.** The model holds each control's message as data. So a test checks the
   controls against `update` without drawing anything (see [testing](./testing.md)).
+- **Inputs.** In Elm, `onInput` makes a message of each keystroke, and `update` stores the text. Here the text is no
+  message: the program declares a place in its state, and the library stores what the view writes there. So no
+  `update` runs when the user types (see
+  [why what the user types is no message](./inputs-the-user-types-into.md#why-what-the-user-types-is-no-message)).
 
 What you lose: Elm's compiler keeps `update` pure, and TypeScript's compiler does not. Two things are left to you:
 keeping `update`, `makeModel` and `subscriptions` pure, and never mutating a state (see
