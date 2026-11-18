@@ -84,6 +84,15 @@ type PlacementById<ParentState, Id, ChildState> =
 type ExternalTaken<P> = [Exclude<ExternalOf<P>, MessageOf<P>>] extends [never] ? unknown
   : Readonly<{ "a child's external messages are not among its messages": Exclude<ExternalOf<P>, MessageOf<P>> }>
 
+// A child that runs commands has a `runCommand`; `Interpreter` is `object` for one that runs none, and `unknown` is
+// needed here instead: see `CheckedChild`.
+type CommandsRun<P> = [CommandOf<P>] extends [never] ? unknown : Interpreter<CommandOf<P>, unknown, unknown>
+
+// The child's program, with what it lacks for the checks above. Inferred from `P & …`, `P` would be the program less
+// the members TypeScript matches with the checks, which loses the name `Program<…>` in a consumer's declarations:
+// inferred from `P` alone, it keeps it, and the intersection is written only where a check fails.
+type CheckedChild<P> = unknown extends CommandsRun<P> & ExternalTaken<P> ? P : P & CommandsRun<P> & ExternalTaken<P>
+
 /**
  * A child alone in its parent's state: what `child` returns, for `children` in `make`.
  *
@@ -1070,7 +1079,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
  * @see The guide, "Composition", "Where the child lives: `at`".
  */
 export type DeclareChild<T extends DeclaredTypes> = <P extends AnyProgram>(
-  program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalTaken<P>,
+  program: CheckedChild<P>,
   place:
     & Placement<Field<T, 'state'>, StateOf<P>>
     & Readonly<{ subscribed?: (state: Field<T, 'state'>) => Opt.Option<StateOf<P>> }>
@@ -1083,7 +1092,7 @@ export type DeclareChild<T extends DeclaredTypes> = <P extends AnyProgram>(
  * @see The guide, "Composition", "`get` and `set` take the id".
  */
 export type DeclareChildById<T extends DeclaredTypes> = <Id, P extends AnyProgram>(
-  program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalTaken<P>,
+  program: CheckedChild<P>,
   place:
     & PlacementById<Field<T, 'state'>, Id, StateOf<P>>
     & Readonly<{ subscribed: (state: Field<T, 'state'>) => Iterable<readonly [Id, StateOf<P>]> }>

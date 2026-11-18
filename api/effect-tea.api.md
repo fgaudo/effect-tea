@@ -42,6 +42,9 @@ type At<C> = C extends ChildByIdOf<infer Id, any> ? Readonly<{
     id: Id;
 }> : unknown;
 
+// @public (undocumented)
+type CheckedChild<P> = unknown extends CommandsRun<P> & ExternalTaken<P> ? P : P & CommandsRun<P> & ExternalTaken<P>;
+
 // @public
 export type Child<ParentState, P> = {
     readonly kind: 'one';
@@ -134,6 +137,9 @@ export type CommandServicesOf<P> = P extends {
     readonly runCommand: RunCommand<any, any, infer R>;
 } ? R : never;
 
+// @public (undocumented)
+type CommandsRun<P> = [CommandOf<P>] extends [never] ? unknown : Interpreter<CommandOf<P>, unknown, unknown>;
+
 // @public
 export class CompositionDefect extends CompositionDefect_base<Readonly<{
     message: string;
@@ -158,12 +164,12 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> = 
 }>;
 
 // @public
-export type DeclareChild<T extends DeclaredTypes> = <P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalTaken<P>, place: Placement<Field<T, 'state'>, StateOf<P>> & Readonly<{
+export type DeclareChild<T extends DeclaredTypes> = <P extends AnyProgram>(program: CheckedChild<P>, place: Placement<Field<T, 'state'>, StateOf<P>> & Readonly<{
     subscribed?: (state: Field<T, 'state'>) => Opt.Option<StateOf<P>>;
 }> & ObjectState<StateOf<P>>) => Child<Field<T, 'state'>, P>;
 
 // @public
-export type DeclareChildById<T extends DeclaredTypes> = <Id, P extends AnyProgram>(program: P & Interpreter<CommandOf<P>, unknown, unknown> & ExternalTaken<P>, place: PlacementById<Field<T, 'state'>, Id, StateOf<P>> & Readonly<{
+export type DeclareChildById<T extends DeclaredTypes> = <Id, P extends AnyProgram>(program: CheckedChild<P>, place: PlacementById<Field<T, 'state'>, Id, StateOf<P>> & Readonly<{
     subscribed: (state: Field<T, 'state'>) => Iterable<readonly [Id, StateOf<P>]>;
 }> & ObjectState<StateOf<P>>) => ChildById<Field<T, 'state'>, Id, P>;
 

@@ -353,6 +353,8 @@ version, and everything else, features included, the patch version.
   `?? []`.
 - The exported records are written with `readonly` members, not as `Readonly<{ … }>`, so that a consumer's
   declarations and hovers name them (`Step<…>`, not `Readonly<{ state: …; … }>`); their types are the same.
+- A child that `child` or `childById` declares names its program in a consumer's declarations and hovers,
+  `Child<State, Program<…>>`, where it spelled out the program's pieces; what they accept is the same.
 - **Breaking**: `rehearse`'s type parameters start with the program's type, `P`, through which it reads whether the
   program has commands; a hover names the `Rehearsal` a scenario gets. Upgrade: a call that names them,
   `rehearse<State, Model, Message>(…)`, names the program first, `rehearse<typeof app, State, Model, Message>(…)`, or

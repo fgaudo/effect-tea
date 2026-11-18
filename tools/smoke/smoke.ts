@@ -139,7 +139,10 @@ try {
       // it (12 today), and many times more when a type of the library repeats it inside each of its own (80 when
       // `make` was spelled out, 25 when `Child` and `Step` were).
       const spelled = declared.match(/\bfulls\b/g)?.length ?? 0
-      const ok = exitCode === 0 && unnamed.length === 0 && spelled <= 12
+      // A program is named `Program<…>` wherever the library holds one, as `Child<…>` does: spelled out, it shows the
+      // key of its external messages. Only `copied`, a copy, spells itself out.
+      const programs = declared.match(/~@fgaudo\/effect-tea\/Program\/external/g)?.length ?? 0
+      const ok = exitCode === 0 && unnamed.length === 0 && spelled <= 12 && programs <= 1
       console.log(`typescript ${exact}, ${resolution}: ${ok ? 'ok' : 'failed'}`)
       if (exitCode !== 0) {
         failed.push(`typescript ${exact}, ${resolution}`)
@@ -148,6 +151,7 @@ try {
         failed.push(`typescript ${exact}, ${resolution}`)
         if (unnamed.length > 0) console.log(`consumer.d.ts spells out ${unnamed.join(', ')}`)
         if (spelled > 12) console.log(`consumer.d.ts spells out the state ${spelled} times, more than 12`)
+        if (programs > 1) console.log(`consumer.d.ts spells out a program ${programs} times, more than once`)
       }
     }
   }

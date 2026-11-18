@@ -15,9 +15,6 @@ test of it. None is open.
 To be done first. Found in a review of the exported types, 18 November 2026, each tried on a copy of the repository
 outside git, not kept, with TypeScript 7.0.2, unless it says otherwise:
 
-- **The child's program is spelled out inside `Child<…>` and `ChildById<…>`** in a consumer's declarations: `P` is
-  inferred from the intersection `P & Interpreter<…> & ExternalTaken<P>` of `DeclareChild`, which drops the alias
-  `Program<…>`. Not tried.
 - **`make` returns a `Program<…>` that names six types as `never`** (`command: never; commandServices: never;
   subscriptionServices: never; event: never; external: never; flags: never`), in the hover and the declarations of every
   program, where the program named three. Tried: `MakeProgram` (`src/compose.ts`) returning `Program<{ state; model;
