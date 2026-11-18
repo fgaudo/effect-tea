@@ -453,17 +453,25 @@ type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never] ? Rea
     runCommand: (command: OwnCommand) => Ran & Execution<Message, any>
   }>
 
-type TagOf<M> = M extends { readonly _tag: infer T } ? T : never
+// Each way round, so that a wide tag (`string`, a template, `any`) takes every name it admits, and a wide name every
+// tag it admits; an optional tag is a tag. A message with no tag in its type takes a name exactly when a message that
+// has only that tag is one of its type, as one of `unknown` or `object` is.
+/** The names among `Names` that a message or command of type `M` may carry as its tag, by which `make` routes it. */
+type TagsTaken<M, Names> = 0 extends 1 & M ? Names
+  : M extends unknown ? '_tag' extends keyof M ? Extract<Names, M[keyof M & '_tag']> | Extract<M[keyof M & '_tag'], Names>
+    : Names extends unknown ? Readonly<{ _tag: Names }> extends M ? Names : never
+    : never
+  : never
 
 /**
- * An own message or command that takes the name of a child or of an input, `Of`, would be routed to it: it does not
+ * An own message or command that can take the name of a child or of an input, `Of`, would be routed to it: it does not
  * compile.
  */
 type NoClash<Own, OwnCommand, C, Of extends string> =
-  & ([Extract<TagOf<Own>, keyof C>] extends [never] ? unknown
-    : { readonly [K in `an own message takes the name of ${Of}`]: Extract<TagOf<Own>, keyof C> })
-  & ([Extract<TagOf<OwnCommand>, keyof C>] extends [never] ? unknown
-    : { readonly [K in `an own command takes the name of ${Of}`]: Extract<TagOf<OwnCommand>, keyof C> })
+  & ([TagsTaken<Own, keyof C & string>] extends [never] ? unknown
+    : { readonly [K in `an own message takes the name of ${Of}`]: TagsTaken<Own, keyof C & string> })
+  & ([TagsTaken<OwnCommand, keyof C & string>] extends [never] ? unknown
+    : { readonly [K in `an own command takes the name of ${Of}`]: TagsTaken<OwnCommand, keyof C & string> })
 
 /** An input that takes a child's name would replace the child, whose messages would then be the input's. */
 type NoShared<C, I> = [keyof C & keyof I] extends [never] ? unknown
@@ -875,8 +883,8 @@ type DeclaredTypes = Readonly<{
  * - a subscription under the key `[<child>, key]`.
  *
  * For children and inputs by id, each of these also carries the `id`: a key is then `[<child>, id, key]`. A message of
- * the parent's own that takes the name of a child or of an input does not compile, nor does an external message that
- * takes the name of an input. A key of the parent's own subscriptions that is the key of a child's subscription is a
+ * the parent's own that can take the name of a child or of an input does not compile, as one tagged `string` can, nor
+ * does an external message that can take the name of an input. A key of the parent's own subscriptions that is the key of a child's subscription is a
  * defect, a `CompositionDefect`.
  *
  * @returns `child` and `childById`, which declare a child alone and children by id, `input` and `inputById`, which
@@ -930,7 +938,15 @@ export const program =<T extends DeclaredTypes>(): ProgramMaker<T> => ({
 // Only a child's message is checked here: one that is no message at all is refused where the program is a child, as
 // for any program (`docs/rejected.md`).
 /** A parent's external messages for a child are the child's external messages, which it answers in every state. */
-type ExternalPassed<External, Messages, Externals> = Unpassed<Exclude<Extract<External, Messages>, Externals>>
+type ExternalPassed<External, C> = Unpassed<
+  External extends unknown ? Unsent<External, TagsTaken<External, keyof C & string>, C> : never
+>
+// An external message that a child's name may route to it, and whose `message` is not all among that child's external
+// messages: one with no `message` sends it none of them.
+type Unsent<External, Names, C> = Names extends keyof C
+  ? [External extends { readonly message: infer M } ? M : unknown] extends [ExternalOf<ProgramOf<C[Names]>>] ? never
+  : External
+  : never
 type Unpassed<Kept> = [Kept] extends [never] ? unknown
   : Readonly<{ "an external message for a child is not among the child's": Kept }>
 
@@ -1152,8 +1168,8 @@ export type MakeProgram<T extends DeclaredTypes> = <
       Field<T, 'flags'>
     >
     & Readonly<{ children?: C; inputs?: I }>
-    & ExternalPassed<Field<T, 'external'>, ChildMessages<NoInfer<C>>, ChildExternals<NoInfer<C>>>
-    & ExternalWritten<Extract<keyof NoInfer<I> & string, TagOf<Field<T, 'external'>>>>
+    & ExternalPassed<Field<T, 'external'>, NoInfer<C>>
+    & ExternalWritten<TagsTaken<Field<T, 'external'>, keyof NoInfer<I> & string>>
     // On the config, as for a program written by hand: the program `make` returns carries the marker of `Program`,
     // which the check of `run` and of the testing tools asks for, so a state that holds a number would get past them.
     // A state that is a type parameter stays deferred here, and does not compile (`docs/rejected.md`).

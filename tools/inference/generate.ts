@@ -51,10 +51,32 @@ type Violation =
   | 'wrongInitState'
   | 'missingOnEvent'
   | 'ownToChild'
-  | 'clash'
+  | `clash.${Width}`
+  | `commandClash.${Width}`
   | 'extraRunCommand'
   | 'missingUpdate'
   | 'updateUnnamed'
+
+// How wide the tag of a message or command that takes the name of a child or of an input is: the name itself, any
+// string, a template that the name matches, `any`, or the name as an optional tag.
+type Width = 'literal' | 'string' | 'template' | 'any' | 'optional'
+const widths: ReadonlyArray<Width> = ['literal', 'string', 'template', 'any', 'optional']
+const clashing = (tag: string, width: Width) => {
+  switch (width) {
+    case 'literal':
+      return `Readonly<{ _tag: '${tag}' }>`
+    case 'string':
+      return 'Readonly<{ _tag: string }>'
+    case 'template':
+      return `Readonly<{ _tag: \`${tag.slice(0, 1)}\${string}\` }>`
+    case 'any':
+      return 'Readonly<{ _tag: any }>'
+    case 'optional':
+      return `Readonly<{ _tag?: '${tag}' }>`
+  }
+}
+const widthOf = (v: Violation | undefined, kind: 'clash' | 'commandClash') =>
+  v?.startsWith(`${kind}.`) ? (v.slice(kind.length + 1) as Width) : undefined
 
 type Case = Readonly<{
   id: string
@@ -125,9 +147,13 @@ const generate = (c: Case): string => {
   const typeFields = [`state: ${state}`]
   if (has('model')) typeFields.push(`model: ${M[c.comp]}`)
   if (has('message')) {
-    typeFields.push(v === 'clash' ? `message: Own | Readonly<{ _tag: '${tagOf[c.comp]}' }>` : 'message: Own')
+    const width = widthOf(v, 'clash')
+    typeFields.push(width === undefined ? 'message: Own' : `message: Own | ${clashing(tagOf[c.comp], width)}`)
   }
-  if (has('command')) typeFields.push('command: Cmd')
+  if (has('command')) {
+    const width = widthOf(v, 'commandClash')
+    typeFields.push(width === undefined ? 'command: Cmd' : `command: Cmd | ${clashing(tagOf[c.comp], width)}`)
+  }
   if (has('event')) typeFields.push('event: Ev')
   if (has('external')) {
     typeFields.push(v === 'externalNotAmong' ? "external: Readonly<{ _tag: 'Other' }>" : 'external: Ext')
@@ -494,7 +520,10 @@ const violations: ReadonlyArray<
   { violation: 'wrongInitState', applies: () => true },
   { violation: 'missingOnEvent', applies: (c) => isKid(c.comp) },
   { violation: 'ownToChild', applies: (c) => isKid(c.comp) && c.update === 'contextual' },
-  { violation: 'clash', applies: (c) => c.comp !== 'none' && c.update !== 'absent' },
+  ...widths.flatMap((width) => [
+    { violation: `clash.${width}` as const, applies: (c: Case) => c.comp !== 'none' && c.update !== 'absent' },
+    { violation: `commandClash.${width}` as const, applies: (c: Case) => c.comp !== 'none' },
+  ]),
   { violation: 'extraRunCommand', applies: () => true, named: (named) => named.delete('command') },
   // `message` named and no `update`, and an `update` with no `message` named.
   { violation: 'missingUpdate', applies: (c) => c.update === 'absent', named: (named) => named.add('message') },
@@ -657,6 +686,93 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
   const external: Exactly<ExternalOf<typeof parent>, Readonly<{ _tag: 'Kid'; message: Readonly<{ _tag: 'KReset' }> }>> = true
   return external`,
   },
+  // A parent's `external` whose tag is wide enough to name the child, with a message the child keeps to itself.
+  ...['string', '`K${string}`'].map((tag) => ({
+    id: `special.external-wide-tag.${tag === 'string' ? 'string' : 'template'}`,
+    valid: false as const,
+    body: `  type Through = Readonly<{ kid: KidState }>
+  const Parent = program<{ state: Through; external: Readonly<{ _tag: ${tag}; message: Readonly<{ _tag: 'KInc' }> }> }>()
+  const parent = Parent.make({
+    init: (children) => ({ state: { kid: children.Kid.init.state }, commands: children.Kid.init.commands }),
+    children: { Kid: Parent.child(kid, { at: Optic.id<Through>().key('kid') }) },
+    onEvent: { Kid: () => (state) => ({ state }) },
+    makeModel: () => null,
+  })
+  return parent`,
+  })),
+  // Children and inputs given as a record of wide keys: an own message that takes the name of one is broken. One that
+  // takes another name is the control: refused, since the same program can be written with the names as they are.
+  ...([['Kid', false], ['Inc', 'refused']] as const).map(([tag, valid]) => ({
+    id: `special.children-wide-names.${tag}`,
+    valid,
+    body: `  type Through = Readonly<{ n: number; kid: KidState }>
+  const Parent = program<{ state: Through; message: Readonly<{ _tag: '${tag}' }> }>()
+  const handle = Parent.child(kid, { at: Optic.id<Through>().key('kid') })
+  const children: Readonly<Record<string, typeof handle>> = { Kid: handle }
+  const parent = Parent.make({
+    init: () => ({ state: { n: 0, kid: { k: 0 } } }),
+    children,
+    update: () => (state) => ({ state }),
+    onEvent: { Kid: () => (state) => ({ state }) },
+    makeModel: () => null,
+  })
+  return parent`,
+  })),
+  ...([['Name', false], ['Inc', 'refused']] as const).map(([tag, valid]) => ({
+    id: `special.inputs-wide-names.${tag}`,
+    valid,
+    body: `  type Named = Readonly<{ n: number; name: string }>
+  const Parent = program<{ state: Named; message: Readonly<{ _tag: '${tag}' }> }>()
+  const name = Parent.input({ at: Optic.id<Named>().key('name') })
+  const inputs: Readonly<Record<string, typeof name>> = { Name: name }
+  const parent = Parent.make({
+    init: { state: { n: 0, name: '' } },
+    inputs,
+    update: () => (state) => ({ state }),
+    makeModel: () => null,
+  })
+  return parent`,
+  })),
+  // A wide type in a place of a program without children or inputs is true, and read back as named.
+  ...(['message', 'command', 'event'] as const).flatMap((place) =>
+    (['any', 'unknown'] as const).map((type) => ({
+      id: `special.wide-${place}.${type}`,
+      valid: true as const,
+      body: `  const made = program<{ state: SNone; message: ${place === 'message' ? type : 'Own'}${
+        place === 'message' ? '' : `; ${place}: ${type}`
+      } }>().make({
+    init: { state: { n: 0 } },
+    update: () => (state) => ({ state }),${place === 'command' ? '\n    runCommand: () => Effect.succeedNone,' : ''}
+    makeModel: () => null,
+  })
+  const read: Exactly<${
+        place === 'message' ? 'MessageOf' : place === 'command' ? 'CommandOf' : 'EventOf'
+      }<typeof made>, ${type}> = true
+  return read`,
+    }))
+  ),
+  {
+    id: 'special.wide-model.any',
+    valid: true,
+    body: `  const made = program<{ state: SNone; model: any }>().make({ init: { state: { n: 0 } }, makeModel: (state) => state.n })
+  const model: Exactly<ModelOf<typeof made>, any> = true
+  return model`,
+  },
+  // An own message of a wide type beside a child may take the child's name; one without a tag never does.
+  ...([['unknown', false], ['object', false], ['number', true]] as const).map(([type, valid]) => ({
+    id: `special.wide-message-beside-child.${type}`,
+    valid,
+    body: `  type Through = Readonly<{ kid: KidState }>
+  const Parent = program<{ state: Through; message: ${type} }>()
+  const parent = Parent.make({
+    init: (children) => ({ state: { kid: children.Kid.init.state }, commands: children.Kid.init.commands }),
+    children: { Kid: Parent.child(kid, { at: Optic.id<Through>().key('kid') }) },
+    update: () => (state) => ({ state }),
+    onEvent: { Kid: () => (state) => ({ state }) },
+    makeModel: () => null,
+  })
+  return parent`,
+  })),
   {
     id: 'special.generic-program-of-t',
     valid: true,

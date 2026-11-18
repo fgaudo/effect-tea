@@ -165,12 +165,13 @@ Three more facts hold for children and inputs:
 
 **What does not compile:**
 
-- a message or a command of the parent's own that takes the name of a child or of an input;
+- a message or a command of the parent's own that can take the name of a child or of an input: by its tag, which a
+  tag of `string` can be, or as any value, which a message of `unknown` can be;
 - an input that takes the name of a child;
 - an input whose optic, alone or by id, points into a state other than the program's;
 - a subscription of the parent's own that writes into an input;
 - a command's answer that writes into an input, the parent's input or a child's input;
-- an external message whose tag is the name of an input of the program, since it would write into that input;
+- an external message whose tag can be the name of an input of the program, since it would write into that input;
 - a command's answer that gives a child a message that is the child's own business, not one of its external messages;
 - a child with commands and no `runCommand` (a program written without `Program<…>` can be one).
 

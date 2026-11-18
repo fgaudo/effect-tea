@@ -124,6 +124,9 @@ version, and everything else, features included, the patch version.
 - A message or command whose wrapping comes back to itself is described by its tags until then, `Loop › …`, where its
   description overflowed the stack.
 - A parent whose `subscribed` lists an id twice says so, not that an own key took a child's.
+- A parent's own message or command that can take the name of a child or of an input no longer compiles: one tagged
+  `string`, or with a template the name matches, or an optional tag, and one of `unknown` or `object`. Nor does an
+  external message that can take a child's name and gives it a message the child keeps to itself.
 
 ## 0.7.1 (2026-10-28)
 

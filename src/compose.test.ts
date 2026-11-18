@@ -1552,6 +1552,62 @@ describe('what the types reject', () => {
     })
   })
 
+  test('an own message or command cannot take the name of a child, however wide its type', () => {
+    const { child } = program<{ state: Ticks }>()
+    const children = { Plain: child(plain, { get: (state) => Opt.some(state), set: (_, child) => child }) }
+    const parentOf = <T extends { state: Ticks; message?: unknown; command?: unknown }>() => program<T>().make
+    const init = () => ({ state: noTicks })
+    const update = () => (state: Ticks) => ({ state })
+    // @ts-expect-error: any string is `Plain` too.
+    parentOf<{ state: Ticks; message: Readonly<{ _tag: string }> }>()({ init, children, update, makeModel: () => null })
+    // @ts-expect-error: `Plain` matches the template.
+    parentOf<{ state: Ticks; message: Readonly<{ _tag: `P${string}` }> }>()({
+      init,
+      children,
+      update,
+      makeModel: () => null,
+    })
+    // @ts-expect-error: an optional tag is a tag.
+    parentOf<{ state: Ticks; message: Readonly<{ _tag?: 'Plain' }> }>()({ init, children, update, makeModel: () => null })
+    // @ts-expect-error: a message of any value may be tagged `Plain`.
+    parentOf<{ state: Ticks; message: unknown }>()({ init, children, update, makeModel: () => null })
+    // @ts-expect-error: likewise for a command.
+    parentOf<{ state: Ticks; command: Readonly<{ _tag: string }> }>()({
+      init,
+      children,
+      runCommand: () => Effect.succeedNone,
+      makeModel: () => null,
+    })
+    const elsewhere = parentOf<{ state: Ticks; message: Readonly<{ _tag: `Q${string}` }> | number }>()({
+      init,
+      children,
+      update,
+      makeModel: () => null,
+    })
+    const alone = parentOf<{ state: Ticks; message: Readonly<{ _tag: string }> }>()({
+      init: { state: noTicks },
+      update,
+      makeModel: () => null,
+    })
+    expect([elsewhere.update(1)(noTicks), alone.init]).toEqual([{ state: noTicks }, { state: noTicks }])
+  })
+
+  test('a parent takes from its own parent, for a child, only what the child may be sent, however wide its tag', () => {
+    const resettable: Program<{ state: Ticks; model: number; message: Tick | Reset; external: Reset }> = {
+      init: { state: noTicks },
+      update: (message) => ({ ticks }) => ({ state: { ticks: message._tag === 'Tick' ? ticks + 1 : 0 } }),
+      makeModel: ({ ticks }) => ticks,
+    }
+    const counter = <M>() => {
+      const { child, make } = program<{ state: Ticks; external: Readonly<{ _tag: string; message: M }> }>()
+      return { make, children: { Counter: child(resettable, { get: Opt.some, set: (_, ticks) => ticks }) } }
+    }
+    const private_ = counter<Tick>()
+    // @ts-expect-error: `Tick` is the child's own business, and any string is `Counter`.
+    private_.make({ init: () => ({ state: noTicks }), children: private_.children, makeModel: () => null })
+    expect(private_.children.Counter.program).toBe(resettable)
+  })
+
   test('an external message cannot write into an input, whatever spells its tag', () => {
     type Named = Readonly<{ name: string }>
     type Write = Readonly<{ _tag: 'Name'; message: Written<string> }>

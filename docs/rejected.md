@@ -270,7 +270,9 @@ answer, and saying so in the proposal.
   and a parent's write over a stale value was a `CompositionDefect`; a command's answer wrote into the child's input,
   which the guide says does not compile. `make` checks that part alone too (`ExternalWritten`), from the inputs, by tag
   (Fable: a check by message missed `string`, template and non-distributed tags). That it also refuses, at `make`, an
-  external with an input's tag and the wrong shape, which `child` would refuse later, is the only error it moves.
+  external with an input's tag and the wrong shape, which `child` would refuse later, is the only error it moves. Both
+  checks read a tag by the names it can take (`TagsTaken`) since a review of the same day, which the matrix confirmed:
+  an `external` tagged `string` gave a child a message it keeps to itself, and compiled everywhere.
 - **An error at `make` for a `runCommand` that returns `any`** (Fable: `0 extends 1 & Ran`, "a runCommand returns
   any"), listed in `ROADMAP.md`. Reasoned, 17 November 2026, on probes with `tsc`: such services were read as `never`
   by `CommandServicesOf` and `SubscriptionServicesOf` alone (`Known` in `program.ts`), and so by a parent, while `run`

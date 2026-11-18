@@ -14,12 +14,6 @@ test of it. None is open.
 
 Found in a review of 18 November 2026, each reproduced:
 
-- **An own message or command whose `_tag` is `string` gets past `NoClash`** (`src/compose.ts`):
-  `Extract<TagOf<Own>, keyof C>` is `never` for `string` (and a template tag), so `{ _tag: 'Page' }` reaches the child
-  `Page` with no `message`, and a command's answer `{ _tag: 'Name', message: … }` is stored as a write into the
-  program's own input, which "Composition" ("What does not compile") says does not compile. Turning the test around,
-  `Extract<keyof C, TagOf<Own>>`, as `ExternalWritten` does, would refuse them; whether it refuses a correct program
-  (`message: any`) is for the inference matrix.
 - **A parent's subscriptions cannot send a child's external messages, though its commands can**: `runCommand` answers
   `Own | ChildExternals<C>`, `subscriptions` only `Own`. Every program can still be written, through an own message
   and `children.<child>.update`, and both are sources of messages the run handles alike. To decide: allow it, or say
