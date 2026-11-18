@@ -1,5 +1,5 @@
 import type { Message, Model } from './counter.ts'
-import { onClick, type View } from '../bridges/react.ts'
+import { onClick, type View } from '../../bridges/react.ts'
 
 // The view of `counter/view-snabbdom.ts`, in React: the same model, the same messages.
 export const view: View<Model, Message> = (model, dispatch) => (

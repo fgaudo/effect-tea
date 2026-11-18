@@ -73,7 +73,7 @@ It probably does not when:
 
 - you want state in your components. Here the renderer draws frames and keeps no state beside the program's. What the
   platform keeps by itself, such as a hover, the focus or an animation, is fine;
-- you want a renderer integration from npm. The bridges to snabbdom and to React are files of the examples, about 150
+- you want a renderer integration from npm. The bridges to snabbdom and to React are files of `bridges/`, about 150
   lines each, to copy and own
   ([writing a bridge](https://fgaudo.github.io/effect-tea/documents/Guide.Writing_a_bridge.html) explains one);
 - you are not on Effect 4.
@@ -174,7 +174,7 @@ Effect.runFork(run(counter, renderInto(root, view)))
 ```
 
 `View`, `onClick` and `renderInto` are the examples' bridge to React,
-[`examples/bridges/react.ts`](examples/bridges/react.ts). [`examples/counter`](examples/counter) draws the same program
+[`bridges/react.ts`](bridges/react.ts). [`examples/counter`](examples/counter) draws the same program
 with snabbdom.
 
 ### With its tests
@@ -214,7 +214,7 @@ builds a larger application the same way, a step at a time.
 [`examples/`](examples) holds complete programs, each with its tests. Each is drawn with
 [snabbdom](https://github.com/snabbdom/snabbdom), and two of them with React too, in the same run. Try one in the
 browser, or run it: `bun run build`, then `bun examples/<name>/index.html`. The bridges they are drawn with are in
-[`examples/bridges/`](examples/bridges), for you to copy into your project. [`examples/README.md`](examples/README.md)
+[`bridges/`](bridges), for you to copy into your project. [`examples/README.md`](examples/README.md)
 says where to start.
 
 | Example                           | What it is                   | What it shows                                                                                                                                                                                                                                                                   | Try it                                                          |

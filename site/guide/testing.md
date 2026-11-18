@@ -103,7 +103,7 @@ does not ask for it.
 
 **That the view draws what its model holds is not checked here.** This means that the view draws each control once,
 through the right dispatch. You check it with your renderer's tools. For snabbdom,
-[`examples/bridges/snabbdom-testing.ts`][messages] has one, `messagesSentBy`. `messagesSentBy` finds what a view sends,
+[`bridges/snabbdom-testing.ts`][messages] has one, `messagesSentBy`. `messagesSentBy` finds what a view sends,
 without a DOM. A test compares that with what its reader returns. The examples' tests do this, each with a reader that
 lists the messages in the order its view draws them. `messagesSentBy` is an example, and a bridge does not have to have
 one.
@@ -111,7 +111,7 @@ one.
 **A program run under its renderer, in a DOM,** is run as the app runs it. First, the test file prepares the DOM:
 
 - The test file registers a DOM, as happy-dom's `GlobalRegistrator.register()` does in a `beforeAll`.
-- With snabbdom, the file loads [`examples/bridges/snabbdom-preload.ts`][preload] before its imports, even when it
+- With snabbdom, the file loads [`bridges/snabbdom-preload.ts`][preload] before its imports, even when it
   registers a DOM. The reason is that snabbdom reads `window` when it loads.
 
 Then the test does these steps:
@@ -124,9 +124,9 @@ Then the test does these steps:
 The tests of the examples' bridges go further (see [their tests](./writing-a-bridge.md#their-tests)). In those tests, a
 frame is drawn when the test says, in place of the next animation frame.
 
-[preload]: ../../examples/bridges/snabbdom-preload.ts
+[preload]: ../../bridges/snabbdom-preload.ts
 
-[messages]: ../../examples/bridges/snabbdom-testing.ts
+[messages]: ../../bridges/snabbdom-testing.ts
 
 ## Do and don't
 

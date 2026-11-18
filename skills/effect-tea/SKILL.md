@@ -19,14 +19,14 @@ versions. The paths below are relative to this file.
   that file.
 - **The examples**, [`examples/`](../../examples): complete programs, each with its tests. The README lists what each
   one shows.
-- **The bridges**, [`examples/bridges/snabbdom.ts`](../../examples/bridges/snabbdom.ts) and
-  [`examples/bridges/react.ts`](../../examples/bridges/react.ts): the library ships no renderer. Copy a bridge into the
+- **The bridges**, [`bridges/snabbdom.ts`](../../bridges/snabbdom.ts) and
+  [`bridges/react.ts`](../../bridges/react.ts): the library ships no renderer. Copy a bridge into the
   project, or write one ("Writing a bridge" in the guide). Their tests are
-  [`examples/bridges/snabbdom.test.ts`](../../examples/bridges/snabbdom.test.ts),
-  [`examples/bridges/react.test.ts`](../../examples/bridges/react.test.ts) and the suite both run,
-  [`examples/bridges/bridge.test_suite.ts`](../../examples/bridges/bridge.test_suite.ts). snabbdom reads the global
+  [`bridges/snabbdom.test.ts`](../../bridges/snabbdom.test.ts),
+  [`bridges/react.test.ts`](../../bridges/react.test.ts) and the suite both run,
+  [`bridges/bridge.test_suite.ts`](../../bridges/bridge.test_suite.ts). snabbdom reads the global
   `window` when it loads. So a test file that imports snabbdom before a DOM is registered must first load
-  [`examples/bridges/snabbdom-preload.ts`](../../examples/bridges/snabbdom-preload.ts). This holds for a file that
+  [`bridges/snabbdom-preload.ts`](../../bridges/snabbdom-preload.ts). This holds for a file that
   registers a DOM in `beforeAll` too: its imports run first. The preload's comment says how. The
   examples import their own files with the `.ts` extension. If your `tsconfig.json` does not set
   `allowImportingTsExtensions`, write `.js` instead under `moduleResolution` `nodenext`, or remove the extension under

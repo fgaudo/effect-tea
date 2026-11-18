@@ -40,7 +40,7 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 - **Generic, and only Effect.** The library knows nothing of the applications that use it, nor of any
   renderer: views are generic over their node type, and the renderer is a function given to `run`. `effect`
   (v4) is its only dependency, as a peer. Biome forbids renderer imports, and `lib` (`ES2022`, no `DOM`)
-  rejects browser APIs, everywhere but in `examples/`.
+  rejects browser APIs, everywhere but in `examples/` and `bridges/`.
 - **An API of its own.** The API is exactly what `src/index.ts` and `src/testing/index.ts` export; every other
   module is internal. It is judged on its own terms, from the library's concepts, its examples and its users in
   general: coherent, symmetric where its tools are (what `drive` gets, `simulate` and `rehearse` are asked
@@ -85,9 +85,10 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   it, a parent tells one message to each of its children by id (the `list` example). Both are dual (`Function.dual`),
   for a chain of steps written in a `pipe`.
 - **Only stable APIs.** A module or function marked `@stability unstable` in Effect's declarations may change
-  under the library's users: never build on one, not even as an option, and not in `examples/` either, since
-  users copy them. The same holds for React's `unstable_` and `experimental_` APIs in the bridges. The typecheck
-  fails on one, in the library and in the examples (the Effect language service's `unstableApiUsage`).
+  under the library's users: never build on one, not even as an option, and not in `examples/` or `bridges/`
+  either, since users copy them. The same holds for React's `unstable_` and `experimental_` APIs in the bridges. The
+  typecheck fails on one, in the library, the examples and the bridges (the Effect language service's
+  `unstableApiUsage`).
 - **Nothing deprecated.** No module, type, function, method or option marked `@deprecated`, of any dependency,
   in the library, its tests or its examples: use what the deprecation names instead, and replace a use found in
   passing. `bun run lint` fails on one (Oxlint's type-aware `typescript/no-deprecated`).
@@ -218,16 +219,16 @@ this summary says less. What every change keeps, an example's and a document's t
   from the packed `src/`.
 - **A file of the tests has one of two names, and no other**: `<name>.test.ts` when it holds tests that run,
   `<name>.test_<kind>.ts` when it serves them, and never both in one name (no `<name>.test_<kind>.test.ts`): a file
-  is a test or serves the tests. So a file of neither form is no file of the tests: in `src/` and `examples/` it is,
-  at a glance, code of the library or of an example. One that serves the tests takes the `<name>` of the test file it
-  goes with, as `test/scheduled.test_scheduler.ts`, the scheduler of the tests, goes with `test/scheduled.test.ts`,
-  which tests it, and `examples/timer/timer.test_reader.ts`, the reader of a timer's model, with
-  `examples/timer/timer.test.ts`; one that several test files call has a name of its own, as
-  `examples/bridges/bridge.test_suite.ts`, which runs in each bridge's test, and `test/gc.test_helper.ts`, which the
+  is a test or serves the tests. So a file of neither form is no file of the tests: in `src/`, `examples/` and
+  `bridges/` it is, at a glance, code of the library, of an example or of a bridge. One that serves the tests takes the
+  `<name>` of the test file it goes with, as `test/scheduled.test_scheduler.ts`, the scheduler of the tests, goes with
+  `test/scheduled.test.ts`, which tests it, and `examples/timer/timer.test_reader.ts`, the reader of a timer's model,
+  with `examples/timer/timer.test.ts`; one that several test files call has a name of its own, as
+  `bridges/bridge.test_suite.ts`, which runs in each bridge's test, and `test/gc.test_helper.ts`, which the
   tests that ask for a collection call. `bun test` does not collect a `.test_<kind>.ts` (it collects `*.test.ts`,
   `*_test.ts`, `*.spec.ts` and `*_spec.ts`), so it runs only where a test file imports it, or where a runner loads it
   before the tests: `bun run test:node` has Node import `test/node/register.test_hook.ts`.
-- **What a bridge gives a user's tests is code of the bridge**, in `examples/bridges/` beside it, and is named as a
+- **What a bridge gives a user's tests is code of the bridge**, in `bridges/` beside it, and is named as a
   user who copies it would name it in a project: `snabbdom-testing.ts`, with `messagesSentBy`, and
   `snabbdom-preload.ts`, which `bun test` preloads (`bunfig.toml`). It serves the examples' tests too, but it is what a
   user takes, not a file of the repository's tests, so it has no `.test_<kind>`.
@@ -262,10 +263,10 @@ this summary says less. What every change keeps, an example's and a document's t
 
   A bug found is held by a case of one of them: a rule of a pure piece, an invariant, a contract, a boundary or a type,
   and gets a scenario of its own only where none can hold it. The examples' own tests show users how to test a program.
-  So do the bridges' (`examples/bridges/snabbdom.test.ts`, `examples/bridges/react.test.ts`), for a bridge: the tests of
-  `renderInto` and of an input that every bridge passes, written once in `examples/bridges/bridge.test_suite.ts` and
+  So do the bridges' (`bridges/snabbdom.test.ts`, `bridges/react.test.ts`), for a bridge: the tests of
+  `renderInto` and of an input that every bridge passes, written once in `bridges/bridge.test_suite.ts` and
   given each renderer's `Bridge`, with those of one renderer alone, in a DOM, and those of the snabbdom bridge's
-  `messagesSentBy`, without one (`examples/bridges/snabbdom-testing.test.ts`). The smoke test (`tools/smoke/`) and the
+  `messagesSentBy`, without one (`bridges/snabbdom-testing.test.ts`). The smoke test (`tools/smoke/`) and the
   benchmark (`tools/bench/`) check the package and its speed. The inference matrix (`tools/inference/`,
   `bun run inference`) generates programs in each way they can be written, and checks with each TypeScript the package
   supports that their types keep the three rules of "What belongs here": it runs by hand, not in the CI, after a change
@@ -298,9 +299,9 @@ this summary says less. What every change keeps, an example's and a document's t
   only let a mutant survive, never turn a correct run red, and the runner of the mutations runs a killer that passed
   under its mutation again, alone, before it reports a survivor. Where a witness can be awaited, it is: which windows
   have none is in `docs/invariants.md` ("Windows of absence").
-- Only the bridges' tests in a DOM, `examples/bridges/snabbdom.test.ts` and `examples/bridges/react.test.ts`, register
-  one (happy-dom), for the tests of `examples/bridges/bridge.test_suite.ts` they call too; every other test runs without
-  one, `examples/bridges/snabbdom-testing.test.ts` too.
+- Only the bridges' tests in a DOM, `bridges/snabbdom.test.ts` and `bridges/react.test.ts`, register
+  one (happy-dom), for the tests of `bridges/bridge.test_suite.ts` they call too; every other test runs without
+  one, `bridges/snabbdom-testing.test.ts` too.
 
 ## Checks
 

@@ -1182,15 +1182,15 @@ export const mutations: ReadonlyArray<Mutation> = [
       ],
       ['src/input.test.ts', 'a frame of a state brought back to one the element has left gives the element its value'],
       [
-        'examples/bridges/snabbdom.test.ts',
+        'bridges/snabbdom.test.ts',
         'a name the program empties is emptied in the input on screen, which stays and keeps the focus',
       ],
       [
-        'examples/bridges/react.test.ts',
+        'bridges/react.test.ts',
         'a name the program empties is emptied in the input on screen, which stays and keeps the focus',
       ],
-      ['examples/bridges/snabbdom.test.ts', 'is rejected, and the input on screen is emptied, as the save left it'],
-      ['examples/bridges/react.test.ts', 'is rejected, and the input on screen is emptied, as the save left it'],
+      ['bridges/snabbdom.test.ts', 'is rejected, and the input on screen is emptied, as the save left it'],
+      ['bridges/react.test.ts', 'is rejected, and the input on screen is emptied, as the save left it'],
     ],
   },
   {
@@ -1203,11 +1203,11 @@ export const mutations: ReadonlyArray<Mutation> = [
       ['src/input.test.ts', 'a frame older than the keys typed since leaves the element as it is'],
       ['src/input.test.ts', 'an element that stays is not taken, though the frame holds an equal copy'],
       [
-        'examples/bridges/snabbdom.test.ts',
+        'bridges/snabbdom.test.ts',
         'a frame drawn while the user types does not take back what they typed since',
       ],
       [
-        'examples/bridges/react.test.ts',
+        'bridges/react.test.ts',
         'a frame drawn while the user types does not take back what they typed since',
       ],
     ],

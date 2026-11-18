@@ -4,7 +4,7 @@ import { applyAll, dispatchViolations, rehearse } from '@fgaudo/effect-tea/testi
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
-import { messagesSentBy } from '../bridges/snabbdom-testing.ts'
+import { messagesSentBy } from '../../bridges/snabbdom-testing.ts'
 import { namedMessages } from './named.test_reader.ts'
 import { type Message, type Model, named, type State } from './named.ts'
 import * as Timer from './timer.ts'

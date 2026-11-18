@@ -27,10 +27,10 @@ import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import * as Scheduler from 'effect/Scheduler'
 import * as Stream from 'effect/Stream'
-import { counter, type Message as CounterMessage, type Model as CounterModel } from '../counter/counter.ts'
-import { form, type Message as FormMessage, type Model as FormModel } from '../form/form.ts'
-import { Storage, StorageError } from '../form/storage.ts'
-import { type Message as VolumeMessage, type Model as VolumeModel, Pointer, volume } from '../volume/volume.ts'
+import { counter, type Message as CounterMessage, type Model as CounterModel } from '../examples/counter/counter.ts'
+import { form, type Message as FormMessage, type Model as FormModel } from '../examples/form/form.ts'
+import { Storage, StorageError } from '../examples/form/storage.ts'
+import { type Message as VolumeMessage, type Model as VolumeModel, Pointer, volume } from '../examples/volume/volume.ts'
 
 // The callbacks waiting for the next screen refresh: none runs until `paint`.
 const waiting = new Map<number, FrameRequestCallback>()

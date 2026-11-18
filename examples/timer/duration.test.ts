@@ -3,7 +3,7 @@ import { reject } from '@fgaudo/effect-tea'
 import { applyAll, dispatchViolations } from '@fgaudo/effect-tea/testing'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
-import { messagesSentBy } from '../bridges/snabbdom-testing.ts'
+import { messagesSentBy } from '../../bridges/snabbdom-testing.ts'
 import { duration, type Message, type Model, update } from './duration.ts'
 import { durationView } from './view.ts'
 

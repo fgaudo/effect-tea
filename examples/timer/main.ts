@@ -1,7 +1,7 @@
 import { run } from '@fgaudo/effect-tea'
 import * as Cause from 'effect/Cause'
 import * as Effect from 'effect/Effect'
-import { renderInto } from '../bridges/snabbdom.ts'
+import { renderInto } from '../../bridges/snabbdom.ts'
 import { namedTimers } from './named-timers.ts'
 import { Bell } from './timer.ts'
 import { namedTimersView } from './view.ts'

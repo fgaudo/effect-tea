@@ -37,6 +37,8 @@
     "site/tutorial",
     "examples",
     "!examples/tsconfig.json",
+    "bridges",
+    "!bridges/tsconfig.json",
     "skills",
     "README.md",
     "CHANGELOG.md"
@@ -44,7 +46,7 @@
   "scripts": {
     "build": "bun tools/build.ts",
     "prepack": "bun tools/build.ts",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p examples",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p examples && tsc --noEmit -p bridges",
     "lint": "biome lint . && oxlint --type-aware",
     "test": "bun test --path-ignore-patterns=src/interleaving.test.ts",
     "test:node": "node --expose-gc --import ./test/node/register.test_hook.ts --test \"src/**/!(interleaving).test.ts\" \"test/*.test.ts\"",

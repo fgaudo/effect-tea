@@ -61,11 +61,11 @@ version never goes down. `package.json` and the changelog's section always agree
 ## What the package contains
 
 `files` in `package.json`: `dist/`, `src/` without its tests, the guide (`site/guide/`), the tutorial
-(`site/tutorial/`), the examples without their `tsconfig.json`, the skill for coding agents (`skills/`), `README.md`
-and `CHANGELOG.md`; the rest of the site is not published. A user and their agent read the documentation there, at the
-version installed, and `bun run smoke` checks that it finds in the package every file it links. `bun pm pack` shows
-the package as it would be published, as `fgaudo-effect-tea-<version>.tgz` at the root (ignored by git): `prepack`
-builds `dist/` first. Lifecycle scripts
+(`site/tutorial/`), the examples and the bridges without their `tsconfig.json`, the skill for coding agents (`skills/`),
+`README.md` and `CHANGELOG.md`; the rest of the site is not published. A user and their agent read the documentation
+there, at the version installed, and `bun run smoke` checks that it finds in the package every file it links.
+`bun pm pack` shows the package as it would be published, as `fgaudo-effect-tea-<version>.tgz` at the root (ignored by
+git): `prepack` builds `dist/` first. Lifecycle scripts
 run without `node_modules/.bin` on the `PATH`: `tools/build.ts` resolves `tsc` itself, and `prepare` runs
 `effect-tsgo` through `bunx`.
 
@@ -84,7 +84,7 @@ ships them all resolves them. The site has no copy of the files, so `site/build.
 file the package does not ship, the test of the guarantees in "Guarantees", is to `tree/main`. The tutorial holds no
 code of its own: each block is `{@includeCode}` of a `// #region` of [`examples/timer`](../../../examples/timer), and
 each block of the guide's "Writing a bridge" one of the bridge
-[`examples/bridges/snabbdom.ts`](../../../examples/bridges/snabbdom.ts), so that what they show is typechecked and
+[`bridges/snabbdom.ts`](../../../bridges/snabbdom.ts), so that what they show is typechecked and
 tested. A change to that example or that bridge keeps its regions, and the prose around them, true. The README's links
 to the guide are to the published site's pages, since the README is no project document.
 

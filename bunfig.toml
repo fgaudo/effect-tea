@@ -1,2 +1,2 @@
 [test]
-preload = ["./examples/bridges/snabbdom-preload.ts"]
+preload = ["./bridges/snabbdom-preload.ts"]

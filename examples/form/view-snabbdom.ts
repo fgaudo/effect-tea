@@ -1,7 +1,7 @@
 import { forwardTo } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
 import { h } from 'snabbdom'
-import { onClick, shows, type View } from '../bridges/snabbdom.ts'
+import { onClick, shows, type View } from '../../bridges/snabbdom.ts'
 import type { Message, Model } from './form.ts'
 
 export const view: View<Model, Message> = (model, dispatch) => {

@@ -3,7 +3,7 @@
 import { forwardTo } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
 import { h, thunk } from 'snabbdom'
-import { onClick, shows, type View } from '../bridges/snabbdom.ts'
+import { onClick, shows, type View } from '../../bridges/snabbdom.ts'
 import type * as Duration from './duration.ts'
 import type * as NamedTimers from './named-timers.ts'
 import type * as Named from './named.ts'

@@ -4,7 +4,7 @@ import { applyAll, dispatchViolations, drive } from '@fgaudo/effect-tea/testing'
 import * as Effect from 'effect/Effect'
 import * as Opt from 'effect/Option'
 import * as fc from 'fast-check'
-import { messagesSentBy } from '../bridges/snabbdom-testing.ts'
+import { messagesSentBy } from '../../bridges/snabbdom-testing.ts'
 import { counter, type Message, type Model, update } from './counter.ts'
 import { view } from './view-snabbdom.ts'
 

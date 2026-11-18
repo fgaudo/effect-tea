@@ -58,10 +58,10 @@ program, outside the components.
 | A reducer and its actions                      | `update` and its messages. `update` also returns commands, and may `reject`                                                              | [update](./update.md)                                                                              |
 | `useEffect` that fetches or saves              | A command `update` returns, run by `runCommand`                                                                                          | [commands](./commands.md)                                                                          |
 | `useEffect` that listens, with a cleanup       | A subscription under a key: started when the state lists the key, stopped when it does not                                               | [subscriptions](./subscriptions.md)                                                                |
-| A component                                    | A view: a plain function of its model. With the [examples' bridge to React](../../examples/bridges/react.ts), it uses no hooks           | [view](./view.md)                                                                                  |
+| A component                                    | A view: a plain function of its model. With the [examples' bridge to React](../../bridges/react.ts), it uses no hooks                    | [view](./view.md)                                                                                  |
 | A handler that decides what to do              | A handler that sends a message the model holds: `onClick(model.save, dispatch)`                                                          | [model](./model.md)                                                                                |
 | Props down, callbacks up                       | A child's model down, its events up                                                                                                      | [composition](./composition.md), [events and external messages](./events-and-external-messages.md) |
-| A controlled `<input>`, `value` and `onChange` | An input. The [examples' bridge to React](../../examples/bridges/react.ts) draws it over an uncontrolled `<input>`, with no `value` prop | [inputs the user types into](./inputs-the-user-types-into.md)                                      |
+| A controlled `<input>`, `value` and `onChange` | An input. The [examples' bridge to React](../../bridges/react.ts) draws it over an uncontrolled `<input>`, with no `value` prop          | [inputs the user types into](./inputs-the-user-types-into.md)                                      |
 | A test that renders a component                | A test of `update` and of the model, without a DOM                                                                                       | [testing](./testing.md)                                                                            |
 
 Some things stay with the platform. A hover, an animation or the focus that the platform keeps by itself is not a state
@@ -70,6 +70,6 @@ decides by is state, and moves by equal steps (see the same section).
 
 The examples' bridge to React leaves out a component with state or effects of its own, Suspense, a subtree that `memo`
 skips, and a portal (see [what is left out](./writing-a-bridge.md#what-is-left-out)). The bridge is a file to copy and
-to own: [`examples/bridges/react.ts`](../../examples/bridges/react.ts). The examples
+to own: [`bridges/react.ts`](../../bridges/react.ts). The examples
 [`counter`](../../examples/counter) and [`form`](../../examples/form) are drawn with it, and with the bridge to snabbdom
 too.

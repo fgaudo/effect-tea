@@ -20,7 +20,7 @@ says, for each thing the reader needed, where it found it.
 
 The reader works in a project of its own outside the repository, so that the code and the documents of the repository
 are out of its reach by where it stands, not only by its rules. A check is of one of two modes, which differ only in
-what of `examples/` the reader reads:
+what of `examples/` and `bridges/` the reader reads:
 
 - **Package**: all of it, as a user's agent does, and found as it finds it: the brief names no file of the
   documentation, so the reader's path through the package shows whether the README's "For coding agents" and the
@@ -29,8 +29,8 @@ what of `examples/` the reader reads:
   `examples/timer/` and link to it, and for the skill. A reader that knows it checks documentation looks harder than
   an agent at work: one that does not find the skill is a finding, one that does is only a sign.
 - **Closed**: only the bridges and what they give a user's tests, which a user copies as they are, since the library
-  ships no renderer: `examples/bridges/snabbdom.ts`, `examples/bridges/react.ts`, `examples/bridges/snabbdom-testing.ts`
-  and `examples/bridges/snabbdom-preload.ts`. It does not imitate a user, who has the examples: it checks the guide as
+  ships no renderer: `bridges/snabbdom.ts`, `bridges/react.ts`, `bridges/snabbdom-testing.ts`
+  and `bridges/snabbdom-preload.ts`. It does not imitate a user, who has the examples: it checks the guide as
   the specification. A rule that a reader of the package would copy from an example without noticing shows instead as a
   guess, or as what the compiler or a test told it. It is the mode for pages of the guide.
 
@@ -144,12 +144,12 @@ The package documents itself in node_modules/@fgaudo/effect-tea. Start with its 
   its guide, then <the pages checked>. You may read its README.md, CHANGELOG.md, package.json, everything under
   skills/, site/guide/ and site/tutorial/, and everything under dist/ that ends in .d.ts: the doc comments of the
   declarations are the API reference a user reads in a hover. A `@see` line of a doc comment names a page of
-  site/guide/ by its title. Of examples/, you may read only the bridges and what they give a user's tests:
-  examples/bridges/snabbdom.ts, examples/bridges/react.ts, examples/bridges/snabbdom-testing.ts and
-  examples/bridges/snabbdom-preload.ts. Use them as a user who copies them does, by what they export, and count what
-  you learn from their code under (2), with the file. Every other file of examples/ is forbidden, though the skill, the
-  guide and the tutorial link to it: where one sends you to such a file, say in the report which page, what you needed
-  from the file, and how you did without it.
+  site/guide/ by its title. Of examples/ and bridges/, you may read only the bridges and what they give a user's tests:
+  bridges/snabbdom.ts, bridges/react.ts, bridges/snabbdom-testing.ts and
+  bridges/snabbdom-preload.ts. Use them as a user who copies them does, by what they export, and count what
+  you learn from their code under (2), with the file. Every other file of examples/ and bridges/ is forbidden, though
+  the skill, the guide and the tutorial link to it: where one sends you to such a file, say in the report which page,
+  what you needed from the file, and how you did without it.
 ```
 
 ## Acceptance tests the reader never sees

@@ -3,7 +3,7 @@
 import { type Dispatch, forwardTo } from '@fgaudo/effect-tea'
 import * as Opt from 'effect/Option'
 import { h, thunk, type VNode } from 'snabbdom'
-import { onClick, type View } from '../bridges/snabbdom.ts'
+import { onClick, type View } from '../../bridges/snabbdom.ts'
 import type * as About from './about.ts'
 import type { Message, Model } from './app.ts'
 import type * as Clock from './clock.ts'

@@ -27,14 +27,14 @@ import {
   stop,
   type,
 } from './bridge.test_suite.ts'
-import { view as counterView } from '../counter/view-snabbdom.ts'
-import { view as formView } from '../form/view-snabbdom.ts'
+import { view as counterView } from '../examples/counter/view-snabbdom.ts'
+import { view as formView } from '../examples/form/view-snabbdom.ts'
 import { onClick, renderInto, shows, type View } from './snabbdom.ts'
-import { Scanner, Server, ServerError, stocktake } from '../stocktake/stocktake.ts'
-import { view as stocktakeView } from '../stocktake/view.ts'
-import { Bell, Phase, timer } from '../timer/timer.ts'
-import { timerView } from '../timer/view.ts'
-import { view as volumeView } from '../volume/view.ts'
+import { Scanner, Server, ServerError, stocktake } from '../examples/stocktake/stocktake.ts'
+import { view as stocktakeView } from '../examples/stocktake/view.ts'
+import { Bell, Phase, timer } from '../examples/timer/timer.ts'
+import { timerView } from '../examples/timer/view.ts'
+import { view as volumeView } from '../examples/volume/view.ts'
 
 beforeAll(() => {
   GlobalRegistrator.register()

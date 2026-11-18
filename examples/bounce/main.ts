@@ -3,7 +3,7 @@ import * as Cause from 'effect/Cause'
 import * as Effect from 'effect/Effect'
 import * as Queue from 'effect/Queue'
 import * as Stream from 'effect/Stream'
-import { renderInto } from '../bridges/snabbdom.ts'
+import { renderInto } from '../../bridges/snabbdom.ts'
 import { bounce, Screen } from './bounce.ts'
 import { view } from './view.ts'
 

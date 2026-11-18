@@ -21,8 +21,8 @@ version, and everything else, features included, the patch version.
   `Subscriptions`, `Command` in `Applied`, `Simulation` and `Rehearsal`, and `Event` in `Simulation`.
 - The types in the API's signatures are exported (`Child`, `ChildById`, `Input`, `InputById`, `ProgramMaker` and the
   others), so that a consumer's declarations and hovers name them.
-- The package ships its documentation, at its version: the guide (`site/guide/`), the tutorial (`site/tutorial/`),
-  the examples with their bridges (`examples/`), and a skill for coding agents, `skills/effect-tea/SKILL.md`.
+- The package ships its documentation, at its version: the guide (`site/guide/`), the tutorial (`site/tutorial/`), the
+  examples (`examples/`) and their bridges (`bridges/`), and a skill for coding agents, `skills/effect-tea/SKILL.md`.
 
 ### Changed
 
@@ -62,7 +62,7 @@ version, and everything else, features included, the patch version.
 - **Breaking**: `isRejected`, `raise`, `subscriptionsOf` and `View` are removed.
   Upgrade: `isRejected(result)` becomes `result === reject`, `subscriptionsOf(app)(state)` becomes
   `app.subscriptions(state)`, `onEvent: { Products: raise }` becomes `onEvent: { Products: (event) => (state) => ({
-  state, events: [event] }) }`, and a bridge declares its own `View`, as `examples/bridges/snabbdom.ts` does.
+  state, events: [event] }) }`, and a bridge declares its own `View`, as `bridges/snabbdom.ts` does.
 - **Breaking**: these no longer compile: a parent's `external` that names, or can take, a message its child keeps to
   itself; a parent's command whose answer is a child's own message; a parent's own message or command whose tag can
   take a child's name, as a `string` tag does; a state whose type has no fields, such as `{}`, or that is a type
@@ -103,7 +103,7 @@ version, and everything else, features included, the patch version.
 - The guide now promises what the run already did: messages are applied one at a time, in the order they were queued;
   commands run concurrently, with no bound, and the end of the run interrupts them; nothing is bounded or times out;
   `subscriptions` is pure; the run waits for `onApplied` and `onIgnored` ("Guarantees", "Commands", "Running").
-- The examples' bridges are in `examples/bridges/`, with `messagesSentBy` in `snabbdom-testing.ts`; they settle each
+- The examples' bridges are in `bridges/`, with `messagesSentBy` in `snabbdom-testing.ts`; they settle each
   text `<input>` with `drawn`, and no longer have `onInput`. `counter` and `form` draw with React too.
 
 ### Fixed

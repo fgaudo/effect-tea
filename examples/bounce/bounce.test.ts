@@ -11,7 +11,7 @@ import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Stream from 'effect/Stream'
 import * as fc from 'fast-check'
-import { messagesSentBy } from '../bridges/snabbdom-testing.ts'
+import { messagesSentBy } from '../../bridges/snabbdom-testing.ts'
 import {
   accumulate,
   Ball,

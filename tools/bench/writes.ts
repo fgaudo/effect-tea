@@ -310,7 +310,7 @@ if (sections.includes('drawn')) {
   }
 }
 
-// As the React bridge has them (`examples/bridges/react.ts`), without a DOM: an element is what holds `value`, a
+// As the React bridge has them (`bridges/react.ts`), without a DOM: an element is what holds `value`, a
 // string.
 type Element = { value: string }
 

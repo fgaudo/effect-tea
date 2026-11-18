@@ -21,7 +21,7 @@ import { type Mutation, mutations } from './mutations.ts'
 const root = path.resolve(import.meta.dir, '../..')
 // One for each process, so that several can run at once.
 const base = path.join(root, '.mutants', String(process.pid))
-const copied = ['src', 'test', 'examples', 'bunfig.toml', 'package.json', 'tsconfig.json']
+const copied = ['src', 'test', 'examples', 'bridges', 'bunfig.toml', 'package.json', 'tsconfig.json']
 
 // `title` is what `bun test -t` matches: the names of the enclosing `describe`s, outermost first, and the test's,
 // joined by spaces.

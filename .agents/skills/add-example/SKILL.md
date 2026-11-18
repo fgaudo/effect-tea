@@ -22,10 +22,10 @@ examples/<name>/
 └─ <name>.test.ts   its tests, showing the testing tools on it
 ```
 
-The bridges the examples share are in [`examples/bridges/`](../../../examples/bridges), apart from the examples:
+The bridges the examples share are in [`bridges/`](../../../bridges), apart from the examples:
 
 ```
-examples/bridges/
+bridges/
 ├─ snabbdom.ts               the bridge the examples use: renderInto for run, onClick, onPress, shows
 ├─ snabbdom-testing.ts       messagesSentBy, how to check that a view draws what its model holds
 ├─ snabbdom-preload.ts       what bun test loads first (bunfig.toml), so that snabbdom loads without a DOM
@@ -57,8 +57,8 @@ renderers and is no bridge.
   `@fgaudo/effect-tea/testing`), never by a relative path. `tsc -p examples` checks it with the `bun` condition
   (the sources) and the `DOM` lib; Biome allows renderer imports there. Unstable APIs are not used there either:
   the typecheck refuses one, as in the library.
-  The examples are published (`files` in `package.json`, all but `examples/tsconfig.json`), for the guide, the
-  tutorial and the skill that link them, but nothing of the package imports them: snabbdom, React and
+  The examples and the bridges are published (`files` in `package.json`, all but their `tsconfig.json`), for the
+  guide, the tutorial and the skill that link them, but nothing of the package imports them: snabbdom, React and
   `@happy-dom/global-registrator` are only dev dependencies.
 - **`main.ts`** finds `#app` and starts the program with `Effect.runFork(run(program, renderInto(root, view)))`,
   through an `Effect.tapCause` that logs the failure of a dying program, unless it is only an interruption
@@ -124,6 +124,6 @@ Bun bundles the page for the browser, where the package resolves to `dist/`: hen
 step of inputs (`named.ts`, a timer with a name, and `named-timers.ts`, the list of the step before with named timers,
 which `main.ts` runs), so that every step's code stays as its page shows it: its `// #region` comments are the blocks
 the pages of [`site/tutorial`](../../../site/tutorial) include. So are those of
-the bridge [`examples/bridges/snabbdom.ts`](../../../examples/bridges/snabbdom.ts), which the last page reads. A change
+the bridge [`bridges/snabbdom.ts`](../../../bridges/snabbdom.ts), which the last page reads. A change
 to either keeps them, and the pages' prose, true, and the site build shows the pages as they will be read
 ([`release`](../release/SKILL.md)).

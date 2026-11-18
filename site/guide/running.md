@@ -21,7 +21,7 @@ dies, and reporting the crash is the job of the app around the run.
 
 **A slow renderer skips frames.** It only gets the latest frame. So a renderer that waits for the next animation frame
 before it takes another frame draws at most once per screen refresh, as
-[`examples/bridges/snabbdom.ts`](../../examples/bridges/snabbdom.ts) does.
+[`bridges/snabbdom.ts`](../../bridges/snabbdom.ts) does.
 
 ### Options
 

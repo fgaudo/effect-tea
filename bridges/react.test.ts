@@ -38,21 +38,21 @@ import {
   stop,
   type,
 } from './bridge.test_suite.ts'
-import { counter } from '../counter/counter.ts'
-import { view as snabbdomCounterView } from '../counter/view-snabbdom.ts'
-import { form } from '../form/form.ts'
-import { Storage } from '../form/storage.ts'
-import { view as snabbdomFormView } from '../form/view-snabbdom.ts'
+import { counter } from '../examples/counter/counter.ts'
+import { view as snabbdomCounterView } from '../examples/counter/view-snabbdom.ts'
+import { form } from '../examples/form/form.ts'
+import { Storage } from '../examples/form/storage.ts'
+import { view as snabbdomFormView } from '../examples/form/view-snabbdom.ts'
 import type { View } from './react.ts'
 import { renderInto as renderWithSnabbdom } from './snabbdom.ts'
-import { together } from '../together.ts'
-import type { Message as VolumeMessage, Model as VolumeModel } from '../volume/volume.ts'
+import { together } from '../examples/together.ts'
+import type { Message as VolumeMessage, Model as VolumeModel } from '../examples/volume/volume.ts'
 
 // React DOM reads the DOM when it is loaded, so the bridge, the views and React DOM are loaded once there is one:
 // what the shared tests are given reaches them when a test runs.
 let bridge: typeof import('./react.ts')
-let counterView: typeof import('../counter/view-react.tsx').view
-let formView: typeof import('../form/view-react.tsx').view
+let counterView: typeof import('../examples/counter/view-react.tsx').view
+let formView: typeof import('../examples/form/view-react.tsx').view
 let flushSync: typeof import('react-dom').flushSync
 let createRoot: typeof import('react-dom/client').createRoot
 
@@ -60,8 +60,8 @@ beforeAll(async () => {
   GlobalRegistrator.register()
   holdFrames()
   bridge = await import('./react.ts')
-  counterView = (await import('../counter/view-react.tsx')).view
-  formView = (await import('../form/view-react.tsx')).view
+  counterView = (await import('../examples/counter/view-react.tsx')).view
+  formView = (await import('../examples/form/view-react.tsx')).view
   flushSync = (await import('react-dom')).flushSync
   createRoot = (await import('react-dom/client')).createRoot
 })

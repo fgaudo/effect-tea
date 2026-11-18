@@ -33,7 +33,7 @@ Found in a review of 18 November 2026, each reproduced:
 ## Ideas, to be decided
 
 - **Bridges as packages of their own** (`@fgaudo/effect-tea-snabbdom`, `@fgaudo/effect-tea-react`): the library
-  stays free of renderers, and users stop copying `examples/bridges/snabbdom.ts` and `examples/bridges/react.ts`.
+  stays free of renderers, and users stop copying `bridges/snabbdom.ts` and `bridges/react.ts`.
 - **A devtools bridge over `onApplied`** (e.g. Redux DevTools), with time travel through `init: { state }` and
   replay through `applyAll`.
 - **An example of routing**: flags from the URL, `popstate` as a subscription, navigation as a command.
