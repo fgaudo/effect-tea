@@ -30,7 +30,8 @@ and of the JavaScript engine, each with what checks it, is [`docs/premises.md`](
 ## Tests
 
 The five kinds of test, and where each lies, are in `AGENTS.md` ("Tests"). See each new test fail without what it
-checks before the change is committed.
+checks before the change is committed. The premises listed, and the tests seen to fail, are reported to the owner
+with the change.
 
 ### Mutations
 
