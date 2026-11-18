@@ -12,6 +12,41 @@ holds only what is to be done or decided now.
 A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a deterministic
 test of it. None is open.
 
+To be done first. Found in a review of the exported types, 18 November 2026, each tried on a copy of the repository
+outside git, not kept, with TypeScript 7.0.2, unless it says otherwise:
+
+- **A type written as `Readonly<{ … }>` loses its name in a consumer's declarations and hovers.** TypeScript prints
+  `Readonly<{ … }>` for it, not the alias. So `Step`, `Folded`, `Frame`, `Written`, `Applied`, `Ignored`, `Simulation`,
+  `Rehearsal`, `Driver` and `DispatchViolation` are exported and never named there: a program's `init` reads `Readonly<{
+  state: …; commands?: readonly never[]; events?: readonly never[] }>`, not `Step<…>`. And what `child`, `childById`,
+  `input` and `inputById` return (`Child`, `ChildById`, `Input`, `InputById` in `src/compose.ts`) is spelled out, with
+  the parent's state four times for each, while the functions themselves have names (`DeclareChild`, …): `change-api`
+  ("Report it") asks for a name for what the API returns. Exporting the four alone changes nothing, for the same reason.
+  Tried: `Step`, `Folded`, `Child` and `ChildById` written with `readonly` members in place of the wrapper (`{ readonly
+  state: State; … }`), the last two exported. The declarations of `tools/smoke/consumer.ts` then name them
+  (`Library.Child<…>`, `Library.Step<…, never>`), go from 17,072 to 14,391 bytes, and spell out the consumer's state 10
+  times, not 19; `bun run typecheck`, `bun run test` and `bun run inference` passed. To do: decide which types the rule
+  covers (every exported record, or those the API returns), write it in `AGENTS.md` ("Code"), apply it, export the four
+  with doc comments, add them to `unnamed` in `tools/smoke/smoke.ts` and lower its bound, and try TypeScript 5.9 and
+  6.0, which were not. Left open: the child's program inside `Child<…>` is still spelled out, since `P` is inferred from
+  the intersection `P & Interpreter<…> & ExternalTaken<P>` of `DeclareChild`, which drops the alias `Program<…>`.
+- **`make` returns a `Program<…>` that names six types as `never`** (`command: never; commandServices: never;
+  subscriptionServices: never; event: never; external: never; flags: never`), in the hover and the declarations of every
+  program, where the program named three. Tried: `MakeProgram` (`src/compose.ts`) returning `Program<{ state; model;
+  message } & Having<{ command; commandServices; subscriptionServices; event; external; flags }>>`, with `type Having<T>
+  = { [K in keyof T as [T[K]] extends [never] ? never : K]: T[K] }`. The types hold (typecheck, tests and the inference
+  matrix passed), and a counter reads `Program<{ state: …; model: …; message: … }>`; but a program with more reads as an
+  intersection of two object types. To do: a form that prints one object type (a mapped type over all nine was not
+  tried: `Program` asks that `state` be an object, which may not hold for it), then the API report and the smoke test.
+- **`DeclareChild`, `DeclareChildById`, `DeclareInput` and `DeclareInputById` take all the types a program declares
+  and use only its state** (`Field<T, 'state'>`, `src/compose.ts`): a consumer's declaration reads
+  `DeclareChild<{ state: State; message: ResetAll }>`. `DeclareChild<State>` would say what each depends on; only
+  `MakeProgram` needs the rest. Not tried.
+- **`RunOptions<Message, State, Command>` and `DriveOptions` order their parameters unlike every other type**, which
+  starts from the state (`Applied<State, Message, Command>`, `Ignored<State, Message>`,
+  `Update<State, Message, Command, Event>`). Changing the order breaks whoever annotates options: to decide before 1.0.
+  Not tried.
+
 Found in a review of 18 November 2026, each reproduced:
 
 - **`rehearse` drops a step's commands from `pending` when `makeModel` dies on its state.** `applyNow`
@@ -37,7 +72,9 @@ Found in a review of 18 November 2026, each reproduced:
   "Anatomy of a program" ("Precisely") with the `@see` lines, or it leaves the comments.
 - **`simulate`'s declaration spells out `Simulation` and `Step`**: it has no return type written, so
   `api/effect-tea-testing.api.md` writes its `from` and its result inline, though `Simulation` is exported
-  (`change-api`, "Report it").
+  (`change-api`, "Report it"). So does `drive`'s, for a program with flags: `DriveOptions` is an alias of an
+  intersection, and intersected again with `FlagsOption` it reads
+  `RunOptions<…> & Readonly<{ patience?: … }> & …`.
 - **The failure of `drive`'s `patience` carries an `Option` of the model** as its `cause`, not the model: say so where
   the guide describes it, or give the model itself.
 

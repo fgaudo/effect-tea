@@ -16,8 +16,8 @@ import { YieldableError } from 'effect/Cause';
 
 // @public
 export const andThen: {
-    <State, Command2, Event2>(next: (state: State) => Step<State, Command2, Event2>): <Command1 = never, Event1 = never>(step: Step<State, Command1, Event1>) => Step<State, Command1 | Command2, Event1 | Event2>;
-    <State, Command1, Event1, Command2, Event2>(step: Step<State, Command1, Event1>, next: (state: State) => Step<State, Command2, Event2>): Step<State, Command1 | Command2, Event1 | Event2>;
+    <State, Command2 = never, Event2 = never>(next: (state: State) => Step<State, Command2, Event2>): <Command1 = never, Event1 = never>(step: Step<State, Command1, Event1>) => Folded<State, Command1 | Command2, Event1 | Event2>;
+    <State, Command1 = never, Event1 = never, Command2 = never, Event2 = never>(step: Step<State, Command1, Event1>, next: (state: State) => Step<State, Command2, Event2>): Folded<State, Command1 | Command2, Event1 | Event2>;
 };
 
 // @public
@@ -280,8 +280,8 @@ export type Folded<State, Command, Event> = Readonly<{
 
 // @public
 export const forEach: {
-    <Item, State, Command2, Event2>(items: Iterable<Item>, next: (item: Item) => (state: State) => Step<State, Command2, Event2>): <Command1 = never, Event1 = never>(step: Step<State, Command1, Event1>) => Step<State, Command1 | Command2, Event1 | Event2>;
-    <State, Command1, Event1, Item, Command2, Event2>(step: Step<State, Command1, Event1>, items: Iterable<Item>, next: (item: Item) => (state: State) => Step<State, Command2, Event2>): Step<State, Command1 | Command2, Event1 | Event2>;
+    <Item, State, Command2 = never, Event2 = never>(items: Iterable<Item>, next: (item: Item) => (state: State) => Step<State, Command2, Event2>): <Command1 = never, Event1 = never>(step: Step<State, Command1, Event1>) => Folded<State, Command1 | Command2, Event1 | Event2>;
+    <State, Item, Command1 = never, Event1 = never, Command2 = never, Event2 = never>(step: Step<State, Command1, Event1>, items: Iterable<Item>, next: (item: Item) => (state: State) => Step<State, Command2, Event2>): Folded<State, Command1 | Command2, Event1 | Event2>;
 };
 
 // @public

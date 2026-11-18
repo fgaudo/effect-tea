@@ -13,7 +13,7 @@ import * as Stream from 'effect/Stream'
 import { collectGarbage } from '../test/gc.test_helper.ts'
 import type { Execution } from './command.ts'
 import type { Subscription } from './subscription.ts'
-import { andThen, forEach, reject, type Step, type Update } from './update.ts'
+import { andThen, type Folded, forEach, reject, type Step, type Update } from './update.ts'
 import { type Dispatch, forwardTo } from './dispatch.ts'
 import { program } from './compose.ts'
 import { CompositionDefect } from './defect.ts'
@@ -964,6 +964,30 @@ describe('steps that add up', () => {
     const saved: Step<Ticks, 'Save'> = { state: noTicks, commands: ['Save'] }
     // @ts-expect-error: the first step's commands are kept in the result's type.
     expect(pipe(saved, andThen(load)) satisfies Step<Ticks, 'Load', 'Loaded'>).toEqual(andThen(saved, load))
+  })
+
+  test('steps that list no commands and no events add up to a step of a program that has none', () => {
+    // Outside an `update`, no context names the commands or the events: a step that lists none has none.
+    const bump = (state: Ticks) => andThen({ state }, ({ ticks }) => ({ state: { ticks: ticks + 1 } }))
+    const twice = (state: Ticks) =>
+      forEach({ state }, [1, 2], (by) => ({ ticks }) => ({ state: { ticks: ticks + by } }))
+    const last = (state: Ticks) =>
+      pipe({ state }, andThen(({ ticks }: Ticks) => ({ state: { ticks: ticks * 2 } })), forEach([], () => bump))
+    const update: Update<Ticks, 'Bump' | 'Twice' | 'Last'> = (message) => (state) =>
+      message === 'Bump' ? bump(state) : message === 'Twice' ? twice(state) : last(state)
+    expect(update('Bump')(noTicks)).toEqual({ state: { ticks: 1 }, commands: [], events: [] })
+    expect(update('Twice')(noTicks)).toEqual({ state: { ticks: 3 }, commands: [], events: [] })
+    expect(update('Last')({ ticks: 2 })).toEqual({ state: { ticks: 4 }, commands: [], events: [] })
+  })
+
+  test('the type of what andThen and forEach give has both lists', () => {
+    const first: Step<Ticks, 'Save'> = { state: noTicks, commands: ['Save'] }
+    const next = (state: Ticks): Step<Ticks, never, 'Saved'> => ({ state, events: ['Saved'] })
+    expectTypeOf(andThen(first, next)).toEqualTypeOf<Folded<Ticks, 'Save', 'Saved'>>()
+    expectTypeOf(pipe(first, andThen(next))).toEqualTypeOf<Folded<Ticks, 'Save', 'Saved'>>()
+    expectTypeOf(forEach(first, [1], () => next)).toEqualTypeOf<Folded<Ticks, 'Save', 'Saved'>>()
+    expectTypeOf(pipe(first, forEach([1], () => next))).toEqualTypeOf<Folded<Ticks, 'Save', 'Saved'>>()
+    expect(andThen(first, next).commands.length + forEach(first, [], () => next).events.length).toBe(1)
   })
 
   test('a parent that tells each of its children by id the same thing, with forEach, reaches every one', () => {

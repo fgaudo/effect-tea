@@ -203,6 +203,19 @@ answer, and saying so in the proposal.
   2026 so that a number cannot reach `run` through a generic function (`MakeProgram` in `compose.ts`): a type
   parameter in a field of the state compiles. *Reopen if* a library of components over this one needs such functions
   often.
+- **`run`, `drive` and `rehearse` taking `Program<{ … }>` by name, and `Shape` out of the API.** Spiked, 18 November
+  2026, on a copy of the repository outside git, not kept, with TypeScript 7.0.2, in a review of the exported types.
+  `Shape` gives a program's types in a row, and no example, page of the guide or consumer writes it. A function over a
+  program's types written with `Program<{ state: S; model: M; message: Msg }>` reaches `run`, `drive` and `rehearse`
+  as they are, since `Field` resolves at once for an object type whose fields are type parameters: `Shape` serves only
+  as the name in their signatures. With `program: Program<{ state: State; model: Model; … }>` there (and
+  `State extends object`, which `Program` asks for), `run` and `drive` kept every test. `rehearse` did not: given a
+  scenario made with `Effect.fnUntraced(function*(rehearsal) { … })`, the scenario's `E` and `R` were inferred as
+  `any` (100 errors in `rehearse.test.ts`, 29 in `contract.test.ts`), and a function declared with the same parameters
+  did the same, while a scenario written as an arrow function kept them. Why was not found: it rests on how the
+  compiler infers a generic function given as an argument, an order no documentation states (as the check of external
+  messages in `make`, below). *Reopen if* the cause is found, and a form holds under each supported TypeScript and the
+  matrix of inference.
 - **`attempt`**, which turned an effect that may fail into an execution with a message for each outcome. Removed in
   0.7.0 (`775f140`, 26 October 2026) by "A function earns its place" (`AGENTS.md`): it only named two combinators of
   Effect (`Effect.match` and `Effect.asSome`), and the type of an execution already says it cannot fail. Reasoned.

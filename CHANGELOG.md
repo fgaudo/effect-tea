@@ -347,6 +347,8 @@ version, and everything else, features included, the patch version.
 - The `counter` and `form` examples draw their program in one run, with snabbdom and with React, one under the other,
   so that what either sends is drawn by both: `examples/together.ts` gives the run's frames to both renderers,
   with `Stream.broadcastN`.
+- `andThen` and `forEach` return a `Folded`: their type says that both lists are there, so reading one needs no
+  `?? []`.
 
 ### Fixed
 
@@ -440,6 +442,8 @@ version, and everything else, features included, the patch version.
   its loop ran on, in a scope nothing closed.
 - The examples' React bridge hears an input's own `input` event, not React's `onChange`: a text a script wrote into
   the element through its `value`, as an extension that fills forms does, was lost.
+- `andThen` and `forEach` over steps that list no commands or no events give a step that has none: outside an
+  `update`, where no context names them, they were `unknown`, and a program without commands refused the step.
 
 ## 0.7.1 (2026-10-28)
 

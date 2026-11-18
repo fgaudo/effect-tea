@@ -70,13 +70,16 @@ export type Rejected = typeof reject
 export type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected
 
 /**
- * A step with both its lists present: what a fold of steps accumulates, and what `applyAll` returns.
+ * A step with both its lists present: what a fold of steps accumulates, and what `andThen`, `forEach` and `applyAll`
+ * return.
  *
  * @example
  * ```ts
  * const none: Folded<State, never, never> = { state, commands: [], events: [] }
  * ```
  *
+ * @see The guide, "Events and external messages", "`andThen`".
+ * @see The guide, "Events and external messages", "`forEach`".
  * @see The guide, "Testing", "The tools".
  */
 export type Folded<State, Command, Event> = Readonly<{
@@ -119,21 +122,21 @@ export const appendStep = <State, Command, Event>(
  * @see The guide, "Events and external messages", "`andThen`".
  */
 export const andThen: {
-  <State, Command2, Event2>(
+  <State, Command2 = never, Event2 = never>(
     next: (state: State) => Step<State, Command2, Event2>,
   ): <Command1 = never, Event1 = never>(
     step: Step<State, Command1, Event1>,
-  ) => Step<State, Command1 | Command2, Event1 | Event2>
-  <State, Command1, Event1, Command2, Event2>(
+  ) => Folded<State, Command1 | Command2, Event1 | Event2>
+  <State, Command1 = never, Event1 = never, Command2 = never, Event2 = never>(
     step: Step<State, Command1, Event1>,
     next: (state: State) => Step<State, Command2, Event2>,
-  ): Step<State, Command1 | Command2, Event1 | Event2>
+  ): Folded<State, Command1 | Command2, Event1 | Event2>
 } = dual(
   2,
   <State, Command1, Event1, Command2, Event2>(
     step: Step<State, Command1, Event1>,
     next: (state: State) => Step<State, Command2, Event2>,
-  ): Step<State, Command1 | Command2, Event1 | Event2> =>
+  ): Folded<State, Command1 | Command2, Event1 | Event2> =>
     appendStep<State, Command1 | Command2, Event1 | Event2>(
       { state: step.state, commands: step.commands ?? [], events: step.events ?? [] },
       next(step.state),
@@ -162,24 +165,24 @@ export const andThen: {
  * @see The guide, "Events and external messages", "`forEach`".
  */
 export const forEach: {
-  <Item, State, Command2, Event2>(
+  <Item, State, Command2 = never, Event2 = never>(
     items: Iterable<Item>,
     next: (item: Item) => (state: State) => Step<State, Command2, Event2>,
   ): <Command1 = never, Event1 = never>(
     step: Step<State, Command1, Event1>,
-  ) => Step<State, Command1 | Command2, Event1 | Event2>
-  <State, Command1, Event1, Item, Command2, Event2>(
+  ) => Folded<State, Command1 | Command2, Event1 | Event2>
+  <State, Item, Command1 = never, Event1 = never, Command2 = never, Event2 = never>(
     step: Step<State, Command1, Event1>,
     items: Iterable<Item>,
     next: (item: Item) => (state: State) => Step<State, Command2, Event2>,
-  ): Step<State, Command1 | Command2, Event1 | Event2>
+  ): Folded<State, Command1 | Command2, Event1 | Event2>
 } = dual(
   3,
-  <State, Command1, Event1, Item, Command2, Event2>(
+  <State, Item, Command1, Event1, Command2, Event2>(
     step: Step<State, Command1, Event1>,
     items: Iterable<Item>,
     next: (item: Item) => (state: State) => Step<State, Command2, Event2>,
-  ): Step<State, Command1 | Command2, Event1 | Event2> => {
+  ): Folded<State, Command1 | Command2, Event1 | Event2> => {
     const first: Folded<State, Command1 | Command2, Event1 | Event2> = {
       state: step.state,
       commands: step.commands ?? [],
