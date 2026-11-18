@@ -1,6 +1,6 @@
 ---
 name: guide-reader
-description: How a reader's check of the documentation of @fgaudo/effect-tea is done: a subagent that has never seen the code builds a program for a requirement of its own, in a project of its own where the package is installed, from what the package ships alone (in a package check all of it, found as an agent at work finds it, with nothing that names it; in a closed check the guide, the tutorial and the declarations, with only the bridges of the examples), and reports every gap, with where it found each answer; then what becomes of its report. Use when the author asks for a reader's check of the guide, or of pages of it, of the tutorial, of the skill, or of the package.
+description: How a reader's check of the documentation of @fgaudo/effect-tea is done: a subagent that has never seen the code builds a program for a requirement of its own, in a project of its own where the package is installed, from what the package ships alone (in a package check all of it, found as an agent at work finds it, with nothing that names it; in a closed check the guide, the tutorial and the declarations, with only the bridges of the examples), and reports every gap, with where it found each answer; where the author asks, acceptance tests the reader never sees, written before it starts by an examiner that never sees the library, are run on its program; then what becomes of its report. Use when the author asks for a reader's check of the guide, or of pages of it, of the tutorial, of the skill, or of the package.
 ---
 
 # A reader's check of the documentation
@@ -84,6 +84,9 @@ reports is what the guide leaves to the examples.
    checked needs a run under a renderer, add `snabbdom` and `@happy-dom/global-registrator` (or `react` and
    `react-dom`, with their types) to the devDependencies at the repository's versions, and `"DOM"` to `lib`, before
    `bun install`: the reader installs nothing.
+5. Where the author asked for acceptance tests, prepare them before the reader starts, as
+   [acceptance tests the reader never sees](#acceptance-tests-the-reader-never-sees) says. Ask, unless the author has
+   said: they need a run under a renderer and a second subagent, so the check costs more.
 
 ## The reader's brief
 
@@ -149,7 +152,158 @@ The package documents itself in node_modules/@fgaudo/effect-tea. Start with its 
   from the file, and how you did without it.
 ```
 
-## What to do with the report
+## Acceptance tests the reader never sees
+
+The reader writes the program and its tests, so it judges itself: a requirement misread, or a rule of the guide, passes
+the tests of whoever misread it. Where the author asks, tests of the requirement are written before the reader starts,
+by an examiner that never sees the library, and run on the reader's program once it has reported. They pass through the
+page and the world alone, so they hold for a program written in any way, and name nothing of the library.
+
+### What the requirement fixes
+
+The tests and the program meet only in what the requirement fixes, so it fixes all of it:
+
+- **The world, as plain TypeScript**, in a `world.ts` written with the requirement: an interface `World` of promises
+  and callbacks, with no type of Effect or of the library. A call that may fail returns a promise that may reject. A
+  feed takes what hears its messages and its end, and returns what stops it:
+  `listen: (onMessage: (message: Price) => void, onEnd: () => void) => () => void`.
+- **Where the program starts**: `main.ts` exports `mount: (root: Element, world: World) => () => Promise<void>`. It
+  starts the program in `root`, and returns what stops the program and waits for it.
+- **A selector for each control and each thing shown**, made of ids and classes alone: `#submit`, `#lot-<id> .bid`.
+  The bridges of the examples set an element's properties, not its attributes, so a `data-*` is out of a reader's
+  reach. The requirement says the text each thing shows, to the letter.
+- **What cannot be done is a control that is not there, or is disabled.** The requirement does not say which: that is
+  the model's business, and the tests take both alike.
+
+Add `snabbdom` and `@happy-dom/global-registrator` to the project (step 4), and `world.ts`. The reader's brief gets
+the requirement with its selectors, and these lines:
+
+```text
+THE CONTRACT: world.ts, in your project, is the world your program talks to. Do not change it. Write a main.ts that
+exports `mount: (root: Element, world: World) => () => Promise<void>`: it starts the program in `root`, drawn with a
+bridge of the package's examples, and returns what stops the program and waits for it. Each control and each thing
+shown has the selector and the text the requirement gives it. A control the requirement says cannot be used is not
+there, or is disabled. Tests you will not see are run on main.ts afterwards.
+```
+
+### The examiner
+
+Start a second `general-purpose` subagent before the reader, in a directory of its own, outside the reader's project
+and the repository. Give it `world.ts`, the harness below as `acceptance-harness.ts`, a `package.json` with
+`@happy-dom/global-registrator`, `typescript` and `@types/bun` at the repository's versions, and the project's
+`tsconfig.json` with `"DOM"` and `"DOM.Iterable"` in `lib`. It gets no package, and no name of the library.
+
+```text
+You write acceptance tests for a web program that someone else is writing, from its requirement alone. You will not
+see the program. Your directory is <the examiner's path>.
+
+RULES, strict:
+- Read and write only inside your directory. Change neither world.ts nor acceptance-harness.ts.
+- The program is reached only through acceptance-harness.ts: `start(world)` starts it in the page, with a World you
+  write for the test (world.ts). Then `click` and `type` act as a user does, and `texts`, `available` and `valueOf`
+  read the page. A test also reads what its World was asked.
+- Wait with `until` for what you expect, after each thing you do: the page is drawn later. Never sleep for an order.
+  Where a point says that nothing happens, wait first for something the same step does show, then check.
+- Hold a call of the World with a promise your test settles, so that a test says what the user does meanwhile.
+- A control the requirement says cannot be used may be absent or disabled: check it with `available` alone.
+
+THE REQUIREMENT: <the requirement, with its selectors and texts>
+
+WHAT TO WRITE: acceptance.test.ts, with `bun:test`. At least one test for each numbered point, its number first in its
+name. Make it compile: `bunx tsc -p .` (main.ts is missing, which the harness imports only as a test runs). List the
+points you could not test through the page and the world, and every place where the requirement let you choose.
+```
+
+The harness, which registers a DOM, starts the program, and reads the page:
+
+```ts
+import { afterAll, afterEach, beforeAll } from 'bun:test'
+import { GlobalRegistrator } from '@happy-dom/global-registrator'
+// Without the extension, as the project's tsconfig.json resolves it.
+import type { World } from './world'
+
+beforeAll(() => GlobalRegistrator.register())
+
+afterAll(() => GlobalRegistrator.unregister())
+
+let stop: (() => Promise<void>) | undefined
+
+afterEach(async () => {
+  await stop?.()
+  stop = undefined
+  document.body.replaceChildren()
+})
+
+/** Starts the program in a new element of the page. */
+export const start = async (world: World): Promise<void> => {
+  // Imported here, once a DOM is registered: a renderer may read the DOM as it is loaded.
+  const path = './main.ts'
+  const { mount } = await import(path)
+  const root = document.createElement('div')
+  document.body.append(root)
+  stop = mount(root, world)
+}
+
+/** Waits until `read` gives something. Only a failing test reaches the bound. */
+export const until = async <A>(what: string, read: () => A | undefined | null | false): Promise<A> => {
+  const end = Date.now() + 2000
+  for (;;) {
+    const found = read()
+    if (found !== undefined && found !== null && found !== false) return found
+    if (Date.now() > end) throw new Error(`Never happened: ${what}`)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+}
+
+/** The text of each element the selector finds, in the page's order. */
+export const texts = (selector: string): ReadonlyArray<string> =>
+  [...document.querySelectorAll(selector)].map((found) => (found.textContent ?? '').trim())
+
+/** Whether the user can act on the control: it is there, and not disabled. */
+export const available = (selector: string): boolean => {
+  const found = document.querySelector(selector)
+  return found !== null && !('disabled' in found && found.disabled === true)
+}
+
+const control = (selector: string): Element => {
+  const found = document.querySelector(selector)
+  if (found === null || !available(selector)) throw new Error(`The user cannot act on ${selector}`)
+  return found
+}
+
+export const click = (selector: string): void => {
+  control(selector).dispatchEvent(new MouseEvent('click', { bubbles: true }))
+}
+
+export const type = (selector: string, value: string): void => {
+  const found = control(selector)
+  if (!(found instanceof HTMLInputElement)) throw new Error(`${selector} is no input`)
+  found.value = value
+  found.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+/** What an input shows. */
+export const valueOf = (selector: string): string | undefined => {
+  const found = document.querySelector(selector)
+  return found instanceof HTMLInputElement ? found.value : undefined
+}
+```
+
+### Running them
+
+1. Read the examiner's tests before the reader starts. A place where the requirement let the examiner choose is a
+   place where it would let the reader choose otherwise: say it in the requirement, and have the test follow.
+2. Once the reader has reported, copy `acceptance-harness.ts` and `acceptance.test.ts` into its project, and run them
+   alone: `bun test ./acceptance.test.ts`. The reader is not told what failed, and fixes nothing.
+3. Weigh each failure before it counts. It is a lead, not a finding:
+   - **The test is wrong, or the requirement can be read both ways.** The requirement is fixed, in step 3's list too.
+     It says nothing of the documentation.
+   - **The program does not meet the contract**: no `mount`, another selector, another text. It says nothing of the
+     documentation either, unless the reader could not tell how to start or stop a run.
+   - **The program breaks the requirement, and its own tests passed.** Read where the reader's report says it found
+     the rule in question. One it guessed, or read in the documentation and took otherwise, is a gap, of (a), (b) or
+     (c), and is handled as any other. One the documentation says plainly is the reader's slip: no gap, but it counts.
+
 
 - In a check of the package, read the reader's path first. A reader that never reached the skill or the guide, or
   reached them late, says what it read instead: where a user's agent looks, and what there could send it on, is a
@@ -171,4 +325,5 @@ The package documents itself in node_modules/@fgaudo/effect-tea. Start with its 
   `bun run comments`, `bun run typecheck`, `bun run lint` and `bun run test`. A change a consumer can notice in the
   guide's promises, a doc comment or the skill has a changelog entry (`release`).
 - Commit the documents alone. Ask the author before deleting the reader's project.
-- Name the requirement in step 3's list of requirements taken, with its date and its mode, in the same commit.
+- Name the requirement in step 3's list of requirements taken, with its date and its mode, in the same commit. Where
+  acceptance tests ran, add how many passed of how many, and how many failures were the program's.
