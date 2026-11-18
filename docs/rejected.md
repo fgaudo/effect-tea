@@ -244,7 +244,12 @@ answer, and saying so in the proposal.
   rejection of it was a `CompositionDefect` (found by the matrix of inference). `make` checks that part alone
   (`ExternalPassed` in `compose.ts`), from the children, which no pass skips; an `external` that is no message at all is
   still refused where the program is a child. Since messages are named, the first pass no longer skips them either, but
-  the rest of the check would still only move an error.
+  the rest of the check would still only move an error. Reopened in part again on 18 November 2026, from a review: an
+  `external` that named a write into the program's own input compiled everywhere, since a write is one of its messages,
+  and a parent's write over a stale value was a `CompositionDefect`; a command's answer wrote into the child's input,
+  which the guide says does not compile. `make` checks that part alone too (`ExternalWritten`), from the inputs, by tag
+  (Fable: a check by message missed `string`, template and non-distributed tags). That it also refuses, at `make`, an
+  external with an input's tag and the wrong shape, which `child` would refuse later, is the only error it moves.
 - **An error at `make` for a `runCommand` that returns `any`** (Fable: `0 extends 1 & Ran`, "a runCommand returns
   any"), listed in `ROADMAP.md`. Reasoned, 17 November 2026, on probes with `tsc`: such services were read as `never`
   by `CommandServicesOf` and `SubscriptionServicesOf` alone (`Known` in `program.ts`), and so by a parent, while `run`

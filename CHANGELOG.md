@@ -371,6 +371,12 @@ version, and everything else, features included, the patch version.
   and a `MakeProgram`: declarations name them, where they spelled out every type of the library, for each field of the
   state.
 - An input that takes a child's name no longer compiles: it replaced the child, whose messages were then rejected.
+- An `external` message whose `_tag` is the name of one of the program's inputs no longer compiles, in `make`: it was a
+  write from outside, which the program rejected over a stale value, a `CompositionDefect` in its parent, and stored
+  from a command's answer. The guide's "Events and external messages" says so ("Precisely").
+- A program may be typed `Program<…>` with fewer `external` messages than it takes, and no longer with more: a type that
+  named more compiled, and its parent's message that the program keeps to itself was a `CompositionDefect`, while one
+  that named fewer, which is safe, did not compile.
 - A program whose `external` messages are not among its `message`s no longer compiles, as a `Program<…>` or as a
   child that `program` declares: its parent's message reached an `update` that does not take it, as a `TypeError`.
 - A child whose `flags`, events or commands are of type `unknown`, or whose `init` is a function written without

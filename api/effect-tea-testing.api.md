@@ -43,7 +43,7 @@ export const dispatchViolations: <State, Message, Command, Event>(update: Update
 }>) => ReadonlyArray<DispatchViolation<Message>>;
 
 // @public
-export const drive: <State, Model, Message, Command = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, unknown, Flags>, scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>, ...args: [Flags] extends [never] ? [options?: DriveOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>] : [options: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & Readonly<{
+export const drive: <State, Model, Message, Command = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>, scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>, ...args: [Flags] extends [never] ? [options?: DriveOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>] : [options: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & Readonly<{
     patience?: Duration.Input;
 }> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<A, E, RT | Exclude<RC, Scope.Scope> | Exclude<RS, Scope.Scope>>;
 
@@ -144,7 +144,7 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
 }>;
 
 // @public
-export const rehearse: <State, Model, Message, Command = never, Event = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, Event, unknown, Flags>, scenario: (rehearsal: Rehearsal<State, Model, Message, Command, Event, RC, RS>) => Effect.Effect<A, E, RT>, ...args: [Flags] extends [never] ? [options?: Readonly<{
+export const rehearse: <State, Model, Message, Command = never, Event = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, Event, never, Flags>, scenario: (rehearsal: Rehearsal<State, Model, Message, Command, Event, RC, RS>) => Effect.Effect<A, E, RT>, ...args: [Flags] extends [never] ? [options?: Readonly<{
     flags?: never;
 }>] : [options: FlagsOption<NoInfer<Flags>>]) => Effect.Effect<A, E, RT>;
 
@@ -167,7 +167,7 @@ interface RunOptions<Message, State = unknown, Command = unknown> {
 
 // @public
 type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & Readonly<{
-    readonly '~@fgaudo/effect-tea/Program/external'?: readonly [External];
+    readonly '~@fgaudo/effect-tea/Program/external'?: readonly [(external: External) => void];
     init: Init<State, Command, Flags>;
     update: Update<State, Message, Command, Event>;
     subscriptions?: Subscriptions<State, Message, RS, unknown>;

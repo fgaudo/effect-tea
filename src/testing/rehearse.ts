@@ -219,7 +219,7 @@ export const rehearse = Effect.fnUntraced(function*<
   RT = never,
   Flags = never,
 >(
-  program: Shape<State, Model, Message, Command, RC, RS, Event, unknown, Flags>,
+  program: Shape<State, Model, Message, Command, RC, RS, Event, never, Flags>,
   scenario: (rehearsal: Rehearsal<State, Model, Message, Command, Event, RC, RS>) => Effect.Effect<A, E, RT>,
   ...[{ flags } = {}]: [Flags] extends [never] ? [options?: FlagsOption<never>]
     : [options: FlagsOption<NoInfer<Flags>>]

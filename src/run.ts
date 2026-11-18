@@ -39,7 +39,7 @@ export type Frame<Model, Message> = Readonly<{
  */
 // Not an `Effect.fn`: a span of its own would be the one the renderer logs into (see `Shell.withExternalSpan`).
 export const runWith = <State, Model, Message, Command, RC, RS, RR, Flags>(
-  program: Shape<State, Model, Message, Command, RC, RS, never, unknown, Flags>,
+  program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
   render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
   options: RunOptions<Message, State, Command> & Readonly<{ flags?: unknown }>,
   deaths: Shell.Deaths,
@@ -55,7 +55,7 @@ export const runWith = <State, Model, Message, Command, RC, RS, RR, Flags>(
 
 const running = Effect.fnUntraced(
   function*<State, Model, Message, Command, RC, RS, RR, Flags>(
-    program: Shape<State, Model, Message, Command, RC, RS, never, unknown, Flags>,
+    program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
     render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
     options: RunOptions<Message, State, Command> & Readonly<{ flags?: unknown }>,
     deaths: Shell.Deaths,
@@ -132,7 +132,7 @@ const running = Effect.fnUntraced(
  * @see The guide, "Guarantees", "Nothing ends in silence".
  */
 export const run = <State, Model, Message, Command = never, RC = never, RS = never, RR = never, Flags = never>(
-  program: Shape<State, Model, Message, Command, RC, RS, never, unknown, Flags>,
+  program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
   render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
   ...[options = {}]: [Flags] extends [never]
     ? [options?: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>]

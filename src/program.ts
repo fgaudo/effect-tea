@@ -210,7 +210,9 @@ export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags
     // `unique symbol` the package does not export stops it (TS4023).
     // In a tuple: the `undefined` that an optional property adds without `exactOptionalPropertyTypes` stays out of
     // it, and an external message that is `undefined` stays in.
-    readonly '~@fgaudo/effect-tea/Program/external'?: readonly [External]
+    // As a parameter: a program may be given a type that names fewer external messages than it takes, never more, so
+    // what takes any program names `never`.
+    readonly '~@fgaudo/effect-tea/Program/external'?: readonly [(external: External) => void]
     init: Init<State, Command, Flags>
     update: Update<State, Message, Command, Event>
     subscriptions?: Subscriptions<State, Message, RS, unknown>
@@ -318,7 +320,7 @@ export type ExternalOf<P> = P extends { readonly '~@fgaudo/effect-tea/Program/ex
   : never
 // Each member of the union apart: the tuple, and the `undefined` of an optional property, which holds none. A program
 // whose type lacks the property reads it back as `unknown`, which holds none either, rather than anything.
-type Unboxed<E> = E extends readonly [infer External] ? External : never
+type Unboxed<E> = E extends readonly [(external: infer External) => void] ? External : never
 /**
  * The events a program's `update` returns for its parent.
  *

@@ -220,6 +220,19 @@ const deaf: Program<{ state: CounterState; model: null; message: Full; external:
   makeModel: () => null,
 }
 
+// A program may be typed with fewer external messages than it takes, never with more.
+export const sealed: Program<{ state: CounterState; model: CounterState; message: CounterMessage; event: Full }> =
+  counter
+
+// @ts-expect-error
+const opened: Program<{
+  state: CounterState
+  model: CounterState
+  message: CounterMessage
+  event: Full
+  external: CounterMessage
+}> = counter
+
 // A child with commands has a `runCommand`, even when written without `Program<…>`.
 child(
   // @ts-expect-error
@@ -244,7 +257,7 @@ const draft = drafting.make({
 })
 
 // A write is of the value the place holds; an own message that takes an input's name does not compile, nor does a
-// command's answer that writes into an input, nor an element made by hand.
+// command's answer that writes into an input, nor an external message that does, nor an element made by hand.
 // @ts-expect-error
 const wrong: MessageOf<typeof draft> = { _tag: 'Title', message: { _tag: 'Written', was: 0, value: 1 } }
 
@@ -266,6 +279,15 @@ drafting.make({
   update: (_: 'Cleared') => (state: Draft) => ({ state, commands: ['Load' as const] }),
   // @ts-expect-error
   runCommand: () => Effect.succeedSome({ _tag: 'Title' as const, message: { _tag: 'Written', was: '', value: 'a' } }),
+  makeModel: () => null,
+})
+
+type TitleWrite = Readonly<{ _tag: 'Title'; message: Readonly<{ _tag: 'Written'; was: string; value: string }> }>
+
+// @ts-expect-error
+program<{ state: Draft; external: TitleWrite }>().make({
+  init: { state: { title: '' } },
+  inputs: { Title: drafting.input({ at: Optic.id<Draft>().key('title') }) },
   makeModel: () => null,
 })
 
@@ -340,6 +362,7 @@ assert(edit.was === 'Ada' && element.value === 'Ada L', 'edited writes over what
 export const kept = drawn(element, 'Ada', 0)
 assert(kept.shown === element && !kept.taken && byHand !== undefined, 'a frame that has not seen the write keeps it')
 assert(deaf.update({ _tag: 'Full' })(deaf.init.state) !== reject, 'a program typed past its types runs')
+assert(opened === sealed, 'a program typed with other external messages is the same program')
 const moved = drawn(element, '', 1)
 assert(moved.shown.value === '' && moved.taken, 'a frame that has seen it and moved on gives its value')
 

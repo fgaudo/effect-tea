@@ -125,5 +125,9 @@ update: (_: Cleared, children) => (state) =>
 - **A parent that passes on an external message of a child** names that message in its own `external`, wrapped as the
   parent receives it: `{ _tag: 'Page', message: … }`. The message is one of the child's external messages, or this does
   not compile. A message that the child keeps to itself does not pass through its parent either.
+- **An external message never writes into an input.** Only what is drawn writes into an input, and a write over a
+  stale value is rejected, which an external message must never be. So an external message whose `_tag` is the name of
+  an input of the program does not compile. To fill an input from its parent, a child takes an external message of its
+  own, such as `{ _tag: 'Filled', name }`, and its `update` writes the input's place.
 - **A rejection of an external message is a defect.** It is a `CompositionDefect` that names the child, and names the
   message by its tags. Sending an external message to a child that is not there is such a defect too.

@@ -97,7 +97,7 @@ export const drive = Effect.fnUntraced(function*<
   RT = never,
   Flags = never,
 >(
-  program: Shape<State, Model, Message, Command, RC, RS, never, unknown, Flags>,
+  program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
   scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>,
   ...[{ patience = '2 seconds', ...options } = {}]: [Flags] extends [never]
     ? [options?: DriveOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>]

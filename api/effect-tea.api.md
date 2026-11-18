@@ -230,6 +230,11 @@ type ExternalTaken<P> = [Exclude<ExternalOf<P>, MessageOf<P>>] extends [never] ?
 }>;
 
 // @public
+type ExternalWritten<Written> = [Written] extends [never] ? unknown : Readonly<{
+    'an external message writes into an input': Written;
+}>;
+
+// @public
 export type Field<T, K extends string> = T extends {
     readonly [P in K]: infer V;
 } ? V : never;
@@ -392,7 +397,7 @@ type Listed<T, Key extends 'commands' | 'events'> = T extends {
 export type MakeProgram<T extends DeclaredTypes> = <Model, C extends Children<Field<T, 'state'>> = None, I extends Inputs<Field<T, 'state'>> = None, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, 'state'>, NoInfer<C>, NoInfer<I>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'event'>, Named<T, 'model', Model>, Ran, Heard, K, Field<T, 'flags'>> & Readonly<{
     children?: C;
     inputs?: I;
-}> & ExternalPassed<Field<T, 'external'>, ChildMessages<NoInfer<C>>, ChildExternals<NoInfer<C>>> & ObjectState<Field<T, 'state'>>) => Program<{
+}> & ExternalPassed<Field<T, 'external'>, ChildMessages<NoInfer<C>>, ChildExternals<NoInfer<C>>> & ExternalWritten<Extract<keyof NoInfer<I> & string, TagOf<Field<T, 'external'>>>> & ObjectState<Field<T, 'state'>>) => Program<{
     state: Field<T, 'state'>;
     model: Named<T, 'model', Model>;
     message: Field<T, 'message'> | ChildMessages<C> | InputMessages<I>;
@@ -563,7 +568,7 @@ type Routed<Message> = Message extends Readonly<{
 }> ? [Exclude<keyof Message, '_tag' | 'message' | 'id'>] extends [never] ? Message : never : never;
 
 // @public
-export const run: <State, Model, Message, Command = never, RC = never, RS = never, RR = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, unknown, Flags>, render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>] : [options: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<void, never, Exclude<RC | RS | RR, Scope.Scope>>;
+export const run: <State, Model, Message, Command = never, RC = never, RS = never, RR = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>, render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>>] : [options: RunOptions<NoInfer<Message>, NoInfer<State>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<void, never, Exclude<RC | RS | RR, Scope.Scope>>;
 
 // @public
 export type RunCommand<Command, Message, R = never> = (command: Command) => Execution<Message, R>;
@@ -585,7 +590,7 @@ export interface RunOptions<Message, State = unknown, Command = unknown> {
 
 // @public
 export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & Readonly<{
-    readonly '~@fgaudo/effect-tea/Program/external'?: readonly [External];
+    readonly '~@fgaudo/effect-tea/Program/external'?: readonly [(external: External) => void];
     init: Init<State, Command, Flags>;
     update: Update<State, Message, Command, Event>;
     subscriptions?: Subscriptions<State, Message, RS, unknown>;
@@ -642,7 +647,7 @@ type TagOf<M> = M extends {
 export type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected;
 
 // @public (undocumented)
-type Unboxed<E> = E extends readonly [infer External] ? External : never;
+type Unboxed<E> = E extends readonly [(external: infer External) => void] ? External : never;
 
 // @public (undocumented)
 type Unpassed<Kept> = [Kept] extends [never] ? unknown : Readonly<{

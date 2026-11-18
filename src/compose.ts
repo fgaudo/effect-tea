@@ -792,8 +792,9 @@ type DeclaredTypes = Readonly<{
  * - a subscription under the key `[<child>, key]`.
  *
  * For children and inputs by id, each of these also carries the `id`: a key is then `[<child>, id, key]`. A message of
- * the parent's own that takes the name of a child or of an input does not compile. A key of the parent's own
- * subscriptions that is the key of a child's subscription is a defect, a `CompositionDefect`.
+ * the parent's own that takes the name of a child or of an input does not compile, nor does an external message that
+ * takes the name of an input. A key of the parent's own subscriptions that is the key of a child's subscription is a
+ * defect, a `CompositionDefect`.
  *
  * @returns `child` and `childById`, which declare a child alone and children by id, `input` and `inputById`, which
  * declare an input alone and inputs by id, and `make`, which makes the program.
@@ -826,8 +827,9 @@ type DeclaredTypes = Readonly<{
  * @see The guide, "Composition", "The parent's subscriptions".
  * @see The guide, "Composition", "What does not compile:".
  * @see The guide, "Composition", "What is a defect".
+ * @see The guide, "Events and external messages", "An external message never writes into an input".
  */
-export const program = <T extends DeclaredTypes>(): ProgramMaker<T> => ({
+export const program =<T extends DeclaredTypes>(): ProgramMaker<T> => ({
   child: (program, place) => ({
     kind: 'one',
     program,
@@ -848,6 +850,15 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> => ({
 type ExternalPassed<External, Messages, Externals> = Unpassed<Exclude<Extract<External, Messages>, Externals>>
 type Unpassed<Kept> = [Kept] extends [never] ? unknown
   : Readonly<{ "an external message for a child is not among the child's": Kept }>
+
+// By the tag, not by the message: `make` routes every message tagged with an input's name to the input, so an external
+// message with that tag is a write, however its type is spelled (a union of tags, `string`).
+/**
+ * An external message is answered in every state, and a write is rejected once its `was` is stale: no input is written
+ * from outside.
+ */
+type ExternalWritten<Written> = [Written] extends [never] ? unknown
+  : Readonly<{ 'an external message writes into an input': Written }>
 
 // A type `T` names is checked, `never` too; one it does not name is inferred.
 type Named<T, K extends 'model', Inferred> = T extends { readonly [P in K]: infer V } ? V : Inferred
@@ -1059,6 +1070,7 @@ export type MakeProgram<T extends DeclaredTypes> = <
     >
     & Readonly<{ children?: C; inputs?: I }>
     & ExternalPassed<Field<T, 'external'>, ChildMessages<NoInfer<C>>, ChildExternals<NoInfer<C>>>
+    & ExternalWritten<Extract<keyof NoInfer<I> & string, TagOf<Field<T, 'external'>>>>
     // On the config, as for a program written by hand: the program `make` returns carries the marker of `Program`,
     // which the check of `run` and of the testing tools asks for, so a state that holds a number would get past them.
     // A state that is a type parameter stays deferred here, and does not compile (`docs/rejected.md`).

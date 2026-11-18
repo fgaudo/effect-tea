@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, expectTypeOf, test } from 'bun:test'
 import * as Arr from 'effect/Array'
 import * as Channel from 'effect/Channel'
 import * as Context from 'effect/Context'
@@ -17,10 +17,12 @@ import { andThen, forEach, reject, type Step, type Update } from './update.ts'
 import { type Dispatch, forwardTo } from './dispatch.ts'
 import { program } from './compose.ts'
 import { CompositionDefect } from './defect.ts'
+import type { Written } from './input.ts'
 import {
   type CommandOf,
   type CommandServicesOf,
   type EventOf,
+  type ExternalOf,
   type FlagsOf,
   type MessageOf,
   type ModelOf,
@@ -1526,6 +1528,40 @@ describe('what the types reject', () => {
     })
   })
 
+  test('an external message cannot write into an input, whatever spells its tag', () => {
+    type Named = Readonly<{ name: string }>
+    type Write = Readonly<{ _tag: 'Name'; message: Written<string> }>
+    type Own = Readonly<{ _tag: 'Own'; message: Written<string> }>
+    type Either = Readonly<{ _tag: 'Name' | 'Own'; message: Written<string> }>
+    type Any = Readonly<{ _tag: string; message: Written<string> }>
+    type Cleared = Readonly<{ _tag: 'Cleared' }>
+    const inputs = { Name: program<{ state: Named }>().input({ at: Optic.id<Named>().key('name') }) }
+    const init = { state: { name: 'Ada' } }
+    // @ts-expect-error: `Name` is an input's name.
+    program<{ state: Named; external: Write }>().make({ init, inputs, makeModel: () => null })
+    // @ts-expect-error: likewise when it is one tag of several.
+    program<{ state: Named; message: Own; external: Either }>().make({
+      init,
+      inputs,
+      update: (_: Own) => (state) => ({ state }),
+      makeModel: () => null,
+    })
+    // @ts-expect-error: likewise when the tag is any string.
+    program<{ state: Named; message: Any; external: Any }>().make({
+      init,
+      inputs,
+      update: (_: Any) => (state) => ({ state }),
+      makeModel: () => null,
+    })
+    const clearing = program<{ state: Named; message: Cleared; external: Cleared }>().make({
+      init,
+      inputs,
+      update: (_: Cleared) => () => ({ state: { name: '' } }),
+      makeModel: () => null,
+    })
+    expect(clearing.update({ _tag: 'Cleared' })(init.state)).toEqual({ state: { name: '' } })
+  })
+
   test('an input cannot take the name of a child, which it would replace', () => {
     type Named = Readonly<{ ticks: number; name: string }>
     const { child, make, input } = program<{ state: Named }>()
@@ -1559,6 +1595,20 @@ describe('what the types reject', () => {
     // @ts-expect-error: likewise for children by id.
     expect(childById(wrapper, { get: () => Opt.some(noTicks), set: (state) => state, subscribed: () => [] })).toBeDefined()
     expect(resetting).toBeDefined()
+  })
+
+  test('a program may be typed with fewer external messages than it takes, never with more', () => {
+    const resetting = program<{ state: Ticks; message: Tick | Reset; external: Reset }>().make({
+      init: { state: noTicks },
+      update: (message: Tick | Reset) => ({ ticks }) => ({ state: { ticks: message._tag === 'Tick' ? ticks + 1 : 0 } }),
+      makeModel: ({ ticks }) => ticks,
+    })
+    // @ts-expect-error: its parent could send it a `Tick`, which its `update` would take as its own business.
+    const widened: Program<{ state: Ticks; model: number; message: Tick | Reset; external: Tick | Reset }> = resetting
+    const narrowed: Program<{ state: Ticks; model: number; message: Tick | Reset }> = resetting
+    expectTypeOf<ExternalOf<typeof narrowed>>().toEqualTypeOf<never>()
+    expectTypeOf<ExternalOf<typeof resetting>>().toEqualTypeOf<Reset>()
+    expect([widened, narrowed]).toEqual([resetting, resetting])
   })
 
   test('a function over programs passes its type parameter on to them', () => {
