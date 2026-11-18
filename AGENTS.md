@@ -88,7 +88,8 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   Effect does not document may change in a minor version, and the premises (`docs/premises.md`) rest on some of it: so
   the range accepts no minor that the tests have not run on, and a new minor of Effect needs an upgrade and a release
   of the library. No older Effect is supported. An API that exists only in a newer Effect is not a reason for a
-  workaround: ask whether to upgrade (`upgrade-effect`).
+  workaround: ask whether to upgrade (`upgrade-effect`). The official repository of Effect v4 is
+  [`Effect-TS/effect`](https://github.com/Effect-TS/effect): its sources, issues and changes are read there.
 - **A change a consumer can notice has a changelog entry** in the same commit, and raises the version when it
   needs more than the unreleased section says (`release`).
 - **The guide is a specification.** Its pages ([`site/guide/`](site/guide)), "Guarantees" among them, say what the
