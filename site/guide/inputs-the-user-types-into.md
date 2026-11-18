@@ -37,7 +37,7 @@ In general, a view writes over the value its model holds, through the input's di
   [why](#why-what-the-user-types-is-no-message)).
 - **The program declares where it goes**: `inputs: { Name: input({ at }) }` in `make`.
   - `at` is an optic to a plain value of the program's state. In place of `at`, you can give `get` and `set` (see
-    [declaring children](./composition.md#declaring-children)).
+    [where a child lives](./composition.md#where-a-child-lives), which says when to give each).
   - An optic that may focus nothing, as one composed with `Optic.some()`, declares an input that is not always there.
   - `inputById` declares an input by id, one for each row. The view writes into it through
     `forwardTo(dispatch, 'Count', id)` (see [inputs by id](#inputs-by-id)).

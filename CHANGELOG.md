@@ -47,6 +47,8 @@ version, and everything else, features included, the patch version.
 - The guide's "Testing tools" shows how `simulate` is called ("simulate"), and "Testing" how a program is run under
   its renderer in a test, in a DOM ("The view"). "Commands" says where a retry goes ("Rules"), and "Subscriptions" that
   a value which stays the same while its key is kept, as a child's own id, can stay out of the key ("Rules").
+- The guide's "Composition" says when a place is given as an optic and when as `get` and `set` ("Where a child lives",
+  "Children by id"), and the tutorial's "Children" why its timers take `get` and `set` ("Declaring the children").
 - What a type does not need defaults to `never`, as in `Step` and in Effect's own types: `R` in `Execution`,
   `RunCommand`, `Subscription` and `Subscriptions`, `Command` in `Applied`, `Simulation` and `Rehearsal`, and `Event`
   in `Simulation`. So `Subscription<Message>` is a subscription that needs no services, and `Rehearsal<State, Model,

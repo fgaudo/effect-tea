@@ -70,6 +70,10 @@ For each child, and for itself, a parent declares what follows. The sections bel
 - **Where the child lives: `at`.** `at` is an optic into the parent's state, an `Optic` of Effect:
   `Optic.id<State>().key('clock')`. For a child that may not be there, add `.compose(Optic.some())`. In place of an
   optic, you can give the two functions that an optic is: `get` and `set`.
+  - Give an optic where the place is a path into the state: a field, a case of a tagged union, a key of a record.
+  - Give `get` and `set` where the place must be found: an element of an array that a predicate picks, such as a
+    page found by its tag in a stack of pages. No path leads to such an element, because its index changes as the
+    array does.
 - **When the child is not there.** In a state where the child's optic focuses nothing, or where its `get` returns
   `None`, the child is not there.
   - A message for a child that is not there is rejected. This holds for a message of the child's view, sent through
@@ -252,6 +256,9 @@ const view: View<Model, Message> = (model, dispatch) =>
 For children by id, such as the rows of a list, use `childById` instead of `child`:
 
 - **`get` and `set` take the id** (or `at` is a function of the id).
+  - Rows kept in an array are found with `get` and `set`, as `list` does. Rows kept in a record by id are reached
+    with an optic of the id (see [where a child lives](#where-a-child-lives)).
+    [Inputs by id](./inputs-the-user-types-into.md#inputs-by-id) shows both forms.
 - **`subscribed` lists the rows that listen.** It is required, because the library cannot list the ids in the state. A
   row that `subscribed` leaves out runs no subscription. So list every row, as `list` does, unless some rows must not
   listen.

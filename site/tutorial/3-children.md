@@ -36,6 +36,10 @@ and asks three things:
 
 {@includeCode ../../examples/timer/timers.ts#compose}
 
+The timers are kept in an array, so a timer is found by its id: that is what `get` and `set` do. A place that is a
+path into the state, such as a field, is given as an optic instead, as step 4 does (see
+[where a child lives](../guide/composition.md#where-a-child-lives)).
+
 What the parent gets from the declaration:
 
 - **Starting a child:** `children.Timer.init(id)` is a timer's first step, its state and its commands. The parent's
