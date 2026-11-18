@@ -1902,7 +1902,7 @@ describe('the end of the run', () => {
           Stream.runHead(frames).pipe(
             Effect.flatMap(Opt.match({
               onNone: () => Effect.void,
-              onSome: ({ model, dispatch }) => dispatch(model.increment),
+              onSome: ({ model, dispatch }) => Effect.asVoid(dispatch(model.increment)),
             })),
             Effect.andThen(Effect.never),
             Effect.onInterrupt(() => Deferred.succeed(ending, undefined)),
@@ -1937,7 +1937,7 @@ describe('the end of the run', () => {
           Stream.runHead(frames).pipe(
             Effect.flatMap(Opt.match({
               onNone: () => Effect.void,
-              onSome: ({ model, dispatch }) => dispatch(model.increment),
+              onSome: ({ model, dispatch }) => Effect.asVoid(dispatch(model.increment)),
             })),
             Effect.andThen(Effect.never),
           ),
