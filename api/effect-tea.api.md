@@ -392,7 +392,7 @@ type Listed<T, Key extends 'commands' | 'events'> = T extends {
 export type MakeProgram<T extends DeclaredTypes> = <Model, C extends Children<Field<T, 'state'>> = None, I extends Inputs<Field<T, 'state'>> = None, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, 'state'>, NoInfer<C>, NoInfer<I>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'event'>, Named<T, 'model', Model>, Ran, Heard, K, Field<T, 'flags'>> & Readonly<{
     children?: C;
     inputs?: I;
-}> & ExternalPassed<Field<T, 'external'>, ChildMessages<NoInfer<C>>, ChildExternals<NoInfer<C>>>) => Program<{
+}> & ExternalPassed<Field<T, 'external'>, ChildMessages<NoInfer<C>>, ChildExternals<NoInfer<C>>> & ObjectState<Field<T, 'state'>>) => Program<{
     state: Field<T, 'state'>;
     model: Named<T, 'model', Model>;
     message: Field<T, 'message'> | ChildMessages<C> | InputMessages<I>;

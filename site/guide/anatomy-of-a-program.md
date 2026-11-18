@@ -98,9 +98,11 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
 - A state that is a number or a string. It is refused by `Program<…>` and `program`, by `child` and `childById`, by
   `run`, and by `simulate`, `rehearse` and `drive`.
 - A state whose type has no fields, such as `{}`. Such a type holds a number too, so name the type of a state without
-  fields `object`. A program written as an object is refused when it is typed `Program<…>`, and when `child`,
-  `childById`, `run`, `simulate`, `rehearse` or `drive` takes it. `program` and `make` accept such a state. The program
-  that `make` returns is refused when it becomes a child, by `child` and `childById`.
+  fields `object`. `program` accepts such a state, and `make` refuses it. A program written as an object is refused
+  when it is typed `Program<…>`, and when `child`, `childById`, `run`, `simulate`, `rehearse` or `drive` takes it.
+  - A state that is a type parameter, such as `S` in `<S extends object>(state: S) => program<{ state: S }>()`, is
+    refused by `make` too: the compiler cannot decide that `S` holds no number. A type parameter in a field of the
+    state, such as `A` in `{ items: ReadonlyArray<A> }`, compiles.
 - `external` messages that are not among the program's `message`s. A program written as an object is refused when it
   is typed `Program<…>`. `program` and `make` accept such messages. The program that `make` returns is refused when it
   becomes a child, by `child` and `childById`.

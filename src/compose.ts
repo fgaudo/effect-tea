@@ -1027,7 +1027,11 @@ export type DeclareInputById<T extends DeclaredTypes> = <Id, A>(
 /**
  * The function of `program` that makes the program from its pieces.
  *
+ * A state whose type has no fields, such as `{}`, does not compile, since such a type holds a number too: name it
+ * `object`.
+ *
  * @see The guide, "Composition", "The parent's own messages, commands and subscriptions".
+ * @see The guide, "Anatomy of a program", "What does not compile".
  */
 export type MakeProgram<T extends DeclaredTypes> = <
   Model,
@@ -1054,7 +1058,11 @@ export type MakeProgram<T extends DeclaredTypes> = <
       Field<T, 'flags'>
     >
     & Readonly<{ children?: C; inputs?: I }>
-    & ExternalPassed<Field<T, 'external'>, ChildMessages<NoInfer<C>>, ChildExternals<NoInfer<C>>>,
+    & ExternalPassed<Field<T, 'external'>, ChildMessages<NoInfer<C>>, ChildExternals<NoInfer<C>>>
+    // On the config, as for a program written by hand: the program `make` returns carries the marker of `Program`,
+    // which the check of `run` and of the testing tools asks for, so a state that holds a number would get past them.
+    // A state that is a type parameter stays deferred here, and does not compile (`docs/rejected.md`).
+    & ObjectState<Field<T, 'state'>>,
 ) => Program<{
   state: Field<T, 'state'>
   model: Named<T, 'model', Model>

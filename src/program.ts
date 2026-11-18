@@ -88,8 +88,9 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * - The view is not part of it: `run` gives the renderer frames, `{ model, dispatch, seen }`.
  * - Its state is an object, and its `external` messages are among its `message`s. A program written as an object
  *   and typed `Program<…>` does not compile otherwise: with a state that is a number or a string, with a state type
- *   without fields, such as `{}`, or with an `external` message that is not among its `message`s. `make` accepts the
- *   last two, and `child` and `childById` refuse the program it returns.
+ *   without fields, such as `{}`, or with an `external` message that is not among its `message`s. `make` refuses the
+ *   state without fields too. It accepts the `external` message, and `child` and `childById` refuse the program it
+ *   returns.
  * - `runCommand` is required exactly when the program has commands.
  * - `run` makes a frame's model with `makeModel(state)`. A test can call `makeModel` the same way, on any state.
  * - `update`, `makeModel` and `subscriptions` are pure, and states are never mutated. The library reuses a child's
@@ -169,8 +170,8 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? Readonly<{ flags?: ne
  * A parent keeps a child's model while the child's state is the same object. A number or a string has no identity
  * by which a model could be kept. A state that is a number or a string is refused by `Program<…>`, `program`,
  * `child`, `childById`, `run` and the testing tools that take a program. A type without fields, such as `{}`, holds a
- * number too, so name the type of a state without fields `object`. `make` accepts a type without fields, and `child`
- * and `childById` refuse the program it returns.
+ * number too, so name the type of a state without fields `object`. `make` refuses a type without fields, and a state
+ * that is a type parameter, since the compiler cannot decide whether it holds a number.
  *
  * @example
  * ```ts

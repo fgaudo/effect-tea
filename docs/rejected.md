@@ -199,7 +199,10 @@ answer, and saying so in the proposal.
   reader, `Handles`, `OnEventOf` and `Config`, on how the compiler treats generic types, and risk types that read
   differently by how the code is written, while a rule over a truly generic `P` still could not be decided. Such a
   function is written as an overload over erased types instead ("Composition", "Precisely"), and a frame is better a
-  child beside its content. *Reopen if* a library of components over this one needs such functions often.
+  child beside its content. The same holds for a state that is a type parameter in `make`, refused since 18 November
+  2026 so that a number cannot reach `run` through a generic function (`MakeProgram` in `compose.ts`): a type
+  parameter in a field of the state compiles. *Reopen if* a library of components over this one needs such functions
+  often.
 - **`attempt`**, which turned an effect that may fail into an execution with a message for each outcome. Removed in
   0.7.0 (`775f140`, 26 October 2026) by "A function earns its place" (`AGENTS.md`): it only named two combinators of
   Effect (`Effect.match` and `Effect.asSome`), and the type of an execution already says it cannot fail. Reasoned.

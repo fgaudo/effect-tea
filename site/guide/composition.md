@@ -179,7 +179,8 @@ of it. Here is what the compiler can check there, and what it cannot.
   - flags, when the child starts from them;
   - a `runCommand`, when the child has commands.
 - For a type parameter, such as `P` in `<P extends AnyProgram>(p: P) => …`, the compiler cannot decide what the child
-  needs. So `make` does not compile there.
+  needs. So `make` does not compile there. Nor does it for a state that is a type parameter (see
+  [what does not compile](./anatomy-of-a-program.md#precisely)).
 - A frame around content, such as a dialog, is better as a child beside the content than as a parent of it. The parent
   of both is then a program like any other.
 - You can still write a function over any program. The function's signature names the types. The function's body makes

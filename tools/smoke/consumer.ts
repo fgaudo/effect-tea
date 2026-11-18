@@ -292,6 +292,14 @@ const sheet = sheets.make({
 // @ts-expect-error
 const unnamed: MessageOf<typeof sheet> = { _tag: 'Count', message: { _tag: 'Written', was: '', value: '1' } }
 
+// A state without fields holds a number too, and so may a state that is a type parameter: `make` refuses both.
+// @ts-expect-error
+program<{ state: {} }>().make({ init: { state: 0 }, makeModel: () => null })
+
+export const generic = <S extends object>(state: S) =>
+  // @ts-expect-error
+  program<{ state: S }>().make({ init: { state }, makeModel: () => null })
+
 const assert = (condition: boolean, what: string) => {
   if (!condition) throw new Error(`smoke: ${what}`)
 }

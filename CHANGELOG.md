@@ -75,8 +75,8 @@ version, and everything else, features included, the patch version.
     "`dispatchViolations`", "`simulate`", "`rehearse`" and "`drive`" → "applyAll", "dispatchViolations", "simulate",
     "rehearse" and "drive".
 - The guide's "Anatomy of a program" says where each program that does not compile is refused ("What does not
-  compile"): a state type without fields, such as `{}`, and an `external` message that is no message pass `make`, and
-  are refused in a `Program<…>` written by hand and where the program becomes a child.
+  compile"): an `external` message that is no message passes `make`, and is refused in a `Program<…>` written by
+  hand and where the program becomes a child.
 - The guide's "Composition" says that a message for a child that is not there is rejected ("When the child is not
   there"), what `subscribed` returns for a child, and that an own command cannot take the name of a child or of an
   input ("What does not compile").
@@ -162,9 +162,11 @@ version, and everything else, features included, the patch version.
 - **Breaking**: a parent's `external` that names a message of a child names one of the child's external messages, or
   `make` does not compile ("Composition", "Events and external messages"). A message the child kept to itself passed
   through, and the child's rejection of it was a `CompositionDefect`.
-- **Breaking**: a state whose type has no fields, such as `{}`, does not compile, since a number is one too: such a
-  program could start from `0`, and as a child it died ("Anatomy of a program", "What does not compile"). Upgrade:
-  `state: {}` becomes `state: object`.
+- **Breaking**: a state whose type has no fields, such as `{}`, does not compile, `make` included, since a number is
+  one too: such a program could start from `0`, and as a child it died ("Anatomy of a program", "What does not
+  compile"). Nor does a state that is a type parameter in `make`, which the compiler cannot decide. Upgrade:
+  `state: {}` becomes `state: object`, and a function that makes a program over a state `S` makes it over `object`,
+  with its types named in an overload ("Composition", "Precisely").
 - **Breaking**: `each` is renamed `childById`, beside `inputById`, as the guide already says "children by id".
   Upgrade: `each(program, place)` becomes `childById(program, place)`, taken from `program` as `each` was from
   `parent`.

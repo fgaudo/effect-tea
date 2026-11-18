@@ -1375,7 +1375,7 @@ describe('what the types reject', () => {
     expect([typed, counting]).toHaveLength(2)
   })
 
-  test('a state without fields holds a number too: refused as written, and where a made program is a child', () => {
+  test('a state without fields holds a number too: refused as written, by make, and where a program is a child', () => {
     type Empty = Record<never, never>
     const empty = { init: { state: {} }, update: () => (state: Empty) => ({ state }), makeModel: () => null }
     // @ts-expect-error: a type without fields holds a number too.
@@ -1388,20 +1388,10 @@ describe('what the types reject', () => {
     expect(rehearse(empty, () => Effect.void)).toBeDefined()
     // @ts-expect-error: nor `drive`.
     expect(drive(empty, () => Effect.void)).toBeDefined()
-    // `make` takes it, and its state may then be a number.
-    const loose = program<{ state: Empty }>().make({ init: { state: 0 }, makeModel: () => null })
+    // @ts-expect-error: nor does `make`, whose program would run with a number as its state.
+    expect(program<{ state: Empty }>().make({ init: { state: 0 }, makeModel: () => null })).toBeDefined()
     const { child, childById } = program<{ state: Readonly<{ inner: object }> }>()
-    // @ts-expect-error: its state could be a number, which as a child is a defect.
-    expect(child(loose, { get: (state) => Opt.some(state.inner), set: (_, inner) => ({ inner }) })).toBeDefined()
-    expect(
-      // @ts-expect-error: likewise for children by id.
-      childById(loose, {
-        get: (state) => Opt.some(state.inner),
-        set: (_, __, inner) => ({ inner }),
-        subscribed: () => [],
-      }),
-    ).toBeDefined()
-    // @ts-expect-error: and for a program written as an object.
+    // @ts-expect-error: nor `child`, where it would be a defect.
     expect(child(empty, { get: (state) => Opt.some(state.inner), set: (_, inner) => ({ inner }) })).toBeDefined()
     expect(
       // @ts-expect-error: by id too.
@@ -1415,6 +1405,26 @@ describe('what the types reject', () => {
     const kept: Program<{ state: object; model: null; message: never }> = bare
     expect(child(bare, { get: (state) => Opt.some(state.inner), set: (_, inner) => ({ inner }) })).toBeDefined()
     expect([typed, kept]).toHaveLength(2)
+  })
+
+  test('a state that is a type parameter does not compile in make, and a parameter in a field of the state does', () => {
+    // A number could be that parameter, and the compiler cannot decide whether it is one.
+    const whole = <S extends object>(state: S) =>
+      // @ts-expect-error: the state is the parameter.
+      program<{ state: S }>().make({ init: { state }, makeModel: () => null })
+    const widened = <S extends object>(state: S) =>
+      // @ts-expect-error: the state is the parameter, and more.
+      program<{ state: S & Readonly<{ open: boolean }> }>().make({
+        init: { state: { ...state, open: false } },
+        makeModel: () => null,
+      })
+    const held = <A>(items: ReadonlyArray<A>) =>
+      program<{ state: Readonly<{ items: ReadonlyArray<A> }> }>().make({
+        init: { state: { items } },
+        makeModel: () => null,
+      })
+    expect([whole, widened]).toHaveLength(2)
+    expect(held([1]).init).toEqual({ state: { items: [1] } })
   })
 
   test('a child whose type names no external message takes none from its parent', () => {
