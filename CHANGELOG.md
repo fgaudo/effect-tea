@@ -392,7 +392,8 @@ version, and everything else, features included, the patch version.
   `drawn`, `edited` or `program` returns, or a function of the library as it is (`export const start = run`), emits
   its declarations: TypeScript could not name the type of a program that `make` returns, the keys of a program's
   external messages and of a `Shown`'s writes, nor the types in the signatures of the API (`TS2742`, `TS2883`,
-  `TS4023`). `make` returns a `Program<…>`, the keys are strings, and those types are exported: `AnyProgram`, `Field`,
+  `TS4023`). `make` returns a `Program<…>` of the types the program has (a counter's is
+  `Program<{ state; model; message }>`), the keys are strings, and those types are exported: `AnyProgram`, `Field`,
   `FlagsOption`, `Folded`, `Init`, `Interpreter`, `ObjectState` and `Shape`. What `program` returns is a
   `ProgramMaker`, whose functions are a `DeclareChild`, a `DeclareChildById`, a `DeclareInput`, a `DeclareInputById`
   and a `MakeProgram`: declarations name them, where they spelled out every type of the library, for each field of the

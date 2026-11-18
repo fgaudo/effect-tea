@@ -65,6 +65,15 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   name is a name not given, a form that repeats another is allowed, and a type that is empty but true, as
   `update: (message: never) => …`, says that something does not happen. A check that only moves an error that exists
   elsewhere is not worth its complexity. What was weighed by these rules is in `docs/rejected.md`.
+- **A type for how a consumer's types print is admitted on four conditions.** Some types exist only for how TypeScript
+  prints a consumer's types, in a hover or an emitted declaration: `ProgramMaker` and its functions, `CheckedChild`,
+  `Present`. They change nothing that compiles, and they rest on behaviour of the compiler that no documentation
+  states. One is admitted only when all four hold. It is not exported, or it names what a consumer's declarations would
+  otherwise spell out in full, as `ProgramMaker` does. The smoke test (`tools/smoke/smoke.ts`) has a check that fails
+  without it, with each supported TypeScript. The types are the same once resolved: the typecheck, the tests and the
+  inference matrix pass unchanged. And a comment at the type says what would print without it. One whose check fails
+  with a new TypeScript is removed, not repaired with a second trick. How a type prints never justifies a change of the
+  API's shape: a parameter, an overload, or an export that a user must write.
 - **A function earns its place by doing what Effect alone cannot**, or by being the one place where a rule of
   the library is applied (`reject`, `program`). A name over a composition of Effect's combinators is not one,
   however often the composition recurs in an application: `attempt`, `silent` and `Subscription.every` were

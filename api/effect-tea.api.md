@@ -403,7 +403,7 @@ type Listed<T, Key extends 'commands' | 'events'> = T extends {
 export type MakeProgram<T extends DeclaredTypes> = <Model, C extends Children<Field<T, 'state'>> = None, I extends Inputs<Field<T, 'state'>> = None, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, 'state'>, NoInfer<C>, NoInfer<I>, Field<T, 'message'>, Field<T, 'command'>, Field<T, 'event'>, Named<T, 'model', Model>, Ran, Heard, K, Field<T, 'flags'>> & Readonly<{
     children?: C;
     inputs?: I;
-}> & ExternalPassed<Field<T, 'external'>, ChildMessages<NoInfer<C>>, ChildExternals<NoInfer<C>>> & ExternalWritten<Extract<keyof NoInfer<I> & string, TagOf<Field<T, 'external'>>>> & ObjectState<Field<T, 'state'>>) => Program<{
+}> & ExternalPassed<Field<T, 'external'>, ChildMessages<NoInfer<C>>, ChildExternals<NoInfer<C>>> & ExternalWritten<Extract<keyof NoInfer<I> & string, TagOf<Field<T, 'external'>>>> & ObjectState<Field<T, 'state'>>) => Program<Present<{
     state: Field<T, 'state'>;
     model: Named<T, 'model', Model>;
     message: Field<T, 'message'> | ChildMessages<C> | InputMessages<I>;
@@ -413,7 +413,7 @@ export type MakeProgram<T extends DeclaredTypes> = <Model, C extends Children<Fi
     event: Field<T, 'event'>;
     external: Field<T, 'external'>;
     flags: Field<T, 'flags'>;
-}>;
+}>>;
 
 // @public
 export type MessageOf<P> = P extends {
@@ -503,6 +503,15 @@ type PlacementById<ParentState, Id, ChildState> = Readonly<{
     at: (id: Id) => Optic.Optional<ParentState, ChildState>;
     get?: never;
     set?: never;
+}>;
+
+// @public (undocumented)
+type Present<T> = Extract<{
+    [K in keyof T as K extends 'state' | 'model' | 'message' ? K : [T[K]] extends [never] ? never : K]: T[K];
+}, {
+    state: object;
+    model: unknown;
+    message: unknown;
 }>;
 
 // @public (undocumented)

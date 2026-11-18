@@ -216,6 +216,14 @@ answer, and saying so in the proposal.
   compiler infers a generic function given as an argument, an order no documentation states (as the check of external
   messages in `make`, below). *Reopen if* the cause is found, and a form holds under each supported TypeScript and the
   matrix of inference.
+- **`DeclareChild<State>` in place of `DeclareChild<T>`**, and so for `DeclareChildById`, `DeclareInput` and
+  `DeclareInputById`, which use only the state of the types a program declares. Spiked, 18 November 2026, with
+  TypeScript 7.0.2, in a review of the exported types. The types are the same once resolved: typecheck, the tests and
+  the matrix of inference passed. But a state written `type State = Readonly<{ … }>`, the repository's own style, loses
+  its name once read out of `T` (by `Field` or by `T['state']`): the declarations of a destructured `program<…>()`
+  printed `Readonly<{ … }>` inside each of the four, and the smoke test failed ("spells out the state 16 times, more
+  than 12"), where `DeclareChild<{ state: State; … }>` keeps the name as the user wrote it. *Reopen if* TypeScript keeps
+  the name of an alias of an alias when it prints the type.
 - **`attempt`**, which turned an effect that may fail into an execution with a message for each outcome. Removed in
   0.7.0 (`775f140`, 26 October 2026) by "A function earns its place" (`AGENTS.md`): it only named two combinators of
   Effect (`Effect.match` and `Effect.asSome`), and the type of an execution already says it cannot fail. Reasoned.

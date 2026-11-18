@@ -111,7 +111,9 @@ project outside the repository, runs the README's quick start and
 - The consumer emits its declarations, as a package that publishes a program does, and exports what an application
   exports: programs, children, inputs, what `program` and `drawn` return, and every value of the package
   (`{ ...Library }`). A form of export that a change makes newly possible is exported there too. The smoke test counts
-  how often those declarations spell out the consumer's state, by a field of its own, and fails past a bound: a type
-  of the library that repeats a consumer's types inside its own multiplies it, wherever it is, and is given a name.
+  how often those declarations spell out the consumer's state, by a field of its own, and fails on any other count
+  than the one its comment explains: a type of the library that repeats a consumer's types inside its own multiplies
+  it, wherever it is, and is given a name. A type that exists only for how those declarations print is admitted as
+  `AGENTS.md` says ("A type for how a consumer's types print"), with a check here that fails without it.
 - `--effect <version>` installs another Effect than the lockfile's, `--typescript 5.9,7.0` other
   TypeScripts, and `--keep` leaves the project in place to look into a failure.

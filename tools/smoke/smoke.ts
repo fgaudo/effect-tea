@@ -135,14 +135,23 @@ try {
       ]
       // At a word's start: `DeclareChild<` is no `Child<`.
       const unnamed = named.filter((name) => !new RegExp(`\\b${name}<`).test(declared))
-      // How often the consumer's state is spelled out, by a field of its own: about once for each export that holds
-      // it (12 today), and many times more when a type of the library repeats it inside each of its own (80 when
-      // `make` was spelled out, 25 when `Child` and `Step` were).
+      // How often the consumer's state is spelled out, by a field of its own: once for each place a declaration holds
+      // it, 12 with each supported TypeScript: the alias `State`; `children` and `inputs` twice each, once for each
+      // child or input; `app` twice, in its state and in its model, which has the field too; `quietChild` and `served`
+      // once each; `copied`, which spells out its program, three times. An equality, not a bound: an export added to
+      // `consumer.ts` changes it, and its count is read from the declarations and explained here, never raised to pass.
+      // A type of the library that repeats the state inside each of its own multiplies it (80 when `make` was spelled
+      // out, 25 when `Child` and `Step` were, 16 with `DeclareChild<State>`, in `docs/rejected.md`).
+      const expectedSpellings = 12
       const spelled = declared.match(/\bfulls\b/g)?.length ?? 0
       // A program is named `Program<…>` wherever the library holds one, as `Child<…>` does: spelled out, it shows the
       // key of its external messages. Only `copied`, a copy, spells itself out.
       const programs = declared.match(/~@fgaudo\/effect-tea\/Program\/external/g)?.length ?? 0
-      const ok = exitCode === 0 && unnamed.length === 0 && spelled <= 12 && programs <= 1
+      // A program `make` returns names the types it has, not the others as `never`.
+      const never = /^\s+(command|commandServices|subscriptionServices|event|external|flags): never;$/gm
+      const nevers = declared.match(never)?.length ?? 0
+      const ok = exitCode === 0 && unnamed.length === 0 && spelled === expectedSpellings && programs <= 1
+        && nevers === 0
       console.log(`typescript ${exact}, ${resolution}: ${ok ? 'ok' : 'failed'}`)
       if (exitCode !== 0) {
         failed.push(`typescript ${exact}, ${resolution}`)
@@ -150,8 +159,11 @@ try {
       } else if (!ok) {
         failed.push(`typescript ${exact}, ${resolution}`)
         if (unnamed.length > 0) console.log(`consumer.d.ts spells out ${unnamed.join(', ')}`)
-        if (spelled > 12) console.log(`consumer.d.ts spells out the state ${spelled} times, more than 12`)
+        if (spelled !== expectedSpellings) {
+          console.log(`consumer.d.ts spells out the state ${spelled} times, not ${expectedSpellings}`)
+        }
         if (programs > 1) console.log(`consumer.d.ts spells out a program ${programs} times, more than once`)
+        if (nevers > 0) console.log(`consumer.d.ts names ${nevers} types of a program as never`)
       }
     }
   }

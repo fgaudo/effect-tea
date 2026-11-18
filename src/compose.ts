@@ -90,7 +90,8 @@ type CommandsRun<P> = [CommandOf<P>] extends [never] ? unknown : Interpreter<Com
 
 // The child's program, with what it lacks for the checks above. Inferred from `P & …`, `P` would be the program less
 // the members TypeScript matches with the checks, which loses the name `Program<…>` in a consumer's declarations:
-// inferred from `P` alone, it keeps it, and the intersection is written only where a check fails.
+// inferred from `P` alone, it keeps it, and the intersection is written only where a check fails. Without it, the
+// declarations of the smoke test's consumer spell out four programs, not one.
 type CheckedChild<P> = unknown extends CommandsRun<P> & ExternalTaken<P> ? P : P & CommandsRun<P> & ExternalTaken<P>
 
 /**
@@ -1157,7 +1158,7 @@ export type MakeProgram<T extends DeclaredTypes> = <
     // which the check of `run` and of the testing tools asks for, so a state that holds a number would get past them.
     // A state that is a type parameter stays deferred here, and does not compile (`docs/rejected.md`).
     & ObjectState<Field<T, 'state'>>,
-) => Program<{
+) => Program<Present<{
   state: Field<T, 'state'>
   model: Named<T, 'model', Model>
   message: Field<T, 'message'> | ChildMessages<C> | InputMessages<I>
@@ -1167,4 +1168,13 @@ export type MakeProgram<T extends DeclaredTypes> = <
   event: Field<T, 'event'>
   external: Field<T, 'external'>
   flags: Field<T, 'flags'>
-}>
+}>>
+
+// The types the program names, and only those: one it does not name would print as `never` in every hover and
+// declaration of the program. `state`, `model` and `message` stay, `never` too (a program with no messages); `Extract`
+// shows `Program` the fields it asks for, which a mapped type with `as` hides from it. Without it, the smoke test's
+// consumer names 39 types of its programs as `never`.
+type Present<T> = Extract<
+  { [K in keyof T as K extends 'state' | 'model' | 'message' ? K : [T[K]] extends [never] ? never : K]: T[K] },
+  { state: object; model: unknown; message: unknown }
+>

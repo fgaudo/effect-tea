@@ -15,18 +15,6 @@ test of it. None is open.
 To be done first. Found in a review of the exported types, 18 November 2026, each tried on a copy of the repository
 outside git, not kept, with TypeScript 7.0.2, unless it says otherwise:
 
-- **`make` returns a `Program<…>` that names six types as `never`** (`command: never; commandServices: never;
-  subscriptionServices: never; event: never; external: never; flags: never`), in the hover and the declarations of every
-  program, where the program named three. Tried: `MakeProgram` (`src/compose.ts`) returning `Program<{ state; model;
-  message } & Having<{ command; commandServices; subscriptionServices; event; external; flags }>>`, with `type Having<T>
-  = { [K in keyof T as [T[K]] extends [never] ? never : K]: T[K] }`. The types hold (typecheck, tests and the inference
-  matrix passed), and a counter reads `Program<{ state: …; model: …; message: … }>`; but a program with more reads as an
-  intersection of two object types. To do: a form that prints one object type (a mapped type over all nine was not
-  tried: `Program` asks that `state` be an object, which may not hold for it), then the API report and the smoke test.
-- **`DeclareChild`, `DeclareChildById`, `DeclareInput` and `DeclareInputById` take all the types a program declares
-  and use only its state** (`Field<T, 'state'>`, `src/compose.ts`): a consumer's declaration reads
-  `DeclareChild<{ state: State; message: ResetAll }>`. `DeclareChild<State>` would say what each depends on; only
-  `MakeProgram` needs the rest. Not tried.
 - **`RunOptions<Message, State, Command>` and `DriveOptions` order their parameters unlike every other type**, which
   starts from the state (`Applied<State, Message, Command>`, `Ignored<State, Message>`,
   `Update<State, Message, Command, Event>`). Changing the order breaks whoever annotates options: to decide before 1.0.
