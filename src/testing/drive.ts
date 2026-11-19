@@ -42,12 +42,10 @@ export type Driver<Model, Message> = {
  * drive(program, scenario, { patience: '5 seconds' })
  * ```
  */
-export type DriveOptions<State, Message, Command = unknown> =
-  & RunOptions<State, Message, Command>
-  & {
-    /** How long a wait of the scenario lasts before it fails: 2 seconds by default, measured with the real clock. */
-    readonly patience?: Duration.Input
-  }
+export interface DriveOptions<State, Message, Command = unknown> extends RunOptions<State, Message, Command> {
+  /** How long a wait of the scenario lasts before it fails: 2 seconds by default, measured with the real clock. */
+  readonly patience?: Duration.Input
+}
 
 /**
  * Runs a program and plays a scenario on its frames, as a user would.

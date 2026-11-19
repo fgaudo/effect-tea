@@ -56,14 +56,12 @@ export const dispatchViolations: <State, Message, Command, Event>(update: Update
 }>) => ReadonlyArray<DispatchViolation<Message>>;
 
 // @public
-export const drive: <State, Model, Message, Command = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>, scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>, ...args: [Flags] extends [never] ? [options?: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & {
-    readonly patience?: Duration.Input;
-} & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<A, E, RT | Exclude<RC, Scope.Scope> | Exclude<RS, Scope.Scope>>;
+export const drive: <State, Model, Message, Command = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>, scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>, ...args: [Flags] extends [never] ? [options?: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<A, E, RT | Exclude<RC, Scope.Scope> | Exclude<RS, Scope.Scope>>;
 
 // @public
-export type DriveOptions<State, Message, Command = unknown> = RunOptions<State, Message, Command> & {
+export interface DriveOptions<State, Message, Command = unknown> extends RunOptions<State, Message, Command> {
     readonly patience?: Duration.Input;
-};
+}
 
 // @public
 export type Driver<Model, Message> = {
