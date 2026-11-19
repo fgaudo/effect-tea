@@ -34,34 +34,54 @@ type Killer = Mutation["killedBy"][number]
 
 type Verdict = "passed" | "failed" | "hung"
 
+// Bun writes a control character, as a tab, by its number.
 const decode = (text: string) =>
   text.replace(
-    /&(quot|apos|lt|gt|amp);/g,
-    (_, entity: string) => ({ quot: "\"", apos: "'", lt: "<", gt: ">", amp: "&" })[entity] as string
+    /&(?:(quot|apos|lt|gt|amp)|#(\d+)|#x([0-9a-fA-F]+));/g,
+    (_, entity: string | undefined, decimal: string | undefined, hexadecimal: string | undefined) =>
+      entity !== undefined
+        ? ({ quot: "\"", apos: "'", lt: "<", gt: ">", amp: "&" })[entity] as string
+        : String.fromCodePoint(decimal !== undefined ? Number(decimal) : Number.parseInt(hexadecimal as string, 16))
   )
 
 const attributes = (text: string) =>
   Object.fromEntries(Array.from(text.matchAll(/(\w+)="([^"]*)"/g), ([, key, value]) => [key, decode(value ?? "")]))
 
-// What bun's JUnit report says of each test that ran: skipped and `todo` tests are left out. Its `classname` lists
-// the enclosing `describe`s innermost first, joined by ' > '.
-const outcomes = (report: string): ReadonlyArray<Outcome> =>
-  Array.from(report.matchAll(/<testcase\s([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/g)).flatMap(([, head, body]) => {
-    if (body?.includes("<skipped")) return []
-    const { name = "", file = "", classname = "" } = attributes(head ?? "")
-    const describes = classname === "" ? [] : classname.split(" > ").reverse()
-    return [{
-      file: file.replaceAll("\\", "/"),
-      name,
-      title: [...describes, name].join(" "),
-      failed: body?.includes("<failure") ?? false
-    }]
-  })
+// What bun's JUnit report says of each test that ran: skipped and `todo` tests are left out. Each file is a
+// `testsuite`, and each `describe` one nested in it: the names of the enclosing `describe`s are read from them, not
+// from a test's `classname`, which joins them by ' > ' and so splits a name that holds one.
+const outcomes = (report: string): ReadonlyArray<Outcome> => {
+  const suites: Array<string> = []
+  const ran: Array<Outcome> = []
+  const tags = /<testsuite\s([^>]*?)(\/)?>|<\/testsuite>|<testcase\s([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/g
+  for (const [tag, suite, empty, head, body] of report.matchAll(tags)) {
+    if (tag.startsWith("</testsuite")) suites.pop()
+    else if (suite !== undefined) {
+      if (empty === undefined) suites.push(attributes(suite)["name"] ?? "")
+    } else if (!(body?.includes("<skipped") ?? false)) {
+      const { name = "", file = "" } = attributes(head ?? "")
+      ran.push({
+        file: file.replaceAll("\\", "/"),
+        name,
+        title: [...suites.slice(1), name].join(" "),
+        failed: body?.includes("<failure") ?? false
+      })
+    }
+  }
+  return ran
+}
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
-// No test takes more than a minute: a process that lasts longer hangs, which no report says of its test.
+// No test takes more than a minute: a process that runs one and lasts longer hangs, which no report says of its test.
 const patience = 60 * 1000
+// A run of whole files lasts as long as their tests: each is ended by bun's own timeout, so a mutation under which
+// many wait for what never comes can make a run of the suite last minutes without hanging.
+const suitePatience = 15 * 60 * 1000
+
+// What a run of `bun test` did: its tests, and whether it failed outside them, as on an error thrown between two
+// tests, which fails the run and is the failure of no test in the report.
+type Run = Readonly<{ ran: ReadonlyArray<Outcome>; failedOutside: boolean }>
 
 let reports = 0
 
@@ -86,32 +106,29 @@ const stopped = async (signal: NodeJS.Signals) => {
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, stopped)
 
-// Runs `files` in `copy`, only the test whose title is `title` when given, and returns what each did, or that it hung.
-const runTests = async (
-  copy: string,
-  files: ReadonlyArray<string>,
-  title?: string
-): Promise<ReadonlyArray<Outcome> | "hung"> => {
+// Runs `files` in `copy`, only the test whose title is `title` when given, and returns what it did, or that it hung.
+const runTests = async (copy: string, files: ReadonlyArray<string>, title?: string): Promise<Run | "hung"> => {
   // One for each run, so that two runs never read each other's.
   const report = path.join(copy, `report-${reports++}.xml`)
   // Anchored, since `-t` runs every test whose title the pattern finds anywhere in it.
   const filter = title === undefined ? [] : ["-t", `^${escape(title)}$`]
+  const timeout = title === undefined ? suitePatience : patience
   const started = performance.now()
   const run = Bun.spawn(["bun", "test", ...files, ...filter, "--reporter=junit", `--reporter-outfile=${report}`], {
     cwd: copy,
     stdout: "ignore",
     stderr: "pipe",
-    timeout: patience
+    timeout
   })
   running.add(run)
   const [stderr] = await Promise.all([new Response(run.stderr).text(), run.exited])
   running.delete(run)
   // Only `timeout` ends a run this late.
-  if (performance.now() - started >= patience) return "hung"
+  if (performance.now() - started >= timeout) return "hung"
   if (!fs.existsSync(report)) throw new Error(`bun test wrote no report (exit ${run.exitCode}):\n${stderr}`)
   const ran = outcomes(fs.readFileSync(report, "utf8"))
   fs.rmSync(report)
-  return ran
+  return { ran, failedOutside: run.exitCode !== 0 && !ran.some((outcome) => outcome.failed) }
 }
 
 // Applies `f` to each of `items`, one at a time in each of `copies`, and hands each result to `emit` in the order of
@@ -156,8 +173,9 @@ const describe = ([file, name]: Killer) => `${file} › ${name}`
 // of it alone runs it only.
 const titlesOf = async (copy: string, chosen: ReadonlyArray<Mutation>): Promise<ReadonlyMap<string, string>> => {
   const killers = chosen.flatMap((mutation) => mutation.killedBy)
-  const ran = await runTests(copy, [...new Set(killers.map(([file]) => file))])
-  if (ran === "hung") throw new Error("The files of the tests hang without any mutation")
+  const run = await runTests(copy, [...new Set(killers.map(([file]) => file))])
+  if (run === "hung") throw new Error("The files of the tests hang without any mutation")
+  const { ran } = run
   const titles = new Map<string, string>()
   for (const mutation of chosen) {
     for (const killer of mutation.killedBy) {
@@ -175,15 +193,16 @@ const titlesOf = async (copy: string, chosen: ReadonlyArray<Mutation>): Promise<
   return titles
 }
 
-// Runs `killer` alone in `copy`, in a process of its own: a test that hangs does not pass.
+// Runs `killer` alone in `copy`, in a process of its own: a test that hangs does not pass, nor one whose run fails
+// outside it, since it is the only test that ran.
 const alone = async (copy: string, titles: ReadonlyMap<string, string>, killer: Killer): Promise<Verdict> => {
   const title = titles.get(describe(killer)) as string
-  const ran = await runTests(copy, [killer[0]], title)
-  if (ran === "hung") return "hung"
-  if (ran.length !== 1 || (ran[0] as Outcome).title !== title) {
-    throw new Error(`A run of ${describe(killer)} alone ran ${ran.length} tests`)
+  const run = await runTests(copy, [killer[0]], title)
+  if (run === "hung") return "hung"
+  if (run.ran.length !== 1 || (run.ran[0] as Outcome).title !== title) {
+    throw new Error(`A run of ${describe(killer)} alone ran ${run.ran.length} tests`)
   }
-  return (ran[0] as Outcome).failed ? "failed" : "passed"
+  return (run.ran[0] as Outcome).failed || run.failedOutside ? "failed" : "passed"
 }
 
 // The mutated text of `mutation`'s file: `from` must occur exactly once, so that a change of the code is noticed.
@@ -309,14 +328,17 @@ try {
     // The suite of `bun run test`: the search of the histories lasts longer than a test may, and names no killer.
     const suite = (copy: string, mutation: Mutation) =>
       under(copy, mutation, () => runTests(copy, ["--path-ignore-patterns=src/interleaving.test.ts"]))
-    await pool(copies, chosen, suite, (ran, index) => {
+    await pool(copies, chosen, suite, (run, index) => {
       const { name } = chosen[index] as Mutation
-      if (ran === "hung") {
+      if (run === "hung") {
         console.log(`\n${name}: the suite hangs under it`)
         return
       }
-      const failed = ran.filter((outcome) => outcome.failed)
+      const failed = run.ran.filter((outcome) => outcome.failed)
       console.log(`\n${name}: ${failed.length} failing`)
+      // An error thrown between two tests fails none of them in the report: only a run of each alone tells which one
+      // leaves it.
+      if (run.failedOutside) console.log("  and the suite fails outside its tests")
       for (const { file, name } of failed) console.log(`  ['${file}', ${JSON.stringify(name)}],`)
     })
   } else {
