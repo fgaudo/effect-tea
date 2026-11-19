@@ -2,3 +2,6 @@
 
 # Format with dprint
 64a4a8cc9ee2cb06fbe5e3c3a87a0e15dcf51089
+
+# Regenerate the API reports, which print the double quotes of the formatted sources
+ee5e5b3c1982c9031dd6422b0b476e04f6a07a9b

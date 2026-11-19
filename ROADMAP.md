@@ -40,33 +40,34 @@ Found in a review of the premises, 19 November 2026, each held by a `test.failin
 - **The tools on `effect/cli` and `effect/process`**, decided on 19 November 2026. The tools may build on Effect's
   unstable modules, as `AGENTS.md` says ("Only stable APIs"): `tsconfig.json` lists them for `tools/` in an
   `allowedUnstableApis` of its `overrides`, and a module is added there when a tool first needs it.
-  `tools/mutations/mutate.ts` is the first one done (commit `fa0f97c`), and the model for the rest: a `Command.make`
-  with typed flags, run by `Command.run` and `BunRuntime.runMain` over `BunServices.layer`; an `exec` that spawns a
-  process in a scope of its own and collects its output and its exit code (`spawner.string` does not check the exit
-  code); a `Failed` error marked `[Runtime.errorReported] = false` and printed by `Effect.tapErrorTag`, so that it
-  shows with no stack and exits with 1; and the version of `package.json`, which `Command.run` asks for. What was
-  learned on the way: a list of `overrides` replaces the language service's default one, which is why
+  `tools/mutations/mutate.ts` (commit `fa0f97c`) and `tools/api-report.ts` are done, and the model for the rest: a
+  `Command.make` with typed flags, given to `main` of `tools/cli.ts`, which runs it by `Command.run` and
+  `BunRuntime.runMain` over `BunServices.layer`, with the version of `package.json`, which `Command.run` asks for; an
+  `exec`, there too, that spawns a process in a scope of its own and collects its output and its exit code
+  (`spawner.string` does not check the exit code); and a `Failed`, there too, marked
+  `[Runtime.errorReported] = false` and printed by `main`, so that it shows with no stack and exits with 1. A run of the
+  mutations stopped by Ctrl+C was checked on Windows: it ends every `bun test` it started and removes `.mutants/`. What
+  was learned on the way: a list of `overrides` replaces the language service's default one, which is why
   `tsconfig.json` repeats the rule for `src/`; `@effect/platform-node` names `redis` as a peer it needs, so the tools
-  run on `@effect/platform-bun`; `Flag.filter` prints its message after "Expected:"; and `Flag.Boolean` is given a
-  default of `false`. Each step is a commit of its own, and leaves the tool's output, flags and exit codes as they
-  were, unless the step says otherwise:
-  1. **Check that a run of the mutations stopped by Ctrl+C ends its tests and removes `.mutants/`.** Done on 19
-     November 2026, on Windows: a console's Ctrl+C (`GenerateConsoleCtrlEvent`) sent 20 seconds into
-     `bun run mutations`, with eleven `bun test` running, left none of them running and no `.mutants/`.
-  2. **Move what the tools share into `tools/cli.ts`.** Done on 19 November 2026, with step 3, in one commit: it holds
-     `root`, `Failed`, `exec` and `main`, and `mutate.ts` uses it, run in each of its modes.
-  3. **`tools/api-report.ts`.** Done on 19 November 2026: `--check` is a `Flag.Boolean`, and what the report fails on
-     is one `Failed`, printed after api-extractor's own messages. Both modes were run, up to date and out of date.
-  4. **`tools/smoke/smoke.ts`**: `--effect` (optional, the repository's Effect by default), `--typescript` (a list,
+  run on `@effect/platform-bun`; `Flag.filter` prints its message after "Expected:"; `Flag.Boolean` is given a
+  default of `false`; and a console's Ctrl+C can be sent from a script on Windows by `AttachConsole` and
+  `GenerateConsoleCtrlEvent`, where a signal from another process ends a process without its finalizers. Each step is
+  a commit of its own, and leaves the tool's output, flags and exit codes as they were, unless the step says
+  otherwise:
+  1. **The exit code of a run stopped by Ctrl+C.** The run of the mutations stopped by Ctrl+C exited with 0, as
+     `bun run mutations` started by `Start-Process` reported it: a run that did not finish should not say it passed.
+     Check whether `mutate.ts` itself exits with 0 or `bun run` hides its code, and what `BunRuntime.runMain` does on
+     an interruption; if it is 0, a tool that is stopped exits with 130, in `main`.
+  2. **`tools/smoke/smoke.ts`**: `--effect` (optional, the repository's Effect by default), `--typescript` (a list,
      `5.9,6.0,7.0` by default) and `--keep`; Bun's `$` (`bun pm pack`, `npm install`, `node …`) through `exec`; each
      `throw new Error` as a `Failed`. It runs in the CI on Linux (`ci.yml`'s `package` job and `docs.yml`), so check
      that it passes there before the step is done. `tools/smoke/consumer.ts` is the code of a user and keeps the rule:
      it stays stable, and out of the override.
-  5. **`tools/inference/generate.ts`**: `--typescript` and `--scale` are lists, `--filter` is optional, and
+  3. **`tools/inference/generate.ts`**: `--typescript` and `--scale` are lists, `--filter` is optional, and
      `--exact` and `--unchecked` are lists of `true` and `false` whose product is the matrix, not booleans; it ends
      with `process.exitCode = 1`. `tools/inference/prelude.ts` and the programs it writes into `.inference/` keep the
      rule. It does not run in the CI: run it whole and compare its `report.json` with one from before the step.
-  6. **`tools/bench/subscriptions.ts` and `tools/bench/writes.ts`**: their arguments by position (`Number(argv[2])`,
+  4. **`tools/bench/subscriptions.ts` and `tools/bench/writes.ts`**: their arguments by position (`Number(argv[2])`,
      where a typo gives `NaN` with no error) as named flags with defaults (`--children`, `--changes`; `--writes`,
      `--rounds`, `--sections`), and a change of `package.json`'s `bench` script and of the comment of `writes.ts`
      that tells how to run it. `writes.ts` runs on Node too: `@effect/platform-node-shared` has no `NodeServices`, so
