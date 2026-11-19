@@ -50,10 +50,9 @@ Found in a review of the premises, 19 November 2026, each held by a `test.failin
   run on `@effect/platform-bun`; `Flag.filter` prints its message after "Expected:"; and `Flag.Boolean` is given a
   default of `false`. Each step is a commit of its own, and leaves the tool's output, flags and exit codes as they
   were, unless the step says otherwise:
-  1. **Check that a run of the mutations stopped by Ctrl+C ends its tests and removes `.mutants/`.** This was not
-     checked: on Windows, a signal sent from another process ends the process without its finalizers. Press Ctrl+C in
-     a terminal a few seconds into `bun run mutations`, or send SIGINT on Linux or macOS, and look for any `bun test`
-     still running, and for `.mutants/`. If either is left, fix `mutate.ts` before the next step.
+  1. **Check that a run of the mutations stopped by Ctrl+C ends its tests and removes `.mutants/`.** Done on 19
+     November 2026, on Windows: a console's Ctrl+C (`GenerateConsoleCtrlEvent`) sent 20 seconds into
+     `bun run mutations`, with eleven `bun test` running, left none of them running and no `.mutants/`.
   2. **Move what the tools share into `tools/cli.ts`**: `Failed`, `exec`, and a `main` that runs a command with the
      version, the printing of `Failed`, the layer and `runMain`. Do it with the second tool converted, not before,
      and make `mutate.ts` use it.
