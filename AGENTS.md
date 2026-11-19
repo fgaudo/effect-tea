@@ -218,7 +218,9 @@ this summary says less. What every change keeps, an example's and a document's t
   calls.
 - Formatting is dprint's, with Effect's options (`dprint.json`): 120 columns, two-space indentation, double quotes,
   no semicolons, no trailing commas, and the imports sorted. `bun run format` applies it and Oxlint's fixes, and
-  `bun run lint` fails on a file it would change. `.md` prose is wrapped at 120 columns by hand.
+  `bun run lint` fails on a file it would change. `.md` prose is wrapped at 120 columns by hand. A change of
+  `dprint.json` or of its plugins formats the repository in a commit of its own, listed in `.git-blame-ignore-revs`,
+  and checks the mutations against the commit before it (`change-engine`).
 
 ## Tests
 

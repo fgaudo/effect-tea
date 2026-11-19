@@ -7,6 +7,9 @@
 //   bun run mutations --discover <name>…
 //                                      the whole suite under each, listing every test that fails: for a new mutation
 //   --jobs=<n>                         how many copies run at once: half the processors by default
+//   bun run mutations --against=<rev> [<name>…]
+//                                      no test: whether each mutation makes the code that runs that it made at
+//                                      <rev>, after a change that rewrites the code and not what it does
 //
 // The copies are under `.mutants/` (ignored by git, and by `bun test`, which skips directories that start with a dot),
 // where `effect` resolves through the repository's `node_modules`. The working tree is never written. A copy holds one
@@ -203,14 +206,75 @@ const under = async <A>(copy: string, mutation: Mutation, f: () => Promise<A>): 
   }
 }
 
+// The JavaScript that Bun runs of `text`, by line: printed from the syntax tree, with no types, comments or layout, so
+// that only a change of the code that runs tells two apart. dprint would not do: it keeps some of the line breaks it
+// is given.
+const emitted = (file: string, text: string) =>
+  new Bun.Transpiler({ loader: file.endsWith(".tsx") ? "tsx" : "ts" }).transformSync(text).split("\n")
+
+// What `mutation` changes in the code that runs of `file`, with the lines around it that tell where: the rest of the
+// file is left out, so that a change elsewhere, as an order of the imports, does not tell two apart.
+const changeOf = (mutation: Mutation, file: string, original: string) => {
+  const context = 3
+  const then = emitted(file, original)
+  const now = emitted(file, mutated(mutation, original))
+  let start = 0
+  while (start < then.length && start < now.length && then[start] === now[start]) start++
+  let end = 0
+  while (end < then.length - start && end < now.length - start && then.at(-1 - end) === now.at(-1 - end)) end++
+  return [
+    ...then.slice(Math.max(0, start - context), start).map((line) => `  ${line}`),
+    ...then.slice(start, then.length - end).map((line) => `- ${line}`),
+    ...now.slice(start, now.length - end).map((line) => `+ ${line}`),
+    ...then.slice(then.length - end, then.length - end + context).map((line) => `  ${line}`)
+  ]
+}
+
+const atRevision = (revision: string, file: string) => {
+  const run = Bun.spawnSync(["git", "show", `${revision}:${file}`], { cwd: root })
+  if (run.exitCode !== 0) throw new Error(`git show ${revision}:${file}: ${run.stderr.toString()}`)
+  return run.stdout.toString()
+}
+
+// Each of `chosen` against the mutation of the same name at `revision`: after a change that rewrites the code and not
+// what it does, the two change the same code in the same place, or a mutation that still finds its text exactly once
+// may take out another check than it did.
+const compare = async (revision: string, chosen: ReadonlyArray<Mutation>) => {
+  // Imported from a file, since the list is a module; it imports nothing.
+  const listed = path.join(base, "mutations.ts")
+  fs.mkdirSync(base, { recursive: true })
+  fs.writeFileSync(listed, atRevision(revision, "tools/mutations/mutations.ts"))
+  const before: ReadonlyArray<Mutation> = (await import(listed)).mutations
+  let different = 0
+  for (const mutation of chosen) {
+    const old = before.find((candidate) => candidate.name === mutation.name)
+    if (old === undefined) {
+      console.log(`new       ${mutation.name}`)
+      continue
+    }
+    const then = changeOf(old, old.file, atRevision(revision, old.file))
+    const now = changeOf(mutation, mutation.file, fs.readFileSync(path.join(root, mutation.file), "utf8"))
+    if (then.join("\n") === now.join("\n")) {
+      console.log(`same      ${mutation.name}`)
+      continue
+    }
+    different++
+    console.log(`DIFFERENT ${mutation.name}\n  at ${revision}:\n${then.join("\n")}\n  now:\n${now.join("\n")}`)
+  }
+  const gone = before.filter((old) => !mutations.some((mutation) => mutation.name === old.name))
+  for (const old of gone) console.log(`gone      ${old.name}`)
+  return different
+}
+
 const args = process.argv.slice(2)
 const discover = args.includes("--discover")
+const againstArg = args.find((arg) => arg.startsWith("--against="))
 const jobsArg = args.find((arg) => arg.startsWith("--jobs="))
 const jobs = jobsArg === undefined
   ? Math.max(1, Math.floor(os.availableParallelism() / 2))
   : Number(jobsArg.slice("--jobs=".length))
 if (!Number.isInteger(jobs) || jobs < 1) throw new Error(`${jobsArg} names no number of jobs`)
-const wanted = args.filter((arg) => arg !== "--discover" && arg !== jobsArg)
+const wanted = args.filter((arg) => arg !== "--discover" && arg !== jobsArg && arg !== againstArg)
 const chosen = wanted.length === 0
   ? mutations
   : mutations.filter((mutation) => wanted.some((name) => mutation.name.includes(name)))
@@ -219,6 +283,21 @@ const names = new Set(mutations.map((mutation) => mutation.name))
 if (names.size !== mutations.length) throw new Error("Two mutations have the same name")
 const unheld = chosen.find((mutation) => mutation.killedBy.length === 0)
 if (!discover && unheld !== undefined) throw new Error(`"${unheld.name}" names no test that must fail under it`)
+
+if (againstArg !== undefined) {
+  const revision = againstArg.slice("--against=".length)
+  let different: number
+  try {
+    different = await compare(revision, chosen)
+  } finally {
+    removeCopies()
+  }
+  if (different > 0) {
+    console.error(`\n${different} of ${chosen.length} mutations make other code than at ${revision}`)
+    process.exit(1)
+  }
+  process.exit(0)
+}
 
 const copies = Array.from({ length: Math.min(jobs, chosen.length) }, (_, index) => path.join(base, String(index)))
 let survived = 0

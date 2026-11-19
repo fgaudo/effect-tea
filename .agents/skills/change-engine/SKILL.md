@@ -44,7 +44,11 @@ tool, has one too, as `docs/invariants.md` says under "Defects always die": a ne
 its mutation; a test of one renamed or
 removed, or the code it replaces rewritten, updates the list, which the script refuses otherwise (a name that runs
 no test, or a text not found exactly once); `bun run mutations --discover <name>` lists every test that fails
-under one. A test that fails only beside others of its file is no killer: the list names those that fail alone. Nor
+under one. A text found exactly once may still be found in another place than the check, once the code around it was
+rewritten: after a change that rewrites the code and not what it does (a format, a new version of dprint or of its
+options, a rename), the list is rewritten to match, and `bun run mutations --against=<rev>`, with the commit before
+the change, runs no test and fails on a mutation that does not change the same code that runs, in the same place, as
+it did there. A test that fails only beside others of its file is no killer: the list names those that fail alone. Nor
 is a property of fast-check that finds a failing history only on some runs, since one run of it proves nothing: the
 list names a property only when it fails under the mutation on each of a hundred runs, which the script does not
 check (the search of the histories, on 15 November 2026, passed 5 of 100 under the swap of the checks of `arrive`). It
