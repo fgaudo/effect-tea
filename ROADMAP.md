@@ -37,6 +37,50 @@ Found in a review of the premises, 19 November 2026, each held by a `test.failin
   drawn" from regressing. `bun run bench` (`tools/bench/subscriptions.ts`) measures a parent's subscriptions only, and
   `tools/bench/writes.ts`, run by hand, what a write into an input and a bridge's frame cost; neither runs in the CI.
 
+- **The tools on `effect/cli` and `effect/process`**, decided on 19 November 2026. The tools may build on Effect's
+  unstable modules, as `AGENTS.md` says ("Only stable APIs"): `tsconfig.json` lists them for `tools/` in an
+  `allowedUnstableApis` of its `overrides`, and a module is added there when a tool first needs it.
+  `tools/mutations/mutate.ts` is the first one done (commit `fa0f97c`), and the model for the rest: a `Command.make`
+  with typed flags, run by `Command.run` and `BunRuntime.runMain` over `BunServices.layer`; an `exec` that spawns a
+  process in a scope of its own and collects its output and its exit code (`spawner.string` does not check the exit
+  code); a `Failed` error marked `[Runtime.errorReported] = false` and printed by `Effect.tapErrorTag`, so that it
+  shows with no stack and exits with 1; and the version of `package.json`, which `Command.run` asks for. What was
+  learned on the way: a list of `overrides` replaces the language service's default one, which is why
+  `tsconfig.json` repeats the rule for `src/`; `@effect/platform-node` names `redis` as a peer it needs, so the tools
+  run on `@effect/platform-bun`; `Flag.filter` prints its message after "Expected:"; and `Flag.Boolean` is given a
+  default of `false`. Each step is a commit of its own, and leaves the tool's output, flags and exit codes as they
+  were, unless the step says otherwise:
+  1. **Check that a run of the mutations stopped by Ctrl+C ends its tests and removes `.mutants/`.** This was not
+     checked: on Windows, a signal sent from another process ends the process without its finalizers. Press Ctrl+C in
+     a terminal a few seconds into `bun run mutations`, or send SIGINT on Linux or macOS, and look for any `bun test`
+     still running, and for `.mutants/`. If either is left, fix `mutate.ts` before the next step.
+  2. **Move what the tools share into `tools/cli.ts`**: `Failed`, `exec`, and a `main` that runs a command with the
+     version, the printing of `Failed`, the layer and `runMain`. Do it with the second tool converted, not before,
+     and make `mutate.ts` use it.
+  3. **`tools/api-report.ts`**: `--check` as a `Flag.Boolean`, and its `process.exit(1)` as a `Failed`. It runs in the
+     CI (`ci.yml` and `docs.yml`, `bun run api --check`), so check both modes: with the report up to date, and with
+     it out of date.
+  4. **`tools/smoke/smoke.ts`**: `--effect` (optional, the repository's Effect by default), `--typescript` (a list,
+     `5.9,6.0,7.0` by default) and `--keep`; Bun's `$` (`bun pm pack`, `npm install`, `node …`) through `exec`; each
+     `throw new Error` as a `Failed`. It runs in the CI on Linux (`ci.yml`'s `package` job and `docs.yml`), so check
+     that it passes there before the step is done. `tools/smoke/consumer.ts` is the code of a user and keeps the rule:
+     it stays stable, and out of the override.
+  5. **`tools/inference/generate.ts`**: `--typescript` and `--scale` are lists, `--filter` is optional, and
+     `--exact` and `--unchecked` are lists of `true` and `false` whose product is the matrix, not booleans; it ends
+     with `process.exitCode = 1`. `tools/inference/prelude.ts` and the programs it writes into `.inference/` keep the
+     rule. It does not run in the CI: run it whole and compare its `report.json` with one from before the step.
+  6. **`tools/bench/subscriptions.ts` and `tools/bench/writes.ts`**: their arguments by position (`Number(argv[2])`,
+     where a typo gives `NaN` with no error) as named flags with defaults (`--children`, `--changes`; `--writes`,
+     `--rounds`, `--sections`), and a change of `package.json`'s `bench` script and of the comment of `writes.ts`
+     that tells how to run it. `writes.ts` runs on Node too: `@effect/platform-node-shared` has no `NodeServices`, so
+     the layer is built from its modules (`NodeChildProcessSpawner`, `NodeFileSystem`, `NodePath`, `NodeStdio`,
+     `NodeTerminal`) and run by its `NodeRuntime`, chosen by `typeof Bun`; that package is then added to the
+     `devDependencies` (`~` the version of Effect), to the override and to `effect-latest.yml`, as
+     `@effect/platform-bun` was. The programs the benchmarks measure keep the rule.
+
+  Each step runs `bun run typecheck` and `bun run lint`, and the tool it converts in each of its modes.
+  `tools/build.ts` and `tools/comments.ts` take no flags, and are left as they are: a command would add nothing.
+
 ## Ideas, to be decided
 
 - **Bridges as packages of their own** (`@fgaudo/effect-tea-snabbdom`, `@fgaudo/effect-tea-react`): the library
