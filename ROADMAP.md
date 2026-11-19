@@ -40,35 +40,29 @@ Found in a review of the premises, 19 November 2026, each held by a `test.failin
 - **The tools on `effect/cli` and `effect/process`**, decided on 19 November 2026. The tools may build on Effect's
   unstable modules, as `AGENTS.md` says ("Only stable APIs"): `tsconfig.json` lists them for `tools/` in an
   `allowedUnstableApis` of its `overrides`, and a module is added there when a tool first needs it.
-  `tools/mutations/mutate.ts` (commit `fa0f97c`) and `tools/api-report.ts` are done, and the model for the rest: a
-  `Command.make` with typed flags, given to `main` of `tools/cli.ts`, which runs it by `Command.run` and
-  `BunRuntime.runMain` over `BunServices.layer`, with the version of `package.json`, which `Command.run` asks for; an
-  `exec`, there too, that spawns a process in a scope of its own and collects its output and its exit code
-  (`spawner.string` does not check the exit code); and a `Failed`, there too, marked
-  `[Runtime.errorReported] = false` and printed by `main`, so that it shows with no stack and exits with 1. A run of the
-  mutations stopped by Ctrl+C was checked on Windows: it ends every `bun test` it started, removes `.mutants/`, and
-  exits with 130, by the default teardown of `runMain`, run by `bun` and by `bun run` alike, 4 and 20 seconds in (the
-  exit code of 0 reported before was not seen again, with the exit code read after `WaitForExit`). What was learned on
-  the way: a list of `overrides` replaces the language service's default one, which is why `tsconfig.json` repeats the
-  rule for `src/`; `@effect/platform-node` names `redis` as a peer it needs, so the tools run on
+  `tools/mutations/mutate.ts` (commit `fa0f97c`), `tools/api-report.ts` and `tools/smoke/smoke.ts` (commit `6a648c3`,
+  its CI passed on Linux) are done, and the model for the rest: a `Command.make` with typed flags, given to `main` of
+  `tools/cli.ts`, which runs it by `Command.run` and `BunRuntime.runMain` over `BunServices.layer`, with the version of
+  `package.json`, which `Command.run` asks for; an `exec`, there too, that spawns a process in a scope of its own and
+  collects its output and its exit code (`spawner.string` does not check the exit code); and a `Failed`, there too,
+  marked `[Runtime.errorReported] = false` and printed by `main`, so that it shows with no stack and exits with 1. A run
+  of the mutations stopped by Ctrl+C was checked on Windows: it ends every `bun test` it started, removes `.mutants/`,
+  and exits with 130, by the default teardown of `runMain`, run by `bun` and by `bun run` alike, 4 and 20 seconds in
+  (the exit code of 0 reported before was not seen again, with the exit code read after `WaitForExit`). What was learned
+  on the way: a list of `overrides` replaces the language service's default one, which is why `tsconfig.json` repeats
+  the rule for `src/`; `@effect/platform-node` names `redis` as a peer it needs, so the tools run on
   `@effect/platform-bun`; `Flag.filter` prints its message after "Expected:"; `Flag.Boolean` is given a default of
   `false`; and a console's Ctrl+C can be sent from a script on Windows by `AttachConsole` and
-  `GenerateConsoleCtrlEvent`, where a signal from another process ends a process without its finalizers. Each step is
-  a commit of its own, and leaves the tool's output, flags and exit codes as they were, unless the step says
-  otherwise:
-  1. **`tools/smoke/smoke.ts`**: `--effect` (optional, the repository's Effect by default), `--typescript` (a list,
-     `5.9,6.0,7.0` by default) and `--keep`; Bun's `$` (`bun pm pack`, `npm install`, `node …`) through `exec`; each
-     `throw new Error` as a `Failed`. It runs in the CI on Linux (`ci.yml`'s `package` job and `docs.yml`), so check
-     that it passes there before the step is done. `tools/smoke/consumer.ts` is the code of a user and keeps the rule:
-     it stays stable, and out of the override. Written on 19 November 2026, and checked on Windows only: its output is
-     the same as before, `--help` describes its flags, a failing `npm install` or `tsc` exits with 1 and removes the
-     consumer's directory, and `--keep` leaves it. What is left is a run of the CI on Linux; the processes whose output
-     showed as they ran (`bun pm pack`, `npm install`, `node consumer.ts`) inherit the output of the tool.
-  2. **`tools/inference/generate.ts`**: `--typescript` and `--scale` are lists, `--filter` is optional, and
+  `GenerateConsoleCtrlEvent`, where a signal from another process ends a process without its finalizers; a process whose
+  output shows as it runs is given `stdout: "inherit"` and `stderr: "inherit"`, and `exec` still gives its exit code
+  (`step` in `smoke.ts`); `npm` spawns by its name on Windows too, with no shell; and there is no flag that is a list,
+  so a list separated by commas is a `Flag.String` and a `Flag.map`. Each step is a commit of its own, and leaves the
+  tool's output, flags and exit codes as they were, unless the step says otherwise:
+  1. **`tools/inference/generate.ts`**: `--typescript` and `--scale` are lists, `--filter` is optional, and
      `--exact` and `--unchecked` are lists of `true` and `false` whose product is the matrix, not booleans; it ends
      with `process.exitCode = 1`. `tools/inference/prelude.ts` and the programs it writes into `.inference/` keep the
      rule. It does not run in the CI: run it whole and compare its `report.json` with one from before the step.
-  3. **`tools/bench/subscriptions.ts` and `tools/bench/writes.ts`**: their arguments by position (`Number(argv[2])`,
+  2. **`tools/bench/subscriptions.ts` and `tools/bench/writes.ts`**: their arguments by position (`Number(argv[2])`,
      where a typo gives `NaN` with no error) as named flags with defaults (`--children`, `--changes`; `--writes`,
      `--rounds`, `--sections`), and a change of `package.json`'s `bench` script and of the comment of `writes.ts`
      that tells how to run it. `writes.ts` runs on Node too: `@effect/platform-node-shared` has no `NodeServices`, so
