@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test"
 import * as Cause from "effect/Cause"
 import * as Channel from "effect/Channel"
 import * as Context from "effect/Context"
+import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
+import * as Fiber from "effect/Fiber"
 import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 import type * as Scope from "effect/Scope"
@@ -155,5 +157,25 @@ describe("simulate", () => {
       })
     ))
     expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain("message 0 (Saved)")
+  })
+
+  // The simulation stops the command it waits for as the run stops one, with its mark: stopped otherwise, the command
+  // would take the interruption for one of the program's, and die.
+  test("interrupted while a command runs, it ends interrupted, with no defect", async () => {
+    const exit = await Effect.runPromise(Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const waiting: Program<{ state: Readonly<{ n: number }>; model: number; message: "Go"; command: "Wait" }> = {
+        init: { state: { n: 0 } },
+        update: () => (state) => ({ state, commands: ["Wait"] }),
+        runCommand: () => Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)),
+        subscriptions: () => HashMap.empty(),
+        makeModel: ({ n }) => n
+      }
+      const simulating = yield* Effect.forkChild(simulate(waiting)(["Go"], { state: { n: 0 } }))
+      yield* Deferred.await(started)
+      yield* Fiber.interrupt(simulating)
+      return yield* Fiber.await(simulating)
+    }))
+    expect(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)).toBe(true)
   })
 })

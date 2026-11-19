@@ -21,6 +21,7 @@ import * as Scheduler from "effect/Scheduler"
 import type * as Scope from "effect/Scope"
 import * as Stream from "effect/Stream"
 import type * as Tracer from "effect/Tracer"
+import { gate } from "../test/gate.test_helper.ts"
 import { defect, type DefectSite, InvariantDefect, ProgramDefect } from "./defect.ts"
 import type { Dispatch } from "./dispatch.ts"
 import type { Applied, Ignored, RunOptions } from "./engine.ts"
@@ -279,8 +280,7 @@ describe("run", () => {
               Stream.tap(() => Effect.logInfo("the renderer")),
               Stream.takeUntil(({ model }) => model >= commands),
               Stream.runDrain
-            ),
-          { onApplied: () => Effect.logInfo("onApplied") }
+            )
         )
         return yield* Effect.orDie(Effect.currentSpan)
       }).pipe(
@@ -356,8 +356,8 @@ describe("run", () => {
           Effect.raceFirst(Deferred.await(dispatched).pipe(Effect.andThen(Effect.sleep("1 second"))))
         ),
       {
-        onApplied: ({ message }) => Effect.sync(() => arrived.push(message)),
-        onIgnored: ({ message }) => Effect.sync(() => arrived.push(message))
+        onApplied: ({ message }) => void arrived.push(message),
+        onIgnored: ({ message }) => void arrived.push(message)
       }
     ))
     expect(thrown).toEqual([])
@@ -465,18 +465,8 @@ describe("defects", () => {
               : HashMap.empty()
         })
     ],
-    ["onApplied", "onApplied", () => failsWithBoom(counter, { onApplied: () => Effect.sync(boom) })],
-    ["onApplied, before it returns its effect", "onApplied", () => failsWithBoom(counter, { onApplied: boom })],
-    [
-      "onIgnored",
-      "onIgnored",
-      () => failsWithBoom({ ...counter, update: () => () => reject }, { onIgnored: () => Effect.sync(boom) })
-    ],
-    [
-      "onIgnored, before it returns its effect",
-      "onIgnored",
-      () => failsWithBoom({ ...counter, update: () => () => reject }, { onIgnored: boom })
-    ]
+    ["onApplied", "onApplied", () => failsWithBoom(counter, { onApplied: boom })],
+    ["onIgnored", "onIgnored", () => failsWithBoom({ ...counter, update: () => () => reject }, { onIgnored: boom })]
   ])("a defect in %s ends the run, which dies with it and with where it happened", async (_, where, outcome) => {
     expect(await outcome()).toEqual({ where, logged: [] })
   })
@@ -528,7 +518,6 @@ describe("defects", () => {
           () => Effect.never
         )
     ],
-    ["onApplied", "onApplied", () => run(counter, sendsIncrement, { onApplied: () => Effect.interrupt })],
     ["the renderer", "render", () => run(counter, () => Effect.interrupt)]
   ])("%s that interrupts itself is a defect, where it happened", async (_, where, running) => {
     const outcome = await Effect.runPromiseExit(running())
@@ -638,18 +627,7 @@ describe("defects", () => {
     return defects.map((defect) => defect instanceof ProgramDefect ? [defect.where, defect.cause] : defect)
   }
 
-  // A message the subscription sends after the one that stops it: `onApplied` holds the loop until it is queued.
-  const leavesAMessage = Effect.gen(function*() {
-    const sent = yield* Deferred.make<void>()
-    const twice = Channel.fromIterable<Message, void>(["Increment", "Increment"]).pipe(
-      Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never)))
-    )
-    yield* run(
-      { ...counter, subscriptions: ({ count }) => count === 0 ? HashMap.make(["k", twice]) : HashMap.empty() },
-      () => Effect.never,
-      { onApplied: () => Deferred.await(sent) }
-    )
-  })
+  const leavesAMessage = Effect.suspend(() => dropsATick())
 
   // The run's own logs are in no function of the program: whatever throws in one dies in the log, and never in the
   // subscription or the step that logs it.
@@ -788,48 +766,16 @@ describe("logs", () => {
     expect(await ignoredDescriptionsAt("Debug")).toBe(1)
   })
 
-  /**
-   * How many times the run describes a tick that a subscription left in the queue after its key went away, which the
-   * run drops: `onApplied` holds the loop on `Stop` until the tick is queued behind it, and the frame of the stopped
-   * state sends `Done` behind the tick. The run ends once `Done` is applied, so the loop has taken the tick by then.
-   */
+  // How many times the run describes the tick that `dropsATick` leaves in the queue.
   const droppedDescriptionsAt = (level: "Info" | "Debug") =>
     Effect.runPromise(Effect.gen(function*() {
-      const source = yield* Queue.unbounded<"Tick">()
-      const sent = yield* Deferred.make<void>()
-      const done = yield* Deferred.make<void>()
       let ticks = 0
-      // The engine asks for what follows the tick only once it has queued the tick: then `sent` completes.
-      const ticking = Channel.unwrap(Effect.map(Queue.take(source), (tick) => Channel.succeed(tick))).pipe(
-        Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never)))
-      )
-      yield* run(
-        {
-          init: { state: { isRunning: true } },
-          update: (message: "Tick" | "Stop" | "Done") => (state: Readonly<{ isRunning: boolean }>) =>
-            message === "Stop" ? { state: { isRunning: false } } : { state },
-          subscriptions: (state) => state.isRunning ? HashMap.make(["ticks", ticking]) : HashMap.empty(),
-          makeModel: ({ isRunning }) => ({ isRunning, stop: "Stop" as const, done: "Done" as const })
-        },
-        (frames) =>
-          frames.pipe(
-            Stream.tap(({ model, dispatch }) => dispatch(model.isRunning ? model.stop : model.done)),
-            Stream.runDrain,
-            Effect.raceFirst(Deferred.await(done))
-          ),
-        {
-          onApplied: ({ message }) =>
-            message === "Stop"
-              ? Queue.offer(source, "Tick").pipe(Effect.andThen(Deferred.await(sent)))
-              : message === "Done"
-              ? Deferred.succeed(done, undefined)
-              : Effect.void,
-          describeMessage: (message) => {
-            if (message === "Tick") ticks += 1
-            return message
-          }
+      yield* dropsATick({
+        describeMessage: (message) => {
+          if (message === "Tick") ticks += 1
+          return message
         }
-      ).pipe(
+      }).pipe(
         Effect.provideService(References.MinimumLogLevel, level),
         Effect.provide(Logger.layer([]))
       )
@@ -842,55 +788,66 @@ describe("logs", () => {
   })
 })
 
-// The view sends `first`, then `Increment`; `observe` puts `held` in the hook that hears `first`, which tells
-// that it is holding and waits until the renderer has given the loop time to go on. Returns how many times
-// `update` ran meanwhile.
-const updatesWhileHeld = (
-  first: Message,
-  observe: (held: Effect.Effect<void>) => RunOptions<Count, Message, Command>
-) =>
+type Ticking = Readonly<{ gated: boolean; running: boolean }>
+type TickMessage = "Hold" | "Stop" | "Tick" | "Done"
+
+// Leaves in the queue a tick that its subscription sent before the message that takes its key away: the loop, held in
+// the step of `Hold` by the release of the gate, has `Stop` queued, then the tick behind it, before it takes either.
+// The frame of the stopped state sends `Done`, behind the tick, and the run ends once `onApplied` hears it: the loop has
+// taken the tick by then.
+const dropsATick = (options: Omit<RunOptions<Ticking, TickMessage, never>, "onApplied"> = {}) =>
   Effect.gen(function*() {
+    const source = yield* Queue.unbounded<"Tick">()
     const holding = yield* Deferred.make<void>()
-    const release = yield* Deferred.make<void>()
-    let updates = 0
-    let whileHeld = -1
-    const counting: Counter = {
-      ...counter,
-      update: (message) => (state) => {
-        updates += 1
-        return update(message)(state)
-      }
-    }
+    const sent = yield* Deferred.make<void>()
+    const done = yield* Deferred.make<void>()
+    // The engine asks for what follows the tick only once it has queued the tick: then `sent` completes.
+    const ticking = Channel.unwrap(Effect.map(Queue.take(source), (tick) => Channel.succeed(tick))).pipe(
+      Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never)))
+    )
+    const held = gate<TickMessage>(Deferred.succeed(holding, undefined).pipe(Effect.andThen(Deferred.await(sent))))
     yield* run(
-      counting,
+      {
+        init: { state: { gated: true, running: true } },
+        update: (message: TickMessage) => (state: Ticking) =>
+          message === "Hold"
+            ? { state: { ...state, gated: false } }
+            : message === "Stop"
+            ? { state: { ...state, running: false } }
+            : { state },
+        subscriptions: ({ gated, running }) =>
+          gated && running
+            ? HashMap.make(["gate", held], ["ticks", ticking])
+            : running
+            ? HashMap.make(["ticks", ticking])
+            : HashMap.empty(),
+        makeModel: (state) => state
+      },
       (frames) =>
         frames.pipe(
-          Stream.tap(Effect.fnUntraced(function*({ model, dispatch }) {
-            if (model.count > 0) return
-            yield* dispatch(first === "Increment" ? model.increment : model.type(false))
-            yield* dispatch(model.increment)
-            yield* Deferred.await(holding)
-            // Long enough for the loop to take the second message, if it did not wait.
-            yield* Effect.sleep("20 millis")
-            whileHeld = updates
-            yield* Deferred.succeed(release, undefined)
-          })),
-          Stream.takeUntil(({ model }) => model.count === (first === "Increment" ? 2 : 1)),
-          Stream.runDrain
+          Stream.runForEach(({ model, dispatch }) =>
+            model.gated
+              ? dispatch("Hold").pipe(
+                Effect.andThen(Deferred.await(holding)),
+                Effect.andThen(dispatch("Stop")),
+                Effect.andThen(Queue.offer(source, "Tick"))
+              )
+              : model.running
+              ? Effect.void
+              : dispatch("Done")
+          ),
+          Effect.raceFirst(Deferred.await(done))
         ),
-      observe(Deferred.succeed(holding, undefined).pipe(Effect.andThen(Deferred.await(release))))
+      {
+        ...options,
+        onApplied: ({ message }) => {
+          if (message === "Done") Deferred.doneUnsafe(done, Exit.void)
+        }
+      }
     )
-    return whileHeld
   })
 
 describe("onApplied", () => {
-  test("the next message waits until it ends", async () => {
-    const updates = await Effect.runPromise(updatesWhileHeld("Increment", (held) => ({
-      onApplied: ({ after }) => after.count === 1 ? held : Effect.void
-    })))
-    expect(updates).toBe(1)
-  })
-
   test("hears every accepted message in order, with the states around it, before its frame", async () => {
     const heard: Array<Applied<Count, Message, Command>> = []
     const drawn: Array<number> = []
@@ -905,7 +862,7 @@ describe("onApplied", () => {
           Stream.take(3),
           Stream.runDrain
         ),
-      { onApplied: (applied) => Effect.sync(() => heard.push(applied)) }
+      { onApplied: (applied) => void heard.push(applied) }
     ))
     const origin = { _tag: "Dispatch" } as const
     expect(heard).toEqual([
@@ -931,7 +888,7 @@ describe("onApplied", () => {
           Stream.takeUntil(({ model }) => model.count === 3),
           Stream.runDrain
         ),
-      { onApplied: ({ origin }) => Effect.sync(() => origins.push(origin)) }
+      { onApplied: ({ origin }) => void origins.push(origin) }
     ))
     expect(origins).toHaveLength(3)
     expect(origins).toContainEqual({ _tag: "Dispatch" })
@@ -948,7 +905,7 @@ describe("onApplied", () => {
         update: () => (state) => ({ state })
       }
       yield* run(still, () => Effect.asVoid(Deferred.await(applied)), {
-        onApplied: (message) => Effect.asVoid(Deferred.succeed(applied, message))
+        onApplied: (message) => void Deferred.doneUnsafe(applied, Exit.succeed(message))
       })
       return yield* Deferred.await(applied)
     }))
@@ -973,11 +930,10 @@ describe("onApplied", () => {
         update: () => ({ count }) => ({ state: { count: count + 1 }, commands: count === 0 ? ["Ping"] : [] })
       }
       yield* run(pinging, () => Effect.asVoid(Deferred.await(two)), {
-        onApplied: (step) =>
-          Effect.suspend(() => {
-            applied.push(step)
-            return applied.length === 2 ? Effect.asVoid(Deferred.succeed(two, applied)) : Effect.void
-          })
+        onApplied: (step) => {
+          applied.push(step)
+          if (applied.length === 2) Deferred.doneUnsafe(two, Exit.succeed(applied))
+        }
       })
       return yield* Deferred.await(two)
     }))
@@ -986,11 +942,6 @@ describe("onApplied", () => {
 })
 
 describe("onIgnored", () => {
-  test("the next message waits until it ends", async () => {
-    const updates = await Effect.runPromise(updatesWhileHeld("Forbidden", (held) => ({ onIgnored: () => held })))
-    expect(updates).toBe(1)
-  })
-
   test("hears every message update rejects, with where it came from and the state it did not apply in", async () => {
     const ignored: Array<Ignored<Count, Message>> = []
     const applied: Array<Message> = []
@@ -1008,12 +959,11 @@ describe("onIgnored", () => {
           Effect.raceFirst(Deferred.await(both))
         ),
       {
-        onApplied: ({ message }) => Effect.sync(() => applied.push(message)),
-        onIgnored: (each) =>
-          Effect.suspend(() => {
-            ignored.push(each)
-            return ignored.length === 2 ? Effect.asVoid(Deferred.succeed(both, undefined)) : Effect.void
-          })
+        onApplied: ({ message }) => void applied.push(message),
+        onIgnored: (each) => {
+          ignored.push(each)
+          if (ignored.length === 2) Deferred.doneUnsafe(both, Exit.void)
+        }
       }
     ))
     expect(applied).toEqual([])
@@ -1048,7 +998,7 @@ describe("frames", () => {
           Stream.take(2),
           Stream.runDrain
         ),
-      { onIgnored: () => Deferred.succeed(applied, undefined) }
+      { onIgnored: () => void Deferred.doneUnsafe(applied, Exit.void) }
     ))
     expect(made).toBe(2)
   })
@@ -1072,7 +1022,7 @@ describe("frames", () => {
           Stream.take(2),
           Stream.runDrain
         ),
-      { onIgnored: () => Deferred.succeed(applied, undefined) }
+      { onIgnored: () => void Deferred.doneUnsafe(applied, Exit.void) }
     ))
     expect(counts).toEqual([0, 3])
   })
@@ -1080,48 +1030,58 @@ describe("frames", () => {
 
 describe("subscriptions", () => {
   test("what a subscription leaves in the queue after its key went away does not reach update", async () => {
-    // A stopwatch: `Tick` counts in any state, so that only the engine can keep a late one out; `Stop` drops
-    // the key of the ticks.
-    type Watch = Readonly<{ isRunning: boolean; ticks: number }>
-    type WatchMessage = "Tick" | "Stop"
+    // A stopwatch: `Tick` counts in any state, so that only the engine can keep a late one out; `Stop` drops the key of
+    // the ticks. The loop, held in the step of `Hold` by the release of the gate, has `Stop`, a tick of the ticks and a
+    // second `Stop` queued, in this order, before it takes any: `onApplied` tells the state of the second `Stop`.
+    type Watch = Readonly<{ gated: boolean; isRunning: boolean; ticks: number }>
+    type WatchMessage = "Hold" | "Tick" | "Stop"
     const ticks = await Effect.runPromise(Effect.gen(function*() {
       const source = yield* Queue.unbounded<"Tick">()
+      const holding = yield* Deferred.make<void>()
       const sent = yield* Deferred.make<void>()
-      let latest: Watch = { isRunning: true, ticks: 0 }
+      const stopped = yield* Deferred.make<Watch>()
+      let stops = 0
       // The engine asks for what follows the tick only once it has queued the tick: then `sent` completes.
       const ticking = Channel.unwrap(Effect.map(Queue.take(source), (tick) => Channel.succeed(tick))).pipe(
         Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never)))
       )
-      const watch: Program<{
-        state: Watch
-        model: Readonly<{ watch: Watch; stop: WatchMessage }>
-        message: WatchMessage
-      }> = {
-        init: { state: { isRunning: true, ticks: 0 } },
+      const held = gate<WatchMessage>(Deferred.succeed(holding, undefined).pipe(Effect.andThen(Deferred.await(sent))))
+      const watch: Program<{ state: Watch; model: Watch; message: WatchMessage }> = {
+        init: { state: { gated: true, isRunning: true, ticks: 0 } },
         update: (message) => (state) =>
           message === "Tick"
             ? { state: { ...state, ticks: state.ticks + 1 } }
+            : message === "Hold"
+            ? { state: { ...state, gated: false } }
             : { state: { ...state, isRunning: false } },
-        subscriptions: (state) => state.isRunning ? HashMap.make(["ticks", ticking]) : HashMap.empty(),
-        makeModel: (watch) => ({ watch, stop: "Stop" })
+        subscriptions: (state) =>
+          state.gated && state.isRunning
+            ? HashMap.make(["gate", held], ["ticks", ticking])
+            : state.isRunning
+            ? HashMap.make(["ticks", ticking])
+            : HashMap.empty(),
+        makeModel: (state) => state
       }
       yield* run(watch, (frames) =>
-        frames.pipe(
-          // A second `Stop`, sent once the first is drawn, is queued behind the late tick: drawn, the tick was taken.
-          Stream.tap(({ model, dispatch, seen }) =>
-            Effect.suspend(() => {
-              latest = model.watch
-              return seen < 2 ? Effect.asVoid(dispatch(model.stop)) : Effect.void
-            })
-          ),
-          Stream.takeUntil(({ seen }) => seen >= 2),
-          Stream.runDrain
+        Stream.runHead(frames).pipe(
+          Effect.flatMap(Opt.match({
+            onNone: () => Effect.void,
+            onSome: ({ dispatch }) =>
+              dispatch("Hold").pipe(
+                Effect.andThen(Deferred.await(holding)),
+                Effect.andThen(dispatch("Stop")),
+                Effect.andThen(Queue.offer(source, "Tick")),
+                Effect.andThen(Deferred.await(sent)),
+                Effect.andThen(dispatch("Stop"))
+              )
+          })),
+          Effect.andThen(Deferred.await(stopped))
         ), {
-        // After `update` stopped the watch and before the key goes away: a tick is sent meanwhile.
-        onApplied: ({ message }) =>
-          message === "Stop" ? Queue.offer(source, "Tick").pipe(Effect.andThen(Deferred.await(sent))) : Effect.void
+        onApplied: ({ message, after }) => {
+          if (message === "Stop" && ++stops === 2) Deferred.doneUnsafe(stopped, Exit.succeed(after))
+        }
       })
-      return latest.ticks
+      return (yield* Deferred.await(stopped)).ticks
     }))
     expect(ticks).toBe(0)
   })
@@ -1487,43 +1447,6 @@ describe("the end of the run", () => {
     expect(wheres(exit)).toEqual([])
   })
 
-  // `onApplied` holds the loop, and learns when the run's end interrupts it: by the release of the renderer, it has.
-  test("the run stops its loop before it releases the renderer", async () => {
-    const holding = Deferred.makeUnsafe<void>()
-    const loopStopped = Deferred.makeUnsafe<void>()
-    const stoppedAtRelease: Array<boolean> = []
-    const exit = await interruptedOnce((started) =>
-      run(
-        counter,
-        (frames) =>
-          Stream.runHead(frames).pipe(
-            Effect.flatMap(Opt.match({
-              onNone: () => Effect.never,
-              onSome: ({ model, dispatch }) =>
-                Effect.acquireRelease(
-                  Effect.void,
-                  () => Deferred.isDone(loopStopped).pipe(Effect.map((done) => stoppedAtRelease.push(done)))
-                ).pipe(
-                  Effect.andThen(dispatch(model.increment)),
-                  Effect.andThen(Deferred.await(holding)),
-                  Effect.andThen(Deferred.succeed(started, undefined)),
-                  Effect.andThen(Effect.never)
-                )
-            }))
-          ),
-        {
-          onApplied: () =>
-            Deferred.succeed(holding, undefined).pipe(
-              Effect.andThen(Effect.never),
-              Effect.onInterrupt(() => Deferred.succeed(loopStopped, undefined))
-            )
-        }
-      )
-    )
-    expect(stoppedAtRelease).toEqual([true])
-    expect(wheres(exit)).toEqual([])
-  })
-
   test("a command that dies while a run that died elsewhere releases the renderer is in the cause", async () => {
     const releasing = Deferred.makeUnsafe<void>()
     const died = Deferred.makeUnsafe<void>()
@@ -1749,10 +1672,10 @@ describe("the end of the run", () => {
         },
         () => Effect.never,
         {
-          onApplied: () =>
-            Effect.sync(() => {
-              applied += 1
-            }).pipe(Effect.andThen(Deferred.succeed(heard, undefined)))
+          onApplied: () => {
+            applied += 1
+            Deferred.doneUnsafe(heard, Exit.void)
+          }
         }
       )
     }))
@@ -1797,10 +1720,10 @@ describe("the end of the run", () => {
         },
         () => where === "render" ? dies : Effect.never,
         {
-          onApplied: () =>
-            Effect.sync(() => {
-              applied += 1
-            }).pipe(Effect.andThen(Deferred.succeed(heard, undefined)))
+          onApplied: () => {
+            applied += 1
+            Deferred.doneUnsafe(heard, Exit.void)
+          }
         }
       ))
       return [wheres(exit), applied]
@@ -1938,23 +1861,29 @@ describe("the end of the run", () => {
     expect(wheres(exit)).toEqual(["subscription"])
   })
 
-  // The end of the run interrupts the fibers it lists, and only those: a step that went on past it, while an option
-  // held the loop uninterruptibly, would start a command and a subscription that nothing awaits. The loop stops at the
-  // option's end, so nothing starts; were anything to start, its defect would have to be in the cause.
-  test("a step held by an uninterruptible onApplied as the run is interrupted starts nothing the run does not await", async () => {
+  // The end of the run interrupts the fibers it lists, and only those: a step that went on past it, while a release held
+  // the loop, would start a command and a subscription that nothing awaits. The loop stops as it waits for the release,
+  // so nothing starts; were anything to start, its defect would have to be in the cause.
+  test("a step held by a release as the run is interrupted starts nothing the run does not await", async () => {
     let started = 0
     const exit = await Effect.runPromise(Effect.gen(function*() {
       const holding = yield* Deferred.make<void>()
       const startsAndDies = Effect.sync(() => {
         started += 1
       }).pipe(Effect.andThen(Effect.die("boom")))
+      // Held until the end of the run, which stops the loop first, has reached the gate.
+      const held = gate<Message>(Deferred.succeed(holding, undefined).pipe(Effect.andThen(untilInterrupted)))
       const running = yield* Effect.forkChild(run(
         {
           ...counter,
           update: () => ({ count }) => ({ state: { count: count + 1 }, commands: ["Boom"] }),
           runCommand: () => startsAndDies,
           subscriptions: ({ count }) =>
-            count === 1 ? HashMap.make(["k", Channel.fromEffectDone(startsAndDies)]) : HashMap.empty()
+            count === 0
+              ? HashMap.make(["gate", held])
+              : count === 1
+              ? HashMap.make(["k", Channel.fromEffectDone(startsAndDies)])
+              : HashMap.empty()
         },
         (frames) =>
           Stream.runHead(frames).pipe(
@@ -1963,12 +1892,7 @@ describe("the end of the run", () => {
               onSome: ({ model, dispatch }) => Effect.asVoid(dispatch(model.increment))
             })),
             Effect.andThen(Effect.never)
-          ),
-        {
-          // Held until the end of the run, which stops the loop first, has reached it.
-          onApplied: () =>
-            Effect.uninterruptible(Deferred.succeed(holding, undefined).pipe(Effect.andThen(untilInterrupted)))
-        }
+          )
       ))
       yield* Deferred.await(holding)
       yield* Fiber.interrupt(running)
@@ -2041,7 +1965,7 @@ describe("a self-interruption as the run interrupts", () => {
     "a renderer that interrupts itself as whoever runs the run interrupts it is a defect in the renderer",
     async () => {
       const exit = await interruptedOnce((started) => run(counter, () => interruptsItselfOnceInterrupted(started)))
-      expect(selfInterruptions(exit)).toEqual(["render: It interrupted itself, which only the run may do"])
+      expect(selfInterruptions(exit)).toEqual(["render: It was interrupted by the program, which only the run may do"])
     }
   )
 
@@ -2058,7 +1982,7 @@ describe("a self-interruption as the run interrupts", () => {
           () => Effect.never
         )
       )
-      expect(selfInterruptions(exit)).toEqual(["command: It interrupted itself, which only the run may do"])
+      expect(selfInterruptions(exit)).toEqual(["command: It was interrupted by the program, which only the run may do"])
     }
   )
 
@@ -2081,7 +2005,9 @@ describe("a self-interruption as the run interrupts", () => {
           Stream.runDrain
         ))
     }))
-    expect(selfInterruptions(exit)).toEqual(["subscription: It interrupted itself, which only the run may do"])
+    expect(selfInterruptions(exit)).toEqual([
+      "subscription: It was interrupted by the program, which only the run may do"
+    ])
   })
 
   // Every `FiberMap`, `FiberSet` and `FiberHandle` interrupts as the fiber -1: the interruption a subscription makes
@@ -2119,7 +2045,9 @@ describe("a self-interruption as the run interrupts", () => {
             Stream.runDrain
           ))
       }))
-      expect(selfInterruptions(exit)).toEqual(["subscription: It interrupted itself, which only the run may do"])
+      expect(selfInterruptions(exit)).toEqual([
+        "subscription: It was interrupted by the program, which only the run may do"
+      ])
     }
   )
 
@@ -2171,7 +2099,9 @@ describe("a self-interruption as the run interrupts", () => {
               Stream.runDrain
             ))
         }))
-        expect(selfInterruptions(exit)).toEqual(["subscription: It interrupted itself, which only the run may do"])
+        expect(selfInterruptions(exit)).toEqual([
+          "subscription: It was interrupted by the program, which only the run may do"
+        ])
       }
     )
   }
@@ -2212,7 +2142,7 @@ describe("a self-interruption as the run interrupts", () => {
           () => Effect.never
         )
       )
-      expect(selfInterruptions(exit)).toEqual(["command: It interrupted itself, which only the run may do"])
+      expect(selfInterruptions(exit)).toEqual(["command: It was interrupted by the program, which only the run may do"])
     }
   )
 
@@ -2222,7 +2152,7 @@ describe("a self-interruption as the run interrupts", () => {
       const exit = await endedByTheFiberThatInterrupted((started, stale) =>
         run(counter, () => joinsOnceInterrupted(started, stale))
       )
-      expect(selfInterruptions(exit)).toEqual(["render: It interrupted itself, which only the run may do"])
+      expect(selfInterruptions(exit)).toEqual(["render: It was interrupted by the program, which only the run may do"])
     }
   )
 
@@ -2238,7 +2168,9 @@ describe("a self-interruption as the run interrupts", () => {
           () => Effect.never
         )
       )
-      expect(selfInterruptions(exit)).toEqual(["subscription: It interrupted itself, which only the run may do"])
+      expect(selfInterruptions(exit)).toEqual([
+        "subscription: It was interrupted by the program, which only the run may do"
+      ])
     }
   )
 })
@@ -2337,7 +2269,7 @@ describe("a release that interrupts itself", () => {
       },
       () => Effect.never
     ))
-    expect(said(exit)).toEqual(["boom", "It interrupted itself, which only the run may do"])
+    expect(said(exit)).toEqual(["boom", "It was interrupted by the program, which only the run may do"])
   })
 })
 
@@ -2399,8 +2331,8 @@ describe("what a frame has seen of what was dispatched", () => {
     const frames = await drawnUntil(
       (render) =>
         run(counter, render, {
-          onApplied: ({ message }) => Effect.sync(() => void heard.push(message)),
-          onIgnored: ({ message }) => Effect.sync(() => void heard.push(message))
+          onApplied: ({ message }) => void heard.push(message),
+          onIgnored: ({ message }) => void heard.push(message)
         }),
       Effect.fnUntraced(function*({ model, dispatch }) {
         if (model.count === 0) {
@@ -2450,7 +2382,7 @@ describe("what a frame has seen of what was dispatched", () => {
           })
         )
       yield* Effect.raceFirst(
-        run(counter, render, { onIgnored: () => Effect.asVoid(Deferred.succeed(ignored, undefined)) }),
+        run(counter, render, { onIgnored: () => void Deferred.doneUnsafe(ignored, Exit.void) }),
         Deferred.await(done)
       )
       return drawn
@@ -2515,9 +2447,8 @@ describe("releases that die with errors equal by Equal", () => {
   })
 })
 
-// A fiber of the program's own that interrupts the fiber of the renderer, or the loop's from `onApplied` or
-// `onIgnored`, is no interruption by the run, nor by whoever runs it: only those two interrupt them (guide, "Nothing
-// ends in silence"), so the run dies in their site.
+// A fiber of the program's own that interrupts the fiber of the renderer is no interruption by the run, nor by whoever
+// runs it: only those two interrupt it (guide, "Nothing ends in silence"), so the run dies in the renderer.
 describe("an interruption made by another fiber of the program", () => {
   const site = (exit: Exit.Exit<unknown>) => {
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
@@ -2537,29 +2468,37 @@ describe("an interruption made by another fiber of the program", () => {
       running.pipe(Effect.timeoutOrElse({ duration: "2 seconds", orElse: () => Effect.die("held") }))
     )
 
-  const sends = (message: (model: Model) => Message) => (frames: Stream.Stream<Frame<Model, Message>>) =>
-    Stream.runHead(frames).pipe(
-      Effect.flatMap(
-        Opt.match({ onNone: () => Effect.void, onSome: ({ model, dispatch }) => dispatch(message(model)) })
-      ),
-      Effect.andThen(Effect.never)
-    )
+  // Has a fiber of its own interrupt the fiber that releases it, and waits until the interruption has reached it: the
+  // release is uninterruptible, so the interruption comes as the close of the scope ends, which `scopedIn` restores,
+  // before the answer or the last message is sent.
+  const interruptedAsItReleases = Effect.gen(function*() {
+    const self = yield* Effect.fiber
+    yield* Effect.addFinalizer(() => Effect.forkDetach(Fiber.interrupt(self)).pipe(Effect.andThen(untilInterrupted)))
+  })
 
-  test.failing("of the renderer is a defect in the renderer", async () => {
+  test("of the renderer is a defect in the renderer", async () => {
     expect(site(await ended(run(counter, () => interruptedByAFiberOfItsOwn)))).toBe("render")
   })
 
-  test.failing("of the loop, from onApplied, is a defect in onApplied", async () => {
-    const exit = await ended(run(counter, sends(({ increment }) => increment), {
-      onApplied: () => interruptedByAFiberOfItsOwn
-    }))
-    expect(site(exit)).toBe("onApplied")
+  test("of a command, as its scope releases what it holds, is a defect in the command", async () => {
+    const answering = interruptedAsItReleases.pipe(Effect.as(Opt.some<Message>("Increment")))
+    expect(
+      site(
+        await ended(run({
+          ...counter,
+          init: { state: { count: 0 }, commands: ["Ping"] },
+          runCommand: () => answering
+        }, () => Effect.never))
+      )
+    )
+      .toBe("command")
   })
 
-  test.failing("of the loop, from onIgnored, is a defect in onIgnored", async () => {
-    const exit = await ended(run(counter, sends(({ type }) => type(false)), {
-      onIgnored: () => interruptedByAFiberOfItsOwn
-    }))
-    expect(site(exit)).toBe("onIgnored")
+  test("of a subscription, as its scope releases what it holds, is a defect in the subscription", async () => {
+    const ending = Channel.unwrap(
+      Effect.as(interruptedAsItReleases, Channel.fromEffectDone(Effect.succeed<Message>("Increment")))
+    )
+    const listening: Counter = { ...counter, subscriptions: () => HashMap.make(["k", ending]) }
+    expect(site(await ended(run(listening, () => Effect.never)))).toBe("subscription")
   })
 })

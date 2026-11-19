@@ -100,6 +100,10 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   stays the same while the key is kept, as a child's own id, can stay out. The guide, "Subscriptions", "A subscription
   sees the state only through its key". The guide, "Subscriptions", "A value that stays the same while the key is kept
   can stay out of the key".
+- **A function of the program never interrupts the fiber it runs in.** `init`, `update`, `makeModel`,
+  `subscriptions` and the options run in a fiber of the run, or of whoever runs it, and could reach it with
+  `Fiber.getCurrent`. No defect says it happened. The guide, "Guarantees", "A function of the program never interrupts
+  the fiber it runs in".
 
 ## Rules that a test checks
 

@@ -31,8 +31,8 @@ before it takes another frame draws at most once per screen refresh, as
   tags appear, never their data: `Home › Products › Deleted`. The run calls these two functions only while debug logs
   are enabled (`References.MinimumLogLevel`), so they cost nothing otherwise. How a string and a parent's wrapping
   appear is under [Precisely](#precisely).
-- **`onApplied`**: hears every accepted message, for devtools or session recording. For each message, `onApplied`
-  hears:
+- **`onApplied`**: a function that hears every accepted message, for devtools or session recording. For each message,
+  `onApplied` hears:
   - where the message came from (`origin`: a dispatch, a command, or a subscription with its key);
   - the state before the message and the state after it;
   - the `revision` of the state after the message;
@@ -40,20 +40,24 @@ before it takes another frame draws at most once per screen refresh, as
 
   The first state is revision 0, and each new state is the next revision. When `update` returns the very state it was
   given, the same object, the message leaves the revision as it was.
-- **`onIgnored`**: hears every message that `update` rejected, with where the message came from and the state it did
-  not apply in. `onIgnored` only watches: the message stays ignored. Use `onIgnored` for devtools, or to count the taps
-  that did nothing.
+- **`onIgnored`**: a function that hears every message that `update` rejected, with where the message came from and
+  the state it did not apply in. `onIgnored` only watches: the message stays ignored. Use `onIgnored` for devtools, or
+  to count the taps that did nothing.
 
-**The run waits for `onApplied` and `onIgnored`.** The run takes the next message only after them, so that they hear
-every message in order. The run also waits for `onApplied` before the message's frame and before its commands. So a
-slow `onApplied` or `onIgnored` holds up the whole program. A defect in one of them ends the run, as any other defect
-does.
+**`onApplied` and `onIgnored` are functions, not effects.** The run calls them as it calls `update`, and they return
+nothing. The types refuse one that returns a value, an effect or a promise: what it returned would be lost.
+
+**The run calls `onApplied` and `onIgnored` in order.** The run calls them before it takes the next message, so that
+they hear every message in order. The run also calls `onApplied` before the message's frame and before its commands.
+So a slow `onApplied` or `onIgnored` holds up the whole program. A defect in one of them ends the run, as any other
+defect does.
 
 **Give slow work to a queue.** An `onApplied` or an `onIgnored` with slow work to do, such as a devtools that sends
 each step away, gives that work to a queue:
 
-1. The option offers what it hears to an unbounded queue, which takes it at once.
-2. A fiber of whoever runs the program takes each item from the queue.
+1. The option offers what it hears to an unbounded queue, with `Queue.offerUnsafe`, which takes it at once.
+2. A fiber of whoever runs the program takes each item from the queue, and does the work there. That fiber is where
+   to log what the option hears, too: the option runs no effect.
 
 That fiber is raced with the run. So the fiber ends with the run, and a defect in the fiber ends the run. What is still
 in the queue when the run ends is not reported.
@@ -62,10 +66,18 @@ in the queue when the run ends is not reported.
 const app = Effect.gen(function*() {
   const heard = yield* Queue.unbounded<Applied<State, Message, Command>>()
   const report = Queue.take(heard).pipe(Effect.flatMap(sendToDevtools), Effect.forever)
-  const running = run(program, render, { onApplied: (applied) => Effect.asVoid(Queue.offer(heard, applied)) })
+  const running = run(program, render, {
+    onApplied: (applied) => {
+      Queue.offerUnsafe(heard, applied)
+    }
+  })
   yield* Effect.raceFirst(running, report)
 })
 ```
+
+**Work that must wait goes to the effects of the program.** An option cannot hold up the run to wait for something.
+What must wait, such as a command that may start only once its state is saved, is a command, a subscription or the
+renderer that waits: wrap `runCommand`, a subscription or the renderer, and leave the options to watch.
 
 ### Logs
 

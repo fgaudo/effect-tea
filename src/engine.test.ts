@@ -13,6 +13,7 @@ import * as Queue from "effect/Queue"
 import * as References from "effect/References"
 import * as Scope from "effect/Scope"
 import * as Stream from "effect/Stream"
+import { gate } from "../test/gate.test_helper.ts"
 import { everySchedule } from "../test/scheduled.test_scheduler.ts"
 import type { Execution } from "./command.ts"
 import { ProgramDefect } from "./defect.ts"
@@ -406,7 +407,7 @@ describe("Engine scopes", () => {
       runCommand,
       subscriptions: (listening) =>
         listening ? HashMap.make(["subscription", subscription({ note, resource })]) : HashMap.empty(),
-      onApplied: ({ message }) => note(`applied ${message}`)
+      onApplied: ({ message }) => void log.push(`applied ${message}`)
     })
     const send = (signal: Signal) => engine.dispatch(signal)
     const until = Effect.fnUntraced(function*(line: string) {
@@ -497,37 +498,45 @@ describe("Engine generations", () => {
   // A key that went away and came back is a new start: what the old one left in the queue is dropped all the same,
   // though its key is listened to again when it is taken from the queue.
   test("a message left by an earlier start of a key that came back does not reach update", async () => {
-    type Watch = Readonly<{ isRunning: boolean; ticks: number }>
-    type WatchMessage = "Tick" | "Stop" | "Start"
+    type Watch = Readonly<{ gated: boolean; isRunning: boolean; ticks: number }>
+    type WatchMessage = "Hold" | "Tick" | "Stop" | "Start"
     const ticks = await run(Effect.gen(function*() {
       const source = yield* Queue.unbounded<"Tick">()
+      const holding = yield* Deferred.make<void>()
       const sent = yield* Deferred.make<void>()
       // The engine asks for what follows the tick only once it has queued the tick: then `sent` completes.
       const ticking = Channel.unwrap(Effect.map(Queue.take(source), (tick) => Channel.succeed(tick))).pipe(
         Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never)))
       )
-      let dispatch: (message: WatchMessage) => Effect.Effect<void> = () => Effect.void
+      const held = gate<WatchMessage>(Deferred.succeed(holding, undefined).pipe(Effect.andThen(Deferred.await(sent))))
       const engine = yield* Engine.make<Watch, WatchMessage, never, never, string>({
-        init: { state: { isRunning: true, ticks: 0 } },
+        init: { state: { gated: true, isRunning: true, ticks: 0 } },
         runCommand: absurd,
         update: (message) => (state) =>
           message === "Tick"
             ? { state: { ...state, ticks: state.ticks + 1 } }
+            : message === "Hold"
+            ? { state: { ...state, gated: false } }
             : { state: { ...state, isRunning: message === "Start" } },
-        subscriptions: (state) => state.isRunning ? HashMap.make(["ticks", ticking]) : HashMap.empty(),
-        // Before the key of `Stop` goes away, `Start` is queued, then a tick of the first start behind it.
-        onApplied: ({ message }) =>
-          message === "Stop"
-            ? dispatch("Start").pipe(Effect.andThen(Queue.offer(source, "Tick")), Effect.andThen(Deferred.await(sent)))
-            : Effect.void
+        subscriptions: (state) =>
+          state.gated && state.isRunning
+            ? HashMap.make(["gate", held], ["ticks", ticking])
+            : state.isRunning
+            ? HashMap.make(["ticks", ticking])
+            : HashMap.empty()
       })
-      dispatch = engine.dispatch
+      // The loop, held in the step of `Hold` by the release of the gate, has `Stop`, `Start` and a tick of the first
+      // start queued, in this order, before it takes any.
+      yield* engine.dispatch("Hold")
+      yield* Deferred.await(holding)
       yield* engine.dispatch("Stop")
-      yield* engine.states.pipe(Stream.filter(({ revision }) => revision >= 2), Stream.runHead)
-      // Queued behind the late tick, which the loop has taken once this is applied.
       yield* engine.dispatch("Start")
+      yield* Queue.offer(source, "Tick")
+      yield* engine.states.pipe(Stream.filter(({ revision }) => revision >= 3), Stream.runHead)
+      // Queued behind the late tick, which the loop has taken once this is applied.
+      yield* engine.dispatch("Stop")
       return yield* engine.states.pipe(
-        Stream.filter(({ revision }) => revision >= 3),
+        Stream.filter(({ revision }) => revision >= 4),
         Stream.runHead,
         Effect.map((reached) => Opt.getOrThrow(reached).state.ticks)
       )
@@ -554,8 +563,8 @@ describe("Engine after the first defect", () => {
     return { deaths, taken: Effect.timeoutOption(Deferred.await(read), "1 second") }
   })
 
-  // The order no yield of the scheduler needs: the loop is held by `onApplied` while a command dies, with a message
-  // queued behind, which it takes once the death is recorded.
+  // The order no yield of the scheduler needs: the loop is held in the step of `Hold` by the release of the gate while a
+  // command dies, with a message queued behind, which it takes once the death is recorded.
   test("no update is called on a message taken once a command has died", async () => {
     const calls = { n: 0 }
     await Effect.runPromiseExit(
@@ -563,7 +572,14 @@ describe("Engine after the first defect", () => {
         const { deaths, taken } = yield* readingDeaths
         const dead = () => deaths.all().length > 0
         const go = yield* Deferred.make<void>()
-        const engine = yield* Engine.make<Readonly<{ n: number }>, "Go" | "Hit", "Die", never, never>({
+        const holding = yield* Deferred.make<void>()
+        const held = gate<"Hold" | "Hit">(
+          Deferred.succeed(holding, undefined).pipe(
+            Effect.andThen(Deferred.succeed(go, undefined)),
+            Effect.andThen(deaths.died)
+          )
+        )
+        const engine = yield* Engine.make<Readonly<{ n: number }>, "Hold" | "Hit", "Die", never, string>({
           deaths,
           init: { state: { n: 0 }, commands: ["Die"] },
           runCommand: () => Deferred.await(go).pipe(Effect.andThen(Effect.die("boom"))),
@@ -571,11 +587,10 @@ describe("Engine after the first defect", () => {
             if (message === "Hit" && dead()) calls.n += 1
             return { state: { n: n + 1 } }
           },
-          subscriptions: () => HashMap.empty(),
-          onApplied: ({ message }) =>
-            message === "Go" ? Deferred.succeed(go, undefined).pipe(Effect.andThen(deaths.died)) : Effect.void
+          subscriptions: ({ n }) => n === 0 ? HashMap.make(["gate", held]) : HashMap.empty()
         })
-        yield* engine.dispatch("Go")
+        yield* engine.dispatch("Hold")
+        yield* Deferred.await(holding)
         yield* engine.dispatch("Hit")
         yield* engine.died
         yield* taken
@@ -584,40 +599,91 @@ describe("Engine after the first defect", () => {
     expect(calls.n).toBe(0)
   })
 
-  // `onApplied` holds the loop as `Stop` takes the key away: a tick of its start is queued behind it, and a command
-  // dies, before the key's subscription is released and the loop takes the tick.
+  // A subscription that a fiber of the program interrupts dies then, as one that interrupts itself does: its death is
+  // recorded before its scope releases what it holds, so a message taken during that release is not applied.
+  test("no update is called on a message taken as a subscription the program interrupted releases", async () => {
+    const calls = { n: 0 }
+    await Effect.runPromiseExit(
+      Effect.gen(function*() {
+        const { deaths, taken } = yield* readingDeaths
+        const releasing = yield* Deferred.make<void>()
+        const go = yield* Deferred.make<void>()
+        const interrupted = Channel.unwrap(Effect.gen(function*() {
+          const self = yield* Effect.fiber
+          yield* Effect.addFinalizer(() =>
+            Deferred.succeed(releasing, undefined).pipe(Effect.andThen(Deferred.await(go)))
+          )
+          yield* Effect.forkDetach(Fiber.interrupt(self))
+          return Channel.never
+        }))
+        const engine = yield* Engine.make<number, "Hit", never, never, string>({
+          deaths,
+          init: { state: 0 },
+          runCommand: absurd,
+          update: (message) => (n) => {
+            if (message === "Hit") calls.n += 1
+            return { state: n + 1 }
+          },
+          subscriptions: () => HashMap.make(["interrupted", interrupted])
+        })
+        yield* Deferred.await(releasing)
+        yield* engine.dispatch("Hit")
+        yield* taken
+        yield* Deferred.succeed(go, undefined)
+        yield* engine.died
+      }).pipe(Effect.scoped)
+    )
+    expect(calls.n).toBe(0)
+  })
+
+  // The loop is held in the step of `Hold` by the release of a first gate, while `Stop` and a tick of the ticks are
+  // queued, in this order; then in the step of `Stop`, which takes the key of the ticks away, by the release of a second
+  // gate, while a command dies. It takes the tick once the death is recorded.
   test("a message of a stopped subscription, taken once a command has died, is not described", async () => {
+    type Gated = Readonly<{ phase: "Gated" | "Held" | "Stopped" }>
     const described: Array<string> = []
     await Effect.runPromiseExit(
       Effect.gen(function*() {
         const { deaths, taken } = yield* readingDeaths
         const go = yield* Deferred.make<void>()
+        const holding = yield* Deferred.make<void>()
         const source = yield* Queue.unbounded<"Tick">()
         const sent = yield* Deferred.make<void>()
         // The engine asks for what follows the tick only once it has queued the tick: then `sent` completes.
         const ticking = Channel.unwrap(Effect.map(Queue.take(source), (tick) => Channel.succeed(tick))).pipe(
           Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never)))
         )
-        const engine = yield* Engine.make<Readonly<{ on: boolean }>, "Stop" | "Tick", "Die", never, string>({
+        const first = gate<"Hold" | "Stop" | "Tick">(
+          Deferred.succeed(holding, undefined).pipe(Effect.andThen(Deferred.await(sent)))
+        )
+        const second = gate<"Hold" | "Stop" | "Tick">(
+          Deferred.succeed(go, undefined).pipe(Effect.andThen(deaths.died))
+        )
+        const engine = yield* Engine.make<Gated, "Hold" | "Stop" | "Tick", "Die", never, string>({
           deaths,
-          init: { state: { on: true }, commands: ["Die"] },
+          init: { state: { phase: "Gated" }, commands: ["Die"] },
           runCommand: () => Deferred.await(go).pipe(Effect.andThen(Effect.die("boom"))),
-          update: (message) => (state) => message === "Stop" ? { state: { on: false } } : { state },
-          subscriptions: ({ on }) => on ? HashMap.make(["ticks", ticking]) : HashMap.empty(),
-          onApplied: ({ message }) =>
-            message === "Stop"
-              ? Queue.offer(source, "Tick").pipe(
-                Effect.andThen(Deferred.await(sent)),
-                Effect.andThen(Deferred.succeed(go, undefined)),
-                Effect.andThen(deaths.died)
-              )
-              : Effect.void,
+          update: (message) => (state) =>
+            message === "Hold"
+              ? { state: { phase: "Held" } }
+              : message === "Stop"
+              ? { state: { phase: "Stopped" } }
+              : { state },
+          subscriptions: ({ phase }) =>
+            phase === "Gated"
+              ? HashMap.make(["first", first], ["second", second], ["ticks", ticking])
+              : phase === "Held"
+              ? HashMap.make(["second", second], ["ticks", ticking])
+              : HashMap.empty(),
           describeMessage: (message) => {
             described.push(message)
             return message
           }
         })
+        yield* engine.dispatch("Hold")
+        yield* Deferred.await(holding)
         yield* engine.dispatch("Stop")
+        yield* Queue.offer(source, "Tick")
         yield* engine.died
         yield* taken
       }).pipe(
@@ -626,7 +692,7 @@ describe("Engine after the first defect", () => {
         Effect.provide(Logger.layer([]))
       )
     )
-    expect(described).toEqual(["Stop"])
+    expect(described).toEqual(["Hold", "Stop"])
   })
 })
 
@@ -675,15 +741,14 @@ describe("Engine end", () => {
   // all there is. Its command, started by `init`, is the one each test gives.
   const ending = (
     hold: Execution<"Go", Scope.Scope>,
-    options: Readonly<{ subscription?: Subscription<"Go", Scope.Scope>; onApplied?: Effect.Effect<void> }> = {}
+    options: Readonly<{ subscription?: Subscription<"Go", Scope.Scope> }> = {}
   ) =>
     Engine.make<number, "Go", "Hold", Scope.Scope, string>({
       init: { state: 0, commands: ["Hold"] },
       update: () => (n) => ({ state: n + 1 }),
       runCommand: () => hold,
       subscriptions: () =>
-        options.subscription === undefined ? HashMap.empty() : HashMap.make(["subscription", options.subscription]),
-      onApplied: () => options.onApplied ?? Effect.void
+        options.subscription === undefined ? HashMap.empty() : HashMap.make(["subscription", options.subscription])
     })
 
   // How many interruptions the fiber has received, asked where it is uninterruptible.
@@ -699,44 +764,41 @@ describe("Engine end", () => {
         seen >= count || tries === 0 ? Effect.void : Effect.andThen(Effect.yieldNow, untilReceived(count, tries - 1))
     )
 
-  test("the end of the engine lets its loop end before it interrupts its commands", async () => {
+  // The loop waits, in the step of `Go`, for the release of the gate whose key `Go` takes away; were the end to leave the
+  // loop running, the step would go on once the release ends, and start `Late` after the end read the commands to
+  // interrupt.
+  test("the end of the engine stops a step held by a release, which starts nothing after", async () => {
     const log = await Effect.runPromise(Effect.gen(function*() {
       const log: Array<string> = []
       const holding = yield* Deferred.make<void>()
-      const busy = yield* Deferred.make<void>()
-      const stopping = yield* Deferred.make<void>()
+      const releasing = yield* Deferred.make<void>()
       const go = yield* Deferred.make<void>()
       const scope = yield* Scope.make()
-      const engine = yield* ending(
-        Deferred.succeed(holding, undefined).pipe(
-          Effect.andThen(Effect.never),
-          Effect.onInterrupt(() => Effect.sync(() => log.push("command interrupted")))
-        ),
-        {
-          // Uninterruptible, so that the loop still runs once the end has begun: it tells when the end has reached it.
-          onApplied: Effect.uninterruptible(
-            Deferred.succeed(busy, undefined).pipe(
-              Effect.andThen(untilReceived(1)),
-              Effect.andThen(Deferred.succeed(stopping, undefined)),
-              Effect.andThen(Deferred.await(go)),
-              Effect.andThen(Effect.sync(() => log.push("applied Go")))
+      const held = gate<"Go">(Deferred.succeed(releasing, undefined).pipe(Effect.andThen(Deferred.await(go))))
+      const engine = yield* Engine.make<number, "Go", "Hold" | "Late", Scope.Scope, string>({
+        init: { state: 0, commands: ["Hold"] },
+        update: () => (n) => ({ state: n + 1, commands: ["Late"] }),
+        runCommand: (command) =>
+          command === "Hold"
+            ? Deferred.succeed(holding, undefined).pipe(
+              Effect.andThen(Effect.never),
+              Effect.onInterrupt(() => Effect.sync(() => log.push("command interrupted")))
             )
-          )
-        }
-      ).pipe(Scope.provide(scope))
+            : Effect.sync(() => log.push("late command started")).pipe(Effect.as(Opt.none())),
+        subscriptions: (n) => n === 0 ? HashMap.make(["gate", held]) : HashMap.empty()
+      }).pipe(Scope.provide(scope))
       yield* Deferred.await(holding)
       yield* engine.dispatch("Go")
-      yield* Deferred.await(busy)
+      yield* Deferred.await(releasing)
       const closing = yield* Effect.forkChild(Scope.close(scope, Exit.void))
-      // Long enough, once the end is stopping the loop, for it to interrupt the command, were it not waiting for the
-      // loop: nothing happens meanwhile that could be awaited instead.
-      yield* Deferred.await(stopping)
+      // Long enough, once the end has begun, for the step to start its command, were the loop still running: nothing
+      // happens meanwhile that could be awaited instead.
       yield* Effect.sleep("20 millis")
       yield* Deferred.succeed(go, undefined)
       yield* Fiber.join(closing)
       return log
     }))
-    expect(log).toEqual(["applied Go", "command interrupted"])
+    expect(log).toEqual(["command interrupted"])
   })
 
   test("the end of the engine interrupts its commands and its subscriptions at once", async () => {
@@ -904,11 +966,10 @@ describe("the numbers of two dispatches racing", () => {
       runCommand: () => Effect.die("no command"),
       update: () => (count) => ({ state: count + 1 }),
       subscriptions: () => HashMap.empty(),
-      onApplied: ({ message }) =>
-        Effect.suspend(() => {
-          heard.push(message)
-          return heard.length === 2 ? Effect.asVoid(Deferred.succeed(both, undefined)) : Effect.void
-        })
+      onApplied: ({ message }) => {
+        heard.push(message)
+        if (heard.length === 2) Deferred.doneUnsafe(both, Exit.void)
+      }
     })
     const a = yield* Effect.forkChild(engine.dispatch("A"))
     const b = yield* Effect.forkChild(engine.dispatch("B"))

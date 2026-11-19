@@ -90,6 +90,9 @@ version, and everything else, features included, the patch version.
   Upgrade: a step starting `A` and `B`, with `A`'s answer starting `C`, is heard `A, B, C`, where it was `A, C, B`.
 - **Breaking**: as the run ends, it stops applying messages first, then the renderer, then commands and subscriptions.
   Upgrade: a renderer that sent a message for the program to act on as it is released does that work itself.
+- **Breaking**: `onApplied` and `onIgnored` are functions that return nothing, called as `update` is, not effects.
+  Upgrade: `(applied) => Effect.sync(() => record(applied))` becomes `(applied) => { record(applied) }`; slow work
+  goes to a queue, offered with `Queue.offerUnsafe` ("Running", "Give slow work to a queue").
 - **Breaking**: the constructors of `InvariantDefect`, `ProgramDefect` and `CompositionDefect` are private.
   Upgrade: `throw new InvariantDefect({ reason })` becomes `defect(reason)`; another error of a program's own is an
   error class of its own.
@@ -103,7 +106,7 @@ version, and everything else, features included, the patch version.
   "Glossary" and "Coming from Elm or React"; a section the README had is found there on the page of its concept.
 - The guide now promises what the run already did: messages are applied one at a time, in the order they were queued;
   commands run concurrently, with no bound, and the end of the run interrupts them; nothing is bounded or times out;
-  `subscriptions` is pure; the run waits for `onApplied` and `onIgnored` ("Guarantees", "Commands", "Running").
+  `subscriptions` is pure ("Guarantees", "Commands", "Running").
 - The examples' bridges are in `bridges/`, with `messagesSentBy` in `snabbdom-testing.ts`; they settle each
   text `<input>` with `drawn`, and no longer have `onInput`. `counter` and `form` draw with React too.
 
@@ -120,6 +123,8 @@ version, and everything else, features included, the patch version.
   patience with a unit, `within 500ms`, with the latest model as the `cause`, where it gave an `Option` of it. It
   calls `init` before the scenario, so a scenario that returns at once fails on an `init` that throws, as `rehearse`.
 - `rehearse` no longer loses a command's answer or a message, and hears, applies and ends as the run does.
+- A command, a subscription or the renderer that another fiber of the program interrupts is a defect in its site, in
+  the run, `simulate` and `rehearse`, where the run went on, or ended, in silence.
 - `simulate` closes a command's scope as the run does.
 - A message or command whose wrapping comes back to itself is described by its tags until then, `Loop › …`, where its
   description overflowed the stack.

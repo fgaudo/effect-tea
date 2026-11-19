@@ -163,7 +163,7 @@ rehearse(
 - The subscriptions do not run, but `simulate` reads them on each new state, as the run does.
 - `simulate` fails on a state whose subscriptions are a defect, as the run dies of one. A key whose `Equal` throws
   against a key of the state before is such a defect too.
-- `simulate` fails on a command that interrupts itself, as the run dies of one.
+- `simulate` fails on a command that the program interrupts, itself or by another fiber, as the run dies of one.
 
 ### `rehearse`, in detail
 
@@ -184,7 +184,7 @@ rehearse(
   throws against a key of the state before is such a defect too;
 - on a state whose model is a defect. `rehearse` makes the model on each new state, as a renderer that pulls every
   frame does;
-- on a command or a subscription that interrupts itself.
+- on a command or a subscription that the program interrupts, itself or by another fiber.
 
 #### How a subscription is heard
 

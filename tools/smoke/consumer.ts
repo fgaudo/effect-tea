@@ -439,6 +439,10 @@ assert(opened === sealed, "a program typed with other external messages is the s
 const moved = drawn(element, "", 1)
 assert(moved.shown.value === "" && moved.taken, "a frame that has seen it and moved on gives its value")
 
+// An option of the run is a function that returns nothing: an effect it returned would never run.
+// @ts-expect-error
+export const unheard = run(app, () => Effect.void, { onApplied: () => Effect.log("heard") })
+
 // Every value of the package, as a module that wraps the library would export it: its declarations name every type
 // of their signatures.
 export const library = { ...Library }
@@ -448,6 +452,7 @@ const main = Effect.gen(function*() {
   const simulation = yield* simulate(app)([increment(), { _tag: "ResetAll" }], app.init)
   assert(simulation.state.main.count === 0, "simulate applies the external messages")
   const counts: Array<number> = []
+  const heard: Array<unknown> = []
   yield* run(app, (frames) =>
     frames.pipe(
       Stream.tap(Effect.fnUntraced(function*({ model, dispatch, seen }) {
@@ -457,8 +462,13 @@ const main = Effect.gen(function*() {
       })),
       Stream.take(4),
       Stream.runDrain
-    ))
+    ), {
+    onApplied: ({ message }) => {
+      heard.push(message)
+    }
+  })
   assert(counts.join() === "0,1,2,3", `run draws every frame: ${counts.join()}`)
+  assert(heard.length === 3, `onApplied hears every accepted message: ${heard.length}`)
 })
 
 await Effect.runPromise(main)

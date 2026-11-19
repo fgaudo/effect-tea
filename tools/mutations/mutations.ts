@@ -355,8 +355,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a defect is recorded after the release of its scope",
     file: "src/shell.ts",
-    from: "self.pipe(diesIn(where, details), deaths.recorded, Scope.provide(scope))",
-    to: "self.pipe(diesIn(where, details), Scope.provide(scope))",
+    from: "self.pipe(diesIn(where, details, undefined, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
+    to: "self.pipe(diesIn(where, details, undefined, Core.byTheRun), Scope.provide(scope))",
     killedBy: [
       ["src/run.test.ts", "a renderer that dies before a command is the first defect of the cause"],
       [
@@ -390,8 +390,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     // The context a command, a subscription or the renderer runs in holds the run's scope.
     name: "a fiber of the run acquires into the scope of the run",
     file: "src/shell.ts",
-    from: "self.pipe(diesIn(where, details), deaths.recorded, Scope.provide(scope))",
-    to: "self.pipe(diesIn(where, details), deaths.recorded)",
+    from: "self.pipe(diesIn(where, details, undefined, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
+    to: "self.pipe(diesIn(where, details, undefined, Core.byTheRun), deaths.recorded)",
     killedBy: [
       ["src/engine.test.ts", "what a command acquires is released when it ends, before update hears its message"],
       ["src/engine.test.ts", "a fiber that a command forks in its scope is interrupted when the command ends"],
@@ -434,9 +434,37 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
+    name: "a fiber the run forks takes an interruption without the run's mark for the run's",
+    file: "src/core.ts",
+    from: "Cause.isInterruptReason(reason) && markOf(reason) !== undefined",
+    to: "Cause.isInterruptReason(reason)",
+    killedBy: [
+      ["src/run.test.ts", "of the renderer is a defect in the renderer"],
+      ["src/run.test.ts", "of a command, as its scope releases what it holds, is a defect in the command"],
+      ["src/run.test.ts", "of a subscription, as its scope releases what it holds, is a defect in the subscription"],
+      [
+        "src/testing/contract.test.ts",
+        "the run dies with a defect of a command a"
+        + " fiber of the program interrupts"
+      ]
+    ]
+  },
+  {
+    name: "a fiber the run forks keeps an interruption without the run's mark until its root",
+    file: "src/shell.ts",
+    from: "diesIn(where, details, undefined, Core.byTheRun)",
+    to: "diesIn(where, details)",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "no update is called on a message taken as a subscription the program interrupted releases"
+      ]
+    ]
+  },
+  {
     name: "a self-interruption is no defect",
     file: "src/shell.ts",
-    from: "const own = Core.otherwiseDefect(cause, Exit.isFailure(received) ? received.cause : Cause.empty)",
+    from: "const own = Core.otherwiseDefect(cause, kept(Exit.isFailure(received) ? received.cause : Cause.empty))",
     to: "const own = cause as Cause.Cause<never>",
     killedBy: [
       ["src/run.test.ts", "a command that interrupts itself is a defect, where it happened"],
@@ -445,7 +473,6 @@ export const mutations: ReadonlyArray<Mutation> = [
         "a command that joins an interrupted fiber that interrupts itself is a defect, where it happened"
       ],
       ["src/run.test.ts", "a subscription that interrupts itself is a defect, where it happened"],
-      ["src/run.test.ts", "onApplied that interrupts itself is a defect, where it happened"],
       ["src/run.test.ts", "the renderer that interrupts itself is a defect, where it happened"],
       [
         "src/run.test.ts",
@@ -814,19 +841,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "Fiber.interruptAs(fiber, id, Context.make(Core.Stopped, {}))",
     to: "Fiber.interruptAs(fiber, id)",
     killedBy: [
-      [
-        "src/run.test.ts",
-        "a renderer that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the renderer"
-      ]
-    ]
-  },
-  {
-    name: "the end of the engine does not stop its loop first",
-    file: "src/engine.ts",
-    from: "    Effect.andThen(\n      stop,\n",
-    to: "    Effect.andThen(\n      Effect.void,\n",
-    killedBy: [
-      ["src/engine.test.ts", "the end of the engine lets its loop end before it interrupts its commands"]
+      ["src/engine.test.ts", "a key that goes away interrupts its subscription, which releases what it holds"],
+      ["src/run.test.ts", "a run interrupted by whoever runs it is no defect"]
     ]
   },
   {
@@ -835,20 +851,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "return Effect.forEach(running, stopping, { concurrency: \"unbounded\", discard: true }).pipe(",
     to: "return Effect.void.pipe(",
     killedBy: [
-      [
-        "src/run.test.ts",
-        "a command that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the command"
-      ],
-      [
-        "src/run.test.ts",
-        "a subscription that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the "
-        + "subscription"
-      ],
-      ["src/engine.test.ts", "what a command dies of as the end of the engine interrupts it is what the end dies of"],
-      [
-        "src/engine.test.ts",
-        "a subscription interrupting itself as the end of the engine stops it, its key gone, is a defect"
-      ]
+      ["src/run.test.ts", "a run interrupted by whoever runs it is no defect"]
     ]
   },
   {
@@ -875,7 +878,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "engine.stop.pipe(Effect.andThen(Shell.stopping(renderer)))",
     to: "Shell.stopping(renderer)",
     killedBy: [
-      ["src/run.test.ts", "the run stops its loop before it releases the renderer"]
+      ["src/run.test.ts", "a message the renderer sends as the run releases it does not reach update"]
     ]
   },
   {
@@ -1421,10 +1424,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "            stopFiber(taking.fiber)\n",
     to: "            Fiber.interrupt(taking.fiber)\n",
     killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "rehearse fails with a defect of a command joining, as its run is stopped, a fiber its caller interrupted"
-      ]
+      ["src/testing/rehearse.test.ts", "when a run interrupted while its command runs leaves the command unanswered"]
     ]
   },
   {
@@ -1434,8 +1434,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "({ fiber }) => Fiber.interrupt(fiber)",
     killedBy: [
       [
-        "src/testing/contract.test.ts",
-        "rehearse fails with a defect of a subscription interrupting itself as the fiber that stops it"
+        "src/testing/rehearse.test.ts",
+        "two messages that arrive together, one stopping a subscription, are both applied"
       ]
     ]
   },
@@ -1465,27 +1465,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "",
     killedBy: [
       [
-        "src/testing/contract.test.ts",
-        "rehearse fails with a defect of a subscription joining, as its end stops it, a fiber its caller interrupted"
-      ],
-      [
         "src/testing/rehearse.test.ts",
-        "a subscription that interrupts itself as the end stops it, its key gone, is a defect"
-      ]
-    ]
-  },
-  {
-    name: "the end of rehearse stops only the subscriptions its ledger still hears",
-    file: "src/testing/rehearse.ts",
-    from: "Effect.forEach(listeners, stopFiber, { concurrency: \"unbounded\", discard: true })",
-    to: "stop(\n"
-      + "      Arr.fromIterable(ledger.hearings.values())\n"
-      + "        .flatMap((each) => each._tag === \"Opened\" ? [each.handle] : []),\n"
-      + "    )",
-    killedBy: [
-      [
-        "src/testing/rehearse.test.ts",
-        "a subscription that interrupts itself as the end stops it, its key gone, is a defect"
+        "runs the subscription under the key to its first message, applies it, and releases it at the end"
       ]
     ]
   },
@@ -1551,8 +1532,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "",
     killedBy: [
       [
-        "src/testing/contract.test.ts",
-        "rehearse fails with a defect of a command joining, as its end stops it, a fiber its caller interrupted"
+        "src/testing/rehearse.test.ts",
+        "when a command is still under way at the end, since its answer would still arrive"
       ]
     ]
   },
@@ -1562,17 +1543,14 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "const message = yield* runOne(deaths, command)",
     to: "const message = yield* Effect.suspend(() => runCommand(command)).pipe(scopedIn(deaths, 'command'))",
     killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails with a defect of a command joining, as it is stopped, a fiber its interrupter interrupted"
-      ]
+      ["src/testing/contract.test.ts", "begins its effect in simulate, as in the run"]
     ]
   },
   {
     name: "simulate forks a command without beginning it",
     file: "src/testing/simulate.ts",
-    from: "Effect.forkChild(effect.pipe(scopedIn(deaths, \"command\")), { startImmediately: true })",
-    to: "Effect.forkChild(effect.pipe(scopedIn(deaths, \"command\")))",
+    from: "rootedIn(\"command\")), {\n            startImmediately: true\n          })",
+    to: "rootedIn(\"command\")))",
     killedBy: [
       ["src/testing/contract.test.ts", "begins its effect in simulate, as in the run"]
     ]
@@ -1880,8 +1858,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "simulate closes a command's scope before its defect says where",
     file: "src/testing/simulate.ts",
-    from: "effect.pipe(scopedIn(deaths, \"command\"))",
-    to: "effect.pipe(Effect.scoped, diesIn(\"command\"))",
+    from: "effect.pipe(scopedIn(deaths, \"command\"), rootedIn",
+    to: "effect.pipe(Effect.scoped, diesIn(\"command\"), rootedIn",
     killedBy: [
       [
         "src/testing/contract.test.ts",
@@ -1900,8 +1878,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "simulate takes a defect of what a command's scope releases for one of its own",
     file: "src/testing/simulate.ts",
-    from: "effect.pipe(scopedIn(deaths, \"command\"))",
-    to: "effect.pipe(diesIn(\"command\"), Effect.scoped)",
+    from: "effect.pipe(scopedIn(deaths, \"command\"), rootedIn",
+    to: "effect.pipe(diesIn(\"command\"), Effect.scoped, rootedIn",
     killedBy: [
       [
         "src/testing/contract.test.ts",
@@ -2113,30 +2091,19 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a defect of onApplied has no site",
     file: "src/engine.ts",
-    from: "Effect.suspend(() => onApplied(applied)).pipe(diesIn(\"onApplied\"))",
-    to: "Effect.suspend(() => onApplied(applied))",
+    from: "call(\"onApplied\", () => onApplied(applied))",
+    to: "Effect.sync(() => onApplied(applied))",
     killedBy: [
-      ["src/run.test.ts", "a defect in onApplied ends the run, which dies with it and with where it happened"],
-      [
-        "src/run.test.ts",
-        "a defect in onApplied, before it returns its effect ends the run"
-        + ", which dies with it and with where it happened"
-      ],
-      ["src/run.test.ts", "onApplied that interrupts itself is a defect, where it happened"]
+      ["src/run.test.ts", "a defect in onApplied ends the run, which dies with it and with where it happened"]
     ]
   },
   {
     name: "a defect of onIgnored has no site",
     file: "src/engine.ts",
-    from: "Effect.suspend(() => onIgnored(ignored)).pipe(diesIn(\"onIgnored\"))",
-    to: "Effect.suspend(() => onIgnored(ignored))",
+    from: "call(\"onIgnored\", () => onIgnored(ignored))",
+    to: "Effect.sync(() => onIgnored(ignored))",
     killedBy: [
-      ["src/run.test.ts", "a defect in onIgnored ends the run, which dies with it and with where it happened"],
-      [
-        "src/run.test.ts",
-        "a defect in onIgnored, before it returns its effect ends the run"
-        + ", which dies with it and with where it happened"
-      ]
+      ["src/run.test.ts", "a defect in onIgnored ends the run, which dies with it and with where it happened"]
     ]
   },
   {
@@ -2201,7 +2168,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "scopedIn leaves what its effect dies of without a site",
     file: "src/shell.ts",
-    from: "self.pipe(diesIn(where, details), deaths.recorded, Scope.provide(scope))",
+    from: "self.pipe(diesIn(where, details, undefined, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
     to: "self.pipe(deaths.recorded, Scope.provide(scope))",
     killedBy: [
       ["src/engine.test.ts", "what a command dies of as the end of the engine interrupts it is what the end dies of"],
@@ -2218,7 +2185,8 @@ export const mutations: ReadonlyArray<Mutation> = [
       + "                diesIn(\n"
       + "                  where,\n"
       + "                  details,\n"
-      + "                  (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect)\n"
+      + "                  (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),\n"
+      + "                  Core.byTheRun\n"
       + "                ),\n",
     to: "return Scope.close(scope, exit).pipe(\n",
     killedBy: [
@@ -2378,8 +2346,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a defect of a command in simulate is a subscription's",
     file: "src/testing/simulate.ts",
-    from: "effect.pipe(scopedIn(deaths, \"command\"))",
-    to: "effect.pipe(scopedIn(deaths, \"subscription\"))",
+    from: "effect.pipe(scopedIn(deaths, \"command\"), rootedIn",
+    to: "effect.pipe(scopedIn(deaths, \"subscription\"), rootedIn",
     killedBy: [
       [
         "src/testing/contract.test.ts",
@@ -2492,10 +2460,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "                stopping(fiber),\n",
     to: "                Fiber.interrupt(fiber),\n",
     killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails with a defect of a command joining, as it is stopped, a fiber its caller interrupted"
-      ]
+      ["src/testing/simulate.test.ts", "interrupted while a command runs, it ends interrupted, with no defect"]
     ]
   },
   {

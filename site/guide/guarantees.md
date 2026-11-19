@@ -37,8 +37,8 @@ The library's tests check each guarantee. The second list is what the library le
   - The span of whoever runs it is still the parent of the spans that commands and subscriptions open.
 - **Nothing ends in silence.** A subscription that ends sends one last message.
   - A defect anywhere ends the run. The run dies with it, as a `ProgramDefect` that says where it happened.
-  - A command, a subscription, the renderer or an option that interrupts itself (with `Effect.interrupt`, or by joining
-    an interrupted fiber) is a defect too.
+  - A command, a subscription or the renderer that the program interrupts is a defect too: one that interrupts itself
+    (with `Effect.interrupt`, or by joining an interrupted fiber), or that another fiber of the program interrupts.
   - Only the run, and whoever runs it, interrupt them.
 - **Frames cost only what is drawn.** A message that returns the very same state draws no new frame. A model is made
   only for the frames the renderer pulls.
@@ -68,8 +68,8 @@ The library's tests check each guarantee. The second list is what the library le
 - **Nothing is bounded, and nothing times out.**
   - The run queues every message as it is sent, however many wait.
   - It starts every command, however many run.
-  - It waits for `onApplied`, for `onIgnored` and for each release for as long as they take. One that never ends holds
-    up the program, and no defect says so.
+  - It waits for each release for as long as it takes. One that never ends holds up the program, and no defect says
+    so.
   - As it ends, the run waits for every release before it dies. So a release that never ends also holds back the
     defects that the run would die with.
 - **A slow renderer skips frames.** It gets only the latest one.
@@ -87,6 +87,9 @@ The library's tests check each guarantee. The second list is what the library le
   kept (see [subscriptions](./subscriptions.md)).
 - **`update`, `makeModel` and `subscriptions` are pure, and states are never mutated.** The library reuses a child's
   model, and its subscriptions, while the child's state is the same object.
+- **A function of the program never interrupts the fiber it runs in.** `init`, `update`, `makeModel`, `subscriptions`
+  and the options run in a fiber of the run, or of whoever runs it, which they could reach (`Fiber.getCurrent`). The
+  run cannot tell that interruption from one by whoever runs the program, so no defect says it happened.
 
 ## How the tests check them
 
@@ -95,8 +98,8 @@ The library's tests check each guarantee.
 The run keeps the guarantee of the order with one loop over one queue. The tests of the run check it.
 
 [`src/interleaving.test.ts`][interleaving] checks the other eight. It runs them under random orders of clicks, writes
-into an input (current and stale), command answers, subscription messages and ends, releases, defects and
-self-interruptions. It checks:
+into an input (current and stale), command answers, subscription messages and ends, releases, defects, and
+interruptions by the program. It checks:
 
 - that outdated clicks leave the state as it was;
 - that subscriptions follow their keys;

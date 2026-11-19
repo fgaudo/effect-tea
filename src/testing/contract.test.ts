@@ -89,13 +89,13 @@ const recorded = Effect.fnUntraced(function*<A>(
   program: ReturnType<typeof draftProgram>,
   scenario: Parameters<typeof drive<Draft, DraftModel, Edit, Store, never, A>>[1],
   // Told the count of the messages ignored so far, each time one is.
-  told: (ignored: number) => Effect.Effect<unknown> = () => Effect.void
+  told: (ignored: number) => undefined = () => undefined
 ) {
   const applied: Array<Applied<Draft, Edit, Store>> = []
   const ignored: Array<Ignored<Draft, Edit>> = []
   const result = yield* drive(program, scenario, {
-    onApplied: (heard) => Effect.sync(() => void applied.push(heard)),
-    onIgnored: (heard) => Effect.suspend(() => Effect.asVoid(told(ignored.push(heard))))
+    onApplied: (heard) => void applied.push(heard),
+    onIgnored: (heard) => told(ignored.push(heard))
   })
   return { result, applied, ignored }
 })
@@ -173,7 +173,7 @@ describe("the testing tools and the run, on the same program and inputs", () => 
             yield* Effect.timeoutOption(Deferred.await(allIgnored), "1 second")
             return cancelled
           }),
-        (count) => count === rehearsed.ignored.length ? Deferred.succeed(allIgnored, undefined) : Effect.void
+        (count) => void (count === rehearsed.ignored.length && Deferred.doneUnsafe(allIgnored, Exit.void))
       )
     )
     expect(result).toEqual(rehearsed.state)
@@ -437,10 +437,9 @@ describe("how a stopped subscription ends", () => {
       noting,
       (driver) => Effect.andThen(driver.send(() => Opt.some("Stop")), Effect.never),
       {
-        onApplied: ({ message, after, commands }) =>
-          Effect.sync(() => {
-            if (message === "Stop") applied.push({ after, commands })
-          })
+        onApplied: ({ message, after, commands }) => {
+          if (message === "Stop") applied.push({ after, commands })
+        }
       }
     ))
     expect(reasonsOf(exit)).toEqual(["release"])
@@ -1575,10 +1574,9 @@ describe("a defect of makeModel", () => {
       noting([]),
       (driver) => Effect.andThen(driver.send(() => Opt.some("Go")), Effect.never),
       {
-        onApplied: ({ message, after, commands }) =>
-          Effect.sync(() => {
-            if (message === "Go") applied.push({ after, commands })
-          })
+        onApplied: ({ message, after, commands }) => {
+          if (message === "Go") applied.push({ after, commands })
+        }
       }
     ))
     expect(reasons(exit)).toEqual(["render"])
@@ -1768,8 +1766,8 @@ describe("a command whose runCommand is called as whoever runs the tool interrup
 
 // A fiber of the program that interrupts a command's or a subscription's fiber is no interruption by the run nor by
 // whoever runs it ("Guarantees", "Nothing ends in silence": only the run, and whoever runs it, interrupt them), so the
-// run and each tool die in its site. `diesIn` takes it for the run's, since it carries no mark: each case fails until
-// it tells them apart. The interrupter is detached, and tells `interrupted` once the fiber it interrupts has ended, so
+// run and each tool die in its site, which the root of the fiber says (`Shell.rootedIn`): the interruption carries no
+// mark of the run's. The interrupter is detached, and tells `interrupted` once the fiber it interrupts has ended, so
 // that a defect would have been recorded by then.
 describe("a command or a subscription that a fiber of the program interrupts", () => {
   type Row = Readonly<{ seen: number }>
@@ -1804,7 +1802,7 @@ describe("a command or a subscription that a fiber of the program interrupts", (
   const interruptedBy = <A, E>(tool: (interrupted: Deferred.Deferred<void>) => Effect.Effect<A, E>) =>
     Effect.runPromiseExit(Effect.flatMap(Deferred.make<void>(), tool))
 
-  test.failing("the run dies with a defect of a command a fiber of the program interrupts", async () => {
+  test("the run dies with a defect of a command a fiber of the program interrupts", async () => {
     const exit = await interruptedBy((interrupted) =>
       drive(
         commanding(interrupted),
@@ -1814,7 +1812,7 @@ describe("a command or a subscription that a fiber of the program interrupts", (
     expect(diedIn(exit)).toBe("command")
   })
 
-  test.failing(
+  test(
     "simulate fails with a defect, as the run dies, of a command a fiber of the program interrupts",
     async () => {
       const exit = await interruptedBy((interrupted) =>
@@ -1824,7 +1822,7 @@ describe("a command or a subscription that a fiber of the program interrupts", (
     }
   )
 
-  test.failing(
+  test(
     "rehearse fails with a defect, as the run dies, of a command a fiber of the program interrupts",
     async () => {
       const exit = await interruptedBy((interrupted) =>
@@ -1837,13 +1835,13 @@ describe("a command or a subscription that a fiber of the program interrupts", (
     }
   )
 
-  test.failing("the run dies with a defect of a subscription a fiber of the program interrupts", async () => {
+  test("the run dies with a defect of a subscription a fiber of the program interrupts", async () => {
     const exit = await interruptedBy((interrupted) => drive(listening(interrupted), () => Deferred.await(interrupted)))
     expect(diedIn(exit)).toBe("subscription")
   })
 
   // The call is forked: with no defect, it would wait for ever for a last message that never comes.
-  test.failing(
+  test(
     "rehearse fails with a defect, as the run dies, of a subscription a fiber of the program interrupts",
     async () => {
       const exit = await interruptedBy((interrupted) =>

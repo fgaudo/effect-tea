@@ -1600,7 +1600,7 @@ test(quitting, async () => {
         : reason._tag
     )
     : []
-  expect(said).toEqual(["boom", "It interrupted itself, which only the run may do"])
+  expect(said).toEqual(["boom", "It was interrupted by the program, which only the run may do"])
 })
 
 // Found by the sixth premise review of November 2026: the end of the rehearsal stops its loop and what `hearNext`

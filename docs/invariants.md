@@ -123,13 +123,14 @@ testing tools.
   that makes it, the test being a renderer that pulls every frame, so that a defect of `makeModel` ends each tool as
   it ends the run, and no scenario meets it. Since the run's renderer is a fiber of its own, a defect of a later
   model is recorded and never cuts that step short: its release and its commands go on (`draw` in `rehearse.ts`).
-- **`onApplied` and `onIgnored` are given no dispatch, and nothing they return is kept** (an `Effect<void>`): they
-  hear each accepted, or rejected, message in order, with where it came from, before its frame is published, and
-  they send no message and change no state. That is all the rule means: they watch.
-  They do hold the program while they run, since the next message waits for them so that they hear every one in
-  order, and one that never ends holds it, as the guide says ("Running"). A defect in them is a bug like any
-  other. Neither hears a message dropped before `update` (one left by a stopped subscription): that is the
-  engine's, not the program's.
+- **`onApplied` and `onIgnored` are given no dispatch, and return nothing**: they are functions, called in the loop as
+  `update` is (`call` in `engine.ts`), and their types refuse a value, which an effect or a promise is too. They hear
+  each accepted, or rejected, message in order, with where it came from, before its frame is published, and they send
+  no message and change no state. That is all the rule means: they watch. So the loop runs no effect of the program,
+  and what holds a step is the release of a subscription it stops alone; a test that holds the loop inside a step does
+  it with such a release (`gate` in `test/gate.test_helper.ts`). A defect in them is a bug like any other. Neither
+  hears a message dropped before `update` (one left by a stopped subscription): that is the engine's, not the
+  program's.
 - **Logs never carry message data by default** (`describeByTag` in `log.ts`): only tags, following a wrapped
   `message` or `command` only when it is itself tagged, since a program's own field of that name may hold data.
   A subscription's key is logged as it is, and may hold data, as the guide says ("Running"): the rule is of
@@ -159,6 +160,25 @@ testing tools.
     that went away and, as it ends, the subscriptions `hearNext` started and the commands under way, before it closes
     its scope, which would interrupt them as the fiber that ends it; `simulate` runs each command in a fiber of its
     own, which it stops when it is interrupted.
+  - So only the run interrupts a fiber the run forks: a command, a subscription, the renderer, and their kin in the
+    testing tools. Such a fiber takes an interruption without the run's mark (`Core.byTheRun`) for one the program
+    made, by whatever fiber, in two places. Its scope (`scopedIn`) takes it while the fiber's effect runs, and records
+    the death before the scope releases what it holds, as for a self-interruption: from it on, the run applies no
+    message, which a death recorded only after the release would break (the search found it, with a renderer that
+    releases slowly). Its root (`rootedIn` in `shell.ts`), the last thing it runs, takes an end of interruptions only:
+    one that reached the fiber once its scope had closed, before its answer is queued or its last message is sent,
+    past every site. A cause with a defect is no end of interruptions only, so the root leaves a death that the scope
+    recorded as it is, though Effect adds the interruption the fiber received to its failure (`docs/premises.md`).
+    Nothing interrupts such a fiber unmarked before the run has stopped it: `Effect.forkChild` interrupts a child only
+    as its parent ends, as its documentation says, and the sets close only after the end has stopped their fibers. The
+    root is the last thing the fiber runs, and has no mutation: the scope takes an interruption that comes while the
+    effect runs, and one that comes as it releases too (its `diesIn` restores the close), so what reaches the root
+    alone is an interruption made in the operations after the scope, which a fiber of the program makes only where the
+    scheduler preempts there, and no gate reaches. The search can, with a fiber of the program that interrupts another
+    ("isInterrupted" in `interleaving.test.ts`). The fiber
+    of whoever runs the program, where `init` runs and the testing tools call the program, and the loop, have no root:
+    only functions of the program run there, which could interrupt it (`Fiber.getCurrent`) as whoever runs it would,
+    and the guide leaves that to the program ("Guarantees", "What is left to you").
   - Each fiber of the run records what it dies of in one place (`makeDeaths` in `shell.ts`, made by `run` or `drive`
     and given through `runWith` to the engine; `rehearse` has its own, keeping only the program's defects, and
     `simulate` one for each simulation, for the commands it runs): the engine's, the renderer, and the
@@ -177,7 +197,11 @@ testing tools.
     rests on what a function of Effect makes of a cause (`Cause.squash` gives the first defect).
   - Each defect recorded is reported once, in that order: by the run as soon as one dies, and by the end of the run,
     which stops the loop first and waits for it (`stop` in `engine.ts`), so that what is sent meanwhile is not applied
-    and nothing forks a fiber while it reads them, then interrupts its other fibers itself, waits for them to release
+    and nothing forks a fiber while it reads them (a stop with no mutation: the loop is one of the fibers the end
+    interrupts, and it waits only where it can be interrupted, for a release, since the options are functions, so that
+    stopping it first and stopping it with the others give no order a test can see; the stop keeps the read of the
+    fibers after the last fork by the code's order, not by when Effect delivers an interruption), then interrupts its
+    other fibers itself, waits for them to release
     what they hold, and dies of the rest; the run's cause holds the defects first, then the rest of what it ended with,
     but for the defects already among them, by their identity (`endedWith` in `core.ts`, which `rehearse`, `drive` and
     `simulate`, for a command it stops, end with too).
@@ -291,18 +315,20 @@ testing tools.
   interrupts itself as the end stops it, its key gone, is a defect", "a hearNext waiting on a start whose key went
   away fails, though the scenario failed", "a hearNext whose message was stopping a subscription as the scenario
   failed fails as one waiting" (`rehearse.test.ts`), and of the engine "a subscription interrupting itself as the end
-  of the engine stops it, its key gone, is a defect" (`engine.test.ts`). Never make what an end stops, or tells,
+  of the engine stops it, its key gone, is a defect" (`engine.test.ts`). Stopping only the starts the ledger still
+  hears has no mutation since the scope of a fiber the run forks takes an unmarked interruption for a defect: the
+  close of the scope would interrupt the others as the fiber -1, and the self-interruption the test makes is a defect
+  either way. Never make what an end stops, or tells,
   depend on what a step it may interrupt writes after its thunk. When the engine or one tool changes, keep
   the others in step. `src/testing/contract.test.ts` gives the same program and inputs to each tool and to the run;
   a difference found is a `test.failing` case there, which says how, and an item of `ROADMAP.md`, until it is fixed.
 - **Windows of absence.** A test that checks that something does not happen awaits a witness where a correct run
   gives one: "it does not start again while its key stays" (`engine.test.ts`) awaits a third state, which comes once
-  the loop has reconciled the second, and "the run stops its loop before it releases the renderer" (`run.test.ts`) has
-  an `onApplied` that holds the loop learn of its interruption, which the release of the renderer reads. Where no
-  correct run gives one, since what would signal the absence is what does not happen, the test sleeps once a signal it
-  awaits has come, as `AGENTS.md` allows ("A test never rests on the clock"): "the end of the engine lets its loop end
-  before it interrupts its commands" (`engine.test.ts`); "a message the renderer sends as the run releases it does not
-  reach update" and those of `updatesWhileHeld` (`run.test.ts`); "each call hears the next message, and the
+  the loop has reconciled the second. Where no correct run gives one, since what would signal the absence is what does
+  not happen, the test sleeps once a signal it awaits has come, as `AGENTS.md` allows ("A test never rests on the
+  clock"): "the end of the engine stops a step held by a release, which starts nothing after" (`engine.test.ts`), where
+  the loop waits for a release and nothing of the program runs in it to tell when the end has stopped it; "a message the
+  renderer sends as the run releases it does not reach update" (`run.test.ts`); "each call hears the next message, and the
   subscription waits between two of them" (`rehearse.test.ts`); "in the run, it is heard once to its end, under a key
   that stays, and again once its key comes back", and the tests of "a fiber of the test's that sends once the tool has
   ended" (`contract.test.ts`). The scheduler of the tests could await quiescence in their place, and does not, as

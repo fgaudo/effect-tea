@@ -241,12 +241,11 @@ describe("bounce", () => {
       Effect.gen(function*() {
         const rested = yield* Deferred.make<void>()
         const threw = yield* Deferred.make<void>()
-        const onApplied = (heard: Applied<State, Message>) =>
-          Effect.suspend(() => {
-            applied.push(heard)
-            if (heard.message._tag === "ThrowClicked") return Deferred.succeed(threw, undefined)
-            return flying(heard.after) ? Effect.void : Deferred.succeed(rested, undefined)
-          })
+        const onApplied = (heard: Applied<State, Message>): undefined => {
+          applied.push(heard)
+          if (heard.message._tag === "ThrowClicked") Deferred.doneUnsafe(threw, Exit.void)
+          else if (!flying(heard.after)) Deferred.doneUnsafe(rested, Exit.void)
+        }
         const instants = Arr.makeBy(2 * flight(start).length, (i) => i * dt)
         const frames = Stream.concat(Stream.fromIterable(instants), Stream.never)
         // Bounded only for a run that never gets there, which fails the test.

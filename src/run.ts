@@ -81,6 +81,8 @@ const running = Effect.fnUntraced(
     const rendering = Effect.suspend(() => render(frames)).pipe(
       // The model is made as the renderer pulls its frame: a defect of `makeModel` is the renderer's.
       Shell.scopedIn(deaths, "render"),
+      Shell.rootedIn("render"),
+      deaths.recorded,
       Effect.updateContext(Shell.withExternalSpan<Exclude<RR, Scope.Scope>>)
     )
     // However the run ends, it stops the loop first, then the renderer is interrupted and awaited, before the engine's

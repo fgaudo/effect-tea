@@ -155,7 +155,7 @@ describe("an input the style module keeps on screen as it fades", () => {
     mount(renderInto, fading, (render) =>
       run(lid, render, {
         flags: "Opened",
-        onApplied: ({ message }) => Effect.sync(() => applied.push(message))
+        onApplied: ({ message }) => void applied.push(message)
       }))
     settle()
     const input = element<HTMLInputElement>("input")

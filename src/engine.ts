@@ -13,7 +13,16 @@ import type { RunCommand } from "./command.ts"
 import * as Core from "./core.ts"
 import type { DefectSite } from "./defect.ts"
 import { describeByTag } from "./log.ts"
-import { type Deaths, diesIn, makeDeaths, runSubscription, scopedIn, stopping, withExternalSpan } from "./shell.ts"
+import {
+  type Deaths,
+  diesIn,
+  makeDeaths,
+  rootedIn,
+  runSubscription,
+  scopedIn,
+  stopping,
+  withExternalSpan
+} from "./shell.ts"
 import type { Subscriptions } from "./subscription.ts"
 import type { Step, Update } from "./update.ts"
 
@@ -47,10 +56,9 @@ export type Origin =
  * @example
  * ```ts
  * const session: Array<Message> = []
- * const onApplied = ({ message }: Applied<State, Message, Command>) =>
- *   Effect.sync(() => {
- *     session.push(message)
- *   })
+ * const onApplied = ({ message }: Applied<State, Message, Command>): undefined => {
+ *   session.push(message)
+ * }
  * ```
  *
  * @see The guide, "Running", "`onApplied`".
@@ -76,10 +84,9 @@ export type Applied<State, Message, Command = never> = {
  * @example
  * ```ts
  * let taps = 0
- * const onIgnored = ({ origin }: Ignored<State, Message>) =>
- *   Effect.sync(() => {
- *     if (origin._tag === 'Dispatch') taps += 1
- *   })
+ * const onIgnored = ({ origin }: Ignored<State, Message>): undefined => {
+ *   if (origin._tag === 'Dispatch') taps += 1
+ * }
  * ```
  *
  * @see The guide, "Running", "`onIgnored`".
@@ -129,8 +136,9 @@ export interface RunOptions<State, Message, Command = unknown> {
   /**
    * Hears each message `update` accepts.
    *
-   * - The run waits for it before the next message, the message's frame and its commands. A slow one holds up the
-   *   whole program: offer what it hears to an unbounded queue, and do the slow work in a fiber raced with the run.
+   * - It is a function, not an effect, and returns nothing. The types refuse one that returns a value.
+   * - The run calls it before the next message, the message's frame and its commands. A slow one holds up the whole
+   *   program: offer what it hears to an unbounded queue, and do the slow work in a fiber raced with the run.
    * - A defect in it ends the run.
    * - From a defect on, the run applies no message. So it hears, at the latest, the step under way at the defect.
    *
@@ -139,30 +147,37 @@ export interface RunOptions<State, Message, Command = unknown> {
    * const app = Effect.gen(function*() {
    *   const heard = yield* Queue.unbounded<Applied<State, Message, Command>>()
    *   const report = Queue.take(heard).pipe(Effect.flatMap(sendToDevtools), Effect.forever)
-   *   const running = run(program, render, { onApplied: (applied) => Effect.asVoid(Queue.offer(heard, applied)) })
+   *   const running = run(program, render, {
+   *     onApplied: (applied) => {
+   *       Queue.offerUnsafe(heard, applied)
+   *     }
+   *   })
    *   yield* Effect.raceFirst(running, report)
    * })
    * ```
    *
    * @see The guide, "Running", "`onApplied`".
-   * @see The guide, "Running", "The run waits for `onApplied` and `onIgnored`".
+   * @see The guide, "Running", "`onApplied` and `onIgnored` are functions, not effects".
+   * @see The guide, "Running", "The run calls `onApplied` and `onIgnored` in order".
    * @see The guide, "Running", "Give slow work to a queue".
    * @see The guide, "Running", "What the run still does after a defect".
    */
-  readonly onApplied?: (applied: Applied<State, Message, Command>) => Effect.Effect<void>
+  readonly onApplied?: (applied: Applied<State, Message, Command>) => undefined
   /**
    * Hears each message `update` rejects, which the run ignores.
    *
    * - It only watches: the message stays ignored.
-   * - The run waits for it before the next message. A slow one holds up the whole program: offer what it hears to an
+   * - It is a function, not an effect, and returns nothing. The types refuse one that returns a value.
+   * - The run calls it before the next message. A slow one holds up the whole program: offer what it hears to an
    *   unbounded queue, and do the slow work in a fiber raced with the run.
    * - A defect in it ends the run.
    *
    * @see The guide, "Running", "`onIgnored`".
-   * @see The guide, "Running", "The run waits for `onApplied` and `onIgnored`".
+   * @see The guide, "Running", "`onApplied` and `onIgnored` are functions, not effects".
+   * @see The guide, "Running", "The run calls `onApplied` and `onIgnored` in order".
    * @see The guide, "Running", "Give slow work to a queue".
    */
-  readonly onIgnored?: (ignored: Ignored<State, Message>) => Effect.Effect<void>
+  readonly onIgnored?: (ignored: Ignored<State, Message>) => undefined
 }
 
 // A subscription's message carries the start it comes from, so that once its key goes away, what it left in the queue
@@ -205,8 +220,8 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   subscriptions,
   describeMessage = describeByTag,
   describeCommand = describeByTag,
-  onApplied = () => Effect.void,
-  onIgnored = () => Effect.void
+  onApplied = () => undefined,
+  onIgnored = () => undefined
 }:
   & Readonly<{
     /**
@@ -278,17 +293,16 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   // it is given, dies in them, and never in the subscription or the loop that logs.
   const log = (...message: ReadonlyArray<unknown>) => Effect.logDebug(...message).pipe(diesIn("log"))
   const described = (message: Message) => call("describeMessage", () => describeMessage(message))
-  // Suspended, as the interpreter is below: an option that throws before it returns its effect dies there too.
-  const observe = (applied: Applied<State, Message, Command>) =>
-    Effect.suspend(() => onApplied(applied)).pipe(diesIn("onApplied"))
-  const observeIgnored = (ignored: Ignored<State, Message>) =>
-    Effect.suspend(() => onIgnored(ignored)).pipe(diesIn("onIgnored"))
+  // The options run no effect, so that the loop runs none of the program's, which could reach the loop's fiber.
+  const observe = (applied: Applied<State, Message, Command>) => call("onApplied", () => onApplied(applied))
+  const observeIgnored = (ignored: Ignored<State, Message>) => call("onIgnored", () => onIgnored(ignored))
   // The interpreter runs inside the command's fiber, so a defect in it is the command's. Its scope closes
   // before its message is queued, so that `update` never learns of a command whose resources are still open.
   const runCommand = (command: Command) =>
     Effect.suspend(() => interpret(command)).pipe(
       scopedIn(deaths, "command"),
       Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: enqueue(Core.fromCommand) })),
+      rootedIn("command"),
       Effect.provideContext(context),
       recorded,
       FiberSet.run(fibers)
@@ -323,6 +337,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       yield* runSubscription(subscription, send).pipe(
         scopedIn(deaths, "subscription", () => ({ key })),
         Effect.flatMap((last) => log("Subscription ended", key).pipe(Effect.andThen(send(last)))),
+        rootedIn("subscription", () => ({ key })),
         Effect.provideContext(context),
         recorded,
         FiberMap.run(subscriptionFibers, generation)

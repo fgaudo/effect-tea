@@ -454,8 +454,8 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
         const ignored: Array<FormMessage["_tag"]> = []
         mount(bridge.renderInto, bridge.views.form, (render) =>
           run(form, render, {
-            onApplied: ({ message }) => Effect.sync(() => applied.push(message._tag)),
-            onIgnored: ({ message }) => Effect.sync(() => ignored.push(message._tag))
+            onApplied: ({ message }) => void applied.push(message._tag),
+            onIgnored: ({ message }) => void ignored.push(message._tag)
           }).pipe(Effect.provideService(Storage, saving)))
         settle()
         const input = element<HTMLInputElement>("input")
@@ -512,8 +512,8 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       const storage = Storage.of({ save: (name) => Effect.andThen(Effect.sync(() => saves.push(name)), save(name)) })
       mount(bridge.renderInto, bridge.views.form, (render) =>
         run(form, render, {
-          onApplied: ({ message }) => Effect.sync(() => applied.push(message._tag)),
-          onIgnored: ({ message }) => Effect.sync(() => ignored.push(message._tag))
+          onApplied: ({ message }) => void applied.push(message._tag),
+          onIgnored: ({ message }) => void ignored.push(message._tag)
         }).pipe(Effect.provideService(Storage, storage)))
       settle()
       type(element<HTMLInputElement>("input"), "Ada")

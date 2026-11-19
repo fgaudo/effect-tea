@@ -38,7 +38,7 @@ describe("what a fiber dies of", () => {
     const interruption = Cause.interrupt(1)
     const [defect] = defects(otherwiseDefect(interruption))
     expect(defect).toBeInstanceOf(Error)
-    expect(message(defect)).toBe("It interrupted itself, which only the run may do")
+    expect(message(defect)).toBe("It was interrupted by the program, which only the run may do")
     expect((defect as Error).cause).toEqual(interruption)
   })
 
@@ -64,7 +64,7 @@ describe("what a fiber dies of", () => {
   test("an interruption the fiber received is kept as it is, beside the defect its own interruption is", () => {
     const cause = Cause.fromReasons([...Cause.interrupt(1).reasons, ...Cause.interrupt(2).reasons])
     expect(defects(otherwiseDefect(cause, Cause.interrupt(2))).map(message)).toEqual([
-      "It interrupted itself, which only the run may do",
+      "It was interrupted by the program, which only the run may do",
       "Interrupt"
     ])
   })
@@ -81,12 +81,12 @@ describe("what a fiber dies of", () => {
     const received = Cause.annotate(Cause.interrupt(-1), Context.make(Stopped, {}))
     const cause = Cause.fromReasons([...Cause.interrupt(-1).reasons, ...received.reasons])
     expect(defects(otherwiseDefect(cause, received)).map(message)).toEqual([
-      "It interrupted itself, which only the run may do",
+      "It was interrupted by the program, which only the run may do",
       "Interrupt"
     ])
     const again = Cause.annotate(Cause.interrupt(-1), Context.make(Stopped, {}))
     expect(defects(otherwiseDefect(again, received)).map(message)).toEqual([
-      "It interrupted itself, which only the run may do"
+      "It was interrupted by the program, which only the run may do"
     ])
     const annotated = Cause.annotate(received, Context.make(Request, "r-1"))
     expect(otherwiseDefect(annotated, received)).toBe(annotated)

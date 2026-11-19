@@ -15,7 +15,7 @@ import { ProgramDefect } from "../defect.ts"
 import type { Written } from "../input.ts"
 import { describeByTag } from "../log.ts"
 import { type AnyProgram, type FlagsOption, runCommandOf, type Shape, startOf } from "../program.ts"
-import { diesIn, makeDeaths, runSubscription, scopedIn, stopping as stopFiber } from "../shell.ts"
+import { diesIn, makeDeaths, rootedIn, runSubscription, scopedIn, stopping as stopFiber } from "../shell.ts"
 import type { Subscription } from "../subscription.ts"
 import * as Ledger from "./ledger.ts"
 import * as Loop from "./loop.ts"
@@ -444,6 +444,7 @@ const rehearsing = Effect.fnUntraced(function*<
         scopedIn(register, "subscription", () => ({ key })),
         Effect.flatMap((last) => sends(key, generation, last, true)),
         Effect.asVoid,
+        rootedIn("subscription", () => ({ key })),
         recorded,
         FiberSet.run(listeners)
       )
@@ -554,6 +555,7 @@ const rehearsing = Effect.fnUntraced(function*<
           // Forked in the acquisition, where nothing interrupts, the command is interruptible all the same
           // (`docs/premises.md`).
           return answering(ticket, calling(() => runCommand(command))).pipe(
+            rootedIn("command"),
             FiberSet.run(commands),
             Effect.map((fiber): Taking => ({ _tag: "Running", ticket, command, fiber }))
           )

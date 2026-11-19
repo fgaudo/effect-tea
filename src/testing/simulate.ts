@@ -7,7 +7,7 @@ import type * as Scope from "effect/Scope"
 import * as Core from "../core.ts"
 import { describeByTag } from "../log.ts"
 import { type Interpreter, type ObjectState, runCommandOf } from "../program.ts"
-import { type Deaths, diesIn, makeDeaths, scopedIn, stopping } from "../shell.ts"
+import { type Deaths, diesIn, makeDeaths, rootedIn, scopedIn, stopping } from "../shell.ts"
 import type { Subscriptions } from "../subscription.ts"
 import type { Step, Update } from "../update.ts"
 import { unexpectedRejection } from "./unexpected.ts"
@@ -120,7 +120,9 @@ export const simulate = <State, Message, Command, Event, R = never>(
       Effect.sync(() => runCommand(command)).pipe(
         diesIn("command"),
         Effect.flatMap((effect) =>
-          Effect.forkChild(effect.pipe(scopedIn(deaths, "command")), { startImmediately: true })
+          Effect.forkChild(effect.pipe(scopedIn(deaths, "command"), rootedIn("command")), {
+            startImmediately: true
+          })
         ),
         Effect.flatMap((fiber) =>
           Effect.flatMap(Effect.exit(restore(Effect.flatten(Fiber.await(fiber)))), (joined) =>

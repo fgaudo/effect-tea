@@ -16,6 +16,33 @@ answer, and saying so in the proposal.
 
 ## The engine and its guarantees
 
+- **Leaving "Only the run, and whoever runs it, interrupt them" to the program.** Reasoned, 19 November 2026, against
+  the fix that keeps it (an unmarked interruption is a defect in a fiber the run forks, at its scope and at its root).
+  Moving the sentence to "What is left to you" would have kept a way to end in silence (a run that hangs, a `hearNext`
+  that waits for ever, `simulate` succeeding) in a library that forbids one everywhere else, and narrowed a guarantee
+  the owner had kept on 13 November (the entry below). Source: the session of 19 November 2026, with two reviews.
+  _Reopen if_ a fiber the run forks can be interrupted without the run's mark by anything but the program.
+- **`onApplied` and `onIgnored` as effects, each call in a fiber of its own.** Spiked, 19 November 2026, on the
+  branch `spike/strict-interruptions` (worktree `../effect-tea-spike`, never to be merged), against the synchronous
+  options, spiked on `spike/synchronous-options`. Each call forked, awaited, stopped with the mark if the loop is
+  stopped meanwhile, with a root of its own: the loop then runs no effect of the program, as with functions. Measured:
+  no false defect in 1,424 interruptions by whoever runs the program, after k events, under the scheduler of the tests;
+  a defect in its site for every interruption by a fiber of the program; and about 28% fewer messages a second in a run
+  with `onApplied` (a bench by hand), where the functions gave some 7% more than before. Three reviewers weighed it;
+  the third, asked to choose with no preference given, chose the functions. The owner chose the functions as the
+  cleaner form: they are what `describeMessage` and `describeCommand` are already, a step waits only for a release,
+  and what must wait (a command that starts once its state is saved, a debugger that pauses) waits in a command, a
+  subscription or the renderer, which whoever runs the program wraps. What is lost: an option that waits, and an
+  option's logs through the run's logger. _Reopen if_ a use needs an option that waits and cannot be written as a
+  wrapped `runCommand`, subscription or renderer.
+- **The root of a fiber the run forks as its one check of an unmarked interruption.** Spiked on the same branches:
+  a root alone, with the scope taking every interruption the fiber received as today, records a death by the program
+  only once the scope has released what it holds, and the run applies messages meanwhile, which "from the first defect
+  on, the run applies no message" forbids: the search of interleavings found it (seed `-1180227867`, path
+  `819:0:0:0:0:4:3:5:5:5:3`, a renderer interrupted by the program as it releases slowly). And a root that takes any
+  cause, not only one of interruptions only, gave two defects for one interruption, since Effect adds what a fiber
+  received to its failure. Hence the scope and the root both, the root on interruptions only. _Reopen if_ a death
+  recorded after its release keeps the order of the defects and the end of the messages.
 - **A flag for each fiber, in place of the mark on the run's interruptions.** Spiked, 13 November 2026: `8b714ff`,
   on `worktree-agent-a87c5e2edacf8377a`, never to be merged. Proposed by two reviewers of the invariants as a way to
   drop three premises read only in Effect's source; it would give up only a fiber that interrupts itself as the run

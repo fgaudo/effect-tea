@@ -588,8 +588,8 @@ type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never] ? Rea
 export interface RunOptions<State, Message, Command = unknown> {
     readonly describeCommand?: (command: Command) => unknown;
     readonly describeMessage?: (message: Message) => unknown;
-    readonly onApplied?: (applied: Applied<State, Message, Command>) => Effect.Effect<void>;
-    readonly onIgnored?: (ignored: Ignored<State, Message>) => Effect.Effect<void>;
+    readonly onApplied?: (applied: Applied<State, Message, Command>) => undefined;
+    readonly onIgnored?: (ignored: Ignored<State, Message>) => undefined;
 }
 
 // @public

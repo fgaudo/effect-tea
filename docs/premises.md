@@ -66,6 +66,18 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   effect starts immediately; that it runs on the stack of the fiber that runs it, with no yield until it first waits, is
   read in the source. Its tests: "a fiber forked with FiberSet.run or FiberMap.run runs on the stack of the fiber that
   runs it until it first waits", of each, which fail with `startImmediately: false`.
+- **Code that a fiber runs on the stack of the fiber that forks it sees the forked fiber as its own**, through
+  `Effect.withFiber`, `Fiber.getCurrent` and `Effect.fiber` alike, from its first step on; and no stable API gives a
+  fiber the one that forked it. This is how the root of a fiber the run forks (`rootedIn` in `shell.ts`) knows that an
+  interruption without the run's mark is the program's: a command, a subscription or the renderer that interrupts the
+  fiber it sees interrupts its own, which then dies, never the loop or the fiber of whoever runs the program, which
+  would end in silence ("A function of the program never interrupts the fiber it runs in", the guide's "Guarantees",
+  is the case left to the program: the functions the loop and whoever runs the program call themselves). Agreed by the
+  owner on 19 November 2026. That `Fiber.getCurrent` gives the fiber that runs is documented; that it is the forked
+  one while the fork runs on the stack of its forker is read in the source (the current fiber is set as each fiber
+  runs, `startImmediately` included), and that `Fiber` has no parent in its declarations. Its tests: "code that a
+  fiber runs on the stack of the fiber that forks it sees the forked fiber as its own", for `Effect.forkChild` with
+  `startImmediately`, `FiberSet.run` and `FiberMap.run`, which fail where it sees the forker.
 - **A fiber of a `FiberSet` or a `FiberMap` that dies leaves the other fibers running, and the set takes forks after
   it**, which is how a command, a subscription or the loop that dies leaves the end of the run to stop the engine's
   other fibers itself, with the run's mark, once it has released the renderer (`stop` in `engine.ts`, `running` in
@@ -288,10 +300,10 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   `restore`d inside an `uninterruptibleMask`). Its test: "the use of Effect.acquireUseRelease can be interrupted",
   which fails with a use made uninterruptible.
 - **A thunk of `Effect.suspend` that throws makes the effect die with what it threw**, which is how a function of the
-  program that the engine and the tools call in one (`onApplied`, `onIgnored` and `runCommand` in `engine.ts`, the
+  program that the engine and the tools call in one (`runCommand` in `engine.ts`, the
   renderer in `run.ts`, the scenario in `drive` and in `rehearse`) dies in the site of the effect it would have
   returned, with what it threw: "a defect in runCommand ends the run, which dies with it and with where it happened",
-  the same of "onApplied, before it returns its effect" and of "onIgnored, before it returns its effect", "a renderer
+  "a renderer
   that throws before it returns its effect dies in the renderer" (`run.test.ts`), "the run dies in a command on a
   runCommand that throws before it returns an effect" (`contract.test.ts`), and, of a scenario that throws before it
   returns its effect, "nothing of the program happens once drive has ended" (`drive.test.ts`) and "what a hearNext it

@@ -215,6 +215,51 @@ describe("a fiber forked with FiberSet.run or FiberMap.run runs on the stack of 
   })
 })
 
+describe("code that a fiber runs on the stack of the fiber that forks it sees the forked fiber as its own", () => {
+  /**
+   * Forks, with `fork`, an effect that says which fiber it sees in each of its first steps, on the stack of the fiber
+   * that forks it, and returns the ids it saw, beside the ids of the forked fiber and of the one that forked it.
+   */
+  const seen = <C>(
+    make: Effect.Effect<C, never, Scope.Scope>,
+    fork: (kept: C, self: Effect.Effect<void>) => Effect.Effect<Fiber.Fiber<void>>
+  ) =>
+    Effect.runPromise(Effect.scoped(Effect.gen(function*() {
+      const container = yield* make
+      const forker = yield* Effect.fiber
+      const ids: Array<number | undefined> = []
+      const looking = Effect.withFiber((fiber) => {
+        ids.push(fiber.id, Fiber.getCurrent()?.id)
+        return Effect.void
+      }).pipe(
+        Effect.andThen(Effect.fiber),
+        Effect.map((fiber) => void ids.push(fiber.id))
+      )
+      const fiber = yield* fork(container, looking)
+      yield* Fiber.join(fiber)
+      return { ids, forked: fiber.id, forker: forker.id }
+    })))
+
+  const ownOnly = (
+    { ids, forked, forker }: Readonly<{ ids: ReadonlyArray<number | undefined>; forked: number; forker: number }>
+  ) => {
+    expect(ids).toEqual([forked, forked, forked])
+    expect(ids).not.toContain(forker)
+  }
+
+  test("Effect.forkChild with startImmediately", async () => {
+    ownOnly(await seen(Effect.void, (_, self) => Effect.forkChild(self, { startImmediately: true })))
+  })
+
+  test("FiberSet.run", async () => {
+    ownOnly(await seen(FiberSet.make<void>(), (set, self) => FiberSet.run(set, self)))
+  })
+
+  test("FiberMap.run", async () => {
+    ownOnly(await seen(FiberMap.make<string, void>(), (map, self) => FiberMap.run(map, "k", self)))
+  })
+})
+
 describe("a fiber forked where nothing interrupts is interruptible all the same", () => {
   /**
    * Forks with `fork`, where nothing interrupts, a fiber that waits, interrupts it before its wait is over, and says

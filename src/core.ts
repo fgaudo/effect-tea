@@ -22,6 +22,15 @@ const markOf = (reason: Cause.Reason<unknown>): object | undefined =>
   Context.getOrUndefined(Cause.reasonAnnotations(reason), Stopped)
 
 /**
+ * The interruptions of `received` that the run made, told by its mark: all that a fiber the run forks may receive.
+ * Only the run stops such a fiber, so an interruption without the mark is one the program made, by whatever fiber.
+ */
+export const byTheRun = (received: Cause.Cause<never>): Cause.Cause<never> =>
+  Cause.fromReasons(
+    received.reasons.filter((reason) => Cause.isInterruptReason(reason) && markOf(reason) !== undefined)
+  )
+
+/**
  * The cause with what is not a defect turned into one, in the place of the first of them, so that the defects stay
  * in the order they happened: an interruption the fiber made itself (`Effect.interrupt`, or the join of an
  * interrupted fiber), since the fibers of a run ignore their interruptions, which would leave a command without its
@@ -49,7 +58,7 @@ export const otherwiseDefect = (
   const defect = Cause.die(
     new Error(
       Cause.hasInterruptsOnly(others)
-        ? "It interrupted itself, which only the run may do"
+        ? "It was interrupted by the program, which only the run may do"
         : "It failed, which its type rules out",
       { cause: others }
     )

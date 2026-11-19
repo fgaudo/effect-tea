@@ -76,8 +76,11 @@ type RowModel = Readonly<{
 type ListState = Readonly<{ rows: ReadonlyArray<Readonly<{ id: Id; row: Row }>>; born: number; note: string }>
 type Own = Readonly<{ _tag: "Add"; id: Id }> | Readonly<{ _tag: "Remove"; id: Id }> | Readonly<{ _tag: "Clear" }>
 
-/** How a fiber of the program dies: of a defect, or interrupting itself, at once or by joining an interrupted fiber. */
-type Death = "defect" | "interrupts" | "joins"
+/**
+ * How a fiber of the program dies: of a defect; interrupting itself, at once or by joining an interrupted fiber; or
+ * interrupted by another fiber of the program, detached.
+ */
+type Death = "defect" | "interrupts" | "joins" | "isInterrupted"
 
 /** How a subscription goes on after its two ticks: open, ending with a last message, or dying. */
 type Ending = "stays" | "ends" | Death
@@ -88,8 +91,8 @@ type Release = "quick" | "slow" | "dies"
 /** How a command ends when the scheduler says: with its answer, or dying. */
 type Answer = "answers" | Death
 
-/** How `onApplied` or `onIgnored` hears a step: at once, until the scheduler says, or dying. */
-type Hearing = "quick" | "slow" | Death
+/** How `onApplied` or `onIgnored` hears a step: at once, or throwing. */
+type Hearing = "quick" | "throws"
 
 /** What is drawn beside the scheduler, each list read in a loop by a number that only the program's data gives. */
 type Fates = Readonly<{
@@ -111,7 +114,7 @@ type Fates = Readonly<{
 
 const fateOf = <A>(fates: ReadonlyArray<A>, index: number): A => fates[index % fates.length] as A
 
-const death = fc.constantFrom<Death>("defect", "interrupts", "joins")
+const death = fc.constantFrom<Death>("defect", "interrupts", "joins", "isInterrupted")
 
 const fates: fc.Arbitrary<Fates> = fc.record({
   endings: fc.array(
@@ -136,17 +139,15 @@ const fates: fc.Arbitrary<Fates> = fc.record({
   ),
   hearings: fc.array(
     fc.oneof(
-      { arbitrary: fc.constant<Hearing>("quick"), weight: 15 },
-      { arbitrary: fc.constant<Hearing>("slow"), weight: 15 },
-      { arbitrary: death, weight: 1 }
+      { arbitrary: fc.constant<Hearing>("quick"), weight: 30 },
+      { arbitrary: fc.constant<Hearing>("throws"), weight: 1 }
     ),
     { minLength: 1, maxLength: 6 }
   ),
   ignorings: fc.array(
     fc.oneof(
-      { arbitrary: fc.constant<Hearing>("quick"), weight: 4 },
-      { arbitrary: fc.constant<Hearing>("slow"), weight: 4 },
-      { arbitrary: death, weight: 1 }
+      { arbitrary: fc.constant<Hearing>("quick"), weight: 8 },
+      { arbitrary: fc.constant<Hearing>("throws"), weight: 1 }
     ),
     { minLength: 1, maxLength: 6 }
   ),
@@ -187,8 +188,8 @@ type Event =
 
 const listener = (born: number, session: number) => `${born}.${session}`
 
-/** What a self-interruption is called among the defects: the run wraps it in an error of its own. */
-const interruptedItself = "interrupted itself"
+/** What an interruption by the program is called among the defects: the run wraps it in an error of its own. */
+const interrupted = "interrupted by the program"
 
 /** A death decided, by the fiber that decides it. */
 type Decision = Readonly<{ where: Where; how: Death; fiber: number }>
@@ -203,12 +204,19 @@ const decidedIn = (events: ReadonlyArray<Event>) => {
 }
 
 /**
- * Dies as `how` says, as `defect`, which names what dies: at once, or by joining a fiber it has interrupted. The
- * fibers of a run ignore their interruptions: one that came from the program itself would otherwise leave a command
- * without its answer, a subscription ended without its last message, and the run going on. It decides the death
- * alone: `endsAs` records it, where the effect the run gets ends.
+ * Dies as `how` says, as `defect`, which names what dies: at once, by joining a fiber it has interrupted, or
+ * interrupted by a fiber of the program that nothing of the run interrupts first, which interrupts `victim` (by default
+ * the fiber that dies). Only the run may interrupt a fiber of the run: one that the program interrupted would otherwise
+ * leave a command without its answer, a subscription ended without its last message, and the run going on. It decides
+ * the death alone: `endsAs` records it, where the effect the run gets ends.
  */
-const dies = (events: Array<Event>, where: Where, how: Death, defect: string): Effect.Effect<never> => {
+const dies = (
+  events: Array<Event>,
+  where: Where,
+  how: Death,
+  defect: string,
+  victim?: Fiber.Fiber<unknown, unknown>
+): Effect.Effect<never> => {
   const now = (dying: Effect.Effect<never>) =>
     unpreempted.pipe(Effect.andThen(Effect.withFiber((fiber) => {
       decidedIn(events).set(defect, { where, how, fiber: fiber.id })
@@ -221,10 +229,17 @@ const dies = (events: Array<Event>, where: Where, how: Death, defect: string): E
       return now(Effect.interrupt)
     case "joins":
       return Effect.gen(function*() {
-        const interrupted = yield* Effect.forkChild(Effect.never)
-        yield* Fiber.interrupt(interrupted)
-        return yield* now(Fiber.join(interrupted))
+        const joined = yield* Effect.forkChild(Effect.never)
+        yield* Fiber.interrupt(joined)
+        return yield* now(Fiber.join(joined))
       })
+    case "isInterrupted":
+      return Effect.withFiber((self) =>
+        Effect.forkDetach(Effect.withFiber((interrupter) => {
+          decidedIn(events).set(defect, { where, how, fiber: interrupter.id })
+          return Fiber.interrupt(victim ?? self)
+        })).pipe(Effect.andThen(Effect.never))
+      )
   }
 }
 
@@ -251,7 +266,7 @@ const endsAs = (events: Array<Event>, name: string) => <A, E>(exit: Exit.Exit<A,
         _tag: "Died",
         where,
         how,
-        defect: how === "defect" ? name : interruptedItself,
+        defect: how === "defect" ? name : interrupted,
         released: name.startsWith("release of ")
       })
     })))
@@ -526,24 +541,17 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
   let latest: Frame<Model, Message> | undefined
   const shown: Array<Frame<Model, Message>> = []
   let heard = 0
-  const hearing = (event: Event) =>
-    Effect.suspend(() => {
-      events.push(event)
-      heard += 1
-      const where = event._tag === "Applied" ? "onApplied" : "onIgnored"
-      const fate = fateOf(where === "onApplied" ? fates.hearings : fates.ignorings, heard)
-      const name = `${where} ${heard}`
-      return Effect.logDebug("Heard", where).pipe(
-        Effect.andThen(
-          fate === "quick"
-            ? Effect.void
-            : fate === "slow"
-            ? waits(fates, heard)
-            : waits(fates, heard).pipe(Effect.andThen(dies(events, where, fate, name)))
-        ),
-        Effect.onExit(endsAs(events, name))
-      )
-    })
+  // The options are functions: one hears at once, or throws, which is its death, there and then.
+  const hearing = (event: Event): undefined => {
+    events.push(event)
+    heard += 1
+    const where = event._tag === "Applied" ? "onApplied" : "onIgnored"
+    const fate = fateOf(where === "onApplied" ? fates.hearings : fates.ignorings, heard)
+    if (fate === "quick") return
+    const name = `${where} ${heard}`
+    events.push({ _tag: "Died", where, how: "defect", defect: name, released: false })
+    throw name
+  }
   const drawing = (frames: Stream.Stream<Frame<Model, Message>>) =>
     Stream.runForEach(frames, (frame) =>
       Effect.sync(() => {
@@ -554,14 +562,16 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
   const renderer = (frames: Stream.Stream<Frame<Model, Message>>) =>
     holds(events, "renderer", fates.rendererReleasesSlowly ? waits(fates, 0) : Effect.void).pipe(
       Effect.andThen(Effect.logDebug("Drawing")),
-      Effect.andThen(Opt.match(fates.rendererDies, {
-        onNone: () => drawing(frames),
-        onSome: (how) =>
-          Effect.raceFirst(
-            drawing(frames),
-            waits(fates, 1).pipe(Effect.andThen(dies(events, "render", how, "the renderer")))
-          )
-      })),
+      Effect.andThen(Effect.withFiber((self) =>
+        Opt.match(fates.rendererDies, {
+          onNone: () => drawing(frames),
+          onSome: (how) =>
+            Effect.raceFirst(
+              drawing(frames),
+              waits(fates, 1).pipe(Effect.andThen(dies(events, "render", how, "the renderer", self)))
+            )
+        })
+      )),
       Effect.onInterrupt(() => Effect.sync(() => events.push({ _tag: "Interrupted", holder: "renderer" }))),
       Effect.onExit(endsAs(events, "the renderer"))
     )
@@ -686,15 +696,15 @@ const releaseOvertaken = (events: ReadonlyArray<Event>) => {
   return begun.some((start, index) => begun.slice(index + 1).some((later) => later < start))
 }
 
-/** Whether a defect is the error the run wraps a self-interruption in: its cause interrupts, and does nothing else. */
-const isSelfInterruption = (defect: unknown) =>
+/** Whether a defect is the error the run wraps an interruption by the program in: its cause interrupts, and nothing else. */
+const isInterruption = (defect: unknown) =>
   defect instanceof Error && Cause.isCause(defect.cause) && Cause.hasInterruptsOnly(defect.cause)
 
 const defects = (exit: Exit.Exit<unknown>) =>
   Exit.isFailure(exit)
     ? exit.cause.reasons.filter(Cause.isDieReason).map(({ defect }) =>
       defect instanceof ProgramDefect
-        ? `${defect.where}: ${isSelfInterruption(defect.cause) ? interruptedItself : String(defect.cause)}`
+        ? `${defect.where}: ${isInterruption(defect.cause) ? interrupted : String(defect.cause)}`
         : defect
     )
     : []
@@ -770,7 +780,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
         if (event._tag === "Drew" && event.frame.seen < heard) reached.add("a frame older than a message heard")
       }
     }, { numRuns: 2000, seed })
-    const places: ReadonlyArray<Where> = ["command", "subscription", "render", "onApplied", "onIgnored"]
+    const places: ReadonlyArray<Where> = ["command", "subscription", "render"]
     const missing = [
       "Add",
       "Clear",
@@ -783,7 +793,11 @@ describe("interleavings of the user, commands and subscriptions", () => {
       "Remove",
       "Tick",
       "WorkClicked",
-      ...places.flatMap((where) => (["defect", "interrupts", "joins"] as const).map((how) => `${where} ${how}`)),
+      ...places.flatMap((where) =>
+        (["defect", "interrupts", "joins", "isInterrupted"] as const).map((how) => `${where} ${how}`)
+      ),
+      "onApplied defect",
+      "onIgnored defect",
       "rejected",
       "a stale write",
       "a note replaced",

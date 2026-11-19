@@ -37,26 +37,60 @@ export const stopping = <A, E>(fiber: Fiber.Fiber<A, E>): Effect.Effect<void> =>
  * effect are: what a subscription the run stopped dies with while it releases what it holds.
  */
 // The details are made only when there is a defect to carry them: a message is described on every call otherwise.
+// `kept` says which of the interruptions the fiber received are no defect: all of them where whoever runs the program
+// may interrupt the fiber, those of the run alone in a fiber the run forks (`Core.byTheRun`, as `scopedIn` keeps).
 export const diesIn = (
   where: DefectSite,
   details: () => Readonly<{ key?: unknown; on?: unknown }> = () => ({}),
-  wrapped: (defect: unknown) => boolean = () => false
+  wrapped: (defect: unknown) => boolean = () => false,
+  kept: (received: Cause.Cause<never>) => Cause.Cause<never> = (received) => received
 ) =>
 <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
   Effect.uninterruptibleMask((restore) =>
-    restore(self).pipe(
-      Effect.catchCause((cause) =>
-        Effect.exit(Effect.interruptible(Effect.void)).pipe(Effect.flatMap((received) => {
-          const own = Core.otherwiseDefect(cause, Exit.isFailure(received) ? received.cause : Cause.empty)
-          return Effect.failCause(Cause.hasDies(own) ? Core.wrapDefects(own, where, details(), wrapped) : own)
-        }))
-      )
-    )
+    restore(self).pipe(Effect.catchCause((cause) => dying(cause, where, details, wrapped, kept)))
   )
 
 /**
+ * The root of a fiber the run forks: one that ends with interruptions only, none of them the run's (`Core.byTheRun`),
+ * was interrupted by the program, by whatever fiber, and dies in `where`. Only the run stops such a fiber, with its
+ * mark, and before anything else could: `Effect.forkChild` interrupts a child only as its parent ends, and the run
+ * stops it before; the sets close only after the end has stopped their fibers. So it holds where `scopedIn` cannot, which
+ * takes the same interruption for a defect while the fiber's effect runs and as its scope releases: one made once
+ * `scopedIn` has returned, before the answer or the last message is sent. A cause with a defect is the fiber's death
+ * already, recorded by `scopedIn`, which an interruption beside it, as Effect adds what the fiber received, does not
+ * change.
+ */
+export const rootedIn =
+  (where: DefectSite, details: () => Readonly<{ key?: unknown; on?: unknown }> = () => ({})) =>
+  <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+    Effect.uninterruptibleMask((restore) =>
+      restore(self).pipe(
+        Effect.catchCauseIf(
+          Cause.hasInterruptsOnly,
+          (cause) => dying(cause, where, details, () => false, Core.byTheRun)
+        )
+      )
+    )
+
+// What `cause` makes the fiber die of in `where`, once the fiber is asked, where it is uninterruptible, which
+// interruptions it received, and `kept` says which of those are no defect.
+const dying = <E>(
+  cause: Cause.Cause<E>,
+  where: DefectSite,
+  details: () => Readonly<{ key?: unknown; on?: unknown }>,
+  wrapped: (defect: unknown) => boolean,
+  kept: (received: Cause.Cause<never>) => Cause.Cause<never>
+): Effect.Effect<never, E> =>
+  Effect.exit(Effect.interruptible(Effect.void)).pipe(Effect.flatMap((received) => {
+    const own = Core.otherwiseDefect(cause, kept(Exit.isFailure(received) ? received.cause : Cause.empty))
+    return Effect.failCause(Cause.hasDies(own) ? Core.wrapDefects(own, where, details(), wrapped) : own)
+  }))
+
+/**
  * A scope of its own, for a fiber of the run, whose defects die in `where`: what `self` dies of is recorded as it
- * dies, before its scope releases what it holds, and what the release dies of as it ends. A defect is in the order it
+ * dies, before its scope releases what it holds, and what the release dies of as it ends. The fiber is one the run
+ * forks, so an interruption without the run's mark is a defect too (`Core.byTheRun`), recorded before the release as
+ * a self-interruption is: from it on, the run applies no message. A defect is in the order it
  * happened, though the release of what died first lets another fiber die before it ends. What `self` died of is told
  * from what the release dies of by what this fiber kept of it, never by the register: a release may die with a defect
  * another fiber recorded, handed to the program by whoever runs it, and that is a defect of its own.
@@ -71,14 +105,17 @@ export const scopedIn =
       Effect.flatMap(
         Scope.make(),
         (scope) =>
-          Effect.exit(restore(self.pipe(diesIn(where, details), deaths.recorded, Scope.provide(scope)))).pipe(
+          Effect.exit(
+            restore(self.pipe(diesIn(where, details, undefined, Core.byTheRun), deaths.recorded, Scope.provide(scope)))
+          ).pipe(
             Effect.flatMap((exit) => {
               const own: Cause.Cause<E> = Exit.isFailure(exit) ? exit.cause : Cause.empty
               return Scope.close(scope, exit).pipe(
                 diesIn(
                   where,
                   details,
-                  (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect)
+                  (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),
+                  Core.byTheRun
                 ),
                 deaths.recorded,
                 Effect.exit,
