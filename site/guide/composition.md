@@ -77,8 +77,8 @@ For each child, and for itself, a parent declares what follows. The sections bel
 - **When the child is not there.** In a state where the child's optic focuses nothing, or where its `get` returns
   `None`, the child is not there.
   - A message for a child that is not there is rejected. This holds for a message of the child's view, sent through
-    `forwardTo`, and for the answer of a command, the child's or the parent's own. For children by id, it holds for a
-    message for an id that is not there.
+    `forwardTo`, and for the answer of one of the child's commands. For children by id, it holds for a message for an
+    id that is not there.
   - A message of the child's subscriptions does not reach the parent's `update` once its key is gone: the run drops it
     (see [a message that arrives too late](./rejections-and-defects.md#rules)).
   - An external message that the parent's `update` gives, through `children.About.update`, to a child that is not
@@ -169,13 +169,14 @@ Three more facts hold for children and inputs:
   tag of `string` can be, or as any value, which a message of `unknown` can be;
 - an input that takes the name of a child;
 - an input whose optic, alone or by id, points into a state other than the program's;
-- a subscription of the parent's own that writes into an input;
-- a command's answer that writes into an input, the parent's input or a child's input;
+- a subscription or a command of the parent's own that sends anything but a message of the parent's own: a message for
+  a child, external or not, or a write into an input, the parent's input or a child's input;
 - an external message whose tag can be the name of an input of the program, since it would write into that input;
-- a command's answer that gives a child a message that is the child's own business, not one of its external messages;
 - a child with commands and no `runCommand` (a program written without `Program<…>` can be one).
 
-A command's answer is a message of the parent's own, or an external message of a child.
+The parent's own subscriptions and commands send only the parent's own messages. To tell a child something, the
+parent's `update` or `onEvent` sends it an external message (see
+[events and external messages](./events-and-external-messages.md#external-messages)).
 
 **A function that makes a parent of any program.** You may want a function that takes any program and makes a parent
 of it. Here is what the compiler can check there, and what it cannot.

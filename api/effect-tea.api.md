@@ -92,14 +92,6 @@ type ChildDispatch<Message, Name extends string> = string extends Name ? Readonl
 }> : Dispatch<ChildOf<Message, Name>['message']>;
 
 // @public
-type ChildExternals<C> = {
-    [K in keyof C & string]: Readonly<{
-        _tag: K;
-        message: ExternalOf<ProgramOf<C[K]>>;
-    }> & At<C[K]>;
-}[keyof C & string];
-
-// @public
 type ChildMessages<C> = {
     [K in keyof C & string]: Readonly<{
         _tag: K;
@@ -159,7 +151,7 @@ type CompositionFields = Readonly<{
 }>;
 
 // @public (undocumented)
-type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own | ChildExternals<C>, Ran> & UpdateOf<State, C, Own, OwnCommand | ChildCommands<C>, Event> & NoClash<Own, OwnCommand, C, 'a child'> & NoClash<Own, OwnCommand, I, 'an input'> & NoShared<C, I> & Readonly<{
+type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own, Ran> & UpdateOf<State, C, Own, OwnCommand | ChildCommands<C>, Event> & NoClash<Own, OwnCommand, C, 'a child'> & NoClash<Own, OwnCommand, I, 'an input'> & NoShared<C, I> & Readonly<{
     init: [keyof C] extends [never] ? Init<State, OwnCommand, Flags> : (children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>) => Init<State, OwnCommand | ChildCommands<C>, Flags>;
     children?: C;
     inputs?: I;

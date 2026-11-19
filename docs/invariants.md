@@ -46,9 +46,10 @@ testing tools.
   message, or a parent giving one to a child that is not there, is a defect: a `CompositionDefect`, as every
   break of what a parent declared is (`defectAt` in `compose.ts`), so that reports group them and name the child. The
   types enforce what a parent declares: `runCommand` exactly when it has commands of its own, `onEvent` exactly when a
-  child has events, a handle's `update` only with a child's `external` messages, no own message or command
-  named like a child. A program written without `Program<…>` has `unknown` types, read as `never` (`Known` in
-  `program.ts`), so that it does not open these checks.
+  child has events, a handle's `update` only with a child's `external` messages, which a handle alone sends (an own
+  subscription and an own command send only the parent's own messages, `RunCommandOf` in `compose.ts`), no own message
+  or command named like a child. A program written without `Program<…>` has `unknown` types, read as `never` (`Known`
+  in `program.ts`), so that it does not open these checks.
 - **A write is stored over the value it names, and only what is drawn writes into an input** (`written` in
   `input.ts`, applied in `compose.ts` as an input's program; [`registers.md`](records/registers.md) says why). A write
   is a message of the composed program like any other, so the state stays the fold of `update` over the messages,
@@ -59,9 +60,9 @@ testing tools.
   message by id is, to the place of the id it names (`isById` in `compose.ts`), and is rejected where that place is not
   there. The rule reads the state and the message alone and keeps nothing between two writes, so every other step, the
   parent's own, a child's and what `onEvent` makes of its events, leaves an input as it wrote it, and a reset, an undo
-  by snapshot or a place that comes back cuts no history. A write comes only from a view: an own subscription sends the
-  parent's own messages, and a command answers with its own and its children's external ones (`RunCommandOf` in
-  `compose.ts`), so neither compiles with a write, into the parent's input or a child's. Two limits are declared, not
+  by snapshot or a place that comes back cuts no history. A write comes only from a view: an own subscription and an
+  own command send only the parent's own messages (`RunCommandOf` in `compose.ts`), so neither compiles with a write,
+  into the parent's input or a child's. Two limits are declared, not
   flaws: a write over a value that came back is stored, and a message names a place, so one drawn for an old instance
   reaches the new one. Each check has a mutation (`tools/mutations/mutations.ts`).
 - **The rule of an element is the library's, and the bridges only keep their registry** (`edited` and `drawn` in

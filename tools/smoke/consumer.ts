@@ -146,7 +146,7 @@ make({
   makeModel: () => null,
 })
 
-// So does a command's answer.
+// A parent's own command answers with the parent's own messages, never with a child's, external or not.
 export const loading = program<{ state: State; command: 'Load'; message: ResetAll }>()
 
 loading.make({
@@ -164,7 +164,17 @@ loading.make({
   children: { Main: loading.child(counter, { at: Optic.id<State>().key('main') }) },
   onEvent: { Main: () => (state) => ({ state }) },
   update: (_: ResetAll) => (state: State) => ({ state, commands: ['Load' as const] }),
+  // @ts-expect-error
   runCommand: () => Effect.succeedSome({ _tag: 'Main' as const, message: { _tag: 'Reset' as const } }),
+  makeModel: () => null,
+})
+
+loading.make({
+  init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
+  children: { Main: loading.child(counter, { at: Optic.id<State>().key('main') }) },
+  onEvent: { Main: () => (state) => ({ state }) },
+  update: (_: ResetAll, children) => children.Main.update({ _tag: 'Reset' }),
+  runCommand: () => Effect.succeedSome<ResetAll>({ _tag: 'ResetAll' }),
   makeModel: () => null,
 })
 

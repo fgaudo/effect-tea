@@ -14,10 +14,6 @@ test of it. None is open.
 
 Found in a review of 18 November 2026, each reproduced:
 
-- **A parent's subscriptions cannot send a child's external messages, though its commands can**: `runCommand` answers
-  `Own | ChildExternals<C>`, `subscriptions` only `Own`. Every program can still be written, through an own message
-  and `children.<child>.update`, and both are sources of messages the run handles alike. To decide: allow it, or say
-  in "Composition" why the two differ.
 - **The failure of `drive`'s `patience` carries an `Option` of the model** as its `cause`, not the model: say so where
   the guide describes it, or give the model itself.
 

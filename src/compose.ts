@@ -288,11 +288,6 @@ type ChildMessages<C> = {
   [K in keyof C & string]: Readonly<{ _tag: K; message: MessageOf<ProgramOf<C[K]>> }> & At<C[K]>
 }[keyof C & string]
 
-/** A child's external message, as its parent receives it: what a parent's command may answer for the child. */
-type ChildExternals<C> = {
-  [K in keyof C & string]: Readonly<{ _tag: K; message: ExternalOf<ProgramOf<C[K]>> }> & At<C[K]>
-}[keyof C & string]
-
 /** A child's command, as its parent's interpreter receives it. */
 type ChildCommands<C> = {
   [K in keyof C & string]: [CommandOf<ProgramOf<C[K]>>] extends [never] ? never
@@ -446,7 +441,9 @@ type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never] ? Rea
     /**
      * Runs one of the parent's own commands.
      *
-     * It is required exactly when the parent has commands of its own.
+     * - It is required exactly when the parent has commands of its own.
+     * - It answers with a message of the parent's own. To tell a child something, the parent's `update` or `onEvent`
+     *   sends it an external message.
      *
      * @see The guide, "Composition", "`runCommand`".
      */
@@ -479,9 +476,9 @@ type NoShared<C, I> = [keyof C & keyof I] extends [never] ? unknown
 
 type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> =
   & OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event>
-  // A command's answer is an own message, or one its parent may send a child: never a write into an input, the
-  // parent's or a child's, since only what is drawn writes, nor a child's own message.
-  & RunCommandOf<OwnCommand, Own | ChildExternals<C>, Ran>
+  // A command's answer is an own message, as a subscription's is: a parent talks to a child only from its `update` and
+  // `onEvent`, through the handles, where a rejection is a defect. So no answer writes into an input either.
+  & RunCommandOf<OwnCommand, Own, Ran>
   & UpdateOf<State, C, Own, OwnCommand | ChildCommands<C>, Event>
   & NoClash<Own, OwnCommand, C, 'a child'>
   & NoClash<Own, OwnCommand, I, 'an input'>
@@ -764,7 +761,7 @@ const make = <
       ? (parentState: State, id: unknown) => modelAt({ name, id }, parentState)
       : (parentState: State) => modelAt({ name, id: undefined }, parentState)) as Models<State, C>
   const ownRunCommand = (
-    config as Readonly<{ runCommand?: (command: OwnCommand) => Execution<Own | ChildExternals<C>, unknown> }>
+    config as Readonly<{ runCommand?: (command: OwnCommand) => Execution<Own, unknown> }>
   ).runCommand
   const program = {
     // Without children, `init` is the program's own, as `Program` writes it: a step is never a function, but a

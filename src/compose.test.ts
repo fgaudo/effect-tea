@@ -312,7 +312,7 @@ describe('compose', () => {
     const answer = Effect.runSync(app.runCommand({ _tag: 'Right', command: CounterCommand.Save({ count: 0 }) }))
     expect(answer).toEqual(Opt.some({ _tag: 'Right', message: CounterMessage.Saved() }))
     expect(app.update(Opt.getOrThrow(answer))(app.init.state)).toBe(reject)
-    // An external message too, as the parent's own command may answer: through the handle, it would be a defect.
+    // An external message too, as the child's view may send it: through the handle, it would be a defect.
     expect(app.update({ _tag: 'Right', message: CounterMessage.Cleared() })(app.init.state)).toBe(reject)
   })
 
@@ -1516,7 +1516,7 @@ describe('what the types reject', () => {
     expect(tested.update({ _tag: 'Reset' })(noTicks)).not.toBe(reject)
   })
 
-  test('a command\'s answer gives a child only what its parent may send it', () => {
+  test('a parent\'s own command answers with the parent\'s own messages, never with a child\'s', () => {
     const resettable: Program<{ state: Ticks; model: number; message: Tick | Reset; external: Reset }> = {
       init: { state: noTicks },
       update: (message) => ({ ticks }) => ({ state: { ticks: message._tag === 'Tick' ? ticks + 1 : 0 } }),
@@ -1535,16 +1535,24 @@ describe('what the types reject', () => {
       runCommand: () => Effect.succeedSome({ _tag: 'Counter' as const, message: { _tag: 'Tick' as const } }),
       makeModel: () => null,
     })
-    const tested = make({
+    make({
       init: () => ({ state: noTicks }),
       children,
-      update: (_: 'Loaded') => (state: Ticks) => ({ state, commands: ['Load' as const] }),
+      update: () => (state) => ({ state, commands: ['Load'] }),
+      // @ts-expect-error: `Reset` is an external message, which the parent sends through the handle, from `update`.
       runCommand: () => Effect.succeedSome({ _tag: 'Counter' as const, message: { _tag: 'Reset' as const } }),
       makeModel: () => null,
     })
-    expect(Effect.runSync(tested.runCommand('Load'))).toEqual(
-      Opt.some({ _tag: 'Counter', message: { _tag: 'Reset' } }),
-    )
+    const tested = make({
+      init: () => ({ state: noTicks }),
+      children,
+      update: (_: 'Loaded', children) => (state: Ticks) => children.Counter.update({ _tag: 'Reset' })(state),
+      runCommand: () => Effect.succeedSome('Loaded' as const),
+      makeModel: () => null,
+    })
+    expect(Effect.runSync(tested.runCommand('Load'))).toEqual(Opt.some('Loaded'))
+    const loaded = tested.update('Loaded')({ ticks: 3 })
+    expect(loaded !== reject && loaded.state).toEqual({ ticks: 0 })
   })
 
   test('a parent takes from its own parent, for a child, only what the child may be sent', () => {

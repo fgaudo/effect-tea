@@ -744,7 +744,7 @@ describe('the types of an input', () => {
     })
   })
 
-  test('a command\'s answer cannot write into an input: it is an own message or a child\'s', () => {
+  test('a command\'s answer cannot write into an input: it is an own message', () => {
     const saving = program<{ state: Draft; command: 'Load'; message: 'Loaded' }>()
     saving.make({
       init: { state: draftOf('') },
