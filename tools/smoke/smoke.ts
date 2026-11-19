@@ -17,17 +17,11 @@ import * as ChildProcess from "effect/process/ChildProcess"
 import * as fs from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { exec, Failed, main, root } from "../cli.ts"
+import { exec, Failed, main, root, step } from "../cli.ts"
 
 const readJson = (path: string) => JSON.parse(fs.readFileSync(path, "utf8"))
 
 const scan = (pattern: string, cwd: string) => [...new Glob(pattern).scanSync({ cwd })]
-
-// A process whose output shows as it runs, as a step of the check: one that fails fails the check.
-const step = Effect.fnUntraced(function*(cwd: string, command: string, args: ReadonlyArray<string>) {
-  const { exitCode } = yield* exec(ChildProcess.make(command, args, { cwd, stdout: "inherit", stderr: "inherit" }))
-  if (exitCode !== 0) return yield* new Failed({ message: `${command} ${args.join(" ")} exited with ${exitCode}` })
-})
 
 // What `program`, its functions and `rehearse` give is named, not spelled out: spelled out, it repeats the state for
 // each of its types.

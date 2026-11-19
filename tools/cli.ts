@@ -5,7 +5,7 @@ import * as Command from "effect/cli/Command"
 import * as Console from "effect/Console"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
-import type * as ChildProcess from "effect/process/ChildProcess"
+import * as ChildProcess from "effect/process/ChildProcess"
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner"
 import * as Runtime from "effect/Runtime"
 import * as Stream from "effect/Stream"
@@ -32,6 +32,12 @@ export const exec = Effect.fnUntraced(function*(command: ChildProcess.Command) {
   })
   return { stdout, stderr, exitCode }
 }, Effect.scoped)
+
+// A process whose output shows as it runs, as a step of a tool: one that fails fails the tool.
+export const step = Effect.fnUntraced(function*(cwd: string, command: string, args: ReadonlyArray<string>) {
+  const { exitCode } = yield* exec(ChildProcess.make(command, args, { cwd, stdout: "inherit", stderr: "inherit" }))
+  if (exitCode !== 0) return yield* new Failed({ message: `${command} ${args.join(" ")} exited with ${exitCode}` })
+})
 
 // Runs `command` with the arguments of the process: a `Failed` is printed, and exits with 1.
 export const main = <Name extends string, Input, ContextInput, E>(

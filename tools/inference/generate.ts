@@ -10,23 +10,25 @@
 //
 //   bun run inference [--typescript 5.9,6.0,7.0] [--exact true,false] [--unchecked true,false] [--filter <substring>]
 //     [--scale 1,2,4,8,16,32,64]
-import { $ } from "bun"
-import { existsSync } from "node:fs"
-import { mkdir, rm } from "node:fs/promises"
-import { join } from "node:path"
-import { parseArgs } from "node:util"
+//   bun run inference --help     the same, as the command describes itself
+import * as Command from "effect/cli/Command"
+import * as Flag from "effect/cli/Flag"
+import * as Console from "effect/Console"
+import * as Effect from "effect/Effect"
+import * as Opt from "effect/Option"
+import * as ChildProcess from "effect/process/ChildProcess"
+import * as fs from "node:fs"
+import { dirname, join } from "node:path"
+import { exec, Failed, main, root, step } from "../cli.ts"
 
-const root = join(import.meta.dir, "../..")
 const out = join(root, ".inference")
-const { values } = parseArgs({
-  options: {
-    typescript: { type: "string", default: "5.9,6.0,7.0" },
-    exact: { type: "string", default: "true" },
-    filter: { type: "string" },
-    scale: { type: "string", default: "1,2,4,8,16,32,64" },
-    unchecked: { type: "string", default: "true" }
-  }
-})
+
+const write = (file: string, text: string) => {
+  fs.mkdirSync(dirname(file), { recursive: true })
+  fs.writeFileSync(file, text)
+}
+
+const readJson = (file: string) => JSON.parse(fs.readFileSync(file, "utf8"))
 
 type Name = "model" | "message" | "command" | "event" | "external" | "flags"
 // `message` is named exactly when the program has an `update`: it follows from the form of `update`.
@@ -838,10 +840,6 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
   }
 ]
 
-const filter = values.filter
-const selected = cases.filter((c) => filter === undefined || c.id.includes(filter))
-const selectedHand = handCases.filter((c) => filter === undefined || c.id.includes(filter))
-
 const header = `import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
@@ -859,38 +857,6 @@ import {
 `
 
 type Span = Readonly<{ id: string; file: string; from: number; to: number; valid: Verdict }>
-const spans: Array<Span> = []
-await rm(out, { recursive: true, force: true })
-await mkdir(out, { recursive: true })
-const groups = new Map<string, Array<Readonly<{ id: string; valid: Verdict; body: string }>>>()
-const add = (group: string, member: Readonly<{ id: string; valid: Verdict; body: string }>) =>
-  groups.set(group, [...(groups.get(group) ?? []), member])
-for (const c of selected) {
-  add(c.violation === undefined ? `${c.comp}.${c.update}` : `invalid.${c.comp}`, {
-    id: c.id,
-    valid: verdictOf(c),
-    body: generate(c)
-  })
-}
-for (const c of selectedHand) add("hand", { id: c.id, valid: true, body: generateHand(c) })
-for (const special of specials) {
-  if (filter === undefined || special.id.includes(filter)) add("special", special)
-}
-for (const [group, members] of groups) {
-  const file = `${group}.ts`
-  let text = header
-  let line = header.split("\n").length
-  members.forEach((member, index) => {
-    const block = `\n// ${member.id}\nexport function case${index}() {\n${member.body}\n}\n`
-    const from = line + 1
-    line += block.split("\n").length - 1
-    spans.push({ id: member.id, file, from, to: line, valid: member.valid })
-    text += block
-  })
-  await Bun.write(join(out, file), text)
-}
-const valid = spans.filter((span) => span.valid === true).length
-console.log(`${spans.length} cases (${valid} valid) in ${groups.size} files`)
 
 // A parent with `count` children, each with commands, events, subscriptions and services.
 const scaled = (count: number) => {
@@ -916,27 +882,6 @@ export const parent = make({
 
 export type Message = MessageOf<typeof parent>
 `
-}
-const scale = values.scale.split(",").map(Number)
-for (const count of scale) await Bun.write(join(out, `scale/scale${count}.ts`), scaled(count))
-
-// The TypeScripts, installed apart as `smoke.ts` installs them.
-const typescripts = values.typescript.split(",")
-const tsDir = join(root, "node_modules/.cache/inference-typescripts")
-const missing = typescripts.filter((version) => !existsSync(join(tsDir, `node_modules/typescript-${version}`)))
-if (missing.length > 0) {
-  await mkdir(tsDir, { recursive: true })
-  await Bun.write(
-    join(tsDir, "package.json"),
-    JSON.stringify({
-      name: "inference-typescripts",
-      private: true,
-      dependencies: Object.fromEntries(
-        typescripts.map((version) => [`typescript-${version}`, `npm:typescript@~${version}`])
-      )
-    })
-  )
-  await $`npm install --no-audit --no-fund --loglevel=error`.cwd(tsDir)
 }
 
 const compilerOptions = (exact: boolean, unchecked: boolean) => ({
@@ -965,98 +910,180 @@ const parse = (output: string): Array<Diagnostic> => {
   return diagnostics
 }
 
-// One `tsc` for each file of cases, a few at a time: one program of all of them takes too much memory under 5.9.
-const files = [...groups.keys()].map((group) => `${group}.ts`)
-const report: Record<string, unknown> = {}
-for (
-  const [exact, unchecked] of values.exact.split(",").flatMap((exact) =>
-    values.unchecked.split(",").map((unchecked) => [exact, unchecked] as const)
+// One `tsc` on one file of cases or of the scale, with the options of `config`: what it reports.
+const check = Effect.fnUntraced(function*(tsc: string, config: string, options: object, file: string) {
+  write(join(out, config), JSON.stringify({ compilerOptions: options, files: [file] }))
+  const { stdout } = yield* exec(ChildProcess.make("node", [tsc, "-p", config, "--pretty", "false"], { cwd: out }))
+  return parse(stdout)
+})
+
+const list = (name: string, description: string, fallback: string) =>
+  Flag.String(name).pipe(
+    Flag.withDescription(description),
+    Flag.withDefault(fallback),
+    Flag.map((items) => items.split(","))
   )
-) {
-  for (const version of typescripts) {
-    const tsc = join(tsDir, `node_modules/typescript-${version}/bin/tsc`)
-    const { version: exactVersion } = await Bun.file(join(tsDir, `node_modules/typescript-${version}/package.json`))
-      .json()
-    const started = performance.now()
-    const diagnostics: Array<Diagnostic> = []
-    const queue = [...files]
-    const worker = async () => {
-      for (let file = queue.shift(); file !== undefined; file = queue.shift()) {
-        const config = `tsconfig.${file}.json`
-        await Bun.write(
-          join(out, config),
+
+// The values of an option of the compiler that the matrix takes, each with each value of the others.
+const booleans = (name: string, option: string) =>
+  list(name, `The values of ${option} the cases are checked with: true, false, or both separated by commas`, "true")
+    .pipe(
+      Flag.filter((items) => items.every((item) => item === "true" || item === "false"), () => "true, false, or both"),
+      Flag.map((items) => items.map((item) => item === "true"))
+    )
+
+const command = Command.make(
+  "inference",
+  {
+    typescript: list("typescript", "The versions of TypeScript the cases are checked with", "5.9,6.0,7.0"),
+    exact: booleans("exact", "exactOptionalPropertyTypes"),
+    unchecked: booleans("unchecked", "noUncheckedIndexedAccess"),
+    filter: Flag.String("filter").pipe(
+      Flag.withDescription("Generates only the cases whose id holds this text: all of them when none is given"),
+      Flag.optional
+    ),
+    scale: list("scale", "The numbers of children of the parents of the scale", "1,2,4,8,16,32,64").pipe(
+      Flag.map((counts) => counts.map(Number)),
+      Flag.filter(
+        (counts) => counts.every((count) => Number.isInteger(count) && count >= 1),
+        () => "whole numbers of at least 1"
+      )
+    )
+  },
+  Effect.fnUntraced(
+    function*({ exact: exacts, filter: chosen, scale, typescript: typescripts, unchecked: uncheckeds }) {
+      const filter = Opt.getOrUndefined(chosen)
+      const selected = cases.filter((c) => filter === undefined || c.id.includes(filter))
+      const selectedHand = handCases.filter((c) => filter === undefined || c.id.includes(filter))
+      const spans: Array<Span> = []
+      fs.rmSync(out, { recursive: true, force: true })
+      fs.mkdirSync(out, { recursive: true })
+      const groups = new Map<string, Array<Readonly<{ id: string; valid: Verdict; body: string }>>>()
+      const add = (group: string, member: Readonly<{ id: string; valid: Verdict; body: string }>) =>
+        groups.set(group, [...(groups.get(group) ?? []), member])
+      for (const c of selected) {
+        add(c.violation === undefined ? `${c.comp}.${c.update}` : `invalid.${c.comp}`, {
+          id: c.id,
+          valid: verdictOf(c),
+          body: generate(c)
+        })
+      }
+      for (const c of selectedHand) add("hand", { id: c.id, valid: true, body: generateHand(c) })
+      for (const special of specials) {
+        if (filter === undefined || special.id.includes(filter)) add("special", special)
+      }
+      for (const [group, members] of groups) {
+        const file = `${group}.ts`
+        let text = header
+        let line = header.split("\n").length
+        members.forEach((member, index) => {
+          const block = `\n// ${member.id}\nexport function case${index}() {\n${member.body}\n}\n`
+          const from = line + 1
+          line += block.split("\n").length - 1
+          spans.push({ id: member.id, file, from, to: line, valid: member.valid })
+          text += block
+        })
+        write(join(out, file), text)
+      }
+      const valid = spans.filter((span) => span.valid === true).length
+      yield* Console.log(`${spans.length} cases (${valid} valid) in ${groups.size} files`)
+      for (const count of scale) write(join(out, `scale/scale${count}.ts`), scaled(count))
+      // The TypeScripts, installed apart as `smoke.ts` installs them.
+      const tsDir = join(root, "node_modules/.cache/inference-typescripts")
+      const missing = typescripts.filter((version) => !fs.existsSync(join(tsDir, `node_modules/typescript-${version}`)))
+      if (missing.length > 0) {
+        write(
+          join(tsDir, "package.json"),
           JSON.stringify({
-            compilerOptions: { ...compilerOptions(exact === "true", unchecked === "true"), noEmit: true },
-            files: [file]
+            name: "inference-typescripts",
+            private: true,
+            dependencies: Object.fromEntries(
+              typescripts.map((version) => [`typescript-${version}`, `npm:typescript@~${version}`])
+            )
           })
         )
-        const { stdout } = await $`node ${tsc} -p ${config} --pretty false`.cwd(out).nothrow().quiet()
-        diagnostics.push(...parse(stdout.toString()))
+        yield* step(tsDir, "npm", ["install", "--no-audit", "--no-fund", "--loglevel=error"])
       }
-    }
-    await Promise.all(Array.from({ length: 4 }, worker))
-    const seconds = ((performance.now() - started) / 1000).toFixed(1)
-    const outside = diagnostics.filter((d) =>
-      !spans.some((s) => d.file.endsWith(s.file) && d.line >= s.from && d.line <= s.to)
-    )
-    const wrong: Array<Readonly<{ id: string; why: string; errors: ReadonlyArray<string> }>> = []
-    const notes: Array<Readonly<{ id: string; why: string; errors: ReadonlyArray<string> }>> = []
-    for (const span of spans) {
-      const errors = diagnostics
-        .filter((d) => d.file.endsWith(span.file) && d.line >= span.from && d.line <= span.to)
-        .map((d) => `${d.line - span.from - 1}: ${d.code} ${d.text}`)
-      if (span.valid === "refused") {
-        if (errors.length === 0) notes.push({ id: span.id, why: "refused, but compiles: no rule is broken", errors })
-      } else if (span.valid && errors.length > 0) wrong.push({ id: span.id, why: "valid, but fails", errors })
-      else if (!span.valid && errors.length === 0) wrong.push({ id: span.id, why: "broken, but compiles", errors })
-    }
-    console.log(
-      `typescript ${exactVersion}, exactOptionalPropertyTypes ${exact}, noUncheckedIndexedAccess ${unchecked}: ${seconds}s (4 at a time), ${wrong.length} leads, ${notes.length} notes, ${outside.length} errors outside the cases`
-    )
-    for (const d of outside.slice(0, 10)) console.log(`  outside: ${d.file}(${d.line}): ${d.code} ${d.text}`)
-    for (const w of [...wrong, ...notes].slice(0, 10)) console.log(`  ${w.why}: ${w.id}`)
-    // The scale, one file at a time: the time to check it, and the size of its declarations.
-    const scaleReport: Array<Readonly<{ count: number; seconds: string; declarations: number; errors: number }>> = []
-    for (const count of scale) {
-      const config = `tsconfig.scale${count}.json`
-      const declarations = join(out, `declarations/${version}-${exact}-${unchecked}`)
-      await Bun.write(
-        join(out, config),
-        JSON.stringify({
-          compilerOptions: {
-            ...compilerOptions(exact === "true", unchecked === "true"),
-            declaration: true,
-            emitDeclarationOnly: true,
-            outDir: declarations,
-            rootDir: ".."
-          },
-          files: [`scale/scale${count}.ts`]
-        })
+      // One `tsc` for each file of cases, a few at a time: one program of all of them takes too much memory under 5.9.
+      const files = [...groups.keys()].map((group) => `${group}.ts`)
+      const report: Record<string, unknown> = {}
+      for (const exact of exacts) {
+        for (const unchecked of uncheckeds) {
+          for (const version of typescripts) {
+            const tsc = join(tsDir, `node_modules/typescript-${version}/bin/tsc`)
+            const { version: exactVersion } = readJson(join(tsDir, `node_modules/typescript-${version}/package.json`))
+            const started = performance.now()
+            const options = { ...compilerOptions(exact, unchecked), noEmit: true }
+            const diagnostics = (yield* Effect.forEach(
+              files,
+              (file) => check(tsc, `tsconfig.${file}.json`, options, file),
+              { concurrency: 4 }
+            )).flat()
+            const seconds = ((performance.now() - started) / 1000).toFixed(1)
+            const outside = diagnostics.filter((d) =>
+              !spans.some((s) => d.file.endsWith(s.file) && d.line >= s.from && d.line <= s.to)
+            )
+            const wrong: Array<Readonly<{ id: string; why: string; errors: ReadonlyArray<string> }>> = []
+            const notes: Array<Readonly<{ id: string; why: string; errors: ReadonlyArray<string> }>> = []
+            for (const span of spans) {
+              const errors = diagnostics
+                .filter((d) => d.file.endsWith(span.file) && d.line >= span.from && d.line <= span.to)
+                .map((d) => `${d.line - span.from - 1}: ${d.code} ${d.text}`)
+              if (span.valid === "refused") {
+                if (errors.length === 0) {
+                  notes.push({ id: span.id, why: "refused, but compiles: no rule is broken", errors })
+                }
+              } else if (span.valid && errors.length > 0) wrong.push({ id: span.id, why: "valid, but fails", errors })
+              else if (!span.valid && errors.length === 0) {
+                wrong.push({ id: span.id, why: "broken, but compiles", errors })
+              }
+            }
+            yield* Console.log(
+              `typescript ${exactVersion}, exactOptionalPropertyTypes ${exact}, noUncheckedIndexedAccess ${unchecked}: ${seconds}s (4 at a time), ${wrong.length} leads, ${notes.length} notes, ${outside.length} errors outside the cases`
+            )
+            for (const d of outside.slice(0, 10)) {
+              yield* Console.log(`  outside: ${d.file}(${d.line}): ${d.code} ${d.text}`)
+            }
+            for (const w of [...wrong, ...notes].slice(0, 10)) yield* Console.log(`  ${w.why}: ${w.id}`)
+            // The scale, one file at a time: the time to check it, and the size of its declarations.
+            const scaleReport: Array<
+              Readonly<{ count: number; seconds: string; declarations: number; errors: number }>
+            > = []
+            for (const count of scale) {
+              const declarations = join(out, `declarations/${version}-${exact}-${unchecked}`)
+              const begun = performance.now()
+              const errors = yield* check(tsc, `tsconfig.scale${count}.json`, {
+                ...compilerOptions(exact, unchecked),
+                declaration: true,
+                emitDeclarationOnly: true,
+                outDir: declarations,
+                rootDir: ".."
+              }, `scale/scale${count}.ts`)
+              const took = ((performance.now() - begun) / 1000).toFixed(1)
+              const emitted = join(declarations, `.inference/scale/scale${count}.d.ts`)
+              const size = fs.existsSync(emitted) ? fs.readFileSync(emitted, "utf8").length : -1
+              scaleReport.push({ count, seconds: took, declarations: size, errors: errors.length })
+            }
+            yield* Console.log(
+              `  scale: ${
+                scaleReport.map((s) =>
+                  `${s.count}: ${s.seconds}s ${s.declarations}B${s.errors > 0 ? ` ${s.errors} errors` : ""}`
+                ).join(", ")
+              }`
+            )
+            report[`${exactVersion}/${exact}/${unchecked}`] = { seconds, wrong, notes, outside, scale: scaleReport }
+          }
+        }
+      }
+      write(join(out, "report.json"), JSON.stringify(report, null, 2))
+      yield* Console.log(`report: ${join(out, "report.json")}`)
+      const leads = Object.values(report).reduce(
+        (sum: number, run) => sum + (run as Readonly<{ wrong: ReadonlyArray<unknown> }>).wrong.length,
+        0
       )
-      const begun = performance.now()
-      const { stdout } = await $`node ${tsc} -p ${config} --pretty false`.cwd(out).nothrow().quiet()
-      const took = ((performance.now() - begun) / 1000).toFixed(1)
-      const emitted = join(declarations, `.inference/scale/scale${count}.d.ts`)
-      const size = existsSync(emitted) ? (await Bun.file(emitted).text()).length : -1
-      scaleReport.push({ count, seconds: took, declarations: size, errors: parse(stdout.toString()).length })
+      if (leads > 0) return yield* new Failed({ message: `${leads} leads` })
     }
-    console.log(
-      `  scale: ${
-        scaleReport.map((s) =>
-          `${s.count}: ${s.seconds}s ${s.declarations}B${s.errors > 0 ? ` ${s.errors} errors` : ""}`
-        ).join(", ")
-      }`
-    )
-    report[`${exactVersion}/${exact}/${unchecked}`] = { seconds, wrong, notes, outside, scale: scaleReport }
-  }
-}
-await Bun.write(join(out, "report.json"), JSON.stringify(report, null, 2))
-console.log(`report: ${join(out, "report.json")}`)
-const leads = Object.values(report).reduce(
-  (sum: number, run) => sum + (run as Readonly<{ wrong: ReadonlyArray<unknown> }>).wrong.length,
-  0
+  )
 )
-if (leads > 0) {
-  console.log(`${leads} leads`)
-  process.exitCode = 1
-}
+
+main(command)
