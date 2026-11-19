@@ -29,7 +29,8 @@ is preferred, and the upgrade is the author's call.
 
 ## Upgrading Effect
 
-1. `bun add --dev effect@~4.<minor>.<patch>`, so that `devDependencies` and the lockfile name the new version.
+1. `bun add --dev effect@~4.<minor>.<patch> @effect/platform-bun@~4.<minor>.<patch>`, so that `devDependencies` and
+   the lockfile name the new version.
 2. Set `peerDependencies.effect` to the same tilde range, and the version in the README's "Installation".
 3. Read what changed in Effect's source between the two versions, in the modules the premises of
    `docs/premises.md` name and in the runtime (`internal/effect.ts`); run every test the premises name, which
@@ -48,6 +49,11 @@ is preferred, and the upgrade is the author's call.
 - A module or function marked `@stability unstable` in Effect's declarations may change under the library's
   users: never build on one, not even as an option, and not in the examples either, since users copy them. The
   typecheck fails on one, in the library and in the examples (the Effect language service's `unstableApiUsage`).
+  The tools are the exception that `AGENTS.md` states ("Only stable APIs"): what `tsconfig.json` lists for `tools/`.
+- An upgrade of Effect raises `@effect/platform-bun` to the same version, in the same commit: the tools run on it,
+  and it names the Effect of its own version as its peer. What Effect changed of an unstable module that a tool uses
+  is read in its source, and the tool is fixed in that commit too, until `bun run typecheck` passes and each tool
+  that changed runs as before.
 - Nothing marked `@deprecated`, of any dependency, in the library, its tests or its examples: use what the
   deprecation names instead (fast-check's `waitNext(1)` for `waitOne()`), and replace a use found in passing.
   `bun run lint` warns about one (Oxlint's type-aware `typescript/no-deprecated`). An upgrade that deprecates

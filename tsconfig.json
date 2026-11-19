@@ -8,7 +8,27 @@
         "importAliases": {
           "Array": "Arr",
           "Option": "Opt"
-        }
+        },
+        "overrides": [
+          // The language service's default, which a list of overrides replaces.
+          { "include": ["src/**/*.ts"], "options": { "diagnosticSeverity": { "floatingEffect": "error" } } },
+          // The tools are not packed, and no user copies them: they may build on what Effect marks unstable, as
+          // `AGENTS.md` says ("Only stable APIs"). Not the files that stand for a user's code.
+          {
+            "include": ["tools/**/*.ts"],
+            "exclude": ["tools/smoke/consumer.ts", "tools/inference/prelude.ts"],
+            "options": {
+              "allowedUnstableApis": [
+                "effect/cli",
+                "effect/process",
+                "effect/FileSystem",
+                "effect/Path",
+                "effect/PlatformError",
+                "@effect/platform-bun"
+              ]
+            }
+          }
+        ]
       }
     ],
     "target": "ES2022",

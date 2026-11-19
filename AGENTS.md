@@ -88,7 +88,13 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   under the library's users: never build on one, not even as an option, and not in `examples/` or `bridges/`
   either, since users copy them. The same holds for React's `unstable_` and `experimental_` APIs in the bridges. The
   typecheck fails on one, in the library, the examples and the bridges (the Effect language service's
-  `unstableApiUsage`).
+  `unstableApiUsage`). The tools are the one exception: `tools/` is not packed and no user copies it, so a tool may
+  build on an unstable module of Effect, or on `@effect/platform-bun`, that `tsconfig.json` lists for `tools/` (an
+  `allowedUnstableApis` of its `overrides`), as `effect/cli` for its arguments and `effect/process` for the processes
+  it runs. A module is added to that list when a tool first needs it, and a tool that breaks on an upgrade of Effect
+  is fixed in the same commit (`upgrade-effect`). The files of `tools/` that stand for a user's code
+  (`tools/smoke/consumer.ts`, `tools/inference/prelude.ts`, and the programs the inference and the benchmark write
+  or measure) keep the rule, and so do the tests.
 - **Nothing deprecated.** No module, type, function, method or option marked `@deprecated`, of any dependency,
   in the library, its tests or its examples: use what the deprecation names instead, and replace a use found in
   passing. `bun run lint` fails on one (Oxlint's type-aware `typescript/no-deprecated`).

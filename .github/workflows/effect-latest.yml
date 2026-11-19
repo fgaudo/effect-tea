@@ -24,8 +24,9 @@ jobs:
         with:
           node-version: 24
       - run: bun install --frozen-lockfile
-      # The newest version within the range of `package.json`, which is the peer range.
-      - run: bun update effect
+      # The newest version within the range of `package.json`, which is the peer range, and the same of
+      # `@effect/platform-bun`, which the tools run on.
+      - run: bun update effect @effect/platform-bun
       - run: bun pm ls | grep effect
       - run: bun run typecheck
       # A deprecation a new version adds shows here first.
@@ -82,7 +83,8 @@ jobs:
         timeout-minutes: 45
         run: |
           bun install --frozen-lockfile
-          bun add --dev "effect@${{ steps.newest.outputs.version }}"
+          version=${{ steps.newest.outputs.version }}
+          bun add --dev "effect@$version" "@effect/platform-bun@$version"
           bun pm ls | grep effect
           bun run typecheck
           bun run lint
