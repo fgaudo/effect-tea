@@ -1,6 +1,6 @@
-import * as Arr from 'effect/Array'
-import * as Opt from 'effect/Option'
-import type { Generation } from '../core.ts'
+import * as Arr from "effect/Array"
+import * as Opt from "effect/Option"
+import type { Generation } from "../core.ts"
 
 // What `rehearse` keeps of its commands and of the starts it hears, as pure transitions of data
 // (`docs/records/shared-core.md`, step 5). Several fibers of the test's write it: the shell runs each transition in one
@@ -21,10 +21,10 @@ export type Sent<M> = Readonly<{ message: M; last: boolean }>
  * been heard: it has ended, and sends nothing until its key goes away, which forgets it, and comes back.
  */
 export type Hearing<S, H, W, M> =
-  | Readonly<{ _tag: 'Unheard'; subscription: S }>
-  | Readonly<{ _tag: 'Scripted' }>
+  | Readonly<{ _tag: "Unheard"; subscription: S }>
+  | Readonly<{ _tag: "Scripted" }>
   | Readonly<{
-    _tag: 'Opened'
+    _tag: "Opened"
     handle: H
     waiting: ReadonlyArray<W>
     sent: ReadonlyArray<Sent<M>>
@@ -57,7 +57,7 @@ export const start = <Command, S, H, W, M>(commands: ReadonlyArray<Command>): Le
   taken: 0,
   hearings: new Map(),
   asking: new Set(),
-  calls: new Set(),
+  calls: new Set()
 })
 
 /** The ledger with the commands of a step applied after those pending. */
@@ -73,7 +73,7 @@ export type Taken<Command> = Readonly<{ ticket: Ticket; command: Command }>
  */
 export const take = <Command, S, H, W, M>(
   ledger: Ledger<Command, S, H, W, M>,
-  select: (command: Command) => boolean,
+  select: (command: Command) => boolean
 ): Opt.Option<readonly [Taken<Command>, Ledger<Command, S, H, W, M>]> => {
   const index = ledger.pending.findIndex(select)
   if (index === -1) return Opt.none()
@@ -83,14 +83,14 @@ export const take = <Command, S, H, W, M>(
     ...ledger,
     pending: Arr.remove(ledger.pending, index),
     underWay: new Map([...ledger.underWay, [ticket, command]]),
-    taken: ticket,
+    taken: ticket
   }])
 }
 
 /** The ledger with the command taken under `ticket` among those whose run was interrupted before they answered. */
 export const cancel = <Command, S, H, W, M>(
   ledger: Ledger<Command, S, H, W, M>,
-  ticket: Ticket,
+  ticket: Ticket
 ): Ledger<Command, S, H, W, M> => {
   const command = ledger.underWay.get(ticket)
   return command === undefined ? ledger : { ...ledger, cancelled: [...ledger.cancelled, command] }
@@ -99,7 +99,7 @@ export const cancel = <Command, S, H, W, M>(
 /** The ledger with the command taken under `ticket` no longer under way: it answered, or its run ended otherwise. */
 export const settle = <Command, S, H, W, M>(
   ledger: Ledger<Command, S, H, W, M>,
-  ticket: Ticket,
+  ticket: Ticket
 ): Ledger<Command, S, H, W, M> => {
   if (!ledger.underWay.has(ticket)) return ledger
   const underWay = new Map(ledger.underWay)
@@ -107,12 +107,12 @@ export const settle = <Command, S, H, W, M>(
   return { ...ledger, underWay }
 }
 
-type OpenedOf<S, H, W, M> = Extract<Hearing<S, H, W, M>, { _tag: 'Opened' }>
+type OpenedOf<S, H, W, M> = Extract<Hearing<S, H, W, M>, { _tag: "Opened" }>
 
 const withHearing = <Command, S, H, W, M>(
   ledger: Ledger<Command, S, H, W, M>,
   generation: Generation,
-  hearing: Opt.Option<Hearing<S, H, W, M>>,
+  hearing: Opt.Option<Hearing<S, H, W, M>>
 ): Ledger<Command, S, H, W, M> => {
   const hearings = new Map(ledger.hearings)
   if (Opt.isSome(hearing)) hearings.set(generation, hearing.value)
@@ -129,20 +129,20 @@ const withHearing = <Command, S, H, W, M>(
 export const listened = <Command, S, H, W, M>(
   ledger: Ledger<Command, S, H, W, M>,
   gone: ReadonlyArray<Generation>,
-  fresh: ReadonlyArray<readonly [Generation, S]>,
+  fresh: ReadonlyArray<readonly [Generation, S]>
 ): readonly [ReadonlyArray<H>, ReadonlyArray<W>, Ledger<Command, S, H, W, M>] => {
   const hearings = new Map(ledger.hearings)
   const stopping: Array<H> = []
   const stopped: Array<W> = []
   for (const generation of gone) {
     const hearing = hearings.get(generation)
-    if (hearing?._tag === 'Opened') {
+    if (hearing?._tag === "Opened") {
       stopping.push(hearing.handle)
       stopped.push(...hearing.waiting)
     }
     hearings.delete(generation)
   }
-  for (const [generation, subscription] of fresh) hearings.set(generation, { _tag: 'Unheard', subscription })
+  for (const [generation, subscription] of fresh) hearings.set(generation, { _tag: "Unheard", subscription })
   return [stopping, stopped, { ...ledger, hearings }]
 }
 
@@ -152,17 +152,17 @@ export const listened = <Command, S, H, W, M>(
  */
 export const script = <Command, S, H, W, M>(
   ledger: Ledger<Command, S, H, W, M>,
-  generation: Generation,
+  generation: Generation
 ):
-  | Readonly<{ _tag: 'Scripted'; ledger: Ledger<Command, S, H, W, M> }>
-  | Readonly<{ _tag: 'Opened' }>
-  | Readonly<{ _tag: 'Ended' }> =>
+  | Readonly<{ _tag: "Scripted"; ledger: Ledger<Command, S, H, W, M> }>
+  | Readonly<{ _tag: "Opened" }>
+  | Readonly<{ _tag: "Ended" }> =>
 {
   const hearing = ledger.hearings.get(generation)
-  if (hearing?._tag === 'Opened') return hearing.ended ? { _tag: 'Ended' } : { _tag: 'Opened' }
+  if (hearing?._tag === "Opened") return hearing.ended ? { _tag: "Ended" } : { _tag: "Opened" }
   return {
-    _tag: 'Scripted',
-    ledger: hearing?._tag === 'Scripted' ? ledger : withHearing(ledger, generation, Opt.some({ _tag: 'Scripted' })),
+    _tag: "Scripted",
+    ledger: hearing?._tag === "Scripted" ? ledger : withHearing(ledger, generation, Opt.some({ _tag: "Scripted" }))
   }
 }
 
@@ -172,11 +172,11 @@ export const script = <Command, S, H, W, M>(
  */
 export const enter = <Command, S, H, W, M>(
   ledger: Ledger<Command, S, H, W, M>,
-  call: W,
+  call: W
 ): Ledger<Command, S, H, W, M> => ({
   ...ledger,
   asking: new Set([...ledger.asking, call]),
-  calls: new Set([...ledger.calls, call]),
+  calls: new Set([...ledger.calls, call])
 })
 
 /**
@@ -188,40 +188,40 @@ export const enter = <Command, S, H, W, M>(
 export const opening = <Command, S, H, W, M>(
   ledger: Ledger<Command, S, H, W, M>,
   generation: Generation,
-  call: W,
+  call: W
 ):
-  | Readonly<{ _tag: 'Left' }>
-  | Readonly<{ _tag: 'Open'; subscription: S }>
-  | Readonly<{ _tag: 'Opened'; handle: H }>
-  | Readonly<{ _tag: 'Scripted' }>
-  | Readonly<{ _tag: 'Ended' }>
-  | Readonly<{ _tag: 'Gone' }> =>
+  | Readonly<{ _tag: "Left" }>
+  | Readonly<{ _tag: "Open"; subscription: S }>
+  | Readonly<{ _tag: "Opened"; handle: H }>
+  | Readonly<{ _tag: "Scripted" }>
+  | Readonly<{ _tag: "Ended" }>
+  | Readonly<{ _tag: "Gone" }> =>
 {
-  if (!ledger.asking.has(call)) return { _tag: 'Left' }
+  if (!ledger.asking.has(call)) return { _tag: "Left" }
   const hearing = ledger.hearings.get(generation)
-  if (hearing === undefined) return { _tag: 'Gone' }
+  if (hearing === undefined) return { _tag: "Gone" }
   switch (hearing._tag) {
-    case 'Unheard':
-      return { _tag: 'Open', subscription: hearing.subscription }
-    case 'Scripted':
-      return { _tag: 'Scripted' }
-    case 'Opened':
-      return hearing.ended ? { _tag: 'Ended' } : { _tag: 'Opened', handle: hearing.handle }
+    case "Unheard":
+      return { _tag: "Open", subscription: hearing.subscription }
+    case "Scripted":
+      return { _tag: "Scripted" }
+    case "Opened":
+      return hearing.ended ? { _tag: "Ended" } : { _tag: "Opened", handle: hearing.handle }
   }
 }
 
 /** The ledger with the start `generation` run by `hearNext` under `handle`, no call waiting on it yet. */
 export const open = <Command, S, H, W, M>(ledger: Ledger<Command, S, H, W, M>, generation: Generation, handle: H) =>
-  withHearing(ledger, generation, Opt.some({ _tag: 'Opened', handle, waiting: [], sent: [], asked: 0, ended: false }))
+  withHearing(ledger, generation, Opt.some({ _tag: "Opened", handle, waiting: [], sent: [], asked: 0, ended: false }))
 
 const updateOpened = <Command, S, H, W, M, A>(
   ledger: Ledger<Command, S, H, W, M>,
   generation: Generation,
   otherwise: A,
-  f: (hearing: OpenedOf<S, H, W, M>) => readonly [A, Opt.Option<Hearing<S, H, W, M>>],
+  f: (hearing: OpenedOf<S, H, W, M>) => readonly [A, Opt.Option<Hearing<S, H, W, M>>]
 ): readonly [A, Ledger<Command, S, H, W, M>] => {
   const hearing = ledger.hearings.get(generation)
-  if (hearing?._tag !== 'Opened') return [otherwise, ledger]
+  if (hearing?._tag !== "Opened") return [otherwise, ledger]
   const [result, next] = f(hearing)
   return [result, withHearing(ledger, generation, next)]
 }
@@ -234,7 +234,7 @@ const updateOpened = <Command, S, H, W, M, A>(
 export const ask = <Command, S, H, W, M>(
   ledger: Ledger<Command, S, H, W, M>,
   generation: Generation,
-  call: W,
+  call: W
 ): readonly [boolean, Ledger<Command, S, H, W, M>] => {
   if (!ledger.asking.has(call)) return [false, ledger]
   const asking = new Set(ledger.asking)
@@ -255,7 +255,7 @@ export const ask = <Command, S, H, W, M>(
 export const send = <Command, S, H, W, M>(ledger: Ledger<Command, S, H, W, M>, generation: Generation, sent: Sent<M>) =>
   updateOpened(ledger, generation, undefined, (hearing) => [
     undefined,
-    Opt.some({ ...hearing, sent: [...hearing.sent, sent] }),
+    Opt.some({ ...hearing, sent: [...hearing.sent, sent] })
   ])[1]
 
 /**
@@ -265,12 +265,12 @@ export const send = <Command, S, H, W, M>(ledger: Ledger<Command, S, H, W, M>, g
  */
 export const hear = <Command, S, H, W, M>(
   ledger: Ledger<Command, S, H, W, M>,
-  generation: Generation,
+  generation: Generation
 ): Opt.Option<
   Readonly<{ call: W; sent: Sent<M>; ended: ReadonlyArray<W>; ledger: Ledger<Command, S, H, W, M> }>
 > => {
   const hearing = ledger.hearings.get(generation)
-  if (hearing?._tag !== 'Opened') return Opt.none()
+  if (hearing?._tag !== "Opened") return Opt.none()
   const [call, ...waiting] = hearing.waiting
   const [sent, ...rest] = hearing.sent
   if (call === undefined || sent === undefined) return Opt.none()
@@ -286,9 +286,9 @@ export const hear = <Command, S, H, W, M>(
         waiting: sent.last ? [] : waiting,
         sent: rest,
         asked: hearing.asked - 1,
-        ended: hearing.ended || sent.last,
-      }),
-    ),
+        ended: hearing.ended || sent.last
+      })
+    )
   })
 }
 
@@ -298,7 +298,7 @@ export const hear = <Command, S, H, W, M>(
  */
 export const leave = <Command, S, H, W, M>(
   ledger: Ledger<Command, S, H, W, M>,
-  call: W,
+  call: W
 ): Ledger<Command, S, H, W, M> => {
   const asking = new Set(ledger.asking)
   asking.delete(call)
@@ -306,7 +306,7 @@ export const leave = <Command, S, H, W, M>(
   calls.delete(call)
   const hearings = new Map(ledger.hearings)
   for (const [generation, hearing] of hearings) {
-    if (hearing._tag === 'Opened' && hearing.waiting.includes(call)) {
+    if (hearing._tag === "Opened" && hearing.waiting.includes(call)) {
       hearings.set(generation, { ...hearing, waiting: hearing.waiting.filter((each) => each !== call) })
     }
   }

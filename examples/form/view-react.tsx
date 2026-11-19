@@ -1,7 +1,7 @@
-import { forwardTo } from '@fgaudo/effect-tea'
-import * as Opt from 'effect/Option'
-import type { Message, Model } from './form.ts'
-import { onClick, Shows, type View } from '../../bridges/react.ts'
+import { forwardTo } from "@fgaudo/effect-tea"
+import * as Opt from "effect/Option"
+import { onClick, Shows, type View } from "../../bridges/react.ts"
+import type { Message, Model } from "./form.ts"
 
 // The view of `form/view-snabbdom.ts`, in React: the same model, the same messages.
 export const view: View<Model, Message> = (model, dispatch) => {
@@ -11,16 +11,16 @@ export const view: View<Model, Message> = (model, dispatch) => {
       {/* The same element throughout, as with snabbdom: disabled while saving. */}
       <Shows
         value={model.name}
-        dispatch={forwardTo(dispatch, 'Name')}
-        disabled={editor._tag === 'Saving'}
+        dispatch={forwardTo(dispatch, "Name")}
+        disabled={editor._tag === "Saving"}
         placeholder="A name"
       />
-      {editor._tag === 'Named'
+      {editor._tag === "Named"
         ? <button type="button" onClick={onClick<Message>(editor.save, dispatch)}>Save</button>
-        : <button type="button" disabled>{editor._tag === 'Saving' ? 'Saving…' : 'Save'}</button>}
+        : <button type="button" disabled>{editor._tag === "Saving" ? "Saving…" : "Save"}</button>}
       {Opt.match(model.failed, {
         onNone: () => null,
-        onSome: (name) => <p className="error">Could not save “{name}”: try again.</p>,
+        onSome: (name) => <p className="error">Could not save “{name}”: try again.</p>
       })}
       <ul>
         {model.saved.map((name, index) => (

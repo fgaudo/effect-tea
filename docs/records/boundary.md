@@ -23,16 +23,16 @@ boundary the code has is **the frame**, a model and a dispatch. What follows is 
 
 ## What was done
 
-| Item | What | Commits on `main` |
-| --- | --- | --- |
-| 1 | The contract is of the model, not of the view: the examples' tests read their models, React's `messagesSentBy` is removed and snabbdom's kept as an example, the README says that messages live in the model | `ed9ffd0`, `8c3f2a1`, `495800c`, `89be433` |
-| 2 | The rule on React views is advice on what a view may keep | `858c5f8` |
-| 3 | `dispatchViolations` has the words of what it takes: the messages a model holds | `910b343` |
-| 4 | "Inputs the user types into" keeps the cause and `update`'s rule; the remedy is the examples'. **Reopened** by [`registers.md`](registers.md): the rule is the library's, for an input declared in `compose`, and `examples/field.ts` is gone | `36119ad` |
-| 5 | The bridges' tests are examples' tests, not among the library's five kinds | `87e5e35` |
-| 8 | What a dispatch sends has the origin `'Dispatch'`, and the run's words name a dispatch where they named the view | `9903b9c` |
-| 6 | `View` is no longer exported: each bridge declares the type of its views, `View<Model, Message>` | `18f813b` |
-| 7 | A frame's model is made as the renderer pulls it, and `rehearse` makes the model of each new state as it applies the message | `606b6e9` |
+| Item | What                                                                                                                                                                                                                                          | Commits on `main`                          |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| 1    | The contract is of the model, not of the view: the examples' tests read their models, React's `messagesSentBy` is removed and snabbdom's kept as an example, the README says that messages live in the model                                  | `ed9ffd0`, `8c3f2a1`, `495800c`, `89be433` |
+| 2    | The rule on React views is advice on what a view may keep                                                                                                                                                                                     | `858c5f8`                                  |
+| 3    | `dispatchViolations` has the words of what it takes: the messages a model holds                                                                                                                                                               | `910b343`                                  |
+| 4    | "Inputs the user types into" keeps the cause and `update`'s rule; the remedy is the examples'. **Reopened** by [`registers.md`](registers.md): the rule is the library's, for an input declared in `compose`, and `examples/field.ts` is gone | `36119ad`                                  |
+| 5    | The bridges' tests are examples' tests, not among the library's five kinds                                                                                                                                                                    | `87e5e35`                                  |
+| 8    | What a dispatch sends has the origin `'Dispatch'`, and the run's words name a dispatch where they named the view                                                                                                                              | `9903b9c`                                  |
+| 6    | `View` is no longer exported: each bridge declares the type of its views, `View<Model, Message>`                                                                                                                                              | `18f813b`                                  |
+| 7    | A frame's model is made as the renderer pulls it, and `rehearse` makes the model of each new state as it applies the message                                                                                                                  | `606b6e9`                                  |
 
 What each found that the inventory did not have is in this document as `1d0ccc9` left it ("Item 1, as done",
 "Items 2 to 5, as done"). Three findings bear on what is open:

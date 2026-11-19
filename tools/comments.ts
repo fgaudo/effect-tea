@@ -13,16 +13,16 @@
 // comments that follow it by its name.
 //
 //   bun tools/comments.ts
-import { Glob } from 'bun'
-import { join, relative } from 'node:path'
+import { Glob } from "bun"
+import { join, relative } from "node:path"
 
-const root = join(import.meta.dir, '..')
+const root = join(import.meta.dir, "..")
 const problems: Array<string> = []
 
 const pages = new Map<string, ReadonlyArray<string>>()
-for await (const path of new Glob('site/guide/*.md').scan({ cwd: root })) {
+for await (const path of new Glob("site/guide/*.md").scan({ cwd: root })) {
   const lines = (await Bun.file(join(root, path)).text()).split(/\r?\n/)
-  const title = lines.find((line) => line.startsWith('title: '))?.slice('title: '.length)
+  const title = lines.find((line) => line.startsWith("title: "))?.slice("title: ".length)
   if (title === undefined) problems.push(`${path} has no title.`)
   else pages.set(title, lines)
 }
@@ -33,42 +33,42 @@ const sectionsOf = (lines: ReadonlyArray<string>, title: string) =>
   lines.filter((line) => {
     const [, heading] = /^#{2,6} (.+)$/.exec(line) ?? []
     if (heading !== undefined) return heading === title
-    const [, spaces = '', dash, bold] = /^(\s*)(- )?\*\*(.+?)\*\*/.exec(line) ?? []
-    return bold?.replace(/\.$/, '') === title && (dash !== undefined || spaces === '')
+    const [, spaces = "", dash, bold] = /^(\s*)(- )?\*\*(.+?)\*\*/.exec(line) ?? []
+    return bold?.replace(/\.$/, "") === title && (dash !== undefined || spaces === "")
   }).length
 
 const reference = /^\s*\* @see The guide, "([^"]+)"(?:, "([^"]+)")?\.$/
-for await (const path of new Glob('src/**/*.ts').scan({ cwd: root })) {
+for await (const path of new Glob("src/**/*.ts").scan({ cwd: root })) {
   if (/\.test(_\w+)?\.ts$/.test(path)) continue
   const file = join(root, path)
-  const name = relative(root, file).replaceAll('\\', '/')
+  const name = relative(root, file).replaceAll("\\", "/")
   const lines = (await Bun.file(file).text()).split(/\r?\n/)
   // Whether the last line that is not blank closes a doc comment, and whether one is open.
   let closed = false
   let open = false
   lines.forEach((line, at) => {
     const trimmed = line.trim()
-    if (!open && trimmed.startsWith('/**')) {
+    if (!open && trimmed.startsWith("/**")) {
       if (closed) problems.push(`${name}:${at + 1} is a doc comment right after another: make them one.`)
-      open = !trimmed.includes('*/')
+      open = !trimmed.includes("*/")
       closed = !open
     } else if (open) {
-      if (trimmed.includes('*/')) {
+      if (trimmed.includes("*/")) {
         open = false
         closed = true
       }
-    } else if (trimmed !== '' && !trimmed.startsWith('//')) closed = false
-    if (line.includes('@privateRemarks')) {
+    } else if (trimmed !== "" && !trimmed.startsWith("//")) closed = false
+    if (line.includes("@privateRemarks")) {
       problems.push(`${name}:${at + 1} has \`@privateRemarks\`, which the declarations ship: write a \`//\` comment.`)
     }
-    if (line.includes('fgaudo.github.io/effect-tea/')) {
+    if (line.includes("fgaudo.github.io/effect-tea/")) {
       problems.push(`${name}:${at + 1} links the site, which shows the latest release: name the guide's section.`)
     }
-    if (line.includes('From the guide')) {
+    if (line.includes("From the guide")) {
       problems.push(`${name}:${at + 1} copies the guide: say it in the comment's own words, and name the section.`)
     }
     if (!/@see\b.*\bguide\b/i.test(line)) return
-    const [, page = '', section] = reference.exec(line) ?? []
+    const [, page = "", section] = reference.exec(line) ?? []
     const guide = pages.get(page)
     if (guide === undefined) {
       problems.push(`${name}:${at + 1} names the guide, but not as \`* @see The guide, "<page>", "<section>".\`.`)
@@ -77,21 +77,23 @@ for await (const path of new Glob('src/**/*.ts').scan({ cwd: root })) {
     if (section === undefined) return
     const found = sectionsOf(guide, section)
     if (found !== 1) {
-      problems.push(`${name}:${at + 1}: "${page}", "${section}" is ${found === 0 ? 'not there' : 'there more than once'}.`)
+      problems.push(
+        `${name}:${at + 1}: "${page}", "${section}" is ${found === 0 ? "not there" : "there more than once"}.`
+      )
     }
   })
 }
 // The skill the package ships names the sections of the guide its rules sum up the same way, `The guide, "<page>",
 // "<section>"`, within its prose, where a name may be wrapped onto the next line. Inline code only shows the form.
-for await (const path of new Glob('skills/*/SKILL.md').scan({ cwd: root })) {
-  const name = path.replaceAll('\\', '/')
-  const text = (await Bun.file(join(root, path)).text()).replace(/`[^`\n]*`/g, '``').replace(/\s+/g, ' ')
-  for (const [, page = '', section] of text.matchAll(/The guide, "([^"]+)"(?:, "([^"]+)")?/g)) {
+for await (const path of new Glob("skills/*/SKILL.md").scan({ cwd: root })) {
+  const name = path.replaceAll("\\", "/")
+  const text = (await Bun.file(join(root, path)).text()).replace(/`[^`\n]*`/g, "``").replace(/\s+/g, " ")
+  for (const [, page = "", section] of text.matchAll(/The guide, "([^"]+)"(?:, "([^"]+)")?/g)) {
     const guide = pages.get(page)
     const found = guide === undefined || section === undefined ? 1 : sectionsOf(guide, section)
     if (guide === undefined) problems.push(`${name}: the guide has no page "${page}".`)
     else if (found !== 1) {
-      problems.push(`${name}: "${page}", "${section}" is ${found === 0 ? 'not there' : 'there more than once'}.`)
+      problems.push(`${name}: "${page}", "${section}" is ${found === 0 ? "not there" : "there more than once"}.`)
     }
   }
 }

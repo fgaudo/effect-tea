@@ -1,6 +1,6 @@
-import * as Effect from 'effect/Effect'
-import type { On, VNode } from 'snabbdom'
-import type { View } from './snabbdom.ts'
+import * as Effect from "effect/Effect"
+import type { On, VNode } from "snabbdom"
+import type { View } from "./snabbdom.ts"
 
 type Listener = Extract<NonNullable<On[string]>, (...args: never) => unknown>
 
@@ -16,7 +16,7 @@ type Listener = Extract<NonNullable<On[string]>, (...args: never) => unknown>
  */
 export const messagesSentBy = <Model, Message>(
   view: View<Model, Message>,
-  model: Model,
+  model: Model
 ): ReadonlyArray<Message> => {
   const sent: Array<Message> = []
   // Without a DOM, an event of no element: the handler of `shows` finds none on screen in it.
@@ -27,9 +27,9 @@ export const messagesSentBy = <Model, Message>(
     for (const listener of Array.isArray(listeners) ? listeners : [listeners]) listener.call(node, event, node)
   }
   const visit = (node: VNode | string): void => {
-    if (typeof node === 'string') return
+    if (typeof node === "string") return
     const { fn, args } = (node.data ?? {}) as Readonly<{ fn?: unknown; args?: unknown }>
-    if (typeof fn === 'function' && Array.isArray(args)) {
+    if (typeof fn === "function" && Array.isArray(args)) {
       visit(fn(...args))
       return
     }

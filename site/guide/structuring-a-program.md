@@ -124,12 +124,12 @@ Name intents, not toggles:
 
 ```ts
 // Don't: a toggle, which undoes itself when it is sent twice
-type Toggle = 'MenuToggled'
+type Toggle = "MenuToggled"
 const toggling: Update<Menu, Toggle> = () => ({ open }) => ({ state: { open: !open } })
 
 // Do: intents, which do what they did once when they are sent twice
-type Intent = 'MenuOpened' | 'MenuClosed'
-const opening: Update<Menu, Intent> = (message) => () => ({ state: { open: message === 'MenuOpened' } })
+type Intent = "MenuOpened" | "MenuClosed"
+const opening: Update<Menu, Intent> = (message) => () => ({ state: { open: message === "MenuOpened" } })
 ```
 
 One state machine per concern, no flags:
@@ -151,7 +151,7 @@ A view draws, it never decides:
 ```ts
 // Don't: the view computes a condition from data
 const listView = (model: { items: ReadonlyArray<string> }) =>
-  model.items.length === 0 ? 'Nothing yet' : model.items.join(', ')
+  model.items.length === 0 ? "Nothing yet" : model.items.join(", ")
 
 // Do: makeModel decides, as a case named for the state that the screen tells apart
 type Listing = Data.TaggedEnum<{
@@ -160,7 +160,7 @@ type Listing = Data.TaggedEnum<{
 }>
 
 const makeListing = (items: ReadonlyArray<string>): Listing =>
-  Arr.isReadonlyArrayNonEmpty(items) ? { _tag: 'Listed', items } : { _tag: 'Empty' }
+  Arr.isReadonlyArrayNonEmpty(items) ? { _tag: "Listed", items } : { _tag: "Empty" }
 
-const listingView = (listing: Listing) => listing._tag === 'Empty' ? 'Nothing yet' : listing.items.join(', ')
+const listingView = (listing: Listing) => listing._tag === "Empty" ? "Nothing yet" : listing.items.join(", ")
 ```

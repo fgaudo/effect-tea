@@ -1,14 +1,14 @@
-import { run } from '@fgaudo/effect-tea'
-import * as Cause from 'effect/Cause'
-import * as Effect from 'effect/Effect'
-import * as Queue from 'effect/Queue'
-import * as Stream from 'effect/Stream'
-import { renderInto } from '../../bridges/snabbdom.ts'
-import { view } from './view.ts'
-import { Pointer, volume } from './volume.ts'
+import { run } from "@fgaudo/effect-tea"
+import * as Cause from "effect/Cause"
+import * as Effect from "effect/Effect"
+import * as Queue from "effect/Queue"
+import * as Stream from "effect/Stream"
+import { renderInto } from "../../bridges/snabbdom.ts"
+import { view } from "./view.ts"
+import { Pointer, volume } from "./volume.ts"
 
-const root = document.getElementById('app')
-if (root === null) throw new Error('index.html has no #app element')
+const root = document.getElementById("app")
+if (root === null) throw new Error("index.html has no #app element")
 
 // Whether the pointer is held, and the track it was pressed on: a drag whose subscription starts once the pointer is
 // already released ends at once. A pointer the browser cancels (a gesture it takes over, a lost touch) is released too.
@@ -16,11 +16,11 @@ if (root === null) throw new Error('index.html has no #app element')
 // starts, whenever the run applies that message.
 let held = false
 let pressed: Element | null = null
-document.addEventListener('pointerdown', (event) => {
+document.addEventListener("pointerdown", (event) => {
   held = true
-  pressed = event.target instanceof Element ? event.target.closest('.track') : null
+  pressed = event.target instanceof Element ? event.target.closest(".track") : null
 }, { capture: true })
-for (const released of ['pointerup', 'pointercancel']) {
+for (const released of ["pointerup", "pointercancel"]) {
   document.addEventListener(released, () => {
     held = false
   })
@@ -37,26 +37,26 @@ const pointer = Pointer.of({
           Queue.offerUnsafe(queue, ((event.clientX - left) / width) * 100)
         }
         const release = () => Queue.endUnsafe(queue)
-        document.addEventListener('pointermove', move)
-        document.addEventListener('pointerup', release)
-        document.addEventListener('pointercancel', release)
+        document.addEventListener("pointermove", move)
+        document.addEventListener("pointerup", release)
+        document.addEventListener("pointercancel", release)
         if (!held) release()
         return { move, release }
       }),
       ({ move, release }) =>
         Effect.sync(() => {
-          document.removeEventListener('pointermove', move)
-          document.removeEventListener('pointerup', release)
-          document.removeEventListener('pointercancel', release)
-        }),
+          document.removeEventListener("pointermove", move)
+          document.removeEventListener("pointerup", release)
+          document.removeEventListener("pointercancel", release)
+        })
     )
-  ),
+  )
 })
 
 Effect.runFork(
   run(volume, renderInto(root, view)).pipe(
     Effect.provideService(Pointer, pointer),
     // The failure of a program that dies is reported; an interruption is no crash.
-    Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause))),
-  ),
+    Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause)))
+  )
 )

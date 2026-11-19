@@ -73,15 +73,15 @@ An event reaches a handler by both ways, and the argument that a parent would ta
 the second alone: in the first the parent's `update` is not called, and `onEvent` is the first code of the parent to
 see anything. So the proposal is not refused for that. It is refused for what the first spike showed:
 
-| Case | What happened | What an author expects? |
-| --- | --- | --- |
-| The child raises an event and leaves its state as it is (`pages`) | the message is rejected | yes |
-| The child changes its own state and raises an event (a menu that closes and asks for a page) | the child's change is dropped: the menu stays open | no |
-| Two events, the second handler rejects | what the first handler did is dropped too | consistent, and silent |
-| A grandparent rejects | the grandchild's change is dropped across two levels | as the second |
-| An event from a command's answer, or a subscription's message | ignored as a late answer is; `onIgnored` hears it | yes |
-| The parent's own `update` tells the child | a `CompositionDefect` naming the child | yes |
-| Children by id | as the second | no |
+| Case                                                                                         | What happened                                        | What an author expects? |
+| -------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ----------------------- |
+| The child raises an event and leaves its state as it is (`pages`)                            | the message is rejected                              | yes                     |
+| The child changes its own state and raises an event (a menu that closes and asks for a page) | the child's change is dropped: the menu stays open   | no                      |
+| Two events, the second handler rejects                                                       | what the first handler did is dropped too            | consistent, and silent  |
+| A grandparent rejects                                                                        | the grandchild's change is dropped across two levels | as the second           |
+| An event from a command's answer, or a subscription's message                                | ignored as a late answer is; `onIgnored` hears it    | yes                     |
+| The parent's own `update` tells the child                                                    | a `CompositionDefect` naming the child               | yes                     |
+| Children by id                                                                               | as the second                                        | no                      |
 
 Three things decide it:
 
@@ -123,11 +123,11 @@ Points 3 and 4 are two halves of one rule: a message that does nothing in a stat
 
 `Inert` asks, and `inert` answers, as the tool's other options do:
 
-| The tool asks | The test answers with |
-| --- | --- |
-| "This message acts twice" (`ActsTwice`) | `repeatable`: it is meant to |
+| The tool asks                                                     | The test answers with           |
+| ----------------------------------------------------------------- | ------------------------------- |
+| "This message acts twice" (`ActsTwice`)                           | `repeatable`: it is meant to    |
 | "`update` accepts it, and the model does not hold it" (`Missing`) | `withheld`: withheld on purpose |
-| "The model holds it, and it does nothing" (`Inert`) | `inert`: on purpose |
+| "The model holds it, and it does nothing" (`Inert`)               | `inert`: on purpose             |
 
 A step that does nothing is a mistake when whoever makes the model could tell, from its own state, that it would do
 nothing, and showed the control all the same: a "Save" over a document the parent holds locked, a "Stop all" over an
@@ -222,11 +222,11 @@ or by the port, and are kept as they were asked, with how each was closed.
 
 - **`list` over an empty list.** Whether the example rejects `StopAllClicked` there and gives its model a case for
   it (`Empty | Listed`), which is what the README's rules ask and what `Inert` found, or lists it as `inert` with the
-  case of every stopwatch stopped. *Closed*: `update` rejects it over an empty list, and the model leaves it out as
+  case of every stopwatch stopped. _Closed_: `update` rejects it over an empty list, and the model leaves it out as
   an `Option` ("What was decided").
 - **`rehearse`.** It fails on a `send` that `update` rejects, as a control that does nothing. Whether it fails on one
   whose step does nothing too: the run applies such a message, and `rehearse` follows the run, but the tools are
-  meant to be asked about the same things. *Closed*: it does not ("What was decided").
+  meant to be asked about the same things. _Closed_: it does not ("What was decided").
 - **A key whose message does nothing.** `Inert` is of what a model holds. A subscription has the same mistake, and its
   own way to leave a control out: a state that does not list the key (a "back" button of the device, not listened
   to at the root, is left to the system). A key that is listed and whose message does nothing is found by no tool:
@@ -236,7 +236,7 @@ or by the port, and are kept as they were asked, with how each was closed.
 - **`Field.typed`** built a new field for the text it had, so the same text drew a frame for nothing. Closed by the
   port: a write of the value held leaves the very value ("Since the port").
 - **The comment of `dispatchViolations`** says an instance of a class that does not implement `Equal` compares by
-  reference. The check above found otherwise for one class: to be read again when the file changes. *Closed*: the
+  reference. The check above found otherwise for one class: to be read again when the file changes. _Closed_: the
   comment names functions alone ("What was decided").
 - **An application.** What `Inert` finds in a program larger than the examples, and how many exemptions it asks for,
   is not measured. It decides nothing of the rule, which is judged on the library's own terms, but says what it is

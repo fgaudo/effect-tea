@@ -1,14 +1,14 @@
-import { run } from '@fgaudo/effect-tea'
-import * as Cause from 'effect/Cause'
-import * as Effect from 'effect/Effect'
-import * as Queue from 'effect/Queue'
-import * as Stream from 'effect/Stream'
-import { renderInto } from '../../bridges/snabbdom.ts'
-import { bounce, Screen } from './bounce.ts'
-import { view } from './view.ts'
+import { run } from "@fgaudo/effect-tea"
+import * as Cause from "effect/Cause"
+import * as Effect from "effect/Effect"
+import * as Queue from "effect/Queue"
+import * as Stream from "effect/Stream"
+import { renderInto } from "../../bridges/snabbdom.ts"
+import { bounce, Screen } from "./bounce.ts"
+import { view } from "./view.ts"
 
-const root = document.getElementById('app')
-if (root === null) throw new Error('index.html has no #app element')
+const root = document.getElementById("app")
+if (root === null) throw new Error("index.html has no #app element")
 
 // The instants of the screen's frames, from `requestAnimationFrame`.
 const screen = Screen.of({
@@ -23,15 +23,15 @@ const screen = Screen.of({
         frame.id = requestAnimationFrame(next)
         return frame
       }),
-      (frame) => Effect.sync(() => cancelAnimationFrame(frame.id)),
+      (frame) => Effect.sync(() => cancelAnimationFrame(frame.id))
     )
-  ),
+  )
 })
 
 Effect.runFork(
   run(bounce, renderInto(root, view), { flags: { dt: 1000 / 60 } }).pipe(
     Effect.provideService(Screen, screen),
     // The failure of a program that dies is reported; an interruption is no crash.
-    Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause))),
-  ),
+    Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause)))
+  )
 )

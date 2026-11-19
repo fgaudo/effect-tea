@@ -185,13 +185,13 @@ A draft, to be checked sentence by sentence against the one it replaces:
 
 ### The five tests
 
-| Test under a schedule | What holds its mutation instead |
-| --- | --- |
-| a renderer is not called once a subscription of init has died | nothing: the check goes, and its mutation with it (rule 3) |
-| a run interrupted as it starts the renderer stops it, and keeps its defects | done, step 3: "the run does not stop the renderer", killed by thirteen tests with no schedule |
-| run calls no runCommand once a command has died | done, step 2: a test of the same name with no schedule |
-| model calls no makeModel once a command has died | done, step 1: a test of the same name with no schedule |
-| runAll runs what is pending, though another call takes the last command | none can: `ledger.test.ts` holds that a take finds none on an empty `pending`, which is the check there is |
+| Test under a schedule                                                       | What holds its mutation instead                                                                            |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| a renderer is not called once a subscription of init has died               | nothing: the check goes, and its mutation with it (rule 3)                                                 |
+| a run interrupted as it starts the renderer stops it, and keeps its defects | done, step 3: "the run does not stop the renderer", killed by thirteen tests with no schedule              |
+| run calls no runCommand once a command has died                             | done, step 2: a test of the same name with no schedule                                                     |
+| model calls no makeModel once a command has died                            | done, step 1: a test of the same name with no schedule                                                     |
+| runAll runs what is pending, though another call takes the last command     | none can: `ledger.test.ts` holds that a take finds none on an empty `pending`, which is the check there is |
 
 `src/interleaving.test.ts` kills no mutation, so nothing has to replace it. Each guarantee it checks has
 deterministic tests, of the core or with a gate (`docs/records/shared-core.md`, step 7). What only it does is look for an

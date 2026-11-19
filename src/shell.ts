@@ -1,17 +1,17 @@
-import * as Cause from 'effect/Cause'
-import * as Channel from 'effect/Channel'
-import * as Context from 'effect/Context'
-import * as Deferred from 'effect/Deferred'
-import * as Effect from 'effect/Effect'
-import * as Exit from 'effect/Exit'
-import * as Fiber from 'effect/Fiber'
-import * as Opt from 'effect/Option'
-import * as Pull from 'effect/Pull'
-import * as Scope from 'effect/Scope'
-import * as Tracer from 'effect/Tracer'
-import * as Core from './core.ts'
-import type { DefectSite } from './defect.ts'
-import type { Subscription } from './subscription.ts'
+import * as Cause from "effect/Cause"
+import * as Channel from "effect/Channel"
+import * as Context from "effect/Context"
+import * as Deferred from "effect/Deferred"
+import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
+import * as Fiber from "effect/Fiber"
+import * as Opt from "effect/Option"
+import * as Pull from "effect/Pull"
+import * as Scope from "effect/Scope"
+import * as Tracer from "effect/Tracer"
+import * as Core from "./core.ts"
+import type { DefectSite } from "./defect.ts"
+import type { Subscription } from "./subscription.ts"
 
 // What the run and the testing tools share that has effects, beside what they share as data (`core.ts`): how a fiber
 // of the program is stopped, where its defects die and are recorded, how a subscription runs, and what its fibers see
@@ -37,23 +37,22 @@ export const stopping = <A, E>(fiber: Fiber.Fiber<A, E>): Effect.Effect<void> =>
  * effect are: what a subscription the run stopped dies with while it releases what it holds.
  */
 // The details are made only when there is a defect to carry them: a message is described on every call otherwise.
-export const diesIn =
-  (
-    where: DefectSite,
-    details: () => Readonly<{ key?: unknown; on?: unknown }> = () => ({}),
-    wrapped: (defect: unknown) => boolean = () => false,
-  ) =>
-  <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
-    Effect.uninterruptibleMask((restore) =>
-      restore(self).pipe(
-        Effect.catchCause((cause) =>
-          Effect.exit(Effect.interruptible(Effect.void)).pipe(Effect.flatMap((received) => {
-            const own = Core.otherwiseDefect(cause, Exit.isFailure(received) ? received.cause : Cause.empty)
-            return Effect.failCause(Cause.hasDies(own) ? Core.wrapDefects(own, where, details(), wrapped) : own)
-          }))
-        ),
+export const diesIn = (
+  where: DefectSite,
+  details: () => Readonly<{ key?: unknown; on?: unknown }> = () => ({}),
+  wrapped: (defect: unknown) => boolean = () => false
+) =>
+<A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+  Effect.uninterruptibleMask((restore) =>
+    restore(self).pipe(
+      Effect.catchCause((cause) =>
+        Effect.exit(Effect.interruptible(Effect.void)).pipe(Effect.flatMap((received) => {
+          const own = Core.otherwiseDefect(cause, Exit.isFailure(received) ? received.cause : Cause.empty)
+          return Effect.failCause(Cause.hasDies(own) ? Core.wrapDefects(own, where, details(), wrapped) : own)
+        }))
       )
     )
+  )
 
 /**
  * A scope of its own, for a fiber of the run, whose defects die in `where`: what `self` dies of is recorded as it
@@ -69,24 +68,27 @@ export const scopedIn =
   (deaths: Deaths, where: DefectSite, details?: () => Readonly<{ key?: unknown; on?: unknown }>) =>
   <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, Scope.Scope>> =>
     Effect.uninterruptibleMask((restore) =>
-      Effect.flatMap(Scope.make(), (scope) =>
-        Effect.exit(restore(self.pipe(diesIn(where, details), deaths.recorded, Scope.provide(scope)))).pipe(
-          Effect.flatMap((exit) => {
-            const own: Cause.Cause<E> = Exit.isFailure(exit) ? exit.cause : Cause.empty
-            return Scope.close(scope, exit).pipe(
-              diesIn(
-                where,
-                details,
-                (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),
-              ),
-              deaths.recorded,
-              Effect.exit,
-              Effect.flatMap((closed) =>
-                Exit.isSuccess(closed) ? exit : Effect.failCause(Core.released(own, closed.cause))
-              ),
-            )
-          }),
-        ))
+      Effect.flatMap(
+        Scope.make(),
+        (scope) =>
+          Effect.exit(restore(self.pipe(diesIn(where, details), deaths.recorded, Scope.provide(scope)))).pipe(
+            Effect.flatMap((exit) => {
+              const own: Cause.Cause<E> = Exit.isFailure(exit) ? exit.cause : Cause.empty
+              return Scope.close(scope, exit).pipe(
+                diesIn(
+                  where,
+                  details,
+                  (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect)
+                ),
+                deaths.recorded,
+                Effect.exit,
+                Effect.flatMap((closed) =>
+                  Exit.isSuccess(closed) ? exit : Effect.failCause(Core.released(own, closed.cause))
+                )
+              )
+            })
+          )
+      )
     )
 
 /**
@@ -97,14 +99,14 @@ export const scopedIn =
  */
 export const runSubscription = <Message, R, RS>(
   subscription: Subscription<Message, R>,
-  send: (message: Message) => Effect.Effect<void, never, RS>,
+  send: (message: Message) => Effect.Effect<void, never, RS>
 ): Effect.Effect<Message, never, R | RS | Scope.Scope> =>
   Channel.toPull(subscription).pipe(
     // No yield of its own after each message, which made a pull of messages taken one by one three times slower: the
     // budget of operations of the runtime still yields the fiber (`Scheduler.MaxOpsBeforeYield`), and no invariant
     // rests on either.
     Effect.flatMap((pull) => Effect.forever(Effect.flatMap(pull, send), { disableYield: true })),
-    Pull.catchDone(Effect.succeed),
+    Pull.catchDone(Effect.succeed)
   )
 
 /**
@@ -148,7 +150,7 @@ export const makeDeaths = Effect.fnUntraced(function*(keeps: (defect: unknown) =
       const [dies, after] = Core.report(register)
       register = after
       return Opt.match(dies, { onNone: () => Effect.void, onSome: Effect.failCause })
-    }),
+    })
   } satisfies Deaths
 })
 
@@ -161,7 +163,7 @@ export const makeDeaths = Effect.fnUntraced(function*(keeps: (defect: unknown) =
  */
 export const withExternalSpan = <R>(context: Context.Context<R>): Context.Context<R> => {
   const span = Context.getOrUndefined(context, Tracer.ParentSpan)
-  if (span === undefined || span._tag === 'ExternalSpan') return context
+  if (span === undefined || span._tag === "ExternalSpan") return context
   const { spanId, traceId, sampled } = span
   return Context.add(context, Tracer.ParentSpan, Tracer.externalSpan({ spanId, traceId, sampled }))
 }

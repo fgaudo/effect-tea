@@ -1,10 +1,10 @@
 // A stopwatch that ticks every second while it runs: its subscription exists only in the running state. It
 // asks its parent to be removed with an event, and its parent may halt it, in any state.
-import { defect, program, reject, type Subscription, type Update } from '@fgaudo/effect-tea'
-import * as Channel from 'effect/Channel'
-import * as Data from 'effect/Data'
-import * as Effect from 'effect/Effect'
-import * as HashMap from 'effect/HashMap'
+import { defect, program, reject, type Subscription, type Update } from "@fgaudo/effect-tea"
+import * as Channel from "effect/Channel"
+import * as Data from "effect/Data"
+import * as Effect from "effect/Effect"
+import * as HashMap from "effect/HashMap"
 
 export type Watch = Data.TaggedEnum<{ Running: object; Stopped: object }>
 
@@ -23,33 +23,33 @@ export type Message = Data.TaggedEnum<{
 // Not exported, as the guide's "Model" says: a view sends only the messages its model holds, and builds none.
 const Message = Data.taggedEnum<Message>()
 
-export type Event = Readonly<{ _tag: 'RemoveRequested' }>
+export type Event = Readonly<{ _tag: "RemoveRequested" }>
 
-export type External = Data.TaggedEnum.Value<Message, 'Halted'>
+export type External = Data.TaggedEnum.Value<Message, "Halted">
 
 export const update: Update<State, Message, never, Event> = (message) => (state) => {
   switch (message._tag) {
-    case 'Started':
-      return state.watch._tag === 'Running' ? reject : { state: { ...state, watch: Watch.Running() } }
-    case 'Stopped':
-      return state.watch._tag === 'Running' ? { state: { ...state, watch: Watch.Stopped() } } : reject
+    case "Started":
+      return state.watch._tag === "Running" ? reject : { state: { ...state, watch: Watch.Running() } }
+    case "Stopped":
+      return state.watch._tag === "Running" ? { state: { ...state, watch: Watch.Stopped() } } : reject
     // A tick arrives only while running: stopping interrupts the subscription and drops what it sent. One
     // anywhere else is a bug, and the run dies with it.
-    case 'Ticked':
-      return state.watch._tag === 'Running'
+    case "Ticked":
+      return state.watch._tag === "Running"
         ? { state: { ...state, seconds: state.seconds + 1 } }
-        : defect('A tick while the stopwatch was stopped')
-    case 'RemoveClicked':
-      return { state, events: [{ _tag: 'RemoveRequested' }] }
-    case 'Halted':
-      return { state: state.watch._tag === 'Running' ? { ...state, watch: Watch.Stopped() } : state }
+        : defect("A tick while the stopwatch was stopped")
+    case "RemoveClicked":
+      return { state, events: [{ _tag: "RemoveRequested" }] }
+    case "Halted":
+      return { state: state.watch._tag === "Running" ? { ...state, watch: Watch.Stopped() } : state }
   }
 }
 
 const ticks: Subscription<Message> = Channel.forever(
-  Channel.fromEffectDrain(Effect.sleep('1 second')).pipe(
-    Channel.concatWith(() => Channel.succeed(Message.Ticked())),
-  ),
+  Channel.fromEffectDrain(Effect.sleep("1 second")).pipe(
+    Channel.concatWith(() => Channel.succeed(Message.Ticked()))
+  )
 )
 
 export type Model = Readonly<{
@@ -70,12 +70,12 @@ export const stopwatch = program<{
 }>().make({
   init: { state: { seconds: 0, watch: Watch.Stopped() } },
   update,
-  subscriptions: (state) => state.watch._tag === 'Running' ? HashMap.make(['ticks', ticks]) : HashMap.empty(),
+  subscriptions: (state) => state.watch._tag === "Running" ? HashMap.make(["ticks", ticks]) : HashMap.empty(),
   makeModel: (state) => ({
     seconds: state.seconds,
     remove: Message.RemoveClicked(),
-    watch: state.watch._tag === 'Running'
-      ? { _tag: 'Running', stop: Message.Stopped() }
-      : { _tag: 'Stopped', start: Message.Started() },
-  }),
+    watch: state.watch._tag === "Running"
+      ? { _tag: "Running", stop: Message.Stopped() }
+      : { _tag: "Stopped", start: Message.Started() }
+  })
 })

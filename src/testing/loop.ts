@@ -1,8 +1,8 @@
-import * as Deferred from 'effect/Deferred'
-import * as Effect from 'effect/Effect'
-import * as Queue from 'effect/Queue'
-import type * as Scope from 'effect/Scope'
-import { stopping } from '../shell.ts'
+import * as Deferred from "effect/Deferred"
+import * as Effect from "effect/Effect"
+import * as Queue from "effect/Queue"
+import type * as Scope from "effect/Scope"
+import { stopping } from "../shell.ts"
 
 /**
  * One fiber that runs the steps it is offered one at a time, in the order they were offered, as the run's loop takes
@@ -17,7 +17,7 @@ export type Loop = Readonly<{
    */
   submit: <A, RA>(
     step: Effect.Effect<A, never, RA>,
-    options?: Readonly<{ offered?: () => void; quiet?: boolean }>,
+    options?: Readonly<{ offered?: () => void; quiet?: boolean }>
   ) => Effect.Effect<Deferred.Deferred<A>, never, RA>
   /** Offers `step` and waits for its result. */
   ask: <A, RA>(step: Effect.Effect<A, never, RA>) => Effect.Effect<A, never, RA>
@@ -40,39 +40,46 @@ type Request = Readonly<{ step: Effect.Effect<unknown>; done: Deferred.Deferred<
 /** Forks the loop in `forks`; each step runs as `wrap` makes it. */
 export const make = Effect.fnUntraced(function*(
   forks: Scope.Scope,
-  wrap: (step: Effect.Effect<unknown>) => Effect.Effect<unknown>,
+  wrap: (step: Effect.Effect<unknown>) => Effect.Effect<unknown>
 ) {
   const requests = yield* Queue.unbounded<Request>()
   const undelivered = new Set<Deferred.Deferred<unknown>>()
   let ended = false
   const loop = yield* Queue.take(requests).pipe(
     Effect.flatMap(({ step, done }) =>
-      Effect.flatMap(Effect.exit(wrap(step)), (exit) =>
-        Effect.andThen(Deferred.done(done, exit), Effect.sync(() => undelivered.delete(done))))
+      Effect.flatMap(
+        Effect.exit(wrap(step)),
+        (exit) => Effect.andThen(Deferred.done(done, exit), Effect.sync(() => undelivered.delete(done)))
+      )
     ),
     Effect.forever,
-    Effect.forkIn(forks),
+    Effect.forkIn(forks)
   )
   // The check and the offer are one thunk, so that nothing is offered once the end is marked, and `offered` is in it
   // too.
   const submit = <A, RA>(
     step: Effect.Effect<A, never, RA>,
-    { offered, quiet = false }: Readonly<{ offered?: () => void; quiet?: boolean }> = {},
+    { offered, quiet = false }: Readonly<{ offered?: () => void; quiet?: boolean }> = {}
   ) =>
-    Effect.flatMap(Effect.context<RA>(), (context) =>
-      Effect.flatMap(Deferred.make<unknown>(), (done) =>
-        Effect.suspend(() => {
-          undelivered.add(done)
-          if (!ended && Queue.offerUnsafe(requests, { step: Effect.provideContext(step, context), done })) {
-            offered?.()
-            return Effect.succeed(done as Deferred.Deferred<A>)
-          }
-          undelivered.delete(done)
-          return quiet ? Effect.never : Effect.interrupt
-        })))
+    Effect.flatMap(
+      Effect.context<RA>(),
+      (context) =>
+        Effect.flatMap(Deferred.make<unknown>(), (done) =>
+          Effect.suspend(() => {
+            undelivered.add(done)
+            if (!ended && Queue.offerUnsafe(requests, { step: Effect.provideContext(step, context), done })) {
+              offered?.()
+              return Effect.succeed(done as Deferred.Deferred<A>)
+            }
+            undelivered.delete(done)
+            return quiet ? Effect.never : Effect.interrupt
+          }))
+    )
   // The queue gives its items in order, so the loop has done them all once it has done this one.
-  const finish = Effect.flatMap(Deferred.make<unknown>(), (done) =>
-    Effect.andThen(Queue.offer(requests, { step: Effect.void, done }), Deferred.await(done)))
+  const finish = Effect.flatMap(
+    Deferred.make<unknown>(),
+    (done) => Effect.andThen(Queue.offer(requests, { step: Effect.void, done }), Deferred.await(done))
+  )
   // Stopped as the run stops each fiber of the program, with its mark, though the loop calls the program only in
   // synchronous thunks, where no interruption of the program's can meet it.
   const stop = Effect.gen(function*() {
@@ -87,6 +94,6 @@ export const make = Effect.fnUntraced(function*(
     },
     ended: () => ended,
     finish,
-    stop,
+    stop
   } satisfies Loop as Loop
 })

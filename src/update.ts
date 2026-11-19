@@ -1,5 +1,5 @@
-import * as Arr from 'effect/Array'
-import { dual } from 'effect/Function'
+import * as Arr from "effect/Array"
+import { dual } from "effect/Function"
 
 /**
  * What a message does to a state: the next state, and what to do and to tell.
@@ -42,7 +42,7 @@ export type Step<State, Command = never, Event = never> = {
  *
  * @see The guide, "Guarantees", "Outdated clicks are harmless".
  */
-export const reject: unique symbol = Symbol.for('@fgaudo/effect-tea/Rejected')
+export const reject: unique symbol = Symbol.for("@fgaudo/effect-tea/Rejected")
 /**
  * The type of `reject`, which has no other value.
  *
@@ -94,11 +94,11 @@ export type Folded<State, Command, Event> = {
  */
 export const appendStep = <State, Command, Event>(
   folded: Folded<State, Command, Event>,
-  step: Step<State, Command, Event>,
+  step: Step<State, Command, Event>
 ): Folded<State, Command, Event> => ({
   state: step.state,
   commands: step.commands === undefined ? folded.commands : [...folded.commands, ...step.commands],
-  events: step.events === undefined ? folded.events : [...folded.events, ...step.events],
+  events: step.events === undefined ? folded.events : [...folded.events, ...step.events]
 })
 
 /**
@@ -123,24 +123,24 @@ export const appendStep = <State, Command, Event>(
  */
 export const andThen: {
   <State, Command2 = never, Event2 = never>(
-    next: (state: State) => Step<State, Command2, Event2>,
+    next: (state: State) => Step<State, Command2, Event2>
   ): <Command1 = never, Event1 = never>(
-    step: Step<State, Command1, Event1>,
+    step: Step<State, Command1, Event1>
   ) => Folded<State, Command1 | Command2, Event1 | Event2>
   <State, Command1 = never, Event1 = never, Command2 = never, Event2 = never>(
     step: Step<State, Command1, Event1>,
-    next: (state: State) => Step<State, Command2, Event2>,
+    next: (state: State) => Step<State, Command2, Event2>
   ): Folded<State, Command1 | Command2, Event1 | Event2>
 } = dual(
   2,
   <State, Command1, Event1, Command2, Event2>(
     step: Step<State, Command1, Event1>,
-    next: (state: State) => Step<State, Command2, Event2>,
+    next: (state: State) => Step<State, Command2, Event2>
   ): Folded<State, Command1 | Command2, Event1 | Event2> =>
     appendStep<State, Command1 | Command2, Event1 | Event2>(
       { state: step.state, commands: step.commands ?? [], events: step.events ?? [] },
-      next(step.state),
-    ),
+      next(step.state)
+    )
 )
 
 /**
@@ -167,29 +167,29 @@ export const andThen: {
 export const forEach: {
   <Item, State, Command2 = never, Event2 = never>(
     items: Iterable<Item>,
-    next: (item: Item) => (state: State) => Step<State, Command2, Event2>,
+    next: (item: Item) => (state: State) => Step<State, Command2, Event2>
   ): <Command1 = never, Event1 = never>(
-    step: Step<State, Command1, Event1>,
+    step: Step<State, Command1, Event1>
   ) => Folded<State, Command1 | Command2, Event1 | Event2>
   <State, Item, Command1 = never, Event1 = never, Command2 = never, Event2 = never>(
     step: Step<State, Command1, Event1>,
     items: Iterable<Item>,
-    next: (item: Item) => (state: State) => Step<State, Command2, Event2>,
+    next: (item: Item) => (state: State) => Step<State, Command2, Event2>
   ): Folded<State, Command1 | Command2, Event1 | Event2>
 } = dual(
   3,
   <State, Item, Command1, Event1, Command2, Event2>(
     step: Step<State, Command1, Event1>,
     items: Iterable<Item>,
-    next: (item: Item) => (state: State) => Step<State, Command2, Event2>,
+    next: (item: Item) => (state: State) => Step<State, Command2, Event2>
   ): Folded<State, Command1 | Command2, Event1 | Event2> => {
     const first: Folded<State, Command1 | Command2, Event1 | Event2> = {
       state: step.state,
       commands: step.commands ?? [],
-      events: step.events ?? [],
+      events: step.events ?? []
     }
     return Arr.reduce(items, first, (folded, item) => appendStep(folded, next(item)(folded.state)))
-  },
+  }
 )
 
 /**
@@ -213,5 +213,5 @@ export const forEach: {
  * @see The guide, "Update", "Never mutate the state".
  */
 export type Update<State, Message, Command = never, Event = never> = (
-  message: Message,
+  message: Message
 ) => (state: State) => Transition<State, Command, Event>

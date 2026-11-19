@@ -13,47 +13,49 @@
 // mutation at a time, so the mutations run apart, and what each did is printed in the order of the list, once a killer
 // that passed under its mutation has run again with no other copy running. A run
 // stopped by SIGINT or SIGTERM ends the tests under way and removes its copies too.
-import * as fs from 'node:fs'
-import * as os from 'node:os'
-import * as path from 'node:path'
-import { type Mutation, mutations } from './mutations.ts'
+import * as fs from "node:fs"
+import * as os from "node:os"
+import * as path from "node:path"
+import { type Mutation, mutations } from "./mutations.ts"
 
-const root = path.resolve(import.meta.dir, '../..')
+const root = path.resolve(import.meta.dir, "../..")
 // One for each process, so that several can run at once.
-const base = path.join(root, '.mutants', String(process.pid))
-const copied = ['src', 'test', 'examples', 'bridges', 'bunfig.toml', 'package.json', 'tsconfig.json']
+const base = path.join(root, ".mutants", String(process.pid))
+const copied = ["src", "test", "examples", "bridges", "bunfig.toml", "package.json", "tsconfig.json"]
 
 // `title` is what `bun test -t` matches: the names of the enclosing `describe`s, outermost first, and the test's,
 // joined by spaces.
 type Outcome = Readonly<{ file: string; name: string; title: string; failed: boolean }>
 
-type Killer = Mutation['killedBy'][number]
+type Killer = Mutation["killedBy"][number]
 
-type Verdict = 'passed' | 'failed' | 'hung'
+type Verdict = "passed" | "failed" | "hung"
 
 const decode = (text: string) =>
-  text.replace(/&(quot|apos|lt|gt|amp);/g, (_, entity: string) =>
-    ({ quot: '"', apos: "'", lt: '<', gt: '>', amp: '&' })[entity] as string)
+  text.replace(
+    /&(quot|apos|lt|gt|amp);/g,
+    (_, entity: string) => ({ quot: "\"", apos: "'", lt: "<", gt: ">", amp: "&" })[entity] as string
+  )
 
 const attributes = (text: string) =>
-  Object.fromEntries(Array.from(text.matchAll(/(\w+)="([^"]*)"/g), ([, key, value]) => [key, decode(value ?? '')]))
+  Object.fromEntries(Array.from(text.matchAll(/(\w+)="([^"]*)"/g), ([, key, value]) => [key, decode(value ?? "")]))
 
 // What bun's JUnit report says of each test that ran: skipped and `todo` tests are left out. Its `classname` lists
 // the enclosing `describe`s innermost first, joined by ' > '.
 const outcomes = (report: string): ReadonlyArray<Outcome> =>
   Array.from(report.matchAll(/<testcase\s([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/g)).flatMap(([, head, body]) => {
-    if (body?.includes('<skipped')) return []
-    const { name = '', file = '', classname = '' } = attributes(head ?? '')
-    const describes = classname === '' ? [] : classname.split(' > ').reverse()
+    if (body?.includes("<skipped")) return []
+    const { name = "", file = "", classname = "" } = attributes(head ?? "")
+    const describes = classname === "" ? [] : classname.split(" > ").reverse()
     return [{
-      file: file.replaceAll('\\', '/'),
+      file: file.replaceAll("\\", "/"),
       name,
-      title: [...describes, name].join(' '),
-      failed: body?.includes('<failure') ?? false,
+      title: [...describes, name].join(" "),
+      failed: body?.includes("<failure") ?? false
     }]
   })
 
-const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
 // No test takes more than a minute: a process that lasts longer hangs, which no report says of its test.
 const patience = 60 * 1000
@@ -79,32 +81,32 @@ const stopped = async (signal: NodeJS.Signals) => {
   process.exit(128 + os.constants.signals[signal])
 }
 
-for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, stopped)
+for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, stopped)
 
 // Runs `files` in `copy`, only the test whose title is `title` when given, and returns what each did, or that it hung.
 const runTests = async (
   copy: string,
   files: ReadonlyArray<string>,
-  title?: string,
-): Promise<ReadonlyArray<Outcome> | 'hung'> => {
+  title?: string
+): Promise<ReadonlyArray<Outcome> | "hung"> => {
   // One for each run, so that two runs never read each other's.
   const report = path.join(copy, `report-${reports++}.xml`)
   // Anchored, since `-t` runs every test whose title the pattern finds anywhere in it.
-  const filter = title === undefined ? [] : ['-t', `^${escape(title)}$`]
+  const filter = title === undefined ? [] : ["-t", `^${escape(title)}$`]
   const started = performance.now()
-  const run = Bun.spawn(['bun', 'test', ...files, ...filter, '--reporter=junit', `--reporter-outfile=${report}`], {
+  const run = Bun.spawn(["bun", "test", ...files, ...filter, "--reporter=junit", `--reporter-outfile=${report}`], {
     cwd: copy,
-    stdout: 'ignore',
-    stderr: 'pipe',
-    timeout: patience,
+    stdout: "ignore",
+    stderr: "pipe",
+    timeout: patience
   })
   running.add(run)
   const [stderr] = await Promise.all([new Response(run.stderr).text(), run.exited])
   running.delete(run)
   // Only `timeout` ends a run this late.
-  if (performance.now() - started >= patience) return 'hung'
+  if (performance.now() - started >= patience) return "hung"
   if (!fs.existsSync(report)) throw new Error(`bun test wrote no report (exit ${run.exitCode}):\n${stderr}`)
-  const ran = outcomes(fs.readFileSync(report, 'utf8'))
+  const ran = outcomes(fs.readFileSync(report, "utf8"))
   fs.rmSync(report)
   return ran
 }
@@ -116,7 +118,7 @@ const pool = async <A, B>(
   copies: ReadonlyArray<string>,
   items: ReadonlyArray<A>,
   f: (copy: string, item: A) => Promise<B>,
-  emit: (result: B, index: number) => void = () => {},
+  emit: (result: B, index: number) => void = () => {}
 ): Promise<void> => {
   const results: Array<B> = []
   const settled: Array<boolean> = []
@@ -140,7 +142,7 @@ const pool = async <A, B>(
     }
   }
   const ended = await Promise.allSettled(copies.slice(0, items.length).map(work))
-  const rejected = ended.find((outcome) => outcome.status === 'rejected')
+  const rejected = ended.find((outcome) => outcome.status === "rejected")
   if (rejected !== undefined) throw rejected.reason
 }
 
@@ -152,7 +154,7 @@ const describe = ([file, name]: Killer) => `${file} › ${name}`
 const titlesOf = async (copy: string, chosen: ReadonlyArray<Mutation>): Promise<ReadonlyMap<string, string>> => {
   const killers = chosen.flatMap((mutation) => mutation.killedBy)
   const ran = await runTests(copy, [...new Set(killers.map(([file]) => file))])
-  if (ran === 'hung') throw new Error('The files of the tests hang without any mutation')
+  if (ran === "hung") throw new Error("The files of the tests hang without any mutation")
   const titles = new Map<string, string>()
   for (const mutation of chosen) {
     for (const killer of mutation.killedBy) {
@@ -174,11 +176,11 @@ const titlesOf = async (copy: string, chosen: ReadonlyArray<Mutation>): Promise<
 const alone = async (copy: string, titles: ReadonlyMap<string, string>, killer: Killer): Promise<Verdict> => {
   const title = titles.get(describe(killer)) as string
   const ran = await runTests(copy, [killer[0]], title)
-  if (ran === 'hung') return 'hung'
+  if (ran === "hung") return "hung"
   if (ran.length !== 1 || (ran[0] as Outcome).title !== title) {
     throw new Error(`A run of ${describe(killer)} alone ran ${ran.length} tests`)
   }
-  return (ran[0] as Outcome).failed ? 'failed' : 'passed'
+  return (ran[0] as Outcome).failed ? "failed" : "passed"
 }
 
 // The mutated text of `mutation`'s file: `from` must occur exactly once, so that a change of the code is noticed.
@@ -192,7 +194,7 @@ const mutated = (mutation: Mutation, original: string) => {
 
 const under = async <A>(copy: string, mutation: Mutation, f: () => Promise<A>): Promise<A> => {
   const file = path.join(copy, mutation.file)
-  const original = fs.readFileSync(file, 'utf8')
+  const original = fs.readFileSync(file, "utf8")
   fs.writeFileSync(file, mutated(mutation, original))
   try {
     return await f()
@@ -202,19 +204,19 @@ const under = async <A>(copy: string, mutation: Mutation, f: () => Promise<A>): 
 }
 
 const args = process.argv.slice(2)
-const discover = args.includes('--discover')
-const jobsArg = args.find((arg) => arg.startsWith('--jobs='))
+const discover = args.includes("--discover")
+const jobsArg = args.find((arg) => arg.startsWith("--jobs="))
 const jobs = jobsArg === undefined
   ? Math.max(1, Math.floor(os.availableParallelism() / 2))
-  : Number(jobsArg.slice('--jobs='.length))
+  : Number(jobsArg.slice("--jobs=".length))
 if (!Number.isInteger(jobs) || jobs < 1) throw new Error(`${jobsArg} names no number of jobs`)
-const wanted = args.filter((arg) => arg !== '--discover' && arg !== jobsArg)
+const wanted = args.filter((arg) => arg !== "--discover" && arg !== jobsArg)
 const chosen = wanted.length === 0
   ? mutations
   : mutations.filter((mutation) => wanted.some((name) => mutation.name.includes(name)))
-if (chosen.length === 0) throw new Error(`No mutation is named like ${wanted.join(', ')}`)
+if (chosen.length === 0) throw new Error(`No mutation is named like ${wanted.join(", ")}`)
 const names = new Set(mutations.map((mutation) => mutation.name))
-if (names.size !== mutations.length) throw new Error('Two mutations have the same name')
+if (names.size !== mutations.length) throw new Error("Two mutations have the same name")
 const unheld = chosen.find((mutation) => mutation.killedBy.length === 0)
 if (!discover && unheld !== undefined) throw new Error(`"${unheld.name}" names no test that must fail under it`)
 
@@ -227,10 +229,10 @@ try {
   if (discover) {
     // The suite of `bun run test`: the search of the histories lasts longer than a test may, and names no killer.
     const suite = (copy: string, mutation: Mutation) =>
-      under(copy, mutation, () => runTests(copy, ['--path-ignore-patterns=src/interleaving.test.ts']))
+      under(copy, mutation, () => runTests(copy, ["--path-ignore-patterns=src/interleaving.test.ts"]))
     await pool(copies, chosen, suite, (ran, index) => {
       const { name } = chosen[index] as Mutation
-      if (ran === 'hung') {
+      if (ran === "hung") {
         console.log(`\n${name}: the suite hangs under it`)
         return
       }
@@ -244,7 +246,7 @@ try {
     const killers = new Map(chosen.flatMap((mutation) => mutation.killedBy.map((killer) => [describe(killer), killer])))
     await pool(copies, [...killers.values()], async (copy, killer) => {
       const outcome = await alone(copy, titles, killer)
-      if (outcome !== 'passed') throw new Error(`${describe(killer)} ${outcome} alone without any mutation`)
+      if (outcome !== "passed") throw new Error(`${describe(killer)} ${outcome} alone without any mutation`)
     })
     const killedIn = async (copy: string, mutation: Mutation) => {
       const started = performance.now()
@@ -264,7 +266,7 @@ try {
     // killers of a check no test notices pass again, so this keeps every survivor.
     const again = new Map<number, ReadonlyArray<Killer>>()
     for (const [index, { ran }] of results.entries()) {
-      const passed = ran.filter(([, outcome]) => outcome === 'passed').map(([killer]) => killer)
+      const passed = ran.filter(([, outcome]) => outcome === "passed").map(([killer]) => killer)
       if (passed.length === 0) continue
       const copy = copies[0] as string
       const mutation = chosen[index] as Mutation
@@ -273,13 +275,13 @@ try {
         for (const killer of passed) verdicts.push([killer, await alone(copy, titles, killer)])
         return verdicts
       })
-      again.set(index, verdicts.filter(([, outcome]) => outcome !== 'passed').map(([killer]) => killer))
+      again.set(index, verdicts.filter(([, outcome]) => outcome !== "passed").map(([killer]) => killer))
     }
     for (const [index, { ran, seconds }] of results.entries()) {
       const failedAgain = again.get(index) ?? []
-      const passed = ran.filter(([killer, outcome]) => outcome === 'passed' && !failedAgain.includes(killer))
-      const hung = ran.filter(([, outcome]) => outcome === 'hung')
-      const verdict = passed.length === 0 ? 'killed' : 'SURVIVED'
+      const passed = ran.filter(([killer, outcome]) => outcome === "passed" && !failedAgain.includes(killer))
+      const hung = ran.filter(([, outcome]) => outcome === "hung")
+      const verdict = passed.length === 0 ? "killed" : "SURVIVED"
       console.log(`${verdict} [${index + 1}/${chosen.length}] ${(chosen[index] as Mutation).name} (${seconds}s)`)
       for (const [killer] of hung) console.log(`  hangs under it: ${describe(killer)}`)
       for (const killer of failedAgain) {

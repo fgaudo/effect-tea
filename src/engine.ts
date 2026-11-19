@@ -1,23 +1,23 @@
-import * as Arr from 'effect/Array'
-import * as Effect from 'effect/Effect'
-import type * as Fiber from 'effect/Fiber'
-import * as FiberMap from 'effect/FiberMap'
-import * as FiberSet from 'effect/FiberSet'
-import * as LogLevel from 'effect/LogLevel'
-import * as Opt from 'effect/Option'
-import * as Queue from 'effect/Queue'
-import type * as Scope from 'effect/Scope'
-import type * as Stream from 'effect/Stream'
-import * as SubscriptionRef from 'effect/SubscriptionRef'
-import type { RunCommand } from './command.ts'
-import * as Core from './core.ts'
-import type { DefectSite } from './defect.ts'
-import { describeByTag } from './log.ts'
-import { type Deaths, diesIn, makeDeaths, runSubscription, scopedIn, stopping, withExternalSpan } from './shell.ts'
-import type { Subscriptions } from './subscription.ts'
-import type { Step, Update } from './update.ts'
+import * as Arr from "effect/Array"
+import * as Effect from "effect/Effect"
+import type * as Fiber from "effect/Fiber"
+import * as FiberMap from "effect/FiberMap"
+import * as FiberSet from "effect/FiberSet"
+import * as LogLevel from "effect/LogLevel"
+import * as Opt from "effect/Option"
+import * as Queue from "effect/Queue"
+import type * as Scope from "effect/Scope"
+import type * as Stream from "effect/Stream"
+import * as SubscriptionRef from "effect/SubscriptionRef"
+import type { RunCommand } from "./command.ts"
+import * as Core from "./core.ts"
+import type { DefectSite } from "./defect.ts"
+import { describeByTag } from "./log.ts"
+import { type Deaths, diesIn, makeDeaths, runSubscription, scopedIn, stopping, withExternalSpan } from "./shell.ts"
+import type { Subscriptions } from "./subscription.ts"
+import type { Step, Update } from "./update.ts"
 
-export type { Revision, Revisioned } from './core.ts'
+export type { Revision, Revisioned } from "./core.ts"
 
 /**
  * Where a message came from: a dispatch, a command, or a subscription.
@@ -28,10 +28,10 @@ export type { Revision, Revisioned } from './core.ts'
  * @see The guide, "Running", "`onIgnored`".
  */
 export type Origin =
-  | { readonly _tag: 'Dispatch' }
-  | { readonly _tag: 'Command' }
+  | { readonly _tag: "Dispatch" }
+  | { readonly _tag: "Command" }
   | {
-    readonly _tag: 'Subscription'
+    readonly _tag: "Subscription"
     /** The key of the subscription that sent the message. */
     readonly key: unknown
   }
@@ -170,7 +170,7 @@ export interface RunOptions<State, Message, Command = unknown> {
 type Envelope<Message, K> = Readonly<{ message: Message; source: Core.Source<K> }>
 
 const originOf = <K>(source: Core.Source<K>): Origin =>
-  source._tag === 'Subscription' ? { _tag: 'Subscription', key: source.key } : source
+  source._tag === "Subscription" ? { _tag: "Subscription", key: source.key } : source
 
 /** The engine owns its message loop: it runs as long as the scope `make` was called in. */
 export interface Engine<State, Message> {
@@ -206,7 +206,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   describeMessage = describeByTag,
   describeCommand = describeByTag,
   onApplied = () => Effect.void,
-  onIgnored = () => Effect.void,
+  onIgnored = () => Effect.void
 }:
   & Readonly<{
     /**
@@ -250,12 +250,12 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       Effect.suspend(() => {
         const running: ReadonlyArray<Fiber.Fiber<unknown, never>> = [
           ...fibers,
-          ...Arr.map(Arr.fromIterable(subscriptionFibers), ([, fiber]) => fiber),
+          ...Arr.map(Arr.fromIterable(subscriptionFibers), ([, fiber]) => fiber)
         ]
-        return Effect.forEach(running, stopping, { concurrency: 'unbounded', discard: true }).pipe(
-          Effect.andThen(report),
+        return Effect.forEach(running, stopping, { concurrency: "unbounded", discard: true }).pipe(
+          Effect.andThen(report)
         )
-      }),
+      })
     )
   )
   const started = Core.init(first)
@@ -276,22 +276,22 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   const call = <A>(where: DefectSite, f: () => A) => Effect.sync(f).pipe(diesIn(where))
   // The run's own logs belong to no function of the program: a `Logger` that throws, or that cannot format what
   // it is given, dies in them, and never in the subscription or the loop that logs.
-  const log = (...message: ReadonlyArray<unknown>) => Effect.logDebug(...message).pipe(diesIn('log'))
-  const described = (message: Message) => call('describeMessage', () => describeMessage(message))
+  const log = (...message: ReadonlyArray<unknown>) => Effect.logDebug(...message).pipe(diesIn("log"))
+  const described = (message: Message) => call("describeMessage", () => describeMessage(message))
   // Suspended, as the interpreter is below: an option that throws before it returns its effect dies there too.
   const observe = (applied: Applied<State, Message, Command>) =>
-    Effect.suspend(() => onApplied(applied)).pipe(diesIn('onApplied'))
+    Effect.suspend(() => onApplied(applied)).pipe(diesIn("onApplied"))
   const observeIgnored = (ignored: Ignored<State, Message>) =>
-    Effect.suspend(() => onIgnored(ignored)).pipe(diesIn('onIgnored'))
+    Effect.suspend(() => onIgnored(ignored)).pipe(diesIn("onIgnored"))
   // The interpreter runs inside the command's fiber, so a defect in it is the command's. Its scope closes
   // before its message is queued, so that `update` never learns of a command whose resources are still open.
   const runCommand = (command: Command) =>
     Effect.suspend(() => interpret(command)).pipe(
-      scopedIn(deaths, 'command'),
+      scopedIn(deaths, "command"),
       Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: enqueue(Core.fromCommand) })),
       Effect.provideContext(context),
       recorded,
-      FiberSet.run(fibers),
+      FiberSet.run(fibers)
     )
   /**
    * Interrupts the subscriptions whose key disappeared, all at once, then starts the ones whose key appeared, and
@@ -305,71 +305,71 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     // The keys are the program's, and so are their `Equal` and `Hash`: they are compared here, in `subscriptions`,
     // and nowhere else in the run.
     const { gone, fresh, active: next } = yield* call(
-      'subscriptions',
-      () => Core.reconcile(active, subscriptions(state)),
+      "subscriptions",
+      () => Core.reconcile(active, subscriptions(state))
     )
     yield* Effect.forEach(
       gone,
       ([key, generation]) =>
-        log('Subscription stopped', key).pipe(
+        log("Subscription stopped", key).pipe(
           Effect.andThen(FiberMap.get(subscriptionFibers, generation)),
-          Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: stopping })),
+          Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: stopping }))
         ),
-      { concurrency: 'unbounded', discard: true },
+      { concurrency: "unbounded", discard: true }
     )
     for (const [key, subscription, generation] of fresh) {
-      const send = enqueue({ _tag: 'Subscription', key, generation })
-      yield* log('Subscription started', key)
+      const send = enqueue({ _tag: "Subscription", key, generation })
+      yield* log("Subscription started", key)
       yield* runSubscription(subscription, send).pipe(
-        scopedIn(deaths, 'subscription', () => ({ key })),
-        Effect.flatMap((last) => log('Subscription ended', key).pipe(Effect.andThen(send(last)))),
+        scopedIn(deaths, "subscription", () => ({ key })),
+        Effect.flatMap((last) => log("Subscription ended", key).pipe(Effect.andThen(send(last)))),
         Effect.provideContext(context),
         recorded,
-        FiberMap.run(subscriptionFibers, generation),
+        FiberMap.run(subscriptionFibers, generation)
       )
     }
     return next
   })
   const step = Effect.fnUntraced(function*(active: Core.Active<K>, { message, source }: Envelope<Message, K>) {
     // `describeMessage` and `describeCommand` run for every message, and only to be logged.
-    const debugging = yield* LogLevel.isEnabled('Debug')
-    if (source._tag === 'Dispatch') seen += 1
+    const debugging = yield* LogLevel.isEnabled("Debug")
+    if (source._tag === "Dispatch") seen += 1
     const current = yield* SubscriptionRef.get(stateRef)
     // Described by its tags alone, whatever `describeMessage` says: a report must not run the program's code while the
     // run is dying, nor carry the message's data. The testing tools apply a message the same way.
     const arrived = yield* Effect.sync(() => Core.arrive(update, current, active, source, message, dead)).pipe(
-      diesIn('update', () => ({ on: describeByTag(message) })),
+      diesIn("update", () => ({ on: describeByTag(message) }))
     )
     switch (arrived._tag) {
       // Left in the queue by a subscription whose key has gone away since: it was produced after the program
       // stopped listening, so it does not reach `update`. None taken once a fiber has died is dropped (`Core.arrive`),
       // so `describeMessage` is called on none of those; one dropped before the death is still described, since the
       // step goes on whole (as said under `deaths`).
-      case 'Dropped': {
-        if (debugging && source._tag === 'Subscription') {
-          yield* log('Dropped a message of a stopped subscription', source.key, yield* described(message))
+      case "Dropped": {
+        if (debugging && source._tag === "Subscription") {
+          yield* log("Dropped a message of a stopped subscription", source.key, yield* described(message))
         }
         return active
       }
       // A fiber had died when `Core.arrive` checked: the message is not applied.
-      case 'Dead':
+      case "Dead":
         return active
       // The state the message was meant for is gone (a late answer, a second click), or it never applied.
-      case 'Ignored': {
+      case "Ignored": {
         const origin = originOf(source)
         if (debugging) {
-          yield* log('Ignored a rejected message', yield* described(message), { origin: origin._tag })
+          yield* log("Ignored a rejected message", yield* described(message), { origin: origin._tag })
         }
         yield* observeIgnored({ message, origin, state: current.state })
         return active
       }
-      case 'Applied': {
+      case "Applied": {
         // The same state needs no new revision, frame or subscriptions: only its commands, if any, run.
         const { next, changed, commands } = arrived
         if (debugging) {
-          yield* log('Message', yield* described(message), {
+          yield* log("Message", yield* described(message), {
             revision: next.revision,
-            commands: yield* call('describeCommand', () => commands.map(describeCommand)),
+            commands: yield* call("describeCommand", () => commands.map(describeCommand))
           })
         }
         yield* observe({
@@ -378,7 +378,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
           before: current.state,
           after: next.state,
           revision: next.revision,
-          commands,
+          commands
         })
         if (changed) yield* SubscriptionRef.set(stateRef, { ...next, seen })
         const nextActive = changed ? yield* reconcile(active, next.state) : active
@@ -392,7 +392,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   const initialActive = yield* reconcile(Core.noneActive, started.current.state).pipe(
     Effect.tap(() => Effect.forEach(started.commands, runCommand, { discard: true })),
     Effect.provideContext(context),
-    recorded,
+    recorded
   )
   // The fork and its assignment are one step nothing interrupts: interrupted between them, the fiber that makes the
   // engine would close its scope with a loop `stop` does not know of. The loop is interruptible all the same, as a
@@ -409,13 +409,13 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     Effect.map((fiber) => {
       loop = fiber
     }),
-    Effect.uninterruptible,
+    Effect.uninterruptible
   )
   return {
     died,
     report,
     stop,
     dispatch: send,
-    states: SubscriptionRef.changes(stateRef),
+    states: SubscriptionRef.changes(stateRef)
   } satisfies Engine<State, Message>
 })

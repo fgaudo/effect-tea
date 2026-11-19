@@ -5,11 +5,10 @@
  * `effect-scheduler.test.ts`, its rules by `scheduled.test.ts`. It is no part of the library: it is not packed. The
  * decisions it names are effect-tea-persistent's, under `docs/decisions/`.
  */
-import * as Effect from 'effect/Effect'
-import type * as Exit from 'effect/Exit'
-import type * as Fiber from 'effect/Fiber'
-import * as Scheduler from 'effect/Scheduler'
-
+import * as Effect from "effect/Effect"
+import type * as Exit from "effect/Exit"
+import type * as Fiber from "effect/Fiber"
+import * as Scheduler from "effect/Scheduler"
 
 /**
  * A task ready to run, as a strategy sees it: the fiber that a preemption or a resumption made yield, by its id less
@@ -38,7 +37,7 @@ export type Strategy = Readonly<{
  * - `inline`: it runs on where Effect resumes it, as under Effect's scheduler, so that a run reaches only the orders
  *   it gives, but for the preemptions and picks a strategy decides.
  */
-export type Resumptions = 'queued' | 'inline'
+export type Resumptions = "queued" | "inline"
 
 /** What a run under `controlled` decided, in order: its picks, and its answers of preemption. */
 export type Schedule = Readonly<{ picks: ReadonlyArray<number>; preemptions: ReadonlyArray<boolean> }>
@@ -128,7 +127,7 @@ const controlled = (strategy: Strategy, resumptions: Resumptions) => {
       if (!entering && running !== undefined && !ended) nested.set(fiber, tasks)
       entering = false
       // Under `inline`, no fiber yields at its first step, as under Effect's scheduler with a budget above 1.
-      if (resumptions === 'inline' || firstRun || resumed || ended) {
+      if (resumptions === "inline" || firstRun || resumed || ended) {
         started.add(fiber)
         return false
       }
@@ -147,7 +146,7 @@ const controlled = (strategy: Strategy, resumptions: Resumptions) => {
     return true
   }
   const scheduler: Scheduler.Scheduler = {
-    executionMode: 'async',
+    executionMode: "async",
     shouldYield(fiber) {
       // The root asks first: Effect runs it inline as it forks it (`runForkWith` in `internal/effect.ts`).
       first ??= fiber.id
@@ -176,12 +175,12 @@ const controlled = (strategy: Strategy, resumptions: Resumptions) => {
       // task would run other tasks within it, and the rules above, which read the task under way, would not hold.
       flush: () => {
         const error = new Error(
-          'a dispatcher of the controlled scheduler is stepped by its run alone, and never flushed',
+          "a dispatcher of the controlled scheduler is stepped by its run alone, and never flushed"
         )
         failure ??= { error }
         throw error
-      },
-    }),
+      }
+    })
   }
   const step = () => {
     if (stopped() || ready.length === 0) return false
@@ -219,7 +218,7 @@ const controlled = (strategy: Strategy, resumptions: Resumptions) => {
     schedule: (): Schedule => ({ picks, preemptions }),
     left: () => ready.length,
     spun: () => spun,
-    failure: () => failure,
+    failure: () => failure
   }
 }
 
@@ -230,9 +229,9 @@ const controlled = (strategy: Strategy, resumptions: Resumptions) => {
  */
 export const idle: Effect.Effect<void> = Effect.withFiber((fiber) => {
   const count = readyCounts.get(fiber.getRef(Scheduler.Scheduler))
-  if (count === undefined) return Effect.die(new Error('idle runs under the scheduler of scheduled alone'))
+  if (count === undefined) return Effect.die(new Error("idle runs under the scheduler of scheduled alone"))
   const wait: Effect.Effect<void> = Effect.yieldNow.pipe(
-    Effect.andThen(Effect.suspend(() => count() === 0 ? Effect.void : wait)),
+    Effect.andThen(Effect.suspend(() => count() === 0 ? Effect.void : wait))
   )
   return wait
 })
@@ -267,7 +266,7 @@ const maxOps = 1_000_000
 export const scheduled = <A, E>(
   effect: Effect.Effect<A, E>,
   strategy: Strategy,
-  resumptions: Resumptions = 'queued',
+  resumptions: Resumptions = "queued"
 ): Run<A, E> => {
   const run = controlled(strategy, resumptions)
   const fiber = Effect.runFork(effect, { scheduler: run.scheduler })
@@ -292,18 +291,18 @@ export const inOrder: Strategy = { pick: () => 0, preempt: () => false }
 export const replayed = <A, E>(
   effect: Effect.Effect<A, E>,
   schedule: Schedule,
-  resumptions: Resumptions = 'queued',
+  resumptions: Resumptions = "queued"
 ): Run<A, E> => {
   let pick = 0
   let preemption = 0
   const run = scheduled(effect, {
     pick: () => schedule.picks[pick++] ?? 0,
-    preempt: () => schedule.preemptions[preemption++] ?? false,
+    preempt: () => schedule.preemptions[preemption++] ?? false
   }, resumptions)
   if (pick !== schedule.picks.length || preemption !== schedule.preemptions.length) {
-    throw new Error(`the run asked ${pick} picks and ${preemption} preemptions, and its schedule has ${
-      schedule.picks.length
-    } and ${schedule.preemptions.length}`)
+    throw new Error(
+      `the run asked ${pick} picks and ${preemption} preemptions, and its schedule has ${schedule.picks.length} and ${schedule.preemptions.length}`
+    )
   }
   return run
 }
@@ -323,7 +322,7 @@ const deviating = (deviations: Deviations, asked: Array<number>): Strategy => ({
   preempt: () => {
     asked.push(2)
     return deviations.has(asked.length - 1)
-  },
+  }
 })
 
 /**
@@ -333,7 +332,7 @@ const deviating = (deviations: Deviations, asked: Array<number>): Strategy => ({
 export const deviated = <A, E>(
   effect: Effect.Effect<A, E>,
   deviations: ReadonlyArray<readonly [decision: number, choice: number]>,
-  resumptions: Resumptions = 'queued',
+  resumptions: Resumptions = "queued"
 ): Run<A, E> => scheduled(effect, deviating(new Map(deviations), []), resumptions)
 
 /** Checks a run's end, a run that did not end failing, and says on failure what replays it. */
@@ -357,10 +356,10 @@ const checked = <A, E>(run: Run<A, E>, check: (exit: Exit.Exit<A, E>) => void, r
  */
 export const everySchedule = <A, E>(
   effect: Effect.Effect<A, E>,
-  { bound, runs = 100_000, resumptions = 'queued' }: Readonly<
+  { bound, runs = 100_000, resumptions = "queued" }: Readonly<
     { bound: number; runs?: number; resumptions?: Resumptions }
   >,
-  check: (exit: Exit.Exit<A, E>) => void,
+  check: (exit: Exit.Exit<A, E>) => void
 ): number => {
   let ran = 0
   const visit = (deviations: Deviations, after: number) => {
@@ -369,7 +368,7 @@ export const everySchedule = <A, E>(
     checked(
       scheduled(effect, deviating(deviations, asked), resumptions),
       check,
-      `deviated(${JSON.stringify([...deviations])}, '${resumptions}')`,
+      `deviated(${JSON.stringify([...deviations])}, '${resumptions}')`
     )
     if (deviations.size === bound) return
     // The decisions before the last deviation went the same way in this run as in the one that found it.
@@ -434,7 +433,7 @@ export const prioritized = (seed: number, depth: number, steps: number): Strateg
       // A fiber on the stack of another is asked with no task ready, and yields there at a change alone.
       if (ready.length === 0) return false
       return priority(ready[highest(ready)]?.fiber) > priority(fiber)
-    },
+    }
   }
 }
 
@@ -443,7 +442,7 @@ export const prioritized = (seed: number, depth: number, steps: number): Strateg
  * seed pinned is one a run once failed on, kept as a check against its bug's return whatever range the run explores.
  */
 export const seeds = (
-  { first = 0, count, pinned = [] }: Readonly<{ first?: number; count: number; pinned?: ReadonlyArray<number> }>,
+  { first = 0, count, pinned = [] }: Readonly<{ first?: number; count: number; pinned?: ReadonlyArray<number> }>
 ): ReadonlyArray<number> => {
   const range = Array.from({ length: count }, (_, index) => first + index)
   return [...new Set([...pinned, ...range])]
@@ -457,17 +456,17 @@ export const seeds = (
  */
 export const prioritizedSchedules = <A, E>(
   effect: Effect.Effect<A, E>,
-  { runs, depth, first = 0, pinned = [], resumptions = 'queued' }: Readonly<
+  { runs, depth, first = 0, pinned = [], resumptions = "queued" }: Readonly<
     { runs: number; depth: number; first?: number; pinned?: ReadonlyArray<number>; resumptions?: Resumptions }
   >,
-  check: (exit: Exit.Exit<A, E>) => void,
+  check: (exit: Exit.Exit<A, E>) => void
 ): void => {
   const steps = Math.max(1, scheduled(effect, inOrder, resumptions).schedule.preemptions.length)
   for (const seed of seeds({ first, count: runs, pinned })) {
     checked(
       scheduled(effect, prioritized(seed, depth, steps), resumptions),
       check,
-      `prioritized(${seed}, ${depth}, ${steps}) under '${resumptions}'`,
+      `prioritized(${seed}, ${depth}, ${steps}) under '${resumptions}'`
     )
   }
 }

@@ -25,18 +25,20 @@ the run shares (`Core.init`, `Core.arrive`, `Core.reconcile`).
 
 ```ts
 explore(form, {
-  depth: 1000,                                    // never optional
-  states: 100_000,                                // never optional
+  depth: 1000, // never optional
+  states: 100_000, // never optional
   sent: (state) => texts.flatMap((text) => messagesOf(form.makeModel(state), text)),
-  heard: (key, state) => [],                      // what the subscription of a key may send
-  answers: (command) => [                         // what a command may answer; Opt.none() for no answer
+  heard: (key, state) => [], // what the subscription of a key may send
+  answers: (command) => [ // what a command may answer; Opt.none() for no answer
     Opt.some(Message.SaveSucceeded({ name: command.name })),
-    Opt.some(Message.SaveFailed({ name: command.name })),
+    Opt.some(Message.SaveFailed({ name: command.name }))
   ],
-  within: ({ saved }) => saved.length <= 2,       // the states the test means to walk
-  candidates, repeatable, withheld,               // given to dispatchViolations as they are
-  inert: (message) => message._tag === 'NameChanged',
-  property: (state, pending) => { /* throws where a state reached is wrong */ },
+  within: ({ saved }) => saved.length <= 2, // the states the test means to walk
+  candidates,
+  repeatable,
+  withheld, // given to dispatchViolations as they are
+  inert: (message) => message._tag === "NameChanged",
+  property: (state, pending) => {/* throws where a state reached is wrong */}
 })
 ```
 
@@ -52,35 +54,35 @@ had `messagesSentBy(view, form.makeModel(state), text)` there. The option is the
   is `closed` (nothing left out by `depth` or `states`), and the findings, each in the state nearest to `init`
   that shows it.
 
-| Finding | What it is |
-| --- | --- |
-| `Defect` | code of the program threw: `update` on a message offered, or `subscriptions` on a state reached |
-| `Outdated` | a message offered in one state makes `update` throw in a state reached from it: a tap on an older frame |
-| `Dispatch` | a violation of `dispatchViolations` (`Rejected`, `ActsTwice`, `Missing`) |
-| `Inert` | a message offered, or a key's, whose step does nothing, by the rule of [`inert-steps.md`](inert-steps.md) |
-| `Rejected` | a message a key of the state sends, which `update` rejects there |
-| `Ignored` | an answer of a command under way, which `update` rejects there |
-| `Stuck` | nothing the state offers leads to another node |
-| `Property` | the property of the test threw |
+| Finding    | What it is                                                                                                |
+| ---------- | --------------------------------------------------------------------------------------------------------- |
+| `Defect`   | code of the program threw: `update` on a message offered, or `subscriptions` on a state reached           |
+| `Outdated` | a message offered in one state makes `update` throw in a state reached from it: a tap on an older frame   |
+| `Dispatch` | a violation of `dispatchViolations` (`Rejected`, `ActsTwice`, `Missing`)                                  |
+| `Inert`    | a message offered, or a key's, whose step does nothing, by the rule of [`inert-steps.md`](inert-steps.md) |
+| `Rejected` | a message a key of the state sends, which `update` rejects there                                          |
+| `Ignored`  | an answer of a command under way, which `update` rejects there                                            |
+| `Stuck`    | nothing the state offers leads to another node                                                            |
+| `Property` | the property of the test threw                                                                            |
 
 ## What the spike ran
 
 With snabbdom's bridge for `sent`, on the examples as they were at `7403044`.
 
-| Walk | Nodes | States | Arrivals | Deepest | Closed | Time |
-| --- | --- | --- | --- | --- | --- | --- |
-| `counter`, depth 50 | 51 | 51 | 101 | 50 | no | 6 ms |
-| `counter`, count at most 1,000 | 1,001 | 1,001 | 2,001 | 1,000 | yes | 22 ms |
-| `form`, depth 12 | 27 | 27 | 85 | 12 | no | 4 ms |
-| `form`, at most two names saved, three texts typed | 21 | 21 | 66 | 10 | yes | 2 ms |
-| `timer`, depth 30 | 1,771 | 1,771 | 4,481 | 30 | no | 50 ms |
-| `timer`, from one minute, at most two | 364 | 364 | 907 | 122 | yes | 10 ms |
-| `timer`, from `init`, at most its twenty-five minutes | 39,050 | 39,050 | 97,599 | 1,501 | yes | 0.9 s |
-| `timers`, two ever added, three seconds into each | 240 | 240 | 1,790 | 11 | yes | 27 ms |
-| `list`, three ever added, at most two seconds each | 400 | 400 | 3,230 | 13 | yes | 77 ms |
-| `list`, four ever added, at most three seconds each | 7,381 | 7,381 | 78,322 | 21 | yes | 1.2 s |
-| `pages`, depth 8 | 45 | 12 | 143 | 8 | no | 8 ms |
-| `pages`, at most two commands under way | 27 | 12 | 81 | 5 | yes | 3 ms |
+| Walk                                                  | Nodes  | States | Arrivals | Deepest | Closed | Time  |
+| ----------------------------------------------------- | ------ | ------ | -------- | ------- | ------ | ----- |
+| `counter`, depth 50                                   | 51     | 51     | 101      | 50      | no     | 6 ms  |
+| `counter`, count at most 1,000                        | 1,001  | 1,001  | 2,001    | 1,000   | yes    | 22 ms |
+| `form`, depth 12                                      | 27     | 27     | 85       | 12      | no     | 4 ms  |
+| `form`, at most two names saved, three texts typed    | 21     | 21     | 66       | 10      | yes    | 2 ms  |
+| `timer`, depth 30                                     | 1,771  | 1,771  | 4,481    | 30      | no     | 50 ms |
+| `timer`, from one minute, at most two                 | 364    | 364    | 907      | 122     | yes    | 10 ms |
+| `timer`, from `init`, at most its twenty-five minutes | 39,050 | 39,050 | 97,599   | 1,501   | yes    | 0.9 s |
+| `timers`, two ever added, three seconds into each     | 240    | 240    | 1,790    | 11      | yes    | 27 ms |
+| `list`, three ever added, at most two seconds each    | 400    | 400    | 3,230    | 13      | yes    | 77 ms |
+| `list`, four ever added, at most three seconds each   | 7,381  | 7,381  | 78,322   | 21      | yes    | 1.2 s |
+| `pages`, depth 8                                      | 45     | 12     | 143      | 8       | no     | 8 ms  |
+| `pages`, at most two commands under way               | 27     | 12     | 81       | 5       | yes    | 3 ms  |
 
 - **None of the five ends without a bound**: a number that grows (`counter`, `timer`), a list that grows (`form`),
   ids never reused and seconds counted (`list`, `timers`), commands under way that nothing makes answer (`pages`).
@@ -96,13 +98,13 @@ With snabbdom's bridge for `sent`, on the examples as they were at `7403044`.
 
 What it found on the examples:
 
-| Found | Where | Real? |
-| --- | --- | --- |
-| `Inert`: `StopAllClicked` | `list`, 85 of 400 nodes, from `init` itself | real where the list is empty; known (`inert-steps.md`, "Open questions") |
-| `Inert`: `NameChanged` with the text the field has | `form`, 6 of 21 nodes for each text | a false alarm: it depends on the value. One line of `inert` |
-| `Inert`: a tick with the time the clock shows | `pages`, 3 of 27 nodes for each time | a false alarm of the sample |
-| `Ignored`: `SayingPicked` | `pages`, after About was asked for and left | real, and meant; no test of the example shows it |
-| `Property`: a saying shown while a command is still to answer | `pages`, with a property written for it | real, and small: the saying of an About that left is shown by the next one. The guide's "ids that come back" |
+| Found                                                         | Where                                       | Real?                                                                                                        |
+| ------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `Inert`: `StopAllClicked`                                     | `list`, 85 of 400 nodes, from `init` itself | real where the list is empty; known (`inert-steps.md`, "Open questions")                                     |
+| `Inert`: `NameChanged` with the text the field has            | `form`, 6 of 21 nodes for each text         | a false alarm: it depends on the value. One line of `inert`                                                  |
+| `Inert`: a tick with the time the clock shows                 | `pages`, 3 of 27 nodes for each time        | a false alarm of the sample                                                                                  |
+| `Ignored`: `SayingPicked`                                     | `pages`, after About was asked for and left | real, and meant; no test of the example shows it                                                             |
+| `Property`: a saying shown while a command is still to answer | `pages`, with a property written for it     | real, and small: the saying of an About that left is shown by the next one. The guide's "ids that come back" |
 
 - **No example had a `Defect`, an `Outdated`, a `Stuck`, a key `Rejected` or a violation of `dispatchViolations`.**
   The `defect`s of `form`, `timer` and `stopwatch` are never reached, with no pair to skip by hand.

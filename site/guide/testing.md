@@ -40,22 +40,22 @@ Here are two tests of a counter. The first test checks `update` with `applyAll`.
 ```ts
 // What the model holds: the messages of its controls, a case at a time, in the order the view draws them.
 const messagesOf = (model: Model): ReadonlyArray<Message> =>
-  model._tag === 'Counting' ? [model.decrement, model.increment] : [model.increment]
+  model._tag === "Counting" ? [model.decrement, model.increment] : [model.increment]
 
-test('counts up and down', () => {
-  expect(applyAll(update)(['Increment', 'Increment', 'Decrement'], { count: 0 }).state).toEqual({ count: 1 })
+test("counts up and down", () => {
+  expect(applyAll(update)(["Increment", "Increment", "Decrement"], { count: 0 }).state).toEqual({ count: 1 })
 })
 
 // The model, for any count: every message it holds is accepted, and nothing `update` accepts is missing from
 // it. Both buttons are meant to repeat.
-test('the model holds what update accepts, all of it', () => {
+test("the model holds what update accepts, all of it", () => {
   fc.assert(fc.property(fc.nat(1_000), (count) => {
     const state = { count }
     expect(dispatchViolations(update, {
       state,
       held: messagesOf(counter.makeModel(state)),
-      candidates: ['Increment', 'Decrement'],
-      repeatable: () => true,
+      candidates: ["Increment", "Decrement"],
+      repeatable: () => true
     })).toEqual([])
   }))
 })
@@ -125,7 +125,6 @@ The tests of the examples' bridges go further (see [their tests](./writing-a-bri
 frame is drawn when the test says, in place of the next animation frame.
 
 [preload]: ../../bridges/snabbdom-preload.ts
-
 [messages]: ../../bridges/snabbdom-testing.ts
 
 ## Do and don't
@@ -147,7 +146,7 @@ expect(Equal.equals(counter.makeModel(state), counter.makeModel(state))).toBe(tr
 // Do: two equal states built apart, drawn from the same seed
 const [one] = fc.sample(states, { seed, numRuns: 1 })
 const [other] = fc.sample(states, { seed, numRuns: 1 })
-if (one === undefined || other === undefined) throw new Error('nothing sampled')
+if (one === undefined || other === undefined) throw new Error("nothing sampled")
 expect(Equal.equals(counter.makeModel(one), counter.makeModel(other))).toBe(true)
 ```
 

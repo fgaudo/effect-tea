@@ -2,9 +2,9 @@
 // view a dispatch of its own, which wraps the child's messages as the parent receives them. Kept while anyone
 // holds it, it is the same function in every frame, so that a renderer can skip a child whose model has not
 // changed.
-import type * as Effect from 'effect/Effect'
-import * as Equal from 'effect/Equal'
-import * as Hash from 'effect/Hash'
+import type * as Effect from "effect/Effect"
+import * as Equal from "effect/Equal"
+import * as Hash from "effect/Hash"
 
 /**
  * Sends a message to the running program.
@@ -38,7 +38,7 @@ export type Dispatch<Message> = (message: Message) => Effect.Effect<number>
  * that field would leave the rest out.
  */
 type Routed<Message> = Message extends Readonly<{ _tag: string; message: unknown }>
-  ? [Exclude<keyof Message, '_tag' | 'message' | 'id'>] extends [never] ? Message : never
+  ? [Exclude<keyof Message, "_tag" | "message" | "id">] extends [never] ? Message : never
   : never
 
 type ChildOf<Message, Name> = Extract<Routed<Message>, Readonly<{ _tag: Name }>>
@@ -56,9 +56,9 @@ type IdOf<Message, Name> = [ChildOf<Message, Name>] extends [never] ? []
  * string, a value that cannot be called and says why.
  */
 type ChildDispatch<Message, Name extends string> = string extends Name
-  ? Readonly<{ 'is not the literal name of a child or of an input': Name }>
-  : [ChildOf<Message, Name>] extends [never] ? Readonly<{ 'is not a child or an input': Name }>
-  : Dispatch<ChildOf<Message, Name>['message']>
+  ? Readonly<{ "is not the literal name of a child or of an input": Name }>
+  : [ChildOf<Message, Name>] extends [never] ? Readonly<{ "is not a child or an input": Name }>
+  : Dispatch<ChildOf<Message, Name>["message"]>
 
 /**
  * The dispatches made for one child of one parent dispatch, by id, compared with `Equal` as the engine compares
@@ -70,7 +70,7 @@ type Entry = Readonly<{ key: unknown; ref: WeakRef<Dispatch<unknown>> }>
 
 type Made = Map<number, Array<Entry>>
 
-const alone = Symbol('alone')
+const alone = Symbol("alone")
 
 const made = new WeakMap<object, Map<string, Made>>()
 
@@ -85,7 +85,7 @@ const drop = (byId: Made, hash: number, entry: Entry) => {
 // Run in a host job, outside any run, where an id's `Equal` or `Hash` that throws would be no defect of a run: the
 // entry is found by its hash, computed as it was made, and by its identity, so that no id is compared here.
 const forgotten = new FinalizationRegistry<Readonly<{ byId: Made; hash: number; entry: Entry }>>(
-  ({ byId, hash, entry }) => drop(byId, hash, entry),
+  ({ byId, hash, entry }) => drop(byId, hash, entry)
 )
 
 const madeFor = (dispatch: object, name: string): Made => {

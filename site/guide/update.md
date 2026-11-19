@@ -60,7 +60,7 @@ const mutating: Update<State, Message> = (message) => (state) => {
 
 // Do: return a new state, with a new array
 const copying: Update<State, Message> = (message) => (state) => ({
-  state: { ...state, items: [...state.items, message.item] },
+  state: { ...state, items: [...state.items, message.item] }
 })
 ```
 

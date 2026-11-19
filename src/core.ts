@@ -1,11 +1,11 @@
-import * as Arr from 'effect/Array'
-import * as Cause from 'effect/Cause'
-import * as Context from 'effect/Context'
-import * as Exit from 'effect/Exit'
-import * as HashMap from 'effect/HashMap'
-import * as Opt from 'effect/Option'
-import { type DefectSite, programDefect } from './defect.ts'
-import { reject, type Step, type Update } from './update.ts'
+import * as Arr from "effect/Array"
+import * as Cause from "effect/Cause"
+import * as Context from "effect/Context"
+import * as Exit from "effect/Exit"
+import * as HashMap from "effect/HashMap"
+import * as Opt from "effect/Option"
+import { type DefectSite, programDefect } from "./defect.ts"
+import { reject, type Step, type Update } from "./update.ts"
 
 // The semantics shared by the run and the testing tools, as pure functions of data (`docs/records/shared-core.md`): the
 // shells, `engine.ts` and `src/testing/`, decide when they run and perform what they return.
@@ -16,7 +16,7 @@ import { reject, type Step, type Update } from './update.ts'
  * interrupt as the fiber -1, and the fiber that ends the run may have interrupted a fiber before, that the program
  * joins. The program cannot make the mark: the key is the library's, and so is each value, made anew for each stop.
  */
-export class Stopped extends Context.Service<Stopped, object>()('@fgaudo/effect-tea/Stopped') {}
+export class Stopped extends Context.Service<Stopped, object>()("@fgaudo/effect-tea/Stopped") {}
 
 const markOf = (reason: Cause.Reason<unknown>): object | undefined =>
   Context.getOrUndefined(Cause.reasonAnnotations(reason), Stopped)
@@ -35,7 +35,7 @@ const markOf = (reason: Cause.Reason<unknown>): object | undefined =>
  */
 export const otherwiseDefect = (
   cause: Cause.Cause<unknown>,
-  received: Cause.Cause<never> = Cause.empty,
+  received: Cause.Cause<never> = Cause.empty
 ): Cause.Cause<never> => {
   const interrupters = received.reasons.flatMap((reason) =>
     Cause.isInterruptReason(reason) ? [{ fiberId: reason.fiberId, mark: markOf(reason) }] : []
@@ -49,16 +49,18 @@ export const otherwiseDefect = (
   const defect = Cause.die(
     new Error(
       Cause.hasInterruptsOnly(others)
-        ? 'It interrupted itself, which only the run may do'
-        : 'It failed, which its type rules out',
-      { cause: others },
-    ),
+        ? "It interrupted itself, which only the run may do"
+        : "It failed, which its type rules out",
+      { cause: others }
+    )
   ).reasons
   const first = cause.reasons.findIndex(own)
   return Cause.fromReasons<never>(
-    first === -1 ? defect : cause.reasons.flatMap((reason, index) =>
-      !own(reason) ? [reason as Cause.Reason<never>] : index === first ? defect : []
-    ),
+    first === -1 ?
+      defect :
+      cause.reasons.flatMap((reason, index) =>
+        !own(reason) ? [reason as Cause.Reason<never>] : index === first ? defect : []
+      )
   )
 }
 
@@ -71,16 +73,18 @@ export const wrapDefects = <E>(
   cause: Cause.Cause<E>,
   where: DefectSite,
   details: Readonly<{ key?: unknown; on?: unknown }>,
-  wrapped: (defect: unknown) => boolean,
+  wrapped: (defect: unknown) => boolean
 ): Cause.Cause<E> =>
-  Cause.fromReasons(cause.reasons.flatMap((reason): ReadonlyArray<Cause.Reason<E>> =>
-    Cause.isDieReason(reason) && !wrapped(reason.defect)
-      ? Cause.annotate(
-        Cause.die(programDefect({ where, cause: reason.defect, ...details })),
-        Cause.reasonAnnotations(reason),
-      ).reasons
-      : [reason]
-  ))
+  Cause.fromReasons(
+    cause.reasons.flatMap((reason): ReadonlyArray<Cause.Reason<E>> =>
+      Cause.isDieReason(reason) && !wrapped(reason.defect)
+        ? Cause.annotate(
+          Cause.die(programDefect({ where, cause: reason.defect, ...details })),
+          Cause.reasonAnnotations(reason)
+        ).reasons
+        : [reason]
+    )
+  )
 
 /**
  * The register of what the fibers of a run, or of a rehearsal, died of: each defect kept once, by its identity, in
@@ -120,7 +124,7 @@ export const report = (register: Register): readonly [Opt.Option<Cause.Cause<nev
 export const diesFirst = <E>(deaths: ReadonlyArray<Cause.Die>, cause: Cause.Cause<E>): Cause.Cause<E> =>
   Cause.fromReasons<E>([
     ...deaths,
-    ...cause.reasons.filter((reason) => !(Cause.isDieReason(reason) && holds(deaths, reason.defect))),
+    ...cause.reasons.filter((reason) => !(Cause.isDieReason(reason) && holds(deaths, reason.defect)))
   ])
 
 /**
@@ -139,7 +143,7 @@ export const endedWith = <A, E>(deaths: ReadonlyArray<Cause.Die>, exit: Exit.Exi
 export const released = <E>(own: Cause.Cause<E>, release: Cause.Cause<never>): Cause.Cause<E> =>
   Cause.fromReasons<E>([
     ...own.reasons,
-    ...release.reasons.filter((reason) => !own.reasons.some((kept) => sameReason(kept, reason))),
+    ...release.reasons.filter((reason) => !own.reasons.some((kept) => sameReason(kept, reason)))
   ])
 
 const sameReason = (one: Cause.Reason<unknown>, other: Cause.Reason<unknown>) =>
@@ -208,13 +212,13 @@ export type Revisioned<State> = Readonly<{ state: State; revision: Revision }>
 
 /** Where a message comes from: a dispatch, a command, or a subscription, with its key and the start it comes from. */
 export type Source<K> =
-  | Readonly<{ _tag: 'Dispatch' }>
-  | Readonly<{ _tag: 'Command' }>
-  | Readonly<{ _tag: 'Subscription'; key: K; generation: Generation }>
+  | Readonly<{ _tag: "Dispatch" }>
+  | Readonly<{ _tag: "Command" }>
+  | Readonly<{ _tag: "Subscription"; key: K; generation: Generation }>
 
-export const fromDispatch: Source<never> = { _tag: 'Dispatch' }
+export const fromDispatch: Source<never> = { _tag: "Dispatch" }
 
-export const fromCommand: Source<never> = { _tag: 'Command' }
+export const fromCommand: Source<never> = { _tag: "Command" }
 
 /** What a program starts from: its first state, at the first revision, and the commands of its first step. */
 export type Started<State, Command> = Readonly<{ current: Revisioned<State>; commands: ReadonlyArray<Command> }>
@@ -226,7 +230,7 @@ export type Started<State, Command> = Readonly<{ current: Revisioned<State>; com
  */
 export const init = <State, Command>(step: Step<State, Command>): Started<State, Command> => ({
   current: { state: step.state, revision: 0 },
-  commands: step.commands ?? [],
+  commands: step.commands ?? []
 })
 
 /**
@@ -235,22 +239,22 @@ export const init = <State, Command>(step: Step<State, Command>): Started<State,
  * rejects it, `Applied` otherwise, with a new revision only when the state changes.
  */
 export type Arrived<State, Command, Event> =
-  | Readonly<{ _tag: 'Dropped' }>
-  | Readonly<{ _tag: 'Dead' }>
-  | Readonly<{ _tag: 'Ignored' }>
+  | Readonly<{ _tag: "Dropped" }>
+  | Readonly<{ _tag: "Dead" }>
+  | Readonly<{ _tag: "Ignored" }>
   | Readonly<{
-    _tag: 'Applied'
+    _tag: "Applied"
     next: Revisioned<State>
     changed: boolean
     commands: ReadonlyArray<Command>
     events: ReadonlyArray<Event>
   }>
 
-const dropped: Arrived<never, never, never> = { _tag: 'Dropped' }
+const dropped: Arrived<never, never, never> = { _tag: "Dropped" }
 
-const dead: Arrived<never, never, never> = { _tag: 'Dead' }
+const dead: Arrived<never, never, never> = { _tag: "Dead" }
 
-const ignored: Arrived<never, never, never> = { _tag: 'Ignored' }
+const ignored: Arrived<never, never, never> = { _tag: "Ignored" }
 
 /**
  * Applies `message` to the current state, calling `update` unless `died` says the run has died or its start is gone.
@@ -267,18 +271,18 @@ export const arrive = <State, Message, Command, Event, K>(
   active: Active<K>,
   source: Source<K>,
   message: Message,
-  died: () => boolean,
+  died: () => boolean
 ): Arrived<State, Command, Event> => {
   if (died()) return dead
-  if (source._tag === 'Subscription' && !active.starts.has(source.generation)) return dropped
+  if (source._tag === "Subscription" && !active.starts.has(source.generation)) return dropped
   const result = update(message)(current.state)
   if (result === reject) return ignored
   const changed = result.state !== current.state
   return {
-    _tag: 'Applied',
+    _tag: "Applied",
     next: changed ? { state: result.state, revision: current.revision + 1 } : current,
     changed,
     commands: result.commands ?? [],
-    events: result.events ?? [],
+    events: result.events ?? []
   }
 }

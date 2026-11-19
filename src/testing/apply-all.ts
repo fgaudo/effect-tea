@@ -1,5 +1,5 @@
-import { appendStep, type Folded, reject, type Update } from '../update.ts'
-import { unexpectedRejection } from './unexpected.ts'
+import { appendStep, type Folded, reject, type Update } from "../update.ts"
+import { unexpectedRejection } from "./unexpected.ts"
 
 /**
  * Applies messages to a state with `update`, one after the other, and collects their commands and events.
@@ -28,5 +28,5 @@ export const applyAll =
         if (result === reject) throw unexpectedRejection(index, message)
         return appendStep(folded, result)
       },
-      { state: from, commands: [], events: [] } as Folded<State, Command, Event>,
+      { state: from, commands: [], events: [] } as Folded<State, Command, Event>
     )

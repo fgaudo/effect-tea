@@ -16,12 +16,12 @@
 // settled by both, so such a bridge would need to know the run each input belongs to, as a context of its own would
 // tell it.
 // Checked with react and react-dom 19.3.1.
-import { type Dispatch, drawn, edited, type Frame, type Shown, type Written } from '@fgaudo/effect-tea'
-import * as Effect from 'effect/Effect'
-import * as Stream from 'effect/Stream'
-import { createElement, type InputHTMLAttributes, type ReactNode } from 'react'
-import { flushSync } from 'react-dom'
-import { createRoot } from 'react-dom/client'
+import { type Dispatch, drawn, edited, type Frame, type Shown, type Written } from "@fgaudo/effect-tea"
+import * as Effect from "effect/Effect"
+import * as Stream from "effect/Stream"
+import { createElement, type InputHTMLAttributes, type ReactNode } from "react"
+import { flushSync } from "react-dom"
+import { createRoot } from "react-dom/client"
 
 /** A view of a program, drawn by this renderer: a pure function of its model, which sends its messages through
  * `dispatch`.
@@ -47,8 +47,8 @@ export const Shows = ({
   ...props
 }:
   & Readonly<{ value: string; dispatch: Dispatch<Written<string>> }>
-  & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'defaultValue' | 'onChange'>): ReactNode =>
-  createElement('input', {
+  & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "defaultValue" | "onChange">): ReactNode =>
+  createElement("input", {
     ...props,
     // A new ref in every render, so that React gives it the frame's value. React calls it with `null` as it detaches
     // it.
@@ -64,18 +64,18 @@ export const Shows = ({
       // The element's own `input` event, not React's `onChange`: React leaves out an event that finds the value as
       // its tracking of the value last heard it, and that tracking is React's to change. Added once per element, it
       // goes with the element.
-      element.addEventListener('input', () => {
+      element.addEventListener("input", () => {
         const current = lives.get(element)
         if (current?.held === undefined) return
         const { write, sent } = edited(current.held, element.value)
         current.held = sent(send(current.dispatch, write))
       })
-    },
+    }
   })
 
 // Every `<input>` of the root that `Shows` drew: React draws a `Shows` and a plain `<input>` as different elements.
 const settle = (root: Element, seen: number): void => {
-  for (const element of root.querySelectorAll('input')) {
+  for (const element of root.querySelectorAll("input")) {
     const known = lives.get(element)
     if (known === undefined) continue
     const { shown, taken } = drawn(known.held, known.value, seen)
@@ -96,8 +96,7 @@ const animationFrame = Effect.callback<void>((resume) => {
  * included, so the run dies with it.
  */
 export const renderInto =
-  <Model, Message>(element: Element, view: View<Model, Message>) =>
-  (frames: Stream.Stream<Frame<Model, Message>>) =>
+  <Model, Message>(element: Element, view: View<Model, Message>) => (frames: Stream.Stream<Frame<Model, Message>>) =>
     Effect.acquireRelease(
       Effect.sync(() => {
         // React calls the components later, from its own scheduler, and reports what they throw to the root, not
@@ -108,7 +107,7 @@ export const renderInto =
       ({ root }) =>
         Effect.sync(() => {
           root.unmount()
-        }),
+        })
     ).pipe(
       Effect.flatMap(({ root, thrown }) =>
         Stream.runForEach(frames, ({ model, dispatch, seen }) =>
@@ -119,7 +118,7 @@ export const renderInto =
             settle(element, seen)
           }).pipe(Effect.tap(() => animationFrame)))
       ),
-      Effect.scoped,
+      Effect.scoped
     )
 
 /** Sends a message from a React callback, and returns its number: a dispatch needs no services and is synchronous. */

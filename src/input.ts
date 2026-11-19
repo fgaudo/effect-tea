@@ -3,8 +3,8 @@
 // view writes over the value its model holds (a `Written`), and the library stores it. What an element on screen holds
 // of an input, and what a frame makes of it, is the rule a bridge calls (`edited`, `drawn`): the library's, so that
 // every bridge applies the same one.
-import * as Equal from 'effect/Equal'
-import { reject, type Transition } from './update.ts'
+import * as Equal from "effect/Equal"
+import { reject, type Transition } from "./update.ts"
 
 /**
  * A value written into an input, in place of the value the input showed.
@@ -23,7 +23,7 @@ import { reject, type Transition } from './update.ts'
  * @see The guide, "Guarantees", "An input stores what is written over the value it holds".
  */
 export type Written<A> = {
-  readonly _tag: 'Written'
+  readonly _tag: "Written"
   /** The value the input showed when the user wrote over it. */
   readonly was: A
   /** The value written. */
@@ -45,7 +45,7 @@ export const written = <A>(message: Written<A>) => (held: A): Transition<A> =>
 
 // Hidden: what a bridge holds of an element is the library's to make and read, but for the value it shows. A string,
 // as the key of a program's external messages: an application that exports a `Shown` emits its declarations.
-const Unseen = '~@fgaudo/effect-tea/Shown/unseen'
+const Unseen = "~@fgaudo/effect-tea/Shown/unseen"
 
 /**
  * What the element of an input holds: the value it shows, and the writes it sent that no frame has seen yet (see
@@ -83,10 +83,10 @@ const shownOf = <A>(value: A): Shown<A> => ({ value, [Unseen]: [] })
  */
 export const edited = <A>(
   held: Shown<A>,
-  value: A,
+  value: A
 ): Readonly<{ write: Written<A>; sent: (number: number) => Shown<A> }> => ({
-  write: { _tag: 'Written', was: held.value, value },
-  sent: (number) => ({ value, [Unseen]: [...held[Unseen], { sent: number, was: held.value }] }),
+  write: { _tag: "Written", was: held.value, value },
+  sent: (number) => ({ value, [Unseen]: [...held[Unseen], { sent: number, was: held.value }] })
 })
 
 /**
@@ -125,7 +125,7 @@ export const edited = <A>(
 export const drawn = <A>(
   held: Shown<A> | undefined,
   value: A,
-  seen: number,
+  seen: number
 ): Readonly<{ shown: Shown<A>; taken: boolean }> => {
   if (held === undefined) return { shown: shownOf(value), taken: true }
   const unseen = held[Unseen].filter((write) => write.sent > seen)

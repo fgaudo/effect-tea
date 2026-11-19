@@ -69,9 +69,9 @@ In the same change:
   checks them: read every block that mentions what changed. The README's quick start is complete and must run as
   it is; this extracts and runs it (it logs 0, 1, 2, 3):
 
-  ```sh
+  ````sh
   awk '/^## Quick start/{f=1} f&&/^```ts/{g=1;next} g&&/^```/{exit} g' README.md > quickstart.check.ts && bun quickstart.check.ts; rm quickstart.check.ts
-  ```
+  ````
 - **The examples** that use it.
 - **`CHANGELOG.md`**, under the unreleased version, with the version the change needs, after the four questions of
   [`release`](../release/SKILL.md): an existing entry edited where it covers the change, a breaking change with how to

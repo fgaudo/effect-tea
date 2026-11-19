@@ -30,6 +30,7 @@ subscriptions: (state) => state.phase._tag === 'Running' ? HashMap.make(['ticks'
 ## Rules
 
 **Keys are compared by value, after every change of state:**
+
 - a new key starts its subscription;
 - a kept key leaves it running;
 - a missing key stops it.
@@ -127,8 +128,8 @@ const dragging: Subscription<Message, Pointer> = Channel.unwrap(
     Stream.toChannel(pointer.moves).pipe(
       Channel.flattenArray,
       Channel.map((at) => Message.Moved({ at })),
-      Channel.mapDone(() => Message.DragEnded()),
-    )),
+      Channel.mapDone(() => Message.DragEnded())
+    ))
 )
 ```
 

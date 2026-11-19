@@ -24,7 +24,7 @@ A program whose `update` decides to save a name returns `Command.Save({ name })`
 running it:
 
 ```ts
-expect(commands).toEqual([Command.Save({ name: 'Ada' })])
+expect(commands).toEqual([Command.Save({ name: "Ada" })])
 ```
 
 ## Rules
@@ -36,16 +36,16 @@ expect(commands).toEqual([Command.Save({ name: 'Ada' })])
 Write this with `Effect.match`, then `Effect.asSome`, at the end of a `pipe` or an `Effect.fn`:
 
 ```ts
-const save = Effect.fn('Save')(
+const save = Effect.fn("Save")(
   function*(name: string) {
     const storage = yield* Storage
     yield* storage.save(name)
   },
   Effect.match({
     onSuccess: () => Message.Saved(),
-    onFailure: () => Message.SaveFailed(),
+    onFailure: () => Message.SaveFailed()
   }),
-  Effect.asSome,
+  Effect.asSome
 )
 ```
 
@@ -90,7 +90,7 @@ Each pair sums up a rule of this page. The rule itself is above.
 // Don't: an execution cannot fail, so this does not compile
 const save = (name: string): Execution<Message, Storage> =>
   Effect.flatMap(Effect.service(Storage), (storage) => storage.save(name)).pipe(
-    Effect.as(Opt.some(Message.Saved())),
+    Effect.as(Opt.some(Message.Saved()))
   )
 
 // Do: the failure becomes a message, as the success does
@@ -98,9 +98,9 @@ const save = (name: string): Execution<Message, Storage> =>
   Effect.flatMap(Effect.service(Storage), (storage) => storage.save(name)).pipe(
     Effect.match({
       onSuccess: () => Message.Saved(),
-      onFailure: () => Message.SaveFailed(),
+      onFailure: () => Message.SaveFailed()
     }),
-    Effect.asSome,
+    Effect.asSome
   )
 ```
 

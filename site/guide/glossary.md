@@ -11,13 +11,13 @@ rules where a line here says less.
 
 ## A program and its pieces
 
-| Word        | What it is                                                                                               | Defined in                                        |
-| ----------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| **Program** | A plain object: `init`, `update`, `makeModel`, `subscriptions`, and `runCommand` when it has commands    | [anatomy of a program](./anatomy-of-a-program.md) |
-| **State**   | What the program knows. Always an object, replaced and never mutated                                     | [anatomy of a program](./anatomy-of-a-program.md) |
-| **Message** | What `update` is given: a click the model holds, a command's answer, what a subscription sends           | [update](./update.md)                             |
-| **Step**    | What `update` returns for a message it accepts: `{ state, commands?, events? }`                          | [update](./update.md)                             |
-| **Flags**   | What a program starts from, when it cannot start the same way every time                                 | [anatomy of a program](./anatomy-of-a-program.md) |
+| Word        | What it is                                                                                            | Defined in                                        |
+| ----------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| **Program** | A plain object: `init`, `update`, `makeModel`, `subscriptions`, and `runCommand` when it has commands | [anatomy of a program](./anatomy-of-a-program.md) |
+| **State**   | What the program knows. Always an object, replaced and never mutated                                  | [anatomy of a program](./anatomy-of-a-program.md) |
+| **Message** | What `update` is given: a click the model holds, a command's answer, what a subscription sends        | [update](./update.md)                             |
+| **Step**    | What `update` returns for a message it accepts: `{ state, commands?, events? }`                       | [update](./update.md)                             |
+| **Flags**   | What a program starts from, when it cannot start the same way every time                              | [anatomy of a program](./anatomy-of-a-program.md) |
 
 ## What the user sees
 

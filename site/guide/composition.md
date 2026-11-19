@@ -28,17 +28,16 @@ const state = Optic.id<State>()
 export const app = make({
   init: (children) => ({
     state: { clock: children.Clock.init.state, maybeAbout: Opt.none() },
-    commands: children.Clock.init.commands,
+    commands: children.Clock.init.commands
   }),
   children: {
     Clock: child(Clock.clock, {
-      at: state.key('clock'),
+      at: state.key("clock"),
       // Hidden under About, the clock keeps its state but stops ticking.
-      subscribed: (state) =>
-        Opt.isNone(state.maybeAbout) ? Opt.some(state.clock) : Opt.none(),
+      subscribed: (state) => Opt.isNone(state.maybeAbout) ? Opt.some(state.clock) : Opt.none()
     }),
     // Closed, About is not there: the optic focuses nothing.
-    About: child(About.about, { at: state.key('maybeAbout').compose(Optic.some()) }),
+    About: child(About.about, { at: state.key("maybeAbout").compose(Optic.some()) })
   },
   onEvent: {
     // About starts from the time the Clock showed, its flags; a double click opens it once.
@@ -47,17 +46,17 @@ export const app = make({
       const about = children.About.init({ openedAt: event.at })
       return {
         state: { ...state, maybeAbout: Opt.some(about.state) },
-        commands: about.commands,
+        commands: about.commands
       }
     },
-    About: () => (state) => ({ state: { ...state, maybeAbout: Opt.none() } }),
+    About: () => (state) => ({ state: { ...state, maybeAbout: Opt.none() } })
   },
   // Only the page on top is drawn.
   makeModel: (state, children) => ({
     page: Opt.isNone(state.maybeAbout)
-      ? { _tag: 'Clock' as const, model: children.Clock(state) }
-      : { _tag: 'About' as const, model: children.About(state) },
-  }),
+      ? { _tag: "Clock" as const, model: children.Clock(state) }
+      : { _tag: "About" as const, model: children.About(state) }
+  })
 })
 ```
 
@@ -197,19 +196,19 @@ of it. Here is what the compiler can check there, and what it cannot.
 ```ts
 type Dialog<S> = Readonly<{ open: boolean; content: S }>
 type DialogModel<M> = Readonly<{ open: boolean; content: M }>
-type Toggle = Readonly<{ _tag: 'Opened' }> | Readonly<{ _tag: 'Closed' }>
-type InDialog<Msg> = Toggle | Readonly<{ _tag: 'Content'; message: Msg }>
+type Toggle = Readonly<{ _tag: "Opened" }> | Readonly<{ _tag: "Closed" }>
+type InDialog<Msg> = Toggle | Readonly<{ _tag: "Content"; message: Msg }>
 
 export function inDialog<S extends object, M, Msg>(
-  content: Program<{ state: S; model: M; message: Msg }>,
+  content: Program<{ state: S; model: M; message: Msg }>
 ): Program<{ state: Dialog<S>; model: DialogModel<M>; message: InDialog<Msg> }>
 export function inDialog(content: Program<{ state: object; model: unknown; message: unknown }>) {
   const dialog = program<{ state: Dialog<object>; message: Toggle }>()
   return dialog.make({
     init: (children) => ({ state: { open: false, content: children.Content.init.state } }),
-    children: { Content: dialog.child(content, { at: Optic.id<Dialog<object>>().key('content') }) },
-    update: (message) => (state) => ({ state: { ...state, open: message._tag === 'Opened' } }),
-    makeModel: (state, children) => ({ open: state.open, content: children.Content(state) }),
+    children: { Content: dialog.child(content, { at: Optic.id<Dialog<object>>().key("content") }) },
+    update: (message) => (state) => ({ state: { ...state, open: message._tag === "Opened" } }),
+    makeModel: (state, children) => ({ open: state.open, content: children.Content(state) })
   })
 }
 ```
@@ -239,14 +238,14 @@ class that extends it.
 
 ```ts
 const view: View<Model, Message> = (model, dispatch) =>
-  model.page._tag === 'Clock'
-    ? thunk('main', 'clock', clockView, [
+  model.page._tag === "Clock"
+    ? thunk("main", "clock", clockView, [
       model.page.model,
-      forwardTo(dispatch, 'Clock'),
+      forwardTo(dispatch, "Clock")
     ])
-    : thunk('main', 'about', aboutView, [
+    : thunk("main", "about", aboutView, [
       model.page.model,
-      forwardTo(dispatch, 'About'),
+      forwardTo(dispatch, "About")
     ])
 ```
 

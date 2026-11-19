@@ -11,9 +11,9 @@
 // The run's dispatch, and each child's from `forwardTo`, is the same in every frame, so a view can be
 // memoized with snabbdom's own `thunk`, its dispatch among the arguments.
 // Checked with snabbdom 3.6.4.
-import { type Dispatch, drawn, edited, type Frame, type Shown, type Written } from '@fgaudo/effect-tea'
-import * as Effect from 'effect/Effect'
-import * as Stream from 'effect/Stream'
+import { type Dispatch, drawn, edited, type Frame, type Shown, type Written } from "@fgaudo/effect-tea"
+import * as Effect from "effect/Effect"
+import * as Stream from "effect/Stream"
 import {
   eventListenersModule,
   init,
@@ -22,8 +22,8 @@ import {
   propsModule,
   styleModule,
   type VNode,
-  type VNodeData,
-} from 'snabbdom'
+  type VNodeData
+} from "snabbdom"
 
 /** A view of a program, drawn by this renderer: a pure function of its model, which sends its messages through
  * `dispatch`.
@@ -54,8 +54,8 @@ export const shows = (value: string, dispatch: Dispatch<Written<string>>): VNode
       if (live?.held === undefined) return
       const { write, sent } = edited(live.held, element.value)
       live.held = sent(send(dispatch, write))
-    },
-  },
+    }
+  }
 })
 // #endregion shows
 
@@ -69,7 +69,7 @@ const showsModule = (live: Set<HTMLInputElement>): Module => {
     const data = vnode.data
     const element = vnode.elm
     if (!(element instanceof HTMLInputElement)) return
-    if (data === undefined || !('shows' in data)) {
+    if (data === undefined || !("shows" in data)) {
       live.delete(element)
       lives.delete(element)
       return
@@ -89,7 +89,7 @@ const showsModule = (live: Set<HTMLInputElement>): Module => {
     // meanwhile sends nothing, since the module of the listeners has taken them off.
     destroy: (vnode) => {
       if (vnode.elm instanceof HTMLInputElement) live.delete(vnode.elm)
-    },
+    }
   }
 }
 // #endregion module
@@ -118,8 +118,7 @@ const animationFrame = Effect.callback<void>((resume) => {
  * draws at most once per screen refresh: `run` keeps only the latest frame meanwhile.
  */
 export const renderInto =
-  <Model, Message>(root: Element, view: View<Model, Message>) =>
-  (frames: Stream.Stream<Frame<Model, Message>>) => {
+  <Model, Message>(root: Element, view: View<Model, Message>) => (frames: Stream.Stream<Frame<Model, Message>>) => {
     const live = new Set<HTMLInputElement>()
     const patch = init([propsModule, styleModule, eventListenersModule, showsModule(live)])
     return Stream.runFoldEffect(
@@ -130,7 +129,7 @@ export const renderInto =
           const tree = patch(previous, view(model, dispatch))
           settle(live, seen)
           return tree
-        }).pipe(Effect.tap(() => animationFrame)),
+        }).pipe(Effect.tap(() => animationFrame))
     ).pipe(Effect.asVoid)
   }
 // #endregion frames
@@ -144,11 +143,11 @@ const send = <Message>(dispatch: Dispatch<Message>, message: Message): number =>
 
 /** snabbdom's `on` for a click that sends `message`. */
 export const onClick = <Message>(message: Message, dispatch: Dispatch<Message>): On => ({
-  click: () => send(dispatch, message),
+  click: () => send(dispatch, message)
 })
 
 /** snabbdom's `on` for a press of the pointer that sends `message`: where a drag the program draws starts. */
 export const onPress = <Message>(message: Message, dispatch: Dispatch<Message>): On => ({
-  pointerdown: () => send(dispatch, message),
+  pointerdown: () => send(dispatch, message)
 })
 // #endregion handlers

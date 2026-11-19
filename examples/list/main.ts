@@ -1,16 +1,16 @@
-import { run } from '@fgaudo/effect-tea'
-import * as Cause from 'effect/Cause'
-import * as Effect from 'effect/Effect'
-import { renderInto } from '../../bridges/snabbdom.ts'
-import { list } from './list.ts'
-import { view } from './view.ts'
+import { run } from "@fgaudo/effect-tea"
+import * as Cause from "effect/Cause"
+import * as Effect from "effect/Effect"
+import { renderInto } from "../../bridges/snabbdom.ts"
+import { list } from "./list.ts"
+import { view } from "./view.ts"
 
-const root = document.getElementById('app')
-if (root === null) throw new Error('index.html has no #app element')
+const root = document.getElementById("app")
+if (root === null) throw new Error("index.html has no #app element")
 
 Effect.runFork(
   run(list, renderInto(root, view)).pipe(
     // The failure of a program that dies is reported; an interruption is no crash.
-    Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause))),
-  ),
+    Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause)))
+  )
 )

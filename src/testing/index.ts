@@ -5,8 +5,8 @@
  * `site/tutorial/` and the examples in `examples/`. A coding agent starts from `skills/effect-tea/SKILL.md`.
  * @module @fgaudo/effect-tea/testing
  */
-export { applyAll } from './apply-all.ts'
-export { type DispatchViolation, dispatchViolations } from './dispatch-violations.ts'
-export { simulate, type Simulation } from './simulate.ts'
-export { type Rehearsal, rehearse } from './rehearse.ts'
-export { drive, type DriveOptions, type Driver } from './drive.ts'
+export { applyAll } from "./apply-all.ts"
+export { type DispatchViolation, dispatchViolations } from "./dispatch-violations.ts"
+export { drive, type DriveOptions, type Driver } from "./drive.ts"
+export { type Rehearsal, rehearse } from "./rehearse.ts"
+export { simulate, type Simulation } from "./simulate.ts"

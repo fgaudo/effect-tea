@@ -1,5 +1,5 @@
-import type * as Effect from 'effect/Effect'
-import type * as Opt from 'effect/Option'
+import type * as Effect from "effect/Effect"
+import type * as Opt from "effect/Option"
 
 /**
  * How a command happens: an effect that answers with a message, or with `None` when it only acts on the world.

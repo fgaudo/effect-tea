@@ -1,14 +1,14 @@
-import * as Predicate from 'effect/Predicate'
+import * as Predicate from "effect/Predicate"
 
 const tagOf = (value: unknown): string | undefined =>
-  Predicate.hasProperty(value, '_tag') && typeof value._tag === 'string' ? value._tag : undefined
+  Predicate.hasProperty(value, "_tag") && typeof value._tag === "string" ? value._tag : undefined
 
 // A parent wraps a child's message as `{ _tag: <child>, message }`, and its command as `{ _tag, command }`. A
 // program's own value may have a field of that name too, holding data: only a tagged value is followed.
 const wrappedOf = (value: unknown): unknown =>
-  Predicate.hasProperty(value, 'message') && tagOf(value.message) !== undefined
+  Predicate.hasProperty(value, "message") && tagOf(value.message) !== undefined
     ? value.message
-    : Predicate.hasProperty(value, 'command') && tagOf(value.command) !== undefined
+    : Predicate.hasProperty(value, "command") && tagOf(value.command) !== undefined
     ? value.command
     : undefined
 
@@ -18,7 +18,7 @@ const tagsOf = (value: unknown, tag: string, way: ReadonlyArray<unknown>): strin
   const wrapped = wrappedOf(value)
   if (wrapped === undefined) return tag
   const on = [...way, value]
-  return `${tag} › ${on.includes(wrapped) ? '…' : tagsOf(wrapped, tagOf(wrapped) ?? '', on)}`
+  return `${tag} › ${on.includes(wrapped) ? "…" : tagsOf(wrapped, tagOf(wrapped) ?? "", on)}`
 }
 
 /**
@@ -26,7 +26,7 @@ const tagsOf = (value: unknown, tag: string, way: ReadonlyArray<unknown>): strin
  * One a parent wrapped is described by the tags on its way, e.g. `Home › Products › Deleted`.
  */
 export const describeByTag = (value: unknown): unknown => {
-  if (typeof value === 'string') return value
+  if (typeof value === "string") return value
   const tag = tagOf(value)
   return tag === undefined ? typeof value : tagsOf(value, tag, [])
 }

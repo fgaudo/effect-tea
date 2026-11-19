@@ -217,10 +217,10 @@ points you could not test through the page and the world, and every place where 
 The harness, which registers a DOM, starts the program, and reads the page:
 
 ```ts
-import { afterAll, afterEach, beforeAll } from 'bun:test'
-import { GlobalRegistrator } from '@happy-dom/global-registrator'
+import { GlobalRegistrator } from "@happy-dom/global-registrator"
+import { afterAll, afterEach, beforeAll } from "bun:test"
 // Without the extension, as the project's tsconfig.json resolves it.
-import type { World } from './world'
+import type { World } from "./world"
 
 beforeAll(() => GlobalRegistrator.register())
 
@@ -237,9 +237,9 @@ afterEach(async () => {
 /** Starts the program in a new element of the page. */
 export const start = async (world: World): Promise<void> => {
   // Imported here, once a DOM is registered: a renderer may read the DOM as it is loaded.
-  const path = './main.ts'
+  const path = "./main.ts"
   const { mount } = await import(path)
-  const root = document.createElement('div')
+  const root = document.createElement("div")
   document.body.append(root)
   stop = mount(root, world)
 }
@@ -257,12 +257,12 @@ export const until = async <A>(what: string, read: () => A | undefined | null | 
 
 /** The text of each element the selector finds, in the page's order. */
 export const texts = (selector: string): ReadonlyArray<string> =>
-  [...document.querySelectorAll(selector)].map((found) => (found.textContent ?? '').trim())
+  [...document.querySelectorAll(selector)].map((found) => (found.textContent ?? "").trim())
 
 /** Whether the user can act on the control: it is there, and not disabled. */
 export const available = (selector: string): boolean => {
   const found = document.querySelector(selector)
-  return found !== null && !('disabled' in found && found.disabled === true)
+  return found !== null && !("disabled" in found && found.disabled === true)
 }
 
 const control = (selector: string): Element => {
@@ -272,14 +272,14 @@ const control = (selector: string): Element => {
 }
 
 export const click = (selector: string): void => {
-  control(selector).dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  control(selector).dispatchEvent(new MouseEvent("click", { bubbles: true }))
 }
 
 export const type = (selector: string, value: string): void => {
   const found = control(selector)
   if (!(found instanceof HTMLInputElement)) throw new Error(`${selector} is no input`)
   found.value = value
-  found.dispatchEvent(new Event('input', { bubbles: true }))
+  found.dispatchEvent(new Event("input", { bubbles: true }))
 }
 
 /** What an input shows. */
@@ -303,7 +303,6 @@ export const valueOf = (selector: string): string | undefined => {
    - **The program breaks the requirement, and its own tests passed.** Read where the reader's report says it found
      the rule in question. One it guessed, or read in the documentation and took otherwise, is a gap, of (a), (b) or
      (c), and is handled as any other. One the documentation says plainly is the reader's slip: no gap, but it counts.
-
 
 - In a check of the package, read the reader's path first. A reader that never reached the skill or the guide, or
   reached them late, says what it read instead: where a user's agent looks, and what there could send it on, is a

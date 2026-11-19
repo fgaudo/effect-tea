@@ -28,7 +28,7 @@ answer, and saying so in the proposal.
   weakened); and it saves one premise (the annotations of `Fiber.interruptAs`), already held by two tests that fail
   without it, and some 15 lines. `diesIn` still asks a fiber the run does not stop whether it was interrupted. The
   owner decided: the mark stays, and the guarantee is not narrowed. Source: the session "Analisi invarianti
-  progetto", 13 November 2026, and the commit. *Reopen if* a design tells the run's stop from a self-interruption
+  progetto", 13 November 2026, and the commit. _Reopen if_ a design tells the run's stop from a self-interruption
   with no question to the fiber, and keeps a self-interruption in a stopped fiber's release a defect.
 - **Promising the order of the defects.** Reasoned, 13 November 2026. The run keeps the order and its tests check
   it; the guide describes it as how the run is made today, and promises only that every defect is in the cause,
@@ -37,8 +37,8 @@ answer, and saying so in the proposal.
   `Effect.runPromise` and `Effect.runSync` use, takes the first defect. The principle is in
   [`invariants.md`](invariants.md), under "Defects always die". Source: the same session. The narrower form,
   promising only that the first defect of the cause is the first that happened, was left open in that session's
-  table before the owner's decision, and the decision named no exception; it rests on the same argument. *Reopen
-  if* the promise can rest on the library's own code, not on what a function of Effect makes of a cause.
+  table before the owner's decision, and the decision named no exception; it rests on the same argument. _Reopen
+  if_ the promise can rest on the library's own code, not on what a function of Effect makes of a cause.
 - **"A dispatch never runs `update` on the caller's stack", as a guarantee.** Reasoned, 13 and 14 November 2026.
   It became a sentence of the README's "View" instead (a handler returns before `update` has seen its message,
   `c3c2783`), as the owner accepted: it rests on a premise read only in Effect's source (an unbounded `Queue` wakes
@@ -46,7 +46,7 @@ answer, and saying so in the proposal.
   reason given then, that by the owner's principle above no guarantee rests on such a premise, said too much: three
   guarantees do, and the rule written since in [`premises.md`](premises.md) lets them (15 November 2026). The
   sentence is a promise all the same, of the Guide, held by those tests, and stays in "View", where a view's author
-  reads it. Source: the same session, and the review of the rules of 15 November. *Reopen if* the owner wants it
+  reads it. Source: the same session, and the review of the rules of 15 November. _Reopen if_ the owner wants it
   listed among the guarantees, with a property of the search for it.
 - **One owner of the run's decisions, in other forms.** Spiked, 13 November 2026, on copies deleted since: a death
   queued as a message of the loop; no check at all, the loop stopped first, and the renderer stopped first; the
@@ -69,7 +69,7 @@ answer, and saying so in the proposal.
   for one thing, keeps up to twice the list, and holds the ids of the last calls that shared a state once none does.
   The positional cache costs the common case about a tenth (0.26 ms), and lifts again the children after a place
   inserted or removed among those that share a state, in that call alone. Source: the session that made the change,
-  with a review by a second model. *Reopen if* a list that inserts a sharing child before the others on most changes
+  with a review by a second model. _Reopen if_ a list that inserts a sharing child before the others on most changes
   of state is shown to matter, which the maps by id keep.
 - **Telling `onIgnored` whether a rejected message came from the frame of the current state**, so that a rejection
   that cannot be a late tap reaches an application's telemetry as a bug. Reasoned, 16 November 2026, proposed by a
@@ -85,7 +85,7 @@ answer, and saying so in the proposal.
   that state is a bug from whatever frame it came, and `onIgnored` is given both, so an application may compare them
   there. For an input, the model holds only the write over the value its place holds: a write over a value since
   replaced is not among them, so is not reported, where taking any write to the input as held would report every late
-  one. Source: the session that weighed it. *Reopen if* rejections in production are shown to hide bugs the property
+  one. Source: the session that weighed it. _Reopen if_ rejections in production are shown to hide bugs the property
   tests cannot reach, and a frame's identity can reach the run without a change of `Dispatch`.
 
 ## The testing tools
@@ -122,7 +122,7 @@ answer, and saying so in the proposal.
   `dispatchViolations` over a generator's states is `Outdated`, `Stuck` and `Ignored`, the last two often meant. And
   it would be one more tool to keep in step with the engine, with concepts of its own (`within`, `heard`,
   `answers`, nodes with the commands under way, eight findings). Not measured: what it finds when a bug is put into
-  an example. *Reopen if* a walk keeps a composed program tractable without the test choosing its states (a child
+  an example. _Reopen if_ a walk keeps a composed program tractable without the test choosing its states (a child
   walked alone, ids told as names), or a bug put into an example is found by it and by no test the library's tools
   already make possible.
 - **A mark on a model's messages, so that a tool finds a reader that forgets one.** Reasoned, 15 November 2026,
@@ -132,7 +132,7 @@ answer, and saying so in the proposal.
   and one that forgets a fixed message is found by `Missing`, given a candidate that acts; the mark's price is the
   spike's, a constructor every model calls and the limits of identity, for a check no example needed. The owner
   judged `Missing` enough. [`boundary.md`](records/boundary.md) and `declared-inputs.md`, "Open questions". Source: the
-  session that removed it from `ROADMAP.md`. *Reopen if* a reader forgets a fixed message of a model, in an example
+  session that removed it from `ROADMAP.md`. _Reopen if_ a reader forgets a fixed message of a model, in an example
   or an application, and no test with `Missing` finds it.
 
 - **A failure of a call of `rehearse` failing the rehearsal from any fiber.** Reasoned, 15 November 2026, on a
@@ -143,15 +143,15 @@ answer, and saying so in the proposal.
   defect is. The one form that keeps the register's meaning, a second record read at the end, would fail a rehearsal
   whose scenario caught the failure with `Effect.exit` (tests of `rehearse.test.ts` observe one and go on), and
   `drive`'s timeouts, which fail the calling fiber too, would need the same. The guide says instead that a call's
-  failure fails the fiber that made it. Weighed with a second opinion (Fable), the owner deciding. *Reopen if* a
+  failure fails the fiber that made it. Weighed with a second opinion (Fable), the owner deciding. _Reopen if_ a
   test that forked a call and never joined it passed on a failure an application then met.
 - **Every tool starting from `from` or `flags`.** Reasoned, 15 November 2026, on the same review. `simulate` is
   given pieces of a program, with no `init` (`simulate({ update, subscriptions })` is one), and folds from a step as
   `applyAll` does: giving it flags would ask for `init` to save the test a call of it. `drive` is a run, and a `from`
   there would name `{ ...program, init: { state } }`, which the guide gives for `run`. `rehearse`'s `from` was that
   spread under a name, and was removed instead (0.8.0), so that `drive` and `rehearse` start as `run` does. Left: under
-  `simulate`, an `init` that throws on its flags is the test's own defect, not a `ProgramDefect` in `'init'`. *Reopen
-  if* such a defect goes untested in a program with flags.
+  `simulate`, an `init` that throws on its flags is the test's own defect, not a `ProgramDefect` in `'init'`. _Reopen
+  if_ such a defect goes untested in a program with flags.
 - **`hear` typed by what a program's subscriptions send**, in place of reading a write by its shape. Reasoned, 16
   November 2026, on the item of `ROADMAP.md`, confirmed by a type test: `Rehearsal.hear` refuses
   `{ _tag, message: Written }` at any depth, so an own message of that shape, holding a `Written` as data, is refused
@@ -163,7 +163,7 @@ answer, and saying so in the proposal.
   `Program<…>` annotation, which gives `message`, loses the rule again; and it serves one method of one tool. The
   collision of a program's own value with the library's wrapping was accepted already, for `describeByTag` (under
   "The API"). Workarounds: `hearNext` with a subscription that sends the message, a cast at the call, or another
-  name for the field. Weighed with a second opinion (Fable), the owner deciding. *Reopen if* an application's
+  name for the field. Weighed with a second opinion (Fable), the owner deciding. _Reopen if_ an application's
   subscription is found sending such a message, or `Shape` gains a type of what its subscriptions send for another
   reason.
 - **`rehearse` and `simulate` taking the options of `drive`** (`RunOptions`), so that a rehearsal checks an observer
@@ -176,7 +176,7 @@ answer, and saying so in the proposal.
   not one an application's test checks. `simulate` runs no effect but its commands', and an observer returns one. In
   `rehearse` they would be an effect that waits inside the step the loop applies, which the end may interrupt: new
   points between a check and its act, mutations, cases of the contract and prose of the README, in the largest tool,
-  for no test of a program. Weighed with a second opinion (Fable), the owner deciding. *Reopen if* a test of a program
+  for no test of a program. Weighed with a second opinion (Fable), the owner deciding. _Reopen if_ a test of a program
   needs what an observer is told; the form would then be the records as data, not callbacks: an `applied` list of
   `Applied`, and `ignored` widened to `Ignored`, which `Rehearsal.ignored` already half is (that widening breaks it).
 
@@ -187,7 +187,7 @@ answer, and saying so in the proposal.
   owner deciding: a misspelled name is a name not given, and a program that does not name a type is correct as it is.
   The developer finds the mistake where the type is missing. The check kept none of the three rules of the types
   (`AGENTS.md`, "What belongs here"), at the cost of two twin markers, one in `program.ts` and one on `make`'s
-  config, since API Extractor refuses a module's type that the package does not export. *Reopen if* a misspelled name
+  config, since API Extractor refuses a module's type that the package does not export. _Reopen if_ a misspelled name
   can make a broken
   program compile.
 - **Checks that hold for a type parameter**, so that a function over any program (`<P extends AnyProgram>(p: P)`)
@@ -201,7 +201,7 @@ answer, and saying so in the proposal.
   function is written as an overload over erased types instead ("Composition", "Precisely"), and a frame is better a
   child beside its content. The same holds for a state that is a type parameter in `make`, refused since 18 November
   2026 so that a number cannot reach `run` through a generic function (`MakeProgram` in `compose.ts`): a type
-  parameter in a field of the state compiles. *Reopen if* a library of components over this one needs such functions
+  parameter in a field of the state compiles. _Reopen if_ a library of components over this one needs such functions
   often.
 - **`run`, `drive` and `rehearse` taking `Program<{ … }>` by name, and `Shape` out of the API.** Spiked, 18 November
   2026, on a copy of the repository outside git, not kept, with TypeScript 7.0.2, in a review of the exported types.
@@ -214,7 +214,7 @@ answer, and saying so in the proposal.
   `any` (100 errors in `rehearse.test.ts`, 29 in `contract.test.ts`), and a function declared with the same parameters
   did the same, while a scenario written as an arrow function kept them. Why was not found: it rests on how the
   compiler infers a generic function given as an argument, an order no documentation states (as the check of external
-  messages in `make`, below). *Reopen if* the cause is found, and a form holds under each supported TypeScript and the
+  messages in `make`, below). _Reopen if_ the cause is found, and a form holds under each supported TypeScript and the
   matrix of inference.
 - **`DeclareChild<State>` in place of `DeclareChild<T>`**, and so for `DeclareChildById`, `DeclareInput` and
   `DeclareInputById`, which use only the state of the types a program declares. Spiked, 18 November 2026, with
@@ -222,12 +222,12 @@ answer, and saying so in the proposal.
   the matrix of inference passed. But a state written `type State = Readonly<{ … }>`, the repository's own style, loses
   its name once read out of `T` (by `Field` or by `T['state']`): the declarations of a destructured `program<…>()`
   printed `Readonly<{ … }>` inside each of the four, and the smoke test failed ("spells out the state 16 times, more
-  than 12"), where `DeclareChild<{ state: State; … }>` keeps the name as the user wrote it. *Reopen if* TypeScript keeps
+  than 12"), where `DeclareChild<{ state: State; … }>` keeps the name as the user wrote it. _Reopen if_ TypeScript keeps
   the name of an alias of an alias when it prints the type.
 - **`attempt`**, which turned an effect that may fail into an execution with a message for each outcome. Removed in
   0.7.0 (`775f140`, 26 October 2026) by "A function earns its place" (`AGENTS.md`): it only named two combinators of
   Effect (`Effect.match` and `Effect.asSome`), and the type of an execution already says it cannot fail. Reasoned.
-  *Reopen if* it does what those combinators cannot.
+  _Reopen if_ it does what those combinators cannot.
 - **`silent` and `Subscription.every`.** `AGENTS.md` names them as removed by the same rule, since `775f140`.
   Neither appears anywhere in this repository's history, so what each was, when it was removed and where are not
   found here: they may come from an application or a predecessor of the library. To be completed by whoever knows.
@@ -238,7 +238,7 @@ answer, and saying so in the proposal.
   nothing checked, where the literal names them. Checked with `tsc`: `=== reject` narrows a `Transition` as
   `isRejected` did, and a handler written by hand in `onEvent` is refused and inferred as `raise` was ("a parent
   raises only the events its own type includes", `compose.test.ts`), since the check is `onEvent`'s. `raise` was
-  weighed with a second opinion (Opus 5.5), the owner deciding; `write` was never released. *Reopen if* one of them
+  weighed with a second opinion (Opus 5.5), the owner deciding; `write` was never released. _Reopen if_ one of them
   comes to do what the literal or the operator cannot: a check as it is made, or a shape that is hidden.
 - **`subscriptions` optional on a program's type, with a public `subscriptionsOf` to read it**, as from 0.4.0 to
   0.7: the piece is required on `Shape` and `Program`, and a test reads `program.subscriptions(state)`. Decided on 18
@@ -247,7 +247,7 @@ answer, and saying so in the proposal.
   function earns its place") once no program on a type lacks it: `make`, which always set the piece, is the one place
   where a config without it means listening to nothing, as `update` is optional in the config of `make` and required
   on `Program`. Spiked: the `?` taken off `Shape` broke 44 lines, all in the library's own tests and 38 of them a
-  program written as an object, none in `src/` and none in the examples. *Reopen if* a program the library takes cannot
+  program written as an object, none in `src/` and none in the examples. _Reopen if_ a program the library takes cannot
   be written with `subscriptions`, or a test of a program has no other way to read what it listens to.
 - **Checking a program's external messages in `make`**, where `child` and `childById` check them today. Spiked on 17
   November 2026, with a second opinion (Fable), the owner deciding. A check in `config`, or in a rest parameter after
@@ -259,7 +259,7 @@ answer, and saying so in the proposal.
   is a child, and the owner asks of the types only that every program can be written and every invalid one fails
   somewhere. The form only moves that error, at the cost of a type parameter and a union in every hover and every error
   of `make`, on an order of inference no documentation states. A check only where `message` is named was refused too:
-  the rule would depend on how the types are written, and `message: never` would escape it. *Reopen if* a program with
+  the rule would depend on how the types are written, and `message: never` would escape it. _Reopen if_ a program with
   a wrong `external` can compile everywhere, or the compiler documents its two passes. Reopened in part on 17 November
   2026: a parent's `external` that named a message its child keeps to itself compiled everywhere, and the child's
   rejection of it was a `CompositionDefect` (found by the matrix of inference). `make` checks that part alone
@@ -280,13 +280,13 @@ answer, and saying so in the proposal.
   `any` and `unknown` alike, in commands and subscriptions, made or annotated; the guard would have covered one of the
   four, and moved an error that `run` gives. What neither reaches is an `any` that a program written by hand gives to a
   type it declares, or hands to `run` unannotated (`RC` gets no candidate from it, and keeps its default, `never`):
-  that is TypeScript's own escape, and nothing of the library sees through it. *Reopen if* one of those can be told
+  that is TypeScript's own escape, and nothing of the library sees through it. _Reopen if_ one of those can be told
   apart from a program that needs no services.
 - **`satisfies Program<…>` as the way to write a program without children**, with its services as `unknown`, in place
   of `program<…>().make(…)`. Reasoned, 17 November 2026, when every program came to be made with `program`.
   `satisfies` checks the literal and leaves it its own type: `typeof` the program reads the literal, so a command, a
   message or a service that its pieces do not show is lost, and services named `unknown` say nothing of what it needs.
-  A second way of writing the same program would only confuse. *Reopen if* a program that `make` cannot express is
+  A second way of writing the same program would only confuse. _Reopen if_ a program that `make` cannot express is
   written that way.
 - **`child`, `childById`, `input` and `inputById` as free functions, and `make` as `program` itself**, in place of the
   functions that `program<T>()` returns. Reasoned, 17 November 2026, the owner deciding. TypeScript does not infer
@@ -297,7 +297,7 @@ answer, and saying so in the proposal.
   but `get`, `set` and `subscribed` would annotate `state` in each function, or take its type from `children` in
   `make`, whose children are themselves inferred, on an order of inference no documentation states (as the check of
   external messages in `make`, above). And a place of the wrong state would fail inside `make`, not where it is
-  declared. *Reopen if* TypeScript infers the type arguments that a call does not give (microsoft/TypeScript#26242).
+  declared. _Reopen if_ TypeScript infers the type arguments that a call does not give (microsoft/TypeScript#26242).
 - **Children declared apart from the parent's own state**, kept by `program` in a part of the state of its own, with
   no `at`, `get` or `set`, and children born and removed by something other than the parent's state. Reasoned, 17
   November 2026, from `ROADMAP.md`, the owner deciding; not spiked. The ids of children by id, and their order, stay in
@@ -306,7 +306,7 @@ answer, and saying so in the proposal.
   need a part of a step of their own, a third way between a parent and its children beside external messages and
   events, as the children's models given to `update` would have been (below). `init: { state }`, `applyAll` and the
   testing tools take whole states, so the part kept apart would need a shape that users write all the same. And what
-  it saves is the `at` of each child, one line. *Reopen if* an application shows that keeping its children in its state
+  it saves is the `at` of each child, one line. _Reopen if_ an application shows that keeping its children in its state
   costs more than that line.
 - **`renderToString`, a first frame for server-side rendering.** Reasoned, 16 November 2026, on the idea of
   `ROADMAP.md`, by "A function earns its place" (`AGENTS.md`). The first frame is data a program already gives:
@@ -315,7 +315,7 @@ answer, and saying so in the proposal.
   which decides nothing a test can see; the string is the renderer's (`react-dom/server`, a serializer of snabbdom),
   which the library may not import; hydration is the bridge's, inside `renderInto`; and sending the state to the
   client is a promise of serialization, which `registers.md` ("What a model is") declined, to come with a schema of
-  its own. Weighed with a second opinion (Fable), the owner deciding. *Reopen if* a server needs the state after the
+  its own. Weighed with a second opinion (Fable), the owner deciding. _Reopen if_ a server needs the state after the
   commands of `init` have answered, a run to quiescence that returns its state: that is what Effect alone cannot do,
   and a feature other than this one. A first frame drawn on a server in an example goes with "Bridges as packages of
   their own" (`ROADMAP.md`), which decides the dependencies of the bridges.
@@ -336,7 +336,7 @@ answer, and saying so in the proposal.
   defect too runs the program's code as the run dies, or costs at every start outside debug, makes the key differ
   from `onApplied`'s `origin`, and leaves a child's `id` undefined. The guide says instead that the key and the id
   are carried as they are, and a string message whole. Source: the sessions "Analisi invarianti progetto" and
-  "Parere Fable sulle invarianti", and this one. *Reopen if* a program needs a key that must hold private data and
+  "Parere Fable sulle invarianti", and this one. _Reopen if_ a program needs a key that must hold private data and
   cannot be built otherwise.
 - **Input through a subscription**, a keystroke sent through a key in place of a dispatch. Reasoned, November 2026,
   before the proposal of declared inputs: typed-then-Save would rest on scheduling, a typed message would be checked
@@ -363,7 +363,7 @@ answer, and saying so in the proposal.
   answer not to need (`registers.md`, "What the owner asks of an answer"), and describe a granularity that rests on
   scheduling. Not kept as an example, which users copy, for the same reasons. Nothing in the library: the one support
   that removes both traps is a message on each write, which an input with behaviour of its own would be (the `Field`
-  entry below) and the parked "What reaches `update`, declared as data" would reach. *Reopen if* an application needs
+  entry below) and the parked "What reaches `update`, declared as data" would reach. _Reopen if_ an application needs
   an undo at every write of a value its parent reads, and an undo by step is not enough.
 - **An input as a `Field`, `{ value, revision }`, with `field`, `renewed` and a revision derived by value.**
   Implemented on 14 November 2026 and replaced, unreleased, on 15 November by the plain input of the ninth review
@@ -372,7 +372,7 @@ answer, and saying so in the proposal.
   ownership: a child its parent starts again, a kept state brought back and a row whose id comes back gave the input a
   revision it had, and a late key was stored into the new instance, run in `src/input-swap.test.ts` of
   `worktree-agent-a02816c77ebec330c` (`4757546`). `renewed` was a recipe to remember for a slider whose bounds narrow,
-  and the state stored differed from the state written. *Reopen if* the numbering of a frame (`seen`) or the condition
+  and the state stored differed from the state written. _Reopen if_ the numbering of a frame (`seen`) or the condition
   on elements and renderers it rests on fails where no revision would.
 - **Whoever steps replaces what is below** (the seventh review) **and the channel of a replacement, declared** (the
   eighth). Spiked, 15 November 2026: `2d2e77b` on `worktree-agent-a144664c3ddf8f27a` and `45da546` on
@@ -382,7 +382,7 @@ answer, and saying so in the proposal.
   ownership rather than remove it, need a recipe for what they leave, and widen what a parent's `make` does to a
   child's state. The owner judged the complexity of parents and children too much and asked for another way, which
   the ninth review gave. [`registers.md`](records/registers.md), "Whoever steps replaces what is below" and "The channel
-  of a replacement, declared". *Reopen if* the plain input is dropped and an input must again keep a history between two
+  of a replacement, declared". _Reopen if_ the plain input is dropped and an input must again keep a history between two
   writes.
 - **A parent that reads its children's inputs**, as an exception to "A parent never reads a child's state to decide"
   ("Structuring a program"), for a parent that totals or submits what was typed into its rows. Reasoned, 16 November
@@ -390,15 +390,15 @@ answer, and saying so in the proposal.
   count typed into each item, since an input took one optic. It would be an exception to a rule the examples keep even
   where breaking it is cheap (`examples/list/list.ts`, "Every stopwatch is told, running or not"). The owner decided
   that the rule stands, and that a value the user writes, and the parent reads, is an input of the parent's, by id
-  where there is one for each row. *Reopen if* a value the parent must read cannot be an input of its own, by id or
+  where there is one for each row. _Reopen if_ a value the parent must read cannot be an input of its own, by id or
   not.
 - **A parent's `update` given its children's models**, for the same parent. Reasoned, 16 November 2026, with the
   entry above: it would be a third channel between a parent and its children, beside events and external messages,
-  and a model with two readers, the view and the parent, which then decides on what is drawn. *Reopen if* the same.
+  and a model with two readers, the view and the parent, which then decides on what is drawn. _Reopen if_ the same.
 - **A write into a child's input that raises an event**, which the parent handles to learn what was typed. Reasoned,
   16 November 2026, with the entries above: the parent would keep a copy of the value, two truths of one input, and a
   function of the program for what the user types, which inputs replaced, would come back in the child's `update`.
-  *Reopen if* the same.
+  _Reopen if_ the same.
 - **An input declared as a bare optic, and an input by id as a function of the id that gives one**
   (`inputs: { Name: at, Count: (id) => at }`, told apart by the `getResult` an optic's type declares), in place of
   `input(at)`. Implemented and committed on 16 November 2026 (`38b3ac6`, with `41d788d`), and replaced on the 17th,
@@ -409,13 +409,13 @@ answer, and saying so in the proposal.
   infer from; and a place that is the element of an array found by a predicate is real (`examples/list`, the stock-take,
   and an application whose pages live in a stack found by tag), where an optic alone needs a `byId` written with
   `Optic.makeOptional` and a `SchemaIssue`. With a function for each, children and inputs share one notion of place.
-  *Reopen if* a bare literal `{ get, set }` comes to be typed where it is declared, or an Effect optic to an element
+  _Reopen if_ a bare literal `{ get, set }` comes to be typed where it is declared, or an Effect optic to an element
   found by a predicate comes to be written as easily as `get` and `set`.
 - **An exported `byId` optic**, to the element of an array that has an id, for inputs by id over rows kept in an array.
   Reasoned, 16 November 2026: a name over a composition of Effect's combinators (`Optic.makeOptional` and
   `Arr.findFirst`), which the rule of `AGENTS.md` ("A function earns its place") refuses; rows kept in a record need
-  only Effect's `.at(id)`. Since `inputById` takes `get` and `set`, rows kept in an array need no optic at all. *Reopen
-  if* such an optic must do what Effect alone cannot.
+  only Effect's `.at(id)`. Since `inputById` takes `get` and `set`, rows kept in an array need no optic at all. _Reopen
+  if_ such an optic must do what Effect alone cannot.
 - **A value changed as the library stores it** (`input({ at, normalize })`, or a `set` that stores another value than
   the one written), for upper case, a mask or a limit of length. Weighed on 18 November 2026, with the three entries
   below, on the owner's questions of how a typed value is normalized and whether the rule of a place can leave the
@@ -426,7 +426,7 @@ answer, and saying so in the proposal.
   compared values after the same function, so a bridge would need the program's function, which must be idempotent,
   and would write into the element between two keystrokes, with the caret to restore. The guide says instead where a
   value takes another form ("Inputs the user types into", "What is typed, in another form"): parsed where the program
-  reads it, replaced on a message of the program, or formatted in the element before the write. *Reopen if* a value
+  reads it, replaced on a message of the program, or formatted in the element before the write. _Reopen if_ a value
   must be normal in the state as it is typed, and neither a parse where it is read nor a mask in the element gives it.
 - **A condition on an input's declaration** (`input({ at, when })`), to say in which states a write applies, in place
   of a `get` that returns `None`. Reasoned, 18 November 2026: it is that `get` under another name, an option for what a
@@ -434,19 +434,19 @@ answer, and saying so in the proposal.
   (`Opt.filter(sheetOf(state), isOpen)` in `examples/stocktake`), was the example's: with the counts a tagged union,
   `Open` or `Locked`, the place is an optic through the case `Open`, and the input, `update` and `makeModel` read the
   same case (the guide, "Inputs the user types into", "Inputs by id"). Tried on the example the same day: a `set` that
-  writes into the locked counts does not compile, while a `get` that reads them does, and a test fails on it. *Reopen
-  if* a lock cannot be a case of the state.
+  writes into the locked counts does not compile, while a `get` that reads them does, and a test fails on it. _Reopen
+  if_ a lock cannot be a case of the state.
 - **A write that `update` sees and may reject**, so that what applies in a state is said in one place. Reasoned, 18
   November 2026: the element already shows what was written, so a write that `update` refused would leave the element
   unlike the state until a frame takes back what the user typed, which "Input is never a reason to reject"
   ("Structuring a program") rules out. It is the function of the program for what the user types, which inputs
-  replaced, as in "A write into a child's input that raises an event" above. *Reopen if* a program must refuse a
+  replaced, as in "A write into a child's input that raises an event" above. _Reopen if_ a program must refuse a
   write for a reason that no place of its state can say.
 - **A lock derived from the model**: a write rejected when the model does not show the input's value. Reasoned, 18
   November 2026: the library would have to know which value of a model is an input's, a mark in the model, with the
   limits of identity that the third spike of [`declared-inputs.md`](records/declared-inputs.md) found (a copy is not
   recognised), and the run would check at run time what a view sends, as it checked the offers against `update`
-  before they were removed ("Offers as tokens, checked against `update`" above). *Reopen if* the parked "What reaches
+  before they were removed ("Offers as tokens, checked against `update`" above). _Reopen if_ the parked "What reaches
   `update`, declared as data" is taken up, whose declarations would say it.
 - **The wrapping of a child's message as a public function** (`{ _tag, id?, message }`, for `dispatchTo` and a
   test's reader to share), **and as an internal one** for the two places of `src/` that build it. Reasoned, with a
@@ -460,7 +460,7 @@ answer, and saying so in the proposal.
   would share only the spread: `make` and `dispatchTo` decide differently whether a child is by id, and it would
   add an import between `compose.ts` and `dispatch.ts`, which have none. The owner decided against both.
   [`boundary.md`](records/boundary.md), "A question". Source: the session that removed it from `ROADMAP.md`, with a
-  review by Fable 5.2. *Reopen if* a tool must lift a child's message without a type to lean on (as the third spike of
+  review by Fable 5.2. _Reopen if_ a tool must lift a child's message without a type to lean on (as the third spike of
   [`declared-inputs.md`](records/declared-inputs.md) did), or the stray `id` is found in an application's tests.
 
 - **Following a string in a child's wrapping, in the default description of a message.** Reasoned, 15 November
@@ -470,7 +470,7 @@ answer, and saying so in the proposal.
   same way, a rule of the types reaches only a composition's own tags, and a key that is a symbol, the one shape it
   could trust, would be imported by every parent's test and view and lost in a session saved as JSON. Following the
   string would log a program's own text, `{ _tag: 'ToastShown', message: '<text>' }`, which the default must not.
-  The guide says what it does; `describeMessage` shows more. *Reopen if* a wrapping the describer can tell from a
+  The guide says what it does; `describeMessage` shows more. _Reopen if_ a wrapping the describer can tell from a
   program's own value comes for another reason.
 - **`forwardTo` dual**, then named `dispatchTo`: `pipe(dispatch, forwardTo('Home'), forwardTo('Products'))` for a
   grandchild's dispatch. Spiked, 16 November 2026, in the working tree and discarded uncommitted, after a survey of the
@@ -483,7 +483,7 @@ answer, and saying so in the proposal.
   last one: a missing id went from `Expected 3 arguments, but got 2` to a `Dispatch` not assignable to `string`, a
   mistyped one from `string` not assignable to `number` to `No overload matches this call`; and in a `pipe` a wrong id
   is reported as a call of something not callable, not on the id. The gain is one nesting, which the guide says a view
-  usually writes in two steps. *Reopen if* `dual`, or TypeScript, comes to report a failed call of an overloaded
+  usually writes in two steps. _Reopen if_ `dual`, or TypeScript, comes to report a failed call of an overloaded
   function against the overload its arguments meant.
 - **Other names for `forwardTo`**, weighed when `dispatchTo` was renamed, 16 November 2026, before 0.8.0 was released.
   Reasoned, with a review by Fable 5.2. `dispatchTo(dispatch, 'Clock')` read as a call that sends, with `dispatch` the
@@ -492,7 +492,7 @@ answer, and saying so in the proposal.
   and `dispatchFor`, nouns that still read "dispatch" twice in each call; `childDispatch`, wrong for an input, which is
   no child; `tagged` and `wrapAs`, names of the mechanism, the first a namesake of Effect's `Data.tagged`; `child`,
   `input` and `at`, taken. The rename was made inside 0.8.0, already breaking for the same views, and would not have
-  been worth a breaking release of its own. *Reopen if* a reader of the guide finds `forwardTo` misleading where
+  been worth a breaking release of its own. _Reopen if_ a reader of the guide finds `forwardTo` misleading where
   `dispatchTo` was not.
 - **Other names for `childById` and `inputById`**, weighed when inputs by id were declared with a function and `each`
   was renamed, 17 November 2026, before 0.8.0 was released. Reasoned, the owner deciding. The guide, `AGENTS.md` and
@@ -502,7 +502,7 @@ answer, and saying so in the proposal.
   leaves "each what?"; `eachChild` with `eachInput`, regular, but keeping the word that reads as `forEach` over steps,
   used beside it in `forEach({ state }, rows, ({ id }) => children.Row.update(id, …))`, where `each` iterates nothing,
   and that the guide does not use; and one `each` for both, told apart by the number of its arguments, two signatures
-  that overlap, not spiked, by the reason that refused `forwardTo` dual. *Reopen if* a reader of the guide finds the
+  that overlap, not spiked, by the reason that refused `forwardTo` dual. _Reopen if_ a reader of the guide finds the
   suffix `ById` misleading.
 
 The six entries below were weighed on 16 November 2026, for the doc comments of the API, which the pilot of `bb7ee37`
@@ -512,21 +512,21 @@ decided each, with a second opinion (Fable) on the last two.
 - **A link from a doc comment to the page of the site that holds its rule.** Spiked in the pilot, and dropped before
   its commit: the site is built again whole by each tag (`.github/workflows/docs.yml`) and keeps no older release, so
   the hover of a version installed would show, after the next release, the promises of that one. `tools/comments.ts`
-  now fails on such a link. *Reopen if* the site keeps each release at an address of its own.
+  now fails on such a link. _Reopen if_ the site keeps each release at an address of its own.
 - **A site that keeps each release** (`/v0.8.0/…`, kept on a branch the deploy adds to). Reasoned: it would hold, but
   on infrastructure (the layout of the deploy, a branch to keep, a permission to push), which the owner declined for
-  a rule of the documentation. *Reopen if* the site is versioned for a reason of its own.
+  a rule of the documentation. _Reopen if_ the site is versioned for a reason of its own.
 - **Links to the guide on GitHub, at the tag of the release.** Reasoned: exact by construction, but it rests on
   hosting outside the package too, and GitHub shows the TypeDoc syntax of the guide as it is written (13 uses of
-  `{@includeCode}` then, 6 of them in "Writing a bridge"). *Reopen if* the guide no longer needs TypeDoc to read.
+  `{@includeCode}` then, 6 of them in "Writing a bridge"). _Reopen if_ the guide no longer needs TypeDoc to read.
 - **The guide in the package, linked from the comments by a relative path.** Reasoned: the same `{@includeCode}`,
   which a step of the pack would have to expand, and the hover never shows the rule itself. Whether an editor follows a
-  relative link in a hover was not checked. *Reopen if* both are checked, and a hover that only names a rule is
+  relative link in a hover was not checked. _Reopen if_ both are checked, and a hover that only names a rule is
   enough.
 - **The quotes written only into what the build makes**, not committed into `src/`. Reasoned. Into `dist/*.d.ts`
   alone, they would miss the `src/` the package ships for the `bun` condition, and shift the lines the declaration
   maps point to; the form that holds fills a copy of `src/` before `tsc` and ships that copy, which changes how the
-  package is built and laid out, for text that a `--check` already keeps in step. *Reopen if* the copy in `src/`
+  package is built and laid out, for text that a `--check` already keeps in step. _Reopen if_ the copy in `src/`
   costs more than that, in reviews or in conflicts.
 - **Doc comments for the package's users apart from those of the implementation.** Spiked on projects of scratch,
   not kept, with the language service of TypeScript 6 (the hover in a file that imports the entry) and TypeDoc
@@ -542,7 +542,7 @@ decided each, with a second opinion (Fable) on the last two.
     comments in a row reach the declarations both, though the hover shows the last: `tools/comments.ts` fails on each.
 
   Instead, the doc comment of an export is for its users, and a note on how it is implemented is a `//` comment or
-  that of an internal declaration (`AGENTS.md`, "Code"). *Reopen if* TypeScript and TypeDoc come to hide alike a part
+  that of an internal declaration (`AGENTS.md`, "Code"). _Reopen if_ TypeScript and TypeDoc come to hide alike a part
   of a doc comment from the users of a package.
 
 The two entries below were tried on 16 and 17 November 2026 and dropped on 17 November, the owner deciding: the doc
@@ -555,12 +555,12 @@ comments are written by hand since, in plain English, and name the sections of t
   written to be read in order, and a section copied alone is not a hover: it keeps the guide's reasons and examples,
   its lists of cases, its pointers to sections the comment does not hold ("see 'two limits'") and to the examples,
   and two sections that say one thing twice. `drawn`'s comment held 42 lines, 26 of them copied, before the entry
-  below made it 103. *Reopen if* a hover can show a short form of a section that the guide itself writes, and keep it
+  below made it 103. _Reopen if_ a hover can show a short form of a section that the guide itself writes, and keep it
   in step with the version installed.
 - **Every line of the guide quoted by a doc comment, or set aside with a reason** (`tools/unquoted.ts`), so that a
   promise added to the guide reached the declarations. Spiked, commits `0e1738d` to `ca9b91b`, never pushed. Sorted
   page by page, it made quoting the easy path, since setting aside needs a reason: 481 lines came into the comments
-  of `src/`, and `run`'s grew from 57 lines to 136. *Reopen if* the comments quote the guide again, and only with a
+  of `src/`, and `run`'s grew from 57 lines to 136. _Reopen if_ the comments quote the guide again, and only with a
   bound on how long a comment may grow.
 
 ## The bridges
@@ -585,7 +585,7 @@ comments are written by hand since, in plain English, and name the sections of t
   features cost much review time for what is outside the library's concern, which is the program and its rule for an
   input's element, not each renderer's features; a bridge is an example to start from, and an application that needs
   more writes its own. The library (`edited`, `drawn`,
-  inputs) did not change. *Reopen if* the bridges become packages of their own (`ROADMAP.md`, "Ideas"), whose users
+  inputs) did not change. _Reopen if_ the bridges become packages of their own (`ROADMAP.md`, "Ideas"), whose users
   would expect a renderer's features to work.
 
 ## The checks
@@ -596,7 +596,7 @@ comments are written by hand since, in plain English, and name the sections of t
   and the runner refuses a killer that ran more or fewer times than once, or fails only beside its file. A score is no
   such promise, the mutants equivalent in code over Effect would each be read by hand, and Stryker has no runner for
   `bun:test`: its command runner would run the whole suite for each mutant. The run was made parallel instead (162 s to
-  44 s on 24 processors). *Reopen if* the list is to be judged for what it misses, beside the checks it names.
+  44 s on 24 processors). _Reopen if_ the list is to be judged for what it misses, beside the checks it names.
 - **Windows of absence awaited under the scheduler of the tests**, with `idle` (`test/scheduled.test_scheduler.ts`) in
   place of a sleep, in the tests that check that nothing happens. Reasoned, 16 November 2026, on the item of
   `ROADMAP.md`. `idle` is quiescence, and serves the search already (`interleaving.test.ts`), but no test of a check
@@ -604,8 +604,8 @@ comments are written by hand since, in plain English, and name the sections of t
   in `runLoop`'s source and is the tests' alone, so killers under it would rest on that reading and could break on an
   upgrade of Effect. The two windows that have a witness were awaited instead, the others are the exception that
   `AGENTS.md` writes down ("A test never rests on the clock"), and the runner of the mutations runs a killer that
-  passed again alone before it reports a survivor. Weighed with a second opinion (Fable), the owner deciding. *Reopen
-  if* a window of absence turns out to let a mutant survive on a run alone, or what the scheduler rests on becomes a
+  passed again alone before it reports a survivor. Weighed with a second opinion (Fable), the owner deciding. _Reopen
+  if_ a window of absence turns out to let a mutant survive on a run alone, or what the scheduler rests on becomes a
   premise with a test of its own.
 
 ## Parked, not rejected
@@ -617,17 +617,17 @@ there; one decided against becomes an entry above.
 - **Running only the mutations a diff touches** (`--changed`: those whose file, or a file of whose killers, changed):
   deferred by the owner on 15 November 2026, for the parallel run. A change elsewhere can make a check redundant, and
   the mutation of it survive, which such a selection does not run; and the files of the engine hold most of the list.
-  *Reopen if* the parallel run grows slow again; the whole run stays before a release.
+  _Reopen if_ the parallel run grows slow again; the whole run stays before a release.
 
 - **What reaches `update`, declared as data** ([`declared-inputs.md`](records/declared-inputs.md)): suspended by the
   owner on 14 November 2026, not revoked. The decisions taken in it stand only if it is taken up again, and what its
   spikes refuted is there; its first aim, a model with no function for what the user types, was reached by the plain
-  input. *Reopen if* the owner takes it up again; the one case the owner named, exploring made awkward on today's API
+  input. _Reopen if_ the owner takes it up again; the one case the owner named, exploring made awkward on today's API
   because a model's functions do not compare, the exploration did not find (`exploration.md`).
 - **`Inert`, a message a model holds that does nothing** ([`inert-steps.md`](records/inert-steps.md), "What was
   decided"): deferred by the owner on 15 November 2026, not rejected; the rest of the proposal is done. It would flag
   the guard `{ state }` against a double tap and a parent's broadcast, and found one real case in the examples, fixed
-  without it. *Reopen if* an application has a message that does nothing where it should act, which a test with `Inert`
+  without it. _Reopen if_ an application has a message that does nothing where it should act, which a test with `Inert`
   would have found, or a key's messages are given to the tools (below).
 - **What a key sends is not data** (`declared-inputs.md`, "What still makes sense", point 3): no tool judges a
   subscription's message, and whether a test lists a key's messages, a program exports them or a subscription
@@ -638,7 +638,7 @@ there; one decided against becomes an entry above.
   could depend on the key alone; most carry a value from the world, so that model would hold functions again; and
   only a `Subscription` of the library's own could hold a channel to what it is given. Tried instead, and run: a
   test lists what each key sends, as its reader lists what the model holds, and gives it to `dispatchViolations`
-  with every message `repeatable` ([`volume`](../examples/volume/volume.test.ts)). *Reopen if* a key's message that
+  with every message `repeatable` ([`volume`](../examples/volume/volume.test.ts)). _Reopen if_ a key's message that
   `update` rejects, or that does nothing, is found in an application, and such a test does not find it.
 - **Frames a bridge skips by the equality of models** (`registers.md`, "To explore"): with no function in a model,
   the models of two equal states are `Equal`, and a bridge could skip the drawing, as `thunk` and `memo` do by
@@ -654,5 +654,5 @@ there; one decided against becomes an entry above.
   helper of the library that keeps a row's model by identity was weighed with it and not added: a name over a
   `WeakMap`, which halves a millisecond. The measure has limits: happy-dom lays out and paints nothing, the row is
   small, and it was not run in a browser. It stays parked: the evidence is of happy-dom alone, and no decision was
-  taken on it. *Reopen if* a browser, or a heavier row, shows the drawing of an unchanged model to cost more than its
+  taken on it. _Reopen if_ a browser, or a heavier row, shows the drawing of an unchanged model to cost more than its
   comparison by `Equal`.

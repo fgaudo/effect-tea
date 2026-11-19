@@ -4,14 +4,14 @@
 // give the same flight, in a test as in the browser. After the steps of each frame, the subscription sends `Advanced`,
 // the part of the next step the screen is into: the state keeps it, `update` decides nothing by it, and `makeModel`
 // gives the height between the step before and the current one, by that part.
-import { defect, program, type Subscription, type Update } from '@fgaudo/effect-tea'
-import * as Channel from 'effect/Channel'
-import * as Context from 'effect/Context'
-import * as Data from 'effect/Data'
-import * as Effect from 'effect/Effect'
-import * as HashMap from 'effect/HashMap'
-import * as Opt from 'effect/Option'
-import * as Stream from 'effect/Stream'
+import { defect, program, type Subscription, type Update } from "@fgaudo/effect-tea"
+import * as Channel from "effect/Channel"
+import * as Context from "effect/Context"
+import * as Data from "effect/Data"
+import * as Effect from "effect/Effect"
+import * as HashMap from "effect/HashMap"
+import * as Opt from "effect/Option"
+import * as Stream from "effect/Stream"
 
 /** The length of a step, in milliseconds: 1000 / 60 for 60 steps a second. */
 export type Flags = Readonly<{ dt: number }>
@@ -21,7 +21,7 @@ export type Flags = Readonly<{ dt: number }>
  * tests provide it.
  */
 export class Screen extends Context.Service<Screen, { readonly frames: Stream.Stream<number> }>()(
-  'examples/bounce/Screen',
+  "examples/bounce/Screen"
 ) {}
 
 /**
@@ -74,27 +74,27 @@ const stepped = (state: State, velocity: number): State => {
 export const update: Update<State, Message> = (message) => (state) => {
   switch (message._tag) {
     // A throw in flight changes only the velocity: the ball is drawn from where it was.
-    case 'ThrowClicked':
+    case "ThrowClicked":
       return {
         state: {
           ...state,
-          ball: state.ball._tag === 'Flying'
+          ball: state.ball._tag === "Flying"
             ? Ball.Flying({ ...state.ball, velocity: toTheTop(state.height) })
-            : Ball.Flying({ velocity: toTheTop(state.height), previous: state.height, alpha: 0 }),
-        },
+            : Ball.Flying({ velocity: toTheTop(state.height), previous: state.height, alpha: 0 })
+        }
       }
     // A step and a part of one arrive only in flight: the subscription that sends them stops when the ball rests, and
     // the run drops what it sent that `update` has not seen, such as the part sent after the last step (the guide's
     // "Subscriptions", "What a stopped subscription sent"). One anywhere else is a bug, and the run dies with it.
-    case 'Stepped':
-      return state.ball._tag === 'Flying'
+    case "Stepped":
+      return state.ball._tag === "Flying"
         ? { state: stepped(state, state.ball.velocity) }
-        : defect('A step while the ball was at rest')
+        : defect("A step while the ball was at rest")
     // Where the ball is drawn, and nothing else: no case of `update` reads `alpha`.
-    case 'Advanced':
-      return state.ball._tag === 'Flying'
+    case "Advanced":
+      return state.ball._tag === "Flying"
         ? { state: { ...state, ball: Ball.Flying({ ...state.ball, alpha: message.alpha }) } }
-        : defect('A part of a step while the ball was at rest')
+        : defect("A part of a step while the ball was at rest")
   }
 }
 
@@ -110,7 +110,7 @@ export const started: Loop = { last: Opt.none(), accumulator: 0 }
 export const accumulate = (loop: Loop, now: number, dt: number): Readonly<{ loop: Loop; steps: number }> => {
   const elapsed = Opt.match(loop.last, {
     onNone: () => 0,
-    onSome: (last) => Math.min(Math.max(now - last, 0), longestFrame),
+    onSome: (last) => Math.min(Math.max(now - last, 0), longestFrame)
   })
   let accumulator = loop.accumulator + elapsed
   let steps = 0
@@ -136,16 +136,16 @@ const steps = (dt: number): Subscription<Message, Screen> =>
             // sends no step.
             const due = Array.from({ length: next.steps }, () => Message.Stepped())
             return [next.loop, [...due, Message.Advanced({ alpha: next.loop.accumulator / dt })]] as const
-          }),
-        ),
+          })
+        )
       ).pipe(
         Channel.flattenArray,
-        Channel.concatWith(() => Channel.die(new Error('The frames of the screen ended'))),
-      )),
+        Channel.concatWith(() => Channel.die(new Error("The frames of the screen ended")))
+      ))
   )
 
 /** Whether the ball moves: the program listens to the screen exactly then. */
-export const flying = (state: State): boolean => state.ball._tag === 'Flying'
+export const flying = (state: State): boolean => state.ball._tag === "Flying"
 
 /**
  * The throw, and the height to draw the ball at. The screen draws a ball at a height, at rest as in flight, so the
@@ -158,11 +158,11 @@ export const bounce = program<{ state: State; model: Model; message: Message; fl
   update,
   // The key stays while the ball flies, so the subscription made from the state where it appeared keeps running: `dt`
   // never changes, so any state's would do.
-  subscriptions: (state) => flying(state) ? HashMap.make(['steps', steps(state.dt)]) : HashMap.empty(),
+  subscriptions: (state) => flying(state) ? HashMap.make(["steps", steps(state.dt)]) : HashMap.empty(),
   makeModel: (state) => ({
     throw: Message.ThrowClicked(),
-    height: state.ball._tag === 'Flying'
+    height: state.ball._tag === "Flying"
       ? state.ball.previous + (state.height - state.ball.previous) * state.ball.alpha
-      : state.height,
-  }),
+      : state.height
+  })
 })

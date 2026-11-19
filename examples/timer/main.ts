@@ -1,13 +1,13 @@
-import { run } from '@fgaudo/effect-tea'
-import * as Cause from 'effect/Cause'
-import * as Effect from 'effect/Effect'
-import { renderInto } from '../../bridges/snabbdom.ts'
-import { namedTimers } from './named-timers.ts'
-import { Bell } from './timer.ts'
-import { namedTimersView } from './view.ts'
+import { run } from "@fgaudo/effect-tea"
+import * as Cause from "effect/Cause"
+import * as Effect from "effect/Effect"
+import { renderInto } from "../../bridges/snabbdom.ts"
+import { namedTimers } from "./named-timers.ts"
+import { Bell } from "./timer.ts"
+import { namedTimersView } from "./view.ts"
 
-const root = document.getElementById('app')
-if (root === null) throw new Error('index.html has no #app element')
+const root = document.getElementById("app")
+if (root === null) throw new Error("index.html has no #app element")
 
 // #region bell
 // A short beep, made with the Web Audio API.
@@ -19,14 +19,14 @@ const bell = Bell.of({
     tone.start()
     tone.stop(audio.currentTime + 0.3)
     tone.onended = () => void audio.close()
-  }),
+  })
 })
 
 Effect.runFork(
   run(namedTimers, renderInto(root, namedTimersView)).pipe(
     Effect.provideService(Bell, bell),
     // The failure of a program that dies is reported; an interruption is no crash.
-    Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause))),
-  ),
+    Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause)))
+  )
 )
 // #endregion bell

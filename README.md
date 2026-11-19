@@ -17,10 +17,10 @@ A form saves a name. The user taps "Save" twice, before the screen shows the fir
 enough. Here is a test that the second tap does nothing, adapted from the tests of [`examples/form`](examples/form):
 
 ```ts
-test('a second tap while saving does nothing', () => {
-  const { state, commands } = applyAll(update)([{ _tag: 'SaveClicked' }], { ...empty, name: ' Ada ' })
-  expect(commands).toEqual([Command.Save({ name: 'Ada' })])
-  expect(update({ _tag: 'SaveClicked' })(state)).toBe(reject)
+test("a second tap while saving does nothing", () => {
+  const { state, commands } = applyAll(update)([{ _tag: "SaveClicked" }], { ...empty, name: " Ada " })
+  expect(commands).toEqual([Command.Save({ name: "Ada" })])
+  expect(update({ _tag: "SaveClicked" })(state)).toBe(reject)
 })
 ```
 
@@ -103,25 +103,25 @@ A counter that cannot go below zero, in one file you can run as it is. There is 
 only logs each frame, and clicks "increment" until the count reaches 3.
 
 ```ts
-import { program, reject, run, type Update } from '@fgaudo/effect-tea'
-import * as Effect from 'effect/Effect'
-import * as Stream from 'effect/Stream'
+import { program, reject, run, type Update } from "@fgaudo/effect-tea"
+import * as Effect from "effect/Effect"
+import * as Stream from "effect/Stream"
 
 type State = Readonly<{ count: number }>
 
-type Message = 'Increment' | 'Decrement'
+type Message = "Increment" | "Decrement"
 
 const update: Update<State, Message> = (message) => ({ count }) => {
-  if (message === 'Increment') return { state: { count: count + 1 } }
+  if (message === "Increment") return { state: { count: count + 1 } }
   if (count === 0) return reject // nothing to decrement
   return { state: { count: count - 1 } }
 }
 
 // At zero there is no `decrement`: the model's shape says so.
 type Model =
-  | Readonly<{ _tag: 'AtZero'; count: number; increment: Message }>
+  | Readonly<{ _tag: "AtZero"; count: number; increment: Message }>
   | Readonly<{
-    _tag: 'Counting'
+    _tag: "Counting"
     count: number
     increment: Message
     decrement: Message
@@ -133,12 +133,12 @@ const counter = program<{ state: State; model: Model; message: Message }>().make
   makeModel: ({ count }) =>
     count > 0
       ? {
-        _tag: 'Counting',
+        _tag: "Counting",
         count,
-        increment: 'Increment',
-        decrement: 'Decrement',
+        increment: "Increment",
+        decrement: "Decrement"
       }
-      : { _tag: 'AtZero', count, increment: 'Increment' },
+      : { _tag: "AtZero", count, increment: "Increment" }
 })
 
 const main = run(counter, (frames) =>
@@ -148,7 +148,7 @@ const main = run(counter, (frames) =>
       if (model.count < 3) yield* dispatch(model.increment)
     })),
     Stream.take(4),
-    Stream.runDrain,
+    Stream.runDrain
   ))
 
 Effect.runFork(main) // logs 0, 1, 2, 3
@@ -163,7 +163,7 @@ is nothing to send.
 ```tsx
 const view: View<Model, Message> = (model, dispatch) => (
   <main className="counter">
-    {model._tag === 'Counting'
+    {model._tag === "Counting"
       ? <button type="button" onClick={onClick(model.decrement, dispatch)}>−</button>
       : <button type="button" disabled>−</button>}
     <output>{model.count}</output>
@@ -184,22 +184,22 @@ The tests need neither the view nor a runtime ([`examples/counter`](examples/cou
 any count, that every message the model holds is accepted, and that nothing `update` accepts is missing from it:
 
 ```ts
-test('rejects going below zero', () => {
-  expect(update('Decrement')({ count: 0 })).toBe(reject)
+test("rejects going below zero", () => {
+  expect(update("Decrement")({ count: 0 })).toBe(reject)
 })
 
 // What the model holds: the messages of its controls, a case at a time.
 const messagesOf = (model: Model): ReadonlyArray<Message> =>
-  model._tag === 'Counting' ? [model.decrement, model.increment] : [model.increment]
+  model._tag === "Counting" ? [model.decrement, model.increment] : [model.increment]
 
-test('the model holds what update accepts, all of it', () => {
+test("the model holds what update accepts, all of it", () => {
   fc.assert(fc.property(fc.nat(1_000), (count) => {
     const state = { count }
     expect(dispatchViolations(update, {
       state,
       held: messagesOf(counter.makeModel(state)),
-      candidates: ['Increment', 'Decrement'],
-      repeatable: () => true,
+      candidates: ["Increment", "Decrement"],
+      repeatable: () => true
     })).toEqual([])
   }))
 })

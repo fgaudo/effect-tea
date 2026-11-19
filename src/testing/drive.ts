@@ -1,17 +1,17 @@
-import * as Clock from 'effect/Clock'
-import * as Duration from 'effect/Duration'
-import * as Effect from 'effect/Effect'
-import * as Exit from 'effect/Exit'
-import * as Fiber from 'effect/Fiber'
-import * as Opt from 'effect/Option'
-import type * as Scope from 'effect/Scope'
-import * as Stream from 'effect/Stream'
-import * as SubscriptionRef from 'effect/SubscriptionRef'
-import * as Core from '../core.ts'
-import type { RunOptions } from '../engine.ts'
-import type { FlagsOption, Shape } from '../program.ts'
-import { type Frame, runWith } from '../run.ts'
-import { makeDeaths } from '../shell.ts'
+import * as Clock from "effect/Clock"
+import * as Duration from "effect/Duration"
+import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
+import * as Fiber from "effect/Fiber"
+import * as Opt from "effect/Option"
+import type * as Scope from "effect/Scope"
+import * as Stream from "effect/Stream"
+import * as SubscriptionRef from "effect/SubscriptionRef"
+import * as Core from "../core.ts"
+import type { RunOptions } from "../engine.ts"
+import type { FlagsOption, Shape } from "../program.ts"
+import { type Frame, runWith } from "../run.ts"
+import { makeDeaths } from "../shell.ts"
 
 /**
  * The user of a program that `drive` runs: it waits for what the frames show, and sends what they show.
@@ -94,11 +94,11 @@ export const drive = Effect.fnUntraced(function*<
   A = unknown,
   E = never,
   RT = never,
-  Flags = never,
+  Flags = never
 >(
   program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
   scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>,
-  ...[{ patience = '2 seconds', ...options } = {}]: [Flags] extends [never]
+  ...[{ patience = "2 seconds", ...options } = {}]: [Flags] extends [never]
     ? [options?: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>]
     : [options: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
 ): Effect.fn.Return<A, E, Exclude<RC | RS, Scope.Scope> | RT> {
@@ -119,28 +119,28 @@ export const drive = Effect.fnUntraced(function*<
             Effect.die(
               new Error(
                 `No frame showed what the test waits for within ${Duration.format(Duration.fromInputUnsafe(patience))}`,
-                Opt.match(latest, { onNone: () => undefined, onSome: (frame) => ({ cause: frame.model }) }),
-              ),
+                Opt.match(latest, { onNone: () => undefined, onSome: (frame) => ({ cause: frame.model }) })
+              )
             )),
-        onSome: Effect.succeed,
+        onSome: Effect.succeed
       })),
       // The frames never end, so a frame always comes before the stream ends.
-      Effect.orDie,
+      Effect.orDie
     )
   // What the run's fibers die of, the renderer's `makeModel` included, as `drive` ends with it.
   const deaths = yield* makeDeaths(() => true)
   const driver: Driver<Model, Message> = {
     waitFor: (select) => first((frame) => Effect.sync(() => select(frame.model))),
     send: (select) => Effect.flatten(first((frame) => Effect.sync(() => Opt.map(select(frame.model), frame.dispatch)))),
-    latest: first(Effect.succeedSome),
+    latest: first(Effect.succeedSome)
   }
   const running = runWith(
     program,
     (rendered) => Stream.runForEach(rendered, (frame) => SubscriptionRef.set(frames, Opt.some(frame))),
     // The rest of the options keeps the flags the parameter's type requires.
     options as RunOptions<State, Message, Command>,
-    deaths,
-  ).pipe(Effect.andThen(Effect.die(new Error('The program ended before the scenario'))))
+    deaths
+  ).pipe(Effect.andThen(Effect.die(new Error("The program ended before the scenario"))))
   // Stopped and awaited however `drive` ends, interrupted by whoever runs it too: its exit holds what the program
   // dies of as it releases what it holds.
   return yield* Effect.uninterruptibleMask(Effect.fnUntraced(function*(restore) {
@@ -152,7 +152,7 @@ export const drive = Effect.fnUntraced(function*<
     const ended = yield* Effect.exit(restore(Effect.raceFirst(
       // Suspended, so that a scenario that throws before it returns its effect fails here, past nothing of the end.
       Effect.asSome(Effect.exit(Effect.suspend(() => scenario(driver)))),
-      Effect.as(Fiber.await(fiber), Opt.none()),
+      Effect.as(Fiber.await(fiber), Opt.none())
     )))
     yield* Fiber.interrupt(fiber)
     const stopped = yield* Fiber.await(fiber)

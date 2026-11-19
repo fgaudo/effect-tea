@@ -1,5 +1,5 @@
-import type * as Channel from 'effect/Channel'
-import type * as HashMap from 'effect/HashMap'
+import type * as Channel from "effect/Channel"
+import type * as HashMap from "effect/HashMap"
 
 /**
  * Listens to the world while its key is among a program's subscriptions: an Effect `Channel` of messages.
@@ -44,5 +44,5 @@ export type Subscription<Message, R = never> = Channel.Channel<Message, never, M
  * @see The guide, "Guarantees", "Subscriptions follow their keys".
  */
 export type Subscriptions<State, Message, R = never, K = unknown> = (
-  state: State,
+  state: State
 ) => HashMap.HashMap<K, Subscription<Message, R>>

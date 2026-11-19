@@ -135,15 +135,15 @@ made with it too, and to keep every other name: `compose`, `child`, `each`, `inp
 names of `input.ts`, `dispatchTo` and `CompositionDefect`. "Parent" stays the word of the prose for a program that
 has children.
 
-| | (A) Derived by value, with `renewed`: chosen | (B) Kept by the program, under a check |
-| --- | --- | --- |
-| Spiked | yes, `spike/register-input-by-value` | yes, `2c4f3b5` on `claude/spike-revision-unwritten-b1e290` |
-| The state stored is the state written | not in the revision, when the value changes | always |
-| Emptying after a save | `name: field('')` | `name: replace(state.name, '')` |
-| A Clear on an empty field | changes nothing: it may stay shown | acts twice: rejected, and left out of the model |
-| An undo by snapshot | the old state as it is | each input rebuilt with `replace`, or a `CompositionDefect` |
-| A new input for the same value | `renewed(state.level)`, to be remembered | `replace(state.level, state.level.value)`, as always |
-| A field written by hand, or an old one | corrected in silence | a `CompositionDefect`, perhaps first in production |
+|                                        | (A) Derived by value, with `renewed`: chosen | (B) Kept by the program, under a check                      |
+| -------------------------------------- | -------------------------------------------- | ----------------------------------------------------------- |
+| Spiked                                 | yes, `spike/register-input-by-value`         | yes, `2c4f3b5` on `claude/spike-revision-unwritten-b1e290`  |
+| The state stored is the state written  | not in the revision, when the value changes  | always                                                      |
+| Emptying after a save                  | `name: field('')`                            | `name: replace(state.name, '')`                             |
+| A Clear on an empty field              | changes nothing: it may stay shown           | acts twice: rejected, and left out of the model             |
+| An undo by snapshot                    | the old state as it is                       | each input rebuilt with `replace`, or a `CompositionDefect` |
+| A new input for the same value         | `renewed(state.level)`, to be remembered     | `replace(state.level, state.level.value)`, as always        |
+| A field written by hand, or an old one | corrected in silence                         | a `CompositionDefect`, perhaps first in production          |
 
 The column (B) is the sketch written before its spike, which confirmed it. Identity, the rule of the first spike, is
 refuted by the second opinion: a copy equal by value would draw a new input and reject what is being typed.
@@ -224,7 +224,7 @@ is, to him, an external event, uncontrollable as a clock tick is.
 ## What was settled in the discussion
 
 - **Every message of a view is external in its timing.** A button is an impure component too: whether and when it
-  is pressed is the user's. What tells a button from a text field is who decides the *content* of the message: the
+  is pressed is the user's. What tells a button from a text field is who decides the _content_ of the message: the
   program (a button, a select over options of the state, a calendar the program draws) or the component (a text, a
   pointer, a file).
 - **The line between the model and the subscriptions is whether a source exists only in a drawn frame.** A control
@@ -234,7 +234,7 @@ is, to him, an external event, uncontrollable as a clock tick is.
   keyed by the state of dragging, as an animation's frames are.
 - **A typed value is not a message: it is a write into a place of the state that the outside owns.** That is a
   register, in the theory of register automata: a finite control, which the program fixes and the tools judge, and
-  registers, which the environment writes and the automaton reads to decide. It is a *behavior* in FRP, `assign` to
+  registers, which the environment writes and the automaton reads to decide. It is a _behavior_ in FRP, `assign` to
   the context in XState, a `Var` in Bonsai.
 - **What ties a write to what was drawn is the generation of the place, not the identity of the frame.** A field
   already has one, `revision` (`examples/field.ts`), which grows when the program replaces the text; the engine
@@ -327,13 +327,13 @@ an input to enter with no function, it would forbid `changeName` and offer nothi
 
 ## What can be enforced, and what is advice
 
-| What | How |
-| --- | --- |
-| A model holds no function | a property a test checks: two equal states give two equal models |
-| `replace` makes a new generation | an opaque type, in the example or as a primitive of the library |
-| A view builds no message of the program | advice, as today |
-| An input goes through a register | a consequence of the first two, and advice |
-| A program reads its registers | a sentence of the README, once a register is a concept |
+| What                                    | How                                                              |
+| --------------------------------------- | ---------------------------------------------------------------- |
+| A model holds no function               | a property a test checks: two equal states give two equal models |
+| `replace` makes a new generation        | an opaque type, in the example or as a primitive of the library  |
+| A view builds no message of the program | advice, as today                                                 |
+| An input goes through a register        | a consequence of the first two, and advice                       |
+| A program reads its registers           | a sentence of the README, once a register is a concept           |
 
 - **By a type, no.** "No function at any depth of the model" would refuse `Option`: Effect's `Some` and `None`
   extend `Pipeable` and `Inspectable`, so their type has `pipe` and `toJSON` (`node_modules/effect/dist/Option.d.ts`,
@@ -356,8 +356,8 @@ The field stays a program of `examples/field.ts`, composed with `child`. Two sen
 "Messages live in the model" learns that a model may hold registers, which the view writes into; "A parent never
 reads a child's state to decide" learns that a register is not a child. No API changes.
 
-- *For:* nothing new to learn, nothing in the library.
-- *Against:* the README would explain, with an exception, a concept the library does not name; every application
+- _For:_ nothing new to learn, nothing in the library.
+- _Against:_ the README would explain, with an exception, a concept the library does not name; every application
   copies `field.ts`, as it copies the bridges today; a register is a child to `compose`, its logs and its defects.
 
 ### 2. An opaque `Field` in the example
@@ -371,13 +371,13 @@ hand and forgets the revision. It decides whether the library is needed to enfor
 library's `Field<A>` (`{ value, revision }`) is written by the program only through `replace`, and by the outside only
 through the register's message.
 
-- *For:* the concept has a name, and the rule about children stays whole; the generation is enforced at construction,
+- _For:_ the concept has a name, and the rule about children stays whole; the generation is enforced at construction,
   one of the reasons `AGENTS.md` gives for a type to be the library's; a typed writer for the tests; a pointer, a
   slider, a file are `Field<A>` alike.
-- *Against:* new exports, a changelog entry, the README's "Inputs the user types into" rewritten; it reverses
+- _Against:_ new exports, a changelog entry, the README's "Inputs the user types into" rewritten; it reverses
   [`boundary.md`](boundary.md), item 4 ("the remedy is the examples'"); a program with one input becomes a parent,
   or the library has a second way to declare one.
-- *To be asked:* whether a register needs `compose` at all. A register has no `update` of its own to route to but the
+- _To be asked:_ whether a register needs `compose` at all. A register has no `update` of its own to route to but the
   library's one rule; it could be a field of the program's shape, with `dispatchTo` addressing it by name.
 
 ### 4. The property "a model is data" as a check
@@ -444,12 +444,12 @@ above for the first two.
     becomes one subscription;
   - no tool can check that a dependent control is in the stream, and the race comes back in silence if one is not;
   - the tools of the model lose the whole form, Save included;
-  - a *long frame*: a stream resolves its declared message when it starts, so a fixed Save may be sent in any later
+  - a _long frame_: a stream resolves its declared message when it starts, so a fixed Save may be sent in any later
     state while the key lives. `ActsTwice` is the double tap within one frame, a message applied twice in a row
     (`src/testing/dispatch-violations.ts`): it still applies to a declared message, but not to Save, a keystroke,
     Save. Restarting the stream when its declaration changes loses the events in flight;
   - a key that follows the component's existence, not its being enabled, keeps the keystroke typed before saving.
-  **Reasoned.**
+    **Reasoned.**
 - **A push source**: `sources(state)`, holding `key -> (value) => Message`, with `send(key, value)` from the bridge,
   resolved against the published state and queued at once. Proposed to remove the costs above, all of which come
   from a subscription being pulled through a fiber. Reviewed by Fable 5.2 and left:
@@ -459,7 +459,7 @@ above for the first two.
   - model and sources are two declarations to keep in step, which needs a tool;
   - it breaks "Every message a view can send is in the model it draws";
   - it is `dispatch` with a lookup, and needs a `sendTo`, lifted keys with their collisions, and a gate of its own.
-  The diagnosis it gave: a tick exists whatever is drawn, an input only within a drawn frame. **Reasoned.**
+    The diagnosis it gave: a tick exists whatever is drawn, an input only within a drawn frame. **Reasoned.**
 - **The identity of the frame in every message**, a compare-and-swap: `dispatch` carries the revision of the frame
   it was drawn in, and the run drops a message whose frame is not the current one; a model could then hold steps
   computed in advance in place of messages. It would answer "the run does not know what is drawn", and the long
@@ -607,13 +607,13 @@ Branch `claude/spike-register-opaque-3fc182`: `Field` a class with a private con
 the compiler tells it apart by name while the object holds only `text` and `revision`; `Equal` still compares it by
 its keys, as Effect 4 does for an instance of a class, and the logs and the tools are unchanged. **Run.**
 
-| Attempt | Caught by |
-| --- | --- |
-| `{ text, revision }` by hand, `{ ...old, text }`, `new Field(...)`, `name.text = ...` | the compiler |
-| `make('')` in place of `replace` | the form's tests and the bridges' |
-| a field taken from an earlier state | the tests |
-| `replace(oldField, '')` | only a new property: a step never takes the field to an older revision |
-| a `Typed` built by hand | the tests |
+| Attempt                                                                               | Caught by                                                              |
+| ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `{ text, revision }` by hand, `{ ...old, text }`, `new Field(...)`, `name.text = ...` | the compiler                                                           |
+| `make('')` in place of `replace`                                                      | the form's tests and the bridges'                                      |
+| a field taken from an earlier state                                                   | the tests                                                              |
+| `replace(oldField, '')`                                                               | only a new property: a step never takes the field to an older revision |
+| a `Typed` built by hand                                                               | the tests                                                              |
 
 The type closes the slips of writing; it cannot stop a program from returning a valid field taken from elsewhere,
 since the field lives in the parent's state, which the parent returns whole. Only the library could: by checking,
@@ -789,22 +789,24 @@ avoided is identity made semantic.
 
 ### The concerns, by tests on the spike
 
-| Concern | Result |
-| --- | --- |
-| 1. The state stored is not the state written | **Confirmed**, and it stays under the answer: the `update` given to `compose` returns revision 0, the program stores 4 |
-| 2. Identity becomes semantic | **Confirmed**: a spread copy, a round trip through JSON and a `trim()` that changes nothing each raise the revision and reject the write in flight, though the steps are equal to the one that leaves the field alone |
-| 3a. `init` is not stamped | **Confirmed**, no hazard alone: nothing is drawn before `init` |
-| 3b. An optional place that goes and comes back | **Confirmed**: it restarts at revision 0, and a late write at 0 is stored |
-| 3c. A child re-initialised by its parent | **Confirmed**, and a class that exists today: a fixed message drawn for the old child reaches the new one too, since a message names a place, not an instance |
+| Concern                                        | Result                                                                                                                                                                                                                |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. The state stored is not the state written   | **Confirmed**, and it stays under the answer: the `update` given to `compose` returns revision 0, the program stores 4                                                                                                |
+| 2. Identity becomes semantic                   | **Confirmed**: a spread copy, a round trip through JSON and a `trim()` that changes nothing each raise the revision and reject the write in flight, though the steps are equal to the one that leaves the field alone |
+| 3a. `init` is not stamped                      | **Confirmed**, no hazard alone: nothing is drawn before `init`                                                                                                                                                        |
+| 3b. An optional place that goes and comes back | **Confirmed**: it restarts at revision 0, and a late write at 0 is stored                                                                                                                                             |
+| 3c. A child re-initialised by its parent       | **Confirmed**, and a class that exists today: a fixed message drawn for the old child reaches the new one too, since a message names a place, not an instance                                                         |
 
 ### The answer: by value, with a new input asked as data
 
 After a step that writes nothing, for an input whose place holds a field before and after:
 
 ```ts
-after === before || after.revision > before.revision ? after   // untouched, or raised by the program: as written
-: Equal.equals(after.value, before.value) ? before             // the same value: the same input
-: { value: after.value, revision: before.revision + 1 }        // another value: a new input
+after === before || after.revision > before.revision ?
+  after // untouched, or raised by the program: as written
+  : Equal.equals(after.value, before.value) ?
+  before // the same value: the same input
+  : { value: after.value, revision: before.revision + 1 } // another value: a new input
 ```
 
 - What the user writes does not change: `field('')` in the place, `write(model.name, text)` in the view. The form and
@@ -901,11 +903,11 @@ The three ways of "To explore" were spiked on the branch `claude/spike-revision-
 and `interleavings` on the two that change `compose.ts`; `mutations` on none. Each **run** finding has a test seen to
 fail with its change taken out by hand. Typecheck and `test` (579) were run again apart on the last commit, green.
 
-| Way | Commit | `test` | `test:node` | `interleavings` |
-| --- | --- | --- | --- | --- |
-| 1. Document it | `50d5561` | 571 | not run: `compose.ts` unchanged | not run |
-| 2. Hide it from whoever makes a field | `6660965` | 576 | 515 | 14 |
-| 3. The program keeps it, under a check | `2c4f3b5` | 579 | 518 | 14 |
+| Way                                    | Commit    | `test` | `test:node`                     | `interleavings` |
+| -------------------------------------- | --------- | ------ | ------------------------------- | --------------- |
+| 1. Document it                         | `50d5561` | 571    | not run: `compose.ts` unchanged | not run         |
+| 2. Hide it from whoever makes a field  | `6660965` | 576    | 515                             | 14              |
+| 3. The program keeps it, under a check | `2c4f3b5` | 579    | 518                             | 14              |
 
 ### 1. Document it
 
@@ -944,15 +946,15 @@ changes a value at the revision it held.
 
 ### Against "Where it stands"
 
-| | (A), way 1 | (A), way 2 | (B), way 3 |
-| --- | --- | --- | --- |
-| The state stored is the state written | not in the revision, once a value changed | never, for a field made with `field` | always |
-| `toEqual(field(v))` | passes until the first replacement | fails from `init` on; passes on a state built by hand | holds wherever the program wrote `field(v)` |
-| A Clear on an empty field | changes nothing | changes nothing | acts twice |
-| An undo by snapshot | the old state as it is | the same | a defect; rebuilt, a line per input |
-| A field written by hand | corrected in silence | does not compile | does not compile |
-| An old field, or `field()` in a step | corrected in silence | corrected in silence | a defect, found only by a test that reaches the step |
-| Concern 3 (a place that comes back, a child restarted) | open | open | open |
+|                                                        | (A), way 1                                | (A), way 2                                            | (B), way 3                                           |
+| ------------------------------------------------------ | ----------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------- |
+| The state stored is the state written                  | not in the revision, once a value changed | never, for a field made with `field`                  | always                                               |
+| `toEqual(field(v))`                                    | passes until the first replacement        | fails from `init` on; passes on a state built by hand | holds wherever the program wrote `field(v)`          |
+| A Clear on an empty field                              | changes nothing                           | changes nothing                                       | acts twice                                           |
+| An undo by snapshot                                    | the old state as it is                    | the same                                              | a defect; rebuilt, a line per input                  |
+| A field written by hand                                | corrected in silence                      | does not compile                                      | does not compile                                     |
+| An old field, or `field()` in a step                   | corrected in silence                      | corrected in silence                                  | a defect, found only by a test that reaches the step |
+| Concern 3 (a place that comes back, a child restarted) | open                                      | open                                                  | open                                                 |
 
 ### Recommendation, by the spike
 
@@ -999,10 +1001,10 @@ a test seen to fail with the check taken out by hand.
   input in the parent's state, on one machine (Bun 1.4.4, Windows):
 
   | Children | `subscriptions`, per tick | per keystroke | `update`, per tick | per keystroke |
-  | --- | --- | --- | --- | --- |
-  | 10 | 2.4 µs | 1.9 µs | 1.1 µs | 0.4 µs |
-  | 1000 | 219 µs | 215 µs | 8.5 µs | 0.3 µs |
-  | 10000 | 2490 µs | 2591 µs | 40.6 µs | 0.6 µs |
+  | -------- | ------------------------- | ------------- | ------------------ | ------------- |
+  | 10       | 2.4 µs                    | 1.9 µs        | 1.1 µs             | 0.4 µs        |
+  | 1000     | 219 µs                    | 215 µs        | 8.5 µs             | 0.3 µs        |
+  | 10000    | 2490 µs                   | 2591 µs       | 40.6 µs            | 0.6 µs        |
 
   A keystroke costs `subscriptions` what any change of state costs: linear in the children, each lifted from the
   cache of its state object, and the same as on `main` (`bench/subscriptions.ts`: 218 µs and 2266 µs there, 222 µs
@@ -1595,15 +1597,15 @@ commit (**run**).
 `examples/volume-plain` beside `examples/volume`, with `slides(value, dispatch)` in the Snabbdom bridge, the slider's
 `shows`, read back with `valueAsNumber`, and eight cases in happy-dom through `run`:
 
-| | `volume`, on `main` | `volume-plain` |
-| --- | --- | --- |
-| Lines: program, view, tests | 117, 25, 113 | 87, 23, 122 (**checked**) |
-| The level | a `Field<number>`, kept in `Muted` too | a plain number, which Mute and Full leave alone |
-| What a user must remember | `renewed` when the value stays (Mute at 0, Quiet with the level under 30) | the level read through `heard`, and the slider drawn from the level held, never the one heard |
-| A late drag after Mute | rejected; Unmute gives back 50 | stored, 80; the slider shows 0; Unmute gives back 80 (**run**) |
-| A late drag from 20 to 80 after Quiet | rejected; 20 | stored, 80, above the maximum of 30; heard as 30; Full makes 80 heard (**run**) |
-| A late drag from 80 to 90 after Quiet | rejected | rejected: Quiet had lowered the level to 30 (**run**) |
-| Mute, then Unmute | a new slider at 0, then the level | the same slider, at 0 and disabled, then the level (**run**) |
+|                                       | `volume`, on `main`                                                       | `volume-plain`                                                                                |
+| ------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Lines: program, view, tests           | 117, 25, 113                                                              | 87, 23, 122 (**checked**)                                                                     |
+| The level                             | a `Field<number>`, kept in `Muted` too                                    | a plain number, which Mute and Full leave alone                                               |
+| What a user must remember             | `renewed` when the value stays (Mute at 0, Quiet with the level under 30) | the level read through `heard`, and the slider drawn from the level held, never the one heard |
+| A late drag after Mute                | rejected; Unmute gives back 50                                            | stored, 80; the slider shows 0; Unmute gives back 80 (**run**)                                |
+| A late drag from 20 to 80 after Quiet | rejected; 20                                                              | stored, 80, above the maximum of 30; heard as 30; Full makes 80 heard (**run**)               |
+| A late drag from 80 to 90 after Quiet | rejected                                                                  | rejected: Quiet had lowered the level to 30 (**run**)                                         |
+| Mute, then Unmute                     | a new slider at 0, then the level                                         | the same slider, at 0 and disabled, then the level (**run**)                                  |
 
 - **Mute gets simpler**, as the review said: no level kept in `Muted`, no new slider, and the 0 case of `renewed` gone.
 - **Narrowing bounds make a recipe of two rules** (**run**): every reader of the level goes through `heard`, one place

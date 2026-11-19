@@ -26,11 +26,11 @@ type Editor = Data.TaggedEnum<{
 
 const makeModel = (state: State): { name: string; editor: Editor } => ({
   name: state.name,
-  editor: state.save._tag === 'Saving'
-    ? { _tag: 'Saving' }
+  editor: state.save._tag === "Saving"
+    ? { _tag: "Saving" }
     : isBlank(state.name)
-    ? { _tag: 'Blank' }
-    : { _tag: 'Named', save: Message.SaveClicked() },
+    ? { _tag: "Blank" }
+    : { _tag: "Named", save: Message.SaveClicked() }
 })
 ```
 

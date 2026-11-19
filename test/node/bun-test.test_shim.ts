@@ -1,10 +1,10 @@
 // What the tests import of `bun:test`, over Node's own runner: `bun run test:node` resolves `bun:test` to this
 // module (`register.test_hook.ts`), so that the same test files run on V8. Only what the tests use is here: a test that
 // needs more of `bun:test` fails on Node until it is added.
-import * as NodeTest from 'node:test'
-import { inspect } from 'node:util'
-import type { expectTypeOf as BunExpectTypeOf } from 'bun:test'
-import { expect } from 'expect'
+import type { expectTypeOf as BunExpectTypeOf } from "bun:test"
+import { expect } from "expect"
+import * as NodeTest from "node:test"
+import { inspect } from "node:util"
 
 type Body<Args extends ReadonlyArray<unknown>> = (...args: Args) => unknown
 
@@ -24,17 +24,17 @@ const test = (name: string, body: Body<[]>, timeout = defaultTimeout): void => {
 test.failing = (name: string, body: Body<[]>, timeout?: number): void =>
   test(name, async () => {
     const failed = await Promise.resolve().then(body).then(() => false, () => true)
-    if (!failed) throw new Error('This test is marked as failing, and it passed: remove the mark')
+    if (!failed) throw new Error("This test is marked as failing, and it passed: remove the mark")
   }, timeout)
 
 // `%p` as `bun:test` prints a value: a string in double quotes, anything else as Node inspects it, which differs from
 // Bun's own printer only in the layout of objects and arrays.
-const pretty = (value: unknown) => typeof value === 'string' ? JSON.stringify(value) : inspect(value, { depth: null })
+const pretty = (value: unknown) => typeof value === "string" ? JSON.stringify(value) : inspect(value, { depth: null })
 
 const at = (value: unknown, path: string): unknown =>
-  path.split('.').reduce<unknown>(
-    (on, key) => typeof on === 'object' && on !== null && key in on ? (on as Record<string, unknown>)[key] : undefined,
-    value,
+  path.split(".").reduce<unknown>(
+    (on, key) => typeof on === "object" && on !== null && key in on ? (on as Record<string, unknown>)[key] : undefined,
+    value
   )
 
 // A test's name as `bun:test` (1.4.4) makes it from a row's arguments, read in order: `%s` takes a string, `%d` and
@@ -46,30 +46,30 @@ const nameOf = (name: string, args: ReadonlyArray<unknown>, index: number) => {
   let next = 0
   const placed = name.replace(/%(.)/gs, (placeholder, kind: string) => {
     if (next >= args.length) return placeholder
-    if (kind === '#') return String(index)
-    if (kind === '%') return '%'
-    if (!'sdifjop'.includes(kind)) return kind
+    if (kind === "#") return String(index)
+    if (kind === "%") return "%"
+    if (!"sdifjop".includes(kind)) return kind
     const value = args[next++]
     switch (kind) {
-      case 's':
-        return typeof value === 'string' ? value : placeholder
-      case 'd':
-      case 'f':
-        return typeof value === 'number' ? String(value) : placeholder
-      case 'i':
+      case "s":
+        return typeof value === "string" ? value : placeholder
+      case "d":
+      case "f":
+        return typeof value === "number" ? String(value) : placeholder
+      case "i":
         return Number.isInteger(value) ? String(value) : placeholder
-      case 'p':
+      case "p":
         return pretty(value)
       default:
         return JSON.stringify(value)
     }
   })
   const [first] = args
-  if (typeof first !== 'object' || first === null) return placed
+  if (typeof first !== "object" || first === null) return placed
   return placed.replace(/\$([\w$]+(?:\.[\w$]+)*)/g, (path, on: string) => {
     const value = at(first, on)
     // oxlint-disable-next-line typescript/no-base-to-string -- an object is printed by `pretty`
-    return value === undefined ? path : typeof value === 'object' && value !== null ? pretty(value) : String(value)
+    return value === undefined ? path : typeof value === "object" && value !== null ? pretty(value) : String(value)
   })
 }
 
@@ -80,21 +80,17 @@ const rowsOf = <Row>(rows: ReadonlyArray<Row>) =>
     return { args, index }
   })
 
-test.each =
-  <Row>(rows: ReadonlyArray<Row>) =>
-  (name: string, body: Body<Array<unknown>>, timeout?: number): void => {
-    for (const { args, index } of rowsOf(rows)) test(nameOf(name, args, index), () => body(...args), timeout)
-  }
+test.each = <Row>(rows: ReadonlyArray<Row>) => (name: string, body: Body<Array<unknown>>, timeout?: number): void => {
+  for (const { args, index } of rowsOf(rows)) test(nameOf(name, args, index), () => body(...args), timeout)
+}
 
 const describe = (name: string, body: () => void): void => {
   void NodeTest.describe(name, body)
 }
 
-describe.each =
-  <Row>(rows: ReadonlyArray<Row>) =>
-  (name: string, body: Body<Array<unknown>>): void => {
-    for (const { args, index } of rowsOf(rows)) describe(nameOf(name, args, index), () => void body(...args))
-  }
+describe.each = <Row>(rows: ReadonlyArray<Row>) => (name: string, body: Body<Array<unknown>>): void => {
+  for (const { args, index } of rowsOf(rows)) describe(nameOf(name, args, index), () => void body(...args))
+}
 
 // What `expectTypeOf` checks, the compiler checks: at run time, as in `bun:test`, every assertion of it does nothing
 // and returns what chains on.
@@ -102,12 +98,10 @@ const typeOnly: unknown = new Proxy(() => typeOnly, { get: () => typeOnly, apply
 
 const expectTypeOf = (() => typeOnly) as unknown as typeof BunExpectTypeOf
 
-const hook =
-  (register: (body: () => Promise<void>) => void) =>
-  (body: Body<[]>): void =>
-    register(async () => {
-      await body()
-    })
+const hook = (register: (body: () => Promise<void>) => void) => (body: Body<[]>): void =>
+  register(async () => {
+    await body()
+  })
 
 const beforeAll = hook(NodeTest.before)
 const afterAll = hook(NodeTest.after)

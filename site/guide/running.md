@@ -123,10 +123,8 @@ again.
 ```ts
 Effect.runFork(
   run(app, render, options).pipe(
-    Effect.tapCause((cause) =>
-      Cause.hasInterruptsOnly(cause) ? Effect.void : reportCrash(cause)
-    ),
-  ),
+    Effect.tapCause((cause) => Cause.hasInterruptsOnly(cause) ? Effect.void : reportCrash(cause))
+  )
 )
 ```
 

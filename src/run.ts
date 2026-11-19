@@ -1,13 +1,13 @@
-import * as Effect from 'effect/Effect'
-import * as Fiber from 'effect/Fiber'
-import type * as Scope from 'effect/Scope'
-import * as Stream from 'effect/Stream'
-import * as Core from './core.ts'
-import type { Dispatch } from './dispatch.ts'
-import * as Engine from './engine.ts'
-import type { RunOptions } from './engine.ts'
-import { type FlagsOption, runCommandOf, type Shape, startOf } from './program.ts'
-import * as Shell from './shell.ts'
+import * as Effect from "effect/Effect"
+import * as Fiber from "effect/Fiber"
+import type * as Scope from "effect/Scope"
+import * as Stream from "effect/Stream"
+import * as Core from "./core.ts"
+import type { Dispatch } from "./dispatch.ts"
+import * as Engine from "./engine.ts"
+import type { RunOptions } from "./engine.ts"
+import { type FlagsOption, runCommandOf, type Shape, startOf } from "./program.ts"
+import * as Shell from "./shell.ts"
 
 /**
  * One frame for the renderer to draw.
@@ -42,14 +42,14 @@ export const runWith = <State, Model, Message, Command, RC, RS, RR, Flags>(
   program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
   render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
   options: RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>,
-  deaths: Shell.Deaths,
+  deaths: Shell.Deaths
 ): Effect.Effect<void, never, Exclude<RC | RS | RR, Scope.Scope>> =>
   // The renderer, the fiber of the run as it starts the engine, and the engine's fibers record what they die of in
   // one place: the defects come first in the cause, in the order they died, then the rest of what the run ended with
   // (an interruption by whoever runs it), but for the defects already among them, by their identity.
   Effect.uninterruptibleMask((restore) =>
     Effect.exit(restore(running(program, render, options, deaths))).pipe(
-      Effect.flatMap((exit) => Core.endedWith(deaths.all(), exit)),
+      Effect.flatMap((exit) => Core.endedWith(deaths.all(), exit))
     )
   )
 
@@ -58,30 +58,30 @@ const running = Effect.fnUntraced(
     program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
     render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
     options: RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>,
-    deaths: Shell.Deaths,
+    deaths: Shell.Deaths
   ): Effect.fn.Return<void, never, RC | RS | RR | Scope.Scope> {
     const { flags, ...runOptions } = options
     // A step is data: only an `init` that makes it from the flags can throw.
-    const init = yield* Effect.sync(() => startOf(program.init, flags)).pipe(Shell.diesIn('init'), deaths.recorded)
+    const init = yield* Effect.sync(() => startOf(program.init, flags)).pipe(Shell.diesIn("init"), deaths.recorded)
     const engine = yield* Engine.make<State, Message, Command, RC | RS, unknown>({
       ...runOptions,
       deaths,
       init,
       update: program.update,
       runCommand: runCommandOf(program),
-      subscriptions: program.subscriptions,
+      subscriptions: program.subscriptions
     })
     const frames = engine.states.pipe(
-      Stream.buffer({ capacity: 1, strategy: 'sliding' }),
+      Stream.buffer({ capacity: 1, strategy: "sliding" }),
       // After the buffer, so that a model is made only for the frames the renderer pulls, in the renderer's fiber.
-      Stream.map(({ state, seen }) => ({ model: program.makeModel(state), dispatch: engine.dispatch, seen })),
+      Stream.map(({ state, seen }) => ({ model: program.makeModel(state), dispatch: engine.dispatch, seen }))
     )
     // Called at most once, in a run that died as it started too, as a subscription of `init` may die while the engine
     // starts: the end of the run interrupts it, as it does any effect of the program (`docs/invariants.md`).
     const rendering = Effect.suspend(() => render(frames)).pipe(
       // The model is made as the renderer pulls its frame: a defect of `makeModel` is the renderer's.
-      Shell.scopedIn(deaths, 'render'),
-      Effect.updateContext(Shell.withExternalSpan<Exclude<RR, Scope.Scope>>),
+      Shell.scopedIn(deaths, "render"),
+      Effect.updateContext(Shell.withExternalSpan<Exclude<RR, Scope.Scope>>)
     )
     // However the run ends, it stops the loop first, then the renderer is interrupted and awaited, before the engine's
     // other fibers: what the renderer sends as it releases what it holds is not applied, and the program does not go
@@ -94,12 +94,11 @@ const running = Effect.fnUntraced(
     // interrupts, the renderer is interruptible all the same (both in `docs/premises.md`).
     const renderer = yield* Effect.acquireRelease(
       Effect.forkChild(rendering),
-      (renderer) =>
-        engine.stop.pipe(Effect.andThen(Shell.stopping(renderer))),
+      (renderer) => engine.stop.pipe(Effect.andThen(Shell.stopping(renderer)))
     )
     yield* Effect.raceFirst(engine.died, Fiber.await(renderer)).pipe(Effect.andThen(engine.report))
   },
-  Effect.scoped,
+  Effect.scoped
 )
 
 /**

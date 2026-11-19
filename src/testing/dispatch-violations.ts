@@ -1,6 +1,6 @@
-import * as Arr from 'effect/Array'
-import * as Equal from 'effect/Equal'
-import { reject, type Step, type Update } from '../update.ts'
+import * as Arr from "effect/Array"
+import * as Equal from "effect/Equal"
+import { reject, type Step, type Update } from "../update.ts"
 
 /**
  * A way a model breaks its agreement with `update` in a state, as `dispatchViolations` finds it.
@@ -21,7 +21,7 @@ export type DispatchViolation<Message> = {
    *   would: a one-shot action would happen twice;
    * - `Missing`, a candidate `update` accepts that the model does not hold: a control missing from the screen.
    */
-  readonly _tag: 'Rejected' | 'ActsTwice' | 'Missing'
+  readonly _tag: "Rejected" | "ActsTwice" | "Missing"
   /** The message that breaks it. */
   readonly message: Message
 }
@@ -74,15 +74,15 @@ export const dispatchViolations = <State, Message, Command, Event>(
     candidates?: Iterable<Message>
     repeatable?: (message: Message) => boolean
     withheld?: (message: Message, state: State) => boolean
-  }>,
+  }>
 ): ReadonlyArray<DispatchViolation<Message>> => {
   const shown = Arr.fromIterable(held)
   const wrong = Arr.flatMap(shown, (message): ReadonlyArray<DispatchViolation<Message>> => {
     const first = update(message)(state)
-    if (first === reject) return [{ _tag: 'Rejected', message }]
+    if (first === reject) return [{ _tag: "Rejected", message }]
     if (repeatable(message)) return []
     const second = update(message)(first.state)
-    return second !== reject && !doesNothing(second, first.state) ? [{ _tag: 'ActsTwice', message }] : []
+    return second !== reject && !doesNothing(second, first.state) ? [{ _tag: "ActsTwice", message }] : []
   })
   const missing = Arr.flatMap(
     Arr.fromIterable(candidates),
@@ -90,9 +90,9 @@ export const dispatchViolations = <State, Message, Command, Event>(
       const step = update(message)(state)
       return step !== reject && !doesNothing(step, state) && !withheld(message, state)
           && !Arr.some(shown, (each) => Equal.equals(each, message))
-        ? [{ _tag: 'Missing', message }]
+        ? [{ _tag: "Missing", message }]
         : []
-    },
+    }
   )
   return [...wrong, ...missing]
 }

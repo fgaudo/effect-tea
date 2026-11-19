@@ -106,9 +106,9 @@ reads them with a function of its own.
   `Inert` and a value are no longer a case: a write is no message of a model's, and one of the value held leaves the
   very value ([`inert-steps.md`](inert-steps.md), "Since the port").
 - **The third spike's walk: overtaken, but for one thing.** It was built to do two things.
-  - *To ask the rules of the model alone, with no view.* That is what a reader of 1 to 12 lines does today, in
+  - _To ask the rules of the model alone, with no view._ That is what a reader of 1 to 12 lines does today, in
     every example, with no constructor, no mark and nothing kept by `compose`.
-  - *To hold the view to its model* (`Unoffered`, `Undrawn`). That is now checked with the renderer's tools, and
+  - _To hold the view to its model_ (`Unoffered`, `Undrawn`). That is now checked with the renderer's tools, and
     `list` shows it with snabbdom's `messagesSentBy`, compared with what the reader returns.
 
   What is left of it is the one thing a reader cannot give: **that it is complete**. A walk finds every marked
@@ -128,9 +128,9 @@ reads them with a function of its own.
   `simulate` and `rehearse`.
 - **Point 5: half done by other means.** The tools judge the model's messages, read by the test. A key's and a
   command's are still judged by nothing.
-- **"The smaller design"**, the first step both later reviews proposed: its first half, *a bridge tells an input's
-  messages from the others*, is overtaken, since a bridge owes nothing now; the reader is where an input's messages
-  are told, as it is where the text is given. Its second half, *a test lists the fixed messages of each key*, is
+- **"The smaller design"**, the first step both later reviews proposed: its first half, _a bridge tells an input's
+  messages from the others_, is overtaken, since a bridge owes nothing now; the reader is where an input's messages
+  are told, as it is where the text is given. Its second half, _a test lists the fixed messages of each key_, is
   the point above.
 - **The owner's decision on `ActsTwice` and a key** needs no proposal to stand: it says how a key's messages are
   given to the tool, whoever lists them.

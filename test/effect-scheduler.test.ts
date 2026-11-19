@@ -12,17 +12,17 @@
  * Here the scheduler holds every task and the test runs them by hand, one at a time, synchronously: a run that ends
  * so needed nothing of the platform's, no timer and no microtask, or it would be left waiting.
  */
-import { expect, test } from 'bun:test'
-import * as Arr from 'effect/Array'
-import * as Clock from 'effect/Clock'
-import * as Deferred from 'effect/Deferred'
-import * as Effect from 'effect/Effect'
-import * as Exit from 'effect/Exit'
-import * as Fiber from 'effect/Fiber'
-import * as Queue from 'effect/Queue'
-import * as Scheduler from 'effect/Scheduler'
-import * as Semaphore from 'effect/Semaphore'
-import { TestClock } from 'effect/testing'
+import { expect, test } from "bun:test"
+import * as Arr from "effect/Array"
+import * as Clock from "effect/Clock"
+import * as Deferred from "effect/Deferred"
+import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
+import * as Fiber from "effect/Fiber"
+import * as Queue from "effect/Queue"
+import * as Scheduler from "effect/Scheduler"
+import * as Semaphore from "effect/Semaphore"
+import { TestClock } from "effect/testing"
 
 /** A generator of numbers in [0, 1) from a seed (mulberry32), so that a seed gives the same choices again. */
 const random = (seed: number) => () => {
@@ -93,7 +93,7 @@ const controlled = (
     return true
   }
   const scheduler: Scheduler.Scheduler = {
-    executionMode: 'async',
+    executionMode: "async",
     shouldYield(fiber) {
       const answer = yields(fiber)
       if (!answer) running = fiber
@@ -178,8 +178,11 @@ const seeded = <A>(effect: Effect.Effect<A>, seed: number, every = 8) => {
   const next = random(seed)
   preemptible = true
   unpreemptible = undefined
-  return drive(effect, (ready) => Math.floor(next() * ready), (fiber) =>
-    preemptible && fiber !== unpreemptible && next() < 1 / every)
+  return drive(
+    effect,
+    (ready) => Math.floor(next() * ready),
+    (fiber) => preemptible && fiber !== unpreemptible && next() < 1 / every
+  )
 }
 
 /** The run again, given the choices it made and the answers it gave of preemption. */
@@ -224,7 +227,7 @@ interface AtWake {
  * free and the sleeper reaches its latch in the same run. `sleeperPreemptible` false keeps the sleeper from being
  * preempted inside its sleep.
  */
-const chain = (settle: 'nothing' | 'waiters' | 'all', sleeperPreemptible = true, moverPreemptible = true) =>
+const chain = (settle: "nothing" | "waiters" | "all", sleeperPreemptible = true, moverPreemptible = true) =>
   Effect.gen(function*() {
     const started = yield* Deferred.make<void>()
     const queue = yield* Queue.unbounded<number>()
@@ -246,43 +249,48 @@ const chain = (settle: 'nothing' | 'waiters' | 'all', sleeperPreemptible = true,
           wait
         )
       )
-    preemptible = settle === 'nothing'
+    preemptible = settle === "nothing"
     const scope = yield* Effect.scope
-    const holder = yield* Effect.forkChild(waits(semaphore.withPermits(1)(Effect.sync(() => {
-      done = true
-    }))))
+    const holder = yield* Effect.forkChild(waits(
+      semaphore.withPermits(1)(Effect.sync(() => {
+        done = true
+      }))
+    ))
     yield* Effect.forkChild(Effect.andThen(waits(Queue.take(queue)), semaphore.release(1)))
     yield* Effect.forkIn(
-      Effect.andThen(waits(Deferred.await(started)), Effect.flatMap(Effect.forkChild(Queue.offer(queue, 1)), Fiber.join)),
+      Effect.andThen(
+        waits(Deferred.await(started)),
+        Effect.flatMap(Effect.forkChild(Queue.offer(queue, 1)), Fiber.join)
+      ),
       scope
     )
     yield* Effect.forkChild(Effect.gen(function*() {
       if (!sleeperPreemptible) unpreemptible = yield* Effect.fiber
       sleeping = true
-      yield* Effect.sleep('10 millis')
+      yield* Effect.sleep("10 millis")
       unpreemptible = undefined
       wokeAt = yield* Clock.currentTimeMillis
       woke = true
       yield* Deferred.succeed(started, undefined)
     }))
-    while (settle !== 'nothing' && (waiting < 3 || (settle === 'all' && !sleeping))) yield* Effect.yieldNow
+    while (settle !== "nothing" && (waiting < 3 || (settle === "all" && !sleeping))) yield* Effect.yieldNow
     preemptible = true
     let adjusts = 0
-    let atWake: Omit<AtWake, 'arrivedAfter'> | undefined
+    let atWake: Omit<AtWake, "arrivedAfter"> | undefined
     while (!woke && adjusts < 100) {
       const before = { waiting, sleeping }
-      const move = Effect.map(TestClock.adjust('10 millis'), () => ({ woke, done }))
+      const move = Effect.map(TestClock.adjust("10 millis"), () => ({ woke, done }))
       const read = yield* moverPreemptible ? move : Effect.provideService(move, Scheduler.PreventSchedulerYield, true)
       adjusts++
       // The sleeper may wake after the `adjust` that moved the clock to its time has returned: that move woke it.
       if (woke) atWake = { ...read, ...before }
     }
-    if (atWake === undefined) return yield* Effect.die('the sleeper never woke')
+    if (atWake === undefined) return yield* Effect.die("the sleeper never woke")
     yield* Fiber.join(holder)
     return { ...atWake, arrivedAfter: arrivals.filter((at) => at >= wokeAt).length } satisfies AtWake
   }).pipe(Effect.scoped, Effect.provide(TestClock.layer()))
 
-const scenario = chain('nothing')
+const scenario = chain("nothing")
 
 /** Whether the move that woke the sleeper returned with the sleeper awake and the chain at its end. */
 const waited = (atWake: AtWake) => atWake.woke && atWake.done
@@ -298,8 +306,8 @@ const runs = (effect: Effect.Effect<AtWake>, seeds: number, every: number) => {
   return seen
 }
 
-test('driven by hand, every fiber resumes through the scheduler, that of the test clock included', () => {
-  for (const effect of [scenario, chain('all'), chain('all', true, false)]) {
+test("driven by hand, every fiber resumes through the scheduler, that of the test clock included", () => {
+  for (const effect of [scenario, chain("all"), chain("all", true, false)]) {
     for (const every of [2, 8, Infinity]) {
       for (let seed = 0; seed < 300; seed++) {
         const run = seeded(effect, seed, every)
@@ -311,7 +319,7 @@ test('driven by hand, every fiber resumes through the scheduler, that of the tes
   }
 })
 
-test('the timers of the platform the test clock sets are all cleared by the end of a run', () => {
+test("the timers of the platform the test clock sets are all cleared by the end of a run", () => {
   // The test clock warns, after a second of the platform's, of a test that sleeps and does not move it; `adjust`
   // cancels the warning. A run needs none of these timers, and leaves none behind.
   const { setTimeout: set, clearTimeout: clear } = globalThis
@@ -330,7 +338,7 @@ test('the timers of the platform the test clock sets are all cleared by the end 
   try {
     for (let seed = 0; seed < 100; seed++) {
       seeded(scenario, seed, 3)
-      seeded(chain('all'), seed, 3)
+      seeded(chain("all"), seed, 3)
     }
   } finally {
     globalThis.setTimeout = set
@@ -340,23 +348,23 @@ test('the timers of the platform the test clock sets are all cleared by the end 
   expect(pending.size).toBe(0)
 })
 
-test('adjust waits for what it wakes, and for what that sets going, whichever task is picked', () => {
+test("adjust waits for what it wakes, and for what that sets going, whichever task is picked", () => {
   for (const moverPreemptible of [true, false]) {
     for (const every of [2, 3, 8, Infinity]) {
-      for (const atWake of runs(chain('all', true, moverPreemptible), 1000, every)) {
+      for (const atWake of runs(chain("all", true, moverPreemptible), 1000, every)) {
         expect(atWake).toEqual({ woke: true, done: true, waiting: 3, sleeping: true, arrivedAfter: 0 })
       }
     }
   }
 })
 
-test('what a test reads by Effect.map, or right after yield*, stands as the effect ended, and after a wrapper may not', () => {
+test("what a test reads by Effect.map, or right after yield*, stands as the effect ended, and after a wrapper may not", () => {
   // So what a test reads so of a move of the clock is what stood as `adjust` returned. Another fiber counts all along,
   // and every step is preempted at even odds. Effect hands a value on to the function given to `map`, and to the
   // generator that yielded the effect, in the step the effect ends in (`succeed` and `getCont` in
   // `internal/effect.ts`, read in the source); a wrapper such as `provideService` puts back what it changed in a step
   // of its own, where the fiber may be preempted.
-  type Read = 'map' | 'after yield*' | 'map inside a wrapper' | 'after a wrapper'
+  type Read = "map" | "after yield*" | "map inside a wrapper" | "after a wrapper"
   const reads = (read: Read) =>
     Effect.gen(function*() {
       let count = 0
@@ -374,10 +382,10 @@ test('what a test reads by Effect.map, or right after yield*, stands as the effe
           before = count
         })
         let after: number
-        if (read === 'map') after = yield* Effect.map(effect, () => count)
-        else if (read === 'map inside a wrapper') after = yield* wrap(Effect.map(effect, () => count))
+        if (read === "map") after = yield* Effect.map(effect, () => count)
+        else if (read === "map inside a wrapper") after = yield* wrap(Effect.map(effect, () => count))
         else {
-          yield* read === 'after yield*' ? effect : wrap(effect)
+          yield* read === "after yield*" ? effect : wrap(effect)
           after = count
         }
         if (after !== before) moved++
@@ -391,13 +399,13 @@ test('what a test reads by Effect.map, or right after yield*, stands as the effe
     const exit = drive(reads(read), (ready) => Math.floor(next() * ready), () => next() < 0.5).exit
     return exit !== undefined && Exit.isSuccess(exit) ? exit.value : undefined
   }
-  expect(moved('map')).toBe(0)
-  expect(moved('after yield*')).toBe(0)
-  expect(moved('map inside a wrapper')).toBe(0)
-  expect(moved('after a wrapper')).toBeGreaterThan(0)
+  expect(moved("map")).toBe(0)
+  expect(moved("after yield*")).toBe(0)
+  expect(moved("map inside a wrapper")).toBe(0)
+  expect(moved("after a wrapper")).toBeGreaterThan(0)
 })
 
-test('a fiber forked before adjust may reach its wait only once the clock has moved, and is not waited for', () => {
+test("a fiber forked before adjust may reach its wait only once the clock has moved, and is not waited for", () => {
   // Under the default scheduler `adjust` gives such a fiber one turn first (decision 0101); here the order of the
   // tasks may not give it. A waiter that arrives after the move is not waited for; with no preemption nothing else
   // keeps the chain from its end, and every run whose waiters were at their waits when the clock moved got to it.
@@ -406,21 +414,21 @@ test('a fiber forked before adjust may reach its wait only once the clock has mo
   expect(seen.filter((atWake) => atWake.arrivedAfter === 0 && !waited(atWake))).toEqual([])
 })
 
-test('a sleeper woken before it is at its latch is not waited for', () => {
+test("a sleeper woken before it is at its latch is not waited for", () => {
   // The clock opens the latch with no fiber at it, has nothing to follow, and returns; the sleeper goes on after it.
   // The waiters are at their waits in every run here. Preempted inside its sleep, the sleeper is kept from its latch
   // between the entry and the latch. Not preempted there, what keeps it is the permit, the one wait of the sleep
   // before the latch, which an `adjust` under way holds long enough only when the fiber that moves the clock is
   // preempted holding it: rarely, about once in a thousand runs; never with that fiber kept from preemption.
   const late = (seen: ReadonlyArray<AtWake>) => seen.filter((atWake) => !waited(atWake)).length
-  expect(late(runs(chain('waiters'), 1000, 4))).toBeGreaterThan(0)
-  expect(late(runs(chain('waiters', false), 3000, 12))).toBeGreaterThan(0)
-  expect(late(runs(chain('waiters', false, false), 3000, 12))).toBe(0)
-  expect(late(runs(chain('waiters', false, false), 3000, 2))).toBe(0)
+  expect(late(runs(chain("waiters"), 1000, 4))).toBeGreaterThan(0)
+  expect(late(runs(chain("waiters", false), 3000, 12))).toBeGreaterThan(0)
+  expect(late(runs(chain("waiters", false, false), 3000, 12))).toBe(0)
+  expect(late(runs(chain("waiters", false, false), 3000, 2))).toBe(0)
 })
 
-test('a run given the same choices takes the same steps, its fibers counted from its first', () => {
-  for (const effect of [scenario, chain('all')]) {
+test("a run given the same choices takes the same steps, its fibers counted from its first", () => {
+  for (const effect of [scenario, chain("all")]) {
     for (let seed = 0; seed < 100; seed++) {
       const run = seeded(effect, seed, 3)
       const again = replay(effect, run)
@@ -435,25 +443,24 @@ test('a run given the same choices takes the same steps, its fibers counted from
   }
 })
 
-test('the choices change the run', () => {
+test("the choices change the run", () => {
   const traces = new Set<string>()
-  for (let seed = 0; seed < 50; seed++) traces.add(seeded(scenario, seed).trace.join('\n'))
+  for (let seed = 0; seed < 50; seed++) traces.add(seeded(scenario, seed).trace.join("\n"))
   expect(traces.size).toBeGreaterThan(40)
 })
 
 /** Two fibers that each write their letter four times, a step apart. */
 const twoWriters = Effect.gen(function*() {
   const log: Array<string> = []
-  const write = (letter: string) =>
-    Effect.replicateEffect(Effect.sync(() => log.push(letter)), 4, { discard: true })
-  const a = yield* Effect.forkChild(write('a'))
-  const b = yield* Effect.forkChild(write('b'))
+  const write = (letter: string) => Effect.replicateEffect(Effect.sync(() => log.push(letter)), 4, { discard: true })
+  const a = yield* Effect.forkChild(write("a"))
+  const b = yield* Effect.forkChild(write("b"))
   yield* Fiber.join(a)
   yield* Fiber.join(b)
-  return log.join('')
+  return log.join("")
 })
 
-test('fibers a Deferred resumes inline run in the order the test picks', () => {
+test("fibers a Deferred resumes inline run in the order the test picks", () => {
   // The oldest task is picked until the Deferred is completed, so that both waiters reach it, `a` first; after that,
   // `then` picks. Picking the newest from the start would starve them: the yield of the fiber that waits for them is
   // always the newest task.
@@ -468,25 +475,25 @@ test('fibers a Deferred resumes inline run in the order the test picks', () => {
         Effect.sync(() => waiting++),
         Effect.andThen(Deferred.await(deferred), Effect.sync(() => log.push(letter)))
       )
-    const a = yield* Effect.forkChild(waiter('a'))
-    const b = yield* Effect.forkChild(waiter('b'))
+    const a = yield* Effect.forkChild(waiter("a"))
+    const b = yield* Effect.forkChild(waiter("b"))
     while (waiting < 2) yield* Effect.yieldNow
     completed = true
     yield* Deferred.succeed(deferred, undefined)
     yield* Fiber.join(a)
     yield* Fiber.join(b)
-    return log.join('')
+    return log.join("")
   })
   const order = (then: (ready: number) => number) => {
     completed = false
     const exit = drive(body, (ready) => completed ? then(ready) : 0).exit
     return exit !== undefined && Exit.isSuccess(exit) ? exit.value : undefined
   }
-  expect(order((_ready) => 0)).toBe('ab')
-  expect(order((ready) => ready - 1)).toBe('ba')
+  expect(order((_ready) => 0)).toBe("ab")
+  expect(order((ready) => ready - 1)).toBe("ba")
 })
 
-test('a fiber interrupted before it starts does not run, as under the scheduler of Effect', () => {
+test("a fiber interrupted before it starts does not run, as under the scheduler of Effect", () => {
   const body = Effect.gen(function*() {
     let ran = false
     const fiber = yield* Effect.forkChild(Effect.sync(() => {
@@ -502,7 +509,7 @@ test('a fiber interrupted before it starts does not run, as under the scheduler 
   }
 })
 
-test('a fiber that yielded and is interrupted waits for its turn, as one resumed inline does', () => {
+test("a fiber that yielded and is interrupted waits for its turn, as one resumed inline does", () => {
   // The fiber is preempted at the third step of each run, and yields nowhere else: so it has always yielded when the
   // fiber that forked it, never preempted, interrupts it. From the interruption on no fiber is preempted, so that only
   // a pick keeps the fiber from running to its end inline, before the one that interrupts goes on.
@@ -527,7 +534,8 @@ test('a fiber that yielded and is interrupted waits for its turn, as one resumed
     const next = random(seed)
     let root: Fiber.Fiber<unknown, unknown> | undefined
     interrupting = false
-    const exit = drive(body, (ready) => Math.floor(next() * ready), (fiber) =>
+    const exit = drive(body, (ready) =>
+      Math.floor(next() * ready), (fiber) =>
       fiber !== (root ??= fiber) && !interrupting && fiber.currentOpCount >= 3).exit
     expect(exit !== undefined && Exit.isSuccess(exit) ? exit.value : undefined).toEqual({
       finalizedInline: false,
@@ -537,7 +545,7 @@ test('a fiber that yielded and is interrupted waits for its turn, as one resumed
   }
 })
 
-test('a fiber whose run ends interrupts its children before they go on, as under the scheduler of Effect', async () => {
+test("a fiber whose run ends interrupts its children before they go on, as under the scheduler of Effect", async () => {
   // A child counts, a step at a time, while its parent waits for it to start; then the parent starts another child,
   // which runs inline on its stack, and ends. Effect interrupts the children of a fiber that ends in the same run
   // (`evaluate` in `internal/effect.ts`, read in the source), so the first child counts no further after the parent's
@@ -562,7 +570,7 @@ test('a fiber whose run ends interrupts its children before they go on, as under
   expect(await Effect.runPromise(body)).toBe(0)
 })
 
-test('a fiber resumed in the step of another that ran it runs on without a pick, taken for one whose run has ended', () => {
+test("a fiber resumed in the step of another that ran it runs on without a pick, taken for one whose run has ended", () => {
   // In one step the root starts a fiber inline and then resumes it, by a Deferred or by an interruption, with no fiber
   // let run between: the fiber is still the one let run last in the task, and is let through as the run of a fiber
   // that has ended. The end is the one Effect's scheduler gives, which resumes it inline too; only the pick is lost.
@@ -573,9 +581,12 @@ test('a fiber resumed in the step of another that ran it runs on without a pick,
     root = parent
     const deferred = Deferred.makeUnsafe<void>()
     let continued = false
-    const fiber = Effect.runForkWith(parent.context)(Effect.andThen(Deferred.await(deferred), Effect.sync(() => {
-      continued = true
-    })))
+    const fiber = Effect.runForkWith(parent.context)(Effect.andThen(
+      Deferred.await(deferred),
+      Effect.sync(() => {
+        continued = true
+      })
+    ))
     Deferred.doneUnsafe(deferred, Exit.void)
     return Effect.as(Fiber.await(fiber), continued)
   })
@@ -602,7 +613,7 @@ test('a fiber resumed in the step of another that ran it runs on without a pick,
   expect(Effect.runSync(interrupted)).toBe(true)
 })
 
-test('an interruption racing a resumption ends as under the scheduler of Effect, one way or the other', () => {
+test("an interruption racing a resumption ends as under the scheduler of Effect, one way or the other", () => {
   // A fiber whose Deferred is completed, then interrupted before it has gone on. Under Effect's scheduler it is
   // interrupted without going on under a budget of 3 steps, ends either way under 4, and goes on to its end from 5 up
   // (seen, by a check not kept); it never does both, or neither. Here both ends are reached, and only they.
@@ -614,40 +625,43 @@ test('an interruption racing a resumption ends as under the scheduler of Effect,
       Effect.sync(() => {
         waiting = true
       }),
-      Effect.andThen(Deferred.await(deferred), Effect.sync(() => {
-        continued = true
-      }))
+      Effect.andThen(
+        Deferred.await(deferred),
+        Effect.sync(() => {
+          continued = true
+        })
+      )
     ))
     while (!waiting) yield* Effect.yieldNow
     yield* Deferred.succeed(deferred, undefined)
     yield* Fiber.interrupt(waiter)
     const exit = yield* Fiber.await(waiter)
-    return `${Exit.isSuccess(exit) ? 'ended' : Exit.hasInterrupts(exit) ? 'interrupted' : 'failed'}, ${
-      continued ? 'went on' : 'did not go on'
+    return `${Exit.isSuccess(exit) ? "ended" : Exit.hasInterrupts(exit) ? "interrupted" : "failed"}, ${
+      continued ? "went on" : "did not go on"
     }`
   })
   const ends = new Set<string>()
   for (let seed = 0; seed < 300; seed++) {
     const exit = seeded(body, seed, 3).exit
-    ends.add(exit !== undefined && Exit.isSuccess(exit) ? exit.value : 'did not end')
+    ends.add(exit !== undefined && Exit.isSuccess(exit) ? exit.value : "did not end")
   }
-  expect([...ends].sort()).toEqual(['ended, went on', 'interrupted, did not go on'])
+  expect([...ends].sort()).toEqual(["ended, went on", "interrupted, did not go on"])
 })
 
-test('a fiber yields where the scheduler says, and another runs between two of its steps', () => {
+test("a fiber yields where the scheduler says, and another runs between two of its steps", () => {
   const oldest = (_ready: number) => 0
   const run = (preempt: (fiber: Fiber.Fiber<unknown, unknown>) => boolean) => {
     const exit = drive(twoWriters, oldest, preempt).exit
     return exit !== undefined && Exit.isSuccess(exit) ? exit.value : undefined
   }
   // With no preemption a fiber runs to its end before the next is picked.
-  expect(run(() => false)).toBe('aaaabbbb')
+  expect(run(() => false)).toBe("aaaabbbb")
   // Preempted at every third step of its turn, each gives the other a turn: a's writes are not all together.
   expect(run((fiber) => fiber.currentOpCount % 3 === 0)).toMatch(/a+b+a/)
   // And picking the newest instead changes which goes first.
   const newest = (ready: number) => ready - 1
   const exit = drive(twoWriters, newest).exit
-  expect(exit !== undefined && Exit.isSuccess(exit) ? exit.value : undefined).toBe('bbbbaaaa')
+  expect(exit !== undefined && Exit.isSuccess(exit) ? exit.value : undefined).toBe("bbbbaaaa")
 })
 
 /**
@@ -660,28 +674,28 @@ const recorded = <A>(effect: Effect.Effect<A>, yieldAt: (fiber: number, count: n
   const ready: Array<() => void> = []
   let first: number | undefined
   const scheduler: Scheduler.Scheduler = {
-    executionMode: 'async',
+    executionMode: "async",
     shouldYield(fiber) {
       const id = fiber.id - (first ??= fiber.id)
       const answer = yieldAt(id, fiber.currentOpCount)
-      log.push(`asks ${id} at ${fiber.currentOpCount}${answer ? ', yields' : ''}`)
+      log.push(`asks ${id} at ${fiber.currentOpCount}${answer ? ", yields" : ""}`)
       return answer
     },
     makeDispatcher: () => ({
       scheduleTask: (task) => {
-        log.push('schedules')
+        log.push("schedules")
         ready.push(task)
       },
       flush: () => {
-        throw new Error('stepped by hand alone')
-      },
-    }),
+        throw new Error("stepped by hand alone")
+      }
+    })
   }
   const fiber = Effect.runFork(effect, { scheduler })
   for (let steps = 0; fiber.pollUnsafe() === undefined && steps < 10_000; steps++) {
     const task = ready.shift()
     if (task === undefined) break
-    log.push('runs')
+    log.push("runs")
     task()
   }
   return { exit: fiber.pollUnsafe(), log }
@@ -694,19 +708,19 @@ const countsOf = (log: ReadonlyArray<string>, fiber: number) =>
     return asked !== null && Number(asked[1]) === fiber ? [Number(asked[2])] : []
   })
 
-test('a fiber asks shouldYield first at a currentOpCount of 1 in each run of its loop, and higher after it', () => {
+test("a fiber asks shouldYield first at a currentOpCount of 1 in each run of its loop, and higher after it", () => {
   // The child runs twice: from its fork to its wait, and from where the Deferred resumes it, inline, to its end.
   const { exit, log } = recorded(
     Effect.gen(function*() {
       const gate = yield* Deferred.make<void>()
-      const child = yield* Effect.forkChild(Effect.andThen(Deferred.await(gate), Effect.succeed('ended')))
+      const child = yield* Effect.forkChild(Effect.andThen(Deferred.await(gate), Effect.succeed("ended")))
       yield* Effect.yieldNow
       yield* Deferred.succeed(gate, undefined)
       return yield* Fiber.join(child)
     }),
-    () => false,
+    () => false
   )
-  expect(exit).toEqual(Exit.succeed('ended'))
+  expect(exit).toEqual(Exit.succeed("ended"))
   const counts = countsOf(log, 1)
   expect(counts[0]).toBe(1)
   expect(counts.filter((count) => count === 1).length).toBe(2)
@@ -714,7 +728,7 @@ test('a fiber asks shouldYield first at a currentOpCount of 1 in each run of its
   expect(counts.every((count, index) => index === 0 || count === 1 || count > (counts[index - 1] ?? 0))).toBe(true)
 })
 
-test('a fiber told to yield schedules its resumption as the very next task, which asks nothing at its first step', () => {
+test("a fiber told to yield schedules its resumption as the very next task, which asks nothing at its first step", () => {
   let yielded = false
   const { exit, log } = recorded(
     Effect.gen(function*() {
@@ -726,11 +740,11 @@ test('a fiber told to yield schedules its resumption as the very next task, whic
       if (yielded || fiber !== 0 || count < 3) return false
       yielded = true
       return true
-    },
+    }
   )
   expect(exit).toEqual(Exit.succeed(6))
-  const yields = log.findIndex((entry) => entry.endsWith(', yields'))
-  expect(log.slice(yields + 1, yields + 3)).toEqual(['schedules', 'runs'])
+  const yields = log.findIndex((entry) => entry.endsWith(", yields"))
+  expect(log.slice(yields + 1, yields + 3)).toEqual(["schedules", "runs"])
   const [resumed] = countsOf(log.slice(yields + 3), 0)
   expect(resumed).toBeGreaterThan(2)
 })
@@ -738,12 +752,12 @@ test('a fiber told to yield schedules its resumption as the very next task, whic
 /** The log split into its tasks: what the first run did, then what each task the log runs did. */
 const tasksOf = (log: ReadonlyArray<string>) =>
   log.reduce<Array<Array<string>>>((tasks, entry) => {
-    if (entry === 'runs') tasks.push([])
+    if (entry === "runs") tasks.push([])
     else tasks[tasks.length - 1]?.push(entry)
     return tasks
   }, [[]])
 
-test('a fiber whose run ends with children runs its loop again in the same task, from a currentOpCount of 1, and interrupts them there', () => {
+test("a fiber whose run ends with children runs its loop again in the same task, from a currentOpCount of 1, and interrupts them there", () => {
   // The parent, fiber 1, forks a child, fiber 2, which waits for its task, and ends.
   const { exit, log } = recorded(
     Effect.gen(function*() {
@@ -753,16 +767,16 @@ test('a fiber whose run ends with children runs its loop again in the same task,
       }))
       yield* Fiber.await(parent)
     }),
-    () => false,
+    () => false
   )
   expect(exit).toEqual(Exit.void)
   const ended = tasksOf(log).find((task) => countsOf(task, 1).filter((count) => count === 1).length === 2)
   expect(ended).toBeDefined()
-  const again = ended?.lastIndexOf('asks 1 at 1') ?? -1
-  expect(ended?.indexOf('asks 2 at 1', again)).toBeGreaterThan(again)
+  const again = ended?.lastIndexOf("asks 1 at 1") ?? -1
+  expect(ended?.indexOf("asks 2 at 1", again)).toBeGreaterThan(again)
 })
 
-test('a fiber that begins its run on the stack of another, started or resumed inline, gives it back as it yields, in the same task', () => {
+test("a fiber that begins its run on the stack of another, started or resumed inline, gives it back as it yields, in the same task", () => {
   // The root, fiber 0, starts or resumes fiber 1 inline, which yields at the second step of that run of its loop: the
   // root goes on before the next task runs.
   const yieldsOnce = (run: number) => {
@@ -777,8 +791,8 @@ test('a fiber that begins its run on the stack of another, started or resumed in
   }
   const steps = Effect.forEach(Arr.range(1, 4), () => Effect.sync(() => {}), { discard: true })
   const givesBack = (log: ReadonlyArray<string>) => {
-    const task = tasksOf(log).find((task) => task.includes('asks 1 at 2, yields')) ?? []
-    return task.slice(task.indexOf('asks 1 at 2, yields')).some((entry) => entry.startsWith('asks 0 at'))
+    const task = tasksOf(log).find((task) => task.includes("asks 1 at 2, yields")) ?? []
+    return task.slice(task.indexOf("asks 1 at 2, yields")).some((entry) => entry.startsWith("asks 0 at"))
   }
   const started = recorded(
     Effect.gen(function*() {
@@ -786,7 +800,7 @@ test('a fiber that begins its run on the stack of another, started or resumed in
       yield* steps
       yield* Fiber.await(child)
     }),
-    yieldsOnce(1),
+    yieldsOnce(1)
   )
   expect(started.exit).toEqual(Exit.void)
   expect(givesBack(started.log)).toBe(true)
@@ -795,14 +809,14 @@ test('a fiber that begins its run on the stack of another, started or resumed in
       const gate = yield* Deferred.make<void>()
       let waiting = false
       const child = yield* Effect.forkChild(
-        Effect.sync(() => waiting = true).pipe(Effect.andThen(Deferred.await(gate)), Effect.andThen(steps)),
+        Effect.sync(() => waiting = true).pipe(Effect.andThen(Deferred.await(gate)), Effect.andThen(steps))
       )
       while (!waiting) yield* Effect.yieldNow
       yield* Deferred.succeed(gate, undefined)
       yield* steps
       yield* Fiber.await(child)
     }),
-    yieldsOnce(2),
+    yieldsOnce(2)
   )
   expect(resumed.exit).toEqual(Exit.void)
   expect(givesBack(resumed.log)).toBe(true)

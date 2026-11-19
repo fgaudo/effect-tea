@@ -1,41 +1,41 @@
-import { describe, expect, test } from 'bun:test'
-import * as Cause from 'effect/Cause'
-import * as Channel from 'effect/Channel'
-import * as Deferred from 'effect/Deferred'
-import * as Effect from 'effect/Effect'
-import * as Exit from 'effect/Exit'
-import * as Fiber from 'effect/Fiber'
-import { absurd, identity } from 'effect/Function'
-import * as HashMap from 'effect/HashMap'
-import * as Logger from 'effect/Logger'
-import * as Opt from 'effect/Option'
-import * as Queue from 'effect/Queue'
-import * as References from 'effect/References'
-import * as Scope from 'effect/Scope'
-import * as Stream from 'effect/Stream'
-import { everySchedule } from '../test/scheduled.test_scheduler.ts'
-import { ProgramDefect } from './defect.ts'
-import * as Engine from './engine.ts'
-import * as Shell from './shell.ts'
-import type { Execution } from './command.ts'
-import type { Subscription } from './subscription.ts'
-import { reject } from './update.ts'
+import { describe, expect, test } from "bun:test"
+import * as Cause from "effect/Cause"
+import * as Channel from "effect/Channel"
+import * as Deferred from "effect/Deferred"
+import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
+import * as Fiber from "effect/Fiber"
+import { absurd, identity } from "effect/Function"
+import * as HashMap from "effect/HashMap"
+import * as Logger from "effect/Logger"
+import * as Opt from "effect/Option"
+import * as Queue from "effect/Queue"
+import * as References from "effect/References"
+import * as Scope from "effect/Scope"
+import * as Stream from "effect/Stream"
+import { everySchedule } from "../test/scheduled.test_scheduler.ts"
+import type { Execution } from "./command.ts"
+import { ProgramDefect } from "./defect.ts"
+import * as Engine from "./engine.ts"
+import * as Shell from "./shell.ts"
+import type { Subscription } from "./subscription.ts"
+import { reject } from "./update.ts"
 
 // A counter that accepts `Increment`, `Decrement` only above zero, and never `Forbidden`. Its only commands are
 // the initial ones, executions run as they are.
-type Message = 'Increment' | 'Decrement' | 'Forbidden'
+type Message = "Increment" | "Decrement" | "Forbidden"
 
 const make = (initCommands: ReadonlyArray<Execution<Message, never>> = []) =>
   Engine.make<number, Message, Execution<Message, never>, never, never>({
     init: { state: 0, commands: initCommands },
     runCommand: identity,
     update: (message) => (count) =>
-      message === 'Increment'
+      message === "Increment"
         ? { state: count + 1 }
-        : message === 'Decrement' && count > 0
+        : message === "Decrement" && count > 0
         ? { state: count - 1 }
         : reject,
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => HashMap.empty()
   })
 
 const revision = (engine: Engine.Engine<number, Message>, target: Engine.Revision) =>
@@ -43,20 +43,20 @@ const revision = (engine: Engine.Engine<number, Message>, target: Engine.Revisio
     Stream.filter(({ revision }) => revision >= target),
     Stream.runHead,
     Effect.map(Opt.getOrThrow),
-    Effect.map(({ state, revision }) => ({ state, revision })),
+    Effect.map(({ state, revision }) => ({ state, revision }))
   )
 
 /** Waits a short while for a fiber of the run to die: `None` means the engine is still alive. */
-const deathWithin = (engine: Engine.Engine<number, Message>) => Effect.timeoutOption(engine.died, '200 millis')
+const deathWithin = (engine: Engine.Engine<number, Message>) => Effect.timeoutOption(engine.died, "200 millis")
 
 const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) => Effect.runPromise(Effect.scoped(effect))
 
-describe('Engine reject', () => {
-  test('a message update rejects is ignored, and the program goes on', async () => {
+describe("Engine reject", () => {
+  test("a message update rejects is ignored, and the program goes on", async () => {
     const outcome = await run(Effect.gen(function*() {
       const engine = yield* make()
-      yield* engine.dispatch('Forbidden')
-      yield* engine.dispatch('Increment')
+      yield* engine.dispatch("Forbidden")
+      yield* engine.dispatch("Increment")
       const reached = yield* revision(engine, 1)
       return { reached, death: yield* deathWithin(engine) }
     }))
@@ -64,14 +64,14 @@ describe('Engine reject', () => {
     expect(Opt.isNone(outcome.death)).toBe(true)
   })
 
-  test('a message that no longer applies is ignored', async () => {
+  test("a message that no longer applies is ignored", async () => {
     const outcome = await run(Effect.gen(function*() {
       const engine = yield* make()
-      yield* engine.dispatch('Increment') // revision 0 → 1
+      yield* engine.dispatch("Increment") // revision 0 → 1
       yield* revision(engine, 1)
-      yield* engine.dispatch('Decrement') // revision 1 → 2, back to 0
-      yield* engine.dispatch('Decrement') // a double tap: fine at 1, rejected at 0
-      yield* engine.dispatch('Increment') // revision 2 → 3
+      yield* engine.dispatch("Decrement") // revision 1 → 2, back to 0
+      yield* engine.dispatch("Decrement") // a double tap: fine at 1, rejected at 0
+      yield* engine.dispatch("Increment") // revision 2 → 3
       const reached = yield* revision(engine, 3)
       return { reached, death: yield* deathWithin(engine) }
     }))
@@ -79,10 +79,10 @@ describe('Engine reject', () => {
     expect(Opt.isNone(outcome.death)).toBe(true)
   })
 
-  test('a message rejected after coming from a command is ignored', async () => {
+  test("a message rejected after coming from a command is ignored", async () => {
     const outcome = await run(Effect.gen(function*() {
-      const engine = yield* make([Effect.succeedSome<Message>('Forbidden')])
-      yield* engine.dispatch('Increment')
+      const engine = yield* make([Effect.succeedSome<Message>("Forbidden")])
+      yield* engine.dispatch("Increment")
       const reached = yield* revision(engine, 1)
       return { reached, death: yield* deathWithin(engine) }
     }))
@@ -90,21 +90,21 @@ describe('Engine reject', () => {
     expect(Opt.isNone(outcome.death)).toBe(true)
   })
 
-  test('a message sent from an older frame that still applies is applied', async () => {
+  test("a message sent from an older frame that still applies is applied", async () => {
     const reached = await run(Effect.gen(function*() {
       const engine = yield* make()
-      yield* engine.dispatch('Increment')
-      yield* engine.dispatch('Increment') // sent from the frame at revision 0, still makes sense
+      yield* engine.dispatch("Increment")
+      yield* engine.dispatch("Increment") // sent from the frame at revision 0, still makes sense
       return yield* revision(engine, 2)
     }))
     expect(reached).toEqual({ state: 2, revision: 2 })
   })
 })
 
-describe('Engine subscriptions', () => {
+describe("Engine subscriptions", () => {
   // The state lists the names of the subscriptions to run; `Bumped` changes it without touching them.
   type Listening = Readonly<{ names: ReadonlyArray<string>; bumps: number }>
-  type Change = Readonly<{ _tag: 'Listened'; names: ReadonlyArray<string> }> | Readonly<{ _tag: 'Bumped' }>
+  type Change = Readonly<{ _tag: "Listened"; names: ReadonlyArray<string> }> | Readonly<{ _tag: "Bumped" }>
 
   /** Runs an engine whose subscriptions write when they start and when they are stopped. */
   const listening = (log: Array<string>) =>
@@ -112,7 +112,7 @@ describe('Engine subscriptions', () => {
       init: { state: { names: [], bumps: 0 } },
       runCommand: absurd,
       update: (change) => (state) =>
-        change._tag === 'Listened'
+        change._tag === "Listened"
           ? { state: { ...state, names: change.names } }
           : { state: { ...state, bumps: state.bumps + 1 } },
       // The keys are new tuples every time: only their values say whether they changed.
@@ -124,11 +124,11 @@ describe('Engine subscriptions', () => {
             Channel.unwrap(
               Effect.acquireRelease(
                 Effect.sync(() => log.push(`start ${name}`)),
-                () => Effect.sync(() => log.push(`stop ${name}`)),
-              ).pipe(Effect.as(Channel.never)),
-            ),
+                () => Effect.sync(() => log.push(`stop ${name}`))
+              ).pipe(Effect.as(Channel.never))
+            )
           ] as const
-        )),
+        ))
     })
 
   /** Whether the subscription named `name` has started, and has not been stopped since. */
@@ -149,13 +149,13 @@ describe('Engine subscriptions', () => {
         const reached = yield* engine.states.pipe(Stream.filter(({ revision }) => revision > index), Stream.runHead)
         const names = Opt.match(reached, { onNone: () => [], onSome: ({ state }) => state.names })
         yield* Effect.gen(function*() {
-          while (!names.every((name) => isRunning(log, name))) yield* Effect.sleep('1 millis')
+          while (!names.every((name) => isRunning(log, name))) yield* Effect.sleep("1 millis")
         }).pipe(Effect.timeoutOrElse({
-          duration: '1 second',
-          orElse: () => Effect.die(new Error(`${names.join(', ')} did not start within a second`)),
+          duration: "1 second",
+          orElse: () => Effect.die(new Error(`${names.join(", ")} did not start within a second`))
         }))
       }),
-      { discard: true },
+      { discard: true }
     )
 
   const logOf = async (changes: ReadonlyArray<Change>) => {
@@ -169,36 +169,36 @@ describe('Engine subscriptions', () => {
 
   // Read while the engine runs, once the message after the one that took the key away is applied: the loop takes it
   // only once the release is over, and the end of the engine, which stops every subscription, has not come yet.
-  test('a key that goes away interrupts its subscription, which releases what it holds', async () => {
+  test("a key that goes away interrupts its subscription, which releases what it holds", async () => {
     const log: Array<string> = []
     const whileRunning = await run(Effect.gen(function*() {
       const engine = yield* listening(log)
       yield* send(engine, log, [
-        { _tag: 'Listened', names: ['a'] },
-        { _tag: 'Listened', names: [] },
-        { _tag: 'Bumped' },
+        { _tag: "Listened", names: ["a"] },
+        { _tag: "Listened", names: [] },
+        { _tag: "Bumped" }
       ])
       return [...log]
     }))
-    expect(whileRunning).toEqual(['start a', 'stop a'])
+    expect(whileRunning).toEqual(["start a", "stop a"])
   })
 
-  test('a key that comes back starts a new subscription', async () => {
+  test("a key that comes back starts a new subscription", async () => {
     const log = await logOf([
-      { _tag: 'Listened', names: ['a'] },
-      { _tag: 'Listened', names: [] },
-      { _tag: 'Listened', names: ['a'] },
+      { _tag: "Listened", names: ["a"] },
+      { _tag: "Listened", names: [] },
+      { _tag: "Listened", names: ["a"] }
     ])
-    expect(log.slice(0, 3)).toEqual(['start a', 'stop a', 'start a'])
+    expect(log.slice(0, 3)).toEqual(["start a", "stop a", "start a"])
   })
 
-  test('a key that changes stops the old subscription and starts the new one', async () => {
-    const log = await logOf([{ _tag: 'Listened', names: ['a'] }, { _tag: 'Listened', names: ['b'] }])
-    expect(log.slice(0, 3)).toEqual(['start a', 'stop a', 'start b'])
+  test("a key that changes stops the old subscription and starts the new one", async () => {
+    const log = await logOf([{ _tag: "Listened", names: ["a"] }, { _tag: "Listened", names: ["b"] }])
+    expect(log.slice(0, 3)).toEqual(["start a", "stop a", "start b"])
   })
 
   // Each release waits for the other to have begun: released one after the other, they would wait forever.
-  test('keys that go away together release their subscriptions together, not one after the other', async () => {
+  test("keys that go away together release their subscriptions together, not one after the other", async () => {
     const released = await run(Effect.gen(function*() {
       const releasing = yield* Deferred.make<void>()
       let begun = 0
@@ -209,42 +209,42 @@ describe('Engine subscriptions', () => {
       const holding = (): Subscription<Change, Scope.Scope> =>
         Channel.unwrap(Effect.acquireRelease(Effect.void, () => release).pipe(Effect.as(Channel.never)))
       const engine = yield* Engine.make<Listening, Change, never, Scope.Scope, string>({
-        init: { state: { names: ['a', 'b'], bumps: 0 } },
+        init: { state: { names: ["a", "b"], bumps: 0 } },
         runCommand: absurd,
         update: (change) => (state) =>
-          change._tag === 'Listened' ? { state: { ...state, names: change.names } } : { state },
-        subscriptions: ({ names }) => HashMap.fromIterable(names.map((name) => [name, holding()] as const)),
+          change._tag === "Listened" ? { state: { ...state, names: change.names } } : { state },
+        subscriptions: ({ names }) => HashMap.fromIterable(names.map((name) => [name, holding()] as const))
       })
-      yield* engine.dispatch({ _tag: 'Listened', names: [] })
+      yield* engine.dispatch({ _tag: "Listened", names: [] })
       yield* engine.states.pipe(Stream.filter(({ state }) => state.names.length === 0), Stream.runHead)
-      return yield* Deferred.await(releasing).pipe(Effect.as(true), Effect.timeoutOption('1 second'))
+      return yield* Deferred.await(releasing).pipe(Effect.as(true), Effect.timeoutOption("1 second"))
     }))
     expect(released).toEqual(Opt.some(true))
   })
 
-  test('a key equal by value keeps its subscription running, untouched', async () => {
-    const log = await logOf([{ _tag: 'Listened', names: ['a'] }, { _tag: 'Bumped' }, { _tag: 'Bumped' }])
-    expect(log.slice(0, 1)).toEqual(['start a'])
-    expect(log.filter((line) => line === 'start a').length).toBe(1)
-    expect(log.slice(1)).toEqual(['stop a']) // only when the engine itself stops, at the end of the test
+  test("a key equal by value keeps its subscription running, untouched", async () => {
+    const log = await logOf([{ _tag: "Listened", names: ["a"] }, { _tag: "Bumped" }, { _tag: "Bumped" }])
+    expect(log.slice(0, 1)).toEqual(["start a"])
+    expect(log.filter((line) => line === "start a").length).toBe(1)
+    expect(log.slice(1)).toEqual(["stop a"]) // only when the engine itself stops, at the end of the test
   })
 })
 
-describe('Engine same state', () => {
+describe("Engine same state", () => {
   // `Same` keeps the very same state; `Ping` keeps it too, but runs a command that sends `Increment`.
-  type Signal = 'Same' | 'Ping' | 'Increment'
+  type Signal = "Same" | "Ping" | "Increment"
 
   const make = () =>
-    Engine.make<number, Signal, 'Bump', never, never>({
+    Engine.make<number, Signal, "Bump", never, never>({
       init: { state: 0 },
-      runCommand: () => Effect.succeedSome<Signal>('Increment'),
+      runCommand: () => Effect.succeedSome<Signal>("Increment"),
       update: (signal) => (count) =>
-        signal === 'Increment'
+        signal === "Increment"
           ? { state: count + 1 }
-          : signal === 'Same'
+          : signal === "Same"
           ? { state: count }
-          : { state: count, commands: ['Bump'] },
-      subscriptions: () => HashMap.empty(),
+          : { state: count, commands: ["Bump"] },
+      subscriptions: () => HashMap.empty()
     })
 
   const firstAfter = (engine: Engine.Engine<number, Signal>) =>
@@ -252,59 +252,59 @@ describe('Engine same state', () => {
       Stream.filter(({ revision }) => revision > 0),
       Stream.runHead,
       Effect.map(Opt.getOrThrow),
-      Effect.map(({ state, revision }) => ({ state, revision })),
+      Effect.map(({ state, revision }) => ({ state, revision }))
     )
 
-  test('a message that keeps the same state makes no new revision', async () => {
+  test("a message that keeps the same state makes no new revision", async () => {
     const reached = await run(Effect.gen(function*() {
       const engine = yield* make()
-      yield* engine.dispatch('Same')
-      yield* engine.dispatch('Increment')
+      yield* engine.dispatch("Same")
+      yield* engine.dispatch("Increment")
       return yield* firstAfter(engine)
     }))
     expect(reached).toEqual({ state: 1, revision: 1 })
   })
 
-  test('its commands still run', async () => {
+  test("its commands still run", async () => {
     const reached = await run(Effect.gen(function*() {
       const engine = yield* make()
-      yield* engine.dispatch('Ping')
+      yield* engine.dispatch("Ping")
       return yield* firstAfter(engine)
     }))
     expect(reached).toEqual({ state: 1, revision: 1 })
   })
 })
 
-describe('Engine subscriptions that end', () => {
+describe("Engine subscriptions that end", () => {
   // While `listening`, a subscription sends `a`, then ends with `end`; `Bumped` changes the state, not the keys.
   type Heard = Readonly<{ listening: boolean; heard: ReadonlyArray<string>; bumps: number }>
   type Signal =
-    | Readonly<{ _tag: 'Listened'; listening: boolean }>
-    | Readonly<{ _tag: 'Heard'; value: string }>
-    | Readonly<{ _tag: 'Bumped' }>
+    | Readonly<{ _tag: "Listened"; listening: boolean }>
+    | Readonly<{ _tag: "Heard"; value: string }>
+    | Readonly<{ _tag: "Bumped" }>
 
-  const heard = (value: string): Signal => ({ _tag: 'Heard', value })
+  const heard = (value: string): Signal => ({ _tag: "Heard", value })
 
   const make = (starts: Array<number>) =>
     Engine.make<Heard, Signal, never, never, string>({
       init: { state: { listening: false, heard: [], bumps: 0 } },
       runCommand: absurd,
       update: (signal) => (state) =>
-        signal._tag === 'Listened'
+        signal._tag === "Listened"
           ? { state: { ...state, listening: signal.listening } }
-          : signal._tag === 'Heard'
+          : signal._tag === "Heard"
           ? { state: { ...state, heard: [...state.heard, signal.value] } }
           : { state: { ...state, bumps: state.bumps + 1 } },
       subscriptions: ({ listening }) =>
         listening
           ? HashMap.make([
-            'feed',
+            "feed",
             Channel.suspend(() => {
               starts.push(starts.length + 1)
-              return Channel.mapDone(Channel.succeed(heard('a')), () => heard('end'))
-            }),
+              return Channel.mapDone(Channel.succeed(heard("a")), () => heard("end"))
+            })
           ])
-          : HashMap.empty(),
+          : HashMap.empty()
     })
 
   const until = (engine: Engine.Engine<Heard, Signal>, done: (state: Heard) => boolean) =>
@@ -312,50 +312,50 @@ describe('Engine subscriptions that end', () => {
 
   const send = (engine: Engine.Engine<Heard, Signal>, signal: Signal) => engine.dispatch(signal)
 
-  test('a subscription that ends sends its last message to update', async () => {
+  test("a subscription that ends sends its last message to update", async () => {
     const reached = await run(Effect.gen(function*() {
       const engine = yield* make([])
-      yield* send(engine, { _tag: 'Listened', listening: true })
+      yield* send(engine, { _tag: "Listened", listening: true })
       return yield* until(engine, (state) => state.heard.length === 2)
     }))
-    expect(reached.state.heard).toEqual(['a', 'end'])
+    expect(reached.state.heard).toEqual(["a", "end"])
   })
 
-  test('it does not start again while its key stays', async () => {
+  test("it does not start again while its key stays", async () => {
     const starts: Array<number> = []
     await run(Effect.gen(function*() {
       const engine = yield* make(starts)
-      yield* send(engine, { _tag: 'Listened', listening: true })
+      yield* send(engine, { _tag: "Listened", listening: true })
       yield* until(engine, (state) => state.heard.length === 2)
-      yield* send(engine, { _tag: 'Bumped' })
-      yield* send(engine, { _tag: 'Bumped' })
+      yield* send(engine, { _tag: "Bumped" })
+      yield* send(engine, { _tag: "Bumped" })
       // The third state comes once the loop has reconciled the second, and `FiberMap.run` starts what it forks at once.
-      yield* send(engine, { _tag: 'Bumped' })
+      yield* send(engine, { _tag: "Bumped" })
       yield* until(engine, (state) => state.bumps === 3)
     }))
     expect(starts).toEqual([1])
   })
 
-  test('it starts again when its key goes away and comes back', async () => {
+  test("it starts again when its key goes away and comes back", async () => {
     const starts: Array<number> = []
     const reached = await run(Effect.gen(function*() {
       const engine = yield* make(starts)
-      yield* send(engine, { _tag: 'Listened', listening: true })
+      yield* send(engine, { _tag: "Listened", listening: true })
       yield* until(engine, (state) => state.heard.length === 2)
-      yield* send(engine, { _tag: 'Listened', listening: false })
+      yield* send(engine, { _tag: "Listened", listening: false })
       yield* until(engine, (state) => !state.listening)
-      yield* send(engine, { _tag: 'Listened', listening: true })
+      yield* send(engine, { _tag: "Listened", listening: true })
       return yield* until(engine, (state) => state.heard.length === 4)
     }))
     expect(starts).toEqual([1, 2])
-    expect(reached.state.heard).toEqual(['a', 'end', 'a', 'end'])
+    expect(reached.state.heard).toEqual(["a", "end", "a", "end"])
   })
 })
 
-describe('Engine scopes', () => {
+describe("Engine scopes", () => {
   // `Run` and `Fork` start a command that answers `Done`, `Hold` one that never ends; `Listen` starts the
   // subscription a test gives, `Stop` stops it. The log says what happens, in order.
-  type Signal = 'Run' | 'Fork' | 'Hold' | 'Listen' | 'Stop' | 'Done'
+  type Signal = "Run" | "Fork" | "Hold" | "Listen" | "Stop" | "Done"
 
   type Track = Readonly<{
     note: (line: string) => Effect.Effect<void>
@@ -363,7 +363,7 @@ describe('Engine scopes', () => {
   }>
 
   const tracked = Effect.fnUntraced(function*(
-    subscription: (track: Track) => Subscription<Signal, Scope.Scope> = () => Channel.never,
+    subscription: (track: Track) => Subscription<Signal, Scope.Scope> = () => Channel.never
   ) {
     const log: Array<string> = []
     const note = (line: string) => Effect.sync(() => void log.push(line))
@@ -371,172 +371,172 @@ describe('Engine scopes', () => {
     const held = yield* Deferred.make<void>()
     const runCommand = (command: Signal): Execution<Signal, Scope.Scope> => {
       switch (command) {
-        case 'Run':
-          return resource('command').pipe(Effect.as(Opt.some<Signal>('Done')))
-        case 'Fork':
+        case "Run":
+          return resource("command").pipe(Effect.as(Opt.some<Signal>("Done")))
+        case "Fork":
           return Effect.gen(function*() {
             const started = yield* Deferred.make<void>()
             yield* Effect.forkScoped(
               Deferred.succeed(started, undefined).pipe(
                 Effect.andThen(Effect.never),
-                Effect.onInterrupt(() => note('forked fiber interrupted')),
-              ),
+                Effect.onInterrupt(() => note("forked fiber interrupted"))
+              )
             )
             yield* Deferred.await(started)
-            return Opt.some<Signal>('Done')
+            return Opt.some<Signal>("Done")
           })
         default:
-          return resource('held command').pipe(
+          return resource("held command").pipe(
             Effect.andThen(Deferred.succeed(held, undefined)),
             Effect.andThen(Effect.never),
-            Effect.onInterrupt(() => note('held command interrupted')),
+            Effect.onInterrupt(() => note("held command interrupted"))
           )
       }
     }
     const engine = yield* Engine.make<boolean, Signal, Signal, Scope.Scope, string>({
       init: { state: false },
       update: (signal) => (listening) =>
-        signal === 'Listen'
+        signal === "Listen"
           ? { state: true }
-          : signal === 'Stop'
+          : signal === "Stop"
           ? { state: false }
-          : signal === 'Done'
+          : signal === "Done"
           ? { state: listening }
           : { state: listening, commands: [signal] },
       runCommand,
       subscriptions: (listening) =>
-        listening ? HashMap.make(['subscription', subscription({ note, resource })]) : HashMap.empty(),
-      onApplied: ({ message }) => note(`applied ${message}`),
+        listening ? HashMap.make(["subscription", subscription({ note, resource })]) : HashMap.empty(),
+      onApplied: ({ message }) => note(`applied ${message}`)
     })
     const send = (signal: Signal) => engine.dispatch(signal)
     const until = Effect.fnUntraced(function*(line: string) {
-      while (!log.includes(line)) yield* Effect.sleep('1 millis')
+      while (!log.includes(line)) yield* Effect.sleep("1 millis")
     }, (waiting, line) =>
       Effect.timeoutOrElse(waiting, {
-        duration: '1 second',
-        orElse: () => Effect.die(new Error(`"${line}" was not logged within a second`)),
+        duration: "1 second",
+        orElse: () => Effect.die(new Error(`"${line}" was not logged within a second`))
       }))
     return { log, send, until, held }
   })
 
-  test('what a command acquires is released when it ends, before update hears its message', async () => {
+  test("what a command acquires is released when it ends, before update hears its message", async () => {
     const log = await run(Effect.gen(function*() {
       const { log, send, until } = yield* tracked()
-      yield* send('Run')
-      yield* until('applied Done')
+      yield* send("Run")
+      yield* until("applied Done")
       return [...log]
     }))
-    expect(log).toEqual(['applied Run', 'acquire command', 'release command', 'applied Done'])
+    expect(log).toEqual(["applied Run", "acquire command", "release command", "applied Done"])
   })
 
-  test('a fiber that a command forks in its scope is interrupted when the command ends', async () => {
+  test("a fiber that a command forks in its scope is interrupted when the command ends", async () => {
     const log = await run(Effect.gen(function*() {
       const { log, send, until } = yield* tracked()
-      yield* send('Fork')
-      yield* until('applied Done')
+      yield* send("Fork")
+      yield* until("applied Done")
       return [...log]
     }))
-    expect(log).toEqual(['applied Fork', 'forked fiber interrupted', 'applied Done'])
+    expect(log).toEqual(["applied Fork", "forked fiber interrupted", "applied Done"])
   })
 
   const fromEffect = ({ resource }: Track): Subscription<Signal, Scope.Scope> =>
-    Channel.fromEffectDrain(resource('subscription')).pipe(Channel.concatWith(() => Channel.never))
+    Channel.fromEffectDrain(resource("subscription")).pipe(Channel.concatWith(() => Channel.never))
 
   const fromStream = ({ resource }: Track): Subscription<Signal, Scope.Scope> =>
-    Stream.fromEffect(resource('subscription')).pipe(
+    Stream.fromEffect(resource("subscription")).pipe(
       Stream.drain,
       Stream.concat(Stream.never),
       Stream.toChannel,
-      Channel.map((): Signal => 'Done'),
-      Channel.concatWith(() => Channel.never),
+      Channel.map((): Signal => "Done"),
+      Channel.concatWith(() => Channel.never)
     )
 
-  for (const [name, subscription] of [['Channel.fromEffect', fromEffect], ['Stream.fromEffect', fromStream]] as const) {
+  for (const [name, subscription] of [["Channel.fromEffect", fromEffect], ["Stream.fromEffect", fromStream]] as const) {
     test(`what a subscription acquires (${name}) is released when its key goes away`, async () => {
       const log = await run(Effect.gen(function*() {
         const { log, send, until } = yield* tracked(subscription)
-        yield* send('Listen')
-        yield* until('acquire subscription')
-        yield* send('Stop')
-        yield* until('release subscription')
+        yield* send("Listen")
+        yield* until("acquire subscription")
+        yield* send("Stop")
+        yield* until("release subscription")
         return [...log]
       }))
-      expect(log).toEqual(['applied Listen', 'acquire subscription', 'applied Stop', 'release subscription'])
+      expect(log).toEqual(["applied Listen", "acquire subscription", "applied Stop", "release subscription"])
     })
   }
 
-  test('when the run ends, what still runs is interrupted before its resources are released', async () => {
+  test("when the run ends, what still runs is interrupted before its resources are released", async () => {
     const holding = ({ note, resource }: Track): Subscription<Signal, Scope.Scope> =>
       Channel.fromEffectDrain(
-        resource('subscription').pipe(
+        resource("subscription").pipe(
           Effect.andThen(Effect.never),
-          Effect.onInterrupt(() => note('subscription interrupted')),
-        ),
+          Effect.onInterrupt(() => note("subscription interrupted"))
+        )
       ).pipe(
-        Channel.concatWith(() => Channel.never),
+        Channel.concatWith(() => Channel.never)
       )
     const log = await run(Effect.gen(function*() {
       const log = yield* Effect.scoped(Effect.gen(function*() {
         const { log, send, until, held } = yield* tracked(holding)
-        yield* send('Hold')
-        yield* send('Listen')
+        yield* send("Hold")
+        yield* send("Listen")
         yield* Deferred.await(held)
-        yield* until('acquire subscription')
+        yield* until("acquire subscription")
         return log
       }))
       return [...log]
     }))
-    expect(log.indexOf('held command interrupted')).toBeGreaterThan(log.indexOf('acquire held command'))
-    expect(log.indexOf('release held command')).toBeGreaterThan(log.indexOf('held command interrupted'))
-    expect(log.indexOf('subscription interrupted')).toBeGreaterThan(log.indexOf('acquire subscription'))
-    expect(log.indexOf('release subscription')).toBeGreaterThan(log.indexOf('subscription interrupted'))
+    expect(log.indexOf("held command interrupted")).toBeGreaterThan(log.indexOf("acquire held command"))
+    expect(log.indexOf("release held command")).toBeGreaterThan(log.indexOf("held command interrupted"))
+    expect(log.indexOf("subscription interrupted")).toBeGreaterThan(log.indexOf("acquire subscription"))
+    expect(log.indexOf("release subscription")).toBeGreaterThan(log.indexOf("subscription interrupted"))
   })
 })
 
-describe('Engine generations', () => {
+describe("Engine generations", () => {
   // A key that went away and came back is a new start: what the old one left in the queue is dropped all the same,
   // though its key is listened to again when it is taken from the queue.
-  test('a message left by an earlier start of a key that came back does not reach update', async () => {
+  test("a message left by an earlier start of a key that came back does not reach update", async () => {
     type Watch = Readonly<{ isRunning: boolean; ticks: number }>
-    type WatchMessage = 'Tick' | 'Stop' | 'Start'
+    type WatchMessage = "Tick" | "Stop" | "Start"
     const ticks = await run(Effect.gen(function*() {
-      const source = yield* Queue.unbounded<'Tick'>()
+      const source = yield* Queue.unbounded<"Tick">()
       const sent = yield* Deferred.make<void>()
       // The engine asks for what follows the tick only once it has queued the tick: then `sent` completes.
       const ticking = Channel.unwrap(Effect.map(Queue.take(source), (tick) => Channel.succeed(tick))).pipe(
-        Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never))),
+        Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never)))
       )
       let dispatch: (message: WatchMessage) => Effect.Effect<void> = () => Effect.void
       const engine = yield* Engine.make<Watch, WatchMessage, never, never, string>({
         init: { state: { isRunning: true, ticks: 0 } },
         runCommand: absurd,
         update: (message) => (state) =>
-          message === 'Tick'
+          message === "Tick"
             ? { state: { ...state, ticks: state.ticks + 1 } }
-            : { state: { ...state, isRunning: message === 'Start' } },
-        subscriptions: (state) => state.isRunning ? HashMap.make(['ticks', ticking]) : HashMap.empty(),
+            : { state: { ...state, isRunning: message === "Start" } },
+        subscriptions: (state) => state.isRunning ? HashMap.make(["ticks", ticking]) : HashMap.empty(),
         // Before the key of `Stop` goes away, `Start` is queued, then a tick of the first start behind it.
         onApplied: ({ message }) =>
-          message === 'Stop'
-            ? dispatch('Start').pipe(Effect.andThen(Queue.offer(source, 'Tick')), Effect.andThen(Deferred.await(sent)))
-            : Effect.void,
+          message === "Stop"
+            ? dispatch("Start").pipe(Effect.andThen(Queue.offer(source, "Tick")), Effect.andThen(Deferred.await(sent)))
+            : Effect.void
       })
       dispatch = engine.dispatch
-      yield* engine.dispatch('Stop')
+      yield* engine.dispatch("Stop")
       yield* engine.states.pipe(Stream.filter(({ revision }) => revision >= 2), Stream.runHead)
       // Queued behind the late tick, which the loop has taken once this is applied.
-      yield* engine.dispatch('Start')
+      yield* engine.dispatch("Start")
       return yield* engine.states.pipe(
         Stream.filter(({ revision }) => revision >= 3),
         Stream.runHead,
-        Effect.map((reached) => Opt.getOrThrow(reached).state.ticks),
+        Effect.map((reached) => Opt.getOrThrow(reached).state.ticks)
       )
     }))
     expect(ticks).toBe(0)
   })
 })
 
-describe('Engine after the first defect', () => {
+describe("Engine after the first defect", () => {
   // The register of deaths, with `taken`, which waits until the loop has read it with a death recorded, as it takes
   // the first message after the death: what no update and no description follows. The clock only bounds a wait that a
   // loop which never reads it, past the death, would make.
@@ -549,151 +549,157 @@ describe('Engine after the first defect', () => {
         const dead = made.dead()
         if (dead) Deferred.doneUnsafe(read, Exit.void)
         return dead
-      },
+      }
     }
-    return { deaths, taken: Effect.timeoutOption(Deferred.await(read), '1 second') }
+    return { deaths, taken: Effect.timeoutOption(Deferred.await(read), "1 second") }
   })
 
   // The order no yield of the scheduler needs: the loop is held by `onApplied` while a command dies, with a message
   // queued behind, which it takes once the death is recorded.
-  test('no update is called on a message taken once a command has died', async () => {
+  test("no update is called on a message taken once a command has died", async () => {
     const calls = { n: 0 }
-    await Effect.runPromiseExit(Effect.gen(function*() {
-      const { deaths, taken } = yield* readingDeaths
-      const dead = () => deaths.all().length > 0
-      const go = yield* Deferred.make<void>()
-      const engine = yield* Engine.make<Readonly<{ n: number }>, 'Go' | 'Hit', 'Die', never, never>({
-        deaths,
-        init: { state: { n: 0 }, commands: ['Die'] },
-        runCommand: () => Deferred.await(go).pipe(Effect.andThen(Effect.die('boom'))),
-        update: (message) => ({ n }) => {
-          if (message === 'Hit' && dead()) calls.n += 1
-          return { state: { n: n + 1 } }
-        },
-        subscriptions: () => HashMap.empty(),
-        onApplied: ({ message }) =>
-          message === 'Go' ? Deferred.succeed(go, undefined).pipe(Effect.andThen(deaths.died)) : Effect.void,
-      })
-      yield* engine.dispatch('Go')
-      yield* engine.dispatch('Hit')
-      yield* engine.died
-      yield* taken
-    }).pipe(Effect.scoped))
+    await Effect.runPromiseExit(
+      Effect.gen(function*() {
+        const { deaths, taken } = yield* readingDeaths
+        const dead = () => deaths.all().length > 0
+        const go = yield* Deferred.make<void>()
+        const engine = yield* Engine.make<Readonly<{ n: number }>, "Go" | "Hit", "Die", never, never>({
+          deaths,
+          init: { state: { n: 0 }, commands: ["Die"] },
+          runCommand: () => Deferred.await(go).pipe(Effect.andThen(Effect.die("boom"))),
+          update: (message) => ({ n }) => {
+            if (message === "Hit" && dead()) calls.n += 1
+            return { state: { n: n + 1 } }
+          },
+          subscriptions: () => HashMap.empty(),
+          onApplied: ({ message }) =>
+            message === "Go" ? Deferred.succeed(go, undefined).pipe(Effect.andThen(deaths.died)) : Effect.void
+        })
+        yield* engine.dispatch("Go")
+        yield* engine.dispatch("Hit")
+        yield* engine.died
+        yield* taken
+      }).pipe(Effect.scoped)
+    )
     expect(calls.n).toBe(0)
   })
 
   // `onApplied` holds the loop as `Stop` takes the key away: a tick of its start is queued behind it, and a command
   // dies, before the key's subscription is released and the loop takes the tick.
-  test('a message of a stopped subscription, taken once a command has died, is not described', async () => {
+  test("a message of a stopped subscription, taken once a command has died, is not described", async () => {
     const described: Array<string> = []
-    await Effect.runPromiseExit(Effect.gen(function*() {
-      const { deaths, taken } = yield* readingDeaths
-      const go = yield* Deferred.make<void>()
-      const source = yield* Queue.unbounded<'Tick'>()
-      const sent = yield* Deferred.make<void>()
-      // The engine asks for what follows the tick only once it has queued the tick: then `sent` completes.
-      const ticking = Channel.unwrap(Effect.map(Queue.take(source), (tick) => Channel.succeed(tick))).pipe(
-        Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never))),
+    await Effect.runPromiseExit(
+      Effect.gen(function*() {
+        const { deaths, taken } = yield* readingDeaths
+        const go = yield* Deferred.make<void>()
+        const source = yield* Queue.unbounded<"Tick">()
+        const sent = yield* Deferred.make<void>()
+        // The engine asks for what follows the tick only once it has queued the tick: then `sent` completes.
+        const ticking = Channel.unwrap(Effect.map(Queue.take(source), (tick) => Channel.succeed(tick))).pipe(
+          Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never)))
+        )
+        const engine = yield* Engine.make<Readonly<{ on: boolean }>, "Stop" | "Tick", "Die", never, string>({
+          deaths,
+          init: { state: { on: true }, commands: ["Die"] },
+          runCommand: () => Deferred.await(go).pipe(Effect.andThen(Effect.die("boom"))),
+          update: (message) => (state) => message === "Stop" ? { state: { on: false } } : { state },
+          subscriptions: ({ on }) => on ? HashMap.make(["ticks", ticking]) : HashMap.empty(),
+          onApplied: ({ message }) =>
+            message === "Stop"
+              ? Queue.offer(source, "Tick").pipe(
+                Effect.andThen(Deferred.await(sent)),
+                Effect.andThen(Deferred.succeed(go, undefined)),
+                Effect.andThen(deaths.died)
+              )
+              : Effect.void,
+          describeMessage: (message) => {
+            described.push(message)
+            return message
+          }
+        })
+        yield* engine.dispatch("Stop")
+        yield* engine.died
+        yield* taken
+      }).pipe(
+        Effect.scoped,
+        Effect.provideService(References.MinimumLogLevel, "Debug"),
+        Effect.provide(Logger.layer([]))
       )
-      const engine = yield* Engine.make<Readonly<{ on: boolean }>, 'Stop' | 'Tick', 'Die', never, string>({
-        deaths,
-        init: { state: { on: true }, commands: ['Die'] },
-        runCommand: () => Deferred.await(go).pipe(Effect.andThen(Effect.die('boom'))),
-        update: (message) => (state) => message === 'Stop' ? { state: { on: false } } : { state },
-        subscriptions: ({ on }) => on ? HashMap.make(['ticks', ticking]) : HashMap.empty(),
-        onApplied: ({ message }) =>
-          message === 'Stop'
-            ? Queue.offer(source, 'Tick').pipe(
-              Effect.andThen(Deferred.await(sent)),
-              Effect.andThen(Deferred.succeed(go, undefined)),
-              Effect.andThen(deaths.died),
-            )
-            : Effect.void,
-        describeMessage: (message) => {
-          described.push(message)
-          return message
-        },
-      })
-      yield* engine.dispatch('Stop')
-      yield* engine.died
-      yield* taken
-    }).pipe(
-      Effect.scoped,
-      Effect.provideService(References.MinimumLogLevel, 'Debug'),
-      Effect.provide(Logger.layer([])),
-    ))
-    expect(described).toEqual(['Stop'])
+    )
+    expect(described).toEqual(["Stop"])
   })
 })
 
-describe('Engine logs', () => {
+describe("Engine logs", () => {
   type Logged =
-    | Readonly<{ _tag: 'Set'; value: number }>
-    | Readonly<{ _tag: 'Child'; message: Readonly<{ _tag: 'Typed'; text: string }> }>
-    | Readonly<{ _tag: 'Stale'; value: number }>
+    | Readonly<{ _tag: "Set"; value: number }>
+    | Readonly<{ _tag: "Child"; message: Readonly<{ _tag: "Typed"; text: string }> }>
+    | Readonly<{ _tag: "Stale"; value: number }>
 
-  test('by default, the loop logs the tags of a message and of its commands, never their data', async () => {
+  test("by default, the loop logs the tags of a message and of its commands, never their data", async () => {
     const logs: Array<unknown> = []
-    await Effect.runPromise(Effect.gen(function*() {
-      const engine = yield* Engine.make<number, Logged, Readonly<{ _tag: 'Save'; value: number }>, never, never>({
-        init: { state: 0 },
-        update: (message) => (count) =>
-          message._tag === 'Set'
-            ? { state: message.value, commands: [{ _tag: 'Save', value: message.value }] }
-            : message._tag === 'Child'
-            ? { state: count + 1 }
-            : reject,
-        runCommand: () => Effect.succeedNone,
-        subscriptions: () => HashMap.empty(),
-      })
-      yield* engine.dispatch({ _tag: 'Stale', value: 1111 })
-      yield* engine.dispatch({ _tag: 'Set', value: 4321 })
-      yield* engine.dispatch({ _tag: 'Child', message: { _tag: 'Typed', text: 'secret' } })
-      // Each message is logged before its state is published.
-      yield* engine.states.pipe(Stream.filter(({ revision }) => revision === 2), Stream.runHead)
-    }).pipe(
-      Effect.scoped,
-      Effect.provideService(References.MinimumLogLevel, 'Debug'),
-      Effect.provide(Logger.layer([Logger.make(({ message }) => logs.push(message))])),
-    ))
+    await Effect.runPromise(
+      Effect.gen(function*() {
+        const engine = yield* Engine.make<number, Logged, Readonly<{ _tag: "Save"; value: number }>, never, never>({
+          init: { state: 0 },
+          update: (message) => (count) =>
+            message._tag === "Set"
+              ? { state: message.value, commands: [{ _tag: "Save", value: message.value }] }
+              : message._tag === "Child"
+              ? { state: count + 1 }
+              : reject,
+          runCommand: () => Effect.succeedNone,
+          subscriptions: () => HashMap.empty()
+        })
+        yield* engine.dispatch({ _tag: "Stale", value: 1111 })
+        yield* engine.dispatch({ _tag: "Set", value: 4321 })
+        yield* engine.dispatch({ _tag: "Child", message: { _tag: "Typed", text: "secret" } })
+        // Each message is logged before its state is published.
+        yield* engine.states.pipe(Stream.filter(({ revision }) => revision === 2), Stream.runHead)
+      }).pipe(
+        Effect.scoped,
+        Effect.provideService(References.MinimumLogLevel, "Debug"),
+        Effect.provide(Logger.layer([Logger.make(({ message }) => logs.push(message))]))
+      )
+    )
     expect(logs).toEqual([
-      ['Ignored a rejected message', 'Stale', { origin: 'Dispatch' }],
-      ['Message', 'Set', { revision: 1, commands: ['Save'] }],
-      ['Message', 'Child › Typed', { revision: 2, commands: [] }],
+      ["Ignored a rejected message", "Stale", { origin: "Dispatch" }],
+      ["Message", "Set", { revision: 1, commands: ["Save"] }],
+      ["Message", "Child › Typed", { revision: 2, commands: [] }]
     ])
   })
 })
 
-describe('Engine end', () => {
+describe("Engine end", () => {
   // The engine used without `run`, whose renderer's release stops the loop first already: the end of the engine is
   // all there is. Its command, started by `init`, is the one each test gives.
   const ending = (
-    hold: Execution<'Go', Scope.Scope>,
-    options: Readonly<{ subscription?: Subscription<'Go', Scope.Scope>; onApplied?: Effect.Effect<void> }> = {},
+    hold: Execution<"Go", Scope.Scope>,
+    options: Readonly<{ subscription?: Subscription<"Go", Scope.Scope>; onApplied?: Effect.Effect<void> }> = {}
   ) =>
-    Engine.make<number, 'Go', 'Hold', Scope.Scope, string>({
-      init: { state: 0, commands: ['Hold'] },
+    Engine.make<number, "Go", "Hold", Scope.Scope, string>({
+      init: { state: 0, commands: ["Hold"] },
       update: () => (n) => ({ state: n + 1 }),
       runCommand: () => hold,
       subscriptions: () =>
-        options.subscription === undefined ? HashMap.empty() : HashMap.make(['subscription', options.subscription]),
-      onApplied: () => options.onApplied ?? Effect.void,
+        options.subscription === undefined ? HashMap.empty() : HashMap.make(["subscription", options.subscription]),
+      onApplied: () => options.onApplied ?? Effect.void
     })
 
   // How many interruptions the fiber has received, asked where it is uninterruptible.
   const received = Effect.map(
     Effect.exit(Effect.interruptible(Effect.void)),
-    (exit) => Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isInterruptReason).length : 0,
+    (exit) => Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isInterruptReason).length : 0
   )
   // The gate is the fiber's own: it waits until it has received `count` interruptions, or gives up after a while.
   const untilReceived = (count: number, tries = 10_000): Effect.Effect<void> =>
     Effect.flatMap(
       received,
       (seen) =>
-        seen >= count || tries === 0 ? Effect.void : Effect.andThen(Effect.yieldNow, untilReceived(count, tries - 1)),
+        seen >= count || tries === 0 ? Effect.void : Effect.andThen(Effect.yieldNow, untilReceived(count, tries - 1))
     )
 
-  test('the end of the engine lets its loop end before it interrupts its commands', async () => {
+  test("the end of the engine lets its loop end before it interrupts its commands", async () => {
     const log = await Effect.runPromise(Effect.gen(function*() {
       const log: Array<string> = []
       const holding = yield* Deferred.make<void>()
@@ -704,7 +710,7 @@ describe('Engine end', () => {
       const engine = yield* ending(
         Deferred.succeed(holding, undefined).pipe(
           Effect.andThen(Effect.never),
-          Effect.onInterrupt(() => Effect.sync(() => log.push('command interrupted'))),
+          Effect.onInterrupt(() => Effect.sync(() => log.push("command interrupted")))
         ),
         {
           // Uninterruptible, so that the loop still runs once the end has begun: it tells when the end has reached it.
@@ -713,27 +719,27 @@ describe('Engine end', () => {
               Effect.andThen(untilReceived(1)),
               Effect.andThen(Deferred.succeed(stopping, undefined)),
               Effect.andThen(Deferred.await(go)),
-              Effect.andThen(Effect.sync(() => log.push('applied Go'))),
-            ),
-          ),
-        },
+              Effect.andThen(Effect.sync(() => log.push("applied Go")))
+            )
+          )
+        }
       ).pipe(Scope.provide(scope))
       yield* Deferred.await(holding)
-      yield* engine.dispatch('Go')
+      yield* engine.dispatch("Go")
       yield* Deferred.await(busy)
       const closing = yield* Effect.forkChild(Scope.close(scope, Exit.void))
       // Long enough, once the end is stopping the loop, for it to interrupt the command, were it not waiting for the
       // loop: nothing happens meanwhile that could be awaited instead.
       yield* Deferred.await(stopping)
-      yield* Effect.sleep('20 millis')
+      yield* Effect.sleep("20 millis")
       yield* Deferred.succeed(go, undefined)
       yield* Fiber.join(closing)
       return log
     }))
-    expect(log).toEqual(['applied Go', 'command interrupted'])
+    expect(log).toEqual(["applied Go", "command interrupted"])
   })
 
-  test('the end of the engine interrupts its commands and its subscriptions at once', async () => {
+  test("the end of the engine interrupts its commands and its subscriptions at once", async () => {
     const log = await Effect.runPromise(Effect.gen(function*() {
       const log: Array<string> = []
       const holding = yield* Deferred.make<void>()
@@ -745,142 +751,142 @@ describe('Engine end', () => {
       yield* ending(
         Effect.acquireRelease(Effect.void, () =>
           Deferred.await(interrupted).pipe(
-            Effect.timeoutOption('1 second'),
+            Effect.timeoutOption("1 second"),
             Effect.flatMap((waited) =>
               Effect.sync(() =>
-                log.push(Opt.isSome(waited) ? 'released once the subscription was interrupted' : 'released alone')
+                log.push(Opt.isSome(waited) ? "released once the subscription was interrupted" : "released alone")
               )
-            ),
+            )
           )).pipe(
             Effect.andThen(Deferred.succeed(holding, undefined)),
-            Effect.andThen(Effect.never),
+            Effect.andThen(Effect.never)
           ),
         {
           subscription: Channel.fromEffectDrain(
             Deferred.succeed(listening, undefined).pipe(
               Effect.andThen(Effect.never),
-              Effect.onInterrupt(() => Deferred.succeed(interrupted, undefined)),
-            ),
-          ).pipe(Channel.concatWith(() => Channel.never)),
-        },
+              Effect.onInterrupt(() => Deferred.succeed(interrupted, undefined))
+            )
+          ).pipe(Channel.concatWith(() => Channel.never))
+        }
       ).pipe(Scope.provide(scope))
       yield* Deferred.await(holding)
       yield* Deferred.await(listening)
       yield* Scope.close(scope, Exit.void)
       return log
     }))
-    expect(log).toEqual(['released once the subscription was interrupted'])
+    expect(log).toEqual(["released once the subscription was interrupted"])
   })
 
-  test('what a command dies of as the end of the engine interrupts it is what the end dies of', async () => {
+  test("what a command dies of as the end of the engine interrupts it is what the end dies of", async () => {
     const exit = await Effect.runPromiseExit(Effect.scoped(Effect.gen(function*() {
       const holding = yield* Deferred.make<void>()
       yield* ending(
         Deferred.succeed(holding, undefined).pipe(
           Effect.andThen(Effect.never),
-          Effect.onInterrupt(() => Effect.die('boom')),
-        ),
+          Effect.onInterrupt(() => Effect.die("boom"))
+        )
       )
       yield* Deferred.await(holding)
     })))
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
-    expect(defect instanceof ProgramDefect && [defect.where, defect.cause]).toEqual(['command', 'boom'])
+    expect(defect instanceof ProgramDefect && [defect.where, defect.cause]).toEqual(["command", "boom"])
   })
 
   // The end of the engine stops its loop in a step that was waiting for the release of a key that went away. It reads
   // the fibers that still run, never the keys of a state, so it stops that subscription too, with its mark: one that
   // then joins a fiber the fiber that ends the engine interrupted interrupts itself, a defect, and the end dies of it.
   // `rehearse` left such a subscription to the close of its scope (the seventh review of the premises).
-  test('a subscription interrupting itself as the end of the engine stops it, its key gone, is a defect', async () => {
+  test("a subscription interrupting itself as the end of the engine stops it, its key gone, is a defect", async () => {
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const stopped = yield* Deferred.make<void>()
       // Interrupted by the fiber that ends the engine.
       const stale = yield* Effect.forkDetach(Effect.never)
       yield* Fiber.interrupt(stale)
       const scope = yield* Scope.make()
-      const engine = yield* Engine.make<Readonly<{ on: boolean }>, 'Stop', never, never, string>({
+      const engine = yield* Engine.make<Readonly<{ on: boolean }>, "Stop", never, never, string>({
         init: { state: { on: true } },
         update: () => () => ({ state: { on: false } }),
         runCommand: absurd,
         subscriptions: ({ on }) =>
           on
             ? HashMap.make([
-              'a',
+              "a",
               Channel.fromEffectDone(Effect.uninterruptible(Effect.gen(function*() {
                 yield* untilReceived(1)
                 yield* Deferred.succeed(stopped, undefined)
                 yield* untilReceived(2)
                 return yield* Fiber.join(stale)
-              }))),
+              })))
             ])
-            : HashMap.empty(),
+            : HashMap.empty()
       }).pipe(Scope.provide(scope))
-      yield* engine.dispatch('Stop')
+      yield* engine.dispatch("Stop")
       yield* Deferred.await(stopped)
       return yield* Scope.close(scope, Exit.void)
     }))
     const defect = Exit.isFailure(exit) ? exit.cause.reasons.find(Cause.isDieReason)?.defect : undefined
-    expect(defect instanceof ProgramDefect && defect.where).toBe('subscription')
+    expect(defect instanceof ProgramDefect && defect.where).toBe("subscription")
   })
 
   // `FiberSet.run` starts the command's fiber at once, on the loop's stack, so `runCommand` is called before the fiber
   // is in the set. Called, it begins the end of the engine, which interrupts the loop there: had `FiberSet.run` a step
   // between the fork and the add for that interruption to fall into, the end would not find the command, and would
   // leave it running. Seen by the seventh review of the premises, with a fork and an add of the set apart.
-  test('a command whose runCommand begins the end of the engine as it is called is interrupted by that end', async () => {
+  test("a command whose runCommand begins the end of the engine as it is called is interrupted by that end", async () => {
     const log = await Effect.runPromise(Effect.gen(function*() {
       const log: Array<string> = []
       const scope = yield* Scope.make()
       const fork = Effect.runForkWith(yield* Effect.context<never>())
       // The end of the engine, begun where the test cannot fork it: joined, it has stopped what it found.
       const closing = yield* Deferred.make<Fiber.Fiber<void>>()
-      const engine = yield* Engine.make<number, 'Go', 'Hold', never, never>({
+      const engine = yield* Engine.make<number, "Go", "Hold", never, never>({
         init: { state: 0 },
-        update: () => (n) => ({ state: n + 1, commands: ['Hold'] }),
+        update: () => (n) => ({ state: n + 1, commands: ["Hold"] }),
         runCommand: () => {
           Deferred.doneUnsafe(closing, Effect.succeed(fork(Scope.close(scope, Exit.void))))
-          return Effect.never.pipe(Effect.onInterrupt(() => Effect.sync(() => log.push('command interrupted'))))
+          return Effect.never.pipe(Effect.onInterrupt(() => Effect.sync(() => log.push("command interrupted"))))
         },
-        subscriptions: () => HashMap.empty(),
+        subscriptions: () => HashMap.empty()
       }).pipe(Scope.provide(scope))
-      yield* engine.dispatch('Go')
+      yield* engine.dispatch("Go")
       yield* Fiber.join(yield* Deferred.await(closing))
       return log
     }))
-    expect(log).toEqual(['command interrupted'])
+    expect(log).toEqual(["command interrupted"])
   })
 
   // The same of `FiberMap.run`, which forks a subscription at once: its channel, made as it is first pulled, begins
   // the end before the fiber is in the map.
-  test('a subscription that begins the end of the engine as it starts is interrupted by that end', async () => {
+  test("a subscription that begins the end of the engine as it starts is interrupted by that end", async () => {
     const log = await Effect.runPromise(Effect.gen(function*() {
       const log: Array<string> = []
       const scope = yield* Scope.make()
       const fork = Effect.runForkWith(yield* Effect.context<never>())
       // The end of the engine, begun where the test cannot fork it: joined, it has stopped what it found.
       const closing = yield* Deferred.make<Fiber.Fiber<void>>()
-      const engine = yield* Engine.make<number, 'Go', never, never, string>({
+      const engine = yield* Engine.make<number, "Go", never, never, string>({
         init: { state: 0 },
         update: () => (n) => ({ state: n + 1 }),
         runCommand: absurd,
         subscriptions: (n) =>
           n === 1
             ? HashMap.make([
-              'k',
+              "k",
               Channel.unwrap(Effect.sync(() => {
                 Deferred.doneUnsafe(closing, Effect.succeed(fork(Scope.close(scope, Exit.void))))
                 return Channel.fromEffectDrain(
-                  Effect.never.pipe(Effect.onInterrupt(() => Effect.sync(() => log.push('subscription interrupted')))),
+                  Effect.never.pipe(Effect.onInterrupt(() => Effect.sync(() => log.push("subscription interrupted"))))
                 ).pipe(Channel.concatWith(() => Channel.never))
-              })),
+              }))
             ])
-            : HashMap.empty(),
+            : HashMap.empty()
       }).pipe(Scope.provide(scope))
-      yield* engine.dispatch('Go')
+      yield* engine.dispatch("Go")
       yield* Fiber.join(yield* Deferred.await(closing))
       return log
     }))
-    expect(log).toEqual(['subscription interrupted'])
+    expect(log).toEqual(["subscription interrupted"])
   })
 })
 
@@ -888,34 +894,34 @@ describe('Engine end', () => {
 // and only a scheduler that yields between any two operations can come between a number and its offer. So this is an
 // alarm, under every schedule of two dispatches racing within two deviations, and no mutation names it ("one thunk"
 // in `docs/invariants.md`): it fails with the number taken in an operation of its own before the offer.
-describe('the numbers of two dispatches racing', () => {
-  type Sent = 'A' | 'B'
+describe("the numbers of two dispatches racing", () => {
+  type Sent = "A" | "B"
   const racing = Effect.scoped(Effect.gen(function*() {
     const heard: Array<Sent> = []
     const both = yield* Deferred.make<void>()
     const engine = yield* Engine.make<number, Sent, never, never, never>({
       init: { state: 0 },
-      runCommand: () => Effect.die('no command'),
+      runCommand: () => Effect.die("no command"),
       update: () => (count) => ({ state: count + 1 }),
       subscriptions: () => HashMap.empty(),
       onApplied: ({ message }) =>
         Effect.suspend(() => {
           heard.push(message)
           return heard.length === 2 ? Effect.asVoid(Deferred.succeed(both, undefined)) : Effect.void
-        }),
+        })
     })
-    const a = yield* Effect.forkChild(engine.dispatch('A'))
-    const b = yield* Effect.forkChild(engine.dispatch('B'))
+    const a = yield* Effect.forkChild(engine.dispatch("A"))
+    const b = yield* Effect.forkChild(engine.dispatch("B"))
     const numbers = { A: yield* Fiber.join(a), B: yield* Fiber.join(b) }
     yield* Deferred.await(both)
     return { numbers, heard }
   }))
 
-  test('follow the order update hears them in, under every schedule within two deviations', () => {
-    everySchedule(racing, { bound: 2, resumptions: 'inline' }, (exit) => {
+  test("follow the order update hears them in, under every schedule within two deviations", () => {
+    everySchedule(racing, { bound: 2, resumptions: "inline" }, (exit) => {
       if (Exit.isFailure(exit)) throw new Error(Cause.pretty(exit.cause))
       const { numbers, heard } = exit.value
-      expect([heard[numbers.A - 1], heard[numbers.B - 1]]).toEqual(['A', 'B'])
+      expect([heard[numbers.A - 1], heard[numbers.B - 1]]).toEqual(["A", "B"])
     })
   })
 })

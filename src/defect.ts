@@ -1,4 +1,4 @@
-import * as Data from 'effect/Data'
+import * as Data from "effect/Data"
 
 /**
  * Where a defect happened, as a `ProgramDefect` says it in `where`.
@@ -17,30 +17,30 @@ import * as Data from 'effect/Data'
  * @see The guide, "Running", "Its `where` says where it happened".
  */
 export type DefectSite =
-  | 'init'
-  | 'update'
-  | 'subscriptions'
-  | 'subscription'
-  | 'command'
-  | 'describeMessage'
-  | 'describeCommand'
-  | 'onApplied'
-  | 'onIgnored'
-  | 'render'
-  | 'log'
+  | "init"
+  | "update"
+  | "subscriptions"
+  | "subscription"
+  | "command"
+  | "describeMessage"
+  | "describeCommand"
+  | "onApplied"
+  | "onIgnored"
+  | "render"
+  | "log"
 
 const described: Readonly<Record<DefectSite, string>> = {
-  init: 'init',
-  update: 'update',
-  subscriptions: 'subscriptions',
-  subscription: 'a subscription',
-  command: 'a command',
-  describeMessage: 'describeMessage',
-  describeCommand: 'describeCommand',
-  onApplied: 'onApplied',
-  onIgnored: 'onIgnored',
-  render: 'the renderer, its view or makeModel',
-  log: 'a log of the run',
+  init: "init",
+  update: "update",
+  subscriptions: "subscriptions",
+  subscription: "a subscription",
+  command: "a command",
+  describeMessage: "describeMessage",
+  describeCommand: "describeCommand",
+  onApplied: "onApplied",
+  onIgnored: "onIgnored",
+  render: "the renderer, its view or makeModel",
+  log: "a log of the run"
 }
 
 // The constructors are private, so that each class keeps the one meaning the library gives it: these, set in each
@@ -84,7 +84,7 @@ type Fields = Readonly<{
  * @see The guide, "Running", "The run never recovers from a defect, and does not log it".
  * @see The guide, "Running", "The app around the run chooses what leaves the device".
  */
-export class ProgramDefect extends Data.TaggedError('ProgramDefect')<Fields & Readonly<{ message: string }>> {
+export class ProgramDefect extends Data.TaggedError("ProgramDefect")<Fields & Readonly<{ message: string }>> {
   static {
     makeProgramDefect = (fields) => new ProgramDefect(fields)
   }
@@ -93,7 +93,7 @@ export class ProgramDefect extends Data.TaggedError('ProgramDefect')<Fields & Re
     super({
       ...fields,
       // oxlint-disable-next-line typescript/no-base-to-string -- `on` is a message's tags, or its `typeof`
-      message: `A defect in ${described[fields.where]}${fields.on === undefined ? '' : ` on ${String(fields.on)}`}`,
+      message: `A defect in ${described[fields.where]}${fields.on === undefined ? "" : ` on ${String(fields.on)}`}`
     })
   }
 }
@@ -127,7 +127,7 @@ type CompositionFields = Readonly<{
  * @see The guide, "Running", "How messages and commands appear in the logs".
  * @see The guide, "Running", "The app around the run chooses what leaves the device".
  */
-export class CompositionDefect extends Data.TaggedError('CompositionDefect')<CompositionFields> {
+export class CompositionDefect extends Data.TaggedError("CompositionDefect")<CompositionFields> {
   static {
     makeCompositionDefect = (fields) => new CompositionDefect(fields)
   }
@@ -152,7 +152,7 @@ export class CompositionDefect extends Data.TaggedError('CompositionDefect')<Com
  * @see The guide, "Rejections and defects", "`defect` makes a bug loud".
  * @see The guide, "Running", "Its `cause` is the defect itself".
  */
-export class InvariantDefect extends Data.TaggedError('InvariantDefect')<
+export class InvariantDefect extends Data.TaggedError("InvariantDefect")<
   Readonly<{
     /** Which rule was broken. */
     reason: string

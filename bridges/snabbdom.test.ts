@@ -3,19 +3,26 @@
 // alone: an input the style module keeps on screen as it fades sends nothing, the timer's buttons lend no `disabled`
 // to each other, and the stocktake's counts keep no `readOnly` of a frame before; then the premises of the bridge on
 // snabbdom (`docs/premises.md`).
-import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
-import { GlobalRegistrator } from '@happy-dom/global-registrator'
-import { type Dispatch, forwardTo, type MessageOf, type ModelOf, run } from '@fgaudo/effect-tea'
-import * as Deferred from 'effect/Deferred'
-import * as Effect from 'effect/Effect'
-import * as Stream from 'effect/Stream'
-import { eventListenersModule, h, init, propsModule, styleModule, thunk, type VNode } from 'snabbdom'
+import { type Dispatch, forwardTo, type MessageOf, type ModelOf, run } from "@fgaudo/effect-tea"
+import { GlobalRegistrator } from "@happy-dom/global-registrator"
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test"
+import * as Deferred from "effect/Deferred"
+import * as Effect from "effect/Effect"
+import * as Stream from "effect/Stream"
+import { eventListenersModule, h, init, propsModule, styleModule, thunk, type VNode } from "snabbdom"
+import { view as counterView } from "../examples/counter/view-snabbdom.ts"
+import { view as formView } from "../examples/form/view-snabbdom.ts"
+import { Scanner, Server, ServerError, stocktake } from "../examples/stocktake/stocktake.ts"
+import { view as stocktakeView } from "../examples/stocktake/view.ts"
+import { Bell, Phase, timer } from "../examples/timer/timer.ts"
+import { timerView } from "../examples/timer/view.ts"
+import { view as volumeView } from "../examples/volume/view.ts"
 import {
   type Bridge,
   bridgeTests,
   button,
-  type Dictation,
   type desk,
+  type Dictation,
   type draft,
   element,
   holdFrames,
@@ -26,16 +33,9 @@ import {
   settle,
   type steps,
   stop,
-  type,
-} from './bridge.test_suite.ts'
-import { view as counterView } from '../examples/counter/view-snabbdom.ts'
-import { view as formView } from '../examples/form/view-snabbdom.ts'
-import { onClick, renderInto, shows, type View } from './snabbdom.ts'
-import { Scanner, Server, ServerError, stocktake } from '../examples/stocktake/stocktake.ts'
-import { view as stocktakeView } from '../examples/stocktake/view.ts'
-import { Bell, Phase, timer } from '../examples/timer/timer.ts'
-import { timerView } from '../examples/timer/view.ts'
-import { view as volumeView } from '../examples/volume/view.ts'
+  type
+} from "./bridge.test_suite.ts"
+import { onClick, renderInto, shows, type View } from "./snabbdom.ts"
 
 beforeAll(() => {
   GlobalRegistrator.register()
@@ -46,35 +46,35 @@ afterAll(() => GlobalRegistrator.unregister())
 
 afterEach(stop)
 
-type Own = 'SendClicked' | 'DiscardClicked'
+type Own = "SendClicked" | "DiscardClicked"
 
 const draftView = (model: ModelOf<typeof draft>, dispatch: Dispatch<MessageOf<typeof draft>>): VNode =>
-  h('form', [
-    h('input', shows(model.text, forwardTo(dispatch, 'Text'))),
-    h('button', { props: { type: 'button' }, on: onClick<Own>('SendClicked', dispatch) }, 'Send'),
-    h('button', { props: { type: 'button' }, on: onClick<Own>('DiscardClicked', dispatch) }, 'Discard'),
-    h('output', model.text),
+  h("form", [
+    h("input", shows(model.text, forwardTo(dispatch, "Text"))),
+    h("button", { props: { type: "button" }, on: onClick<Own>("SendClicked", dispatch) }, "Send"),
+    h("button", { props: { type: "button" }, on: onClick<Own>("DiscardClicked", dispatch) }, "Discard"),
+    h("output", model.text)
   ])
 
 const deskView: View<ModelOf<typeof desk>, MessageOf<typeof desk>> = (model, dispatch) =>
-  h('main', [
+  h("main", [
     // Skipped while the draft's state is the same object: the bridge settles its input all the same.
-    thunk('form', 'draft', draftView, [model.draft, forwardTo(dispatch, 'Draft')]),
-    h('button', { on: onClick<MessageOf<typeof desk>>('Kept', dispatch) }, 'Keep'),
-    h('button', { on: onClick<MessageOf<typeof desk>>('Undone', dispatch) }, 'Undo'),
-    h('ul', model.sent.map((text) => h('li', text))),
+    thunk("form", "draft", draftView, [model.draft, forwardTo(dispatch, "Draft")]),
+    h("button", { on: onClick<MessageOf<typeof desk>>("Kept", dispatch) }, "Keep"),
+    h("button", { on: onClick<MessageOf<typeof desk>>("Undone", dispatch) }, "Undo"),
+    h("ul", model.sent.map((text) => h("li", text)))
   ])
 
 const noteView: View<ModelOf<typeof note>, MessageOf<typeof note>> = (model, dispatch) =>
-  h('main', [h('input', shows(model, forwardTo(dispatch, 'Note')))])
+  h("main", [h("input", shows(model, forwardTo(dispatch, "Note")))])
 
 // Each result is put into the element on screen, and written through its own listener.
 const dictatedView = (source: Dictation): typeof noteView => {
   const stops = new WeakMap<Node, () => void>()
   return (model, dispatch) =>
-    h('main', [
-      h('input', {
-        ...shows(model, forwardTo(dispatch, 'Note')),
+    h("main", [
+      h("input", {
+        ...shows(model, forwardTo(dispatch, "Note")),
         hook: {
           insert: (vnode) => {
             const input = vnode.elm as HTMLInputElement
@@ -82,43 +82,43 @@ const dictatedView = (source: Dictation): typeof noteView => {
               input,
               source.listen((text) => {
                 input.value = text
-                input.dispatchEvent(new Event('input'))
-              }),
+                input.dispatchEvent(new Event("input"))
+              })
             )
           },
           destroy: (vnode) => {
             if (vnode.elm !== undefined) stops.get(vnode.elm)?.()
-          },
-        },
-      }),
+          }
+        }
+      })
     ])
 }
 
 // The same `<input>` in both cases, which snabbdom patches into each other: the props module never removes a prop, so
 // the input sets `readOnly` too.
 const lidView: View<ModelOf<typeof lid>, MessageOf<typeof lid>> = (model, dispatch) =>
-  model._tag === 'Opened'
-    ? h('main', [
-      h('input', { ...shows(model.note, forwardTo(dispatch, 'Note')), props: { readOnly: false } }),
-      h('button', { on: onClick<MessageOf<typeof lid>>(model.close, dispatch) }, 'Close'),
-      h('output', model.note),
+  model._tag === "Opened"
+    ? h("main", [
+      h("input", { ...shows(model.note, forwardTo(dispatch, "Note")), props: { readOnly: false } }),
+      h("button", { on: onClick<MessageOf<typeof lid>>(model.close, dispatch) }, "Close"),
+      h("output", model.note)
     ])
-    : h('main', [
-      h('input', { props: { value: 'Closed', readOnly: true } }),
-      h('button', { on: onClick<MessageOf<typeof lid>>(model.open, dispatch) }, 'Open'),
+    : h("main", [
+      h("input", { props: { value: "Closed", readOnly: true } }),
+      h("button", { on: onClick<MessageOf<typeof lid>>(model.open, dispatch) }, "Open")
     ])
 
 // The same `<input>` for both steps, which snabbdom patches into each other.
 const stepsView: View<ModelOf<typeof steps>, MessageOf<typeof steps>> = (model, dispatch) =>
-  h('main', [
+  h("main", [
     h(
-      'input',
-      shows(model.text, model._tag === 'First' ? forwardTo(dispatch, 'First') : forwardTo(dispatch, 'Second')),
+      "input",
+      shows(model.text, model._tag === "First" ? forwardTo(dispatch, "First") : forwardTo(dispatch, "Second"))
     ),
-    ...(model._tag === 'First'
-      ? [h('button', { on: onClick<MessageOf<typeof steps>>(model.next, dispatch) }, 'Next')]
+    ...(model._tag === "First"
+      ? [h("button", { on: onClick<MessageOf<typeof steps>>(model.next, dispatch) }, "Next")]
       : []),
-    h('output', model.text),
+    h("output", model.text)
   ])
 
 const snabbdom: Bridge<VNode> = {
@@ -131,130 +131,133 @@ const snabbdom: Bridge<VNode> = {
     note: noteView,
     dictated: dictatedView,
     lid: lidView,
-    steps: stepsView,
-  },
+    steps: stepsView
+  }
 }
 
 bridgeTests(snabbdom)
 
 // The style module keeps an element a frame removes on screen until its `remove` styles are done: the bridge forgets
 // it as the frame removes it.
-describe('an input the style module keeps on screen as it fades', () => {
-  test('sends nothing once a frame has removed it', () => {
+describe("an input the style module keeps on screen as it fades", () => {
+  test("sends nothing once a frame has removed it", () => {
     const applied: Array<MessageOf<typeof lid>> = []
     const fading: View<ModelOf<typeof lid>, MessageOf<typeof lid>> = (model, dispatch) =>
-      model._tag === 'Opened'
-        ? h('main', [
-          h('input', {
-            ...shows(model.note, forwardTo(dispatch, 'Note')),
-            style: { opacity: '1', transition: 'opacity 1s', remove: { opacity: '0' } },
+      model._tag === "Opened"
+        ? h("main", [
+          h("input", {
+            ...shows(model.note, forwardTo(dispatch, "Note")),
+            style: { opacity: "1", transition: "opacity 1s", remove: { opacity: "0" } }
           }),
-          h('button', { on: onClick<MessageOf<typeof lid>>(model.close, dispatch) }, 'Close'),
+          h("button", { on: onClick<MessageOf<typeof lid>>(model.close, dispatch) }, "Close")
         ])
-        : h('main', [h('button', { on: onClick<MessageOf<typeof lid>>(model.open, dispatch) }, 'Open')])
+        : h("main", [h("button", { on: onClick<MessageOf<typeof lid>>(model.open, dispatch) }, "Open")])
     mount(renderInto, fading, (render) =>
       run(lid, render, {
-        flags: 'Opened',
-        onApplied: ({ message }) => Effect.sync(() => applied.push(message)),
+        flags: "Opened",
+        onApplied: ({ message }) => Effect.sync(() => applied.push(message))
       }))
     settle()
-    const input = element<HTMLInputElement>('input')
-    button('Close').click()
+    const input = element<HTMLInputElement>("input")
+    button("Close").click()
     paint()
     expect(input.isConnected).toBe(true)
-    type(input, 'draft!')
+    type(input, "draft!")
     paint()
-    expect(applied).toEqual(['Closed'])
+    expect(applied).toEqual(["Closed"])
   })
 })
 
 // snabbdom reuses the timer's buttons by position, and its props module never removes a prop: the disabled "−" of one
 // minute must not lend its `disabled` to the button drawn in its place.
-describe('the buttons of the timer', () => {
+describe("the buttons of the timer", () => {
   const quiet = Bell.of({ ring: Effect.void })
   const oneMinute = { ...timer, init: { state: { minutes: 1, phase: Phase.Setting() } } }
 
-  test('only the "−" of one minute is disabled, through a start and a reset', () => {
+  test("only the \"−\" of one minute is disabled, through a start and a reset", () => {
     mount(renderInto, timerView, (render) => run(oneMinute, render).pipe(Effect.provideService(Bell, quiet)))
     settle()
-    expect(button('−').disabled).toBe(true)
-    button('Start').click()
+    expect(button("−").disabled).toBe(true)
+    button("Start").click()
     paint()
-    expect([button('Pause').disabled, button('Reset').disabled]).toEqual([false, false])
-    button('Reset').click()
+    expect([button("Pause").disabled, button("Reset").disabled]).toEqual([false, false])
+    button("Reset").click()
     paint()
-    expect([button('−').disabled, button('+').disabled, button('Start').disabled]).toEqual([true, false, false])
+    expect([button("−").disabled, button("+").disabled, button("Start").disabled]).toEqual([true, false, false])
   })
 })
 
 // snabbdom patches a count's `<input>` from read-only to editable, and its props module never removes a prop: the lock
 // of a sheet being submitted must not outlast the failure that gives the counts back.
-describe('the counts of the stocktake', () => {
-  const items = [{ id: 'bolts', code: 'C-BOLT', name: 'Bolts', expected: 12 }]
+describe("the counts of the stocktake", () => {
+  const items = [{ id: "bolts", code: "C-BOLT", name: "Bolts", expected: 12 }]
   const unplugged = Scanner.of({ scans: Stream.empty })
 
-  test('are read-only while submitted, and editable again once the submit has failed', () => {
+  test("are read-only while submitted, and editable again once the submit has failed", () => {
     // The submit is refused once the test opens the gate, so that a frame draws the sheet being submitted.
     const gate = Deferred.makeUnsafe<void>()
     const refusing = Server.of({
       load: () => Effect.succeed(items),
-      submit: () => Effect.andThen(Deferred.await(gate), Effect.fail(new ServerError({ message: 'refused' }))),
+      submit: () => Effect.andThen(Deferred.await(gate), Effect.fail(new ServerError({ message: "refused" })))
     })
     mount(renderInto, stocktakeView, (render) =>
-      run(stocktake, render, { flags: { aisle: 'A3' } }).pipe(
+      run(stocktake, render, { flags: { aisle: "A3" } }).pipe(
         Effect.provideService(Server, refusing),
-        Effect.provideService(Scanner, unplugged),
+        Effect.provideService(Scanner, unplugged)
       ))
     settle()
-    type(element<HTMLInputElement>('input.count'), '12')
+    type(element<HTMLInputElement>("input.count"), "12")
     paint()
-    button('Submit count').click()
+    button("Submit count").click()
     paint()
-    expect(element<HTMLInputElement>('input.count').readOnly).toBe(true)
+    expect(element<HTMLInputElement>("input.count").readOnly).toBe(true)
     Effect.runSync(Deferred.succeed(gate, undefined))
     settle()
     paint()
-    expect(element('p.error').textContent).toBe('refused')
-    expect(element<HTMLInputElement>('input.count').readOnly).toBe(false)
+    expect(element("p.error").textContent).toBe("refused")
+    expect(element<HTMLInputElement>("input.count").readOnly).toBe(false)
   })
 })
 
 // The premise of the bridge on snabbdom (`docs/premises.md`), checked on snabbdom alone: its README describes the reuse
 // of keyed elements only.
-test('snabbdom reuses an <input> with no key in the same place', () => {
-  document.body.innerHTML = '<div id="app"></div>'
+test("snabbdom reuses an <input> with no key in the same place", () => {
+  document.body.innerHTML = "<div id=\"app\"></div>"
   const patch = init([propsModule])
-  const first = patch(element('#app'), h('main', [h('input', { props: { placeholder: 'first' } })]))
-  const drawn = element<HTMLInputElement>('input')
-  patch(first, h('main', [h('input', { props: { placeholder: 'second' } })]))
-  expect(element('input')).toBe(drawn)
-  expect(drawn.placeholder).toBe('second')
+  const first = patch(element("#app"), h("main", [h("input", { props: { placeholder: "first" } })]))
+  const drawn = element<HTMLInputElement>("input")
+  patch(first, h("main", [h("input", { props: { placeholder: "second" } })]))
+  expect(element("input")).toBe(drawn)
+  expect(drawn.placeholder).toBe("second")
 })
 
 // A second premise of the bridge, on snabbdom alone: its README says that `update` runs as an element is updated, and
 // nothing of the vnodes it skips.
-test('snabbdom calls a module\'s update hook on every element h draws again, one h is given no data for included', () => {
-  document.body.innerHTML = '<div id="app"></div>'
+test("snabbdom calls a module's update hook on every element h draws again, one h is given no data for included", () => {
+  document.body.innerHTML = "<div id=\"app\"></div>"
   const updated: Array<unknown> = []
   const patch = init([propsModule, { update: (_, vnode) => void updated.push(vnode.elm) }])
-  const first = patch(element('#app'), h('main', [h('input', { props: { placeholder: 'first' } })]))
-  const drawn = element<HTMLInputElement>('input')
-  patch(first, h('main', [h('input')]))
+  const first = patch(element("#app"), h("main", [h("input", { props: { placeholder: "first" } })]))
+  const drawn = element<HTMLInputElement>("input")
+  patch(first, h("main", [h("input")]))
   expect(updated).toContain(drawn)
 })
 
 // A third, on snabbdom alone: its README says that the module of listeners attaches them, not when it takes them off.
-test('snabbdom\'s module of listeners takes off those of an element a patch removes, though the style module keeps it on screen as it fades', () => {
-  document.body.innerHTML = '<div id="app"></div>'
+test("snabbdom's module of listeners takes off those of an element a patch removes, though the style module keeps it on screen as it fades", () => {
+  document.body.innerHTML = "<div id=\"app\"></div>"
   const heard: Array<string> = []
   const patch = init([styleModule, eventListenersModule])
-  const first = patch(element('#app'), h('main', [h('input', {
-    on: { input: () => void heard.push('input') },
-    style: { opacity: '1', transition: 'opacity 1s', remove: { opacity: '0' } },
-  })]))
-  const drawn = element<HTMLInputElement>('input')
-  patch(first, h('main'))
+  const first = patch(
+    element("#app"),
+    h("main", [h("input", {
+      on: { input: () => void heard.push("input") },
+      style: { opacity: "1", transition: "opacity 1s", remove: { opacity: "0" } }
+    })])
+  )
+  const drawn = element<HTMLInputElement>("input")
+  patch(first, h("main"))
   expect(drawn.isConnected).toBe(true)
-  drawn.dispatchEvent(new Event('input', { bubbles: true }))
+  drawn.dispatchEvent(new Event("input", { bubbles: true }))
   expect(heard).toEqual([])
 })

@@ -1,11 +1,11 @@
 // A page that starts from the time it was opened at, its flags, picks a saying when it opens, and asks its parent
 // to leave with an event.
-import { type Execution, program, type Update } from '@fgaudo/effect-tea'
-import * as Data from 'effect/Data'
-import * as DateTime from 'effect/DateTime'
-import * as Effect from 'effect/Effect'
-import * as Opt from 'effect/Option'
-import * as Random from 'effect/Random'
+import { type Execution, program, type Update } from "@fgaudo/effect-tea"
+import * as Data from "effect/Data"
+import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import * as Opt from "effect/Option"
+import * as Random from "effect/Random"
 
 export type State = Readonly<{ openedAt: Opt.Option<DateTime.Utc>; maybeSaying: Opt.Option<string> }>
 
@@ -24,21 +24,21 @@ export type Command = Data.TaggedEnum<{ PickSaying: object }>
 
 export const Command = Data.taggedEnum<Command>()
 
-export type Event = Readonly<{ _tag: 'LeaveRequested' }>
+export type Event = Readonly<{ _tag: "LeaveRequested" }>
 
-const sayings = ['Make it work, make it right, make it fast.', 'Simple is better than complex.'] as const
+const sayings = ["Make it work, make it right, make it fast.", "Simple is better than complex."] as const
 
 const pickSaying: Execution<Message> = Effect.map(
   Random.choice(sayings),
-  (saying) => Opt.some(Message.SayingPicked({ saying })),
+  (saying) => Opt.some(Message.SayingPicked({ saying }))
 )
 
 export const update: Update<State, Message, Command, Event> = (message) => (state) => {
   switch (message._tag) {
-    case 'SayingPicked':
+    case "SayingPicked":
       return { state: { ...state, maybeSaying: Opt.some(message.saying) } }
-    case 'BackClicked':
-      return { state, events: [{ _tag: 'LeaveRequested' }] }
+    case "BackClicked":
+      return { state, events: [{ _tag: "LeaveRequested" }] }
   }
 }
 
@@ -51,13 +51,13 @@ export const about = program<
   update,
   runCommand: (command) => {
     switch (command._tag) {
-      case 'PickSaying':
+      case "PickSaying":
         return pickSaying
     }
   },
   makeModel: (state) => ({
     openedAt: Opt.map(state.openedAt, DateTime.formatIso),
     saying: state.maybeSaying,
-    back: Message.BackClicked(),
-  }),
+    back: Message.BackClicked()
+  })
 })

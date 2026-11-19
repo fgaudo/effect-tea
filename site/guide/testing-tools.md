@@ -78,8 +78,8 @@ Without candidates, `dispatchViolations` checks only the messages it is given.
 first. Then it takes the test's messages and the step to start from:
 
 ```ts
-const { state, commands, ignored } = yield* simulate(form)(typedAndSaved, form.init).pipe(
-  Effect.provideService(Storage, working),
+const { state, commands, ignored } = yield * simulate(form)(typedAndSaved, form.init).pipe(
+  Effect.provideService(Storage, working)
 )
 ```
 
@@ -112,16 +112,14 @@ rehearse(
   form,
   Effect.fnUntraced(function*(rehearsal) {
     yield* rehearsal.send(({ name, editor }) =>
-      editor._tag === 'Saving'
+      editor._tag === "Saving"
         ? Opt.none()
-        : Opt.some({ _tag: 'Name', message: { _tag: 'Written', was: name, value: 'Ada' } })
+        : Opt.some({ _tag: "Name", message: { _tag: "Written", was: name, value: "Ada" } })
     )
-    yield* rehearsal.send(({ editor }) =>
-      editor._tag === 'Named' ? Opt.some(editor.save) : Opt.none()
-    )
-    expect((yield* rehearsal.model).editor._tag).toBe('Saving')
-    yield* rehearsal.run((command) => command._tag === 'Save')
-  }),
+    yield* rehearsal.send(({ editor }) => editor._tag === "Named" ? Opt.some(editor.save) : Opt.none())
+    expect((yield* rehearsal.model).editor._tag).toBe("Saving")
+    yield* rehearsal.run((command) => command._tag === "Save")
+  })
 )
 ```
 
@@ -219,8 +217,8 @@ rehearse(
   [`list`](../../examples/list/list.test.ts) does with a run:
 
   ```ts
-  const message = yield* rehearsal.hearNext('ticks').pipe(
-    Effect.raceFirst(Effect.forever(TestClock.adjust('1 second').pipe(Effect.andThen(Effect.yieldNow)))),
+  const message = yield * rehearsal.hearNext("ticks").pipe(
+    Effect.raceFirst(Effect.forever(TestClock.adjust("1 second").pipe(Effect.andThen(Effect.yieldNow))))
   )
   ```
 

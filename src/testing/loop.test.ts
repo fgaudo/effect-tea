@@ -1,11 +1,11 @@
-import { describe, expect, test } from 'bun:test'
-import * as Deferred from 'effect/Deferred'
-import * as Effect from 'effect/Effect'
-import * as Exit from 'effect/Exit'
-import * as Fiber from 'effect/Fiber'
-import * as Opt from 'effect/Option'
-import * as Scope from 'effect/Scope'
-import * as Loop from './loop.ts'
+import { describe, expect, test } from "bun:test"
+import * as Deferred from "effect/Deferred"
+import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
+import * as Fiber from "effect/Fiber"
+import * as Opt from "effect/Option"
+import * as Scope from "effect/Scope"
+import * as Loop from "./loop.ts"
 
 const withLoop = <A>(use: (loop: Loop.Loop) => Effect.Effect<A>) =>
   Effect.gen(function*() {
@@ -13,30 +13,32 @@ const withLoop = <A>(use: (loop: Loop.Loop) => Effect.Effect<A>) =>
     const loop = yield* Loop.make(forks, (step) => step)
     return yield* Effect.ensuring(
       use(loop),
-      Effect.sync(loop.end).pipe(Effect.andThen(loop.stop), Effect.andThen(Scope.close(forks, Exit.void))),
+      Effect.sync(loop.end).pipe(Effect.andThen(loop.stop), Effect.andThen(Scope.close(forks, Exit.void)))
     )
   })
 
-describe('the loop of rehearse', () => {
-  test('runs its steps one at a time, in the order they were offered', async () => {
+describe("the loop of rehearse", () => {
+  test("runs its steps one at a time, in the order they were offered", async () => {
     const seen: Array<string> = []
     const step = (name: string) =>
       Effect.gen(function*() {
         seen.push(`${name} starts`)
-        yield* Effect.sleep('1 millis')
+        yield* Effect.sleep("1 millis")
         seen.push(`${name} ends`)
         return name
       })
-    const results = await Effect.runPromise(withLoop((loop) =>
-      Effect.forEach(['a', 'b', 'c'], (name) => loop.submit(step(name))).pipe(
-        Effect.flatMap(Effect.forEach(Deferred.await)),
+    const results = await Effect.runPromise(
+      withLoop((loop) =>
+        Effect.forEach(["a", "b", "c"], (name) => loop.submit(step(name))).pipe(
+          Effect.flatMap(Effect.forEach(Deferred.await))
+        )
       )
-    ))
-    expect(results).toEqual(['a', 'b', 'c'])
-    expect(seen).toEqual(['a starts', 'a ends', 'b starts', 'b ends', 'c starts', 'c ends'])
+    )
+    expect(results).toEqual(["a", "b", "c"])
+    expect(seen).toEqual(["a starts", "a ends", "b starts", "b ends", "c starts", "c ends"])
   })
 
-  test('does a step whole though whoever asked for it is interrupted', async () => {
+  test("does a step whole though whoever asked for it is interrupted", async () => {
     let done = false
     const asked = await Effect.runPromise(withLoop((loop) =>
       Effect.gen(function*() {
@@ -59,7 +61,7 @@ describe('the loop of rehearse', () => {
     expect(done).toBe(true)
   })
 
-  test('is offered nothing once its end is marked: the call is interrupted, or waits when quiet', async () => {
+  test("is offered nothing once its end is marked: the call is interrupted, or waits when quiet", async () => {
     let ran = false
     let offered = 0
     const step = Effect.sync(() => {
@@ -72,10 +74,10 @@ describe('the loop of rehearse', () => {
         yield* loop.submit(Deferred.await(gate), counted)
         const before = offered
         loop.end()
-        const refused = yield* Effect.timeoutOption(Effect.exit(loop.submit(step, counted)), '1 second')
+        const refused = yield* Effect.timeoutOption(Effect.exit(loop.submit(step, counted)), "1 second")
         // Started on this stack, the call has been refused, or is waiting, once the fork returns.
         const waiting = yield* Effect.forkChild(loop.submit(step, { ...counted, quiet: true }), {
-          startImmediately: true,
+          startImmediately: true
         })
         const quiet = waiting.pollUnsafe()
         yield* Fiber.interrupt(waiting)
@@ -91,7 +93,7 @@ describe('the loop of rehearse', () => {
     expect(ran).toBe(false)
   })
 
-  test('finishes once it has done what it was offered before', async () => {
+  test("finishes once it has done what it was offered before", async () => {
     const [early, first] = await Effect.runPromise(withLoop((loop) =>
       Effect.gen(function*() {
         const gate = yield* Deferred.make<void>()
@@ -108,7 +110,7 @@ describe('the loop of rehearse', () => {
     expect(first).toBe(true)
   })
 
-  test('interrupts at its stop what it has not delivered, its step under way included', async () => {
+  test("interrupts at its stop what it has not delivered, its step under way included", async () => {
     const exits = await Effect.runPromise(withLoop((loop) =>
       Effect.gen(function*() {
         const started = yield* Deferred.make<void>()
@@ -125,18 +127,20 @@ describe('the loop of rehearse', () => {
   })
 
   // What closes the scope it is forked in would interrupt it too, but only after what the stop is followed by.
-  test('interrupts its step under way before its stop returns', async () => {
+  test("interrupts its step under way before its stop returns", async () => {
     let interrupted = false
     const atStop = await Effect.runPromise(withLoop((loop) =>
       Effect.gen(function*() {
         const started = yield* Deferred.make<void>()
-        yield* loop.submit(Effect.andThen(Deferred.succeed(started, undefined), Effect.never).pipe(
-          Effect.onInterrupt(() =>
-            Effect.sync(() => {
-              interrupted = true
-            })
-          ),
-        ))
+        yield* loop.submit(
+          Effect.andThen(Deferred.succeed(started, undefined), Effect.never).pipe(
+            Effect.onInterrupt(() =>
+              Effect.sync(() => {
+                interrupted = true
+              })
+            )
+          )
+        )
         yield* Deferred.await(started)
         yield* loop.stop
         return interrupted
@@ -148,23 +152,23 @@ describe('the loop of rehearse', () => {
 
 // What the tests of the testing tools rest on to know that a call they forked is waiting, or has ended, before they go
 // on: no clock, and no turn of the scheduler (`docs/premises.md`).
-describe('a fiber forked to start immediately', () => {
-  test('runs on the stack of the fiber that forks it until it first waits', async () => {
+describe("a fiber forked to start immediately", () => {
+  test("runs on the stack of the fiber that forks it until it first waits", async () => {
     const steps = await Effect.runPromise(Effect.gen(function*() {
       const steps: Array<string> = []
       const gate = yield* Deferred.make<void>()
       const fiber = yield* Effect.forkChild(
-        Effect.sync(() => steps.push('before the wait')).pipe(
+        Effect.sync(() => steps.push("before the wait")).pipe(
           Effect.andThen(Deferred.await(gate)),
-          Effect.andThen(Effect.sync(() => steps.push('after the wait'))),
+          Effect.andThen(Effect.sync(() => steps.push("after the wait")))
         ),
-        { startImmediately: true },
+        { startImmediately: true }
       )
-      steps.push('forked')
+      steps.push("forked")
       yield* Deferred.succeed(gate, undefined)
       yield* Fiber.join(fiber)
       return steps
     }))
-    expect(steps.slice(0, 2)).toEqual(['before the wait', 'forked'])
+    expect(steps.slice(0, 2)).toEqual(["before the wait", "forked"])
   })
 })

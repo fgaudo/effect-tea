@@ -97,7 +97,7 @@ builds it into `site/dist/`, and must give no warnings: a warning is a doc comme
 built commit, since the site has no copy of the files. `site/` is a package of its own, with its own TypeScript 6,
 because TypeDoc does not support TypeScript 7 yet ([`upgrade-effect`](../upgrade-effect/SKILL.md)).
 
-The README's ```` ```mermaid ```` blocks are diagrams. GitHub draws them itself; npm shows their source. On the
+The README's `` ```mermaid `` blocks are diagrams. GitHub draws them itself; npm shows their source. On the
 site, TypeDoc leaves them as code (`ignoredHighlightLanguages`), and `site/custom.ts`, its custom script, loaded
 on every page, imports `site/mermaid.ts` only on a page that has one, bundled apart into `assets/mermaid/`.
 `site/package.json` overrides `katex`, which mermaid depends on, to a version without the advisory that
