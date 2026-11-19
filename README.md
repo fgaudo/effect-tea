@@ -281,7 +281,10 @@ entities on a server, whose state a database keeps. It is experimental, and not 
 
 ## Development
 
-- `bun run typecheck`, `bun run lint` and `bun run test` check the package and the examples.
+- `bun run typecheck`, `bun run lint` and `bun run test` check the package and the examples. `bun run format`
+  formats the code with dprint and applies Oxlint's fixes.
+- `git config blame.ignoreRevsFile .git-blame-ignore-revs` makes `git blame` skip the commits that only format, as
+  GitHub does.
 - `bun run build` compiles the package into `dist/`.
 - `bun run smoke` checks the packed package as Node and TypeScript consumers get it.
 - `bun run api` writes the report of the public API into `api/`, from `dist/`. The report is committed, and the CI
