@@ -60,7 +60,10 @@ Found in a review of the premises, 19 November 2026, each held by a `test.failin
      `5.9,6.0,7.0` by default) and `--keep`; Bun's `$` (`bun pm pack`, `npm install`, `node …`) through `exec`; each
      `throw new Error` as a `Failed`. It runs in the CI on Linux (`ci.yml`'s `package` job and `docs.yml`), so check
      that it passes there before the step is done. `tools/smoke/consumer.ts` is the code of a user and keeps the rule:
-     it stays stable, and out of the override.
+     it stays stable, and out of the override. Written on 19 November 2026, and checked on Windows only: its output is
+     the same as before, `--help` describes its flags, a failing `npm install` or `tsc` exits with 1 and removes the
+     consumer's directory, and `--keep` leaves it. What is left is a run of the CI on Linux; the processes whose output
+     showed as they ran (`bun pm pack`, `npm install`, `node consumer.ts`) inherit the output of the tool.
   2. **`tools/inference/generate.ts`**: `--typescript` and `--scale` are lists, `--filter` is optional, and
      `--exact` and `--unchecked` are lists of `true` and `false` whose product is the matrix, not booleans; it ends
      with `process.exitCode = 1`. `tools/inference/prelude.ts` and the programs it writes into `.inference/` keep the
