@@ -167,6 +167,19 @@ once would settle its inputs once for each key of a burst. The owner has not dec
   specification and searched under random histories, `reject` with the tools that hold a model to it, a loop that
   takes one message at a time with its releases, the rule of an input, and no renderer of its own. Reasoned from
   there: not to follow it in breadth; whether the library says so, and names whom it is for, is the owner's.
+
+  **Decided by the owner, 20 November 2026: the library is meant to be adopted by others**, not only to be the owner's
+  own tool. What follows from it, by the same review, reasoned:
+  - Item 4 is no longer a choice: nobody adopts code to copy.
+  - The changes that break the API are taken first (item 3, and what `docs/rejected.md` parks), then 1.0: a user asks
+    that the API stays.
+  - The README says what the library is and for whom, and names Foldkit.
+  - **Open, and first: for whom.** Two readers were named. One starts a new application, and chooses between this
+    library and Foldkit, which gives far more. The other has an application already, most often in React, where
+    Foldkit's own page advises against a rewrite: this library has no renderer, so it can be the state of a part of
+    such an application. That reader needs a bridge to React that works with what React does (components with state,
+    `memo`, Suspense), which the owner declined on 16 November 2026, and the rule "the renderer draws frames, and
+    nothing else" of the guide's "View" would change. Neither was weighed further.
 - **A devtools bridge over `onApplied`** (e.g. Redux DevTools), with time travel through `init: { state }` and
   replay through `applyAll`.
 - **An example of routing**: flags from the URL, `popstate` as a subscription, navigation as a command.
