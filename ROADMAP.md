@@ -24,6 +24,15 @@ test of it. None is open.
 - **A frame a bridge does not draw again still waits for the next animation frame**, in both bridges: a frame of the
   very same model only settles the inputs, and could be taken at once. Kept, so that a bridge takes at most one frame
   per screen refresh, whatever it draws; weighed by nobody yet.
+- **The element of an input, as data, under the search.** `interleaving.test.ts` checks the rule of a write and what a
+  frame has seen, each alone. What the two make of an element on screen is checked only by the scenarios of
+  `bridges/bridge.test_suite.ts`, written by hand, in a DOM: the two faults closed on 19 November 2026 (an element
+  reused for another input, an input whose place the state no longer holds) were found by a review, not by the search.
+  A renderer as data would hold a `Shown` for each element, make its edits with `edited` from the frame on screen and
+  from an older one, settle with `drawn`, and let an element be reused for another input, or be drawn where the state
+  holds no place, as the guide's condition allows. Two properties: an element does not change while a write of its own
+  is unseen, and once everything has happened each element shows the value its place holds. Found in a review of the
+  architecture, 19 November 2026; reasoned, not spiked.
 
 ## Ideas, to be decided
 
