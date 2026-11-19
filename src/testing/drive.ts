@@ -145,8 +145,10 @@ export const drive = Effect.fnUntraced(function*<
   // dies of as it releases what it holds.
   return yield* Effect.uninterruptibleMask(Effect.fnUntraced(function*(restore) {
     // Not `restore(running)`: it would give the run the region of whoever runs `drive`, uninterruptible where that is,
-    // when a fiber forked here is interruptible all the same (`docs/premises.md`).
-    const fiber = yield* Effect.forkChild(running)
+    // when a fiber forked here is interruptible all the same (`docs/premises.md`). Started at once, on this stack until
+    // it first waits (`docs/premises.md`), so that the run has called `init` before the scenario begins, as `rehearse`
+    // has: a scenario that ends at once would otherwise interrupt a run that never started.
+    const fiber = yield* Effect.forkChild(running, { startImmediately: true })
     const ended = yield* Effect.exit(restore(Effect.raceFirst(
       // Suspended, so that a scenario that throws before it returns its effect fails here, past nothing of the end.
       Effect.asSome(Effect.exit(Effect.suspend(() => scenario(driver)))),

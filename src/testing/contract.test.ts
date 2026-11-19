@@ -1075,9 +1075,7 @@ describe('what the run dies of, and the tools fail on', () => {
     expect(said(exit)).toEqual(['init', undefined])
   })
 
-  // rehearse calls `init` before its scenario; drive forks its run without starting it, and a scenario that ends
-  // before the run's fiber first runs has drive interrupt a run that never called `init`, and succeed.
-  test.failing(
+  test(
     'drive fails, as rehearse does, in init, on an init that throws, though its scenario returns at once',
     async () => {
       const exit = await Effect.runPromiseExit(drive(starting, () => Effect.void, { flags: 0 }))

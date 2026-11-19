@@ -117,7 +117,8 @@ version, and everything else, features included, the patch version.
 - The run ends with every defect of its pieces and their releases, in the order they happened and saying where, and
   applies no message once one happened.
 - `drive` puts a defect of the program before the scenario's failure, waits for the run's release, and says its
-  patience with a unit, `within 500ms`, with the latest model as the `cause`, where it gave an `Option` of it.
+  patience with a unit, `within 500ms`, with the latest model as the `cause`, where it gave an `Option` of it. It
+  calls `init` before the scenario, so a scenario that returns at once fails on an `init` that throws, as `rehearse`.
 - `rehearse` no longer loses a command's answer or a message, and hears, applies and ends as the run does.
 - `simulate` closes a command's scope as the run does.
 - A message or command whose wrapping comes back to itself is described by its tags until then, `Loop › …`, where its

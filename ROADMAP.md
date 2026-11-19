@@ -30,11 +30,6 @@ Found in a review of the premises, 19 November 2026, each held by a `test.failin
   of "A flag for each fiber" in `docs/rejected.md` did, so that no false defect appears in `init`. Held by
   `src/run.test.ts`, "an interruption made by another fiber of the program", and `src/testing/contract.test.ts`, "a
   command or a subscription that a fiber of the program interrupts".
-- **`drive` skips `init`**: it succeeds without calling `init` when its scenario ends before the run's fiber first
-  runs, since it forks the run with `Effect.forkChild`, unstarted; `rehearse`, on the same program and scenario, fails
-  in `init`. A fix could begin with `startImmediately: true`. Held by `src/testing/contract.test.ts`, "what the run
-  dies of, and the tools fail on", the case "drive fails, as rehearse does, in init, on an init that throws, though its
-  scenario returns at once".
 - **A reused element keeps its input**: an element a bridge reuses for another input keeps the first input's `Shown`,
   in both bridges, since snabbdom and React reuse an unkeyed `<input>` in the same place. A key typed into the first
   input then stays on screen against the second input's value, and the field goes dead. A fix could begin by treating

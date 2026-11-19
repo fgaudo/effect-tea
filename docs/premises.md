@@ -49,8 +49,11 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   `rehearse.test.ts`, with `Effect.forkDetach` too; and how `simulate` begins a command's effect once `runCommand` has
   been called, as the run begins it with `FiberSet.run` (below), whatever interrupts the simulation then (`runOne` in
   `simulate.ts`): "begins its effect in simulate, as in the run" (`contract.test.ts`) rests on it, and fails without the
-  option. Not documented: the option is in the types of both, not in their JSDoc. Its test: "a fiber forked with
-  startImmediately runs on the stack of the fiber that forks it until it first waits", which fails without the option.
+  option; and how `drive` has its run call `init` before the scenario begins, as `rehearse` does: "drive fails, as
+  rehearse does, in init, on an init that throws, though its scenario returns at once" (`contract.test.ts`) rests on
+  it, and fails without the option. Not documented: the option is in the types of both, not in their JSDoc. Its test:
+  "a fiber forked with startImmediately runs on the stack of the fiber that forks it until it first waits", which fails
+  without the option.
 - **A fiber forked with `FiberSet.run` or `FiberMap.run` runs on the stack of the fiber that runs it until it first
   waits**, through the scope and the cleanup the engine wraps around a command and a subscription, so that `run`
   returns only once `runCommand` has been called, or the subscription's channel made, where the step decided it, before

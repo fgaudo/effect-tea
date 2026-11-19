@@ -1888,6 +1888,18 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [['src/testing/drive.test.ts', 'nothing of the program happens once drive has ended']],
   },
   {
+    name: 'drive begins the scenario before the run has called init',
+    file: 'src/testing/drive.ts',
+    from: 'Effect.forkChild(running, { startImmediately: true })',
+    to: 'Effect.forkChild(running)',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'drive fails, as rehearse does, in init, on an init that throws, though its scenario returns at once',
+      ],
+    ],
+  },
+  {
     name: 'drive goes on after a defect of the program until the scenario ends',
     file: 'src/testing/drive.ts',
     from: '    deaths,\n  ).pipe(',
