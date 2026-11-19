@@ -107,9 +107,19 @@ and the list of the guide's "What is left out"): the packages add no feature of 
 [`docs/rejected.md`](docs/rejected.md), "The bridges", says what the owner declined on 16 November 2026, and reopens
 on this.
 
+**A simpler form than packages apart**, weighed on 20 November 2026, reasoned, not decided: entries of this package,
+`@fgaudo/effect-tea/snabbdom` and `@fgaudo/effect-tea/react`, as `./testing` is one, with each renderer an optional
+peer (`peerDependenciesMeta`). No workspace: one version and one release, and a bridge is always checked with the
+library it is published with, which matters while the rule a bridge calls still changes. The package ships `bridges/`
+as sources already, with a `tsconfig.json` of their own. It changes a rule of `AGENTS.md` ("`effect` (v4) is its only
+dependency, as a peer"), which would hold of the root entry and of `./testing`, kept by the lint that forbids `src/`
+a renderer's import; and a bridge that breaks raises the version of the whole package. Packages apart, in a
+workspace, are for a bridge that needs releases of its own: an entry moves to one later by a breaking change that
+only renames an import.
+
 **How.** After item 1, whose element as data is the bridges' contract in a form a test holds.
 
-1. The owner decides: whether, the names, one repository with workspaces or several, and what each package promises.
+1. The owner decides: whether, entries of this package or packages apart, the names, and what each promises.
 2. The bridges move to packages with `@fgaudo/effect-tea` and their renderer as peers, each with its tests; the
    examples and `tools/smoke/` import them.
 3. The tests of `bridges/bridge.test_suite.ts` run in a real browser too, with the caret and an IME composition when
@@ -180,6 +190,14 @@ once would settle its inputs once for each key of a burst. The owner has not dec
     such an application. That reader needs a bridge to React that works with what React does (components with state,
     `memo`, Suspense), which the owner declined on 16 November 2026, and the rule "the renderer draws frames, and
     nothing else" of the guide's "View" would change. Neither was weighed further.
+  - **The owner, the same day: both readers.** Reasoned from there, not decided. They are two bridges, not three: a
+    view of the library's own over snabbdom ("A wider form", item 4) takes the place of the snabbdom bridge. The one
+    for React is hosted by React: a component uses a program through a hook, and the `render` given to `run` only
+    hands the frames to a store that React reads, so the engine would not change; the rules of the guide's "View"
+    that every renderer keeps today (no state beside the program's, frames and nothing else, a frame whole and at
+    once) would become what each bridge promises. An input in it is spiked anew, against the four gaps of 16 November
+    2026. The order proposed: items 1 and 2, a spike of the hosted React bridge with a record of its design, the
+    breaking changes and 1.0, then the view of the library's own, the largest and the nearest to what Foldkit has.
 - **A devtools bridge over `onApplied`** (e.g. Redux DevTools), with time travel through `init: { state }` and
   replay through `applyAll`.
 - **An example of routing**: flags from the URL, `popstate` as a subscription, navigation as a command.
