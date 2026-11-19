@@ -2,13 +2,21 @@
 // sequence of states that each change one child. First with each child in a state object of its own, then with all
 // of them starting from one object, `row.init.state`, and the changes made to the first child alone, so that the
 // others keep sharing it: a parent keeps a child's lifted subscriptions by its state object, for the places it held.
-// Run with `bun run bench [children] [changes]`; not part of `bun run test`.
+// Not part of `bun run test`.
+//
+//   bun run bench [--children 1000] [--changes 2000]
+//   bun run bench --help     the same, as the command describes itself
 import * as Arr from "effect/Array"
 import * as Channel from "effect/Channel"
+import * as Command from "effect/cli/Command"
+import * as Flag from "effect/cli/Flag"
+import * as Console from "effect/Console"
+import * as Effect from "effect/Effect"
 import * as HashMap from "effect/HashMap"
 import * as Num from "effect/Number"
 import * as Opt from "effect/Option"
 import { type MessageOf, type Program, program, reject, type StateOf } from "../../src/index.ts"
+import { main } from "../cli.ts"
 
 type RowState = Readonly<{ seconds: number }>
 
@@ -39,11 +47,9 @@ const list = make({
   makeModel: (state) => state.rows.length
 })
 
-const children = Number(Bun.argv[2] ?? 1000)
-const changes = Number(Bun.argv[3] ?? 2000)
 const rounds = 7
 
-const statesOf = (shared: boolean) => {
+const statesOf = (children: number, changes: number, shared: boolean) => {
   let state: StateOf<typeof list> = {
     rows: Arr.makeBy(children, (id) => ({ id, row: shared ? row.init.state : { ...row.init.state } }))
   }
@@ -59,7 +65,7 @@ const statesOf = (shared: boolean) => {
 
 const subscriptions = list.subscriptions
 
-const round = (states: ReadonlyArray<StateOf<typeof list>>) => {
+const round = (children: number, states: ReadonlyArray<StateOf<typeof list>>) => {
   const start = performance.now()
   for (const state of states) {
     if (HashMap.size(subscriptions(state)) !== children) throw new Error("a child lost its subscription")
@@ -67,14 +73,34 @@ const round = (states: ReadonlyArray<StateOf<typeof list>>) => {
   return (performance.now() - start) / states.length
 }
 
-for (const shared of [false, true]) {
-  const states = statesOf(shared)
-  round(states)
-  const timings = Arr.sort(Arr.makeBy(rounds, () => round(states)), Num.Order)
-  const median = timings[Math.floor(rounds / 2)] ?? Number.NaN
-  console.log(
-    `subscriptions of ${children} children ${shared ? "that share one state object" : "in objects of their own"}, ` +
-      `${states.length} states that each change one: ${(median * 1000).toFixed(1)} µs per change of state ` +
-      `(median of ${rounds} rounds)`
+const count = (name: string, description: string, fallback: number) =>
+  Flag.Int(name).pipe(
+    Flag.withDescription(description),
+    Flag.withDefault(fallback),
+    Flag.filter((value) => value >= 1, () => "a whole number of at least 1")
   )
-}
+
+const command = Command.make(
+  "bench",
+  {
+    children: count("children", "How many children the list has", 1000),
+    changes: count("changes", "How many changes of state are measured, each of one child", 2000)
+  },
+  Effect.fnUntraced(function*({ changes, children }) {
+    for (const shared of [false, true]) {
+      const states = statesOf(children, changes, shared)
+      round(children, states)
+      const timings = Arr.sort(Arr.makeBy(rounds, () => round(children, states)), Num.Order)
+      const median = timings[Math.floor(rounds / 2)] ?? Number.NaN
+      yield* Console.log(
+        `subscriptions of ${children} children ${
+          shared ? "that share one state object" : "in objects of their own"
+        }, ` +
+          `${states.length} states that each change one: ${(median * 1000).toFixed(1)} µs per change of state ` +
+          `(median of ${rounds} rounds)`
+      )
+    }
+  })
+)
+
+main(command)

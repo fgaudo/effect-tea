@@ -37,40 +37,6 @@ Found in a review of the premises, 19 November 2026, each held by a `test.failin
   drawn" from regressing. `bun run bench` (`tools/bench/subscriptions.ts`) measures a parent's subscriptions only, and
   `tools/bench/writes.ts`, run by hand, what a write into an input and a bridge's frame cost; neither runs in the CI.
 
-- **The tools on `effect/cli` and `effect/process`**, decided on 19 November 2026. The tools may build on Effect's
-  unstable modules, as `AGENTS.md` says ("Only stable APIs"): `tsconfig.json` lists them for `tools/` in an
-  `allowedUnstableApis` of its `overrides`, and a module is added there when a tool first needs it.
-  `tools/mutations/mutate.ts` (commit `fa0f97c`), `tools/api-report.ts`, `tools/smoke/smoke.ts` (commit `6a648c3`, its
-  CI passed on Linux) and `tools/inference/generate.ts` (its `report.json` the same as before, timings aside) are done,
-  and the model for the rest: a `Command.make` with typed flags, given to `main` of `tools/cli.ts`, which runs it by
-  `Command.run` and `BunRuntime.runMain` over `BunServices.layer`, with the version of `package.json`, which
-  `Command.run` asks for; an `exec`, there too, that spawns a process in a scope of its own and collects its output and
-  its exit code (`spawner.string` does not check the exit code), and a `step` that runs one whose output shows and fails
-  on its exit code; and a `Failed`, there too, marked `[Runtime.errorReported] = false` and printed by `main`, so that
-  it shows with no stack and exits with 1. A run of the mutations stopped by Ctrl+C was checked on Windows: it ends
-  every `bun test` it started, removes `.mutants/`, and exits with 130, by the default teardown of `runMain`, run by
-  `bun` and by `bun run` alike, 4 and 20 seconds in (the exit code of 0 reported before was not seen again, with the
-  exit code read after `WaitForExit`). What was learned on the way: a list of `overrides` replaces the language
-  service's default one, which is why `tsconfig.json` repeats the rule for `src/`; `@effect/platform-node` names `redis`
-  as a peer it needs, so the tools run on `@effect/platform-bun`; `Flag.filter` prints its message after "Expected:";
-  `Flag.Boolean` is given a default of `false`; and a console's Ctrl+C can be sent from a script on Windows by
-  `AttachConsole` and `GenerateConsoleCtrlEvent`, where a signal from another process ends a process without its
-  finalizers; a process whose output shows as it runs is given `stdout: "inherit"` and `stderr: "inherit"`, and `exec`
-  still gives its exit code (`step` in `tools/cli.ts`); `npm` spawns by its name on Windows too, with no shell; and
-  there is no flag that is a list, so a list separated by commas is a `Flag.String` and a `Flag.map`. Each step is a
-  commit of its own, and leaves the tool's output, flags and exit codes as they were, unless the step says otherwise:
-  1. **`tools/bench/subscriptions.ts` and `tools/bench/writes.ts`**: their arguments by position (`Number(argv[2])`,
-     where a typo gives `NaN` with no error) as named flags with defaults (`--children`, `--changes`; `--writes`,
-     `--rounds`, `--sections`), and a change of `package.json`'s `bench` script and of the comment of `writes.ts`
-     that tells how to run it. `writes.ts` runs on Node too: `@effect/platform-node-shared` has no `NodeServices`, so
-     the layer is built from its modules (`NodeChildProcessSpawner`, `NodeFileSystem`, `NodePath`, `NodeStdio`,
-     `NodeTerminal`) and run by its `NodeRuntime`, chosen by `typeof Bun`; that package is then added to the
-     `devDependencies` (`~` the version of Effect), to the override and to `effect-latest.yml`, as
-     `@effect/platform-bun` was. The programs the benchmarks measure keep the rule.
-
-  Each step runs `bun run typecheck` and `bun run lint`, and the tool it converts in each of its modes.
-  `tools/build.ts` and `tools/comments.ts` take no flags, and are left as they are: a command would add nothing.
-
 ## Ideas, to be decided
 
 - **Bridges as packages of their own** (`@fgaudo/effect-tea-snabbdom`, `@fgaudo/effect-tea-react`): the library

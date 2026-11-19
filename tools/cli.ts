@@ -12,7 +12,8 @@ import * as Stream from "effect/Stream"
 import * as fs from "node:fs"
 import * as path from "node:path"
 
-export const root = path.resolve(import.meta.dir, "..")
+// `dirname`, and not Bun's `dir`, as `tools/bench/writes.ts` runs on Node too.
+export const root = path.resolve(import.meta.dirname, "..")
 
 // What a tool is refused for, or what it found: printed as it is, with no stack, which would point into the tool and
 // not at what it found.
@@ -39,7 +40,9 @@ export const step = Effect.fnUntraced(function*(cwd: string, command: string, ar
   if (exitCode !== 0) return yield* new Failed({ message: `${command} ${args.join(" ")} exited with ${exitCode}` })
 })
 
-// Runs `command` with the arguments of the process: a `Failed` is printed, and exits with 1.
+// Runs `command` with the arguments of the process: a `Failed` is printed, and exits with 1. On Node too, where
+// `tools/bench/writes.ts` runs: the services and the `runMain` of `@effect/platform-bun` are those of
+// `@effect/platform-node-shared`, which call no API of Bun's.
 export const main = <Name extends string, Input, ContextInput, E>(
   command: Command.Command<Name, Input, ContextInput, E, Command.Environment>
 ) =>

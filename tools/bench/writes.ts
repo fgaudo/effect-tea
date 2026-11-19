@@ -4,10 +4,16 @@
 // `was` is the very value the state holds, as the snabbdom bridge sends it, or, in the cases marked "copy", an equal
 // value that is another string or object, as a bridge that read it again from the element would send. Then what the
 // bridge pays on each frame, `drawn` for one input and the React bridge's `settle` for many, and what a rejected
-// write costs. The measures that chose this design are in `docs/records/registers.md` ("The cost of `was`"). Run with `bun
-// tools/bench/writes.ts [writes] [rounds] [sections]`, or `node tools/bench/writes.ts …`, where `sections` is a list of
-// `writes`, `drawn`, `settle` and `rejected` (all of them by default); not part of `bun run test`.
+// write costs. The measures that chose this design are in `docs/records/registers.md` ("The cost of `was`"). Run by
+// hand, on Bun or on Node; not part of `bun run test`.
+//
+//   bun tools/bench/writes.ts [--writes 2000] [--rounds 11] [--sections writes,drawn,settle,rejected]
+//   node tools/bench/writes.ts …     the same, on V8
+//   bun tools/bench/writes.ts --help     the same, as the command describes itself
 import * as Arr from "effect/Array"
+import * as Command from "effect/cli/Command"
+import * as Flag from "effect/cli/Flag"
+import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
 import * as Equal from "effect/Equal"
 import * as Num from "effect/Number"
@@ -27,68 +33,81 @@ import {
   type Written
 } from "../../src/index.ts"
 import { written } from "../../src/input.ts"
+import { main } from "../cli.ts"
 
-const writes = Number(process.argv[2] ?? 2000)
-const rounds = Number(process.argv[3] ?? 11)
-const sections = (process.argv[4] ?? "writes,drawn,settle,rejected").split(",")
 const rows = 1000
 
 // A string equal to `text` that is not the same string: built anew, character by character, and flat, as an element
 // gives it. One made by concatenation is a rope in V8, which a comparison flattens first.
 const copyOf = (text: string) => Array.from(text).join("")
 
-const short = Arr.makeBy(writes + 1, (i) => "Ada Lovelace, 1815".slice(0, i % 19))
-
-const long = (() => {
-  const base = Arr.makeBy(4096, (i) => "lorem ipsum dolor sit amet "[i % 27]).join("")
-  let text = base
-  return [text, ...Arr.makeBy(writes, (i) => (text = copyOf(`${text}${"abcdefghij"[i % 10]}`)))]
-})()
-
-const levels = Arr.makeBy(writes + 1, (i) => i % 101)
-
-// A multi-select: 200 ids, one toggled by each write. Made anew for each pass, as `Equal` keeps the hash of an object
-// and what it found of a pair of them: the same objects again would be compared for free.
-const selections = () => {
-  let ids: ReadonlyArray<number> = Arr.makeBy(200, (i) => i * 2)
-  return [
-    ids,
-    ...Arr.makeBy(writes, (i) => {
-      const id = (i * 7) % 400
-      ids = ids.includes(id) ? ids.filter((other) => other !== id) : [...ids, id]
-      return ids
-    })
-  ]
-}
+const base = Arr.makeBy(4096, (i) => "lorem ipsum dolor sit amet "[i % 27]).join("")
 
 type Contact = Readonly<{ name: string; email: string; age: number; tags: ReadonlyArray<string> }>
 
-// A form record whose name is typed: the rest is shared with the record before.
-const contacts = () => {
-  let contact: Contact = { name: "", email: "ada@example.com", age: 36, tags: ["math", "engines", "poetry"] }
-  return [contact, ...Arr.makeBy(writes, (i) => (contact = { ...contact, name: short[i + 1] ?? "" }))]
+// The values of a pass, `writes` and the one before them, each a change of the one before. The arrays and the records
+// are made anew for each pass, as `Equal` keeps the hash of an object and what it found of a pair of them: the same
+// objects again would be compared for free.
+type Values = Readonly<{
+  short: ReadonlyArray<string>
+  long: ReadonlyArray<string>
+  levels: ReadonlyArray<number>
+  // A multi-select: 200 ids, one toggled by each write.
+  selections: () => ReadonlyArray<ReadonlyArray<number>>
+  // A form record whose name is typed: the rest is shared with the record before.
+  contacts: () => ReadonlyArray<Contact>
+}>
+
+const valuesOf = (writes: number): Values => {
+  const short = Arr.makeBy(writes + 1, (i) => "Ada Lovelace, 1815".slice(0, i % 19))
+  let text = base
+  const long = [text, ...Arr.makeBy(writes, (i) => (text = copyOf(`${text}${"abcdefghij"[i % 10]}`)))]
+  return {
+    short,
+    long,
+    levels: Arr.makeBy(writes + 1, (i) => i % 101),
+    selections: () => {
+      let ids: ReadonlyArray<number> = Arr.makeBy(200, (i) => i * 2)
+      return [
+        ids,
+        ...Arr.makeBy(writes, (i) => {
+          const id = (i * 7) % 400
+          ids = ids.includes(id) ? ids.filter((other) => other !== id) : [...ids, id]
+          return ids
+        })
+      ]
+    },
+    contacts: () => {
+      let contact: Contact = { name: "", email: "ada@example.com", age: 36, tags: ["math", "engines", "poetry"] }
+      return [contact, ...Arr.makeBy(writes, (i) => (contact = { ...contact, name: short[i + 1] ?? "" }))]
+    }
+  }
 }
 
 const copyContact = (contact: Contact): Contact => ({ ...contact, tags: [...contact.tags] })
 
 type Case = Readonly<{
   name: string
-  values: () => ReadonlyArray<unknown>
+  values: (values: Values) => ReadonlyArray<unknown>
   copy?: (value: never) => unknown
   inRow?: boolean
   throughRun?: boolean
 }>
 
 const cases: ReadonlyArray<Case> = [
-  { name: "short text (≤ 18 chars)", values: () => short },
-  { name: "long text (4–6 KB, at the end)", values: () => long, throughRun: true },
-  { name: "long text, `was` a copy", values: () => long, copy: copyOf },
-  { name: "slider level (number)", values: () => levels },
-  { name: `short text in row 500 of ${rows}`, values: () => short, inRow: true, throughRun: true },
-  { name: "array of 200 ids", values: selections },
-  { name: "array of 200 ids, `was` a copy", values: selections, copy: (ids: ReadonlyArray<number>) => [...ids] },
-  { name: "record of 4 fields", values: contacts },
-  { name: "record of 4 fields, `was` a copy", values: contacts, copy: copyContact }
+  { name: "short text (≤ 18 chars)", values: ({ short }) => short },
+  { name: "long text (4–6 KB, at the end)", values: ({ long }) => long, throughRun: true },
+  { name: "long text, `was` a copy", values: ({ long }) => long, copy: copyOf },
+  { name: "slider level (number)", values: ({ levels }) => levels },
+  { name: `short text in row 500 of ${rows}`, values: ({ short }) => short, inRow: true, throughRun: true },
+  { name: "array of 200 ids", values: ({ selections }) => selections() },
+  {
+    name: "array of 200 ids, `was` a copy",
+    values: ({ selections }) => selections(),
+    copy: (ids: ReadonlyArray<number>) => [...ids]
+  },
+  { name: "record of 4 fields", values: ({ contacts }) => contacts() },
+  { name: "record of 4 fields, `was` a copy", values: ({ contacts }) => contacts(), copy: copyContact }
 ]
 
 type State = Readonly<{ v: unknown }>
@@ -136,7 +155,8 @@ type Subject = Readonly<{
 
 const rule = written as unknown as Update<unknown, unknown>
 
-const subjectOf = ({ values, copy, inRow }: Case): Subject => {
+const subjectOf = ({ copy, inRow, values: of }: Case, made: Values): Subject => {
+  const values = () => of(made)
   const start = values()[0]
   const child = inputProgram(start)
   const at = (message: unknown) => inRow === true ? { _tag: "Row", id: rows / 2, message } : message
@@ -165,7 +185,12 @@ const applyAll = (update: Update<unknown, unknown>, start: unknown, messages: Re
 
 // Nanoseconds per call of one round: as many passes, each over `count` calls made anew beforehand, as last 20 ms at
 // least, or `most` of them, where what they are made of would not fit in memory.
-const sampler = <T>(make: () => T, pass: (made: T) => unknown, count: number, most = Number.POSITIVE_INFINITY) => {
+const sampler = <T>(
+  make: () => T,
+  pass: (made: T) => unknown,
+  count: number,
+  most = Number.POSITIVE_INFINITY
+): Effect.Effect<number> => {
   let passes = 1
   const time = () => {
     const all = Arr.makeBy(passes, make)
@@ -174,23 +199,23 @@ const sampler = <T>(make: () => T, pass: (made: T) => unknown, count: number, mo
     return performance.now() - start
   }
   while (time() < 20 && passes < most) passes *= 2
-  return () => (time() * 1e6) / (passes * count)
+  return Effect.sync(() => (time() * 1e6) / (passes * count))
 }
 
 // The rounds of what is measured together alternate, after one of each is thrown away: the first measured would
 // otherwise pay for the warming of what they all run.
-const alternated = async (samplers: ReadonlyArray<() => number | Promise<number>>) => {
-  for (const sample of samplers) await sample()
+const alternated = Effect.fnUntraced(function*(rounds: number, samplers: ReadonlyArray<Effect.Effect<number>>) {
+  for (const sample of samplers) yield* sample
   const all = samplers.map((): Array<number> => [])
   for (let round = 0; round < rounds; round++) {
-    for (const [i, sample] of samplers.entries()) all[i]?.push(await sample())
+    for (const [i, sample] of samplers.entries()) all[i]?.push(yield* sample)
   }
   return all
-}
+})
 
 // One write at a time: the renderer sends the next one when a frame has seen the one before.
 const throughRun = (subject: Subject) =>
-  Effect.runPromise(Effect.gen(function*() {
+  Effect.gen(function*() {
     const messages = subject.messages().composed
     let start = 0
     let end = 0
@@ -208,7 +233,7 @@ const throughRun = (subject: Subject) =>
         )
       ))
     return ((end - start) * 1e6) / messages.length
-  }))
+  })
 
 const summary = (samples: ReadonlyArray<number>) => {
   const sorted = Arr.sort(samples, Num.Order)
@@ -217,40 +242,44 @@ const summary = (samples: ReadonlyArray<number>) => {
   return `${format(at(0.5))} (${format(at(0))}–${format(at(1))})`
 }
 
-const runtime = typeof Bun === "undefined" ? `Node ${process.version}` : `Bun ${Bun.version}`
-console.log(`${runtime}, ${writes} calls per pass, ${rounds} rounds: median (min–max) per call`)
+// What each section is given: how many writes a pass makes, how many rounds it measures, and the values it writes.
+type Sizes = Readonly<{ writes: number; rounds: number; values: Values }>
 
-if (sections.includes("writes")) {
-  console.log("\n| case | bare rule | compose `update` | `run`, a frame per write |")
-  console.log("| --- | --- | --- | --- |")
+const writesSection = Effect.fnUntraced(function*({ rounds, values, writes }: Sizes) {
+  yield* Console.log("\n| case | bare rule | compose `update` | `run`, a frame per write |")
+  yield* Console.log("| --- | --- | --- | --- |")
   for (const each of cases) {
-    const subject = subjectOf(each)
+    const subject = subjectOf(each, values)
     const update = subject.program.update as unknown as Update<unknown, unknown>
-    const [bare, composed] = await alternated([
+    const [bare, composed] = yield* alternated(rounds, [
       sampler(subject.messages, (all) => applyAll(subject.bare.rule, subject.bare.start, all.bare), writes),
       sampler(subject.messages, (all) => applyAll(update, subject.program.init.state, all.composed), writes)
     ])
-    const [whole] = each.throughRun === true ? await alternated([() => throughRun(subject)]) : []
+    const [whole] = each.throughRun === true ? yield* alternated(rounds, [throughRun(subject)]) : []
     const through = whole === undefined ? "–" : summary(whole)
-    console.log(`| ${each.name} | ${summary(bare ?? [])} | ${summary(composed ?? [])} | ${through} |`)
+    yield* Console.log(`| ${each.name} | ${summary(bare ?? [])} | ${summary(composed ?? [])} | ${through} |`)
   }
-}
+})
 
 // The values `drawn` meets, made anew on each call, an equal value that is not the same, and at most how many passes
 // a round makes of them: on V8, 20 ms of `drawn` over copies of a long text would hold gigabytes of them.
 type Kind = Readonly<{
   name: string
-  values: () => ReadonlyArray<unknown>
+  values: (values: Values) => ReadonlyArray<unknown>
   copy: (value: never) => unknown
   most?: number
 }>
 
 const kinds: ReadonlyArray<Kind> = [
-  { name: "short text (≤ 18 chars)", values: () => short, copy: copyOf },
-  { name: "long text (4–6 KB)", values: () => long, copy: copyOf, most: 64 },
-  { name: "number", values: () => levels, copy: (level: number) => level },
-  { name: "array of 200 ids", values: selections, copy: (ids: ReadonlyArray<number>) => [...ids] },
-  { name: "record of 4 fields", values: contacts, copy: copyContact }
+  { name: "short text (≤ 18 chars)", values: ({ short }) => short, copy: copyOf },
+  { name: "long text (4–6 KB)", values: ({ long }) => long, copy: copyOf, most: 64 },
+  { name: "number", values: ({ levels }) => levels, copy: (level: number) => level },
+  {
+    name: "array of 200 ids",
+    values: ({ selections }) => selections(),
+    copy: (ids: ReadonlyArray<number>) => [...ids]
+  },
+  { name: "record of 4 fields", values: ({ contacts }) => contacts(), copy: copyContact }
 ]
 
 type Drawing = Readonly<{ held: Shown<unknown>; value: unknown; seen: number }>
@@ -288,27 +317,30 @@ const situations: ReadonlyArray<Situation> = [
   }
 ]
 
-if (sections.includes("drawn")) {
-  console.log("\n`drawn`, for one input in one frame\n")
-  console.log(`| case | ${situations.map(({ name }) => name).join(" | ")} |`)
-  console.log(`| --- |${situations.map(() => " --- |").join("")}`)
+const drawnSection = Effect.fnUntraced(function*({ rounds, values: made, writes }: Sizes) {
+  yield* Console.log("\n`drawn`, for one input in one frame\n")
+  yield* Console.log(`| case | ${situations.map(({ name }) => name).join(" | ")} |`)
+  yield* Console.log(`| --- |${situations.map(() => " --- |").join("")}`)
   for (const kind of kinds) {
-    const timings = await alternated(situations.map((situation) =>
-      sampler(
-        () => {
-          const values = kind.values()
-          return Arr.makeBy(writes - 2, (i) => situation.at(values, i, kind.copy))
-        },
-        (all) => {
-          for (const { held, value, seen } of all) drawn(held, value, seen)
-        },
-        writes - 2,
-        kind.most
+    const timings = yield* alternated(
+      rounds,
+      situations.map((situation) =>
+        sampler(
+          () => {
+            const values = kind.values(made)
+            return Arr.makeBy(writes - 2, (i) => situation.at(values, i, kind.copy))
+          },
+          (all) => {
+            for (const { held, value, seen } of all) drawn(held, value, seen)
+          },
+          writes - 2,
+          kind.most
+        )
       )
-    ))
-    console.log(`| ${kind.name} | ${timings.map(summary).join(" | ")} |`)
+    )
+    yield* Console.log(`| ${kind.name} | ${timings.map(summary).join(" | ")} |`)
   }
-}
+})
 
 // As the React bridge has them (`bridges/react.ts`), without a DOM: an element is what holds `value`, a
 // string.
@@ -342,35 +374,37 @@ const screenOf = (inputs: number, text: string, frame: (text: string) => string)
   return { live, lives, reset: () => (first.held = unseen) }
 }
 
-if (sections.includes("settle")) {
+const settleSection = Effect.fnUntraced(function*({ rounds }: Sizes) {
   const counts = [1, 10, 100, 1000]
-  const longText = long[0] as string
   const screens = [
     { name: "short text, the very value", text: "Ada Lovelace, 1815", frame: (text: string) => text },
-    { name: "long text (4 KB), the very value", text: longText, frame: (text: string) => text },
-    { name: "long text (4 KB), an equal copy", text: longText, frame: copyOf }
+    { name: "long text (4 KB), the very value", text: base, frame: (text: string) => text },
+    { name: "long text (4 KB), an equal copy", text: base, frame: copyOf }
   ]
-  console.log("\nThe bridge's `settle`, for a whole frame\n")
-  console.log(`| inputs | ${counts.join(" | ")} |`)
-  console.log(`| --- |${counts.map(() => " --- |").join("")}`)
+  yield* Console.log("\nThe bridge's `settle`, for a whole frame\n")
+  yield* Console.log(`| inputs | ${counts.join(" | ")} |`)
+  yield* Console.log(`| --- |${counts.map(() => " --- |").join("")}`)
   for (const screen of screens) {
-    const timings = await alternated(counts.map((inputs) => {
-      const made = screenOf(inputs, screen.text, screen.frame)
-      return sampler(() => made, ({ live, lives, reset }) => {
-        reset()
-        settle(live, lives, 1)
-      }, 1)
-    }))
-    console.log(`| ${screen.name} | ${timings.map(summary).join(" | ")} |`)
+    const timings = yield* alternated(
+      rounds,
+      counts.map((inputs) => {
+        const made = screenOf(inputs, screen.text, screen.frame)
+        return sampler(() => made, ({ live, lives, reset }) => {
+          reset()
+          settle(live, lives, 1)
+        }, 1)
+      })
+    )
+    yield* Console.log(`| ${screen.name} | ${timings.map(summary).join(" | ")} |`)
   }
-}
+})
 
 // A rejected write: the value held, and what was written over another, made anew on each call.
 type Refusal = Readonly<{ name: string; held: unknown; was: () => unknown }>
 
 const shortHeld = "Ada Lovelace, 1815"
 
-const longHeld = long[0] as string
+const longHeld = base
 
 const ids = Arr.makeBy(200, (i) => i * 2)
 
@@ -404,17 +438,17 @@ const rejectAll = (update: Update<unknown, unknown>, state: unknown, messages: R
   }
 }
 
-if (sections.includes("rejected")) {
-  console.log("\nRejected writes, over another value than the one held\n")
-  console.log("| case | bare rule | compose `update` |")
-  console.log("| --- | --- | --- |")
+const rejectedSection = Effect.fnUntraced(function*({ rounds, writes }: Sizes) {
+  yield* Console.log("\nRejected writes, over another value than the one held\n")
+  yield* Console.log("| case | bare rule | compose `update` |")
+  yield* Console.log("| --- | --- | --- |")
   for (const refusal of refusals) {
     // The value held was hashed when it was stored, by the `Equal` of the write that stored it.
     Equal.equals(refusal.held, refusal.was())
     const program = inputProgram(refusal.held) as unknown as Program_
     const update = program.update as unknown as Update<unknown, unknown>
     const message = (): Written<unknown> => ({ _tag: "Written", was: refusal.was(), value: refusal.held })
-    const [bare, composed] = await alternated([
+    const [bare, composed] = yield* alternated(rounds, [
       sampler(() => Arr.makeBy(writes, message), (all) => rejectAll(rule, refusal.held, all), writes, rejectedPasses),
       sampler(
         () => Arr.makeBy(writes, () => ({ _tag: "V", message: message() })),
@@ -423,6 +457,44 @@ if (sections.includes("rejected")) {
         rejectedPasses
       )
     ])
-    console.log(`| ${refusal.name} | ${summary(bare ?? [])} | ${summary(composed ?? [])} |`)
+    yield* Console.log(`| ${refusal.name} | ${summary(bare ?? [])} | ${summary(composed ?? [])} |`)
   }
-}
+})
+
+// In the order they run, whatever the order they are named in.
+const sections = { writes: writesSection, drawn: drawnSection, settle: settleSection, rejected: rejectedSection }
+
+const names = Object.keys(sections)
+
+const command = Command.make(
+  "writes",
+  {
+    // `drawn` meets the value after the next one, so a pass needs three.
+    writes: Flag.Int("writes").pipe(
+      Flag.withDescription("How many calls a pass makes"),
+      Flag.withDefault(2000),
+      Flag.filter((writes) => writes >= 3, () => "a whole number of at least 3")
+    ),
+    rounds: Flag.Int("rounds").pipe(
+      Flag.withDescription("How many rounds each measure takes"),
+      Flag.withDefault(11),
+      Flag.filter((rounds) => rounds >= 1, () => "a whole number of at least 1")
+    ),
+    sections: Flag.String("sections").pipe(
+      Flag.withDescription(`The sections measured, separated by commas: ${names.join(", ")}`),
+      Flag.withDefault(names.join(",")),
+      Flag.map((chosen) => chosen.split(",")),
+      Flag.filter((chosen) => chosen.every((name) => names.includes(name)), () => names.join(", "))
+    )
+  },
+  Effect.fnUntraced(function*({ rounds, sections: chosen, writes }) {
+    const runtime = typeof Bun === "undefined" ? `Node ${process.version}` : `Bun ${Bun.version}`
+    yield* Console.log(`${runtime}, ${writes} calls per pass, ${rounds} rounds: median (min–max) per call`)
+    const sizes: Sizes = { writes, rounds, values: valuesOf(writes) }
+    for (const [name, section] of Object.entries(sections)) {
+      if (chosen.includes(name)) yield* section(sizes)
+    }
+  })
+)
+
+main(command)
