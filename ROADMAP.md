@@ -129,8 +129,8 @@ reasoned, not decided. The package is no bridge to snabbdom but the view's own v
 
 It costs a second product to keep, with the DOM's own cases, and "views are generic over their node type"
 (`AGENTS.md`) stays true only of the library, with the package apart. Foldkit, another Elm architecture over Effect,
-draws this way over snabbdom, with messages in its nodes: read only in its announcement and its package page, not in
-its code. Weighed with it and not proposed: a `patch` of the library's own, whose cases of the DOM are not what the
+draws this way over snabbdom ("What the library is beside Foldkit", below): this form would build again what it has.
+Weighed with it and not proposed: a `patch` of the library's own, whose cases of the DOM are not what the
 library is for, while snabbdom is small enough to keep a copy of; and another renderer under the bridges, where
 lit-html's `render` is the one that fits beside snabbdom (drawn at once, no component), but its templates are no tree
 a test can walk.
@@ -154,6 +154,19 @@ once would settle its inputs once for each key of a burst. The owner has not dec
 
 ## Ideas, to be decided
 
+- **What the library is beside Foldkit**, to be decided by the owner before item 4 and before 1.0. Foldkit
+  (`github.com/foldkit/foldkit`, MIT, Effect `~4.1.0`, 0.171.0 on 20 November 2026) is a whole framework on the same
+  ground: a runtime, views over snabbdom, routing, server rendering, a library of components, devtools and a CLI. Read
+  in its code that day, by a subagent, in part (the files of its runtime, of its commands and of its views; no test's
+  content): a click's node holds its message as data, and a text's a function from the text to a message; `update`
+  runs on the stack of the dispatch, the frame reads the latest model and drains what is queued before it patches, and
+  an input's value is written only where it differs from the element's, so it has no rule of a write and no `seen`; no
+  rejection of a message was found, no page of guarantees, and neither fast-check nor a list of mutations among its
+  dependencies; a command is cancelled by a key, on request. No statement that Effect adopts it was found, in the
+  pages read, which were none of Effect's own. What this library has that was not found there: guarantees written as a
+  specification and searched under random histories, `reject` with the tools that hold a model to it, a loop that
+  takes one message at a time with its releases, the rule of an input, and no renderer of its own. Reasoned from
+  there: not to follow it in breadth; whether the library says so, and names whom it is for, is the owner's.
 - **A devtools bridge over `onApplied`** (e.g. Redux DevTools), with time travel through `init: { state }` and
   replay through `applyAll`.
 - **An example of routing**: flags from the URL, `popstate` as a subscription, navigation as a command.
