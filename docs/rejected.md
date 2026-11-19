@@ -351,7 +351,7 @@ answer, and saying so in the proposal.
   client is a promise of serialization, which `registers.md` ("What a model is") declined, to come with a schema of
   its own. Weighed with a second opinion (Fable), the owner deciding. _Reopen if_ a server needs the state after the
   commands of `init` have answered, a run to quiescence that returns its state: that is what Effect alone cannot do,
-  and a feature other than this one. A first frame drawn on a server in an example goes with "Bridges as packages of
+  and a feature other than this one. A first frame drawn on a server in an example goes with "The bridges as packages of
   their own" (`ROADMAP.md`), which decides the dependencies of the bridges.
 - **Offers as tokens, checked against `update`** (`offer`, `offerInput`, `missingOffers`, a run that reported a
   rejected offer). Shipped in 0.3.0 (`ae4661b`) and removed in 0.6.0 (`3c3fdf9`, 23 October 2026): checking each
@@ -619,7 +619,7 @@ comments are written by hand since, in plain English, and name the sections of t
   features cost much review time for what is outside the library's concern, which is the program and its rule for an
   input's element, not each renderer's features; a bridge is an example to start from, and an application that needs
   more writes its own. The library (`edited`, `drawn`,
-  inputs) did not change. _Reopen if_ the bridges become packages of their own (`ROADMAP.md`, "Ideas"), whose users
+  inputs) did not change. _Reopen if_ the bridges become packages of their own (`ROADMAP.md`, item 4), whose users
   would expect a renderer's features to work.
 
 ## The checks
