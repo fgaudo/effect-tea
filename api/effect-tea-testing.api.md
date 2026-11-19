@@ -42,7 +42,7 @@ type Dispatch<Message> = (message: Message) => Effect.Effect<number>;
 
 // @public
 export type DispatchViolation<Message> = {
-    readonly _tag: 'Rejected' | 'ActsTwice' | 'Missing';
+    readonly _tag: "Rejected" | "ActsTwice" | "Missing";
     readonly message: Message;
 };
 
@@ -75,7 +75,7 @@ type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, never, R
 
 // @public (undocumented)
 type Fielded<State> = 0 extends 1 & State ? unknown : [keyof State] extends [never] ? [Extract<Primitive, State>] extends [never] ? unknown : {
-    readonly 'a program keeps its state in an object': State;
+    readonly "a program keeps its state in an object": State;
 } : unknown;
 
 // @public
@@ -103,7 +103,7 @@ type Frame<Model, Message> = {
 type Heard<Message> = 0 extends 1 & Message ? Message : Message extends Readonly<{
     _tag: string;
     message: infer Inner;
-}> ? [Inner] extends [Unwritten<Inner>] ? Message : [Unwritten<Inner>] extends [never] ? never : Omit<Message, 'message'> & Readonly<{
+}> ? [Inner] extends [Unwritten<Inner>] ? Message : [Unwritten<Inner>] extends [never] ? never : Omit<Message, "message"> & Readonly<{
     message: Unwritten<Inner>;
 }> : Message;
 
@@ -124,16 +124,16 @@ type Interpreter<Command, Message, R> = [Command] extends [never] ? object : {
 
 // @public
 type ObjectState<State> = [State] extends [object] ? Fielded<State> : {
-    readonly 'a program keeps its state in an object': State;
+    readonly "a program keeps its state in an object": State;
 };
 
 // @public
 type Origin = {
-    readonly _tag: 'Dispatch';
+    readonly _tag: "Dispatch";
 } | {
-    readonly _tag: 'Command';
+    readonly _tag: "Command";
 } | {
-    readonly _tag: 'Subscription';
+    readonly _tag: "Subscription";
     readonly key: unknown;
 };
 
@@ -176,7 +176,7 @@ interface RunOptions<State, Message, Command = unknown> {
 
 // @public
 type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & {
-    readonly '~@fgaudo/effect-tea/Program/external'?: readonly [(external: External) => void];
+    readonly "~@fgaudo/effect-tea/Program/external"?: readonly [(external: External) => void];
     readonly init: Init<State, Command, Flags>;
     readonly update: Update<State, Message, Command, Event>;
     readonly subscriptions: Subscriptions<State, Message, RS, unknown>;
@@ -223,7 +223,7 @@ type Update<State, Message, Command = never, Event = never> = (message: Message)
 
 // @public
 type Written<A> = {
-    readonly _tag: 'Written';
+    readonly _tag: "Written";
     readonly was: A;
     readonly value: A;
 };
