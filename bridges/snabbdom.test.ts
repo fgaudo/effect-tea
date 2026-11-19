@@ -24,6 +24,7 @@ import {
   type note,
   paint,
   settle,
+  type steps,
   stop,
   type,
 } from './bridge.test_suite.ts'
@@ -107,6 +108,19 @@ const lidView: View<ModelOf<typeof lid>, MessageOf<typeof lid>> = (model, dispat
       h('button', { on: onClick<MessageOf<typeof lid>>(model.open, dispatch) }, 'Open'),
     ])
 
+// The same `<input>` for both steps, which snabbdom patches into each other.
+const stepsView: View<ModelOf<typeof steps>, MessageOf<typeof steps>> = (model, dispatch) =>
+  h('main', [
+    h(
+      'input',
+      shows(model.text, model._tag === 'First' ? forwardTo(dispatch, 'First') : forwardTo(dispatch, 'Second')),
+    ),
+    ...(model._tag === 'First'
+      ? [h('button', { on: onClick<MessageOf<typeof steps>>(model.next, dispatch) }, 'Next')]
+      : []),
+    h('output', model.text),
+  ])
+
 const snabbdom: Bridge<VNode> = {
   renderInto,
   views: {
@@ -117,6 +131,7 @@ const snabbdom: Bridge<VNode> = {
     note: noteView,
     dictated: dictatedView,
     lid: lidView,
+    steps: stepsView,
   },
 }
 

@@ -35,6 +35,7 @@ import {
   type RenderInto,
   setValue,
   settle,
+  type steps,
   stop,
   type,
 } from './bridge.test_suite.ts'
@@ -164,6 +165,19 @@ const lidView: View<ModelOf<typeof lid>, MessageOf<typeof lid>> = (model, dispat
       drawButton('Open', bridge.onClick<MessageOf<typeof lid>>(model.open, dispatch)),
     )
 
+// The same `Shows` for both steps, whose `<input>` React draws again for the second.
+const stepsView: View<ModelOf<typeof steps>, MessageOf<typeof steps>> = (model, dispatch) =>
+  createElement(
+    'main',
+    null,
+    createElement(bridge.Shows, {
+      value: model.text,
+      dispatch: model._tag === 'First' ? forwardTo(dispatch, 'First') : forwardTo(dispatch, 'Second'),
+    }),
+    model._tag === 'First' ? drawButton('Next', bridge.onClick<MessageOf<typeof steps>>(model.next, dispatch)) : null,
+    createElement('output', null, model.text),
+  )
+
 const react: Bridge<ReactNode> = {
   renderInto: (root, view) => bridge.renderInto(root, view),
   views: {
@@ -174,6 +188,7 @@ const react: Bridge<ReactNode> = {
     note: noteView,
     dictated: dictatedView,
     lid: lidView,
+    steps: stepsView,
   },
 }
 

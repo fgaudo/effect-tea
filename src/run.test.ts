@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import * as Arr from 'effect/Array'
 import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
+import * as Data from 'effect/Data'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
@@ -2432,5 +2433,110 @@ describe('what a frame has seen of what was dispatched', () => {
       return drawn
     }))
     expect(frames).toEqual([{ count: 0, seen: 0 }, { count: 1, seen: 1 }])
+  })
+})
+
+// Two releases in the scope the run gives that die with errors equal by `Equal`, though not the same object, are two
+// defects. `Effect.scoped` joins the causes of the close with `Cause.combine`, which keeps one of two equal reasons,
+// before the register sees them: each case fails until the register reads the close's exit itself.
+describe('releases that die with errors equal by Equal', () => {
+  class Closing extends Data.TaggedError('Closing')<object> {}
+
+  const releasesThatDie = Effect.gen(function*() {
+    yield* Effect.addFinalizer(() => Effect.die(new Closing()))
+    yield* Effect.addFinalizer(() => Effect.die(new Closing()))
+  })
+
+  const sites = (exit: Exit.Exit<unknown>) =>
+    Exit.isFailure(exit)
+      ? exit.cause.reasons.filter(Cause.isDieReason).map(({ defect }) =>
+        defect instanceof ProgramDefect ? [defect.where, defect.cause instanceof Closing ? 'Closing' : 'own'] : defect
+      )
+      : []
+
+  test.failing('of a command that dies are each a defect of the command', async () => {
+    const exit = await Effect.runPromiseExit(run(
+      {
+        ...counter,
+        init: { state: { count: 0 }, commands: ['Ping'] },
+        runCommand: () => releasesThatDie.pipe(Effect.andThen(Effect.die('own'))),
+      },
+      () => Effect.never,
+    ))
+    expect(sites(exit)).toEqual([['command', 'own'], ['command', 'Closing'], ['command', 'Closing']])
+  })
+
+  test.failing('of a subscription the run stops are each a defect of the subscription', async () => {
+    const exit = await Effect.runPromiseExit(run(
+      {
+        ...counter,
+        subscriptions: ({ count }) =>
+          count === 0
+            ? HashMap.make(['k', Channel.unwrap(Effect.as(releasesThatDie, Channel.never))])
+            : HashMap.empty(),
+      },
+      (frames) =>
+        Stream.runHead(frames).pipe(
+          Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: ({ dispatch }) => dispatch('Increment') })),
+          Effect.andThen(Effect.never),
+        ),
+    ))
+    expect(sites(exit)).toEqual([['subscription', 'Closing'], ['subscription', 'Closing']])
+  })
+
+  test.failing('of a renderer that dies are each a defect of the renderer', async () => {
+    const exit = await Effect.runPromiseExit(
+      run(counter, () => releasesThatDie.pipe(Effect.andThen(Effect.die('own')))),
+    )
+    expect(sites(exit)).toEqual([['render', 'own'], ['render', 'Closing'], ['render', 'Closing']])
+  })
+})
+
+// A fiber of the program's own that interrupts the fiber of the renderer, or the loop's from `onApplied` or
+// `onIgnored`, is no interruption by the run, nor by whoever runs it: only those two interrupt them (guide, "Nothing
+// ends in silence"), so the run dies in their site.
+describe('an interruption made by another fiber of the program', () => {
+  const site = (exit: Exit.Exit<unknown>) => {
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    return defect instanceof ProgramDefect ? defect.where : typeof defect === 'string' ? defect : exit._tag
+  }
+
+  // The interrupter is detached, so that nothing of the run interrupts it first.
+  const interruptedByAFiberOfItsOwn = Effect.gen(function*() {
+    const self = yield* Effect.fiber
+    yield* Effect.forkDetach(Fiber.interrupt(self))
+    return yield* Effect.never
+  })
+
+  // Bounds only the wait of a failing case, whose run applies nothing more and never ends.
+  const ended = (running: Effect.Effect<void>) =>
+    Effect.runPromiseExit(
+      running.pipe(Effect.timeoutOrElse({ duration: '2 seconds', orElse: () => Effect.die('held') })),
+    )
+
+  const sends = (message: (model: Model) => Message) => (frames: Stream.Stream<Frame<Model, Message>>) =>
+    Stream.runHead(frames).pipe(
+      Effect.flatMap(
+        Opt.match({ onNone: () => Effect.void, onSome: ({ model, dispatch }) => dispatch(message(model)) }),
+      ),
+      Effect.andThen(Effect.never),
+    )
+
+  test.failing('of the renderer is a defect in the renderer', async () => {
+    expect(site(await ended(run(counter, () => interruptedByAFiberOfItsOwn)))).toBe('render')
+  })
+
+  test.failing('of the loop, from onApplied, is a defect in onApplied', async () => {
+    const exit = await ended(run(counter, sends(({ increment }) => increment), {
+      onApplied: () => interruptedByAFiberOfItsOwn,
+    }))
+    expect(site(exit)).toBe('onApplied')
+  })
+
+  test.failing('of the loop, from onIgnored, is a defect in onIgnored', async () => {
+    const exit = await ended(run(counter, sends(({ type }) => type(false)), {
+      onIgnored: () => interruptedByAFiberOfItsOwn,
+    }))
+    expect(site(exit)).toBe('onIgnored')
   })
 })

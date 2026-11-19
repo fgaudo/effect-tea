@@ -216,6 +216,24 @@ export const lid = lidOf.make({
       : { _tag: 'Closed' as const, open: 'Opened' as const },
 })
 
+// Two steps, each with an input of its own, empty as it starts: Next leaves the first step, and its input's place, for
+// the second, which a renderer may draw with the same element.
+type Steps = Readonly<{ _tag: 'First'; first: string }> | Readonly<{ _tag: 'Second'; second: string }>
+const stepsOf = program<{ state: Steps; message: 'Next' }>()
+
+export const steps = stepsOf.make({
+  init: { state: { _tag: 'First', first: '' } },
+  inputs: {
+    First: stepsOf.input({ at: Optic.id<Steps>().tag('First').key('first') }),
+    Second: stepsOf.input({ at: Optic.id<Steps>().tag('Second').key('second') }),
+  },
+  update: (_: 'Next') => (held) => held._tag === 'First' ? { state: { _tag: 'Second', second: '' } } : reject,
+  makeModel: (held) =>
+    held._tag === 'First'
+      ? { _tag: 'First' as const, text: held.first, next: 'Next' as const }
+      : { _tag: 'Second' as const, text: held.second },
+})
+
 /** A source that belongs to the control, as a dictation that streams partial results: the control listens to it. */
 export type Dictation = Readonly<{ listen: (listener: (text: string) => void) => () => void }>
 
@@ -258,6 +276,11 @@ export type Bridge<Node> = Readonly<{
      * `<input>` that is no input of the program, read-only and showing "Closed", and an Open button.
      */
     lid: View<Node, ModelOf<typeof lid>, MessageOf<typeof lid>>
+    /**
+     * The input of the step drawn, first in its parent, then a Next button on the first step, and the step's text in an
+     * `<output>`.
+     */
+    steps: View<Node, ModelOf<typeof steps>, MessageOf<typeof steps>>
   }>
 }>
 
@@ -719,5 +742,32 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       expect(element<HTMLInputElement>('input').value).toBe('Ada!')
       expect(state()).toEqual(['Ada!'])
     })
+  })
+
+  // A renderer may draw one input with the element of another it replaces: snabbdom and React do, for an `<input>` in
+  // the same place. What the element holds is of the input it showed, not of the next.
+  describe('an input in the place of another input', () => {
+    test.failing(
+      'shows the program\'s value once a key for the first, left unseen, is rejected, and stores what is typed next',
+      () => {
+        mount(bridge.renderInto, bridge.views.steps, (render) => run(steps, render))
+        settle()
+        const typedInto = element<HTMLInputElement>('input')
+        // The run takes Next; a key is typed into the first step's input, over its empty text, and the refresh draws
+        // the second step, which has not seen the key, before the run takes it. Both inputs hold the empty text.
+        button('Next').click()
+        settle()
+        type(typedInto, 'A')
+        refresh()
+        // The key is rejected, since the first step's place is gone: no frame follows.
+        paint()
+        expect(element('input')).toBe(typedInto)
+        expect(state()).toEqual([''])
+        expect(typedInto.value).toBe('')
+        type(typedInto, 'B')
+        paint()
+        expect(state()).toEqual(['B'])
+      },
+    )
   })
 }

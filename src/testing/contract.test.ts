@@ -1075,6 +1075,16 @@ describe('what the run dies of, and the tools fail on', () => {
     expect(said(exit)).toEqual(['init', undefined])
   })
 
+  // rehearse calls `init` before its scenario; drive forks its run without starting it, and a scenario that ends
+  // before the run's fiber first runs has drive interrupt a run that never called `init`, and succeed.
+  test.failing(
+    'drive fails, as rehearse does, in init, on an init that throws, though its scenario returns at once',
+    async () => {
+      const exit = await Effect.runPromiseExit(drive(starting, () => Effect.void, { flags: 0 }))
+      expect(said(exit)).toEqual(['init', undefined])
+    },
+  )
+
   test('simulate fails, as the run dies, in a command on a command that dies', async () => {
     const exit = await Effect.runPromiseExit(simulate(exploding)(['Go'], exploding.init))
     expect(diedIn(exit)).toBe('command')
@@ -1592,4 +1602,89 @@ describe('a command whose runCommand is called as whoever runs the tool interrup
   test('begins its effect in simulate, as in the run', async () => {
     expect(await begins('simulate')).toBe(true)
   })
+})
+
+// A fiber of the program that interrupts a command's or a subscription's fiber is no interruption by the run nor by
+// whoever runs it ("Guarantees", "Nothing ends in silence": only the run, and whoever runs it, interrupt them), so the
+// run and each tool die in its site. `diesIn` takes it for the run's, since it carries no mark: each case fails until
+// it tells them apart. The interrupter is detached, and tells `interrupted` once the fiber it interrupts has ended, so
+// that a defect would have been recorded by then.
+describe('a command or a subscription that a fiber of the program interrupts', () => {
+  type Row = Readonly<{ seen: number }>
+  const interruptingItself = (interrupted: Deferred.Deferred<void>) =>
+    Effect.gen(function*() {
+      const self = yield* Effect.fiber
+      yield* Effect.forkDetach(Fiber.interrupt(self).pipe(Effect.andThen(Deferred.succeed(interrupted, undefined))))
+      return yield* Effect.never
+    })
+  const commanding = (
+    interrupted: Deferred.Deferred<void>,
+  ): Program<{ state: Row; model: number; message: 'Go'; command: 'Quit' }> => ({
+    init: { state: { seen: 0 } },
+    update: () => (state) => ({ state, commands: ['Quit'] }),
+    runCommand: () => interruptingItself(interrupted),
+    subscriptions: () => HashMap.empty(),
+    makeModel: ({ seen }) => seen,
+  })
+  const listening = (
+    interrupted: Deferred.Deferred<void>,
+  ): Program<{ state: Row; model: number; message: 'Seen' }> => ({
+    init: { state: { seen: 0 } },
+    update: () => ({ seen }) => ({ state: { seen: seen + 1 } }),
+    subscriptions: () =>
+      HashMap.make(['ticks', Channel.fromEffectDone(Effect.as(interruptingItself(interrupted), 'Seen' as const))]),
+    makeModel: ({ seen }) => seen,
+  })
+  const diedIn = (exit: Exit.Exit<unknown, unknown>) => {
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    return defect instanceof ProgramDefect ? defect.where : undefined
+  }
+  const interruptedBy = <A, E>(tool: (interrupted: Deferred.Deferred<void>) => Effect.Effect<A, E>) =>
+    Effect.runPromiseExit(Effect.flatMap(Deferred.make<void>(), tool))
+
+  test.failing('the run dies with a defect of a command a fiber of the program interrupts', async () => {
+    const exit = await interruptedBy((interrupted) =>
+      drive(commanding(interrupted), (driver) =>
+        driver.send(() => Opt.some('Go')).pipe(Effect.andThen(Deferred.await(interrupted))))
+    )
+    expect(diedIn(exit)).toBe('command')
+  })
+
+  test.failing(
+    'simulate fails with a defect, as the run dies, of a command a fiber of the program interrupts',
+    async () => {
+      const exit = await interruptedBy((interrupted) =>
+        simulate(commanding(interrupted))(['Go'], { state: { seen: 0 } })
+      )
+      expect(diedIn(exit)).toBe('command')
+    },
+  )
+
+  test.failing(
+    'rehearse fails with a defect, as the run dies, of a command a fiber of the program interrupts',
+    async () => {
+      const exit = await interruptedBy((interrupted) =>
+        rehearse(commanding(interrupted), (rehearsal) =>
+          rehearsal.send(() => Opt.some('Go')).pipe(Effect.andThen(rehearsal.run(() => true))))
+      )
+      expect(diedIn(exit)).toBe('command')
+    },
+  )
+
+  test.failing('the run dies with a defect of a subscription a fiber of the program interrupts', async () => {
+    const exit = await interruptedBy((interrupted) => drive(listening(interrupted), () => Deferred.await(interrupted)))
+    expect(diedIn(exit)).toBe('subscription')
+  })
+
+  // The call is forked: with no defect, it would wait for ever for a last message that never comes.
+  test.failing(
+    'rehearse fails with a defect, as the run dies, of a subscription a fiber of the program interrupts',
+    async () => {
+      const exit = await interruptedBy((interrupted) =>
+        rehearse(listening(interrupted), (rehearsal) =>
+          Effect.forkChild(rehearsal.hearNext('ticks')).pipe(Effect.andThen(Deferred.await(interrupted))))
+      )
+      expect(diedIn(exit)).toBe('subscription')
+    },
+  )
 })
