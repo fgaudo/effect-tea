@@ -55,6 +55,7 @@ export interface DriveOptions<State, Message, Command = unknown> extends RunOpti
  *
  * - It sends what the frames show, through the run's dispatch. The program's subscriptions run.
  * - A wait that lasts longer than `patience` fails. `patience` is 2 seconds by default, measured with the real clock.
+ *   The error's `cause` is the model of the latest frame, when there is one.
  * - Time in `drive` is real. A frame may be past when its message arrives, so a rejected message is ignored, as in a
  *   run.
  * - A wait looks at the latest frame and at later ones.
@@ -118,7 +119,7 @@ export const drive = Effect.fnUntraced(function*<
             Effect.die(
               new Error(
                 `No frame showed what the test waits for within ${Duration.format(Duration.fromInputUnsafe(patience))}`,
-                { cause: Opt.map(latest, (frame) => frame.model) },
+                Opt.match(latest, { onNone: () => undefined, onSome: (frame) => ({ cause: frame.model }) }),
               ),
             )),
         onSome: Effect.succeed,

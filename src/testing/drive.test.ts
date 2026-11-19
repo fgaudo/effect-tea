@@ -263,6 +263,20 @@ describe('drive', () => {
     expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain('within 20ms')
   })
 
+  test('a wait longer than the patience fails with the model of the latest frame as its cause', async () => {
+    const exit = await Effect.runPromiseExit(drive(
+      noteProgram(Effect.void),
+      Effect.fnUntraced(function*(driver) {
+        yield* driver.send(typing('milk'))
+        yield* driver.waitFor((model) => model.note.text === 'milk' ? Opt.some(model) : Opt.none())
+        return yield* driver.waitFor(() => Opt.none())
+      }),
+      { patience: 20 },
+    ))
+    const cause = Exit.isFailure(exit) ? (Cause.squash(exit.cause) as Error).cause : undefined
+    expect(cause).toMatchObject({ _tag: 'Written', note: { text: 'milk' } })
+  })
+
   test('a message update rejects is ignored, as when the program runs', async () => {
     const saved = await Effect.runPromise(drive(
       noteProgram(Effect.void),

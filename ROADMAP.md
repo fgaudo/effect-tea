@@ -12,11 +12,6 @@ holds only what is to be done or decided now.
 A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a deterministic
 test of it. None is open.
 
-Found in a review of 18 November 2026, each reproduced:
-
-- **The failure of `drive`'s `patience` carries an `Option` of the model** as its `cause`, not the model: say so where
-  the guide describes it, or give the model itself.
-
 Found in a review of the premises, 19 November 2026, each held by a `test.failing` case:
 
 - **Equal defects become one**: two releases in the scope the run gives a command, a subscription or the renderer that

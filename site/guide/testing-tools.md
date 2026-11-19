@@ -152,7 +152,8 @@ rehearse(
   test. The service waits on a `Deferred` that the scenario completes.
 - The renderer of `drive` keeps only the latest frame. A wait looks at that frame and at later ones.
 - A wait that lasts longer than `patience` fails. `patience` is an option of `drive`, 2 seconds by default. It is
-  measured with the real clock, even under Effect's `TestClock`.
+  measured with the real clock, even under Effect's `TestClock`. The error it fails with has the model of the latest
+  frame as its `cause`, when a frame was drawn.
 - Time in `drive` is real: a frame may be past by the time its message arrives. So, as when the program runs, a
   rejected message is ignored, and a scenario checks what it expects to see.
 - How `drive` ends is under [precisely](#precisely).
