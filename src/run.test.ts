@@ -2367,8 +2367,8 @@ describe("what a frame has seen of what was dispatched", () => {
       const drawn: Array<Drawn> = []
       const ignored = yield* Deferred.make<void>()
       const done = yield* Deferred.make<void>()
-      // The renderer reads the frame of the increment only once the loop has taken the rejected message after it,
-      // which makes no frame of its own.
+      // The renderer reads the frame of the increment only once the loop has taken the rejected message after it, and
+      // before the frame of that message is published: `onIgnored` hears it first.
       const render: Render = (frames) =>
         Stream.runForEach(
           frames,
@@ -2388,6 +2388,60 @@ describe("what a frame has seen of what was dispatched", () => {
       return drawn
     }))
     expect(frames).toEqual([{ count: 0, seen: 0 }, { count: 1, seen: 1 }])
+  })
+})
+
+describe("a dispatched message that makes no new state", () => {
+  type Pulled = Readonly<{ model: Model; seen: number }>
+
+  /** Runs `program`, sends `message` from the first frame, and returns the frames until one has seen it. */
+  const framesOf = (program: Counter, message: Message) =>
+    Effect.runPromise(Effect.gen(function*() {
+      const pulled: Array<Pulled> = []
+      const done = yield* Deferred.make<void>()
+      const render = (frames: Stream.Stream<Frame<Model, Message>>) =>
+        Stream.runForEach(
+          frames,
+          Effect.fnUntraced(function*({ model, dispatch, seen }) {
+            pulled.push({ model, seen })
+            if (seen === 0) yield* dispatch(message)
+            else yield* Deferred.succeed(done, undefined)
+          })
+        )
+      yield* Effect.raceFirst(run(program, render), Deferred.await(done))
+      return pulled
+    }))
+
+  const counted = () => {
+    let made = 0
+    const program: Counter = {
+      ...counter,
+      makeModel: (state) => {
+        made += 1
+        return counter.makeModel(state)
+      }
+    }
+    return { program, made: () => made }
+  }
+
+  test("rejected, draws a frame of the very same model, which has seen it", async () => {
+    const { program, made } = counted()
+    const [first, second, ...rest] = await framesOf(program, "Forbidden")
+    expect([first?.seen, second?.seen, rest]).toEqual([0, 1, []])
+    expect(second?.model).toBe(first?.model)
+    expect(made()).toBe(1)
+  })
+
+  test("applied, leaving the very same state, draws a frame of the very same model, which has seen it", async () => {
+    const { program, made } = counted()
+    const keeping: Counter = {
+      ...program,
+      update: (message) => (state) => message === "Increment" ? { state: { count: state.count + 1 } } : { state }
+    }
+    const [first, second, ...rest] = await framesOf(keeping, "Forbidden")
+    expect([first?.seen, second?.seen, rest]).toEqual([0, 1, []])
+    expect(second?.model).toBe(first?.model)
+    expect(made()).toBe(1)
   })
 })
 

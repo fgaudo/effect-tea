@@ -52,7 +52,7 @@ The view draws the name with the bridge's `shows`, over a native `<input>`, thro
 `forwardTo`.
 
 The bridge does the careful part. It writes what is typed over what the element showed. It gives the element the
-program's value only once the state has moved on without the element. So a slow frame never takes back what the user
+program's value only once a frame has seen what was typed. So a slow frame never takes back what the user
 just typed.
 
 The element needs no `key` of the renderer: the bridge keeps the element and its focus while the program changes what

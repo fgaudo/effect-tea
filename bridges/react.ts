@@ -18,6 +18,7 @@
 // Checked with react and react-dom 19.3.1.
 import { type Dispatch, drawn, edited, type Frame, type Shown, type Written } from "@fgaudo/effect-tea"
 import * as Effect from "effect/Effect"
+import * as Opt from "effect/Option"
 import * as Stream from "effect/Stream"
 import { createElement, type InputHTMLAttributes, type ReactNode } from "react"
 import { flushSync } from "react-dom"
@@ -37,7 +38,7 @@ const lives = new WeakMap<HTMLInputElement, Live>()
 /**
  * A text input that shows an input of the program, `value`, through the input's own dispatch
  * (`forwardTo(dispatch, 'Name')`): what is typed is written over what the element showed, and the element takes the
- * program's value only when the state has moved on without it (`drawn`). The `<input>` is uncontrolled and needs no
+ * program's value only once a frame has seen what was typed (`drawn`). The `<input>` is uncontrolled and needs no
  * key: the element stays, with its focus, while the program changes what it shows. Its other props are the
  * `<input>`'s.
  */
@@ -91,9 +92,10 @@ const animationFrame = Effect.callback<void>((resume) => {
 
 /**
  * The renderer `run` takes: draws each frame into a React root made in `element`, settles its inputs with the frame's
- * `seen` once React has committed it, and unmounts the root when the run ends. After a frame it waits for the next
- * animation frame before taking another, as the snabbdom bridge does. A view that throws throws here, its components
- * included, so the run dies with it.
+ * `seen` once React has committed it, and unmounts the root when the run ends. A frame whose model is the very one
+ * drawn last, which `run` gives for the very same state, is not drawn again: its inputs are only settled. After a
+ * frame it waits for the next animation frame before taking another, as the snabbdom bridge does. A view that throws
+ * throws here, its components included, so the run dies with it.
  */
 export const renderInto =
   <Model, Message>(element: Element, view: View<Model, Message>) => (frames: Stream.Stream<Frame<Model, Message>>) =>
@@ -110,14 +112,18 @@ export const renderInto =
         })
     ).pipe(
       Effect.flatMap(({ root, thrown }) =>
-        Stream.runForEach(frames, ({ model, dispatch, seen }) =>
+        Stream.runFoldEffect(frames, Opt.none<Model>, (drawn, { model, dispatch, seen }) =>
           Effect.sync(() => {
-            flushSync(() => root.render(view(model, dispatch)))
-            if (thrown.length > 0) throw thrown[0]
+            if (!(Opt.isSome(drawn) && drawn.value === model)) {
+              flushSync(() => root.render(view(model, dispatch)))
+              if (thrown.length > 0) throw thrown[0]
+            }
             // After the commit, not inside `flushSync`'s callback, where React has not committed the frame yet.
             settle(element, seen)
+            return Opt.some(model)
           }).pipe(Effect.tap(() => animationFrame)))
       ),
+      Effect.asVoid,
       Effect.scoped
     )
 

@@ -69,14 +69,13 @@ that element:
 - After each frame, `drawn(held, value, seen)` gives what the element then holds, `shown`, and whether the element
   takes the frame's value, `taken`. When the value is taken, the bridge writes that value into the element.
 
-**The element stays as it is while the frame is the element's own past or present.** "The element's own past or
-present" means that the frame holds one of two states:
+**The element stays as it is while the frame has not seen all the element's writes.** Such a frame was made before
+the run took the last of them, so it may not show it yet.
 
-- a state from before the writes that the frame has not seen: the element's past;
-- a state after all of the element's writes: the element's present.
-
-The element takes the frame's value once the state has moved on without the element. So the element is never replaced,
-and keeps its focus while the program changes what it shows.
+The element takes the frame's value once a frame has seen all its writes. Such a frame always comes, since the run makes
+a frame for each dispatched message, a rejected one too. So the element is never replaced, and keeps its focus while the
+program changes what it shows. A write that the state moved on without is shown until the run has taken it, and then
+the element shows the program's value.
 
 The examples' bridges show this rule, and you can copy them: [`form`](../../examples/form) draws its input with
 snabbdom and with React.
@@ -221,16 +220,12 @@ value is taken, the bridge writes `shown.value` into the element.
 There are three cases:
 
 - **A new element** shows the frame's very `value`. It is always taken.
-- **The element's own past or present.** The frame holds, by `Equal`:
-  - when the frame has not seen all the element's writes, what the element showed before the first of them;
-  - when the frame has seen them all, what the element shows.
-
-  The element stays as it is, showing the very value it held, and is not taken. Only the writes that the frame has seen
-  are forgotten.
-- **A state that has moved on without the element**, in any other case. The element forgets all its writes. The writes
-  that the frame has not seen are rejected, unless the input's place again holds the value they were written over (see
-  [two limits](#two-limits)). The element shows the frame's very `value`. It is taken, unless it is the very value that
-  the element showed.
+- **A frame that has not seen all the element's writes.** The element stays as it is, showing the very value it held,
+  whatever the frame holds, and is not taken.
+- **A frame that has seen all the element's writes.**
+  - When the frame holds what the element shows, by `Equal`, the element stays as it is, and is not taken.
+  - Otherwise, the element shows the frame's very `value`, and it is taken. Its writes were stored and the program
+    changed the value since, or they were rejected, as the state had moved on without the element.
 
 `drawn` tells which writes a frame has seen by the numbers that `sent` was given. So a bridge calls the `sent` of
 `edited` once, with the number that its dispatch returned for that write. Otherwise `drawn` may replace what the user
@@ -241,7 +236,7 @@ typed.
 With a bridge that settles them with `drawn`, the element of an input:
 
 - never takes back what the user typed since the frame;
-- shows the program's value once the state has moved on without the element.
+- shows the program's value once a frame has seen all the element's writes, which always comes.
 
 That holds for elements and renderers that meet one condition, in two parts:
 

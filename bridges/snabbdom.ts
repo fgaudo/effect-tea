@@ -13,6 +13,7 @@
 // Checked with snabbdom 3.6.4.
 import { type Dispatch, drawn, edited, type Frame, type Shown, type Written } from "@fgaudo/effect-tea"
 import * as Effect from "effect/Effect"
+import * as Opt from "effect/Option"
 import * as Stream from "effect/Stream"
 import {
   eventListenersModule,
@@ -42,7 +43,7 @@ const lives = new WeakMap<Element, Live>()
 /**
  * snabbdom's data for a text input that shows an input of the program, `value`, through the input's own dispatch
  * (`forwardTo(dispatch, 'Name')`): what is typed is written over what the element showed, and the element takes the
- * program's value only when the state has moved on without it (`drawn`). It needs no key: the element stays, with its
+ * program's value only once a frame has seen what was typed (`drawn`). It needs no key: the element stays, with its
  * focus, while the program changes what it shows.
  */
 export const shows = (value: string, dispatch: Dispatch<Written<string>>): VNodeData => ({
@@ -114,8 +115,9 @@ const animationFrame = Effect.callback<void>((resume) => {
 
 /**
  * The renderer `run` takes: patches the previous tree with each frame, starting from `root`, then settles the inputs on
- * screen with the frame's `seen`. After a patch it waits for the next animation frame before taking another, so it
- * draws at most once per screen refresh: `run` keeps only the latest frame meanwhile.
+ * screen with the frame's `seen`. A frame whose model is the very one drawn last, which `run` gives for the very same
+ * state, is not drawn again: its inputs are only settled. After each frame it waits for the next animation frame
+ * before taking another, so it draws at most once per screen refresh: `run` keeps only the latest frame meanwhile.
  */
 export const renderInto =
   <Model, Message>(root: Element, view: View<Model, Message>) => (frames: Stream.Stream<Frame<Model, Message>>) => {
@@ -123,12 +125,13 @@ export const renderInto =
     const patch = init([propsModule, styleModule, eventListenersModule, showsModule(live)])
     return Stream.runFoldEffect(
       frames,
-      (): Element | VNode => root,
+      (): Readonly<{ tree: Element | VNode; drawn: Opt.Option<Model> }> => ({ tree: root, drawn: Opt.none() }),
       (previous, { model, dispatch, seen }) =>
         Effect.sync(() => {
-          const tree = patch(previous, view(model, dispatch))
+          const same = Opt.isSome(previous.drawn) && previous.drawn.value === model
+          const tree = same ? previous.tree : patch(previous.tree, view(model, dispatch))
           settle(live, seen)
-          return tree
+          return { tree, drawn: Opt.some(model) }
         }).pipe(Effect.tap(() => animationFrame))
     ).pipe(Effect.asVoid)
   }

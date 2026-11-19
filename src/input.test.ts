@@ -605,7 +605,7 @@ describe("what an element on screen holds of an input", () => {
     expect(taken).toBe(true)
   })
 
-  test("edited, the write names what the element showed, as the element records it", () => {
+  test("edited, the write names what the element showed, and the element shows what was written", () => {
     fc.assert(fc.property(fc.string(), fc.array(fc.string(), { minLength: 1 }), (start, keys) => {
       let held = made(start)
       keys.forEach((key, index) => {
@@ -613,40 +613,40 @@ describe("what an element on screen holds of an input", () => {
         expect(written).toEqual({ _tag: "Written", was: held.value, value: key })
         const next = sent(index + 1)
         expect(next.value).toBe(key)
-        // A frame that has seen none of the writes and holds the start leaves the element as it is.
-        expect(drawn(next, start, 0)).toEqual({ shown: next, taken: false })
+        // A frame that has not seen the write leaves the element as it is, whatever it holds.
+        expect(drawn(next, start, index)).toEqual({ shown: next, taken: false })
         held = next
       })
     }))
   })
 
-  test("a frame older than the keys typed since leaves the element as it is", () => {
+  test("a frame that has not seen every key leaves the element as it is, whatever it holds", () => {
     const element = typing(typing(made(""), "a", 4), "ab", 5)
-    // The frame has seen neither key, then the first alone: each time it holds what the element showed before the
-    // first key the frame has not seen.
-    expect(drawn(element, "", 3)).toEqual({ shown: element, taken: false })
-    const later = drawn(element, "a", 4)
-    expect(later.shown.value).toBe("ab")
-    expect(later.taken).toBe(false)
-    // The key it has seen is forgotten: a frame that holds '' from now on is no longer its past.
-    expect(drawn(later.shown, "", 4)).toMatchObject({ shown: { value: "" }, taken: true })
+    // The frame has seen neither key, then the first alone, and holds what the element showed, or another value.
+    for (const [value, seen] of [["", 3], ["a", 4], ["x", 4], ["", 0]] as const) {
+      expect(drawn(element, value, seen)).toEqual({ shown: element, taken: false })
+    }
   })
 
   test("a frame that has seen every key and holds what the element shows leaves it as it is", () => {
     const element = typing(made(""), "a", 4)
-    const settled = drawn(element, "a", 4)
-    expect(settled).toMatchObject({ shown: { value: "a" }, taken: false })
-    expect(drawn(settled.shown, "", 3)).toMatchObject({ shown: { value: "" }, taken: true })
+    expect(drawn(element, "a", 4)).toEqual({ shown: element, taken: false })
+    expect(drawn(element, "a", 9)).toEqual({ shown: element, taken: false })
   })
 
   test("a frame that has seen every key and holds another value gives the element that value", () => {
-    // The program emptied the input after the key: the element takes the empty text.
+    // The program emptied the input after the key, in the step of the key or in a later one: the element takes the
+    // empty text.
+    expect(drawn(typing(made(""), "a", 4), "", 4)).toMatchObject({ shown: { value: "" }, taken: true })
     expect(drawn(typing(made(""), "a", 4), "", 5)).toMatchObject({ shown: { value: "" }, taken: true })
   })
 
-  test("a frame that holds neither the element's past nor its present gives the element its value at once", () => {
-    // The key was typed over 'a', and the frame, which has not seen it, holds '': the key will be rejected.
-    expect(drawn(typing(made("a"), "ab", 4), "", 3)).toMatchObject({ shown: { value: "" }, taken: true })
+  test("a key the state moved on without is shown until a frame has seen it, then the element takes the value", () => {
+    // The key was typed over 'a', and the state holds '' since: the key will be rejected. The frame that has not seen
+    // it leaves the element, and the frame of its rejection gives the element the empty text.
+    const element = typing(made("a"), "ab", 4)
+    expect(drawn(element, "", 3)).toEqual({ shown: element, taken: false })
+    expect(drawn(element, "", 4)).toMatchObject({ shown: { value: "" }, taken: true })
   })
 
   test("a frame of a state brought back to one the element has left gives the element its value", () => {
@@ -657,42 +657,30 @@ describe("what an element on screen holds of an input", () => {
     })
   })
 
-  test("a frame of a state that moved on to the very value the element shows does not write it again", () => {
-    // The key 'a' was typed over '', and the frame, which has not seen it, holds 'a' from elsewhere: the key will be
-    // rejected, and the element already shows what the frame holds.
-    const element = typing(made(""), "a", 4)
-    const { shown, taken } = drawn(element, "a", 3)
-    expect(shown).not.toBe(element)
-    expect(shown.value).toBe("a")
-    expect(taken).toBe(false)
-  })
-
-  // "The very value" is `Object.is`, not `===`: `NaN` is the very value of itself, and `0` is not that of `-0`.
-  test("a frame of a state that moved on to NaN, the very value the element shows, does not write it again", () => {
-    const element = edited(drawn(undefined, 5, 0).shown, NaN).sent(4)
-    expect(drawn(element, NaN, 3)).toMatchObject({ shown: { value: NaN }, taken: false })
-  })
-
-  test("a frame of a state that moved on to 0, where the element shows -0, gives the element its value", () => {
-    const element = edited(drawn(undefined, 5, 0).shown, -0).sent(4)
-    const { shown, taken } = drawn(element, 0, 3)
-    expect(Object.is(shown.value, 0)).toBe(true)
-    expect(taken).toBe(true)
+  test("a frame that gives the element its value keeps the number of the element's last write", () => {
+    const element = typing(made("a"), "ab", 4)
+    const { shown } = drawn(element, "", 4)
+    // A later frame that has not seen a write sent since leaves the element as it is.
+    const next = edited(shown, "x").sent(6)
+    expect(drawn(next, "", 5)).toEqual({ shown: next, taken: false })
   })
 
   test("an element that stays is not taken, though the frame holds an equal copy", () => {
     const element = drawn(undefined, { tags: ["a"] }, 0).shown
     expect(drawn(element, { tags: ["a"] }, 1)).toEqual({ shown: element, taken: false })
-    // The frame has not seen the write, and holds a copy of what the element showed before it: the element keeps
-    // what it shows.
     const later = edited(element, { tags: ["a", "b"] }).sent(2)
-    expect(drawn(later, { tags: ["a"] }, 1)).toMatchObject({ shown: { value: { tags: ["a", "b"] } }, taken: false })
+    expect(drawn(later, { tags: ["a", "b"] }, 2)).toEqual({ shown: later, taken: false })
   })
 
-  test("compares the frame by Equal, so that a copy of what the element showed keeps it", () => {
+  // `Equal` holds NaN equal to itself, and 0 to -0: the element keeps what it shows.
+  test("compares the frame by Equal, so that a copy of what the element shows keeps it", () => {
     const element = edited(drawn(undefined, ["a"], 0).shown, ["a", "b"]).sent(1)
-    expect(drawn(element, ["a"], 0)).toEqual({ shown: element, taken: false })
-    expect(drawn(element, ["b"], 0)).toMatchObject({ shown: { value: ["b"] }, taken: true })
+    expect(drawn(element, ["a", "b"], 1)).toEqual({ shown: element, taken: false })
+    expect(drawn(element, ["b"], 1)).toMatchObject({ shown: { value: ["b"] }, taken: true })
+    const nan = edited(drawn(undefined, 5, 0).shown, NaN).sent(1)
+    expect(drawn(nan, NaN, 1)).toEqual({ shown: nan, taken: false })
+    const zero = edited(drawn(undefined, 5, 0).shown, -0).sent(1)
+    expect(drawn(zero, 0, 1)).toEqual({ shown: zero, taken: false })
   })
 })
 
@@ -796,8 +784,8 @@ describe("the types of an input", () => {
   test("the element a bridge holds shows its value, and keeps the rest to the library", () => {
     const element = drawn(undefined, "a", 0).shown
     expect(element.value).toBe("a")
-    // @ts-expect-error: what the element sent that no frame has seen is not for a bridge to read.
-    expect(element.unseen).toBeUndefined()
+    // @ts-expect-error: the number of the element's last write is not for a bridge to read.
+    expect(element.last).toBeUndefined()
     // @ts-expect-error: an element is made by `drawn` and `edited`, not by hand.
     const byHand: Shown<string> = { value: "a" }
     expect(byHand.value).toBe("a")

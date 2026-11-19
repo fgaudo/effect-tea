@@ -646,7 +646,7 @@ const make = <
         const result = childOf(place.name).program.update(message)(childState) as Transition<unknown, unknown, unknown>
         if (result === reject) return reject
         // A child's events are handled in order, each by the state its predecessors left. An unchanged child
-        // leaves its parent's state as it is, so that the very same state draws no new frame.
+        // leaves its parent's state as it is, so that the very same state makes no new model.
         const lifted: Folded<State, Command, Event> = {
           state: result.state === childState ? state : setAt(place, state, result.state),
           commands: Arr.map(result.commands ?? [], wrapCommand(place)),

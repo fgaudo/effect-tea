@@ -14,14 +14,17 @@ import * as Shell from "./shell.ts"
  *
  * `run` hands its renderer a stream of them.
  *
- * - A message that returns the very same state draws no new frame. A model is made only for the frames the renderer
- *   pulls.
+ * - A frame of the very same state as the frame before it holds the very same model. A model is made only for the
+ *   frames the renderer pulls.
  * - `seen` counts the dispatched messages, rejected ones included, but no message of a command or a subscription.
- *   The last frame may have seen fewer messages than were dispatched: never wait for it to see them all.
+ * - A dispatched message that makes no new state draws a frame of the same state, with the new `seen`. A message of a
+ *   command or a subscription that makes no new state draws no frame. So the last frame comes to see every message
+ *   that was dispatched, once the run has taken it.
  * - `dispatch` is the very same function in every frame.
  *
  * @see The guide, "Guarantees", "Frames cost only what is drawn".
  * @see The guide, "Guarantees", "A frame says what it has seen".
+ * @see The guide, "View", "A frame for each dispatched message".
  * @see The guide, "Running", "A frame's `dispatch` is the very same function in every frame".
  */
 export type Frame<Model, Message> = {
@@ -29,7 +32,7 @@ export type Frame<Model, Message> = {
   readonly model: Model
   /** Sends a message to the program. */
   readonly dispatch: Dispatch<Message>
-  /** How many dispatched messages the run had taken when the frame's state was made. */
+  /** How many dispatched messages the run had taken when the frame was made. */
   readonly seen: number
 }
 
@@ -71,11 +74,21 @@ const running = Effect.fnUntraced(
       runCommand: runCommandOf(program),
       subscriptions: program.subscriptions
     })
-    const frames = engine.states.pipe(
-      Stream.buffer({ capacity: 1, strategy: "sliding" }),
-      // After the buffer, so that a model is made only for the frames the renderer pulls, in the renderer's fiber.
-      Stream.map(({ state, seen }) => ({ model: program.makeModel(state), dispatch: engine.dispatch, seen }))
-    )
+    // A frame of the very same state as the one before it, which a dispatched message that makes no new state
+    // publishes, holds the very same model, made once: the last state a model was made of is kept, with its model, in
+    // one slot for each run of the stream, which `Stream.suspend` makes anew each time the stream runs. Written only in
+    // the renderer's fiber.
+    const frames = Stream.suspend(() => {
+      let last: Readonly<{ state: State; model: Model }> | undefined
+      return engine.states.pipe(
+        Stream.buffer({ capacity: 1, strategy: "sliding" }),
+        // After the buffer, so that a model is made only for the frames the renderer pulls, in the renderer's fiber.
+        Stream.map(({ state, seen }) => {
+          if (last?.state !== state) last = { state, model: program.makeModel(state) }
+          return { model: last.model, dispatch: engine.dispatch, seen }
+        })
+      )
+    })
     // Called at most once, in a run that died as it started too, as a subscription of `init` may die while the engine
     // starts: the end of the run interrupts it, as it does any effect of the program (`docs/invariants.md`).
     const rendering = Effect.suspend(() => render(frames)).pipe(

@@ -52,6 +52,72 @@ const deathWithin = (engine: Engine.Engine<number, Message>) => Effect.timeoutOp
 
 const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) => Effect.runPromise(Effect.scoped(effect))
 
+describe("what the engine publishes", () => {
+  type Published = Readonly<{ state: number; revision: number; seen: number }>
+
+  /** The states published, from the first, until the one of `revision`; `first` runs as the first is heard. */
+  const publishedUntil = (
+    engine: Engine.Engine<number, Message>,
+    first: Effect.Effect<unknown>,
+    revision: number
+  ): Effect.Effect<ReadonlyArray<Published>> =>
+    engine.states.pipe(
+      Stream.tap(({ seen, revision }) => seen === 0 && revision === 0 ? first : Effect.void),
+      Stream.takeUntil((published) => published.revision === revision),
+      Stream.runCollect,
+      Effect.map((all) => Array.from(all, ({ state, revision, seen }) => ({ state, revision, seen })))
+    )
+
+  test("a dispatched message that makes no new state publishes the same state, with the new count", async () => {
+    const published = await run(Effect.gen(function*() {
+      const engine = yield* Engine.make<number, Message | "Same", never, never, never>({
+        init: { state: 0 },
+        runCommand: absurd,
+        update: (message) => (count) =>
+          message === "Increment" ? { state: count + 1 } : message === "Same" ? { state: count } : reject,
+        subscriptions: () => HashMap.empty()
+      })
+      const sent = Effect.andThen(engine.dispatch("Forbidden"), engine.dispatch("Same"))
+      return yield* publishedUntil(engine, Effect.andThen(sent, engine.dispatch("Increment")), 1)
+    }))
+    expect(published).toEqual([
+      { state: 0, revision: 0, seen: 0 },
+      { state: 0, revision: 0, seen: 1 },
+      { state: 0, revision: 0, seen: 2 },
+      { state: 1, revision: 1, seen: 3 }
+    ])
+  })
+
+  test("a message of a command that makes no new state publishes nothing", async () => {
+    const published = await run(Effect.gen(function*() {
+      const go = yield* Deferred.make<void>()
+      const heard = yield* Deferred.make<void>()
+      let answers = 0
+      const hear = (): undefined => {
+        answers += 1
+        if (answers === 2) Deferred.doneUnsafe(heard, Exit.void)
+      }
+      const answer = (message: Message | "Same") => Effect.as(Deferred.await(go), Opt.some(message))
+      const engine = yield* Engine.make<number, Message | "Same", Execution<Message | "Same", never>, never, never>({
+        init: { state: 0, commands: [answer("Forbidden"), answer("Same")] },
+        runCommand: identity,
+        update: (message) => (count) =>
+          message === "Increment" ? { state: count + 1 } : message === "Same" ? { state: count } : reject,
+        subscriptions: () => HashMap.empty(),
+        // Both answers heard, the rejected one and the applied one, before the increment is sent.
+        onApplied: () => hear(),
+        onIgnored: () => hear()
+      })
+      const first = Deferred.succeed(go, undefined).pipe(
+        Effect.andThen(Deferred.await(heard)),
+        Effect.andThen(engine.dispatch("Increment"))
+      )
+      return yield* publishedUntil(engine, first, 1)
+    }))
+    expect(published).toEqual([{ state: 0, revision: 0, seen: 0 }, { state: 1, revision: 1, seen: 1 }])
+  })
+})
+
 describe("Engine reject", () => {
   test("a message update rejects is ignored, and the program goes on", async () => {
     const outcome = await run(Effect.gen(function*() {

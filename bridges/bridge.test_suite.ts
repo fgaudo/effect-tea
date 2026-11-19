@@ -4,12 +4,12 @@
 // what a second click on it does before the next frame is drawn,
 // and how the bridge settles each input with a frame by the library's rule: what the user types survives the frames
 // drawn while they type, with its focus, caret and selection, a frame that has not seen a key leaves the element alone,
-// and a value the program puts in an input's place is shown by the same element, as a save that completes within one
-// screen refresh empties the input under a late key. An element the renderer draws in turn as an input and as a plain
-// field shows the input only while it is one. A slider the program draws listens to a drag. A source that belongs to
-// the control writes through the element on screen, as the user's edit, with the whole value. A `.test_suite.ts`, a
-// file that serves the tests, not a `*.test.ts`: `bun test` does not run it by itself, and it runs in the file of each
-// bridge that calls it, under that file's name.
+// and a value the program puts in an input's place is shown by the same element once a frame has seen its keys, as a
+// save that completes within one screen refresh empties the input under a late key once the key is rejected. An
+// element the renderer draws in turn as an input and as a plain field shows the input only while it is one. A slider
+// the program draws listens to a drag. A source that belongs to the control writes through the element on screen, as
+// the user's edit, with the whole value. A `.test_suite.ts`, a file that serves the tests, not a `*.test.ts`:
+// `bun test` does not run it by itself, and it runs in the file of each bridge that calls it, under that file's name.
 import { type Dispatch, type Frame, type MessageOf, type ModelOf, program, reject, run } from "@fgaudo/effect-tea"
 import { describe, expect, test } from "bun:test"
 import * as Deferred from "effect/Deferred"
@@ -355,6 +355,25 @@ export const draftTests = <Node>(bridge: Bridge<Node>) =>
       expect(state()).toEqual(["", "hello"])
     })
 
+    test("a rejected click draws its frame without drawing its tree again, and the element keeps what was typed", () => {
+      const app = mountDesk()
+      settle()
+      const typedInto = element<HTMLInputElement>("input")
+      type(typedInto, "A")
+      paint()
+      expect(app.views()).toBe(2)
+      // Nothing is kept: Undo is rejected, and its frame holds the very same state, and the very same model.
+      button("Undo").click()
+      paint()
+      expect(app.views()).toBe(2)
+      expect(state()).toEqual(["A"])
+      expect(typedInto.value).toBe("A")
+      type(typedInto, "Ad")
+      paint()
+      expect(app.views()).toBe(3)
+      expect(state()).toEqual(["Ad"])
+    })
+
     test(
       "a kept draft brought back as the very same state is shown by the element",
       () => {
@@ -500,15 +519,15 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
 
       // The order when the browser renders between the task of the key and the task that wakes the run's loop: a
       // dispatch only queues the message, and the renderer resumes in the callback of the refresh, at once.
-      test("is rejected once the input on screen is emptied, which offers no save", () => {
+      test("is shown until it is rejected, and the input on screen is then emptied, which offers no save", () => {
         const { input, applied, ignored } = savedWithinOneFrame()
         refresh()
-        // Drawn before the loop has taken the key: the frame has not seen the key, but holds neither what the input
-        // showed before it nor after it, so the state has moved on, and the input is emptied.
-        expect(input.value).toBe("")
+        // Drawn before the loop has taken the key: the frame has not seen the key, so the input keeps it.
+        expect(input.value).toBe("Ada x")
         expect(ignored).toEqual([])
         settle()
         expect(ignored).toEqual(["Name"])
+        // The frame of the rejection has seen the key, and gives the input the empty name.
         paint()
         // The state is what the screen shows: an empty input, and nothing to save.
         expect(element("input")).toBe(input)
@@ -761,7 +780,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
   // A renderer may draw one input with the element of another it replaces: snabbdom and React do, for an `<input>` in
   // the same place. What the element holds is of the input it showed, not of the next.
   describe("an input in the place of another input", () => {
-    test.failing(
+    test(
       "shows the program's value once a key for the first, left unseen, is rejected, and stores what is typed next",
       () => {
         mount(bridge.renderInto, bridge.views.steps, (render) => run(steps, render))
@@ -773,7 +792,8 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
         settle()
         type(typedInto, "A")
         refresh()
-        // The key is rejected, since the first step's place is gone: no frame follows.
+        // The key is rejected, since the first step's place is gone, and the frame of its rejection, which has seen it,
+        // gives the element the second step's text.
         paint()
         expect(element("input")).toBe(typedInto)
         expect(state()).toEqual([""])
@@ -786,8 +806,8 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
   })
 
   describe("an input whose place the state no longer holds", () => {
-    test.failing("shows the program's value once a key, left unseen by the frame that locks it, is rejected", () => {
-      mount(bridge.renderInto, bridge.views.lock, (render) => run(lock, render))
+    test("shows the program's value once a key, left unseen by the frame that locks it, is rejected", () => {
+      const app = mount(bridge.renderInto, bridge.views.lock, (render) => run(lock, render))
       settle()
       const typedInto = element<HTMLInputElement>("input")
       // The run takes Locked; a key is typed over the empty text, and the refresh draws the locked state, which has
@@ -796,8 +816,12 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       settle()
       type(typedInto, "A")
       refresh()
-      // The key is rejected, since the locked state holds no place for it: no frame follows.
+      expect(app.views()).toBe(2)
+      // The key is rejected, since the locked state holds no place for it, and the frame of its rejection, which has
+      // seen it, gives the element the locked state's text: a frame of the very same state, whose tree is not drawn
+      // again.
       paint()
+      expect(app.views()).toBe(2)
       expect(element("input")).toBe(typedInto)
       expect(state()).toEqual([""])
       expect(typedInto.value).toBe("")

@@ -387,6 +387,9 @@ const InvariantDefect_base: new <A extends Record<string, any> = {}>(args: VoidI
 // @public (undocumented)
 type Items<L> = L extends ReadonlyArray<infer I> ? I : never;
 
+// @public (undocumented)
+const Last = "~@fgaudo/effect-tea/Shown/last";
+
 // @public
 type Listed<T, Key extends "commands" | "events"> = T extends {
     readonly [K in Key]?: infer L;
@@ -604,10 +607,7 @@ export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags
 // @public
 export type Shown<A> = {
     readonly value: A;
-    readonly [Unseen]: ReadonlyArray<{
-        readonly sent: number;
-        readonly was: A;
-    }>;
+    readonly [Last]: number;
 };
 
 // @public
@@ -652,9 +652,6 @@ type Unboxed<E> = E extends readonly [(external: infer External) => void] ? Exte
 type Unpassed<Kept> = [Kept] extends [never] ? unknown : Readonly<{
     "an external message for a child is not among the child's": Kept;
 }>;
-
-// @public (undocumented)
-const Unseen = "~@fgaudo/effect-tea/Shown/unseen";
 
 // @public (undocumented)
 type Unsent<External, Names, C> = Names extends keyof C ? [External extends {

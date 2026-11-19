@@ -40,24 +40,25 @@ The library's tests check each guarantee. The second list is what the library le
   - A command, a subscription or the renderer that the program interrupts is a defect too: one that interrupts itself
     (with `Effect.interrupt`, or by joining an interrupted fiber), or that another fiber of the program interrupts.
   - Only the run, and whoever runs it, interrupt them.
-- **Frames cost only what is drawn.** A message that returns the very same state draws no new frame. A model is made
-  only for the frames the renderer pulls.
+- **Frames cost only what is drawn.** A frame of the very same state as the frame before it holds the very same model,
+  so a bridge need not draw it again. A model is made only for the frames the renderer pulls.
 - **An input stores what is written over the value it holds.** A write is stored when its place holds the value it was
   written over, and rejected otherwise.
   - The two values are compared by `Equal`.
   - This holds whatever the value is, and whatever else the state says.
-  - For the element that shows an input, `drawn` keeps the element as it is while the frame is the element's own past
-    or present.
-  - Once the state has moved on without it, `drawn` gives the element the frame's value.
+  - For the element that shows an input, `drawn` keeps the element as it is while the frame has not seen all the
+    element's writes.
+  - Once a frame has seen them all, `drawn` gives the element the frame's value. Such a frame always comes (below).
   - What that makes of a screen, and for which elements and renderers, is in
     [inputs the user types into](./inputs-the-user-types-into.md).
 - **A frame says what it has seen.** A frame's `seen` is how many dispatched messages the run had taken when the
-  frame's state was made.
+  frame was made.
   - Each message a dispatch sends is numbered, from 1, in the order the run takes it.
   - `seen` includes rejected ones.
   - `seen` counts no message of a command or a subscription.
-  - A message that makes no new state draws no frame. So the last frame may have seen fewer messages than were
-    dispatched: never wait for it to see them all.
+  - A dispatched message that makes no new state draws a frame all the same: the same state, with the new `seen`.
+  - A message of a command or a subscription that makes no new state draws no frame.
+  - So the last frame comes to see every dispatched message that the run has taken. A bridge may wait for it.
 
 ## What is left to you
 
@@ -108,10 +109,12 @@ interruptions by the program. It checks:
 - that what the run logs is not kept by the span of whoever runs it, and that this span stays the parent of the spans
   opened in it;
 - that nothing ends in silence;
-- that a model is made only for the frames pulled, and that the very same state draws no new frame;
+- that a model is made only for the frames pulled, and that a frame of the very same state as the frame before it
+  holds the very same model;
 - that what is written into an input is stored exactly when it was written over the value its place holds (see
   [inputs the user types into](./inputs-the-user-types-into.md));
-- that a frame has seen the dispatched messages taken before its state was made, and none after.
+- that a frame has seen the dispatched messages taken before it was made, and none after, and that the last frame
+  has seen them all.
 
 It also checks that the run dies with each defect, and that from the first one on it applies no message (see
 [running](./running.md)). It checks that the defects come in the order they happened. That order is how the run is

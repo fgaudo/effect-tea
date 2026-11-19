@@ -34,7 +34,8 @@ export type Written<A> = {
  * The one rule of an input: what was written over the value the place holds, by `Equal`, is stored, whatever it is and
  * whatever else the state says, since the input on screen already shows it; what was written over another value is
  * rejected, since the state has moved on without the input that wrote it. A value equal to the one held leaves the
- * very same value, so it draws no frame. It reads the state and the message alone: nothing is kept between two writes.
+ * very same value, so it makes no new model. It reads the state and the message alone: nothing is kept between two
+ * writes.
  */
 export const written = <A>(message: Written<A>) => (held: A): Transition<A> =>
   !Equal.equals(message.was, held)
@@ -45,10 +46,10 @@ export const written = <A>(message: Written<A>) => (held: A): Transition<A> =>
 
 // Hidden: what a bridge holds of an element is the library's to make and read, but for the value it shows. A string,
 // as the key of a program's external messages: an application that exports a `Shown` emits its declarations.
-const Unseen = "~@fgaudo/effect-tea/Shown/unseen"
+const Last = "~@fgaudo/effect-tea/Shown/last"
 
 /**
- * What the element of an input holds: the value it shows, and the writes it sent that no frame has seen yet (see
+ * What the element of an input holds: the value it shows, and the number of the last write it sent (see
  * {@link Frame}'s `seen`).
  *
  * A bridge keeps one for each element on screen. Only `drawn` and `edited` make one: the bridge reads only
@@ -59,10 +60,8 @@ const Unseen = "~@fgaudo/effect-tea/Shown/unseen"
 export type Shown<A> = {
   /** The value the element shows. */
   readonly value: A
-  readonly [Unseen]: ReadonlyArray<{ readonly sent: number; readonly was: A }>
+  readonly [Last]: number
 }
-
-const shownOf = <A>(value: A): Shown<A> => ({ value, [Unseen]: [] })
 
 /**
  * What a bridge sends when the user gives an element a new value, and what the element holds once it is sent.
@@ -86,21 +85,21 @@ export const edited = <A>(
   value: A
 ): Readonly<{ write: Written<A>; sent: (number: number) => Shown<A> }> => ({
   write: { _tag: "Written", was: held.value, value },
-  sent: (number) => ({ value, [Unseen]: [...held[Unseen], { sent: number, was: held.value }] })
+  sent: (number) => ({ value, [Last]: number })
 })
 
 /**
  * Tells a bridge what to do with the element of an input after a frame.
  *
  * Call it after each frame, once for each input. A frame can be older than what the user just typed. So the element
- * stays as it is while the frame is the element's own past or present. The element shows the program's value once the
- * state has moved on without it. There are three cases:
+ * stays as it is while the frame has not seen all its writes. Once a frame has seen them all, the element shows the
+ * frame's value. Such a frame always comes: the last frame of a run sees every dispatched message the run has taken.
+ * There are three cases:
  *
  * - A new element shows `value`.
- * - The frame is the element's own past or present: `value` is what the element showed before the writes that the
- *   frame has not seen yet, or what it shows now if the frame has seen them all (compared by `Equal`). The element
- *   does not change.
- * - Any other case: the element shows `value`.
+ * - The frame has not seen all the element's writes: the element does not change.
+ * - The frame has seen them all: the element shows `value`. It does not change when it shows that value already
+ *   (compared by `Equal`).
  *
  * `drawn` knows which writes the frame has seen from the numbers you give to `sent` in {@link edited}. Call `sent`
  * once for each write, with the number that the dispatch returned. If you do not, `drawn` can replace what the user
@@ -110,7 +109,7 @@ export const edited = <A>(
  * @param value - The value of the input in the frame.
  * @param seen - The frame's `seen`.
  * @returns `shown`, what the element holds from now on, and `taken`. When `taken` is true, write `shown.value` into
- * the element. It is false when the element already shows that very value.
+ * the element. It is false when the element does not change.
  *
  * @example
  * ```ts
@@ -121,18 +120,14 @@ export const edited = <A>(
  * ```
  *
  * @see The guide, "Inputs the user types into", "Settling an element".
+ * @see The guide, "View", "A frame for each dispatched message".
  */
 export const drawn = <A>(
   held: Shown<A> | undefined,
   value: A,
   seen: number
 ): Readonly<{ shown: Shown<A>; taken: boolean }> => {
-  if (held === undefined) return { shown: shownOf(value), taken: true }
-  const unseen = held[Unseen].filter((write) => write.sent > seen)
-  const first = unseen[0]
-  if (!Equal.equals(value, first === undefined ? held.value : first.was)) {
-    return { shown: shownOf(value), taken: !Object.is(value, held.value) }
-  }
-  const shown = unseen.length === held[Unseen].length ? held : { value: held.value, [Unseen]: unseen }
-  return { shown, taken: false }
+  if (held === undefined) return { shown: { value, [Last]: 0 }, taken: true }
+  if (held[Last] > seen || Equal.equals(value, held.value)) return { shown: held, taken: false }
+  return { shown: { value, [Last]: held[Last] }, taken: true }
 }

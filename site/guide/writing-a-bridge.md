@@ -30,7 +30,7 @@ minimal example to start from. What else a renderer can do is left to the bridge
 `run(program, render)` hands `render` a stream of frames, each `{ model, dispatch, seen }`. The run ends when `render`
 ends. A bridge's `renderInto(root, view)` is that `render`. For each frame, `renderInto`:
 
-1. calls the view with the model and the dispatch;
+1. calls the view with the model and the dispatch, unless the model is the very one it drew last;
 2. draws what the view returns;
 3. waits for the next animation frame before it takes another frame.
 
@@ -47,6 +47,9 @@ The rest is the bridge's own code:
 - The run keeps only the latest frame while the renderer is busy. So waiting for the next animation frame draws at
   most once per screen refresh, and a model the renderer never takes is never made (see [running](./running.md)).
 - If a view throws, the view throws inside the frame's `Effect.sync`, and the run dies with it.
+- A frame of the very same state as the frame before it holds the very same model. The run draws one for each
+  dispatched message that makes no new state, with a new `seen`. The bridge does not draw it again: it only settles
+  its inputs.
 - `showsModule` and `settle` are for the inputs, below. Without them, a bridge is this loop and its handlers.
 
 ### Handlers
@@ -97,10 +100,10 @@ The rest is the bridge's own code again. After each frame, `drawn(held, value, s
 and whether it takes the frame's value. The bridge writes the value it takes into the element:
 
 - A new element takes it.
-- An element keeps what the user typed while the frame is its own past or present: a state from before the writes that
-  the frame has not seen, or a state after all of them.
-- Once the state has moved on without the element, the element takes the program's value. The library rejects the
-  writes that the frame has not seen, unless the input's place again holds the value they were written over (see
+- An element keeps what the user typed while the frame has not seen all its writes.
+- Once a frame has seen them all, the element takes the program's value, unless it shows it already. A frame that has
+  seen them always comes, since the run makes a frame for each dispatched message. The library rejected the writes
+  that the state moved on without, unless the input's place again held the value they were written over (see
   [two limits](./inputs-the-user-types-into.md#two-limits)).
 
 {@includeCode ../../bridges/snabbdom.ts#settle}

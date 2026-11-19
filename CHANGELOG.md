@@ -44,9 +44,11 @@ version, and everything else, features included, the patch version.
   Upgrade: a function of the model that makes a message from what the user typed, `changeName: (name) =>
   NameChanged({ name })`, becomes an input, and the view writes over its value through `forwardTo(dispatch, 'Name')`.
 - **Breaking**: a `Dispatch` returns `Effect<number>`, the number of its message among those dispatched, and a `Frame`
-  has `seen`, how many of them the run had taken when its state was made.
+  has `seen`, how many of them the run had taken when it was made.
   Upgrade: a dispatch written by hand returns a number, `(message) => Effect.sync(() => sent.push(message))`, and a
   frame made by hand has `seen`.
+- A dispatched message that makes no new state, a rejected one too, draws a frame of the very same model, with the new
+  `seen`, so that the last frame sees every dispatched message; a message of a command or a subscription still does not.
 - **Breaking**: a frame's model is made as the renderer pulls the frame, and a `Frame` is plain data; `rehearse` makes
   the model of each new state as it applies the message, and fails on the state whose model dies.
   Upgrade: a renderer that pulls a frame it does not draw pays for its model; a test that expects a defect of

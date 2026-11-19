@@ -4,7 +4,9 @@
 `claude/port-plain-input` ("The port of the ninth review"): an input is a plain value, a write names the value it was
 written over, and a frame says how many of the view's messages it has seen; `Field`, `field` and `renewed` are gone,
 and the seventh and eighth reviews are in `docs/rejected.md`. What is left is in "The port of the ninth review" ›
-"Left". The sections before it are the history that led there, in the order it happened.
+"Left". The sections before it are the history that led there, in the order it happened. On 19 November 2026 the
+owner decided that the run acknowledges every dispatched message, and that `drawn` decides by order alone ("Every
+dispatched message acknowledged"), in the working tree of `main` after `15803e7`, not yet committed.
 
 The document records a discussion with the owner, two reviews by Fable 5.2 (one of a design, one asked for ideas),
 and one spike, kept on the branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never to be merged),
@@ -1868,3 +1870,41 @@ way of keeping its revision:
 - **With (A) only**, a state stored that differs from the one written in the revision ("To explore").
 
 While it stays in the examples (way 1), nothing but the sentences of the README, which applications cite as rules.
+
+## Every dispatched message acknowledged
+
+**Status:** decided by the owner on 19 November 2026, implemented in the working tree of `main` after `15803e7`, not
+yet committed. It reopens "A frame published for every message of the view", weighed and left in "A plain input, and a
+frame that says what it has seen", and changes the guarantee "A message that makes no new state draws no frame", which
+now holds for the messages of commands and subscriptions only. "An element drawn with another dispatch is new" was
+weighed beside it and not added.
+
+**What went wrong.** A frame's `seen` travelled only with a new state. `drawn` kept an element while a frame was its
+own past, and so bet that a write over the frame's value would be stored, and a frame that has seen it would follow.
+A renderer that reuses the element for another input, or a view that draws an input where the state holds no place,
+loses the bet: the write is rejected, no frame follows, and the element keeps the wrong text. Two `test.failing` cases
+of `bridges/bridge.test_suite.ts` held it, in both bridges ("an input in the place of another input", "an input whose
+place the state no longer holds").
+
+**What changed.**
+
+- **The run acknowledges every dispatched message.** A dispatched message that makes no new state, rejected or applied
+  with the very same state, publishes the same state with the new `seen`, after its observer. A message of a command
+  or a subscription that makes no new state publishes nothing, and the subscriptions are reconciled only for a new
+  state. The decision stays in `engine.ts`: no testing tool publishes frames, so `core.ts` would hold it for one shell.
+- **A frame of the very same state holds the very same model.** `run.ts` keeps the last state and its model in one
+  slot, by the identity of the state, for each run of the stream, made anew by `Stream.suspend`, whose documentation
+  says it runs its factory each time the stream runs. The models are still made by the `Stream.map` after the buffer,
+  which `docs/premises.md` lists, so that a model is still made only in the renderer's fiber, and a renderer that
+  pulls the stream again, as one that releases does, makes its model again. Each bridge skips the draw of a frame
+  whose model is the very one it drew last, and only settles its inputs.
+- **`drawn` by order alone.** A `Shown` is a value and the number of its last write, no list of `was`. A frame that has
+  not seen the last write leaves the element as it is, whatever it holds; one that has seen it gives the element its
+  value, unless the element shows it already, by `Equal`. `taken` is true exactly when the element changes: `Equal` is
+  reflexive, `NaN` included, so the `Object.is` of the old third case could not be false there, and it is gone with its
+  tests. The cost: a key typed over a state that moved on is shown until the run has taken it, one frame later than
+  before ("is shown until it is rejected, and the input on screen is then emptied, which offers no save").
+
+**Run**: the four bridge cases pass as plain tests; the checks named in the report of the session
+(`scratch/reports/ack-frames.md`, not in the repository), the mutations included. **Reasoned**: that no other renderer
+of the guide's condition needs more than the frame of the rejection.

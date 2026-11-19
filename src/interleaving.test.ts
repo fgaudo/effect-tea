@@ -377,7 +377,7 @@ const makeList = (fates: Fates, events: Array<Event>) => {
           return state.listening
             ? reject
             : { state: { ...state, listening: true, session: state.session + 1, finished: false } }
-        // Accepted, and the very same state: its parent's stays the same too, and no frame is drawn for it.
+        // Accepted, and the very same state: its parent's stays the same too, and no model is made for it.
         case "Poked":
           return { state }
         // Accept any tick, and any end, muted or not: whether one of a stopped subscription can arrive is what the
@@ -525,6 +525,8 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
   const events: Array<Event> = []
   const list = makeList(fates, events)
   let made = 0
+  // The state of each model made, by the model's identity.
+  const stateOf = new Map<Model, ListState>()
   const counted: List = {
     ...list,
     // Recorded as the run calls `update`, which is what it applies: `onApplied` hears a message later, and may hear
@@ -535,7 +537,9 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
     },
     makeModel: (state) => {
       made += 1
-      return list.makeModel(state)
+      const model = list.makeModel(state)
+      stateOf.set(model, state)
+      return model
     }
   }
   let latest: Frame<Model, Message> | undefined
@@ -609,7 +613,7 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
   const drawn = latest?.model
   yield* Fiber.interrupt(fiber)
   const exit = yield* Fiber.await(fiber)
-  return { exit, events, settled, drawn, made, caller }
+  return { exit, events, settled, drawn, made, stateOf, caller }
 })
 
 type Outcome = Effect.Success<ReturnType<typeof runScenario>>
@@ -769,6 +773,10 @@ describe("interleavings of the user, commands and subscriptions", () => {
       const states = 1 + applied(events).filter(({ before, after }) => before !== after).length
       if (made < states) reached.add("a state no frame showed")
       if (releaseOvertaken(events)) reached.add("a release overtaken")
+      const pulled = events.flatMap((event) => event._tag === "Drew" ? [event.frame] : [])
+      if (pulled.some((frame, index) => index > 0 && pulled[index - 1]?.model === frame.model)) {
+        reached.add("a frame of the very same state")
+      }
       let heard = 0
       for (const event of events) {
         const origin = event._tag === "Applied"
@@ -809,7 +817,8 @@ describe("interleavings of the user, commands and subscriptions", () => {
       "a state no frame showed",
       "a span of the program",
       "a release overtaken",
-      "a frame older than a message heard"
+      "a frame older than a message heard",
+      "a frame of the very same state"
     ].filter((tag) => !reached.has(tag))
     if (missing.length > 0) throw new Error(`No scenario of seed ${seed} reached ${missing.join(", ")}`)
   }, 180_000)
@@ -914,35 +923,53 @@ describe("interleavings of the user, commands and subscriptions", () => {
     })
   }, 120_000)
 
-  // The renderer may draw an older state than the last one made, which the sliding buffer drops, but never a count
-  // that no state was made with: `seen` is the count of the dispatched messages taken when the frame's state was made.
-  test("a frame has seen the dispatched messages taken before its state was made, and none after", () => {
+  // What the counts of the states published are: each dispatched message publishes a state, a new one or the same, and
+  // a message of a command or a subscription publishes one only when it makes a new state, with the count as it is.
+  const publishedCounts = (events: ReadonlyArray<Event>) => {
+    let heard = 0
+    const counts = new Set([0])
+    for (const event of events) {
+      const origin = event._tag === "Applied"
+        ? event.applied.origin
+        : event._tag === "Ignored"
+        ? event.ignored.origin
+        : undefined
+      if (origin?._tag === "Dispatch") {
+        heard += 1
+        counts.add(heard)
+      }
+      if (event._tag === "Applied" && event.applied.after !== event.applied.before) counts.add(heard)
+    }
+    return { counts, heard }
+  }
+
+  // The renderer may draw an older state than the last one published, which the sliding buffer drops, but never a
+  // count that no state was published with: `seen` is the count of the dispatched messages taken when the frame's
+  // state was published, which each dispatched message does, with a new state or the same.
+  test("a frame has seen the dispatched messages taken before it was published, and none after", () => {
     property(({ events }) => {
       const broken: Array<string> = []
-      let heard = 0
-      const counts = new Set([0])
-      let last = 0
+      const { counts } = publishedCounts(events)
       let drawn = 0
       for (const event of events) {
-        const origin = event._tag === "Applied"
-          ? event.applied.origin
-          : event._tag === "Ignored"
-          ? event.ignored.origin
-          : undefined
-        if (origin?._tag === "Dispatch") heard += 1
-        if (event._tag === "Applied" && event.applied.after !== event.applied.before) {
-          counts.add(heard)
-          last = heard
-        }
-        if (event._tag === "Drew") {
-          const { seen } = event.frame
-          if (!counts.has(seen)) broken.push(`a frame has seen ${seen}, which no state was made with`)
-          if (seen < drawn) broken.push(`a frame has seen ${seen}, after one that had seen ${drawn}`)
-          drawn = seen
-        }
+        if (event._tag !== "Drew") continue
+        const { seen } = event.frame
+        if (!counts.has(seen)) broken.push(`a frame has seen ${seen}, which no state was published with`)
+        if (seen < drawn) broken.push(`a frame has seen ${seen}, after one that had seen ${drawn}`)
+        drawn = seen
       }
       expect(broken).toEqual([])
-      if (deaths(events).length === 0) expect(drawn).toBe(last)
+    })
+  }, 120_000)
+
+  // Once nothing is under way, the renderer has drawn the last state published, whose count is that of every
+  // dispatched message the run has heard: no wait for `seen` is left without its frame.
+  test("the last frame has seen every dispatched message taken", () => {
+    property(({ events, settled }) => {
+      if (deaths(events).length > 0) return
+      const before = events.slice(0, settled)
+      const drawn = before.flatMap((event) => event._tag === "Drew" ? [event.frame.seen] : [])
+      expect(drawn.at(-1)).toBe(publishedCounts(before).heard)
     })
   }, 120_000)
 
@@ -1059,15 +1086,34 @@ describe("interleavings of the user, commands and subscriptions", () => {
     })
   }, 120_000)
 
-  test("a model is made once for each frame the renderer pulls, and the very same state draws no frame", () => {
-    property(({ events, made }) => {
-      const drew = events.filter(({ _tag }) => _tag === "Drew").length
-      // A frame pulled as the end of the run interrupts the renderer has its model, and is never drawn.
-      expect(made).toBeGreaterThanOrEqual(drew)
-      expect(made).toBeLessThanOrEqual(drew + 1)
-      // The first frame is the state the run starts from.
-      const states = 1 + applied(events).filter(({ before, after }) => before !== after).length
-      expect(drew).toBeLessThanOrEqual(states)
-    })
-  }, 120_000)
+  test(
+    "a model is made once for each frame of a new state the renderer pulls, and the very same state has the very same model",
+    () => {
+      property(({ events, made, stateOf }) => {
+        const pulled = events.flatMap((event) => event._tag === "Drew" ? [event.frame] : [])
+        // A frame of the very same state as the frame pulled before it holds its very model, made once.
+        const broken: Array<string> = []
+        let fresh = 0
+        pulled.forEach((frame, index) => {
+          const previous = pulled[index - 1]
+          const same = previous !== undefined && stateOf.get(previous.model) === stateOf.get(frame.model)
+          if (same && previous.model !== frame.model) broken.push(`frame ${index} has a new model of the same state`)
+          if (!same) fresh += 1
+        })
+        expect(broken).toEqual([])
+        // A frame pulled as the end of the run interrupts the renderer has its model, and is never drawn.
+        expect(made).toBeGreaterThanOrEqual(fresh)
+        expect(made).toBeLessThanOrEqual(fresh + 1)
+        // The first frame is the state the run starts from; a message of a command or a subscription that makes no new
+        // state publishes none.
+        const published = 1 + events.filter((event) =>
+          event._tag === "Applied"
+            ? event.applied.before !== event.applied.after || event.applied.origin._tag === "Dispatch"
+            : event._tag === "Ignored" && event.ignored.origin._tag === "Dispatch"
+        ).length
+        expect(pulled.length).toBeLessThanOrEqual(published)
+      })
+    },
+    120_000
+  )
 })

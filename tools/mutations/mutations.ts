@@ -666,16 +666,90 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the run makes a model for every state, before the buffer drops it",
     file: "src/run.ts",
-    from: "      Stream.buffer({ capacity: 1, strategy: \"sliding\" }),\n"
-      + "      // After the buffer, so that a model is made only for the frames the renderer pulls, in the renderer's fiber.\n"
-      + "      Stream.map(({ state, seen }) => ({ model: program.makeModel(state), dispatch: engine.dispatch, seen }))\n",
-    to:
-      "      Stream.map(({ state, seen }) => ({ model: program.makeModel(state), dispatch: engine.dispatch, seen })),\n"
-      + "      Stream.buffer({ capacity: 1, strategy: \"sliding\" })\n",
+    from: "        Stream.buffer({ capacity: 1, strategy: \"sliding\" }),\n",
+    to: "        Stream.map((published) => ({ ...published, early: program.makeModel(published.state) })),\n"
+      + "        Stream.buffer({ capacity: 1, strategy: \"sliding\" }),\n",
     killedBy: [
       [
         "src/run.test.ts",
         "a model is made only for the frames the renderer pulls, never for a state the buffer dropped"
+      ]
+    ]
+  },
+  // Every dispatched message publishes a state, a new one or the same; no other message publishes the same.
+  {
+    name: "a rejected dispatched message publishes no state",
+    file: "src/engine.ts",
+    from: "        if (source._tag === \"Dispatch\") yield* SubscriptionRef.set(stateRef, { ...current, seen })\n",
+    to: "",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "a dispatched message that makes no new state publishes the same state, with the new count"
+      ],
+      ["src/run.test.ts", "rejected, draws a frame of the very same model, which has seen it"],
+      [
+        "bridges/snabbdom.test.ts",
+        "shows the program's value once a key, left unseen by the frame that locks it, is rejected"
+      ],
+      [
+        "bridges/react.test.ts",
+        "shows the program's value once a key, left unseen by the frame that locks it, is rejected"
+      ],
+      [
+        "bridges/snabbdom.test.ts",
+        "shows the program's value once a key for the first, left unseen, is rejected, and stores what is typed next"
+      ],
+      [
+        "bridges/react.test.ts",
+        "shows the program's value once a key for the first, left unseen, is rejected, and stores what is typed next"
+      ]
+    ]
+  },
+  {
+    name: "a dispatched message that leaves the state publishes no state",
+    file: "src/engine.ts",
+    from: "if (changed || source._tag === \"Dispatch\") yield*",
+    to: "if (changed) yield*",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "a dispatched message that makes no new state publishes the same state, with the new count"
+      ],
+      [
+        "src/run.test.ts",
+        "applied, leaving the very same state, draws a frame of the very same model, which has seen it"
+      ]
+    ]
+  },
+  {
+    name: "a rejected message of a command publishes the same state",
+    file: "src/engine.ts",
+    from: "        if (source._tag === \"Dispatch\") yield* SubscriptionRef.set(stateRef, { ...current, seen })\n",
+    to: "        yield* SubscriptionRef.set(stateRef, { ...current, seen })\n",
+    killedBy: [
+      ["src/engine.test.ts", "a message of a command that makes no new state publishes nothing"]
+    ]
+  },
+  {
+    name: "a message of a command that leaves the state publishes it again",
+    file: "src/engine.ts",
+    from: "if (changed || source._tag === \"Dispatch\") yield*",
+    to: "if (true) yield*",
+    killedBy: [
+      ["src/engine.test.ts", "a message of a command that makes no new state publishes nothing"]
+    ]
+  },
+  {
+    name: "a frame of the very same state makes a new model",
+    file: "src/run.ts",
+    from: "if (last?.state !== state) last = { state, model: program.makeModel(state) }",
+    to: "last = { state, model: program.makeModel(state) }",
+    killedBy: [
+      ["src/run.test.ts", "rejected, draws a frame of the very same model, which has seen it"],
+      [
+        "src/run.test.ts",
+        "applied, leaving the very same state, draws a frame of the very same model, which has seen it"
       ]
     ]
   },
@@ -731,10 +805,10 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the run stops the subscriptions of a state before it publishes the state",
     file: "src/engine.ts",
-    from: "        if (changed) yield* SubscriptionRef.set(stateRef, { ...next, seen })\n"
-      + "        const nextActive = changed ? yield* reconcile(active, next.state) : active\n",
-    to: "        const nextActive = changed ? yield* reconcile(active, next.state) : active\n"
-      + "        if (changed) yield* SubscriptionRef.set(stateRef, { ...next, seen })\n",
+    from:
+      "        if (changed || source._tag === \"Dispatch\") yield* SubscriptionRef.set(stateRef, { ...next, seen })\n        const nextActive = changed ? yield* reconcile(active, next.state) : active\n",
+    to:
+      "        const nextActive = changed ? yield* reconcile(active, next.state) : active\n        if (changed || source._tag === \"Dispatch\") yield* SubscriptionRef.set(stateRef, { ...next, seen })\n",
     killedBy: [
       [
         "src/testing/contract.test.ts",
@@ -1160,13 +1234,22 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [["src/input.test.ts", "compares the value it was written over by Equal, whatever it is made of"]]
   },
   {
-    name: "an element records what it showed after its write, not before",
+    name: "an element forgets the number of the write it sent",
     file: "src/input.ts",
-    from: "{ sent: number, was: held.value }",
-    to: "{ sent: number, was: value }",
+    from: "  sent: (number) => ({ value, [Last]: number })",
+    to: "  sent: () => ({ value, [Last]: 0 })",
     killedBy: [
-      ["src/input.test.ts", "edited, the write names what the element showed, as the element records it"],
-      ["src/input.test.ts", "a frame older than the keys typed since leaves the element as it is"]
+      ["src/input.test.ts", "edited, the write names what the element showed, and the element shows what was written"],
+      ["src/input.test.ts", "a frame that has not seen every key leaves the element as it is, whatever it holds"]
+    ]
+  },
+  {
+    name: "an element that sent a write shows what it showed before",
+    file: "src/input.ts",
+    from: "  sent: (number) => ({ value, [Last]: number })",
+    to: "  sent: (number) => ({ value: held.value, [Last]: number })",
+    killedBy: [
+      ["src/input.test.ts", "edited, the write names what the element showed, and the element shows what was written"]
     ]
   },
   {
@@ -1174,92 +1257,96 @@ export const mutations: ReadonlyArray<Mutation> = [
     file: "src/input.ts",
     from: "  write: { _tag: \"Written\", was: held.value, value },",
     to: "  write: { _tag: \"Written\", was: value, value },",
-    killedBy: [["src/input.test.ts", "edited, the write names what the element showed, as the element records it"]]
-  },
-  {
-    name: "a frame keeps the writes it has seen among those to come",
-    file: "src/input.ts",
-    from: "(write) => write.sent > seen",
-    to: "(write) => write.sent >= seen",
-    killedBy: [["src/input.test.ts", "a frame older than the keys typed since leaves the element as it is"]]
-  },
-  {
-    name: "a frame is compared with what the element shows, not with what it showed before its first unseen write",
-    file: "src/input.ts",
-    from: "first === undefined ? held.value : first.was",
-    to: "held.value",
     killedBy: [
-      ["src/input.test.ts", "a frame older than the keys typed since leaves the element as it is"],
-      ["src/input.test.ts", "compares the frame by Equal, so that a copy of what the element showed keeps it"]
+      ["src/input.test.ts", "edited, the write names what the element showed, and the element shows what was written"]
     ]
   },
   {
-    name: "a frame is compared with what the element showed by identity, not by Equal",
+    name: "a frame that has seen the last write leaves the element as if it had not",
     file: "src/input.ts",
-    from: "  if (!Equal.equals(value, first === undefined ? held.value : first.was)) {\n",
-    to: "  if (value !== (first === undefined ? held.value : first.was)) {\n",
+    from: "held[Last] > seen",
+    to: "held[Last] >= seen",
+    killedBy: [
+      ["src/input.test.ts", "a frame that has seen every key and holds another value gives the element that value"],
+      [
+        "src/input.test.ts",
+        "a key the state moved on without is shown until a frame has seen it, then the element takes the value"
+      ]
+    ]
+  },
+  {
+    name: "a frame that has not seen every write gives the element its value",
+    file: "src/input.ts",
+    from: "held[Last] > seen || ",
+    to: "",
+    killedBy: [
+      ["src/input.test.ts", "edited, the write names what the element showed, and the element shows what was written"],
+      ["src/input.test.ts", "a frame that has not seen every key leaves the element as it is, whatever it holds"],
+      [
+        "src/input.test.ts",
+        "a key the state moved on without is shown until a frame has seen it, then the element takes the value"
+      ],
+      [
+        "bridges/snabbdom.test.ts",
+        "a frame that has not seen a key sent before it was drawn leaves the element as it is"
+      ]
+    ]
+  },
+  {
+    name: "a frame is compared with what the element shows by identity, not by Equal",
+    file: "src/input.ts",
+    from: "Equal.equals(value, held.value)) return",
+    to: "value === held.value) return",
     killedBy: [
       ["src/input.test.ts", "an element that stays is not taken, though the frame holds an equal copy"],
-      ["src/input.test.ts", "compares the frame by Equal, so that a copy of what the element showed keeps it"]
+      ["src/input.test.ts", "compares the frame by Equal, so that a copy of what the element shows keeps it"]
     ]
   },
   {
-    name: "an element that stays takes the frame's value",
+    name: "an element that stays is taken",
     file: "src/input.ts",
-    from: "  const shown = unseen.length === held[Unseen].length ? held : { value: held.value, [Unseen]: unseen }\n",
-    to: "  const shown = { value, [Unseen]: unseen }\n",
+    from: "return { shown: held, taken: false }",
+    to: "return { shown: held, taken: true }",
     killedBy: [
-      ["src/input.test.ts", "a frame older than the keys typed since leaves the element as it is"],
-      ["src/input.test.ts", "an element that stays is not taken, though the frame holds an equal copy"]
+      ["src/input.test.ts", "edited, the write names what the element showed, and the element shows what was written"],
+      ["src/input.test.ts", "a frame that has not seen every key leaves the element as it is, whatever it holds"],
+      ["src/input.test.ts", "an element that stays is not taken, though the frame holds an equal copy"],
+      ["bridges/snabbdom.test.ts", "a frame drawn while the user types does not take back what they typed since"],
+      ["bridges/react.test.ts", "a frame drawn while the user types does not take back what they typed since"]
     ]
   },
   {
     name: "a new element does not take the frame's value",
     file: "src/input.ts",
-    from: "  if (held === undefined) return { shown: shownOf(value), taken: true }\n",
-    to: "  if (held === undefined) return { shown: shownOf(value), taken: false }\n",
+    from: "{ shown: { value, [Last]: 0 }, taken: true }",
+    to: "{ shown: { value, [Last]: 0 }, taken: false }",
     killedBy: [
       ["src/input.test.ts", "a new element takes the frame's very value"]
     ]
   },
   {
-    name: "an element the state moved on without is taken though it shows the very value of the frame",
+    name: "an element given the frame's value keeps showing its own",
     file: "src/input.ts",
-    from: "    return { shown: shownOf(value), taken: !Object.is(value, held.value) }\n",
-    to: "    return { shown: shownOf(value), taken: true }\n",
-    killedBy: [
-      [
-        "src/input.test.ts",
-        "a frame of a state that moved on to the very value the element shows does not write it again"
-      ]
-    ]
-  },
-  {
-    name: "an element the state moved on without tells the frame's value from what it shows by ===",
-    file: "src/input.ts",
-    from: "    return { shown: shownOf(value), taken: !Object.is(value, held.value) }\n",
-    to: "    return { shown: shownOf(value), taken: value !== held.value }\n",
-    killedBy: [
-      [
-        "src/input.test.ts",
-        "a frame of a state that moved on to NaN, the very value the element shows, does not write it again"
-      ],
-      [
-        "src/input.test.ts",
-        "a frame of a state that moved on to 0, where the element shows -0, gives the element its value"
-      ]
-    ]
-  },
-  {
-    name: "an element the state moved on without does not take the frame's value",
-    file: "src/input.ts",
-    from: "    return { shown: shownOf(value), taken: !Object.is(value, held.value) }\n",
-    to: "    return { shown: shownOf(value), taken: false }\n",
+    from: "  return { shown: { value, [Last]: held[Last] }, taken: true }\n",
+    to: "  return { shown: { value: held.value, [Last]: held[Last] }, taken: true }\n",
     killedBy: [
       ["src/input.test.ts", "a frame that has seen every key and holds another value gives the element that value"],
       [
         "src/input.test.ts",
-        "a frame that holds neither the element's past nor its present gives the element its value at once"
+        "a key the state moved on without is shown until a frame has seen it, then the element takes the value"
+      ]
+    ]
+  },
+  {
+    name: "an element that has seen its writes does not take the frame's value",
+    file: "src/input.ts",
+    from: "  return { shown: { value, [Last]: held[Last] }, taken: true }\n",
+    to: "  return { shown: { value, [Last]: held[Last] }, taken: false }\n",
+    killedBy: [
+      ["src/input.test.ts", "a frame that has seen every key and holds another value gives the element that value"],
+      [
+        "src/input.test.ts",
+        "a key the state moved on without is shown until a frame has seen it, then the element takes the value"
       ],
       ["src/input.test.ts", "a frame of a state brought back to one the element has left gives the element its value"],
       [
@@ -1271,25 +1358,75 @@ export const mutations: ReadonlyArray<Mutation> = [
         "a name the program empties is emptied in the input on screen, which stays and keeps the focus"
       ],
       ["bridges/snabbdom.test.ts", "is rejected, and the input on screen is emptied, as the save left it"],
-      ["bridges/react.test.ts", "is rejected, and the input on screen is emptied, as the save left it"]
-    ]
-  },
-  {
-    name: "an element that stays is taken",
-    file: "src/input.ts",
-    from: "  return { shown, taken: false }\n",
-    to: "  return { shown, taken: true }\n",
-    killedBy: [
-      ["src/input.test.ts", "edited, the write names what the element showed, as the element records it"],
-      ["src/input.test.ts", "a frame older than the keys typed since leaves the element as it is"],
-      ["src/input.test.ts", "an element that stays is not taken, though the frame holds an equal copy"],
+      ["bridges/react.test.ts", "is rejected, and the input on screen is emptied, as the save left it"],
       [
         "bridges/snabbdom.test.ts",
-        "a frame drawn while the user types does not take back what they typed since"
+        "shows the program's value once a key, left unseen by the frame that locks it, is rejected"
       ],
       [
         "bridges/react.test.ts",
-        "a frame drawn while the user types does not take back what they typed since"
+        "shows the program's value once a key, left unseen by the frame that locks it, is rejected"
+      ],
+      [
+        "bridges/snabbdom.test.ts",
+        "shows the program's value once a key for the first, left unseen, is rejected, and stores what is typed next"
+      ],
+      [
+        "bridges/react.test.ts",
+        "shows the program's value once a key for the first, left unseen, is rejected, and stores what is typed next"
+      ]
+    ]
+  },
+  // A frame of the very same model, which a bridge settles without drawing it again.
+  {
+    name: "the snabbdom bridge draws again the model it drew last",
+    file: "bridges/snabbdom.ts",
+    from: "const same = Opt.isSome(previous.drawn) && previous.drawn.value === model",
+    to: "const same = false",
+    killedBy: [
+      [
+        "bridges/snabbdom.test.ts",
+        "a rejected click draws its frame without drawing its tree again, and the element keeps what was typed"
+      ],
+      [
+        "bridges/snabbdom.test.ts",
+        "shows the program's value once a key, left unseen by the frame that locks it, is rejected"
+      ]
+    ]
+  },
+  {
+    name: "the snabbdom bridge settles no input of a frame it does not draw again",
+    file: "bridges/snabbdom.ts",
+    from: "          settle(live, seen)\n",
+    to: "          if (!same) settle(live, seen)\n",
+    killedBy: [
+      [
+        "bridges/snabbdom.test.ts",
+        "shows the program's value once a key, left unseen by the frame that locks it, is rejected"
+      ]
+    ]
+  },
+  {
+    name: "the React bridge draws again the model it drew last",
+    file: "bridges/react.ts",
+    from: "if (!(Opt.isSome(drawn) && drawn.value === model)) {",
+    to: "if (true) {",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "shows the program's value once a key, left unseen by the frame that locks it, is rejected"
+      ]
+    ]
+  },
+  {
+    name: "the React bridge settles no input of a frame it does not draw again",
+    file: "bridges/react.ts",
+    from: "              if (thrown.length > 0) throw thrown[0]\n            }\n",
+    to: "              if (thrown.length > 0) throw thrown[0]\n            } else return drawn\n",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "shows the program's value once a key, left unseen by the frame that locks it, is rejected"
       ]
     ]
   },

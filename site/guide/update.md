@@ -66,5 +66,6 @@ const copying: Update<State, Message> = (message) => (state) => ({
 
 ## Precisely
 
-**The very same state.** When `update` returns the very same state it was given, the same object, the message draws no
-new frame.
+**The very same state.** When `update` returns the very same state it was given, the same object, the message makes
+no new model. A message of a command or a subscription draws no frame then. A dispatched message draws a frame of the
+very same model, with a new `seen` (see [a frame for each dispatched message](./view.md#precisely)).

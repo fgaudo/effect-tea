@@ -191,7 +191,10 @@ const originOf = <K>(source: Core.Source<K>): Origin =>
 
 /** The engine owns its message loop: it runs as long as the scope `make` was called in. */
 export interface Engine<State, Message> {
-  /** Each state, with `seen`, how many dispatched messages the loop had taken when it was made. */
+  /**
+   * Each state, with `seen`, how many dispatched messages the loop had taken when it was made: a new state, and the
+   * same one again for each dispatched message that makes none.
+   */
   readonly states: Stream.Stream<Core.Revisioned<State> & Readonly<{ seen: number }>>
   /** Enqueues a message, and returns its number among those dispatched, from 1. */
   readonly dispatch: (message: Message) => Effect.Effect<number>
@@ -277,7 +280,8 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   )
   const started = Core.init(first)
   // Dispatched messages are numbered as they are queued, in the thunk that offers them, so that their numbers follow
-  // the order of the queue, and counted as the loop takes them: a frame's `seen` is the count of its own state's step.
+  // the order of the queue, and counted as the loop takes them: a frame's `seen` is the count of its own state's step,
+  // and each dispatched message publishes a state, a new one or the same, so that the count of the last is the last.
   let sent = 0
   let seen = 0
   const send = (message: Message) =>
@@ -378,10 +382,13 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
           yield* log("Ignored a rejected message", yield* described(message), { origin: origin._tag })
         }
         yield* observeIgnored({ message, origin, state: current.state })
+        // The same state, with the new count: the last frame has seen every dispatched message the loop has taken.
+        if (source._tag === "Dispatch") yield* SubscriptionRef.set(stateRef, { ...current, seen })
         return active
       }
       case "Applied": {
-        // The same state needs no new revision, frame or subscriptions: only its commands, if any, run.
+        // The same state needs no new revision or subscriptions, and no frame but for a dispatched message, which
+        // publishes it with the new count: only its commands, if any, run.
         const { next, changed, commands } = arrived
         if (debugging) {
           yield* log("Message", yield* described(message), {
@@ -397,7 +404,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
           revision: next.revision,
           commands
         })
-        if (changed) yield* SubscriptionRef.set(stateRef, { ...next, seen })
+        if (changed || source._tag === "Dispatch") yield* SubscriptionRef.set(stateRef, { ...next, seen })
         const nextActive = changed ? yield* reconcile(active, next.state) : active
         yield* Effect.forEach(commands, runCommand, { discard: true })
         return nextActive

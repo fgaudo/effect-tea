@@ -63,6 +63,11 @@ Each pair sums up a rule of this page. The rule itself is above.
 **The number a dispatch returns.** The number is the position of the message among the messages dispatched. The
 numbers start from 1. They follow the order in which the run takes the messages.
 
-**A frame's `seen`.** Each frame says in `seen` how many of the dispatched messages the run had taken when the frame's
-state was made. So, when the `seen` of a frame is below the number of a message, the frame was made before the run
-took that message.
+**A frame's `seen`.** Each frame says in `seen` how many of the dispatched messages the run had taken when the frame
+was made. So, when the `seen` of a frame is below the number of a message, the frame was made before the run took that
+message.
+
+**A frame for each dispatched message.** Each dispatched message that the run takes makes a frame, even one that
+`update` rejects, or one that leaves the very same state. Such a frame holds the same state, with the new `seen`. So a
+frame that has seen a message always comes, once the run has taken the message. A message of a command or a
+subscription that makes no new state makes no frame.

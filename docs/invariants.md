@@ -29,11 +29,14 @@ testing tools.
   queue gives, which is documented. The loop counts each dispatched message it takes, a rejected one and one that leaves
   the state as it was included, and no message of a command or a subscription. It counts the message before the state
   it makes is published, and publishes the count in the same object as the state (`{ ...next, seen }`), so that a
-  frame's `seen` is the count of its own state's step, whatever the loop has taken since. A message that makes no
-  state draws no frame, so the last frame's `seen` may stay below the last number: nothing may wait for it to reach
-  one. The thunk of the number holds no code of the program and has no mutation ("one thunk"): "follow the order
-  update hears them in, under every schedule within two deviations" (`engine.test.ts`) is its alarm. Each other check
-  has a mutation (`tools/mutations/mutations.ts`), and `interleaving.test.ts` checks the count of every frame drawn.
+  frame's `seen` is the count of its own step, whatever the loop has taken since. Every dispatched message publishes a
+  state, after its observer: a new one, or the same one with the new count (`{ ...current, seen }` when it is
+  rejected), so that the last frame comes to see every dispatched message the loop has taken, and a bridge may wait for
+  it. A message of a command or a subscription that makes no new state publishes nothing, and no message reconciles the
+  subscriptions but for a new state. The thunk of the number holds no code of the program and has no mutation ("one
+  thunk"): "follow the order update hears them in, under every schedule within two deviations" (`engine.test.ts`) is
+  its alarm. Each other check has a mutation (`tools/mutations/mutations.ts`), and `interleaving.test.ts` checks the
+  count of every frame drawn, and that the last one has seen every dispatched message taken.
 - **`reject` means one thing: the message does not apply in the state.** The run ignores every rejection, and
   whether the view sends only what applies is for the tests ("Rejections and defects" in the guide). Never add
   a runtime check of the model against `update`, nor a way for a model to ask `update` what it accepts: the
@@ -68,10 +71,13 @@ testing tools.
 - **The rule of an element is the library's, and the bridges only keep their registry** (`edited` and `drawn` in
   `input.ts`). `edited` makes the write and what the element records of it from one value, the element's, so the two
   cannot differ; the number comes from the dispatch the bridge runs, given to a continuation, since the library
-  runs no dispatch. `drawn` compares the frame's value, by `Equal`, with what the element showed before its first
-  write the frame has not seen, or with what it shows when the frame has seen them all, and says itself whether the
-  bridge sets the element, `taken`: always for a new one, never for one that stays, and for one the state has moved on
-  without unless the frame's value is the very value it shows, so that no bridge compares values to decide it. What
+  runs no dispatch. `drawn` decides by order alone: an element keeps the number of its last write, and a frame that
+  has not seen it leaves the element as it is, whatever the frame holds. A frame that has seen it gives the element the
+  frame's value, unless the element shows it already, by `Equal`. It bets on no write: one rejected because the place
+  is gone, or because the renderer reused the element for another input, still has its frame, since every dispatched
+  message publishes one, and that frame gives the element the program's value. It says itself whether the bridge sets
+  the element, `taken`: always for a new one, never for one that stays, and always for one that takes the frame's
+  value, so that no bridge compares values to decide it. What
   a screen then shows is no guarantee of the library's, which knows no renderer: the guide promises it in "Inputs
   the user types into", for elements and renderers that meet its condition and a bridge that settles them with
   `drawn`, and the bridges' tests check it in a DOM. Each check of `edited` and `drawn` has a mutation.
@@ -116,10 +122,13 @@ testing tools.
   them acquire into the run's scope: what they hold would outlive them, and be released before their fibers are
   interrupted.
 - **Frames cost only what is drawn**: a frame's model is made as the renderer pulls the frame, by a `Stream.map`
-  after the sliding buffer (`run.ts`), never for a state the buffer dropped, and a message that returns the very same
-  state makes no new frame (a parent keeps its own state when a child's message leaves the child's as it is). Never
-  make models before the buffer: "a model is made only for the frames the renderer pulls, never for a state the
-  buffer dropped" (`run.test.ts`) and its mutation keep it. `rehearse` makes the model of each new state in the step
+  after the sliding buffer (`run.ts`), never for a state the buffer dropped, and a frame of the very same state as the
+  frame pulled before it holds the very same model, kept by the identity of the state in one slot for each run of the
+  stream, which `Stream.suspend` makes anew (a parent keeps its own state when a child's message leaves the child's as
+  it is). A bridge draws no frame whose model is the very one it drew last, and only settles its inputs with its
+  `seen`. Never make models before the buffer: "a model is made only for the frames the renderer pulls, never for a
+  state the buffer dropped" (`run.test.ts`) and its mutation keep it, and each check of the slot and of the bridges has
+  a mutation. `rehearse` makes the model of each new state in the step
   that makes it, the test being a renderer that pulls every frame, so that a defect of `makeModel` ends each tool as
   it ends the run, and no scenario meets it. Since the run's renderer is a fiber of its own, a defect of a later
   model is recorded and never cuts that step short: its release and its commands go on (`draw` in `rehearse.ts`).
