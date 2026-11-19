@@ -130,6 +130,24 @@ export const diesFirst = <E>(deaths: ReadonlyArray<Cause.Die>, cause: Cause.Caus
 export const endedWith = <A, E>(deaths: ReadonlyArray<Cause.Die>, exit: Exit.Exit<A, E>): Exit.Exit<A, E> =>
   deaths.length === 0 ? exit : Exit.failCause(diesFirst(deaths, Exit.isFailure(exit) ? exit.cause : Cause.empty))
 
+/**
+ * What a fiber with a scope of its own ends with: `own`, what its effect ended with, then what the release of its
+ * scope died of, but for what is already in `own`, a defect by its identity and an interruption by its fiber and its
+ * mark, never by `Equal`: two distinct defects equal by `Equal` stay two, and a release given the effect's cause may
+ * die with it.
+ */
+export const released = <E>(own: Cause.Cause<E>, release: Cause.Cause<never>): Cause.Cause<E> =>
+  Cause.fromReasons<E>([
+    ...own.reasons,
+    ...release.reasons.filter((reason) => !own.reasons.some((kept) => sameReason(kept, reason))),
+  ])
+
+const sameReason = (one: Cause.Reason<unknown>, other: Cause.Reason<unknown>) =>
+  one === other
+  || (Cause.isDieReason(one) && Cause.isDieReason(other) && one.defect === other.defect)
+  || (Cause.isInterruptReason(one) && Cause.isInterruptReason(other) && one.fiberId === other.fiberId
+    && markOf(one) === markOf(other))
+
 /** Counts the starts of subscriptions: each start of a key gets a new one. */
 export type Generation = number
 

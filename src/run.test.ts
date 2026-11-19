@@ -2437,8 +2437,8 @@ describe('what a frame has seen of what was dispatched', () => {
 })
 
 // Two releases in the scope the run gives that die with errors equal by `Equal`, though not the same object, are two
-// defects. `Effect.scoped` joins the causes of the close with `Cause.combine`, which keeps one of two equal reasons,
-// before the register sees them: each case fails until the register reads the close's exit itself.
+// defects: `Cause.combine`, which `Effect.scoped` would join the causes of the close with, keeps one of two equal
+// reasons (`scopedIn` in `shell.ts`).
 describe('releases that die with errors equal by Equal', () => {
   class Closing extends Data.TaggedError('Closing')<object> {}
 
@@ -2454,7 +2454,7 @@ describe('releases that die with errors equal by Equal', () => {
       )
       : []
 
-  test.failing('of a command that dies are each a defect of the command', async () => {
+  test('of a command that dies are each a defect of the command', async () => {
     const exit = await Effect.runPromiseExit(run(
       {
         ...counter,
@@ -2466,7 +2466,7 @@ describe('releases that die with errors equal by Equal', () => {
     expect(sites(exit)).toEqual([['command', 'own'], ['command', 'Closing'], ['command', 'Closing']])
   })
 
-  test.failing('of a subscription the run stops are each a defect of the subscription', async () => {
+  test('of a subscription the run stops are each a defect of the subscription', async () => {
     const exit = await Effect.runPromiseExit(run(
       {
         ...counter,
@@ -2484,7 +2484,7 @@ describe('releases that die with errors equal by Equal', () => {
     expect(sites(exit)).toEqual([['subscription', 'Closing'], ['subscription', 'Closing']])
   })
 
-  test.failing('of a renderer that dies are each a defect of the renderer', async () => {
+  test('of a renderer that dies are each a defect of the renderer', async () => {
     const exit = await Effect.runPromiseExit(
       run(counter, () => releasesThatDie.pipe(Effect.andThen(Effect.die('own')))),
     )

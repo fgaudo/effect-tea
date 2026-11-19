@@ -10,6 +10,7 @@ import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
 import * as Clock from 'effect/Clock'
 import * as Context from 'effect/Context'
+import * as Data from 'effect/Data'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
@@ -771,31 +772,38 @@ describe('a fiber of a FiberSet or a FiberMap that dies leaves the other fibers 
   })
 })
 
-describe('Effect.scoped fails with what a finalizer of its scope dies of', () => {
-  const releaseDies = Effect.addFinalizer(() => Effect.die('release'))
+describe('Scope.close dies with every defect its finalizers die of, none merged by Equal', () => {
+  class Closing extends Data.TaggedError('Closing')<object> {}
 
-  test('of an effect that succeeds', async () => {
-    const exit = await Effect.runPromiseExit(Effect.scoped(releaseDies))
-    expect(described(exit)).toEqual([['Die', 'release']])
-  })
+  // One function makes each, so that no engine tells them apart by where they were made.
+  const closing = () => new Closing()
 
-  test('of an effect that dies, beside what it died of', async () => {
-    const exit = await Effect.runPromiseExit(Effect.scoped(Effect.andThen(releaseDies, Effect.die('own'))))
-    expect(described(exit)).toHaveLength(2)
-    expect(described(exit)).toContainEqual(['Die', 'own'])
-    expect(described(exit)).toContainEqual(['Die', 'release'])
-  })
-
-  test('of an effect that is interrupted, beside its interruption', async () => {
-    const exit = await Effect.runPromise(Effect.gen(function*() {
-      const fiber = yield* started((running) =>
-        Effect.scoped(releaseDies.pipe(Effect.andThen(running), Effect.andThen(Effect.never)))
-      )
-      yield* Fiber.interruptAs(fiber, 42)
-      return yield* Fiber.await(fiber)
+  const closed = (exit: Exit.Exit<unknown, unknown>, fill: (scope: Scope.Scope) => Effect.Effect<void>) =>
+    Effect.runPromiseExit(Effect.gen(function*() {
+      const scope = yield* Scope.make()
+      yield* fill(scope)
+      return yield* Scope.close(scope, exit)
     }))
-    expect(described(exit)).toHaveLength(2)
-    expect(described(exit)).toContainEqual(['Interrupt', 42])
-    expect(described(exit)).toContainEqual(['Die', 'release'])
+
+  const twoDie = (scope: Scope.Scope) =>
+    Effect.andThen(Scope.addFinalizer(scope, Effect.die(closing())), Scope.addFinalizer(scope, Effect.die(closing())))
+
+  test('two finalizers that die of defects equal by Equal, closed with a success', async () => {
+    expect(Equal.equals(closing(), closing())).toBe(true)
+    expect(described(await closed(Exit.void, twoDie))).toEqual([['Die', closing()], ['Die', closing()]])
+  })
+
+  test('two finalizers that die of defects equal by Equal, closed with a defect', async () => {
+    expect(described(await closed(Exit.die('own'), twoDie))).toEqual([['Die', closing()], ['Die', closing()]])
+  })
+
+  test('a finalizer of a scope forked from it, beside one of its own', async () => {
+    const exit = await closed(Exit.void, (scope) =>
+      Effect.gen(function*() {
+        yield* Scope.addFinalizer(scope, Effect.die(closing()))
+        const child = yield* Scope.fork(scope)
+        yield* Scope.addFinalizer(child, Effect.die(closing()))
+      }))
+    expect(described(exit)).toEqual([['Die', closing()], ['Die', closing()]])
   })
 })

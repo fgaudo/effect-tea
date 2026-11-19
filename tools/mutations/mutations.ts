@@ -254,19 +254,17 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: '(defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),',
     to: '() => false,',
     killedBy: [
-      ['src/run.test.ts', 'every defect of the cause is kept, each with where it happened'],
-      ['src/run.test.ts', 'after the command died, is a second defect of the command, after the first'],
       [
-        'src/run.test.ts',
-        'a command that dies under a release of its own dies once it has released, applying messages meanwhile',
-      ],
-      [
-        'src/testing/rehearse.test.ts',
-        'a run whose command dies, then dies again as it slowly releases, fails with both',
+        'src/testing/contract.test.ts',
+        'the run dies of one defect on a release that fails with the cause of its command',
       ],
       [
         'src/testing/contract.test.ts',
-        'in the run, a defect of what a stopped subscription releases is all the cause holds',
+        'simulate fails, as the run dies, of one defect on a release that fails with the cause of its command',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails, as the run dies, of one defect on a release that fails with the cause of its command',
       ],
     ],
   },
@@ -283,10 +281,82 @@ export const mutations: ReadonlyArray<Mutation> = [
     ],
   },
   {
+    name: 'scopedIn joins what its release died of to what its effect died of by Equal, as Effect.scoped does',
+    file: 'src/shell.ts',
+    from: 'return Scope.close(scope, exit).pipe(\n',
+    to: 'return Scope.close(scope, exit).pipe(\n'
+      + '              Effect.catchCause((cause) => Effect.failCause(Cause.combine(own, cause))),\n',
+    killedBy: [
+      ['src/run.test.ts', 'of a command that dies are each a defect of the command'],
+      ['src/run.test.ts', 'of a subscription the run stops are each a defect of the subscription'],
+      ['src/run.test.ts', 'of a renderer that dies are each a defect of the renderer'],
+      [
+        'src/testing/contract.test.ts',
+        'the run dies of each of two equal defects of what a command that dies releases',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails, as the run dies, of each of two equal defects of what a command that dies releases',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'rehearse fails, as the run dies, of each of two equal defects of what a command that dies releases',
+      ],
+    ],
+  },
+  {
+    name: 'scopedIn ends with what its effect and its release died of joined by Equal',
+    file: 'src/shell.ts',
+    from: 'Effect.failCause(Core.released(own, closed.cause))',
+    to: 'Effect.failCause(Cause.combine(own, closed.cause))',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails, as the run dies, of two defects on a release that dies of that of its command',
+      ],
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails, as the run dies, of each of two equal defects of what a command that dies releases',
+      ],
+    ],
+  },
+  {
+    name: 'scopedIn keeps twice what its release dies of again',
+    file: 'src/shell.ts',
+    from: 'Effect.failCause(Core.released(own, closed.cause))',
+    to: 'Effect.failCause(Cause.fromReasons<E>([...own.reasons, ...closed.cause.reasons]))',
+    killedBy: [
+      [
+        'src/testing/contract.test.ts',
+        'simulate fails, as the run dies, of one defect on a release that fails with the cause of its command',
+      ],
+    ],
+  },
+  {
+    name: 'what a fiber with a scope of its own ends with tells defects apart by value',
+    file: 'src/core.ts',
+    from: '(Cause.isDieReason(one) && Cause.isDieReason(other) && one.defect === other.defect)',
+    to: '(Cause.isDieReason(one) && Cause.isDieReason(other)'
+      + ' && JSON.stringify(one.defect) === JSON.stringify(other.defect))',
+    killedBy: [['src/core.test.ts', 'two defects equal by Equal stay two, told apart by identity']],
+  },
+  {
+    name: 'what a fiber with a scope of its own ends with tells interruptions apart by their fiber alone',
+    file: 'src/core.ts',
+    from: '&& markOf(one) === markOf(other))',
+    to: ')',
+    killedBy: [
+      [
+        'src/core.test.ts',
+        'an interruption of the release is left out when the effect has one by the same fiber, with its mark',
+      ],
+    ],
+  },
+  {
     name: 'a defect is recorded after the release of its scope',
     file: 'src/shell.ts',
-    from: '        deaths.recorded,\n      )).pipe(\n',
-    to: '      )).pipe(\n',
+    from: 'self.pipe(diesIn(where, details), deaths.recorded, Scope.provide(scope))',
+    to: 'self.pipe(diesIn(where, details), Scope.provide(scope))',
     killedBy: [
       ['src/run.test.ts', 'a renderer that dies before a command is the first defect of the cause'],
       [
@@ -320,8 +390,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     // The context a command, a subscription or the renderer runs in holds the run's scope.
     name: 'a fiber of the run acquires into the scope of the run',
     file: 'src/shell.ts',
-    from: '      return Effect.scoped(self.pipe(\n',
-    to: '      return (self.pipe(\n',
+    from: 'self.pipe(diesIn(where, details), deaths.recorded, Scope.provide(scope))',
+    to: 'self.pipe(diesIn(where, details), deaths.recorded)',
     killedBy: [
       ['src/engine.test.ts', 'what a command acquires is released when it ends, before update hears its message'],
       ['src/engine.test.ts', 'a fiber that a command forks in its scope is interrupted when the command ends'],
@@ -2102,8 +2172,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'scopedIn leaves what its effect dies of without a site',
     file: 'src/shell.ts',
-    from: '        diesIn(where, details),\n        Effect.onExit((exit) =>\n',
-    to: '        Effect.onExit((exit) =>\n',
+    from: 'self.pipe(diesIn(where, details), deaths.recorded, Scope.provide(scope))',
+    to: 'self.pipe(deaths.recorded, Scope.provide(scope))',
     killedBy: [
       ['src/engine.test.ts', 'what a command dies of as the end of the engine interrupts it is what the end dies of'],
       ['src/run.test.ts', 'a defect in makeModel ends the run, which dies with it and with where it happened'],
@@ -2115,10 +2185,10 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: 'scopedIn leaves what the release dies of without a site',
     file: 'src/shell.ts',
-    from: '      )).pipe(\n        diesIn(\n          where,\n          details,\n'
-      + '          (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),\n'
-      + '        ),\n',
-    to: '      )).pipe(\n',
+    from: 'return Scope.close(scope, exit).pipe(\n              diesIn(\n                where,\n                details,\n'
+      + '                (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),\n'
+      + '              ),\n',
+    to: 'return Scope.close(scope, exit).pipe(\n',
     killedBy: [
       ['src/run.test.ts', 'a renderer that dies while it releases what it holds ends the run with that defect'],
       ['src/run.test.ts', 'a renderer that dies while an interrupted run releases it is in the cause'],

@@ -111,10 +111,10 @@ testing tools.
 - **Commands are data; only `runCommand` runs them.** Never let a command carry its effect, or a description
   that must be kept in step with one: a test, `onApplied` and the logs read the command itself.
 - **Commands cannot be cancelled**, a deliberate choice: do not add cancellation without asking.
-- **Each command, each subscription and the renderer has a scope of its own** (`Effect.scoped` where the
-  library starts them; a command's closes before its message is queued), and `simulate` scopes each command the
-  same way. Never let them acquire into the run's scope: what they hold would outlive them, and be released
-  before their fibers are interrupted.
+- **Each command, each subscription and the renderer has a scope of its own** (`scopedIn` where the library starts
+  them; a command's closes before its message is queued), and `simulate` scopes each command the same way. Never let
+  them acquire into the run's scope: what they hold would outlive them, and be released before their fibers are
+  interrupted.
 - **Frames cost only what is drawn**: a frame's model is made as the renderer pulls the frame, by a `Stream.map`
   after the sliding buffer (`run.ts`), never for a state the buffer dropped, and a message that returns the very same
   state makes no new frame (a parent keeps its own state when a child's message leaves the child's as it is). Never
@@ -168,7 +168,10 @@ testing tools.
     scope included
     (`runSubscription`), so that a defect is in the order it happened, though its release lets another fiber die first;
     what the release dies of is wrapped apart, told from what the fiber died of by what the fiber kept of it, never by
-    the register, where a defect another fiber recorded may be the very one a release dies with.
+    the register, where a defect another fiber recorded may be the very one a release dies with. `scopedIn` closes the
+    scope itself and takes what the close dies of as it is (`docs/premises.md`), each defect of each release: never
+    join the two with `Cause.combine`, as `Effect.scoped` does, which keeps one of two defects equal by `Equal`. What
+    the program wraps around its own code (two `Effect.ensuring`) is joined by Effect, and is the effect's own.
   - The order of the defects is the engine's to keep, and its tests', and no promise of the guide, which describes
     it: what a user relies on is that every defect is in the cause, each with where. No promise of the library's
     rests on what a function of Effect makes of a cause (`Cause.squash` gives the first defect).

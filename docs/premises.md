@@ -95,22 +95,20 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   how `rehearse` records each defect of the program in whichever fiber, an interrupted one included, merging no causes
   there: "a defect of what a subscription releases fails it, in a fiber of the test's that nobody joins", "a defect of
   what a command the scenario interrupts releases fails it, alone" (`rehearse.test.ts`), "rehearse fails, as the run
-  dies, on a command that dies in a fiber nobody joins" (`contract.test.ts`); and how `scopedIn` keeps what its own
-  effect died of, to wrap apart what the release dies of: "a release that dies with a defect already recorded elsewhere
-  fails it with a second one" (`rehearse.test.ts`). That the cleanup runs however the effect ends, and that the causes
-  are merged, is documented; their order is read only in the source. Its test: "what the cleanup of Effect.onExit fails
-  with comes after the cause of the effect", of an effect that dies and of one that is interrupted.
+  dies, on a command that dies in a fiber nobody joins" (`contract.test.ts`). That the cleanup runs however the effect
+  ends, and that the causes are merged, is documented; their order is read only in the source. Its test: "what the
+  cleanup of Effect.onExit fails with comes after the cause of the effect", of an effect that dies and of one that is
+  interrupted.
 - **`Effect.onExit` runs its cleanup where nothing interrupts, however the effect ends**, so that an interruption that
   reaches the fiber as it cleans up cannot stop the cleanup halfway, which is how each fiber of the engine and of the
-  testing tools records what it dies of (`makeDeaths` in `shell.ts`), and `scopedIn` what its own effect died of,
-  before the fiber ends: the tests of the end of a run and of its defects rest on it, "a subscription stopped as whoever
-  runs the run interrupts it, which dies as it releases, is in the cause" and "a defect in what a subscription the run
-  stopped releases ends the run" (`run.test.ts`) among them, and fail with a cleanup run interruptible, though Effect's
-  own combinators then fail too. Its JSDoc says that the cleanup runs, not that an interruption cannot stop it; that it
-  runs uninterruptible is read in the source (`OnExitImpl`, with the `interruptible` of `onExitPrimitive` unset). Its
-  tests: "Effect.onExit runs its cleanup where nothing interrupts, however the effect ends", of an effect that is
-  interrupted and of one that succeeds, its fiber interrupted as the cleanup runs, which fail with a cleanup run
-  interruptible.
+  testing tools records what it dies of (`makeDeaths` in `shell.ts`), before the fiber ends: the tests of the end of a
+  run and of its defects rest on it, "a subscription stopped as whoever runs the run interrupts it, which dies as it
+  releases, is in the cause" and "a defect in what a subscription the run stopped releases ends the run" (`run.test.ts`)
+  among them, and fail with a cleanup run interruptible, though Effect's own combinators then fail too. Its JSDoc says
+  that the cleanup runs, not that an interruption cannot stop it; that it runs uninterruptible is read in the source
+  (`OnExitImpl`, with the `interruptible` of `onExitPrimitive` unset). Its tests: "Effect.onExit runs its cleanup where
+  nothing interrupts, however the effect ends", of an effect that is interrupted and of one that succeeds, its fiber
+  interrupted as the cleanup runs, which fail with a cleanup run interruptible.
 - **A scope runs its finalizers in the reverse order they were added**, which is how the end of the engine, added
   after its queue, its `FiberSet` and its `FiberMap`, stops their fibers with the run's mark before they close, and
   reports what those die of as they release, and how the run releases the renderer, acquired after the engine, before
@@ -123,16 +121,26 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   (`scopeCloseFinalizers`). Its tests: "a scope runs its finalizers in the reverse order they were added", of a scope
   made with `Scope.make` and closed by hand and of the scope of `Effect.scoped`, which fail with that scope.
 - **`Effect.scoped` fails with what a finalizer of its scope dies of, beside what the effect ended with**, which is
-  how `scopedIn` (`shell.ts`) sees what a command, a subscription or the renderer dies of as it releases, once its
-  scope has closed, and records it as a defect of its site: "a renderer that dies while it releases what it holds ends
-  the run with that defect" (`run.test.ts`), "what a command dies of as the end of the engine interrupts it is what
-  the end dies of" (`engine.test.ts`) and "the run dies in a command on a release of a command that dies"
-  (`contract.test.ts`), with its twins of `simulate` and `rehearse`, rest on it, and fail, with twenty more, with an
-  `Effect.scoped` whose close catches what its finalizers fail with. The JSDoc of `Effect.scoped` says only that the
-  finalizers run however the effect ends, and those of `Scope.close` and `Scope.use` that they are given its exit;
-  that a finalizer's failure becomes the effect's is read in the source. Its tests: "Effect.scoped fails with what a
-  finalizer of its scope dies of", of an effect that succeeds, that dies and that is interrupted, which fail with such
-  a scope.
+  how a test of the engine sees what its end dies of: "what a command dies of as the end of the engine interrupts it is
+  what the end dies of" (`engine.test.ts`) rests on it, and fails with an `Effect.scoped` whose close catches what its
+  finalizers fail with. The library no longer rests on it: `scopedIn` closes its scope by hand (the next premise). The
+  JSDoc of `Effect.scoped` says only that the finalizers run however the effect ends, and those of `Scope.close` and
+  `Scope.use` that they are given its exit; that a finalizer's failure becomes the effect's is read in the source. Its
+  tests: "Effect.scoped fails with what a finalizer of its scope dies of", of an effect that succeeds, that dies and
+  that is interrupted, which fail with such a scope.
+- **`Scope.close` dies with every defect its finalizers die of, none merged by `Equal`**, those of the scopes forked
+  from it included, which is how `scopedIn` (`shell.ts`) sees each defect a command, a subscription or the renderer
+  dies of as it releases, once its scope has closed, and records it as a defect of its site: "a renderer that dies
+  while it releases what it holds ends the run with that defect", the cases of "releases that die with errors equal by
+  Equal" (`run.test.ts`), "the run dies in a command on a release of a command that dies" and "the run dies of each of
+  two equal defects of what a command that dies releases" (`contract.test.ts`), with their twins of `simulate` and
+  `rehearse`, rest on it, and fail with a close that keeps one of two equal defects, or none. `Effect.scoped` is no
+  such close: it joins what the effect ended with and what the close died of with `Cause.combine`, which keeps one of
+  two reasons equal by `Equal` (documented), and so would leave one of two releases that die of equal errors. The JSDoc
+  of `Scope.close` says only that the finalizers run, in the scope's order, given its exit; that the close dies with
+  what each finalizer dies of, every reason kept, is read in the source (`scopeCloseFinalizers`, `exitAsVoidAll`). Its
+  tests: "Scope.close dies with every defect its finalizers die of, none merged by Equal", of two finalizers closed
+  with a success and with a defect, and of one in a scope forked from it.
 - **A fiber interrupted while interruptible runs no failure handler**, which is how `diesIn` tells an interruption
   by the run from one the program makes: "a run interrupted by whoever runs it is no defect", "a subscription
   stopped inside an uninterruptible region is no defect" (`run.test.ts`); and beside a defect of its release, which is

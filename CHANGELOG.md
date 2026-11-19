@@ -114,8 +114,8 @@ version, and everything else, features included, the patch version.
 - A child's types read the `external`, `flags`, events, commands and services it has, where some read as `never` or
   as absent, and a `Program<…>` that names fewer `external` messages than it takes compiles.
 - `andThen` over steps that list no commands or no events gives a step that has none, where they were `unknown`.
-- The run ends with every defect of its pieces and their releases, in the order they happened and saying where, and
-  applies no message once one happened.
+- The run ends with every defect of its pieces and their releases, two equal by `Equal` among them, in the order they
+  happened and saying where, and applies no message once one happened.
 - `drive` puts a defect of the program before the scenario's failure, waits for the run's release, and says its
   patience with a unit, `within 500ms`, with the latest model as the `cause`, where it gave an `Option` of it. It
   calls `init` before the scenario, so a scenario that returns at once fails on an `init` that throws, as `rehearse`.

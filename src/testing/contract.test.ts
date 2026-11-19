@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import * as Cause from 'effect/Cause'
 import * as Channel from 'effect/Channel'
+import * as Data from 'effect/Data'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Equal from 'effect/Equal'
@@ -1166,11 +1167,15 @@ describe('what the run dies of, and the tools fail on', () => {
         Cause.isDieReason(reason) && reason.defect instanceof ProgramDefect ? reason.defect.where : reason._tag
       )
       : []
-  const witnessing = (seen: Array<unknown>, body: Effect.Effect<never>, release: Effect.Effect<void>): Witness => ({
+  const witnessing = (
+    seen: Array<unknown>,
+    body: Effect.Effect<never, never, Scope.Scope>,
+    release: (exit: Exit.Exit<unknown, unknown>) => Effect.Effect<void>,
+  ): Witness => ({
     init: { state: { seen: 0 } },
     update: () => (state) => ({ state, commands: ['Save'] }),
     runCommand: () =>
-      Effect.addFinalizer((exit) => Effect.andThen(Effect.sync(() => seen.push(...wheres(exit))), release)).pipe(
+      Effect.addFinalizer((exit) => Effect.andThen(Effect.sync(() => seen.push(...wheres(exit))), release(exit))).pipe(
         Effect.andThen(body),
       ),
     subscriptions: () => HashMap.empty(),
@@ -1187,8 +1192,8 @@ describe('what the run dies of, and the tools fail on', () => {
   // is none.
   const witnessed = async (
     tool: keyof typeof tools,
-    body: Effect.Effect<never>,
-    release: Effect.Effect<void> = Effect.void,
+    body: Effect.Effect<never, never, Scope.Scope>,
+    release: (exit: Exit.Exit<unknown, unknown>) => Effect.Effect<void> = () => Effect.void,
   ) => {
     const seen: Array<unknown> = []
     const exit = await Effect.runPromiseExit(tools[tool](witnessing(seen, body, release)))
@@ -1221,20 +1226,59 @@ describe('what the run dies of, and the tools fail on', () => {
 
   test('the run dies of two defects on a release that dies of the very defect of its command', async () => {
     const boom = new Boom()
-    const { ended } = await witnessed('run', Effect.die(boom), Effect.die(boom))
+    const { ended } = await witnessed('run', Effect.die(boom), () => Effect.die(boom))
     expect(ended).toEqual(['command', 'command'])
   })
 
   test('simulate fails, as the run dies, of two defects on a release that dies of that of its command', async () => {
     const boom = new Boom()
-    const { ended } = await witnessed('simulate', Effect.die(boom), Effect.die(boom))
+    const { ended } = await witnessed('simulate', Effect.die(boom), () => Effect.die(boom))
     expect(ended).toEqual(['command', 'command'])
   })
 
   test('rehearse fails, as the run dies, of two defects on a release that dies of that of its command', async () => {
     const boom = new Boom()
-    const { ended } = await witnessed('rehearse', Effect.die(boom), Effect.die(boom))
+    const { ended } = await witnessed('rehearse', Effect.die(boom), () => Effect.die(boom))
     expect(ended).toEqual(['command', 'command'])
+  })
+
+  // Two releases that die of defects equal by `Equal` die of two all the same, beside the command's own. Made by one
+  // function, so that no engine tells them apart by where they were made.
+  class Closing extends Data.TaggedError('Closing')<object> {}
+  const closing = () => new Closing()
+  const twoReleasesDie = Effect.addFinalizer(() => Effect.die(closing())).pipe(Effect.andThen(Effect.die(new Boom())))
+  const thrice = ['command', 'command', 'command']
+
+  test('the run dies of each of two equal defects of what a command that dies releases', async () => {
+    expect((await witnessed('run', twoReleasesDie, () => Effect.die(closing()))).ended).toEqual(thrice)
+  })
+
+  test('simulate fails, as the run dies, of each of two equal defects of what a command that dies releases', async () => {
+    expect((await witnessed('simulate', twoReleasesDie, () => Effect.die(closing()))).ended).toEqual(thrice)
+  })
+
+  test('rehearse fails, as the run dies, of each of two equal defects of what a command that dies releases', async () => {
+    expect((await witnessed('rehearse', twoReleasesDie, () => Effect.die(closing()))).ended).toEqual(thrice)
+  })
+
+  // A release that fails with the cause it is given dies of the defect of its command, which is already in it: one
+  // defect, in each tool.
+  const failingWith = (exit: Exit.Exit<unknown, unknown>) =>
+    Exit.isFailure(exit) ? Effect.failCause(exit.cause as Cause.Cause<never>) : Effect.void
+
+  test('the run dies of one defect on a release that fails with the cause of its command', async () => {
+    const { ended } = await witnessed('run', Effect.die(new Boom()), failingWith)
+    expect(ended).toEqual(['command'])
+  })
+
+  test('simulate fails, as the run dies, of one defect on a release that fails with the cause of its command', async () => {
+    const { ended } = await witnessed('simulate', Effect.die(new Boom()), failingWith)
+    expect(ended).toEqual(['command'])
+  })
+
+  test('rehearse fails, as the run dies, of one defect on a release that fails with the cause of its command', async () => {
+    const { ended } = await witnessed('rehearse', Effect.die(new Boom()), failingWith)
+    expect(ended).toEqual(['command'])
   })
 
   // A `runCommand` that throws before it returns its effect: the run suspends it, so the defect is the command's.

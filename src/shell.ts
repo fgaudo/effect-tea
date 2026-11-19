@@ -7,7 +7,7 @@ import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
 import * as Opt from 'effect/Option'
 import * as Pull from 'effect/Pull'
-import type * as Scope from 'effect/Scope'
+import * as Scope from 'effect/Scope'
 import * as Tracer from 'effect/Tracer'
 import * as Core from './core.ts'
 import type { DefectSite } from './defect.ts'
@@ -56,35 +56,38 @@ export const diesIn =
     )
 
 /**
- * `Effect.scoped`, for a fiber of the run with a scope of its own, whose defects die in `where`: what `self` dies of
- * is recorded as it dies, before its scope releases what it holds, and what the release dies of as it ends. A
- * defect is in the order it happened, though the release of what died first lets another fiber die before it ends.
- * What `self` died of is told from what the release dies of by what this fiber kept of it, never by the register: a
- * release may die with a defect another fiber recorded, handed to the program by whoever runs it, and that is a
- * defect of its own.
+ * A scope of its own, for a fiber of the run, whose defects die in `where`: what `self` dies of is recorded as it
+ * dies, before its scope releases what it holds, and what the release dies of as it ends. A defect is in the order it
+ * happened, though the release of what died first lets another fiber die before it ends. What `self` died of is told
+ * from what the release dies of by what this fiber kept of it, never by the register: a release may die with a defect
+ * another fiber recorded, handed to the program by whoever runs it, and that is a defect of its own.
  */
+// The scope is closed here, not by `Effect.scoped`, which joins what the effect ended with and what the release died of
+// with `Cause.combine`: that keeps one of two defects equal by `Equal`, before the register sees them. What the close
+// dies of is taken as it is (`docs/premises.md`), and joined by `Core.released`.
 export const scopedIn =
   (deaths: Deaths, where: DefectSite, details?: () => Readonly<{ key?: unknown; on?: unknown }>) =>
   <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, Scope.Scope>> =>
-    Effect.suspend(() => {
-      let own: Cause.Cause<unknown> = Cause.empty
-      return Effect.scoped(self.pipe(
-        diesIn(where, details),
-        Effect.onExit((exit) =>
-          Effect.sync(() => {
-            if (Exit.isFailure(exit)) own = exit.cause
-          })
-        ),
-        deaths.recorded,
-      )).pipe(
-        diesIn(
-          where,
-          details,
-          (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),
-        ),
-        deaths.recorded,
-      )
-    })
+    Effect.uninterruptibleMask((restore) =>
+      Effect.flatMap(Scope.make(), (scope) =>
+        Effect.exit(restore(self.pipe(diesIn(where, details), deaths.recorded, Scope.provide(scope)))).pipe(
+          Effect.flatMap((exit) => {
+            const own: Cause.Cause<E> = Exit.isFailure(exit) ? exit.cause : Cause.empty
+            return Scope.close(scope, exit).pipe(
+              diesIn(
+                where,
+                details,
+                (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),
+              ),
+              deaths.recorded,
+              Effect.exit,
+              Effect.flatMap((closed) =>
+                Exit.isSuccess(closed) ? exit : Effect.failCause(Core.released(own, closed.cause))
+              ),
+            )
+          }),
+        ))
+    )
 
 /**
  * Runs a subscription, sending each of its messages, in the scope of the fiber that runs it, and returns its last

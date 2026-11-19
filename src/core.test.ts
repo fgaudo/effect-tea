@@ -17,6 +17,7 @@ import {
   otherwiseDefect,
   reconcile,
   record,
+  released,
   report,
   type Source,
   Stopped,
@@ -188,6 +189,33 @@ describe('what a run ends with', () => {
     const other = { _tag: 'Boom' }
     expect(defects(diesFirst(dies(one), Cause.fromReasons([...dies(other), ...dies(one)])))).toEqual([one, other])
     expect(diesFirst(dies(one), Cause.die(other)).reasons[1]?._tag === 'Die').toBe(true)
+  })
+})
+
+describe('what a fiber with a scope of its own ends with', () => {
+  test('what its effect ended with, then what its release died of', () => {
+    const own = Cause.fromReasons<string>([...Cause.die('own').reasons, ...Cause.interrupt(1).reasons])
+    expect(defects(released(own, Cause.die('release')))).toEqual(['own', 'Interrupt', 'release'])
+  })
+
+  test('two defects equal by Equal stay two, told apart by identity', () => {
+    const one = { _tag: 'Boom' }
+    const other = { _tag: 'Boom' }
+    const release = Cause.fromReasons([...Cause.die(other).reasons, ...Cause.die(one).reasons])
+    expect(defects(released(Cause.die(one), release))).toEqual([one, other])
+  })
+
+  test('an interruption of the release is left out when the effect has one by the same fiber, with its mark', () => {
+    const mark = Context.make(Stopped, {})
+    const own = Cause.fromReasons([...Cause.die('own').reasons, ...Cause.annotate(Cause.interrupt(1), mark).reasons])
+    const release = Cause.fromReasons<never>([
+      ...Cause.annotate(Cause.interrupt(1), Context.make(Stopped, {})).reasons,
+      ...Cause.interrupt(1).reasons,
+      ...Cause.interrupt(2).reasons,
+      ...Cause.annotate(Cause.interrupt(1), mark).reasons,
+    ])
+    expect(released(own, release).reasons.map((reason) => Cause.isInterruptReason(reason) ? reason.fiberId : 'own'))
+      .toEqual(['own', 1, 1, 1, 2])
   })
 })
 

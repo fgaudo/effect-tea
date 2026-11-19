@@ -14,12 +14,6 @@ test of it. None is open.
 
 Found in a review of the premises, 19 November 2026, each held by a `test.failing` case:
 
-- **Equal defects become one**: two releases in the scope the run gives a command, a subscription or the renderer that
-  die with errors equal by `Equal` but distinct (two `Data.TaggedError` with the same fields, two `new Error` with the
-  same message) leave one defect. `Effect.scoped` joins the causes with `Cause.combine`, which dedupes by value, before
-  the register sees them. A fix where `scopedIn` reads the close's exit itself rests on a new premise, that the exit
-  keeps every reason, which needs the owner's consent. Held by `src/run.test.ts`, "releases that die with errors equal
-  by Equal".
 - **Interruptions taken for the run's**: a fiber of the program that interrupts a command's or a subscription's fiber
   is taken for the run's interruption, since it carries no mark, and the fiber ends in silence: the run goes on,
   `simulate` fails with a bare interruption, and `rehearse` ends interrupted or `hearNext` waits for ever. The same
