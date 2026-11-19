@@ -21,9 +21,6 @@
               "allowedUnstableApis": [
                 "effect/cli",
                 "effect/process",
-                "effect/FileSystem",
-                "effect/Path",
-                "effect/PlatformError",
                 "@effect/platform-bun"
               ]
             }
