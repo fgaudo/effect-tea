@@ -27,6 +27,7 @@ import {
   element,
   holdFrames,
   lid,
+  type lock,
   mount,
   type note,
   paint,
@@ -121,6 +122,16 @@ const stepsView: View<ModelOf<typeof steps>, MessageOf<typeof steps>> = (model, 
     h("output", model.text)
   ])
 
+// The same `<input>`, through the same dispatch, open and locked.
+const lockView: View<ModelOf<typeof lock>, MessageOf<typeof lock>> = (model, dispatch) =>
+  h("main", [
+    h("input", shows(model.text, forwardTo(dispatch, "Text"))),
+    ...(model._tag === "Open"
+      ? [h("button", { on: onClick<MessageOf<typeof lock>>(model.lock, dispatch) }, "Lock")]
+      : []),
+    h("output", model.text)
+  ])
+
 const snabbdom: Bridge<VNode> = {
   renderInto,
   views: {
@@ -131,7 +142,8 @@ const snabbdom: Bridge<VNode> = {
     note: noteView,
     dictated: dictatedView,
     lid: lidView,
-    steps: stepsView
+    steps: stepsView,
+    lock: lockView
   }
 }
 

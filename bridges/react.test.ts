@@ -29,6 +29,7 @@ import {
   element,
   holdFrames,
   type lid,
+  type lock,
   mount,
   type note,
   paint,
@@ -171,6 +172,16 @@ const stepsView: View<ModelOf<typeof steps>, MessageOf<typeof steps>> = (model, 
     createElement("output", null, model.text)
   )
 
+// The same `Shows`, through the same dispatch, open and locked.
+const lockView: View<ModelOf<typeof lock>, MessageOf<typeof lock>> = (model, dispatch) =>
+  createElement(
+    "main",
+    null,
+    createElement(bridge.Shows, { value: model.text, dispatch: forwardTo(dispatch, "Text") }),
+    model._tag === "Open" ? drawButton("Lock", bridge.onClick<MessageOf<typeof lock>>(model.lock, dispatch)) : null,
+    createElement("output", null, model.text)
+  )
+
 const react: Bridge<ReactNode> = {
   renderInto: (root, view) => bridge.renderInto(root, view),
   views: {
@@ -181,7 +192,8 @@ const react: Bridge<ReactNode> = {
     note: noteView,
     dictated: dictatedView,
     lid: lidView,
-    steps: stepsView
+    steps: stepsView,
+    lock: lockView
   }
 }
 

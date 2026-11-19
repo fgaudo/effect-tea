@@ -230,6 +230,21 @@ export const steps = stepsOf.make({
       : { _tag: "Second" as const, text: held.second }
 })
 
+// A note the program locks, whose input's place the locked state no longer holds: the view draws the same input
+// through the same dispatch in both states, as a field drawn while an operation runs.
+type Lock = Readonly<{ _tag: "Open"; text: string }> | Readonly<{ _tag: "Locked"; text: string }>
+const lockOf = program<{ state: Lock; message: "Locked" }>()
+
+export const lock = lockOf.make({
+  init: { state: { _tag: "Open", text: "" } },
+  inputs: { Text: lockOf.input({ at: Optic.id<Lock>().tag("Open").key("text") }) },
+  update: (_: "Locked") => (held) => held._tag === "Open" ? { state: { _tag: "Locked", text: held.text } } : reject,
+  makeModel: (held) =>
+    held._tag === "Open"
+      ? { _tag: "Open" as const, text: held.text, lock: "Locked" as const }
+      : { _tag: "Locked" as const, text: held.text }
+})
+
 /** A source that belongs to the control, as a dictation that streams partial results: the control listens to it. */
 export type Dictation = Readonly<{ listen: (listener: (text: string) => void) => () => void }>
 
@@ -278,6 +293,8 @@ export type Bridge<Node> = Readonly<{
      * `<output>`.
      */
     steps: View<Node, ModelOf<typeof steps>, MessageOf<typeof steps>>
+    /** The note's input, through the same dispatch in both states, a Lock button while open, and its text in an `<output>`. */
+    lock: View<Node, ModelOf<typeof lock>, MessageOf<typeof lock>>
   }>
 }>
 
@@ -766,5 +783,24 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
         expect(state()).toEqual(["B"])
       }
     )
+  })
+
+  describe("an input whose place the state no longer holds", () => {
+    test.failing("shows the program's value once a key, left unseen by the frame that locks it, is rejected", () => {
+      mount(bridge.renderInto, bridge.views.lock, (render) => run(lock, render))
+      settle()
+      const typedInto = element<HTMLInputElement>("input")
+      // The run takes Locked; a key is typed over the empty text, and the refresh draws the locked state, which has
+      // not seen the key, before the run takes it. The locked state holds the empty text.
+      button("Lock").click()
+      settle()
+      type(typedInto, "A")
+      refresh()
+      // The key is rejected, since the locked state holds no place for it: no frame follows.
+      paint()
+      expect(element("input")).toBe(typedInto)
+      expect(state()).toEqual([""])
+      expect(typedInto.value).toBe("")
+    })
   })
 }
