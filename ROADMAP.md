@@ -37,7 +37,18 @@ test of it. None is open.
 ## Ideas, to be decided
 
 - **Bridges as packages of their own** (`@fgaudo/effect-tea-snabbdom`, `@fgaudo/effect-tea-react`): the library
-  stays free of renderers, and users stop copying `bridges/snabbdom.ts` and `bridges/react.ts`.
+  stays free of renderers, and users stop copying `bridges/snabbdom.ts` and `bridges/react.ts`. Argued again in a
+  review of the architecture, 20 November 2026, with the contract kept as narrow as it is today (a frame drawn whole
+  and at once, a native text field): a fix of a bridge, as those of 16 and 19 November, does not reach a copy, and what
+  a screen shows of an input is promised through code that no version names. With it, the bridges' tests in a real
+  browser, where the caret and an IME composition were never run. Reasoned, not decided:
+  [`docs/rejected.md`](docs/rejected.md), "The bridges", says what the owner declined, and reopens on this.
+- **The value of an input, read in `makeModel` through its declaration**: `makeModel: (state, children, inputs)`, with
+  `inputs.Count(state, id)` the value its place holds, or `None` where it has no place, as `children.Row(state, id)` is
+  a row's model. Today a program says where an input is (`get`, or `at`), and says again in `makeModel` in which states
+  the view draws it: `examples/stocktake` computes `editable` apart from the `get` of `Count`, and a test keeps the two
+  in step. Read through the declaration, a model holds an input only where a write has a place. Found in the same
+  review; reasoned, not spiked, and not found in `docs/rejected.md`.
 - **A devtools bridge over `onApplied`** (e.g. Redux DevTools), with time travel through `init: { state }` and
   replay through `applyAll`.
 - **An example of routing**: flags from the URL, `popstate` as a subscription, navigation as a command.
