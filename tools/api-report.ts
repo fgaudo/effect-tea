@@ -20,12 +20,12 @@ import {
   type ExtractorMessage,
   ExtractorMessageCategory
 } from "@microsoft/api-extractor"
-import { Glob } from "bun"
 import * as Command from "effect/cli/Command"
 import * as Flag from "effect/cli/Flag"
 import * as Effect from "effect/Effect"
-import { join } from "node:path"
-import { Failed, main, root } from "./cli.ts"
+import * as FileSystem from "effect/FileSystem"
+import * as Path from "effect/Path"
+import { Failed, main, repository } from "./cli.ts"
 
 const entrypoints = [
   { name: "effect-tea", declarations: "dist/index.d.ts" },
@@ -40,6 +40,8 @@ const command = Command.make(
     )
   },
   Effect.fnUntraced(function*({ check }) {
+    const { join } = yield* Path.Path
+    const root = yield* repository
     // What the analysis finds wrong in the declarations; the messages of the report itself (written, or out of date) are
     // of the `console` category, and decided below.
     const problems: Array<ExtractorMessage> = []
@@ -97,13 +99,11 @@ const command = Command.make(
         failures.push(`The API of ${declarations} differs from api/${name}.api.md: run \`bun run api\` and commit it.`)
       }
     }
-    const files = yield* Effect.promise(async () =>
-      Promise.all(
-        (await Array.fromAsync(new Glob("dist/**/*.d.ts").scan({ cwd: root }))).map(async (path) => ({
-          path,
-          text: await Bun.file(join(root, path)).text()
-        }))
-      )
+    const fs = yield* FileSystem.FileSystem
+    const files = yield* Effect.forEach(
+      yield* fs.glob("dist/**/*.d.ts", { root }),
+      (path) => Effect.map(fs.readFileString(join(root, path)), (text) => ({ path, text })),
+      { concurrency: "unbounded" }
     )
     // What one entrypoint forgets, the other may export: `testing` reaches `Update`, which `.` exports.
     const exportedNames = (text: string) =>

@@ -13,19 +13,12 @@
 // comments that follow it by its name.
 //
 //   bun tools/comments.ts
-import { Glob } from "bun"
-import { join, relative } from "node:path"
-
-const root = join(import.meta.dir, "..")
-const problems: Array<string> = []
-
-const pages = new Map<string, ReadonlyArray<string>>()
-for await (const path of new Glob("site/guide/*.md").scan({ cwd: root })) {
-  const lines = (await Bun.file(join(root, path)).text()).split(/\r?\n/)
-  const title = lines.find((line) => line.startsWith("title: "))?.slice("title: ".length)
-  if (title === undefined) problems.push(`${path} has no title.`)
-  else pages.set(title, lines)
-}
+//   bun tools/comments.ts --help     the same, as the command describes itself
+import * as Command from "effect/cli/Command"
+import * as Effect from "effect/Effect"
+import * as FileSystem from "effect/FileSystem"
+import * as Path from "effect/Path"
+import { Failed, main, repository } from "./cli.ts"
 
 // How many sections of a page have the title: its headings, and the list items and paragraphs that start with it in
 // bold.
@@ -38,15 +31,14 @@ const sectionsOf = (lines: ReadonlyArray<string>, title: string) =>
   }).length
 
 const reference = /^\s*\* @see The guide, "([^"]+)"(?:, "([^"]+)")?\.$/
-for await (const path of new Glob("src/**/*.ts").scan({ cwd: root })) {
-  if (/\.test(_\w+)?\.ts$/.test(path)) continue
-  const file = join(root, path)
-  const name = relative(root, file).replaceAll("\\", "/")
-  const lines = (await Bun.file(file).text()).split(/\r?\n/)
+
+// What one file of `src/` breaks of the rules of the doc comments, by the pages of the guide.
+const problemsOfSource = (name: string, text: string, pages: ReadonlyMap<string, ReadonlyArray<string>>) => {
+  const problems: Array<string> = []
   // Whether the last line that is not blank closes a doc comment, and whether one is open.
   let closed = false
   let open = false
-  lines.forEach((line, at) => {
+  text.split(/\r?\n/).forEach((line, at) => {
     const trimmed = line.trim()
     if (!open && trimmed.startsWith("/**")) {
       if (closed) problems.push(`${name}:${at + 1} is a doc comment right after another: make them one.`)
@@ -82,13 +74,15 @@ for await (const path of new Glob("src/**/*.ts").scan({ cwd: root })) {
       )
     }
   })
+  return problems
 }
+
 // The skill the package ships names the sections of the guide its rules sum up the same way, `The guide, "<page>",
 // "<section>"`, within its prose, where a name may be wrapped onto the next line. Inline code only shows the form.
-for await (const path of new Glob("skills/*/SKILL.md").scan({ cwd: root })) {
-  const name = path.replaceAll("\\", "/")
-  const text = (await Bun.file(join(root, path)).text()).replace(/`[^`\n]*`/g, "``").replace(/\s+/g, " ")
-  for (const [, page = "", section] of text.matchAll(/The guide, "([^"]+)"(?:, "([^"]+)")?/g)) {
+const problemsOfSkill = (name: string, text: string, pages: ReadonlyMap<string, ReadonlyArray<string>>) => {
+  const problems: Array<string> = []
+  const prose = text.replace(/`[^`\n]*`/g, "``").replace(/\s+/g, " ")
+  for (const [, page = "", section] of prose.matchAll(/The guide, "([^"]+)"(?:, "([^"]+)")?/g)) {
     const guide = pages.get(page)
     const found = guide === undefined || section === undefined ? 1 : sectionsOf(guide, section)
     if (guide === undefined) problems.push(`${name}: the guide has no page "${page}".`)
@@ -96,6 +90,33 @@ for await (const path of new Glob("skills/*/SKILL.md").scan({ cwd: root })) {
       problems.push(`${name}: "${page}", "${section}" is ${found === 0 ? "not there" : "there more than once"}.`)
     }
   }
+  return problems
 }
-for (const problem of problems) console.error(problem)
-if (problems.length > 0) process.exit(1)
+
+const command = Command.make(
+  "comments",
+  {},
+  Effect.fnUntraced(function*() {
+    const fs = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    const root = yield* repository
+    const read = (file: string) => fs.readFileString(path.join(root, file))
+    const problems: Array<string> = []
+    const pages = new Map<string, ReadonlyArray<string>>()
+    for (const name of yield* fs.glob("site/guide/*.md", { root })) {
+      const lines = (yield* read(name)).split(/\r?\n/)
+      const title = lines.find((line) => line.startsWith("title: "))?.slice("title: ".length)
+      if (title === undefined) problems.push(`${name} has no title.`)
+      else pages.set(title, lines)
+    }
+    for (const name of yield* fs.glob("src/**/*.ts", { root })) {
+      if (!/\.test(_\w+)?\.ts$/.test(name)) problems.push(...problemsOfSource(name, yield* read(name), pages))
+    }
+    for (const name of yield* fs.glob("skills/*/SKILL.md", { root })) {
+      problems.push(...problemsOfSkill(name, yield* read(name), pages))
+    }
+    if (problems.length > 0) return yield* new Failed({ message: problems.join("\n") })
+  })
+)
+
+main(command)

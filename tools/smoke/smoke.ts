@@ -7,21 +7,20 @@
 //
 //   bun tools/smoke/smoke.ts [--effect <version>] [--typescript 5.9,6.0,7.0] [--keep]
 //   bun tools/smoke/smoke.ts --help     the same, as the command describes itself
-import { Glob } from "bun"
 import * as Command from "effect/cli/Command"
 import * as Flag from "effect/cli/Flag"
 import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
+import * as FileSystem from "effect/FileSystem"
 import * as Opt from "effect/Option"
+import * as Path from "effect/Path"
 import * as ChildProcess from "effect/process/ChildProcess"
-import * as fs from "node:fs"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
-import { exec, Failed, main, root, step } from "../cli.ts"
+import { exec, Failed, main, repository, step } from "../cli.ts"
 
-const readJson = (path: string) => JSON.parse(fs.readFileSync(path, "utf8"))
-
-const scan = (pattern: string, cwd: string) => [...new Glob(pattern).scanSync({ cwd })]
+const readJson = Effect.fnUntraced(function*(path: string) {
+  const fs = yield* FileSystem.FileSystem
+  return JSON.parse(yield* fs.readFileString(path))
+})
 
 // What `program`, its functions and `rehearse` give is named, not spelled out: spelled out, it repeats the state for
 // each of its types.
@@ -70,11 +69,13 @@ const problemsOf = (declared: string) => {
 }
 
 // The project of the consumer, in a directory of its own, which `--keep` leaves for a look.
-const consumerDirectory = (keep: boolean) =>
-  Effect.acquireRelease(
-    Effect.sync(() => fs.mkdtempSync(join(tmpdir(), "effect-tea-smoke-"))),
-    (dir) => keep ? Console.log(`kept ${dir}`) : Effect.sync(() => fs.rmSync(dir, { recursive: true, force: true }))
+const consumerDirectory = Effect.fnUntraced(function*(keep: boolean) {
+  const fs = yield* FileSystem.FileSystem
+  return yield* Effect.acquireRelease(
+    fs.makeTempDirectory({ prefix: "effect-tea-smoke-" }),
+    (dir) => keep ? Console.log(`kept ${dir}`) : Effect.orDie(fs.remove(dir, { recursive: true, force: true }))
   )
+})
 
 const command = Command.make(
   "smoke",
@@ -96,11 +97,16 @@ const command = Command.make(
     )
   },
   Effect.fnUntraced(function*({ effect: chosen, keep, typescript: typescripts }) {
-    const effect = Opt.getOrElse(chosen, () => readJson(join(root, "node_modules/effect/package.json")).version)
+    const fs = yield* FileSystem.FileSystem
+    const { join } = yield* Path.Path
+    const root = yield* repository
+    const effect = Opt.isSome(chosen)
+      ? chosen.value
+      : (yield* readJson(join(root, "node_modules/effect/package.json"))).version
     const dir = yield* consumerDirectory(keep)
     yield* step(root, "bun", ["pm", "pack", "--quiet", "--destination", dir])
-    const [tarball] = scan("*.tgz", dir)
-    fs.writeFileSync(
+    const [tarball] = yield* fs.glob("*.tgz", { root: dir })
+    yield* fs.writeFileString(
       join(dir, "package.json"),
       JSON.stringify({
         name: "smoke",
@@ -113,14 +119,14 @@ const command = Command.make(
         }
       })
     )
-    const readme = fs.readFileSync(join(root, "README.md"), "utf8")
+    const readme = yield* fs.readFileString(join(root, "README.md"))
     const quickStart = /^## Quick start$[\s\S]*?^```ts$\n([\s\S]*?)^```$/m.exec(readme)?.[1]
     if (quickStart === undefined) return yield* new Failed({ message: "The README has no quick start" })
-    fs.writeFileSync(join(dir, "quickstart.ts"), quickStart)
-    fs.copyFileSync(join(import.meta.dir, "consumer.ts"), join(dir, "consumer.ts"))
+    yield* fs.writeFileString(join(dir, "quickstart.ts"), quickStart)
+    yield* fs.copyFile(join(import.meta.dir, "consumer.ts"), join(dir, "consumer.ts"))
     // `nodenext` without `exactOptionalPropertyTypes`, `bundler` with it: consumers use both.
     for (const [resolution, module, exact] of [["nodenext", "nodenext", false], ["bundler", "esnext", true]] as const) {
-      fs.writeFileSync(
+      yield* fs.writeFileString(
         join(dir, `tsconfig.${resolution}.json`),
         JSON.stringify({
           compilerOptions: {
@@ -148,24 +154,28 @@ const command = Command.make(
     // a broken rewrite in `tools/build.ts`; other tools that read declarations do not.
     const installed = join(dir, "node_modules/@fgaudo/effect-tea/dist")
     const tsImport = /from\s+'\.{1,2}\/[^']*\.ts'|import\("\.{1,2}\/[^"]*\.ts"\)/
-    const importing = scan("**/*.d.ts", installed).find((path) =>
-      tsImport.test(fs.readFileSync(join(installed, path), "utf8"))
+    const importing = yield* Effect.findFirst(
+      yield* fs.glob("**/*.d.ts", { root: installed }),
+      (path) => Effect.map(fs.readFileString(join(installed, path)), (text) => tsImport.test(text))
     )
-    if (importing !== undefined) return yield* new Failed({ message: `dist/${importing} imports a .ts file` })
+    if (Opt.isSome(importing)) return yield* new Failed({ message: `dist/${importing.value} imports a .ts file` })
     // The guide, the tutorial and the skill are read in the package, at the version installed: what they link
     // relatively, and the files whose code the tutorial includes, must be in it. The README's links are left out, since
     // npm sends them to the repository.
     const packageRoot = join(dir, "node_modules/@fgaudo/effect-tea")
     const relativeLink =
       /\]\((?!https?:|#|mailto:)([^)#\s]+)|^\[[^\]]+\]: (?!https?:)([^\s#]+)|\{@includeCode ([^}#\s]+)/gm
-    const documents = [...scan("site/{guide,tutorial}/*.md", packageRoot), ...scan("skills/*/*.md", packageRoot)]
+    const documents = [
+      ...yield* fs.glob("site/{guide,tutorial}/*.md", { root: packageRoot }),
+      ...yield* fs.glob("skills/*/*.md", { root: packageRoot })
+    ]
     if (documents.length === 0) return yield* new Failed({ message: "The package ships no guide, tutorial or skill" })
     for (const path of documents) {
       // Inline code is emptied: a link's text may be code, but code that only shows a tag links nothing.
-      const text = fs.readFileSync(join(packageRoot, path), "utf8").replace(/`[^`\n]*`/g, "``")
+      const text = (yield* fs.readFileString(join(packageRoot, path))).replace(/`[^`\n]*`/g, "``")
       for (const [, ...targets] of text.matchAll(relativeLink)) {
         const target = targets.find((target) => target !== undefined) ?? ""
-        if (!fs.existsSync(join(packageRoot, path, "..", target))) {
+        if (!(yield* fs.exists(join(packageRoot, path, "..", target)))) {
           return yield* new Failed({ message: `${path} links ${target}, not packed` })
         }
       }
@@ -181,14 +191,14 @@ const command = Command.make(
     yield* step(dir, "node", ["consumer.ts"])
     const failed: Array<string> = []
     for (const version of typescripts) {
-      const { version: exact } = readJson(join(dir, `node_modules/typescript-${version}/package.json`))
+      const { version: exact } = yield* readJson(join(dir, `node_modules/typescript-${version}/package.json`))
       for (const resolution of ["nodenext", "bundler"]) {
         const tsc = join(dir, `node_modules/typescript-${version}/bin/tsc`)
         const { exitCode, stdout } = yield* exec(
           ChildProcess.make("node", [tsc, "-p", `tsconfig.${resolution}.json`], { cwd: dir })
         )
         const problems = exitCode === 0
-          ? problemsOf(fs.readFileSync(join(dir, `declarations/${resolution}/consumer.d.ts`), "utf8"))
+          ? problemsOf(yield* fs.readFileString(join(dir, `declarations/${resolution}/consumer.d.ts`)))
           : [stdout]
         yield* Console.log(`typescript ${exact}, ${resolution}: ${problems.length === 0 ? "ok" : "failed"}`)
         if (problems.length > 0) {

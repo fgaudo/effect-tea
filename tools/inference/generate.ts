@@ -15,20 +15,28 @@ import * as Command from "effect/cli/Command"
 import * as Flag from "effect/cli/Flag"
 import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
+import * as FileSystem from "effect/FileSystem"
 import * as Opt from "effect/Option"
+import * as Path from "effect/Path"
 import * as ChildProcess from "effect/process/ChildProcess"
-import * as fs from "node:fs"
-import { dirname, join } from "node:path"
-import { exec, Failed, main, root, step } from "../cli.ts"
+import { exec, Failed, main, repository, step } from "../cli.ts"
 
-const out = join(root, ".inference")
+const out = Effect.gen(function*() {
+  const path = yield* Path.Path
+  return path.join(yield* repository, ".inference")
+})
 
-const write = (file: string, text: string) => {
-  fs.mkdirSync(dirname(file), { recursive: true })
-  fs.writeFileSync(file, text)
-}
+const write = Effect.fnUntraced(function*(file: string, text: string) {
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  yield* fs.makeDirectory(path.dirname(file), { recursive: true })
+  yield* fs.writeFileString(file, text)
+})
 
-const readJson = (file: string) => JSON.parse(fs.readFileSync(file, "utf8"))
+const readJson = Effect.fnUntraced(function*(file: string) {
+  const fs = yield* FileSystem.FileSystem
+  return JSON.parse(yield* fs.readFileString(file))
+})
 
 type Name = "model" | "message" | "command" | "event" | "external" | "flags"
 // `message` is named exactly when the program has an `update`: it follows from the form of `update`.
@@ -912,8 +920,12 @@ const parse = (output: string): Array<Diagnostic> => {
 
 // One `tsc` on one file of cases or of the scale, with the options of `config`: what it reports.
 const check = Effect.fnUntraced(function*(tsc: string, config: string, options: object, file: string) {
-  write(join(out, config), JSON.stringify({ compilerOptions: options, files: [file] }))
-  const { stdout } = yield* exec(ChildProcess.make("node", [tsc, "-p", config, "--pretty", "false"], { cwd: out }))
+  const path = yield* Path.Path
+  const directory = yield* out
+  yield* write(path.join(directory, config), JSON.stringify({ compilerOptions: options, files: [file] }))
+  const { stdout } = yield* exec(
+    ChildProcess.make("node", [tsc, "-p", config, "--pretty", "false"], { cwd: directory })
+  )
   return parse(stdout)
 })
 
@@ -955,9 +967,13 @@ const command = Command.make(
       const filter = Opt.getOrUndefined(chosen)
       const selected = cases.filter((c) => filter === undefined || c.id.includes(filter))
       const selectedHand = handCases.filter((c) => filter === undefined || c.id.includes(filter))
+      const fs = yield* FileSystem.FileSystem
+      const { join } = yield* Path.Path
+      const root = yield* repository
+      const directory = yield* out
       const spans: Array<Span> = []
-      fs.rmSync(out, { recursive: true, force: true })
-      fs.mkdirSync(out, { recursive: true })
+      yield* fs.remove(directory, { recursive: true, force: true })
+      yield* fs.makeDirectory(directory, { recursive: true })
       const groups = new Map<string, Array<Readonly<{ id: string; valid: Verdict; body: string }>>>()
       const add = (group: string, member: Readonly<{ id: string; valid: Verdict; body: string }>) =>
         groups.set(group, [...(groups.get(group) ?? []), member])
@@ -983,16 +999,19 @@ const command = Command.make(
           spans.push({ id: member.id, file, from, to: line, valid: member.valid })
           text += block
         })
-        write(join(out, file), text)
+        yield* write(join(directory, file), text)
       }
       const valid = spans.filter((span) => span.valid === true).length
       yield* Console.log(`${spans.length} cases (${valid} valid) in ${groups.size} files`)
-      for (const count of scale) write(join(out, `scale/scale${count}.ts`), scaled(count))
+      for (const count of scale) yield* write(join(directory, `scale/scale${count}.ts`), scaled(count))
       // The TypeScripts, installed apart as `smoke.ts` installs them.
       const tsDir = join(root, "node_modules/.cache/inference-typescripts")
-      const missing = typescripts.filter((version) => !fs.existsSync(join(tsDir, `node_modules/typescript-${version}`)))
+      const missing = yield* Effect.filter(
+        typescripts,
+        (version) => Effect.map(fs.exists(join(tsDir, `node_modules/typescript-${version}`)), (exists) => !exists)
+      )
       if (missing.length > 0) {
-        write(
+        yield* write(
           join(tsDir, "package.json"),
           JSON.stringify({
             name: "inference-typescripts",
@@ -1011,7 +1030,9 @@ const command = Command.make(
         for (const unchecked of uncheckeds) {
           for (const version of typescripts) {
             const tsc = join(tsDir, `node_modules/typescript-${version}/bin/tsc`)
-            const { version: exactVersion } = readJson(join(tsDir, `node_modules/typescript-${version}/package.json`))
+            const { version: exactVersion } = yield* readJson(
+              join(tsDir, `node_modules/typescript-${version}/package.json`)
+            )
             const started = performance.now()
             const options = { ...compilerOptions(exact, unchecked), noEmit: true }
             const diagnostics = (yield* Effect.forEach(
@@ -1050,7 +1071,7 @@ const command = Command.make(
               Readonly<{ count: number; seconds: string; declarations: number; errors: number }>
             > = []
             for (const count of scale) {
-              const declarations = join(out, `declarations/${version}-${exact}-${unchecked}`)
+              const declarations = join(directory, `declarations/${version}-${exact}-${unchecked}`)
               const begun = performance.now()
               const errors = yield* check(tsc, `tsconfig.scale${count}.json`, {
                 ...compilerOptions(exact, unchecked),
@@ -1061,7 +1082,7 @@ const command = Command.make(
               }, `scale/scale${count}.ts`)
               const took = ((performance.now() - begun) / 1000).toFixed(1)
               const emitted = join(declarations, `.inference/scale/scale${count}.d.ts`)
-              const size = fs.existsSync(emitted) ? fs.readFileSync(emitted, "utf8").length : -1
+              const size = (yield* fs.exists(emitted)) ? (yield* fs.readFileString(emitted)).length : -1
               scaleReport.push({ count, seconds: took, declarations: size, errors: errors.length })
             }
             yield* Console.log(
@@ -1075,8 +1096,8 @@ const command = Command.make(
           }
         }
       }
-      write(join(out, "report.json"), JSON.stringify(report, null, 2))
-      yield* Console.log(`report: ${join(out, "report.json")}`)
+      yield* write(join(directory, "report.json"), JSON.stringify(report, null, 2))
+      yield* Console.log(`report: ${join(directory, "report.json")}`)
       const leads = Object.values(report).reduce(
         (sum: number, run) => sum + (run as Readonly<{ wrong: ReadonlyArray<unknown> }>).wrong.length,
         0

@@ -5,15 +5,15 @@ import * as Command from "effect/cli/Command"
 import * as Console from "effect/Console"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
+import * as FileSystem from "effect/FileSystem"
+import * as Path from "effect/Path"
 import * as ChildProcess from "effect/process/ChildProcess"
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner"
 import * as Runtime from "effect/Runtime"
 import * as Stream from "effect/Stream"
-import * as fs from "node:fs"
-import * as path from "node:path"
 
-// `dirname`, and not Bun's `dir`, as `tools/bench/writes.ts` runs on Node too.
-export const root = path.resolve(import.meta.dirname, "..")
+// The root of the repository. `dirname`, and not Bun's `dir`, as `tools/bench/writes.ts` runs on Node too.
+export const repository = Effect.map(Path.Path, (path) => path.resolve(import.meta.dirname, ".."))
 
 // What a tool is refused for, or what it found: printed as it is, with no stack, which would point into the tool and
 // not at what it found.
@@ -46,8 +46,12 @@ export const step = Effect.fnUntraced(function*(cwd: string, command: string, ar
 export const main = <Name extends string, Input, ContextInput, E>(
   command: Command.Command<Name, Input, ContextInput, E, Command.Environment>
 ) =>
-  command.pipe(
-    Command.run({ version: JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version }),
+  Effect.gen(function*() {
+    const fs = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    const { version } = JSON.parse(yield* fs.readFileString(path.join(yield* repository, "package.json")))
+    return yield* command.pipe(Command.run({ version }))
+  }).pipe(
     Effect.tapError((error) => error instanceof Failed ? Console.error(error.message) : Effect.void),
     Effect.provide(BunServices.layer),
     BunRuntime.runMain

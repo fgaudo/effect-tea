@@ -23,16 +23,19 @@ import * as Flag from "effect/cli/Flag"
 import * as Console from "effect/Console"
 import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
+import * as FileSystem from "effect/FileSystem"
 import * as Opt from "effect/Option"
+import * as Path from "effect/Path"
 import * as ChildProcess from "effect/process/ChildProcess"
-import * as fs from "node:fs"
-import * as os from "node:os"
-import * as path from "node:path"
-import { exec, Failed, main, root } from "../cli.ts"
+import { exec, Failed, main, repository } from "../cli.ts"
 import { type Mutation, mutations } from "./mutations.ts"
 
 // One for each process, so that several can run at once.
-const base = path.join(root, ".mutants", String(process.pid))
+const base = Effect.gen(function*() {
+  const path = yield* Path.Path
+  return path.join(yield* repository, ".mutants", String(process.pid))
+})
+
 const copied = ["src", "test", "examples", "bridges", "bunfig.toml", "package.json", "tsconfig.json"]
 
 // `title` is what `bun test -t` matches: the names of the enclosing `describe`s, outermost first, and the test's,
@@ -94,16 +97,17 @@ type Run = Readonly<{ ran: ReadonlyArray<Outcome>; failedOutside: boolean }>
 
 let reports = 0
 
-const removeCopies = () => {
-  fs.rmSync(base, { recursive: true, force: true })
-  // Left to another process still running, when it is not empty.
-  try {
-    fs.rmdirSync(path.dirname(base))
-  } catch {}
-}
+// `.mutants/` itself is left: `FileSystem` removes a directory only with what it holds, which may be the copies of
+// another process still running.
+const removeCopies = Effect.gen(function*() {
+  const fs = yield* FileSystem.FileSystem
+  yield* fs.remove(yield* base, { recursive: true, force: true })
+}).pipe(Effect.orDie)
 
 // Runs `files` in `copy`, only the test whose title is `title` when given, and returns what it did, or that it hung.
 const runTests = Effect.fnUntraced(function*(copy: string, files: ReadonlyArray<string>, title?: string) {
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
   // One for each run, so that two runs never read each other's.
   const report = path.join(copy, `report-${reports++}.xml`)
   // Anchored, since `-t` runs every test whose title the pattern finds anywhere in it.
@@ -117,11 +121,11 @@ const runTests = Effect.fnUntraced(function*(copy: string, files: ReadonlyArray<
   ).pipe(Effect.timeoutOption(title === undefined ? suitePatience : patience))
   if (Opt.isNone(ended)) return "hung" as const
   const { exitCode, stderr } = ended.value
-  if (!fs.existsSync(report)) {
+  if (!(yield* fs.exists(report))) {
     return yield* new Failed({ message: `bun test wrote no report (exit ${exitCode}):\n${stderr}` })
   }
-  const ran = outcomes(fs.readFileSync(report, "utf8"))
-  fs.rmSync(report)
+  const ran = outcomes(yield* fs.readFileString(report))
+  yield* fs.remove(report)
   const run: Run = { ran, failedOutside: exitCode !== 0 && !ran.some((outcome) => outcome.failed) }
   return run
 })
@@ -208,18 +212,20 @@ const mutated = (mutation: Mutation, original: string) => {
     )
 }
 
-const under = <A, E, R>(copy: string, mutation: Mutation, effect: Effect.Effect<A, E, R>) => {
+const under = Effect.fnUntraced(function*<A, E, R>(copy: string, mutation: Mutation, effect: Effect.Effect<A, E, R>) {
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
   const file = path.join(copy, mutation.file)
-  return Effect.acquireUseRelease(
+  return yield* Effect.acquireUseRelease(
     Effect.gen(function*() {
-      const original = fs.readFileSync(file, "utf8")
-      fs.writeFileSync(file, yield* mutated(mutation, original))
+      const original = yield* fs.readFileString(file)
+      yield* fs.writeFileString(file, yield* mutated(mutation, original))
       return original
     }),
     () => effect,
-    (original) => Effect.sync(() => fs.writeFileSync(file, original))
+    (original) => Effect.orDie(fs.writeFileString(file, original))
   )
-}
+})
 
 // Runs the killers of `mutation` alone in `copy`, one after another, under it.
 const verdictsUnder = (
@@ -263,7 +269,7 @@ const changeOf = Effect.fnUntraced(function*(mutation: Mutation, file: string, o
 
 const atRevision = Effect.fnUntraced(function*(revision: string, file: string) {
   const { exitCode, stdout, stderr } = yield* exec(
-    ChildProcess.make("git", ["show", `${revision}:${file}`], { cwd: root })
+    ChildProcess.make("git", ["show", `${revision}:${file}`], { cwd: yield* repository })
   )
   if (exitCode !== 0) return yield* new Failed({ message: `git show ${revision}:${file}: ${stderr}` })
   return stdout
@@ -273,11 +279,15 @@ const atRevision = Effect.fnUntraced(function*(revision: string, file: string) {
 // what it does, the two change the same code in the same place, or a mutation that still finds its text exactly once
 // may take out another check than it did.
 const compare = Effect.fnUntraced(function*(revision: string, chosen: ReadonlyArray<Mutation>) {
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const root = yield* repository
+  const directory = yield* base
   // Imported from a file, since the list is a module; it imports nothing.
-  const listed = path.join(base, "mutations.ts")
+  const listed = path.join(directory, "mutations.ts")
   const list = yield* atRevision(revision, "tools/mutations/mutations.ts")
-  fs.mkdirSync(base, { recursive: true })
-  fs.writeFileSync(listed, list)
+  yield* fs.makeDirectory(directory, { recursive: true })
+  yield* fs.writeFileString(listed, list)
   const before: ReadonlyArray<Mutation> = (yield* Effect.promise(() => import(listed))).mutations
   let different = 0
   for (const mutation of chosen) {
@@ -287,7 +297,7 @@ const compare = Effect.fnUntraced(function*(revision: string, chosen: ReadonlyAr
       continue
     }
     const then = yield* changeOf(old, old.file, yield* atRevision(revision, old.file))
-    const now = yield* changeOf(mutation, mutation.file, fs.readFileSync(path.join(root, mutation.file), "utf8"))
+    const now = yield* changeOf(mutation, mutation.file, yield* fs.readFileString(path.join(root, mutation.file)))
     if (then.join("\n") === now.join("\n")) {
       yield* Console.log(`same      ${mutation.name}`)
       continue
@@ -386,7 +396,7 @@ const command = Command.make(
     ),
     jobs: Flag.Int("jobs").pipe(
       Flag.withDescription("How many copies of the repository run at once"),
-      Flag.withDefault(Math.max(1, Math.floor(os.availableParallelism() / 2))),
+      Flag.withDefault(Math.max(1, Math.floor(navigator.hardwareConcurrency / 2))),
       Flag.filter((jobs) => jobs >= 1, () => "a whole number of at least 1")
     ),
     against: Flag.String("against").pipe(
@@ -417,9 +427,16 @@ const command = Command.make(
         }
         return
       }
-      const copies = Array.from({ length: Math.min(jobs, chosen.length) }, (_, index) => path.join(base, String(index)))
+      const fs = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const root = yield* repository
+      const directory = yield* base
+      const copies = Array.from(
+        { length: Math.min(jobs, chosen.length) },
+        (_, index) => path.join(directory, String(index))
+      )
       for (const copy of copies) {
-        for (const entry of copied) fs.cpSync(path.join(root, entry), path.join(copy, entry), { recursive: true })
+        for (const entry of copied) yield* fs.copy(path.join(root, entry), path.join(copy, entry))
       }
       if (discover) return yield* discoverIn(copies, chosen)
       const survived = yield* killIn(copies, chosen)
@@ -429,7 +446,7 @@ const command = Command.make(
         })
       }
     },
-    Effect.ensuring(Effect.sync(removeCopies))
+    Effect.ensuring(removeCopies)
   )
 )
 

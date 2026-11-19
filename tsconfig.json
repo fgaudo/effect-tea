@@ -20,6 +20,8 @@
             "options": {
               "allowedUnstableApis": [
                 "effect/cli",
+                "effect/FileSystem",
+                "effect/Path",
                 "effect/process",
                 "@effect/platform-bun"
               ]
