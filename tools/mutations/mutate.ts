@@ -435,6 +435,8 @@ const command = Command.make(
         { length: Math.min(jobs, chosen.length) },
         (_, index) => path.join(directory, String(index))
       )
+      // A process killed before its copies were removed may have had this pid: `copy` overwrites none of its files.
+      yield* removeCopies
       for (const copy of copies) {
         for (const entry of copied) yield* fs.copy(path.join(root, entry), path.join(copy, entry))
       }
