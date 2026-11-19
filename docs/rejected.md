@@ -22,9 +22,9 @@ answer, and saying so in the proposal.
   that waits for ever, `simulate` succeeding) in a library that forbids one everywhere else, and narrowed a guarantee
   the owner had kept on 13 November (the entry below). Source: the session of 19 November 2026, with two reviews.
   _Reopen if_ a fiber the run forks can be interrupted without the run's mark by anything but the program.
-- **`onApplied` and `onIgnored` as effects, each call in a fiber of its own.** Spiked, 19 November 2026, on the
-  branch `spike/strict-interruptions` (worktree `../effect-tea-spike`, never to be merged), against the synchronous
-  options, spiked on `spike/synchronous-options`. Each call forked, awaited, stopped with the mark if the loop is
+- **`onApplied` and `onIgnored` as effects, each call in a fiber of its own.** Spiked, 19 November 2026: `542cb6d`, on
+  `spike/strict-interruptions`, never to be merged, against the synchronous options, `c69b78f` on
+  `spike/synchronous-options`. Each call forked, awaited, stopped with the mark if the loop is
   stopped meanwhile, with a root of its own: the loop then runs no effect of the program, as with functions. Measured:
   no false defect in 1,424 interruptions by whoever runs the program, after k events, under the scheduler of the tests;
   a defect in its site for every interruption by a fiber of the program; and about 28% fewer messages a second in a run
