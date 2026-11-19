@@ -137,6 +137,7 @@ export interface RunOptions<State, Message, Command = unknown> {
    * Hears each message `update` accepts.
    *
    * - It is a function, not an effect, and returns nothing. The types refuse one that returns a value.
+   *   Declared apart, it needs the return type `undefined`: TypeScript gives it `void` otherwise, which they refuse.
    * - The run calls it before the next message, the message's frame and its commands. A slow one holds up the whole
    *   program: offer what it hears to an unbounded queue, and do the slow work in a fiber raced with the run.
    * - A defect in it ends the run.
@@ -168,6 +169,7 @@ export interface RunOptions<State, Message, Command = unknown> {
    *
    * - It only watches: the message stays ignored.
    * - It is a function, not an effect, and returns nothing. The types refuse one that returns a value.
+   *   Declared apart, it needs the return type `undefined`: TypeScript gives it `void` otherwise, which they refuse.
    * - The run calls it before the next message. A slow one holds up the whole program: offer what it hears to an
    *   unbounded queue, and do the slow work in a fiber raced with the run.
    * - A defect in it ends the run.

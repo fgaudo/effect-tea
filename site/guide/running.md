@@ -47,6 +47,16 @@ before it takes another frame draws at most once per screen refresh, as
 **`onApplied` and `onIgnored` are functions, not effects.** The run calls them as it calls `update`, and they return
 nothing. The types refuse one that returns a value, an effect or a promise: what it returned would be lost.
 
+So their return type is `undefined`, not `void`: a function typed `void` may still return an effect. A function
+written in the options needs no return type. A function declared apart needs one: TypeScript gives it `void`, which
+the types refuse. Write `: undefined`:
+
+```ts
+const onApplied = (applied: Applied<State, Message, Command>): undefined => {
+  session.push(applied)
+}
+```
+
 **The run calls `onApplied` and `onIgnored` in order.** The run calls them before it takes the next message, so that
 they hear every message in order. The run also calls `onApplied` before the message's frame and before its commands.
 So a slow `onApplied` or `onIgnored` holds up the whole program. A defect in one of them ends the run, as any other

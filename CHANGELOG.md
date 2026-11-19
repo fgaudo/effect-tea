@@ -91,8 +91,9 @@ version, and everything else, features included, the patch version.
 - **Breaking**: as the run ends, it stops applying messages first, then the renderer, then commands and subscriptions.
   Upgrade: a renderer that sent a message for the program to act on as it is released does that work itself.
 - **Breaking**: `onApplied` and `onIgnored` are functions that return nothing, called as `update` is, not effects.
-  Upgrade: `(applied) => Effect.sync(() => record(applied))` becomes `(applied) => { record(applied) }`; slow work
-  goes to a queue, offered with `Queue.offerUnsafe` ("Running", "Give slow work to a queue").
+  Upgrade: `(applied) => Effect.sync(() => record(applied))` becomes `(applied) => { record(applied) }`, and one
+  declared apart returns `: undefined`, not `void`; slow work goes to a queue, offered with `Queue.offerUnsafe`
+  ("Running", "Give slow work to a queue").
 - **Breaking**: the constructors of `InvariantDefect`, `ProgramDefect` and `CompositionDefect` are private.
   Upgrade: `throw new InvariantDefect({ reason })` becomes `defect(reason)`; another error of a program's own is an
   error class of its own.

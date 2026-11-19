@@ -35,6 +35,13 @@ answer, and saying so in the proposal.
   subscription or the renderer, which whoever runs the program wraps. What is lost: an option that waits, and an
   option's logs through the run's logger. _Reopen if_ a use needs an option that waits and cannot be written as a
   wrapped `runCommand`, subscription or renderer.
+- **`void` as the return type of `onApplied` and `onIgnored`**, so that a function declared apart, which TypeScript
+  types `=> void`, and `console.log` would be taken without `: undefined`. Probed with `tsc`, 19 November 2026, in a
+  review of the synchronous options: a function that returns an effect, as `() => Effect.log("heard")`, is assignable
+  to one that returns `void`, so the types would take an effect that the run never runs, the very mistake the change
+  to functions makes impossible (the `@ts-expect-error` of `unheard` in `tools/smoke/consumer.ts`). The cost of
+  `undefined` is the annotation, which the guide states ("Running", "`onApplied` and `onIgnored` are functions, not
+  effects"). _Reopen if_ TypeScript can refuse a function that returns a value while it takes one typed `void`.
 - **The root of a fiber the run forks as its one check of an unmarked interruption.** Spiked on the same branches:
   a root alone, with the scope taking every interruption the fiber received as today, records a death by the program
   only once the scope has released what it holds, and the run applies messages meanwhile, which "from the first defect
