@@ -116,6 +116,25 @@ on this.
    the program changes a value under the user.
 4. The guide's "Writing a bridge" stays, for a renderer the packages do not cover; `release` learns of the packages.
 
+**A wider form**, weighed with the owner on 20 November 2026, on the question whether the library should draw too;
+reasoned, not decided. The package is no bridge to snabbdom but the view's own vocabulary, as data, over snabbdom's
+`patch`:
+
+- a node's handler holds a message, not a function, so a walk of the tree finds every message a view can send, with
+  any test and no DOM, as `messagesSentBy` does today for snabbdom alone;
+- a child's view is lifted by a node that wraps its messages, as Elm's `Html.map`, so a view is `(model) => Node` and
+  takes no dispatch, and its views need no dispatch that stays the same function (`forwardTo`'s cache);
+- a node of an input names its input, and the renderer keeps its element by `edited` and `drawn`: no user writes or
+  copies that part.
+
+It costs a second product to keep, with the DOM's own cases, and "views are generic over their node type"
+(`AGENTS.md`) stays true only of the library, with the package apart. Foldkit, another Elm architecture over Effect,
+draws this way over snabbdom, with messages in its nodes: read only in its announcement and its package page, not in
+its code. Weighed with it and not proposed: a `patch` of the library's own, whose cases of the DOM are not what the
+library is for, while snabbdom is small enough to keep a copy of; and another renderer under the bridges, where
+lit-html's `render` is the one that fits beside snabbdom (drawn at once, no component), but its templates are no tree
+a test can walk.
+
 **Done when** the packages are published with the library, or the entry of `docs/rejected.md` says why not.
 
 ### 5. A benchmark that runs in the CI
