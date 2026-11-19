@@ -17,35 +17,23 @@
 // mutation at a time, so the mutations run apart, and what each did is printed in the order of the list, once a killer
 // that passed under its mutation has run again with no other copy running. A run stopped by SIGINT or SIGTERM is
 // interrupted: the scope of each test under way ends its process, and the copies are removed once they have ended.
-import * as BunRuntime from "@effect/platform-bun/BunRuntime"
-import * as BunServices from "@effect/platform-bun/BunServices"
 import * as Argument from "effect/cli/Argument"
 import * as Command from "effect/cli/Command"
 import * as Flag from "effect/cli/Flag"
 import * as Console from "effect/Console"
-import * as Data from "effect/Data"
 import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import * as Opt from "effect/Option"
 import * as ChildProcess from "effect/process/ChildProcess"
-import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner"
-import * as Runtime from "effect/Runtime"
-import * as Stream from "effect/Stream"
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
+import { exec, Failed, main, root } from "../cli.ts"
 import { type Mutation, mutations } from "./mutations.ts"
 
-const root = path.resolve(import.meta.dir, "../..")
 // One for each process, so that several can run at once.
 const base = path.join(root, ".mutants", String(process.pid))
 const copied = ["src", "test", "examples", "bridges", "bunfig.toml", "package.json", "tsconfig.json"]
-
-// What the list or a run is refused for, or what the mutations found: printed as it is, with no stack, which would
-// point into this script and not at the list.
-class Failed extends Data.TaggedError("Failed")<{ readonly message: string }> {
-  readonly [Runtime.errorReported] = false
-}
 
 // `title` is what `bun test -t` matches: the names of the enclosing `describe`s, outermost first, and the test's,
 // joined by spaces.
@@ -113,18 +101,6 @@ const removeCopies = () => {
     fs.rmdirSync(path.dirname(base))
   } catch {}
 }
-
-const text = <E>(stream: Stream.Stream<Uint8Array, E>) => stream.pipe(Stream.decodeText(), Stream.mkString)
-
-// What a process wrote, and how it exited. Interrupted, its scope ends the process.
-const exec = Effect.fnUntraced(function*(command: ChildProcess.Command) {
-  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
-  const handle = yield* spawner.spawn(command)
-  const [stdout, stderr, exitCode] = yield* Effect.all([text(handle.stdout), text(handle.stderr), handle.exitCode], {
-    concurrency: "unbounded"
-  })
-  return { stdout, stderr, exitCode }
-}, Effect.scoped)
 
 // Runs `files` in `copy`, only the test whose title is `title` when given, and returns what it did, or that it hung.
 const runTests = Effect.fnUntraced(function*(copy: string, files: ReadonlyArray<string>, title?: string) {
@@ -457,9 +433,4 @@ const command = Command.make(
   )
 )
 
-command.pipe(
-  Command.run({ version: JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version }),
-  Effect.tapErrorTag("Failed", (failed) => Console.error(failed.message)),
-  Effect.provide(BunServices.layer),
-  BunRuntime.runMain
-)
+main(command)

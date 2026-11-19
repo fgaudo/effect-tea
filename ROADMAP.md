@@ -53,12 +53,10 @@ Found in a review of the premises, 19 November 2026, each held by a `test.failin
   1. **Check that a run of the mutations stopped by Ctrl+C ends its tests and removes `.mutants/`.** Done on 19
      November 2026, on Windows: a console's Ctrl+C (`GenerateConsoleCtrlEvent`) sent 20 seconds into
      `bun run mutations`, with eleven `bun test` running, left none of them running and no `.mutants/`.
-  2. **Move what the tools share into `tools/cli.ts`**: `Failed`, `exec`, and a `main` that runs a command with the
-     version, the printing of `Failed`, the layer and `runMain`. Do it with the second tool converted, not before,
-     and make `mutate.ts` use it.
-  3. **`tools/api-report.ts`**: `--check` as a `Flag.Boolean`, and its `process.exit(1)` as a `Failed`. It runs in the
-     CI (`ci.yml` and `docs.yml`, `bun run api --check`), so check both modes: with the report up to date, and with
-     it out of date.
+  2. **Move what the tools share into `tools/cli.ts`.** Done on 19 November 2026, with step 3, in one commit: it holds
+     `root`, `Failed`, `exec` and `main`, and `mutate.ts` uses it, run in each of its modes.
+  3. **`tools/api-report.ts`.** Done on 19 November 2026: `--check` is a `Flag.Boolean`, and what the report fails on
+     is one `Failed`, printed after api-extractor's own messages. Both modes were run, up to date and out of date.
   4. **`tools/smoke/smoke.ts`**: `--effect` (optional, the repository's Effect by default), `--typescript` (a list,
      `5.9,6.0,7.0` by default) and `--keep`; Bun's `$` (`bun pm pack`, `npm install`, `node …`) through `exec`; each
      `throw new Error` as a `Failed`. It runs in the CI on Linux (`ci.yml`'s `package` job and `docs.yml`), so check
