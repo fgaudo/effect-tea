@@ -24,8 +24,7 @@ export const view: View<Model, Message> = (model, dispatch) => {
       })}
       <ul>
         {model.saved.map((name, index) => (
-          // Names may repeat, and the list only grows at its end.
-          // biome-ignore lint/suspicious/noArrayIndexKey: a row's place is its identity
+          // Names may repeat, and the list only grows at its end: a row's place is its identity.
           <li key={index}>{name}</li>
         ))}
       </ul>

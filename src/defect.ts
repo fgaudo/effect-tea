@@ -92,6 +92,7 @@ export class ProgramDefect extends Data.TaggedError('ProgramDefect')<Fields & Re
   private constructor(fields: Fields) {
     super({
       ...fields,
+      // oxlint-disable-next-line typescript/no-base-to-string -- `on` is a message's tags, or its `typeof`
       message: `A defect in ${described[fields.where]}${fields.on === undefined ? '' : ` on ${String(fields.on)}`}`,
     })
   }

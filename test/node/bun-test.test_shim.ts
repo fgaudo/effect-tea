@@ -68,6 +68,7 @@ const nameOf = (name: string, args: ReadonlyArray<unknown>, index: number) => {
   if (typeof first !== 'object' || first === null) return placed
   return placed.replace(/\$([\w$]+(?:\.[\w$]+)*)/g, (path, on: string) => {
     const value = at(first, on)
+    // oxlint-disable-next-line typescript/no-base-to-string -- an object is printed by `pretty`
     return value === undefined ? path : typeof value === 'object' && value !== null ? pretty(value) : String(value)
   })
 }

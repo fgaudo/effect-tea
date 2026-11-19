@@ -55,7 +55,7 @@ renderers and is no bridge.
 
 - **An example is a consumer.** It imports the package by its name (`@fgaudo/effect-tea`,
   `@fgaudo/effect-tea/testing`), never by a relative path. `tsc -p examples` checks it with the `bun` condition
-  (the sources) and the `DOM` lib; Biome allows renderer imports there. Unstable APIs are not used there either:
+  (the sources) and the `DOM` lib; Oxlint allows renderer imports there. Unstable APIs are not used there either:
   the typecheck refuses one, as in the library.
   The examples and the bridges are published (`files` in `package.json`, all but their `tsconfig.json`), for the
   guide, the tutorial and the skill that link them, but nothing of the package imports them: snabbdom, React and

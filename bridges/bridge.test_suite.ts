@@ -51,6 +51,7 @@ const scheduler = new Scheduler.MixedScheduler('async', (task) => {
 export const settle = () => {
   for (let turns = 0; held.size > 0; turns += 1) {
     if (turns === 10_000) throw new Error('The program never settles: a fiber yields forever')
+    // oxlint-disable-next-line unicorn/no-useless-spread -- a task may add to `held`: the turn runs those held before it
     for (const task of [...held]) if (held.delete(task)) task()
   }
 }
@@ -247,6 +248,7 @@ const dictation = () => {
       }
     },
     say: (text: string) => {
+      // oxlint-disable-next-line unicorn/no-useless-spread -- a listener may add or remove one while it is told
       for (const listener of [...listeners]) listener(text)
     },
   }

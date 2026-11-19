@@ -252,7 +252,7 @@ test('every schedule within one deviation reaches the lost update, and names wha
   everySchedule(twoIncrements, { bound: 1 }, (exit) => {
     if (Exit.isSuccess(exit)) ends.add(exit.value)
   })
-  expect([...ends].sort()).toEqual([1, 2])
+  expect([...ends].sort((a, b) => a - b)).toEqual([1, 2])
   const orders = new Set<string>()
   everySchedule(twoWriters, { bound: 1 }, (exit) => {
     if (Exit.isSuccess(exit)) orders.add(exit.value)

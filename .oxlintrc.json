@@ -1,9 +1,25 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "categories": {
-    "correctness": "off"
+  "options": {
+    "typeAware": true
   },
+  "plugins": ["typescript", "import", "oxc", "eslint", "unicorn"],
+  "ignorePatterns": ["**/dist", "api", ".claude", ".mutants", ".inference", "scratch"],
   "rules": {
-    "typescript/no-deprecated": "error"
-  }
+    "typescript/no-deprecated": "error",
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "import/extensions": ["error", "always", { "ignorePackages": true }],
+    "no-restricted-imports": ["error", {
+      "patterns": [{
+        "group": ["snabbdom", "snabbdom/**", "react", "react/**", "react-dom", "react-dom/**"],
+        "message": "@fgaudo/effect-tea is independent of the renderer: views are generic over their node type, and only the code that renders knows the renderer."
+      }]
+    }]
+  },
+  "overrides": [{
+    "files": ["examples/**", "bridges/**"],
+    "rules": {
+      "no-restricted-imports": "off"
+    }
+  }]
 }

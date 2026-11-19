@@ -39,7 +39,7 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 
 - **Generic, and only Effect.** The library knows nothing of the applications that use it, nor of any
   renderer: views are generic over their node type, and the renderer is a function given to `run`. `effect`
-  (v4) is its only dependency, as a peer. Biome forbids renderer imports, and `lib` (`ES2022`, no `DOM`)
+  (v4) is its only dependency, as a peer. Oxlint forbids renderer imports, and `lib` (`ES2022`, no `DOM`)
   rejects browser APIs, everywhere but in `examples/` and `bridges/`.
 - **An API of its own.** The API is exactly what `src/index.ts` and `src/testing/index.ts` export; every other
   module is internal. It is judged on its own terms, from the library's concepts, its examples and its users in
@@ -195,13 +195,13 @@ this summary says less. What every change keeps, an example's and a document's t
 - An exported type that is an object record is written with `readonly` on each member, `{ readonly state: State }`,
   never as `Readonly<{ … }>`: TypeScript prints `Readonly<{ … }>` for one in a consumer's declarations and hovers, not
   its name. An internal type may keep the wrapper.
-- Effect modules are imported as namespaces (`import * as Effect from 'effect/Effect'`), with `Arr`, `Opt` for
+- Effect modules are imported as namespaces (`import * as Effect from "effect/Effect"`), with `Arr`, `Opt` for
   `Array`, `Option`.
 - A function that returns an effect made with `Effect.gen` is an `Effect.fnUntraced` instead, with what would
   follow it in a `pipe` as its further arguments, tests included: the library opens no spans of its own (they
-  belong to the application, e.g. `Effect.fn('Save')` in a `runCommand`), and the stack frames `Effect.fn`
+  belong to the application, e.g. `Effect.fn("Save")` in a `runCommand`), and the stack frames `Effect.fn`
   records add nothing a test's name does not say. An effect that takes no arguments stays an `Effect.gen`.
-- Relative imports carry the `.ts` extension (Biome's `useImportExtensions`); `tsc` rewrites them to `.js` in
+- Relative imports carry the `.ts` extension (Oxlint's `import/extensions`); `tsc` rewrites them to `.js` in
   the build, and `tools/build.ts` does the same in the declarations.
 - Comments only for what the code cannot say: a reason, an invariant the types do not show, a choice that
   would look like a mistake. Never a repetition of names or of the next line.
@@ -216,9 +216,9 @@ this summary says less. What every change keeps, an example's and a document's t
   summary of the guide's, and its `@see` lines name what rules ("What belongs here").
 - No blank lines between the statements of a block; blank lines separate declarations and `describe`/`test`
   calls.
-- Formatting: 120 columns, two-space indentation, single quotes, no semicolons, trailing commas in multiline
-  lists; `.md` prose wrapped at 120 columns. No formatter is set up: match the surrounding code, and touch only
-  the lines you change.
+- Formatting is dprint's, with Effect's options (`dprint.json`): 120 columns, two-space indentation, double quotes,
+  no semicolons, no trailing commas, and the imports sorted. `bun run format` applies it and Oxlint's fixes, and
+  `bun run lint` fails on a file it would change. `.md` prose is wrapped at 120 columns by hand.
 
 ## Tests
 
@@ -313,7 +313,7 @@ this summary says less. What every change keeps, an example's and a document's t
 ## Checks
 
 Before finishing, from the repository root: `bun run typecheck` (`tsc` with the Effect language service, on the
-library and on the examples), `bun run lint` (Biome and Oxlint) and `bun run test`; after a change of the engine or of
+library and on the examples), `bun run lint` (Oxlint and dprint) and `bun run test`; after a change of the engine or of
 a testing tool, or of their tests, `bun run test:node` and `bun run interleavings` too. `bun run build` compiles
 `src/` into `dist/` (ignored by git) and runs before `bun pm pack`. An API change is also checked as a consumer
 would see it (`change-api`). After a change of the guide or of a doc comment, `bun run comments`, which the CI runs,

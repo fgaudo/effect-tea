@@ -1252,7 +1252,7 @@ describe('rehearse, while a fiber of the test\'s waits for what nothing will sen
       Effect.all([Effect.exit(rehearsal.hearNext('k')), Effect.exit(rehearsal.hearNext('k'))], {
         concurrency: 'unbounded',
       })))
-    expect(outcome !== 'hung' && Exit.isSuccess(outcome) && outcome.value.map(Exit.isSuccess).sort()).toEqual([
+    expect(outcome !== 'hung' && Exit.isSuccess(outcome) && outcome.value.map(Exit.isSuccess).sort((a, b) => Number(a) - Number(b))).toEqual([
       false,
       true,
     ])

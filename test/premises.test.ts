@@ -628,7 +628,7 @@ test('a channel that Channel.map and Channel.mapDone make runs afresh each time 
   const again = await Effect.runPromise(drained)
   const atOnce = await Effect.runPromise(Effect.all([drained, drained], { concurrency: 'unbounded' }))
   expect([once, again]).toEqual([['message 1', 'message 1', 'end 1'], ['message 2', 'message 2', 'end 2']])
-  expect(atOnce.map((run) => run[0]).sort()).toEqual(['message 3', 'message 4'])
+  expect(atOnce.map((run) => String(run[0])).sort((a, b) => a.localeCompare(b))).toEqual(['message 3', 'message 4'])
   expect(atOnce.every(([first, second, end]) => first === second && end === first?.replace('message', 'end'))).toBe(
     true,
   )

@@ -1824,6 +1824,7 @@ describe('what the types reject', () => {
     // @ts-expect-error: no step lists another event.
     const other: EventOf<typeof sometimes> = 'None'
     // @ts-expect-error: nor does any step of a program that lists none.
+    // oxlint-disable-next-line typescript/no-duplicate-type-constituents, typescript/no-redundant-type-constituents -- both are `never`, which is what this checks
     const none: EventOf<typeof plain> | CommandOf<typeof plain> = 'None'
     const anything: [EventOf<Program<{ state: Ticks; model: null; message: Tick; event: unknown }>>] = [Symbol()]
     expect([read, other, none, anything]).toHaveLength(4)
