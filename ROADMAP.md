@@ -40,15 +40,15 @@ supports server rendering is to be decided.
 
 **Done when** the suite passes in a real browser, in the CI or by a command written down in the repository.
 
-### 3. The changes that break the API, then 1.0
+### 3. The changes that break the API
 
-**Why.** A user who adopts the library asks that its API stays. The API looks close to stable, but what
-`docs/rejected.md` parks would change it.
+**Why.** A user who adopts the library asks that its API stays, and a change that breaks it costs less the fewer users
+it has. The API looks close to stable, but what `docs/rejected.md` parks would change it.
 
 **How.** Each entry of "Parked, not rejected" in `docs/rejected.md` that touches the API is weighed again with the
-owner: taken before 1.0, or kept parked past it, which then means a 2.0. Then 1.0 is released.
+owner: taken now, in a 0.x release, or kept parked.
 
-**Done when** 1.0 is released.
+**Done when** each such entry is taken or kept parked by the owner's decision.
 
 ### 4. A view of the library's own
 
@@ -94,3 +94,9 @@ None of these waits for the items above, nor holds them up.
   wait goes to the effects of the program") without showing: `onApplied` offers the state and its revision to a
   queue, a fiber of whoever runs the program saves it, and a wrapped `runCommand` waits until the state its step
   heard is saved.
+
+## Low priority
+
+- **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
+  decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API. Until then,
+  releases stay at 0.x.
