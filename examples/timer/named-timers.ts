@@ -23,7 +23,7 @@ export const namedTimers = make({
   },
   children: {
     Timer: childById(Named.named, {
-      // A removed timer is `None`: a click, or a key typed, on a frame drawn before its removal is rejected.
+      // A removed timer is `None`: a click, or a key typed, on a view drawn before its removal is rejected.
       get: (state, id: number) =>
         Opt.map(Arr.findFirst(state.entries, (entry) => entry.id === id), (entry) => entry.timer),
       set: (state, id, timer) => ({
@@ -43,7 +43,7 @@ export const namedTimers = make({
           commands: timer.commands
         }
       }
-      // A second click on "Remove", from the same frame, finds the timer gone.
+      // A second click on "Remove", from the same view, finds the timer gone.
       case "RemoveClicked":
         return Arr.some(state.entries, (entry) => entry.id === message.id)
           ? { state: { ...state, entries: Arr.filter(state.entries, (entry) => entry.id !== message.id) } }

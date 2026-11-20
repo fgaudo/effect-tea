@@ -34,7 +34,7 @@ ignored, as when the program runs. In `drive`, time is real, so every rejection 
 | `rehearse`                          | fails the test                       | ignored, in `ignored` | ignored, in `ignored`         |
 | `drive`, and the program as it runs | ignored                              | ignored               | ignored                       |
 
-A tap on a frame that the state has since moved past is a message applied to a later state. To test what the tap does
+A tap on a model that the state has since moved past is a message applied to a later state. To test what the tap does
 in that later state, use `applyAll`, or `update` itself.
 
 ### applyAll
@@ -53,7 +53,7 @@ acts once. The test `the model holds what update accepts, all of it` in
 [how a program is tested](./testing.md#how-a-program-is-tested) uses it. `dispatchViolations` checks both ways:
 
 - **Each message the model holds must be accepted** (`Rejected`).
-- **Each message must act once when sent twice** (`ActsTwice`). This means that a message sent again from the same frame is
+- **Each message must act once when sent twice** (`ActsTwice`). This means that a message sent again from the same model is
   rejected, or changes nothing. Changing nothing means the same state by `Equal`, with no commands and no events.
   - Keep states data. A value without structural equality compares by reference.
   - Actions meant to repeat (a "+1") are marked `repeatable`.
@@ -126,6 +126,8 @@ rehearse(
 - **`rehearse` starts from the program's `init`.** A program with flags gets them as `run` does, in the options.
 - **`rehearse` acts through what the current model shows**, as `drive` does.
 - **Nothing reaches `update` by itself.**
+- **A message is applied at once**, in the call that sends it, as in the run. Its commands are pending once what it
+  stops has released what it held (see [messages that arrive together](#messages-that-arrive-together)).
 - **Each command waits until the test runs it** (`run`, `runAll`). A command runs through the program's `runCommand`,
   with the services provided, in a scope of its own.
   - `run` runs the oldest pending command that it matches.
@@ -145,14 +147,21 @@ rehearse(
 - A program with flags gets them as `run` does, in the options.
 - `drive` takes the other options of `run` too, such as `onApplied` and `onIgnored` (see
   [running](./running.md#options)).
-- `drive` sends what the frames show, through the run's dispatch.
+- `drive` sends what the models show, through the run's dispatch. `send` finds the message on a model and sends it at
+  once, as a control drawn from that model would: when `send` returns, `update` has seen the message.
 - The program's commands run as soon as they start. To hold a command, give the program a service written by the
   test. The service waits on a `Deferred` that the scenario completes.
-- The renderer of `drive` keeps only the latest frame. A wait looks at that frame and at later ones.
+- The renderer of `drive` is told of every new state, and reads the model of each one. A wait looks at the current
+  model and at later ones.
+- A wait that ends once a model shows a step does not wait for the step's commands. They start after it, in the run's
+  own fiber, and a scenario that ends there may end the run before they start. To check what a command does, wait for
+  a model that shows its answer.
+- The scenario gets `model`, the model of the current state, and `dispatch`, the run's own, for a tap on a model that
+  the state has moved past since. After a defect of the program, `model` fails with the defect.
 - A wait that lasts longer than `patience` fails. `patience` is an option of `drive`, 2 seconds by default. It is
-  measured with the real clock, even under Effect's `TestClock`. The error it fails with has the model of the latest
-  frame as its `cause`, when a frame was drawn.
-- Time in `drive` is real: a frame may be past by the time its message arrives. So, as when the program runs, a
+  measured with the real clock, even under Effect's `TestClock`. The error it fails with has the latest model as its
+  `cause`.
+- Time in `drive` is real: a model may be past by the time its message arrives. So, as when the program runs, a
   rejected message is ignored, and a scenario checks what it expects to see.
 - How `drive` ends is under [precisely](#precisely).
 
@@ -182,8 +191,8 @@ rehearse(
 
 - on a state whose subscriptions are a defect. `rehearse` reads the subscriptions on each new state. A key whose `Equal`
   throws against a key of the state before is such a defect too;
-- on a state whose model is a defect. `rehearse` makes the model on each new state, as a renderer that pulls every
-  frame does;
+- on a state whose model is a defect. `rehearse` makes the model on each new state, as a renderer that is told of
+  every state and reads each one does;
 - on a command or a subscription that the program interrupts, itself or by another fiber.
 
 #### How a subscription is heard
@@ -191,9 +200,13 @@ rehearse(
 - A subscription's message is heard only while its key is in the state. Keys compare by value, as the run compares
   them.
 - `hear` runs nothing. The test answers for what it says was heard, and for whether the subscription had ended.
+- `hear` on a key that has just appeared waits until the key's subscription would have started: once what the message
+  before it stopped has released what it held. It then looks the key up again, and fails the test when the key is no
+  longer in the current state.
 - `hearNext` runs the subscription:
   1. The first time `hearNext` hears a key, it starts that key's subscription, with the services provided and in a
-     scope of its own. The subscription it starts is the one listed when the key appeared, as the run starts that one.
+     scope of its own, once what the messages before it stopped has released what it held. The subscription it starts
+     is the one listed when the key appeared, as the run starts that one.
   2. `hearNext` keeps the subscription for as long as the key stays, as the run does. It does not matter which fiber
      of the test heard the subscription first.
   3. Each call of `hearNext` hears the subscription's next message, and succeeds with that message. The message waits
@@ -209,7 +222,7 @@ rehearse(
   does the end of the rehearsal, however the rehearsal ends. Then:
   - a defect in what the subscription releases fails the test;
   - what the subscription sent that `update` has not seen is dropped, as the run drops it, and a `hearNext` still
-    waiting for it fails the test.
+    waiting for it, or for its start, fails the test.
 - A subscription's message that no longer applies is ignored, as when the program runs, and listed in `ignored`.
 - **Under Effect's `TestClock`, move time while `hearNext` waits.** A subscription that sleeps does not wait for real
   time. It waits for the test to move the clock. But time moved before the subscription starts to sleep does not count.
@@ -255,13 +268,16 @@ that is already waiting for its subscription or its command fails with it too, a
 
 #### Messages that arrive together
 
-- Messages that arrive together, from fibers of the test, are applied one at a time, as the run takes them.
-- Each message waits for the state that the message before it left. That includes the release of the subscriptions
-  that the message before stopped. `send` selects on the model of that state.
+- Messages that arrive together, from fibers of the test, are applied one at a time, each at once, in the call that
+  sends it, as the run applies them.
+- A message does not wait for the release of the subscriptions that the message before it stopped. Its state, its
+  model and its events show at once. Its commands are pending, and a key it brings is heard, once that release has
+  ended. The call that sent it returns then. `send` selects on the model of the current state.
 - A message once sent is applied whole, even if the fiber that sent it is interrupted meanwhile, or the scenario
   returns.
-- A rehearsal whose scenario returned applies what was sent before. A rehearsal whose scenario failed or was interrupted
-  does not.
+- A rehearsal whose scenario returned finishes what the messages sent before still had to do: it returns once the
+  releases they wait for have ended. A rehearsal whose scenario failed or was interrupted stops at once, and what those
+  messages still had to do is not done.
 
 ### How `drive` ends
 
@@ -272,6 +288,8 @@ that is already waiting for its subscription or its command fails with it too, a
 
 A defect of the program comes first in the cause of `drive`, before what the scenario ended with. This holds for a
 defect while the scenario runs, and for a defect of what the program releases as it stops.
+
+A wait may still match a model read before a defect of a later model. `drive` ends with the defect first all the same.
 
 ### Defects of the program
 

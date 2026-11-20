@@ -91,16 +91,17 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
 - **A view draws its model, and decides nothing.** A view is a function `(model, dispatch) => Node`. It matches tags
   and formats values. What it would decide, `makeModel` decides, as a case of the model. The guide, "View", "In short".
   The guide, "Structuring a program", "A view draws, it never decides".
-- **What the program draws comes from its frames.** It comes from nowhere else, with two exceptions: what the
-  platform keeps by itself, as a hover or the focus, and the element of an input, which may show what the user typed
-  after the frame. The guide, "View", "What the program draws comes from its frames". The guide, "Inputs the user types
-  into", "The element on screen".
-- **Each bridge says what it draws beside the frames.** The bridge to snabbdom keeps no state beside the program's,
-  except what it keeps of an input's element. With the bridge to React, the application's components may keep state of
-  their own, which the testing tools do not see. The guide, "View", "Each bridge says what it draws beside the frames".
+- **What the program draws comes from its model.** It comes from nowhere else, with one exception: what the platform
+  keeps by itself, as a hover or the focus. An element with a value of its own, as a text field, shows what the user
+  typed into it only for the length of its own event. The guide, "View", "What the program draws comes from its
+  model". The guide, "Inputs the user types into", "The element on screen".
+- **Each bridge says what it draws beside the model.** The bridge to snabbdom keeps no state beside the program's,
+  except the value a model gave each controlled element. With the bridge to React, the application's components may
+  keep state of their own, which the testing tools do not see. The guide, "View", "Each bridge says what it draws
+  beside the model".
 - **With React, the run lives as long as `Host`'s effect.** `<Activity>`, a remount, a new `key` and StrictMode start
   the program again from `init`. For a state that outlives a component, start the run yourself and draw it with
-  `Frames`. A run that dies is thrown to the nearest error boundary, or given to `reportError` once `Host` has
+  `Draw`. A run that dies is thrown to the nearest error boundary, or given to `reportError` once `Host` has
   unmounted. The guide, "Guarantees", "With the bridge to React, the run lives as long as the effect that starts it".
   The guide, "Guarantees", "With the bridge to React, a run that dies is thrown to the nearest error boundary".
 - **A parent never reads a child's state to decide.** A child gets what it needs from its own services and
@@ -109,9 +110,10 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   stays the same while the key is kept, as a child's own id, can stay out. The guide, "Subscriptions", "A subscription
   sees the state only through its key". The guide, "Subscriptions", "A value that stays the same while the key is kept
   can stay out of the key".
-- **A function of the program never interrupts the fiber it runs in.** `init`, `update`, `makeModel`,
-  `subscriptions` and the options run in a fiber of the run, or of whoever runs it, and could reach it with
-  `Fiber.getCurrent`. No defect says it happened. The guide, "Guarantees", "A function of the program never interrupts
+- **A function of the program never interrupts the fiber it runs in.** `init` runs in the fiber of whoever runs the
+  program. `update`, `subscriptions` and the options run where the message was sent, and `makeModel` where the model is
+  read. Each could reach that fiber with `Fiber.getCurrent`. An interruption of the fiber of whoever runs the program
+  is no defect, so no defect says it happened. The guide, "Guarantees", "A function of the program never interrupts
   the fiber it runs in".
 
 ## Rules that a test checks
@@ -120,7 +122,7 @@ The run does not check these. A test does, with the tool named.
 
 - **The model holds what `update` accepts, all of it**, but what it withholds on purpose: `dispatchViolations`. The
   guide, "Testing tools", "dispatchViolations".
-- **A message sent twice from one frame acts once**, unless it is marked `repeatable`: `dispatchViolations`, with
+- **A message sent twice from one model acts once**, unless it is marked `repeatable`: `dispatchViolations`, with
   `ActsTwice`. The guide, "Testing tools", "Each message must act once when sent twice".
 - **A view sends only the messages its model holds**: your renderer's tools, as `messagesSentBy` for snabbdom. The
   guide, "Testing", "The view". The guide, "Model", "Precisely".
@@ -148,9 +150,9 @@ Each sign breaks the rule named after it.
 - A condition on data in a view, such as `items.length === 0`. The guide, "Structuring a program", "A view draws, it
   never decides".
 - A variable outside the state that the screen depends on, or a service that the renderer reads. The guide, "View",
-  "What the program draws comes from its frames".
+  "What the program draws comes from its model".
 - A renderer written for one program, in place of a bridge's renderer. The guide, "View", "What the program draws
-  comes from its frames".
+  comes from its model".
 - A message built in a view, or `Message` exported as a value. The guide, "Model", "Messages live in the model".
 - A message for each keystroke. The guide, "Inputs the user types into", "What the user gives an input is no message
   of the program".

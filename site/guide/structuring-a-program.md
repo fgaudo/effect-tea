@@ -35,7 +35,7 @@ where the row says less.
 
 - **Conditions live in `update`.** A question such as "Can the user save now?" is answered once, by rejecting. The
   view never repeats the check.
-- **A message sent twice from one frame acts once.** The second one is rejected, or changes nothing. Two cases:
+- **A message sent twice from one model acts once.** The second one is rejected, or changes nothing. Two cases:
   - Name intents, not toggles. Write `MenuOpened` and `MenuClosed`, not `MenuToggled`. An intent sent twice does what
     it did once. A toggle sent twice undoes itself.
   - A one-shot action moves to a state that rejects it. After `SaveClicked`, the form is saving. In that state, the
@@ -70,7 +70,8 @@ where the row says less.
   "missing" is all that the screen tells apart.
 - **What the platform keeps by itself is not a state of the program.** A hover, the focus, or an animation that the
   platform keeps by itself are examples. The rest of what the screen shows comes from the program's state, and reaches
-  the view as the model, except the element of an input (see [view](./view.md#rules)). What the program decides by,
+  the view as the model. An element with a value of its own shows what the user typed into it only for the length of
+  its own event (see [view](./view.md#rules)). What the program decides by,
   kept in a component of the renderer, is neither supported nor advised. What a bridge lets a component keep beside the
   program is the bridge's to say, as the bridge to React does (see [view](./view.md#rules)).
 
@@ -83,8 +84,8 @@ where the row says less.
   rests, or the pieces of a game, are such animations: where they are changes what the program does. A subscription
   sends one message for each step, only while something moves. The message carries no time: each step moves the state
   on by the same length, `dt`. So `update` stays deterministic, and a test replays a motion as a list of steps. The
-  example [`bounce`](../../examples/bounce/bounce.ts) shows how the steps are counted from the screen's frames, and how
-  the ball is drawn between two steps, from the state.
+  example [`bounce`](../../examples/bounce/bounce.ts) shows how the steps are counted from the screen's refreshes, and
+  how the ball is drawn between two steps, from the state.
 - **Input is never a reason to reject.** The input keeps what the user typed, whatever the program decides, and the
   library stores it (see [inputs the user types into](./inputs-the-user-types-into.md)). So no rule of the program
   rejects a value. Instead, put the validity of the value in the model, as data. For example, show "Save" only for a

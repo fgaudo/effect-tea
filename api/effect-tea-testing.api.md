@@ -38,7 +38,7 @@ type Commanded<P, T> = P extends {
 } ? T : never;
 
 // @public
-type Dispatch<Message> = (message: Message) => Effect.Effect<number>;
+type Dispatch<Message> = (message: Message) => void;
 
 // @public
 export type DispatchViolation<Message> = {
@@ -67,7 +67,8 @@ export interface DriveOptions<State, Message, Command = unknown> extends RunOpti
 export type Driver<Model, Message> = {
     readonly waitFor: <A>(select: (model: Model) => Opt.Option<A>) => Effect.Effect<A>;
     readonly send: (select: (model: Model) => Opt.Option<Message>) => Effect.Effect<void>;
-    readonly latest: Effect.Effect<Frame<Model, Message>>;
+    readonly model: Effect.Effect<Model>;
+    readonly dispatch: Dispatch<Message>;
 };
 
 // @public
@@ -90,13 +91,6 @@ type Folded<State, Command, Event> = {
     readonly state: State;
     readonly commands: ReadonlyArray<Command>;
     readonly events: ReadonlyArray<Event>;
-};
-
-// @public
-type Frame<Model, Message> = {
-    readonly model: Model;
-    readonly dispatch: Dispatch<Message>;
-    readonly seen: number;
 };
 
 // @public

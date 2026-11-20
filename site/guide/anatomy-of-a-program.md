@@ -86,8 +86,9 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
   `make` returns this type, and a function that takes a program names this type.
 - **Its state is always an object**: `{ count }` rather than `count`. So any program can become a child as it is (see
   [composition](./composition.md)).
-- **The view is not part of it.** `run` hands your renderer a stream of **frames**, each `{ model, dispatch, seen }`.
-  The library does not say how the renderer draws them. What the renderer must keep to is in [view](./view.md).
+- **The view is not part of it.** `run` hands your renderer an **`App`**, `{ model, subscribe, dispatch }`: the model of
+  the current state, and a notice of each new state. The library does not say how the renderer draws the model. What
+  the renderer must keep to is in [view](./view.md).
 - **A program that cannot start the same way every time declares `flags`**, as in Elm. For example, a page that shows
   the product it was opened for declares flags.
 
@@ -117,7 +118,7 @@ accepts a program typed with more `external` messages than the program takes.
 **`runCommand` is required exactly when the program has commands.** So every command has a `runCommand` that
 interprets it.
 
-**A test makes a model as `run` does.** `run` makes the model of a frame with `program.makeModel(state)`. A test can
+**A test makes a model as `run` does.** `run` makes the model of a state with `program.makeModel(state)`. A test can
 call `program.makeModel` the same way, on any state.
 
 **What a program listens to.** `program.subscriptions(state)` is what the program listens to in `state`, by key.

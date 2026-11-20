@@ -4,11 +4,10 @@
 
 ```ts
 
-import type * as Effect from 'effect/Effect';
 import { VNode } from 'snabbdom';
 
 // @public
-type Dispatch<Message> = (message: Message) => Effect.Effect<number>;
+type Dispatch<Message> = (message: Message) => void;
 
 // @public
 export const messagesSentBy: <Model, Message>(view: View<Model, Message>, model: Model) => ReadonlyArray<Message>;

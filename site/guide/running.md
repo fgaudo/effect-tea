@@ -8,20 +8,28 @@ title: Running
 
 This page shows how you start a program, what the run gives your renderer, and what to do when the run dies.
 
-`run(program, render, options?)` starts the program and hands `render` a stream of frames. A renderer slower than the
-program only gets the latest frame. The run ends when the renderer ends. A defect anywhere ends the run too. The run
-dies, and reporting the crash is the job of the app around the run.
+`run(program, render, options?)` starts the program and hands `render` an `App`: the model of the current state, a
+notice of each new state, and the dispatch. A message is applied in the call that sends it. Its commands and its
+subscriptions follow in the run's own fiber. The run ends when the renderer ends. A defect anywhere ends the run too.
+The run dies, and reporting the crash is the job of the app around the run.
 
 ## Rules
 
 **Only a program without events runs.** There is no parent to handle the events.
 
-**A frame's `dispatch` is the very same function in every frame.** So a view
+**The renderer gets an `App`**, `{ model, subscribe, dispatch }`:
+
+- `model()` is the model of the current state. It is made when it is read, once for each state.
+- `subscribe(listener)` tells `listener` of each new state, once it is the current one, and returns what stops it. No
+  listener is told of a rejected message, nor of the very same state.
+- `dispatch(message)` applies the message before it returns (see [view](./view.md#rules)).
+
+**The `dispatch` of the `App` is the very same function for the whole run.** So a view
 [memoized](./glossary.md#what-the-user-sees) on its dispatch is not drawn again because of the dispatch.
 
-**A slow renderer skips frames.** It only gets the latest frame. So a renderer that waits for the next animation frame
-before it takes another frame draws at most once per screen refresh, as the bridge to snabbdom
-([`bridges/snabbdom.ts`](../../bridges/snabbdom.ts)) does.
+**A renderer reads the model when it draws.** A listener is told in the call that made the new state. So a renderer
+that waits for the next animation frame before it reads the model draws at most once per screen refresh, as the bridge
+to snabbdom ([`bridges/snabbdom.ts`](../../bridges/snabbdom.ts)) does for a new state that no handler of its view sent.
 
 ### Options
 
@@ -57,10 +65,10 @@ const onApplied = (applied: Applied<State, Message, Command>): undefined => {
 }
 ```
 
-**The run calls `onApplied` and `onIgnored` in order.** The run calls them before it takes the next message, so that
-they hear every message in order. The run also calls `onApplied` before the message's frame and before its commands.
-So a slow `onApplied` or `onIgnored` holds up the whole program. A defect in one of them ends the run, as any other
-defect does.
+**The run calls `onApplied` and `onIgnored` in order.** The run calls them in the step of each message, before it
+applies the next one, so that they hear every message in order. The run also calls `onApplied` before the renderer is
+told, and before the message's commands start. So a slow `onApplied` or `onIgnored` holds up the whole program, and
+the call that sent the message. A defect in one of them ends the run, as any other defect does.
 
 **Give slow work to a queue.** An `onApplied` or an `onIgnored` with slow work to do, such as a devtools that sends
 each step away, gives that work to a queue:
@@ -96,7 +104,7 @@ The run logs only at the debug level. It logs:
 - each message;
 - a rejected message;
 - subscriptions starting, stopping and ending;
-- a message of a subscription that has stopped, which the run drops before `update`.
+- a message of a subscription whose key is gone, which the run drops before `update`.
 
 Effect's default minimum level, `Info`, hides all these logs. The debug logs of subscriptions show their keys. A key
 may hold data (an id, the text of a search).
@@ -124,7 +132,7 @@ A defect anywhere ends the run, which dies with a `ProgramDefect`:
   | `'subscriptions'` | In `subscriptions`, the `Equal` and `Hash` of its keys included.                                                       |
   | `'subscription'`  | In a subscription. Its `key` is there as it is, as the logs show it.                                                   |
   | `'command'`       | In a command.                                                                                                          |
-  | `'render'`        | In the renderer, the view and `makeModel` included.                                                                    |
+  | `'render'`        | In the renderer, the view, the renderer's listeners and `makeModel` included, wherever the model is read.              |
   | an option's name  | In that option.                                                                                                        |
   | `'log'`           | In one of the run's own debug logs (a `Logger` that throws).                                                           |
 
@@ -136,8 +144,8 @@ Only the run makes a `ProgramDefect`. The app around the run reads one, and a te
 one, with `new` or with a class that extends it.
 
 **The run never recovers from a defect, and does not log it.** Reporting the defect, and choosing what the user sees
-next, are the job of the app around the run. The screen keeps the last frame: show a crash screen, or run the program
-again.
+next, are the job of the app around the run. The screen keeps what was drawn last: show a crash screen, or run the
+program again.
 
 **In a browser, start the run with `Effect.runFork`**, which reports nothing itself. An interruption of the fiber that
 `Effect.runFork` returns (on `pagehide`, for example) ends the run too. That interruption is not a crash:
@@ -191,25 +199,30 @@ Each pair sums up a rule of this page. The rule itself is above.
   message. So a session recorded with `onApplied` ends, at the latest, with the step that was under way at the defect.
 - That is a bound on what the run still does: at most the step under way. The bound is nothing `update` can count on.
   For `update`, a command that died is a command that has not answered yet.
-- A message for which the run called `update` before the defect goes on until the run stops applying messages.
-  - The run may stop applying messages before the message's frame.
+- A message for which the run called `update` before the defect goes on until the end stops the run's own fiber,
+  where the effects of each step run.
+  - The end may stop that fiber before the message's subscriptions and commands start.
   - The message may still start its commands and the subscriptions of its new keys.
-  - And `onApplied` may have heard a step whose frame is never drawn and whose commands never start.
+  - And `onApplied` may have heard a step whose model is never drawn and whose commands never start.
 - Once a command or a subscription has started, what the command or the subscription does is the program's business,
   until the run interrupts it.
 - The same holds for what the renderer does. This also holds in a run that died as it started, for example when a
-  subscription of `init` dies. A frame that the renderer pulls meanwhile still makes its model, since `makeModel` is
-  pure and calling `makeModel` changes nothing in the program.
+  subscription of `init` dies. A model that the renderer reads meanwhile is still made, since `makeModel` is pure and
+  calling `makeModel` changes nothing in the program.
 
 ### How the run ends
 
 When the run ends, because of a defect or of an interruption, it stops in this order:
 
-1. It stops applying messages.
+1. It stops applying messages, then stops its own fiber, where the effects of each step run. What that fiber had not
+   done yet is not done.
 2. It stops the renderer.
 3. It stops its commands and its subscriptions.
 
 What is sent meanwhile is not applied. This includes what the renderer sends as it releases what it holds.
+
+The end may begin inside a dispatch: on the stack of the call whose step met the defect, before that call returns.
+This is described, and not promised.
 
 ### The defects in the cause
 

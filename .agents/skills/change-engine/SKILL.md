@@ -23,7 +23,10 @@ and of the JavaScript engine, each with what checks it, is [`docs/premises.md`](
    unneeded by code written for it alone. One that cannot be checked yet holds the change up.
 3. List the points where another fiber can run between a check and the act it guards ("one thunk" in
    `docs/invariants.md`). Each leaves a test that fails without the check, deterministic, of the core or with a gate,
-   and a mutation that takes the check out, naming that test.
+   and a mutation that takes the check out, naming that test. The thunk that applies a message runs on the sender's
+   stack, and has no such point inside it; the points are between it and the fiber of effects, and in the testing
+   tools between a call's thunk and its job. A thunk writes first and offers or completes last: keep that order, which
+   no mutation holds, since a fiber resumed on the stack of whoever completes its `Deferred` is no premise.
 4. When the engine or one tool changes, keep the others in step: `src/testing/contract.test.ts` gives the same
    program and inputs to each tool and to the run.
 

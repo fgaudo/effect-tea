@@ -28,13 +28,13 @@ The bridges the examples share are entries of the package, `@fgaudo/effect-tea/s
 
 ```
 bridges/
-├─ snabbdom.ts               the bridge the examples use: renderInto for run, onClick, onPress, shows
+├─ snabbdom.ts               the bridge the examples use: View, and renderInto for run
 ├─ snabbdom-testing.ts       messagesSentBy, how to check that a view draws what its model holds
 ├─ snabbdom-preload.ts       what bun test loads first (bunfig.toml), so that snabbdom loads without a DOM
-├─ react.ts                  the bridge to React: Host, Frames and makeStore, onClick, onPress, Shows
+├─ react.ts                  the bridge to React: View, Host, HostProps, Fork, and Draw for a run started apart
 ├─ snabbdom.test.ts          the snabbdom bridge's tests, in a DOM
 ├─ snabbdom-testing.test.ts  the tests of messagesSentBy, without a DOM
-├─ react.test.ts             the React bridge's tests and together's, in a DOM
+├─ react.test.ts             the React bridge's tests, React beside snabbdom over one run among them, in a DOM
 └─ bridge.test_suite.ts      the tests every bridge passes
 ```
 
@@ -43,16 +43,14 @@ React; the third is the line a user's tests of a snabbdom view load first, as th
 "Tests"). React is used only by
 [`counter`](../../../examples/counter) and [`form`](../../../examples/form), to show that a program does not change
 with its renderer: each has a `view-snabbdom.ts` and a `view-react.tsx`, and its `main.ts` draws one run with both
-renderers through `together`, into the `#snabbdom` and `#react` of its page. Its test checks the snabbdom view; the
+renderers over the same `App`, into the `#snabbdom` and `#react` of its page. Its test checks the snabbdom view; the
 React view is checked by the bridges' tests. The bridges' tests are examples' tests like
 the others, and none of the library's five kinds (`AGENTS.md`, "Tests"). `snabbdom.test.ts` and `react.test.ts` call
 `bridge.test_suite.ts` with their renderer's `Bridge` (its `renderInto` and the views of the scenarios), beside the
 tests of that renderer alone.
 
-In `examples/` itself are [`README.md`](../../../examples/README.md), which says where a user starts, the shared
-[`style.css`](../../../examples/style.css) and [`tsconfig.json`](../../../examples/tsconfig.json), and
-[`together.ts`](../../../examples/together.ts), one run drawn by two renderers, for `counter` and `form`: it composes
-renderers and is no bridge.
+In `examples/` itself are [`README.md`](../../../examples/README.md), which says where a user starts, and the shared
+[`style.css`](../../../examples/style.css) and [`tsconfig.json`](../../../examples/tsconfig.json).
 
 ## The rules
 
@@ -65,8 +63,8 @@ renderers and is no bridge.
   the bridges alone, and `@happy-dom/global-registrator` is only a dev dependency.
 - **`main.ts`** finds `#app` and starts the program with `Effect.runFork(run(program, renderInto(root, view)))`,
   through an `Effect.tapCause` that logs the failure of a dying program, unless it is only an interruption
-  (`list/main.ts`). Those of `counter` and `form` give `run` the two renderers through `together` instead: snabbdom's
-  `renderInto`, and the `open()` of a React store that `Frames` draws in a root of its own.
+  (`list/main.ts`). Those of `counter` and `form` give `run` one renderer that runs two over the same `App` with
+  `Effect.all`: snabbdom's `renderInto`, and one that renders `Draw` with that `App` in a React root of its own.
 - **`index.html`** has the title `<Name> · effect-tea`, the shared `../style.css`, a header with the name,
   one sentence on what it shows and a "Source" link to `https://github.com/fgaudo/effect-tea/tree/main/examples/<name>`,
   the `#app` element and `<script type="module" src="./main.ts">`.
@@ -77,12 +75,13 @@ renderers and is no bridge.
 - **The view** follows the guide, and is drawn with snabbdom: React is for `counter` and
   `form` alone, so that the examples share one bridge. snabbdom's props module never removes a prop, so a
   view sets a prop such as `disabled` in every case of an element (`counter/view-snabbdom.ts`). An input is declared in
-  `make`, as the guide's "Inputs the user types into" says: the view draws it from the value its model holds,
-  with `shows`, over a native text `<input>`, through `forwardTo`, and gives it no key: the bridge keeps the element.
-  What the bridges do not support (the guide's "Writing a bridge": a form's reset, a value the element changes by
-  itself, and with snabbdom a shadow tree) is used by no example, nor what React's bridge adds beside the program. A
-  control that fits no element the bridge settles, a slider among them, is drawn by the program, its press a message
-  of the model and its drag a subscription (`volume`). A child's view is
+  `make`, as the guide's "Inputs the user types into" says: the view draws a native controlled element with the value
+  its model holds as its `value` (or `checked`) in `props`, gives it no key, and in its handler sends
+  `{ _tag: 'Written', was, value }`, `was` that value, through the dispatch of `forwardTo(dispatch, 'Name')`, with a
+  call of its own: the bridges have no helper for a click or a key. What the bridges do not support (the guide's
+  "Writing a bridge": a form's reset, a value written past React's setter, and a value the element changes by itself)
+  is used by no example, nor what React's bridge adds beside the program. A control drawn by the program, a slider
+  among them, has its press a message of the model and its drag a subscription (`volume`). A child's view is
   memoized with snabbdom's `thunk`, its dispatch from `forwardTo` among the arguments (`pages/view.ts`).
 - **An example that needs more than the guide gives is a change of design**, and the owner is asked before it is
   written: a renderer other than the bridges' `renderInto`; a view that takes more than its model and its dispatch;
@@ -97,7 +96,10 @@ renderers and is no bridge.
   `snabbdom-testing.ts`, as an example of how to check that a view draws what its model holds, with its
   own tests (`snabbdom-testing.test.ts`), and the test of each example drawn with snabbdom uses it:
   `messagesSentBy(view, model)` equals `messagesOf(model)`, so the reader lists the messages in the order the view
-  draws them. A change to the two renderers' bridges is made to both for `renderInto` and the handlers alone.
+  draws them. It gives each listener an event whose `target` holds the `value` and the `checked` of its vnode's
+  `props`, so a write is found over the value its model holds, with that value: the test of a view with an input
+  expects those writes beside what the reader lists (`form/form.test.ts`, `stocktake/stocktake.test.ts`). A change to
+  the two renderers' bridges is made to both where both draw the same: what the shared suite checks.
 - **The test** shows the testing tools on the example, from the cheapest that proves the point: `applyAll` and
   `dispatchViolations` always (with the reader, for what the model holds, and the candidates that keep the
   reader complete), then `simulate`, `rehearse` or `drive` for what needs them. The candidates of tagged messages
@@ -107,7 +109,8 @@ renderers and is no bridge.
   seen to fail on a model that shows what `update` rejects, and on a reader that forgets a field. It runs
   without a DOM: `snabbdom-preload.ts` sets `window` to `undefined` so that snabbdom loads, and only the bridges'
   tests in a DOM register happy-dom. A check that needs a DOM (how often the bridge draws, a click on a drawn button,
-  typing while frames are drawn) goes into the bridges' tests: `bridge.test_suite.ts` when every bridge must pass it,
+  what is typed into a controlled element, its caret) goes into the bridges' tests: `bridge.test_suite.ts` when every
+  bridge must pass it,
   the test of the bridge the example uses when it is about that renderer alone. An element is compared with `toBe`,
   never inside `toEqual`: a failing `toEqual` walks the properties React puts on an element it drew, its fibers and
   through them the program, and took 17 seconds over two buttons, and over a form grew past 6 GB and did not end.

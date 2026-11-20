@@ -5,8 +5,7 @@ title: Inputs
 # Inputs
 
 Each timer gets a name that the user types, such as "Tea" or "Pasta". You will learn what an input is, and how the
-library keeps what the user types. A text field drawn like any other element would take back what the user just typed,
-whenever a frame came late. Here the library handles that.
+library keeps what the user types.
 
 Once more the timer of step 2 stays as it is. A named timer is a program of its own, which holds the timer as a child,
 beside the name.
@@ -48,15 +47,13 @@ The model holds the name as it is. The view draws the input from it, and writes 
 
 ## The view
 
-The view draws the name with the bridge's `shows`, over a native `<input>`, through the input's own dispatch from
-`forwardTo`.
+The view draws the name as a native `<input>`, a controlled element: its `value` is the name its model holds, and its
+`input` listener writes what is typed over that name, through the input's own dispatch from `forwardTo`.
 
-The bridge does the careful part. It writes what is typed over what the element showed. It gives the element the
-program's value only once a frame has seen what was typed. So a slow frame never takes back what the user
-just typed.
-
-The element needs no `key` of the renderer: the bridge keeps the element and its focus while the program changes what
-the element shows (see [the element on screen](../guide/inputs-the-user-types-into.md#the-element-on-screen)).
+A write is applied in its own event. So when the listener returns, the name holds what was typed, and the bridge has
+drawn it. The element needs no `key` of the renderer: it stays the same element, with its focus and its caret, while
+the program changes what it shows (see
+[the element on screen](../guide/inputs-the-user-types-into.md#the-element-on-screen)).
 
 {@includeCode ../../examples/timer/view.ts#named}
 
@@ -67,7 +64,7 @@ The list of
 the one of step 3, with `Named.named` in place of `Timer.timer`. Nothing else changes:
 
 - a write into a timer's name reaches it as its clicks do, `{ _tag: 'Timer', id, message }`;
-- a keystroke in the name of a timer already removed, from a frame drawn before, is rejected as a click is;
+- a keystroke in the name of a timer already removed, from a model drawn before, is rejected as a click is;
 - its view, `namedTimersView`, draws each timer with `namedView`.
 
 The name belongs to the named timer: the list never reads it. A value that the parent reads is different. An example

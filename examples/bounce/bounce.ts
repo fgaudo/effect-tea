@@ -60,7 +60,7 @@ const longestFrame = 250
 const toTheTop = (height: number) => Math.sqrt(2 * gravity * Math.max(100 - height, 0))
 
 // One step of `dt` milliseconds, velocity first (semi-implicit Euler). A ball that reaches the floor bounces there. The
-// new step starts at `alpha` 0: a frame drawn before the next `Advanced` shows the ball at the step before, never back.
+// new step starts at `alpha` 0: a model drawn before the next `Advanced` shows the ball at the step before, never back.
 const stepped = (state: State, velocity: number): State => {
   const seconds = state.dt / 1000
   const falling = velocity - gravity * seconds

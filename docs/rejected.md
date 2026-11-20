@@ -81,7 +81,42 @@ answer, and saying so in the proposal.
   guarantees do, and the rule written since in [`premises.md`](premises.md) lets them (15 November 2026). The
   sentence is a promise all the same, of the Guide, held by those tests, and stays in "View", where a view's author
   reads it. Source: the same session, and the review of the rules of 15 November. _Reopen if_ the owner wants it
-  listed among the guarantees, with a property of the search for it.
+  listed among the guarantees, with a property of the search for it. Reopened on 20 November 2026, and reversed: a
+  dispatch applies its message on the caller's stack, so that an element with a value of its own can be drawn as a
+  controlled one ([`synchronous-dispatch.md`](records/synchronous-dispatch.md), E1). The guide's "View" now says that
+  `update` has seen a handler's message when the handler returns, "Guarantees" lists it, and the search checks it ("a
+  dispatch has been applied when it returns"). The premise of the queue it rested on left `premises.md` with it.
+- **A dispatch that records a defect with a fiber made for it, and asks the runtime which fiber it runs in.** Spiked,
+  20 November 2026, on `claude/spike-sync-dispatch-b4e430` (`26b2cc1`), never to be merged; refused by the owner the
+  same day, with the plan of [`synchronous-dispatch.md`](records/synchronous-dispatch.md) (E3). The spike's engine
+  recorded what the program threw in the thunk by running a failing effect with `Effect.runSyncExit` in whatever fiber
+  sent the message, and `model()` asked `Fiber.getCurrent()` whether it ran in the renderer's fiber. Each rested on a
+  premise read only in Effect's source, with a test of the spike's own (`src/sync/premises.test.ts`), seen to pass:
+  that `Effect.runSyncExit` inside a running fiber leaves that fiber the current one, and that a fiber waiting on a
+  `Deferred` resumes on the stack of the fiber that completes it, before the completion returns. Neither is adopted.
+  The first goes with a synchronous `record` on `Deaths` (`shell.ts`), since `Core.record` is pure already, and with a
+  model's defect recorded where the model is read, its site taking it as it is (E6): no fiber is made for a defect, and
+  `model()` asks nothing of the runtime. Nothing rests on the second: the engine is correct either way, and the guide
+  describes, and does not promise, that the end of the run may begin inside a dispatch. The record names no condition
+  to reopen the first. Of the second, point 3 of the review of the design in `ROADMAP.md`, waiting for the owner,
+  weighs adopting it, with its test, so that the orders written for it, which have no mutation, get killers.
+- **A bound on how far the effects lag behind the state.** Reasoned, 20 November 2026, in the plan of
+  [`synchronous-dispatch.md`](records/synchronous-dispatch.md) (E5), the owner deciding the same day: the effects of
+  the states, their subscriptions stopped and started and their commands started, may lag without a bound. A step that
+  held the next message until its job had started, as the loop held the next message until the effects of its step had
+  started, would need a dispatch that waits, which a function called in a handler cannot do. It is the unbounded queue
+  of the messages, moved to the effects, and the guide's "What is left to you" says so. The record names no condition
+  to reopen it; by its reason, one would be a dispatch that may wait.
+- **A job for the fiber of effects only while debug logs are enabled**, so that a message whose step starts and stops
+  nothing costs no job. Refused in the spike of [`synchronous-dispatch.md`](records/synchronous-dispatch.md), 20
+  November 2026, reasoned: decided in the thunk from the run's context, it would rest on how `LogLevel.isEnabled` reads
+  the level, and a job of logs alone is a small object for each message. Measured since, by hand, in its stage 1: the
+  jobs are most of what the new engine spends on a message. The record names no condition to reopen it.
+- **Skipping the start of a subscription whose key went away before the fiber of effects reached it.** Refused in the
+  same spike, reasoned: it would be a check of what the thunk changes, made in another fiber, against "one thunk"
+  ([`invariants.md`](invariants.md)), and nothing needs it, since the messages of such a start are dropped by their
+  start. It costs a start and a release for nothing, which the search reaches. The record names no condition to reopen
+  it.
 - **One owner of the run's decisions, in other forms.** Spiked, 13 November 2026, on copies deleted since: a death
   queued as a message of the loop; no check at all, the loop stopped first, and the renderer stopped first; the
   death interrupting the loop; the loop calling `runCommand`. Reasoned only: `forkChild` with `startImmediately`,
@@ -274,6 +309,20 @@ answer, and saying so in the proposal.
   raises only the events its own type includes", `compose.test.ts`), since the check is `onEvent`'s. `raise` was
   weighed with a second opinion (Opus 5.5), the owner deciding; `write` was never released. _Reopen if_ one of them
   comes to do what the literal or the operator cannot: a check as it is made, or a shape that is hidden.
+- **A dispatch as an `Effect` that completes synchronously**, once a dispatch applies its message at once, in place
+  of a function `(message) => void`. Weighed in the spike of
+  [`synchronous-dispatch.md`](records/synchronous-dispatch.md), 20 November 2026, and refused by the owner the same day
+  (E2), reasoned. An `Effect` would keep the type of 0.7.1's `Dispatch`, and with it `forwardTo` and every view, would
+  compose in effect code with `yield*`, and would say by its type that it needs no services and cannot fail. It would
+  cost an `Effect.runSync` and a fiber made for each event from a plain callback, and a reader would take an `Effect`
+  for a step that may wait, which this one may not. With a function, a handler of any renderer calls it as it is, and
+  effect code writes `Effect.sync(() => dispatch(message))`. The record names no condition to reopen it; by its
+  reason, one would be a dispatch that may wait.
+- **`onClick` and `onPress` in the bridges**, which ran a dispatch on a click and on a key. Removed on 20 November
+  2026, before a release, by "A function earns its place" (`AGENTS.md`), the owner deciding
+  ([`synchronous-dispatch.md`](records/synchronous-dispatch.md), B2): once a dispatch is a function, each is a name
+  over a call that a handler writes as it is. Reasoned. _Reopen if_ one of them comes to do what a handler that calls
+  `dispatch` cannot.
 - **`subscriptions` optional on a program's type, with a public `subscriptionsOf` to read it**, as from 0.4.0 to
   0.7: the piece is required on `Shape` and `Program`, and a test reads `program.subscriptions(state)`. Decided on 18
   November 2026, the owner deciding, over the entry of 15 November that kept `subscriptionsOf` public because the piece
@@ -352,7 +401,9 @@ answer, and saying so in the proposal.
   its own. Weighed with a second opinion (Fable), the owner deciding. _Reopen if_ a server needs the state after the
   commands of `init` have answered, a run to quiescence that returns its state: that is what Effect alone cannot do,
   and a feature other than this one. A first frame drawn on a server in an example goes with "The bridges as packages of
-  their own" (`ROADMAP.md`), which decides the dependencies of the bridges.
+  their own" (`ROADMAP.md`), which decides the dependencies of the bridges. Since 20 November 2026 a dispatch is a
+  function, and the literal is `() => {}`; the split of `run` that would give a first model to a server is parked
+  ("Parked, not rejected", below), on this entry's reason.
 - **Offers as tokens, checked against `update`** (`offer`, `offerInput`, `missingOffers`, a run that reported a
   rejected offer). Shipped in 0.3.0 (`ae4661b`) and removed in 0.6.0 (`3c3fdf9`, 23 October 2026): checking each
   offer against `update` made every page carry rules (offer only what `update` accepts, never probe offers, inputs
@@ -407,7 +458,11 @@ answer, and saying so in the proposal.
   revision it had, and a late key was stored into the new instance, run in `src/input-swap.test.ts` of
   `worktree-agent-a02816c77ebec330c` (`4757546`). `renewed` was a recipe to remember for a slider whose bounds narrow,
   and the state stored differed from the state written. _Reopen if_ the numbering of a frame (`seen`) or the condition
-  on elements and renderers it rests on fails where no revision would.
+  on elements and renderers it rests on fails where no revision would. Both went on 20 November 2026, with the frames,
+  once a dispatch applied its message at once ([`synchronous-dispatch.md`](records/synchronous-dispatch.md)): the plain
+  input stays, a view takes `was` from the model it was drawn with, and the bridge to snabbdom draws a handler's
+  message at once, so that a second key finds its view drawn again (R1 of the record). So the entry now reopens if a
+  write by `was` alone fails where a revision would not.
 - **Whoever steps replaces what is below** (the seventh review) **and the channel of a replacement, declared** (the
   eighth). Spiked, 15 November 2026: `2d2e77b` on `worktree-agent-a144664c3ddf8f27a` and `45da546` on
   `worktree-agent-a04cfe354d300ce70`, never to be merged. The rule of a revision applied by whichever program steps to
@@ -665,7 +720,11 @@ comments are written by hand since, in plain English, and name the sections of t
   bridge it replaced; a form's reset and a value the element changes by itself are still left out, by both bridges.
   The bridges became entries of the package the same day (`@fgaudo/effect-tea/snabbdom`, `/snabbdom/testing`,
   `/react`), with the contract as narrow as it was ([`adoption.md`](records/adoption.md)): so this entry stands, and
-  _reopens_ when a user of an entry needs a feature of its renderer that it leaves out.
+  _reopens_ when a user of an entry needs a feature of its renderer that it leaves out. Since a dispatch applies its
+  message at once, the same day ([`synchronous-dispatch.md`](records/synchronous-dispatch.md), B1 and B3), both
+  bridges draw native controlled elements and settle no input: `edited`, `drawn` and the rule of an element are gone,
+  a root in a shadow tree works in both, and what they leave out is a form's reset, a value written past React's
+  setter, and a value the element changes by itself, which it shows until the next write. The entry stands, as above.
 - **A frame of the very same model taken at once, without waiting for the next animation frame.** Weighed in the
   review of the architecture of 20 November 2026, reasoned; rejected by the owner the same day. In both bridges a frame
   whose model is the one drawn last only settles the inputs (the snabbdom bridge patches nothing, the React bridge's
@@ -673,7 +732,13 @@ comments are written by hand since, in plain English, and name the sections of t
   Taking such a frame at once would end that wait, but a bridge would then take more than one frame per screen
   refresh, and would settle its inputs once for each key of a burst. What it would save: a rejected key stays on
   screen for one refresh at most. _Reopen if_ a case shows that refresh to matter to a user, or settling the inputs
-  becomes cheap enough to do on each frame.
+  becomes cheap enough to do on each frame. Superseded the same day by a dispatch that applies its message at once
+  ([`synchronous-dispatch.md`](records/synchronous-dispatch.md), R1): there are no frames and no inputs to settle. The
+  bridge to snabbdom draws a message its view sends at once, before the handler returns, a model that is the very one
+  drawn last included, whose controlled elements are only given their props back; a notice from a command or a
+  subscription is still drawn at the next animation frame, at most once for each refresh. The bridge to React renders
+  as React schedules it. What is typed with snabbdom between such a notice and its draw is rejected and taken back,
+  which is for "The bridges in a real browser" (`ROADMAP.md`).
 
 ## The checks
 
@@ -742,4 +807,18 @@ there; one decided against becomes an entry above.
   `WeakMap`, which halves a millisecond. The measure has limits: happy-dom lays out and paints nothing, the row is
   small, and it was not run in a browser. It stays parked: the evidence is of happy-dom alone, and no decision was
   taken on it. _Reopen if_ a browser, or a heavier row, shows the drawing of an unchanged model to cost more than its
-  comparison by `Equal`.
+  comparison by `Equal`. Since 20 November 2026 there are no frames
+  ([`synchronous-dispatch.md`](records/synchronous-dispatch.md)): a renderer draws the model of the current state, and
+  the bridge to snabbdom skips a model that is the very one it drew last, by identity, as it skipped a frame. The
+  measure above is of the bridge of frames, and was not run again.
+- **`run` split into a synchronous half and the fibers** (B5 of
+  [`synchronous-dispatch.md`](records/synchronous-dispatch.md)), so that `Host` draws the first model in the render that
+  mounts it, and a server draws it with `getServerSnapshot`. Reasoned in the spike, not built: the thunk applies at once
+  and the effects of a step are jobs for a fiber, so the engine's state, its keys, its listeners and its queue of jobs
+  could be made synchronously, before any fiber starts, and the fibers started later; StrictMode's second render would
+  then make a second half that nothing starts, with no command of `init` run twice. Parked by the owner on 20 November
+  2026: the first model, for a server or for `Host`'s `fallback`, is data a program gives already,
+  `program.makeModel(program.init.state)`, drawn with a dispatch that does nothing ("`renderToString`", above), and a
+  split is an export and a second way to start a run. The engine keeps what the thunk reads and writes free of fibers,
+  so a split stays possible. _Reopen if_ a first model must be drawn by `Host` itself, or a server needs the state after
+  the commands of `init` have answered.

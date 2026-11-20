@@ -1,55 +1,77 @@
+// The run: the engine, and a renderer given a handle on the running program (`docs/records/synchronous-dispatch.md`).
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
 import type * as Scope from "effect/Scope"
-import * as Stream from "effect/Stream"
 import * as Core from "./core.ts"
 import type { Dispatch } from "./dispatch.ts"
-import * as Engine from "./engine.ts"
 import type { RunOptions } from "./engine.ts"
+import * as Engine from "./engine.ts"
 import { type FlagsOption, runCommandOf, type Shape, startOf } from "./program.ts"
 import * as Shell from "./shell.ts"
 
 /**
- * One frame for the renderer to draw.
+ * What `run` hands the renderer: a handle on the running program.
  *
- * `run` hands its renderer a stream of them.
+ * A renderer reads the model when it draws, and is told of each new state in the call that made it. One that draws
+ * later reads the latest model when it draws.
  *
- * - A frame of the very same state as the frame before it holds the very same model. A model is made only for the
- *   frames the renderer pulls.
- * - `seen` counts the dispatched messages, rejected ones included, but no message of a command or a subscription.
- * - A dispatched message that makes no new state draws a frame of the same state, with the new `seen`. A message of a
- *   command or a subscription that makes no new state draws no frame. So the last frame comes to see every message
- *   that was dispatched, once the run has taken it.
- * - `dispatch` is the very same function in every frame.
+ * @example
+ * ```ts
+ * const render = (app: App<Model, Message>) =>
+ *   Effect.sync(() => {
+ *     console.log(app.model().count)
+ *     app.dispatch(app.model().increment)
+ *   })
+ * ```
  *
- * @see The guide, "Guarantees", "Frames cost only what is drawn".
- * @see The guide, "Guarantees", "A frame says what it has seen".
- * @see The guide, "View", "A frame for each dispatched message".
- * @see The guide, "Running", "A frame's `dispatch` is the very same function in every frame".
+ * @see The guide, "Running", "The renderer gets an `App`".
+ * @see The guide, "Running", "A renderer reads the model when it draws".
+ * @see The guide, "Writing a bridge", "The handle".
  */
-export type Frame<Model, Message> = {
-  /** What the view draws, made from the frame's state. */
-  readonly model: Model
-  /** Sends a message to the program. */
+export interface App<Model, Message> {
+  /**
+   * The model of the current state. It is made when it is read, once for each state, by the state's identity, so the
+   * very same state has the very same model. When `makeModel` throws, the defect is a defect in `'render'`, recorded
+   * once for each state, and `model()` throws it.
+   *
+   * @see The guide, "Guarantees", "A model is made only when it is read".
+   */
+  readonly model: () => Model
+  /**
+   * Tells `listener` of each new state, once it is the current one, in the call that made it, and returns what stops
+   * it. No listener is told of a rejected message, nor of the very same state. A listener that throws is a defect in
+   * `'render'`.
+   *
+   * @see The guide, "Running", "The renderer gets an `App`".
+   */
+  readonly subscribe: (listener: () => void) => () => void
+  /**
+   * The program's dispatch: it applies the message before it returns. It is the very same function for the whole run.
+   *
+   * @see The guide, "Running", "The `dispatch` of the `App` is the very same function for the whole run".
+   * @see The guide, "View", "Sending applies the message".
+   */
   readonly dispatch: Dispatch<Message>
-  /** How many dispatched messages the run had taken when the frame was made. */
-  readonly seen: number
 }
 
+type Made<State, Model> =
+  | Readonly<{ state: State; made: true; model: Model }>
+  | Readonly<{ state: State; made: false; defect: unknown }>
+
 /**
- * `run`, with its options as one value, recording what its fibers die of in `deaths`: for `drive`, which passes the
- * options on as it got them, and ends with what they died of.
+ * `run`, with its options as one value, recording what its fibers die of in `deaths`: for a testing tool, which passes
+ * the options on as it got them, and ends with what they died of.
  */
 // Not an `Effect.fn`: a span of its own would be the one the renderer logs into (see `Shell.withExternalSpan`).
 export const runWith = <State, Model, Message, Command, RC, RS, RR, Flags>(
   program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
-  render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
+  render: (app: App<Model, Message>) => Effect.Effect<void, never, RR>,
   options: RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>,
   deaths: Shell.Deaths
 ): Effect.Effect<void, never, Exclude<RC | RS | RR, Scope.Scope>> =>
-  // The renderer, the fiber of the run as it starts the engine, and the engine's fibers record what they die of in
-  // one place: the defects come first in the cause, in the order they died, then the rest of what the run ended with
-  // (an interruption by whoever runs it), but for the defects already among them, by their identity.
+  // The renderer, the fiber of the run as it starts the engine, the engine's fibers and its thunk record what they die
+  // of in one place: the defects come first in the cause, in the order they died, then the rest of what the run
+  // ended with (an interruption by whoever runs it), but for the defects already among them, by their identity.
   Effect.uninterruptibleMask((restore) =>
     Effect.exit(restore(running(program, render, options, deaths))).pipe(
       Effect.flatMap((exit) => Core.endedWith(deaths.all(), exit))
@@ -59,54 +81,56 @@ export const runWith = <State, Model, Message, Command, RC, RS, RR, Flags>(
 const running = Effect.fnUntraced(
   function*<State, Model, Message, Command, RC, RS, RR, Flags>(
     program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
-    render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
+    render: (app: App<Model, Message>) => Effect.Effect<void, never, RR>,
     options: RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>,
     deaths: Shell.Deaths
   ): Effect.fn.Return<void, never, RC | RS | RR | Scope.Scope> {
     const { flags, ...runOptions } = options
     // A step is data: only an `init` that makes it from the flags can throw.
     const init = yield* Effect.sync(() => startOf(program.init, flags)).pipe(Shell.diesIn("init"), deaths.recorded)
+    // The defects of `makeModel` recorded where a model was read: the renderer's own site takes them as they are, in
+    // its fiber and in a listener alike, so that a model that throws is one defect, wherever the renderer reads it.
+    const ofModels = new Set<unknown>()
+    const isModels = (defect: unknown) => ofModels.has(defect)
     const engine = yield* Engine.make<State, Message, Command, RC | RS, unknown>({
       ...runOptions,
       deaths,
+      rendered: isModels,
       init,
       update: program.update,
       runCommand: runCommandOf(program),
       subscriptions: program.subscriptions
     })
-    // A frame of the very same state as the one before it, which a dispatched message that makes no new state
-    // publishes, holds the very same model, made once: the last state a model was made of is kept, with its model, in
-    // one slot for each run of the stream, which `Stream.suspend` makes anew each time the stream runs. Written only in
-    // the renderer's fiber.
-    const frames = Stream.suspend(() => {
-      let last: Readonly<{ state: State; model: Model }> | undefined
-      return engine.states.pipe(
-        Stream.buffer({ capacity: 1, strategy: "sliding" }),
-        // After the buffer, so that a model is made only for the frames the renderer pulls, in the renderer's fiber.
-        Stream.map(({ state, seen }) => {
-          if (last?.state !== state) last = { state, model: program.makeModel(state) }
-          return { model: last.model, dispatch: engine.dispatch, seen }
-        })
-      )
-    })
+    // The last state a model was made of, with its model or the defect `makeModel` threw: a model is made only when it
+    // is read, and once for each state, by its identity, a failed one too.
+    let last: Made<State, Model> | undefined
+    const model = (): Model => {
+      const { state } = engine.current()
+      if (last?.state !== state) {
+        try {
+          last = { state, made: true, model: program.makeModel(state) }
+        } catch (thrown) {
+          // Recorded here, wherever the model is read: in the renderer's fiber, outside any fiber, or in another.
+          const defect = Engine.recordThrown(deaths, "render", thrown)
+          ofModels.add(defect)
+          last = { state, made: false, defect }
+        }
+      }
+      if (last.made) return last.model
+      throw last.defect
+    }
+    const app: App<Model, Message> = { model, subscribe: engine.subscribe, dispatch: engine.dispatch }
     // Called at most once, in a run that died as it started too, as a subscription of `init` may die while the engine
     // starts: the end of the run interrupts it, as it does any effect of the program (`docs/invariants.md`).
-    const rendering = Effect.suspend(() => render(frames)).pipe(
-      // The model is made as the renderer pulls its frame: a defect of `makeModel` is the renderer's.
-      Shell.scopedIn(deaths, "render"),
+    const rendering = Effect.suspend(() => render(app)).pipe(
+      Shell.scopedIn(deaths, "render", undefined, isModels),
       Shell.rootedIn("render"),
       deaths.recorded,
       Effect.updateContext(Shell.withExternalSpan<Exclude<RR, Scope.Scope>>)
     )
-    // However the run ends, it stops the loop first, then the renderer is interrupted and awaited, before the engine's
-    // other fibers: what the renderer sends as it releases what it holds is not applied, and the program does not go
-    // on while it does. Only signals race, so that no defect is lost with the loser: every fiber records what it dies
-    // of, the renderer too, and the run reports here what they have died of so far, and what they die of later, while
-    // the renderer releases what it holds too, by the end of the engine. The fork and how the run stops it are one
-    // acquisition, which nothing interrupts in between: forked apart, the run would leave the renderer to the end of
-    // whichever fiber runs it, unawaited. Its release comes before the engine's, acquired after it in the same scope,
-    // which runs its finalizers in the reverse order they were added. Forked in the acquisition, where nothing
-    // interrupts, the renderer is interruptible all the same (both in `docs/premises.md`).
+    // However the run ends, it stops the engine first, so that nothing the renderer sends as it
+    // releases is applied, then the renderer, before the engine's other fibers. The fork and how the run stops it are
+    // one acquisition, which nothing interrupts in between.
     const renderer = yield* Effect.acquireRelease(
       Effect.forkChild(rendering),
       (renderer) => engine.stop.pipe(Effect.andThen(Shell.stopping(renderer)))
@@ -117,20 +141,23 @@ const running = Effect.fnUntraced(
 )
 
 /**
- * Runs a program, and hands its frames to `render`.
+ * Runs a program, and hands its renderer an {@link App}: the model of the current state, a notice of each new state,
+ * and a dispatch that applies its message before it returns.
  *
- * - A renderer slower than the program only gets the latest frame. The run ends when the renderer ends.
- * - The run takes one message at a time, in the order they were queued. The next message waits until the step of the
- *   one before is over, its releases included. So keep releases quick.
+ * - The run ends when the renderer ends.
+ * - One message at a time, in the order they were sent. A message is applied in the call that sends it. Its logs, the
+ *   subscriptions it stops and starts, and the start of its commands follow in the run's own fiber, in the order of
+ *   the states. So the state is ahead of its effects.
  * - A message that `update` rejects is ignored, and the state stays as it was.
  * - Each command, each subscription and the renderer has a scope of its own. What one acquires is released when it
- *   ends, never while it still runs.
+ *   ends, never while it still runs. The next message does not wait for a release, but the effects of the next state
+ *   do. So keep releases quick.
  * - The span of whoever runs it does not keep what the run's fibers log.
  * - A defect anywhere ends the run, which dies with a `ProgramDefect`. A command, a subscription, the renderer or an
  *   option that interrupts itself is a defect too. Reporting the crash is the job of the app around the run.
  *
  * @param program - The program to run, one without events.
- * @param render - Draws each frame it takes from the stream.
+ * @param render - Draws the model of the {@link App} it is given.
  * @param options - `flags`, when the program has them, and the options of {@link RunOptions}.
  *
  * @example
@@ -139,7 +166,7 @@ const running = Effect.fnUntraced(
  * ```
  *
  * @see The guide, "Running", "In short".
- * @see The guide, "Guarantees", "One message at a time, in the order they were queued".
+ * @see The guide, "Guarantees", "One message at a time, in the order they were sent".
  * @see The guide, "Guarantees", "Outdated clicks are harmless".
  * @see The guide, "Guarantees", "Nothing outlives what acquired it".
  * @see The guide, "Guarantees", "Logs do not pile up in a span".
@@ -147,7 +174,7 @@ const running = Effect.fnUntraced(
  */
 export const run = <State, Model, Message, Command = never, RC = never, RS = never, RR = never, Flags = never>(
   program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
-  render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>,
+  render: (app: App<Model, Message>) => Effect.Effect<void, never, RR>,
   ...[options = {}]: [Flags] extends [never]
     ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>]
     : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]

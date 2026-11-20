@@ -4,10 +4,11 @@ import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
 import { applyAll, dispatchViolations, simulate } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
 import * as DateTime from "effect/DateTime"
+import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
 import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
-import * as Stream from "effect/Stream"
 import * as fc from "fast-check"
 import * as About from "./about.ts"
 import { app, type Message, type Model, type State } from "./app.ts"
@@ -127,25 +128,26 @@ describe("pages", () => {
     expect(Opt.isSome(Opt.flatMap(state.maybeAbout, (about) => about.maybeSaying))).toBe(true)
   })
 
-  // As it runs: a user opens About with the Clock's own message, through the Clock's dispatch.
-  test("a user opens About, and every frame has the same dispatch, and the same for the Clock", async () => {
-    const dispatches = new Set<unknown>()
+  // As it runs: a user opens About with the Clock's own message, through the Clock's dispatch, asked for at each new
+  // state, as a view asks for it each time it is drawn.
+  test("a user opens About, and the Clock's dispatch is the same function every time it is asked for", async () => {
     const clockDispatches = new Set<unknown>()
     await Effect.runPromise(
-      run(app, (frames) =>
-        frames.pipe(
-          Stream.tap(({ model, dispatch }) => {
-            dispatches.add(dispatch)
-            clockDispatches.add(forwardTo(dispatch, "Clock"))
-            return model.page._tag === "Clock" && model.page.model.time !== ""
-              ? forwardTo(dispatch, "Clock")(model.page.model.openAbout)
-              : Effect.void
-          }),
-          Stream.takeUntil(({ model }) => model.page._tag === "About" && Opt.isSome(model.page.model.saying)),
-          Stream.runDrain
-        )).pipe(Effect.timeout("3 seconds"))
+      run(app, (handle) =>
+        Effect.gen(function*() {
+          const opened = yield* Deferred.make<void>()
+          yield* Effect.sync(() =>
+            handle.subscribe(() => {
+              const { page } = handle.model()
+              const clock = forwardTo(handle.dispatch, "Clock")
+              clockDispatches.add(clock)
+              if (page._tag === "Clock" && page.model.time !== "") clock(page.model.openAbout)
+              if (page._tag === "About" && Opt.isSome(page.model.saying)) Deferred.doneUnsafe(opened, Exit.void)
+            })
+          )
+          yield* Deferred.await(opened)
+        })).pipe(Effect.timeout("3 seconds"))
     )
-    expect(dispatches.size).toBe(1)
     expect(clockDispatches.size).toBe(1)
   })
 })

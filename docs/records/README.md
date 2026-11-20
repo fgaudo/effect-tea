@@ -12,11 +12,11 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`single-owner.md`](single-owner.md)                     | done: a run that needs no test of the order of yields    |
 | [`rehearse-owned-effects.md`](rehearse-owned-effects.md) | done: a rehearsal that owns what the test starts         |
 | [`boundary.md`](boundary.md)                             | done, its last item rejected: where the library ends     |
-| [`registers.md`](registers.md)                           | done: what the outside writes into a program's state     |
+| [`registers.md`](registers.md)                           | done, its frames replaced: what the outside writes       |
 | [`inert-steps.md`](inert-steps.md)                       | done in part, `Inert` deferred: a step that does nothing |
 | [`declared-inputs.md`](declared-inputs.md)               | suspended: what reaches `update`, declared as data       |
 | [`exploration.md`](exploration.md)                       | rejected: exploring a program from `init`                |
-| [`hosted-react.md`](hosted-react.md)                     | decided: a bridge in which React hosts the program       |
+| [`hosted-react.md`](hosted-react.md)                     | done, its store replaced: React hosts the program        |
 | [`adoption.md`](adoption.md)                             | decided, done in part: for others to adopt, and entries  |
-| [`synchronous-dispatch.md`](synchronous-dispatch.md)     | decided, not done: a dispatch applied at once, its plan  |
+| [`synchronous-dispatch.md`](synchronous-dispatch.md)     | done, a reader's check left: a dispatch applied at once  |
 | [`input-in-the-model.md`](input-in-the-model.md)         | rejected: an input as an entry in the model              |

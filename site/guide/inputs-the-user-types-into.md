@@ -21,9 +21,9 @@ The form declares its input `Name` at the field `name` of its state (`examples/f
 inputs: { Name: input({ at: Optic.id<State>().key('name') }) },
 ```
 
-The form's view draws its field with the snabbdom bridge: `shows(model.name, forwardTo(dispatch, 'Name'))`
-(`examples/form/view-snabbdom.ts`). The bridge makes the write with `edited`, over what the element showed (see
-[the element on screen](#the-element-on-screen)).
+The form's view draws its field as a controlled element, with the snabbdom bridge (`examples/form/view-snabbdom.ts`).
+The element's `value` is `model.name`, and its handler writes over that value through `forwardTo(dispatch, 'Name')`
+(see [the element on screen](#the-element-on-screen)).
 
 In general, a view writes over the value its model holds, through the input's dispatch:
 
@@ -56,30 +56,13 @@ In general, a view writes over the value its model holds, through the input's di
 
 ### The element on screen
 
-This section gives the rule in short. The exact rule is in [settling an element](#settling-an-element).
+**The view draws the element of an input as a controlled element.** The element's value is the one its model holds,
+and its handler writes over that value. A write is applied in its own event. So when the handler returns, the state
+holds what was typed, or has rejected it, and the element is drawn again with the value of the new model.
 
-**A frame may be older than the user's last keystroke.** So a bridge that writes each frame's value into the element of
-an input can take back what the user has just typed.
-
-**A bridge asks the library instead.** The bridge keeps the element of each input, and asks the library what to make of
-that element:
-
-- When the user edits the element, `edited(held, value)` gives the write to send, over what the element showed. Given
-  the number that the dispatch returns, `edited` also gives what the element then holds.
-- After each frame, and as the renderer shows an element again, `drawn(held, value, seen)` gives what the element then
-  holds, `shown`, and whether the element takes the frame's value, `taken`. When the value is taken, the bridge writes
-  that value into the element.
-
-**The element stays as it is while the frame has not seen all the element's writes.** Such a frame was made before
-the run took the last of them, so it may not show it yet.
-
-The element takes the frame's value once a frame has seen all its writes. Such a frame always comes, since the run makes
-a frame for each dispatched message, a rejected one too. So the element is never replaced, and keeps its focus while the
-program changes what it shows. A write that the state moved on without is shown until the run has taken it, and then
-the element shows the program's value.
-
-The package's bridges follow this rule (see [writing a bridge](./writing-a-bridge.md)): [`form`](../../examples/form)
-draws its input with snabbdom and with React.
+How each bridge keeps the element so, and which elements it draws, is in
+[a controlled element](./writing-a-bridge.md#a-controlled-element): [`form`](../../examples/form) draws its input with
+snabbdom and with React.
 
 ### What is typed, in another form
 
@@ -90,17 +73,16 @@ value in another form has three ways:
   what the text means, to `update` and to `makeModel`. `stocktake` reads each count with `countOf`: a whole number,
   nothing typed, or anything else.
 - **Replace the text on a message of the program.** `update` leaves another value in the input's place: for example,
-  the name without the spaces around it, when the user saves. The state has then moved on without the element, and
-  the element takes the program's value (see [the element on screen](#the-element-on-screen)).
+  the name without the spaces around it, when the user saves. The element is then drawn with the program's value (see
+  [the element on screen](#the-element-on-screen)).
 - **Format the text in the element, before the write.** A limit that the element keeps by itself, such as
   `maxlength`, needs nothing: the element reports the value that it holds. A mask changes the element's own value. So
-  it is outside what this page promises, unless its bridge reports each such change as an edit (see
-  [which elements and renderers this holds for](#which-elements-and-renderers-this-holds-for)). The package's bridges
-  show no mask.
+  it is outside what this page promises, as any value that an element changes by itself is (see
+  [what is left out](./writing-a-bridge.md#what-is-left-out)). The package's bridges show no mask.
 
 Do not change the value in `set`. The element shows what the user typed, so the user's next write is over that value,
-and the place holds another one. A write sent before the next frame is then rejected, and that frame takes back what
-the user typed.
+and the place holds another one. A write sent before the next draw is then rejected, and that draw takes back what the
+user typed.
 
 ## Inputs by id
 
@@ -182,12 +164,12 @@ See [`stocktake`](../../examples/stocktake/stocktake.ts).
 
 Each pair sums up a rule of this page. The rule itself is above.
 
-| Do                                                                       | Don't                                                                             |
-| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| Let the bridge settle the element with `drawn` after each frame.         | Write each frame's value into the element: it can take back what the user typed.  |
-| Answer in a subscription or a command with a message of the program.     | Write into an input from a subscription or a command.                             |
-| Lock the rows while an operation runs, with a `get` that returns `None`. | Keep the rows' places while the operation runs: their writes can still be stored. |
-| Parse the text where the program reads it.                               | Change the value in `set`: the user's next write can then be rejected.            |
+| Do                                                                       | Don't                                                                                    |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Write over the value the model holds: `was: model.name`.                 | Write over a value kept from an older model: it is rejected once the state has moved on. |
+| Answer in a subscription or a command with a message of the program.     | Write into an input from a subscription or a command.                                    |
+| Lock the rows while an operation runs, with a `get` that returns `None`. | Keep the rows' places while the operation runs: their writes can still be stored.        |
+| Parse the text where the program reads it.                               | Change the value in `set`: the user's next write can then be rejected.                   |
 
 ## Precisely
 
@@ -198,8 +180,8 @@ is there instead, for three reasons:
 
 - **There is nothing to decide.** A click says that something happened, and `update` decides what it means. A text is
   different: the element already shows it. The one question is whether the state has moved on without the element.
-  The answer is the same for every input. So the library keeps the rule, and a bridge and a test rely on the same one.
-- **A frame may be older than the user's last keystroke.** So a write says what it was written over, and the library
+  The answer is the same for every input. So the library keeps the rule, and a view and a test rely on the same one.
+- **What the screen shows may be older than the state.** So a write says what it was written over, and the library
   rejects a write over a value that the place no longer holds. A program that stored the text in its `update` would
   write this check itself, for each field.
 - **The model could not hold the message.** Every message that a view can send is in the model, as a value that the
@@ -213,65 +195,6 @@ So no `update` runs when the user types. A program that must act on what is type
   read it.
 - Work that follows the text, such as a search while the user types, is a subscription with the text in its key. A
   new value of the key starts the subscription anew (see [subscriptions](./subscriptions.md)).
-
-### Settling an element
-
-After each frame, and as the renderer shows an element again, a bridge settles the element of each input with
-`drawn(held, value, seen)`. `drawn` is given:
-
-- `held`, what the element holds, or `undefined` for an element just made;
-- `value`, the input's value in the frame;
-- `seen`, the frame's own `seen`.
-
-`drawn` gives what the element then holds, `shown`, and whether the element takes the frame's value, `taken`. When the
-value is taken, the bridge writes `shown.value` into the element.
-
-There are three cases:
-
-- **A new element** shows the frame's very `value`. It is always taken.
-- **A frame that has not seen all the element's writes.** The element stays as it is, showing the very value it held,
-  whatever the frame holds, and is not taken.
-- **A frame that has seen all the element's writes.**
-  - When the frame holds what the element shows, by `Equal`, the element stays as it is, and is not taken.
-  - Otherwise, the element shows the frame's very `value`, and it is taken. Its writes were stored and the program
-    changed the value since, or they were rejected, as the state had moved on without the element.
-
-`drawn` tells which writes a frame has seen by the numbers that `sent` was given. So a bridge calls the `sent` of
-`edited` once, with the number that its dispatch returned for that write. Otherwise `drawn` may replace what the user
-typed.
-
-### Which elements and renderers this holds for
-
-With a bridge that settles them with `drawn`, the element of an input:
-
-- never takes back what the user typed since the frame;
-- shows the program's value once a frame has seen all the element's writes, which always comes.
-
-That holds for elements and renderers that meet one condition, in two parts:
-
-- **The element**: its value changes only by an edit of the user, which it reports with the whole value, or by the
-  bridge.
-- **The renderer**: after each frame, and as it shows an element again, before the user can act on it, it lets the
-  bridge reach the element of each input, with the frame's value and `seen`.
-
-What meets it, and what does not:
-
-- **A native text field meets it**, except for what changes its value without reporting an edit:
-  - a reset of its form;
-  - a value written into it that it sanitizes, such as one with a line break.
-
-  The package's bridges do not handle these (see [what is left out](./writing-a-bridge.md#what-is-left-out)).
-- **A renderer that draws each frame at once meets it.** So does React, with the package's bridge: each `Shows`
-  settles its element in a layout effect, after each commit that changes its value or `seen`, and as React shows it
-  again, as Suspense does.
-- **A widget that changes its own value does not**, native or not. A range input is one: it changes its own value when
-  its bounds narrow. Such a widget is outside what is promised here, unless its bridge reports each such change as an
-  edit.
-- **Or the widget is replaced by one the program draws.** That widget is not an input: a press is a message of the
-  model, and a drag is the messages of a subscription keyed by the state of dragging. The sliders of
-  [`volume`](../../examples/volume) are drawn this way.
-
-The bridges' tests check it, in a DOM.
 
 ### Two limits
 

@@ -20,7 +20,7 @@ export const list = make({
   init: () => ({ state: { nextId: 1, entries: [] } }),
   children: {
     Stopwatch: childById(Stopwatch.stopwatch, {
-      // A removed stopwatch is `None`: its late messages (a click on a frame drawn before) are rejected.
+      // A removed stopwatch is `None`: its late messages (a click on a view drawn before) are rejected.
       get: (state, id: number) =>
         Opt.map(Arr.findFirst(state.entries, (entry) => entry.id === id), (entry) => entry.stopwatch),
       set: (state, id, stopwatch) => ({

@@ -15,8 +15,8 @@ import type { Subscription } from "./subscription.ts"
 
 // What the run and the testing tools share that has effects, beside what they share as data (`core.ts`): how a fiber
 // of the program is stopped, where its defects die and are recorded, how a subscription runs, and what its fibers see
-// of the span of whoever runs them. The shells, `engine.ts` with `run.ts` and `src/testing/`, each have a loop of
-// their own (`docs/records/shared-core.md`).
+// of the span of whoever runs them. The shells, `engine.ts` with `run.ts` and `src/testing/`, each run the effects of
+// a step in a fiber of their own (`docs/records/shared-core.md`).
 
 /**
  * Interrupts `fiber` as the current fiber does, with a mark of its own (`Core.Stopped`), and waits for it to end, its
@@ -95,7 +95,7 @@ const dying = <E>(
  * from what the release dies of by what this fiber kept of it, never by the register: a release may die with a defect
  * another fiber recorded, handed to the program by whoever runs it, and that is a defect of its own. `wrapped` says
  * which defects are this site's already, recorded where they were thrown, and taken as they are, by the effect and by
- * the release alike: a defect of `makeModel` that the run of `src/next/` records where the model is read, in `'render'`.
+ * the release alike: a defect of `makeModel` that the run records where the model is read, in `'render'`.
  */
 // The scope is closed here, not by `Effect.scoped`, which joins what the effect ended with and what the release died of
 // with `Cause.combine`: that keeps one of two defects equal by `Equal`, before the register sees them. What the close

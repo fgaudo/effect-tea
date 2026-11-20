@@ -1,18 +1,17 @@
-// React's bridge in a DOM (happy-dom), with screen refreshes that happen only when a test paints: the tests every
-// bridge passes (`bridge.test_suite.ts`), given a `renderInto` that draws a run started by the suite with `Frames`, and
-// the draft's in StrictMode too; the store, as an application that starts its run itself uses it; `Host`, which starts
-// the run itself; what an application of its own does beside the program; one run drawn by React and by snabbdom
-// together, as `counter` and `form` draw theirs; what the bridge leaves out; then the premises of the bridge on React
-// (`docs/premises.md`).
+// The bridge to React, in a DOM (happy-dom): the tests every bridge passes (`bridge.test_suite.ts`), drawn with `Draw` from a run the suite starts,
+// with controlled elements as React's documentation draws them; where React reads the model; `Host`; what an
+// application does beside the program, as `docs/records/hosted-react.md` tested it; one run drawn by React and by
+// snabbdom together; then the premise of the bridge on React (`docs/premises.md`).
 import {
+  type App,
   type Dispatch,
   forwardTo,
-  type Frame,
   type MessageOf,
   type ModelOf,
   program,
   ProgramDefect,
-  run
+  run,
+  type Written
 } from "@fgaudo/effect-tea"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test"
@@ -24,7 +23,6 @@ import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
 import * as ManagedRuntime from "effect/ManagedRuntime"
 import * as Opt from "effect/Option"
-import * as Stream from "effect/Stream"
 import {
   act,
   Activity,
@@ -38,34 +36,32 @@ import {
   Suspense,
   use,
   useEffect,
-  useLayoutEffect,
   useState,
   useSyncExternalStore
 } from "react"
 import type { Root } from "react-dom/client"
-import type { VNode } from "snabbdom"
+import { h, type VNode } from "snabbdom"
 import { counter, type Message as CounterMessage, type Model as CounterModel } from "../examples/counter/counter.ts"
-import { view as snabbdomCounterView } from "../examples/counter/view-snabbdom.ts"
+import { view as counterView } from "../examples/counter/view-react.tsx"
 import { form } from "../examples/form/form.ts"
 import { Storage } from "../examples/form/storage.ts"
+import { view as formView } from "../examples/form/view-react.tsx"
 import { view as snabbdomFormView } from "../examples/form/view-snabbdom.ts"
-import { together } from "../examples/together.ts"
 import type { Message as VolumeMessage, Model as VolumeModel } from "../examples/volume/volume.ts"
 import {
   type Bridge,
   bridgeTests,
   button,
-  desk,
+  type controls,
+  type desk,
   type Dictation,
   type draft,
-  draftTests,
   element,
+  type gated,
   holdFrames,
   type lid,
   lock,
-  mount,
   note,
-  paint,
   refresh,
   type RenderInto,
   scheduler,
@@ -79,11 +75,8 @@ import {
 import type { Fork, HostProps, View } from "./react.ts"
 import { renderInto as renderWithSnabbdom } from "./snabbdom.ts"
 
-// React DOM reads the DOM when it is loaded, so the bridge, the views and React DOM are loaded once there is one:
-// what the shared tests are given reaches them when a test runs.
+// React DOM reads the DOM when it is loaded: the bridge and React DOM are loaded once there is one.
 let bridge: typeof import("./react.ts")
-let counterView: typeof import("../examples/counter/view-react.tsx").view
-let formView: typeof import("../examples/form/view-react.tsx").view
 let flushSync: typeof import("react-dom").flushSync
 let createPortal: typeof import("react-dom").createPortal
 let createRoot: typeof import("react-dom/client").createRoot
@@ -92,8 +85,6 @@ beforeAll(async () => {
   GlobalRegistrator.register()
   holdFrames()
   bridge = await import("./react.ts")
-  counterView = (await import("../examples/counter/view-react.tsx")).view
-  formView = (await import("../examples/form/view-react.tsx")).view
   const reactDom = await import("react-dom")
   flushSync = reactDom.flushSync
   createPortal = reactDom.createPortal
@@ -102,8 +93,7 @@ beforeAll(async () => {
 
 afterAll(() => GlobalRegistrator.unregister())
 
-// React asks the environment to say it acts, and only for the call, so that the frames of the tests, published outside
-// `act` in `flushSync`, are not taken for updates it was not given.
+// React asks the environment to say it acts, and only for the call.
 const acting = async (work: () => void | Promise<void>) => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
   try {
@@ -113,42 +103,64 @@ const acting = async (work: () => void | Promise<void>) => {
   }
 }
 
-// The roots a test made: unmounted after it, inside `act`, which returns once React has done all the work the unmount
-// set going. Unmounted, a `Host` interrupts its run, which `settle` lets through.
+// The roots a test made: unmounted after it, inside `act`. Unmounted, a `Host` interrupts its run, which `settle` lets
+// through.
 const roots: Array<Root> = []
+
+// A run started here, beside the suite's: drawn by `Draw` into a root the test made, and interrupted after the test.
+const fibers: Array<Fiber.Fiber<void>> = []
 
 afterEach(async () => {
   await acting(stop)
+  const ended = Effect.runPromise(Effect.forEach(fibers.splice(0), Fiber.interrupt, { discard: true }))
+  settle()
+  await ended
   for (const root of roots.splice(0)) await acting(() => root.unmount())
   settle()
 })
 
+const stopLater = (fiber: Fiber.Fiber<void>) => void fibers.push(fiber)
+
+// What a handler scheduled, or a notice from outside React: React renders it in a microtask, which `flushSync` takes
+// at once.
+const drawn = () => flushSync(() => {})
+
+/** The data of a controlled text field, as React's documentation draws one: `value`, and `onChange`. */
+const field = (value: string, write: Dispatch<Written<string>>) => ({
+  value,
+  onChange: (event: { target: { value: string } }) => write({ _tag: "Written", was: value, value: event.target.value })
+})
+
 const drawButton = (text: string, onClick: () => void) => createElement("button", { type: "button", onClick }, text)
 
-// The suite starts the run itself, with its scheduler: `Frames` draws it from a store, in a root of its own that the
-// renderer's release unmounts, as an application that starts its run would.
-const framesInto: RenderInto<ReactNode> =
-  <Model, Message>(root: HTMLElement, view: View<Model, Message>) => (frames: Stream.Stream<Frame<Model, Message>>) =>
+// The suite starts the run itself: `Draw` draws its `App`, in a root of its own that the renderer's release unmounts.
+const drawInto: RenderInto<ReactNode> =
+  <Model, Message>(root: HTMLElement, view: View<Model, Message>) => (app: App<Model, Message>) =>
     Effect.acquireRelease(
       Effect.sync(() => {
-        const store = bridge.makeStore<Model, Message>()
         const reactRoot = createRoot(root)
-        flushSync(() => reactRoot.render(createElement(bridge.Frames<Model, Message>, { store, view })))
-        return { store, reactRoot }
+        flushSync(() => reactRoot.render(createElement(bridge.Draw<Model, Message>, { app, view })))
+        return reactRoot
       }),
-      ({ reactRoot }) => Effect.sync(() => reactRoot.unmount())
-    ).pipe(Effect.flatMap(({ store }) => store.open()(frames)), Effect.scoped)
+      (reactRoot) => Effect.sync(() => reactRoot.unmount())
+    ).pipe(Effect.andThen(Effect.never), Effect.scoped)
 
-type Own = "SendClicked" | "DiscardClicked"
-type DraftProps = Readonly<{ model: ModelOf<typeof draft>; dispatch: Dispatch<MessageOf<typeof draft>> }>
+// `Draw` in a root the test made.
+const drawIn = <Model, Message>(root: Root, view: View<Model, Message>) => (app: App<Model, Message>) =>
+  Effect.andThen(
+    Effect.sync(() => flushSync(() => root.render(createElement(bridge.Draw<Model, Message>, { app, view })))),
+    Effect.never
+  )
 
-const DraftView = ({ model, dispatch }: DraftProps): ReactNode =>
+const DraftView = (
+  { model, dispatch }: Readonly<{ model: ModelOf<typeof draft>; dispatch: Dispatch<MessageOf<typeof draft>> }>
+): ReactNode =>
   createElement(
     "form",
     null,
-    createElement(bridge.Shows, { value: model.text, dispatch: forwardTo(dispatch, "Text") }),
-    drawButton("Send", bridge.onClick<Own>("SendClicked", dispatch)),
-    drawButton("Discard", bridge.onClick<Own>("DiscardClicked", dispatch)),
+    createElement("input", field(model.text, forwardTo(dispatch, "Text"))),
+    drawButton("Send", () => dispatch("SendClicked")),
+    drawButton("Discard", () => dispatch("DiscardClicked")),
     createElement("output", null, model.text)
   )
 
@@ -157,12 +169,11 @@ const deskView: View<ModelOf<typeof desk>, MessageOf<typeof desk>> = (model, dis
     "main",
     null,
     createElement(DraftView, { model: model.draft, dispatch: forwardTo(dispatch, "Draft") }),
-    drawButton("Keep", bridge.onClick<MessageOf<typeof desk>>("Kept", dispatch)),
-    drawButton("Undo", bridge.onClick<MessageOf<typeof desk>>("Undone", dispatch)),
+    drawButton("Keep", () => dispatch("Kept")),
+    drawButton("Undo", () => dispatch("Undone")),
     createElement("ul", null, ...model.sent.map((text, index) => createElement("li", { key: index }, text)))
   )
 
-// Only the ringer is drawn here, which is what the shared test drags.
 const volumeView: View<VolumeModel, VolumeMessage> = (model, dispatch) =>
   createElement(
     "main",
@@ -173,11 +184,10 @@ const volumeView: View<VolumeModel, VolumeMessage> = (model, dispatch) =>
         className: "track ringer",
         onPointerDown: Opt.match(model.ringer.press, {
           onNone: () => undefined,
-          onSome: (press) => bridge.onPress<VolumeMessage>(press, dispatch)
+          onSome: (press) => () => dispatch(press)
         })
       },
-      createElement("div", { className: "fill", style: { width: `${model.ringer.level}%` } }),
-      createElement("div", { className: "cap", style: { left: `${model.ringer.max}%` } })
+      createElement("div", { className: "fill", style: { width: `${model.ringer.level}%` } })
     ),
     createElement("output", { className: "ringer" }, String(model.ringer.level))
   )
@@ -186,101 +196,115 @@ type NoteModel = ModelOf<typeof note>
 type NoteMessage = MessageOf<typeof note>
 
 const noteView: View<NoteModel, NoteMessage> = (model, dispatch) =>
-  createElement("main", null, createElement(bridge.Shows, { value: model, dispatch: forwardTo(dispatch, "Note") }))
+  createElement("main", null, createElement("input", field(model, forwardTo(dispatch, "Note"))))
 
-// `Shows` takes no ref: the element is found inside a wrapper. It listens from the wrapper's ref callback, a new one in
-// every frame, which has run when `flushSync` returns (`docs/premises.md`), so that a test dictates with no turn for
-// React; the cleanup it returns stops the last frame's.
+// The control listens to the source in an effect, and puts each result into the element as a key is.
+const Dictated = (
+  { model, dispatch, source }: Readonly<{ model: NoteModel; dispatch: Dispatch<NoteMessage>; source: Dictation }>
+): ReactNode => {
+  const [input, setInput] = useState<HTMLInputElement | null>(null)
+  useEffect(() => (input === null ? undefined : source.listen((text) => type(input, text))), [input, source])
+  return createElement("input", { ...field(model, forwardTo(dispatch, "Note")), ref: setInput })
+}
+
 const dictatedView = (source: Dictation): typeof noteView => (model, dispatch) =>
-  createElement(
-    "main",
-    null,
-    createElement(
-      "span",
-      {
-        ref: (wrapper: HTMLSpanElement | null) =>
-          wrapper === null ? undefined : source.listen((text) => {
-            const shown = wrapper.querySelector("input")
-            if (shown !== null) type(shown, text)
-          })
-      },
-      createElement(bridge.Shows, { value: model, dispatch: forwardTo(dispatch, "Note") })
-    )
-  )
+  createElement("main", null, createElement(Dictated, { model, dispatch, source }))
 
 const lidView: View<ModelOf<typeof lid>, MessageOf<typeof lid>> = (model, dispatch) =>
   model._tag === "Opened"
     ? createElement(
       "main",
       null,
-      createElement(bridge.Shows, { value: model.note, dispatch: forwardTo(dispatch, "Note") }),
-      drawButton("Close", bridge.onClick<MessageOf<typeof lid>>(model.close, dispatch)),
+      createElement("input", field(model.note, forwardTo(dispatch, "Note"))),
+      drawButton("Close", () => dispatch(model.close)),
       createElement("output", null, model.note)
     )
     : createElement(
       "main",
       null,
       createElement("input", { value: "Closed", readOnly: true }),
-      drawButton("Open", bridge.onClick<MessageOf<typeof lid>>(model.open, dispatch))
+      drawButton("Open", () => dispatch(model.open))
     )
 
-// The same `Shows` for both steps, whose `<input>` React draws again for the second.
 const stepsView: View<ModelOf<typeof steps>, MessageOf<typeof steps>> = (model, dispatch) =>
   createElement(
     "main",
     null,
-    createElement(bridge.Shows, {
-      value: model.text,
-      dispatch: model._tag === "First" ? forwardTo(dispatch, "First") : forwardTo(dispatch, "Second")
-    }),
-    model._tag === "First" ? drawButton("Next", bridge.onClick<MessageOf<typeof steps>>(model.next, dispatch)) : null,
+    createElement(
+      "input",
+      field(model.text, model._tag === "First" ? forwardTo(dispatch, "First") : forwardTo(dispatch, "Second"))
+    ),
+    model._tag === "First" ? drawButton("Next", () => dispatch(model.next)) : null,
     createElement("output", null, model.text)
   )
 
-// The same `Shows`, through the same dispatch, open and locked.
 const lockView: View<ModelOf<typeof lock>, MessageOf<typeof lock>> = (model, dispatch) =>
   createElement(
     "main",
     null,
-    createElement(bridge.Shows, { value: model.text, dispatch: forwardTo(dispatch, "Text") }),
-    model._tag === "Open" ? drawButton("Lock", bridge.onClick<MessageOf<typeof lock>>(model.lock, dispatch)) : null,
+    createElement("input", field(model.text, forwardTo(dispatch, "Text"))),
+    model._tag === "Open" ? drawButton("Lock", () => dispatch(model.lock)) : null,
     createElement("output", null, model.text)
   )
 
+const checkbox = (checked: boolean, write: Dispatch<Written<boolean>>) =>
+  createElement("input", {
+    type: "checkbox",
+    checked,
+    onChange: (event: { target: { checked: boolean } }) =>
+      write({ _tag: "Written", was: checked, value: event.target.checked })
+  })
+
+const controlsView: View<ModelOf<typeof controls>, MessageOf<typeof controls>> = (model, dispatch) =>
+  createElement(
+    "main",
+    null,
+    createElement("textarea", field(model.notes, forwardTo(dispatch, "Notes"))),
+    createElement(
+      "select",
+      field(model.choice, forwardTo(dispatch, "Choice")),
+      createElement("option", { value: "tea" }, "Tea"),
+      createElement("option", { value: "coffee" }, "Coffee"),
+      createElement("option", { value: "water" }, "Water")
+    ),
+    checkbox(model.agreed, forwardTo(dispatch, "Agreed")),
+    createElement("input", { type: "range", ...field(model.level, forwardTo(dispatch, "Level")) })
+  )
+
+const gatedView: View<ModelOf<typeof gated>, MessageOf<typeof gated>> = (model, dispatch) =>
+  createElement(
+    "main",
+    null,
+    createElement("textarea", field(model.notes, forwardTo(dispatch, "Notes"))),
+    checkbox(model.agreed, forwardTo(dispatch, "Agreed")),
+    model.freeze === undefined ? null : drawButton("Freeze", () => dispatch("Frozen"))
+  )
+
 const react: Bridge<ReactNode> = {
-  renderInto: framesInto,
+  renderInto: drawInto,
+  drawn,
   views: {
-    counter: (model, dispatch) => counterView(model, dispatch),
-    form: (model, dispatch) => formView(model, dispatch),
+    counter: counterView,
+    form: formView,
     desk: deskView,
     volume: volumeView,
     note: noteView,
     dictated: dictatedView,
     lid: lidView,
     steps: stepsView,
-    lock: lockView
+    lock: lockView,
+    controls: controlsView,
+    gated: gatedView
   }
 }
 
 bridgeTests(react)
-
-// StrictMode attaches every ref twice, and renders every component twice.
-describe("in StrictMode", () => {
-  draftTests({
-    ...react,
-    views: {
-      ...react.views,
-      desk: (model, dispatch) => createElement(StrictMode, null, deskView(model, dispatch))
-    }
-  })
-})
 
 const page = () => {
   document.body.innerHTML = "<div id=\"app\"></div><div id=\"aside\"></div>"
   return element<HTMLElement>("#app")
 }
 
-// A root a test draws into: unmounted after the test, if the test has not.
 const rootIn = (into: HTMLElement) => {
   const root = createRoot(into)
   roots.push(root)
@@ -293,65 +317,54 @@ const unmount = async (root: Root) => {
   settle()
 }
 
-describe("the store, for a run the application starts itself", () => {
-  // `flushSync` inside an effect of React does not flush, and React says so (react.dev, "flushSync"): a run forked
-  // there with `Effect.runFork` is evaluated at once, and would publish its first frame inside the effect.
-  test("a renderer forked as an effect of React runs draws its first frame outside the effect", async () => {
-    const errors: Array<unknown> = []
-    const error = console.error
-    console.error = (...args: Array<unknown>) => void errors.push(args)
-    try {
-      const store = bridge.makeStore<string, never>()
-      const Started = (): ReactNode => {
-        useEffect(() => {
-          const fiber = Effect.runFork(
-            store.open()(Stream.make({ model: "Drawn", dispatch: () => Effect.succeed(0), seen: 0 })),
-            { scheduler }
-          )
-          return () => void Effect.runFork(Fiber.interrupt(fiber))
-        }, [])
-        return createElement(bridge.Frames<string, never>, {
-          store,
-          view: (model) => createElement("output", null, model),
-          fallback: "Starting"
-        })
-      }
-      await acting(() => rootIn(page()).render(createElement(Started)))
-      expect(element("#app").textContent).toBe("Starting")
-      settle()
-      expect(element("#app").textContent).toBe("Drawn")
-      expect(errors).toEqual([])
-    } finally {
-      console.error = error
-    }
-  })
+// Starts a run drawn by `Draw` into a root of its own, and gives its `App`.
+const drawRun = <Model, Message>(
+  start: (render: (app: App<Model, Message>) => Effect.Effect<void>) => Effect.Effect<void>,
+  view: View<Model, Message>
+) => {
+  let held: App<Model, Message> | undefined
+  const root = rootIn(page())
+  stopLater(Effect.runFork(
+    start((app) => {
+      held = app
+      return drawIn(root, view)(app)
+    }),
+    { scheduler }
+  ))
+  settle()
+  return () => {
+    if (held === undefined) throw new Error("The renderer has not started")
+    return held
+  }
+}
 
-  test("once another renderer of the store is opened, the frames of the first are not published", async () => {
-    const store = bridge.makeStore<CounterModel, CounterMessage>()
-    await acting(() =>
-      rootIn(page()).render(createElement(bridge.Frames<CounterModel, CounterMessage>, { store, view: counterView }))
+// The stack on which React reads the model: the run makes a model as it is read, once for each state.
+describe("where React reads the model under Draw", () => {
+  test("a new state's model is made in the notice, on the stack of whoever sent the message, and not again", () => {
+    const made: Array<string> = []
+    let sending = false
+    const counted = program<{ state: Readonly<{ count: number }>; message: "Increment"; model: number }>().make({
+      init: { state: { count: 0 } },
+      update: () => (held) => ({ state: { count: held.count + 1 } }),
+      makeModel: ({ count }) => {
+        made.push(sending ? `${count} while sending` : `${count} after`)
+        return count
+      }
+    })
+    const app = drawRun<number, "Increment">(
+      (render) => run(counted, render),
+      (count, dispatch) => drawButton(String(count), () => dispatch("Increment"))
     )
-    const first = Effect.runFork(run(counter, store.open()), { scheduler })
-    settle()
-    const sendToFirst = store.frame()?.dispatch
-    if (sendToFirst === undefined) throw new Error("The first run drew no frame")
-    const second = Effect.runFork(run(counter, store.open()), { scheduler })
-    settle()
-    expect(store.frame()?.dispatch).not.toBe(sendToFirst)
-    Effect.runSync(sendToFirst("Increment"))
-    Effect.runSync(sendToFirst("Increment"))
-    paint()
-    expect(element("output").textContent).toBe("0")
-    button("+").click()
-    paint()
-    expect(element("output").textContent).toBe("1")
-    const ended = Effect.runPromise(Effect.all([Fiber.interrupt(first), Fiber.interrupt(second)]))
-    settle()
-    await ended
+    expect(made).toEqual(["0 after"])
+    sending = true
+    app().dispatch("Increment")
+    sending = false
+    drawn()
+    expect(element("button").textContent).toBe("1")
+    expect(made).toEqual(["0 after", "1 while sending"])
   })
 })
 
-// The run is forked on the suite's scheduler, so that a test says when the run goes on, as the suite's do.
 const heldFork: Fork<never> = (effect) => Effect.runFork(effect, { scheduler })
 
 const withStorage = (storage: Storage["Service"]): Fork<Storage> => (effect) =>
@@ -360,11 +373,7 @@ const withStorage = (storage: Storage["Service"]): Fork<Storage> => (effect) =>
 // `createElement` does not infer the types of a generic component, as JSX does: a function of its props does.
 const host = <State, Model, Message, Command = never, RC = never, RS = never, Flags = never>(
   props: HostProps<State, Model, Message, Command, RC, RS, Flags> & Attributes
-) =>
-  createElement(
-    bridge.Host<State, Model, Message, Command, RC, RS, Flags>,
-    props
-  )
+) => createElement(bridge.Host<State, Model, Message, Command, RC, RS, Flags>, props)
 
 const hostInto = async (node: ReactNode, into = page()) => {
   const root = rootIn(into)
@@ -372,7 +381,11 @@ const hostInto = async (node: ReactNode, into = page()) => {
   return root
 }
 
-// A note's Host, which records the dispatch of each frame it draws.
+// Starts the run, lets it hand its `App` to React, and draws it: `Host` sets its state from the renderer's fiber,
+// outside any event of React's, which React renders in a lane of its own, inside `act` here.
+const started = () => acting(() => settle())
+
+// A note's Host, which records what it draws with.
 const hostNote = (view: View<NoteModel, NoteMessage> = noteView) => {
   let last: Readonly<{ model: NoteModel; dispatch: Dispatch<NoteMessage> }> | undefined
   const node = host({
@@ -384,14 +397,10 @@ const hostNote = (view: View<NoteModel, NoteMessage> = noteView) => {
     }
   })
   const current = () => {
-    if (last === undefined) throw new Error("No frame is drawn")
+    if (last === undefined) throw new Error("Nothing is drawn")
     return last
   }
-  return {
-    node,
-    note: () => current().model,
-    send: (message: NoteMessage) => Effect.runSync(current().dispatch(message))
-  }
+  return { node, note: () => current().model, send: (message: NoteMessage) => current().dispatch(message) }
 }
 
 // A promise, and what settles it: a witness a test awaits.
@@ -404,15 +413,15 @@ const witness = <A>() => {
 }
 
 describe("Host", () => {
-  test("draws its fallback until the first frame, then the frame", async () => {
+  test("draws its fallback until the run has started its renderer, then the model", async () => {
     await hostInto(
       host({ program: counter, fork: heldFork, fallback: createElement("p", null, "Starting"), children: counterView })
     )
     expect(element("#app").textContent).toBe("Starting")
-    settle()
+    await started()
     expect(element("output").textContent).toBe("0")
     button("+").click()
-    paint()
+    drawn()
     expect(element("output").textContent).toBe("1")
   })
 
@@ -427,10 +436,10 @@ describe("Host", () => {
         children: counterView
       })
     const root = await hostInto(node((message) => void applied.push(message)))
-    settle()
+    await started()
     await acting(() => root.render(node((message) => void ignored.push(message))))
     button("+").click()
-    paint()
+    drawn()
     expect([applied, ignored]).toEqual([["Increment"], []])
   })
 
@@ -441,7 +450,7 @@ describe("Host", () => {
       fork: (effect) => heldFork(effect.pipe(Effect.onInterrupt(() => Effect.sync(() => ended.push("run"))))),
       children: counterView
     }))
-    settle()
+    await started()
     expect(ended).toEqual([])
     await unmount(root)
     expect(ended).toEqual(["run"])
@@ -451,19 +460,19 @@ describe("Host", () => {
   test("a new key starts the program anew, from init", async () => {
     const node = (key: string) => host({ key, program: counter, fork: heldFork, children: counterView })
     const root = await hostInto(node("first"))
-    settle()
+    await started()
     button("+").click()
-    paint()
+    drawn()
     expect(element("output").textContent).toBe("1")
     await acting(() => root.render(node("second")))
-    settle()
+    await started()
     expect(element("output").textContent).toBe("0")
   })
 
   // React's `<Activity>` destroys the effects of what it hides, and creates them again as it shows it (react.dev,
-  // "<Activity>"), keeping the state of its components: `Host`'s store stays, and its last frame belongs to a run that
-  // has ended.
-  test("hidden by Activity, the run ends; shown again, the program starts from init, after the fallback", async () => {
+  // "<Activity>"), keeping the state of its components: `Host`'s `App` stays, of a run that has ended, until the new
+  // run gives its own.
+  test("hidden by Activity, the run ends; shown again, the program starts from init", async () => {
     const ended: Array<string> = []
     const node = (mode: "visible" | "hidden") =>
       createElement(Activity, {
@@ -471,21 +480,19 @@ describe("Host", () => {
         children: host({
           program: counter,
           fork: (effect) => heldFork(effect.pipe(Effect.onInterrupt(() => Effect.sync(() => ended.push("run"))))),
-          fallback: createElement("p", null, "Starting"),
           children: counterView
         })
       })
     const root = await hostInto(node("visible"))
-    settle()
+    await started()
     button("+").click()
-    paint()
+    drawn()
     expect(element("output").textContent).toBe("1")
     await acting(() => root.render(node("hidden")))
     settle()
     expect(ended).toEqual(["run"])
     await acting(() => root.render(node("visible")))
-    expect(element("#app").textContent).toBe("Starting")
-    settle()
+    await started()
     expect(element("output").textContent).toBe("0")
   })
 
@@ -498,12 +505,12 @@ describe("Host", () => {
     const node = (mode: "visible" | "hidden", fork: Fork<never>) =>
       createElement(Activity, { mode, children: host({ program: counter, fork, children: counterView }) })
     const root = await hostInto(node("visible", forkedBy("first")))
-    settle()
+    await started()
     await acting(() => root.render(node("visible", forkedBy("second"))))
     await acting(() => root.render(node("hidden", forkedBy("second"))))
     settle()
     await acting(() => root.render(node("visible", forkedBy("second"))))
-    settle()
+    await started()
     expect(forks).toEqual(["first", "first"])
   })
 
@@ -526,12 +533,11 @@ describe("Host", () => {
       fork: (effect) => runtime.runFork(effect, { scheduler }),
       children: formView
     }))
-    settle()
+    await started()
     type(element<HTMLInputElement>("input"), "Ada")
-    paint()
     button("Save").click()
-    paint()
-    paint()
+    settle()
+    drawn()
     expect(saved).toEqual(["Ada"])
     expect(element("li").textContent).toBe("Ada")
     await runtime.dispose()
@@ -549,36 +555,27 @@ describe("Host", () => {
         return formView(model, dispatch)
       }
     }))
-    settle()
+    await started()
     for (const text of ["A", "Ad", "Ada"]) {
       type(element<HTMLInputElement>("input"), text)
-      paint()
+      drawn()
     }
-    expect(element("input").getAttribute("placeholder")).toBe("A name")
+    expect(element<HTMLInputElement>("input").value).toBe("Ada")
     expect([dispatches.size, forwarded.size]).toEqual([1, 1])
   })
 
-  // A message of a command makes no new `seen`: the frame that empties the name has the `seen` of the frame before.
-  test("a value a command's message puts in an input's place, with no new seen, is shown by the element", async () => {
-    const answer = Deferred.makeUnsafe<void>()
-    await hostInto(host({
-      program: form,
-      fork: withStorage(Storage.of({ save: () => Deferred.await(answer) })),
-      children: formView
-    }))
-    settle()
+  test("a form typed into and saved, its answer drawn once React renders the notice", async () => {
+    await hostInto(
+      host({ program: form, fork: withStorage(Storage.of({ save: () => Effect.void })), children: formView })
+    )
+    await started()
     const input = element<HTMLInputElement>("input")
     type(input, "Ada")
-    paint()
+    expect(input.value).toBe("Ada")
     button("Save").click()
-    paint()
-    expect([input.value, input.disabled]).toEqual(["Ada", true])
-    Deferred.doneUnsafe(answer, Effect.void)
     settle()
-    paint()
-    expect(element("input")).toBe(input)
-    expect([input.value, input.disabled]).toEqual(["", false])
-    expect(element("li").textContent).toBe("Ada")
+    drawn()
+    expect([input.value, element("li").textContent]).toEqual(["", "Ada"])
   })
 
   describe("a run that dies", () => {
@@ -606,7 +603,7 @@ describe("Host", () => {
       host({
         program: fragile,
         fork,
-        children: (model, dispatch) => drawButton("Break", bridge.onClick(model.broken, dispatch))
+        children: (model, dispatch) => drawButton("Break", () => dispatch(model.broken))
       })
 
     test("throws its ProgramDefect as Host renders, for the nearest error boundary", async () => {
@@ -614,11 +611,15 @@ describe("Host", () => {
       const root = createRoot(page(), { onCaughtError: (error) => caught.settled(error) })
       roots.push(root)
       await acting(() => root.render(createElement(Boundary, null, breakIn(heldFork))))
-      settle()
-      button("Break").click()
-      settle()
+      await started()
+      // The defect is recorded in the dispatch, never thrown to the handler, and the run ends with it. Inside `act`:
+      // Host sets its state from a fiber, and React's own scheduler, loaded under the DOM of the first file of the
+      // tests that imported React, would never run it outside `act` once that DOM is gone.
+      await acting(() => {
+        button("Break").click()
+        settle()
+      })
       const error = await caught.promise
-      await acting(async () => {})
       expect(element("#app").textContent).toBe("Crashed")
       expect(error).toBeInstanceOf(ProgramDefect)
       expect(error).toMatchObject({ where: "update" })
@@ -641,9 +642,11 @@ describe("Host", () => {
           })
         ))
       )
-      settle()
-      button("Break").click()
-      settle()
+      await started()
+      await acting(() => {
+        button("Break").click()
+        settle()
+      })
       await handled.promise
       if (fiber !== undefined) await Effect.runPromise(Fiber.await(fiber))
       await acting(async () => {})
@@ -679,11 +682,9 @@ describe("Host", () => {
           })
         ))
       )
-      settle()
-      button("+").click()
-      paint()
+      await started()
+      await acting(() => button("+").click())
       expect(await caught.promise).toBe(thrown)
-      await acting(async () => {})
       settle()
       expect(element("#app").textContent).toBe("Crashed")
       expect(ended).toEqual(["interrupted"])
@@ -700,7 +701,7 @@ describe("Host", () => {
           fork: (effect) => heldFork(effect.pipe(Effect.ensuring(Effect.die(released)))),
           children: counterView
         }))
-        settle()
+        await started()
         await unmount(root)
         expect(await reported.promise).toBe(released)
       } finally {
@@ -709,29 +710,27 @@ describe("Host", () => {
     })
   })
 
-  // StrictMode mounts every component, unmounts it, and mounts it again, running its effects each time: the first run
-  // is interrupted before it draws, and the second draws.
-  test("in StrictMode, the run of the first mount is interrupted, and the second's frames are drawn", async () => {
-    const started: Array<number> = []
-    const ended: Array<number> = []
+  // StrictMode mounts every component, unmounts it, and mounts it again, running its effects each time.
+  test("in StrictMode, the run of the first mount is interrupted, and the second's is drawn and typed into", async () => {
+    const runs: Array<string> = []
     await hostInto(createElement(
       StrictMode,
       null,
       host({
-        program: counter,
-        fork: (effect) => {
-          const count = started.length + 1
-          started.push(count)
-          return heldFork(effect.pipe(Effect.onInterrupt(() => Effect.sync(() => ended.push(count)))))
-        },
-        children: counterView
+        program: note,
+        fork: (effect) =>
+          heldFork(effect.pipe(
+            Effect.onInterrupt(() => Effect.sync(() => runs.push("interrupted"))),
+            Effect.onExit(() => Effect.sync(() => runs.push("ended")))
+          )),
+        children: noteView
       })
     ))
-    settle()
-    expect([started, ended]).toEqual([[1, 2], [1]])
-    button("+").click()
-    paint()
-    expect(element("output").textContent).toBe("1")
+    await started()
+    expect(runs).toEqual(["interrupted", "ended"])
+    const input = element<HTMLInputElement>("input")
+    type(input, "Ada")
+    expect(input.value).toBe("Ada")
   })
 
   // The engine starts the commands of `init` before the renderer: React's rule for effects, which StrictMode runs
@@ -743,7 +742,7 @@ describe("Host", () => {
     let runs = 0
     const loading = loads.make({
       init: { state: { loaded: 0 }, commands: ["Load"] },
-      update: () => (state) => ({ state: { loaded: state.loaded + 1 } }),
+      update: () => (held) => ({ state: { loaded: held.loaded + 1 } }),
       runCommand: () =>
         Effect.suspend(() => {
           const count = runs
@@ -753,7 +752,7 @@ describe("Host", () => {
             Effect.onInterrupt(() => Effect.sync(() => commands.push(`interrupted in ${count}`)))
           )
         }),
-      makeModel: (state) => state
+      makeModel: (held) => held
     })
     await hostInto(createElement(
       StrictMode,
@@ -767,227 +766,34 @@ describe("Host", () => {
         children: (model) => createElement("output", null, model.loaded)
       })
     ))
-    settle()
+    await started()
     Deferred.doneUnsafe(answer, Effect.void)
     settle()
-    paint()
+    drawn()
     expect(commands).toEqual(["started by 1", "interrupted in 1", "started by 2"])
     expect(element("output").textContent).toBe("1")
   })
 
-  test("in StrictMode, an input is settled by the run that draws it", async () => {
-    const app = hostNote()
-    await hostInto(createElement(StrictMode, null, app.node))
-    settle()
-    const typed = element<HTMLInputElement>("input")
-    type(typed, "Ada")
-    paint()
-    expect(app.note()).toBe("Ada")
-    app.send("Cleared")
-    paint()
-    expect(element("input")).toBe(typed)
-    expect(typed.value).toBe("")
-  })
-
-  test("forked with Effect.runFork, draws its first frame with no warning of React", async () => {
+  test("forked with Effect.runFork, draws its first model with no warning of React", async () => {
     const errors: Array<unknown> = []
     const error = console.error
     console.error = (...args: Array<unknown>) => void errors.push(args)
-    const drawn = witness<void>()
+    const drew = witness<void>()
     try {
       await hostInto(host({
         program: counter,
         children: (model, dispatch) => {
-          drawn.settled()
+          drew.settled()
           return counterView(model, dispatch)
         }
       }))
-      await drawn.promise
+      await drew.promise
       await acting(async () => {})
       expect(element("output").textContent).toBe("0")
       expect(errors).toEqual([])
     } finally {
       console.error = error
     }
-  })
-})
-
-describe("beside the program, what an application of its own does", () => {
-  // A component with state of its own: an editor that the user opens and closes, outside any frame.
-  test("an input a component mounts from its own state shows the program's value, and what is typed is stored", async () => {
-    const Editor = ({ value, dispatch }: Readonly<{ value: string; dispatch: Dispatch<NoteMessage> }>): ReactNode => {
-      const [open, setOpen] = useState(false)
-      return createElement(
-        "section",
-        null,
-        drawButton(open ? "Done" : "Edit", () => setOpen(!open)),
-        open ? createElement(bridge.Shows, { value, dispatch: forwardTo(dispatch, "Note") }) : null,
-        createElement("output", null, value)
-      )
-    }
-    const app = hostNote((model, dispatch) => createElement(Editor, { value: model, dispatch }))
-    await hostInto(app.node)
-    settle()
-    app.send({ _tag: "Note", message: { _tag: "Written", was: "", value: "Ada" } })
-    paint()
-    expect(element("output").textContent).toBe("Ada")
-    await acting(() => button("Edit").click())
-    const typed = element<HTMLInputElement>("input")
-    expect(typed.value).toBe("Ada")
-    type(typed, "Ada!")
-    paint()
-    expect(app.note()).toBe("Ada!")
-    await acting(() => button("Done").click())
-    app.send("Cleared")
-    paint()
-    await acting(() => button("Edit").click())
-    expect(element<HTMLInputElement>("input").value).toBe("")
-  })
-
-  // The pane is skipped by `memo` on the frame of the rejection: its props, the text and the dispatch, are the same.
-  test("an input in a subtree that memo skips takes the program's value once a frame has seen its rejected key", () => {
-    const Pane = memo(({ text, dispatch }: Readonly<{ text: string; dispatch: Dispatch<MessageOf<typeof lock>> }>) =>
-      createElement(
-        "section",
-        null,
-        createElement(bridge.Shows, { value: text, dispatch: forwardTo(dispatch, "Text") }),
-        createElement("output", null, text)
-      )
-    )
-    mount(framesInto, (model: ModelOf<typeof lock>, dispatch: Dispatch<MessageOf<typeof lock>>) =>
-      createElement(
-        "main",
-        null,
-        createElement(Pane, { text: model.text, dispatch }),
-        model._tag === "Open" ? drawButton("Lock", bridge.onClick<MessageOf<typeof lock>>(model.lock, dispatch)) : null
-      ), (render) => run(lock, render))
-    settle()
-    const typedInto = element<HTMLInputElement>("input")
-    button("Lock").click()
-    settle()
-    type(typedInto, "A")
-    refresh()
-    expect(typedInto.value).toBe("A")
-    paint()
-    expect(element("input")).toBe(typedInto)
-    expect(typedInto.value).toBe("")
-  })
-
-  // Suspense hides content that suspends again, and shows it once its promise settles, in a commit of React's own,
-  // outside any frame: react.dev ("<Suspense>") says that it cleans up the layout effects of the hidden content, and
-  // runs them again as it shows it.
-  test("an input Suspense hides, and shows again outside a frame, shows the value the program put there meanwhile", async () => {
-    let pending: Promise<void> | undefined
-    let release = () => {}
-    const Gate = (): ReactNode => {
-      if (pending !== undefined) use(pending)
-      return null
-    }
-    const app = hostNote((model, dispatch) =>
-      createElement(
-        "main",
-        null,
-        createElement(
-          Suspense,
-          { fallback: "Loading" },
-          createElement(Gate),
-          createElement(bridge.Shows, { value: model, dispatch: forwardTo(dispatch, "Note") })
-        ),
-        createElement("output", null, model)
-      )
-    )
-    await hostInto(app.node)
-    settle()
-    const typedInto = element<HTMLInputElement>("input")
-    type(typedInto, "Ada")
-    paint()
-    expect(state()).toEqual(["Ada"])
-    pending = new Promise((resolve) => {
-      release = () => {
-        pending = undefined
-        resolve()
-      }
-    })
-    app.send("Cleared")
-    paint()
-    expect(state()).toEqual([""])
-    // Hidden, not removed: the element is kept, with what was typed.
-    expect(element("input")).toBe(typedInto)
-    expect([typedInto.style.display, typedInto.value]).toEqual(["none", "Ada"])
-    await acting(async () => release())
-    paint()
-    expect(element("input")).toBe(typedInto)
-    expect(typedInto.value).toBe("")
-  })
-
-  test("an input drawn through a portal is settled by its run's frames", async () => {
-    const app = hostNote((model, dispatch) =>
-      createElement(
-        "main",
-        null,
-        createPortal(
-          createElement(bridge.Shows, { value: model, dispatch: forwardTo(dispatch, "Note") }),
-          element("#aside")
-        ),
-        createElement("output", null, model)
-      )
-    )
-    await hostInto(app.node)
-    settle()
-    const typed = element<HTMLInputElement>("#aside input")
-    type(typed, "Ada")
-    paint()
-    expect(app.note()).toBe("Ada")
-    app.send("Cleared")
-    paint()
-    expect(element("#aside input")).toBe(typed)
-    expect(typed.value).toBe("")
-  })
-
-  // Run A has seen one key when its frame is drawn; B's input has sent its first key, which B's run has not taken; then
-  // the other way round. An input settled with another run's `seen` would take back what was typed into it.
-  test("two programs on one page: each input is settled with its own run's seen", async () => {
-    document.body.innerHTML = "<div id=\"a\"></div><div id=\"b\"></div>"
-    const a = hostNote()
-    const b = hostNote()
-    await hostInto(a.node, element("#a"))
-    await hostInto(b.node, element("#b"))
-    settle()
-    const inA = element<HTMLInputElement>("#a input")
-    const inB = element<HTMLInputElement>("#b input")
-    type(inA, "a")
-    settle()
-    type(inB, "b")
-    refresh()
-    expect([inA.value, inB.value]).toEqual(["a", "b"])
-    paint()
-    expect([a.note(), b.note()]).toEqual(["a", "b"])
-    // The other way round: B has seen its second key, A's second is not taken yet.
-    type(inB, "bb")
-    settle()
-    type(inA, "aa")
-    refresh()
-    expect([inA.value, inB.value]).toEqual(["aa", "bb"])
-    paint()
-    expect([a.note(), b.note()]).toEqual(["aa", "bb"])
-    expect([inA.value, inB.value]).toEqual(["aa", "bb"])
-  })
-
-  test("an input in a root in a shadow tree is settled by its run's frames", async () => {
-    document.body.innerHTML = "<div id=\"host\"></div>"
-    const shadow = element("#host").attachShadow({ mode: "open" })
-    shadow.innerHTML = "<div id=\"app\"></div>"
-    const app = hostNote()
-    await hostInto(app.node, shadow.getElementById("app") as HTMLElement)
-    settle()
-    const typed = shadow.querySelector("input")
-    if (typed === null) throw new Error("No input is drawn in the shadow tree")
-    type(typed, "Ada")
-    paint()
-    expect(app.note()).toBe("Ada")
-    app.send("Cleared")
-    paint()
-    expect(typed.value).toBe("")
   })
 
   test("a program unmounted while a command is under way interrupts the command, and draws nothing after", async () => {
@@ -1002,170 +808,273 @@ describe("beside the program, what an application of its own does", () => {
     console.error = (...args: Array<unknown>) => void errors.push(args)
     try {
       const root = await hostInto(host({ program: form, fork: withStorage(storage), children: formView }))
-      settle()
+      await started()
       type(element<HTMLInputElement>("input"), "Ada")
-      paint()
       button("Save").click()
-      paint()
+      drawn()
       expect(button("Saving…")).toBeDefined()
+      settle()
       await unmount(root)
       expect(interrupted).toEqual(["Ada"])
       Deferred.doneUnsafe(answer, Effect.void)
       settle()
-      paint()
       expect(element("#app").childElementCount).toBe(0)
       expect(errors).toEqual([])
     } finally {
       console.error = error
     }
   })
+
+  test("two programs on one page: each input writes into its own run", async () => {
+    document.body.innerHTML = "<div id=\"one\"></div><div id=\"two\"></div>"
+    const one = hostNote()
+    const two = hostNote()
+    await hostInto(one.node, element("#one"))
+    await hostInto(two.node, element("#two"))
+    await started()
+    type(element<HTMLInputElement>("#one input"), "Ada")
+    type(element<HTMLInputElement>("#two input"), "Bob")
+    expect([one.note(), two.note()]).toEqual(["Ada", "Bob"])
+  })
 })
 
-// Each renderer in a root of its own inside `#app`, given the half of a view's pair that is its own: snabbdom's first,
-// which patches its root into the tree it draws, then React's, through `Frames`.
-type Both = Readonly<{ snabbdom: VNode; react: ReactNode }>
-
-const bothInto: RenderInto<Both> = (root, view) => {
-  root.innerHTML = "<div id=\"snabbdom\"></div><div id=\"react\"></div>"
-  return together(
-    renderWithSnabbdom(element("#snabbdom"), (model, dispatch) => view(model, dispatch).snabbdom),
-    framesInto(element("#react"), (model, dispatch) => view(model, dispatch).react)
-  )
-}
-
-const drawnBySnabbdom = <E extends Element>(selector: string): E => element(`#app > main ${selector}`)
-
-const drawnByReact = <E extends Element>(selector: string): E => element(`#react ${selector}`)
-
-describe("together, React beside snabbdom", () => {
-  test("a click in either renderer is drawn by both at the next refresh", () => {
-    mount(
-      bothInto,
-      (model: ModelOf<typeof counter>, dispatch: Dispatch<MessageOf<typeof counter>>) => ({
-        snabbdom: snabbdomCounterView(model, dispatch),
-        react: counterView(model, dispatch)
-      }),
-      (render) => run(counter, render)
+describe("what an application does beside the program", () => {
+  test("an input a component mounts from its own state shows the program's value, and what is typed is stored", async () => {
+    const Toggle = ({ children }: Readonly<{ children: ReactNode }>): ReactNode => {
+      const [shown, setShown] = useState(false)
+      return createElement("div", null, drawButton("Show", () => setShown(true)), shown ? children : null)
+    }
+    const app = hostNote((model, dispatch) =>
+      createElement(
+        "main",
+        null,
+        createElement(Toggle, null, createElement("input", field(model, forwardTo(dispatch, "Note"))))
+      )
     )
+    await hostInto(app.node)
+    await started()
+    app.send({ _tag: "Note", message: { _tag: "Written", was: "", value: "Ada" } })
+    drawn()
+    await acting(() => button("Show").click())
+    const input = element<HTMLInputElement>("input")
+    expect(input.value).toBe("Ada")
+    type(input, "Adam")
+    expect(app.note()).toBe("Adam")
+  })
+
+  // React restores a controlled element to the props it was drawn with once its handler has run, when the render it
+  // scheduled made no change: so a key the state rejects is taken back, though `memo` skips the input.
+  test("a key the state rejects, in an input that memo skips, is taken back", async () => {
+    const Field = memo(({ value, write }: Readonly<{ value: string; write: Dispatch<Written<string>> }>) =>
+      createElement("input", field(value, write))
+    )
+    const view: View<ModelOf<typeof lock>, MessageOf<typeof lock>> = (model, dispatch) =>
+      createElement(
+        "main",
+        null,
+        createElement(Field, { value: model.text, write: forwardTo(dispatch, "Text") }),
+        model._tag === "Open" ? drawButton("Lock", () => dispatch(model.lock)) : null
+      )
+    const app = drawRun((render) => run(lock, render), view)
+    const input = element<HTMLInputElement>("input")
+    type(input, "Ada")
+    await acting(() => button("Lock").click())
+    type(input, "Ada!")
+    drawn()
+    expect([input.value, app().model().text]).toEqual(["Ada", "Ada"])
+  })
+
+  test("an input Suspense hides, and shows again, shows the value the program put there meanwhile", async () => {
+    let pending: Promise<void> | undefined
+    let release = () => {}
+    const Gate = (): ReactNode => {
+      if (pending !== undefined) use(pending)
+      return null
+    }
+    const app = hostNote((model, dispatch) =>
+      createElement(
+        "main",
+        null,
+        createElement(
+          Suspense,
+          { fallback: "Loading" },
+          createElement(Gate),
+          createElement("input", field(model, forwardTo(dispatch, "Note")))
+        ),
+        createElement("output", null, model)
+      )
+    )
+    await hostInto(app.node)
+    await started()
+    const typedInto = element<HTMLInputElement>("input")
+    type(typedInto, "Ada")
+    expect(state()).toEqual(["Ada"])
+    pending = new Promise((resolve) => {
+      release = () => {
+        pending = undefined
+        resolve()
+      }
+    })
+    await acting(() => app.send("Cleared"))
+    expect(state()).toEqual([""])
+    await acting(async () => release())
+    expect(element("input")).toBe(typedInto)
+    expect(typedInto.value).toBe("")
+    type(typedInto, "Bob")
+    expect(app.note()).toBe("Bob")
+  })
+
+  test("an input drawn through a portal writes into its run", async () => {
+    const app = hostNote((model, dispatch) =>
+      createElement(
+        "main",
+        null,
+        createPortal(createElement("input", field(model, forwardTo(dispatch, "Note"))), element("#aside"))
+      )
+    )
+    await hostInto(app.node)
+    await started()
+    const input = element<HTMLInputElement>("#aside input")
+    type(input, "Ada")
+    expect([input.value, app.note()]).toEqual(["Ada", "Ada"])
+  })
+
+  // As a component of a library is: it keeps the text it shows in its own state, takes `value` and `onChange`, and
+  // takes a new `value` from its props in an effect.
+  test("a component with state of its own and value and onChange props stores what is typed, and shows the program's", async () => {
+    const Library = (
+      { value, onChange }: Readonly<{ value: string; onChange: (value: string) => void }>
+    ): ReactNode => {
+      const [text, setText] = useState(value)
+      useEffect(() => setText(value), [value])
+      return createElement("input", {
+        value: text,
+        onChange: (event: { target: { value: string } }) => {
+          setText(event.target.value)
+          onChange(event.target.value)
+        }
+      })
+    }
+    const app = hostNote((model, dispatch) =>
+      createElement(
+        "main",
+        null,
+        createElement(Library, {
+          value: model,
+          onChange: (value: string) => forwardTo(dispatch, "Note")({ _tag: "Written", was: model, value })
+        })
+      )
+    )
+    await hostInto(app.node)
+    await started()
+    const input = element<HTMLInputElement>("input")
+    await acting(() => type(input, "Ada"))
+    expect([input.value, app.note()]).toEqual(["Ada", "Ada"])
+    await acting(() => app.send("Cleared"))
+    expect(input.value).toBe("")
+  })
+})
+
+// One run, drawn by snabbdom and by `Draw` at once, each in a root of its own inside `#app`: the renderer given to
+// `run` runs both, over the one `App`.
+describe("together, React beside snabbdom", () => {
+  test("a click in either renderer is drawn by both", () => {
+    page().innerHTML = "<div id=\"snabbdom\"></div><div id=\"react\"></div>"
+    const reactRoot = rootIn(element("#react"))
+    stopLater(Effect.runFork(
+      run(counter, (app) =>
+        Effect.all([
+          renderWithSnabbdom(element("#snabbdom"), (model: CounterModel, dispatch: Dispatch<CounterMessage>): VNode =>
+            h("main", [
+              h("output", String(model.count)),
+              h("button", {
+                on: {
+                  click: () =>
+                    dispatch(model.increment)
+                }
+              }, "+")
+            ]))(app),
+          drawIn(reactRoot, counterView)(app)
+        ], { concurrency: "unbounded", discard: true })),
+      { scheduler }
+    ))
     settle()
-    const counts = () => [drawnBySnabbdom("output").textContent, drawnByReact("output").textContent]
+    const counts = () => [element("#app > main output").textContent, element("#react output").textContent]
     expect(counts()).toEqual(["0", "0"])
-    drawnByReact<HTMLButtonElement>("button:last-of-type").click()
-    paint()
+    element<HTMLButtonElement>("#react button:last-of-type").click()
+    drawn()
+    refresh()
+    settle()
     expect(counts()).toEqual(["1", "1"])
-    drawnBySnabbdom<HTMLButtonElement>("button:last-of-type").click()
-    paint()
+    element<HTMLButtonElement>("#app > main button").click()
+    drawn()
     expect(counts()).toEqual(["2", "2"])
   })
 
-  test("each input keeps what the user typed into it since the frame, and shows what was typed into the other", () => {
-    mount(
-      bothInto,
-      (model: ModelOf<typeof form>, dispatch: Dispatch<MessageOf<typeof form>>) => ({
-        snabbdom: snabbdomFormView(model, dispatch),
-        react: formView(model, dispatch)
-      }),
-      (render) => run(form, render).pipe(Effect.provideService(Storage, Storage.of({ save: () => Effect.void })))
-    )
+  test("each input shows what was typed into the other, and keeps its element", () => {
+    page().innerHTML = "<div id=\"snabbdom\"></div><div id=\"react\"></div>"
+    const reactRoot = rootIn(element("#react"))
+    stopLater(Effect.runFork(
+      run(form, (app) =>
+        Effect.all([
+          renderWithSnabbdom(element("#snabbdom"), snabbdomFormView)(app),
+          drawIn(reactRoot, formView)(app)
+        ], { concurrency: "unbounded", discard: true })).pipe(
+          Effect.provideService(Storage, Storage.of({ save: () => Effect.void }))
+        ),
+      { scheduler }
+    ))
     settle()
-    const inReact = drawnByReact<HTMLInputElement>("input")
-    const inSnabbdom = drawnBySnabbdom<HTMLInputElement>("input")
-    type(inReact, "A")
+    const inSnabbdom = element<HTMLInputElement>("#app > main input")
+    const inReact = element<HTMLInputElement>("#react input")
+    type(inReact, "Ada")
+    drawn()
+    refresh()
     settle()
-    // The next key is in React's input before its message reaches the program: the frame drawn now knows only "A".
-    setValue(inReact, "Ad")
-    paint()
-    expect([inSnabbdom.value, inReact.value]).toEqual(["A", "Ad"])
-    type(inSnabbdom, "Ada")
-    paint()
-    expect(drawnBySnabbdom("input")).toBe(inSnabbdom)
-    expect(drawnByReact("input")).toBe(inReact)
     expect([inSnabbdom.value, inReact.value]).toEqual(["Ada", "Ada"])
+    type(inSnabbdom, "Adam")
+    drawn()
+    expect(element("#app > main input")).toBe(inSnabbdom)
+    expect(element("#react input")).toBe(inReact)
+    expect([inSnabbdom.value, inReact.value]).toEqual(["Adam", "Adam"])
   })
 })
 
-// What the guide's "Writing a bridge" says the bridge leaves out, each as a test that fails until a bridge handles it.
-describe("what the bridge leaves out", () => {
-  // The bridge hears no reset: a reset changes the element with no input event.
-  test.failing("a reset of an input's form is stored as the user emptying the element", () => {
-    mount(framesInto, deskView, (render) => run(desk, render))
-    settle()
-    const typedInto = element<HTMLInputElement>("input")
-    type(typedInto, "Ada")
-    paint()
-    expect(state()).toEqual(["Ada"])
-    typedInto.form?.reset()
-    paint()
-    expect(typedInto.value).toBe("")
-    // What the program holds, sent: happy-dom resets the text of an `<output>` too, so the page does not say it.
-    button("Send").click()
-    paint()
-    expect([...document.querySelectorAll("li")].map((sent) => sent.textContent)).toEqual([])
-  })
-
-  // A text field strips the line breaks of a value written into it (HTML, the value sanitization algorithm of
-  // `type=text`), with no event: the element then shows a value that `drawn` holds as shown.
-  test.failing("a value with a line break the program puts in an input's place is shown by the element", async () => {
-    const app = hostNote()
-    await hostInto(app.node)
-    settle()
-    const typed = element<HTMLInputElement>("input")
-    app.send({ _tag: "Note", message: { _tag: "Written", was: app.note(), value: "Ada\nLovelace" } })
-    paint()
-    expect(app.note()).toBe("Ada\nLovelace")
-    expect(typed.value).toBe(app.note())
-  })
-})
-
-// The premises of the bridge on React (`docs/premises.md`), each checked on React alone.
+// The premise of the bridge on React (`docs/premises.md`), checked on React alone: react.dev ("<input>") says that a
+// controlled input's state is updated synchronously in `onChange`, of a state variable, not of a store.
 describe("React, as the bridge rests on it", () => {
-  // react.dev ("flushSync") says only that React updates the DOM before `flushSync` returns.
-  test("the ref callbacks and the layout effects of a commit have run when flushSync returns", () => {
-    const root = rootIn(page())
-    const ran: Array<string> = []
-    const Drawn = ({ frame }: Readonly<{ frame: string }>): ReactNode => {
-      useLayoutEffect(() => void ran.push(`layout ${frame}`), [frame])
-      return createElement("input", {
-        ref: (node: HTMLInputElement | null) => void ran.push(`ref ${frame} ${node?.tagName}`)
-      })
-    }
-    flushSync(() => root.render(createElement(Drawn, { frame: "first" })))
-    expect(ran).toEqual(["ref first INPUT", "layout first"])
-    flushSync(() => root.render(createElement(Drawn, { frame: "second" })))
-    expect(ran.slice(2)).toEqual(["ref first undefined", "ref second INPUT", "layout second"])
-  })
-
-  // As the bridge's `Frames` and `Shows` read one: the listener is told inside `flushSync`.
-  test("the layout effects of a component that a store makes render again have run when flushSync returns", () => {
-    const root = rootIn(page())
-    let value = 0
+  test("a controlled input keeps what is typed, its caret and its selection when a store read with useSyncExternalStore is updated during its onChange", () => {
+    let value = "Ada"
     const listeners = new Set<() => void>()
     const subscribe = (listener: () => void) => {
       listeners.add(listener)
       return () => void listeners.delete(listener)
     }
-    const ran: Array<number> = []
-    const Reads = (): ReactNode => {
-      const read = useSyncExternalStore(subscribe, () => value)
-      useLayoutEffect(() => void ran.push(read), [read])
-      return null
+    const set = (next: string) => {
+      value = next
+      // oxlint-disable-next-line unicorn/no-useless-spread -- a listener may subscribe or unsubscribe while it is told
+      for (const listener of [...listeners]) listener()
     }
-    flushSync(() => root.render(createElement(Reads)))
-    value = 1
-    flushSync(() => {
-      for (const listener of listeners) listener()
-    })
-    expect(ran).toEqual([0, 1])
-  })
-
-  // react.dev ("<input>") says only that the JSX of an uncontrolled input does not control its value.
-  test("React leaves the value of an input drawn without value or defaultValue as it is when it draws it again", () => {
-    const root = rootIn(page())
-    flushSync(() => root.render(createElement("input", { placeholder: "first" })))
-    const drawn = element<HTMLInputElement>("input")
-    setValue(drawn, "Ada")
-    flushSync(() => root.render(createElement("input", { placeholder: "second" })))
-    expect(element("input")).toBe(drawn)
-    expect([drawn.placeholder, drawn.value]).toEqual(["second", "Ada"])
+    const Field = (): ReactNode =>
+      createElement("input", {
+        value: useSyncExternalStore(subscribe, () => value),
+        onChange: (event: { target: { value: string } }) => set(event.target.value)
+      })
+    flushSync(() => rootIn(page()).render(createElement(Field)))
+    const input = element<HTMLInputElement>("input")
+    input.focus()
+    // A key in the middle: the caret after it.
+    setValue(input, "Adda")
+    input.setSelectionRange(2, 2)
+    input.dispatchEvent(new Event("input", { bubbles: true }))
+    drawn()
+    expect([input.value, input.selectionStart, input.selectionEnd, value]).toEqual(["Adda", 2, 2, "Adda"])
+    // A key that leaves a selection, as an autocompletion does.
+    setValue(input, "Addas")
+    input.setSelectionRange(3, 5)
+    input.dispatchEvent(new Event("input", { bubbles: true }))
+    drawn()
+    expect([input.value, input.selectionStart, input.selectionEnd, value]).toEqual(["Addas", 3, 5, "Addas"])
+    expect(document.activeElement).toBe(input)
   })
 })

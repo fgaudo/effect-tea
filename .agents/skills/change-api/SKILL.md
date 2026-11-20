@@ -112,7 +112,7 @@ project outside the repository, runs the README's quick start and
 - A change to what `program` declares or derives, or to the shape of what `run` and the testing tools take, gets
   code in `tools/smoke/consumer.ts` that uses it, and a `// @ts-expect-error` for what its types newly reject.
 - The consumer emits its declarations, as a package that publishes a program does, and exports what an application
-  exports: programs, children, inputs, what `program` and `drawn` return, and every value of the package
+  exports: programs, children, inputs, what `program` returns, and every value of the package
   (`{ ...Library }`). A form of export that a change makes newly possible is exported there too. The smoke test counts
   how often those declarations spell out the consumer's state, by a field of its own, and fails on any other count
   than the one its comment explains: a type of the library that repeats a consumer's types inside its own multiplies

@@ -1,13 +1,10 @@
 // A consumer of the packed package, run with Node and typechecked by `smoke.ts` under several TypeScript versions
 // and module resolutions. It instantiates the types of `program` (a child, children by id, events and external
-// messages, an input, and the rule a bridge calls for the element that shows one), checks that what they reject
-// does not compile, and that the declarations of what it exports can be emitted.
+// messages, an input), checks that what they reject does not compile, and that the declarations of what it exports can be emitted.
 import {
   andThen,
   type CommandServicesOf,
   CompositionDefect,
-  drawn,
-  edited,
   InvariantDefect,
   type MessageOf,
   type Program,
@@ -15,7 +12,6 @@ import {
   ProgramDefect,
   reject,
   run,
-  type Shown,
   type SubscriptionServicesOf,
   type Update
 } from "@fgaudo/effect-tea"
@@ -311,12 +307,9 @@ const draft = drafting.make({
 })
 
 // A write is of the value the place holds; an own message that takes an input's name does not compile, nor does a
-// command's answer that writes into an input, nor an external message that does, nor an element made by hand.
+// command's answer that writes into an input, nor an external message that does.
 // @ts-expect-error
 const wrong: MessageOf<typeof draft> = { _tag: "Title", message: { _tag: "Written", was: 0, value: 1 } }
-
-// @ts-expect-error
-const byHand: Shown<string> = { value: "" }
 
 // A defect is read, never built: only the library makes one.
 export const crashed = (error: unknown) =>
@@ -424,20 +417,9 @@ const nowhere = sheet.update({ _tag: "Count", id: "b", message: { _tag: "Written
 )
 assert(nowhere === reject && unnamed !== undefined, "a write at an id the state does not hold is rejected")
 
-// What a bridge does with an element: typed by the user, numbered by the dispatch, settled by a frame.
-const { shown, taken } = drawn(undefined, "Ada", 0)
-assert(taken, "a new element takes the frame's value")
-const { write: edit, sent } = edited(shown, "Ada L")
-const element = sent(1)
-assert(edit.was === "Ada" && element.value === "Ada L", "edited writes over what the element showed")
-// Exported, as a bridge's module may: its declarations spell out what the element holds.
-export const kept = drawn(element, "Ada", 0)
-assert(kept.shown === element && !kept.taken && byHand !== undefined, "a frame that has not seen the write keeps it")
 assert(deaf.update({ _tag: "Full" })(deaf.init.state) !== reject, "a program typed past its types runs")
 assert(!("subscriptions" in unlistening), "a program typed past its types has only the pieces written")
 assert(opened === sealed, "a program typed with other external messages is the same program")
-const moved = drawn(element, "", 1)
-assert(moved.shown.value === "" && moved.taken, "a frame that has seen it and moved on gives its value")
 
 // An option of the run is a function that returns nothing: an effect it returned would never run.
 // @ts-expect-error
@@ -453,21 +435,20 @@ const main = Effect.gen(function*() {
   assert(simulation.state.main.count === 0, "simulate applies the external messages")
   const counts: Array<number> = []
   const heard: Array<unknown> = []
-  yield* run(app, (frames) =>
-    frames.pipe(
-      Stream.tap(Effect.fnUntraced(function*({ model, dispatch, seen }) {
-        counts.push(model.main.count)
-        assert(seen === model.main.count, "a frame has seen the messages that made its state")
-        if (model.fulls === 0) assert((yield* dispatch(increment())) === seen + 1, "a dispatch numbers its message")
-      })),
-      Stream.take(4),
-      Stream.runDrain
-    ), {
+  yield* run(app, (handle) =>
+    Effect.sync(() => {
+      counts.push(handle.model().main.count)
+      handle.subscribe(() => void counts.push(handle.model().main.count))
+      for (const count of [1, 2, 3]) {
+        handle.dispatch(increment())
+        assert(handle.model().main.count === count, "a dispatch applies its message before it returns")
+      }
+    }), {
     onApplied: ({ message }) => {
       heard.push(message)
     }
   })
-  assert(counts.join() === "0,1,2,3", `run draws every frame: ${counts.join()}`)
+  assert(counts.join() === "0,1,2,3", `the renderer is told of every new state: ${counts.join()}`)
   assert(heard.length === 3, `onApplied hears every accepted message: ${heard.length}`)
 })
 

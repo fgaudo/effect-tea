@@ -115,8 +115,9 @@ Each pair sums up a rule of this page. The rule itself is above.
 
 ## Precisely
 
-**What a stopped subscription sent.** A missing key stops its subscription. The run then also drops the messages that
-the subscription sent and that `update` has not seen.
+**What a stopped subscription sent.** A missing key stops its subscription. The run also drops the messages that the
+subscription sent and that `update` has not seen, from the moment the key is gone, before the subscription has been
+stopped.
 
 **A `Stream` as a subscription.** A `Stream` becomes a subscription with `Stream.toChannel`, `Channel.flattenArray` and
 `Channel.mapDone`. `Channel.mapDone` is where you say what the end of the stream means. A drag sends each move of the

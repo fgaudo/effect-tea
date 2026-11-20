@@ -5,42 +5,23 @@
 ```ts
 
 import * as Effect from 'effect/Effect';
-import { On } from 'snabbdom';
-import * as Stream from 'effect/Stream';
 import { VNode } from 'snabbdom';
-import { VNodeData } from 'snabbdom';
 
 // @public
-type Dispatch<Message> = (message: Message) => Effect.Effect<number>;
-
-// @public
-type Frame<Model, Message> = {
-    readonly model: Model;
+interface App<Model, Message> {
     readonly dispatch: Dispatch<Message>;
-    readonly seen: number;
-};
+    readonly model: () => Model;
+    readonly subscribe: (listener: () => void) => () => void;
+}
 
 // @public
-export const onClick: <Message>(message: Message, dispatch: Dispatch<Message>) => On;
+type Dispatch<Message> = (message: Message) => void;
 
 // @public
-export const onPress: <Message>(message: Message, dispatch: Dispatch<Message>) => On;
-
-// @public
-export const renderInto: <Model, Message>(root: Element, view: View<Model, Message>) => (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, never>;
-
-// @public
-export const shows: (value: string, dispatch: Dispatch<Written<string>>) => VNodeData;
+export const renderInto: <Model, Message>(root: Element, view: View<Model, Message>) => (app: App<Model, Message>) => Effect.Effect<void>;
 
 // @public
 export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => VNode;
-
-// @public
-type Written<A> = {
-    readonly _tag: "Written";
-    readonly was: A;
-    readonly value: A;
-};
 
 // (No @packageDocumentation comment for this package)
 

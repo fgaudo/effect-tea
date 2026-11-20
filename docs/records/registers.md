@@ -6,7 +6,10 @@ written over, and a frame says how many of the view's messages it has seen; `Fie
 and the seventh and eighth reviews are in `docs/rejected.md`. What is left is in "The port of the ninth review" ›
 "Left". The sections before it are the history that led there, in the order it happened. On 19 November 2026 the
 owner decided that the run acknowledges every dispatched message, and that `drawn` decides by order alone ("Every
-dispatched message acknowledged"), in the working tree of `main` after `15803e7`, not yet committed.
+dispatched message acknowledged"), in the working tree of `main` after `15803e7`, not yet committed. On 20 November
+2026 that acknowledgement was replaced: a dispatch applies its message at once
+([`synchronous-dispatch.md`](synchronous-dispatch.md)), so the numbered dispatch, `seen`, the frames, `Shown`,
+`edited` and `drawn` are gone. The plain input, and a write that names the value it was written over, stay.
 
 The document records a discussion with the owner, two reviews by Fable 5.2 (one of a design, one asked for ideas),
 and one spike, kept on the branch `spike/field-register` (commit `0c6a357`, cut from `beaba6f`, never to be merged),

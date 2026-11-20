@@ -50,7 +50,7 @@ What the parent gets from the declaration:
 - **Its children's models:** `children.Timer(state, id)` in `makeModel`. It is the same object while the timer's
   state is the same object.
 
-A timer that is not there is `None` in `get`. So a click on a removed timer, from a frame drawn before, is rejected:
+A timer that is not there is `None` in `get`. So a click on a removed timer, from a model drawn before, is rejected:
 the rule of step 1, with nothing more to write.
 
 Notice what the parent does not do: it never reads a timer's state to decide. It only adds and removes (see
@@ -61,7 +61,7 @@ Notice what the parent does not do: it never reads a timer's state to decide. It
 Each timer is drawn by `timerView`, the view of step 2, with a dispatch of its own. `forwardTo` makes that dispatch:
 it wraps the timer's messages as the parent receives them.
 
-That dispatch is the same function in every frame. So snabbdom's `thunk` draws again only the timer whose model
+That dispatch is the same function in every draw. So snabbdom's `thunk` draws again only the timer whose model
 changed, and ten timers ticking do not redraw each other (see
 [children's views](../guide/composition.md#childrens-views)):
 

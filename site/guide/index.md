@@ -87,8 +87,9 @@ Running and testing it:
 - [Testing](./testing.md): how a program is tested. Most of a program is pure, so most tests need no runtime.
 - [Testing tools](./testing-tools.md): the five tools of `@fgaudo/effect-tea/testing`, what fails the test in each,
   and what each ignores.
-- [Writing a bridge](./writing-a-bridge.md): how to connect the library to your renderer. A bridge draws each frame,
-  sends messages from the handlers of the view, and settles, after each frame, the element of each input.
+- [Writing a bridge](./writing-a-bridge.md): how to connect the library to your renderer. A bridge draws the model of
+  the current state, sends messages from the handlers of the view, and draws each controlled element with the value
+  its model holds.
 
 Finding your way:
 

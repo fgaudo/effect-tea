@@ -10,8 +10,6 @@ version, and everything else, features included, the patch version.
 - Inputs: `inputs: { Name: input({ at }) }` in `make`, a plain value of the state that the view writes over with
   `{ _tag: 'Written', was, value }`; the library stores a write while the place holds `was`, by `Equal`, and rejects
   it otherwise. `inputById` declares one per id, as `childById` does ("Inputs the user types into").
-- `edited` and `drawn`, over an opaque `Shown`: the rule a bridge calls for the element of an input, so that the
-  element is never replaced and never takes back what the user typed ("Writing a bridge").
 - `forEach(step, items, (item) => (state) => step)`, the `andThen` of many. Both are dual, for a `pipe`, and return a
   `Folded`, whose `commands` and `events` are always there.
 - `program<{ …; model }>()` may name the program's model, which is then checked against `makeModel`; `children` in
@@ -26,7 +24,8 @@ version, and everything else, features included, the patch version.
   `skills/effect-tea/SKILL.md`.
 - The bridges, as entries of the package: `@fgaudo/effect-tea/snabbdom`, with `messagesSentBy` in
   `@fgaudo/effect-tea/snabbdom/testing`, and `@fgaudo/effect-tea/react`, whose renderer is an optional peer
-  (`snabbdom` ^3.6.4, `react` and `react-dom` ^19.3.1). They replace the files to copy ("Writing a bridge").
+  (`snabbdom` ^3.6.4, `react` and `react-dom` ^19.3.1). They draw native controlled elements, React's with `Host` or
+  `Draw`, and replace the files to copy ("Writing a bridge").
 
 ### Changed
 
@@ -47,16 +46,23 @@ version, and everything else, features included, the patch version.
 - **Breaking**: a model is data: it holds no function, and compares by `Equal` ("Model").
   Upgrade: a function of the model that makes a message from what the user typed, `changeName: (name) =>
   NameChanged({ name })`, becomes an input, and the view writes over its value through `forwardTo(dispatch, 'Name')`.
-- **Breaking**: a `Dispatch` returns `Effect<number>`, the number of its message among those dispatched, and a `Frame`
-  has `seen`, how many of them the run had taken when it was made.
-  Upgrade: a dispatch written by hand returns a number, `(message) => Effect.sync(() => sent.push(message))`, and a
-  frame made by hand has `seen`.
-- A dispatched message that makes no new state, a rejected one too, draws a frame of the very same model, with the new
-  `seen`, so that the last frame sees every dispatched message; a message of a command or a subscription still does not.
-- **Breaking**: a frame's model is made as the renderer pulls the frame, and a `Frame` is plain data; `rehearse` makes
-  the model of each new state as it applies the message, and fails on the state whose model dies.
-  Upgrade: a renderer that pulls a frame it does not draw pays for its model; a test that expects a defect of
-  `makeModel` in `model`, `send` or `waitFor` wraps the tool.
+- **Breaking**: a `Dispatch` is a function that applies its message before it returns, `(message) => void`, where it
+  was `(message) => Effect<void>`: when a handler returns, `update` has seen its message ("View").
+  Upgrade: `Effect.runSync(dispatch(message))` becomes `dispatch(message)`, `yield* dispatch(message)` becomes
+  `yield* Effect.sync(() => dispatch(message))`, and a dispatch written by hand returns nothing.
+- **Breaking**: `run`'s renderer is given an `App`, `{ model, subscribe, dispatch }`, in place of a stream of frames:
+  `Frame` is gone, and a model is made when it is read, once for each state ("Writing a bridge").
+  Upgrade: `(frames) => Stream.runForEach(frames, ({ model, dispatch }) => draw(model, dispatch))` becomes a renderer
+  that draws `app.model()` with `app.dispatch` as it starts, and again on each notice of `app.subscribe`.
+- A message is applied in the call that sends it, a command's answer and a subscription's message in their own fiber;
+  its subscriptions and commands start after, in the order of the states, and the next message waits for no release.
+- **Breaking**: `Driver.latest` is gone: `Driver.model` is the model of the current state, and `Driver.dispatch` the
+  run's own.
+  Upgrade: `(yield* driver.latest).model` becomes `yield* driver.model`, and `(yield* driver.latest).dispatch`
+  becomes `driver.dispatch`.
+- **Breaking**: `rehearse` makes the model of each new state as it applies the message, and fails on the state whose
+  model dies.
+  Upgrade: a test that expects a defect of `makeModel` in `model`, `send` or `waitFor` wraps the tool.
 - **Breaking**: the `Origin` of a dispatched message is tagged `'Dispatch'`, where it was `'View'`.
   Upgrade: `origin._tag === 'View'` becomes `origin._tag === 'Dispatch'`.
 - **Breaking**: `RunOptions` and `DriveOptions` start from the state, as `Applied`, `Ignored` and `Update` do, and the
@@ -87,7 +93,8 @@ version, and everything else, features included, the patch version.
   `RehearseOptions` are gone. Its type parameters start with the program's type.
   Upgrade: `rehearse(program, scenario, { from })` becomes `rehearse({ ...program, init: from }, scenario)`, and
   `rehearse<State, Model, Message>(…)` becomes `rehearse<typeof app, State, Model, Message>(…)`, or names none.
-- **Breaking**: `rehearse` applies every message in one loop, and fails on a defect of the program in any fiber.
+- **Breaking**: `rehearse` applies each message in the call that sends it, and its effects after, as the run does,
+  and fails on a defect of the program in any fiber.
   Upgrade: a test that expects a defect wraps `rehearse`, where its scenario caught it with `Effect.exit`.
 - **Breaking**: `rehearse`'s `hearNext` keeps its subscription while its key stays, each call hearing its next message,
   and each start of a key is heard with `hear` or with `hearNext`, never both.
@@ -111,13 +118,11 @@ version, and everything else, features included, the patch version.
   defect, as a `ProgramDefect` in the run's site.
 - The guide moved from the README to the site, a page per concept, with a tutorial that builds the `timer` example, a
   "Glossary" and "Coming from Elm or React"; a section the README had is found there on the page of its concept.
-- The guide now promises what the run already did: messages are applied one at a time, in the order they were queued;
-  commands run concurrently, with no bound, and the end of the run interrupts them; nothing is bounded or times out;
+- The guide now promises that messages are applied one at a time, in the order they were sent; that commands run
+  concurrently, with no bound, and the end of the run interrupts them; that nothing is bounded or times out; and that
   `subscriptions` is pure ("Guarantees", "Commands", "Running").
-- The bridge to snabbdom settles each text `<input>` with `drawn`, and no longer has `onInput`. `counter` and `form`
-  draw with React too.
-- The bridge to React is hosted by React: `Host` runs a program while it is mounted, and `Frames` draws a run started
-  elsewhere; what the guide's "View" said of every renderer is now what each bridge promises.
+- What the guide's "View" said of every renderer is now what each bridge promises. `counter` and `form` draw with
+  React too.
 
 ### Fixed
 

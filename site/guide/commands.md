@@ -108,8 +108,9 @@ const save = (name: string): Execution<Message, Storage> =>
 
 ### How commands run
 
-Each command starts in a fiber of its own once its step is applied. There is no bound on how many commands run at
-once. The loop goes on without waiting for the command.
+Each command runs in a fiber of its own. The run starts the commands of a step after the step is applied, in the
+order of the states (see [guarantees](./guarantees.md#what-you-can-rely-on)). There is no bound on how many commands
+run at once. The run goes on without waiting for the command.
 
 ### Why a command cannot be cancelled
 

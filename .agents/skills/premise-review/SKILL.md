@@ -44,8 +44,9 @@ you. The guide's "Guarantees" (site/guide/guarantees.md), and
 THE KIND OF BUG: a change takes away a condition an invariant or a guarantee needs, written or unwritten, and no
 test fails until a run meets the case. It often does so where a value is taken to its end (none, the same state,
 a key that goes and comes back, a scope that closes), where a second actor comes (a fiber that ends while the run
-ends, a message left in the queue, a renderer that sends from a plain callback, a testing tool that runs what the
-engine runs), or where Effect does something its documentation does not promise. Commit f415d46 is one found and
+ends, a message sent while another is applied, a job the fiber of effects has not taken yet, a renderer that sends
+from a plain callback, a testing tool that runs what the engine runs), or where Effect does something its
+documentation does not promise. Commit f415d46 is one found and
 fixed, a defect lost as FiberMap closes: read it as the example, and do not report it again.
 
 WHAT TO READ: <the invariants, premises and guarantees, and the modules of src/ that keep them>.

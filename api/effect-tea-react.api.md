@@ -8,11 +8,16 @@ import type * as Channel from 'effect/Channel';
 import * as Effect from 'effect/Effect';
 import * as Fiber from 'effect/Fiber';
 import type * as HashMap from 'effect/HashMap';
-import { InputHTMLAttributes } from 'react';
 import type * as Opt from 'effect/Option';
 import { ReactNode } from 'react';
 import type * as Scope from 'effect/Scope';
-import * as Stream from 'effect/Stream';
+
+// @public
+interface App<Model, Message> {
+    readonly dispatch: Dispatch<Message>;
+    readonly model: () => Model;
+    readonly subscribe: (listener: () => void) => () => void;
+}
 
 // @public
 type Applied<State, Message, Command = never> = {
@@ -25,7 +30,13 @@ type Applied<State, Message, Command = never> = {
 };
 
 // @public
-type Dispatch<Message> = (message: Message) => Effect.Effect<number>;
+type Dispatch<Message> = (message: Message) => void;
+
+// @public
+export const Draw: <Model, Message>(input: {
+    readonly app: App<Model, Message>;
+    readonly view: View<Model, Message>;
+}) => ReactNode;
 
 // @public
 type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, never, R>;
@@ -44,20 +55,6 @@ type FlagsOption<Flags> = [Flags] extends [never] ? {
 
 // @public
 export type Fork<R> = (effect: Effect.Effect<void, never, R>) => Fiber.Fiber<void, unknown>;
-
-// @public
-type Frame<Model, Message> = {
-    readonly model: Model;
-    readonly dispatch: Dispatch<Message>;
-    readonly seen: number;
-};
-
-// @public
-export const Frames: <Model, Message>(input: {
-    readonly store: Store<Model, Message>;
-    readonly view: View<Model, Message>;
-    readonly fallback?: ReactNode;
-}) => ReactNode;
 
 // @public
 export const Host: <State, Model, Message, Command = never, RC = never, RS = never, Flags = never>(props: HostProps<State, Model, Message, Command, RC, RS, Flags>) => ReactNode;
@@ -93,18 +90,9 @@ type Interpreter<Command, Message, R> = [Command] extends [never] ? object : {
 };
 
 // @public
-export const makeStore: <Model, Message>() => Store<Model, Message>;
-
-// @public
 type ObjectState<State> = [State] extends [object] ? Fielded<State> : {
     readonly "a program keeps its state in an object": State;
 };
-
-// @public
-export const onClick: <Message>(message: Message, dispatch: Dispatch<Message>) => () => number;
-
-// @public
-export const onPress: <Message>(message: Message, dispatch: Dispatch<Message>) => () => number;
 
 // @public
 type Origin = {
@@ -124,9 +112,6 @@ const reject: unique symbol;
 
 // @public
 type Rejected = typeof reject;
-
-// @public
-export type Render<Model, Message> = (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void>;
 
 // @public
 type RunCommand<Command, Message, R = never> = (command: Command) => Execution<Message, R>;
@@ -149,24 +134,10 @@ type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = neve
 } & Interpreter<Command, Message, RC>;
 
 // @public
-export const Shows: (input: {
-    readonly value: string;
-    readonly dispatch: Dispatch<Written<string>>;
-} & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "defaultValue" | "onChange">) => ReactNode;
-
-// @public
 type Step<State, Command = never, Event = never> = {
     readonly state: State;
     readonly commands?: ReadonlyArray<Command>;
     readonly events?: ReadonlyArray<Event>;
-};
-
-// @public
-export type Store<Model, Message> = {
-    readonly open: () => Render<Model, Message>;
-    readonly close: (render: Render<Model, Message>) => void;
-    readonly subscribe: (listener: () => void) => () => void;
-    readonly frame: () => Frame<Model, Message> | undefined;
 };
 
 // @public
@@ -183,13 +154,6 @@ type Update<State, Message, Command = never, Event = never> = (message: Message)
 
 // @public
 export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => ReactNode;
-
-// @public
-type Written<A> = {
-    readonly _tag: "Written";
-    readonly was: A;
-    readonly value: A;
-};
 
 // (No @packageDocumentation comment for this package)
 

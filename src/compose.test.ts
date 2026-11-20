@@ -3,13 +3,13 @@ import * as Arr from "effect/Array"
 import * as Channel from "effect/Channel"
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
+import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import { pipe } from "effect/Function"
 import * as HashMap from "effect/HashMap"
 import * as Optic from "effect/Optic"
 import * as Opt from "effect/Option"
-import * as Stream from "effect/Stream"
 import { collectGarbage } from "../test/gc.test_helper.ts"
 import type { Execution } from "./command.ts"
 import { program } from "./compose.ts"
@@ -27,7 +27,7 @@ import type {
   Program,
   SubscriptionServicesOf
 } from "./program.ts"
-import { type Frame, run } from "./run.ts"
+import { run } from "./run.ts"
 import type { Subscription } from "./subscription.ts"
 import { drive } from "./testing/drive.ts"
 import { rehearse } from "./testing/rehearse.ts"
@@ -163,26 +163,33 @@ type Model = ReturnType<typeof app.makeModel>
 
 type AppMessage = MessageOf<typeof app>
 
+/** What a renderer draws of a state: its model, and the dispatch the view gets. */
+type Drawn<M> = Readonly<{ model: M; dispatch: Dispatch<AppMessage> }>
+
 /**
- * Runs `program` with a renderer that hands each frame to `act`, until `act` says it is done; returns what the
- * renderer saw.
+ * Runs `program` with a renderer that draws the first state and each new one, and hands what it draws to `act`, until
+ * `act` says it is done; returns what the renderer drew.
  */
 const script = <M>(
   program: Program<{ state: ParentState; model: M; message: AppMessage; command: unknown }>,
-  act: (frame: Frame<M, AppMessage>, index: number) => Effect.Effect<boolean>,
+  act: (drawn: Drawn<M>, index: number) => boolean,
   state: ParentState = program.init.state
 ) => {
-  const seen: Array<Frame<M, AppMessage>> = []
+  const seen: Array<Drawn<M>> = []
   return run(
     { ...program, init: { ...program.init, state } },
-    (frames) =>
-      Stream.runForEach(
-        frames.pipe(Stream.takeUntilEffect((frame) => {
-          seen.push(frame)
-          return act(frame, seen.length - 1)
-        })),
-        () => Effect.void
-      )
+    (app) =>
+      Effect.gen(function*() {
+        const done = yield* Deferred.make<void>()
+        const draw = () => {
+          const drawn = { model: app.model(), dispatch: app.dispatch }
+          seen.push(drawn)
+          if (act(drawn, seen.length - 1)) Deferred.doneUnsafe(done, Exit.void)
+        }
+        app.subscribe(draw)
+        draw()
+        yield* Deferred.await(done)
+      })
   ).pipe(
     Effect.timeout("2 seconds"),
     Effect.as(seen),
@@ -194,33 +201,33 @@ const asProgram = app as unknown as Program<
   { state: ParentState; model: Model; message: AppMessage; command: unknown }
 >
 
-const left = (frame: Frame<Model, AppMessage>) => forwardTo(frame.dispatch, "Left")
+const left = (drawn: Drawn<Model>) => forwardTo(drawn.dispatch, "Left")
 
 /** A dispatch that keeps what it is sent, for `forwardTo` to wrap. */
 const recording = <Message>() => {
   const sent: Array<Message> = []
-  const dispatch: Dispatch<Message> = (message) => Effect.sync(() => sent.push(message))
+  const dispatch: Dispatch<Message> = (message) => void sent.push(message)
   return { sent, dispatch }
 }
 
 describe("what a child's view sends", () => {
-  test("one dispatch for every frame, and the same dispatch for a child in every frame", async () => {
-    const exit = await script(
-      asProgram,
-      (frame, index) =>
-        index < 3 ? left(frame)(frame.model.left.increment).pipe(Effect.as(false)) : Effect.succeed(true)
-    )
+  test("one dispatch for the whole run, and the same dispatch for a child each time it is drawn", async () => {
+    const exit = await script(asProgram, (drawn, index) => {
+      if (index === 3) return true
+      left(drawn)(drawn.model.left.increment)
+      return false
+    })
     const seen = Exit.isSuccess(exit) ? exit.value : []
-    expect(seen.map((frame) => frame.model.left.count)).toEqual([0, 1, 2, 3])
-    expect(new Set(seen.map((frame) => frame.dispatch)).size).toBe(1)
+    expect(seen.map((drawn) => drawn.model.left.count)).toEqual([0, 1, 2, 3])
+    expect(new Set(seen.map((drawn) => drawn.dispatch)).size).toBe(1)
     expect(new Set(seen.map(left)).size).toBe(1)
   })
 
   test("a child's dispatch wraps its messages as its parent receives them, at every level", () => {
     const { sent, dispatch } = recording<MessageOf<typeof lists>>()
     const row = forwardTo(forwardTo(dispatch, "Lists", "A"), "Rows", 1)
-    Effect.runSync(row(CounterMessage.Increment()))
-    Effect.runSync(forwardTo(forwardTo(dispatch, "Lists", "B"), "Rows", 1)(CounterMessage.Increment()))
+    row(CounterMessage.Increment())
+    forwardTo(forwardTo(dispatch, "Lists", "B"), "Rows", 1)(CounterMessage.Increment())
     expect(sent).toEqual(["A", "B"].map((id) => ({
       _tag: "Lists",
       id,
@@ -234,23 +241,24 @@ describe("what a child's view sends", () => {
 
   test("a double tap acts once: the second message is rejected, and ignored", async () => {
     const at = { ...app.init.state, left: { ...counter.init.state, count: 1 } }
-    const exit = await script(asProgram, (frame, index) => {
-      if (index > 0) return Effect.succeed(true)
-      const decrement = Opt.getOrThrow(frame.model.left.decrement)
-      return left(frame)(decrement).pipe(Effect.andThen(left(frame)(decrement)), Effect.as(false))
+    const exit = await script(asProgram, (drawn, index) => {
+      if (index > 0) return true
+      const decrement = Opt.getOrThrow(drawn.model.left.decrement)
+      left(drawn)(decrement)
+      left(drawn)(decrement)
+      return false
     }, at)
-    expect(Exit.isSuccess(exit) && exit.value.map((frame) => frame.model.left.count)).toEqual([1, 0])
+    expect(Exit.isSuccess(exit) && exit.value.map((drawn) => drawn.model.left.count)).toEqual([1, 0])
   })
 
   test("a message update rejects is ignored, and the run goes on", async () => {
-    const exit = await script(asProgram, (frame, index) =>
-      index === 0
-        ? left(frame)(frame.model.left.type("not a number")).pipe(
-          Effect.andThen(left(frame)(frame.model.left.increment)),
-          Effect.as(false)
-        )
-        : Effect.succeed(true))
-    expect(Exit.isSuccess(exit) && exit.value.map((frame) => frame.model.left)).toEqual([
+    const exit = await script(asProgram, (drawn, index) => {
+      if (index > 0) return true
+      left(drawn)(drawn.model.left.type("not a number"))
+      left(drawn)(drawn.model.left.increment)
+      return false
+    })
+    expect(Exit.isSuccess(exit) && exit.value.map((drawn) => drawn.model.left)).toEqual([
       expect.objectContaining({ count: 0 }),
       expect.objectContaining({ count: 1 })
     ])
@@ -259,10 +267,11 @@ describe("what a child's view sends", () => {
 
 describe("compose", () => {
   test("in a run, a child's commands run and their messages reach it", async () => {
-    const exit = await script(asProgram, (frame, index) =>
-      index === 0
-        ? left(frame)(Opt.getOrThrow(frame.model.left.save)).pipe(Effect.as(false))
-        : Effect.succeed(frame.model.left.count === 0 && Opt.isSome(frame.model.left.save)))
+    const exit = await script(asProgram, (drawn, index) => {
+      if (index > 0) return drawn.model.left.count === 0 && Opt.isSome(drawn.model.left.save)
+      left(drawn)(Opt.getOrThrow(drawn.model.left.save))
+      return false
+    })
     expect(Exit.isSuccess(exit)).toBe(true)
   })
 
@@ -405,8 +414,8 @@ describe("compose", () => {
     const model = app.makeModel({ ...app.init.state, maybeRight: Opt.some(app.init.state.left) })
     expect(Opt.getOrThrow(model.maybeRight)).toBe(model.left)
     const { sent, dispatch } = recording<AppMessage>()
-    Effect.runSync(forwardTo(dispatch, "Left")(model.left.increment))
-    Effect.runSync(forwardTo(dispatch, "Right")(model.left.increment))
+    forwardTo(dispatch, "Left")(model.left.increment)
+    forwardTo(dispatch, "Right")(model.left.increment)
     expect(sent).toEqual([
       { _tag: "Left", message: CounterMessage.Increment() },
       { _tag: "Right", message: CounterMessage.Increment() }
@@ -475,7 +484,7 @@ describe("children by id", () => {
     const [first, second] = list.makeModel(rows(1, 2))
     expect(first?.model).toBe(second?.model)
     const { sent, dispatch } = recording<MessageOf<typeof list>>()
-    Effect.runSync(forwardTo(dispatch, "Rows", 2)(CounterMessage.Increment()))
+    forwardTo(dispatch, "Rows", 2)(CounterMessage.Increment())
     expect(sent).toEqual([{ _tag: "Rows", id: 2, message: CounterMessage.Increment() }])
   })
 
@@ -510,45 +519,52 @@ describe("children by id", () => {
     expect(process.memoryUsage().heapUsed - before).toBeLessThan(5_000_000)
   })
 
-  // Lists A and B, each with counter 1 in the counter's initial state. Each of the first `frames` frames
-  // increments A's counter, or B's on frame `bumpingB`; returns the frames.
-  const nested = (frames: number, bumpingB?: number) => {
-    const seen: Array<Frame<ReturnType<typeof lists.makeModel>, MessageOf<typeof lists>>> = []
+  // Lists A and B, each with counter 1 in the counter's initial state. The renderer draws the first state and each
+  // new one; each of the first `draws` draws increments A's counter, or B's on draw `bumpingB`. Returns the models
+  // drawn.
+  const nested = (draws: number, bumpingB?: number) => {
+    const seen: Array<ReturnType<typeof lists.makeModel>> = []
     return run(
       { ...lists, init: { state: { rows: [{ id: "A", list: rows(1) }, { id: "B", list: rows(1) }] } } },
-      (stream) =>
-        stream.pipe(
-          Stream.tap((frame) => {
-            seen.push(frame)
+      (app) =>
+        Effect.gen(function*() {
+          const done = yield* Deferred.make<void>()
+          const draw = () => {
+            const model = app.model()
+            seen.push(model)
             const index = seen.length - 1
+            if (index === draws) {
+              Deferred.doneUnsafe(done, Exit.void)
+              return
+            }
             const id = index === bumpingB ? "B" : "A"
-            const counter = frame.model.find((list) => list.id === id)?.rows[0]?.model
-            const send = forwardTo(forwardTo(frame.dispatch, "Lists", id), "Rows", 1)
-            return index < frames && counter !== undefined ? send(counter.increment) : Effect.void
-          }),
-          Stream.take(frames + 1),
-          Stream.runDrain
-        )
+            const counter = model.find((list) => list.id === id)?.rows[0]?.model
+            if (counter !== undefined) forwardTo(forwardTo(app.dispatch, "Lists", id), "Rows", 1)(counter.increment)
+          }
+          app.subscribe(draw)
+          draw()
+          yield* Deferred.await(done)
+        })
     ).pipe(Effect.as(seen))
   }
 
-  test("in a run, a nested child that did not change keeps its model from frame to frame", async () => {
-    const [first, second, third] = (await Effect.runPromise(nested(2))).map((frame) => frame.model)
+  test("in a run, a nested child that did not change keeps its model from one state to the next", async () => {
+    const [first, second, third] = await Effect.runPromise(nested(2))
     expect(second?.[1]?.rows[0]?.model).toBe(first?.[1]?.rows[0]?.model)
     expect(third?.[1]?.rows[0]?.model).toBe(first?.[1]?.rows[0]?.model)
     expect(second?.[0]?.rows[0]?.model).not.toBe(first?.[0]?.rows[0]?.model)
     expect(third?.[0]?.rows[0]?.model.count).toBe(2)
   })
 
-  test("a message from a model kept from an older frame is applied", async () => {
+  test("a message from a model kept from an earlier state is applied", async () => {
     const seen = await Effect.runPromise(nested(2, 1))
-    expect(seen[1]?.model[1]?.rows[0]?.model).toBe(seen[0]?.model[1]?.rows[0]?.model)
-    expect(seen.map((frame) => frame.model[1]?.rows[0]?.model.count)).toEqual([0, 0, 1])
+    expect(seen[1]?.[1]?.rows[0]?.model).toBe(seen[0]?.[1]?.rows[0]?.model)
+    expect(seen.map((model) => model[1]?.rows[0]?.model.count)).toEqual([0, 0, 1])
   })
 
   test("two runs of one program at once do not mix", async () => {
     const runs = await Effect.runPromise(Effect.all([nested(3), nested(3)], { concurrency: "unbounded" }))
-    expect(runs.map((seen) => seen.map((frame) => frame.model[0]?.rows[0]?.model.count))).toEqual([
+    expect(runs.map((seen) => seen.map((model) => model[0]?.rows[0]?.model.count))).toEqual([
       [0, 1, 2, 3],
       [0, 1, 2, 3]
     ])
@@ -2143,13 +2159,16 @@ describe("what the types reject", () => {
 
 describe("a child's subscriptions in a run", () => {
   // Its lifted keys are new arrays for each new state of the child: only their values, compared with `Equal`, keep
-  // its subscription running.
+  // its subscription running. The command of the third bump, started once its job has stopped and started what it
+  // had to, is the witness that the jobs are done.
   test("a child whose state changes, under the same key, keeps its subscription running", async () => {
     let starts = 0
+    const noted = Deferred.makeUnsafe<void>()
     type Bumps = Readonly<{ bumps: number }>
-    const bumping: Program<{ state: Bumps; model: number; message: "Bump" }> = {
+    const bumping: Program<{ state: Bumps; model: number; message: "Bump"; command: "Noted" }> = {
       init: { state: { bumps: 0 } },
-      update: () => ({ bumps }) => ({ state: { bumps: bumps + 1 } }),
+      update: () => ({ bumps }) => ({ state: { bumps: bumps + 1 }, commands: bumps + 1 === 3 ? ["Noted"] : [] }),
+      runCommand: () => Effect.as(Deferred.succeed(noted, undefined), Opt.none()),
       subscriptions: () =>
         HashMap.make([
           { name: "ticks" },
@@ -2164,12 +2183,15 @@ describe("a child's subscriptions in a run", () => {
       children: { Bumping: child(bumping, { at: Optic.id<Holder>().key("bumping") }) },
       makeModel: (state, children) => children.Bumping(state)
     })
-    await Effect.runPromise(run(holder, (frames) =>
-      frames.pipe(
-        Stream.tap(({ model, dispatch }) => model < 3 ? dispatch({ _tag: "Bumping", message: "Bump" }) : Effect.void),
-        Stream.takeUntil(({ model }) => model === 3),
-        Stream.runDrain
-      )))
-    expect(starts).toBe(1)
+    const bumps = await Effect.runPromise(
+      run(holder, (app) =>
+        Effect.gen(function*() {
+          app.dispatch({ _tag: "Bumping", message: "Bump" })
+          app.dispatch({ _tag: "Bumping", message: "Bump" })
+          app.dispatch({ _tag: "Bumping", message: "Bump" })
+          yield* Deferred.await(noted)
+        })).pipe(Effect.as(3))
+    )
+    expect({ bumps, starts }).toEqual({ bumps: 3, starts: 1 })
   })
 })

@@ -106,11 +106,20 @@ describe("named timers", () => {
     }))
   })
 
-  // Beyond what the library asks: that the view draws what its model holds, each timer through its own dispatch.
+  // Beyond what the library asks: that the view draws what its model holds, each timer through its own dispatch, its
+  // name's input first, written over the name it holds, with that name, as `messagesSentBy` finds it without a DOM.
   test("the view sends what its model holds", () => {
     fc.assert(fc.property(state, (before) => {
       const model = namedTimers.makeModel(before)
-      expect(messagesSentBy<Model, Message>(namedTimersView, model)).toEqual(messagesOf(model))
+      const sent = [
+        model.add,
+        ...model.timers.flatMap(({ id, model: timer, remove }) => [
+          typing(model, id, timer.name),
+          ...namedMessages(timer).map((message) => to(id, message)),
+          remove
+        ])
+      ]
+      expect(messagesSentBy<Model, Message>(namedTimersView, model)).toEqual(sent)
     }))
   })
 })

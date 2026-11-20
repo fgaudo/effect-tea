@@ -1,36 +1,32 @@
-// A view draws a model and sends its program's messages through `dispatch`. A parent's view gives each child's
-// view a dispatch of its own, which wraps the child's messages as the parent receives them. Kept while anyone
-// holds it, it is the same function in every frame, so that a renderer can skip a child whose model has not
-// changed.
-import type * as Effect from "effect/Effect"
+// A dispatch is a plain function, which applies its message before it returns. A view draws a model and sends its
+// program's messages through `dispatch`. A parent's view gives each child's view a dispatch of its own, which wraps the
+// child's messages as the parent receives them. Kept while anyone holds it, it is the same function every time it is
+// asked for, so that a renderer can skip a child whose model has not changed.
 import * as Equal from "effect/Equal"
 import * as Hash from "effect/Hash"
 
 /**
- * Sends a message to the running program.
+ * Applies a message to the running program, before it returns, and returns nothing.
  *
- * - The effect needs no services and completes synchronously. Run it with `Effect.runSync`, or with a runtime of
- *   your own.
- * - It only hands the message to the run, which handles it in its own fiber. So it returns before `update` has seen
- *   the message.
- * - The numbers start from 1, in the order in which the run takes the messages. A frame whose `seen` is below a
- *   message's number was made before the run took that message.
+ * - It needs no services. A handler of any renderer calls it as it is. Effect code calls it in an `Effect.sync`.
+ * - When a handler returns, `update` has seen its message, and the model is the new one. What the message starts, its
+ *   commands and its subscriptions, runs later, in the run's own fiber.
+ * - One sent while another is being applied, as a renderer's listener sends one, is applied right after it, before
+ *   the outer call returns.
+ * - The program runs on the stack of whoever sends the message: a slow `update` holds up the handler that sent it.
  *
  * @param message - One of the program's messages.
- * @returns An effect that sends it, and gives the message's number among those dispatched.
  *
  * @example
  * ```ts
- * button.addEventListener('click', () => Effect.runSync(dispatch({ _tag: 'Increment' })))
+ * button.addEventListener('click', () => dispatch({ _tag: 'Increment' }))
  * ```
  *
  * @see The guide, "View", "`dispatch` takes the program's messages".
- * @see The guide, "View", "A handler may run it either way".
- * @see The guide, "View", "Sending only hands the message to the run".
- * @see The guide, "View", "The number a dispatch returns".
- * @see The guide, "View", "A frame's `seen`".
+ * @see The guide, "View", "A handler calls it as it is".
+ * @see The guide, "View", "Sending applies the message".
  */
-export type Dispatch<Message> = (message: Message) => Effect.Effect<number>
+export type Dispatch<Message> = (message: Message) => void
 
 /**
  * A parent's messages that carry a child's: `{ _tag: <child>, message }`, with `id` for children by id, and
@@ -131,7 +127,7 @@ export const entriesOf = (dispatch: object, name: string): number => {
  * ```
  *
  * @see The guide, "Composition", "A child's view gets a dispatch of its own".
- * @see The guide, "Composition", "That dispatch is the same function in every frame".
+ * @see The guide, "Composition", "That dispatch is the same function in every draw".
  * @see The guide, "Composition", "A grandchild's dispatch is made from its parent's".
  * @see The guide, "Composition", "`children.Row(state, id)` is a row's model".
  * @see The guide, "Composition", "Ids are compared by value".

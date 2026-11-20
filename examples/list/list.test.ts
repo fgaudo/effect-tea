@@ -2,10 +2,11 @@ import { forwardTo, reject, run } from "@fgaudo/effect-tea"
 import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
 import { applyAll, dispatchViolations } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
+import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
 import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
-import * as Stream from "effect/Stream"
 import * as TestClock from "effect/testing/TestClock"
 import * as fc from "fast-check"
 import { list, type Message, type Model, type State } from "./list.ts"
@@ -139,19 +140,23 @@ describe("list", () => {
   test("a running stopwatch counts the seconds that pass", async () => {
     let seconds = 0
     await Effect.runPromise(
-      run(list, (frames) =>
-        frames.pipe(
-          Stream.tap(({ model, dispatch }) => {
-            const [first] = model.stopwatches
-            if (first === undefined) return dispatch(model.add)
-            seconds = first.model.seconds
-            return first.model.watch._tag === "Stopped"
-              ? forwardTo(dispatch, "Stopwatch", first.id)(first.model.watch.start)
-              : Effect.void
-          }),
-          Stream.takeUntil(({ model }) => (model.stopwatches[0]?.model.seconds ?? 0) >= 3),
-          Stream.runDrain
-        )).pipe(
+      run(list, (app) =>
+        Effect.gen(function*() {
+          const counted = yield* Deferred.make<void>()
+          yield* Effect.sync(() => {
+            app.subscribe(() => {
+              seconds = app.model().stopwatches[0]?.model.seconds ?? 0
+              if (seconds >= 3) Deferred.doneUnsafe(counted, Exit.void)
+            })
+            // A dispatch applies its message before it returns: the model read next has the stopwatch.
+            app.dispatch(app.model().add)
+            const [first] = app.model().stopwatches
+            if (first !== undefined && first.model.watch._tag === "Stopped") {
+              forwardTo(app.dispatch, "Stopwatch", first.id)(first.model.watch.start)
+            }
+          })
+          yield* Deferred.await(counted)
+        })).pipe(
           // Time moves on until three seconds have been counted: the run ends then, and so does the race.
           Effect.raceFirst(Effect.forever(TestClock.adjust("1 second").pipe(Effect.andThen(Effect.yieldNow)))),
           Effect.provide(TestClock.layer())

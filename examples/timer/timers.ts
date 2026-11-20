@@ -26,7 +26,7 @@ export const timers = make({
   },
   children: {
     Timer: childById(Timer.timer, {
-      // A removed timer is `None`: a click on a frame drawn before its removal is rejected.
+      // A removed timer is `None`: a click on a view drawn before its removal is rejected.
       get: (state, id: number) =>
         Opt.map(Arr.findFirst(state.entries, (entry) => entry.id === id), (entry) => entry.timer),
       set: (state, id, timer) => ({
@@ -46,7 +46,7 @@ export const timers = make({
           commands: timer.commands
         }
       }
-      // A second click on "Remove", from the same frame, finds the timer gone.
+      // A second click on "Remove", from the same view, finds the timer gone.
       case "RemoveClicked":
         return Arr.some(state.entries, (entry) => entry.id === message.id)
           ? { state: { ...state, entries: Arr.filter(state.entries, (entry) => entry.id !== message.id) } }

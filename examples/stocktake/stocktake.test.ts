@@ -288,12 +288,27 @@ describe("the model", () => {
     }))
   })
 
-  // Beyond what the library asks: that the view draws what its model holds, each control once. `messagesSentBy`,
-  // beside the snabbdom bridge, is its way to see it without a DOM, where the counts write nothing.
+  // Beyond what the library asks: that the view draws what its model holds, each control once, and each editable count
+  // over the text the model holds. `messagesSentBy`, beside the snabbdom bridge, is its way to see it without a DOM: a
+  // count's write holds the value its element is drawn with, so it is written over that text, with that text. The
+  // counts are drawn between the scanner's control and the submit.
   test("the view sends what its model holds", () => {
     fc.assert(fc.property(states(), (state) => {
       const model = stocktake.makeModel(state)
-      expect(messagesSentBy<Model, Message>(view, model)).toEqual(messagesOf(model))
+      const counts = model._tag === "Counting" || model._tag === "Closed"
+        ? model.items.flatMap(({ id, model: { entry } }): ReadonlyArray<Message> =>
+          entry._tag === "Editable"
+            ? [{ _tag: "Count", id, message: { _tag: "Written", was: entry.text, value: entry.text } }]
+            : []
+        )
+        : []
+      const [reconnect, submit] = model._tag === "Counting"
+        ? [
+          model.scanner._tag === "Disconnected" ? [model.scanner.reconnect] : [],
+          model.submit._tag === "Ready" ? [model.submit.submit] : []
+        ]
+        : [messagesOf(model), []]
+      expect(messagesSentBy<Model, Message>(view, model)).toEqual([...reconnect, ...counts, ...submit])
     }))
   })
 

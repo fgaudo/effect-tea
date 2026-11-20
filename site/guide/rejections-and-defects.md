@@ -15,13 +15,13 @@ A message that `update` cannot take in a state is one of two things:
 - The message cannot arrive. It is a bug. `update` calls `defect(reason)`, and the run dies.
 
 To tell the two apart, ask: could the message reach that state while the code of the program and the code of the
-library are both right? If a fast finger, a slow frame or another device is enough, it is a `reject`. If only a bug can
+library are both right? If a fast finger, a slow draw or another device is enough, it is a `reject`. If only a bug can
 bring the message there, it is a `defect`.
 
 |                       | `reject`                                                                                    | `defect(reason)`                                                                                               |
 | --------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | **For a message…**    | that may arrive, and does not apply in this state                                           | that cannot arrive: a bug                                                                                      |
-| **For example**       | a tap on a frame the state has moved past; the answer of a command for a row since replaced | a completion outside the state only its completion leaves; a subscription's message in a state without its key |
+| **For example**       | a tap on a model the state has moved past; the answer of a command for a row since replaced | a completion outside the state only its completion leaves; a subscription's message in a state without its key |
 | **What the run does** | ignores it, logs it at the debug level, tells `onIgnored`, and keeps the state              | dies with a `ProgramDefect` that says where, whose `cause` is an `InvariantDefect` holding the reason          |
 
 ## An example
@@ -52,12 +52,12 @@ nothing is saving. A rejection of that save would hide the bug.
 
 **What the view draws never rules a message out.** A tap may come:
 
-- from a frame drawn before;
-- from two fingers in one frame;
+- from a model drawn before;
+- from two fingers before the next draw;
 - from a control still on screen while it animates away.
 
 So a message of the view may arrive in any state. The message is rejected where it does not apply, whatever the model
-showed. The message is applied where it applies, from whatever frame it was sent. If a message must not apply to a
+showed. The message is applied where it applies, from whatever model it was sent. If a message must not apply to a
 later state, the message says what it was for, so that `update` rejects it in that later state.
 
 **A message that arrives too late is judged by whoever knows what it was for.** Nothing is cancelled when the state
@@ -65,7 +65,7 @@ moves on:
 
 - not a command under way;
 - not what a subscription sent before its key went away;
-- not a frame already drawn.
+- not a model already drawn.
 
 A message of the view that is not a write into an input is rejected by `update` where it does not apply, as above.
 Three other kinds of message may arrive for a state that has left them behind. Each kind is settled by whoever knows
@@ -73,12 +73,12 @@ what the message was for:
 
 | A late message                                          | Who settles it                                                                                                                 | How                                                                                                                                                                     | `onIgnored`                            |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| **A subscription's message once its key is gone**       | The run. The run stopped that subscription.                                                                                    | The run drops the message before `update`, even if the key has come back since. The run logs the message at the debug level.                                            | Does not hear it.                      |
+| **A subscription's message once its key is gone**       | The run. The run stops that subscription.                                                                                      | The run drops the message before `update`, even if the key has come back since. The run logs the message at the debug level.                                            | Does not hear it.                      |
 | **A command's answer for what has since changed**       | `update`. Only the program knows what the answer was for.                                                                      | The answer reaches `update`, which rejects it. The answer's message says what it was for (see ids that come back in [children by id](./composition.md#children-by-id)). | Hears it, as it hears every rejection. |
 | **A write over a value the program has since replaced** | The library. The input's place is declared to the library (see [inputs the user types into](./inputs-the-user-types-into.md)). | The library rejects the write, from the state and the message alone.                                                                                                    | Hears it, as it hears every rejection. |
 
 None of these late messages is a defect. They are the price of commands that cannot be cancelled, of keys that come and
-go, and of frames older than the state.
+go, and of a screen older than the state.
 
 **Checking the model is left to your tests.** Whether the model holds only what applies, and all of it, is for the
 tests (see [testing](./testing.md)).
@@ -87,13 +87,13 @@ tests (see [testing](./testing.md)).
 
 Each pair sums up a rule of this page. The rule itself is above.
 
-| Do                                                                             | Don't                                                                                    |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| Return `reject` for a message that may arrive and does not apply in the state. | Call `defect` on a message that a fast finger, a slow frame or another device can bring. |
-| Call `defect(reason)` on a message that only a bug can bring.                  | Return `reject` for that message. A rejection would hide the bug.                        |
-| Expect a message of the view in any state, from any frame.                     | Call `defect` on a message of the view because the model did not show it.                |
-| Call `defect` in `init`, `update`, `onEvent`, `makeModel` and `subscriptions`. | Call `defect` inside an Effect. There, `Effect.die` stays.                               |
-| Answer `{ state }` in a handler of `onEvent` that does not apply.              | Return `reject` from a handler of `onEvent`. The handler's type has no `reject`.         |
+| Do                                                                             | Don't                                                                                   |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| Return `reject` for a message that may arrive and does not apply in the state. | Call `defect` on a message that a fast finger, a slow draw or another device can bring. |
+| Call `defect(reason)` on a message that only a bug can bring.                  | Return `reject` for that message. A rejection would hide the bug.                       |
+| Expect a message of the view in any state, from any model.                     | Call `defect` on a message of the view because the model did not show it.               |
+| Call `defect` in `init`, `update`, `onEvent`, `makeModel` and `subscriptions`. | Call `defect` inside an Effect. There, `Effect.die` stays.                              |
+| Answer `{ state }` in a handler of `onEvent` that does not apply.              | Return `reject` from a handler of `onEvent`. The handler's type has no `reject`.        |
 
 ```ts
 // Don't: the type of a handler of `onEvent` has no `reject`, so this does not compile

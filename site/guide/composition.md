@@ -187,8 +187,8 @@ of it. Here is what the compiler can check there, and what it cannot.
 - For a type parameter, such as `P` in `<P extends AnyProgram>(p: P) => …`, the compiler cannot decide what the child
   needs. So `make` does not compile there. Nor does it for a state that is a type parameter (see
   [what does not compile](./anatomy-of-a-program.md#precisely)).
-- A frame around content, such as a dialog, is better as a child beside the content than as a parent of it. The parent
-  of both is then a program like any other.
+- A wrapper around content, such as a dialog, is better as a child beside the content than as a parent of it. The
+  parent of both is then a program like any other.
 - You can still write a function over any program. The function's signature names the types. The function's body makes
   the parent from a program whose types are `object` and `unknown`, as below.
 - The compiler checks the body. It does not check that the signature says what the body makes.
@@ -232,7 +232,7 @@ class that extends it.
 
 - **A child's view gets a dispatch of its own.** The child's view sends the child's own messages through it.
   `forwardTo(dispatch, 'Clock')` gives this dispatch: it wraps each message of the child as the parent receives it.
-- **That dispatch is the same function in every frame.** `forwardTo` returns the same function every time it is asked
+- **That dispatch is the same function in every draw.** `forwardTo` returns the same function every time it is asked
   with the same dispatch, name and id. So a view [memoized](./glossary.md#what-the-user-sees) on its model and its
   dispatch is drawn again only when its model changes.
 
@@ -251,7 +251,7 @@ const view: View<Model, Message> = (model, dispatch) =>
 
 - **Use `forwardTo` for every child**, memoized or not. Then you do not have to remember which views are memoized. A
   lambda that wraps the message, `(message) => dispatch({ _tag: 'Clock', message })`, sends the same messages. But the
-  lambda is a new function in every frame, so a view memoized on it is drawn every time.
+  lambda is a new function in every draw, so a view memoized on it is drawn every time.
 - **A grandchild's dispatch is made from its parent's**: `forwardTo(forwardTo(dispatch, 'Home'), 'Products')`. A view
   usually writes it in two steps: each view takes the dispatch that its parent's view gave it.
 
@@ -290,7 +290,7 @@ Each pair sums up a rule of this page. The rule itself is above.
 | Do                                                                                 | Don't                                                                          |
 | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | Start a child with `children.Clock.init`, and use its state and its commands.      | Read `Clock.clock.init.state`: it leaves the child's commands behind.          |
-| Give each child's view `forwardTo(dispatch, 'Clock')`.                             | Wrap the message in a lambda: it is a new function in every frame.             |
+| Give each child's view `forwardTo(dispatch, 'Clock')`.                             | Wrap the message in a lambda: it is a new function in every draw.              |
 | Make a value that the user types into a row, and the parent reads, an input by id. | Make the row a child, and read the child's state from the parent.              |
 | Use ids that are never reused, or say in the message which row it is for.          | Reuse the id of a removed row when an answer does not say which row it is for. |
 | List in `subscribed` every row that must listen.                                   | Leave out of `subscribed` a row that must listen: it runs no subscription.     |

@@ -122,12 +122,13 @@ have to have one.
 Then the test does these steps:
 
 1. It starts the run with `Effect.runFork(run(program, renderInto(root, view), options))`, with its services provided.
-2. It acts on the page. Then it waits until the page shows what it expects, because a frame is drawn at the next
-   animation frame.
+2. It acts on the page. Then it waits until the page shows what it expects, because a renderer may draw a new state
+   later. The bridge to snabbdom draws a new state that a command or a subscription brings at the next animation
+   frame, and React renders as React schedules it.
 3. At the end, it interrupts the run's fiber.
 
 The tests of the package's bridges go further (see [their tests](./writing-a-bridge.md#their-tests)). In those tests, a
-frame is drawn when the test says, in place of the next animation frame.
+screen refresh comes when the test says, in place of the next animation frame.
 
 [preload]: ../../bridges/snabbdom-preload.ts
 [messages]: ../../bridges/snabbdom-testing.ts

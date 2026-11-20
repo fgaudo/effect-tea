@@ -2,7 +2,11 @@
 
 **Status:** decided by the owner, 20 November 2026: it replaces `bridges/react.ts` ("Decided", at the end), done the
 same day. A spike of 20 November 2026 by a session of Opus 5.5, on the branch `claude/spike-hosted-react-47f7d5` cut from
-`ac9d2f5`, never to be merged. Read against the code at `ac9d2f5`.
+`ac9d2f5`, never to be merged. Read against the code at `ac9d2f5`. Replaced in part the same day, once a dispatch
+applied its message at once ([`synchronous-dispatch.md`](synchronous-dispatch.md), B1 and B4): `Host` stays, with its
+props, and `Draw`, over `useSyncExternalStore` and controlled elements, replaces the store of frames (`makeStore`,
+`Frames`), `Shows`, the context of the inputs and `flushSync`. Six of the nine premises below went with them; those of
+`useSyncExternalStore`, StrictMode and the error boundary stay.
 
 ## Context
 

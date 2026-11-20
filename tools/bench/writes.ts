@@ -1,13 +1,13 @@
 // What a write into an input costs as `main` stores it, written over the value the input showed (`{ _tag: 'Written',
 // was, value }`), for each kind of value: by the bare rule, through the composed program's `update` as the engine calls
-// it, and, for some cases, through `run` with a renderer that sends the next write once a frame has seen the last one.
-// `was` is the very value the state holds, as the snabbdom bridge sends it, or, in the cases marked "copy", an equal
-// value that is another string or object, as a bridge that read it again from the element would send. Then what the
-// bridge pays on each frame, `drawn` for one input and the React bridge's `settle` for many, and what a rejected
-// write costs. The measures that chose this design are in `docs/records/registers.md` ("The cost of `was`"). Run by
-// hand, on Bun or on Node; not part of `bun run test`.
+// it, and, for some cases, through the dispatch `run` gives its renderer, which applies the write before it returns,
+// with the model of the new state read after it, as a renderer's listener reads it: what a handler pays for a key, but
+// the draw. `was` is the very value the state holds, or, in the cases marked "copy", an equal value that is another
+// string or object. Then what a rejected write costs. A draw is not measured: it needs a DOM and a renderer, which no
+// file of `tools/` imports (`AGENTS.md`). The measures that chose this design are in `docs/records/registers.md` ("The
+// cost of `was`"). Run by hand, on Bun or on Node; not part of `bun run test`.
 //
-//   bun tools/bench/writes.ts [--writes 2000] [--rounds 11] [--sections writes,drawn,settle,rejected]
+//   bun tools/bench/writes.ts [--writes 2000] [--rounds 11] [--sections writes,rejected]
 //   node tools/bench/writes.ts …     the same, on V8
 //   bun tools/bench/writes.ts --help     the same, as the command describes itself
 import * as Arr from "effect/Array"
@@ -19,19 +19,7 @@ import * as Equal from "effect/Equal"
 import * as Num from "effect/Number"
 import * as Optic from "effect/Optic"
 import * as Opt from "effect/Option"
-import * as Stream from "effect/Stream"
-import {
-  drawn,
-  edited,
-  type Program,
-  program,
-  reject,
-  run,
-  type Shown,
-  type Transition,
-  type Update,
-  type Written
-} from "../../src/index.ts"
+import { type Program, program, reject, run, type Transition, type Update, type Written } from "../../src/index.ts"
 import { written } from "../../src/input.ts"
 import { main } from "../cli.ts"
 
@@ -213,26 +201,22 @@ const alternated = Effect.fnUntraced(function*(rounds: number, samplers: Readonl
   return all
 })
 
-// One write at a time: the renderer sends the next one when a frame has seen the one before.
+// One write at a time, through the run's dispatch, which applies it before it returns, then the model of the state it
+// made: the effects of each step are left to the run's fiber of effects.
 const throughRun = (subject: Subject) =>
   Effect.gen(function*() {
     const messages = subject.messages().composed
-    let start = 0
-    let end = 0
-    yield* run(subject.program, (frames) =>
-      frames.pipe(
-        Stream.takeUntil((frame) => frame.seen >= messages.length),
-        Stream.runForEach((frame) =>
-          Effect.suspend(() => {
-            void frame.model
-            if (frame.seen === 0) start = performance.now()
-            if (frame.seen < messages.length) return Effect.asVoid(frame.dispatch(messages[frame.seen]))
-            end = performance.now()
-            return Effect.void
-          })
-        )
-      ))
-    return ((end - start) * 1e6) / messages.length
+    let elapsed = 0
+    yield* run(subject.program, (app) =>
+      Effect.sync(() => {
+        const start = performance.now()
+        for (const message of messages) {
+          app.dispatch(message)
+          void app.model()
+        }
+        elapsed = performance.now() - start
+      }))
+    return (elapsed * 1e6) / messages.length
   })
 
 const summary = (samples: ReadonlyArray<number>) => {
@@ -246,7 +230,7 @@ const summary = (samples: ReadonlyArray<number>) => {
 type Sizes = Readonly<{ writes: number; rounds: number; values: Values }>
 
 const writesSection = Effect.fnUntraced(function*({ rounds, values, writes }: Sizes) {
-  yield* Console.log("\n| case | bare rule | compose `update` | `run`, a frame per write |")
+  yield* Console.log("\n| case | bare rule | compose `update` | `run`'s dispatch, and the model |")
   yield* Console.log("| --- | --- | --- | --- |")
   for (const each of cases) {
     const subject = subjectOf(each, values)
@@ -258,144 +242,6 @@ const writesSection = Effect.fnUntraced(function*({ rounds, values, writes }: Si
     const [whole] = each.throughRun === true ? yield* alternated(rounds, [throughRun(subject)]) : []
     const through = whole === undefined ? "–" : summary(whole)
     yield* Console.log(`| ${each.name} | ${summary(bare ?? [])} | ${summary(composed ?? [])} | ${through} |`)
-  }
-})
-
-// The values `drawn` meets, made anew on each call, an equal value that is not the same, and at most how many passes
-// a round makes of them: on V8, 20 ms of `drawn` over copies of a long text would hold gigabytes of them.
-type Kind = Readonly<{
-  name: string
-  values: (values: Values) => ReadonlyArray<unknown>
-  copy: (value: never) => unknown
-  most?: number
-}>
-
-const kinds: ReadonlyArray<Kind> = [
-  { name: "short text (≤ 18 chars)", values: ({ short }) => short, copy: copyOf },
-  { name: "long text (4–6 KB)", values: ({ long }) => long, copy: copyOf, most: 64 },
-  { name: "number", values: ({ levels }) => levels, copy: (level: number) => level },
-  {
-    name: "array of 200 ids",
-    values: ({ selections }) => selections(),
-    copy: (ids: ReadonlyArray<number>) => [...ids]
-  },
-  { name: "record of 4 fields", values: ({ contacts }) => contacts(), copy: copyContact }
-]
-
-type Drawing = Readonly<{ held: Shown<unknown>; value: unknown; seen: number }>
-
-type Situation = Readonly<{
-  name: string
-  at: (values: ReadonlyArray<unknown>, i: number, copy: Kind["copy"]) => Drawing
-}>
-
-const shownOf = <A>(value: A) => drawn(undefined, value, 0).shown
-
-const sentOf = (was: unknown, value: unknown) => edited(shownOf(was), value).sent(1)
-
-// What a frame meets of an element that shows `values[i]`, and may have sent `values[i + 1]`, numbered 1.
-const situations: ReadonlyArray<Situation> = [
-  {
-    name: "no unseen write, the very value",
-    at: (values, i) => ({ held: shownOf(values[i]), value: values[i], seen: 0 })
-  },
-  {
-    name: "no unseen write, an equal copy",
-    at: (values, i, copy) => ({ held: shownOf(values[i]), value: copy(values[i] as never), seen: 0 })
-  },
-  {
-    name: "an unseen write, the frame its past",
-    at: (values, i) => ({ held: sentOf(values[i], values[i + 1]), value: values[i], seen: 0 })
-  },
-  {
-    name: "its write seen, the frame its present",
-    at: (values, i) => ({ held: sentOf(values[i], values[i + 1]), value: values[i + 1], seen: 1 })
-  },
-  {
-    name: "the state moved on, the frame wins",
-    at: (values, i) => ({ held: sentOf(values[i], values[i + 1]), value: values[i + 2], seen: 0 })
-  }
-]
-
-const drawnSection = Effect.fnUntraced(function*({ rounds, values: made, writes }: Sizes) {
-  yield* Console.log("\n`drawn`, for one input in one frame\n")
-  yield* Console.log(`| case | ${situations.map(({ name }) => name).join(" | ")} |`)
-  yield* Console.log(`| --- |${situations.map(() => " --- |").join("")}`)
-  for (const kind of kinds) {
-    const timings = yield* alternated(
-      rounds,
-      situations.map((situation) =>
-        sampler(
-          () => {
-            const values = kind.values(made)
-            return Arr.makeBy(writes - 2, (i) => situation.at(values, i, kind.copy))
-          },
-          (all) => {
-            for (const { held, value, seen } of all) drawn(held, value, seen)
-          },
-          writes - 2,
-          kind.most
-        )
-      )
-    )
-    yield* Console.log(`| ${kind.name} | ${timings.map(summary).join(" | ")} |`)
-  }
-})
-
-// As a bridge settles them after a frame, each with `drawn` (`bridges/snabbdom.ts`; each `Shows` of
-// `bridges/react.ts` settles its own element so), without a DOM: an element is what holds `value`, a string.
-type Element = { value: string }
-
-type Live = { held: Shown<string> | undefined; value: string }
-
-const settle = (live: Set<Element>, lives: WeakMap<Element, Live>, seen: number): void => {
-  for (const element of live) {
-    const known = lives.get(element)
-    if (known === undefined) continue
-    const { shown, taken } = drawn(known.held, known.value, seen)
-    if (taken) element.value = shown.value
-    known.held = shown
-  }
-}
-
-// `inputs` elements, each given `frame(text)` by the frame, but the first, which sent a write the frame has seen:
-// `reset` gives it back that write before each frame, the others settle as they were.
-const screenOf = (inputs: number, text: string, frame: (text: string) => string) => {
-  const live = new Set<Element>()
-  const lives = new WeakMap<Element, Live>()
-  const typedOne = `${text}!`
-  const unseen = edited(shownOf(text), typedOne).sent(1)
-  const first: Live = { held: unseen, value: typedOne }
-  for (let i = 0; i < inputs; i++) {
-    const element = { value: text }
-    live.add(element)
-    lives.set(element, i === 0 ? first : { held: shownOf(text), value: frame(text) })
-  }
-  return { live, lives, reset: () => (first.held = unseen) }
-}
-
-const settleSection = Effect.fnUntraced(function*({ rounds }: Sizes) {
-  const counts = [1, 10, 100, 1000]
-  const screens = [
-    { name: "short text, the very value", text: "Ada Lovelace, 1815", frame: (text: string) => text },
-    { name: "long text (4 KB), the very value", text: base, frame: (text: string) => text },
-    { name: "long text (4 KB), an equal copy", text: base, frame: copyOf }
-  ]
-  yield* Console.log("\nThe bridge's `settle`, for a whole frame\n")
-  yield* Console.log(`| inputs | ${counts.join(" | ")} |`)
-  yield* Console.log(`| --- |${counts.map(() => " --- |").join("")}`)
-  for (const screen of screens) {
-    const timings = yield* alternated(
-      rounds,
-      counts.map((inputs) => {
-        const made = screenOf(inputs, screen.text, screen.frame)
-        return sampler(() => made, ({ live, lives, reset }) => {
-          reset()
-          settle(live, lives, 1)
-        }, 1)
-      })
-    )
-    yield* Console.log(`| ${screen.name} | ${timings.map(summary).join(" | ")} |`)
   }
 })
 
@@ -462,18 +308,17 @@ const rejectedSection = Effect.fnUntraced(function*({ rounds, writes }: Sizes) {
 })
 
 // In the order they run, whatever the order they are named in.
-const sections = { writes: writesSection, drawn: drawnSection, settle: settleSection, rejected: rejectedSection }
+const sections = { writes: writesSection, rejected: rejectedSection }
 
 const names = Object.keys(sections)
 
 const command = Command.make(
   "writes",
   {
-    // `drawn` meets the value after the next one, so a pass needs three.
     writes: Flag.Int("writes").pipe(
       Flag.withDescription("How many calls a pass makes"),
       Flag.withDefault(2000),
-      Flag.filter((writes) => writes >= 3, () => "a whole number of at least 3")
+      Flag.filter((writes) => writes >= 1, () => "a whole number of at least 1")
     ),
     rounds: Flag.Int("rounds").pipe(
       Flag.withDescription("How many rounds each measure takes"),

@@ -61,9 +61,9 @@ It decides nothing on its own: whether "−" can be clicked is already in the mo
 
 ## Running it
 
-`run(duration, renderInto(root, durationView))` starts the program, and hands the renderer a stream of frames. Each
-frame holds a model, and the `dispatch` to send its messages with. `renderInto` draws each frame into the element
-`root`.
+`run(duration, renderInto(root, durationView))` starts the program, and hands the renderer the model of the current
+state, a notice of each new state, and the `dispatch` to send its messages with. A click calls `dispatch`, and when it
+returns, `update` has seen the click. `renderInto` draws the model into the element `root`.
 
 In a browser, the run is started with `Effect.runFork`, with a `tapCause` that reports a run that dies.
 [Step 4](./4-inputs.md) shows it for the finished application (see [running](../guide/running.md)).

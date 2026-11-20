@@ -1,38 +1,30 @@
-// The bridge to snabbdom, the entry `@fgaudo/effect-tea/snabbdom`, which the examples use. The rest of the package
-// knows nothing of it: any renderer that can draw a model, run
-// `dispatch`, and reach the element of each input after a frame, before the user can act on it, works the same way.
-// A bridge does three things: it draws each frame whole and at once, runs `dispatch` in plain handlers, and settles
-// each text input on screen with `drawn` after the frame. snabbdom's handlers are plain callbacks, so they run it with
-// `send`; it patches synchronously, so each input is settled right after the patch. An input is a native text
-// `<input>`, whose element changes only by what the user types, or by this bridge.
-// A minimal bridge, and an example to start from, as the guide's "Writing a bridge" says: it settles native text
-// fields alone, in
-// the base case, and does not handle a value the element changes by itself. Another native widget would be connected
-// by hand with `edited` and `drawn` where it meets their condition, or replaced by one the program draws; a root in a
-// shadow tree and a form's reset are left to a bridge that needs them.
-// The run's dispatch, and each child's from `forwardTo`, is the same in every frame, so a view can be
-// memoized with snabbdom's own `thunk`, its dispatch among the arguments.
+// The bridge to snabbdom, the entry `@fgaudo/effect-tea/snabbdom`, which the examples use.
+// A renderer is given the handle on the running program, an `App`: it draws `app.model()` as it starts, and again once
+// `app.subscribe` tells it of a new state. A view draws native controlled elements: a `value` or a `checked` in
+// `props`, the model's, and a listener that calls `dispatch` itself, with a write over the value its model held. The
+// bridge keeps two rules beside snabbdom, each with a test that fails without it:
+// - A controlled prop is compared with the element. snabbdom's props module sets `value` only where it differs from the
+//   vnode drawn before, and `checked` likewise, so after each draw every element drawn with either is given the vnode's
+//   where the element itself differs from it: what the user typed and the state rejected is taken back.
+// - When it draws. A handler writes over the value its model held when it was drawn, so two keys between two draws
+//   would send the second over the first one's: a message the view's own `dispatch` sends is drawn at once, before the
+//   handler returns, whether it made a new state or not. A notice from anywhere else, a command or a subscription, is
+//   drawn at the next animation frame, at most once for each refresh.
+// A listener may be called while a patch runs: a browser calls `blur` as a patch removes the focused element, and the
+// DOM calls `blur` and `focus` as an `insert` hook focuses one. The draw of what such a listener sends waits for the
+// patch under way, and follows it.
 // Checked with snabbdom 3.6.4, the start of its peer range; the daily job runs its tests with the newest snabbdom 3.
 /**
  * The bridge to snabbdom: draws a program with snabbdom 3.6.4 or a newer 3.x, which you install beside the package.
  *
- * @see The guide, "Writing a bridge", "The package's bridges".
  * @module @fgaudo/effect-tea/snabbdom
+ *
+ * @see The guide, "Writing a bridge", "The package's bridges".
  */
-import { type Dispatch, drawn, edited, type Frame, type Shown, type Written } from "@fgaudo/effect-tea"
+import type { App, Dispatch } from "@fgaudo/effect-tea"
 import * as Effect from "effect/Effect"
 import * as Opt from "effect/Option"
-import * as Stream from "effect/Stream"
-import {
-  eventListenersModule,
-  init,
-  type Module,
-  type On,
-  propsModule,
-  styleModule,
-  type VNode,
-  type VNodeData
-} from "snabbdom"
+import { eventListenersModule, init, type Module, propsModule, styleModule, type VNode } from "snabbdom"
 
 /**
  * A view of a program, drawn by this renderer: a pure function of its model, which sends its messages through
@@ -42,149 +34,151 @@ import {
  */
 export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => VNode
 
-// #region held
-// What the bridge holds of an element that shows an input: what the library made of it, `undefined` until the first
-// frame that draws it is settled, and the value the last frame drawn gave it.
-type Live = { held: Shown<string> | undefined; value: string }
+// #region controlled
+// The props of a controlled element, as the vnode drawn last gave them.
+type Controlled = Readonly<{ value?: unknown; checked?: unknown }>
 
-const lives = new WeakMap<Element, Live>()
-// #endregion held
-
-// #region shows
-/**
- * snabbdom's data for a text input that shows an input of the program, `value`, through the input's own dispatch
- * (`forwardTo(dispatch, 'Name')`): what is typed is written over what the element showed, and the element takes the
- * program's value only once a frame has seen what was typed (`drawn`). It needs no key: the element stays, with its
- * focus, while the program changes what it shows.
- *
- * @example
- * ```ts
- * h("input", shows(model.name, forwardTo(dispatch, "Name")))
- * ```
- *
- * @see The guide, "Inputs the user types into", "The element on screen".
- * @see The guide, "Writing a bridge", "A text input".
- */
-export const shows = (value: string, dispatch: Dispatch<Written<string>>): VNodeData => ({
-  shows: value,
-  on: {
-    input: (event: Event) => {
-      const element = event.target as HTMLInputElement
-      const live = lives.get(element)
-      if (live?.held === undefined) return
-      const { write, sent } = edited(live.held, element.value)
-      live.held = sent(send(dispatch, write))
-    }
-  }
-})
-// #endregion shows
-
-// #region module
-// The elements on screen that show an input, of one renderer: every one is settled after each frame, whether the frame
-// drew it again or a `thunk` skipped it. snabbdom patches an `<input>` into the next one drawn in its place, so an
-// element starts showing an input when a frame draws it with `shows`, created or not, as a new element, and stops when
-// a frame draws it without, or removes it.
-const showsModule = (live: Set<HTMLInputElement>): Module => {
+// The elements on screen drawn with a controlled `value` or `checked`, each with the props of its last vnode. snabbdom
+// patches an element into the next one drawn in its place: one drawn without either is no longer controlled.
+const controlledModule = (controlled: Map<Element, Controlled>): Module => {
   const drawnAs = (vnode: VNode) => {
-    const data = vnode.data
     const element = vnode.elm
-    if (!(element instanceof HTMLInputElement)) return
-    if (data === undefined || !("shows" in data)) {
-      live.delete(element)
-      lives.delete(element)
-      return
-    }
-    const known = live.has(element) ? lives.get(element) : undefined
-    if (known !== undefined) {
-      known.value = data.shows
-      return
-    }
-    lives.set(element, { held: undefined, value: data.shows })
-    live.add(element)
+    if (!(element instanceof Element)) return
+    const props = vnode.data?.props
+    if (props !== undefined && ("value" in props || "checked" in props)) controlled.set(element, props)
+    else controlled.delete(element)
   }
   return {
     create: (_, vnode) => drawnAs(vnode),
     update: (_, vnode) => drawnAs(vnode),
-    // Forgotten as a frame removes it, though the style module may keep it on screen while it fades: what it hears
-    // meanwhile sends nothing, since the module of the listeners has taken them off.
+    // Forgotten as a patch removes it, though the style module may keep it on screen while it fades.
     destroy: (vnode) => {
-      if (vnode.elm instanceof HTMLInputElement) live.delete(vnode.elm)
+      if (vnode.elm instanceof Element) controlled.delete(vnode.elm)
     }
   }
 }
-// #endregion module
 
-// #region settle
-const settle = (live: Set<HTMLInputElement>, seen: number): void => {
-  for (const element of live) {
-    const known = lives.get(element)
-    if (known === undefined) continue
-    const { shown, taken } = drawn(known.held, known.value, seen)
-    if (taken) element.value = shown.value
-    known.held = shown
+// Gives each controlled element its prop back where the element differs from it. Setting either sends no event.
+const giveBack = (controlled: Map<Element, Controlled>): void => {
+  for (const [element, props] of controlled) {
+    const field = element as HTMLInputElement
+    if ("value" in props && field.value !== props.value) field.value = props.value as string
+    if ("checked" in props && field.checked !== props.checked) field.checked = props.checked as boolean
   }
 }
-// #endregion settle
+// #endregion controlled
 
-// #region frames
 const animationFrame = Effect.callback<void>((resume) => {
   const id = requestAnimationFrame(() => resume(Effect.void))
   return Effect.sync(() => cancelAnimationFrame(id))
 })
 
 /**
- * The renderer `run` takes: patches the previous tree with each frame, starting from `root`, then settles the inputs on
- * screen with the frame's `seen`. A frame whose model is the very one drawn last, which `run` gives for the very same
- * state, is not drawn again: its inputs are only settled. After each frame it waits for the next animation frame
- * before taking another, so it draws at most once per screen refresh: `run` keeps only the latest frame meanwhile.
+ * The renderer `run` takes: draws the model of the current state into `root`, patching the tree it drew before.
+ *
+ * - It draws as it starts, then once a handler of the view has sent a message through the `dispatch` it was given, at
+ *   once, before the handler returns, and once a new state comes from anywhere else, at the next animation frame, at
+ *   most once for each refresh.
+ * - A model that is the very one drawn last is not drawn again.
+ * - After each draw, an element drawn with a `value` or a `checked` in `props` is given it back where the element
+ *   differs from it: what the user typed and the program rejected is taken back.
+ * - What a view or `makeModel` throws as it is drawn ends the run, wherever it is drawn.
  *
  * @example
  * ```ts
  * Effect.runFork(run(counter, renderInto(document.getElementById("app")!, view)))
  * ```
  *
- * @see The guide, "Writing a bridge", "Frames".
+ * @see The guide, "Writing a bridge", "The handle".
+ * @see The guide, "Writing a bridge", "Handlers".
+ * @see The guide, "Writing a bridge", "A controlled element".
+ * @see The guide, "Inputs the user types into", "The element on screen".
  */
 export const renderInto =
-  <Model, Message>(root: Element, view: View<Model, Message>) => (frames: Stream.Stream<Frame<Model, Message>>) => {
-    const live = new Set<HTMLInputElement>()
-    const patch = init([propsModule, styleModule, eventListenersModule, showsModule(live)])
-    return Stream.runFoldEffect(
-      frames,
-      (): Readonly<{ tree: Element | VNode; drawn: Opt.Option<Model> }> => ({ tree: root, drawn: Opt.none() }),
-      (previous, { model, dispatch, seen }) =>
-        Effect.sync(() => {
-          const same = Opt.isSome(previous.drawn) && previous.drawn.value === model
-          const tree = same ? previous.tree : patch(previous.tree, view(model, dispatch))
-          settle(live, seen)
-          return { tree, drawn: Opt.some(model) }
-        }).pipe(Effect.tap(() => animationFrame))
-    ).pipe(Effect.asVoid)
-  }
-// #endregion frames
-
-// #region handlers
-/**
- * Sends a message at once, from a plain callback, and returns its number. A dispatch needs no services and completes
- * synchronously, so `Effect.runSync` is enough: the run handles the message with its own services.
- */
-const send = <Message>(dispatch: Dispatch<Message>, message: Message): number => Effect.runSync(dispatch(message))
-
-/**
- * snabbdom's `on` for a click that sends `message`.
- *
- * @see The guide, "Writing a bridge", "Handlers".
- */
-export const onClick = <Message>(message: Message, dispatch: Dispatch<Message>): On => ({
-  click: () => send(dispatch, message)
-})
-
-/**
- * snabbdom's `on` for a press of the pointer that sends `message`: where a drag the program draws starts.
- *
- * @see The guide, "Writing a bridge", "Handlers".
- */
-export const onPress = <Message>(message: Message, dispatch: Dispatch<Message>): On => ({
-  pointerdown: () => send(dispatch, message)
-})
-// #endregion handlers
+  <Model, Message>(root: Element, view: View<Model, Message>) => (app: App<Model, Message>): Effect.Effect<void> =>
+    Effect.suspend(() => {
+      // #region draw
+      const controlled = new Map<Element, Controlled>()
+      const patch = init([propsModule, styleModule, eventListenersModule, controlledModule(controlled)])
+      let tree: Element | VNode = root
+      let last: Opt.Option<Model> = Opt.none()
+      let drawing = false
+      let again = false
+      // Draws the model of the current state, then gives the controlled elements their props back.
+      const draw = (): void => {
+        // A listener called while a patch runs may send a message: its draw waits for the patch under way, which
+        // draws again once it is done, the model current then.
+        if (drawing) {
+          again = true
+          return
+        }
+        drawing = true
+        // No `finally`: what a draw throws ends the run.
+        do {
+          again = false
+          const model = app.model()
+          if (Opt.isNone(last) || last.value !== model) {
+            tree = patch(tree, view(model, dispatch))
+            last = Opt.some(model)
+          }
+          giveBack(controlled)
+        } while (again)
+        drawing = false
+      }
+      // #endregion draw
+      // #region wait
+      let noticed = false
+      // Resumes the renderer's fiber, if what it waits for is ready.
+      let wake = () => {}
+      const until = (ready: () => boolean) =>
+        Effect.callback<void>((resume) => {
+          const check = () => {
+            if (!ready()) return
+            wake = () => {}
+            resume(Effect.void)
+          }
+          wake = check
+          check()
+          return Effect.sync(() => {
+            wake = () => {}
+          })
+        })
+      // #endregion wait
+      // #region dispatch
+      // What a draw in a handler threw, for the renderer's fiber to die of: a handler runs in no fiber of the run. A
+      // defect of `makeModel` is the one the run recorded where the model was read, so it is still one defect.
+      let thrown: Opt.Option<unknown> = Opt.none()
+      // The dispatch the view is given, the same in every draw: it applies the message, then draws at once.
+      const dispatch: Dispatch<Message> = (message) => {
+        app.dispatch(message)
+        try {
+          draw()
+        } catch (error) {
+          thrown = Opt.some(error)
+          wake()
+        }
+      }
+      // #endregion dispatch
+      // #region handle
+      const rendering = Effect.gen(function*() {
+        draw()
+        while (true) {
+          yield* until(() => noticed)
+          // What a handler's draw throws ends the wait for the frame.
+          yield* Effect.raceFirst(animationFrame, until(() => Opt.isSome(thrown)))
+          if (Opt.isSome(thrown)) return yield* Effect.die(thrown.value)
+          noticed = false
+          draw()
+        }
+      })
+      return Effect.acquireRelease(
+        Effect.sync(() =>
+          app.subscribe(() => {
+            noticed = true
+            wake()
+          })
+        ),
+        (stop) => Effect.sync(stop)
+      ).pipe(Effect.andThen(rendering), Effect.scoped)
+      // #endregion handle
+    })

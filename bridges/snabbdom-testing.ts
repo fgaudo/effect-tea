@@ -1,24 +1,25 @@
+// What a test of a snabbdom view may use, the entry `@fgaudo/effect-tea/snabbdom/testing`.
 /**
  * What a test of a snabbdom view may use: `messagesSentBy`.
  *
- * @see The guide, "Testing", "The view".
  * @module @fgaudo/effect-tea/snabbdom/testing
  */
-import * as Effect from "effect/Effect"
 import type { On, VNode } from "snabbdom"
 import type { View } from "./snabbdom.ts"
 
 type Listener = Extract<NonNullable<On[string]>, (...args: never) => unknown>
 
 /**
- * For tests, and no part of what a bridge must do: what `view` can send in `model`, found without a DOM. The
- * library asks that a model holds what `update` accepts, which a test reads from the model itself (the guide's
- * "Testing"). That a view draws what its model holds is checked with the renderer's own tools, and this is one
- * way, for snabbdom: a test compares what it returns with what it reads from the model, as the examples' do. It
- * draws the view with a dispatch that records, draws each `thunk` as the renderer would, calls every listener in
- * the tree, and returns the messages recorded, in the order the tree holds them, as the root of the program
- * receives them. What is written into an input is not among them: `shows` writes only from an element on screen,
- * which a tree drawn without a DOM has not, and a write is no message of the model.
+ * For tests, and no part of what a bridge must do: what `view` can send in `model`, found without a DOM.
+ *
+ * - It draws the view with a dispatch that records, draws each `thunk` as the renderer would, and calls every listener
+ *   in the tree, in the order the tree holds them.
+ * - Each listener gets an event whose `target` holds the `value` and the `checked` of its element's `props`, as the
+ *   view drew them. So a controlled element's handler writes the model's own value: each write recorded is over the
+ *   value its model holds, with that value.
+ * - It returns the messages recorded, as the root of the program receives them.
+ *
+ * A model holds what `update` accepts, which a test reads from the model itself. This checks that the view sends it.
  *
  * @example
  * ```ts
@@ -26,18 +27,26 @@ type Listener = Extract<NonNullable<On[string]>, (...args: never) => unknown>
  * ```
  *
  * @see The guide, "Testing", "The view".
+ * @see The guide, "Writing a bridge", "Their tests".
  */
 export const messagesSentBy = <Model, Message>(
   view: View<Model, Message>,
   model: Model
 ): ReadonlyArray<Message> => {
   const sent: Array<Message> = []
-  // Without a DOM, an event of no element: the handler of `shows` finds none on screen in it.
-  const event = {} as Event
+  // An event of no element: its target holds only what the vnode's props say of a controlled element.
+  const eventOf = (node: VNode): Event => {
+    const props = node.data?.props ?? {}
+    const target = {
+      ...("value" in props ? { value: props["value"] } : {}),
+      ...("checked" in props ? { checked: props["checked"] } : {})
+    }
+    return { target } as unknown as Event
+  }
   // Called as snabbdom calls a listener, with the node as `this` and as its second argument, and a list of them in
   // order: a listener or a list of them, as snabbdom's types say, and nothing they do not.
   const listen = (node: VNode, listeners: Listener | ReadonlyArray<Listener>): void => {
-    for (const listener of Array.isArray(listeners) ? listeners : [listeners]) listener.call(node, event, node)
+    for (const listener of Array.isArray(listeners) ? listeners : [listeners]) listener.call(node, eventOf(node), node)
   }
   const visit = (node: VNode | string): void => {
     if (typeof node === "string") return
@@ -49,6 +58,6 @@ export const messagesSentBy = <Model, Message>(
     for (const listeners of Object.values(node.data?.on ?? {})) listen(node, listeners)
     for (const child of node.children ?? []) visit(child)
   }
-  visit(view(model, (message) => Effect.sync(() => sent.push(message))))
+  visit(view(model, (message) => void sent.push(message)))
   return sent
 }

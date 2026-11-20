@@ -1,6 +1,5 @@
-// The semantics of an input, as pure pieces: what `update` makes of what is written into one, what a step of the
-// program leaves of one and of its subscriptions, and what an element on screen holds of one, as a bridge asks the
-// library (`edited`, `drawn`). Nothing here runs.
+// The semantics of an input, as pure pieces: what `update` makes of what is written into one, and what a step of the
+// program leaves of one and of its subscriptions. Nothing here runs.
 import { describe, expect, test } from "bun:test"
 import * as Arr from "effect/Array"
 import * as Channel from "effect/Channel"
@@ -11,7 +10,7 @@ import * as Opt from "effect/Option"
 import * as fc from "fast-check"
 import { program } from "./compose.ts"
 import { type Dispatch, forwardTo } from "./dispatch.ts"
-import { drawn, edited, type Shown, type Written } from "./input.ts"
+import type { Written } from "./input.ts"
 import type { MessageOf, Program } from "./program.ts"
 import type { Subscription } from "./subscription.ts"
 import { dispatchViolations } from "./testing/dispatch-violations.ts"
@@ -417,9 +416,9 @@ describe("an input in a child by id", () => {
 
   test("has a dispatch of its own, made from its note's", () => {
     const sent: Array<NotesMessage> = []
-    const dispatch: Dispatch<NotesMessage> = (message) => Effect.sync(() => sent.push(message))
+    const dispatch: Dispatch<NotesMessage> = (message) => void sent.push(message)
     const toText: Dispatch<Written<string>> = forwardTo(forwardTo(dispatch, "Note", 2), "Text")
-    expect(Effect.runSync(toText({ _tag: "Written", was: "b", value: "bc" }))).toBe(1)
+    toText({ _tag: "Written", was: "b", value: "bc" })
     expect(sent).toEqual([typing(2, "b", "bc")])
   })
 })
@@ -479,9 +478,9 @@ describe("an input by id", () => {
 
   test("has a dispatch for each id, which names it", () => {
     const sent: Array<SheetMessage> = []
-    const dispatch: Dispatch<SheetMessage> = (message) => Effect.sync(() => sent.push(message))
+    const dispatch: Dispatch<SheetMessage> = (message) => void sent.push(message)
     const toB: Dispatch<Written<string>> = forwardTo(dispatch, "Count", "b")
-    expect(Effect.runSync(toB({ _tag: "Written", was: "2", value: "25" }))).toBe(1)
+    toB({ _tag: "Written", was: "2", value: "25" })
     expect(sent).toEqual([count("b", "2", "25")])
   })
 
@@ -592,98 +591,6 @@ describe("the tools of the model", () => {
   })
 })
 
-// What a bridge asks of the library for each element that shows an input: `edited` when the user edits it, `drawn`
-// when a frame is drawn. `sent` numbers stand for what the run's dispatch returned.
-describe("what an element on screen holds of an input", () => {
-  const made = (value: string) => drawn(undefined, value, 0).shown
-  const typing = (held: Shown<string>, value: string, sent: number) => edited(held, value).sent(sent)
-
-  test("a new element takes the frame's very value", () => {
-    const value = { text: "a" }
-    const { shown, taken } = drawn(undefined, value, 3)
-    expect(shown.value).toBe(value)
-    expect(taken).toBe(true)
-  })
-
-  test("edited, the write names what the element showed, and the element shows what was written", () => {
-    fc.assert(fc.property(fc.string(), fc.array(fc.string(), { minLength: 1 }), (start, keys) => {
-      let held = made(start)
-      keys.forEach((key, index) => {
-        const { write: written, sent } = edited(held, key)
-        expect(written).toEqual({ _tag: "Written", was: held.value, value: key })
-        const next = sent(index + 1)
-        expect(next.value).toBe(key)
-        // A frame that has not seen the write leaves the element as it is, whatever it holds.
-        expect(drawn(next, start, index)).toEqual({ shown: next, taken: false })
-        held = next
-      })
-    }))
-  })
-
-  test("a frame that has not seen every key leaves the element as it is, whatever it holds", () => {
-    const element = typing(typing(made(""), "a", 4), "ab", 5)
-    // The frame has seen neither key, then the first alone, and holds what the element showed, or another value.
-    for (const [value, seen] of [["", 3], ["a", 4], ["x", 4], ["", 0]] as const) {
-      expect(drawn(element, value, seen)).toEqual({ shown: element, taken: false })
-    }
-  })
-
-  test("a frame that has seen every key and holds what the element shows leaves it as it is", () => {
-    const element = typing(made(""), "a", 4)
-    expect(drawn(element, "a", 4)).toEqual({ shown: element, taken: false })
-    expect(drawn(element, "a", 9)).toEqual({ shown: element, taken: false })
-  })
-
-  test("a frame that has seen every key and holds another value gives the element that value", () => {
-    // The program emptied the input after the key, in the step of the key or in a later one: the element takes the
-    // empty text.
-    expect(drawn(typing(made(""), "a", 4), "", 4)).toMatchObject({ shown: { value: "" }, taken: true })
-    expect(drawn(typing(made(""), "a", 4), "", 5)).toMatchObject({ shown: { value: "" }, taken: true })
-  })
-
-  test("a key the state moved on without is shown until a frame has seen it, then the element takes the value", () => {
-    // The key was typed over 'a', and the state holds '' since: the key will be rejected. The frame that has not seen
-    // it leaves the element, and the frame of its rejection gives the element the empty text.
-    const element = typing(made("a"), "ab", 4)
-    expect(drawn(element, "", 3)).toEqual({ shown: element, taken: false })
-    expect(drawn(element, "", 4)).toMatchObject({ shown: { value: "" }, taken: true })
-  })
-
-  test("a frame of a state brought back to one the element has left gives the element its value", () => {
-    // An undo brought 'a' back after the element's two keys were stored: the frame has seen both.
-    expect(drawn(typing(typing(made(""), "a", 4), "ab", 5), "a", 7)).toMatchObject({
-      shown: { value: "a" },
-      taken: true
-    })
-  })
-
-  test("a frame that gives the element its value keeps the number of the element's last write", () => {
-    const element = typing(made("a"), "ab", 4)
-    const { shown } = drawn(element, "", 4)
-    // A later frame that has not seen a write sent since leaves the element as it is.
-    const next = edited(shown, "x").sent(6)
-    expect(drawn(next, "", 5)).toEqual({ shown: next, taken: false })
-  })
-
-  test("an element that stays is not taken, though the frame holds an equal copy", () => {
-    const element = drawn(undefined, { tags: ["a"] }, 0).shown
-    expect(drawn(element, { tags: ["a"] }, 1)).toEqual({ shown: element, taken: false })
-    const later = edited(element, { tags: ["a", "b"] }).sent(2)
-    expect(drawn(later, { tags: ["a", "b"] }, 2)).toEqual({ shown: later, taken: false })
-  })
-
-  // `Equal` holds NaN equal to itself, and 0 to -0: the element keeps what it shows.
-  test("compares the frame by Equal, so that a copy of what the element shows keeps it", () => {
-    const element = edited(drawn(undefined, ["a"], 0).shown, ["a", "b"]).sent(1)
-    expect(drawn(element, ["a", "b"], 1)).toEqual({ shown: element, taken: false })
-    expect(drawn(element, ["b"], 1)).toMatchObject({ shown: { value: ["b"] }, taken: true })
-    const nan = edited(drawn(undefined, 5, 0).shown, NaN).sent(1)
-    expect(drawn(nan, NaN, 1)).toEqual({ shown: nan, taken: false })
-    const zero = edited(drawn(undefined, 5, 0).shown, -0).sent(1)
-    expect(drawn(zero, 0, 1)).toEqual({ shown: zero, taken: false })
-  })
-})
-
 describe("the types of an input", () => {
   test("a write is of the value its place holds, and goes to the name of its input", () => {
     // @ts-expect-error: the level holds a number.
@@ -779,15 +686,5 @@ describe("the types of an input", () => {
       runCommand: () => Effect.succeedSome(written),
       makeModel: () => null
     })
-  })
-
-  test("the element a bridge holds shows its value, and keeps the rest to the library", () => {
-    const element = drawn(undefined, "a", 0).shown
-    expect(element.value).toBe("a")
-    // @ts-expect-error: the number of the element's last write is not for a bridge to read.
-    expect(element.last).toBeUndefined()
-    // @ts-expect-error: an element is made by `drawn` and `edited`, not by hand.
-    const byHand: Shown<string> = { value: "a" }
-    expect(byHand.value).toBe("a")
   })
 })

@@ -23,10 +23,7 @@ import * as HashMap from "effect/HashMap"
 import * as Logger from "effect/Logger"
 import * as Opt from "effect/Option"
 import * as Pull from "effect/Pull"
-import * as Queue from "effect/Queue"
-import * as Scheduler from "effect/Scheduler"
 import * as Scope from "effect/Scope"
-import * as Stream from "effect/Stream"
 import * as TestClock from "effect/testing/TestClock"
 import * as Tracer from "effect/Tracer"
 import { collectGarbage } from "./gc.test_helper.ts"
@@ -509,82 +506,6 @@ describe("an interruption made with Fiber.interruptAs carries the annotations it
     expect(markOf(exit).length).toBeGreaterThan(0)
     expect(markOf(exit)).not.toContain(undefined)
   })
-})
-
-describe("an unbounded Queue takes an offer at once, and a shut one refuses it without interrupting", () => {
-  test("an offer to an unbounded queue completes synchronously", () => {
-    const queue = Effect.runSync(Queue.unbounded<number>())
-    for (let message = 0; message < 1_000; message++) expect(Effect.runSync(Queue.offer(queue, message))).toBe(true)
-    expect(Effect.runSync(Queue.size(queue))).toBe(1_000)
-  })
-
-  test("an offer to a shut queue returns false, synchronously", () => {
-    const queue = Effect.runSync(Queue.unbounded<number>())
-    Effect.runSync(Queue.shutdown(queue))
-    expect(Effect.runSyncExit(Queue.offer(queue, 1))).toEqual(Exit.succeed(false))
-  })
-
-  test("it wakes its taker through the scheduler of the fiber that made it, never in the stack of the offer", async () => {
-    const base = new Scheduler.MixedScheduler()
-    let offering = false
-    let woken = 0
-    const scheduler: Scheduler.Scheduler = {
-      executionMode: base.executionMode,
-      shouldYield: (fiber) => base.shouldYield(fiber),
-      makeDispatcher: () => {
-        const dispatcher = base.makeDispatcher()
-        return {
-          scheduleTask: (task, priority) => {
-            if (offering) woken++
-            dispatcher.scheduleTask(task, priority)
-          },
-          flush: () => dispatcher.flush()
-        }
-      }
-    }
-    const taken: Array<number> = []
-    const [takenAsOffered] = await Effect.runPromise(
-      Effect.gen(function*() {
-        const queue = yield* Queue.unbounded<number>()
-        // Forked as a task of the dispatcher, it offers once this fiber waits in `take`; `Effect.runSync` offers on a
-        // scheduler of its own.
-        const offer = yield* Effect.forkChild(Effect.sync(() => {
-          offering = true
-          Effect.runSync(Queue.offer(queue, 1))
-          offering = false
-          return taken.length
-        }))
-        taken.push(yield* Queue.take(queue))
-        return [yield* Fiber.join(offer)] as const
-      }).pipe(Effect.provideService(Scheduler.Scheduler, scheduler))
-    )
-    expect(woken).toBe(1)
-    expect(takenAsOffered).toBe(0)
-    expect(taken).toEqual([1])
-  })
-})
-
-test("a Stream.map after Stream.buffer runs only for the elements the consumer pulls, in the consumer's fiber", async () => {
-  const mapped: Array<Readonly<{ element: number; fiber: number | undefined }>> = []
-  const [consumer, pulled] = await Effect.runPromise(Effect.scoped(Effect.gen(function*() {
-    const fed = yield* Deferred.make<void>()
-    const pull = yield* Stream.make(1, 2, 3, 4).pipe(
-      Stream.rechunk(1),
-      Stream.concat(Stream.fromEffectDrain(Deferred.succeed(fed, undefined))),
-      Stream.concat(Stream.never),
-      Stream.buffer({ capacity: 1, strategy: "sliding" }),
-      Stream.map((element) => {
-        mapped.push({ element, fiber: Fiber.getCurrent()?.id })
-        return element
-      }),
-      Stream.toPull
-    )
-    yield* Deferred.await(fed)
-    return [yield* Effect.fiberId, yield* pull] as const
-  })))
-  expect(mapped.map(({ element }) => element)).toEqual([...pulled])
-  expect(mapped.map(({ fiber }) => fiber)).toEqual(pulled.map(() => consumer))
-  expect(pulled.length).toBeLessThan(4)
 })
 
 test("Effect calls each Logger synchronously, in the fiber that logs", async () => {

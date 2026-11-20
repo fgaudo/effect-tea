@@ -10,7 +10,6 @@ import * as HashMap from 'effect/HashMap';
 import * as Opt from 'effect/Option';
 import type * as Optic from 'effect/Optic';
 import type * as Scope from 'effect/Scope';
-import * as Stream from 'effect/Stream';
 import { VoidIfEmpty } from 'effect/Types';
 import { YieldableError } from 'effect/Cause';
 
@@ -27,6 +26,13 @@ export type AnyProgram = {
     readonly subscriptions: any;
     readonly makeModel: any;
 };
+
+// @public
+export interface App<Model, Message> {
+    readonly dispatch: Dispatch<Message>;
+    readonly model: () => Model;
+    readonly subscribe: (listener: () => void) => () => void;
+}
 
 // @public
 export type Applied<State, Message, Command = never> = {
@@ -193,19 +199,7 @@ export const defect: (reason: string) => never;
 export type DefectSite = "init" | "update" | "subscriptions" | "subscription" | "command" | "describeMessage" | "describeCommand" | "onApplied" | "onIgnored" | "render" | "log";
 
 // @public
-export type Dispatch<Message> = (message: Message) => Effect.Effect<number>;
-
-// @public
-export const drawn: <A>(held: Shown<A> | undefined, value: A, seen: number) => Readonly<{
-    shown: Shown<A>;
-    taken: boolean;
-}>;
-
-// @public
-export const edited: <A>(held: Shown<A>, value: A) => Readonly<{
-    write: Written<A>;
-    sent: (number: number) => Shown<A>;
-}>;
+export type Dispatch<Message> = (message: Message) => void;
 
 // @public
 export type EventOf<P> = Returned<P, "events">;
@@ -288,13 +282,6 @@ export const forEach: {
 
 // @public
 export const forwardTo: <Message, Name extends string>(dispatch: Dispatch<Message>, name: Name, ...id: IdOf<Message, Name>) => ChildDispatch<Message, Name>;
-
-// @public
-export type Frame<Model, Message> = {
-    readonly model: Model;
-    readonly dispatch: Dispatch<Message>;
-    readonly seen: number;
-};
 
 // @public
 type Handles<State, C, Command, Event> = {
@@ -386,9 +373,6 @@ const InvariantDefect_base: new <A extends Record<string, any> = {}>(args: VoidI
 
 // @public (undocumented)
 type Items<L> = L extends ReadonlyArray<infer I> ? I : never;
-
-// @public (undocumented)
-const Last = "~@fgaudo/effect-tea/Shown/last";
 
 // @public
 type Listed<T, Key extends "commands" | "events"> = T extends {
@@ -575,7 +559,7 @@ type Routed<Message> = Message extends Readonly<{
 }> ? [Exclude<keyof Message, "_tag" | "message" | "id">] extends [never] ? Message : never : never;
 
 // @public
-export const run: <State, Model, Message, Command = never, RC = never, RS = never, RR = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>, render: (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void, never, RR>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<void, never, Exclude<RC | RS | RR, Scope.Scope>>;
+export const run: <State, Model, Message, Command = never, RC = never, RS = never, RR = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>, render: (app: App<Model, Message>) => Effect.Effect<void, never, RR>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<void, never, Exclude<RC | RS | RR, Scope.Scope>>;
 
 // @public
 export type RunCommand<Command, Message, R = never> = (command: Command) => Execution<Message, R>;
@@ -603,12 +587,6 @@ export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags
     readonly subscriptions: Subscriptions<State, Message, RS, unknown>;
     readonly makeModel: (state: State) => Model;
 } & Interpreter<Command, Message, RC>;
-
-// @public
-export type Shown<A> = {
-    readonly value: A;
-    readonly [Last]: number;
-};
 
 // @public
 type Start<P, Command> = Readonly<{

@@ -1,9 +1,11 @@
 # A dispatch that applies its message at once
 
-**Status:** decided by the owner, 20 November 2026, and not done: the direction, after the spike, and then every answer
-this plan proposed to the points left open ("The decisions"). The plan was written that day by a session of Fable 5.2,
-on the owner's request, and read against the code at `88a3ae1`. Of its stages, 0 to 3 are done, each with its outcome
-under "The stages", and the spike of R4 was run and rejected: stage 4, the swap, is next.
+**Status:** decided by the owner, 20 November 2026, and done that day but for a reader's check of the documentation.
+The owner decided the direction, after the spike, and then every answer this plan proposed to the points left open
+("The decisions"). The plan was written that day by a session of Fable 5.2, on the owner's request, and read against
+the code at `88a3ae1`. Of its stages, 0 to 4 are done, each with its outcome under "The stages", and the spike of R4
+was run and rejected: stage 5, the reader's check, is left. Since the swap of stage 4 the code is in `src/` and
+`bridges/`: `src/next/` and `bridges/next/`, which this record names, are gone.
 
 This file has three parts: the plan; the proposal as `ROADMAP.md` held it before the plan; and the spike's record,
 brought from the branch `claude/spike-sync-dispatch-b4e430` (at `26b2cc1`), which is never to be merged. The spike's
@@ -314,6 +316,39 @@ and the changelog change with the code they describe (`change-engine`, "In the s
 **Done when** `typecheck`, `lint`, `test`, `test:node`, `interleavings`, `mutations`, `comments`, `build` with
 `api --check`, `smoke` and the site's build pass, and the form and the stocktake were tried in a browser with keys
 sent as a user's: a text typed in its middle, its caret, a save.
+
+**Done, 20 November 2026**, by three sessions of Opus 5.5 at once in the one checkout, and two forks of the first for
+the old tests of the run and of the engine. The session that briefed them read their reports and their diff, and ran
+the checks again: `typecheck`, `lint`, `test` (913), `test:node` (713), the search three times (21 properties),
+`comments`, `build`, `api --check`, `smoke`, the site's build and `mutations` (217) pass. What it found and settled:
+
+- **The code moved as it was reviewed.** Compared file by file, each file of `src/next/` and `bridges/next/` differs
+  from its place in `src/` and `bridges/` by its imports and its doc comments alone. `engine.ts` holds `Origin`,
+  `Applied`, `Ignored` and `RunOptions` too. `core.ts`, `shell.ts`, `compose.ts`, `log.ts` and the testing tools that
+  did not change held nothing that the old code alone used.
+- **The old tests** are accounted for in the sessions' reports, by `describe` or by test: ported under their names
+  where they still apply, gone with a decision of this record where they do not. `run.test.ts` went from 94 tests to
+  122, and the search from 20 properties to 21.
+- **The mutations** went from 333 to 217. The 116 of the files replaced go: 10 of `input.ts`, not 13, since three are
+  of `written`, which stays. Those of the `next` files take the plain names.
+- **The examples**: no program changed. Each view draws controlled elements and writes by hand, and `together.ts` is
+  gone, since two renderers over one `App` are an `Effect.all` of two renderers.
+- **The premises** that went, each with its test: the unbounded `Queue`, whole, since `Queue.offerUnsafe` is
+  documented and nothing rests on how a taker is woken; `Stream.map` after `Stream.buffer`; React's two of
+  `flushSync` and its uncontrolled `<input>`; snabbdom's module of listeners. `startImmediately` stays, for `simulate`
+  and the tests.
+- **A sentence of the guide had no test**: "One that interrupts the fiber of a command, of a subscription or of the
+  renderer is a defect of that command, subscription or renderer" ("Guarantees"), written as the spike's record said
+  it would read. Run by the briefing session, it holds for each of the three, and `run.test.ts` has the tests now ("an
+  update that interrupts the fiber it runs in is a defect of whoever sent its message").
+- **In a browser**, Chromium, with keys sent as a user's. The form, with snabbdom and with React: a text typed in its
+  middle, and over a selection, keeps its caret and its focus, each renderer shows what was typed into the other, and
+  a save disables both fields, lists the name and empties them. The stock-take: a count typed in its middle keeps its
+  caret, and a submit locks the counts and shows its outcome. No error on the console.
+
+Left by the swap, each in `ROADMAP.md`: seven sentences of `AGENTS.md`, proposed to the owner and not written; three
+points of the guide for the owner; a test of the timer's buttons that no mutation tried makes fail; and, for the review
+of the premises before a release, that no test of a premise was run again without its premise under the new engine.
 
 ### 5. After
 

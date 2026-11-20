@@ -17,7 +17,7 @@ export type DispatchViolation<Message> = {
   /**
    * Which check the message breaks:
    * - `Rejected`, a message the model holds that `update` rejects: a button shown in the wrong state;
-   * - `ActsTwice`, a message the model holds that acts again when sent twice from the same frame, as a double tap
+   * - `ActsTwice`, a message the model holds that acts again when sent twice from the same model, as a double tap
    *   would: a one-shot action would happen twice;
    * - `Missing`, a candidate `update` accepts that the model does not hold: a control missing from the screen.
    */
@@ -38,7 +38,7 @@ const doesNothing = <State, Command, Event>(step: Step<State, Command, Event>, s
  * It finds three kinds of violation:
  *
  * - `Rejected`: `update` rejects a message the model holds.
- * - `ActsTwice`: a message the model holds acts again when sent twice from the same frame. Acting means a different
+ * - `ActsTwice`: a message the model holds acts again when sent twice from the same model. Acting means a different
  *   state by `Equal`, or a command, or an event. Keep states data: a value without structural equality compares by
  *   reference.
  * - `Missing`: a candidate that `update` accepts is not among the messages held, compared by `Equal`. A candidate whose

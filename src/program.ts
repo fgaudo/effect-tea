@@ -64,14 +64,14 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * commands. A program is made with `program`. `make` returns this type, and a function that takes a program names this
  * type.
  *
- * - The view is not part of it: `run` gives the renderer frames, `{ model, dispatch, seen }`.
+ * - The view is not part of it: `run` gives the renderer an `App`, `{ model, subscribe, dispatch }`.
  * - Its state is an object, and its `external` messages are among its `message`s. A program written as an object
  *   and typed `Program<…>` does not compile otherwise: with a state that is a number or a string, with a state type
  *   without fields, such as `{}`, or with an `external` message that is not among its `message`s. `make` refuses the
  *   state without fields too. It accepts the `external` message, and `child` and `childById` refuse the program it
  *   returns.
  * - `runCommand` is required exactly when the program has commands.
- * - `run` makes a frame's model with `makeModel(state)`. A test can call `makeModel` the same way, on any state.
+ * - `run` makes the model of a state with `makeModel(state)`. A test can call `makeModel` the same way, on any state.
  * - Every program has `subscriptions`. One that `make` makes without them listens to nothing. A test calls
  *   `subscriptions(state)` as `run` does, on any state.
  * - `update`, `makeModel` and `subscriptions` are pure, and states are never mutated. The library reuses a child's

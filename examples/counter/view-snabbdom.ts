@@ -1,4 +1,4 @@
-import { onClick, type View } from "@fgaudo/effect-tea/snabbdom"
+import type { View } from "@fgaudo/effect-tea/snabbdom"
 import { h } from "snabbdom"
 import type { Message, Model } from "./counter.ts"
 
@@ -7,8 +7,8 @@ import type { Message, Model } from "./counter.ts"
 export const view: View<Model, Message> = (model, dispatch) =>
   h("main.counter", [
     model._tag === "Counting"
-      ? h("button", { props: { disabled: false }, on: onClick(model.decrement, dispatch) }, "−")
+      ? h("button", { props: { disabled: false }, on: { click: () => dispatch(model.decrement) } }, "−")
       : h("button", { props: { disabled: true } }, "−"),
     h("output", String(model.count)),
-    h("button", { on: onClick(model.increment, dispatch) }, "+")
+    h("button", { on: { click: () => dispatch(model.increment) } }, "+")
   ])

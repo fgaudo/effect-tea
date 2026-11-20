@@ -12,7 +12,6 @@ import * as Optic from "effect/Optic"
 import * as Opt from "effect/Option"
 import * as References from "effect/References"
 import type * as Scope from "effect/Scope"
-import * as Stream from "effect/Stream"
 import type * as Tracer from "effect/Tracer"
 import fc from "fast-check"
 import { idle, prioritizedSchedules, unpreempted } from "../test/scheduled.test_scheduler.ts"
@@ -20,29 +19,32 @@ import { program } from "./compose.ts"
 import { type DefectSite, ProgramDefect } from "./defect.ts"
 import { type Dispatch, forwardTo } from "./dispatch.ts"
 import type { Applied, Ignored } from "./engine.ts"
-import * as Input from "./input.ts"
+import type * as Input from "./input.ts"
 import type { Program } from "./program.ts"
-import { type Frame, run } from "./run.ts"
+import { type App, run } from "./run.ts"
 import type { Subscription } from "./subscription.ts"
 import { reject } from "./update.ts"
 
-// A list of rows by id, from a pool of two so that ids come back. Each row is born anew when it is added, works
-// with a command that acquires something and completes when the scheduler says (working mutes the row, so that one
-// step both stops a subscription and starts a command), can be poked, which leaves it as it is, and, while it
-// listens, hears two ticks from a subscription that then stays open, ends with a last message, or dies; each time it
-// starts listening again is a new session. The list can clear all its rows at once, stopping their subscriptions
-// together. The list has a field, which is the place of one of two inputs, a note or a title, and which a swap turns
-// into the other's place, the text kept: a write into the one it was is then sent to a place the state no longer holds,
-// and the element that showed it is given the other. The user types into that element, kept as a bridge keeps it, or
-// writes from an older frame, as its element would have; clearing empties the field, and while it holds a text the list
-// searches for it, under a key of that text, so that a write stops one search and starts another. What the user does,
-// when commands complete, when ticks arrive and when releases end is all in the hands of the scheduler of the tests
-// (`test/scheduled.test_scheduler.ts`), which may also make any fiber yield between two of its steps; what is drawn
-// beside it (`Fates`) says which subscriptions end or die, which releases take time or die, which commands die, which
-// steps `onApplied` and `onIgnored` hold or die in, and whether the renderer, which acquires something too, dies, and
-// takes time to release what it holds, which is when a run that died still has fibers under way. To die is to die of a
-// defect, or to interrupt oneself, which the run takes for one.
+// The search of the interleavings, in which a dispatch applies its message before it returns. Run apart:
+// `bun run interleavings`.
+// The program is a list of rows by id, from a pool of two so that ids come back. Each row is born anew when
+// it is added, works with a command that acquires something and completes when the scheduler says (working mutes the
+// row, so that one step both stops a subscription and starts a command), can be poked, which leaves it as it is, and,
+// while it listens, hears two ticks from a subscription that then stays open, ends with a last message, or dies; each
+// time it starts listening again is a new session. The list can clear all its rows at once, stopping their
+// subscriptions together. The list has a field, which is the place of one of two inputs, a note or a title, and which a
+// swap turns into the other's place, the text kept. The user types into the element of that field, which shows what the
+// current model holds, as a controlled element does, or writes from a model read before, as its element would have;
+// clearing empties the field, and while it holds a text the list searches for it, under a key of that text. The
+// renderer is told of each new state, reads the model or not, as the fates say, and now and then sends a poke from
+// inside the step that told it. What the user does, when commands complete, when ticks arrive and when releases end is
+// all in the hands of the scheduler of the tests (`test/scheduled.test_scheduler.ts`), which may also make any fiber
+// yield between two of its steps; what is drawn beside it (`Fates`) says which subscriptions end or die, which releases
+// take time or die, which commands die, which steps `onApplied` and `onIgnored` die in, and whether the renderer, which
+// acquires something too, dies, and takes time to release what it holds. To die is to die of a defect, or to interrupt
+// oneself, which the run takes for one.
 // The run runs in a span of whoever runs it, with debug logs enabled, and the program logs and opens spans of its own.
+
 type Id = 1 | 2
 const ids: ReadonlyArray<Id> = [1, 2]
 
@@ -121,6 +123,10 @@ type Fates = Readonly<{
   rendererReleasesSlowly: boolean
   /** Whether the renderer dies, when the scheduler says. */
   rendererDies: Opt.Option<Death>
+  /** Whether the renderer reads the model when it is told of a new state. */
+  reads: ReadonlyArray<boolean>
+  /** Whether the renderer, once it has read the model, sends a poke of the first row from inside the step. */
+  pokes: ReadonlyArray<boolean>
 }>
 
 const fateOf = <A>(fates: ReadonlyArray<A>, index: number): A => fates[index % fates.length] as A
@@ -167,6 +173,14 @@ const fates: fc.Arbitrary<Fates> = fc.record({
   rendererDies: fc.oneof(
     { arbitrary: fc.constant(Opt.none<Death>()), weight: 12 },
     { arbitrary: death.map(Opt.some), weight: 1 }
+  ),
+  reads: fc.array(
+    fc.oneof({ arbitrary: fc.constant(true), weight: 4 }, { arbitrary: fc.constant(false), weight: 1 }),
+    { minLength: 1, maxLength: 6 }
+  ),
+  pokes: fc.array(
+    fc.oneof({ arbitrary: fc.constant(true), weight: 1 }, { arbitrary: fc.constant(false), weight: 5 }),
+    { minLength: 1, maxLength: 6 }
   )
 })
 
@@ -189,13 +203,15 @@ type Event =
   | Readonly<{ _tag: "Took"; holder: Holder }>
   | Readonly<{ _tag: "Gave"; holder: Holder }>
   | Readonly<{ _tag: "Interrupted"; holder: Holder }>
-  | Readonly<{ _tag: "Drew"; frame: Frame<Model, Message> }>
-  // What the element of the field does: an edit of the user, sent as `write` into `input`, numbered `number`; and how
-  // it is settled after each frame, which drew `input` in it, with the text it shows after.
-  | Readonly<
-    { _tag: "Edited"; input: Field["_tag"]; number: number; text: string; write: Input.Written<string> }
-  >
-  | Readonly<{ _tag: "Settled"; input: Field["_tag"]; text: string; taken: boolean; seen: number }>
+  // The renderer told of a new state; a model read, by the renderer as it starts or is told, or by the element as the
+  // user types into it; a poke the renderer sends from inside a step, and what the element writes.
+  | Readonly<{ _tag: "Noticed" }>
+  | Readonly<{ _tag: "Read"; model: Model; why: "notice" | "start" | "typing" }>
+  | Readonly<{ _tag: "Reentering"; message: unknown }>
+  | Readonly<{ _tag: "Typed"; input: Field["_tag"]; write: Input.Written<string> }>
+  // A dispatch of the user's about to be called, and returned, with the message `update` gets, unwrapped.
+  | Readonly<{ _tag: "Sending" }>
+  | Readonly<{ _tag: "Returned"; message: unknown }>
   | Readonly<{ _tag: "Spanned"; parent: Opt.Option<string> }>
   | Readonly<{ _tag: "Searching"; text: string }>
   | Readonly<{ _tag: "SearchStopped"; text: string }>
@@ -501,9 +517,9 @@ type Model = ReturnType<List["makeModel"]>
 type Message = Parameters<List["update"]>[0]
 
 /**
- * What the user does, on whatever frame is drawn when the scheduler lets them: `pick` chooses among the
+ * What the user does, on whatever model the renderer read last, when the scheduler lets them: `pick` chooses among the
  * controls drawn, so that every act does something; `twice` is a double tap; `pause` is how many turns of the
- * scheduler the user waits before, so that a frame may catch up with the last act, or not.
+ * scheduler the user waits before.
  */
 type Act = Readonly<{ pick: number; twice: boolean; pause: number; stale: Opt.Option<number> }>
 
@@ -511,7 +527,7 @@ const act: fc.Arbitrary<Act> = fc.record({
   pick: fc.nat(),
   twice: fc.boolean(),
   pause: fc.integer({ min: 1, max: 4 }),
-  // A write into the field of a frame drawn before, as the element of that frame would send it, now and then.
+  // A write into the field of a model read before, as the element of that model would send it, now and then.
   stale: fc.oneof({ arbitrary: fc.constant(Opt.none()), weight: 5 }, { arbitrary: fc.nat().map(Opt.some), weight: 1 })
 })
 
@@ -522,27 +538,31 @@ const typed = (text: string, pick: number) => pick % 3 === 0 ? text.slice(0, -1)
 const writeInto = (dispatch: Dispatch<Message>, input: Field["_tag"], write: Input.Written<string>) =>
   input === "Note" ? forwardTo(dispatch, "Note")(write) : forwardTo(dispatch, "Title")(write)
 
-/** What the element of an older frame would have sent: a write over the text that frame drew, which it did not make. */
-const staleWrite = (model: Model, pick: number): Control => (dispatch) =>
-  writeInto(dispatch, model.field._tag, {
-    _tag: "Written",
-    was: model.field.text,
-    value: typed(model.field.text, pick)
-  })
-
-/** What a control does with the frame's dispatch: a row's sends through the row's own dispatch, as its view would. */
+/**
+ * What a control does with the dispatch, and the message it sent, as `update` gets it, unwrapped: a row's sends through
+ * the row's own dispatch, as its view would.
+ */
 type Control = (dispatch: Dispatch<Message>) => Effect.Effect<unknown>
 
-/** Every control the frame shows, the element of the field first: a user can only use what is drawn. */
+// The dispatch is called as the control is: when it returns, its message has been applied.
+const sent = <A>(_: void, message: A): Effect.Effect<A> => Effect.succeed(message)
+
+/** What the element of an older model would have sent: a write over the text that model drew. */
+const staleWrite = (model: Model, pick: number): Control => (dispatch) => {
+  const write: Input.Written<string> = { _tag: "Written", was: model.field.text, value: typed(model.field.text, pick) }
+  return sent(writeInto(dispatch, model.field._tag, write), write)
+}
+
+/** Every control the model shows, the element of the field first: a user can only use what is drawn. */
 const controls = (model: Model, typing: Control): ReadonlyArray<Control> => [
   typing,
-  (dispatch) => dispatch(model.swap),
-  ...model.add.map((add): Control => (dispatch) => dispatch(add)),
-  ...Opt.toArray(model.clear).map((clear): Control => (dispatch) => dispatch(clear)),
+  (dispatch) => sent(dispatch(model.swap), model.swap),
+  ...model.add.map((add): Control => (dispatch) => sent(dispatch(add), add)),
+  ...Opt.toArray(model.clear).map((clear): Control => (dispatch) => sent(dispatch(clear), clear)),
   ...model.rows.flatMap(({ id, remove, row }) => [
-    (dispatch: Dispatch<Message>) => dispatch(remove),
+    (dispatch: Dispatch<Message>) => sent(dispatch(remove), remove),
     ...[...Arr.getSomes([row.work, row.mute, row.listen]), row.poke].map((message): Control => (dispatch) =>
-      forwardTo(dispatch, "Rows", id)(message)
+      sent(forwardTo(dispatch, "Rows", id)(message), message)
     )
   ])
 ]
@@ -552,11 +572,15 @@ const controlFor = (model: Model, { pick }: Act, typing: Control): Opt.Option<Co
   return Arr.get(drawn, pick % Math.max(drawn.length, 1))
 }
 
+/** The message `update` got, as the control that sent it made it: a child's and an input's unwrapped. */
+const innerOf = (message: Message): unknown =>
+  message._tag === "Rows" || message._tag === "Note" || message._tag === "Title" ? message.message : message
+
 /**
  * Runs `acts` against the list, in a span of its own with debug logs enabled, and what was seen once nothing is under
- * way but what waits forever (`settled`, the number of events by then, and `showing`, the text the element of the field
- * shows then), then once whoever runs it has interrupted it and it has ended: the span it ran in, and the models made.
- * It is run under the scheduler of the tests, which picks every order: each act waits for its turn as a `later` does.
+ * way but what waits forever (`settled`, the number of events by then, and `last`, a model read then), then once
+ * whoever runs it has interrupted it and it has ended: the span it ran in, and the models made. It is run under the
+ * scheduler of the tests, which picks every order: each act waits for its turn as a `later` does.
  */
 const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArray<Act>) {
   const events: Array<Event> = []
@@ -566,8 +590,7 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
   const stateOf = new Map<Model, ListState>()
   const counted: List = {
     ...list,
-    // Recorded as the run calls `update`, which is what it applies: `onApplied` hears a message later, and may hear
-    // after a defect one whose `update` was called before it.
+    // Recorded as the run calls `update`, which is what it applies.
     update: (message) => {
       events.push({ _tag: "Updated" })
       return list.update(message)
@@ -579,13 +602,9 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
       return model
     }
   }
-  let latest: Frame<Model, Message> | undefined
-  const shown: Array<Frame<Model, Message>> = []
-  // The element of the field, as a bridge keeps it (`bridges/snabbdom.ts`): what the library made of it, `undefined`
-  // until the first frame settles it, and the text it shows, which only the user and a value taken change. It is drawn
-  // in every frame, so it is never made again.
-  let held: Input.Shown<string> | undefined
-  let text = ""
+  let app: App<Model, Message> | undefined
+  let latest: Model | undefined
+  const shown: Array<Model> = []
   let heard = 0
   // The options are functions: one hears at once, or throws, which is its death, there and then.
   const hearing = (event: Event): undefined => {
@@ -598,41 +617,58 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
     events.push({ _tag: "Died", where, how: "defect", defect: name, released: false })
     throw name
   }
-  const drawing = (frames: Stream.Stream<Frame<Model, Message>>) =>
-    Stream.runForEach(frames, (frame) =>
-      Effect.sync(() => {
-        events.push({ _tag: "Drew", frame })
-        shown.push(frame)
-        latest = frame
-        const { field } = frame.model
-        const { shown: settled, taken } = Input.drawn(held, field.text, frame.seen)
-        if (taken) text = settled.value
-        held = settled
-        events.push({ _tag: "Settled", input: field._tag, text, taken, seen: frame.seen })
-      }))
-  // A key typed into the element, sent through the dispatch of the input the last frame drew in it, as a bridge's
-  // handler does: from a plain callback, so that no fiber runs between the edit and `sent`.
+  // The dispatch of the handle, as a view's controls and `forwardTo` take one: the very same function for the run.
+  let dispatch: Dispatch<Message> | undefined
+  const read = (handle: App<Model, Message>, why: "notice" | "start" | "typing") => {
+    const model = handle.model()
+    events.push({ _tag: "Read", model, why })
+    shown.push(model)
+    return model
+  }
+  let notices = 0
+  // The renderer's listener: told of each new state, it reads the model or not, as the fates say, and now and then
+  // sends a message of its own, a poke of the first row, from inside the step that told it.
+  const listening = (handle: App<Model, Message>) => () => {
+    notices += 1
+    events.push({ _tag: "Noticed" })
+    if (!fateOf(fates.reads, notices)) return
+    const model = read(handle, "notice")
+    latest = model
+    const first = model.rows[0]
+    if (first === undefined || !fateOf(fates.pokes, notices) || dispatch === undefined) return
+    events.push({ _tag: "Reentering", message: first.row.poke })
+    forwardTo(dispatch, "Rows", first.id)(first.row.poke)
+  }
+  // A key typed into the element of the field, which shows what the current model holds, as a controlled element
+  // does: the write is over that value, sent from a plain callback.
   const typing = (pick: number): Control => () =>
     Effect.sync(() => {
-      if (held === undefined || latest === undefined) return
-      const input = latest.model.field._tag
-      text = typed(text, pick)
-      const { write, sent } = Input.edited(held, text)
-      const number = Effect.runSync(writeInto(latest.dispatch, input, write))
-      held = sent(number)
-      events.push({ _tag: "Edited", input, number, text, write })
+      if (app === undefined || dispatch === undefined) return undefined
+      const { field } = read(app, "typing")
+      const write: Input.Written<string> = { _tag: "Written", was: field.text, value: typed(field.text, pick) }
+      events.push({ _tag: "Typed", input: field._tag, write })
+      writeInto(dispatch, field._tag, write)
+      return write
     })
-  const renderer = (frames: Stream.Stream<Frame<Model, Message>>) =>
+  const renderer = (handle: App<Model, Message>) =>
     holds(events, "renderer", fates.rendererReleasesSlowly ? waits(fates, 0) : Effect.void).pipe(
       Effect.andThen(Effect.logDebug("Drawing")),
+      Effect.andThen(
+        Effect.acquireRelease(
+          Effect.sync(() => {
+            const stop = handle.subscribe(listening(handle))
+            dispatch = handle.dispatch
+            latest = read(handle, "start")
+            app = handle
+            return stop
+          }),
+          (stop) => Effect.sync(stop)
+        )
+      ),
       Effect.andThen(Effect.withFiber((self) =>
         Opt.match(fates.rendererDies, {
-          onNone: () => drawing(frames),
-          onSome: (how) =>
-            Effect.raceFirst(
-              drawing(frames),
-              waits(fates, 1).pipe(Effect.andThen(dies(events, "render", how, "the renderer", self)))
-            )
+          onNone: () => Effect.never,
+          onSome: (how) => waits(fates, 1).pipe(Effect.andThen(dies(events, "render", how, "the renderer", self)))
         })
       )),
       Effect.onInterrupt(() => Effect.sync(() => events.push({ _tag: "Interrupted", holder: "renderer" }))),
@@ -653,27 +689,28 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
       Effect.provide(Logger.layer([Logger.tracerLogger]))
     )
   )
-  // The user acts on what is drawn: before the first frame, or once the run has ended, an act does nothing.
+  // The user acts on what is drawn: before the renderer has started, or once the run has ended, an act does nothing.
   while (latest === undefined && fiber.pollUnsafe() === undefined) yield* later(undefined)
   for (const act of acts) {
     for (let turn = 0; turn < act.pause; turn++) yield* later(undefined)
+    if (latest === undefined || dispatch === undefined || fiber.pollUnsafe() !== undefined) continue
     const older = Opt.flatMap(act.stale, (nth) => Arr.get(shown, nth % Math.max(shown.length, 1)))
-    const control = latest === undefined
-      ? Opt.none()
-      : Opt.isSome(older)
-      ? Opt.some(staleWrite(older.value.model, act.pick))
-      : controlFor(latest.model, act, typing(act.pick))
-    if (latest === undefined || Opt.isNone(control)) continue
-    yield* control.value(latest.dispatch)
-    if (act.twice) yield* control.value(latest.dispatch)
+    const control = Opt.isSome(older)
+      ? Opt.some(staleWrite(older.value, act.pick))
+      : controlFor(latest, act, typing(act.pick))
+    if (Opt.isNone(control)) continue
+    for (const _ of act.twice ? [1, 2] : [1]) {
+      events.push({ _tag: "Sending" })
+      const message = yield* control.value(dispatch)
+      events.push({ _tag: "Returned", message })
+    }
   }
   yield* idle
   const settled = events.length
-  const drawn = latest?.model
-  const showing = text
+  const last = app === undefined || fiber.pollUnsafe() !== undefined ? undefined : app.model()
   yield* Fiber.interrupt(fiber)
   const exit = yield* Fiber.await(fiber)
-  return { exit, events, settled, drawn, showing, made, stateOf, caller }
+  return { exit, events, settled, last, made, stateOf, caller }
 })
 
 type Outcome = Effect.Success<ReturnType<typeof runScenario>>
@@ -686,8 +723,40 @@ const isWrite = (message: Message): message is Write => message._tag === "Note" 
 const applied = (events: ReadonlyArray<Event>) =>
   events.flatMap((event) => event._tag === "Applied" ? [event.applied] : [])
 
-const finalState = (events: ReadonlyArray<Event>): ListState =>
-  applied(events).at(-1)?.after ?? { rows: [], born: 0, field: emptyField }
+const initialState: ListState = { rows: [], born: 0, field: emptyField }
+
+/** The state after the first `count` events: the last that a message made, or the first. */
+const stateAfter = (events: ReadonlyArray<Event>, count = events.length): ListState =>
+  applied(events.slice(0, count)).at(-1)?.after ?? initialState
+
+const finalState = (events: ReadonlyArray<Event>): ListState => stateAfter(events)
+
+/**
+ * The very state after the first `count` events, by its identity: the first state is the one the first message heard
+ * was given, or, when none was, the one of the first model read.
+ */
+const sameStateAfter = (
+  events: ReadonlyArray<Event>,
+  stateOf: ReadonlyMap<Model, ListState>,
+  count = events.length
+): ListState | undefined => {
+  const last = applied(events.slice(0, count)).at(-1)
+  if (last !== undefined) return last.after
+  for (const event of events) {
+    if (event._tag === "Applied") return event.applied.before
+    if (event._tag === "Ignored") return event.ignored.state
+  }
+  const first = events.find((event) => event._tag === "Read")
+  return first?._tag === "Read" ? stateOf.get(first.model) : undefined
+}
+
+/** The message an event shows `update` heard, accepted or not, with where it came from. */
+const heardOf = (event: Event) =>
+  event._tag === "Applied"
+    ? Opt.some({ message: event.applied.message, origin: event.applied.origin })
+    : event._tag === "Ignored"
+    ? Opt.some({ message: event.ignored.message, origin: event.ignored.origin })
+    : Opt.none()
 
 /** The searches running after the first `count` events, by their text. */
 const searches = (events: ReadonlyArray<Event>, count = events.length) => {
@@ -722,15 +791,17 @@ const released = (events: ReadonlyArray<Event>, count: number) =>
 const given = (events: ReadonlyArray<Event>) =>
   new Set(events.flatMap((event) => event._tag === "Gave" ? [event.holder] : []))
 
+/** The listeners a state stops that the one before it listened with: those of `before` not in `after`. */
+const stoppedBy = ({ before, after }: Applied<ListState, Message, unknown>) =>
+  listeners(before).filter((key) => !listeners(after).includes(key))
+
 /**
- * The subscriptions that the accepted message of event `index` stops while they hold what they acquired, and those
- * of them whose release waits: a quick one ends before the next fiber runs, so only those that wait tell whether the
- * next message waits for the slowest.
+ * The subscriptions that the accepted message of event `index` stops while they hold what they acquired, and those of
+ * them whose release waits.
  */
 const stoppedAt = (events: ReadonlyArray<Event>, index: number, applied: Applied<ListState, Message, unknown>) => {
   const held = holding(events, index)
-  const stopped = listeners(applied.before).filter((key) => held.has(key) && !listeners(applied.after).includes(key))
-  // One that ends by itself releases in its own fiber, which may be before the step stops the others.
+  const stopped = stoppedBy(applied).filter((key) => held.has(key))
   const ended = new Set(events.flatMap((event) => event._tag === "Ended" ? [event.listener] : []))
   const waiting = new Set(
     events.slice(index + 1).flatMap((later) =>
@@ -744,11 +815,7 @@ const stoppedAt = (events: ReadonlyArray<Event>, index: number, applied: Applied
 
 /** The answer of a command that an event shows reaching update, accepted or not, by the command's name. */
 const answerOf = (event: Event) => {
-  const message = event._tag === "Applied"
-    ? event.applied.message
-    : event._tag === "Ignored"
-    ? event.ignored.message
-    : undefined
+  const message = Opt.getOrUndefined(heardOf(event))?.message
   return message?._tag === "Rows" && message.message._tag === "Done"
     ? Opt.some(`command ${message.message.born}.${message.message.attempt}` as const)
     : Opt.none()
@@ -778,11 +845,15 @@ const defects = (exit: Exit.Exit<unknown>) =>
     )
     : []
 
+/** The index of the first death the scenario decided, `events.length` when none. */
+const firstDeath = (events: ReadonlyArray<Event>) => {
+  const index = events.findIndex((event) => event._tag === "Died")
+  return index === -1 ? events.length : index
+}
+
 describe("interleavings of the user, commands and subscriptions", () => {
   const depth = 3
 
-  // fast-check draws the scenario and the seed of the prioritized schedules it runs under, one or more from that seed
-  // on, and a failure names both: fast-check's replays the scenario, the strategy's its order.
   const property = (
     check: (outcome: Outcome) => void,
     { schedules = 1, ...options }: Readonly<{ numRuns?: number; seed?: number; schedules?: number }> = {}
@@ -797,14 +868,6 @@ describe("interleavings of the user, commands and subscriptions", () => {
       { numRuns: 60, ...options }
     )
 
-  // The other properties would hold for scenarios that did nothing: the scenarios reach every message, every way of
-  // dying in every place, and what each property checks. Listening again takes three acts in a row (add, mute,
-  // listen), and stopping two subscriptions at once three too (add, add, clear), with two releases that wait, and a
-  // command dies only once one has started, before anything else has died, which some runs of 60 scenarios miss. The
-  // rarest, two releases that wait, comes in about twelve scenarios of 2,000, and a release that overtakes another,
-  // which only the waits' drawn lengths give, in about twenty: 2,000 make a miss rare. What is missing
-  // shows only once every scenario has run, after fast-check could name one, so the failure names the seed that
-  // makes them again.
   test("the scenarios reach every message, every way of dying, and what each property checks", () => {
     const seed = Math.floor(Math.random() * 2 ** 31)
     const reached = new Set<string>()
@@ -814,6 +877,11 @@ describe("interleavings of the user, commands and subscriptions", () => {
           reached.add("an answer after its release")
         }
         if (event._tag === "Spanned") reached.add("a span of the program")
+        if (event._tag === "Reentering") reached.add("a message a listener sends")
+        if (event._tag === "Typed") reached.add("a write typed into the element")
+        if (event._tag === "Acquired" && !listeners(stateAfter(events, index)).includes(event.listener)) {
+          reached.add("a subscription started once its key had gone")
+        }
         if (event._tag !== "Applied") return
         const { message } = event.applied
         reached.add(message._tag === "Rows" ? message.message._tag : message._tag)
@@ -822,27 +890,20 @@ describe("interleavings of the user, commands and subscriptions", () => {
         }
         if (event.applied.before === event.applied.after) reached.add("the very same state")
         if (stoppedAt(events, index, event.applied).waiting.size > 1) reached.add("two waiting releases")
+        const releasing = events.slice(0, index).flatMap((earlier) =>
+          earlier._tag === "Releasing" && !earlier.quick ? [earlier.listener] : []
+        )
+        if (releasing.some((key) => !released(events, index).has(key))) {
+          reached.add("a message applied while a release is under way")
+        }
       })
       for (const event of events) if (event._tag === "Died") reached.add(`${event.where} ${event.how}`)
       if (events.some(({ _tag }) => _tag === "Ignored")) reached.add("rejected")
-      // What the element made: an edit a frame has not seen yet, which a frame of the other input may meet, and a write
-      // rejected, the one of a place gone among them. A write of an older frame is one the element did not make.
-      const made = new Set(events.flatMap((event) => event._tag === "Edited" ? [event.write] : []))
-      let edit: Extract<Event, Readonly<{ _tag: "Edited" }>> | undefined
+      const typed = new Set(events.flatMap((event) => event._tag === "Typed" ? [event.write] : []))
       for (const event of events) {
-        if (event._tag === "Edited") edit = event
-        if (event._tag === "Settled" && edit !== undefined && event.seen < edit.number) {
-          reached.add("an element ahead of its frame")
-          if (event.input !== edit.input) reached.add("an element given another input")
-        }
         if (event._tag !== "Ignored") continue
-        const { message, state } = event.ignored
-        if (!isWrite(message)) continue
-        if (!made.has(message.message)) reached.add("a stale write")
-        else reached.add("a write of the element rejected")
-        if (made.has(message.message) && state.field._tag !== message._tag) {
-          reached.add("a write of the element to a place that is gone")
-        }
+        const { message } = event.ignored
+        if (isWrite(message) && !typed.has(message.message)) reached.add("a stale write")
       }
       if (events.some(({ _tag }) => _tag === "SearchStopped")) reached.add("a search stopped")
       const renderer = events.flatMap((event, index) =>
@@ -852,21 +913,11 @@ describe("interleavings of the user, commands and subscriptions", () => {
         reached.add("a renderer released once interrupted")
       }
       const states = 1 + applied(events).filter(({ before, after }) => before !== after).length
-      if (models < states) reached.add("a state no frame showed")
+      if (models < states) reached.add("a state whose model was never read")
       if (releaseOvertaken(events)) reached.add("a release overtaken")
-      const pulled = events.flatMap((event) => event._tag === "Drew" ? [event.frame] : [])
-      if (pulled.some((frame, index) => index > 0 && pulled[index - 1]?.model === frame.model)) {
-        reached.add("a frame of the very same state")
-      }
-      let heard = 0
-      for (const event of events) {
-        const origin = event._tag === "Applied"
-          ? event.applied.origin
-          : event._tag === "Ignored"
-          ? event.ignored.origin
-          : undefined
-        if (origin?._tag === "Dispatch") heard += 1
-        if (event._tag === "Drew" && event.frame.seen < heard) reached.add("a frame older than a message heard")
+      const reads = events.flatMap((event) => event._tag === "Read" ? [event.model] : [])
+      if (reads.some((model, index) => index > 0 && reads[index - 1] === model)) {
+        reached.add("a model read twice for one state")
       }
     }, { numRuns: 2000, seed })
     const places: ReadonlyArray<Where> = ["command", "subscription", "render"]
@@ -892,27 +943,25 @@ describe("interleavings of the user, commands and subscriptions", () => {
       "rejected",
       "a stale write",
       "a text replaced",
-      "an element ahead of its frame",
-      "a write of the element rejected",
-      "an element given another input",
-      "a write of the element to a place that is gone",
+      "a write typed into the element",
       "a search stopped",
       "two waiting releases",
       "the very same state",
       "an answer after its release",
       "a renderer released once interrupted",
-      "a state no frame showed",
+      "a state whose model was never read",
+      "a model read twice for one state",
       "a span of the program",
       "a release overtaken",
-      "a frame older than a message heard",
-      "a frame of the very same state"
+      "a message a listener sends",
+      "a message applied while a release is under way",
+      "a subscription started once its key had gone"
     ].filter((tag) => !reached.has(tag))
     if (missing.length > 0) throw new Error(`No scenario of seed ${seed} reached ${missing.join(", ")}`)
-  }, 180_000)
+  }, 240_000)
 
   test("a rejected message leaves the state as it was, and an accepted one starts from the one before", () => {
     property(({ events }) => {
-      // The first state heard is the one the run starts from.
       let state: ListState | undefined
       const broken: Array<string> = []
       for (const event of events) {
@@ -929,30 +978,101 @@ describe("interleavings of the user, commands and subscriptions", () => {
     })
   }, 120_000)
 
+  // `update` and the option that hears it are one thunk: no other message is heard between them.
+  test("messages are applied one at a time: each update is heard before the next one is called", () => {
+    property(({ events }) => {
+      const broken: Array<number> = []
+      let open = false
+      events.forEach((event, index) => {
+        if (event._tag === "Updated") {
+          if (open) broken.push(index)
+          open = true
+        }
+        if (Opt.isSome(heardOf(event))) open = false
+      })
+      expect(broken).toEqual([])
+    })
+  }, 120_000)
+
+  test("a dispatch has been applied when it returns", () => {
+    property(({ events }) => {
+      const broken: Array<string> = []
+      events.forEach((event, index) => {
+        if (event._tag !== "Returned") return
+        let sending = index
+        while (sending > 0 && events[sending]?._tag !== "Sending") sending -= 1
+        if (firstDeath(events) < index) return
+        const between = events.slice(sending + 1, index)
+        const heard = between.some((later) =>
+          Opt.match(heardOf(later), {
+            onNone: () => false,
+            onSome: ({ message, origin }) => origin._tag === "Dispatch" && innerOf(message) === event.message
+          })
+        )
+        if (!heard) broken.push(`a dispatch returned at ${index} before update heard it`)
+      })
+      expect(broken).toEqual([])
+    })
+  }, 120_000)
+
+  test("a message a listener sends is the next one heard, right after the step that told it", () => {
+    property(({ events }) => {
+      const broken: Array<string> = []
+      events.forEach((event, index) => {
+        if (event._tag !== "Reentering" || firstDeath(events) < index) return
+        const next = events.slice(index + 1).map(heardOf).find(Opt.isSome)
+        if (next === undefined || innerOf(next.value.message) !== event.message) {
+          broken.push(`the poke sent at ${index} was not the next message heard`)
+        }
+      })
+      expect(broken).toEqual([])
+    })
+  }, 120_000)
+
+  test("a model read after a notice is of the latest state, and the very same state has the very same model", () => {
+    property(({ events, stateOf }) => {
+      const broken: Array<string> = []
+      let previous: Model | undefined
+      events.forEach((event, index) => {
+        // A message whose `onApplied` throws is heard, and its state never made: reads after a death are left out.
+        if (event._tag !== "Read" || firstDeath(events) < index) return
+        if (stateOf.get(event.model) !== sameStateAfter(events, stateOf, index)) {
+          broken.push(`a ${event.why} read at ${index}`)
+        }
+        if (previous !== undefined && stateOf.get(previous) === stateOf.get(event.model) && previous !== event.model) {
+          broken.push(`a new model of the same state at ${index}`)
+        }
+        previous = event.model
+      })
+      expect(broken).toEqual([])
+    })
+  }, 120_000)
+
+  test("a model is made only when read, once for each state read", () => {
+    property(({ events, made, last, stateOf }) => {
+      const read = new Set(events.flatMap((event) => event._tag === "Read" ? [stateOf.get(event.model)] : []))
+      if (last !== undefined) read.add(stateOf.get(last))
+      expect(made).toBe(read.size)
+    })
+  }, 120_000)
+
   test("the defects of the cause are those that happened, self-interruptions too, each where, in order", () => {
     property(({ exit, events }) => {
       expect(defects(exit)).toEqual(deaths(events))
     })
   }, 120_000)
 
-  /**
-   * What the run did, of the events `tags` name, from the first defect on. A release that dies is left out: it counts
-   * once its scope has closed, which the scenario does not see.
-   */
   const sinceFirstDefect = (events: ReadonlyArray<Event>, tags: ReadonlyArray<Event["_tag"]>) => {
     const first = events.findIndex((event) => event._tag === "Died" && !event.released)
     return first === -1 ? [] : events.slice(first).filter(({ _tag }) => tags.includes(_tag)).map(({ _tag }) => _tag)
   }
 
-  // The windows between a check of the register of deaths and the call it guards are few among the orders, and this
-  // fails only on one of them: taken out, the check in the thunk of `update` was found in 205 scenarios of four
-  // schedules on average. 1,500 make a miss rare. A step under way may still start its commands, so none is asked.
   test("from the first defect on, the run applies no message", () => {
     property(
       ({ events }) => expect(sinceFirstDefect(events, ["Updated"])).toEqual([]),
       { numRuns: 1500, schedules: 4 }
     )
-  }, 120_000)
+  }, 240_000)
 
   test("a tick or the end of a subscription reaches update only while the session that sent it listens", () => {
     property(({ events }) => {
@@ -968,9 +1088,6 @@ describe("interleavings of the user, commands and subscriptions", () => {
     })
   }, 120_000)
 
-  // A stale write needs a write, a row, a clear and a write from a frame before it: taken out, the check of the
-  // revision was found after 20 to 532 scenarios, in four searches, in the design this replaced. 1,000 make a miss
-  // rare.
   test(
     "a write into the field is stored exactly when its place is there and holds the text it was written over, whatever it is",
     () => {
@@ -999,7 +1116,20 @@ describe("interleavings of the user, commands and subscriptions", () => {
     120_000
   )
 
-  // A write is a message of the list like any other: the search it starts and the one it stops follow the key.
+  // What a controlled element writes is over the value of the current model, which a dispatch applied at once keeps
+  // current: no write typed into it is ever stale.
+  test("a write typed into the element is never rejected", () => {
+    property(({ events }) => {
+      const typed = new Set(events.flatMap((event) => event._tag === "Typed" ? [event.write] : []))
+      const rejected = events.flatMap((event) =>
+        event._tag === "Ignored" && isWrite(event.ignored.message) && typed.has(event.ignored.message.message)
+          ? [event.ignored.message.message]
+          : []
+      )
+      expect(rejected).toEqual([])
+    })
+  }, 120_000)
+
   test("a search runs for the text of the field while it holds one, and starts once for each text it holds", () => {
     property(({ events, settled }) => {
       const broken: Array<string> = []
@@ -1011,89 +1141,6 @@ describe("interleavings of the user, commands and subscriptions", () => {
       if (deaths(events).length > 0) return
       const { text } = finalState(events).field
       expect(searches(events, settled)).toEqual(text === "" ? [] : [text])
-    })
-  }, 120_000)
-
-  // What the counts of the states published are: each dispatched message publishes a state, a new one or the same, and
-  // a message of a command or a subscription publishes one only when it makes a new state, with the count as it is.
-  const publishedCounts = (events: ReadonlyArray<Event>) => {
-    let heard = 0
-    const counts = new Set([0])
-    for (const event of events) {
-      const origin = event._tag === "Applied"
-        ? event.applied.origin
-        : event._tag === "Ignored"
-        ? event.ignored.origin
-        : undefined
-      if (origin?._tag === "Dispatch") {
-        heard += 1
-        counts.add(heard)
-      }
-      if (event._tag === "Applied" && event.applied.after !== event.applied.before) counts.add(heard)
-    }
-    return { counts, heard }
-  }
-
-  // The renderer may draw an older state than the last one published, which the sliding buffer drops, but never a
-  // count that no state was published with: `seen` is the count of the dispatched messages taken when the frame's
-  // state was published, which each dispatched message does, with a new state or the same.
-  test("a frame has seen the dispatched messages taken before it was published, and none after", () => {
-    property(({ events }) => {
-      const broken: Array<string> = []
-      const { counts } = publishedCounts(events)
-      let drawn = 0
-      for (const event of events) {
-        if (event._tag !== "Drew") continue
-        const { seen } = event.frame
-        if (!counts.has(seen)) broken.push(`a frame has seen ${seen}, which no state was published with`)
-        if (seen < drawn) broken.push(`a frame has seen ${seen}, after one that had seen ${drawn}`)
-        drawn = seen
-      }
-      expect(broken).toEqual([])
-    })
-  }, 120_000)
-
-  // Once nothing is under way, the renderer has drawn the last state published, whose count is that of every
-  // dispatched message the run has heard: no wait for `seen` is left without its frame.
-  test("the last frame has seen every dispatched message taken", () => {
-    property(({ events, settled }) => {
-      if (deaths(events).length > 0) return
-      const before = events.slice(0, settled)
-      const drawn = before.flatMap((event) => event._tag === "Drew" ? [event.frame.seen] : [])
-      expect(drawn.at(-1)).toBe(publishedCounts(before).heard)
-    })
-  }, 120_000)
-
-  // What the user typed is ahead of every frame that has not seen it: the element is left as it is, whatever such a
-  // frame holds, and whichever input it draws there.
-  test("the element keeps what was typed until a frame has seen it", () => {
-    property(({ events }) => {
-      const broken: Array<string> = []
-      let edit = 0
-      let text: string | undefined
-      for (const event of events) {
-        if (event._tag === "Edited") {
-          edit = event.number
-          text = event.text
-        }
-        if (event._tag !== "Settled") continue
-        if (event.seen < edit && event.text !== text) {
-          broken.push(`a frame that had seen ${event.seen} replaced ${String(text)}, typed as ${edit}`)
-        }
-        text = event.text
-      }
-      expect(broken).toEqual([])
-    })
-  }, 120_000)
-
-  // Every dispatched message has its frame, a write rejected because its place is gone or because the element was
-  // given another input included: the last one has seen them all, and gives the element the program's value.
-  test("once everything has happened, the element shows what the last state holds for the input drawn in it", () => {
-    property(({ events, settled, showing }) => {
-      if (deaths(events).length > 0) return
-      const drawn = events.slice(0, settled).flatMap((event) => event._tag === "Settled" ? [event.input] : [])
-      const { field } = finalState(events)
-      expect([drawn.at(-1), showing]).toEqual([field._tag, field.text])
     })
   }, 120_000)
 
@@ -1118,29 +1165,31 @@ describe("interleavings of the user, commands and subscriptions", () => {
     })
   }, 120_000)
 
-  // That they are released together is not checked here: a release waits by yielding, and a schedule may run one to
-  // its end before the fiber that interrupts the other first runs, which releases in turn would do too. The run's
-  // interruptions are concurrent ("keys that go away together release their subscriptions together, not one after
-  // the other", `engine.test.ts`); what any order must keep is that the next message waits for the slowest.
-  test("the subscriptions one message stops are released before the next message and any start", () => {
+  // Restated: the next message no longer waits for the releases of a state, and the effects of the next state do. A
+  // start belongs to the state whose message brought its key: every subscription that state, or one before it, stopped
+  // has released all before it starts, though later states may have stopped others meanwhile.
+  test("the subscriptions a state stops are released before any start of that state or a later one", () => {
     property(({ events }) => {
       const broken: Array<string> = []
       events.forEach((event, index) => {
-        if (event._tag === "Acquired") {
-          // A key that comes back finds the subscription it had before released.
-          const before = events.slice(0, index).flatMap((earlier) =>
-            earlier._tag === "Acquired" && earlier.id === event.id ? [earlier.listener] : []
-          )
-          const done = released(events, index)
-          for (const key of before) if (!done.has(key)) broken.push(`${event.listener} started before ${key} ended`)
-        }
-        if (event._tag !== "Applied") return
-        const { stopped } = stoppedAt(events, index, event.applied)
-        const rest = events.slice(index + 1)
-        const next = rest.findIndex(({ _tag }) => _tag === "Applied" || _tag === "Ignored")
-        if (next !== -1) {
-          const done = released(rest, next)
-          for (const key of stopped) if (!done.has(key)) broken.push(`a message came before ${key} ended`)
+        if (event._tag !== "Acquired") return
+        const done = released(events, index)
+        // A key that comes back finds the subscription it had before released.
+        const before = events.slice(0, index).flatMap((earlier) =>
+          earlier._tag === "Acquired" && earlier.id === event.id ? [earlier.listener] : []
+        )
+        for (const key of before) if (!done.has(key)) broken.push(`${event.listener} started before ${key} ended`)
+        const brought = events.findIndex((earlier) =>
+          earlier._tag === "Applied" && listeners(earlier.applied.after).includes(event.listener)
+          && !listeners(earlier.applied.before).includes(event.listener)
+        )
+        if (brought === -1) return
+        const acquired = new Set(events.slice(0, index).flatMap((e) => e._tag === "Acquired" ? [e.listener] : []))
+        for (const earlier of events.slice(0, brought + 1)) {
+          if (earlier._tag !== "Applied") continue
+          for (const key of stoppedBy(earlier.applied)) {
+            if (acquired.has(key) && !done.has(key)) broken.push(`${event.listener} started before ${key} ended`)
+          }
         }
       })
       expect(broken).toEqual([])
@@ -1156,7 +1205,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
     })
   }, 120_000)
 
-  test("the renderer releases what it acquired only once it has stopped, and draws nothing after", () => {
+  test("the renderer releases what it acquired only once it has stopped, and is told nothing after", () => {
     property(({ events }) => {
       const gave = events.findIndex((event) => event._tag === "Gave" && event.holder === "renderer")
       if (gave === -1) return
@@ -1165,7 +1214,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
         (event._tag === "Interrupted" && event.holder === "renderer") ||
         (event._tag === "Died" && event.where === "render")
       )).toBe(true)
-      expect(events.slice(gave).filter(({ _tag }) => _tag === "Drew")).toEqual([])
+      expect(events.slice(gave).filter(({ _tag }) => _tag === "Noticed")).toEqual([])
     })
   }, 120_000)
 
@@ -1190,15 +1239,12 @@ describe("interleavings of the user, commands and subscriptions", () => {
     })
   }, 120_000)
 
-  test("once everything has happened, every operation has ended and the last frame shows the last state", () => {
-    property(({ events, drawn }) => {
+  test("once everything has happened, every operation has ended and a model read is of the last state", () => {
+    property(({ events, last, stateOf }) => {
       if (deaths(events).length > 0) return
       const final = finalState(events)
       expect(final.rows.filter(({ row }) => row.working)).toEqual([])
-      expect(drawn?.rows.map(({ id, row }) => [id, row.working])).toEqual(
-        final.rows.map(({ id, row }) => [id, row.working])
-      )
-      expect(drawn?.field).toEqual(final.field)
+      expect(last === undefined ? undefined : stateOf.get(last)).toBe(sameStateAfter(events, stateOf))
     })
   }, 120_000)
 
@@ -1209,35 +1255,4 @@ describe("interleavings of the user, commands and subscriptions", () => {
       expect(parents.filter((parent) => parent !== caller?.spanId)).toEqual([])
     })
   }, 120_000)
-
-  test(
-    "a model is made once for each frame of a new state the renderer pulls, and the very same state has the very same model",
-    () => {
-      property(({ events, made, stateOf }) => {
-        const pulled = events.flatMap((event) => event._tag === "Drew" ? [event.frame] : [])
-        // A frame of the very same state as the frame pulled before it holds its very model, made once.
-        const broken: Array<string> = []
-        let fresh = 0
-        pulled.forEach((frame, index) => {
-          const previous = pulled[index - 1]
-          const same = previous !== undefined && stateOf.get(previous.model) === stateOf.get(frame.model)
-          if (same && previous.model !== frame.model) broken.push(`frame ${index} has a new model of the same state`)
-          if (!same) fresh += 1
-        })
-        expect(broken).toEqual([])
-        // A frame pulled as the end of the run interrupts the renderer has its model, and is never drawn.
-        expect(made).toBeGreaterThanOrEqual(fresh)
-        expect(made).toBeLessThanOrEqual(fresh + 1)
-        // The first frame is the state the run starts from; a message of a command or a subscription that makes no new
-        // state publishes none.
-        const published = 1 + events.filter((event) =>
-          event._tag === "Applied"
-            ? event.applied.before !== event.applied.after || event.applied.origin._tag === "Dispatch"
-            : event._tag === "Ignored" && event.ignored.origin._tag === "Dispatch"
-        ).length
-        expect(pulled.length).toBeLessThanOrEqual(published)
-      })
-    },
-    120_000
-  )
 })

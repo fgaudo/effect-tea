@@ -13,7 +13,7 @@ So most of its tests are plain function calls: no runtime, no DOM, nothing to mo
 
 ## A taste
 
-A form saves a name. The user taps "Save" twice, before the screen shows the first tap: a slow frame or a frozen app is
+A form saves a name. The user taps "Save" twice, before the screen shows the first tap: a slow draw or a frozen app is
 enough. Here is a test that the second tap does nothing, adapted from the tests of [`examples/form`](examples/form):
 
 ```ts
@@ -75,9 +75,9 @@ It probably does not when:
   model ([view](https://fgaudo.github.io/effect-tea/documents/Guide.View.html)). What the platform keeps by itself,
   such as a hover, the focus or an animation, is fine, and so is, with React, what the application's components keep
   beside the program;
-- you need more of a renderer than the package's bridges give. The bridges to snabbdom and to React draw each frame
-  whole, send messages from clicks and presses, and settle native text fields. The rest is left to a bridge of your
-  own ([writing a bridge](https://fgaudo.github.io/effect-tea/documents/Guide.Writing_a_bridge.html) explains one);
+- you need more of a renderer than the package's bridges give. The bridges to snabbdom and to React draw the model,
+  send messages from any event of a native element, and draw native controlled elements: a text field, a select, a
+  checkbox. The rest is left to a bridge of your own ([writing a bridge](https://fgaudo.github.io/effect-tea/documents/Guide.Writing_a_bridge.html) explains one);
 - you are not on Effect 4.
 
 It is at version 0.x, so the API still changes. [`CHANGELOG.md`](CHANGELOG.md) says how to upgrade over each breaking
@@ -105,12 +105,12 @@ does not install them, and the rest of it needs neither.
 ## Quick start
 
 A counter that cannot go below zero, in one file you can run as it is. There is no screen yet: the "renderer" here
-only logs each frame, and clicks "increment" until the count reaches 3.
+only logs each model, and clicks "increment" until the count reaches 3. A click is applied when `dispatch` returns, so
+the next model can be read at once.
 
 ```ts
 import { program, reject, run, type Update } from "@fgaudo/effect-tea"
 import * as Effect from "effect/Effect"
-import * as Stream from "effect/Stream"
 
 type State = Readonly<{ count: number }>
 
@@ -146,15 +146,15 @@ const counter = program<{ state: State; model: Model; message: Message }>().make
       : { _tag: "AtZero", count, increment: "Increment" }
 })
 
-const main = run(counter, (frames) =>
-  frames.pipe(
-    Stream.tap(Effect.fnUntraced(function*({ model, dispatch }) {
-      yield* Effect.log(model.count)
-      if (model.count < 3) yield* dispatch(model.increment)
-    })),
-    Stream.take(4),
-    Stream.runDrain
-  ))
+// The run ends when its renderer ends.
+const main = run(counter, (app) =>
+  Effect.sync(() => {
+    for (let model = app.model();; model = app.model()) {
+      console.log(model.count)
+      if (model.count === 3) return
+      app.dispatch(model.increment)
+    }
+  }))
 
 Effect.runFork(main) // logs 0, 1, 2, 3
 ```
@@ -169,19 +169,20 @@ is nothing to send.
 const view: View<Model, Message> = (model, dispatch) => (
   <main className="counter">
     {model._tag === "Counting"
-      ? <button type="button" onClick={onClick(model.decrement, dispatch)}>−</button>
+      ? <button type="button" onClick={() => dispatch(model.decrement)}>−</button>
       : <button type="button" disabled>−</button>}
     <output>{model.count}</output>
-    <button type="button" onClick={onClick(model.increment, dispatch)}>+</button>
+    <button type="button" onClick={() => dispatch(model.increment)}>+</button>
   </main>
 )
 
 createRoot(root).render(<Host program={counter}>{view}</Host>)
 ```
 
-`View`, `onClick` and `Host` are the package's bridge to React, `@fgaudo/effect-tea/react`
-([`bridges/react.ts`](bridges/react.ts)). `Host` runs
-the program while it is mounted. [`examples/counter`](examples/counter) draws the same program with snabbdom.
+`View` and `Host` are the package's bridge to React, `@fgaudo/effect-tea/react`
+([`bridges/react.ts`](bridges/react.ts)). `Host` runs the program while it is mounted. A handler calls `dispatch`
+itself: when it returns, `update` has seen the message. [`examples/counter`](examples/counter) draws the same program
+with snabbdom.
 
 ### With its tests
 
@@ -223,16 +224,16 @@ browser, or run it: `bun run build`, then `bun examples/<name>/index.html`. They
 `@fgaudo/effect-tea/snabbdom` and `@fgaudo/effect-tea/react`, whose sources are in [`bridges/`](bridges).
 [`examples/README.md`](examples/README.md) says where to start.
 
-| Example                           | What it is                   | What it shows                                                                                                                                                                                                                                                                   | Try it                                                          |
-| --------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| [`counter`](examples/counter)     | the quick start, with a view | The smallest program, tested with `applyAll`, `dispatchViolations` and `drive`. One run, drawn by snabbdom and by React, one under the other. A click in either is drawn by both                                                                                                | [live](https://fgaudo.github.io/effect-tea/examples/counter/)   |
-| [`form`](examples/form)           | a form that saves a name     | A text input declared in `make`. A save through a service, its failure as a message, and a saving state that only the save's answer leaves. Tested with `rehearse`, and drawn by both renderers: in React, the input is `Shows`, an uncontrolled `<input>` with no `value` prop | [live](https://fgaudo.github.io/effect-tea/examples/form/)      |
-| [`volume`](examples/volume)       | two sliders, side by side    | Sliders the program draws itself, because their bounds narrow. A drag is a subscription keyed by the slider. Tested with `drive`, and with `dispatchViolations` given a key's messages                                                                                          | [live](https://fgaudo.github.io/effect-tea/examples/volume/)    |
-| [`bounce`](examples/bounce)       | a ball that bounces to rest  | An animation moved by equal steps of the state. A subscription sends a step for each `dt` of the screen's frames, then the part of the next step, which the state keeps to draw between two steps. Tested with `applyAll`, `dispatchViolations` and `drive`                     | [live](https://fgaudo.github.io/effect-tea/examples/bounce/)    |
-| [`pages`](examples/pages)         | a clock and an About page    | Two pages under a parent, with `program`, optics, `forwardTo`, events and `subscribed`. A page started from flags. Tested with `simulate`                                                                                                                                       | [live](https://fgaudo.github.io/effect-tea/examples/pages/)     |
-| [`list`](examples/list)           | stopwatches by id            | Children by id with `childById`, and `forEach`. A subscription for each stopwatch that runs. A test with a `TestClock`                                                                                                                                                          | [live](https://fgaudo.github.io/effect-tea/examples/list/)      |
-| [`stocktake`](examples/stocktake) | the count of an aisle        | Inputs by id with `inputById`, and an input that is not always there. A scanner as a subscription whose end is a message. Tested with `simulate`, `rehearse` and `drive`                                                                                                        | [live](https://fgaudo.github.io/effect-tea/examples/stocktake/) |
-| [`timer`](examples/timer)         | the tutorial's application   | Named timers by id. Each name is an input, each timer ticks only while it runs, and the bell is a command. Tested with `rehearse`: `hear`, and a write with `send`                                                                                                              | [live](https://fgaudo.github.io/effect-tea/examples/timer/)     |
+| Example                           | What it is                   | What it shows                                                                                                                                                                                                                                                  | Try it                                                          |
+| --------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [`counter`](examples/counter)     | the quick start, with a view | The smallest program, tested with `applyAll`, `dispatchViolations` and `drive`. One run, drawn by snabbdom and by React, one under the other. A click in either is drawn by both                                                                               | [live](https://fgaudo.github.io/effect-tea/examples/counter/)   |
+| [`form`](examples/form)           | a form that saves a name     | A text input declared in `make`. A save through a service, its failure as a message, and a saving state that only the save's answer leaves. Tested with `rehearse`, and drawn by both renderers, each as a controlled `<input>`                                | [live](https://fgaudo.github.io/effect-tea/examples/form/)      |
+| [`volume`](examples/volume)       | two sliders, side by side    | Sliders the program draws itself, because their bounds narrow. A drag is a subscription keyed by the slider. Tested with `drive`, and with `dispatchViolations` given a key's messages                                                                         | [live](https://fgaudo.github.io/effect-tea/examples/volume/)    |
+| [`bounce`](examples/bounce)       | a ball that bounces to rest  | An animation moved by equal steps of the state. A subscription sends a step for each `dt` of the screen's refreshes, then the part of the next step, which the state keeps to draw between two steps. Tested with `applyAll`, `dispatchViolations` and `drive` | [live](https://fgaudo.github.io/effect-tea/examples/bounce/)    |
+| [`pages`](examples/pages)         | a clock and an About page    | Two pages under a parent, with `program`, optics, `forwardTo`, events and `subscribed`. A page started from flags. Tested with `simulate`                                                                                                                      | [live](https://fgaudo.github.io/effect-tea/examples/pages/)     |
+| [`list`](examples/list)           | stopwatches by id            | Children by id with `childById`, and `forEach`. A subscription for each stopwatch that runs. A test with a `TestClock`                                                                                                                                         | [live](https://fgaudo.github.io/effect-tea/examples/list/)      |
+| [`stocktake`](examples/stocktake) | the count of an aisle        | Inputs by id with `inputById`, and an input that is not always there. A scanner as a subscription whose end is a message. Tested with `simulate`, `rehearse` and `drive`                                                                                       | [live](https://fgaudo.github.io/effect-tea/examples/stocktake/) |
+| [`timer`](examples/timer)         | the tutorial's application   | Named timers by id. Each name is an input, each timer ticks only while it runs, and the bell is a command. Tested with `rehearse`: `hear`, and a write with `send`                                                                                             | [live](https://fgaudo.github.io/effect-tea/examples/timer/)     |
 
 ## Documentation
 

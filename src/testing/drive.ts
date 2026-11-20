@@ -1,37 +1,44 @@
+// `drive` runs the program with `run`: its renderer is told of every state, and reads the model of each one.
+import * as Arr from "effect/Array"
+import * as Cause from "effect/Cause"
 import * as Clock from "effect/Clock"
+import * as Deferred from "effect/Deferred"
 import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import * as Opt from "effect/Option"
 import type * as Scope from "effect/Scope"
-import * as Stream from "effect/Stream"
-import * as SubscriptionRef from "effect/SubscriptionRef"
 import * as Core from "../core.ts"
+import type { Dispatch } from "../dispatch.ts"
 import type { RunOptions } from "../engine.ts"
 import type { FlagsOption, Shape } from "../program.ts"
-import { type Frame, runWith } from "../run.ts"
+import { type App, runWith } from "../run.ts"
 import { makeDeaths } from "../shell.ts"
 
 /**
- * The user of a program that `drive` runs: it waits for what the frames show, and sends what they show.
+ * The user of a program that `drive` runs: it waits for what the models show, and sends what they show.
  *
  * @example
  * ```ts
  * yield* driver.send((model) => Opt.some(model.increment))
  * const count = yield* driver.waitFor((model) => (model.count === 1 ? Opt.some(model.count) : Opt.none()))
  * ```
+ *
+ * @see The guide, "Testing tools", "drive".
  */
 export type Driver<Model, Message> = {
-  /** Waits for a frame whose model `select` maps to `Some`, and returns that value. */
+  /** Waits for a model that `select` maps to `Some`, the current one or a later one, and returns that value. */
   readonly waitFor: <A>(select: (model: Model) => Opt.Option<A>) => Effect.Effect<A>
   /**
-   * Waits for a frame on which `select` finds a message, and sends it through that frame's dispatch, as a control drawn
-   * from that model would.
+   * Waits for a model on which `select` finds a message, the current one or a later one, and sends it at once, as a
+   * control drawn from that model would: when it returns, `update` has seen the message.
    */
   readonly send: (select: (model: Model) => Opt.Option<Message>) => Effect.Effect<void>
-  /** Waits for the first frame, and returns the latest. */
-  readonly latest: Effect.Effect<Frame<Model, Message>>
+  /** The model of the current state. After a defect of the program, it fails with the defect. */
+  readonly model: Effect.Effect<Model>
+  /** The run's own dispatch: for a tap on a model that the state has moved past since. */
+  readonly dispatch: Dispatch<Message>
 }
 
 /**
@@ -47,18 +54,27 @@ export interface DriveOptions<State, Message, Command = unknown> extends RunOpti
   readonly patience?: Duration.Input
 }
 
+// What the renderer of `drive` keeps: the model it read last, of the current state, and what the waits wait on until
+// the next state is current.
+type Shown<Model, Message> = Readonly<{
+  app: App<Model, Message>
+  latest: () => Model
+  changed: () => Deferred.Deferred<void>
+}>
+
 /**
- * Runs a program and plays a scenario on its frames, as a user would.
+ * Runs a program and plays a scenario on its models, as a user would.
  *
  * It takes the program to run, one without events; the scenario, what the user does through the {@link Driver} it is
  * given; and its options: `flags`, when the program has them, `patience`, and the options of `RunOptions`.
  *
- * - It sends what the frames show, through the run's dispatch. The program's subscriptions run.
+ * - It sends what the models show, through the run's dispatch. The program's subscriptions run.
  * - A wait that lasts longer than `patience` fails. `patience` is 2 seconds by default, measured with the real clock.
- *   The error's `cause` is the model of the latest frame, when there is one.
- * - Time in `drive` is real. A frame may be past when its message arrives, so a rejected message is ignored, as in a
+ *   The error's `cause` is the latest model.
+ * - Time in `drive` is real. A model may be past when its message arrives, so a rejected message is ignored, as in a
  *   run.
- * - A wait looks at the latest frame and at later ones.
+ * - A wait looks at the current model and at later ones. One that ends once a model shows a step does not wait for
+ *   the step's commands: they start after it, and a scenario that ends there may end the run before they start.
  * - The program's commands run as soon as they start. To hold a command, give the program a service that waits on a
  *   `Deferred` that the scenario completes.
  * - To start from another state, give it the program with another `init`.
@@ -102,41 +118,78 @@ export const drive = Effect.fnUntraced(function*<
     ? [options?: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>]
     : [options: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
 ): Effect.fn.Return<A, E, Exclude<RC | RS, Scope.Scope> | RT> {
-  const frames = yield* SubscriptionRef.make<Opt.Option<Frame<Model, Message>>>(Opt.none())
-  const first = <B>(select: (frame: Frame<Model, Message>) => Effect.Effect<Opt.Option<B>>): Effect.Effect<B> =>
-    SubscriptionRef.changes(frames).pipe(
-      Stream.mapEffect(Opt.match({ onNone: () => Effect.succeedNone, onSome: select })),
-      Stream.filter(Opt.isSome),
-      Stream.runHead,
-      Effect.flatMap(Effect.fromOption),
-      Effect.map((found) => found.value),
+  // What the run's fibers die of, the defects of `makeModel` the renderer meets included, as `drive` ends with it.
+  const deaths = yield* makeDeaths(() => true)
+  const shown = yield* Deferred.make<Shown<Model, Message>>()
+  // Told of every state, it reads the model of each one, in the listener, on whatever stack made the state, and wakes
+  // the waits last, so that a wait it wakes on that stack finds the model read. A model that throws is recorded once,
+  // in `'render'`, by the run, and the listener's site takes it as it is.
+  const render = (app: App<Model, Message>) =>
+    Effect.acquireRelease(
+      Effect.sync(() => {
+        // A read of the model may wake, on this stack, a fiber that makes a newer state, and the read of that one
+        // ends first: only the read of the latest notice is kept.
+        let notices = 0
+        let latest: Model | undefined
+        let changed = Deferred.makeUnsafe<void>()
+        const read = () => {
+          const notice = ++notices
+          const model = app.model()
+          if (notice === notices) latest = model
+        }
+        // Subscribed before the first read, so that no state is missed.
+        const unsubscribe = app.subscribe(() => {
+          read()
+          const woken = changed
+          changed = Deferred.makeUnsafe<void>()
+          Deferred.doneUnsafe(woken, Effect.void)
+        })
+        read()
+        Deferred.doneUnsafe(shown, Effect.succeed({ app, latest: () => latest as Model, changed: () => changed }))
+        return unsubscribe
+      }),
+      (unsubscribe) => Effect.sync(unsubscribe)
+    ).pipe(Effect.andThen(Effect.never), Effect.scoped)
+  // The first model `select` maps to `Some`, the current one or a later one: what the waits wait on is taken before
+  // the model is read, in one step, so that no state made in between is missed.
+  const first = <B>({ latest, changed }: Shown<Model, Message>, select: (model: Model) => Opt.Option<B>) => {
+    const look: Effect.Effect<B> = Effect.suspend(() => {
+      const next = changed()
+      const found = select(latest())
+      return Opt.isSome(found) ? Effect.succeed(found.value) : Effect.andThen(Deferred.await(next), look)
+    })
+    return look.pipe(
       Effect.timeoutOption(patience),
       // Measured with the real clock: under a `TestClock` that nobody adjusts, a wait would never end.
       Effect.provideService(Clock.Clock, Clock.Clock.defaultValue()),
       Effect.flatMap(Opt.match({
         onNone: () =>
-          Effect.flatMap(SubscriptionRef.get(frames), (latest) =>
-            Effect.die(
-              new Error(
-                `No frame showed what the test waits for within ${Duration.format(Duration.fromInputUnsafe(patience))}`,
-                Opt.match(latest, { onNone: () => undefined, onSome: (frame) => ({ cause: frame.model }) })
-              )
-            )),
+          Effect.die(
+            new Error(
+              `No model showed what the test waits for within ${Duration.format(Duration.fromInputUnsafe(patience))}`,
+              { cause: latest() }
+            )
+          ),
         onSome: Effect.succeed
-      })),
-      // The frames never end, so a frame always comes before the stream ends.
-      Effect.orDie
+      }))
     )
-  // What the run's fibers die of, the renderer's `makeModel` included, as `drive` ends with it.
-  const deaths = yield* makeDeaths(() => true)
-  const driver: Driver<Model, Message> = {
-    waitFor: (select) => first((frame) => Effect.sync(() => select(frame.model))),
-    send: (select) => Effect.flatten(first((frame) => Effect.sync(() => Opt.map(select(frame.model), frame.dispatch)))),
-    latest: first(Effect.succeedSome)
   }
+  const driverOf = (now: Shown<Model, Message>): Driver<Model, Message> => ({
+    waitFor: (select) => first(now, select),
+    // Selected and sent in one step, in the thunk that looks at the model, as a handler drawn from that model sends it:
+    // sent once the wait has returned, past its race with the patience, it could find a later state.
+    send: (select) => first(now, (model) => Opt.map(select(model), now.app.dispatch)),
+    model: Effect.suspend(() => {
+      const dies = deaths.all()
+      return Arr.isReadonlyArrayNonEmpty(dies)
+        ? Effect.failCause(Cause.fromReasons<never>(dies))
+        : Effect.succeed(now.latest())
+    }),
+    dispatch: now.app.dispatch
+  })
   const running = runWith(
     program,
-    (rendered) => Stream.runForEach(rendered, (frame) => SubscriptionRef.set(frames, Opt.some(frame))),
+    render,
     // The rest of the options keeps the flags the parameter's type requires.
     options as RunOptions<State, Message, Command>,
     deaths
@@ -145,13 +198,15 @@ export const drive = Effect.fnUntraced(function*<
   // dies of as it releases what it holds.
   return yield* Effect.uninterruptibleMask(Effect.fnUntraced(function*(restore) {
     // Not `restore(running)`: it would give the run the region of whoever runs `drive`, uninterruptible where that is,
-    // when a fiber forked here is interruptible all the same (`docs/premises.md`). Started at once, on this stack until
-    // it first waits (`docs/premises.md`), so that the run has called `init` before the scenario begins, as `rehearse`
-    // has: a scenario that ends at once would otherwise interrupt a run that never started.
-    const fiber = yield* Effect.forkChild(running, { startImmediately: true })
+    // when a fiber forked here is interruptible all the same (`docs/premises.md`). The scenario waits for the renderer's
+    // handle, below, so the run has called `init` before it begins, as `rehearse` has, however the run's fiber starts.
+    const fiber = yield* Effect.forkChild(running)
+    // The scenario begins once the renderer has its handle, so that the driver's dispatch is the run's from the
+    // scenario's first step; a run that ends first ends `drive`, the scenario never begun.
     const ended = yield* Effect.exit(restore(Effect.raceFirst(
-      // Suspended, so that a scenario that throws before it returns its effect fails here, past nothing of the end.
-      Effect.asSome(Effect.exit(Effect.suspend(() => scenario(driver)))),
+      Effect.flatMap(Deferred.await(shown), (now) =>
+        // Suspended, so that a scenario that throws before it returns its effect fails here, past nothing of the end.
+        Effect.asSome(Effect.exit(Effect.suspend(() => scenario(driverOf(now)))))),
       Effect.as(Fiber.await(fiber), Opt.none())
     )))
     yield* Fiber.interrupt(fiber)

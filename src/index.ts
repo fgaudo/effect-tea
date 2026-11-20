@@ -54,9 +54,8 @@ export {
   type Update
 } from "./update.ts"
 
-// What the outside writes into a program's state: an input, declared in `program`, and the rule a bridge calls
-// for the element that shows one.
-export { drawn, edited, type Shown, type Written } from "./input.ts"
+// What the outside writes into a program's state: an input, declared in `program`, and what a view writes into it.
+export type { Written } from "./input.ts"
 
 // The effects it describes: commands, and subscriptions to the world.
 export type { Execution, RunCommand } from "./command.ts"
@@ -65,7 +64,7 @@ export type { Subscription, Subscriptions } from "./subscription.ts"
 // How a view sends messages, its children's included.
 export { type Dispatch, forwardTo } from "./dispatch.ts"
 
-// Running a program with a renderer.
+// Running a program with a renderer, which gets a handle on the running program.
 export { CompositionDefect, defect, type DefectSite, InvariantDefect, ProgramDefect } from "./defect.ts"
 export type { Applied, Ignored, Origin, RunOptions } from "./engine.ts"
-export { type Frame, run } from "./run.ts"
+export { type App, run } from "./run.ts"

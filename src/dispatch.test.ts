@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test"
-import * as Effect from "effect/Effect"
 import * as Equal from "effect/Equal"
 import * as Hash from "effect/Hash"
 import { collectGarbage } from "../test/gc.test_helper.ts"
@@ -14,7 +13,7 @@ type Message = Row | Clock | Toast
 /** A dispatch that keeps what it is sent. */
 const recording = () => {
   const sent: Array<Message> = []
-  const dispatch: Dispatch<Message> = (message) => Effect.sync(() => sent.push(message))
+  const dispatch: Dispatch<Message> = (message) => void sent.push(message)
   return { sent, dispatch }
 }
 
@@ -52,8 +51,8 @@ const entriesLeft = async (dispatch: Dispatch<Message>, atMost: number) => {
 describe("forwardTo", () => {
   test("wraps a child's messages as the parent receives them, with the id of a child by id", () => {
     const { sent, dispatch } = recording()
-    Effect.runSync(forwardTo(dispatch, "Clock")("Tick"))
-    Effect.runSync(forwardTo(dispatch, "Row", 7)("Inc"))
+    forwardTo(dispatch, "Clock")("Tick")
+    forwardTo(dispatch, "Row", 7)("Inc")
     expect(sent).toEqual([{ _tag: "Clock", message: "Tick" }, { _tag: "Row", id: 7, message: "Inc" }])
   })
 
@@ -126,7 +125,7 @@ describe("forwardTo", () => {
     }
     const sent: Array<unknown> = []
     const dispatch: Dispatch<Readonly<{ _tag: "Row"; id: Colliding; message: "Inc" }>> = (message) =>
-      Effect.sync(() => sent.push(message))
+      void sent.push(message)
     const drawAll = () => {
       for (const name of ["a", "b", "c", "d"]) forwardTo(dispatch, "Row", new Colliding(name))
     }
@@ -143,7 +142,7 @@ describe("forwardTo", () => {
     const row = forwardTo(dispatch, "Row", ["milk", 1])
     expect(forwardTo(dispatch, "Row", ["milk", 1])).toBe(row)
     expect(forwardTo(dispatch, "Row", ["milk", 2])).not.toBe(row)
-    Effect.runSync(row("Inc"))
+    row("Inc")
     expect(sent).toEqual([{ _tag: "Row", id: ["milk", 1], message: "Inc" }])
   })
 

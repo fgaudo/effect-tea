@@ -1,27 +1,29 @@
 // Each page gets a dispatch of its own, which wraps its messages as the parent receives them. `forwardTo` gives
-// it the same dispatch in every frame, so snabbdom's `thunk` skips a page whose model has not changed.
+// it the same dispatch every time it is drawn, so snabbdom's `thunk` skips a page whose model has not changed.
 import { type Dispatch, forwardTo } from "@fgaudo/effect-tea"
-import { onClick, type View } from "@fgaudo/effect-tea/snabbdom"
+import type { View } from "@fgaudo/effect-tea/snabbdom"
 import * as Opt from "effect/Option"
 import { h, thunk, type VNode } from "snabbdom"
 import type * as About from "./about.ts"
 import type { Message, Model } from "./app.ts"
 import type * as Clock from "./clock.ts"
 
-const clockView = (model: Clock.Model, dispatch: Dispatch<Clock.Message>): VNode =>
-  h("main", [
+const clockView = (model: Clock.Model, dispatch: Dispatch<Clock.Message>): VNode => {
+  const { format } = model
+  return h("main", [
     h("time", model.time),
-    model.format._tag === "Iso"
-      ? h("button.secondary", { on: onClick(model.format.toUnix, dispatch) }, "Unix time")
-      : h("button.secondary", { on: onClick(model.format.toIso, dispatch) }, "ISO time"),
-    h("button", { on: onClick(model.openAbout, dispatch) }, "About")
+    format._tag === "Iso"
+      ? h("button.secondary", { on: { click: () => dispatch(format.toUnix) } }, "Unix time")
+      : h("button.secondary", { on: { click: () => dispatch(format.toIso) } }, "ISO time"),
+    h("button", { on: { click: () => dispatch(model.openAbout) } }, "About")
   ])
+}
 
 const aboutView = (model: About.Model, dispatch: Dispatch<About.Message>): VNode =>
   h("main", [
     ...Opt.match(model.openedAt, { onNone: () => [], onSome: (at) => [h("p", `Opened at ${at}`)] }),
     Opt.match(model.saying, { onNone: () => h("blockquote", "…"), onSome: (saying) => h("blockquote", saying) }),
-    h("button.secondary", { on: onClick(model.back, dispatch) }, "Back")
+    h("button.secondary", { on: { click: () => dispatch(model.back) } }, "Back")
   ])
 
 export const view: View<Model, Message> = (model, dispatch) => {

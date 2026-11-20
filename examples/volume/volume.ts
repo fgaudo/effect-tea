@@ -106,7 +106,7 @@ export const update: Update<State, Message> = (message) => (state) => {
         : { state: { ...state, ringer: within(state.ringer, maxOf(Limit.Quiet())), limit: Limit.Quiet() } }
     case "FullClicked":
       return state.limit._tag === "Full" ? reject : { state: { ...state, limit: Limit.Full() } }
-    // A press on a frame drawn before the last one ended may come while a drag goes on, or on the media's track
+    // A press on a view drawn before the last one ended may come while a drag goes on, or on the media's track
     // drawn before a mute: it starts nothing.
     case "DragStarted":
       return state.drag._tag === "Dragging" || (message.slider === "Media" && state.sound._tag === "Muted")

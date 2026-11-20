@@ -19,43 +19,33 @@ test of it. None is open.
 
 ### 1. A dispatch that applies its message at once
 
-**Why.** A dispatch only queues its message, and `update` hears it later. An element with a value of its own needs the
-state to change during its event. What the library has for the element of an input follows from that one premise:
-`seen`, the number a dispatch returns, `Shown`, `edited`, `drawn`, and bridges that settle a native text field alone.
-Spiked on 20 November 2026, and decided by the owner the same day, with every answer of its plan.
+**Why.** A dispatch only queued its message, and `update` heard it later. An element with a value of its own needs the
+state to change during its event, and what the library had for the element of an input followed from that one premise:
+`seen`, the number a dispatch returned, `Shown`, `edited`, `drawn`, and bridges that settled a native text field alone.
+Spiked on 20 November 2026, decided by the owner the same day with every answer of its plan, and swapped in that day:
+a dispatch is a function that applies its message before it returns, and a renderer gets an `App`.
 
-**How.** As the plan of [`docs/records/synchronous-dispatch.md`](docs/records/synchronous-dispatch.md) says, in stages,
-on `main`. The new engine, the new testing tools and the new bridges are written beside the old ones, in `src/next/`
-and `bridges/next/`, and swapped in one commit. Stages 0 to 3 are done: the decisions, the engine with its run, the
-testing tools and the bridges, in `src/next/` and `bridges/next/`. An input as a value of the library's in the model
-(R4 of the record) was spiked, and rejected by the owner. **The next step is the swap** (4), not started. Then a
-reader's check of the documentation (5).
+**How.** As the plan of [`docs/records/synchronous-dispatch.md`](docs/records/synchronous-dispatch.md) says. Stages 0
+to 4 are done, each with its outcome in the record. **What is left is stage 5, a reader's check of the documentation**
+([`guide-reader`](.agents/skills/guide-reader/SKILL.md)), by a session that wrote none of it.
 
 **Where it stands**, 20 November 2026, for a session that takes this up with none of the conversation:
 
-- Each stage is a session of Opus 5.5 in this checkout, which commits nothing. It writes its report to
-  `scratch/reports/sync-dispatch-stage-<n>.md`, which git ignores. The session that briefs it reads the report, reviews
-  the diff, runs every check again, writes the stage's outcome in the record and commits.
-- Nothing of the stages is uncommitted, and no session is at work on them.
-- **R4 was rejected by the owner**, 20 November 2026, on its spike
-  ([`input-in-the-model.md`](docs/records/input-in-the-model.md), and `docs/rejected.md`, "An entry of each input in
-  the model, which a view writes through"). So the views of stage 4 write `Written` by hand, over the value their
-  model holds, as those of stage 3's tests do. The spike's branch, `claude/spike-input-in-model`, is never to be
-  merged.
-- **Stage 4 is not started.** It is three sessions at once, each on files of its own, as the record's "The swap"
-  says: the code and the examples; the guide and what follows it; the repository's documents. The doc comments wait
-  for the code to be in its place, since both are in the same files.
-- Decided by the owner, 20 November 2026, on what stage 3 found: React reads the model in the store's notice itself,
-  so `makeModel` runs on the stack of whoever sent the message, under React too, and for every new state. No page of
-  react.dev says it, and nothing of the bridge rests on it. It is no premise and no promise: the guide's "What is left
-  to you" says that, with the bridge to React, `makeModel` may run for each new state, in the call that sends its
-  message. The test of stage 3 stays, as the alarm of that description.
-- Left open by the stages, for stage 4 or before, each in the record under its stage: a job queued for each message;
-  the loop of the thunk with no `finally`; what `docs/premises.md` still says of `FiberSet.run` and of
-  `startImmediately`; `Driver.waitFor` after a defect of a later model; a snabbdom renderer interrupted while its run
-  goes on.
+- **The swap is committed.** The engine, the testing tools and the bridges are the new ones, `src/next/` and
+  `bridges/next/` are gone, and the guide, `docs/invariants.md`, `docs/premises.md` and the changelog describe the new
+  code. Every check of the stage passed, run again by the session that briefed it.
+- **`AGENTS.md` still has seven sentences that the swap makes untrue.** They wait for the owner's yes, under "Waiting
+  for the owner", with three points of the guide.
+- **Tried in a browser**, by the session that verified the swap, in Chromium, with keys sent as a user's. In the form,
+  with snabbdom and with React: a text typed in its middle, and over a selection, keeps its caret, and a save empties
+  both fields. In the stock-take: a count typed in its middle, and a submit. Firefox, WebKit and an IME composition
+  were not run (item 3).
+- **For the reader's check**: "View" has no "Precisely" section any more, since its three parts went with the frames.
+- Left open by the stages, each in the record under its stage: a job queued for each message; the loop of the thunk
+  with no `finally`; a snabbdom renderer interrupted while its run goes on; a test of the timer's buttons, in the
+  bridges' tests, that no mutation tried makes fail.
 
-**Done when** the swap is committed, every check of its stage passed, and the reader's check is done.
+**Done when** the reader's check is done.
 
 ### 2. Release 0.8.0
 
@@ -65,22 +55,30 @@ release has had yet.
 
 **How.** As [`release`](.agents/skills/release/SKILL.md) says. First a review of the premises
 ([`premise-review`](.agents/skills/premise-review/SKILL.md)), in a session that wrote none of the changes of the engine
-and of the testing tools since the last review. Then `bun run mutations` and `bun run interleavings`, and the site
-built without warnings. Then the release commit and its tag. The owner publishes to npm.
+and of the testing tools since the last review. The swap of item 1 leaves that review two leads. No test that a
+premise names was run again without its premise, under the new engine: `docs/premises.md` was rewritten by reading.
+And the premise "`Effect.scoped` fails with what a finalizer of its scope dies of" names a test that
+`test/premises.test.ts` has not had since `35fe18f`. Then `bun run mutations` and `bun run interleavings`, and the
+site built without warnings. Then the release commit and its tag. The owner publishes to npm.
 
 **Done when** the tag `v0.8.0` is pushed.
 
 ### 3. The bridges in a real browser
 
-**Why.** The bridges' tests run on happy-dom, which no browser is. The caret, and an IME composition while the program
-changes a value under the user, were never run. It comes after item 1, which replaces both bridges, and whose plan
-leaves it one more case: what is typed with snabbdom between a notice and its draw.
+**Why.** The bridges' tests run on happy-dom, which no browser is. The bridges draw controlled elements, and what is
+typed into one rests on a premise seen only in happy-dom and in one browser (`docs/premises.md`, of a controlled
+input): a text typed in its middle, with its caret, was tried once, by hand, in Chromium
+([`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md)). Never run: an IME composition while the program
+changes a value under the user, and what is typed with snabbdom between a notice from a command or a subscription and
+its draw, at the next animation frame, which is rejected and taken back.
 
-**How.** The tests of `bridges/bridge.test_suite.ts` run in a real browser too, with those two cases; the tool is to be
-chosen. With React, also not run: `startTransition` or `useDeferredValue` in the application, Fast Refresh (likely to
-restart the run, as `<Activity>` does), server rendering and hydration. Under `renderToString`, `Frames` throws, since
-its `useSyncExternalStore` has no `getServerSnapshot`: found by the smoke test on 20 November 2026. Whether the bridge
-supports server rendering is to be decided.
+**How.** The tests of `bridges/bridge.test_suite.ts` run in a real browser too, in Chromium, Firefox and WebKit, with
+those two cases; the tool is to be chosen. With React, also not run: `startTransition` or `useDeferredValue` in the
+application, Fast Refresh (likely to restart the run, as `<Activity>` does), server rendering and hydration. Under
+`renderToString`, the bridge's `Frames` threw, since its `useSyncExternalStore` had no `getServerSnapshot`: found by
+the smoke test on 20 November 2026. `Draw` reads the model with `useSyncExternalStore` and no `getServerSnapshot`
+either, and was not run under `renderToString`. Whether the bridge supports server rendering is to be decided, with
+the split of `run` that `docs/rejected.md` parks.
 
 **Done when** the suite passes in a real browser, in the CI or by a command written down in the repository.
 
@@ -97,9 +95,11 @@ owner: taken now, in a 0.x release, or kept parked.
 ### 5. A view of the library's own
 
 **Why.** A view as data over snabbdom: a node holds its message, a child's view is lifted by a node that wraps its
-messages, an input's node names its input. A test then finds every message a view can send without a DOM, and no user
-writes the part of a bridge that settles an input. It is the largest item. It is weighed again after item 1, whose
-bridges settle no input, so that reason goes (R3 of its record).
+messages, an input's node names its input. A test then finds every message a view can send without a DOM, and a view
+takes no dispatch. It is the largest item. Since a dispatch applies its message at once, no bridge settles an input,
+which was a reason for it, and `messagesSentBy` finds the writes of a snabbdom view over the value its model holds (R3
+and B6 of [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md)): what is left, a handler that holds its
+message and a view that takes no dispatch, is to be weighed again.
 
 **How.** Not decided. [`adoption.md`](docs/records/adoption.md), "A wider form", says what it would be, what it costs,
 and what was weighed beside it. The owner decides whether to make it, under which name, and whether
@@ -109,24 +109,46 @@ and what was weighed beside it. The owner decides whether to make it, under whic
 
 ## Waiting for the owner
 
-- **Whether the search reaches what only the deterministic tests kill.** Left by the session that put the element of
-  an input under the search, 20 November 2026 (run). Item 1 removes `seen` and what an element holds of an input: both
-  points go with its swap, unless they are decided before.
-  - The property "once everything has happened, the element shows what the last state holds for the input drawn in
-    it" is the killer of no mutation of the acknowledgement or of `seen`: under them it fails on 15 to 60 of a hundred
-    runs of 60 scenarios, not on each. About 1,500 scenarios would make it one, by the rate measured, for a few seconds
-    more of `bun run interleavings`. To decide: whether that is worth it, the deterministic tests being their killers.
-  - "A frame that has seen the last write leaves the element as if it had not" is killed by none of the three
-    properties of the search: it needs a frame whose `seen` is the number of the last write after a rejection, and
-    nothing after. The deterministic tests are its killers. To decide: whether the scenario is made to reach it.
-- **Seven points of a review of the design.** By the session of Fable 5.2 that briefed and verified stages 1 to 3 of
-  item 1, asked by the owner on 20 November 2026 what does not fit. Reasoned from the code read for those reviews: none
-  was run. Each is to be weighed, and none holds stage 4 up but where it says so.
+- **Seven sentences of `AGENTS.md` that the swap of item 1 makes untrue**, each with the sentence proposed in its
+  place. None is written: the owner says yes first, to all or to each.
+  1. "Running a dispatch needs no services and completes synchronously, from a plain callback with `Effect.runSync`:
+     it is the renderer's business, and the library exports no helper for it." Proposed: "A dispatch is a function
+     that applies its message before it returns, and needs no services: a renderer calls it from a plain callback as
+     it is, and the library exports no helper for it."
+  2. "Frames cost only what is drawn, and no span lives as long as the run." Proposed: "A model is made only when it
+     is read, and no span lives as long as the run."
+  3. "`onApplied` and `onIgnored` are given no dispatch, and return nothing: they are functions, not effects, so the
+     loop runs no effect of the program". Proposed: "…so applying a message runs no effect of the program".
+  4. Under "Code", `input.ts` is "an input, and the rule a bridge calls for the element that shows one". Proposed: "an
+     input, and the rule of a write".
+  5. Under "Code", `loop.ts` is "the loop that applies its steps one at a time". Proposed: "the loop that does its jobs
+     one at a time".
+  6. Under "Code", the example of a key for a part of a type is `Shown/unseen`. Proposed: `Program/external`, the one
+     key of that form the code has now.
+  7. Under "What belongs here", a type moves to the library's side to "keep it the same across frames by a cache of its
+     own". Proposed: "keep it the same from one draw to the next by a cache of its own".
+- **Three points of the guide that the swap left**, found by the session that rewrote it, which changed none of them.
+  - **"Do not change the value in `set`"** ("Inputs the user types into", "What is typed, in another form"). Its
+    reason says that the user's next write is rejected, and the next draw takes back what was typed. A write is now
+    applied and drawn in its own event, so the next write is over the value `set` left, and is stored: the reason holds
+    only for a write that comes before the draw. To decide: keep the rule with a reason the code keeps (the element
+    then shows a value the user did not type, and nothing tests where the caret goes), or drop it, which promises that
+    a `set` that changes the value is shown at once, needs a test, and reopens "A value changed as the library stores
+    it" (`docs/rejected.md`).
+  - **A source outside React that writes twice before React renders**, as a dictation's listener: the second write is
+    over the value of the first model, and rejected. The spike's record names it, and the guide's "What is left out"
+    does not. To decide: whether it is listed there.
+  - **The skill's "Rules that nothing checks" does not say that the state is ahead of its effects.** The guide does
+    ("Guarantees", "Testing tools"), as a description. A coding agent that writes a test with `drive` meets it first.
+    To decide: whether the skill names it.
+- **Seven points of a review of the design.** By the session of Fable 5.2 that briefed and verified the stages of
+  item 1, asked by the owner on 20 November 2026 what does not fit. Reasoned from the code read for those reviews, and
+  not run, but where a point says so. Each is to be weighed.
   1. **The end of the run may begin inside a step.** A defect recorded in the thunk completes `died` there
      (`Deaths.record`), and Effect resumes the run's waiter on that stack: the end sets `stopped` and stops fibers
      while the step still tells its listeners. It is correct, by the checks, and the hardest part of the engine to
      reason about. To weigh: the register written at once, and `died` completed once the outermost `apply` returns.
-  2. **The loop of the thunk has no `finally`** (`apply` in `src/next/engine.ts`). What threw there outside `attempt`
+  2. **The loop of the thunk has no `finally`** (`apply` in `src/engine.ts`). What threw there outside `attempt`
      would leave `applying` set, and the engine applying nothing, in silence, against "Nothing ends in silence". To
      weigh: a `finally`, and a defect of the library's own for what it catches.
   3. **A fiber resumed on the stack of whoever completes its `Deferred` is no premise, and shapes more code at each
@@ -135,20 +157,22 @@ and what was weighed beside it. The owner decides whether to make it, under whic
      which `docs/premises.md` warns of ("never made unneeded by code of the library's written for it alone"). With a
      dispatch that applies at once it is no edge any more. To weigh: adopt it as a premise, with its test, so that
      those guards get killers. It reverses E3 of the record, which the same session proposed.
-  4. **The pure half of a step is written twice**, in `applyOne` (`src/next/engine.ts`) and in `apply`
-     (`src/next/testing/rehearse.ts`): `arrive`, the state, `reconcile` and the stop at a defect, in the same order.
+  4. **The pure half of a step is written twice**, in `applyOne` (`src/engine.ts`) and in `apply`
+     (`src/testing/rehearse.ts`): `arrive`, the state, `reconcile` and the stop at a defect, in the same order.
      To weigh: one transition of `core.ts` for both, as `shared-core.md` did for `arrive` and `reconcile`.
   5. **The state is ahead of its effects, and a test may assume it is not.** A step's commands start in a later job,
      and the end drops the jobs not taken. So a test that ends once the state shows something may end before the
-     commands of that step start: a test of `drive` changed meaning for it in stage 2. To do in stage 4: read every
-     test, and every sentence of the guide, that takes "the state shows it" for "its commands have started".
+     commands of that step start: a test of `drive` changed meaning for it in stage 2. Done in stage 4 for the guide,
+     which says it in "Guarantees" and in "Testing tools", and for the doc comment of `drive`. Left: whether the skill
+     says it (above).
   6. **The whole pure step now runs in the event that sends the message**: `update`, `onApplied`, `subscriptions` with
      the lookup of every key, the listeners and, with React, `makeModel`. It was measured for a counter with no key
-     alone. And "Frames cost only what is drawn" is withdrawn with React, which makes a model for every state. To do
-     before the release: measure a step with many keys and a model that costs (the benchmark of "Any time").
-  7. **The premise the design rests on was never run in a real browser, nor with an IME** (P3 of the record), and
-     "The bridges in a real browser" comes after the release. To weigh: the caret, a selection and an IME composition
-     on `bridges/next/`, in Chromium, Firefox and WebKit, before stage 4.
+     alone. The guide now promises that a model is made only when it is read, and describes that React reads one for
+     each state. To do before the release: measure a step with many keys and a model that costs (the benchmark of
+     "Any time").
+  7. **The premise the design rests on was run in one real browser, and never with an IME** (P3 of the record). In
+     Chromium, with the form and the stock-take, the caret and a selection hold (item 1, "Where it stands"). To weigh:
+     Firefox, WebKit and an IME composition before the release, where "The bridges in a real browser" comes after it.
 
   And for the reader who has an application in React: `Host` draws `fallback` until its run has started, and runs the
   commands of `init` twice under StrictMode. The split of `run` (B5 of the record, parked) would end both, and is what
@@ -161,10 +185,11 @@ None of these waits for the items above, nor holds them up.
 - **The README says what the library is and for whom, and names Foldkit**, as the owner's decision of 20 November
   2026 asks ([`adoption.md`](docs/records/adoption.md)): one reader starts a new application, the other has one
   already, most often in React.
-- **A benchmark that runs in the CI.** Many children, many messages per second, to keep "frames cost only what is
-  drawn" from regressing. `bun run bench` (`tools/bench/subscriptions.ts`) measures a parent's subscriptions only, and
-  `tools/bench/writes.ts`, run by hand, what a write into an input and a bridge's frame cost; neither runs in the CI.
-  To be designed: what is measured, and against what it fails, since a CI machine's times vary.
+- **A benchmark that runs in the CI.** Many children, many messages per second, to keep what a message costs the event
+  that sends it, and a model made only when it is read, from regressing. `bun run bench`
+  (`tools/bench/subscriptions.ts`) measures a parent's subscriptions only, and `tools/bench/writes.ts`, run by hand,
+  what a write into an input and a dispatch with its model read cost; neither runs in the CI. To be designed:
+  what is measured, and against what it fails, since a CI machine's times vary.
 - **A devtools bridge over `onApplied`** (e.g. Redux DevTools), with time travel through `init: { state }` and
   replay through `applyAll`.
 - **An example of routing**: flags from the URL, `popstate` as a subscription, navigation as a command.

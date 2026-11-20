@@ -150,7 +150,7 @@ describe("drive", () => {
     expect(await Effect.runPromise(drive(plain, (driver) => driver.waitFor(Opt.some)))).toBe(0)
   })
 
-  test("send waits for a frame that shows the message", async () => {
+  test("send waits for a model that shows the message", async () => {
     const saved = await Effect.runPromise(drive(
       noteProgram(Effect.void),
       Effect.fnUntraced(function*(driver) {
@@ -162,9 +162,9 @@ describe("drive", () => {
     expect(saved).toBe("eggs")
   })
 
-  test("a wait sees the latest frame, never one drawn before it", async () => {
+  test("a wait sees the current model, never one made before it", async () => {
     type Ticked = Readonly<{ count: number }>
-    // Each tick waits for the frame of the count before it to be made, so that every count is drawn.
+    // Each tick waits for the model of the count before it to be made, so that every count is read.
     const made = Arr.makeBy(3, () => Deferred.makeUnsafe<void>())
     const ticks = (count: number): Subscription<"Tick", never> => {
       const gate = made[count]
@@ -229,8 +229,8 @@ describe("drive", () => {
     ).toEqual(["subscription: release", "scenario"])
   })
 
-  // The run may not start the renderer at all, which `drive` gives the scenario its frames through.
-  test("a subscription of init that dies fails a scenario waiting for a frame, before its patience", async () => {
+  // The run may end before its renderer has its handle, which `drive` begins the scenario with.
+  test("a subscription of init that dies fails a scenario waiting for a model, before its patience", async () => {
     type Still = Readonly<{ still: boolean }>
     const program: Program<{ state: Still; model: Still; message: never }> = {
       init: { state: { still: true } },
@@ -239,7 +239,7 @@ describe("drive", () => {
       subscriptions: () => HashMap.make(["dies", Channel.fromEffectDone(Effect.die("boom"))])
     }
     const exit = await Effect.runPromiseExit(
-      drive(program, (driver) => Effect.andThen(driver.latest, Effect.never), { patience: "1 hour" })
+      drive(program, (driver) => Effect.andThen(driver.waitFor(() => Opt.none()), Effect.never), { patience: "1 hour" })
     )
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
     expect(defect instanceof ProgramDefect && defect.where).toBe("subscription")
@@ -253,7 +253,7 @@ describe("drive", () => {
         { patience: "20 millis" }
       ).pipe(Effect.provide(TestClock.layer()))
     )
-    expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain("No frame showed")
+    expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain("No model showed")
   })
 
   test("a wait longer than the patience fails with the patience and its unit, given as a number of milliseconds", async () => {
@@ -263,7 +263,7 @@ describe("drive", () => {
     expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain("within 20ms")
   })
 
-  test("a wait longer than the patience fails with the model of the latest frame as its cause", async () => {
+  test("a wait longer than the patience fails with the latest model as its cause", async () => {
     const exit = await Effect.runPromiseExit(drive(
       noteProgram(Effect.void),
       Effect.fnUntraced(function*(driver) {
@@ -314,8 +314,10 @@ describe("drive", () => {
 })
 
 describe("drive and a defect of the step the scenario waits for", () => {
-  // The frame of a step is published before its subscriptions are reconciled and its commands start: a scenario
-  // that ends as soon as it sees that frame still fails with the defect they raise.
+  // The state of a step is current once its subscriptions are reconciled, in the call that sends it, and its commands
+  // start after, in the fiber of effects: a scenario that ends as soon as it sees that state fails with a defect of its
+  // subscriptions, and one that waits on fails with a defect of its commands too. One that ended may have ended the
+  // run before they started, as the end of the run stops the fiber of effects with the jobs it had not taken.
   type Count = Readonly<{ count: number }>
   type Model = Readonly<{ count: number; next: "Next" }>
   const counting = { init: { state: { count: 0 } }, makeModel: ({ count }: Count): Model => ({ count, next: "Next" }) }
@@ -324,12 +326,16 @@ describe("drive and a defect of the step the scenario waits for", () => {
     throw new Error("boom")
   }
 
-  const whereItDied = async (program: Program<{ state: Count; model: Model; message: "Next"; command: "Crash" }>) => {
+  const whereItDied = async (
+    program: Program<{ state: Count; model: Model; message: "Next"; command: "Crash" }>,
+    then: Effect.Effect<void> = Effect.void
+  ) => {
     const exit = await Effect.runPromiseExit(drive(
       program,
       Effect.fnUntraced(function*(driver) {
         yield* driver.send(({ next }) => Opt.some(next))
         yield* driver.waitFor(({ count }) => count === 1 ? Opt.some(count) : Opt.none())
+        yield* then
       })
     ))
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
@@ -347,14 +353,14 @@ describe("drive and a defect of the step the scenario waits for", () => {
     ).toBe("subscriptions")
   })
 
-  test("in a command it starts", async () => {
+  test("in a command it starts, once the scenario waits on", async () => {
     expect(
       await whereItDied({
         ...counting,
         update: () => (state) => ({ state: next(state), commands: ["Crash"] }),
         runCommand: () => Effect.die("boom"),
         subscriptions: () => HashMap.empty()
-      })
+      }, Effect.never)
     ).toBe("command")
   })
 })
@@ -404,16 +410,19 @@ describe("drive and a scenario the death of the run interrupts", () => {
 
   test("returns once the scenario has released what it holds", async () => {
     const log: Array<"released" | "drive ended"> = []
+    const go = Deferred.makeUnsafe<void>()
+    // The subscription dies once the scenario has begun.
     const program: Program<{ state: Still; model: Still; message: never }> = {
       init: { state: { still: true } },
       update: () => (state) => ({ state }),
       makeModel: (state) => state,
-      subscriptions: () => HashMap.make(["dies", Channel.fromEffectDone(Effect.die("boom"))])
+      subscriptions: () =>
+        HashMap.make(["dies", Channel.fromEffectDone(Effect.andThen(Deferred.await(go), Effect.die("boom")))])
     }
     await Effect.runPromise(Effect.gen(function*() {
       yield* Effect.exit(drive(program, () =>
         Effect.onInterrupt(
-          Effect.never,
+          Effect.andThen(Deferred.succeed(go, undefined), Effect.never),
           () => Effect.andThen(Effect.sleep("20 millis"), Effect.sync(() => log.push("released")))
         )))
       log.push("drive ended")
@@ -455,5 +464,61 @@ describe("drive and a scenario that throws before it returns its effect", () => 
     expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain("boom")
     expect(log.slice(log.indexOf("drive ended") + 1)).toEqual([])
     expect(log.filter((each) => each === "started").length).toBe(log.filter((each) => each === "released").length)
+  })
+})
+
+// What a driver gets in place of the frames: the model of the current state, and the run's own dispatch.
+describe("drive's model and dispatch", () => {
+  type Count = Readonly<{ count: number }>
+  type Counted = "Up" | "Boom"
+  const counter: Program<{ state: Count; model: Count; message: Counted }> = {
+    init: { state: { count: 0 } },
+    update: (message) => ({ count }) => {
+      if (message === "Boom") throw new Error("boom")
+      return count < 1 ? { state: { count: count + 1 } } : reject
+    },
+    subscriptions: () => HashMap.empty(),
+    makeModel: (state) => state
+  }
+
+  test("model is the model of the current state, at once after a send", async () => {
+    const counts = await Effect.runPromise(drive(
+      counter,
+      Effect.fnUntraced(function*(driver) {
+        const before = (yield* driver.model).count
+        yield* driver.send(() => Opt.some<Counted>("Up"))
+        return [before, (yield* driver.model).count]
+      })
+    ))
+    expect(counts).toEqual([0, 1])
+  })
+
+  test("dispatch is the run's own from the scenario's first step: a message the state has moved past is ignored", async () => {
+    const ignored: Array<Counted> = []
+    const count = await Effect.runPromise(drive(
+      counter,
+      Effect.fnUntraced(function*(driver) {
+        yield* Effect.sync(() => driver.dispatch("Up"))
+        yield* Effect.sync(() => driver.dispatch("Up"))
+        return (yield* driver.model).count
+      }),
+      { onIgnored: ({ message }) => void ignored.push(message) }
+    ))
+    expect(count).toBe(1)
+    expect(ignored).toEqual(["Up"])
+  })
+
+  test("after a defect of the program, model fails with it", async () => {
+    let read: Exit.Exit<Count> | undefined
+    const exit = await Effect.runPromiseExit(drive(
+      counter,
+      Effect.fnUntraced(function*(driver) {
+        yield* Effect.sync(() => driver.dispatch("Boom"))
+        read = yield* Effect.exit(driver.model)
+      })
+    ))
+    const failed = read !== undefined && Exit.isFailure(read) ? Cause.squash(read.cause) : undefined
+    expect(failed instanceof ProgramDefect && failed.where).toBe("update")
+    expect(Exit.isFailure(exit)).toBe(true)
   })
 })
