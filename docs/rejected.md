@@ -470,6 +470,20 @@ answer, and saying so in the proposal.
   same case (the guide, "Inputs the user types into", "Inputs by id"). Tried on the example the same day: a `set` that
   writes into the locked counts does not compile, while a `get` that reads them does, and a test fails on it. _Reopen
   if_ a lock cannot be a case of the state.
+- **Handles of the inputs in `makeModel`** (`inputs.Count(state, id)`, the value at the place or `None`, as
+  `children.Row(state, id)` is a child's model), so that a model draws an editor only where a write has a place.
+  Reasoned, with a second opinion, 20 November 2026: what `input` and `inputById` return already has the `get` of the
+  place, and a model reads it when the input is declared beside `make`, so the handle is a second name over it ("A
+  function earns its place", `AGENTS.md`). It is no counterpart of a child's handle either, which runs the child's
+  `makeModel`, keeps its model by state object and dies on a child not there; and an input on a lens is read as
+  `state.name`. Tried on `examples/stocktake` the same day: its model reads `counts.get(state, id)`, with no change of
+  the API, and a test of `dispatchViolations` with the writes over the counts shown, as `held` and as `candidates`,
+  fails when a count is drawn editable where it has no place, or read-only where it has one. Weighed and not proposed:
+  a value of the library's own for an input in the model, its place and its value, which the view writes through
+  without naming its route. It would make three rules of "What is left to you" hold by construction, at the cost of a
+  type of the library's in every model, of `forwardTo` and of both bridges, as the offers and `Field` before it
+  ("Offers as tokens, checked against `update`" above). _Reopen if_ a program cannot name the `get` of its own place,
+  or with the parked "What reaches `update`, declared as data".
 - **A write that `update` sees and may reject**, so that what applies in a state is said in one place. Reasoned, 18
   November 2026: the element already shows what was written, so a write that `update` refused would leave the element
   unlike the state until a frame takes back what the user typed, which "Input is never a reason to reject"
@@ -619,7 +633,7 @@ comments are written by hand since, in plain English, and name the sections of t
   features cost much review time for what is outside the library's concern, which is the program and its rule for an
   input's element, not each renderer's features; a bridge is an example to start from, and an application that needs
   more writes its own. The library (`edited`, `drawn`,
-  inputs) did not change. _Reopen if_ the bridges become packages of their own (`ROADMAP.md`, item 2), whose users
+  inputs) did not change. _Reopen if_ the bridges become packages of their own (`ROADMAP.md`, item 1), whose users
   would expect a renderer's features to work. Reopened for React on 20 November 2026: the bridge to React is hosted by
   React (`docs/records/hosted-react.md`), and its inputs, each settled by itself and found by its run's context, work
   with a component's state, Suspense, `memo`, a portal and a shadow tree. What this entry says of React above is of the

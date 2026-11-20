@@ -147,12 +147,14 @@ type Counts = Data.TaggedEnum<{
 
 const atOpen = atCounts.tag('Open')
 
-Count: inputById({
+const counts = inputById({
   get: (state, id: string) =>
     Opt.flatMap(read(atOpen)(state), ({ lines }) =>
       Opt.map(Arr.findFirst(lines, (line) => line.id === id), (line) => line.text)),
   set: (state, id, text) => atOpen.modify(withText(id, () => text))(state),
-}),
+})
+
+inputs: { Count: counts },
 ```
 
 Here `atCounts` is an optic to the counts, and `read` gives what an optic focuses on, as an `Option`. While the counts
@@ -162,6 +164,11 @@ are `Locked`, `atOpen` focuses nothing. So `get` returns `None`, and `set` leave
 and no condition beside it: the input, `update` and `makeModel` read the same case. In `stocktake`, a `set` that wrote
 into the locked counts would not compile. A `get` that read them would compile: a test checks that a write over a
 locked row is rejected.
+
+**The model can read the place through the input.** What `input` and `inputById` return has the `get` of the place.
+Declare the input beside `make`, and `makeModel` can call that `get`. `stocktake` draws a count as editable exactly
+where `counts.get(state, id)` is `Some`. Its view then shows an editor only where a write has a place. An input on an
+optic that always focuses is read from the state, as `state.name`.
 
 In the same states, the parent's `update` rejects the parent's own messages for a row, such as a choice from a list.
 

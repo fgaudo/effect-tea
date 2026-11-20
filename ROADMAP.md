@@ -15,33 +15,10 @@ test of it. None is open.
 ## Possible improvements
 
 In the order they would be taken, as a review of the architecture set it on 20 November 2026. Each item says what it
-is, why, how it would be done, and what "done" is. Items 1, 2 and 4 wait for a decision of the owner; item 3
+is, why, how it would be done, and what "done" is. Items 1 and 3 wait for a decision of the owner; item 2
 needs none.
 
-### 1. The value of an input, read in `makeModel` through its declaration
-
-**Why.** A program says where an input is (`get`, or `at`), and says again in `makeModel` in which states the view
-draws it. `examples/stocktake` computes `editable` apart from the `get` of `Count`, and a test keeps the two in step.
-A child has no such second saying: `children.Row(state, id)` is its model.
-
-**The proposal.** `makeModel` is given handles of the inputs, as it is given those of the children:
-`inputs.Count(state, id)` is the value the place holds, or `None` where the input has no place. A model then holds an
-input only where a write has a place. For an input that is always there, `state.name` says as much: the gain is for
-places that come and go.
-
-**How.** An API change that the owner decides: read [`change-api`](.agents/skills/change-api/SKILL.md) first.
-
-1. Read [`docs/records/registers.md`](docs/records/registers.md) whole: the review read its last chapters and
-   `docs/rejected.md`, and found the idea in neither, but not the chapters before "A plain input".
-2. Spike it on a branch, never to be merged: the handles in `compose.ts` and `program.ts`, and `stocktake`, `form` and
-   `timer` ported. Open, for the spike: a third argument of `makeModel` or the same object as the children's; whether
-   an input at an optic that always focuses gives the value itself, not an `Option`; whether `update` is given them.
-3. Run `bun run inference` and the smoke test on it, and compare `stocktake` before and after.
-4. The owner decides on the spike. Refused, it goes to `docs/rejected.md` with the spike's commit.
-
-**Done when** it is in the API with its guide, doc comments, changelog and API report, or in `docs/rejected.md`.
-
-### 2. The bridges as packages of their own
+### 1. The bridges as packages of their own
 
 **Why.** `@fgaudo/effect-tea-snabbdom` and `@fgaudo/effect-tea-react`: the library stays free of renderers, and users
 stop copying `bridges/snabbdom.ts` and `bridges/react.ts`. A fix of a bridge, as those of 16 and 19 November 2026,
@@ -113,14 +90,14 @@ What is left:
 
 **Done when** the packages are published with the library, or the entry of `docs/rejected.md` says why not.
 
-### 3. A benchmark that runs in the CI
+### 2. A benchmark that runs in the CI
 
 Many children, many messages per second, to keep "frames cost only what is drawn" from regressing. `bun run bench`
 (`tools/bench/subscriptions.ts`) measures a parent's subscriptions only, and `tools/bench/writes.ts`, run by hand,
 what a write into an input and a bridge's frame cost; neither runs in the CI. To be designed: what is measured, and
 against what it fails, since a CI machine's times vary.
 
-### 4. What the search of an input's element leaves without a killer
+### 3. What the search of an input's element leaves without a killer
 
 Left by the session that put the element of an input under the search, 20 November 2026 (run):
 
@@ -134,7 +111,7 @@ Left by the session that put the element of an input under the search, 20 Novemb
 
 ## Ideas, to be decided
 
-- **What the library is beside Foldkit**, to be decided by the owner before item 2 and before 1.0. Foldkit
+- **What the library is beside Foldkit**, to be decided by the owner before item 1 and before 1.0. Foldkit
   (`github.com/foldkit/foldkit`, MIT, Effect `~4.1.0`, 0.171.0 on 20 November 2026) is a whole framework on the same
   ground: a runtime, views over snabbdom, routing, server rendering, a library of components, devtools and a CLI. Read
   in its code that day, by a subagent, in part (the files of its runtime, of its commands and of its views; no test's
@@ -150,8 +127,8 @@ Left by the session that put the element of an input under the search, 20 Novemb
 
   **Decided by the owner, 20 November 2026: the library is meant to be adopted by others**, not only to be the owner's
   own tool. What follows from it, by the same review, reasoned:
-  - Item 2 is no longer a choice: nobody adopts code to copy.
-  - The changes that break the API are taken first (item 1, and what `docs/rejected.md` parks), then 1.0: a user asks
+  - Item 1 is no longer a choice: nobody adopts code to copy.
+  - The changes that break the API are taken first (what `docs/rejected.md` parks), then 1.0: a user asks
     that the API stays.
   - The README says what the library is and for whom, and names Foldkit.
   - **Open, and first: for whom.** Two readers were named. One starts a new application, and chooses between this
@@ -161,7 +138,7 @@ Left by the session that put the element of an input under the search, 20 Novemb
     `memo`, Suspense), which the owner declined on 16 November 2026, and the rule "the renderer draws frames, and
     nothing else" of the guide's "View" would change. Neither was weighed further.
   - **The owner, the same day: both readers.** Reasoned from there, not decided. They are two bridges, not three: a
-    view of the library's own over snabbdom ("A wider form", item 2) takes the place of the snabbdom bridge. The one
+    view of the library's own over snabbdom ("A wider form", item 1) takes the place of the snabbdom bridge. The one
     for React is hosted by React: a component uses a program through a hook, and the `render` given to `run` only
     hands the frames to a store that React reads, so the engine would not change; the rules of the guide's "View"
     that every renderer keeps today (no state beside the program's, frames and nothing else, a frame whole and at

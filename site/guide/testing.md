@@ -79,7 +79,11 @@ model is a value like any other.
 
 **Inputs.** What the user writes into an input is not one of the messages that the model holds. The library keeps the
 rule for it, and the rule is the same for every input. A test writes into an input as the view does:
-`{ _tag: 'Name', message: { _tag: 'Written', was: model.name, value: 'Ada' } }`.
+`{ _tag: 'Name', message: { _tag: 'Written', was: model.name, value: 'Ada' } }`. Such writes can be checked with
+`dispatchViolations` too, apart from the reader. The writes over the values the model shows as editable are `held`.
+The writes over all the values it shows are `candidates`. Each write is of a value other than `was`, so a second write
+is rejected. Then `Rejected` finds an editor with no place to write into, and `Missing` finds a place that the model
+shows as read-only. [`stocktake`](../../examples/stocktake/stocktake.test.ts) does this.
 
 **Children.** A parent's reader calls the readers of its children. The parent's reader wraps what they return as the
 parent receives it: `{ _tag: 'Clock', message }`, with the `id` for children by id. The

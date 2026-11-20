@@ -232,6 +232,22 @@ const messagesOf = (model: Model): ReadonlyArray<Message> => {
   }
 }
 
+// A write over each count the model shows, of a value that differs from it: those of the editable counts are held, so
+// a count drawn editable takes a write, and those of every count are candidates, so a write that has a place where the
+// count is drawn read-only is missing.
+const writeOver = (id: string, text: string): Message => ({
+  _tag: "Count",
+  id,
+  message: { _tag: "Written", was: text, value: `${text}1` }
+})
+
+const writesOf = (model: Model, editable: boolean): ReadonlyArray<Message> =>
+  model._tag === "Counting" || model._tag === "Closed"
+    ? model.items.flatMap(({ id, model: { entry } }) =>
+      !editable || entry._tag === "Editable" ? [writeOver(id, entry.text)] : []
+    )
+    : []
+
 const userMessages: ReadonlyArray<Message> = Object.values(
   {
     RetryClicked: [{ _tag: "RetryClicked" }],
@@ -257,6 +273,17 @@ describe("the model", () => {
         state,
         held: messagesOf(stocktake.makeModel(state)),
         candidates: userMessages
+      })).toEqual([])
+    }))
+  })
+
+  test("draws a count editable exactly where a write over it is stored, once", () => {
+    fc.assert(fc.property(states(), (state) => {
+      const model = stocktake.makeModel(state)
+      expect(dispatchViolations(update, {
+        state,
+        held: writesOf(model, true),
+        candidates: writesOf(model, false)
       })).toEqual([])
     }))
   })

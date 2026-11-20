@@ -182,19 +182,20 @@ const withText = (id: string, text: (was: string) => string) => (counts: Open): 
 
 const { make, inputById } = program<{ state: State; command: Command; flags: Flags; message: Own }>()
 
+// Only an open count is a place to write into: a write over a locked one finds no place, and is rejected. The model
+// reads the same place, so a line is drawn editable exactly where a write is stored.
+const counts = inputById({
+  get: (state, id: string) =>
+    Opt.flatMap(
+      read(atOpen)(state),
+      ({ lines }) => Opt.map(Arr.findFirst(lines, (line) => line.id === id), (line) => line.text)
+    ),
+  set: (state, id, text) => atOpen.modify(withText(id, () => text))(state)
+})
+
 export const stocktake = make({
   init: ({ aisle }) => ({ state: { aisle, load: Load.Loading() }, commands: [Command.Load({ aisle })] }),
-  inputs: {
-    // Only an open count is a place to write into: a write over a locked one finds no place, and is rejected.
-    Count: inputById({
-      get: (state, id: string) =>
-        Opt.flatMap(
-          read(atOpen)(state),
-          ({ lines }) => Opt.map(Arr.findFirst(lines, (line) => line.id === id), (line) => line.text)
-        ),
-      set: (state, id, text) => atOpen.modify(withText(id, () => text))(state)
-    })
-  },
+  inputs: { Count: counts },
   update: (message) => (state) => {
     switch (message._tag) {
       case "RetryClicked":
@@ -279,14 +280,16 @@ export const stocktake = make({
       case "Loaded": {
         const sheet = state.load.sheet
         const lines = sheet._tag === "Closed" ? sheet.lines : sheet.counts.lines
-        const editable = sheet._tag === "Counting" && sheet.counts._tag === "Open"
         const items = Arr.map(lines, ({ id, name, expected, text }): ItemLine => ({
           id,
           model: {
             name,
             expected,
             count: countOf(text),
-            entry: editable ? { _tag: "Editable", text } : { _tag: "ReadOnly", text }
+            entry: Opt.match(counts.get(state, id), {
+              onNone: () => ({ _tag: "ReadOnly", text }),
+              onSome: (text) => ({ _tag: "Editable", text })
+            })
           }
         }))
         const total = Arr.reduce(
