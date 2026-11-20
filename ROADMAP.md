@@ -34,8 +34,10 @@ to 4 are done, each with its outcome in the record. **What is left is stage 5, a
 - **The swap is committed.** The engine, the testing tools and the bridges are the new ones, `src/next/` and
   `bridges/next/` are gone, and the guide, `docs/invariants.md`, `docs/premises.md` and the changelog describe the new
   code. Every check of the stage passed, run again by the session that briefed it.
-- **`AGENTS.md` still has seven sentences that the swap makes untrue.** They wait for the owner's yes, under "Waiting
-  for the owner", with three points of the guide.
+- **`AGENTS.md` says what the code does now**: the seven sentences the swap made untrue were proposed to the owner,
+  and written on the owner's yes. Three points of the guide still wait, under "Waiting for the owner".
+- **The reader's check is under way**, in a session of its own, which commits nothing: its report is to be
+  `scratch/reports/sync-dispatch-stage-5-reader.md`, and the session that briefed it reads it and commits.
 - **Tried in a browser**, by the session that verified the swap, in Chromium, with keys sent as a user's. In the form,
   with snabbdom and with React: a text typed in its middle, and over a selection, keeps its caret, and a save empties
   both fields. In the stock-take: a count typed in its middle, and a submit. Firefox, WebKit and an IME composition
@@ -109,24 +111,6 @@ and what was weighed beside it. The owner decides whether to make it, under whic
 
 ## Waiting for the owner
 
-- **Seven sentences of `AGENTS.md` that the swap of item 1 makes untrue**, each with the sentence proposed in its
-  place. None is written: the owner says yes first, to all or to each.
-  1. "Running a dispatch needs no services and completes synchronously, from a plain callback with `Effect.runSync`:
-     it is the renderer's business, and the library exports no helper for it." Proposed: "A dispatch is a function
-     that applies its message before it returns, and needs no services: a renderer calls it from a plain callback as
-     it is, and the library exports no helper for it."
-  2. "Frames cost only what is drawn, and no span lives as long as the run." Proposed: "A model is made only when it
-     is read, and no span lives as long as the run."
-  3. "`onApplied` and `onIgnored` are given no dispatch, and return nothing: they are functions, not effects, so the
-     loop runs no effect of the program". Proposed: "…so applying a message runs no effect of the program".
-  4. Under "Code", `input.ts` is "an input, and the rule a bridge calls for the element that shows one". Proposed: "an
-     input, and the rule of a write".
-  5. Under "Code", `loop.ts` is "the loop that applies its steps one at a time". Proposed: "the loop that does its jobs
-     one at a time".
-  6. Under "Code", the example of a key for a part of a type is `Shown/unseen`. Proposed: `Program/external`, the one
-     key of that form the code has now.
-  7. Under "What belongs here", a type moves to the library's side to "keep it the same across frames by a cache of its
-     own". Proposed: "keep it the same from one draw to the next by a cache of its own".
 - **Three points of the guide that the swap left**, found by the session that rewrote it, which changed none of them.
   - **"Do not change the value in `set`"** ("Inputs the user types into", "What is typed, in another form"). Its
     reason says that the user's next write is rejected, and the next draw takes back what was typed. A write is now

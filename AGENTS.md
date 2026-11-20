@@ -55,7 +55,7 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   library gives the functions over it (`andThen` and `forEach` over `Step`). An alias with a few helpers over it
   has the costs of both and keeps neither promise: users still write the representation everywhere else, so it
   cannot change. A type moves to the library's side only when the library must do with it what Effect alone
-  cannot: inspect it in tests without running it, keep it the same across frames by a cache of its own (as
+  cannot: inspect it in tests without running it, keep it the same from one draw to the next by a cache of its own (as
   `forwardTo` does for a dispatch), or enforce at construction what the type cannot. A subscription is already
   inspected by its key: that is why `Subscription` stays Effect's.
 - **The types of a program keep three rules, and only these.** Every correct program can be written (a concrete
@@ -165,8 +165,8 @@ this summary says less. What every change keeps, an example's and a document's t
   is a `CompositionDefect`, and the types enforce what it declares.
 - **Every program keeps its state in an object**, replaced and never mutated: a child's model and its lifted
   subscriptions are kept by it. Never add a cache for primitive states, nor hold a child's dispatch strongly.
-- **Running a dispatch needs no services and completes synchronously**, from a plain callback with
-  `Effect.runSync`: it is the renderer's business, and the library exports no helper for it.
+- **A dispatch is a function that applies its message before it returns, and needs no services**: a renderer calls
+  it from a plain callback as it is, and the library exports no helper for it.
 - **Defects always die, and the run dies with them.** Nothing in the library may retry, swallow, log or turn them
   into messages: reporting is the job of whoever runs the program.
 - **A subscription never ends in silence**: its end value is a message (or `never`), and an ended one is never
@@ -175,9 +175,10 @@ this summary says less. What every change keeps, an example's and a document's t
   asking.
 - **Each command, each subscription and the renderer has a scope of its own**: never let them acquire into the
   run's scope.
-- **Frames cost only what is drawn**, and no span lives as long as the run.
-- **`onApplied` and `onIgnored` are given no dispatch, and return nothing**: they are functions, not effects, so the
-  loop runs no effect of the program; they send no message and change no state, and a defect in one is a defect.
+- **A model is made only when it is read**, and no span lives as long as the run.
+- **`onApplied` and `onIgnored` are given no dispatch, and return nothing**: they are functions, not effects, so
+  applying a message runs no effect of the program; they send no message and change no state, and a defect in one is
+  a defect.
 - **The testing tools behave like the engine** where it is deterministic: when the engine or one tool changes, keep
   the others in step.
 - **Logs never carry message data by default**: only tags, at `debug`. A subscription's key is logged as it is.
@@ -190,20 +191,20 @@ this summary says less. What every change keeps, an example's and a document's t
 
 - One module per concept: `update.ts`, `command.ts`, `subscription.ts`, `dispatch.ts` (views and their
   dispatch), `program.ts` (the program and its types), `compose.ts` (`program`), `input.ts` (an input, and the
-  rule a bridge calls for the element that shows one), `log.ts`, `defect.ts`; `core.ts` is what the run and the
+  rule of a write), `log.ts`, `defect.ts`; `core.ts` is what the run and the
   testing tools share as pure functions of data, and `shell.ts` what they share that has effects
   (`docs/records/shared-core.md`); `engine.ts` is the runtime only (with `RunOptions`), and `run.ts` connects it to a
   renderer. `testing/` holds
   one module per testing tool (and `unexpected.ts`, the failure they share, `ledger.ts`, what `rehearse` keeps of
-  its commands and starts, as pure transitions, and `loop.ts`, the loop that applies its steps one at a time).
+  its commands and starts, as pure transitions, and `loop.ts`, the loop that does its jobs one at a time).
 - `runCommand`, missing from a program without commands, is read through `runCommandOf`, never directly: the engine
   always gets the complete set. Likewise `init`, a step or a function of the flags, is read through `startOf`: a step
   is never a function, so `typeof` tells them apart, and so does `make` for a child's handle. Both are internal. A
   program always has `subscriptions`: `make` is the one place where a config without them means listening to nothing,
   and a test reads `program.subscriptions(state)` as it reads `program.makeModel(state)`.
 - A key or symbol of the library is named `@fgaudo/effect-tea/<Type>` after the type it belongs to (`Rejected`, the
-  service `Stopped`), and `@fgaudo/effect-tea/<Type>/<part>` for a part of one (`Shown/unseen`). A property keyed by a
-  string starts with `~`, as Effect's own type ids: `~@fgaudo/effect-tea/Program/external`.
+  service `Stopped`), and `@fgaudo/effect-tea/<Type>/<part>` for a part of one (`Program/external`). A property keyed by
+  a string starts with `~`, as Effect's own type ids: `~@fgaudo/effect-tea/Program/external`.
 - An exported type that is an object record is written with `readonly` on each member, `{ readonly state: State }`,
   never as `Readonly<{ … }>`: TypeScript prints `Readonly<{ … }>` for one in a consumer's declarations and hovers, not
   its name. An internal type may keep the wrapper.

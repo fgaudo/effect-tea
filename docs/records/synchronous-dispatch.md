@@ -346,9 +346,11 @@ the checks again: `typecheck`, `lint`, `test` (913), `test:node` (713), the sear
   a save disables both fields, lists the name and empties them. The stock-take: a count typed in its middle keeps its
   caret, and a submit locks the counts and shows its outcome. No error on the console.
 
-Left by the swap, each in `ROADMAP.md`: seven sentences of `AGENTS.md`, proposed to the owner and not written; three
-points of the guide for the owner; a test of the timer's buttons that no mutation tried makes fail; and, for the review
-of the premises before a release, that no test of a premise was run again without its premise under the new engine.
+Left by the swap, each in `ROADMAP.md`: three points of the guide for the owner; a test of the timer's buttons that no
+mutation tried makes fail; and, for the review of the premises before a release, that no test of a premise was run
+again without its premise under the new engine. The seven sentences of `AGENTS.md` that the swap made untrue were
+proposed to the owner, and written the same day on the owner's yes: what a dispatch is, a model made only when it is
+read, what `input.ts` and `loop.ts` are, and three wordings that named frames, the loop or `Shown`.
 
 ### 5. After
 
