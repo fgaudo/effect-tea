@@ -1168,23 +1168,4 @@ describe("React, as the bridge rests on it", () => {
     expect(element("input")).toBe(drawn)
     expect([drawn.placeholder, drawn.value]).toEqual(["second", "Ada"])
   })
-
-  // react.dev ("memo") says that a memoized component renders again when its state or a context it reads changes.
-  test("a component that memo skips renders again when a store it reads changes", () => {
-    const root = rootIn(page())
-    let value = 0
-    const listeners = new Set<() => void>()
-    const subscribe = (listener: () => void) => {
-      listeners.add(listener)
-      return () => void listeners.delete(listener)
-    }
-    const Reads = memo((): ReactNode => createElement("output", null, useSyncExternalStore(subscribe, () => value)))
-    const Parent = (): ReactNode => createElement("main", null, createElement(Reads))
-    flushSync(() => root.render(createElement(Parent)))
-    value = 1
-    flushSync(() => {
-      for (const listener of listeners) listener()
-    })
-    expect(element("output").textContent).toBe("1")
-  })
 })

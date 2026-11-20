@@ -102,9 +102,8 @@ bridge's is its own, in "View".
 
 What is left:
 
-- **The premises of the bridge on React** in `docs/premises.md`, once the owner consents (asked 20 November 2026):
-  the premise of `flushSync` widened to the layout effects of a commit, its test already in `bridges/react.test.ts`
-  ("React, as the bridge rests on it"), and those of `onUncaughtError` and `root.unmount()` gone with the root the
+- **The premises of the bridge on React**: done the same day, with the owner's consent. The premise of `flushSync`
+  covers the layout effects of a commit, and those of `onUncaughtError` and `root.unmount()` went with the root the
   bridge no longer owns.
 - **Not run**: a real browser, an IME composition, the caret when the program changes a value, `startTransition` or
   `useDeferredValue` in the application, Fast Refresh (likely to restart the run, as `<Activity>` does), server

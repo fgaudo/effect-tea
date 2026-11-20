@@ -342,25 +342,20 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   collection is never required, and a cleanup callback may never be called. Its test: "a collection reclaims what
   nobody holds, and a FinalizationRegistry then calls back for each target it reclaimed", on Bun and on Node, which
   fails with a callback that never runs.
-- **React has run the ref callbacks of a commit, and called `onUncaughtError` with what a component threw, when
-  `flushSync` returns**, which is how the React bridge settles every input of its root once a frame is drawn, with the
-  value each was drawn with, and throws in the frame what a component threw, so that the run dies in the renderer: 18 of
-  the 29 tests of `react.test.ts` fail with a ref that registers its element in a microtask, and "a component that
-  throws ends the run, which dies in the renderer with what it threw" with an `onUncaughtError` that keeps the error in
-  one. react.dev says only that the DOM is updated when `flushSync` returns. Its tests, in `react.test.ts`: "the ref
-  callbacks of a commit have run when flushSync returns", "onUncaughtError is called before flushSync returns", which
-  fail with a ref, and an `onUncaughtError`, that does its work in a microtask.
+- **React has run the ref callbacks and the layout effects of a commit when `flushSync` returns**, a commit that a
+  store's listener sets going inside `flushSync` included, which is how the React bridge's store returns from
+  publishing a frame once every `Shows` has settled its element with it, in a layout effect: 54 of the 65 tests of
+  `react.test.ts` fail with a frame published outside `flushSync`, a mutation of `tools/mutations/mutations.ts`.
+  react.dev says only that the DOM is updated when `flushSync` returns. Its tests, in `react.test.ts`: "the ref
+  callbacks and the layout effects of a commit have run when flushSync returns" and "the layout effects of a component
+  that a store makes render again have run when flushSync returns", which fail with a ref, or a layout effect, that
+  does its work in a microtask.
 - **React leaves the value of an `<input>` drawn without `value` or `defaultValue` as it is when it draws it again**,
-  which is how the React bridge's `Shows`, drawn again on every frame, leaves to the bridge alone what the element
-  shows, and the tests of a typed text in `react.test.ts` rest on it. react.dev ("<input>") says only that the JSX of
-  an uncontrolled input does not control what its value should be right now. Its test, in `react.test.ts`: "React
-  leaves the value of an input drawn without value or defaultValue as it is when it draws it again", which fails with
-  a React that writes the value again as it draws the input.
-- **`root.unmount()` has removed what the root drew from the DOM when it returns**, which is how the React bridge's
-  release leaves its element empty before the run ends: "unmounts what it drew when the run ends" (`react.test.ts`)
-  rests on it, and fails with an `unmount` put off to a task of its own. react.dev says only that `unmount` removes the
-  root's components and lets go of its DOM node. Its test, in `react.test.ts`: "root.unmount() has removed what the
-  root drew from the DOM when it returns", which fails with an `unmount` put off to a microtask.
+  which is how the React bridge's `Shows`, drawn again on every frame of a new model, leaves to the bridge alone what
+  the element shows, and the tests of a typed text in `react.test.ts` rest on it. react.dev ("<input>") says only that
+  the JSX of an uncontrolled input does not control what its value should be right now. Its test, in
+  `react.test.ts`: "React leaves the value of an input drawn without value or defaultValue as it is when it draws it
+  again", which fails with a React that writes the value again as it draws the input.
 - **snabbdom reuses an `<input>` with no key in the same place**, which is how an input drawn with `shows`, which needs
   no key, stays the same element, with its focus, caret and selection, while the program changes what it shows: 13 of
   the 24 tests of `snabbdom.test.ts` fail with a key new for each frame. snabbdom's README describes the reuse of keyed
