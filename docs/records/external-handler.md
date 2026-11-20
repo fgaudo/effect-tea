@@ -1,10 +1,10 @@
 # External messages with a handler of their own: the spike
 
 **Status:** spiked, 20 November 2026, by a session of Opus 5.5, on the branch `claude/spike-external-handler` at
-`6f93071`, never to be merged. Not decided: the owner decides on this record (step 3 of
-[`ROADMAP.md`](../../ROADMAP.md)). It answers part 3 of [`architecture-review.md`](architecture-review.md), which says
-why a child's rejection of an external message is in doubt, and its "Open, for the spike". Last read against the code at
-`3917346`.
+`6f93071`, never to be merged. Taken by the owner the same day ("Decided", at the end), to be done in the one stage
+that "If it is taken" describes, step 3 of [`ROADMAP.md`](../../ROADMAP.md). It answers part 3 of
+[`architecture-review.md`](architecture-review.md), which says why a child's rejection of an external message is in
+doubt, and its "Open, for the spike". Last read against the code at `3917346`.
 
 ## In short
 
@@ -145,3 +145,9 @@ they are.
 
 An entry of `docs/rejected.md` says why, beside "Checking a program's external messages in `make`", which stays as it
 is, and this record is marked rejected.
+
+## Decided
+
+By the owner, 20 November 2026, on this record, after an example of its first cost: a message that a child's view and
+its parent both send. **Taken**, as "If it is taken" says, in one stage. The names stay as spiked: `external` for the
+program's function and for the handle's, `ExternalHandler` for its type.
