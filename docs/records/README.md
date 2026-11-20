@@ -21,4 +21,4 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`synchronous-dispatch.md`](synchronous-dispatch.md)     | done: a dispatch that applies its message at once        |
 | [`input-in-the-model.md`](input-in-the-model.md)         | rejected: an input as an entry in the model              |
 | [`architecture-review.md`](architecture-review.md)       | proposed: what a dispatch that applies at once left      |
-| [`write-without-was.md`](write-without-was.md)           | spiked, waiting: a write without `was`                   |
+| [`write-without-was.md`](write-without-was.md)           | taken, to be done: a write without `was`                 |

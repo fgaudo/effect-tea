@@ -1,7 +1,8 @@
 # A write without `was`: the spike
 
 **Status:** spiked, 20 November 2026, by a session of Opus 5.5, on the branch `claude/spike-write-without-was` at
-`c806767`, never to be merged. Waiting for the owner's decision (step 1 of [`ROADMAP.md`](../../ROADMAP.md)). It answers
+`c806767`, never to be merged. Taken by the owner the same day ("Decided", at the end), to be done in the three stages
+of step 1 of [`ROADMAP.md`](../../ROADMAP.md). It answers
 "What the spike must show" of [`architecture-review.md`](architecture-review.md), part 1, which says why `was` is in
 doubt. Last read against the code at `9efe8d1`.
 
@@ -194,3 +195,20 @@ If taken, the stages for `ROADMAP.md`, in order:
 
 Then "The bridges in a real browser" (step 6 of the roadmap) loses its second case: nothing typed with snabbdom is
 rejected for a draw that has not come.
+
+## Decided
+
+By the owner, 20 November 2026, on the advice of the session that read this record (Opus 5.5), to the three questions
+above:
+
+1. **Taken.** `was` goes with the animation frame of the bridge to snabbdom, in one change.
+2. **The cost of a fast subscription is accepted**, and said: "What is left to you" of "Guarantees", and the skill's
+   rules that nothing checks, say that such a subscription holds the run back to one draw a task, and that it sends its
+   messages by batches. Measured and not asked: hidden, the bridge draws on where the animation frame drew almost
+   nothing ("The measure").
+3. **The rule on `set` is dropped.** Kept, it would be one more rule that nothing checks, and a `set` that normalizes
+   what is typed is a fair use. A `set` that changes the value is shown at once, with a test of it in each bridge. Where
+   the caret goes is the browser's, described and not promised.
+
+The stages are the three listed above, written as 1a, 1b and 1c of step 1 in `ROADMAP.md`, with what each owes to these
+answers.

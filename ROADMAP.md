@@ -22,34 +22,70 @@ test of it. None is open.
 
 ### 1. A write without `was`
 
-**Model and effort.** Opus 5.5, `high`: the rule of an input and a bridge, each with invariants to keep.
+Taken by the owner on 20 November 2026, on the spike's record,
+[`write-without-was.md`](docs/records/write-without-was.md) ("Decided"): a write carries its value alone, the bridge to
+snabbdom draws in a microtask after each notice, the cost of a fast subscription is accepted and said, and the rule on
+`set` is dropped. Its three stages below come before the release: `Written` and the inputs are unreleased. None is done
+at the same time as step 3, which changes the same types of `compose.ts`.
 
-**Depends on** no other step. It comes before the release: `Written` and the
-inputs are unreleased.
+#### 1a. The rule, the bridges and the tests
 
-**Why.** [`architecture-review.md`](docs/records/architecture-review.md), "A write without `was`". `was` guards one
-window, of the bridge to snabbdom, between a notice from a command or a subscription and its draw. For it, every view
-builds `Written` by hand over the value its model holds, the bridge draws in each handler, a `set` may not change the
-value, and with React a second write before a render is rejected though it is not stale. The owner kept `was` on 20
-November 2026 (R1 of [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md)): the record says what R1 did
-not weigh, and how a bridge can close the window itself, with the outcome R1 wanted.
+**Model and effort.** Opus 5.5, `high`: an invariant and a bridge change. The skills are
+[`change-engine`](.agents/skills/change-engine/SKILL.md), [`change-api`](.agents/skills/change-api/SKILL.md) and
+[`add-example`](.agents/skills/add-example/SKILL.md).
 
-**How.** Spiked on 20 November 2026, on the branch `claude/spike-write-without-was` (`c806767`), never to be merged.
-Its record, [`write-without-was.md`](docs/records/write-without-was.md), says what was built, run and measured. What is
-left is the owner's decision, on the three questions of its last section: take it or keep `was`; the cost of a
-subscription that sends faster than the screen, held back to one draw a task as with React; and the rule on `set`. If
-taken, the record lists three stages, each with its model and effort, to write here after this step.
+**Depends on** no other step.
 
-**Done when** the owner has decided on the spike's record. Taken: its stages are steps here, each with its model and
-effort (the rule and its property of the search, the bridges, the examples' views, the guide and the skill), and the
-entries of `docs/rejected.md` it reverses say so. Refused: an entry of `docs/rejected.md` says why.
+**How.** What the branch `claude/spike-write-without-was` (`c806767`) holds, as its record lists it under "What was
+built", but the probe page `examples/spike-write/`, brought onto `main` as it is now (the branch is never merged).
+With it: `docs/invariants.md` (its lines on the rule of a write, its property, and why the bridge drew in each handler)
+rewritten for the new rule and the new bridge; the unreleased entry of `CHANGELOG.md` that introduced `Written` with
+`was`, edited, since no release has had it; and, for the rule on `set` the owner dropped, a test in
+`bridges/bridge.test_suite.ts` that a `set` that changes the value is shown at once, by each bridge. The doc comment of
+`Written` names two sections that the guide has only from 1b: until then `bun run comments` fails, so 1a is not pushed
+without 1b.
+
+**Done when** the checks of `AGENTS.md` and of `change-engine` pass, `bun run comments` aside, with
+`bun run mutations` (the record had 211, all killed), and this stage is removed.
+
+#### 1b. The guide, the doc comments, the skill and the README
+
+**Model and effort.** Opus 5.5, `high`: the guide is a specification.
+
+**Depends on** 1a.
+
+**How.** Section by section, as the record lists them under "What the guide would say", each sentence checked against
+the code of 1a. And what the owner decided there:
+
+- **A fast subscription.** "What is left to you" of "Guarantees", and the skill's "Rules that nothing checks": a
+  subscription that sends faster than the screen refreshes holds the run back to one draw a task, as React does; it
+  sends its messages by batches, as a `Stream` grouped within a time does.
+- **`set`.** "Do not change the value in `set`" goes, from "Inputs the user types into" and "What is typed, in another
+  form", and its row of "Do and don't" if it has one. A `set` that changes the value is shown at once (the test of 1a).
+  Where the caret goes then is the browser's, and is described, not promised: Chromium puts it at the end.
+
+**Done when** `bun run comments`, `bun run lint` and the site's build pass, and this stage is removed.
+
+#### 1c. What it reverses in `docs/rejected.md`
+
+**Model and effort.** Sonnet 5.5, `medium`, from the record's "What it reverses in `rejected.md`".
+
+**Depends on** 1a and 1b.
+
+**How.** R1 is marked reversed in [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), and each entry the
+record lists says what became of it. "A value changed as the library stores it" is reversed for a `set` that stores
+another value, now allowed; whether its `normalize` option earns a place is not reopened, since `set` does it. "A write
+that `update` sees and may reject" stays rejected.
+
+**Done when** each entry the record lists says so, and step 1 is removed with this stage.
 
 ### 2. The run as a store and its effects
 
 **Model and effort.** Fable 5.2, `high`: a design whose constraints pull apart, and one that reopens a decision of the
 owner's.
 
-**Depends on** step 1 decided, which settles when the bridge to snabbdom draws.
+**Depends on** step 1, decided: the bridge to snabbdom draws in a microtask after each notice. Its spike is built on
+`main` once 1a is done, which changes the bridge it would build on.
 
 **Why.** [`architecture-review.md`](docs/records/architecture-review.md), "The run as a store and its effects". Since
 a dispatch applies at once, a renderer needs nothing that is an effect, and three of the four renderers of the
@@ -140,8 +176,9 @@ site built without warnings. Then the release commit and its tag. The owner publ
 **Model and effort.** Opus 5.5, `medium`.
 
 **Depends on** no other step. It is here by the owner's order, after the release: point 7 of the "Seven points of a
-review of the design" below weighs taking it first. If step 1 is taken, the second of its two cases changes: nothing
-typed with snabbdom is then rejected for a draw that has not come.
+review of the design" below weighs taking it first. Once 1a is done, the second of its two cases goes: nothing typed
+with snabbdom is rejected for a draw that has not come, and what is left of it is an event that the program's own code
+dispatches in the task of a notice, before its draw ("The way the bridge to snabbdom takes", in the record of step 1).
 
 **Why.** The bridges' tests run on happy-dom, which no browser is. The bridges draw controlled elements, and what is
 typed into one rests on a premise seen only in happy-dom and in one browser (`docs/premises.md`, of a controlled
@@ -224,7 +261,7 @@ is weighed again with the owner: taken now, in a 0.x release, or kept parked. Wi
 **Model and effort.** Opus 5.5, `medium`, to write the entry of `docs/rejected.md` if the owner follows the advice
 below. A decision to make it is planned anew, by Fable 5.2, `high`.
 
-**Depends on** step 1 decided, which changes what a view writes.
+**Depends on** step 1, decided: a view writes the element's value alone, `{ _tag: 'Written', value }`.
 
 **Why.** A view as data over snabbdom: a node holds its message, a child's view is lifted by a node that wraps its
 messages, an input's node names its input. A test then finds every message a view can send without a DOM, and a view
@@ -243,8 +280,7 @@ whether `@fgaudo/effect-tea/snabbdom` stays beside it.
 
 ## Waiting for the owner
 
-Where a step above would answer a point below, the point stays here until the step is decided. Step 1 would answer
-the first two of the "Three points of the guide that the swap left". Step 2 would answer points 1, 2 and 3 of the
+Where a step above would answer a point below, the point stays here until the step is decided. Step 2 would answer points 1, 2 and 3 of the
 "Seven points of a review of the design", and what the reader with an application in React meets, at their end. Step
 4 would answer the job queued for each message, of "Left open by the stages". Step 7 would answer point 4 of the
 seven.
@@ -272,17 +308,8 @@ seven.
   job queued for each message, which is most of what a message costs; a snabbdom renderer that was interrupted while
   its run goes on, whose handlers still apply and draw; and a test of the timer's buttons, in the bridges' tests, that
   no mutation tried makes fail. To weigh, each.
-- **Three points of the guide that the swap left**, found by the session that rewrote it, which changed none of them.
-  - **"Do not change the value in `set`"** ("Inputs the user types into", "What is typed, in another form"). Its
-    reason says that the user's next write is rejected, and the next draw takes back what was typed. A write is now
-    applied and drawn in its own event, so the next write is over the value `set` left, and is stored: the reason holds
-    only for a write that comes before the draw. To decide: keep the rule with a reason the code keeps (the element
-    then shows a value the user did not type, and nothing tests where the caret goes), or drop it, which promises that
-    a `set` that changes the value is shown at once, needs a test, and reopens "A value changed as the library stores
-    it" (`docs/rejected.md`).
-  - **A source outside React that writes twice before React renders**, as a dictation's listener: the second write is
-    over the value of the first model, and rejected. The spike's record names it, and the guide's "What is left out"
-    does not. To decide: whether it is listed there.
+- **A point of the guide that the swap left**, found by the session that rewrote it. Two more it found, the rule on
+  `set` and a second write before React renders, were answered by step 1.
   - **The skill's "Rules that nothing checks" does not say that the state is ahead of its effects.** The guide does
     ("Guarantees", "Testing tools"), as a description. A coding agent that writes a test with `drive` meets it first.
     The reader's check bears on it: an examiner that had not seen the library wrote 27 acceptance tests from the
