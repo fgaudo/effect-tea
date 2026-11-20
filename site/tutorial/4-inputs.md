@@ -34,25 +34,22 @@ A program with inputs is made with `program`, as a parent is. Here the named tim
 What the named timer gets from the declaration:
 
 - **Its messages:** the timer's, as `{ _tag: 'Timer', message }`, and `{ _tag: 'Name', message }` for a write into
-  the name. A write is `{ _tag: 'Written', was, value }`: `value` written over `was`, the name the view drew.
-- **The input's rule, the library's:** a write is stored while the name holds, by `Equal`, the value it was written
-  over, and rejected otherwise.
+  the name. A write is `{ _tag: 'Written', value }`: `value` is what the element holds.
+- **The input's rule, the library's:** a write is stored wherever the name is there in the state, whatever it is. The
+  name of a named timer is always there, so every write into it is stored.
 - **No `update` of its own:** the named timer has no message of its own to decide on.
 
-Why does a write say what it was written over? So that a keystroke from an old screen cannot overwrite a name the
-program has changed since. It is the late click of step 1 again, for text.
-
-The model holds the name as it is. The view draws the input from it, and writes over it (see
+The model holds the name as it is. The view draws the input from it, and writes into it (see
 [inputs the user types into](../guide/inputs-the-user-types-into.md)).
 
 ## The view
 
 The view draws the name as a native `<input>`, a controlled element: its `value` is the name its model holds, and its
-`input` listener writes what is typed over that name, through the input's own dispatch from `forwardTo`.
+`input` listener writes what the element holds, through the input's own dispatch from `forwardTo`.
 
-A write is applied in its own event. So when the listener returns, the name holds what was typed, and the bridge has
-drawn it. The element needs no `key` of the renderer: it stays the same element, with its focus and its caret, while
-the program changes what it shows (see
+A write is applied in its own event. So when the listener returns, the name holds what was typed, and the bridge draws
+it before the next event. The element needs no `key` of the renderer: it stays the same element, with its focus and its
+caret, while the program changes what it shows (see
 [the element on screen](../guide/inputs-the-user-types-into.md#the-element-on-screen)).
 
 {@includeCode ../../examples/timer/view.ts#named}

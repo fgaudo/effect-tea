@@ -137,7 +137,7 @@ From these declarations, the library derives the parent's messages, commands and
 
 - **The parent's messages** are the parent's own messages, plus:
   - `{ _tag: <child>, message }` for each child, and `{ _tag: <child>, id, message }` for children by id;
-  - `{ _tag: <input>, message: { _tag: 'Written', was, value } }` for each input, and `{ _tag: <input>, id, message }`
+  - `{ _tag: <input>, message: { _tag: 'Written', value } }` for each input, and `{ _tag: <input>, id, message }`
     for inputs by id.
 - **The parent's commands** are the parent's own commands, plus each child's commands. A child's commands are wrapped
   in the same way as its messages, and the child's `runCommand` runs them.
@@ -155,8 +155,8 @@ Three more facts hold for children and inputs:
   is why a program's state is always an object.
 - **A test reads a child's subscriptions by key.** `HashMap.has(app.subscriptions(state), ['Clock', 'ticks'])`
   tells a test whether the Clock ticks.
-- **The rule of an input.** A write is stored while the input's place holds, by `Equal`, the value that the write was
-  written over. Otherwise the write is rejected. Every other step leaves an input as that step wrote it.
+- **The rule of an input.** A write is stored wherever the input's place is there, and rejected where it is not. Every
+  other step leaves an input as that step wrote it.
 
 ### Precisely
 

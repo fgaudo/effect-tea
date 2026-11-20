@@ -99,6 +99,10 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   except the value a model gave each controlled element. With the bridge to React, the application's components may
   keep state of their own, which the testing tools do not see. The guide, "View", "Each bridge says what it draws
   beside the model".
+- **A subscription that sends faster than the screen refreshes holds the run back.** The bridge to snabbdom, and
+  React, draw once for each task that brings a new state. Let such a subscription send its messages by batches, as a
+  `Stream` grouped within a time does (`Stream.groupedWithin`). The guide, "Guarantees", "A subscription that sends
+  faster than the screen refreshes holds the run back".
 - **With React, the run lives as long as `Host`'s effect.** `<Activity>`, a remount, a new `key` and StrictMode start
   the program again from `init`. For a state that outlives a component, start the run yourself and draw it with
   `Draw`. A run that dies is thrown to the nearest error boundary, or given to `reportError` once `Host` has

@@ -49,8 +49,8 @@ the model holds: `on: { click: () => dispatch(model.more) }`.
   - The bridge to snabbdom draws the model, and nothing else. It keeps no state beside the program's state: what it
     keeps of a controlled element is the value its model gave it (see
     [a controlled element](./writing-a-bridge.md#a-controlled-element)). It draws each model whole, never in parts. It
-    draws a message that a handler of the view sends at once, before the handler returns. It draws a new state that
-    comes from anywhere else at the next animation frame.
+    draws in a microtask after each new state, and after each message that a handler of the view sends, so before the
+    browser handles the next event.
   - The bridge to React is hosted by a React application. The application's components may keep state of their own,
     and React draws it beside the model. React draws the model of the current state when it renders, as React
     schedules it. A part that the application suspends, under a Suspense boundary, is shown later, with the model of

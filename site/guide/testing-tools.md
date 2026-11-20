@@ -111,10 +111,8 @@ So a test says what the user does while a save is under way, and when the save's
 rehearse(
   form,
   Effect.fnUntraced(function*(rehearsal) {
-    yield* rehearsal.send(({ name, editor }) =>
-      editor._tag === "Saving"
-        ? Opt.none()
-        : Opt.some({ _tag: "Name", message: { _tag: "Written", was: name, value: "Ada" } })
+    yield* rehearsal.send(({ editor }) =>
+      editor._tag === "Saving" ? Opt.none() : Opt.some({ _tag: "Name", message: { _tag: "Written", value: "Ada" } })
     )
     yield* rehearsal.send(({ editor }) => editor._tag === "Named" ? Opt.some(editor.save) : Opt.none())
     expect((yield* rehearsal.model).editor._tag).toBe("Saving")

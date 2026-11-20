@@ -484,7 +484,7 @@ const makeList = (fates: Fates, events: Array<Event>) => {
           return state.rows.some((entry) => entry.id === message.id)
             ? { state: { ...state, rows: state.rows.filter((entry) => entry.id !== message.id) } }
             : reject
-        // Another text in the field's place rejects what was written over the old one.
+        // Another text in the field's place: a write after it is stored over it all the same.
         case "Clear":
           return state.rows.length > 0 ? { state: { ...state, rows: [], field: { ...state.field, text: "" } } } : reject
         // The place of the input the field was is gone: what was written into it is rejected.

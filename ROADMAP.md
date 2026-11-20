@@ -25,43 +25,20 @@ test of it. None is open.
 Taken by the owner on 20 November 2026, on the spike's record,
 [`write-without-was.md`](docs/records/write-without-was.md) ("Decided"): a write carries its value alone, the bridge to
 snabbdom draws in a microtask after each notice, the cost of a fast subscription is accepted and said, and the rule on
-`set` is dropped. Its stages below come before the release: `Written` and the inputs are unreleased. The first, the
-rule, the bridges and the tests, is done. None is done at the same time as step 3, which changes the same types of
-`compose.ts`.
-
-#### 1b. The guide, the doc comments, the skill and the README
-
-**Model and effort.** Opus 5.5, `high`: the guide is a specification.
-
-**Depends on** no other step: the code is on `main`. Until this stage is done, `bun run comments` fails on the two
-sections the doc comment of `Written` names, and the site's build on the region `#wait` of `bridges/snabbdom.ts` that
-"Writing a bridge" includes, now `#notice`: so `main` is not pushed before it.
-
-**How.** Section by section, as the record lists them under "What the guide would say", each sentence checked against
-the code (`src/input.ts`, `bridges/snabbdom.ts`, and the tests of `bridges/bridge.test_suite.ts`). The tutorial's page
-of inputs, `site/tutorial/4-inputs.md`, which the record does not list, writes with `was` and asks "Why does a write
-say what it was written over?": it follows the guide. And what the owner decided there:
-
-- **A fast subscription.** "What is left to you" of "Guarantees", and the skill's "Rules that nothing checks": a
-  subscription that sends faster than the screen refreshes holds the run back to one draw a task, as React does; it
-  sends its messages by batches, as a `Stream` grouped within a time does.
-- **`set`.** "Do not change the value in `set`" goes, from "Inputs the user types into" and "What is typed, in another
-  form", and its row of "Do and don't" if it has one. A `set` that changes the value is shown at once ("a set that
-  stores another value than the one typed is shown by the element at once, which keeps the focus", in
-  `bridges/bridge.test_suite.ts`). Where the caret goes then is the browser's, and is described, not promised:
-  Chromium puts it at the end.
-
-**Done when** `bun run comments`, `bun run lint` and the site's build pass, and this stage is removed.
+`set` is dropped. Its stages come before the release: `Written` and the inputs are unreleased. The first two, the
+rule, the bridges and the tests, then the guide, the doc comments and the skill, are done; the one below is left. It
+is not done at the same time as step 3, which changes the same types of `compose.ts`.
 
 #### 1c. What it reverses in `docs/rejected.md`
 
 **Model and effort.** Sonnet 5.5, `medium`, from the record's "What it reverses in `rejected.md`".
 
-**Depends on** 1b.
+**Depends on** no other step: the guide is written.
 
 **How.** R1 is marked reversed in [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), and each entry the
 record lists says what became of it. "A value changed as the library stores it" is reversed for a `set` that stores
-another value, now allowed; whether its `normalize` option earns a place is not reopened, since `set` does it. "A write
+another value, now allowed: the guide's "What is typed, in another form" lists it as the fourth way, with the caret
+described and not promised. Whether its `normalize` option earns a place is not reopened, since `set` does it. "A write
 that `update` sees and may reject" stays rejected.
 
 **Done when** each entry the record lists says so, and step 1 is removed with this stage.

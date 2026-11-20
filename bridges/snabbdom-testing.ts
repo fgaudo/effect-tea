@@ -15,8 +15,8 @@ type Listener = Extract<NonNullable<On[string]>, (...args: never) => unknown>
  * - It draws the view with a dispatch that records, draws each `thunk` as the renderer would, and calls every listener
  *   in the tree, in the order the tree holds them.
  * - Each listener gets an event whose `target` holds the `value` and the `checked` of its element's `props`, as the
- *   view drew them. So a controlled element's handler writes the model's own value: each write recorded is over the
- *   value its model holds, with that value.
+ *   view drew them. So a controlled element's handler writes the model's own value: each write recorded holds the
+ *   value its model holds.
  * - It returns the messages recorded, as the root of the program receives them.
  *
  * A model holds what `update` accepts, which a test reads from the model itself. This checks that the view sends it.

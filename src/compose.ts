@@ -186,7 +186,7 @@ const placedById = <S, Id, A>(
  * @see The guide, "Composition", "The parent's inputs".
  * @see The guide, "Inputs the user types into", "The program declares where it goes".
  * @see The guide, "Inputs the user types into", "The library stores what is written, whatever it is".
- * @see The guide, "Inputs the user types into", "The library rejects the write in any other state".
+ * @see The guide, "Inputs the user types into", "The library rejects the write where its place is not there".
  */
 export type Input<State, A> = {
   /** An input alone, not one of inputs by id. */
@@ -1036,7 +1036,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * ```
    *
    * @see The guide, "Composition", "The parent's inputs".
-   * @see The guide, "Inputs the user types into", "The view writes over the value its model holds".
+   * @see The guide, "Inputs the user types into", "The view writes what the element holds".
    */
   readonly input: DeclareInput<T>
   /**

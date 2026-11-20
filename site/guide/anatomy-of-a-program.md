@@ -34,8 +34,8 @@ flowchart LR
   state --> makeModel
   makeModel -->|model| view
   view -->|message| update
-  view -->|Written over the model's value| input[an input]
-  input -->|stored if its place holds that value| state
+  view -->|Written| input[an input]
+  input -->|stored if its place is there| state
   state --> subscriptions[subscriptions, by key]
   subscriptions -->|messages| update
 ```

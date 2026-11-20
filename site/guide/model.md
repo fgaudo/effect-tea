@@ -47,11 +47,11 @@ rejects `SaveClicked`. Then the "Save" button does nothing. The run does not che
 **Messages live in the model.** Every message that a view can send is in the model that the view draws, as a value. A
 control sends the message that the program fixed for it.
 
-- What the user types into a text field is not a message. The view writes the text over the value of an input that
-  the model holds (see [inputs the user types into](./inputs-the-user-types-into.md)). The program cannot fix such a
+- What the user types into a text field is not a message. The view writes the text into an input whose value the
+  model holds (see [inputs the user types into](./inputs-the-user-types-into.md)). The program cannot fix such a
   message as a value, since the text is known only when the user types it (see
   [why what the user types is no message](./inputs-the-user-types-into.md#why-what-the-user-types-is-no-message)).
-- A view sends only the messages that the model holds. A view writes only over the values that the model holds. A view
+- A view sends only the messages that the model holds. A view writes only into the inputs that the model shows. A view
   never builds a message of the program itself.
 - Export `Message` as a type only. Then no view can build a message.
 
@@ -64,12 +64,12 @@ What a model shows, and what a view may decide, is in [structuring a program](./
 
 Each pair sums up a rule of this page. The rule itself is above.
 
-| Do                                                                 | Don't                                                         |
-| ------------------------------------------------------------------ | ------------------------------------------------------------- |
-| Put every message that a view can send in the model, as a value.   | Build a message of the program in the view.                   |
-| Pick the case of the model from the state, as `update` reads it.   | Show a control in a state where `update` rejects its message. |
-| Let the view write what the user types over the value of an input. | Make a message of what the user types into a text field.      |
-| Keep the model data, compared by value with `Equal`.               | Put a function in the model.                                  |
+| Do                                                               | Don't                                                         |
+| ---------------------------------------------------------------- | ------------------------------------------------------------- |
+| Put every message that a view can send in the model, as a value. | Build a message of the program in the view.                   |
+| Pick the case of the model from the state, as `update` reads it. | Show a control in a state where `update` rejects its message. |
+| Let the view write what the user types into an input.            | Make a message of what the user types into a text field.      |
+| Keep the model data, compared by value with `Equal`.             | Put a function in the model.                                  |
 
 ```ts
 // Don't: a function, made anew by each call of makeModel
@@ -84,7 +84,7 @@ const withMessage = (state: State) => ({ name: state.name, save: Message.SaveCli
 **The rules a view keeps to are not enforced.** A view keeps three rules:
 
 - It sends only the messages that the model holds.
-- It writes only over the values that the model holds.
+- It writes only into the inputs that the model shows.
 - It never builds a message of the program itself.
 
 The library does not enforce these rules. What the library says about a model rests on them. A test reads the messages

@@ -28,8 +28,8 @@ The run dies, and reporting the crash is the job of the app around the run.
 [memoized](./glossary.md#what-the-user-sees) on its dispatch is not drawn again because of the dispatch.
 
 **A renderer reads the model when it draws.** A listener is told in the call that made the new state. So a renderer
-that waits for the next animation frame before it reads the model draws at most once per screen refresh, as the bridge
-to snabbdom ([`bridges/snabbdom.ts`](../../bridges/snabbdom.ts)) does for a new state that no handler of its view sent.
+that waits for a microtask before it reads the model draws the new states of one task once, as the bridge to snabbdom
+([`bridges/snabbdom.ts`](../../bridges/snabbdom.ts)) does.
 
 ### Options
 

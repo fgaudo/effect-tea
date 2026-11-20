@@ -119,14 +119,13 @@ timer's reader lies in a module of its own:
 ## An input
 
 What the user writes into an input is not a message of the model. The library rules on it, with the same rule for
-every input. A test writes into an input as the view does, over the value the model shows. The tests of
+every input. A test writes into an input as the view does, with the value the element would hold. The tests of
 [`examples/timer/named.test.ts`](../../examples/timer/named.test.ts) make the
 write from a model:
 
 {@includeCode ../../examples/timer/named.test.ts#typing}
 
-A write over the name the model shows is stored. The state is compared whole, since an input keeps nothing of its
-own. A write over a name that another write has replaced is rejected:
+A write into the name is stored. The state is compared whole, since an input keeps nothing of its own:
 
 {@includeCode ../../examples/timer/named.test.ts#update}
 

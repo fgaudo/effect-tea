@@ -45,7 +45,7 @@ version, and everything else, features included, the patch version.
   `ServicesOf<P>` becomes `CommandServicesOf<P> | SubscriptionServicesOf<P>`.
 - **Breaking**: a model is data: it holds no function, and compares by `Equal` ("Model").
   Upgrade: a function of the model that makes a message from what the user typed, `changeName: (name) =>
-  NameChanged({ name })`, becomes an input, and the view writes over its value through `forwardTo(dispatch, 'Name')`.
+  NameChanged({ name })`, becomes an input, and the view writes into it through `forwardTo(dispatch, 'Name')`.
 - **Breaking**: a `Dispatch` is a function that applies its message before it returns, `(message) => void`, where it
   was `(message) => Effect<void>`: when a handler returns, `update` has seen its message ("View").
   Upgrade: `Effect.runSync(dispatch(message))` becomes `dispatch(message)`, `yield* dispatch(message)` becomes

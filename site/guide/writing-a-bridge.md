@@ -35,8 +35,11 @@ hands its `App` to `Draw`.
 `renderInto` draws the model of the current state:
 
 1. as it starts;
-2. once a handler of the view has sent a message, before the handler returns (see [handlers](#handlers));
-3. once a new state comes from anywhere else, at the next animation frame.
+2. in a microtask after each new state, wherever its message comes from;
+3. in a microtask after each message that a handler of the view sends, whether it made a new state or not (see
+   [handlers](#handlers)).
+
+What one task sends is drawn once.
 
 As it starts, `renderInto` empties `root`. Then `root` holds the view's top element and nothing else. `root` keeps its
 place in the page, and it may have no parent.
@@ -61,21 +64,25 @@ The rest is the bridge's own code:
   message, or one that leaves the very same state, draws no tree. The draw still gives the controlled elements their
   values back.
 - A listener may be called while a patch runs. A browser may call `blur` as a patch removes the focused element, and
-  `focus()` calls `blur` and `focus` at once, as an `insert` hook that focuses an element does. The draw of what such a
-  listener sends waits for the patch under way, which draws again once it is done.
+  `focus()` calls `blur` and `focus` at once, as an `insert` hook that focuses an element does. What such a listener
+  sends is drawn after the patch under way, in a microtask of its own: no microtask runs while the patch is on the
+  stack.
 - With snabbdom, a view or a `makeModel` that throws as it is drawn ends the run, wherever it is drawn. With React, a
   view that throws is an error of the application, for its error boundaries: an error boundary above `Host` unmounts
   it, and the run is interrupted.
 
-The renderer's fiber waits for a notice of a new state, then for the next animation frame, and draws:
+A notice of a new state queues one microtask, which draws the model of the current state. Once the renderer is
+released, a draw it asked for before is not made, since a second run may draw into the same root:
 
-{@includeCode ../../bridges/snabbdom.ts#wait}
+{@includeCode ../../bridges/snabbdom.ts#notice}
+
+The renderer's fiber listens for the notices, draws as it starts, and then waits for what a draw in a microtask throws:
 
 {@includeCode ../../bridges/snabbdom.ts#handle}
 
-So a burst of new states from commands and subscriptions draws at most once per screen refresh. The run reads the
-model only when the renderer draws, so a state the renderer never draws makes no model (see
-[running](./running.md#rules)).
+The HTML Standard runs the microtasks after each task, and after each listener that the browser calls. So the new
+states of one task are drawn once, and before the browser handles the next event. The run reads the model only when
+the renderer draws, so a state the renderer never draws makes no model (see [running](./running.md#rules)).
 
 ### Handlers
 
@@ -84,20 +91,20 @@ itself, with a message the model holds, never one the view builds. The timer's v
 `on: { click: () => dispatch(model.more) }` in snabbdom's `on`. With React, it is the `onClick` prop:
 `onClick={() => dispatch(model.more)}`.
 
-With snabbdom, the `dispatch` a view is given is the bridge's own. It applies the message, then draws at once, before
-the handler returns:
+With snabbdom, the `dispatch` a view is given is the bridge's own. It applies the message, then asks for a draw,
+whether the message made a new state or not. A rejected write makes no new state, and its element must still be given
+the program's value back:
 
 {@includeCode ../../bridges/snabbdom.ts#dispatch}
 
-The draw is at once because a handler writes over the value its model held when it was drawn. Two keys between two
-draws would send the second over the value that the first one replaced, and the second would be rejected. So a message
-of a handler is drawn before the next event. What a draw in a handler throws ends the run: the renderer's fiber dies of
-it, since a handler runs in no fiber of the run.
+So no handler of an event that the browser dispatches runs on a view older than the state: a key is typed over what
+the program has put in the element. React renders a store's new states the same way, in a microtask. What a draw in a
+microtask throws ends the run: the renderer's fiber dies of it, since a microtask runs in no fiber of the run.
 
 ### A controlled element
 
 A text field, a textarea, a select, a checkbox and a range are each drawn as a controlled element. The view gives the
-element the value its model holds, and its handler writes over that value, through the input's dispatch (see
+element the value its model holds, and its handler writes what the element holds, through the input's dispatch (see
 [inputs the user types into](./inputs-the-user-types-into.md)):
 
 ```ts
@@ -107,7 +114,6 @@ h("input", {
     input: (event) =>
       forwardTo(dispatch, "Name")({
         _tag: "Written",
-        was: model.name,
         value: (event.target as HTMLInputElement).value
       })
   }
@@ -131,27 +137,23 @@ element as React does, or a way to reach the element after each draw.
 So the element is never replaced, and keeps its focus, its caret and its selection, while the program changes what it
 shows. This holds with a renderer that keeps each element in its place, as snabbdom and React do.
 
-With snabbdom, a new state that comes from a command or a subscription is drawn at the next animation frame. What the
-user types in that window is written over the value of the model drawn before. When the state has moved on, the write
-is rejected, and the draw takes it back. On a page on screen, the window is one screen refresh.
-
 ## Rules
 
 What a bridge does, from the walkthrough above:
 
 - **It draws the model of the current state, and says what else it draws.** The bridge to snabbdom draws each model
-  whole: a message of a handler at once, and any other new state at the next animation frame. It draws nothing between
-  two draws. The bridge to React draws the model as React renders. Between two draws, React draws what the application's
-  components hold, and a part that the application suspends is shown later. What else the screen may show is in
-  [view](./view.md#rules).
+  whole, in a microtask after each new state. It draws nothing between two draws. The bridge to React draws the model
+  as React renders. Between two draws, React draws what the application's components hold, and a part that the
+  application suspends is shown later. What else the screen may show is in [view](./view.md#rules).
 - **A handler calls `dispatch` itself.** Sending needs no services, and returns once the message is applied.
 - **The message is one the model holds**, never one the view builds.
-- **A controlled element is drawn with the value its model holds**, and its handler writes over that value:
-  `{ _tag: 'Written', was, value }`.
+- **A controlled element is drawn with the value its model holds**, and its handler writes what the element holds:
+  `{ _tag: 'Written', value }`.
 - **After each draw, the element shows the value of its model.** A bridge whose renderer sets a value only where its
   own tree changed gives each controlled element its value back after each draw, where the element differs from it.
-- **A message of a handler is drawn before the next event.** A bridge whose renderer would draw it later draws it at
-  once, in the handler. Otherwise a second write is over the value of the model before the first, and is rejected.
+- **Each new state is drawn before the browser handles the next event**, as React renders a store. So is each message
+  that a handler sends, whether it made a new state or not. Otherwise a handler runs on a view older than the state: a
+  key is typed over a value that the program has replaced since, and the write stores the old value back.
 - **The renderer keeps an element drawn in the same place from one draw to the next**, as snabbdom and React do.
   Otherwise the element is made anew, and loses its focus.
 
@@ -200,9 +202,9 @@ They leave out:
   program may empty a field by leaving `''` in its place.
 - **With React, a value that a script writes into an element past React's own setter**, and announces with an input
   event. React sends no `onChange` for it, so it is lost.
-- **With snabbdom, what is typed between a new state and its draw**, at the next animation frame. A write over the
-  value of the model drawn before is rejected when the state has moved on, and taken back (see
-  [a controlled element](#a-controlled-element)).
+- **An event that the program's own code dispatches before a new state is drawn**, with either bridge: a call of
+  `element.click()`, `dispatchEvent` or `focus()` in the task that made the new state. Its handler runs on the view of
+  before that state, and a write from it is stored over what the program put there in that task.
 - **Other widgets.** A widget of a component library with `value` and `onChange` props is drawn as a controlled
   element. Where connecting a widget is too complex, prefer a widget that the program draws: its press is a message,
   and its drag a subscription. The sliders of [`examples/volume`](../../examples/volume) are drawn this way.
@@ -223,6 +225,7 @@ The tests they share are written once, in
 - that a second click on a button in the same task is rejected while what the first started is under way;
 - that the element of an input shows what the program puts in its place, and keeps its focus;
 - that a key the state rejects is taken back, and the element shows the program's value again;
+- that a value that `set` changes as it stores it is shown by the element at once, which keeps its focus;
 - that a textarea, a select, a checkbox and a range store what the user gives them, and show it;
 - that an element drawn in turn as an input and as a plain field shows the input only while it is one.
 
@@ -231,14 +234,14 @@ A bridge of your own can start from them. To run them on it:
 - copy the file, with the examples whose programs it draws;
 - have a test file register a DOM, as those two do;
 - give `bridgeTests` a `Bridge`: your `renderInto`, the views of their scenarios drawn with your renderer, and
-  `drawn`, which a test calls after each act of the user, so that your bridge has drawn what the act made.
+  `drawn`, which a test awaits after each act of the user, so that your bridge has drawn what the act made.
 
 The file holds the screen refreshes and Effect's scheduler, with `holdFrames`, `refresh` and `settle`. So the test
 says when a screen refresh comes, and when the run's fibers go on.
 
 Beside the snabbdom bridge, `@fgaudo/effect-tea/snabbdom/testing` ([`bridges/snabbdom-testing.ts`][messages]) has
 `messagesSentBy`. It finds what a view sends, without a DOM. Each listener gets an event whose `target` holds the
-`value` and the `checked` that the view drew. So it finds the writes of controlled elements too, each over the value
+`value` and the `checked` that the view drew. So it finds the writes of controlled elements too, each with the value
 its model holds. It is one way to check that a view draws what its model holds. The library does not ask it of any
 bridge (see [testing](./testing.md)). The test of each example drawn with snabbdom uses `messagesSentBy`.
 

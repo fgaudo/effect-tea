@@ -79,11 +79,12 @@ model is a value like any other.
 
 **Inputs.** What the user writes into an input is not one of the messages that the model holds. The library keeps the
 rule for it, and the rule is the same for every input. A test writes into an input as the view does:
-`{ _tag: 'Name', message: { _tag: 'Written', was: model.name, value: 'Ada' } }`. Such writes can be checked with
-`dispatchViolations` too, apart from the reader. The writes over the values the model shows as editable are `held`.
-The writes over all the values it shows are `candidates`. Each write is of a value other than `was`, so a second write
-is rejected. Then `Rejected` finds an editor with no place to write into, and `Missing` finds a place that the model
-shows as read-only. [`stocktake`](../../examples/stocktake/stocktake.test.ts) does this.
+`{ _tag: 'Name', message: { _tag: 'Written', value: 'Ada' } }`. Such writes can be checked with `dispatchViolations`
+too, apart from the reader. The writes into the values the model shows as editable are `held`. The writes into all the
+values it shows are `candidates`. Each write is of a value other than the one the model shows: so its step does
+something, and the same write sent again does nothing. Then `Rejected` finds an editor with no place to write into, and
+`Missing` finds a place that the model shows as read-only. [`stocktake`](../../examples/stocktake/stocktake.test.ts)
+does this.
 
 **Children.** A parent's reader calls the readers of its children. The parent's reader wraps what they return as the
 parent receives it: `{ _tag: 'Clock', message }`, with the `id` for children by id. The
@@ -125,12 +126,12 @@ Then the test does these steps:
    `renderInto` empties `root` and draws the view into it, so the test finds what the view draws through `root`. The
    test may make `root` with no parent, and may start a second run with the same `root`.
 2. It acts on the page. Then it waits until the page shows what it expects, because a renderer may draw a new state
-   later. The bridge to snabbdom draws a new state that a command or a subscription brings at the next animation
-   frame, and React renders as React schedules it.
+   later. The bridge to snabbdom draws in a microtask after each new state, a message of its view's included: so the
+   test awaits a microtask after each event it dispatches. React renders as React schedules it.
 3. At the end, it interrupts the run's fiber.
 
-The tests of the package's bridges go further (see [their tests](./writing-a-bridge.md#their-tests)). In those tests, a
-screen refresh comes when the test says, in place of the next animation frame.
+The tests of the package's bridges go further (see [their tests](./writing-a-bridge.md#their-tests)). In those tests,
+the run's fibers go on when the test says.
 
 [preload]: ../../bridges/snabbdom-preload.ts
 [messages]: ../../bridges/snabbdom-testing.ts

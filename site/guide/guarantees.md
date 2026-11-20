@@ -50,10 +50,10 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
 - **A model is made only when it is read.** It is made once for each state, by the state's identity. So the very same
   state has the very same model, and a bridge need not draw it again.
   - A model that throws is a defect in `'render'`, recorded where the model is read, once for each state.
-- **An input stores what is written over the value it holds.** A write is stored when its place holds the value it was
-  written over, and rejected otherwise.
-  - The two values are compared by `Equal`.
+- **An input stores what is written, where its place is there.** A write is stored when its place is there, and
+  rejected otherwise.
   - This holds whatever the value is, and whatever else the state says.
+  - A value equal, by `Equal`, to the one the place holds leaves the very same state.
   - How a view writes into an input is in [inputs the user types into](./inputs-the-user-types-into.md). Which
     elements the package's bridges draw is in [what is left out](./writing-a-bridge.md#what-is-left-out).
 
@@ -78,6 +78,10 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
   what a handler of the view sends. A slow one holds up the event that sent the message, and nothing bounds it.
 - **A renderer is told of every new state**, in the call that made it. One that draws later reads the latest model
   when it draws.
+- **A subscription that sends faster than the screen refreshes holds the run back.** The bridge to snabbdom draws once
+  for each task that brings a new state, and React renders a store's new states the same way. So the run goes no
+  faster than one draw a task. Let such a subscription send its messages by batches, as a `Stream` grouped within a
+  time does (`Stream.groupedWithin`).
 - **With the bridge to React, `makeModel` may run for each new state, in the call that sends its message.** React reads
   the model as it is told of the new state, to compare it with the model before. So a slow `makeModel` holds up the
   event that sent the message too. This is described, and not promised: it is how React behaves today, and React's
@@ -86,7 +90,7 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
   - `dispatchViolations` checks it, in tests, on the messages a test reads from the model (see
     [testing tools](./testing-tools.md)).
   - That the view draws what its model holds is checked with your renderer's tools.
-- **A view sends only what its model holds.** It writes only over the values its model holds, and never builds a
+- **A view sends only what its model holds.** It writes only into the inputs its model shows, and never builds a
   message itself. The library does not enforce this (see [model](./model.md#precisely)).
 - **What the screen shows beside the program's model.** The guarantees are of the program. Each bridge says what it
   draws beside the model: the bridge to snabbdom keeps no state beside the program's state, except the value a model
@@ -138,7 +142,7 @@ and interruptions by the program. It checks:
 - that nothing ends in silence;
 - that a model is made only when it is read, once for each state, and that a model read after a notice is of the
   latest state;
-- that what is written into an input is stored exactly when it was written over the value its place holds (see
+- that what is written into an input is stored exactly when its place is there, whatever it is (see
   [inputs the user types into](./inputs-the-user-types-into.md)).
 
 It also checks that the run dies with each defect, and that from the first one on it applies no message (see

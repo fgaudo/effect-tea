@@ -10,8 +10,9 @@ This page shows how a program holds a value that the user types, such as the tex
 the user, not from the program.
 
 - The program declares a place in its state for such a value: an input.
-- The view sends what the user writes, as a write over the value that its model holds.
-- The library stores the write, or rejects it. No `update` of the program is involved.
+- The view sends what the user writes, as a write of the value that the element holds.
+- The library stores the write where the input's place is there, and rejects it where it is not. No `update` of the
+  program is involved.
 
 ## An example
 
@@ -22,13 +23,13 @@ inputs: { Name: input({ at: Optic.id<State>().key('name') }) },
 ```
 
 The form's view draws its field as a controlled element, with the snabbdom bridge (`examples/form/view-snabbdom.ts`).
-The element's `value` is `model.name`, and its handler writes over that value through `forwardTo(dispatch, 'Name')`
-(see [the element on screen](#the-element-on-screen)).
+The element's `value` is `model.name`, and its handler writes what the element holds through
+`forwardTo(dispatch, 'Name')` (see [the element on screen](#the-element-on-screen)).
 
-In general, a view writes over the value its model holds, through the input's dispatch:
+In general, a view writes the value that the element holds, through the input's dispatch:
 
 ```ts
-{ _tag: 'Written', was: model.name, value: text }
+{ _tag: 'Written', value: text }
 ```
 
 ## Rules
@@ -41,12 +42,12 @@ In general, a view writes over the value its model holds, through the input's di
   - An optic that may focus nothing, as one composed with `Optic.some()`, declares an input that is not always there.
   - `inputById` declares an input by id, one for each row. The view writes into it through
     `forwardTo(dispatch, 'Count', id)` (see [inputs by id](#inputs-by-id)).
-- **The view writes over the value its model holds**: `{ _tag: 'Written', was: model.name, value: text }`, through
+- **The view writes what the element holds**: `{ _tag: 'Written', value: text }`, through
   `forwardTo(dispatch, 'Name')`.
-- **The library stores what is written, whatever it is**, in every state where the value in the input's place equals,
-  by `Equal`, the value that the write was written over.
-- **The library rejects the write in any other state.** In such a state, the state has moved on without the input that
-  wrote it. A state where the input's optic focuses nothing, or where its `get` returns `None`, is one of them.
+- **The library stores what is written, whatever it is**, in every state where the input's place is there, whatever
+  else the state says. A value equal, by `Equal`, to the one the place holds leaves the very same state.
+- **The library rejects the write where its place is not there**: in a state where the input's optic focuses nothing,
+  or where its `get` returns `None`.
 - **The program changes an input by leaving another value in its place**, such as `name: ''`.
 - **An input keeps nothing of its own.** The state stored is the state that the program wrote. A test compares that
   state whole.
@@ -57,8 +58,9 @@ In general, a view writes over the value its model holds, through the input's di
 ### The element on screen
 
 **The view draws the element of an input as a controlled element.** The element's value is the one its model holds,
-and its handler writes over that value. A write is applied in its own event. So when the handler returns, the state
-holds what was typed, or has rejected it, and the element is drawn again with the value of the new model.
+and its handler writes what the element holds. A write is applied in its own event. So when the handler returns, the
+state holds what was typed, or has rejected it. The element is then drawn again with the value of the new model,
+before the next event.
 
 How each bridge keeps the element so, and which elements it draws, is in
 [a controlled element](./writing-a-bridge.md#a-controlled-element): [`form`](../../examples/form) draws its input with
@@ -67,7 +69,7 @@ snabbdom and with React.
 ### What is typed, in another form
 
 The library stores what is written as it is, because the element already shows that value. A program that wants the
-value in another form has three ways:
+value in another form has four ways:
 
 - **Parse the text where the program reads it.** The state holds the text as typed. A function of the program says
   what the text means, to `update` and to `makeModel`. `stocktake` reads each count with `countOf`: a whole number,
@@ -75,14 +77,13 @@ value in another form has three ways:
 - **Replace the text on a message of the program.** `update` leaves another value in the input's place: for example,
   the name without the spaces around it, when the user saves. The element is then drawn with the program's value (see
   [the element on screen](#the-element-on-screen)).
+- **Change the text as it is stored, in `set`.** A `set` may store another value than the one written: for example,
+  the text in capitals. The element is then drawn with the value stored, at once, and keeps its focus. Where the caret
+  goes then is the browser's, and is not promised: Chromium puts it at the end of the text.
 - **Format the text in the element, before the write.** A limit that the element keeps by itself, such as
   `maxlength`, needs nothing: the element reports the value that it holds. A mask changes the element's own value. So
   it is outside what this page promises, as any value that an element changes by itself is (see
   [what is left out](./writing-a-bridge.md#what-is-left-out)). The package's bridges show no mask.
-
-Do not change the value in `set`. The element shows what the user typed, so the user's next write is over that value,
-and the place holds another one. A write sent before the next draw is then rejected, and that draw takes back what the
-user typed.
 
 ## Inputs by id
 
@@ -110,7 +111,7 @@ inputs: {
 },
 ```
 
-- **A write into an input by id names its id**: `{ _tag: 'Count', id, message: { _tag: 'Written', was, value } }`,
+- **A write into an input by id names its id**: `{ _tag: 'Count', id, message: { _tag: 'Written', value } }`,
   through `forwardTo(dispatch, 'Count', id)`.
 - **A write is stored at the place of its id**, by the rule of every input (see [the rules](#rules), and
   [the rule of an input](./composition.md#what-the-library-derives)). The write is rejected where the optic of its
@@ -144,7 +145,7 @@ are `Locked`, `atOpen` focuses nothing. So `get` returns `None`, and `set` leave
 
 **Keep what the user types in the case of the state where it can be typed.** The lock is then the shape of the state,
 and no condition beside it: the input, `update` and `makeModel` read the same case. In `stocktake`, a `set` that wrote
-into the locked counts would not compile. A `get` that read them would compile: a test checks that a write over a
+into the locked counts would not compile. A `get` that read them would compile: a test checks that a write into a
 locked row is rejected.
 
 **The model can read the place through the input.** What `input` and `inputById` return has the `get` of the place.
@@ -164,30 +165,24 @@ See [`stocktake`](../../examples/stocktake/stocktake.ts).
 
 Each pair sums up a rule of this page. The rule itself is above.
 
-| Do                                                                       | Don't                                                                                    |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| Write over the value the model holds: `was: model.name`.                 | Write over a value kept from an older model: it is rejected once the state has moved on. |
-| Answer in a subscription or a command with a message of the program.     | Write into an input from a subscription or a command.                                    |
-| Lock the rows while an operation runs, with a `get` that returns `None`. | Keep the rows' places while the operation runs: their writes can still be stored.        |
-| Parse the text where the program reads it.                               | Change the value in `set`: the user's next write can then be rejected.                   |
+| Do                                                                       | Don't                                                                             |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| Answer in a subscription or a command with a message of the program.     | Write into an input from a subscription or a command.                             |
+| Lock the rows while an operation runs, with a `get` that returns `None`. | Keep the rows' places while the operation runs: their writes can still be stored. |
 
 ## Precisely
 
 ### Why what the user types is no message
 
 A text field could send a message for each keystroke, with the text in it, and `update` could store the text. An input
-is there instead, for three reasons:
+is there instead, for two reasons:
 
 - **There is nothing to decide.** A click says that something happened, and `update` decides what it means. A text is
-  different: the element already shows it. The one question is whether the state has moved on without the element.
-  The answer is the same for every input. So the library keeps the rule, and a view and a test rely on the same one.
-- **What the screen shows may be older than the state.** So a write says what it was written over, and the library
-  rejects a write over a value that the place no longer holds. A program that stored the text in its `update` would
-  write this check itself, for each field.
+  different: the element already shows it. The one question is whether the input's place is still there. The answer
+  is the same for every input. So the library keeps the rule, and a view and a test rely on the same one.
 - **The model could not hold the message.** Every message that a view can send is in the model, as a value that the
   program fixed (see [model](./model.md)). A text is known only when the user types it. So the model would hold a
-  function from the text to a message, and a model holds no function. Or the view would build the message itself, and
-  no test sees a message that a view built.
+  function from the text to a message, and a model holds no function.
 
 So no `update` runs when the user types. A program that must act on what is typed does not wait for a message:
 
@@ -196,14 +191,10 @@ So no `update` runs when the user types. A program that must act on what is type
 - Work that follows the text, such as a search while the user types, is a subscription with the text in its key. A
   new value of the key starts the subscription anew (see [subscriptions](./subscriptions.md)).
 
-### Two limits
+### A limit
 
-A message names a place. That leaves two limits, and neither corrupts the state:
+A message names a place, not an instance. So a message drawn for an old instance reaches the new one at the same
+place, and this does not corrupt the state:
 
-- **A write over a value that came back is stored**, for example:
-  - the same text after a reset or an undo;
-  - a write at the id of an input by id whose row was removed, when another row was added at that id with the value
-    written over.
-
-  Such a write is what the user typed over what they saw.
+- **A write at the id of an input by id whose row was removed is stored**, when another row was added at that id.
 - **A message drawn for an old instance of a child reaches the new one.** There, `update` decides.

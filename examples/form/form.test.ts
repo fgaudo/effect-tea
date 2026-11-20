@@ -102,9 +102,9 @@ describe("form", () => {
     }))
   })
 
-  // Beyond what the library asks: that the view draws what its model holds, each control once, and the input over the
+  // Beyond what the library asks: that the view draws what its model holds, each control once, and the input with the
   // name the model holds. `messagesSentBy`, beside the snabbdom bridge, is its way to see it without a DOM: the input's
-  // write holds the value its element is drawn with, so it is written over that value, with that value.
+  // write holds the value its element is drawn with.
   test("the view sends what its model holds", () => {
     fc.assert(fc.property(state(), (before) => {
       const model = form.makeModel(before)

@@ -283,9 +283,9 @@ describe("the model", () => {
   })
 
   // Beyond what the library asks: that the view draws what its model holds, each control once, and each editable count
-  // over the text the model holds. `messagesSentBy`, beside the snabbdom bridge, is its way to see it without a DOM: a
-  // count's write holds the value its element is drawn with, so it is written over that text, with that text. The
-  // counts are drawn between the scanner's control and the submit.
+  // with the text the model holds. `messagesSentBy`, beside the snabbdom bridge, is its way to see it without a DOM: a
+  // count's write holds the value its element is drawn with. The counts are drawn between the scanner's control and
+  // the submit.
   test("the view sends what its model holds", () => {
     fc.assert(fc.property(states(), (state) => {
       const model = stocktake.makeModel(state)
