@@ -15,7 +15,54 @@ test of it. None is open.
 
 ## Next, in order
 
-### 1. Release 0.8.0
+### 1. `renderInto` draws into `root`
+
+**Model and effort.** Opus 5.5, `medium`. It depends on no other step, and comes before the release: the bridges as
+entries of the package are unreleased, so no user notices the change.
+
+**Why.** Decided by the owner on 20 November 2026, on the first finding of the reader's check of that day
+([`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), its last stage): both readers found by a probe that
+`renderInto` of the bridge to snabbdom does not draw into `root`. Its doc comment and the tutorial, step 1, say that it
+does. To say instead that it replaces `root` would be true of one case in three. snabbdom's `patch`, given `root`, was
+run on that day with snabbdom 3.6.4 in happy-dom, in a scratch probe outside git, not kept:
+
+- a root with a parent, whose selector is not the one of the view's top element, is replaced by that element: `root`
+  ends detached and empty, and a test that queries through it finds nothing;
+- a root whose tag, id and classes are the selector of the view's top element (`<main>` under `h("main", …)`) is kept,
+  and what it held stays beside what the view draws;
+- a root with no parent, as a test makes one with `createElement`, is given nothing: the view is drawn nowhere, in
+  silence. So a second run with the same `root`, once a first run replaced it, draws nothing: a restart after a
+  crash, a hot reload, a test that starts again.
+
+With React, the `renderInto` of the bridges' tests (`drawInto` in `bridges/react.test.ts`) draws into `root` already:
+the tests the bridges share (`bridges/bridge.test_suite.ts`) do not see the difference, since they query `document`.
+
+**How.** `renderInto` empties `root`, gives it one child of the bridge's own (`root.replaceChildren(place)`), and starts
+its patches from that child, where it starts from `root` today. So `root` keeps its place, with a parent or without
+one, and holds the view's top element and nothing else, whatever that element's selector is: in the probe,
+`<div id="app">Loading</div>` became `<div id="app"><main>…</main></div>`, and a root with no parent held the view
+too. Emptying `root` is as React's `createRoot` does on its first render, and is the reviewer's proposal, which the
+owner had not confirmed when this was written: ask before writing it, since a root that keeps what it held is one line
+of difference.
+
+- The skills are [`add-example`](.agents/skills/add-example/SKILL.md), for the bridge, and
+  [`change-api`](.agents/skills/change-api/SKILL.md), for what an export promises.
+- The tests go in `bridges/bridge.test_suite.ts`, for both bridges alike: `root` stays connected, what the view draws
+  is found through `root`, what `root` held is gone, a root with no parent is drawn into, and a second run with the
+  same `root` draws.
+- The doc comment of `renderInto` and the tutorial say "into `root`" already. They, "Writing a bridge" (whose region
+  `draw` changes, and "The handle") and "Testing" ("The view") say what the change makes true, and that `root` is
+  emptied, each checked against the sentence it replaces. Then `bun run comments`.
+- The premise: snabbdom's README says of `patch` that an element with a parent is replaced by the node of the vnode.
+  The bridge rests on it today for `root` itself, and would rest on it for its own child: read `docs/premises.md`
+  before deciding that it is none to add.
+- The examples' pages become `#app > main`. `examples/style.css` styles `main` with no `body >` before it, read and
+  not run: open one example in a browser.
+- The entry of `CHANGELOG.md` for the bridges is edited only if it says where `renderInto` draws.
+
+**Done when** those tests pass with both bridges, the checks of `AGENTS.md` pass, and this step is removed.
+
+### 2. Release 0.8.0
 
 **Why.** The unreleased section of `CHANGELOG.md` is long, and users get none of it until a release: the bridges as
 entries of the package, the inputs, the fixed declarations. It comes after the dispatch that applies its message at
@@ -32,7 +79,7 @@ site built without warnings. Then the release commit and its tag. The owner publ
 
 **Done when** the tag `v0.8.0` is pushed.
 
-### 2. The bridges in a real browser
+### 3. The bridges in a real browser
 
 **Why.** The bridges' tests run on happy-dom, which no browser is. The bridges draw controlled elements, and what is
 typed into one rests on a premise seen only in happy-dom and in one browser (`docs/premises.md`, of a controlled
@@ -52,7 +99,7 @@ the split of `run` that `docs/rejected.md` parks.
 
 **Done when** the suite passes in a real browser, in the CI or by a command written down in the repository.
 
-### 3. The changes that break the API
+### 4. The changes that break the API
 
 **Why.** A user who adopts the library asks that its API stays, and a change that breaks it costs less the fewer users
 it has. The API looks close to stable, but what `docs/rejected.md` parks would change it.
@@ -62,7 +109,7 @@ owner: taken now, in a 0.x release, or kept parked.
 
 **Done when** each such entry is taken or kept parked by the owner's decision.
 
-### 4. A view of the library's own
+### 5. A view of the library's own
 
 **Why.** A view as data over snabbdom: a node holds its message, a child's view is lifted by a node that wraps its
 messages, an input's node names its input. A test then finds every message a view can send without a DOM, and a view
@@ -79,26 +126,20 @@ and what was weighed beside it. The owner decides whether to make it, under whic
 
 ## Waiting for the owner
 
-- **Four findings of the reader's check of 20 November 2026**, the last stage of
+- **Three findings of the reader's check of 20 November 2026**, the last stage of
   [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md): two readers that had not seen the code built a
   greenhouse panel, one from the package and one from the guide alone. Each finding changes what a page promises, or
-  adds a page, so none was written.
-  1. **`renderInto` does not draw into `root`: it replaces it.** snabbdom's `patch`, given an element, puts the view's
-     top element in its place, and `renderInto` starts from `root`: `root` ends detached, and a test that queries
-     through it finds nothing. Both readers found it by a probe. The doc comment of `renderInto` says "draws the model
-     of the current state into `root`", written by the swap, where it said "starting from `root`"; the tutorial, step
-     1, says "draws the model into the element `root`", as it did before. To decide: say that the view's top element
-     takes the place of `root`, in the comment, the tutorial and "Writing a bridge"; or make the bridge draw into
-     `root`, with a child of its own.
-  2. **What the bridge to snabbdom draws of a vnode's data is said nowhere.** It has snabbdom's modules of props, of
+  adds a page, so none was written. A fourth, that `renderInto` replaces `root`, is decided: "`renderInto` draws into
+  `root`", above.
+  1. **What the bridge to snabbdom draws of a vnode's data is said nowhere.** It has snabbdom's modules of props, of
      style and of listeners: a `class`, an `attrs` or a `dataset` is dropped in silence, and `disabled` is a prop. The
      examples' views say it in comments. To decide: whether "Writing a bridge" says it, which is a promise of the
      bridge.
-  3. **A subscription from an API of callbacks, with its stop**, is shown only by `examples/volume/main.ts`. Both
+  2. **A subscription from an API of callbacks, with its stop**, is shown only by `examples/volume/main.ts`. Both
      readers needed one: the guide starts every subscription from a `Stream` that a service already has. To decide:
      whether "Subscriptions" gets a section for it, and for a feed that never ends, which promises nothing new of the
      library.
-  4. **What is drawn outside the root, and an event of the whole page**: `document.title`, a key pressed anywhere. No
+  3. **What is drawn outside the root, and an event of the whole page**: `document.title`, a key pressed anywhere. No
      page says how. The readers drew the title two ways, a hook of the view's top vnode and a renderer over `App` beside
      `renderInto`, and both took the key as a subscription to a service. To decide: whether the guide says which way is
      the library's.
