@@ -8,7 +8,7 @@ what would reopen it. How an item came to be, and what was weighed for it, goes 
 [`docs/records/`](docs/records), not here. The order below comes from two of them:
 [`adoption.md`](docs/records/adoption.md), the owner's decision that the library is meant to be adopted by others, and
 [`architecture-review.md`](docs/records/architecture-review.md), a review of the whole project that the owner asked
-for on 20 November 2026 and asked to be written here in the order it advises. Steps 2 to 5, 8 and 9 are its parts 1
+for on 20 November 2026 and asked to be written here in the order it advises. Steps 1 to 4, 7 and 8 are its parts 1
 to 6.
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
@@ -20,58 +20,11 @@ test of it. None is open.
 
 ## Next, in order
 
-### 1. `renderInto` draws into `root`
-
-**Model and effort.** Opus 5.5, `medium`. It depends on no other step, and comes before the release: the bridges as
-entries of the package are unreleased, so no user notices the change.
-
-**Why.** Decided by the owner on 20 November 2026, on the first finding of the reader's check of that day
-([`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), its last stage): both readers found by a probe that
-`renderInto` of the bridge to snabbdom does not draw into `root`. Its doc comment and the tutorial, step 1, say that it
-does. To say instead that it replaces `root` would be true of one case in three. snabbdom's `patch`, given `root`, was
-run on that day with snabbdom 3.6.4 in happy-dom, in a scratch probe outside git, not kept:
-
-- a root with a parent, whose selector is not the one of the view's top element, is replaced by that element: `root`
-  ends detached and empty, and a test that queries through it finds nothing;
-- a root whose tag, id and classes are the selector of the view's top element (`<main>` under `h("main", …)`) is kept,
-  and what it held stays beside what the view draws;
-- a root with no parent, as a test makes one with `createElement`, is given nothing: the view is drawn nowhere, in
-  silence. So a second run with the same `root`, once a first run replaced it, draws nothing: a restart after a
-  crash, a hot reload, a test that starts again.
-
-With React, the `renderInto` of the bridges' tests (`drawInto` in `bridges/react.test.ts`) draws into `root` already:
-the tests the bridges share (`bridges/bridge.test_suite.ts`) do not see the difference, since they query `document`.
-
-**How.** `renderInto` empties `root`, gives it one child of the bridge's own (`root.replaceChildren(place)`), and starts
-its patches from that child, where it starts from `root` today. So `root` keeps its place, with a parent or without
-one, and holds the view's top element and nothing else, whatever that element's selector is: in the probe,
-`<div id="app">Loading</div>` became `<div id="app"><main>…</main></div>`, and a root with no parent held the view
-too. Emptying `root` is as React's `createRoot` does on its first render, and is the reviewer's proposal, which the
-owner had not confirmed when this was written: ask before writing it, since a root that keeps what it held is one line
-of difference.
-
-- The skills are [`add-example`](.agents/skills/add-example/SKILL.md), for the bridge, and
-  [`change-api`](.agents/skills/change-api/SKILL.md), for what an export promises.
-- The tests go in `bridges/bridge.test_suite.ts`, for both bridges alike: `root` stays connected, what the view draws
-  is found through `root`, what `root` held is gone, a root with no parent is drawn into, and a second run with the
-  same `root` draws.
-- The doc comment of `renderInto` and the tutorial say "into `root`" already. They, "Writing a bridge" (whose region
-  `draw` changes, and "The handle") and "Testing" ("The view") say what the change makes true, and that `root` is
-  emptied, each checked against the sentence it replaces. Then `bun run comments`.
-- The premise: snabbdom's README says of `patch` that an element with a parent is replaced by the node of the vnode.
-  The bridge rests on it today for `root` itself, and would rest on it for its own child: read `docs/premises.md`
-  before deciding that it is none to add.
-- The examples' pages become `#app > main`. `examples/style.css` styles `main` with no `body >` before it, read and
-  not run: open one example in a browser.
-- The entry of `CHANGELOG.md` for the bridges is edited only if it says where `renderInto` draws.
-
-**Done when** those tests pass with both bridges, the checks of `AGENTS.md` pass, and this step is removed.
-
-### 2. A write without `was`
+### 1. A write without `was`
 
 **Model and effort.** Opus 5.5, `high`: the rule of an input and a bridge, each with invariants to keep.
 
-**Depends on** step 1, which changes where the same bridge draws. It comes before the release: `Written` and the
+**Depends on** no other step. It comes before the release: `Written` and the
 inputs are unreleased.
 
 **Why.** [`architecture-review.md`](docs/records/architecture-review.md), "A write without `was`". `was` guards one
@@ -102,12 +55,12 @@ The skills are [`change-engine`](.agents/skills/change-engine/SKILL.md),
 effort (the rule and its property of the search, the bridges, the examples' views, the guide and the skill), and the
 entries of `docs/rejected.md` it reverses say so. Refused: an entry of `docs/rejected.md` says why.
 
-### 3. The run as a store and its effects
+### 2. The run as a store and its effects
 
 **Model and effort.** Fable 5.2, `high`: a design whose constraints pull apart, and one that reopens a decision of the
 owner's.
 
-**Depends on** step 2 decided, which settles when the bridge to snabbdom draws.
+**Depends on** step 1 decided, which settles when the bridge to snabbdom draws.
 
 **Why.** [`architecture-review.md`](docs/records/architecture-review.md), "The run as a store and its effects". Since
 a dispatch applies at once, a renderer needs nothing that is an effect, and three of the four renderers of the
@@ -122,15 +75,15 @@ started twice on one handle, as React's StrictMode starts an effect twice, can k
 running twice. The skills are [`change-engine`](.agents/skills/change-engine/SKILL.md),
 [`change-api`](.agents/skills/change-api/SKILL.md) and [`add-example`](.agents/skills/add-example/SKILL.md).
 
-**Done when** the owner has decided on the plan. Taken: its stages are steps here, after step 5, each with its model
+**Done when** the owner has decided on the plan. Taken: its stages are steps here, after step 4, each with its model
 and effort. Refused: the parked entry of `docs/rejected.md` says what was tried, and what would reopen it now.
 
-### 4. External messages with a handler of their own
+### 3. External messages with a handler of their own
 
 **Model and effort.** Opus 5.5, `high`: the types of `program.ts` and `compose.ts`, which keep the three rules of
 `AGENTS.md`.
 
-**Depends on** no other step's outcome. It is not done at the same time as the stages of step 2, which change the
+**Depends on** no other step's outcome. It is not done at the same time as the stages of step 1, which change the
 same types of `compose.ts`.
 
 **Why.** [`architecture-review.md`](docs/records/architecture-review.md), "External messages with a handler of their
@@ -148,12 +101,12 @@ skills are [`change-api`](.agents/skills/change-api/SKILL.md) and
 **Done when** the owner has decided on the spike's record. Taken: its stages are steps here, each with its model and
 effort. Refused: an entry of `docs/rejected.md` says why.
 
-### 5. A run without logs of its own
+### 4. A run without logs of its own
 
 **Model and effort.** Opus 5.5, `high`: a change of the engine.
 
 **Depends on** the owner's yes, asked before anything is written: it removes two options that a release has had, and
-needs no spike. It is done before the stages of step 3, which change what a job is.
+needs no spike. It is done before the stages of step 2, which change what a job is.
 
 **Why.** [`architecture-review.md`](docs/records/architecture-review.md), "A run without logs of its own". The run
 offers a job for every message so that it can log it, and the jobs are most of what a message costs ("Left open by the
@@ -170,11 +123,11 @@ the thunk decides it from the step alone. The guide's "Running" shows the lines 
 while debug logs are enabled" of `docs/rejected.md` says what became of it, and this step is removed. Or, refused: an
 entry of `docs/rejected.md` says why.
 
-### 6. Release 0.8.0
+### 5. Release 0.8.0
 
 **Model and effort.** Opus 5.5, `high`: its first part is a review.
 
-**Depends on** steps 1 to 5: each decided, and the stages of those taken done. Released before them, 0.8.0 would
+**Depends on** steps 1 to 4: each decided, and the stages of those taken done. Released before them, 0.8.0 would
 publish for one release what they remove, as R2 of
 [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md) says of that change.
 
@@ -193,12 +146,12 @@ site built without warnings. Then the release commit and its tag. The owner publ
 
 **Done when** the tag `v0.8.0` is pushed.
 
-### 7. The bridges in a real browser
+### 6. The bridges in a real browser
 
 **Model and effort.** Opus 5.5, `medium`.
 
 **Depends on** no other step. It is here by the owner's order, after the release: point 7 of the "Seven points of a
-review of the design" below weighs taking it first. If step 2 is taken, the second of its two cases changes: nothing
+review of the design" below weighs taking it first. If step 1 is taken, the second of its two cases changes: nothing
 typed with snabbdom is then rejected for a draw that has not come.
 
 **Why.** The bridges' tests run on happy-dom, which no browser is. The bridges draw controlled elements, and what is
@@ -215,15 +168,15 @@ application, Fast Refresh (likely to restart the run, as `<Activity>` does), ser
 `renderToString`, the bridge's `Frames` threw, since its `useSyncExternalStore` had no `getServerSnapshot`: found by
 the smoke test on 20 November 2026. `Draw` reads the model with `useSyncExternalStore` and no `getServerSnapshot`
 either, and was not run under `renderToString`. Whether the bridge supports server rendering is to be decided, with
-step 3.
+step 2.
 
 **Done when** the suite passes in a real browser, in the CI or by a command written down in the repository.
 
-### 8. One engine under the run and the testing tools
+### 7. One engine under the run and the testing tools
 
 **Model and effort.** Fable 5.2, `high`: a plan for the engine and for each testing tool, whose rules pull apart.
 
-**Depends on** steps 3 and 5: each decided, and the stages of those taken done, since they change the engine's shape
+**Depends on** steps 2 and 4: each decided, and the stages of those taken done, since they change the engine's shape
 and what a job is. It changes nothing a user writes, so it does not hold up the release.
 
 **Why.** [`architecture-review.md`](docs/records/architecture-review.md), "One engine under the run and the testing
@@ -240,11 +193,11 @@ is. The plan also says what follows, each for the owner: whether `simulate` stil
 **Done when** the owner has decided on the plan. Taken: its stages are steps here, each with its model and effort.
 Refused: an entry of `docs/rejected.md` says why, and point 4 below is decided with it.
 
-### 9. What the premises hold, and the peer range of Effect
+### 8. What the premises hold, and the peer range of Effect
 
 **Model and effort.** Fable 5.2, `high`: premises and guarantees are questioned, and a rule of `AGENTS.md` with them.
 
-**Depends on** steps 3 and 8: each decided, and the stages of those taken done, since they change which premises
+**Depends on** steps 2 and 7: each decided, and the stages of those taken done, since they change which premises
 there are. It comes before 1.0.
 
 **Why.** [`architecture-review.md`](docs/records/architecture-review.md), "What the premises hold, and the peer range
@@ -262,11 +215,11 @@ the tilde. The skills are [`premise-review`](.agents/skills/premise-review/SKILL
 **Done when** the owner has decided the range, and `AGENTS.md`, `docs/premises.md`, the guide's "Guarantees" and
 `package.json` say what was decided.
 
-### 10. The changes that break the API
+### 9. The changes that break the API
 
 **Model and effort.** Fable 5.2, `high`: each entry is a design weighed again.
 
-**Depends on** steps 2 to 5, which take the changes that the review of the architecture found.
+**Depends on** steps 1 to 4, which take the changes that the review of the architecture found.
 
 **Why.** A user who adopts the library asks that its API stays, and a change that breaks it costs less the fewer users
 it has. The API looks close to stable, but what `docs/rejected.md` parks would change it.
@@ -277,12 +230,12 @@ is weighed again with the owner: taken now, in a 0.x release, or kept parked. Wi
 
 **Done when** each such entry is taken or kept parked by the owner's decision.
 
-### 11. A view of the library's own
+### 10. A view of the library's own
 
 **Model and effort.** Opus 5.5, `medium`, to write the entry of `docs/rejected.md` if the owner follows the advice
 below. A decision to make it is planned anew, by Fable 5.2, `high`.
 
-**Depends on** step 2 decided, which changes what a view writes.
+**Depends on** step 1 decided, which changes what a view writes.
 
 **Why.** A view as data over snabbdom: a node holds its message, a child's view is lifted by a node that wraps its
 messages, an input's node names its input. A test then finds every message a view can send without a DOM, and a view
@@ -301,17 +254,16 @@ whether `@fgaudo/effect-tea/snabbdom` stays beside it.
 
 ## Waiting for the owner
 
-Where a step above would answer a point below, the point stays here until the step is decided. Step 2 would answer
-the first two of the "Three points of the guide that the swap left". Step 3 would answer points 1, 2 and 3 of the
+Where a step above would answer a point below, the point stays here until the step is decided. Step 1 would answer
+the first two of the "Three points of the guide that the swap left". Step 2 would answer points 1, 2 and 3 of the
 "Seven points of a review of the design", and what the reader with an application in React meets, at their end. Step
-5 would answer the job queued for each message, of "Left open by the stages". Step 8 would answer point 4 of the
+4 would answer the job queued for each message, of "Left open by the stages". Step 7 would answer point 4 of the
 seven.
 
 - **Three findings of the reader's check of 20 November 2026**, the last stage of
   [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md): two readers that had not seen the code built a
   greenhouse panel, one from the package and one from the guide alone. Each finding changes what a page promises, or
-  adds a page, so none was written. A fourth, that `renderInto` replaces `root`, is decided: "`renderInto` draws into
-  `root`", above.
+  adds a page, so none was written. A fourth, that `renderInto` replaced `root`, is done: it draws into `root`.
   1. **What the bridge to snabbdom draws of a vnode's data is said nowhere.** It has snabbdom's modules of props, of
      style and of listeners: a `class`, an `attrs` or a `dataset` is dropped in silence, and `disabled` is a prop. The
      examples' views say it in comments. To decide: whether "Writing a bridge" says it, which is a promise of the

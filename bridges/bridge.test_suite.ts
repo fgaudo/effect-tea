@@ -355,6 +355,48 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
     })
   })
 
+  describe("the root", () => {
+    // Starts a run of the counter drawn into `root`, which the test made where it wants it.
+    const startIn = (root: HTMLElement) => {
+      running = Effect.runFork(run(counter, bridge.renderInto(root, bridge.views.counter)), { scheduler })
+      settle()
+      bridge.drawn()
+    }
+    // What the view draws, found through `root`: its top element, alone in `root`.
+    const drawnIn = (root: HTMLElement) => {
+      const output = root.querySelector("output")
+      if (output === null) throw new Error("Nothing is drawn in the root")
+      return [root.children.length, output.textContent]
+    }
+
+    test("the view is drawn into the root, which stays where it is and holds nothing else", () => {
+      document.body.innerHTML = "<div id=\"app\"><p>Loading</p></div>"
+      const root = element<HTMLElement>("#app")
+      startIn(root)
+      expect([root.isConnected, root.querySelector("p")]).toEqual([true, null])
+      expect(drawnIn(root)).toEqual([1, "0"])
+      act(() => button("+").click())
+      expect(drawnIn(root)).toEqual([1, "1"])
+    })
+
+    test("a root with no parent is drawn into", () => {
+      document.body.innerHTML = ""
+      const root = document.createElement("div")
+      startIn(root)
+      expect(drawnIn(root)).toEqual([1, "0"])
+    })
+
+    test("a second run with the same root draws into it", async () => {
+      document.body.innerHTML = "<div id=\"app\"></div>"
+      const root = element<HTMLElement>("#app")
+      startIn(root)
+      act(() => button("+").click())
+      await stop()
+      startIn(root)
+      expect(drawnIn(root)).toEqual([1, "0"])
+    })
+  })
+
   describe("inputs the user types into, controlled", () => {
     const mountForm = (save: (name: string) => Effect.Effect<void, StorageError> = () => Effect.void) => {
       const saves: Array<string> = []
@@ -741,8 +783,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       )
       settle()
       bridge.drawn()
-      // A renderer may replace the root it is given: the input is found in the shadow tree.
-      const input = shadow.querySelector("input")
+      const input = root.querySelector("input")
       if (input === null || latest === undefined) throw new Error("Nothing is drawn in the shadow root")
       act(() => type(input, "Ada"))
       expect([input.value, latest.model()]).toEqual(["Ada", "Ada"])

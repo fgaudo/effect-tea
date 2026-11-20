@@ -76,6 +76,8 @@ const animationFrame = Effect.callback<void>((resume) => {
 /**
  * The renderer `run` takes: draws the model of the current state into `root`, patching the tree it drew before.
  *
+ * - It empties `root` as it starts, and `root` then holds the view's top element and nothing else. `root` keeps its
+ *   place in the page, and may have no parent.
  * - It draws as it starts, then once a handler of the view has sent a message through the `dispatch` it was given, at
  *   once, before the handler returns, and once a new state comes from anywhere else, at the next animation frame, at
  *   most once for each refresh.
@@ -100,7 +102,11 @@ export const renderInto =
       // #region draw
       const controlled = new Map<Element, Controlled>()
       const patch = init([propsModule, styleModule, eventListenersModule, controlledModule(controlled)])
-      let tree: Element | VNode = root
+      // A child of the bridge's own, which the first patch replaces with the view's top element: so `root` keeps its
+      // place, with a parent or without one, and holds what the view draws and nothing else.
+      const place = root.ownerDocument.createElement("div")
+      root.replaceChildren(place)
+      let tree: Element | VNode = place
       let last: Opt.Option<Model> = Opt.none()
       let drawing = false
       let again = false

@@ -122,6 +122,8 @@ have to have one.
 Then the test does these steps:
 
 1. It starts the run with `Effect.runFork(run(program, renderInto(root, view), options))`, with its services provided.
+   `renderInto` empties `root` and draws the view into it, so the test finds what the view draws through `root`. The
+   test may make `root` with no parent, and may start a second run with the same `root`.
 2. It acts on the page. Then it waits until the page shows what it expects, because a renderer may draw a new state
    later. The bridge to snabbdom draws a new state that a command or a subscription brings at the next animation
    frame, and React renders as React schedules it.

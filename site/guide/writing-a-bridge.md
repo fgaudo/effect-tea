@@ -38,6 +38,9 @@ hands its `App` to `Draw`.
 2. once a handler of the view has sent a message, before the handler returns (see [handlers](#handlers));
 3. once a new state comes from anywhere else, at the next animation frame.
 
+As it starts, `renderInto` empties `root`. Then `root` holds the view's top element and nothing else. `root` keeps its
+place in the page, and it may have no parent.
+
 Each draw calls the view with the model and the dispatch, unless the model is the very one it drew last, and draws
 what the view returns. Then it gives each controlled element its value back (see
 [a controlled element](#a-controlled-element)):
@@ -45,11 +48,12 @@ what the view returns. Then it gives each controlled element its value back (see
 {@includeCode ../../bridges/snabbdom.ts#draw}
 
 **The first place of the renderer** is the line that draws: `patch(tree, view(model, dispatch))`. There, snabbdom
-patches the tree drawn before into the one the view returned. The bridge to React reads the model there instead, with
-`useSyncExternalStore(app.subscribe, app.model)` in `Draw`, and React calls the view as it renders. When the line
-returns, snabbdom has drawn the model whole. React draws it as React schedules it, but for a part of it that the
-application suspends. Between two draws, the bridge to snabbdom draws nothing, and React draws what the application's
-components hold. What else the screen may show is in [view](./view.md#rules).
+patches the tree drawn before into the one the view returned. The first tree is a child of `root`, which the bridge puts
+there as it starts. snabbdom replaces that child with the view's top element. The bridge to React reads the model there
+instead, with `useSyncExternalStore(app.subscribe, app.model)` in `Draw`, and React calls the view as it renders. When
+the line returns, snabbdom has drawn the model whole. React draws it as React schedules it, but for a part of it that
+the application suspends. Between two draws, the bridge to snabbdom draws nothing, and React draws what the
+application's components hold. What else the screen may show is in [view](./view.md#rules).
 
 The rest is the bridge's own code:
 

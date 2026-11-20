@@ -999,14 +999,14 @@ describe("together, React beside snabbdom", () => {
       { scheduler }
     ))
     settle()
-    const counts = () => [element("#app > main output").textContent, element("#react output").textContent]
+    const counts = () => [element("#snabbdom output").textContent, element("#react output").textContent]
     expect(counts()).toEqual(["0", "0"])
     element<HTMLButtonElement>("#react button:last-of-type").click()
     drawn()
     refresh()
     settle()
     expect(counts()).toEqual(["1", "1"])
-    element<HTMLButtonElement>("#app > main button").click()
+    element<HTMLButtonElement>("#snabbdom button").click()
     drawn()
     expect(counts()).toEqual(["2", "2"])
   })
@@ -1025,7 +1025,7 @@ describe("together, React beside snabbdom", () => {
       { scheduler }
     ))
     settle()
-    const inSnabbdom = element<HTMLInputElement>("#app > main input")
+    const inSnabbdom = element<HTMLInputElement>("#snabbdom input")
     const inReact = element<HTMLInputElement>("#react input")
     type(inReact, "Ada")
     drawn()
@@ -1034,7 +1034,7 @@ describe("together, React beside snabbdom", () => {
     expect([inSnabbdom.value, inReact.value]).toEqual(["Ada", "Ada"])
     type(inSnabbdom, "Adam")
     drawn()
-    expect(element("#app > main input")).toBe(inSnabbdom)
+    expect(element("#snabbdom input")).toBe(inSnabbdom)
     expect(element("#react input")).toBe(inReact)
     expect([inSnabbdom.value, inReact.value]).toEqual(["Adam", "Adam"])
   })
