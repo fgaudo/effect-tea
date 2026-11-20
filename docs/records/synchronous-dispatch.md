@@ -274,6 +274,11 @@ Once stage 3 is committed: a spike over stages 1 and 3, on a branch, never to be
 stocktake with an input as a value of the library's in the model. Its record goes in this file. The owner decides
 before stage 4.
 
+**Spiked, 20 November 2026**, by a session of Opus 5.5, on the branch `claude/spike-input-in-model`, at `17534ff`. Its
+record is a file of its own, [`input-in-the-model.md`](input-in-the-model.md), as it was written as one: `make` gives
+`makeModel` an `Entry` of each input, with its value and its route, and a view writes
+`dispatch(write(model.name, text))`. Not decided yet: `ROADMAP.md`, "Waiting for the owner".
+
 ### 4. The swap
 
 Three sessions at once, in the one checkout, each on files of its own. One commit, since the guide, the invariants
