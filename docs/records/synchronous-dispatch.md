@@ -2,7 +2,8 @@
 
 **Status:** decided by the owner, 20 November 2026, and not done: the direction, after the spike, and then every answer
 this plan proposed to the points left open ("The decisions"). The plan was written that day by a session of Fable 5.2,
-on the owner's request. Of its stages, only stage 0, the decisions, is done. Read against the code at `88a3ae1`.
+on the owner's request, and read against the code at `88a3ae1`. Of its stages, 0 to 3 are done, each with its outcome
+under "The stages", and the spike of R4 was run and rejected: stage 4, the swap, is next.
 
 This file has three parts: the plan; the proposal as `ROADMAP.md` held it before the plan; and the spike's record,
 brought from the branch `claude/spike-sync-dispatch-b4e430` (at `26b2cc1`), which is never to be merged. The spike's
@@ -113,7 +114,8 @@ none was run: where an answer names something to check first, its stage checks i
   Stage 4 rewrites every view of an input, and would rewrite them twice otherwise. It is a spike over the code of
   stages 1 and 3, on the form and the stocktake, and then the owner's decision. It reopens "Handles of the inputs in
   `makeModel`" (`rejected.md`), whose cost "both bridges" is gone; a type of the library's in every model with an
-  input is the cost that stays. Not taken, the views write `Written` by hand, as the spike's do.
+  input is the cost that stays. Not taken, the views write `Written` by hand, as the spike's do. **The owner did
+  not take it**, once it was spiked ("The spike of R4").
 
 ### What the plan adds
 
@@ -277,7 +279,13 @@ before stage 4.
 **Spiked, 20 November 2026**, by a session of Opus 5.5, on the branch `claude/spike-input-in-model`, at `17534ff`. Its
 record is a file of its own, [`input-in-the-model.md`](input-in-the-model.md), as it was written as one: `make` gives
 `makeModel` an `Entry` of each input, with its value and its route, and a view writes
-`dispatch(write(model.name, text))`. Not decided yet: `ROADMAP.md`, "Waiting for the owner".
+`dispatch(write(model.name, text))`.
+
+**Rejected by the owner the same day**, on the advice of the session that briefed it. It buys little that the types
+and the tests of a program do not give already, and it costs a type of the library's in every model with an input, a
+third parameter of `makeModel` and a second weak cache, looked up in every `makeModel`. So the views of stage 4 write
+`Written` by hand, as those of stage 3's tests do. `docs/rejected.md` has the entry, "An entry of each input in the
+model, which a view writes through", with what would reopen it.
 
 ### 4. The swap
 

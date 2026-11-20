@@ -482,8 +482,33 @@ answer, and saying so in the proposal.
   a value of the library's own for an input in the model, its place and its value, which the view writes through
   without naming its route. It would make three rules of "What is left to you" hold by construction, at the cost of a
   type of the library's in every model, of `forwardTo` and of both bridges, as the offers and `Field` before it
-  ("Offers as tokens, checked against `update`" above). _Reopen if_ a program cannot name the `get` of its own place,
-  or with the parked "What reaches `update`, declared as data".
+  ("Offers as tokens, checked against `update`" above). That value was spiked later the same day, and rejected: the
+  entry below. _Reopen if_ a program cannot name the `get` of its own place, or with the parked "What reaches
+  `update`, declared as data".
+- **An entry of each input in the model, which a view writes through**: `make` gives `makeModel` a third parameter,
+  `inputs`, whose `inputs.Name(state)` is an `Option` of an `Entry`, the value shown and, hidden, the input's name and
+  id, and a view writes `dispatch(write(model.name, text))` where it builds a `Written` by hand. Spiked on 20 November
+  2026, on the branch `claude/spike-input-in-model` (`17534ff`), never to be merged, as R4 of the plan of
+  [`synchronous-dispatch.md`](records/synchronous-dispatch.md): the plan reopened the entry above, since no bridge
+  settles an element any more. Run there: the form and the stock-take with both bridges, each check taken out by hand,
+  and the declarations emitted. It works, on no new premise, and for a view that writes through its entries the rules
+  of the guide on what a view writes hold by construction. Rejected by the owner the same day, on the advice of the
+  session that briefed the spike:
+  - **It buys little.** The types already refuse a write with a wrong name, a wrong type or no id. What the entry
+    adds is `was` taken from the model, and an editor only where a write has a place. A wrong `was` is a write
+    rejected in a test, and an editor with no place is `Rejected` in a test of `dispatchViolations`: the tests the
+    examples already have find both.
+  - **It costs** a type of the library's in every model with an input, with a hidden field that a `toEqual` prints; a
+    model that can no longer be written as a literal; an `Option` to match for an input on a lens, which always
+    focuses; a third parameter of `makeModel`; and a second weak cache, as `forwardTo`'s, looked up by `Hash` and
+    `Equal` for each input in every `makeModel`, which runs in the event that sends the message.
+  - **It closes neither a write built by hand**, since `Written` is a type a literal fits, **nor the route above the
+    program**: a parent's view still chooses which child an entry is written into.
+
+  So a view writes `{ _tag: 'Written', was, value }` by hand, over the value its model holds.
+  [`input-in-the-model.md`](records/input-in-the-model.md). _Reopen if_ a view is shown to write over a value its
+  model does not hold, or into another input, where the tests of its program pass; or with the parked "What reaches
+  `update`, declared as data".
 - **A write that `update` sees and may reject**, so that what applies in a state is said in one place. Reasoned, 18
   November 2026: the element already shows what was written, so a write that `update` refused would leave the element
   unlike the state until a frame takes back what the user typed, which "Input is never a reason to reject"

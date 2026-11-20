@@ -1,9 +1,11 @@
 # An input in the model: an entry, which a view writes through
 
-**Status:** a spike of 20 November 2026 by a session of Opus 5.5, briefed by the session that runs the plan of
-[`synchronous-dispatch.md`](synchronous-dispatch.md), whose R4 it is. On the branch `claude/spike-input-in-model`, cut
-from `bb253e0` (stages 0 to 3 committed), never to be merged. Not decided: the owner decides from this record whether
-stage 4 takes it. Read against the code at `bb253e0`.
+**Status:** rejected by the owner, 20 November 2026, on the spike this file records: stage 4 of
+[`synchronous-dispatch.md`](synchronous-dispatch.md) does not take it, its views write `Written` by hand, and
+[`rejected.md`](../rejected.md) has the entry, "An entry of each input in the model, which a view writes through", with
+what would reopen it. The spike is of the same day, by a session of Opus 5.5, briefed by the session that runs that
+plan, whose R4 it is. On the branch `claude/spike-input-in-model`, cut from `bb253e0` (stages 0 to 3 committed), never
+to be merged. Read against the code at `bb253e0`. What follows is as it was written before the decision.
 
 What was run is marked **run**; what was read in code or documentation, **checked**; what was only argued,
 **reasoned**.
@@ -411,6 +413,9 @@ the cleanup of entries rests on it too, as `entriesLeft` in `dispatch.test.ts` d
   the type cannot", is met only by `was` and by the place: the rest the types enforce already.
 
 ## What is left for the owner to decide
+
+**Decided, 20 November 2026:** the first, by the owner. Stage 4 does not take the entry, and the six others go with
+it.
 
 1. Whether stage 4 takes the entry, or the views write `Written` by hand, as the spike's views of
    `synchronous-dispatch.md` and stage 3 do.

@@ -27,9 +27,9 @@ Spiked on 20 November 2026, and decided by the owner the same day, with every an
 **How.** As the plan of [`docs/records/synchronous-dispatch.md`](docs/records/synchronous-dispatch.md) says, in stages,
 on `main`. The new engine, the new testing tools and the new bridges are written beside the old ones, in `src/next/`
 and `bridges/next/`, and swapped in one commit. Stages 0 to 3 are done: the decisions, the engine with its run, the
-testing tools and the bridges, in `src/next/` and `bridges/next/`. The spike of an input as a value of the library's
-in the model (R4 of the record) is done too. **The next step is the owner's decision on it**, under "Waiting for the
-owner". Then the swap (4), and a reader's check of the documentation (5).
+testing tools and the bridges, in `src/next/` and `bridges/next/`. An input as a value of the library's in the model
+(R4 of the record) was spiked, and rejected by the owner. **The next step is the swap** (4), not started. Then a
+reader's check of the documentation (5).
 
 **Where it stands**, 20 November 2026, for a session that takes this up with none of the conversation:
 
@@ -37,9 +37,14 @@ owner". Then the swap (4), and a reader's check of the documentation (5).
   `scratch/reports/sync-dispatch-stage-<n>.md`, which git ignores. The session that briefs it reads the report, reviews
   the diff, runs every check again, writes the stage's outcome in the record and commits.
 - Nothing of the stages is uncommitted, and no session is at work on them.
-- **The spike of R4** is done, on the branch `claude/spike-input-in-model` (`17534ff`), never to be merged, and its
-  record is on `main`: [`input-in-the-model.md`](docs/records/input-in-the-model.md). The owner has not decided yet
-  whether stage 4 takes it ("Waiting for the owner"). Until then the views of stage 4 are not written.
+- **R4 was rejected by the owner**, 20 November 2026, on its spike
+  ([`input-in-the-model.md`](docs/records/input-in-the-model.md), and `docs/rejected.md`, "An entry of each input in
+  the model, which a view writes through"). So the views of stage 4 write `Written` by hand, over the value their
+  model holds, as those of stage 3's tests do. The spike's branch, `claude/spike-input-in-model`, is never to be
+  merged.
+- **Stage 4 is not started.** It is three sessions at once, each on files of its own, as the record's "The swap"
+  says: the code and the examples; the guide and what follows it; the repository's documents. The doc comments wait
+  for the code to be in its place, since both are in the same files.
 - Decided by the owner, 20 November 2026, on what stage 3 found: React reads the model in the store's notice itself,
   so `makeModel` runs on the stack of whoever sent the message, under React too, and for every new state. No page of
   react.dev says it, and nothing of the bridge rests on it. It is no premise and no promise: the guide's "What is left
@@ -114,20 +119,6 @@ and what was weighed beside it. The owner decides whether to make it, under whic
   - "A frame that has seen the last write leaves the element as if it had not" is killed by none of the three
     properties of the search: it needs a frame whose `seen` is the number of the last write after a rejection, and
     nothing after. The deterministic tests are its killers. To decide: whether the scenario is made to reach it.
-- **Whether stage 4 takes an entry of each input in the model** (R4 of item 1). Spiked on 20 November 2026
-  ([`input-in-the-model.md`](docs/records/input-in-the-model.md)): `make` gives `makeModel` an `Entry` of each input,
-  with its value and its route, and a view writes `dispatch(write(model.name, text))` where it builds a `Written` by
-  hand today. The session that briefed the spike ran its checks again, and advises not to take it:
-  - The types already refuse a write with a wrong name, a wrong type or no id. What the entry adds, `was` from the
-    model and an editor only where a place is, the tests the examples use find already (`dispatchViolations`,
-    `rehearse`).
-  - It costs a type of the library's in every model with an input, a model that can no longer be written as a
-    literal, an `Option` to match for an input on a lens, a third parameter of `makeModel`, and a second weak cache,
-    looked up for each input in every `makeModel`, which now runs in the event that sends the message.
-  - It closes neither the write built by hand nor the route above the program.
-
-  Declined, the views of stage 4 write `Written` by hand, and "Handles of the inputs in `makeModel`"
-  (`docs/rejected.md`) takes the spike's evidence. Taken, the record's six other points are to be decided.
 - **Seven points of a review of the design.** By the session of Fable 5.2 that briefed and verified stages 1 to 3 of
   item 1, asked by the owner on 20 November 2026 what does not fit. Reasoned from the code read for those reviews: none
   was run. Each is to be weighed, and none holds stage 4 up but where it says so.
