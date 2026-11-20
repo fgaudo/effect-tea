@@ -218,7 +218,6 @@ type Update<State, Message, Command = never, Event = never> = (message: Message)
 // @public
 type Written<A> = {
     readonly _tag: "Written";
-    readonly was: A;
     readonly value: A;
 };
 

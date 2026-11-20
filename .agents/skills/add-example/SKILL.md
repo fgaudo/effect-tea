@@ -77,8 +77,8 @@ In `examples/` itself are [`README.md`](../../../examples/README.md), which says
   view sets a prop such as `disabled` in every case of an element (`counter/view-snabbdom.ts`). An input is declared in
   `make`, as the guide's "Inputs the user types into" says: the view draws a native controlled element with the value
   its model holds as its `value` (or `checked`) in `props`, gives it no key, and in its handler sends
-  `{ _tag: 'Written', was, value }`, `was` that value, through the dispatch of `forwardTo(dispatch, 'Name')`, with a
-  call of its own: the bridges have no helper for a click or a key. What the bridges do not support (the guide's
+  `{ _tag: 'Written', value }`, `value` what the element holds, through the dispatch of `forwardTo(dispatch, 'Name')`,
+  with a call of its own: the bridges have no helper for a click or a key. What the bridges do not support (the guide's
   "Writing a bridge": a form's reset, a value written past React's setter, and a value the element changes by itself)
   is used by no example, nor what React's bridge adds beside the program. A control drawn by the program, a slider
   among them, has its press a message of the model and its drag a subscription (`volume`). A child's view is
@@ -97,7 +97,7 @@ In `examples/` itself are [`README.md`](../../../examples/README.md), which says
   own tests (`snabbdom-testing.test.ts`), and the test of each example drawn with snabbdom uses it:
   `messagesSentBy(view, model)` equals `messagesOf(model)`, so the reader lists the messages in the order the view
   draws them. It gives each listener an event whose `target` holds the `value` and the `checked` of its vnode's
-  `props`, so a write is found over the value its model holds, with that value: the test of a view with an input
+  `props`, so a write is found with the value its model holds: the test of a view with an input
   expects those writes beside what the reader lists (`form/form.test.ts`, `stocktake/stocktake.test.ts`). A change to
   the two renderers' bridges is made to both where both draw the same: what the shared suite checks.
 - **The test** shows the testing tools on the example, from the cheapest that proves the point: `applyAll` and

@@ -1,4 +1,3 @@
-import { reject } from "@fgaudo/effect-tea"
 import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
 import { applyAll, dispatchViolations, rehearse } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
@@ -46,11 +45,8 @@ const userMessages: ReadonlyArray<Message> = Object.values(
 // #endregion candidates
 
 // #region typing
-/** What the user types into the name the model shows, as the view sends it: written over the value it holds. */
-const typing = (model: Model, text: string): Message => ({
-  _tag: "Name",
-  message: { _tag: "Written", was: model.name, value: text }
-})
+/** What the user types into the name, as the view sends it. */
+const typing = (text: string): Message => ({ _tag: "Name", message: { _tag: "Written", value: text } })
 // #endregion typing
 
 const silent = Timer.Bell.of({ ring: Effect.void })
@@ -58,18 +54,10 @@ const silent = Timer.Bell.of({ ring: Effect.void })
 describe("named", () => {
   // #region update
   // An input keeps nothing of its own: the state stored is the state written, which a test compares whole.
-  test("a name written over the one the model shows is stored", () => {
+  test("a name written is stored", () => {
     const start = named.init.state
-    const { state } = applyAll(named.update)([typing(named.makeModel(start), "Tea")], start)
+    const { state } = applyAll(named.update)([typing("Tea")], start)
     expect(state).toEqual({ ...start, name: "Tea" })
-  })
-
-  test("a write over a name already replaced is rejected", () => {
-    const start = named.init.state
-    const drawn = named.makeModel(start)
-    const { state } = applyAll(named.update)([typing(drawn, "Tea")], start)
-    // Written over the empty name, which "Tea" has replaced.
-    expect(named.update(typing(drawn, "Pasta"))(state)).toBe(reject)
   })
   // #endregion update
 
@@ -93,7 +81,7 @@ describe("named", () => {
     fc.assert(fc.property(state, (before) => {
       const model = named.makeModel(before)
       expect(messagesSentBy<Model, Message>(namedView, model)).toEqual([
-        typing(model, model.name),
+        typing(model.name),
         ...namedMessages(model)
       ])
     }))
@@ -106,7 +94,7 @@ describe("named", () => {
       rehearse(
         named,
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.send((model) => Opt.some(typing(model, "Tea")))
+          yield* rehearsal.send(() => Opt.some(typing("Tea")))
           yield* rehearsal.send(({ timer }): Opt.Option<Message> =>
             timer._tag === "Setting" ? Opt.some({ _tag: "Timer", message: timer.start }) : Opt.none()
           )

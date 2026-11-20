@@ -716,41 +716,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "a write into an input is stored whatever it was written over",
-    file: "src/input.ts",
-    from: "  !Equal.equals(message.was, held)\n    ? reject",
-    to: "  false\n    ? reject",
-    killedBy: [
-      ["src/input.test.ts", "is rejected when it was written over another value than the place holds"],
-      ["src/input.test.ts", "typed before the desk started the draft again, it is rejected by the new draft"],
-      [
-        "src/input.test.ts",
-        "typed before the desk brought a kept draft back, it is rejected by the draft brought back"
-      ],
-      ["src/input.test.ts", "typed into a row, it is rejected by another row that came to its id"],
-      [
-        "src/input.test.ts",
-        "rejects what was written over another text, and what was written into a note that is gone"
-      ],
-      [
-        "src/input.test.ts",
-        "that puts a subscription's value into an input rejects what was typed over the value before"
-      ],
-      [
-        "src/input.test.ts",
-        "rejects a write at an id the state does not hold, and one over another value than its row holds"
-      ],
-      [
-        "src/input.test.ts",
-        "rejects a late write by another row that came to its id, unless that row holds the value written over"
-      ],
-      [
-        "src/input.test.ts",
-        "an input by id stores a write at its id through set, and rejects one at an id get does not find"
-      ]
-    ]
-  },
-  {
     name: "a write into an input by id goes to its place without its id",
     file: "src/compose.ts",
     from: "  inputById: (place) => ({ kind: \"byId\", ...placedById(place) }),\n",
@@ -759,7 +724,7 @@ export const mutations: ReadonlyArray<Mutation> = [
       ["src/input.test.ts", "stores a write at its id, and leaves the other rows and inputs as they are"],
       [
         "src/input.test.ts",
-        "rejects a late write by another row that came to its id, unless that row holds the value written over"
+        "rejects a write at an id that is gone, and stores it into another row that came to the id"
       ],
       [
         "src/input.test.ts",
@@ -770,20 +735,11 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a write of the value an input holds makes a new state",
     file: "src/input.ts",
-    from: "    : Equal.equals(message.value, held)\n    ? { state: held }\n",
-    to: "",
+    from: "  Equal.equals(message.value, held) ? { state: held } : { state: message.value }",
+    to: "  ({ state: message.value })",
     // A primitive value equal to the one held is the very same: only a structure tells the two apart.
     killedBy: [
-      ["src/input.test.ts", "compares the value it was written over by Equal, whatever it is made of"]
-    ]
-  },
-  {
-    name: "what a write was written over is compared by identity, not by Equal",
-    file: "src/input.ts",
-    from: "  !Equal.equals(message.was, held)\n    ? reject",
-    to: "  message.was !== held\n    ? reject",
-    killedBy: [
-      ["src/input.test.ts", "compares the value it was written over by Equal, whatever it is made of"]
+      ["src/input.test.ts", "equal by Equal to the value held, whatever it is made of, leaves the very value held"]
     ]
   },
   {
@@ -1189,7 +1145,7 @@ export const mutations: ReadonlyArray<Mutation> = [
         "a child's message that keeps its state keeps the parent's, its commands and events still going"
       ],
       ["src/input.test.ts", "leaves the very same state when the place holds it already"],
-      ["src/input.test.ts", "compares the value it was written over by Equal, whatever it is made of"]
+      ["src/input.test.ts", "equal by Equal to the value held, whatever it is made of, leaves the very value held"]
     ]
   },
   {
@@ -2571,30 +2527,41 @@ export const mutations: ReadonlyArray<Mutation> = [
   // The bridges (`docs/records/synchronous-dispatch.md`, stage 3): each check of the bridges to snabbdom and to
   // React, and of `messagesSentBy`.
   {
-    name: "the snabbdom bridge draws a listener's message inside the patch under way",
+    name: "the snabbdom bridge draws a notice at once, in the task that sent it",
     file: "bridges/snabbdom.ts",
-    from: "        if (drawing) {\n"
-      + "          again = true\n"
-      + "          return\n"
-      + "        }\n",
-    to: "",
+    from: "        queueMicrotask(() => {\n",
+    to: "        ;((draw: () => void) => draw())(() => {\n",
     killedBy: [
       [
         "bridges/snabbdom.test.ts",
-        "is drawn once that patch is done, before the handler that set it going returns, and the run goes on"
+        "a notice from a command is drawn in a microtask, and what one task sends is drawn once"
+      ],
+      ["bridges/snabbdom.test.ts", "is drawn once that patch is done, in a microtask of its own, and the run goes on"]
+    ]
+  },
+  {
+    name: "the snabbdom bridge draws a rejected message of its view's not at all",
+    file: "bridges/snabbdom.ts",
+    from: "        app.dispatch(message)\n        notice()\n",
+    to: "        app.dispatch(message)\n",
+    killedBy: [
+      [
+        "bridges/snabbdom.test.ts",
+        "a key typed once it is locked is rejected, and the element shows the program's value again at once"
+      ],
+      [
+        "bridges/snabbdom.test.ts",
+        "once frozen, a key in the textarea and a click on the checkbox are rejected, and both show the model again"
       ]
     ]
   },
   {
-    name: "the snabbdom bridge leaves a message sent during a patch undrawn",
+    name: "the snabbdom bridge draws after its release",
     file: "bridges/snabbdom.ts",
-    from: "        } while (again)",
-    to: "        } while (false)",
+    from: "          if (released) return\n",
+    to: "",
     killedBy: [
-      [
-        "bridges/snabbdom.test.ts",
-        "is drawn once that patch is done, before the handler that set it going returns, and the run goes on"
-      ]
+      ["bridges/snabbdom.test.ts", "a draw asked for before the run ends is not made once it has ended"]
     ]
   },
   {
@@ -2613,7 +2580,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the snabbdom bridge gives no controlled element its prop back",
     file: "bridges/snabbdom.ts",
-    from: "          giveBack(controlled)\n",
+    from: "        giveBack(controlled)\n",
     to: "",
     killedBy: [
       [
@@ -2651,15 +2618,15 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "the snabbdom bridge lets what a handler's draw throws out of the handler",
+    name: "the snabbdom bridge lets what a draw throws out of its microtask",
     file: "bridges/snabbdom.ts",
-    from: "        try {\n"
-      + "          draw()\n"
-      + "        } catch (error) {\n"
-      + "          thrown = Opt.some(error)\n"
-      + "          wake()\n"
-      + "        }",
-    to: "        draw()",
+    from: "          try {\n"
+      + "            draw()\n"
+      + "          } catch (error) {\n"
+      + "            released = true\n"
+      + "            Deferred.doneUnsafe(thrown, Exit.die(error))\n"
+      + "          }",
+    to: "          draw()",
     killedBy: [
       ["bridges/snabbdom.test.ts", "by the view, ends the run at once, in render, and the handler gets nothing"],
       [
@@ -2669,66 +2636,12 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "the snabbdom bridge does not wake its fiber on a handler's throw",
+    name: "the snabbdom bridge does not die of what a draw throws",
     file: "bridges/snabbdom.ts",
-    from: "          thrown = Opt.some(error)\n"
-      + "          wake()",
-    to: "          thrown = Opt.some(error)",
-    killedBy: [
-      ["bridges/snabbdom.test.ts", "by the view, ends the run at once, in render, and the handler gets nothing"]
-    ]
-  },
-  {
-    name: "the snabbdom bridge waits for the frame before it dies of a handler's throw",
-    file: "bridges/snabbdom.ts",
-    from: "yield* Effect.raceFirst(animationFrame, until(() => Opt.isSome(thrown)))",
-    to: "yield* animationFrame",
-    killedBy: [
-      ["bridges/snabbdom.test.ts", "by the view, ends the run at once, in render, and the handler gets nothing"]
-    ]
-  },
-  {
-    name: "the snabbdom bridge does not die of a handler's throw",
-    file: "bridges/snabbdom.ts",
-    from: "          if (Opt.isSome(thrown)) return yield* Effect.die(thrown.value)\n",
+    from: "            Deferred.doneUnsafe(thrown, Exit.die(error))\n",
     to: "",
     killedBy: [
       ["bridges/snabbdom.test.ts", "by the view, ends the run at once, in render, and the handler gets nothing"]
-    ]
-  },
-  {
-    name: "the snabbdom bridge draws a notice at once",
-    file: "bridges/snabbdom.ts",
-    from: "yield* Effect.raceFirst(animationFrame, until(() => Opt.isSome(thrown)))",
-    to: "yield* until(() => true)",
-    killedBy: [
-      [
-        "bridges/snabbdom.test.ts",
-        "a notice from a command is drawn at the next refresh, at most once for each refresh"
-      ],
-      ["bridges/snabbdom.test.ts", "once a notice is drawn, it waits for no screen refresh until the next notice"]
-    ]
-  },
-  {
-    name: "the snabbdom bridge keeps a notice drawn",
-    file: "bridges/snabbdom.ts",
-    from: "          noticed = false\n",
-    to: "",
-    killedBy: [
-      ["bridges/snabbdom.test.ts", "once a notice is drawn, it waits for no screen refresh until the next notice"]
-    ]
-  },
-  {
-    name: "the snabbdom bridge does not hear a notice",
-    file: "bridges/snabbdom.ts",
-    from: "            noticed = true\n"
-      + "            wake()",
-    to: "            wake()",
-    killedBy: [
-      [
-        "bridges/snabbdom.test.ts",
-        "a notice from a command is drawn at the next refresh, at most once for each refresh"
-      ]
     ]
   },
   {
@@ -2849,7 +2762,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "bridges/snabbdom-testing.test.ts",
-        "finds the writes of controlled elements, each over the value its model holds, with that value"
+        "finds the writes of controlled elements, each with the value its model holds"
       ]
     ]
   },
@@ -2861,7 +2774,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "bridges/snabbdom-testing.test.ts",
-        "finds the writes of controlled elements, each over the value its model holds, with that value"
+        "finds the writes of controlled elements, each with the value its model holds"
       ]
     ]
   },

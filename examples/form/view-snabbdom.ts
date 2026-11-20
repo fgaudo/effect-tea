@@ -13,8 +13,7 @@ export const view: View<Model, Message> = (model, dispatch) => {
     h("input", {
       props: { value: model.name, disabled: editor._tag === "Saving", placeholder: "A name" },
       on: {
-        input: (event: Event) =>
-          name({ _tag: "Written", was: model.name, value: (event.target as HTMLInputElement).value })
+        input: (event: Event) => name({ _tag: "Written", value: (event.target as HTMLInputElement).value })
       }
     }),
     // snabbdom's props module never removes a prop: the enabled button sets `disabled` too.

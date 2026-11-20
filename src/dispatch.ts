@@ -112,7 +112,7 @@ export const entriesOf = (dispatch: object, name: string): number => {
  *   model and its dispatch is drawn again only when its model changes.
  * - Ids are compared by value, with `Equal`.
  * - A grandchild's dispatch is made from its parent's: `forwardTo(forwardTo(dispatch, 'Home'), 'Products')`.
- * - An input's view sends a `Written` through it, over the value its model holds.
+ * - An input's view sends a `Written` through it, with the value its element holds.
  *
  * @param dispatch - The dispatch of the program that declares the child or the input.
  * @param name - The child's or the input's name, as a literal.

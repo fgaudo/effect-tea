@@ -53,40 +53,47 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   subscription and an own command send only the parent's own messages, `RunCommandOf` in `compose.ts`), no own message
   or command named like a child. A program written without `Program<…>` has `unknown` types, read as `never` (`Known`
   in `program.ts`), so that it does not open these checks.
-- **A write is stored over the value it names, and only what is drawn writes into an input** (`written` in
-  `input.ts`, applied in `compose.ts` as an input's program; [`registers.md`](records/registers.md) says why). A write
-  is a message of the composed program like any other, so the state stays the fold of `update` over the messages,
-  `applyAll` replays it, and neither the engine nor the testing tools know of inputs. It is stored when the input's
-  place holds, by `Equal`, the value it was written over, whatever it is, and a write of the value held leaves the very
-  same value; over another value it is rejected, since the state has moved on without the element that wrote it: a stale
-  write does not apply in the state, the one meaning of `reject`. A view writes `{ _tag: 'Written', was, value }` by
-  hand, `was` the value its model holds ([`rejected.md`](rejected.md), "An entry of each input in the model, which a
-  view writes through"). A write into an input by id is routed as a child's message by id is, to the place of the id
-  it names (`isById` in `compose.ts`), and is rejected where that place is not there. The rule reads the state and the
-  message alone and keeps nothing between two writes, so every other step, the parent's own, a child's and what
-  `onEvent` makes of its events, leaves an input as it wrote it, and a reset, an undo by snapshot or a place that comes
-  back cuts no history. A write comes only from a view: an own subscription and an own command send only the parent's
-  own messages (`RunCommandOf` in `compose.ts`), so neither compiles with a write, into the parent's input or a
-  child's. Two limits are declared, not flaws: a write over a value that came back is stored, and a message names a
-  place, so one drawn for an old instance reaches the new one. Each check has a mutation
-  (`tools/mutations/mutations.ts`), and `interleaving.test.ts` checks that a write is stored exactly when its place is
-  there and holds the value it was written over, with two inputs whose places take turns in one field, so that a write
-  may reach a place that is gone, and that a write typed into the element, over the value the current model holds, is
-  never rejected.
+- **A write is stored wherever its place is there, and only what is drawn writes into an input** (`written` in
+  `input.ts`, applied in `compose.ts` as an input's program; [`registers.md`](records/registers.md) says why, and
+  [`write-without-was.md`](records/write-without-was.md) why a write names no value it was written over). A write is a
+  message of the composed program like any other, so the state stays the fold of `update` over the messages, `applyAll`
+  replays it, and neither the engine nor the testing tools know of inputs. It is stored into its place whatever it is
+  and whatever the place held, since the element on screen already shows it, and a write of the value held, by
+  `Equal`, leaves the very same value. A view writes `{ _tag: 'Written', value }` by hand, `value` what the element
+  holds ([`rejected.md`](rejected.md), "An entry of each input in the model, which a view writes through"). A write
+  into an input by id is routed as a child's message by id is, to the place of the id it names (`isById` in
+  `compose.ts`). A write whose place is not there, where `get` returns `None` or the state holds no such id, is
+  rejected by that routing before `written` is called: it does not apply in the state, the one meaning of `reject`.
+  The rule reads the message alone and keeps nothing between two writes, so every other step, the parent's own, a
+  child's and what `onEvent` makes of its events, leaves an input as it wrote it, and a reset, an undo by snapshot or a
+  place that comes back cuts no history. A write comes only from a view: an own subscription and an own command send
+  only the parent's own messages (`RunCommandOf` in `compose.ts`), so neither compiles with a write, into the parent's
+  input or a child's. One limit is declared, not a flaw: a message names a place, so one drawn for an old instance
+  reaches the new one. Each check has a mutation (`tools/mutations/mutations.ts`), and `interleaving.test.ts` checks
+  that a write into the field is stored exactly when its place is there, with two inputs whose places take turns in one
+  field, so that a write may reach a place that is gone, and that a write typed into the element of the current model
+  is never rejected.
 - **What a screen shows of an input is the bridges', and the library keeps no rule of an element.** A view draws a
-  native controlled element from the value its model holds, and writes over that value in its handler. What the
+  native controlled element from the value its model holds, and writes what the element holds in its handler. What the
   element then shows is no guarantee of the library's, which knows no renderer: the guide promises it in "Inputs the
   user types into" and "Writing a bridge", for the elements and the renderers they name, and the bridges' tests check
-  it in a DOM (`bridges/bridge.test_suite.ts`). The bridge to React draws the model read with `useSyncExternalStore`,
-  so that a controlled element is updated during its own event (`premises.md`, of a controlled input). The bridge to
-  snabbdom keeps two rules beside snabbdom: after each draw it gives each element drawn with a `value` or a `checked`
-  in `props` that prop back where the element differs from it (`giveBack` in `bridges/snabbdom.ts`), since snabbdom
-  sets a prop only where it differs from the vnode drawn before; and it draws a message the view's own `dispatch`
-  sends at once, before the handler returns, since a view takes `was` from the model it was drawn with, and a second
-  key before a draw would be written over the first one's value. A draw asked for while a patch runs waits for it, and
-  the patch under way draws again once it is done: a browser calls `blur` as a patch removes the focused element, and
-  the DOM calls `blur` and `focus` as an `insert` hook focuses one ("a message a listener sends while a patch runs",
-  `snabbdom.test.ts`). Each of these checks has a mutation.
+  it in a DOM (`bridges/bridge.test_suite.ts`). Since a write names no value it was written over, a key typed on a view
+  older than the state would store that view's text over the newer state: so a bridge draws each new state before the
+  browser handles the next event. The bridge to React draws the model read with `useSyncExternalStore`, so that a
+  controlled element is updated during its own event (`premises.md`, of a controlled input). The bridge to snabbdom
+  keeps two rules beside snabbdom. After each draw it gives each element drawn with a `value` or a `checked` in `props`
+  that prop back where the element differs from it (`giveBack` in `bridges/snabbdom.ts`), since snabbdom sets a prop
+  only where it differs from the vnode drawn before. And it draws in a microtask after each notice, and after each
+  message its view's own `dispatch` sends, whether it made a new state or not (`notice`): the HTML Standard runs the
+  microtasks after each task and after each listener the browser calls, so no handler of an event the browser
+  dispatches runs on an older view; and a rejected write makes no notice, but its element must be given its value
+  back. The notices of one task are drawn once. No microtask runs while a patch is on the stack, so a message a
+  listener sends during a patch (a browser calls `blur` as a patch removes the focused element, and the DOM calls
+  `blur` and `focus` as an `insert` hook focuses one) is drawn after it, in a microtask of its own ("a message a
+  listener sends while a patch runs", `snabbdom.test.ts`). A draw asked for before the renderer is released is not
+  made after it, since the root may be another run's by then. Each of these checks has a mutation. What no check
+  holds, in either bridge: an event that the program's own code dispatches in the task of a notice, before its draw
+  (`element.click()`, `dispatchEvent`, `focus()`), runs its handler on the view of before the notice.
 - **Every program keeps its state in an object**, replaced and never mutated, so that any program can be a child: a
   parent keeps a child's model and its lifted subscriptions by its state object (below), and a number or a string
   has no identity to keep them by. It binds whoever writes a program, and the types are what enforce it

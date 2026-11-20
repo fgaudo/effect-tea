@@ -306,10 +306,10 @@ const draft = drafting.make({
   makeModel: (state) => state.title
 })
 
-// A write is of the value the place holds; an own message that takes an input's name does not compile, nor does a
+// A write is of the type of the value the place holds; an own message that takes an input's name does not compile, nor does a
 // command's answer that writes into an input, nor an external message that does.
 // @ts-expect-error
-const wrong: MessageOf<typeof draft> = { _tag: "Title", message: { _tag: "Written", was: 0, value: 1 } }
+const wrong: MessageOf<typeof draft> = { _tag: "Title", message: { _tag: "Written", value: 1 } }
 
 // A defect is read, never built: only the library makes one.
 export const crashed = (error: unknown) =>
@@ -343,11 +343,11 @@ drafting.make({
   inputs: { Title: drafting.input({ at: Optic.id<Draft>().key("title") }) },
   update: (_: "Cleared") => (state: Draft) => ({ state, commands: ["Load" as const] }),
   // @ts-expect-error
-  runCommand: () => Effect.succeedSome({ _tag: "Title" as const, message: { _tag: "Written", was: "", value: "a" } }),
+  runCommand: () => Effect.succeedSome({ _tag: "Title" as const, message: { _tag: "Written", value: "a" } }),
   makeModel: () => null
 })
 
-type TitleWrite = Readonly<{ _tag: "Title"; message: Readonly<{ _tag: "Written"; was: string; value: string }> }>
+type TitleWrite = Readonly<{ _tag: "Title"; message: Readonly<{ _tag: "Written"; value: string }> }>
 
 // @ts-expect-error
 program<{ state: Draft; external: TitleWrite }>().make({
@@ -377,7 +377,7 @@ const sheet = sheets.make({
 })
 
 // @ts-expect-error
-const unnamed: MessageOf<typeof sheet> = { _tag: "Count", message: { _tag: "Written", was: "", value: "1" } }
+const unnamed: MessageOf<typeof sheet> = { _tag: "Count", message: { _tag: "Written", value: "1" } }
 
 // A state without fields holds a number too, and so may a state that is a type parameter: `make` refuses both.
 // @ts-expect-error
@@ -401,18 +401,21 @@ assert(folded.state.main.count === 3 && folded.state.fulls === 1, "applyAll rout
 assert(app.makeModel(folded.state).rows[0]?.model.count === 1, "makeModel reads the children by id")
 
 const cleared = applyAll(draft.update)(
-  [{ _tag: "Title", message: { _tag: "Written", was: draft.init.state.title, value: "Ada" } }, "Cleared"],
+  [{ _tag: "Title", message: { _tag: "Written", value: "Ada" } }, "Cleared"],
   draft.init.state
 )
 assert(cleared.state.title === "" && cleared.commands.length === 1, "a write is stored, and the step sees it")
-const late = draft.update({ _tag: "Title", message: { _tag: "Written", was: "Ada", value: "Ada L" } })(cleared.state)
-assert(late === reject && wrong !== undefined, "a write over a value the input no longer holds is rejected")
+const late = draft.update({ _tag: "Title", message: { _tag: "Written", value: "Ada L" } })(cleared.state)
+assert(
+  late !== reject && late.state.title === "Ada L" && wrong !== undefined,
+  "a write is stored whatever its place held"
+)
 
-const counted = sheet.update({ _tag: "Count", id: "a", message: { _tag: "Written", was: "", value: "1" } })(
+const counted = sheet.update({ _tag: "Count", id: "a", message: { _tag: "Written", value: "1" } })(
   sheet.init.state
 )
 assert(counted !== reject && counted.state.counts.a === "1", "a write into an input by id is stored at its id")
-const nowhere = sheet.update({ _tag: "Count", id: "b", message: { _tag: "Written", was: "", value: "1" } })(
+const nowhere = sheet.update({ _tag: "Count", id: "b", message: { _tag: "Written", value: "1" } })(
   sheet.init.state
 )
 assert(nowhere === reject && unnamed !== undefined, "a write at an id the state does not hold is rejected")

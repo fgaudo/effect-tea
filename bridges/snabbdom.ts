@@ -1,18 +1,17 @@
 // The bridge to snabbdom, the entry `@fgaudo/effect-tea/snabbdom`, which the examples use.
 // A renderer is given the handle on the running program, an `App`: it draws `app.model()` as it starts, and again once
 // `app.subscribe` tells it of a new state. A view draws native controlled elements: a `value` or a `checked` in
-// `props`, the model's, and a listener that calls `dispatch` itself, with a write over the value its model held. The
-// bridge keeps two rules beside snabbdom, each with a test that fails without it:
+// `props`, the model's, and a listener that calls `dispatch` itself, with the value the element holds. The bridge keeps
+// two rules beside snabbdom, each with a test that fails without it:
 // - A controlled prop is compared with the element. snabbdom's props module sets `value` only where it differs from the
 //   vnode drawn before, and `checked` likewise, so after each draw every element drawn with either is given the vnode's
 //   where the element itself differs from it: what the user typed and the state rejected is taken back.
-// - When it draws. A handler writes over the value its model held when it was drawn, so two keys between two draws
-//   would send the second over the first one's: a message the view's own `dispatch` sends is drawn at once, before the
-//   handler returns, whether it made a new state or not. A notice from anywhere else, a command or a subscription, is
-//   drawn at the next animation frame, at most once for each refresh.
-// A listener may be called while a patch runs: a browser calls `blur` as a patch removes the focused element, and the
-// DOM calls `blur` and `focus` as an `insert` hook focuses one. The draw of what such a listener sends waits for the
-// patch under way, and follows it.
+// - When it draws: in a microtask after each notice, as React renders a store. The HTML Standard runs the microtasks
+//   after each task and after each listener the browser calls, so no handler of an event the browser dispatches runs on
+//   a view older than the state: a key is typed over what the program put there. The notices of one task are drawn
+//   once. A listener called while a patch runs (a browser calls `blur` as a patch removes the focused element, and the
+//   DOM calls `blur` and `focus` as an `insert` hook focuses one) is drawn after that patch, since no microtask runs
+//   while the patch is on the stack.
 // Checked with snabbdom 3.6.4, the start of its peer range; the daily job runs its tests with the newest snabbdom 3.
 /**
  * The bridge to snabbdom: draws a program with snabbdom 3.6.4 or a newer 3.x, which you install beside the package.
@@ -22,7 +21,9 @@
  * @see The guide, "Writing a bridge", "The package's bridges".
  */
 import type { App, Dispatch } from "@fgaudo/effect-tea"
+import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
 import * as Opt from "effect/Option"
 import { eventListenersModule, init, type Module, propsModule, styleModule, type VNode } from "snabbdom"
 
@@ -68,23 +69,18 @@ const giveBack = (controlled: Map<Element, Controlled>): void => {
 }
 // #endregion controlled
 
-const animationFrame = Effect.callback<void>((resume) => {
-  const id = requestAnimationFrame(() => resume(Effect.void))
-  return Effect.sync(() => cancelAnimationFrame(id))
-})
-
 /**
  * The renderer `run` takes: draws the model of the current state into `root`, patching the tree it drew before.
  *
  * - It empties `root` as it starts, and `root` then holds the view's top element and nothing else. `root` keeps its
  *   place in the page, and may have no parent.
- * - It draws as it starts, then once a handler of the view has sent a message through the `dispatch` it was given, at
- *   once, before the handler returns, and once a new state comes from anywhere else, at the next animation frame, at
- *   most once for each refresh.
+ * - It draws as it starts, then in a microtask after each new state, wherever its message comes from, and after each
+ *   message a handler of the view sends, whether it made a new state or not: once the code that sent it returns, and
+ *   before the browser handles the next event. What one task sends is drawn once.
  * - A model that is the very one drawn last is not drawn again.
  * - After each draw, an element drawn with a `value` or a `checked` in `props` is given it back where the element
  *   differs from it: what the user typed and the program rejected is taken back.
- * - What a view or `makeModel` throws as it is drawn ends the run, wherever it is drawn.
+ * - What a view or `makeModel` throws as it is drawn ends the run.
  *
  * @example
  * ```ts
@@ -108,83 +104,54 @@ export const renderInto =
       root.replaceChildren(place)
       let tree: Element | VNode = place
       let last: Opt.Option<Model> = Opt.none()
-      let drawing = false
-      let again = false
       // Draws the model of the current state, then gives the controlled elements their props back.
       const draw = (): void => {
-        // A listener called while a patch runs may send a message: its draw waits for the patch under way, which
-        // draws again once it is done, the model current then.
-        if (drawing) {
-          again = true
-          return
+        const model = app.model()
+        if (Opt.isNone(last) || last.value !== model) {
+          tree = patch(tree, view(model, dispatch))
+          last = Opt.some(model)
         }
-        drawing = true
-        // No `finally`: what a draw throws ends the run.
-        do {
-          again = false
-          const model = app.model()
-          if (Opt.isNone(last) || last.value !== model) {
-            tree = patch(tree, view(model, dispatch))
-            last = Opt.some(model)
-          }
-          giveBack(controlled)
-        } while (again)
-        drawing = false
+        giveBack(controlled)
       }
       // #endregion draw
-      // #region wait
-      let noticed = false
-      // Resumes the renderer's fiber, if what it waits for is ready.
-      let wake = () => {}
-      const until = (ready: () => boolean) =>
-        Effect.callback<void>((resume) => {
-          const check = () => {
-            if (!ready()) return
-            wake = () => {}
-            resume(Effect.void)
-          }
-          wake = check
-          check()
-          return Effect.sync(() => {
-            wake = () => {}
-          })
-        })
-      // #endregion wait
-      // #region dispatch
-      // What a draw in a handler threw, for the renderer's fiber to die of: a handler runs in no fiber of the run. A
+      // #region notice
+      // What a draw in a microtask threw, for the renderer's fiber to die of: a microtask runs in no fiber of the run. A
       // defect of `makeModel` is the one the run recorded where the model was read, so it is still one defect.
-      let thrown: Opt.Option<unknown> = Opt.none()
-      // The dispatch the view is given, the same in every draw: it applies the message, then draws at once.
+      const thrown = Deferred.makeUnsafe<never>()
+      let queued = false
+      // Once the renderer is released, a draw it asked for before is not made: the root may be another run's by then.
+      let released = false
+      const notice = () => {
+        if (queued) return
+        queued = true
+        queueMicrotask(() => {
+          queued = false
+          if (released) return
+          try {
+            draw()
+          } catch (error) {
+            released = true
+            Deferred.doneUnsafe(thrown, Exit.die(error))
+          }
+        })
+      }
+      // #endregion notice
+      // #region dispatch
+      // The dispatch the view is given, the same in every draw: it applies the message, then asks for a draw, whether
+      // the message made a new state or not, so that what the element shows and the state rejected is taken back.
       const dispatch: Dispatch<Message> = (message) => {
         app.dispatch(message)
-        try {
-          draw()
-        } catch (error) {
-          thrown = Opt.some(error)
-          wake()
-        }
+        notice()
       }
       // #endregion dispatch
       // #region handle
-      const rendering = Effect.gen(function*() {
-        draw()
-        while (true) {
-          yield* until(() => noticed)
-          // What a handler's draw throws ends the wait for the frame.
-          yield* Effect.raceFirst(animationFrame, until(() => Opt.isSome(thrown)))
-          if (Opt.isSome(thrown)) return yield* Effect.die(thrown.value)
-          noticed = false
-          draw()
-        }
-      })
       return Effect.acquireRelease(
-        Effect.sync(() =>
-          app.subscribe(() => {
-            noticed = true
-            wake()
+        Effect.sync(() => app.subscribe(notice)),
+        (stop) =>
+          Effect.sync(() => {
+            released = true
+            stop()
           })
-        ),
-        (stop) => Effect.sync(stop)
-      ).pipe(Effect.andThen(rendering), Effect.scoped)
+      ).pipe(Effect.andThen(Effect.sync(draw)), Effect.andThen(Deferred.await(thrown)), Effect.scoped)
       // #endregion handle
     })

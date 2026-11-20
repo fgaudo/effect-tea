@@ -12,7 +12,7 @@ export const view: View<Model, Message> = (model, dispatch) => {
       {/* A controlled element, as with snabbdom: disabled while saving. */}
       <input
         value={model.name}
-        onChange={(event) => name({ _tag: "Written", was: model.name, value: event.target.value })}
+        onChange={(event) => name({ _tag: "Written", value: event.target.value })}
         disabled={editor._tag === "Saving"}
         placeholder="A name"
       />

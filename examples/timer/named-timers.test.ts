@@ -11,11 +11,11 @@ import { namedTimersView } from "./view.ts"
 
 const to = (id: number, message: Named.Message): Message => ({ _tag: "Timer", id, message })
 
-/** What the user types into the name of the timer `id`, over the value its model shows. */
+/** What the user types into the name of the timer `id`, which its model shows. */
 const typing = (model: Model, id: number, text: string): Message => {
   const entry = model.timers.find((entry) => entry.id === id)
   if (entry === undefined) throw new Error(`no timer ${id} in the model`)
-  return to(id, { _tag: "Name", message: { _tag: "Written", was: entry.model.name, value: text } })
+  return to(id, { _tag: "Name", message: { _tag: "Written", value: text } })
 }
 
 // What the model holds: the list's own messages, and each timer's with its id, wrapped as the list receives them.

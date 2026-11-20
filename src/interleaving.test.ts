@@ -547,9 +547,9 @@ type Control = (dispatch: Dispatch<Message>) => Effect.Effect<unknown>
 // The dispatch is called as the control is: when it returns, its message has been applied.
 const sent = <A>(_: void, message: A): Effect.Effect<A> => Effect.succeed(message)
 
-/** What the element of an older model would have sent: a write over the text that model drew. */
+/** What the element of an older model would have sent: a text typed over the one that model drew, to its place. */
 const staleWrite = (model: Model, pick: number): Control => (dispatch) => {
-  const write: Input.Written<string> = { _tag: "Written", was: model.field.text, value: typed(model.field.text, pick) }
+  const write: Input.Written<string> = { _tag: "Written", value: typed(model.field.text, pick) }
   return sent(writeInto(dispatch, model.field._tag, write), write)
 }
 
@@ -640,12 +640,12 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
     forwardTo(dispatch, "Rows", first.id)(first.row.poke)
   }
   // A key typed into the element of the field, which shows what the current model holds, as a controlled element
-  // does: the write is over that value, sent from a plain callback.
+  // does: the write is that value with the key, sent from a plain callback.
   const typing = (pick: number): Control => () =>
     Effect.sync(() => {
       if (app === undefined || dispatch === undefined) return undefined
       const { field } = read(app, "typing")
-      const write: Input.Written<string> = { _tag: "Written", was: field.text, value: typed(field.text, pick) }
+      const write: Input.Written<string> = { _tag: "Written", value: typed(field.text, pick) }
       events.push({ _tag: "Typed", input: field._tag, write })
       writeInto(dispatch, field._tag, write)
       return write
@@ -903,7 +903,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       for (const event of events) {
         if (event._tag !== "Ignored") continue
         const { message } = event.ignored
-        if (isWrite(message) && !typed.has(message.message)) reached.add("a stale write")
+        if (isWrite(message) && !typed.has(message.message)) reached.add("a write to a place that is gone")
       }
       if (events.some(({ _tag }) => _tag === "SearchStopped")) reached.add("a search stopped")
       const renderer = events.flatMap((event, index) =>
@@ -941,7 +941,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       "onApplied defect",
       "onIgnored defect",
       "rejected",
-      "a stale write",
+      "a write to a place that is gone",
       "a text replaced",
       "a write typed into the element",
       "a search stopped",
@@ -1089,7 +1089,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
   }, 120_000)
 
   test(
-    "a write into the field is stored exactly when its place is there and holds the text it was written over, whatever it is",
+    "a write into the field is stored exactly when its place is there, whatever it is",
     () => {
       property(({ events }) => {
         const broken: Array<string> = []
@@ -1098,15 +1098,14 @@ describe("interleavings of the user, commands and subscriptions", () => {
             const { before, after, message } = event.applied
             if (!isWrite(message)) continue
             if (before.field._tag !== message._tag) broken.push("a write to a place that is gone was stored")
-            if (message.message.was !== before.field.text) broken.push("a stale write was stored")
             const same = message.message.value === before.field.text
             const written = after.field._tag === message._tag && after.field.text === message.message.value
             if (same ? after !== before : !written) broken.push("not as written")
           }
           if (event._tag === "Ignored") {
             const { message, state } = event.ignored
-            if (isWrite(message) && state.field._tag === message._tag && message.message.was === state.field.text) {
-              broken.push("a current write was rejected")
+            if (isWrite(message) && state.field._tag === message._tag) {
+              broken.push("a write to a place that is there was rejected")
             }
           }
         }
@@ -1116,8 +1115,8 @@ describe("interleavings of the user, commands and subscriptions", () => {
     120_000
   )
 
-  // What a controlled element writes is over the value of the current model, which a dispatch applied at once keeps
-  // current: no write typed into it is ever stale.
+  // What a controlled element writes goes to the place of the current model, which a dispatch applied at once keeps
+  // current: no write typed into it is ever to a place that is gone.
   test("a write typed into the element is never rejected", () => {
     property(({ events }) => {
       const typed = new Set(events.flatMap((event) => event._tag === "Typed" ? [event.write] : []))

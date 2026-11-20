@@ -33,19 +33,18 @@ if (sent.join() !== "Increment") throw new Error(`messagesSentBy found ${sent.jo
 // Typed, and not called: Node has no DOM to draw into.
 export const start = (root: Element) => Effect.runFork(run(counter, renderInto(root, view)))
 
-// A controlled field: it shows the value, and what is typed is written over it.
+// A controlled field: it shows the value, and what is typed is written.
 export const field = (value: string, dispatch: Dispatch<Written<string>>) =>
   h("input", {
     props: { value },
     on: {
-      input: (event: Event) =>
-        dispatch({ _tag: "Written", was: value, value: (event.target as HTMLInputElement).value })
+      input: (event: Event) => dispatch({ _tag: "Written", value: (event.target as HTMLInputElement).value })
     }
   })
 
 const written = messagesSentBy(field, "Ada")
-if (JSON.stringify(written) !== JSON.stringify([{ _tag: "Written", was: "Ada", value: "Ada" }])) {
-  throw new Error(`messagesSentBy found ${JSON.stringify(written)}, not the write over the field's value`)
+if (JSON.stringify(written) !== JSON.stringify([{ _tag: "Written", value: "Ada" }])) {
+  throw new Error(`messagesSentBy found ${JSON.stringify(written)}, not the write of the field's value`)
 }
 
 const reactView: ReactView<Model, Message> = (model) => createElement("output", null, model.count)
@@ -58,8 +57,7 @@ export const drawn = (app: App<Model, Message>) => createElement(Draw<Model, Mes
 export const input = (value: string, dispatch: Dispatch<Written<string>>) =>
   createElement("input", {
     value,
-    onChange: (event: { target: { value: string } }) =>
-      dispatch({ _tag: "Written", was: value, value: event.target.value })
+    onChange: (event: { target: { value: string } }) => dispatch({ _tag: "Written", value: event.target.value })
   })
 
 console.log("node: the bridges ran")

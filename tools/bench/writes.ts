@@ -1,13 +1,11 @@
-// What a write into an input costs as `main` stores it, written over the value the input showed (`{ _tag: 'Written',
-// was, value }`), for each kind of value: by the bare rule, through the composed program's `update` as the engine calls
-// it, and, for some cases, through the dispatch `run` gives its renderer, which applies the write before it returns,
-// with the model of the new state read after it, as a renderer's listener reads it: what a handler pays for a key, but
-// the draw. `was` is the very value the state holds, or, in the cases marked "copy", an equal value that is another
-// string or object. Then what a rejected write costs. A draw is not measured: it needs a DOM and a renderer, which no
-// file of `tools/` imports (`AGENTS.md`). The measures that chose this design are in `docs/records/registers.md` ("The
-// cost of `was`"). Run by hand, on Bun or on Node; not part of `bun run test`.
+// What a write into an input costs as `main` stores it (`{ _tag: 'Written', value }`), for each kind of value: by the
+// bare rule, through the composed program's `update` as the engine calls it, and, for some cases, through the dispatch
+// `run` gives its renderer, which applies the write before it returns, with the model of the new state read after it,
+// as a renderer's listener reads it: what a handler pays for a key, but the draw. A draw is not measured: it needs a DOM
+// and a renderer, which no file of `tools/` imports (`AGENTS.md`). Run by hand, on Bun or on Node; not part of
+// `bun run test`.
 //
-//   bun tools/bench/writes.ts [--writes 2000] [--rounds 11] [--sections writes,rejected]
+//   bun tools/bench/writes.ts [--writes 2000] [--rounds 11] [--sections writes]
 //   node tools/bench/writes.ts …     the same, on V8
 //   bun tools/bench/writes.ts --help     the same, as the command describes itself
 import * as Arr from "effect/Array"
@@ -15,7 +13,6 @@ import * as Command from "effect/cli/Command"
 import * as Flag from "effect/cli/Flag"
 import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
-import * as Equal from "effect/Equal"
 import * as Num from "effect/Number"
 import * as Optic from "effect/Optic"
 import * as Opt from "effect/Option"
@@ -72,12 +69,9 @@ const valuesOf = (writes: number): Values => {
   }
 }
 
-const copyContact = (contact: Contact): Contact => ({ ...contact, tags: [...contact.tags] })
-
 type Case = Readonly<{
   name: string
   values: (values: Values) => ReadonlyArray<unknown>
-  copy?: (value: never) => unknown
   inRow?: boolean
   throughRun?: boolean
 }>
@@ -85,17 +79,10 @@ type Case = Readonly<{
 const cases: ReadonlyArray<Case> = [
   { name: "short text (≤ 18 chars)", values: ({ short }) => short },
   { name: "long text (4–6 KB, at the end)", values: ({ long }) => long, throughRun: true },
-  { name: "long text, `was` a copy", values: ({ long }) => long, copy: copyOf },
   { name: "slider level (number)", values: ({ levels }) => levels },
   { name: `short text in row 500 of ${rows}`, values: ({ short }) => short, inRow: true, throughRun: true },
   { name: "array of 200 ids", values: ({ selections }) => selections() },
-  {
-    name: "array of 200 ids, `was` a copy",
-    values: ({ selections }) => selections(),
-    copy: (ids: ReadonlyArray<number>) => [...ids]
-  },
-  { name: "record of 4 fields", values: ({ contacts }) => contacts() },
-  { name: "record of 4 fields, `was` a copy", values: ({ contacts }) => contacts(), copy: copyContact }
+  { name: "record of 4 fields", values: ({ contacts }) => contacts() }
 ]
 
 type State = Readonly<{ v: unknown }>
@@ -143,7 +130,7 @@ type Subject = Readonly<{
 
 const rule = written as unknown as Update<unknown, unknown>
 
-const subjectOf = ({ copy, inRow, values: of }: Case, made: Values): Subject => {
+const subjectOf = ({ inRow, values: of }: Case, made: Values): Subject => {
   const values = () => of(made)
   const start = values()[0]
   const child = inputProgram(start)
@@ -153,8 +140,7 @@ const subjectOf = ({ copy, inRow, values: of }: Case, made: Values): Subject => 
     program: (inRow === true ? inputRows(child) : child) as unknown as Program_,
     messages: () => {
       const all = [start, ...values().slice(1)]
-      const was = (i: number) => copy === undefined ? all[i] : copy(all[i] as never)
-      const bare = all.slice(1).map((value, i): Written<unknown> => ({ _tag: "Written", was: was(i), value }))
+      const bare = all.slice(1).map((value): Written<unknown> => ({ _tag: "Written", value }))
       return { bare, composed: bare.map((message) => at({ _tag: "V", message })) }
     }
   }
@@ -245,70 +231,8 @@ const writesSection = Effect.fnUntraced(function*({ rounds, values, writes }: Si
   }
 })
 
-// A rejected write: the value held, and what was written over another, made anew on each call.
-type Refusal = Readonly<{ name: string; held: unknown; was: () => unknown }>
-
-const shortHeld = "Ada Lovelace, 1815"
-
-const longHeld = base
-
-const ids = Arr.makeBy(200, (i) => i * 2)
-
-const contact: Contact = { name: "Ada", email: "ada@example.com", age: 36, tags: ["math", "engines", "poetry"] }
-
-const refusals: ReadonlyArray<Refusal> = [
-  { name: "short text, first char differs", held: shortHeld, was: () => copyOf(`X${shortHeld.slice(1)}`) },
-  { name: "short text, last char differs", held: shortHeld, was: () => copyOf(`${shortHeld.slice(0, -1)}X`) },
-  { name: "long text, first char differs", held: longHeld, was: () => copyOf(`X${longHeld.slice(1)}`) },
-  { name: "long text, last char differs", held: longHeld, was: () => copyOf(`${longHeld.slice(0, -1)}X`) },
-  { name: "long text, one char shorter", held: longHeld, was: () => copyOf(longHeld.slice(0, -1)) },
-  { name: "number", held: 50, was: () => 51 },
-  { name: "array of 200 ids, first differs", held: ids, was: () => [1, ...ids.slice(1)] },
-  { name: "array of 200 ids, last differs", held: ids, was: () => [...ids.slice(0, -1), 1] },
-  { name: "record, a field differs", held: contact, was: () => ({ ...contact, tags: [...contact.tags], name: "Eve" }) },
-  {
-    name: "record, its last tag differs",
-    held: contact,
-    was: () => ({ ...contact, tags: [...contact.tags.slice(0, -1), "prose"] })
-  }
-]
-
-// Some rejections take a few nanoseconds: 20 ms of them would be millions of messages, each with a text of 4 KB
-// where `was` is one.
-const rejectedPasses = 16
-
-// Every write is rejected: one stored would measure another path.
-const rejectAll = (update: Update<unknown, unknown>, state: unknown, messages: ReadonlyArray<unknown>) => {
-  for (const message of messages) {
-    if (update(message)(state) !== reject) throw new Error("a write was stored")
-  }
-}
-
-const rejectedSection = Effect.fnUntraced(function*({ rounds, writes }: Sizes) {
-  yield* Console.log("\nRejected writes, over another value than the one held\n")
-  yield* Console.log("| case | bare rule | compose `update` |")
-  yield* Console.log("| --- | --- | --- |")
-  for (const refusal of refusals) {
-    // The value held was hashed when it was stored, by the `Equal` of the write that stored it.
-    Equal.equals(refusal.held, refusal.was())
-    const program = inputProgram(refusal.held) as unknown as Program_
-    const update = program.update as unknown as Update<unknown, unknown>
-    const message = (): Written<unknown> => ({ _tag: "Written", was: refusal.was(), value: refusal.held })
-    const [bare, composed] = yield* alternated(rounds, [
-      sampler(() => Arr.makeBy(writes, message), (all) => rejectAll(rule, refusal.held, all), writes, rejectedPasses),
-      sampler(
-        () => Arr.makeBy(writes, () => ({ _tag: "V", message: message() })),
-        (all) => rejectAll(update, program.init.state, all),
-        writes,
-        rejectedPasses
-      )
-    ])
-    yield* Console.log(`| ${refusal.name} | ${summary(bare ?? [])} | ${summary(composed ?? [])} |`)
-  }
-})
-
 // In the order they run, whatever the order they are named in.
-const sections = { writes: writesSection, rejected: rejectedSection }
+const sections = { writes: writesSection }
 
 const names = Object.keys(sections)
 

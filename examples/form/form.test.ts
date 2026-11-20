@@ -38,11 +38,8 @@ const userMessages: ReadonlyArray<Message> = Object.values(
   } satisfies { [Tag in Message["_tag"]]: ReadonlyArray<Extract<Message, { _tag: Tag }>> }
 ).flat()
 
-/** What the user types into the input the model shows, as the view sends it. */
-const typing = (model: Model, text: string): Message => ({
-  _tag: "Name",
-  message: { _tag: "Written", was: model.name, value: text }
-})
+/** What the user types into the input, as the view sends it. */
+const typing = (text: string): Message => ({ _tag: "Name", message: { _tag: "Written", value: text } })
 
 const working = Storage.of({ save: () => Effect.void })
 const failing = Storage.of({ save: (name) => Effect.fail(new StorageError({ cause: name })) })
@@ -69,24 +66,14 @@ describe("form", () => {
       expect(() => update({ _tag: "SaveFailed", name: "Ada" })(failed)).toThrow(InvariantDefect)
     })
 
-    // Sent from a frame drawn before the save: it arrives while saving, before the save's failure.
-    test("a key typed just before saving disabled the input is kept, for when the save fails", () => {
-      const drawn = form.makeModel({ ...empty, name: " Ada " })
+    // Written while saving, as a script may write into the disabled input: it is stored, for when the save fails.
+    test("a write while saving is kept, for when the save fails", () => {
       const { state } = applyAll(update)(
-        [{ _tag: "SaveClicked" }, typing(drawn, " Ada x"), { _tag: "SaveFailed", name: "Ada" }],
+        [{ _tag: "SaveClicked" }, typing(" Ada x"), { _tag: "SaveFailed", name: "Ada" }],
         { ...empty, name: " Ada " }
       )
       expect(state.name).toBe(" Ada x")
       expect(state.save).toEqual(Save.Failed({ name: "Ada" }))
-    })
-
-    // Sent from a frame drawn before the save completed: it was typed over a name the form no longer holds.
-    test("a key typed over the name a completed save has emptied is rejected", () => {
-      const typed = { ...empty, name: "Ada" }
-      const drawn = form.makeModel(typed)
-      const { state } = applyAll(update)([{ _tag: "SaveClicked" }, { _tag: "SaveSucceeded", name: "Ada" }], typed)
-      expect(state.name).toBe("")
-      expect(update(typing(drawn, "Ada x"))(state)).toBe(reject)
     })
 
     // An input keeps nothing of its own: the state stored is the state the form wrote, which a test compares whole.
@@ -121,7 +108,7 @@ describe("form", () => {
   test("the view sends what its model holds", () => {
     fc.assert(fc.property(state(), (before) => {
       const model = form.makeModel(before)
-      expect(messagesSentBy<Model, Message>(view, model)).toEqual([typing(model, model.name), ...messagesOf(model)])
+      expect(messagesSentBy<Model, Message>(view, model)).toEqual([typing(model.name), ...messagesOf(model)])
     }))
   })
 
@@ -139,7 +126,7 @@ describe("form", () => {
 
   // `update` and the commands, with the storage provided: what each outcome leaves.
   describe("saving", () => {
-    const typedAndSaved: ReadonlyArray<Message> = [typing(form.makeModel(empty), " Ada "), { _tag: "SaveClicked" }]
+    const typedAndSaved: ReadonlyArray<Message> = [typing(" Ada "), { _tag: "SaveClicked" }]
 
     test("a saved name is listed, trimmed, and the form empties its input", async () => {
       const { state, ignored } = await Effect.runPromise(
@@ -164,9 +151,7 @@ describe("form", () => {
         rehearse(
           form,
           Effect.fnUntraced(function*(rehearsal) {
-            yield* rehearsal.send((model) =>
-              model.editor._tag === "Saving" ? Opt.none() : Opt.some(typing(model, " Ada "))
-            )
+            yield* rehearsal.send((model) => model.editor._tag === "Saving" ? Opt.none() : Opt.some(typing(" Ada ")))
             yield* rehearsal.send(save)
             const whileSaving = (yield* rehearsal.model).editor._tag
             yield* rehearsal.run((command) => command._tag === "Save")
@@ -189,7 +174,7 @@ describe("form", () => {
       drive(
         form,
         Effect.fnUntraced(function*(driver) {
-          yield* driver.send((model) => model.editor._tag === "Saving" ? Opt.none() : Opt.some(typing(model, "Ada")))
+          yield* driver.send((model) => model.editor._tag === "Saving" ? Opt.none() : Opt.some(typing("Ada")))
           yield* driver.send(({ name, editor }) =>
             name === "Ada" && editor._tag === "Named" ? Opt.some(editor.save) : Opt.none()
           )

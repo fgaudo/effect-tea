@@ -58,12 +58,9 @@ const draft = program<{ state: Draft; message: Own }>().make({
 
 type Message = MessageOf<typeof draft>
 
-const title = (was: string, text: string): Message => ({
-  _tag: "Title",
-  message: { _tag: "Written", was, value: text }
-})
+const title = (text: string): Message => ({ _tag: "Title", message: { _tag: "Written", value: text } })
 
-const level = (was: number, value: number): Message => ({ _tag: "Level", message: { _tag: "Written", was, value } })
+const level = (value: number): Message => ({ _tag: "Level", message: { _tag: "Written", value } })
 
 const drafts = fc.record({
   title: fc.string(),
@@ -73,31 +70,26 @@ const drafts = fc.record({
 })
 
 describe("what is written into an input", () => {
-  test("is stored, whatever it is, when it was written over the value the place holds", () => {
+  test("is stored, whatever it is and whatever the place holds", () => {
     fc.assert(fc.property(drafts, fc.string(), fc.integer(), (state, text, value) => {
-      expect(stepped(draft.update(title(state.title, text))(state)).state).toEqual({ ...state, title: text })
-      expect(stepped(draft.update(level(state.level, value))(state)).state).toEqual({ ...state, level: value })
+      expect(stepped(draft.update(title(text))(state)).state).toEqual({ ...state, title: text })
+      expect(stepped(draft.update(level(value))(state)).state).toEqual({ ...state, level: value })
     }))
   })
 
   test("leaves the very same state when the place holds it already", () => {
     const state = draftOf("Ada")
-    expect(stepped(draft.update(title("Ada", "Ada"))(state)).state).toBe(state)
+    expect(stepped(draft.update(title("Ada"))(state)).state).toBe(state)
   })
 
-  test("is rejected when it was written over another value than the place holds", () => {
-    fc.assert(fc.property(drafts, fc.string(), fc.string(), (state, was, text) => {
-      fc.pre(was !== state.title)
-      expect(draft.update(title(was, text))(state)).toBe(reject)
-    }))
+  test("is stored over what a step of the program put in its place", () => {
     const cleared = stepped(draft.update("Cleared")(draftOf("Ada"))).state
-    expect(draft.update(title("Ada", "Ada L"))(cleared)).toBe(reject)
-    expect(stepped(draft.update(title("", "B"))(cleared)).state.title).toBe("B")
+    expect(stepped(draft.update(title("Ada L"))(cleared)).state).toEqual({ ...cleared, title: "Ada L" })
   })
 
   test("goes to its own input, and leaves the others as they are", () => {
     const state = draftOf("Ada")
-    expect(stepped(draft.update(level(50, 80))(state)).state).toEqual({ ...state, level: 80 })
+    expect(stepped(draft.update(level(80))(state)).state).toEqual({ ...state, level: 80 })
   })
 
   test("is rejected where the input is not in the state", () => {
@@ -108,12 +100,12 @@ describe("what is written into an input", () => {
       inputs: { Search: page.input({ at: Optic.id<Page>().key("search").compose(Optic.some()) }) },
       makeModel: (state) => state
     })
-    const written = { _tag: "Search" as const, message: { _tag: "Written" as const, was: "", value: "a" } }
+    const written = { _tag: "Search" as const, message: { _tag: "Written" as const, value: "a" } }
     expect(tested.update(written)({ search: Opt.none() })).toBe(reject)
     expect(stepped(tested.update(written)({ search: Opt.some("") })).state).toEqual({ search: Opt.some("a") })
   })
 
-  test("compares the value it was written over by Equal, whatever it is made of", () => {
+  test("equal by Equal to the value held, whatever it is made of, leaves the very value held", () => {
     type Tags = Readonly<{ tags: ReadonlyArray<string> }>
     const tags = program<{ state: Tags }>()
     const tested = tags.make({
@@ -122,12 +114,12 @@ describe("what is written into an input", () => {
       makeModel: (state) => state
     })
     const held: Tags = { tags: ["a", "b"] }
-    const over = (was: ReadonlyArray<string>, value: ReadonlyArray<string>) =>
-      tested.update({ _tag: "Tags", message: { _tag: "Written", was, value } })(held)
-    expect(stepped(over(["a", "b"], ["a", "b", "c"])).state).toEqual({ tags: ["a", "b", "c"] })
+    const write = (value: ReadonlyArray<string>) =>
+      tested.update({ _tag: "Tags", message: { _tag: "Written", value } })(held)
+    expect(stepped(write(["a", "b", "c"])).state).toEqual({ tags: ["a", "b", "c"] })
     // An equal copy of the value held leaves the very value held.
-    expect(stepped(over(["a", "b"], ["a", "b"])).state).toBe(held)
-    expect(over(["b", "a"], ["c"])).toBe(reject)
+    expect(stepped(write(["a", "b"])).state).toBe(held)
+    expect(stepped(write(["b", "a"])).state).toEqual({ tags: ["b", "a"] })
   })
 })
 
@@ -165,11 +157,11 @@ describe("a step of the program", () => {
     const result = tested.update({ _tag: "Reset", message: "Pressed" })({ name: "Ada", reset: { pressed: 0 } })
     expect(result).toEqual({ state: { name: "", reset: { pressed: 1 } }, commands: [], events: ["Reset"] })
     expect(
-      tested.update({ _tag: "Name", message: { _tag: "Written", was: "Ada", value: "Ada L" } })(stepped(result).state)
-    ).toBe(reject)
+      stepped(tested.update({ _tag: "Name", message: { _tag: "Written", value: "Eve" } })(stepped(result).state)).state
+    ).toEqual({ name: "Eve", reset: { pressed: 1 } })
   })
 
-  test("that puts a subscription's value into an input rejects what was typed over the value before", () => {
+  test("that puts a subscription's value into an input is followed by a write over it: the last one stays", () => {
     type Note = Readonly<{ text: string }>
     const note = program<{ state: Note; message: Readonly<{ _tag: "Dictated"; text: string }> }>()
     const tested = note.make({
@@ -182,12 +174,11 @@ describe("a step of the program", () => {
     })
     const dictated = stepped(tested.update({ _tag: "Dictated", text: "lo" })({ text: "Hel" }))
     expect(dictated.state).toEqual({ text: "Hello" })
-    expect(
-      tested.update({ _tag: "Text", message: { _tag: "Written", was: "Hel", value: "Help" } })(dictated.state)
-    ).toBe(reject)
-    expect(
-      tested.update({ _tag: "Text", message: { _tag: "Written", was: "Hello", value: "Hello!" } })(dictated.state)
-    ).not.toBe(reject)
+    const typed = stepped(
+      tested.update({ _tag: "Text", message: { _tag: "Written", value: "Hello!" } })(dictated.state)
+    )
+    expect(typed.state).toEqual({ text: "Hello!" })
+    expect(stepped(tested.update({ _tag: "Dictated", text: "?" })(typed.state)).state).toEqual({ text: "Hello!?" })
   })
 })
 
@@ -220,7 +211,7 @@ describe("an input among the subscriptions", () => {
   test("a write into it keeps every subscription the same object, the children's lifted ones included", () => {
     const before: Page = { name: "", ticking: { ticks: 0 } }
     const written = stepped(
-      page.update({ _tag: "Name", message: { _tag: "Written", was: before.name, value: "Ada" } })(before)
+      page.update({ _tag: "Name", message: { _tag: "Written", value: "Ada" } })(before)
     )
     expect(written.state.ticking).toBe(before.ticking)
     const lifted = (state: Page) => Opt.getOrThrow(HashMap.get(page.subscriptions(state), ["Ticking", "ticks"]))
@@ -229,9 +220,9 @@ describe("an input among the subscriptions", () => {
 })
 
 // A desk whose draft is sent, kept and brought back, and drafts by id, where an id leaves and comes back. Each history
-// ends with a key typed into the input of a frame drawn before the desk replaced the draft: it is rejected from the
-// state and the message alone, since the place no longer holds what the key was typed over.
-describe("a key typed into an input its parent has since replaced", () => {
+// ends with a write after the desk replaced the draft: it is stored into the place as the state holds it then, from the
+// state and the message alone. No bridge lets a handler run on a view older than the state ("Writing a bridge").
+describe("a write into an input its parent has replaced", () => {
   type Sent = Readonly<{ _tag: "Sent"; text: string }>
   type Text = Readonly<{ text: string }>
   const text = program<{ state: Text; event: Sent; message: "SendClicked" | "DiscardClicked" }>()
@@ -303,69 +294,42 @@ describe("a key typed into an input its parent has since replaced", () => {
     })
   })
   type DeskMessage = MessageOf<typeof desk>
-  type DeskModel = ReturnType<typeof desk.makeModel>
-  const typing = (model: DeskModel, value: string, id?: number): DeskMessage =>
+  const typing = (value: string, id?: number): DeskMessage =>
     id === undefined
-      ? { _tag: "Draft", message: { _tag: "Text", message: { _tag: "Written", was: model.draft, value } } }
-      : {
-        _tag: "Row",
-        id,
-        message: {
-          _tag: "Text",
-          message: {
-            _tag: "Written",
-            was: Opt.getOrThrow(Arr.findFirst(model.rows, (row) => row.id === id)).text,
-            value
-          }
-        }
-      }
+      ? { _tag: "Draft", message: { _tag: "Text", message: { _tag: "Written", value } } }
+      : { _tag: "Row", id, message: { _tag: "Text", message: { _tag: "Written", value } } }
   const after = (messages: ReadonlyArray<DeskMessage>, from: Desk = desk.init.state): Desk =>
     messages.reduce((state, message) => stepped(desk.update(message)(state)).state, from)
   const textOf = (state: Desk, id?: number) => (id === undefined ? state.draft : Opt.getOrThrow(rowAt(state, id))).text
 
   test("a text typed into the input on screen is stored", () => {
-    const typedOnce = after([typing(desk.makeModel(desk.init.state), "hel")])
-    expect(textOf(after([typing(desk.makeModel(typedOnce), "hello")], typedOnce))).toBe("hello")
+    const typedOnce = after([typing("hel")])
+    expect(textOf(after([typing("hello")], typedOnce))).toBe("hello")
   })
 
-  test("typed before the desk started the draft again, it is rejected by the new draft", () => {
-    const typedInto = after([typing(desk.makeModel(desk.init.state), "hello")])
-    const onScreen = desk.makeModel(typedInto)
-    const sent = after([{ _tag: "Draft", message: "SendClicked" }], typedInto)
+  test("after the desk started the draft again, it is stored into the new draft", () => {
+    const sent = after([typing("hello"), { _tag: "Draft", message: "SendClicked" }])
     expect(sent).toEqual({ ...desk.init.state, sent: ["hello"] })
-    expect(desk.update(typing(onScreen, "hello!"))(sent)).toBe(reject)
+    expect(textOf(after([typing("h")], sent))).toBe("h")
   })
 
-  test("typed before the desk brought a kept draft back, it is rejected by the draft brought back", () => {
-    const kept = after([typing(desk.makeModel(desk.init.state), "Ada"), { _tag: "Kept" }])
-    const typedInto = after([typing(desk.makeModel(kept), "Adam")], kept)
-    const onScreen = desk.makeModel(typedInto)
-    const undone = after([{ _tag: "Draft", message: "DiscardClicked" }, { _tag: "Undone" }], typedInto)
+  test("after the desk brought a kept draft back, it is stored into the draft brought back", () => {
+    const kept = after([typing("Ada"), { _tag: "Kept" }])
+    const undone = after([typing("Adam"), { _tag: "Draft", message: "DiscardClicked" }, { _tag: "Undone" }], kept)
     expect(textOf(undone)).toBe("Ada")
-    expect(desk.update(typing(onScreen, "Adamx"))(undone)).toBe(reject)
+    expect(textOf(after([typing("Adax")], undone))).toBe("Adax")
   })
 
-  test("typed into a row, it is rejected by another row that came to its id", () => {
-    const added = after([{ _tag: "RowAdded", id: 1 }])
-    const typedInto = after([typing(desk.makeModel(added), "a", 1)], added)
-    const onScreen = desk.makeModel(typedInto)
+  test("into a row, it is stored into the row that holds its id then", () => {
+    const typedInto = after([{ _tag: "RowAdded", id: 1 }, typing("a", 1)])
     const back = after([{ _tag: "RowRemoved", id: 1 }, { _tag: "RowAdded", id: 1 }], typedInto)
     expect(textOf(back, 1)).toBe("")
-    expect(desk.update(typing(onScreen, "ab", 1))(back)).toBe(reject)
-  })
-
-  // The two limits of a design where a message names a place, which the guide declares: neither corrupts the state.
-  test("a write over a value that came back is stored, as what the user typed over what they saw", () => {
-    const typedInto = after([typing(desk.makeModel(desk.init.state), "hello")])
-    const onScreen = desk.makeModel(desk.init.state)
-    const sent = after([{ _tag: "Draft", message: "SendClicked" }], typedInto)
-    // The draft holds '' again, the value the old frame's input was typed over.
-    expect(textOf(after([typing(onScreen, "h")], sent))).toBe("h")
+    expect(textOf(after([typing("b", 1)], back), 1)).toBe("b")
+    expect(desk.update(typing("b", 2))(back)).toBe(reject)
   })
 
   test("a fixed message drawn for the old draft reaches the new one, and update decides", () => {
-    const typedInto = after([typing(desk.makeModel(desk.init.state), "hello")])
-    const sent = after([{ _tag: "Draft", message: "SendClicked" }], typedInto)
+    const sent = after([typing("hello"), { _tag: "Draft", message: "SendClicked" }])
     expect(desk.update({ _tag: "Draft", message: "SendClicked" })(sent)).toBe(reject)
     expect(after([{ _tag: "Draft", message: "DiscardClicked" }], sent)).toEqual(sent)
   })
@@ -394,32 +358,31 @@ describe("an input in a child by id", () => {
     makeModel: (state, children) => Arr.map(state.notes, ({ id }) => ({ id, note: children.Note(state, id) }))
   })
   type NotesMessage = MessageOf<typeof tested>
-  const typing = (id: number, was: string, text: string): NotesMessage => ({
+  const typing = (id: number, text: string): NotesMessage => ({
     _tag: "Note",
     id,
-    message: { _tag: "Text", message: { _tag: "Written", was, value: text } }
+    message: { _tag: "Text", message: { _tag: "Written", value: text } }
   })
   const state: Notes = { notes: [{ id: 1, note: { text: "a" } }, { id: 2, note: { text: "b" } }] }
 
   test("is written into through the child's place, and no other note changes", () => {
-    expect(tested.update(typing(2, "b", "bc"))(state)).toEqual({
+    expect(tested.update(typing(2, "bc"))(state)).toEqual({
       state: { notes: [{ id: 1, note: { text: "a" } }, { id: 2, note: { text: "bc" } }] },
       commands: [],
       events: []
     })
   })
 
-  test("rejects what was written over another text, and what was written into a note that is gone", () => {
-    expect(tested.update(typing(2, "a", "ac"))(state)).toBe(reject)
-    expect(tested.update(typing(3, "", "c"))(state)).toBe(reject)
+  test("rejects what was written into a note that is gone", () => {
+    expect(tested.update(typing(3, "c"))(state)).toBe(reject)
   })
 
   test("has a dispatch of its own, made from its note's", () => {
     const sent: Array<NotesMessage> = []
     const dispatch: Dispatch<NotesMessage> = (message) => void sent.push(message)
     const toText: Dispatch<Written<string>> = forwardTo(forwardTo(dispatch, "Note", 2), "Text")
-    toText({ _tag: "Written", was: "b", value: "bc" })
-    expect(sent).toEqual([typing(2, "b", "bc")])
+    toText({ _tag: "Written", value: "bc" })
+    expect(sent).toEqual([typing(2, "bc")])
   })
 })
 
@@ -446,42 +409,39 @@ describe("an input by id", () => {
     makeModel: (state) => state
   })
   type SheetMessage = MessageOf<typeof tested>
-  const count = (id: string, was: string, value: string): SheetMessage => ({
+  const count = (id: string, value: string): SheetMessage => ({
     _tag: "Count",
     id,
-    message: { _tag: "Written", was, value }
+    message: { _tag: "Written", value }
   })
   const start = tested.init.state
   const after = (state: Sheet, message: SheetMessage) => stepped(tested.update(message)(state)).state
 
   test("stores a write at its id, and leaves the other rows and inputs as they are", () => {
-    expect(tested.update(count("b", "2", "25"))(start)).toEqual({
+    expect(tested.update(count("b", "25"))(start)).toEqual({
       state: { title: "", counts: { a: "1", b: "25" } },
       commands: [],
       events: []
     })
   })
 
-  test("rejects a write at an id the state does not hold, and one over another value than its row holds", () => {
-    expect(tested.update(count("c", "", "3"))(start)).toBe(reject)
-    expect(tested.update(count("b", "1", "15"))(start)).toBe(reject)
+  test("rejects a write at an id the state does not hold", () => {
+    expect(tested.update(count("c", "3"))(start)).toBe(reject)
   })
 
-  test("rejects a late write by another row that came to its id, unless that row holds the value written over", () => {
+  test("rejects a write at an id that is gone, and stores it into another row that came to the id", () => {
     const gone = after(start, { _tag: "Removed", id: "b" })
-    expect(tested.update(count("b", "2", "25"))(gone)).toBe(reject)
+    expect(tested.update(count("b", "25"))(gone)).toBe(reject)
     const other = after(gone, { _tag: "Added", id: "b", count: "9" })
-    expect(tested.update(count("b", "2", "25"))(other)).toBe(reject)
-    const same = after(gone, { _tag: "Added", id: "b", count: "2" })
-    expect(after(same, count("b", "2", "25"))).toEqual({ title: "", counts: { a: "1", b: "25" } })
+    expect(after(other, count("b", "25"))).toEqual({ title: "", counts: { a: "1", b: "25" } })
   })
 
   test("has a dispatch for each id, which names it", () => {
     const sent: Array<SheetMessage> = []
     const dispatch: Dispatch<SheetMessage> = (message) => void sent.push(message)
     const toB: Dispatch<Written<string>> = forwardTo(dispatch, "Count", "b")
-    toB({ _tag: "Written", was: "2", value: "25" })
-    expect(sent).toEqual([count("b", "2", "25")])
+    toB({ _tag: "Written", value: "25" })
+    expect(sent).toEqual([count("b", "25")])
   })
 
   test("the types: a write names its id, of the type its place takes, and an input alone takes none", () => {
@@ -493,9 +453,9 @@ describe("an input by id", () => {
     // @ts-expect-error: an input alone takes no id.
     forwardTo(dispatch, "Title", "a")
     // @ts-expect-error: a write into an input by id names its id.
-    const unnamed: SheetMessage = { _tag: "Count", message: { _tag: "Written", was: "2", value: "25" } }
+    const unnamed: SheetMessage = { _tag: "Count", message: { _tag: "Written", value: "25" } }
     // @ts-expect-error: a count holds a string.
-    const mistyped: SheetMessage = { _tag: "Count", id: "b", message: { _tag: "Written", was: 2, value: 25 } }
+    const mistyped: SheetMessage = { _tag: "Count", id: "b", message: { _tag: "Written", value: 25 } }
     expect([unnamed, mistyped]).toHaveLength(2)
   })
 })
@@ -522,24 +482,22 @@ describe("inputs at get and set, alone and by id", () => {
     makeModel: (state) => state
   })
   type SheetMessage = MessageOf<typeof tested>
-  const written = <A>(was: A, value: A) => ({ _tag: "Written", was, value }) as const
+  const written = <A>(value: A) => ({ _tag: "Written", value }) as const
   const start = tested.init.state
 
-  test("an input alone stores a write where get finds the value it was written over, through set", () => {
-    expect(stepped(tested.update({ _tag: "Title", message: written("", "Ada") })(start)).state).toEqual({
+  test("an input alone stores a write where get finds its place, through set", () => {
+    expect(stepped(tested.update({ _tag: "Title", message: written("Ada") })(start)).state).toEqual({
       ...start,
       title: "Ada"
     })
-    expect(tested.update({ _tag: "Title", message: written("Eve", "Ada") })(start)).toBe(reject)
   })
 
   test("an input by id stores a write at its id through set, and rejects one at an id get does not find", () => {
-    expect(stepped(tested.update({ _tag: "Count", id: 2, message: written("2", "25") })(start)).state).toEqual({
+    expect(stepped(tested.update({ _tag: "Count", id: 2, message: written("25") })(start)).state).toEqual({
       ...start,
       rows: [{ id: 1, count: "1" }, { id: 2, count: "25" }]
     })
-    expect(tested.update({ _tag: "Count", id: 3, message: written("", "3") })(start)).toBe(reject)
-    expect(tested.update({ _tag: "Count", id: 2, message: written("1", "15") })(start)).toBe(reject)
+    expect(tested.update({ _tag: "Count", id: 3, message: written("3") })(start)).toBe(reject)
   })
 
   test("the types: get, set and the id are typed from the state and the id get takes, without annotations", () => {
@@ -571,7 +529,7 @@ describe("inputs at get and set, alone and by id", () => {
       makeModel: (state) => state
     })
     // @ts-expect-error: a write at an id names one of the type get takes.
-    const mistyped: SheetMessage = { _tag: "Count", id: "2", message: written("2", "25") }
+    const mistyped: SheetMessage = { _tag: "Count", id: "2", message: written("25") }
     expect(mistyped).toBeDefined()
   })
 })
@@ -594,11 +552,11 @@ describe("the tools of the model", () => {
 describe("the types of an input", () => {
   test("a write is of the value its place holds, and goes to the name of its input", () => {
     // @ts-expect-error: the level holds a number.
-    level(50, "loud")
+    level("loud")
     // @ts-expect-error: a text is not written into the level.
-    const wrong: Message = { _tag: "Level", message: { _tag: "Written", was: "Ada", value: "Ada L" } }
+    const wrong: Message = { _tag: "Level", message: { _tag: "Written", value: "Ada L" } }
     // @ts-expect-error: the draft has no such input.
-    const missing: Message = { _tag: "Body", message: { _tag: "Written", was: "Ada", value: "Ada L" } }
+    const missing: Message = { _tag: "Body", message: { _tag: "Written", value: "Ada L" } }
     expect([wrong, missing]).toHaveLength(2)
   })
 
@@ -651,8 +609,8 @@ describe("the types of an input", () => {
       inputs: { Title: saving.input({ at: here.key("title") }) },
       update: () => (state) => ({ state, commands: ["Load"] }),
       runCommand: () =>
-        // @ts-expect-error: the answer would write into the input, over the value the command started with
-        Effect.succeedSome({ _tag: "Title" as const, message: { _tag: "Written" as const, was: "", value: "Ada" } }),
+        // @ts-expect-error: what is written into an input is no own message
+        Effect.succeedSome({ _tag: "Title" as const, message: { _tag: "Written" as const, value: "Ada" } }),
       makeModel: () => null
     })
     saving.make({
@@ -676,13 +634,13 @@ describe("the types of an input", () => {
     const board = program<{ state: Board; command: "Load"; message: "Loaded" }>()
     const written = {
       _tag: "Note" as const,
-      message: { _tag: "Text" as const, message: { _tag: "Written" as const, was: "", value: "Ada" } }
+      message: { _tag: "Text" as const, message: { _tag: "Written" as const, value: "Ada" } }
     }
     board.make({
       init: (children) => ({ state: { note: children.Note.init.state } }),
       children: { Note: board.child(noteProgram, { at: Optic.id<Board>().key("note") }) },
       update: () => (state) => ({ state, commands: ["Load"] }),
-      // @ts-expect-error: the answer would write into the child's input, over the value the command started with
+      // @ts-expect-error: what is written into the child's input is no own message of the parent
       runCommand: () => Effect.succeedSome(written),
       makeModel: () => null
     })

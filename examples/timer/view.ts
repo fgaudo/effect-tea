@@ -89,11 +89,7 @@ export const namedView: View<Named.Model, Named.Message> = (model, dispatch) =>
       props: { value: model.name, placeholder: "A name" },
       on: {
         input: (event: Event) =>
-          forwardTo(dispatch, "Name")({
-            _tag: "Written",
-            was: model.name,
-            value: (event.target as HTMLInputElement).value
-          })
+          forwardTo(dispatch, "Name")({ _tag: "Written", value: (event.target as HTMLInputElement).value })
       }
     }),
     thunk("div.timer", "timer", timerView, [model.timer, forwardTo(dispatch, "Timer")])

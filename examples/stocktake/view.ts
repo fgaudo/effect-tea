@@ -17,8 +17,7 @@ const itemView = (model: ItemModel, write: Dispatch<Written<string>>): VNode =>
       ? h("input.count", {
         props: { value: model.entry.text, readOnly: false },
         on: {
-          input: (event: Event) =>
-            write({ _tag: "Written", was: model.entry.text, value: (event.target as HTMLInputElement).value })
+          input: (event: Event) => write({ _tag: "Written", value: (event.target as HTMLInputElement).value })
         }
       })
       : h("input.count", { props: { value: model.entry.text, readOnly: true } }),

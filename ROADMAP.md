@@ -25,44 +25,31 @@ test of it. None is open.
 Taken by the owner on 20 November 2026, on the spike's record,
 [`write-without-was.md`](docs/records/write-without-was.md) ("Decided"): a write carries its value alone, the bridge to
 snabbdom draws in a microtask after each notice, the cost of a fast subscription is accepted and said, and the rule on
-`set` is dropped. Its three stages below come before the release: `Written` and the inputs are unreleased. None is done
-at the same time as step 3, which changes the same types of `compose.ts`.
-
-#### 1a. The rule, the bridges and the tests
-
-**Model and effort.** Opus 5.5, `high`: an invariant and a bridge change. The skills are
-[`change-engine`](.agents/skills/change-engine/SKILL.md), [`change-api`](.agents/skills/change-api/SKILL.md) and
-[`add-example`](.agents/skills/add-example/SKILL.md).
-
-**Depends on** no other step.
-
-**How.** What the branch `claude/spike-write-without-was` (`c806767`) holds, as its record lists it under "What was
-built", but the probe page `examples/spike-write/`, brought onto `main` as it is now (the branch is never merged).
-With it: `docs/invariants.md` (its lines on the rule of a write, its property, and why the bridge drew in each handler)
-rewritten for the new rule and the new bridge; the unreleased entry of `CHANGELOG.md` that introduced `Written` with
-`was`, edited, since no release has had it; and, for the rule on `set` the owner dropped, a test in
-`bridges/bridge.test_suite.ts` that a `set` that changes the value is shown at once, by each bridge. The doc comment of
-`Written` names two sections that the guide has only from 1b: until then `bun run comments` fails, so 1a is not pushed
-without 1b.
-
-**Done when** the checks of `AGENTS.md` and of `change-engine` pass, `bun run comments` aside, with
-`bun run mutations` (the record had 211, all killed), and this stage is removed.
+`set` is dropped. Its stages below come before the release: `Written` and the inputs are unreleased. The first, the
+rule, the bridges and the tests, is done. None is done at the same time as step 3, which changes the same types of
+`compose.ts`.
 
 #### 1b. The guide, the doc comments, the skill and the README
 
 **Model and effort.** Opus 5.5, `high`: the guide is a specification.
 
-**Depends on** 1a.
+**Depends on** no other step: the code is on `main`. Until this stage is done, `bun run comments` fails on the two
+sections the doc comment of `Written` names, and the site's build on the region `#wait` of `bridges/snabbdom.ts` that
+"Writing a bridge" includes, now `#notice`: so `main` is not pushed before it.
 
 **How.** Section by section, as the record lists them under "What the guide would say", each sentence checked against
-the code of 1a. And what the owner decided there:
+the code (`src/input.ts`, `bridges/snabbdom.ts`, and the tests of `bridges/bridge.test_suite.ts`). The tutorial's page
+of inputs, `site/tutorial/4-inputs.md`, which the record does not list, writes with `was` and asks "Why does a write
+say what it was written over?": it follows the guide. And what the owner decided there:
 
 - **A fast subscription.** "What is left to you" of "Guarantees", and the skill's "Rules that nothing checks": a
   subscription that sends faster than the screen refreshes holds the run back to one draw a task, as React does; it
   sends its messages by batches, as a `Stream` grouped within a time does.
 - **`set`.** "Do not change the value in `set`" goes, from "Inputs the user types into" and "What is typed, in another
-  form", and its row of "Do and don't" if it has one. A `set` that changes the value is shown at once (the test of 1a).
-  Where the caret goes then is the browser's, and is described, not promised: Chromium puts it at the end.
+  form", and its row of "Do and don't" if it has one. A `set` that changes the value is shown at once ("a set that
+  stores another value than the one typed is shown by the element at once, which keeps the focus", in
+  `bridges/bridge.test_suite.ts`). Where the caret goes then is the browser's, and is described, not promised:
+  Chromium puts it at the end.
 
 **Done when** `bun run comments`, `bun run lint` and the site's build pass, and this stage is removed.
 
@@ -70,7 +57,7 @@ the code of 1a. And what the owner decided there:
 
 **Model and effort.** Sonnet 5.5, `medium`, from the record's "What it reverses in `rejected.md`".
 
-**Depends on** 1a and 1b.
+**Depends on** 1b.
 
 **How.** R1 is marked reversed in [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), and each entry the
 record lists says what became of it. "A value changed as the library stores it" is reversed for a `set` that stores
@@ -85,7 +72,7 @@ that `update` sees and may reject" stays rejected.
 owner's.
 
 **Depends on** step 1, decided: the bridge to snabbdom draws in a microtask after each notice. Its spike is built on
-`main` once 1a is done, which changes the bridge it would build on.
+`main`, whose bridge to snabbdom draws in a microtask.
 
 **Why.** [`architecture-review.md`](docs/records/architecture-review.md), "The run as a store and its effects". Since
 a dispatch applies at once, a renderer needs nothing that is an effect, and three of the four renderers of the
@@ -176,17 +163,17 @@ site built without warnings. Then the release commit and its tag. The owner publ
 **Model and effort.** Opus 5.5, `medium`.
 
 **Depends on** no other step. It is here by the owner's order, after the release: point 7 of the "Seven points of a
-review of the design" below weighs taking it first. Once 1a is done, the second of its two cases goes: nothing typed
-with snabbdom is rejected for a draw that has not come, and what is left of it is an event that the program's own code
-dispatches in the task of a notice, before its draw ("The way the bridge to snabbdom takes", in the record of step 1).
+review of the design" below weighs taking it first. The second of its two cases is now: nothing typed with snabbdom is
+rejected for a draw that has not come, and what is left of it is an event that the program's own code dispatches in
+the task of a notice, before its draw ("The way the bridge to snabbdom takes", in the record of step 1).
 
 **Why.** The bridges' tests run on happy-dom, which no browser is. The bridges draw controlled elements, and what is
 typed into one rests on a premise seen only in happy-dom and in one browser (`docs/premises.md`, of a controlled
 input): a text typed in its middle and over a selection, with its caret, was tried in Chromium with keys sent as a
 user's, in the form with both bridges and in the stock-take
 ([`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), stage 4). Never run: an IME composition while the
-program changes a value under the user, and what is typed with snabbdom between a notice from a command or a
-subscription and its draw, at the next animation frame, which is rejected and taken back.
+program changes a value under the user, and an event that the program's own code dispatches in the task of a
+notice, before its draw (`element.click()`, `dispatchEvent`, `focus()`), whose handler runs on the view of before.
 
 **How.** The tests of `bridges/bridge.test_suite.ts` run in a real browser too, in Chromium, Firefox and WebKit, with
 those two cases; the tool is to be chosen. With React, also not run: `startTransition` or `useDeferredValue` in the

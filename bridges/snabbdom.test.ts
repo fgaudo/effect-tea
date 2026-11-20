@@ -1,6 +1,6 @@
-// The bridge to snabbdom, in a DOM (happy-dom), with screen refreshes that happen only when a test paints: the tests
-// every bridge passes (`bridge.test_suite.ts`), drawn with controlled elements, and those of snabbdom alone: when it
-// draws, a listener called while a patch runs, what a draw in a handler throws, an element it no longer gives its prop
+// The bridge to snabbdom, in a DOM (happy-dom), whose draws a test awaits: the tests every bridge passes
+// (`bridge.test_suite.ts`), drawn with controlled elements, and those of snabbdom alone: when it draws, a listener
+// called while a patch runs, what a draw after a handler throws, an element it no longer gives its prop
 // back to, and the buttons and the fields of the examples whose props snabbdom's props module never removes; then the
 // premises of the bridge on snabbdom (`docs/premises.md`).
 import {
@@ -47,7 +47,6 @@ import {
   type lock,
   mount,
   type note,
-  refresh,
   scheduler,
   settle,
   type steps,
@@ -65,12 +64,10 @@ afterAll(() => GlobalRegistrator.unregister())
 
 afterEach(stop)
 
-/** The data of a controlled text field: its value is the model's, and what is typed is written over it. */
+/** The data of a controlled text field: its value is the model's, and what is typed is written. */
 const field = (value: string, write: Dispatch<Written<string>>) => ({
   props: { value },
-  on: {
-    input: (event: Event) => write({ _tag: "Written", was: value, value: (event.target as HTMLInputElement).value })
-  }
+  on: { input: (event: Event) => write({ _tag: "Written", value: (event.target as HTMLInputElement).value }) }
 })
 
 const draftView = (model: ModelOf<typeof draft>, dispatch: Dispatch<MessageOf<typeof draft>>): VNode =>
@@ -153,8 +150,7 @@ const checkbox = (checked: boolean, write: Dispatch<Written<boolean>>) =>
   h("input", {
     props: { type: "checkbox", checked },
     on: {
-      change: (event: Event) =>
-        write({ _tag: "Written", was: checked, value: (event.target as HTMLInputElement).checked })
+      change: (event: Event) => write({ _tag: "Written", value: (event.target as HTMLInputElement).checked })
     }
   })
 
@@ -177,9 +173,12 @@ const gatedView: View<ModelOf<typeof gated>, MessageOf<typeof gated>> = (model, 
     ...(model.freeze === undefined ? [] : [h("button", { on: { click: () => dispatch("Frozen") } }, "Freeze")])
   ])
 
+// The bridge draws a notice in a microtask: one queued after it resolves once it has drawn.
+const drawn = () => new Promise<void>((resolve) => queueMicrotask(resolve))
+
 const snabbdom: Bridge<VNode> = {
   renderInto,
-  drawn: () => undefined,
+  drawn,
   views: {
     counter: counterView,
     form: formView,
@@ -198,7 +197,7 @@ const snabbdom: Bridge<VNode> = {
 bridgeTests(snabbdom)
 
 describe("when the bridge to snabbdom draws", () => {
-  test("a notice from a command is drawn at the next refresh, at most once for each refresh", () => {
+  test("a notice from a command is drawn in a microtask, and what one task sends is drawn once", async () => {
     const answers: Array<string> = []
     const app = mount(
       renderInto,
@@ -208,26 +207,40 @@ describe("when the bridge to snabbdom draws", () => {
     settle()
     const input = element<HTMLInputElement>("input")
     type(input, "Ada")
+    await drawn()
     button("Save").click()
-    // The click is drawn at once: the form is saving.
+    // Not drawn while the task that clicked runs.
+    expect(button("Save").disabled).toBe(false)
+    await drawn()
     expect(button("Saving…").disabled).toBe(true)
     const views = app.views()
-    // The save's answer is applied in the command's fiber, and waits for the refresh to be drawn.
+    // The save's answer is applied in the command's fiber, and drawn once that task is done.
     settle()
     answers.push(input.value)
     expect(app.views()).toBe(views)
-    refresh()
-    settle()
+    await drawn()
     answers.push(input.value)
     expect(app.views()).toBe(views + 1)
-    refresh()
-    settle()
+    await drawn()
     expect(app.views()).toBe(views + 1)
     expect(answers).toEqual(["Ada", ""])
     expect(element("li").textContent).toBe("Ada")
   })
 
-  test("once a notice is drawn, it waits for no screen refresh until the next notice", () => {
+  // A second run may draw into the same root by then.
+  test("a draw asked for before the run ends is not made once it has ended", async () => {
+    document.body.innerHTML = "<div id=\"app\"></div>"
+    const fiber = Effect.runFork(run(counter, renderInto(element("#app"), counterView)), { scheduler })
+    settle()
+    button("+").click()
+    const ended = Effect.runPromise(Fiber.interrupt(fiber))
+    settle()
+    await ended
+    await drawn()
+    expect(element("output").textContent).toBe("0")
+  })
+
+  test("asks for no screen refresh", async () => {
     const requests = { count: 0 }
     const request = globalThis.requestAnimationFrame
     globalThis.requestAnimationFrame = (callback) => {
@@ -241,15 +254,11 @@ describe("when the bridge to snabbdom draws", () => {
         (render) => run(form, render).pipe(Effect.provideService(Storage, Storage.of({ save: () => Effect.void })))
       )
       settle()
-      expect(requests.count).toBe(0)
       type(element<HTMLInputElement>("input"), "Ada")
+      button("Save").click()
       settle()
-      expect(requests.count).toBe(1)
-      refresh()
-      settle()
-      refresh()
-      settle()
-      expect(requests.count).toBe(1)
+      await drawn()
+      expect(requests.count).toBe(0)
     } finally {
       globalThis.requestAnimationFrame = request
     }
@@ -275,12 +284,14 @@ describe("when the bridge to snabbdom draws", () => {
       ])
 
     // A patch inside the patch under way would patch a tree that no longer matches the page.
-    test("is drawn once that patch is done, before the handler that set it going returns, and the run goes on", async () => {
+    test("is drawn once that patch is done, in a microtask of its own, and the run goes on", async () => {
       document.body.innerHTML = "<div id=\"app\"></div>"
       const fiber = Effect.runFork(run(editor, renderInto(element("#app"), editorView)), { scheduler })
       settle()
       element<HTMLInputElement>("#name").focus()
       button("Edit").click()
+      // What the listener sent while the patch ran is drawn in a microtask that patch's draw queued, before this one.
+      await drawn()
       expect(document.activeElement).toBe(element("#detail"))
       expect(element("output").textContent).toBe("1")
       expect([...document.querySelectorAll("main > *")].map((drawn) => drawn.id || drawn.tagName)).toEqual([
@@ -296,7 +307,7 @@ describe("when the bridge to snabbdom draws", () => {
   })
 })
 
-describe("what a draw in a handler throws", () => {
+describe("what a draw after a handler throws", () => {
   // The errors a listener throws, which the DOM reports and never gives to the code that dispatched the event.
   const reported = () => {
     const errors: Array<unknown> = []
@@ -313,17 +324,17 @@ describe("what a draw in a handler throws", () => {
     }
   }
 
-  const ending = (view: View<CounterModel, CounterMessage>, program: typeof counter = counter) => {
+  const ending = async (view: View<CounterModel, CounterMessage>, program: typeof counter = counter) => {
     document.body.innerHTML = "<div id=\"app\"></div>"
     const fiber = Effect.runFork(run(program, renderInto(element("#app"), view)), { scheduler })
     settle()
     const errors = reported()
     try {
       button("+").click()
+      await drawn()
     } finally {
       errors.done()
     }
-    // No screen refresh: the run ends with what its fibers can do without one.
     settle()
     return { exit: fiber.pollUnsafe(), errors: errors.errors, fiber }
   }
@@ -336,7 +347,7 @@ describe("what a draw in a handler throws", () => {
       : exit
 
   test("by the view, ends the run at once, in render, and the handler gets nothing", async () => {
-    const { exit, errors, fiber } = ending((model, dispatch) => {
+    const { exit, errors, fiber } = await ending((model, dispatch) => {
       if (model.count === 1) throw new Error("A view that cannot draw")
       return counterView(model, dispatch)
     })
@@ -355,7 +366,7 @@ describe("what a draw in a handler throws", () => {
         return counter.makeModel(state)
       }
     }
-    const { exit, errors, fiber } = ending(counterView, fragile)
+    const { exit, errors, fiber } = await ending(counterView, fragile)
     await Effect.runPromise(Fiber.interrupt(fiber))
     expect(errors).toEqual([])
     expect(sites(exit)).toEqual(["render"])
@@ -371,7 +382,7 @@ describe("an element the bridge no longer gives its value back to", () => {
     makeModel: (held) => held
   })
 
-  test("drawn in the same place without a value, keeps what is typed into it through later draws", () => {
+  test("drawn in the same place without a value, keeps what is typed into it through later draws", async () => {
     mount(renderInto, (model: Shown, dispatch: Dispatch<"Released" | "Removed">) =>
       h("main", [
         model.controlled ? h("input", { props: { value: model.text } }) : h("input"),
@@ -382,15 +393,17 @@ describe("an element the bridge no longer gives its value back to", () => {
     settle()
     const input = element<HTMLInputElement>("input")
     button("Release").click()
+    await drawn()
     expect(element("input")).toBe(input)
     type(input, "typed")
     button("Change").click()
+    await drawn()
     expect(element("output").textContent).toBe("")
     expect(input.value).toBe("typed")
   })
 
   // The style module keeps an element a patch removes on screen until its `remove` styles are done.
-  test("removed, though the style module keeps it on screen as it fades, is left as it is through later draws", () => {
+  test("removed, though the style module keeps it on screen as it fades, is left as it is through later draws", async () => {
     mount(renderInto, (model: Shown, dispatch: Dispatch<"Released" | "Removed">) =>
       h("main", [
         ...(model.controlled
@@ -406,9 +419,11 @@ describe("an element the bridge no longer gives its value back to", () => {
     settle()
     const input = element<HTMLInputElement>("input")
     button("Release").click()
+    await drawn()
     expect(input.isConnected).toBe(true)
     type(input, "typed")
     button("Change").click()
+    await drawn()
     expect(element("output").textContent).toBe("")
     expect(input.value).toBe("typed")
   })
@@ -418,15 +433,17 @@ describe("the buttons of the timer", () => {
   const quiet = Bell.of({ ring: Effect.void })
   const oneMinute = { ...timer, init: { state: { minutes: 1, phase: Phase.Setting() } } }
 
-  test("only the \"−\" of one minute is disabled, through a start and a reset", () => {
+  test("only the \"−\" of one minute is disabled, through a start and a reset", async () => {
     mount(renderInto, timerView, (render) => run(oneMinute, render).pipe(Effect.provideService(Bell, quiet)))
     settle()
     expect(button("−").disabled).toBe(true)
     button("Start").click()
     settle()
+    await drawn()
     expect([button("Pause").disabled, button("Reset").disabled]).toEqual([false, false])
     button("Reset").click()
     settle()
+    await drawn()
     expect([button("−").disabled, button("+").disabled, button("Start").disabled]).toEqual([true, false, false])
   })
 })
@@ -437,7 +454,7 @@ describe("the counts of the stocktake", () => {
   const items = [{ id: "bolts", code: "C-BOLT", name: "Bolts", expected: 12 }]
   const unplugged = Scanner.of({ scans: Stream.empty })
 
-  test("are read-only while submitted, and editable again once the submit has failed", () => {
+  test("are read-only while submitted, and editable again once the submit has failed", async () => {
     // The submit is refused once the test opens the gate, so that the sheet being submitted is drawn first.
     const gate = Deferred.makeUnsafe<void>()
     const refusing = Server.of({
@@ -450,14 +467,16 @@ describe("the counts of the stocktake", () => {
         Effect.provideService(Scanner, unplugged)
       ))
     settle()
-    refresh()
+    await drawn()
     type(element<HTMLInputElement>("input.count"), "12")
+    await drawn()
     button("Submit count").click()
+    await drawn()
     expect(element<HTMLInputElement>("input.count").readOnly).toBe(true)
     Deferred.doneUnsafe(gate, Exit.void)
     settle()
-    // The failure is the answer of a command: drawn at the next screen refresh.
-    refresh()
+    // The failure is the answer of a command, drawn once the task that applied it is done.
+    await drawn()
     expect(element("p.error").textContent).toBe("refused")
     expect(element<HTMLInputElement>("input.count").readOnly).toBe(false)
   })

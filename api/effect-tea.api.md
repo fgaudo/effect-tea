@@ -649,7 +649,6 @@ type UpdateOf<State, C, Own, Command, Event> = [Own] extends [never] ? Readonly<
 // @public
 export type Written<A> = {
     readonly _tag: "Written";
-    readonly was: A;
     readonly value: A;
 };
 

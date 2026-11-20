@@ -175,8 +175,8 @@ const placedById = <S, Id, A>(
  * An input alone in its program's state: what `input` returns, for `inputs` in `make`.
  *
  * - Its value is part of the program's own state.
- * - The library stores a write in every state where the value in its place equals the write's `was`, by `Equal`.
- * - It rejects the write in any other state, and where `get` returns `None`.
+ * - The library stores a write in every state where `get` finds its place.
+ * - It rejects the write where `get` returns `None`.
  *
  * @example
  * ```ts
@@ -503,8 +503,7 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> =
     /**
      * The inputs, by name, as `input` and `inputById` declare them.
      *
-     * - A write is stored while the input's place holds, by `Equal`, the value it was written over. It is rejected
-     *   otherwise.
+     * - A write is stored wherever the input's place is there. It is rejected where it is not.
      * - Every other step leaves an input as that step wrote it.
      * - No `update` of the program sees what the user gives an input.
      * - Only what is drawn writes into an input. A subscription and a command answer with messages of the program.
@@ -952,8 +951,8 @@ type Unpassed<Kept> = [Kept] extends [never] ? unknown
 // By the tag, not by the message: `make` routes every message tagged with an input's name to the input, so an external
 // message with that tag is a write, however its type is spelled (a union of tags, `string`).
 /**
- * An external message is answered in every state, and a write is rejected once its `was` is stale: no input is written
- * from outside.
+ * An external message is answered in every state, and a write is rejected where its place is not there: no input is
+ * written from outside.
  */
 type ExternalWritten<Written> = [Written] extends [never] ? unknown
   : Readonly<{ "an external message writes into an input": Written }>
@@ -1024,8 +1023,8 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * Declares an input: a place of the program's state that the view writes into.
    *
    * An input is not a child. The input's value is part of the program's own state. The program's `update` and
-   * `makeModel` read that value like the rest of the state. The view writes over the value its model holds,
-   * `{ _tag: 'Written', was: model.name, value }`, through `forwardTo(dispatch, 'Name')`.
+   * `makeModel` read that value like the rest of the state. The view writes what the element holds,
+   * `{ _tag: 'Written', value }`, through `forwardTo(dispatch, 'Name')`.
    *
    * @param place - Where the input is: an optic into the program's state, `at`, or the two functions an optic is,
    * `get` and `set`.

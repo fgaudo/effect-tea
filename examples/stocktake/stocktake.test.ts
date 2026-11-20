@@ -39,14 +39,14 @@ const start = stocktake.init(flags)
 
 const loaded = applyAll(update)([{ _tag: "Loaded", items }], start.state).state
 
-/** What the counter types into the field of an item, over what the model shows. */
+/** What the counter types into the field of an item, where the model shows one. */
 const typing = (model: Model, id: string, value: string): Opt.Option<Message> => {
   if (model._tag !== "Counting") return Opt.none()
   return Opt.flatMap(
     Opt.fromNullishOr(model.items.find((line) => line.id === id)),
     ({ model: item }) =>
       item.entry._tag === "Editable"
-        ? Opt.some<Message>({ _tag: "Count", id, message: { _tag: "Written", was: item.entry.text, value } })
+        ? Opt.some<Message>({ _tag: "Count", id, message: { _tag: "Written", value } })
         : Opt.none()
   )
 }
@@ -108,12 +108,6 @@ describe("update", () => {
     expect(update({ _tag: "SubmitClicked" })(state)).toBe(reject)
     expect(counting(stocktake.makeModel(typed(state, { i2: "-1" }))).submit._tag).toBe("Blocked")
     expect(counting(stocktake.makeModel(typed(state, { i2: "2" }))).total).toBe(9)
-  })
-
-  test("a write over a text the model no longer shows is rejected", () => {
-    const drawn = write(loaded, "i1", "5")
-    const state = typed(loaded, { i1: "4" })
-    expect(update(drawn)(state)).toBe(reject)
   })
 
   test("a scan adds one to its item, replacing the text", () => {
@@ -238,7 +232,7 @@ const messagesOf = (model: Model): ReadonlyArray<Message> => {
 const writeOver = (id: string, text: string): Message => ({
   _tag: "Count",
   id,
-  message: { _tag: "Written", was: text, value: `${text}1` }
+  message: { _tag: "Written", value: `${text}1` }
 })
 
 const writesOf = (model: Model, editable: boolean): ReadonlyArray<Message> =>
@@ -298,7 +292,7 @@ describe("the model", () => {
       const counts = model._tag === "Counting" || model._tag === "Closed"
         ? model.items.flatMap(({ id, model: { entry } }): ReadonlyArray<Message> =>
           entry._tag === "Editable"
-            ? [{ _tag: "Count", id, message: { _tag: "Written", was: entry.text, value: entry.text } }]
+            ? [{ _tag: "Count", id, message: { _tag: "Written", value: entry.text } }]
             : []
         )
         : []
@@ -350,8 +344,8 @@ describe("simulate", () => {
     const { server, submitted } = serverOf()
     const { state, ignored, commands } = await Effect.runPromise(
       simulate(stocktake)([
-        { _tag: "Count", id: "i1", message: { _tag: "Written", was: "", value: "10" } },
-        { _tag: "Count", id: "i2", message: { _tag: "Written", was: "", value: "3" } },
+        { _tag: "Count", id: "i1", message: { _tag: "Written", value: "10" } },
+        { _tag: "Count", id: "i2", message: { _tag: "Written", value: "3" } },
         { _tag: "SubmitClicked" }
       ], start).pipe(Effect.provideService(Server, server))
     )

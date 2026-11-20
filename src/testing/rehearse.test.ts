@@ -336,7 +336,7 @@ describe("rehearse", () => {
       })
     ))
     expect(state).toEqual({ name: "", notes: {}, field: { text: "", pings: 1 }, pings: 1 })
-    const written = { _tag: "Written", was: "", value: "Ada" } as const
+    const written = { _tag: "Written", value: "Ada" } as const
     const never = (rehearsal: Rehearsal<Form, Form, MessageOf<typeof form>>) => [
       // @ts-expect-error: a write into the editor's input.
       rehearsal.hear("ping", { _tag: "Name", message: written }),
@@ -353,7 +353,7 @@ describe("rehearse", () => {
   test("hear refuses, by its shape, an own message that holds a write as data, though a subscription sends it", () => {
     type Audit = Readonly<{ writes: ReadonlyArray<Written<string>> }>
     type Recorded = Readonly<{ _tag: "Recorded"; message: Written<string> }>
-    const written: Written<string> = { _tag: "Written", was: "", value: "Ada" }
+    const written: Written<string> = { _tag: "Written", value: "Ada" }
     const refused = (rehearsal: Rehearsal<Audit, Audit, Recorded>) =>
       // @ts-expect-error: an own message of the shape of a write into an input.
       rehearsal.hear("audit", { _tag: "Recorded", message: written })

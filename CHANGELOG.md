@@ -7,9 +7,9 @@ version, and everything else, features included, the patch version.
 
 ### Added
 
-- Inputs: `inputs: { Name: input({ at }) }` in `make`, a plain value of the state that the view writes over with
-  `{ _tag: 'Written', was, value }`; the library stores a write while the place holds `was`, by `Equal`, and rejects
-  it otherwise. `inputById` declares one per id, as `childById` does ("Inputs the user types into").
+- Inputs: `inputs: { Name: input({ at }) }` in `make`, a plain value of the state that the view writes with
+  `{ _tag: 'Written', value }`; the library stores a write wherever its place is there, and rejects it where it is not.
+  `inputById` declares one per id, as `childById` does ("Inputs the user types into").
 - `forEach(step, items, (item) => (state) => step)`, the `andThen` of many. Both are dual, for a `pipe`, and return a
   `Folded`, whose `commands` and `events` are always there.
 - `program<{ …; model }>()` may name the program's model, which is then checked against `makeModel`; `children` in
@@ -25,7 +25,7 @@ version, and everything else, features included, the patch version.
 - The bridges, as entries of the package: `@fgaudo/effect-tea/snabbdom`, with `messagesSentBy` in
   `@fgaudo/effect-tea/snabbdom/testing`, and `@fgaudo/effect-tea/react`, whose renderer is an optional peer
   (`snabbdom` ^3.6.4, `react` and `react-dom` ^19.3.1). They draw native controlled elements, React's with `Host` or
-  `Draw`, and replace the files to copy ("Writing a bridge").
+  `Draw`, snabbdom's in a microtask after each new state. They replace the files to copy ("Writing a bridge").
 
 ### Changed
 

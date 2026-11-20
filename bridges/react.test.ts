@@ -62,7 +62,6 @@ import {
   type lid,
   lock,
   note,
-  refresh,
   type RenderInto,
   scheduler,
   settle,
@@ -128,7 +127,7 @@ const drawn = () => flushSync(() => {})
 /** The data of a controlled text field, as React's documentation draws one: `value`, and `onChange`. */
 const field = (value: string, write: Dispatch<Written<string>>) => ({
   value,
-  onChange: (event: { target: { value: string } }) => write({ _tag: "Written", was: value, value: event.target.value })
+  onChange: (event: { target: { value: string } }) => write({ _tag: "Written", value: event.target.value })
 })
 
 const drawButton = (text: string, onClick: () => void) => createElement("button", { type: "button", onClick }, text)
@@ -251,8 +250,7 @@ const checkbox = (checked: boolean, write: Dispatch<Written<boolean>>) =>
   createElement("input", {
     type: "checkbox",
     checked,
-    onChange: (event: { target: { checked: boolean } }) =>
-      write({ _tag: "Written", was: checked, value: event.target.checked })
+    onChange: (event: { target: { checked: boolean } }) => write({ _tag: "Written", value: event.target.checked })
   })
 
 const controlsView: View<ModelOf<typeof controls>, MessageOf<typeof controls>> = (model, dispatch) =>
@@ -282,7 +280,7 @@ const gatedView: View<ModelOf<typeof gated>, MessageOf<typeof gated>> = (model, 
 
 const react: Bridge<ReactNode> = {
   renderInto: drawInto,
-  drawn,
+  drawn: async () => drawn(),
   views: {
     counter: counterView,
     form: formView,
@@ -853,7 +851,7 @@ describe("what an application does beside the program", () => {
     )
     await hostInto(app.node)
     await started()
-    app.send({ _tag: "Note", message: { _tag: "Written", was: "", value: "Ada" } })
+    app.send({ _tag: "Note", message: { _tag: "Written", value: "Ada" } })
     drawn()
     await acting(() => button("Show").click())
     const input = element<HTMLInputElement>("input")
@@ -961,7 +959,7 @@ describe("what an application does beside the program", () => {
         null,
         createElement(Library, {
           value: model,
-          onChange: (value: string) => forwardTo(dispatch, "Note")({ _tag: "Written", was: model, value })
+          onChange: (value: string) => forwardTo(dispatch, "Note")({ _tag: "Written", value })
         })
       )
     )
@@ -978,7 +976,10 @@ describe("what an application does beside the program", () => {
 // One run, drawn by snabbdom and by `Draw` at once, each in a root of its own inside `#app`: the renderer given to
 // `run` runs both, over the one `App`.
 describe("together, React beside snabbdom", () => {
-  test("a click in either renderer is drawn by both", () => {
+  // The bridge to snabbdom draws a notice in a microtask, as React renders one: the test awaits it.
+  const microtask = () => new Promise<void>((resolve) => queueMicrotask(resolve))
+
+  test("a click in either renderer is drawn by both", async () => {
     page().innerHTML = "<div id=\"snabbdom\"></div><div id=\"react\"></div>"
     const reactRoot = rootIn(element("#react"))
     stopLater(Effect.runFork(
@@ -1003,15 +1004,15 @@ describe("together, React beside snabbdom", () => {
     expect(counts()).toEqual(["0", "0"])
     element<HTMLButtonElement>("#react button:last-of-type").click()
     drawn()
-    refresh()
-    settle()
+    await microtask()
     expect(counts()).toEqual(["1", "1"])
     element<HTMLButtonElement>("#snabbdom button").click()
     drawn()
+    await microtask()
     expect(counts()).toEqual(["2", "2"])
   })
 
-  test("each input shows what was typed into the other, and keeps its element", () => {
+  test("each input shows what was typed into the other, and keeps its element", async () => {
     page().innerHTML = "<div id=\"snabbdom\"></div><div id=\"react\"></div>"
     const reactRoot = rootIn(element("#react"))
     stopLater(Effect.runFork(
@@ -1029,11 +1030,11 @@ describe("together, React beside snabbdom", () => {
     const inReact = element<HTMLInputElement>("#react input")
     type(inReact, "Ada")
     drawn()
-    refresh()
-    settle()
+    await microtask()
     expect([inSnabbdom.value, inReact.value]).toEqual(["Ada", "Ada"])
     type(inSnabbdom, "Adam")
     drawn()
+    await microtask()
     expect(element("#snabbdom input")).toBe(inSnabbdom)
     expect(element("#react input")).toBe(inReact)
     expect([inSnabbdom.value, inReact.value]).toEqual(["Adam", "Adam"])
