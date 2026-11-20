@@ -20,6 +20,7 @@ import { program } from "./compose.ts"
 import { type DefectSite, ProgramDefect } from "./defect.ts"
 import { type Dispatch, forwardTo } from "./dispatch.ts"
 import type { Applied, Ignored } from "./engine.ts"
+import * as Input from "./input.ts"
 import type { Program } from "./program.ts"
 import { type Frame, run } from "./run.ts"
 import type { Subscription } from "./subscription.ts"
@@ -30,15 +31,17 @@ import { reject } from "./update.ts"
 // step both stops a subscription and starts a command), can be poked, which leaves it as it is, and, while it
 // listens, hears two ticks from a subscription that then stays open, ends with a last message, or dies; each time it
 // starts listening again is a new session. The list can clear all its rows at once, stopping their subscriptions
-// together. The list has a note, an input the user writes into from the frame on screen or from an older one, which
-// clearing empties, and while the note holds a text it searches for it, under a key of that text, so that a write
-// stops one search and starts another. What the user does, when commands complete, when ticks arrive and when
-// releases end is all in the hands of the scheduler of the tests (`test/scheduled.test_scheduler.ts`), which may also
-// make any fiber yield between two of its steps; what is drawn beside it (`Fates`) says which subscriptions end or die,
-// which releases take time or die, which commands die, which steps `onApplied` and `onIgnored` hold or die in, and
-// whether the renderer, which acquires something too, dies, and takes time to release what it holds, which is when a
-// run that died still has fibers under way. To die is to die of a defect, or to interrupt oneself, which the run takes
-// for one.
+// together. The list has a field, which is the place of one of two inputs, a note or a title, and which a swap turns
+// into the other's place, the text kept: a write into the one it was is then sent to a place the state no longer holds,
+// and the element that showed it is given the other. The user types into that element, kept as a bridge keeps it, or
+// writes from an older frame, as its element would have; clearing empties the field, and while it holds a text the list
+// searches for it, under a key of that text, so that a write stops one search and starts another. What the user does,
+// when commands complete, when ticks arrive and when releases end is all in the hands of the scheduler of the tests
+// (`test/scheduled.test_scheduler.ts`), which may also make any fiber yield between two of its steps; what is drawn
+// beside it (`Fates`) says which subscriptions end or die, which releases take time or die, which commands die, which
+// steps `onApplied` and `onIgnored` hold or die in, and whether the renderer, which acquires something too, dies, and
+// takes time to release what it holds, which is when a run that died still has fibers under way. To die is to die of a
+// defect, or to interrupt oneself, which the run takes for one.
 // The run runs in a span of whoever runs it, with debug logs enabled, and the program logs and opens spans of its own.
 type Id = 1 | 2
 const ids: ReadonlyArray<Id> = [1, 2]
@@ -73,8 +76,16 @@ type RowModel = Readonly<{
   poke: RowMessage
 }>
 
-type ListState = Readonly<{ rows: ReadonlyArray<Readonly<{ id: Id; row: Row }>>; born: number; note: string }>
-type Own = Readonly<{ _tag: "Add"; id: Id }> | Readonly<{ _tag: "Remove"; id: Id }> | Readonly<{ _tag: "Clear" }>
+/** The field, the place of the input its tag names: `Swap` turns it into the place of the other. */
+type Field = Readonly<{ _tag: "Note"; text: string }> | Readonly<{ _tag: "Title"; text: string }>
+type ListState = Readonly<{ rows: ReadonlyArray<Readonly<{ id: Id; row: Row }>>; born: number; field: Field }>
+type Own =
+  | Readonly<{ _tag: "Add"; id: Id }>
+  | Readonly<{ _tag: "Remove"; id: Id }>
+  | Readonly<{ _tag: "Clear" }>
+  | Readonly<{ _tag: "Swap" }>
+
+const emptyField: Field = { _tag: "Note", text: "" }
 
 /**
  * How a fiber of the program dies: of a defect; interrupting itself, at once or by joining an interrupted fiber; or
@@ -179,6 +190,12 @@ type Event =
   | Readonly<{ _tag: "Gave"; holder: Holder }>
   | Readonly<{ _tag: "Interrupted"; holder: Holder }>
   | Readonly<{ _tag: "Drew"; frame: Frame<Model, Message> }>
+  // What the element of the field does: an edit of the user, sent as `write` into `input`, numbered `number`; and how
+  // it is settled after each frame, which drew `input` in it, with the text it shows after.
+  | Readonly<
+    { _tag: "Edited"; input: Field["_tag"]; number: number; text: string; write: Input.Written<string> }
+  >
+  | Readonly<{ _tag: "Settled"; input: Field["_tag"]; text: string; taken: boolean; seen: number }>
   | Readonly<{ _tag: "Spanned"; parent: Opt.Option<string> }>
   | Readonly<{ _tag: "Searching"; text: string }>
   | Readonly<{ _tag: "SearchStopped"; text: string }>
@@ -431,7 +448,7 @@ const makeList = (fates: Fates, events: Array<Event>) => {
     )
   const List = program<{ state: ListState; message: Own }>()
   return List.make({
-    init: () => ({ state: { rows: [], born: 0, note: "" } }),
+    init: () => ({ state: { rows: [], born: 0, field: emptyField } }),
     children: {
       Rows: List.childById(row, {
         get: (state, id: Id) => Opt.map(Arr.findFirst(state.rows, (entry) => entry.id === id), (entry) => entry.row),
@@ -451,15 +468,27 @@ const makeList = (fates: Fates, events: Array<Event>) => {
           return state.rows.some((entry) => entry.id === message.id)
             ? { state: { ...state, rows: state.rows.filter((entry) => entry.id !== message.id) } }
             : reject
-        // Another text in the note's place rejects what was written over the old one.
+        // Another text in the field's place rejects what was written over the old one.
         case "Clear":
-          return state.rows.length > 0 ? { state: { ...state, rows: [], note: "" } } : reject
+          return state.rows.length > 0 ? { state: { ...state, rows: [], field: { ...state.field, text: "" } } } : reject
+        // The place of the input the field was is gone: what was written into it is rejected.
+        case "Swap": {
+          const { text } = state.field
+          return {
+            state: { ...state, field: state.field._tag === "Note" ? { _tag: "Title", text } : { _tag: "Note", text } }
+          }
+        }
       }
     },
-    inputs: { Note: List.input({ at: Optic.id<ListState>().key("note") }) },
-    subscriptions: ({ note }) => note === "" ? HashMap.empty() : HashMap.make([["search", note], searching(note)]),
+    inputs: {
+      Note: List.input({ at: Optic.id<ListState>().key("field").tag("Note").key("text") }),
+      Title: List.input({ at: Optic.id<ListState>().key("field").tag("Title").key("text") })
+    },
+    subscriptions: ({ field: { text } }) =>
+      text === "" ? HashMap.empty() : HashMap.make([["search", text], searching(text)]),
     makeModel: (state, children) => ({
-      note: state.note,
+      field: state.field,
+      swap: { _tag: "Swap" } as Own,
       add: ids.filter((id) => !state.rows.some((entry) => entry.id === id)).map((id): Own => ({ _tag: "Add", id })),
       clear: state.rows.length > 0 ? Opt.some<Own>({ _tag: "Clear" }) : Opt.none<Own>(),
       rows: state.rows.map(({ id }) => ({ id, remove: { _tag: "Remove", id } as Own, row: children.Rows(state, id) }))
@@ -482,24 +511,32 @@ const act: fc.Arbitrary<Act> = fc.record({
   pick: fc.nat(),
   twice: fc.boolean(),
   pause: fc.integer({ min: 1, max: 4 }),
-  // A write into the note of a frame drawn before, as the input of that frame would send it, now and then.
+  // A write into the field of a frame drawn before, as the element of that frame would send it, now and then.
   stale: fc.oneof({ arbitrary: fc.constant(Opt.none()), weight: 5 }, { arbitrary: fc.nat().map(Opt.some), weight: 1 })
 })
 
-/** What the user types into the note drawn in `model`: a letter more, or one less. */
-const typing = (model: Model, pick: number): Control => (dispatch) =>
-  forwardTo(dispatch, "Note")({
+/** What the user makes of a text: a letter more, or one less. */
+const typed = (text: string, pick: number) => pick % 3 === 0 ? text.slice(0, -1) : `${text}${"ab"[pick % 2]}`
+
+/** Sends a write into the input `input` names, through the input's own dispatch, as its element would. */
+const writeInto = (dispatch: Dispatch<Message>, input: Field["_tag"], write: Input.Written<string>) =>
+  input === "Note" ? forwardTo(dispatch, "Note")(write) : forwardTo(dispatch, "Title")(write)
+
+/** What the element of an older frame would have sent: a write over the text that frame drew, which it did not make. */
+const staleWrite = (model: Model, pick: number): Control => (dispatch) =>
+  writeInto(dispatch, model.field._tag, {
     _tag: "Written",
-    was: model.note,
-    value: pick % 3 === 0 ? model.note.slice(0, -1) : `${model.note}${"ab"[pick % 2]}`
+    was: model.field.text,
+    value: typed(model.field.text, pick)
   })
 
 /** What a control does with the frame's dispatch: a row's sends through the row's own dispatch, as its view would. */
-type Control = (dispatch: Dispatch<Message>) => Effect.Effect<void>
+type Control = (dispatch: Dispatch<Message>) => Effect.Effect<unknown>
 
-/** Every control the frame shows: a user can only use what is drawn. */
-const controls = (model: Model, pick: number): ReadonlyArray<Control> => [
-  typing(model, pick),
+/** Every control the frame shows, the element of the field first: a user can only use what is drawn. */
+const controls = (model: Model, typing: Control): ReadonlyArray<Control> => [
+  typing,
+  (dispatch) => dispatch(model.swap),
   ...model.add.map((add): Control => (dispatch) => dispatch(add)),
   ...Opt.toArray(model.clear).map((clear): Control => (dispatch) => dispatch(clear)),
   ...model.rows.flatMap(({ id, remove, row }) => [
@@ -510,16 +547,16 @@ const controls = (model: Model, pick: number): ReadonlyArray<Control> => [
   ])
 ]
 
-const controlFor = (model: Model, { pick }: Act): Opt.Option<Control> => {
-  const drawn = controls(model, pick)
+const controlFor = (model: Model, { pick }: Act, typing: Control): Opt.Option<Control> => {
+  const drawn = controls(model, typing)
   return Arr.get(drawn, pick % Math.max(drawn.length, 1))
 }
 
 /**
  * Runs `acts` against the list, in a span of its own with debug logs enabled, and what was seen once nothing is under
- * way but what waits forever (`settled`, the number of events by then), then once whoever runs it has interrupted it
- * and it has ended: the span it ran in, and the models made. It is run under the scheduler of the tests, which picks
- * every order: each act waits for its turn as a `later` does.
+ * way but what waits forever (`settled`, the number of events by then, and `showing`, the text the element of the field
+ * shows then), then once whoever runs it has interrupted it and it has ended: the span it ran in, and the models made.
+ * It is run under the scheduler of the tests, which picks every order: each act waits for its turn as a `later` does.
  */
 const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArray<Act>) {
   const events: Array<Event> = []
@@ -544,6 +581,11 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
   }
   let latest: Frame<Model, Message> | undefined
   const shown: Array<Frame<Model, Message>> = []
+  // The element of the field, as a bridge keeps it (`bridges/snabbdom.ts`): what the library made of it, `undefined`
+  // until the first frame settles it, and the text it shows, which only the user and a value taken change. It is drawn
+  // in every frame, so it is never made again.
+  let held: Input.Shown<string> | undefined
+  let text = ""
   let heard = 0
   // The options are functions: one hears at once, or throws, which is its death, there and then.
   const hearing = (event: Event): undefined => {
@@ -562,7 +604,24 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
         events.push({ _tag: "Drew", frame })
         shown.push(frame)
         latest = frame
+        const { field } = frame.model
+        const { shown: settled, taken } = Input.drawn(held, field.text, frame.seen)
+        if (taken) text = settled.value
+        held = settled
+        events.push({ _tag: "Settled", input: field._tag, text, taken, seen: frame.seen })
       }))
+  // A key typed into the element, sent through the dispatch of the input the last frame drew in it, as a bridge's
+  // handler does: from a plain callback, so that no fiber runs between the edit and `sent`.
+  const typing = (pick: number): Control => () =>
+    Effect.sync(() => {
+      if (held === undefined || latest === undefined) return
+      const input = latest.model.field._tag
+      text = typed(text, pick)
+      const { write, sent } = Input.edited(held, text)
+      const number = Effect.runSync(writeInto(latest.dispatch, input, write))
+      held = sent(number)
+      events.push({ _tag: "Edited", input, number, text, write })
+    })
   const renderer = (frames: Stream.Stream<Frame<Model, Message>>) =>
     holds(events, "renderer", fates.rendererReleasesSlowly ? waits(fates, 0) : Effect.void).pipe(
       Effect.andThen(Effect.logDebug("Drawing")),
@@ -602,8 +661,8 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
     const control = latest === undefined
       ? Opt.none()
       : Opt.isSome(older)
-      ? Opt.some(typing(older.value.model, act.pick))
-      : controlFor(latest.model, act)
+      ? Opt.some(staleWrite(older.value.model, act.pick))
+      : controlFor(latest.model, act, typing(act.pick))
     if (latest === undefined || Opt.isNone(control)) continue
     yield* control.value(latest.dispatch)
     if (act.twice) yield* control.value(latest.dispatch)
@@ -611,18 +670,24 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
   yield* idle
   const settled = events.length
   const drawn = latest?.model
+  const showing = text
   yield* Fiber.interrupt(fiber)
   const exit = yield* Fiber.await(fiber)
-  return { exit, events, settled, drawn, made, stateOf, caller }
+  return { exit, events, settled, drawn, showing, made, stateOf, caller }
 })
 
 type Outcome = Effect.Success<ReturnType<typeof runScenario>>
+
+/** A write into the field, through the input it names. */
+type Write = Extract<Message, Readonly<{ _tag: "Note" | "Title" }>>
+
+const isWrite = (message: Message): message is Write => message._tag === "Note" || message._tag === "Title"
 
 const applied = (events: ReadonlyArray<Event>) =>
   events.flatMap((event) => event._tag === "Applied" ? [event.applied] : [])
 
 const finalState = (events: ReadonlyArray<Event>): ListState =>
-  applied(events).at(-1)?.after ?? { rows: [], born: 0, note: "" }
+  applied(events).at(-1)?.after ?? { rows: [], born: 0, field: emptyField }
 
 /** The searches running after the first `count` events, by their text. */
 const searches = (events: ReadonlyArray<Event>, count = events.length) => {
@@ -743,7 +808,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
   test("the scenarios reach every message, every way of dying, and what each property checks", () => {
     const seed = Math.floor(Math.random() * 2 ** 31)
     const reached = new Set<string>()
-    property(({ events, made }) => {
+    property(({ events, made: models }) => {
       events.forEach((event, index) => {
         if (Opt.isSome(answerOf(event)) && given(events.slice(0, index)).has(Opt.getOrThrow(answerOf(event)))) {
           reached.add("an answer after its release")
@@ -752,16 +817,32 @@ describe("interleavings of the user, commands and subscriptions", () => {
         if (event._tag !== "Applied") return
         const { message } = event.applied
         reached.add(message._tag === "Rows" ? message.message._tag : message._tag)
-        if (message._tag !== "Note" && event.applied.before.note !== event.applied.after.note) {
-          reached.add("a note replaced")
+        if (!isWrite(message) && event.applied.before.field.text !== event.applied.after.field.text) {
+          reached.add("a text replaced")
         }
         if (event.applied.before === event.applied.after) reached.add("the very same state")
         if (stoppedAt(events, index, event.applied).waiting.size > 1) reached.add("two waiting releases")
       })
       for (const event of events) if (event._tag === "Died") reached.add(`${event.where} ${event.how}`)
       if (events.some(({ _tag }) => _tag === "Ignored")) reached.add("rejected")
-      if (events.some((event) => event._tag === "Ignored" && event.ignored.message._tag === "Note")) {
-        reached.add("a stale write")
+      // What the element made: an edit a frame has not seen yet, which a frame of the other input may meet, and a write
+      // rejected, the one of a place gone among them. A write of an older frame is one the element did not make.
+      const made = new Set(events.flatMap((event) => event._tag === "Edited" ? [event.write] : []))
+      let edit: Extract<Event, Readonly<{ _tag: "Edited" }>> | undefined
+      for (const event of events) {
+        if (event._tag === "Edited") edit = event
+        if (event._tag === "Settled" && edit !== undefined && event.seen < edit.number) {
+          reached.add("an element ahead of its frame")
+          if (event.input !== edit.input) reached.add("an element given another input")
+        }
+        if (event._tag !== "Ignored") continue
+        const { message, state } = event.ignored
+        if (!isWrite(message)) continue
+        if (!made.has(message.message)) reached.add("a stale write")
+        else reached.add("a write of the element rejected")
+        if (made.has(message.message) && state.field._tag !== message._tag) {
+          reached.add("a write of the element to a place that is gone")
+        }
       }
       if (events.some(({ _tag }) => _tag === "SearchStopped")) reached.add("a search stopped")
       const renderer = events.flatMap((event, index) =>
@@ -771,7 +852,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
         reached.add("a renderer released once interrupted")
       }
       const states = 1 + applied(events).filter(({ before, after }) => before !== after).length
-      if (made < states) reached.add("a state no frame showed")
+      if (models < states) reached.add("a state no frame showed")
       if (releaseOvertaken(events)) reached.add("a release overtaken")
       const pulled = events.flatMap((event) => event._tag === "Drew" ? [event.frame] : [])
       if (pulled.some((frame, index) => index > 0 && pulled[index - 1]?.model === frame.model)) {
@@ -799,7 +880,9 @@ describe("interleavings of the user, commands and subscriptions", () => {
       "Note",
       "Poked",
       "Remove",
+      "Swap",
       "Tick",
+      "Title",
       "WorkClicked",
       ...places.flatMap((where) =>
         (["defect", "interrupts", "joins", "isInterrupted"] as const).map((how) => `${where} ${how}`)
@@ -808,7 +891,11 @@ describe("interleavings of the user, commands and subscriptions", () => {
       "onIgnored defect",
       "rejected",
       "a stale write",
-      "a note replaced",
+      "a text replaced",
+      "an element ahead of its frame",
+      "a write of the element rejected",
+      "an element given another input",
+      "a write of the element to a place that is gone",
       "a search stopped",
       "two waiting releases",
       "the very same state",
@@ -885,19 +972,23 @@ describe("interleavings of the user, commands and subscriptions", () => {
   // revision was found after 20 to 532 scenarios, in four searches, in the design this replaced. 1,000 make a miss
   // rare.
   test(
-    "a write into the note is stored exactly when it was written over the text the note holds, whatever it is",
+    "a write into the field is stored exactly when its place is there and holds the text it was written over, whatever it is",
     () => {
       property(({ events }) => {
         const broken: Array<string> = []
         for (const event of events) {
-          if (event._tag === "Applied" && event.applied.message._tag === "Note") {
+          if (event._tag === "Applied") {
             const { before, after, message } = event.applied
-            if (message.message.was !== before.note) broken.push("a stale write was stored")
-            const same = message.message.value === before.note
-            if (same ? after !== before : after.note !== message.message.value) broken.push("not as written")
+            if (!isWrite(message)) continue
+            if (before.field._tag !== message._tag) broken.push("a write to a place that is gone was stored")
+            if (message.message.was !== before.field.text) broken.push("a stale write was stored")
+            const same = message.message.value === before.field.text
+            const written = after.field._tag === message._tag && after.field.text === message.message.value
+            if (same ? after !== before : !written) broken.push("not as written")
           }
-          if (event._tag === "Ignored" && event.ignored.message._tag === "Note") {
-            if (event.ignored.message.message.was === event.ignored.state.note) {
+          if (event._tag === "Ignored") {
+            const { message, state } = event.ignored
+            if (isWrite(message) && state.field._tag === message._tag && message.message.was === state.field.text) {
               broken.push("a current write was rejected")
             }
           }
@@ -909,7 +1000,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
   )
 
   // A write is a message of the list like any other: the search it starts and the one it stops follow the key.
-  test("a search runs for the text of the note while it holds one, and starts once for each text it holds", () => {
+  test("a search runs for the text of the field while it holds one, and starts once for each text it holds", () => {
     property(({ events, settled }) => {
       const broken: Array<string> = []
       events.forEach((event, index) => {
@@ -918,8 +1009,8 @@ describe("interleavings of the user, commands and subscriptions", () => {
       })
       expect(broken).toEqual([])
       if (deaths(events).length > 0) return
-      const { note } = finalState(events)
-      expect(searches(events, settled)).toEqual(note === "" ? [] : [note])
+      const { text } = finalState(events).field
+      expect(searches(events, settled)).toEqual(text === "" ? [] : [text])
     })
   }, 120_000)
 
@@ -970,6 +1061,39 @@ describe("interleavings of the user, commands and subscriptions", () => {
       const before = events.slice(0, settled)
       const drawn = before.flatMap((event) => event._tag === "Drew" ? [event.frame.seen] : [])
       expect(drawn.at(-1)).toBe(publishedCounts(before).heard)
+    })
+  }, 120_000)
+
+  // What the user typed is ahead of every frame that has not seen it: the element is left as it is, whatever such a
+  // frame holds, and whichever input it draws there.
+  test("the element keeps what was typed until a frame has seen it", () => {
+    property(({ events }) => {
+      const broken: Array<string> = []
+      let edit = 0
+      let text: string | undefined
+      for (const event of events) {
+        if (event._tag === "Edited") {
+          edit = event.number
+          text = event.text
+        }
+        if (event._tag !== "Settled") continue
+        if (event.seen < edit && event.text !== text) {
+          broken.push(`a frame that had seen ${event.seen} replaced ${String(text)}, typed as ${edit}`)
+        }
+        text = event.text
+      }
+      expect(broken).toEqual([])
+    })
+  }, 120_000)
+
+  // Every dispatched message has its frame, a write rejected because its place is gone or because the element was
+  // given another input included: the last one has seen them all, and gives the element the program's value.
+  test("once everything has happened, the element shows what the last state holds for the input drawn in it", () => {
+    property(({ events, settled, showing }) => {
+      if (deaths(events).length > 0) return
+      const drawn = events.slice(0, settled).flatMap((event) => event._tag === "Settled" ? [event.input] : [])
+      const { field } = finalState(events)
+      expect([drawn.at(-1), showing]).toEqual([field._tag, field.text])
     })
   }, 120_000)
 
@@ -1074,7 +1198,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       expect(drawn?.rows.map(({ id, row }) => [id, row.working])).toEqual(
         final.rows.map(({ id, row }) => [id, row.working])
       )
-      expect(drawn?.note).toEqual(final.note)
+      expect(drawn?.field).toEqual(final.field)
     })
   }, 120_000)
 

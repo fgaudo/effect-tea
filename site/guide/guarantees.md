@@ -120,8 +120,10 @@ It also checks that the run dies with each defect, and that from the first one o
 [running](./running.md)). It checks that the defects come in the order they happened. That order is how the run is
 made today, and not a promise.
 
-What `drawn` makes of an element is checked by the tests of the rule itself, as data. What a screen then shows is the
-business of the bridges, and their tests check it in a DOM (see
+What `drawn` makes of an element is checked by the tests of the rule itself, as data.
+[`src/interleaving.test.ts`][interleaving] checks it too, on an element settled after each frame, as a bridge settles
+it: the element keeps what the user typed until a frame has seen it, and once everything has happened it shows the
+value of its input. What a screen then shows is the business of the bridges, and their tests check it in a DOM (see
 [inputs the user types into](./inputs-the-user-types-into.md)).
 
 [interleaving]: https://github.com/fgaudo/effect-tea/tree/main/src/interleaving.test.ts

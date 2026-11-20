@@ -310,7 +310,8 @@ const compare = Effect.fnUntraced(function*(revision: string, chosen: ReadonlyAr
   return different
 })
 
-// The suite of `bun run test`: the search of the histories lasts longer than a test may, and names no killer.
+// The suite of `bun run test`: the search of the histories lasts longer than a test may, and a property of it is named
+// a killer only once it failed under the mutation on each of a hundred runs, which a discovery does not tell.
 const discoverIn = (copies: ReadonlyArray<string>, chosen: ReadonlyArray<Mutation>) =>
   pool(
     copies,

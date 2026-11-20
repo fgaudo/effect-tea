@@ -15,64 +15,10 @@ test of it. None is open.
 ## Possible improvements
 
 In the order they would be taken, as a review of the architecture set it on 20 November 2026. Each item says what it
-is, why, how it would be done, and what "done" is. Items 3, 4 and 6 wait for a decision of the owner; the others need
-none.
+is, why, how it would be done, and what "done" is. Items 1, 2, 4 and 5 wait for a decision of the owner; the others
+need none.
 
-### 1. The element of an input, as data, under the search
-
-**Why.** `src/interleaving.test.ts` checks the rule of a write and what a frame has seen, each alone. What the two
-make of an element on screen is checked only by the scenarios of `bridges/bridge.test_suite.ts`, written by hand, in a
-DOM. The two faults closed on 19 November 2026 (an element reused for another input, an input whose place the state
-no longer holds) were found by a review, not by the search. Until the search holds an element, "the rule of an input
-is complete" is reasoned, not run.
-
-**How.** A change of the tests alone: read [`change-engine`](.agents/skills/change-engine/SKILL.md) first.
-
-- **An element as data, in the scenario's renderer** (`runScenario`). For each input the scenario's model draws, the
-  renderer keeps what a bridge keeps: a `Shown`, `undefined` until the first frame settles it, and the text the
-  element shows. After each frame it settles each element with `drawn(held, value, frame.seen)`, as
-  `bridges/snabbdom.ts` does, and records an event of it (the text shown, `taken`, the frame's `seen`).
-- **The user types into the element, not over the frame.** Today `typing` writes over `model.note`, the frame's value.
-  With an element, the write is made by `edited(held, text)`, over what the element shows, which may be ahead of the
-  frame; it is sent through `forwardTo(dispatch, 'Note')`, and `sent` is given the number the dispatch returned. The
-  event of it holds that number and the text. The writes of `stale`, from an older frame, stay as they are: they are
-  writes the element did not make.
-- **The program of the search gains what the two faults needed.** A place that is not always there (an optic that may
-  focus nothing, or a `get` that gives `None`), so that a write is sent to a place the state no longer holds. And a
-  second input that the model draws in the same element in some states, so that an element holds a write of one input
-  when a frame gives it another. The list is to be kept small: how is the session's choice, and it says which.
-- **Two properties.**
-  - _The element keeps what was typed until a frame has seen it._ After an edit numbered `n`, no settle with a `seen`
-    below `n` changes the text the element shows.
-  - _Once everything has happened, the element shows what its place holds._ Where nothing died, after `idle`, the text
-    of each element is the value of the input the last frame drew in it, as the last state holds it.
-- **The test "the scenarios reach…" names what the new properties need**: an element ahead of its frame, a write of
-  the element rejected, an element given another input, a write to a place that is gone.
-- **Each property is seen to fail** with the check it rests on taken out by hand: a rejected dispatched message that
-  publishes no frame, a `seen` that leaves a rejected message out, a `drawn` that takes a frame that has not seen the
-  last write. What is seen is reported.
-
-**Done when** the two properties pass under `bun run interleavings`, each was seen to fail as above, and `typecheck`,
-`lint`, `test`, `test:node` and `mutations` pass. `docs/invariants.md` (its first paragraph, and "A write is stored
-over the value it names") and the guide's "Guarantees", "How the tests check them", say what the search checks: they
-are changed in the same commit, the guide by its own rule, one sentence checked against the old one.
-
-### 2. The properties of an input and of `seen`, as killers of their mutations
-
-**Why.** The property "the last frame has seen every dispatched message taken" (`interleaving.test.ts`, added on 19
-November 2026 with the acknowledgement of every dispatched message) is the killer of no mutation: it was not run a
-hundred times under the mutations that take the acknowledgement out, as `change-engine` asks of a property before the
-list names it. The deterministic tests of `engine.test.ts` and `run.test.ts` are their killers meanwhile. The two
-properties of item 1 will be in the same place.
-
-**How.** Taken with item 1, or right after it. For each of the three properties, and each mutation of
-`tools/mutations/mutations.ts` that takes out a check it rests on, run the property alone a hundred times under the
-mutation. Name it among that mutation's killers only if it fails on each of the hundred.
-
-**Done when** each property is a killer in the list, or the item of `docs/invariants.md` says why it is none, with the
-count of the hundred runs.
-
-### 3. The value of an input, read in `makeModel` through its declaration
+### 1. The value of an input, read in `makeModel` through its declaration
 
 **Why.** A program says where an input is (`get`, or `at`), and says again in `makeModel` in which states the view
 draws it. `examples/stocktake` computes `editable` apart from the `get` of `Count`, and a test keeps the two in step.
@@ -95,7 +41,7 @@ places that come and go.
 
 **Done when** it is in the API with its guide, doc comments, changelog and API report, or in `docs/rejected.md`.
 
-### 4. The bridges as packages of their own
+### 2. The bridges as packages of their own
 
 **Why.** `@fgaudo/effect-tea-snabbdom` and `@fgaudo/effect-tea-react`: the library stays free of renderers, and users
 stop copying `bridges/snabbdom.ts` and `bridges/react.ts`. A fix of a bridge, as those of 16 and 19 November 2026,
@@ -117,7 +63,7 @@ a renderer's import; and a bridge that breaks raises the version of the whole pa
 workspace, are for a bridge that needs releases of its own: an entry moves to one later by a breaking change that
 only renames an import.
 
-**How.** After item 1, whose element as data is the bridges' contract in a form a test holds.
+**How.** The element as data of `src/interleaving.test.ts` is the bridges' contract in a form a test holds.
 
 1. The owner decides: whether, entries of this package or packages apart, the names, and what each promises.
 2. The bridges move to packages with `@fgaudo/effect-tea` and their renderer as peers, each with its tests; the
@@ -147,14 +93,14 @@ a test can walk.
 
 **Done when** the packages are published with the library, or the entry of `docs/rejected.md` says why not.
 
-### 5. A benchmark that runs in the CI
+### 3. A benchmark that runs in the CI
 
 Many children, many messages per second, to keep "frames cost only what is drawn" from regressing. `bun run bench`
 (`tools/bench/subscriptions.ts`) measures a parent's subscriptions only, and `tools/bench/writes.ts`, run by hand,
 what a write into an input and a bridge's frame cost; neither runs in the CI. To be designed: what is measured, and
 against what it fails, since a CI machine's times vary.
 
-### 6. A frame a bridge does not draw again still waits for the next animation frame
+### 4. A frame a bridge does not draw again still waits for the next animation frame
 
 In both bridges, a frame of the very same model only settles the inputs, and could be taken at once. Kept, so that a
 bridge takes at most one frame per screen refresh, whatever it draws. Weighed in the review of 20 November 2026,
@@ -162,9 +108,21 @@ reasoned: left as it is. A rejected key stays on screen for one refresh at most,
 once would settle its inputs once for each key of a burst. The owner has not decided: agreed, it goes to
 `docs/rejected.md`.
 
+### 5. What the search of an input's element leaves without a killer
+
+Left by the session that put the element of an input under the search, 20 November 2026 (run):
+
+- The property "once everything has happened, the element shows what the last state holds for the input drawn in it"
+  is the killer of no mutation of the acknowledgement or of `seen`: under them it fails on 15 to 60 of a hundred runs
+  of 60 scenarios, not on each. About 1,500 scenarios would make it one, by the rate measured, for a few seconds more
+  of `bun run interleavings`. To decide: whether that is worth it, the deterministic tests being their killers.
+- "a frame that has seen the last write leaves the element as if it had not" is killed by none of the three
+  properties of the search: it needs a frame whose `seen` is the number of the last write after a rejection, and
+  nothing after. The deterministic tests are its killers. To decide: whether the scenario is made to reach it.
+
 ## Ideas, to be decided
 
-- **What the library is beside Foldkit**, to be decided by the owner before item 4 and before 1.0. Foldkit
+- **What the library is beside Foldkit**, to be decided by the owner before item 2 and before 1.0. Foldkit
   (`github.com/foldkit/foldkit`, MIT, Effect `~4.1.0`, 0.171.0 on 20 November 2026) is a whole framework on the same
   ground: a runtime, views over snabbdom, routing, server rendering, a library of components, devtools and a CLI. Read
   in its code that day, by a subagent, in part (the files of its runtime, of its commands and of its views; no test's
@@ -180,8 +138,8 @@ once would settle its inputs once for each key of a burst. The owner has not dec
 
   **Decided by the owner, 20 November 2026: the library is meant to be adopted by others**, not only to be the owner's
   own tool. What follows from it, by the same review, reasoned:
-  - Item 4 is no longer a choice: nobody adopts code to copy.
-  - The changes that break the API are taken first (item 3, and what `docs/rejected.md` parks), then 1.0: a user asks
+  - Item 2 is no longer a choice: nobody adopts code to copy.
+  - The changes that break the API are taken first (item 1, and what `docs/rejected.md` parks), then 1.0: a user asks
     that the API stays.
   - The README says what the library is and for whom, and names Foldkit.
   - **Open, and first: for whom.** Two readers were named. One starts a new application, and chooses between this
@@ -191,13 +149,14 @@ once would settle its inputs once for each key of a burst. The owner has not dec
     `memo`, Suspense), which the owner declined on 16 November 2026, and the rule "the renderer draws frames, and
     nothing else" of the guide's "View" would change. Neither was weighed further.
   - **The owner, the same day: both readers.** Reasoned from there, not decided. They are two bridges, not three: a
-    view of the library's own over snabbdom ("A wider form", item 4) takes the place of the snabbdom bridge. The one
+    view of the library's own over snabbdom ("A wider form", item 2) takes the place of the snabbdom bridge. The one
     for React is hosted by React: a component uses a program through a hook, and the `render` given to `run` only
     hands the frames to a store that React reads, so the engine would not change; the rules of the guide's "View"
     that every renderer keeps today (no state beside the program's, frames and nothing else, a frame whole and at
     once) would become what each bridge promises. An input in it is spiked anew, against the four gaps of 16 November
-    2026. The order proposed: items 1 and 2, a spike of the hosted React bridge with a record of its design, the
-    breaking changes and 1.0, then the view of the library's own, the largest and the nearest to what Foldkit has.
+    2026. The order proposed: the element of an input under the search, done since; a spike of the hosted React
+    bridge, begun the same day on the branch `spike-hosted-react`, never to be merged; the breaking changes and 1.0;
+    then the view of the library's own, the largest and the nearest to what Foldkit has.
 - **A devtools bridge over `onApplied`** (e.g. Redux DevTools), with time travel through `init: { state }` and
   replay through `applyAll`.
 - **An example of routing**: flags from the URL, `popstate` as a subscription, navigation as a command.

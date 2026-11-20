@@ -619,7 +619,7 @@ comments are written by hand since, in plain English, and name the sections of t
   features cost much review time for what is outside the library's concern, which is the program and its rule for an
   input's element, not each renderer's features; a bridge is an example to start from, and an application that needs
   more writes its own. The library (`edited`, `drawn`,
-  inputs) did not change. _Reopen if_ the bridges become packages of their own (`ROADMAP.md`, item 4), whose users
+  inputs) did not change. _Reopen if_ the bridges become packages of their own (`ROADMAP.md`, item 2), whose users
   would expect a renderer's features to work.
 
 ## The checks

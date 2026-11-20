@@ -703,7 +703,8 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "bridges/react.test.ts",
         "shows the program's value once a key for the first, left unseen, is rejected, and stores what is typed next"
-      ]
+      ],
+      ["src/interleaving.test.ts", "the last frame has seen every dispatched message taken"]
     ]
   },
   {
@@ -823,7 +824,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "SubscriptionRef.set(stateRef, { ...next, seen: source._tag === 'Dispatch' ? seen - 1 : seen })",
     killedBy: [
       ["src/run.test.ts", "counts every dispatched message the run has taken, a rejected one too"],
-      ["src/run.test.ts", "the frame of the state a message made has seen that message"]
+      ["src/run.test.ts", "the frame of the state a message made has seen that message"],
+      ["src/interleaving.test.ts", "the last frame has seen every dispatched message taken"]
     ]
   },
   {
@@ -833,7 +835,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "SubscriptionRef.set(stateRef, { ...next, seen: next.revision })",
     killedBy: [
       ["src/run.test.ts", "counts every dispatched message the run has taken, a rejected one too"],
-      ["src/run.test.ts", "the messages of a command are not counted among those dispatched"]
+      ["src/run.test.ts", "the messages of a command are not counted among those dispatched"],
+      ["src/interleaving.test.ts", "the last frame has seen every dispatched message taken"]
     ]
   },
   {
@@ -846,7 +849,8 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/testing/contract.test.ts",
         "drive's frames say how many of the messages sent through them the run has taken, as the run's do"
-      ]
+      ],
+      ["src/interleaving.test.ts", "the last frame has seen every dispatched message taken"]
     ]
   },
   {
@@ -1240,7 +1244,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "  sent: () => ({ value, [Last]: 0 })",
     killedBy: [
       ["src/input.test.ts", "edited, the write names what the element showed, and the element shows what was written"],
-      ["src/input.test.ts", "a frame that has not seen every key leaves the element as it is, whatever it holds"]
+      ["src/input.test.ts", "a frame that has not seen every key leaves the element as it is, whatever it holds"],
+      ["src/interleaving.test.ts", "the element keeps what was typed until a frame has seen it"]
     ]
   },
   {
@@ -1289,7 +1294,8 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "bridges/snabbdom.test.ts",
         "a frame that has not seen a key sent before it was drawn leaves the element as it is"
-      ]
+      ],
+      ["src/interleaving.test.ts", "the element keeps what was typed until a frame has seen it"]
     ]
   },
   {
@@ -1334,6 +1340,10 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/input.test.ts",
         "a key the state moved on without is shown until a frame has seen it, then the element takes the value"
+      ],
+      [
+        "src/interleaving.test.ts",
+        "once everything has happened, the element shows what the last state holds for the input drawn in it"
       ]
     ]
   },
@@ -1374,6 +1384,10 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "bridges/react.test.ts",
         "shows the program's value once a key for the first, left unseen, is rejected, and stores what is typed next"
+      ],
+      [
+        "src/interleaving.test.ts",
+        "once everything has happened, the element shows what the last state holds for the input drawn in it"
       ]
     ]
   },

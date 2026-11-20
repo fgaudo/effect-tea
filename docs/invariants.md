@@ -1,11 +1,11 @@
 # Invariants the engine keeps
 
 The guide's "Guarantees" says what a user may rely on, and the library's tests check each one
-(`src/interleaving.test.ts` checks all but that of the order, the rule of an input and what a frame has seen
-included, and what the run does from the first defect on too, under random orders of clicks, writes into an input,
-current and stale, answers, subscription messages and ends, releases, defects and self-interruptions, as the guide
-says). This is how they are kept, and
-what a change must not undo. What they rest on of Effect and of the JavaScript engine is in
+(`src/interleaving.test.ts` checks all but that of the order, the rule of an input, what a frame has seen and what
+`drawn` makes of an element as data included, and what the run does from the first defect on too, under random orders
+of clicks, writes into an input, typed into its element or from an older frame, into a place the state may no longer
+hold, answers, subscription messages and ends, releases, defects and self-interruptions, as the guide says). This is
+how they are kept, and what a change must not undo. What they rest on of Effect and of the JavaScript engine is in
 [`premises.md`](premises.md), and how a change of the engine or of a testing tool is made in
 [`change-engine`](../.agents/skills/change-engine/SKILL.md).
 
@@ -36,7 +36,15 @@ testing tools.
   subscriptions but for a new state. The thunk of the number holds no code of the program and has no mutation ("one
   thunk"): "follow the order update hears them in, under every schedule within two deviations" (`engine.test.ts`) is
   its alarm. Each other check has a mutation (`tools/mutations/mutations.ts`), and `interleaving.test.ts` checks the
-  count of every frame drawn, and that the last one has seen every dispatched message taken.
+  count of every frame drawn, and that the last one has seen every dispatched message taken, which a rejected message
+  that publishes no state, and each of three counts of `seen` taken out, fails on each of a hundred runs: it is among
+  their killers. A dispatched message that leaves the state and publishes none fails it on most runs, not all, and the
+  deterministic tests are its killers alone. The same search settles an element as data with each frame's `seen`, as a
+  bridge does, and checks that it keeps what was typed until a frame has seen it, and that once everything has happened
+  it shows the value of its input. The first is a killer of two mutations of `input.ts`: an element that forgets the
+  number of its write, and a frame that has not seen every write giving its value. The second is a killer of two
+  others: an element given the frame's value that keeps showing its own, and one that has seen its writes and does not
+  take the value.
 - **`reject` means one thing: the message does not apply in the state.** The run ignores every rejection, and
   whether the view sends only what applies is for the tests ("Rejections and defects" in the guide). Never add
   a runtime check of the model against `update`, nor a way for a model to ask `update` what it accepts: the
@@ -67,7 +75,9 @@ testing tools.
   own command send only the parent's own messages (`RunCommandOf` in `compose.ts`), so neither compiles with a write,
   into the parent's input or a child's. Two limits are declared, not
   flaws: a write over a value that came back is stored, and a message names a place, so one drawn for an old instance
-  reaches the new one. Each check has a mutation (`tools/mutations/mutations.ts`).
+  reaches the new one. Each check has a mutation (`tools/mutations/mutations.ts`), and `interleaving.test.ts` checks
+  that a write is stored exactly when its place is there and holds the value it was written over, with two inputs
+  whose places take turns in one field, so that a write may reach a place that is gone.
 - **The rule of an element is the library's, and the bridges only keep their registry** (`edited` and `drawn` in
   `input.ts`). `edited` makes the write and what the element records of it from one value, the element's, so the two
   cannot differ; the number comes from the dispatch the bridge runs, given to a continuation, since the library
