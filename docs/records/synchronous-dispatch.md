@@ -166,6 +166,29 @@ against today's loop, by hand, and reported: the spike did not measure it.
 **Done when** `typecheck`, `lint`, `test`, `test:node`, both searches and `mutations` pass, and the points where
 another fiber can run between a check and its act are listed in the session's report (`change-engine`).
 
+**Done, 20 November 2026**, by a session of Opus 5.5, and run again by the session that briefed it: `typecheck`,
+`lint`, `test:node` (755), both searches (41 properties, three runs) and `mutations` (248, 50 of them new) pass.
+`bun run test` passes (963) but for two tests of a probe left in `scratch/`, which git ignores: they fail the same at
+`a95d353`, run on a copy of it. What the stage settled beyond the plan, each with a test and a mutation:
+
+- **A listener's site, and the renderer's release, take a model's defect as it is too.** E6 named the renderer's
+  fiber. A listener is called in `'render'`, in the thunk, and a renderer may read the model there: a model that
+  throws would be two defects for one throw otherwise.
+- **The killer of "the renderer's site wraps again the defect a model recorded" reads the model as the renderer
+  acquires what it draws on**, where nothing interrupts. Read plainly in the renderer's fiber, the mutant survives:
+  the end begins on the stack that records the defect, and its interruption takes the place of the renderer's second
+  death. The plain test stays, and kills nothing.
+- **`Deaths.recorded` calls the synchronous `record` in its cleanup.** `Deferred.succeed` is `doneUnsafe` in an
+  `Effect.sync` in Effect 4.1.4 (read in its source), so what runs there is what ran before.
+
+Measured by the stage's session, by hand, and not again: about 200,000 messages a second through today's loop, about
+270,000 through the thunk and its jobs, and about 2,000,000 through the thunk alone, which is what a dispatch costs
+its caller (a counter, no subscription, Bun 1.4.5 on Windows). Left open, for stage 4 or before:
+
+- A job is queued for each message, its logs included while debug logs are off: most of the new engine's time.
+- The loop of the thunk resets `applying` with no `finally`. Nothing in it throws today; what did would leave the
+  engine applying nothing, in silence.
+
 ### 2. The testing tools, beside
 
 **Where.** `src/next/testing/`: `drive.ts`, `rehearse.ts`, the ledger and the loop where they change, their tests and

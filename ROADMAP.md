@@ -26,10 +26,10 @@ Spiked on 20 November 2026, and decided by the owner the same day, with every an
 
 **How.** As the plan of [`docs/records/synchronous-dispatch.md`](docs/records/synchronous-dispatch.md) says, in stages,
 on `main`. The new engine, the new testing tools and the new bridges are written beside the old ones, in `src/next/`
-and `bridges/next/`, and swapped in one commit. Stage 0, the decisions, is done. **The next step is stage 1**, the
-engine and the run. Then the testing tools (2) and the bridges (3), at once; a spike of an input as a value of the
-library's in the model, which the owner decides on before the swap; the swap (4); and a reader's check of the
-documentation (5).
+and `bridges/next/`, and swapped in one commit. Stages 0 and 1 are done: the decisions, and the engine with its run,
+in `src/next/`. **The next step is stages 2 and 3, at once**: the testing tools and the bridges. Then a spike of an
+input as a value of the library's in the model, which the owner decides on before the swap; the swap (4); and a
+reader's check of the documentation (5).
 
 **Done when** the swap is committed, every check of its stage passed, and the reader's check is done.
 

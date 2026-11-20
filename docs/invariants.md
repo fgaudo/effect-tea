@@ -13,6 +13,10 @@ The entries are in three parts: what a program may rely on, with how the engine 
 itself, so that the first part costs what it should; and how a check is built and tested, in the engine and in the
 testing tools.
 
+`src/next/` holds the engine and the run of [`synchronous-dispatch.md`](records/synchronous-dispatch.md), in which a
+dispatch applies its message at once, written beside those described here until the swap of its stage 4, and not
+described here yet: what this file says of `shell.ts` holds of both.
+
 ## What a program may rely on
 
 - **`update` is pure and called freely.** Tests call it more than once per message (`dispatchViolations` sends
@@ -207,7 +211,12 @@ testing tools.
     scope included
     (`runSubscription`), so that a defect is in the order it happened, though its release lets another fiber die first;
     what the release dies of is wrapped apart, told from what the fiber died of by what the fiber kept of it, never by
-    the register, where a defect another fiber recorded may be the very one a release dies with. `scopedIn` closes the
+    the register, where a defect another fiber recorded may be the very one a release dies with. A site may be given
+    the defects that are its own already (`wrapped` of `scopedIn`), recorded where they were thrown, which its effect
+    and its release take as they are: the run of `src/next/` records a defect of `makeModel` where the model is read,
+    in `'render'`, and the renderer's site takes it, so that a renderer that reads it is one defect. What a function of
+    the program throws where no fiber of the run calls it, in the thunk of `src/next/engine.ts`, is recorded at once
+    (`record` of `Deaths`), with no fiber made for it, in the same register and the same order. `scopedIn` closes the
     scope itself and takes what the close dies of as it is (`docs/premises.md`), each defect of each release: never
     join the two with `Cause.combine`, as `Effect.scoped` does, which keeps one of two defects equal by `Equal`. What
     the program wraps around its own code (two `Effect.ensuring`) is joined by Effect, and is the effect's own.
@@ -219,8 +228,11 @@ testing tools.
     and nothing forks a fiber while it reads them (a stop with no mutation: the loop is one of the fibers the end
     interrupts, and it waits only where it can be interrupted, for a release, since the options are functions, so that
     stopping it first and stopping it with the others give no order a test can see; the stop keeps the read of the
-    fibers after the last fork by the code's order, not by when Effect delivers an interruption), then interrupts its
-    other fibers itself, waits for them to release
+    fibers after the last fork by the code's order, not by when Effect delivers an interruption; in `src/next/`, the end
+    stops applying, then stops the fiber of effects first, which has no mutation for the same reason: the end interrupts
+    every fiber of the engine at once after it, the fiber of effects among them, so a job it had not taken starts
+    nothing either way, and what the stop first keeps, that nothing forks while the end reads the sets, no test without
+    the scheduler of the tests reaches), then interrupts its other fibers itself, waits for them to release
     what they hold, and dies of the rest; the run's cause holds the defects first, then the rest of what it ended with,
     but for the defects already among them, by their identity (`endedWith` in `core.ts`, which `rehearse`, `drive` and
     `simulate`, for a command it stops, end with too).
@@ -350,5 +362,8 @@ testing tools.
   renderer sends as the run releases it does not reach update" (`run.test.ts`); "each call hears the next message, and the
   subscription waits between two of them" (`rehearse.test.ts`); "in the run, it is heard once to its end, under a key
   that stays, and again once its key comes back", and the tests of "a fiber of the test's that sends once the tool has
-  ended" (`contract.test.ts`). The scheduler of the tests could await quiescence in their place, and does not, as
-  "one thunk" says of every test of a check (`rejected.md`, "The checks").
+  ended" (`contract.test.ts`); of `src/next/engine.test.ts`, "takes the jobs one at a time, in the order of the
+  states: none starts while the job before is held", where nothing tells that a later job has not started while a
+  release holds the fiber of effects, and "the end stops the fiber of effects held by a release, which starts nothing
+  after, nor any job it had not taken". The scheduler of the tests could await quiescence in their place, and does
+  not, as "one thunk" says of every test of a check (`rejected.md`, "The checks").

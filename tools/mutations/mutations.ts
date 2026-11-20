@@ -20,6 +20,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "  if (died()) return dead\n",
     to: "",
     killedBy: [
+      ["src/next/engine.test.ts", "from the first defect on, no update is called, on a subscription's message either"],
       ["src/core.test.ts", "once the run has died, update is not called"],
       ["src/engine.test.ts", "no update is called on a message taken once a command has died"]
     ]
@@ -45,6 +46,10 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "source._tag === \"Subscription\" && !active.starts.has(source.generation)",
     to: "false",
     killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a start whose key went away before the fiber of effects started it sends nothing that reaches update"
+      ],
       [
         "src/core.test.ts",
         "a message of an earlier start of a key that came back is dropped, dead after a death, calling nothing"
@@ -113,6 +118,10 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "const changed = result.state !== current.state",
     to: "const changed = true",
     killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a listener is told of each new state, once it is current, never of the very same one, until it stops"
+      ],
       ["src/core.test.ts", "the very same state keeps its revision, and its commands still run"],
       ["src/engine.test.ts", "a message that keeps the same state makes no new revision"],
       ["src/engine.test.ts", "its commands still run"],
@@ -251,8 +260,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "scopedIn wraps again what it wrapped",
     file: "src/shell.ts",
-    from: "(defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect)",
-    to: "() => false",
+    from: "|| own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect)",
+    to: "|| false",
     killedBy: [
       [
         "src/testing/contract.test.ts",
@@ -271,8 +280,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "scopedIn tells what it wrapped by the register",
     file: "src/shell.ts",
-    from: "(defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect)",
-    to: "deaths.has",
+    from: "|| own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect)",
+    to: "|| deaths.has(defect)",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
@@ -355,8 +364,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a defect is recorded after the release of its scope",
     file: "src/shell.ts",
-    from: "self.pipe(diesIn(where, details, undefined, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
-    to: "self.pipe(diesIn(where, details, undefined, Core.byTheRun), Scope.provide(scope))",
+    from: "self.pipe(diesIn(where, details, wrapped, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
+    to: "self.pipe(diesIn(where, details, wrapped, Core.byTheRun), Scope.provide(scope))",
     killedBy: [
       ["src/run.test.ts", "a renderer that dies before a command is the first defect of the cause"],
       [
@@ -390,9 +399,14 @@ export const mutations: ReadonlyArray<Mutation> = [
     // The context a command, a subscription or the renderer runs in holds the run's scope.
     name: "a fiber of the run acquires into the scope of the run",
     file: "src/shell.ts",
-    from: "self.pipe(diesIn(where, details, undefined, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
-    to: "self.pipe(diesIn(where, details, undefined, Core.byTheRun), deaths.recorded)",
+    from: "self.pipe(diesIn(where, details, wrapped, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
+    to: "self.pipe(diesIn(where, details, wrapped, Core.byTheRun), deaths.recorded)",
     killedBy: [
+      ["src/next/engine.test.ts", "a command's scope closes before its answer is applied"],
+      [
+        "src/next/run.test.ts",
+        "what a subscription acquires is released when its key goes away, apart from the next message"
+      ],
       ["src/engine.test.ts", "what a command acquires is released when it ends, before update hears its message"],
       ["src/engine.test.ts", "a fiber that a command forks in its scope is interrupted when the command ends"],
       ["src/engine.test.ts", "what a subscription acquires (Channel.fromEffect) is released when its key goes away"],
@@ -452,8 +466,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a fiber the run forks keeps an interruption without the run's mark until its root",
     file: "src/shell.ts",
-    from: "diesIn(where, details, undefined, Core.byTheRun)",
-    to: "diesIn(where, details)",
+    from: "diesIn(where, details, wrapped, Core.byTheRun)",
+    to: "diesIn(where, details, wrapped)",
     killedBy: [
       [
         "src/engine.test.ts",
@@ -467,6 +481,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "const own = Core.otherwiseDefect(cause, kept(Exit.isFailure(received) ? received.cause : Cause.empty))",
     to: "const own = cause as Cause.Cause<never>",
     killedBy: [
+      ["src/next/run.test.ts", "a renderer that interrupts itself is a defect in render"],
       ["src/run.test.ts", "a command that interrupts itself is a defect, where it happened"],
       [
         "src/run.test.ts",
@@ -556,6 +571,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "keeps(reason.defect)",
     // The rest of the suite: `rehearse.test.ts` hangs under it.
     killedBy: [
+      ["src/next/run.test.ts", "a model read as the renderer acquires what it draws on is one defect, in render"],
       ["src/core.test.ts", "keeps each defect once, by its identity, in the order the fibers died"],
       ["src/core.test.ts", "is the same register when nothing new died, so that the shell signals only a new death"],
       ["src/run.test.ts", "every defect of the cause is kept, each with where it happened"],
@@ -589,6 +605,10 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "if (span === undefined || span._tag === \"ExternalSpan\") return context",
     to: "return context",
     killedBy: [
+      [
+        "src/next/run.test.ts",
+        "what runs in a run logs nothing into the span of whoever runs it, which stays the parent of their spans"
+      ],
       [
         "src/run.test.ts",
         "what runs in a run logs nothing into the span of whoever runs it, which stays the parent of their spans"
@@ -919,6 +939,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "Fiber.interruptAs(fiber, id, Context.make(Core.Stopped, {}))",
     to: "Fiber.interruptAs(fiber, id)",
     killedBy: [
+      ["src/next/run.test.ts", "a run interrupted by whoever runs it is no defect"],
       ["src/engine.test.ts", "a key that goes away interrupts its subscription, which releases what it holds"],
       ["src/run.test.ts", "a run interrupted by whoever runs it is no defect"]
     ]
@@ -2478,7 +2499,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "scopedIn leaves what its effect dies of without a site",
     file: "src/shell.ts",
-    from: "self.pipe(diesIn(where, details, undefined, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
+    from: "self.pipe(diesIn(where, details, wrapped, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
     to: "self.pipe(deaths.recorded, Scope.provide(scope))",
     killedBy: [
       ["src/engine.test.ts", "what a command dies of as the end of the engine interrupts it is what the end dies of"],
@@ -2492,12 +2513,14 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "scopedIn leaves what the release dies of without a site",
     file: "src/shell.ts",
     from: "return Scope.close(scope, exit).pipe(\n"
-      + "                diesIn(\n"
-      + "                  where,\n"
-      + "                  details,\n"
-      + "                  (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),\n"
-      + "                  Core.byTheRun\n"
-      + "                ),\n",
+      + "              diesIn(\n"
+      + "                where,\n"
+      + "                details,\n"
+      + "                (defect) =>\n"
+      + "                  wrapped(defect)\n"
+      + "                  || own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),\n"
+      + "                Core.byTheRun\n"
+      + "              ),\n",
     to: "return Scope.close(scope, exit).pipe(\n",
     killedBy: [
       ["src/run.test.ts", "a renderer that dies while it releases what it holds ends the run with that defect"],
@@ -2751,9 +2774,13 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a death recorded signals nobody",
     file: "src/shell.ts",
-    from: "return register !== before ? Deferred.succeed(died, undefined) : Effect.void",
-    to: "return Effect.void",
+    from: "    if (register !== before) Deferred.doneUnsafe(died, Exit.void)\n",
+    to: "",
     killedBy: [
+      [
+        "src/next/run.test.ts",
+        "a defect of update in a dispatch is never thrown to the caller, and the run dies of it in update"
+      ],
       [
         "src/testing/rehearse.test.ts",
         "a hearNext waiting on its subscription fails as soon as another fiber of the test's dies"
@@ -2789,6 +2816,619 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "Predicate.hasProperty(value, \"command\")",
     killedBy: [
       ["src/log.test.ts", "never by a field named command that holds data"]
+    ]
+  },
+  // The engine and the run of `docs/records/synchronous-dispatch.md`, in `src/next/`, beside those above until its
+  // stage 4: each check of the spike's table ("Each check taken out by hand"), and each site of a defect.
+  {
+    name: "the thunk calls update after the first defect",
+    file: "src/next/engine.ts",
+    from: "() => Core.arrive(update, before, active, source, message, dead),",
+    to: "() => Core.arrive(update, before, active, source, message, () => false),",
+    killedBy: [
+      ["src/next/engine.test.ts", "from the first defect on, no update is called, on a subscription's message either"],
+      [
+        "src/next/engine.test.ts",
+        "a defect of update in a dispatch is recorded in update, never thrown to the caller, and no update follows"
+      ]
+    ]
+  },
+  {
+    name: "the thunk drops a message against the starts the fiber of effects made, not the keys of the current state",
+    file: "src/next/engine.ts",
+    from: "() => Core.arrive(update, before, active, source, message, dead),",
+    to:
+      "() => Core.arrive(update, before, { ...active, starts: new Set(Array.from(subscriptionFibers, ([generation]) => "
+      + "generation)) }, source, message, dead),",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a start whose key went away before the fiber of effects started it sends nothing that reaches update"
+      ]
+    ]
+  },
+  {
+    name: "a message sent while another is applied is applied inside it",
+    file: "src/next/engine.ts",
+    from: "    if (applying) return\n",
+    to: "",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a message a listener sends is applied after every listener has been told of the step, before the dispatch returns"
+      ]
+    ]
+  },
+  {
+    name: "the thunk goes on applying once the end has stopped the engine",
+    file: "src/next/engine.ts",
+    from: "while (!stopped && pending.length > 0)",
+    to: "while (pending.length > 0)",
+    killedBy: [
+      [
+        "src/next/run.test.ts",
+        "a dispatch from a plain callback after the run has ended applies nothing, and throws nothing"
+      ],
+      ["src/next/engine.test.ts", "once the end has stopped the engine, nothing sent is applied"],
+      ["src/next/run.test.ts", "a message the renderer sends as the run releases it does not reach update"]
+    ]
+  },
+  {
+    name: "a throw of the program in the thunk reaches whoever sent the message",
+    file: "src/next/engine.ts",
+    from: "      recordThrown(deaths, where, thrown, details, wrapped)\n      return Opt.none()\n",
+    to: "      throw thrown\n",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a defect of update in a dispatch is recorded in update, never thrown to the caller, and no update follows"
+      ],
+      [
+        "src/next/engine.test.ts",
+        "a defect of onApplied in a dispatch is recorded in onApplied, never thrown to the caller, and no update follows"
+      ],
+      [
+        "src/next/run.test.ts",
+        "a defect of update in a dispatch is never thrown to the caller, and the run dies of it in update"
+      ]
+    ]
+  },
+  {
+    name: "what the thunk records of a throw has no site",
+    file: "src/next/engine.ts",
+    from: "const cause = Core.wrapDefects(Cause.die(thrown), where, details(), wrapped)",
+    to: "const cause = Cause.die(thrown)",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a defect of update in a dispatch is recorded in update, never thrown to the caller, and no update follows"
+      ],
+      [
+        "src/next/run.test.ts",
+        "a model read outside any fiber is recorded in render, and the reader gets the defect recorded"
+      ]
+    ]
+  },
+  {
+    name: "a defect of update in the thunk is one of subscriptions",
+    file: "src/next/engine.ts",
+    from: "      \"update\",\n",
+    to: "      \"subscriptions\",\n",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a defect of update in a dispatch is recorded in update, never thrown to the caller, and no update follows"
+      ],
+      [
+        "src/next/engine.test.ts",
+        "a defect of update in a subscription's message is in update, never in the subscription"
+      ]
+    ]
+  },
+  {
+    name: "a defect of update in the thunk does not say its message",
+    file: "src/next/engine.ts",
+    from: "      () => ({ on: describeByTag(message) })\n",
+    to: "",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a defect of update in a command's answer is in update, with the message, never in the command"
+      ]
+    ]
+  },
+  {
+    name: "a defect of onApplied in the thunk is one of onIgnored",
+    file: "src/next/engine.ts",
+    from: "attempt(\"onApplied\", () => onApplied(applied))",
+    to: "attempt(\"onIgnored\", () => onApplied(applied))",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a defect of onApplied in a dispatch is recorded in onApplied, never thrown to the caller, and no update follows"
+      ]
+    ]
+  },
+  {
+    name: "a defect of onIgnored in the thunk is one of onApplied",
+    file: "src/next/engine.ts",
+    from: "attempt(\"onIgnored\", () => onIgnored(ignored))",
+    to: "attempt(\"onApplied\", () => onIgnored(ignored))",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a defect of onIgnored in a dispatch is recorded in onIgnored, never thrown to the caller, and no update follows"
+      ]
+    ]
+  },
+  {
+    name: "a defect of subscriptions in the thunk is one of update",
+    file: "src/next/engine.ts",
+    from: "attempt(\"subscriptions\", () => Core.reconcile(active, subscriptions(next.state)))",
+    to: "attempt(\"update\", () => Core.reconcile(active, subscriptions(next.state)))",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a defect of subscriptions in a dispatch is recorded in subscriptions, never thrown to the caller, and no update"
+        + " follows"
+      ]
+    ]
+  },
+  {
+    name: "a defect of subscriptions on the first state is one of update",
+    file: "src/next/engine.ts",
+    from: "call(\"subscriptions\", () => Core.reconcile(Core.noneActive",
+    to: "call(\"update\", () => Core.reconcile(Core.noneActive",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a defect of subscriptions on the first state dies in subscriptions, as the engine is made"
+      ]
+    ]
+  },
+  {
+    name: "a defect of a listener is a command's",
+    file: "src/next/engine.ts",
+    from: "attempt(\"render\", listener, undefined, rendered)",
+    to: "attempt(\"command\", listener, undefined, rendered)",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a listener that throws on a command's answer dies in render, and the command ends as it should"
+      ],
+      [
+        "src/next/run.test.ts",
+        "a listener that throws on a command's answer dies in render, and the command ends as it should"
+      ]
+    ]
+  },
+  {
+    name: "the step goes on past a defect of onApplied",
+    file: "src/next/engine.ts",
+    from: "if (Opt.isNone(attempt(\"onApplied\", () => onApplied(applied)))) return",
+    to: "attempt(\"onApplied\", () => onApplied(applied))",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a defect of onApplied in a dispatch is recorded in onApplied, never thrown to the caller, and no update follows"
+      ]
+    ]
+  },
+  {
+    name: "the step goes on past a defect of subscriptions",
+    file: "src/next/engine.ts",
+    from: "        if (Opt.isNone(reconciled)) return\n",
+    to: "",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a defect of subscriptions in a dispatch is recorded in subscriptions, never thrown to the caller, and no update"
+        + " follows"
+      ]
+    ]
+  },
+  {
+    name: "the listeners are told before the new state is current",
+    file: "src/next/engine.ts",
+    from: "        current = next\n",
+    to: "        if (changed) tell()\n        current = next\n",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a listener is told of each new state, once it is current, never of the very same one, until it stops"
+      ],
+      ["src/next/run.test.ts", "a listener is told of each new state, and a model read in it is of the latest state"]
+    ]
+  },
+  {
+    name: "the very same state tells the listeners",
+    file: "src/next/engine.ts",
+    from:
+      "        if (!changed) return queue({ logs: Opt.some(logsOf(step, message, source)), gone: [], fresh: [], commands"
+      + " })\n",
+    to: "",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a listener is told of each new state, once it is current, never of the very same one, until it stops"
+      ]
+    ]
+  },
+  {
+    name: "the fiber of effects starts the keys of a job before its gone keys are released",
+    file: "src/next/engine.ts",
+    from: "onSome: stopping }))",
+    to: "onSome: (fiber) => Effect.forkDetach(stopping(fiber)) }))",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "the stops of a state are awaited before any start of that state or a later one, and a key that comes back"
+        + " finds its old one released"
+      ]
+    ]
+  },
+  {
+    name: "the fiber of effects releases the gone keys of a job one after the other",
+    file: "src/next/engine.ts",
+    from: "      { concurrency: \"unbounded\", discard: true }\n",
+    to: "      { discard: true }\n",
+    killedBy: [
+      ["src/next/engine.test.ts", "keys that go away together are stopped together, not one after the other"]
+    ]
+  },
+  {
+    name: "each job runs in a fiber of its own",
+    file: "src/next/engine.ts",
+    from: "while (true) yield* perform(yield* Queue.take(jobs))",
+    to: "while (true) yield* Effect.forkChild(perform(yield* Queue.take(jobs)))",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "takes the jobs one at a time, in the order of the states: none starts while the job before is held"
+      ]
+    ]
+  },
+  {
+    name: "the queue of the jobs is bounded",
+    file: "src/next/engine.ts",
+    from: "Queue.unbounded<Job<Message, Command, R, K>>()",
+    to: "Queue.bounded<Job<Message, Command, R, K>>(1)",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "takes the jobs one at a time, in the order of the states: none starts while the job before is held"
+      ]
+    ]
+  },
+  {
+    name: "a job starts its commands before it stops its gone keys",
+    file: "src/next/engine.ts",
+    from: "    if (Opt.isSome(logs)) yield* logs.value\n",
+    to:
+      "    if (Opt.isSome(logs)) yield* logs.value\n    yield* Effect.forEach(commands, runCommand, { discard: true })\n",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "the end stops the fiber of effects held by a release, which starts nothing after, nor any job it had not taken"
+      ]
+    ]
+  },
+  {
+    name: "the fiber of effects describes a message while debug logs are disabled",
+    file: "src/next/engine.ts",
+    from: "      if (!(yield* LogLevel.isEnabled(\"Debug\"))) return\n",
+    to: "",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "describeMessage and describeCommand are called only while debug logs are enabled, in the fiber of effects"
+      ]
+    ]
+  },
+  {
+    name: "the fiber of effects logs a message as it is by default",
+    file: "src/next/engine.ts",
+    from: "  describeMessage = describeByTag,\n",
+    to: "  describeMessage = (message) => message,\n",
+    killedBy: [
+      ["src/next/engine.test.ts", "by default, a message and its commands are logged by their tags, never their data"]
+    ]
+  },
+  {
+    name: "the fiber of effects logs a command as it is by default",
+    file: "src/next/engine.ts",
+    from: "  describeCommand = describeByTag,\n",
+    to: "  describeCommand = (command) => command,\n",
+    killedBy: [
+      ["src/next/engine.test.ts", "by default, a message and its commands are logged by their tags, never their data"]
+    ]
+  },
+  {
+    name: "a defect of describeMessage in the fiber of effects is one of describeCommand",
+    file: "src/next/engine.ts",
+    from: "call(\"describeMessage\", () => describeMessage(message))",
+    to: "call(\"describeCommand\", () => describeMessage(message))",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a defect of describeMessage dies in describeMessage, and one of describeCommand in describeCommand"
+      ]
+    ]
+  },
+  {
+    name: "a defect of describeCommand in the fiber of effects is one of describeMessage",
+    file: "src/next/engine.ts",
+    from: "call(\"describeCommand\", () => arrived.commands.map(describeCommand))",
+    to: "call(\"describeMessage\", () => arrived.commands.map(describeCommand))",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a defect of describeMessage dies in describeMessage, and one of describeCommand in describeCommand"
+      ]
+    ]
+  },
+  {
+    name: "a defect of the logs of the fiber of effects has no site",
+    file: "src/next/engine.ts",
+    from: "Effect.logDebug(...message).pipe(diesIn(\"log\"))",
+    to: "Effect.logDebug(...message)",
+    killedBy: [
+      [
+        "src/next/run.test.ts",
+        "a Logger that throws on the log of an accepted message is one defect, in the log, never in the dispatch"
+      ]
+    ]
+  },
+  {
+    name: "a defect of a command of the engine that applies at once is a subscription's",
+    file: "src/next/engine.ts",
+    from: "scopedIn(deaths, \"command\"),",
+    to: "scopedIn(deaths, \"subscription\"),",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a defect of a command dies in the command, and one of a subscription in the subscription, with its key"
+      ],
+      ["src/next/run.test.ts", "a command that interrupts itself is a defect in the command"]
+    ]
+  },
+  {
+    name: "a defect of a subscription of the engine that applies at once is a command's",
+    file: "src/next/engine.ts",
+    from: "scopedIn(deaths, \"subscription\", () => ({ key })),",
+    to: "scopedIn(deaths, \"command\", () => ({ key })),",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a defect of a command dies in the command, and one of a subscription in the subscription, with its key"
+      ]
+    ]
+  },
+  {
+    name: "a defect of a subscription of the engine that applies at once does not say its key",
+    file: "src/next/engine.ts",
+    from: "scopedIn(deaths, \"subscription\", () => ({ key })),",
+    to: "scopedIn(deaths, \"subscription\"),",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a defect of a command dies in the command, and one of a subscription in the subscription, with its key"
+      ]
+    ]
+  },
+  {
+    name: "the end of the engine that applies at once leaves its fibers to the close of their sets",
+    file: "src/next/engine.ts",
+    from: "return Effect.forEach(running, stopping, { concurrency: \"unbounded\", discard: true }).pipe(",
+    to: "return Effect.void.pipe(",
+    killedBy: [
+      ["src/next/run.test.ts", "a run interrupted by whoever runs it is no defect"]
+    ]
+  },
+  {
+    name: "the end of the engine that applies at once stops its fibers one after the other",
+    file: "src/next/engine.ts",
+    from: "Effect.forEach(running, stopping, { concurrency: \"unbounded\", discard: true })",
+    to: "Effect.forEach(running, stopping, { discard: true })",
+    killedBy: [
+      ["src/next/engine.test.ts", "the end of the engine interrupts its commands and its subscriptions at once"]
+    ]
+  },
+  {
+    name: "the end of the engine that applies at once does not report what its fibers died of",
+    file: "src/next/engine.ts",
+    from: "          Effect.andThen(report)\n",
+    to: "",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "what a command dies of as the end of the engine interrupts it is what the end dies of"
+      ]
+    ]
+  },
+  {
+    name: "a model is made again for the state it was made for",
+    file: "src/next/run.ts",
+    from: "if (last?.state !== state) {",
+    to: "if (true) {",
+    killedBy: [
+      ["src/next/run.test.ts", "a model is made only when read, once for each state"],
+      ["src/next/run.test.ts", "a second read of the same state throws the same defect, recorded once"]
+    ]
+  },
+  {
+    name: "a model's defect is not recorded where the model is read",
+    file: "src/next/run.ts",
+    from: "const defect = Engine.recordThrown(deaths, \"render\", thrown)",
+    to: "const defect = thrown",
+    killedBy: [
+      [
+        "src/next/run.test.ts",
+        "a model read outside any fiber is recorded in render, and the reader gets the defect recorded"
+      ]
+    ]
+  },
+  {
+    name: "a model's defect is recorded in another site than render",
+    file: "src/next/run.ts",
+    from: "const defect = Engine.recordThrown(deaths, \"render\", thrown)",
+    to: "const defect = Engine.recordThrown(deaths, \"update\", thrown)",
+    killedBy: [
+      [
+        "src/next/run.test.ts",
+        "a model read outside any fiber is recorded in render, and the reader gets the defect recorded"
+      ],
+      ["src/next/run.test.ts", "a model read in the renderer's fiber is one defect, in render"]
+    ]
+  },
+  {
+    name: "the renderer's site wraps again the defect a model recorded",
+    file: "src/next/run.ts",
+    from: "Shell.scopedIn(deaths, \"render\", undefined, isModels),",
+    to: "Shell.scopedIn(deaths, \"render\"),",
+    // Not "a model read in the renderer's fiber is one defect, in render": there, the end of the run may begin as the
+    // defect is recorded, on the reader's stack, and its interruption take the place of the renderer's second death.
+    killedBy: [
+      ["src/next/run.test.ts", "a model read as the renderer acquires what it draws on is one defect, in render"]
+    ]
+  },
+  {
+    name: "a listener's site wraps again the defect a model recorded",
+    file: "src/next/run.ts",
+    from: "      rendered: isModels,\n",
+    to: "",
+    killedBy: [
+      ["src/next/run.test.ts", "a listener that reads a model that throws, and throws it, is one defect, in render"]
+    ]
+  },
+  {
+    name: "the release of scopedIn wraps again what its site takes as it is",
+    file: "src/shell.ts",
+    from: "                  wrapped(defect)\n                  || ",
+    to: "                  ",
+    killedBy: [
+      ["src/next/run.test.ts", "a renderer whose release reads a model that throws is one defect, in render"]
+    ]
+  },
+  {
+    name: "a defect of the renderer of the run that applies at once is a command's",
+    file: "src/next/run.ts",
+    from: "Shell.scopedIn(deaths, \"render\", undefined, isModels),",
+    to: "Shell.scopedIn(deaths, \"command\", undefined, isModels),",
+    killedBy: [
+      ["src/next/run.test.ts", "a renderer that throws before it returns its effect dies in render"],
+      ["src/next/run.test.ts", "a renderer that interrupts itself is a defect in render"],
+      ["src/next/run.test.ts", "a renderer that dies while an interrupted run releases it is in the cause"]
+    ]
+  },
+  {
+    name: "a defect of init in the run that applies at once has no site",
+    file: "src/next/run.ts",
+    from: "Shell.diesIn(\"init\"), deaths.recorded)",
+    to: "deaths.recorded)",
+    killedBy: [
+      ["src/next/run.test.ts", "an init that throws on its flags dies in init"]
+    ]
+  },
+  {
+    name: "the run that applies at once does not stop the renderer",
+    file: "src/next/run.ts",
+    from: "    const renderer = yield* Effect.acquireRelease(\n"
+      + "      Effect.forkChild(rendering),\n"
+      + "      (renderer) => engine.stop.pipe(Effect.andThen(Shell.stopping(renderer)))\n"
+      + "    )\n",
+    to: "    const renderer = yield* Effect.forkChild(rendering)\n",
+    killedBy: [
+      ["src/next/run.test.ts", "a renderer that dies while an interrupted run releases it is in the cause"]
+    ]
+  },
+  {
+    name: "the end of the run that applies at once stops the renderer before the engine",
+    file: "src/next/run.ts",
+    from: "engine.stop.pipe(Effect.andThen(Shell.stopping(renderer)))",
+    to: "Shell.stopping(renderer)",
+    killedBy: [
+      ["src/next/run.test.ts", "a message the renderer sends as the run releases it does not reach update"]
+    ]
+  },
+  {
+    name: "forwardTo over a function holds a child's dispatch strongly",
+    file: "src/next/dispatch.ts",
+    from: "const entry: Entry = { key, ref: new WeakRef(wrapping) }",
+    to: "const entry: Entry = { key, ref: { deref: () => wrapping } as never }",
+    killedBy: [
+      ["src/next/dispatch.test.ts", "keeps nothing for the ids nobody holds"],
+      ["src/next/dispatch.test.ts", "lets go of what a long list held once the list is no longer drawn"],
+      ["src/next/dispatch.test.ts", "lets go of collected dispatches without comparing ids again"]
+    ]
+  },
+  {
+    name: "forwardTo over a function lets go of an entry whose dispatch is alive",
+    file: "src/next/dispatch.ts",
+    from: "const at = bucket?.indexOf(entry) ?? -1",
+    to: "const at = bucket === undefined ? -1 : 0",
+    killedBy: [
+      ["src/next/dispatch.test.ts", "keeps the entry of a new dispatch made for the id of a collected one"]
+    ]
+  },
+  {
+    name: "forwardTo over a function makes a child's dispatch anew each time",
+    file: "src/next/dispatch.ts",
+    from: "  if (found !== undefined) return found as ChildDispatch<Message, Name>\n",
+    to: "",
+    killedBy: [
+      [
+        "src/next/dispatch.test.ts",
+        "gives a function someone holds every time it is asked for, through collections and new ids"
+      ],
+      ["src/next/dispatch.test.ts", "keeps the entry of a new dispatch made for the id of a collected one"],
+      ["src/next/dispatch.test.ts", "tells ids apart by value, as subscription keys are"]
+    ]
+  },
+  {
+    name: "a dispatch applies its message after it returns",
+    file: "src/next/engine.ts",
+    from: "    dispatch: (message) => apply(message, Core.fromDispatch),",
+    to: "    dispatch: (message) => void queueMicrotask(() => apply(message, Core.fromDispatch)),",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "the next message does not wait for a release, which the effects of the next state do"
+      ],
+      [
+        "src/next/engine.test.ts",
+        "when it returns, update and onApplied have heard it, and the current state is the one it made"
+      ],
+      [
+        "src/next/run.test.ts",
+        "model() is the model of the current state, at once after a dispatch, and a rejected message leaves it"
+      ]
+    ]
+  },
+  {
+    name: "a command's answer and a subscription's message are applied after the call that sends them",
+    file: "src/next/engine.ts",
+    from: "(message: Message) => Effect.sync(() => apply(message, source))",
+    to: "(message: Message) => Effect.sync(() => void queueMicrotask(() => apply(message, source)))",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "a command's answer and a subscription's message are applied in the call that sends them"
+      ]
+    ]
+  },
+  {
+    name: "a listener that throws keeps the others from being told",
+    file: "src/next/engine.ts",
+    from: "for (const listener of Array.from(listeners)) attempt(\"render\", listener, undefined, rendered)",
+    to: "for (const listener of Array.from(listeners)) {\n"
+      + "      if (Opt.isNone(attempt(\"render\", listener, undefined, rendered))) return\n"
+      + "    }",
+    killedBy: [
+      [
+        "src/next/engine.test.ts",
+        "defects are recorded in the order they happened, and a listener that throws leaves the others told"
+      ]
     ]
   }
 ]

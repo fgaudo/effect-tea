@@ -93,40 +93,48 @@ const dying = <E>(
  * a self-interruption is: from it on, the run applies no message. A defect is in the order it
  * happened, though the release of what died first lets another fiber die before it ends. What `self` died of is told
  * from what the release dies of by what this fiber kept of it, never by the register: a release may die with a defect
- * another fiber recorded, handed to the program by whoever runs it, and that is a defect of its own.
+ * another fiber recorded, handed to the program by whoever runs it, and that is a defect of its own. `wrapped` says
+ * which defects are this site's already, recorded where they were thrown, and taken as they are, by the effect and by
+ * the release alike: a defect of `makeModel` that the run of `src/next/` records where the model is read, in `'render'`.
  */
 // The scope is closed here, not by `Effect.scoped`, which joins what the effect ended with and what the release died of
 // with `Cause.combine`: that keeps one of two defects equal by `Equal`, before the register sees them. What the close
 // dies of is taken as it is (`docs/premises.md`), and joined by `Core.released`.
-export const scopedIn =
-  (deaths: Deaths, where: DefectSite, details?: () => Readonly<{ key?: unknown; on?: unknown }>) =>
-  <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, Scope.Scope>> =>
-    Effect.uninterruptibleMask((restore) =>
-      Effect.flatMap(
-        Scope.make(),
-        (scope) =>
-          Effect.exit(
-            restore(self.pipe(diesIn(where, details, undefined, Core.byTheRun), deaths.recorded, Scope.provide(scope)))
-          ).pipe(
-            Effect.flatMap((exit) => {
-              const own: Cause.Cause<E> = Exit.isFailure(exit) ? exit.cause : Cause.empty
-              return Scope.close(scope, exit).pipe(
-                diesIn(
-                  where,
-                  details,
-                  (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),
-                  Core.byTheRun
-                ),
-                deaths.recorded,
-                Effect.exit,
-                Effect.flatMap((closed) =>
-                  Exit.isSuccess(closed) ? exit : Effect.failCause(Core.released(own, closed.cause))
-                )
+export const scopedIn = (
+  deaths: Deaths,
+  where: DefectSite,
+  details?: () => Readonly<{ key?: unknown; on?: unknown }>,
+  wrapped: (defect: unknown) => boolean = () => false
+) =>
+<A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, Scope.Scope>> =>
+  Effect.uninterruptibleMask((restore) =>
+    Effect.flatMap(
+      Scope.make(),
+      (scope) =>
+        Effect.exit(
+          restore(self.pipe(diesIn(where, details, wrapped, Core.byTheRun), deaths.recorded, Scope.provide(scope)))
+        ).pipe(
+          Effect.flatMap((exit) => {
+            const own: Cause.Cause<E> = Exit.isFailure(exit) ? exit.cause : Cause.empty
+            return Scope.close(scope, exit).pipe(
+              diesIn(
+                where,
+                details,
+                (defect) =>
+                  wrapped(defect)
+                  || own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),
+                Core.byTheRun
+              ),
+              deaths.recorded,
+              Effect.exit,
+              Effect.flatMap((closed) =>
+                Exit.isSuccess(closed) ? exit : Effect.failCause(Core.released(own, closed.cause))
               )
-            })
-          )
-      )
+            )
+          })
+        )
     )
+  )
 
 /**
  * Runs a subscription, sending each of its messages, in the scope of the fiber that runs it, and returns its last
@@ -155,6 +163,11 @@ export const runSubscription = <Message, R, RS>(
 export interface Deaths {
   /** Records the defects that `self` dies of, those `keeps` accepts, however it ends. */
   readonly recorded: <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
+  /**
+   * Records the defects of `cause` that `keeps` accepts, at once, in the caller's stack, as `recorded` does when an
+   * effect ends: for what a function of the program throws where plain code calls it, outside any fiber of the run.
+   */
+  readonly record: (cause: Cause.Cause<unknown>) => void
   /** Succeeds once a defect has been recorded. */
   readonly died: Effect.Effect<void>
   /** The defects recorded so far, in the order they died. */
@@ -170,15 +183,18 @@ export interface Deaths {
 export const makeDeaths = Effect.fnUntraced(function*(keeps: (defect: unknown) => boolean) {
   let register = Core.noDeaths
   const died = yield* Deferred.make<void>()
+  const record = (cause: Cause.Cause<unknown>) => {
+    const before = register
+    register = Core.record(register, cause, keeps)
+    if (register !== before) Deferred.doneUnsafe(died, Exit.void)
+  }
   return {
     recorded: (self) =>
       Effect.onExit(self, (exit) =>
-        Effect.suspend(() => {
-          if (Exit.isSuccess(exit)) return Effect.void
-          const before = register
-          register = Core.record(register, exit.cause, keeps)
-          return register !== before ? Deferred.succeed(died, undefined) : Effect.void
+        Effect.sync(() => {
+          if (Exit.isFailure(exit)) record(exit.cause)
         })),
+    record,
     died: Deferred.await(died),
     all: () => register.deaths,
     dead: () => register.deaths.length > 0,
