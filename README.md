@@ -75,9 +75,9 @@ It probably does not when:
   model ([view](https://fgaudo.github.io/effect-tea/documents/Guide.View.html)). What the platform keeps by itself,
   such as a hover, the focus or an animation, is fine, and so is, with React, what the application's components keep
   beside the program;
-- you want a renderer integration from npm. The bridges to snabbdom and to React are files of `bridges/`, about 150
-  lines each, to copy and own
-  ([writing a bridge](https://fgaudo.github.io/effect-tea/documents/Guide.Writing_a_bridge.html) explains one);
+- you need more of a renderer than the package's bridges give. The bridges to snabbdom and to React draw each frame
+  whole, send messages from clicks and presses, and settle native text fields. The rest is left to a bridge of your
+  own ([writing a bridge](https://fgaudo.github.io/effect-tea/documents/Guide.Writing_a_bridge.html) explains one);
 - you are not on Effect 4.
 
 It is at version 0.x, so the API still changes. [`CHANGELOG.md`](CHANGELOG.md) says how to upgrade over each breaking
@@ -97,6 +97,10 @@ npm install @fgaudo/effect-tea effect
 `moduleResolution` `nodenext` or `bundler`, and TypeScript 5.9 or newer, as Effect 4 does. Keep the compiler option
 `strict` on: the library's types are checked under it alone. Under Bun, the `bun` export condition loads the TypeScript
 sources instead.
+
+The bridges, `@fgaudo/effect-tea/snabbdom` and `@fgaudo/effect-tea/react`, need their renderer, which you install
+beside the package: `snabbdom` 3.6.4 or a newer 3.x, or `react` and `react-dom` 19.3.1 or a newer 19.x. The package
+does not install them, and the rest of it needs neither.
 
 ## Quick start
 
@@ -175,7 +179,8 @@ const view: View<Model, Message> = (model, dispatch) => (
 createRoot(root).render(<Host program={counter}>{view}</Host>)
 ```
 
-`View`, `onClick` and `Host` are the examples' bridge to React, [`bridges/react.ts`](bridges/react.ts). `Host` runs
+`View`, `onClick` and `Host` are the package's bridge to React, `@fgaudo/effect-tea/react`
+([`bridges/react.ts`](bridges/react.ts)). `Host` runs
 the program while it is mounted. [`examples/counter`](examples/counter) draws the same program with snabbdom.
 
 ### With its tests
@@ -214,9 +219,9 @@ builds a larger application the same way, a step at a time.
 
 [`examples/`](examples) holds complete programs, each with its tests. Each is drawn with
 [snabbdom](https://github.com/snabbdom/snabbdom), and two of them with React too, in the same run. Try one in the
-browser, or run it: `bun run build`, then `bun examples/<name>/index.html`. The bridges they are drawn with are in
-[`bridges/`](bridges), for you to copy into your project. [`examples/README.md`](examples/README.md)
-says where to start.
+browser, or run it: `bun run build`, then `bun examples/<name>/index.html`. They are drawn with the package's bridges,
+`@fgaudo/effect-tea/snabbdom` and `@fgaudo/effect-tea/react`, whose sources are in [`bridges/`](bridges).
+[`examples/README.md`](examples/README.md) says where to start.
 
 | Example                           | What it is                   | What it shows                                                                                                                                                                                                                                                                   | Try it                                                          |
 | --------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |

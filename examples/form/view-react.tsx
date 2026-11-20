@@ -1,6 +1,6 @@
 import { forwardTo } from "@fgaudo/effect-tea"
+import { onClick, Shows, type View } from "@fgaudo/effect-tea/react"
 import * as Opt from "effect/Option"
-import { onClick, Shows, type View } from "../../bridges/react.ts"
 import type { Message, Model } from "./form.ts"
 
 // The view of `form/view-snabbdom.ts`, in React: the same model, the same messages.

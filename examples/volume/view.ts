@@ -1,7 +1,7 @@
 import type { Dispatch } from "@fgaudo/effect-tea"
+import { onClick, onPress, type View } from "@fgaudo/effect-tea/snabbdom"
 import * as Opt from "effect/Option"
 import { h, type VNode } from "snabbdom"
-import { onClick, onPress, type View } from "../../bridges/snabbdom.ts"
 import type { Message, Model, Track } from "./volume.ts"
 
 // Drawn by the program: a press starts a drag, whose moves `update` puts within the bounds it holds.

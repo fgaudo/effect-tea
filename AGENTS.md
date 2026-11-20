@@ -39,10 +39,12 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 
 - **Generic, and only Effect.** The library knows nothing of the applications that use it, nor of any
   renderer: views are generic over their node type, and the renderer is a function given to `run`. `effect`
-  (v4) is its only dependency, as a peer. Oxlint forbids renderer imports, and `lib` (`ES2022`, no `DOM`)
-  rejects browser APIs, everywhere but in `examples/` and `bridges/`.
-- **An API of its own.** The API is exactly what `src/index.ts` and `src/testing/index.ts` export; every other
-  module is internal. It is judged on its own terms, from the library's concepts, its examples and its users in
+  (v4) is the only dependency of `.` and `./testing`, as a peer. The bridges are the one part of the package that knows
+  a renderer, each an entry of its own (`./snabbdom`, `./snabbdom/testing`, `./react`), whose renderer is an optional
+  peer: nothing else may import them. Oxlint forbids renderer imports, and `lib` (`ES2022`, no `DOM`) rejects browser
+  APIs, everywhere but in `examples/` and `bridges/`.
+- **An API of its own.** The API is exactly what `src/index.ts` and `src/testing/index.ts` export, and the bridges,
+  `bridges/snabbdom.ts`, `bridges/snabbdom-testing.ts` and `bridges/react.ts`; every other module is internal. It is judged on its own terms, from the library's concepts, its examples and its users in
   general: coherent, symmetric where its tools are (what `drive` gets, `simulate` and `rehearse` are asked
   about), and never shaped by, nor justified with, what one application happens to use.
 - **A type is Effect's or the library's, never half of each.** One of Effect's is an alias with a name
@@ -86,7 +88,7 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   for a chain of steps written in a `pipe`.
 - **Only stable APIs.** A module or function marked `@stability unstable` in Effect's declarations may change
   under the library's users: never build on one, not even as an option, and not in `examples/` or `bridges/`
-  either, since users copy them. The same holds for React's `unstable_` and `experimental_` APIs in the bridges. The
+  either, since users import the bridges and copy the examples. The same holds for React's `unstable_` and `experimental_` APIs in the bridges. The
   typecheck fails on one, in the library, the examples and the bridges (the Effect language service's
   `unstableApiUsage`). The tools are the one exception: `tools/` is not packed and no user copies it, so a tool may
   build on an unstable module of Effect, or on `@effect/platform-bun`, that `tsconfig.json` lists for `tools/` (an
@@ -106,6 +108,10 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   of the library. No older Effect is supported. An API that exists only in a newer Effect is not a reason for a
   workaround: ask whether to upgrade (`upgrade-effect`). The official repository of Effect v4 is
   [`Effect-TS/effect`](https://github.com/Effect-TS/effect): its sources, issues and changes are read there.
+  A renderer's peer range is wider, with a caret from the version its bridge is developed with (`^19.3.1` for React,
+  `^3.6.4` for snabbdom): a tilde would refuse the whole package to an application on a later minor, which uses no
+  bridge too. So the daily job (`.github/workflows/renderers-latest.yml`) runs the bridges' tests, and the premises of a
+  bridge on its renderer, at the newest version the range accepts.
 - **A change a consumer can notice has a changelog entry** in the same commit, and raises the version when it
   needs more than the unreleased section says (`release`). The changelog holds only what a user of the library notices
   on upgrading, as the net change since the last release: nothing for tests, tooling, internals, the repository's
@@ -243,10 +249,10 @@ this summary says less. What every change keeps, an example's and a document's t
   tests that ask for a collection call. `bun test` does not collect a `.test_<kind>.ts` (it collects `*.test.ts`,
   `*_test.ts`, `*.spec.ts` and `*_spec.ts`), so it runs only where a test file imports it, or where a runner loads it
   before the tests: `bun run test:node` has Node import `test/node/register.test_hook.ts`.
-- **What a bridge gives a user's tests is code of the bridge**, in `bridges/` beside it, and is named as a
-  user who copies it would name it in a project: `snabbdom-testing.ts`, with `messagesSentBy`, and
-  `snabbdom-preload.ts`, which `bun test` preloads (`bunfig.toml`). It serves the examples' tests too, but it is what a
-  user takes, not a file of the repository's tests, so it has no `.test_<kind>`.
+- **What a bridge gives a user's tests is code of the bridge**, in `bridges/` beside it: `snabbdom-testing.ts`, the
+  entry `./snabbdom/testing`, with `messagesSentBy`, and `snabbdom-preload.ts`, which `bun test` preloads
+  (`bunfig.toml`) and the guide's "Testing" describes for a user's own tests. It serves the examples' tests too, but it
+  is what a user takes, not a file of the repository's tests, so it has no `.test_<kind>`.
 - Test through behaviour: what a module gives the rest of the library (`run`, `Engine.make`, the public functions, a
   transition of `core.ts` or of `testing/ledger.ts`), never what it keeps to itself. An export made for a test alone
   says so (`entriesOf` in `dispatch.ts`).

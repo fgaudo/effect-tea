@@ -63,7 +63,7 @@ bun add @fgaudo/effect-tea effect
 
 The library draws nothing: a view is a function of its model, and a small bridge draws it with a renderer. The tutorial
 draws with [snabbdom](https://github.com/snabbdom/snabbdom). You do not need to know snabbdom: its views are a few
-lines each. They go through the examples' bridge, [`bridges/snabbdom.ts`](../../bridges/snabbdom.ts),
-which you can copy. In it, `renderInto` draws each frame, `onClick` sends a message from a click, and `shows` draws an
+lines each. They go through the package's bridge to snabbdom, `@fgaudo/effect-tea/snabbdom`
+([`bridges/snabbdom.ts`](../../bridges/snabbdom.ts)). In it, `renderInto` draws each frame, `onClick` sends a message from a click, and `shows` draws an
 input. [Writing a bridge](../guide/writing-a-bridge.md) explains the bridge, and names what a bridge to React does
 instead.

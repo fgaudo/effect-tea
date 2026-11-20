@@ -1,5 +1,6 @@
-// Checks the doc comments of `src/`, which are written by hand and read in the hover of whoever installs the package.
-// It fails on what would ship a note meant for the implementation to them: a doc comment right after another, which
+// Checks the doc comments of `src/` and of the bridges, which are written by hand and read in the hover of whoever
+// installs the package. It fails on what would ship a note meant for the implementation to them: a doc comment right
+// after another, which
 // the declarations keep though the hover shows only the last, or `@privateRemarks`, which TypeDoc hides and the hover
 // shows. It fails on a link to the site, whose pages are those of the latest release and not of the version installed.
 // It fails on a block copied from the guide, as the comments once held. And a comment names the part of the guide it
@@ -32,7 +33,7 @@ const sectionsOf = (lines: ReadonlyArray<string>, title: string) =>
 
 const reference = /^\s*\* @see The guide, "([^"]+)"(?:, "([^"]+)")?\.$/
 
-// What one file of `src/` breaks of the rules of the doc comments, by the pages of the guide.
+// What one file of `src/` or of `bridges/` breaks of the rules of the doc comments, by the pages of the guide.
 const problemsOfSource = (name: string, text: string, pages: ReadonlyMap<string, ReadonlyArray<string>>) => {
   const problems: Array<string> = []
   // Whether the last line that is not blank closes a doc comment, and whether one is open.
@@ -109,7 +110,7 @@ const command = Command.make(
       if (title === undefined) problems.push(`${name} has no title.`)
       else pages.set(title, lines)
     }
-    for (const name of yield* fs.glob("src/**/*.ts", { root })) {
+    for (const name of yield* fs.glob("{src/**,bridges}/*.ts", { root })) {
       if (!/\.test(_\w+)?\.ts$/.test(name)) problems.push(...problemsOfSource(name, yield* read(name), pages))
     }
     for (const name of yield* fs.glob("skills/*/SKILL.md", { root })) {

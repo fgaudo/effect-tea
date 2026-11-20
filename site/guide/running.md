@@ -20,8 +20,8 @@ dies, and reporting the crash is the job of the app around the run.
 [memoized](./glossary.md#what-the-user-sees) on its dispatch is not drawn again because of the dispatch.
 
 **A slow renderer skips frames.** It only gets the latest frame. So a renderer that waits for the next animation frame
-before it takes another frame draws at most once per screen refresh, as
-[`bridges/snabbdom.ts`](../../bridges/snabbdom.ts) does.
+before it takes another frame draws at most once per screen refresh, as the bridge to snabbdom
+([`bridges/snabbdom.ts`](../../bridges/snabbdom.ts)) does.
 
 ### Options
 

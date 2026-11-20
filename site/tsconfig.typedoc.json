@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.build.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "customConditions": ["bun"],
+    "noEmit": true
+  },
+  "include": ["../src", "../bridges"],
+  "exclude": [
+    "../src/**/*.test.ts",
+    "../src/**/*.test_*.ts",
+    "../bridges/**/*.test.ts",
+    "../bridges/**/*.test_*.ts",
+    "../bridges/snabbdom-preload.ts"
+  ]
+}

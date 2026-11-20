@@ -1,9 +1,9 @@
 // Each page gets a dispatch of its own, which wraps its messages as the parent receives them. `forwardTo` gives
 // it the same dispatch in every frame, so snabbdom's `thunk` skips a page whose model has not changed.
 import { type Dispatch, forwardTo } from "@fgaudo/effect-tea"
+import { onClick, type View } from "@fgaudo/effect-tea/snabbdom"
 import * as Opt from "effect/Option"
 import { h, thunk, type VNode } from "snabbdom"
-import { onClick, type View } from "../../bridges/snabbdom.ts"
 import type * as About from "./about.ts"
 import type { Message, Model } from "./app.ts"
 import type * as Clock from "./clock.ts"

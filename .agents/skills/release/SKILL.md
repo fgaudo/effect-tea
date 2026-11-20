@@ -16,7 +16,7 @@ not a log of the work: whoever reads it upgrades once, from the last release to 
 Before a commit, answer these in order:
 
 1. **Does a user who upgrades notice it?** What they call, what compiles, what the run, the testing tools and the
-   bridges they copied do, and what the guide now promises that it did not. If not, there is no entry. Never an entry
+   bridges they import do, and what the guide now promises that it did not. If not, there is no entry. Never an entry
    for tests, tooling, internals, the examples' tests, the repository's documents (`AGENTS.md`, `docs/`, the skills,
    `ROADMAP.md`), the API reports, or a rewording of the guide, the tutorial, the README or a doc comment that keeps
    the same promises. Of the documentation, only a new promise, a new page, or a section a user cites moving gets an
@@ -60,8 +60,9 @@ version never goes down. `package.json` and the changelog's section always agree
 
 ## What the package contains
 
-`files` in `package.json`: `dist/`, `src/` without its tests, the guide (`site/guide/`), the tutorial
-(`site/tutorial/`), the examples and the bridges without their `tsconfig.json`, the skill for coding agents (`skills/`),
+`files` in `package.json`: `dist/`, with the bridges built into `dist/bridges/`, `src/` without its tests, the guide
+(`site/guide/`), the tutorial (`site/tutorial/`), the examples and the bridges without their `tsconfig.json` (nor the
+bridges' `tsconfig.build.json`), the skill for coding agents (`skills/`),
 `README.md` and `CHANGELOG.md`; the rest of the site is not published. A user and their agent read the documentation
 there, at the version installed, and `bun run smoke` checks that it finds in the package every file it links.
 `bun pm pack` shows the package as it would be published, as `fgaudo-effect-tea-<version>.tgz` at the root (ignored by

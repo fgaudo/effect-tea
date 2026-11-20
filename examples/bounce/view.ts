@@ -1,5 +1,5 @@
+import { onClick, type View } from "@fgaudo/effect-tea/snabbdom"
 import { h } from "snabbdom"
-import { onClick, type View } from "../../bridges/snabbdom.ts"
 import type { Message, Model } from "./bounce.ts"
 
 export const view: View<Model, Message> = (model, dispatch) =>

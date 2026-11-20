@@ -106,17 +106,18 @@ does not ask for it.
 ### The view
 
 **That the view draws what its model holds is not checked here.** This means that the view draws each control once,
-through the right dispatch. You check it with your renderer's tools. For snabbdom,
-[`bridges/snabbdom-testing.ts`][messages] has one, `messagesSentBy`. `messagesSentBy` finds what a view sends,
-without a DOM. A test compares that with what its reader returns. The examples' tests do this, each with a reader that
-lists the messages in the order its view draws them. `messagesSentBy` is an example, and a bridge does not have to have
-one.
+through the right dispatch. You check it with your renderer's tools. For snabbdom, the package has one,
+`messagesSentBy`, in `@fgaudo/effect-tea/snabbdom/testing` ([`bridges/snabbdom-testing.ts`][messages]). It finds what a
+view sends, without a DOM. A test compares that with what its reader returns. The examples' tests do this, each with a
+reader that lists the messages in the order its view draws them. `messagesSentBy` is an example, and a bridge does not
+have to have one.
 
 **A program run under its renderer, in a DOM,** is run as the app runs it. First, the test file prepares the DOM:
 
 - The test file registers a DOM, as happy-dom's `GlobalRegistrator.register()` does in a `beforeAll`.
-- With snabbdom, the file loads [`bridges/snabbdom-preload.ts`][preload] before its imports, even when it
-  registers a DOM. The reason is that snabbdom reads `window` when it loads.
+- With snabbdom, a file that sets `window` to `undefined` is loaded before the test's imports, even when the test
+  registers a DOM. The reason is that snabbdom reads `window` when it loads. With Bun, this is a `preload` of
+  `bunfig.toml`, as [`bridges/snabbdom-preload.ts`][preload] is for the package's own tests.
 
 Then the test does these steps:
 
@@ -125,7 +126,7 @@ Then the test does these steps:
    animation frame.
 3. At the end, it interrupts the run's fiber.
 
-The tests of the examples' bridges go further (see [their tests](./writing-a-bridge.md#their-tests)). In those tests, a
+The tests of the package's bridges go further (see [their tests](./writing-a-bridge.md#their-tests)). In those tests, a
 frame is drawn when the test says, in place of the next animation frame.
 
 [preload]: ../../bridges/snabbdom-preload.ts

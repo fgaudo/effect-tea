@@ -22,7 +22,11 @@ version, and everything else, features included, the patch version.
 - The types in the API's signatures are exported (`Child`, `ChildById`, `Input`, `InputById`, `ProgramMaker` and the
   others), so that a consumer's declarations and hovers name them.
 - The package ships its documentation, at its version: the guide (`site/guide/`), the tutorial (`site/tutorial/`), the
-  examples (`examples/`) and their bridges (`bridges/`), and a skill for coding agents, `skills/effect-tea/SKILL.md`.
+  examples (`examples/`) and the bridges' sources (`bridges/`), and a skill for coding agents,
+  `skills/effect-tea/SKILL.md`.
+- The bridges, as entries of the package: `@fgaudo/effect-tea/snabbdom`, with `messagesSentBy` in
+  `@fgaudo/effect-tea/snabbdom/testing`, and `@fgaudo/effect-tea/react`, whose renderer is an optional peer
+  (`snabbdom` ^3.6.4, `react` and `react-dom` ^19.3.1). They replace the files to copy ("Writing a bridge").
 
 ### Changed
 
@@ -110,13 +114,15 @@ version, and everything else, features included, the patch version.
 - The guide now promises what the run already did: messages are applied one at a time, in the order they were queued;
   commands run concurrently, with no bound, and the end of the run interrupts them; nothing is bounded or times out;
   `subscriptions` is pure ("Guarantees", "Commands", "Running").
-- The examples' bridges are in `bridges/`, with `messagesSentBy` in `snabbdom-testing.ts`; they settle each
-  text `<input>` with `drawn`, and no longer have `onInput`. `counter` and `form` draw with React too.
+- The bridge to snabbdom settles each text `<input>` with `drawn`, and no longer has `onInput`. `counter` and `form`
+  draw with React too.
 - The bridge to React is hosted by React: `Host` runs a program while it is mounted, and `Frames` draws a run started
   elsewhere; what the guide's "View" said of every renderer is now what each bridge promises.
 
 ### Fixed
 
+- The declarations of `dist/` import `.js` files, where they imported `.ts` files that `dist/` lacks, which tools
+  other than TypeScript could not resolve.
 - A package that exports a program, a child or what the API returns emits its declarations, where TypeScript failed
   with `TS2742`, `TS2883` or `TS4023`; `Applied`'s `revision` is a `number` in them.
 - A child's types read the `external`, `flags`, events, commands and services it has, where some read as `never` or

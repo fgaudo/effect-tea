@@ -409,11 +409,12 @@ newest Effect the peer range accepts, is what tells that it fell.
 
 What the dependencies of development do (fast-check, happy-dom, the renderers of the examples) is no premise of the
 library, and the rule leaves it out, with two exceptions. The bridges, `bridges/snabbdom.ts` and
-`bridges/react.ts`, are copied by users: their premises about the renderer follow the rule at the version of
+`bridges/react.ts`, are entries of the package: their premises about the renderer follow the rule at the version of
 the lockfile, each bridge's opening comment names the versions it was checked with, and what they rest on of the DOM is
 documented by its specification (WHATWG), since their tests run on happy-dom, which no browser is; one that is not
-goes under "Premises that no test reaches yet". A bridge that becomes a package of its own makes its renderer a peer,
-whose range starts at the version it is developed with, as Effect's does. And a test resting on what a dependency of
+goes under "Premises that no test reaches yet". Each renderer is an optional peer, whose range starts at the version
+its bridge is developed with and accepts the later minors of its major, as `AGENTS.md` says: the daily job
+(`.github/workflows/renderers-latest.yml`) runs the premises' tests at the newest version the range accepts. And a test resting on what a dependency of
 development does is still held to failing without what it checks.
 
 A premise that the rule cannot check yet holds the change up: it waits, or a guard of the library's makes the premise

@@ -1,9 +1,9 @@
 // An item is no child: a function of the sheet's view draws it, given what it shows and the dispatch of its count,
 // `forwardTo(dispatch, 'Count', id)`.
 import { type Dispatch, forwardTo, type Written } from "@fgaudo/effect-tea"
+import { onClick, shows, type View } from "@fgaudo/effect-tea/snabbdom"
 import * as Opt from "effect/Option"
 import { h, type VNode } from "snabbdom"
-import { onClick, shows, type View } from "../../bridges/snabbdom.ts"
 import type { ItemLine, ItemModel, Message, Model } from "./stocktake.ts"
 
 // snabbdom patches the one `<input>` in each case, and its props module never removes a prop: the editable count sets

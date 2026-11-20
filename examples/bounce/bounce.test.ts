@@ -1,4 +1,5 @@
 import { type Applied, InvariantDefect, ProgramDefect } from "@fgaudo/effect-tea"
+import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
 import { applyAll, dispatchViolations, drive } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
 import * as Arr from "effect/Array"
@@ -11,7 +12,6 @@ import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 import * as Stream from "effect/Stream"
 import * as fc from "fast-check"
-import { messagesSentBy } from "../../bridges/snabbdom-testing.ts"
 import {
   accumulate,
   Ball,

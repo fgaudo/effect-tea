@@ -1,7 +1,7 @@
 import { run } from "@fgaudo/effect-tea"
+import { renderInto } from "@fgaudo/effect-tea/snabbdom"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
-import { renderInto } from "../../bridges/snabbdom.ts"
 import { list } from "./list.ts"
 import { view } from "./view.ts"
 

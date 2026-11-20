@@ -1,6 +1,6 @@
 // Writes the report of the public API, one for each entrypoint of the package, from the declarations of `dist/`
-// (`bun run build` first): what `src/index.ts` and `src/testing/index.ts` export, and every type of the library they
-// reach without exporting it, since a change of one changes what a consumer writes as well. The reports are
+// (`bun run build` first): what `src/index.ts`, `src/testing/index.ts` and the bridges export, and every type of the
+// library they reach without exporting it, since a change of one changes what a consumer writes as well. The reports are
 // committed, so that a change of the API shows in the diff. `--check` writes nothing, and fails when a report differs
 // from the declarations, as the CI runs it.
 //
@@ -27,9 +27,17 @@ import * as FileSystem from "effect/FileSystem"
 import * as Path from "effect/Path"
 import { Failed, main, repository } from "./cli.ts"
 
+// The bridges' declarations name the DOM's types, which only their own configuration has.
 const entrypoints = [
-  { name: "effect-tea", declarations: "dist/index.d.ts" },
-  { name: "effect-tea-testing", declarations: "dist/testing/index.d.ts" }
+  { name: "effect-tea", declarations: "dist/index.d.ts", tsconfig: "tsconfig.build.json" },
+  { name: "effect-tea-testing", declarations: "dist/testing/index.d.ts", tsconfig: "tsconfig.build.json" },
+  { name: "effect-tea-snabbdom", declarations: "dist/bridges/snabbdom.d.ts", tsconfig: "bridges/tsconfig.build.json" },
+  {
+    name: "effect-tea-snabbdom-testing",
+    declarations: "dist/bridges/snabbdom-testing.d.ts",
+    tsconfig: "bridges/tsconfig.build.json"
+  },
+  { name: "effect-tea-react", declarations: "dist/bridges/react.d.ts", tsconfig: "bridges/tsconfig.build.json" }
 ]
 const command = Command.make(
   "api",
@@ -48,14 +56,14 @@ const command = Command.make(
     // The names the API reaches without exporting them: `includeForgottenExports` puts them in the report.
     const forgotten = new Set<string>()
     const failures: Array<string> = []
-    for (const { name, declarations } of entrypoints) {
+    for (const { name, declarations, tsconfig } of entrypoints) {
       const config = ExtractorConfig.prepare({
         configObject: {
           projectFolder: root,
           // As every file of the repository, on Windows too: api-extractor's default is CRLF.
           newlineKind: "lf",
           mainEntryPointFilePath: join(root, declarations),
-          compiler: { tsconfigFilePath: join(root, "tsconfig.build.json") },
+          compiler: { tsconfigFilePath: join(root, tsconfig) },
           apiReport: {
             enabled: true,
             reportFileName: name,
@@ -105,11 +113,16 @@ const command = Command.make(
       (path) => Effect.map(fs.readFileString(join(root, path)), (text) => ({ path, text })),
       { concurrency: "unbounded" }
     )
-    // What one entrypoint forgets, the other may export: `testing` reaches `Update`, which `.` exports.
-    const exportedNames = (text: string) =>
-      [...text.matchAll(/^export (?:type )?\{([^}]*)\}/gm)].flatMap(([, list = ""]) =>
+    // What one entrypoint forgets, another may export: `testing` reaches `Update`, which `.` exports, and
+    // `snabbdom/testing` reaches `View`, which `snabbdom` declares as it exports it.
+    const exportedNames = (text: string) => [
+      ...[...text.matchAll(/^export (?:type )?\{([^}]*)\}/gm)].flatMap(([, list = ""]) =>
         list.split(",").map((item) => item.trim().replace(/^type /, "").split(/\s+as\s+/).at(-1) ?? "")
-      )
+      ),
+      ...[...text.matchAll(/^export (?:declare )?(?:type|interface|const|class|function) (\w+)/gm)].map((
+        [, name = ""]
+      ) => name)
+    ]
     const exported = new Set(
       files.filter(({ path }) =>
         entrypoints.some((entrypoint) => join(root, entrypoint.declarations) === join(root, path))

@@ -22,7 +22,9 @@ examples/<name>/
 └─ <name>.test.ts   its tests, showing the testing tools on it
 ```
 
-The bridges the examples share are in [`bridges/`](../../../bridges), apart from the examples:
+The bridges the examples share are entries of the package, `@fgaudo/effect-tea/snabbdom`,
+`@fgaudo/effect-tea/snabbdom/testing` and `@fgaudo/effect-tea/react`, whose sources are in
+[`bridges/`](../../../bridges), apart from the examples:
 
 ```
 bridges/
@@ -36,8 +38,9 @@ bridges/
 └─ bridge.test_suite.ts      the tests every bridge passes
 ```
 
-The first three are what a user copies to draw and test a program with snabbdom, and the fourth to draw one with
-React: they are named as a user would name them (`AGENTS.md`, "Tests"). React is used only by
+The first two and the fourth are what a user imports to draw and test a program with snabbdom, and to draw one with
+React; the third is the line a user's tests of a snabbdom view load first, as the guide's "Testing" says (`AGENTS.md`,
+"Tests"). React is used only by
 [`counter`](../../../examples/counter) and [`form`](../../../examples/form), to show that a program does not change
 with its renderer: each has a `view-snabbdom.ts` and a `view-react.tsx`, and its `main.ts` draws one run with both
 renderers through `together`, into the `#snabbdom` and `#react` of its page. Its test checks the snabbdom view; the
@@ -54,12 +57,12 @@ renderers and is no bridge.
 ## The rules
 
 - **An example is a consumer.** It imports the package by its name (`@fgaudo/effect-tea`,
-  `@fgaudo/effect-tea/testing`), never by a relative path. `tsc -p examples` checks it with the `bun` condition
+  `@fgaudo/effect-tea/testing`, and the bridges' entries), never by a relative path. `tsc -p examples` checks it with the `bun` condition
   (the sources) and the `DOM` lib; Oxlint allows renderer imports there. Unstable APIs are not used there either:
   the typecheck refuses one, as in the library.
-  The examples and the bridges are published (`files` in `package.json`, all but their `tsconfig.json`), for the
-  guide, the tutorial and the skill that link them, but nothing of the package imports them: snabbdom, React and
-  `@happy-dom/global-registrator` are only dev dependencies.
+  The examples are published (`files` in `package.json`, all but their `tsconfig.json`), for the guide, the tutorial
+  and the skill that link them, but nothing of the package imports them. snabbdom and React are optional peers, for
+  the bridges alone, and `@happy-dom/global-registrator` is only a dev dependency.
 - **`main.ts`** finds `#app` and starts the program with `Effect.runFork(run(program, renderInto(root, view)))`,
   through an `Effect.tapCause` that logs the failure of a dying program, unless it is only an interruption
   (`list/main.ts`). Those of `counter` and `form` give `run` the two renderers through `together` instead: snabbdom's

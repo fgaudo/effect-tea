@@ -15,10 +15,20 @@ test of it. None is open.
 ## Possible improvements
 
 In the order they would be taken, as a review of the architecture set it on 20 November 2026. Each item says what it
-is, why, how it would be done, and what "done" is. Items 1 and 3 wait for a decision of the owner; item 2
-needs none.
+is, why, how it would be done, and what "done" is. Item 1 waits for its run in a real browser and a release, item 3
+for a decision of the owner; item 2 needs none.
 
 ### 1. The bridges as packages of their own
+
+**Decided by the owner, 20 November 2026: entries of this package**, the simpler form below, and done the same day:
+`@fgaudo/effect-tea/snabbdom`, `@fgaudo/effect-tea/snabbdom/testing` (`messagesSentBy`) and `@fgaudo/effect-tea/react`,
+built into `dist/bridges/`, the snabbdom bridge as it was. The renderers are optional peers with a caret from the
+versions of the lockfile (`^3.6.4`, `^19.3.1`), so that an application on a later minor can still install the package,
+and `.github/workflows/renderers-latest.yml` runs the bridges' tests at the newest versions the ranges accept. The
+smoke test installs the package without the renderers first, then with them, and runs and typechecks a consumer of the
+bridges (`tools/smoke/bridges.ts`). The preload is no entry: the guide's "Testing" says what it does. Left of "How"
+below: step 3, a real browser. Not decided: whether `/snabbdom` stays once a view of the library's own ("A wider
+form") is made, which would have a name of its own. Done when the next release publishes the entries.
 
 **Why.** `@fgaudo/effect-tea-snabbdom` and `@fgaudo/effect-tea-react`: the library stays free of renderers, and users
 stop copying `bridges/snabbdom.ts` and `bridges/react.ts`. A fix of a bridge, as those of 16 and 19 November 2026,
@@ -88,7 +98,7 @@ What is left:
 - **Left out, as the guide's "What is left out" says**: a form's reset, a value the element changes by itself, and an
   input drawn under one run's `Host` with the dispatch of another.
 
-**Done when** the packages are published with the library, or the entry of `docs/rejected.md` says why not.
+**Done when** the entries are published with the next release, and step 3 has run.
 
 ### 2. A benchmark that runs in the CI
 

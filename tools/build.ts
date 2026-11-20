@@ -1,4 +1,5 @@
-// Builds `dist/`: JavaScript and declarations for consumers that do not compile TypeScript sources.
+// Builds `dist/`: JavaScript and declarations for consumers that do not compile TypeScript sources, of `src/` and of
+// the bridges (`dist/bridges/`).
 // `tsc` rewrites relative `.ts` imports to `.js` in the JavaScript it emits, but not in the declarations,
 // so they are rewritten here: otherwise a consumer's TypeScript would look for `.ts` files `dist/` lacks.
 //
@@ -25,15 +26,18 @@ const command = Command.make(
       "bin/tsc"
     )
     yield* step(root, "bun", [tsc, "-p", "tsconfig.build.json"])
+    // After `src/`: a bridge imports the package by its name, which resolves to the declarations just written.
+    yield* step(root, "bun", [tsc, "-p", "bridges/tsconfig.build.json"])
     for (const declaration of yield* fs.glob("**/*.d.ts", { root: dist })) {
       const file = path.join(dist, declaration)
-      // Both forms `tsc` may write: `from './x.ts'`, and `import("./x.ts")` in an inferred type.
+      // Both forms `tsc` may write, `from "./x.ts"` and `import("./x.ts")` in an inferred type, with either quote: the
+      // quote is the compiler's choice, and TypeScript 7 writes double ones where TypeScript 5 wrote single ones.
       const text = yield* fs.readFileString(file)
       yield* fs.writeFileString(
         file,
-        text.replace(/(from\s+'\.{1,2}\/[^']*)\.ts'/g, "$1.js'").replace(
-          /(import\("\.{1,2}\/[^"]*)\.ts"\)/g,
-          "$1.js\")"
+        text.replace(/(from\s+(["'])\.{1,2}\/[^"']*)\.ts\2/g, "$1.js$2").replace(
+          /(import\((["'])\.{1,2}\/[^"']*)\.ts\2\)/g,
+          "$1.js$2)"
         )
       )
     }

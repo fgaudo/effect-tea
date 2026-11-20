@@ -3,7 +3,8 @@
 // `dist/`), and typechecks both against the declarations (`types`) under each TypeScript of `--typescript`, with
 // `moduleResolution` `nodenext` and `bundler`, emitting their own. Under Bun the `bun` condition loads `src/`:
 // nothing else imports `dist/`. It also checks that the documentation the package ships finds in it every file it
-// links.
+// links. Then it installs the renderers, which the package takes as optional peers, and runs and typechecks
+// `bridges.ts`, a consumer of the bridges, the same way.
 //
 //   bun tools/smoke/smoke.ts [--effect <version>] [--typescript 5.9,6.0,7.0] [--keep]
 //   bun tools/smoke/smoke.ts --help     the same, as the command describes itself
@@ -153,7 +154,7 @@ const command = Command.make(
     // TypeScript resolves a `.ts` import of a declaration to its `.d.ts` by itself, so no typecheck below would notice
     // a broken rewrite in `tools/build.ts`; other tools that read declarations do not.
     const installed = join(dir, "node_modules/@fgaudo/effect-tea/dist")
-    const tsImport = /from\s+'\.{1,2}\/[^']*\.ts'|import\("\.{1,2}\/[^"]*\.ts"\)/
+    const tsImport = /from\s+["']\.{1,2}\/[^"']*\.ts["']|import\(["']\.{1,2}\/[^"']*\.ts["']\)/
     const importing = yield* Effect.findFirst(
       yield* fs.glob("**/*.d.ts", { root: installed }),
       (path) => Effect.map(fs.readFileString(join(installed, path)), (text) => tsImport.test(text))
@@ -211,6 +212,43 @@ const command = Command.make(
       return yield* new Failed({
         message: `The declarations do not typecheck, or spell out what program returns, with ${failed.join("; ")}`
       })
+    }
+    // The renderers are optional peers: installed only now, so that what is checked above needs none of them.
+    const renderers = yield* Effect.forEach(
+      ["snabbdom", "react", "react-dom", "@types/react", "@types/react-dom"],
+      (name) =>
+        Effect.map(readJson(join(root, `node_modules/${name}/package.json`)), ({ version }) => `${name}@${version}`)
+    )
+    yield* step(dir, "npm", ["install", "--no-audit", "--no-fund", "--loglevel=error", ...renderers])
+    yield* Console.log(renderers.join(", "))
+    yield* fs.copyFile(join(import.meta.dir, "bridges.ts"), join(dir, "bridges.ts"))
+    yield* fs.writeFileString(join(dir, "window.ts"), "Object.assign(globalThis, { window: undefined })\n")
+    for (const resolution of ["nodenext", "bundler"]) {
+      const config: { compilerOptions: object } = yield* readJson(join(dir, `tsconfig.${resolution}.json`))
+      yield* fs.writeFileString(
+        join(dir, `tsconfig.bridges.${resolution}.json`),
+        JSON.stringify({
+          compilerOptions: { ...config.compilerOptions, outDir: `declarations/bridges/${resolution}` },
+          files: ["bridges.ts"]
+        })
+      )
+    }
+    yield* step(dir, "node", ["--import", "./window.ts", "bridges.ts"])
+    for (const version of typescripts) {
+      for (const resolution of ["nodenext", "bundler"]) {
+        const tsc = join(dir, `node_modules/typescript-${version}/bin/tsc`)
+        const { exitCode, stdout } = yield* exec(
+          ChildProcess.make("node", [tsc, "-p", `tsconfig.bridges.${resolution}.json`], { cwd: dir })
+        )
+        yield* Console.log(`typescript ${version}, ${resolution}, the bridges: ${exitCode === 0 ? "ok" : "failed"}`)
+        if (exitCode !== 0) {
+          yield* Console.log(stdout)
+          failed.push(`typescript ${version}, ${resolution}`)
+        }
+      }
+    }
+    if (failed.length > 0) {
+      return yield* new Failed({ message: `The bridges' declarations do not typecheck with ${failed.join("; ")}` })
     }
   }, Effect.scoped)
 )

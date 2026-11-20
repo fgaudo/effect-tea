@@ -6,8 +6,9 @@ description: How to add, change or remove an export of @fgaudo/effect-tea: where
 # Change the public API
 
 The API is exactly what [`src/index.ts`](../../../src/index.ts) and
-[`src/testing/index.ts`](../../../src/testing/index.ts) export, grouped by concept with a comment per group;
-every other module is internal. It is judged on its own terms ("What belongs here" in `AGENTS.md`): argue a
+[`src/testing/index.ts`](../../../src/testing/index.ts) export, grouped by concept with a comment per group, and what
+the bridges export, each an entry of its own (`./snabbdom`, `./snabbdom/testing`, `./react`, from
+[`bridges/`](../../../bridges)); every other module is internal. It is judged on its own terms ("What belongs here" in `AGENTS.md`): argue a
 change from the library's concepts, its examples and its users in general, never from what one application
 needs. An export removed or refused before is in [`docs/rejected.md`](../../../docs/rejected.md): read it before
 proposing one.
@@ -21,10 +22,11 @@ proposing one.
   the three tools behave alike where the engine is deterministic (`docs/invariants.md`).
 - Only stable Effect APIs, nothing deprecated, and no upgrade of Effect for a newer API without asking
   ([`upgrade-effect`](../upgrade-effect/SKILL.md)).
-- A new entrypoint beside `.` and `./testing` needs the three conditions of `exports` in `package.json`: `bun`
+- A new entrypoint needs the three conditions of `exports` in `package.json`: `bun`
   (the TypeScript source, for consumers that run under Bun), `types` and `default` (`dist/`, for everyone else),
-  and an entry in `files` if it is not under `src` or `dist`. The site's `typedoc.json` lists the entrypoints
-  too.
+  and an entry in `files` if it is not under `src` or `dist`. `tools/api-report.ts` and the site's `typedoc.json` list
+  the entrypoints too. A bridge's is built by `bridges/tsconfig.build.json`, with the `DOM` lib, and its renderer is an
+  optional peer (`AGENTS.md`).
 
 ## Test it
 

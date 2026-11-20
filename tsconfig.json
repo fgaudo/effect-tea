@@ -47,6 +47,6 @@
     "types": ["bun"]
   },
   "include": ["src", "test", "tools"],
-  // A consumer of the packed package, typechecked by the smoke test against its declarations.
-  "exclude": ["tools/smoke/consumer.ts"]
+  // The consumers of the packed package, typechecked by the smoke test against its declarations.
+  "exclude": ["tools/smoke/consumer.ts", "tools/smoke/bridges.ts"]
 }

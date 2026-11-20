@@ -1,8 +1,14 @@
 {
   "$schema": "https://typedoc.org/schema.json",
   "name": "@fgaudo/effect-tea",
-  "entryPoints": ["../src/index.ts", "../src/testing/index.ts"],
-  "tsconfig": "../tsconfig.build.json",
+  "entryPoints": [
+    "../src/index.ts",
+    "../src/testing/index.ts",
+    "../bridges/snabbdom.ts",
+    "../bridges/snabbdom-testing.ts",
+    "../bridges/react.ts"
+  ],
+  "tsconfig": "tsconfig.typedoc.json",
   "out": "dist",
   "includeVersion": true,
   "validation": { "notExported": false },

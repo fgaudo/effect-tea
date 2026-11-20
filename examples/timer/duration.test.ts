@@ -1,9 +1,9 @@
 import { reject } from "@fgaudo/effect-tea"
+import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
 import { applyAll, dispatchViolations } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
 import * as Opt from "effect/Option"
 import * as fc from "fast-check"
-import { messagesSentBy } from "../../bridges/snabbdom-testing.ts"
 import { duration, type Message, type Model, update } from "./duration.ts"
 import { durationView } from "./view.ts"
 

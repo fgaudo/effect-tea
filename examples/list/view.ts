@@ -2,9 +2,9 @@
 // is the same, and `forwardTo` gives it the same dispatch in every frame, so snabbdom's `thunk` draws again only
 // the stopwatch that changed.
 import { type Dispatch, forwardTo } from "@fgaudo/effect-tea"
+import { onClick, type View } from "@fgaudo/effect-tea/snabbdom"
 import * as Opt from "effect/Option"
 import { h, thunk, type VNode } from "snabbdom"
-import { onClick, type View } from "../../bridges/snabbdom.ts"
 import type { Message, Model } from "./list.ts"
 import type * as Stopwatch from "./stopwatch.ts"
 

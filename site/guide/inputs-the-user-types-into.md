@@ -78,8 +78,8 @@ a frame for each dispatched message, a rejected one too. So the element is never
 program changes what it shows. A write that the state moved on without is shown until the run has taken it, and then
 the element shows the program's value.
 
-The examples' bridges show this rule, and you can copy them: [`form`](../../examples/form) draws its input with
-snabbdom and with React.
+The package's bridges follow this rule (see [writing a bridge](./writing-a-bridge.md)): [`form`](../../examples/form)
+draws its input with snabbdom and with React.
 
 ### What is typed, in another form
 
@@ -95,7 +95,7 @@ value in another form has three ways:
 - **Format the text in the element, before the write.** A limit that the element keeps by itself, such as
   `maxlength`, needs nothing: the element reports the value that it holds. A mask changes the element's own value. So
   it is outside what this page promises, unless its bridge reports each such change as an edit (see
-  [which elements and renderers this holds for](#which-elements-and-renderers-this-holds-for)). The examples' bridges
+  [which elements and renderers this holds for](#which-elements-and-renderers-this-holds-for)). The package's bridges
   show no mask.
 
 Do not change the value in `set`. The element shows what the user typed, so the user's next write is over that value,
@@ -260,8 +260,8 @@ What meets it, and what does not:
   - a reset of its form;
   - a value written into it that it sanitizes, such as one with a line break.
 
-  The examples' bridges do not handle these (see [what is left out](./writing-a-bridge.md#what-is-left-out)).
-- **A renderer that draws each frame at once meets it.** So does React, with the examples' bridge: each `Shows`
+  The package's bridges do not handle these (see [what is left out](./writing-a-bridge.md#what-is-left-out)).
+- **A renderer that draws each frame at once meets it.** So does React, with the package's bridge: each `Shows`
   settles its element in a layout effect, after each commit that changes its value or `seen`, and as React shows it
   again, as Suspense does.
 - **A widget that changes its own value does not**, native or not. A range input is one: it changes its own value when

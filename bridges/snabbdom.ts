@@ -1,16 +1,24 @@
-// The renderer the examples use. The library knows nothing of it: any renderer that can draw a model, run
+// The bridge to snabbdom, the entry `@fgaudo/effect-tea/snabbdom`, which the examples use. The rest of the package
+// knows nothing of it: any renderer that can draw a model, run
 // `dispatch`, and reach the element of each input after a frame, before the user can act on it, works the same way.
 // A bridge does three things: it draws each frame whole and at once, runs `dispatch` in plain handlers, and settles
 // each text input on screen with `drawn` after the frame. snabbdom's handlers are plain callbacks, so they run it with
 // `send`; it patches synchronously, so each input is settled right after the patch. An input is a native text
 // `<input>`, whose element changes only by what the user types, or by this bridge.
-// A minimal example to start from, as the guide's "Writing a bridge" says: it settles native text fields alone, in
+// A minimal bridge, and an example to start from, as the guide's "Writing a bridge" says: it settles native text
+// fields alone, in
 // the base case, and does not handle a value the element changes by itself. Another native widget would be connected
 // by hand with `edited` and `drawn` where it meets their condition, or replaced by one the program draws; a root in a
 // shadow tree and a form's reset are left to a bridge that needs them.
 // The run's dispatch, and each child's from `forwardTo`, is the same in every frame, so a view can be
 // memoized with snabbdom's own `thunk`, its dispatch among the arguments.
-// Checked with snabbdom 3.6.4.
+// Checked with snabbdom 3.6.4, the start of its peer range; the daily job runs its tests with the newest snabbdom 3.
+/**
+ * The bridge to snabbdom: draws a program with snabbdom 3.6.4 or a newer 3.x, which you install beside the package.
+ *
+ * @see The guide, "Writing a bridge", "The package's bridges".
+ * @module @fgaudo/effect-tea/snabbdom
+ */
 import { type Dispatch, drawn, edited, type Frame, type Shown, type Written } from "@fgaudo/effect-tea"
 import * as Effect from "effect/Effect"
 import * as Opt from "effect/Option"
@@ -26,8 +34,11 @@ import {
   type VNodeData
 } from "snabbdom"
 
-/** A view of a program, drawn by this renderer: a pure function of its model, which sends its messages through
+/**
+ * A view of a program, drawn by this renderer: a pure function of its model, which sends its messages through
  * `dispatch`.
+ *
+ * @see The guide, "View".
  */
 export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => VNode
 
@@ -45,6 +56,14 @@ const lives = new WeakMap<Element, Live>()
  * (`forwardTo(dispatch, 'Name')`): what is typed is written over what the element showed, and the element takes the
  * program's value only once a frame has seen what was typed (`drawn`). It needs no key: the element stays, with its
  * focus, while the program changes what it shows.
+ *
+ * @example
+ * ```ts
+ * h("input", shows(model.name, forwardTo(dispatch, "Name")))
+ * ```
+ *
+ * @see The guide, "Inputs the user types into", "The element on screen".
+ * @see The guide, "Writing a bridge", "A text input".
  */
 export const shows = (value: string, dispatch: Dispatch<Written<string>>): VNodeData => ({
   shows: value,
@@ -118,6 +137,13 @@ const animationFrame = Effect.callback<void>((resume) => {
  * screen with the frame's `seen`. A frame whose model is the very one drawn last, which `run` gives for the very same
  * state, is not drawn again: its inputs are only settled. After each frame it waits for the next animation frame
  * before taking another, so it draws at most once per screen refresh: `run` keeps only the latest frame meanwhile.
+ *
+ * @example
+ * ```ts
+ * Effect.runFork(run(counter, renderInto(document.getElementById("app")!, view)))
+ * ```
+ *
+ * @see The guide, "Writing a bridge", "Frames".
  */
 export const renderInto =
   <Model, Message>(root: Element, view: View<Model, Message>) => (frames: Stream.Stream<Frame<Model, Message>>) => {
@@ -144,12 +170,20 @@ export const renderInto =
  */
 const send = <Message>(dispatch: Dispatch<Message>, message: Message): number => Effect.runSync(dispatch(message))
 
-/** snabbdom's `on` for a click that sends `message`. */
+/**
+ * snabbdom's `on` for a click that sends `message`.
+ *
+ * @see The guide, "Writing a bridge", "Handlers".
+ */
 export const onClick = <Message>(message: Message, dispatch: Dispatch<Message>): On => ({
   click: () => send(dispatch, message)
 })
 
-/** snabbdom's `on` for a press of the pointer that sends `message`: where a drag the program draws starts. */
+/**
+ * snabbdom's `on` for a press of the pointer that sends `message`: where a drag the program draws starts.
+ *
+ * @see The guide, "Writing a bridge", "Handlers".
+ */
 export const onPress = <Message>(message: Message, dispatch: Dispatch<Message>): On => ({
   pointerdown: () => send(dispatch, message)
 })

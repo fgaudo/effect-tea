@@ -638,6 +638,9 @@ comments are written by hand since, in plain English, and name the sections of t
   React (`docs/records/hosted-react.md`), and its inputs, each settled by itself and found by its run's context, work
   with a component's state, Suspense, `memo`, a portal and a shadow tree. What this entry says of React above is of the
   bridge it replaced; a form's reset and a value the element changes by itself are still left out, by both bridges.
+  The bridges became entries of the package the same day (`@fgaudo/effect-tea/snabbdom`, `/snabbdom/testing`,
+  `/react`), with the contract as narrow as it was, as item 1 of `ROADMAP.md` proposed: so this entry stands, and
+  _reopens_ when a user of an entry needs a feature of its renderer that it leaves out.
 - **A frame of the very same model taken at once, without waiting for the next animation frame.** Weighed in the
   review of the architecture of 20 November 2026, reasoned; rejected by the owner the same day. In both bridges a frame
   whose model is the one drawn last only settles the inputs (the snabbdom bridge patches nothing, the React bridge's

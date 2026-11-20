@@ -1,3 +1,9 @@
+/**
+ * What a test of a snabbdom view may use: `messagesSentBy`.
+ *
+ * @see The guide, "Testing", "The view".
+ * @module @fgaudo/effect-tea/snabbdom/testing
+ */
 import * as Effect from "effect/Effect"
 import type { On, VNode } from "snabbdom"
 import type { View } from "./snabbdom.ts"
@@ -13,6 +19,13 @@ type Listener = Extract<NonNullable<On[string]>, (...args: never) => unknown>
  * the tree, and returns the messages recorded, in the order the tree holds them, as the root of the program
  * receives them. What is written into an input is not among them: `shows` writes only from an element on screen,
  * which a tree drawn without a DOM has not, and a write is no message of the model.
+ *
+ * @example
+ * ```ts
+ * expect(messagesSentBy(view, model)).toEqual(messagesOf(model))
+ * ```
+ *
+ * @see The guide, "Testing", "The view".
  */
 export const messagesSentBy = <Model, Message>(
   view: View<Model, Message>,

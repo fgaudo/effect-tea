@@ -28,8 +28,8 @@ what of `examples/` and `bridges/` the reader reads:
   the skill leads to what the reader needs. It is the mode for the tutorial, whose pages are built on the code of
   `examples/timer/` and link to it, and for the skill. A reader that knows it checks documentation looks harder than
   an agent at work: one that does not find the skill is a finding, one that does is only a sign.
-- **Closed**: only the bridges and what they give a user's tests, which a user copies as they are, since the library
-  ships no renderer: `bridges/snabbdom.ts`, `bridges/react.ts`, `bridges/snabbdom-testing.ts`
+- **Closed**: only the bridges and what they give a user's tests, which a user imports as they are, since they are
+  entries of the package: `bridges/snabbdom.ts`, `bridges/react.ts`, `bridges/snabbdom-testing.ts`
   and `bridges/snabbdom-preload.ts`. It does not imitate a user, who has the examples: it checks the guide as
   the specification. A rule that a reader of the package would copy from an example without noticing shows instead as a
   guess, or as what the compiler or a test told it. It is the mode for pages of the guide.
@@ -105,9 +105,11 @@ RULES, strict:
 - You may not open the package's src/ nor the .js files of its dist/: that is the implementation. A path of them in a
   stack trace may be read as a user reads a stack trace, not the file it names.
 - You may read node_modules/effect, Effect's own sources and JSDoc, and the compiler's messages, as a user would.
-- Write your files in the project's root. Import the library only as a user does: @fgaudo/effect-tea and
-  @fgaudo/effect-tea/testing. Run `bun test` and `bunx tsc -p .` there. Do not change tsconfig.json or package.json,
-  and install nothing. You may copy a bridge of the package's examples/ into the project, as a user would.
+- Write your files in the project's root. Import the library only as a user does: @fgaudo/effect-tea,
+  @fgaudo/effect-tea/testing, and the bridges @fgaudo/effect-tea/snabbdom, @fgaudo/effect-tea/snabbdom/testing and
+  @fgaudo/effect-tea/react, whose renderer the project has when it needs one. Run `bun test` and `bunx tsc -p .` there.
+  Do not change tsconfig.json or package.json, and install nothing. You may copy bridges/snabbdom-preload.ts into the
+  project, as a user would.
 
 THE REQUIREMENT: <the requirement, as numbered points a business would write>
 
@@ -146,7 +148,7 @@ The package documents itself in node_modules/@fgaudo/effect-tea. Start with its 
   declarations are the API reference a user reads in a hover. A `@see` line of a doc comment names a page of
   site/guide/ by its title. Of examples/ and bridges/, you may read only the bridges and what they give a user's tests:
   bridges/snabbdom.ts, bridges/react.ts, bridges/snabbdom-testing.ts and
-  bridges/snabbdom-preload.ts. Use them as a user who copies them does, by what they export, and count what
+  bridges/snabbdom-preload.ts. Use them as a user who imports them does, by what they export, and count what
   you learn from their code under (2), with the file. Every other file of examples/ and bridges/ is forbidden, though
   the skill, the guide and the tutorial link to it: where one sends you to such a file, say in the report which page,
   what you needed from the file, and how you did without it.

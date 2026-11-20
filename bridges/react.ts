@@ -1,5 +1,6 @@
-// The examples' second renderer, React's, in which React hosts the program (`docs/records/hosted-react.md`). With it,
-// `counter` and `form` draw their programs a second time, under snabbdom in the same run (`../together.ts`): only the
+// The bridge to React, the entry `@fgaudo/effect-tea/react`, in which React hosts the program
+// (`docs/records/hosted-react.md`). With it, the examples `counter` and `form` draw their programs a second time, under
+// snabbdom in the same run (`examples/together.ts`): only the
 // view (`view-react.tsx`) and this bridge change with the renderer, and the program and its tests stay as they are.
 // The renderer given to `run` only hands each frame to a store that React reads with `useSyncExternalStore`, so the
 // engine is the same as for any renderer. Two layers: `makeStore` and `Frames`, for a run that the application starts
@@ -11,7 +12,15 @@
 // committed, whatever commit shows it: a frame, a state of the application, Suspense showing it again, a portal.
 // What it does not handle, as the guide's "Writing a bridge" says: a form's reset, and a value the element changes by
 // itself.
-// Checked with react and react-dom 19.3.1.
+// Checked with react and react-dom 19.3.1, the start of their peer range; the daily job runs its tests with the newest
+// React 19.
+/**
+ * The bridge to React: draws a program with React and React DOM 19.3.1 or a newer 19.x, which you install beside the
+ * package.
+ *
+ * @see The guide, "Writing a bridge", "The package's bridges".
+ * @module @fgaudo/effect-tea/react
+ */
 import {
   type Dispatch,
   drawn,
@@ -47,13 +56,23 @@ import { flushSync } from "react-dom"
 /**
  * A view of a program, drawn by this renderer: a function of its model, which sends its messages through `dispatch`.
  * React calls it as it renders, so the components it draws may have hooks of their own.
+ *
+ * @see The guide, "View".
  */
 export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => ReactNode
 
-/** The renderer `run` takes. */
+/**
+ * The renderer `run` takes.
+ *
+ * @see The guide, "Writing a bridge", "Frames".
+ */
 export type Render<Model, Message> = (frames: Stream.Stream<Frame<Model, Message>>) => Effect.Effect<void>
 
-/** The latest frame of a run, for React to read: what `Frames` draws. */
+/**
+ * The latest frame of a run, for React to read: what `Frames` draws.
+ *
+ * @see The guide, "Writing a bridge", "Frames".
+ */
 export type Store<Model, Message> = {
   /**
    * A renderer for `run`, which publishes each frame of the run it is given. Once another renderer of the store is
@@ -77,6 +96,15 @@ const animationFrame = Effect.callback<void>((resume) => {
  * A store of the latest frame of a run. Each frame is published inside `flushSync`: when the publication returns,
  * React has committed it, and every input drawn has settled with it. After a frame, the renderer waits for the next
  * animation frame before it takes another, as the snabbdom bridge does.
+ *
+ * @example
+ * ```ts
+ * const store = makeStore<Model, Message>()
+ * Effect.runFork(run(counter, store.open()))
+ * createElement(Frames, { store, view })
+ * ```
+ *
+ * @see The guide, "Writing a bridge", "Frames".
  */
 export const makeStore = <Model, Message>(): Store<Model, Message> => {
   let latest: Frame<Model, Message> | undefined
@@ -128,6 +156,9 @@ const none: unique symbol = Symbol("@fgaudo/effect-tea/react/none")
  * Draws the latest frame of `store` with `view`, and `fallback` before the first: for a run the application starts
  * itself, with `store.open()` as its renderer. It renders again only for a new model: a frame of the very same model
  * reaches the inputs alone, which read `seen` themselves.
+ *
+ * @see The guide, "View".
+ * @see The guide, "Writing a bridge", "Frames".
  */
 export const Frames = <Model, Message>({
   store,
@@ -153,10 +184,16 @@ export const Frames = <Model, Message>({
 /**
  * How the application runs the program: `Effect.runFork` by default, or the `runFork` of a `ManagedRuntime` that gives
  * the program's services.
+ *
+ * @see The guide, "Guarantees", "With the bridge to React, a run that dies is thrown to the nearest error boundary".
  */
 export type Fork<R> = (effect: Effect.Effect<void, never, R>) => Fiber.Fiber<void, unknown>
 
-/** What `Host` takes: `run`'s program and options, how to fork the run, and its view. */
+/**
+ * What `Host` takes: `run`'s program and options, how to fork the run, and its view.
+ *
+ * @see The guide, "Running", "Options".
+ */
 export type HostProps<State, Model, Message, Command, RC, RS, Flags> =
   & {
     /** The program to run. */
@@ -190,9 +227,13 @@ type Died = { readonly error: unknown }
  *   Whatever `fork` handles around the run is not thrown or reported again.
  *
  * @example
- * ```ts
- * createElement(Host, { program: counter, children: view })
+ * ```tsx
+ * createRoot(root).render(<Host program={counter}>{view}</Host>)
  * ```
+ *
+ * @see The guide, "View".
+ * @see The guide, "Guarantees", "With the bridge to React, the run lives as long as the effect that starts it".
+ * @see The guide, "Guarantees", "With the bridge to React, a run that dies is thrown to the nearest error boundary".
  */
 export const Host = <State, Model, Message, Command = never, RC = never, RS = never, Flags = never>(
   props: HostProps<State, Model, Message, Command, RC, RS, Flags>
@@ -233,10 +274,18 @@ export const Host = <State, Model, Message, Command = never, RC = never, RS = ne
 /** Sends a message from a React callback, and returns its number: a dispatch needs no services and is synchronous. */
 const send = <Message>(dispatch: Dispatch<Message>, message: Message): number => Effect.runSync(dispatch(message))
 
-/** React's `onClick` for a click that sends `message`. */
+/**
+ * React's `onClick` for a click that sends `message`.
+ *
+ * @see The guide, "Writing a bridge", "Handlers".
+ */
 export const onClick = <Message>(message: Message, dispatch: Dispatch<Message>) => () => send(dispatch, message)
 
-/** React's `onPointerDown` for a press of the pointer that sends `message`: where a drag the program draws starts. */
+/**
+ * React's `onPointerDown` for a press of the pointer that sends `message`: where a drag the program draws starts.
+ *
+ * @see The guide, "Writing a bridge", "Handlers".
+ */
 export const onPress = <Message>(message: Message, dispatch: Dispatch<Message>) => () => send(dispatch, message)
 
 /**
@@ -247,6 +296,14 @@ export const onPress = <Message>(message: Message, dispatch: Dispatch<Message>) 
  * effect, after each commit that changes its value or its run's `seen`, and as it is shown. The `<input>` is
  * uncontrolled and needs no key: the element stays, with its focus, while the program changes what it shows. Its other
  * props are the `<input>`'s.
+ *
+ * @example
+ * ```ts
+ * createElement(Shows, { value: model.name, dispatch: forwardTo(dispatch, "Name") })
+ * ```
+ *
+ * @see The guide, "Inputs the user types into", "The element on screen".
+ * @see The guide, "Writing a bridge", "A text input".
  */
 export const Shows = ({
   value,

@@ -26,6 +26,21 @@
       "bun": "./src/testing/index.ts",
       "types": "./dist/testing/index.d.ts",
       "default": "./dist/testing/index.js"
+    },
+    "./snabbdom": {
+      "bun": "./bridges/snabbdom.ts",
+      "types": "./dist/bridges/snabbdom.d.ts",
+      "default": "./dist/bridges/snabbdom.js"
+    },
+    "./snabbdom/testing": {
+      "bun": "./bridges/snabbdom-testing.ts",
+      "types": "./dist/bridges/snabbdom-testing.d.ts",
+      "default": "./dist/bridges/snabbdom-testing.js"
+    },
+    "./react": {
+      "bun": "./bridges/react.ts",
+      "types": "./dist/bridges/react.d.ts",
+      "default": "./dist/bridges/react.js"
     }
   },
   "files": [
@@ -39,6 +54,7 @@
     "!examples/tsconfig.json",
     "bridges",
     "!bridges/tsconfig.json",
+    "!bridges/tsconfig.build.json",
     "skills",
     "README.md",
     "CHANGELOG.md"
@@ -64,7 +80,21 @@
     "minimatch": "^11.0.1"
   },
   "peerDependencies": {
-    "effect": "~4.1.4"
+    "effect": "~4.1.4",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "snabbdom": "^3.6.4"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "snabbdom": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@effect/platform-bun": "~4.1.4",

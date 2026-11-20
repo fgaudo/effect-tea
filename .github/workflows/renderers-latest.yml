@@ -1,0 +1,30 @@
+name: Renderers latest
+
+# The renderers are optional peers of the bridges with a caret (`^19.3.1` for React, `^3.6.4` for snabbdom), wider than
+# Effect's tilde (`AGENTS.md`), and the bridges are developed, and what they rest on of their renderer tested, at the
+# version of the lockfile alone (`docs/premises.md`). This runs the bridges' tests, those of the premises on the
+# renderers among them, and the examples' at the newest versions the ranges accept, so that a minor that breaks a
+# bridge is known the day after it is published. A failure here is a lead for a fix of the bridge, or for a narrower
+# range, not a red commit.
+on:
+  schedule:
+    - cron: '7 4 * * *'
+  workflow_dispatch:
+
+jobs:
+  newest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.5
+      - run: bun install --frozen-lockfile
+      # The newest versions within the ranges of `devDependencies`, which are the peer ranges.
+      - run: bun update snabbdom react react-dom @types/react @types/react-dom
+      - run: bun pm ls | grep -E 'snabbdom|react'
+      - run: bun run typecheck
+      # A deprecation a new version adds shows here first.
+      - run: bun run lint
+      - run: bun run test

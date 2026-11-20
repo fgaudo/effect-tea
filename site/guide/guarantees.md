@@ -90,7 +90,7 @@ beside the program's frames is each bridge's to promise (see [view](./view.md#ru
   starts the program again from `init`. So do a new `key`, a remount, and StrictMode, which starts every effect twice
   in development. The first run may have started the commands of `init` before it is interrupted. For a state that
   outlives a component, start the run yourself, and draw it with `Frames` (see
-  [the examples' bridges](./writing-a-bridge.md#the-examples-bridges)).
+  [the package's bridges](./writing-a-bridge.md#the-packages-bridges)).
 - **With the bridge to React, a run that dies is thrown to the nearest error boundary.** `Host` throws it as it
   renders, while it is mounted. Once `Host` has unmounted, it is given to `reportError` instead. What is thrown is
   `Cause.squash` of what the run ended with, which keeps one defect. To see the whole cause, wrap the run in the `fork`

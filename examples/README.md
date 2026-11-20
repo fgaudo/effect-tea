@@ -1,7 +1,7 @@
 # Examples
 
 Complete programs of `@fgaudo/effect-tea`, each with its tests. Read one to see how a program is written and tested,
-run one in your browser, and copy a bridge into your own project. The [README](../README.md#examples) lists what each
+run one in your browser, and draw your own with the package's bridges. The [README](../README.md#examples) lists what each
 example shows, with a link to try it in the browser.
 
 ## Where to start
@@ -30,15 +30,17 @@ two. The other examples are drawn with snabbdom alone, by a `view.ts`.
 
 ## The bridges
 
-The library ships no renderer. A view is drawn through a bridge, a small file that you copy into your project and own.
-The bridges are in [`bridges/`](../bridges):
+The library draws nothing. A view is drawn through a bridge, an entry of the package, with its renderer installed
+beside it (`snabbdom`, or `react` and `react-dom`). The bridges' sources are in [`bridges/`](../bridges):
 
-| File                                                    | What it is                                                                               | You need it to                              |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------- |
-| [`snabbdom.ts`](../bridges/snabbdom.ts)                 | The bridge to snabbdom: `renderInto`, `onClick`, `onPress` and `shows`.                  | draw a program with snabbdom                |
-| [`snabbdom-testing.ts`](../bridges/snabbdom-testing.ts) | `messagesSentBy`: what a view sends for a model, found without a DOM.                    | test that a view draws what its model holds |
-| [`snabbdom-preload.ts`](../bridges/snabbdom-preload.ts) | Loaded before the tests, so that snabbdom loads without a DOM.                           | test a snabbdom view without a DOM          |
-| [`react.ts`](../bridges/react.ts)                       | The bridge to React: `Host`, `Frames` and `makeStore`, `onClick`, `onPress` and `Shows`. | draw a program in a React application       |
+| Import                                | Source                                                  | What it is                                                                               | You need it to                              |
+| ------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `@fgaudo/effect-tea/snabbdom`         | [`snabbdom.ts`](../bridges/snabbdom.ts)                 | The bridge to snabbdom: `renderInto`, `onClick`, `onPress` and `shows`.                  | draw a program with snabbdom                |
+| `@fgaudo/effect-tea/snabbdom/testing` | [`snabbdom-testing.ts`](../bridges/snabbdom-testing.ts) | `messagesSentBy`: what a view sends for a model, found without a DOM.                    | test that a view draws what its model holds |
+| `@fgaudo/effect-tea/react`            | [`react.ts`](../bridges/react.ts)                       | The bridge to React: `Host`, `Frames` and `makeStore`, `onClick`, `onPress` and `Shows`. | draw a program in a React application       |
+
+[`snabbdom-preload.ts`](../bridges/snabbdom-preload.ts) is what Bun loads before the tests of this repository, so that
+snabbdom loads without a DOM: a test of a snabbdom view without a DOM needs the same line.
 
 The other files of `bridges/` serve this repository. `snabbdom.test.ts` and `react.test.ts` test each bridge in a DOM.
 `bridge.test_suite.ts` holds the tests that every bridge passes. Read them when you write a bridge of your own, with the

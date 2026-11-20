@@ -19,10 +19,10 @@ renderer. A bridge does three things:
 Most of a bridge's code is the same whatever the renderer. Only two places are the renderer's own: where it draws, and
 where it lets the bridge reach an element.
 
-The code below is the examples' bridge to snabbdom,
-[`bridges/snabbdom.ts`](../../bridges/snabbdom.ts). The timer is drawn with it. You do not need to
+The code below is the package's bridge to snabbdom, `@fgaudo/effect-tea/snabbdom`
+([`bridges/snabbdom.ts`](../../bridges/snabbdom.ts)). The timer is drawn with it. You do not need to
 know snabbdom to read it. Each of the two places of the renderer is named where it comes, with what the bridge to
-React, [`bridges/react.ts`](../../bridges/react.ts), does there instead. The bridge to snabbdom is a
+React, `@fgaudo/effect-tea/react` ([`bridges/react.ts`](../../bridges/react.ts)), does there instead. The bridge to snabbdom is a
 minimal example to start from. What else a renderer can do is left to the bridge that needs it (see
 [what is left out](#what-is-left-out)).
 
@@ -143,15 +143,20 @@ What a bridge does, from the walkthrough above:
 
 ## Precisely
 
-### The examples' bridges
+### The package's bridges
 
-The library ships no renderer. A bridge to a renderer does the three things listed in [in short](#in-short). The
-examples have two bridges:
+The library draws nothing. A bridge to a renderer does the three things listed in [in short](#in-short). The package
+has two bridges, each an entry of its own:
 
-- [`bridges/snabbdom.ts`](../../bridges/snabbdom.ts), the bridge to snabbdom;
-- [`bridges/react.ts`](../../bridges/react.ts), the bridge to React.
+- `@fgaudo/effect-tea/snabbdom` ([`bridges/snabbdom.ts`](../../bridges/snabbdom.ts)), the bridge to snabbdom, with
+  `messagesSentBy` in `@fgaudo/effect-tea/snabbdom/testing`;
+- `@fgaudo/effect-tea/react` ([`bridges/react.ts`](../../bridges/react.ts)), the bridge to React.
 
-Each bridge is small enough to copy, and worth copying for your own. Each bridge:
+A bridge needs its renderer, which you install beside the package: `snabbdom` 3.6.4 or a newer 3.x, or `react` and
+`react-dom` 19.3.1 or a newer 19.x. The package does not install them. The rest of the package needs neither.
+
+Each bridge is small, and a start for a bridge of your own: for another renderer, or for what they leave out. Each
+bridge:
 
 - names the type of its views, `View<Model, Message>`;
 - has a renderer for `run`, and handlers: `renderInto` with snabbdom; with React, `Host`, which runs a program while it
@@ -166,7 +171,8 @@ renderer, from the bridge to snabbdom.
 
 ### What is left out
 
-The examples' bridges are minimal examples to start from. They show how a native element is connected to the library.
+The package's bridges are minimal, and examples to start from. They show how a native element is connected to the
+library.
 They handle only the base case:
 
 - **They run `dispatch` from three events**: a click, a press of the pointer, and the `input` event of a native text
@@ -177,7 +183,7 @@ They handle only the base case:
 They leave out:
 
 - **A value the text field changes by itself**, as when the field strips the line breaks from what is written into it.
-  The examples' bridges do not handle it. Whether a bridge that starts from them could handle it is left open.
+  The package's bridges do not handle it. Whether a bridge that starts from them could handle it is left open.
 - **A form's reset**, by a reset button or `form.reset()`, with either bridge. A program may empty a field by leaving
   `''` in its place.
 - **A root or an input in a shadow tree**, with the bridge to snabbdom.
@@ -215,8 +221,9 @@ A bridge of your own can start from them. To run them on it:
 The file holds the screen refreshes and Effect's scheduler, with `holdFrames`, `settle`, `refresh` and `paint`. So the
 test says when a frame is drawn, and when the run's fibers go on.
 
-Beside the snabbdom bridge, [`bridges/snabbdom-testing.ts`][messages] has `messagesSentBy`. It finds what a
-view sends, without a DOM. It is one way to check that a view draws what its model holds. The library does not ask it
-of any bridge (see [testing](./testing.md)). The test of each example drawn with snabbdom uses `messagesSentBy`.
+Beside the snabbdom bridge, `@fgaudo/effect-tea/snabbdom/testing` ([`bridges/snabbdom-testing.ts`][messages]) has
+`messagesSentBy`. It finds what a view sends, without a DOM. It is one way to check that a view draws what its model
+holds. The library does not ask it of any bridge (see [testing](./testing.md)). The test of each example drawn with
+snabbdom uses `messagesSentBy`.
 
 [messages]: ../../bridges/snabbdom-testing.ts

@@ -17,7 +17,7 @@
     }]
   },
   "overrides": [{
-    "files": ["examples/**", "bridges/**"],
+    "files": ["examples/**", "bridges/**", "tools/smoke/bridges.ts"],
     "rules": {
       "no-restricted-imports": "off"
     }

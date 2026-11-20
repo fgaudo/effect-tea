@@ -1,4 +1,4 @@
-import { onClick, type View } from "../../bridges/react.ts"
+import { onClick, type View } from "@fgaudo/effect-tea/react"
 import type { Message, Model } from "./counter.ts"
 
 // The view of `counter/view-snabbdom.ts`, in React: the same model, the same messages.

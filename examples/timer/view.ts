@@ -1,9 +1,9 @@
 // The views of the tutorial's steps, drawn with snabbdom. Each draws its model and formats its values, never
 // deciding: what is shown, and which messages the controls send, is the model's.
 import { forwardTo } from "@fgaudo/effect-tea"
+import { onClick, shows, type View } from "@fgaudo/effect-tea/snabbdom"
 import * as Opt from "effect/Option"
 import { h, thunk } from "snabbdom"
-import { onClick, shows, type View } from "../../bridges/snabbdom.ts"
 import type * as Duration from "./duration.ts"
 import type * as NamedTimers from "./named-timers.ts"
 import type * as Named from "./named.ts"
