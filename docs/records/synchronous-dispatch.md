@@ -203,6 +203,30 @@ above, given alike to the run and to each tool. P2.
 **Done when** the same checks pass, with no `test.failing` left in the contract, or each one listed in `ROADMAP.md`
 with what it says.
 
+**Done, 20 November 2026**, by a session of Opus 5.5, from a design note that the session that briefed it reviewed
+before any code, and run again by that session: `typecheck`, `lint`, `test` (1,279), `test:node` (982), both searches
+and `mutations` (307, 59 of them new) pass, with no `test.failing` in the contract. `ledger.ts` and `simulate` did not
+change, and are imported from `src/testing/`. How E7 was built:
+
+- **A call applies its message in one thunk, in the fiber that makes it**: the end, the register, `update`, the
+  state, the keys, the ledger's hearings and the model, and its job offered last. The loop is the fiber of effects: a
+  job stops the starts whose key went away, by their start, kept in a `FiberMap` as the engine's are, tells the calls
+  that waited on them, and owes the step's commands. A call returns once its job is done.
+- **`hear` waits for the job that starts its start**, then looks its key up again: a key that is not in the current
+  state then fails the test, as it does today, so that no call gives `arrive` a message to drop. The note proposed a
+  silent drop, and the review changed it.
+- **Every `hearNext` is a job**, and its key is looked up at the call: one whose key goes away before its job fails as
+  stopped, told after the job that stops its start, and starts nothing.
+- **Jobs after a death run whole**, as the engine's do, and each call checks the register in its own thunk.
+- **`drive` begins its scenario once its renderer has the handle**, so that `Driver.dispatch` is the run's from the
+  first step, and its run is forked without `startImmediately`. `Driver.model` fails with the defects after one.
+  `send` selects and sends in one thunk: the review made it so, where it sent once the wait had returned.
+
+Left for stage 4: `docs/premises.md` names `FiberSet.run` for the subscriptions of `rehearse`, now kept in a
+`FiberMap`, and `startImmediately` for `drive`, which no longer rests on it; the guide's "Messages that arrive
+together" is inverted; and nothing says yet that `Driver.waitFor`, after a defect of a later model, may match the
+model read before it, though `drive` still ends with the defect first.
+
 ### 3. The bridges, beside
 
 **Where.** `bridges/next/react.ts`, `snabbdom.ts` and `snabbdom-testing.ts`, the suite they share and their tests,

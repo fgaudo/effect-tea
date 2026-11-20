@@ -362,8 +362,9 @@ described here yet: what this file says of `shell.ts` holds of both.
   renderer sends as the run releases it does not reach update" (`run.test.ts`); "each call hears the next message, and the
   subscription waits between two of them" (`rehearse.test.ts`); "in the run, it is heard once to its end, under a key
   that stays, and again once its key comes back", and the tests of "a fiber of the test's that sends once the tool has
-  ended" (`contract.test.ts`); of `src/next/engine.test.ts`, "takes the jobs one at a time, in the order of the
-  states: none starts while the job before is held", where nothing tells that a later job has not started while a
-  release holds the fiber of effects, and "the end stops the fiber of effects held by a release, which starts nothing
-  after, nor any job it had not taken". The scheduler of the tests could await quiescence in their place, and does
-  not, as "one thunk" says of every test of a check (`rejected.md`, "The checks").
+  ended" (`contract.test.ts`), and the copies of these three in `src/next/testing/`; of `src/next/engine.test.ts`,
+  "takes the jobs one at a time, in the order of the states: none starts while the job before is held", where nothing
+  tells that a later job has not started while a release holds the fiber of effects, and "the end stops the fiber of
+  effects held by a release, which starts nothing after, nor any job it had not taken". The scheduler of the tests
+  could await quiescence in their place, and does not, as "one thunk" says of every test of a check (`rejected.md`,
+  "The checks").

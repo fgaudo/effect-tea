@@ -26,10 +26,25 @@ Spiked on 20 November 2026, and decided by the owner the same day, with every an
 
 **How.** As the plan of [`docs/records/synchronous-dispatch.md`](docs/records/synchronous-dispatch.md) says, in stages,
 on `main`. The new engine, the new testing tools and the new bridges are written beside the old ones, in `src/next/`
-and `bridges/next/`, and swapped in one commit. Stages 0 and 1 are done: the decisions, and the engine with its run,
-in `src/next/`. **The next step is stages 2 and 3, at once**: the testing tools and the bridges. Then a spike of an
+and `bridges/next/`, and swapped in one commit. Stages 0, 1 and 2 are done: the decisions, the engine with its run,
+and the testing tools, in `src/next/`. **The next step is the end of stage 3**, the bridges, below. Then a spike of an
 input as a value of the library's in the model, which the owner decides on before the swap; the swap (4); and a
 reader's check of the documentation (5).
+
+**Where it stands**, 20 November 2026, for a session that takes this up with none of the conversation:
+
+- Each stage is a session of Opus 5.5 in this checkout, which commits nothing. It writes its report to
+  `scratch/reports/sync-dispatch-stage-<n>.md`, which git ignores. The session that briefs it reads the report, reviews
+  the diff, runs every check again, writes the stage's outcome in the record and commits.
+- **Stage 3** is written and not committed: `bridges/next/`, `bridges/tsconfig.build.json` and `docs/premises.md`.
+  Its code was read by the session that briefed it, which found nothing to change. Its mutations are not in
+  `tools/mutations/mutations.ts` yet, which stage 2 held until its commit: its session was told that the list is
+  free, and adds the 26 entries of `scratch/reports/sync-dispatch-stage-3-mutations.ts` and runs them. Then the
+  checks are run again, the stage's outcome is written in the record, and it is committed. Nothing else is to change
+  before that.
+- Found by stage 3, for stage 4 and for the owner: React reads the model in the store's notice itself, so `makeModel`
+  runs on the stack of whoever sent the message, under React too. No page of react.dev says it, and nothing of the
+  bridge rests on it: the guide describes it, and promises nothing of it, unless the owner takes it as a premise.
 
 **Done when** the swap is committed, every check of its stage passed, and the reader's check is done.
 

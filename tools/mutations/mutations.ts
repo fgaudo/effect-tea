@@ -3430,5 +3430,718 @@ export const mutations: ReadonlyArray<Mutation> = [
         "defects are recorded in the order they happened, and a listener that throws leaves the others told"
       ]
     ]
+  },
+  // The testing tools of `src/next/testing/` (`docs/records/synchronous-dispatch.md`, stage 2).
+  {
+    name: "the thunk of rehearse records a defect of update in subscriptions",
+    file: "src/next/testing/rehearse.ts",
+    from: "recordThrown(register, \"update\", thrown, () => ({ on: describeByTag(message) }))",
+    to: "recordThrown(register, \"subscriptions\", thrown, () => ({ on: describeByTag(message) }))",
+    killedBy: [
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse fails, as the run dies, in update, with its message, on an update that throws"
+      ]
+    ]
+  },
+  {
+    name: "the thunk of rehearse records a defect of update without its message",
+    file: "src/next/testing/rehearse.ts",
+    from: "recordThrown(register, \"update\", thrown, () => ({ on: describeByTag(message) }))",
+    to: "recordThrown(register, \"update\", thrown)",
+    killedBy: [
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse fails, as the run dies, in update, with its message, on an update that throws"
+      ]
+    ]
+  },
+  {
+    name: "the next rehearse dies with no site for a defect of init",
+    file: "src/next/testing/rehearse.ts",
+    from: ".pipe(diesIn(\"init\"))",
+    to: "",
+    killedBy: [
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse fails, as the run dies, in init, on an init that throws on its flags"
+      ]
+    ]
+  },
+  {
+    name: "the thunk of rehearse records a defect of a later model in update",
+    file: "src/next/testing/rehearse.ts",
+    from: "recordThrown(register, \"render\", thrown)",
+    to: "recordThrown(register, \"update\", thrown)",
+    killedBy: [
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse fails, as the run dies, in render, on a makeModel that throws on a later state"
+      ]
+    ]
+  },
+  {
+    name: "the thunk of rehearse stops its step at a defect of a later model",
+    file: "src/next/testing/rehearse.ts",
+    from: "            recordThrown(register, \"render\", thrown)\n          }\n",
+    to: "            recordThrown(register, \"render\", thrown)\n            return deadOutcome\n          }\n",
+    killedBy: [
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse applies the message whose model dies whole, as the run does, its commands owed"
+      ]
+    ]
+  },
+  {
+    name: "the thunk of rehearse makes the model before it reads the subscriptions",
+    file: "src/next/testing/rehearse.ts",
+    from: "          if (!changed) return queued(jobOf([], [], owed, hearer))\n",
+    to: "          if (!changed) return queued(jobOf([], [], owed, hearer))\n"
+      + "          try {\n"
+      + "            shown = program.makeModel(next.state)\n"
+      + "          } catch (thrown) {\n"
+      + "            recordThrown(register, \"render\", thrown)\n"
+      + "          }\n",
+    killedBy: [
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse fails in subscriptions first, as the run dies, on a state whose model is a defect too"
+      ]
+    ]
+  },
+  {
+    name: "the thunk of rehearse records a defect of subscriptions in update",
+    file: "src/next/testing/rehearse.ts",
+    from: "            recordThrown(register, \"subscriptions\", thrown)\n            return deadOutcome",
+    to: "            recordThrown(register, \"update\", thrown)\n            return deadOutcome",
+    killedBy: [
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse fails, as the run dies, on a key whose Equal throws against the key of the state before"
+      ]
+    ]
+  },
+  {
+    name: "the thunk of rehearse offers the job of a state whose subscriptions are a defect",
+    file: "src/next/testing/rehearse.ts",
+    from: "            recordThrown(register, \"subscriptions\", thrown)\n            return deadOutcome",
+    to:
+      "            recordThrown(register, \"subscriptions\", thrown)\n            return queued(jobOf([], [], owed, hearer))",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a state whose subscriptions are a defect owes no command, as the run starts none"
+      ]
+    ]
+  },
+  {
+    name: "the next rehearse records a defect of a key's Equal, looked up for a call, in update",
+    file: "src/next/testing/rehearse.ts",
+    from: "        recordThrown(register, \"subscriptions\", thrown)\n        return deadOr(Effect.never)",
+    to: "        recordThrown(register, \"update\", thrown)\n        return deadOr(Effect.never)",
+    killedBy: [[
+      "src/next/testing/rehearse.test.ts",
+      "dies in subscriptions when a key's Equal throws, as the run does"
+    ]]
+  },
+  {
+    name: "the next rehearse dies with no site for a defect of the subscriptions of the first state",
+    file: "src/next/testing/rehearse.ts",
+    from: "  }).pipe(diesIn(\"subscriptions\"))",
+    to: "  })",
+    killedBy: [
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse fails, as the run dies, in subscriptions on those of the state it starts from"
+      ]
+    ]
+  },
+  {
+    name: "the next rehearse dies with no site for a defect of the first model",
+    file: "src/next/testing/rehearse.ts",
+    from: "program.makeModel(started.current.state)).pipe(diesIn(\"render\"))",
+    to: "program.makeModel(started.current.state))",
+    killedBy: [["src/next/testing/contract.test.ts", "rehearse fails in render, as the run dies"]]
+  },
+  {
+    name: "a runCommand that throws before its effect in the next rehearse is no defect of its command",
+    file: "src/next/testing/rehearse.ts",
+    from: "calling(() => runCommand(command))",
+    to: "runCommand(command)",
+    killedBy: [
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse fails, as the run dies, in a command on a runCommand that throws before its effect"
+      ]
+    ]
+  },
+  {
+    name: "the thunk of rehearse calls update after the first defect",
+    file: "src/next/testing/rehearse.ts",
+    from: "Core.arrive(program.update, before, active, source, message, dead)",
+    to: "Core.arrive(program.update, before, active, source, message, () => false)",
+    killedBy: [["src/next/testing/rehearse.test.ts", "send calls no update once a command run in its select has died"]]
+  },
+  {
+    name: "the next rehearse plays a key nothing listens under after the first defect",
+    file: "src/next/testing/rehearse.ts",
+    from: "hear: (key, message) => deadOr(hear(key, message as Message)),",
+    to: "hear: (key, message) => hear(key, message as Message),",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "after a defect of the program, what the test asks for fails with it, and the state is still read"
+      ]
+    ]
+  },
+  {
+    name: "the job of a hearNext starts its subscription after the first defect",
+    file: "src/next/testing/rehearse.ts",
+    from: "          if (dead()) return deadOr(Effect.never)\n          const found = Ledger.opening",
+    to: "          const found = Ledger.opening",
+    killedBy: [[
+      "src/next/testing/rehearse.test.ts",
+      "a hearNext whose job comes after a defect starts no subscription"
+    ]]
+  },
+  {
+    name: "the job of a hearNext starts its subscription once the rehearsal has ended",
+    file: "src/next/testing/rehearse.ts",
+    from: "          if (loop.ended()) return Effect.void\n",
+    to: "",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "the job of a hearNext that comes once the scenario has returned starts nothing"
+      ]
+    ]
+  },
+  {
+    name: "the next rehearse runs a command after the first defect",
+    file: "src/next/testing/rehearse.ts",
+    from: "          if (dead()) return deadOr(Effect.never)\n          if (loop.ended()) return Effect.interrupt\n",
+    to: "          if (loop.ended()) return Effect.interrupt\n",
+    killedBy: [["src/next/testing/rehearse.test.ts", "run calls no runCommand once a command has died"]]
+  },
+  {
+    name: "the next rehearse runs a command once it has ended",
+    file: "src/next/testing/rehearse.ts",
+    from: "          if (loop.ended()) return Effect.interrupt\n",
+    to: "",
+    killedBy: [["src/next/testing/rehearse.test.ts", "a run made once the rehearsal has ended calls no runCommand"]]
+  },
+  {
+    name: "the next rehearse reads the model after the first defect",
+    file: "src/next/testing/rehearse.ts",
+    from: "model: deadOr(Effect.sync(() => shown)),",
+    to: "model: Effect.sync(() => shown),",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "after a defect of the program, what the test asks for fails with it, and the state is still read"
+      ]
+    ]
+  },
+  {
+    name: "a call of the next rehearse waits on through another fiber's death",
+    file: "src/next/testing/rehearse.ts",
+    from: "    Effect.raceFirst(waiting, Effect.andThen(register.died, deadOr(Effect.never)))",
+    to: "    waiting",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a hearNext waiting on its subscription fails as soon as another fiber of the test's dies"
+      ],
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a run waiting for its command fails as soon as another fiber of the test's dies"
+      ]
+    ]
+  },
+  {
+    name: "the next rehearse lets a command's interrupted run go unanswered",
+    file: "src/next/testing/rehearse.ts",
+    from: "                ledger = Ledger.cancel(ledger, taking.ticket)\n",
+    to: "",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "when a run interrupted while its command runs leaves the command unanswered"
+      ]
+    ]
+  },
+  {
+    name: "the next rehearse leaves the command of an interrupted run running",
+    file: "src/next/testing/rehearse.ts",
+    from: "              stopFiber(taking.fiber)\n",
+    to: "              Effect.void\n",
+    killedBy: [["src/next/testing/rehearse.test.ts", "the command is released before the interrupted call returns"]]
+  },
+  {
+    name: "the next rehearse stops the command of an interrupted run with no mark of its own",
+    file: "src/next/testing/rehearse.ts",
+    from: "              stopFiber(taking.fiber)\n",
+    to: "              Fiber.interrupt(taking.fiber)\n",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "when a run interrupted while its command runs leaves the command unanswered"
+      ]
+    ]
+  },
+  {
+    name: "the job of rehearse stops a subscription with no mark of its own",
+    file: "src/next/testing/rehearse.ts",
+    from: "            onSome: stopFiber\n",
+    to: "            onSome: Fiber.interrupt\n",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "two messages that arrive together, one stopping a subscription, are both applied"
+      ]
+    ]
+  },
+  {
+    name: "the job of rehearse fails on a defect of the release it awaited",
+    file: "src/next/testing/rehearse.ts",
+    from: "            onSome: stopFiber\n",
+    to: "            onSome: (fiber) => Effect.andThen(stopFiber(fiber), Effect.flatten(Fiber.await(fiber)))\n",
+    killedBy: [
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse applies the message whose release dies whole, as the run does, its commands owed"
+      ]
+    ]
+  },
+  {
+    name: "the job of rehearse tells the calls that waited on a start before its release",
+    file: "src/next/testing/rehearse.ts",
+    from: "            onSome: stopFiber\n",
+    to: "            onSome: (fiber) => Effect.andThen(tellStopped(stopped), stopFiber(fiber))\n",
+    killedBy: [
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse fails with the defect alone, as the run dies, though a hearNext waited"
+      ]
+    ]
+  },
+  {
+    name: "the job of rehearse stops the gone keys one after the other",
+    file: "src/next/testing/rehearse.ts",
+    from:
+      "        { concurrency: \"unbounded\", discard: true }\n      ).pipe(\n        Effect.andThen(tellStopped(stopped)),",
+    to: "        { discard: true }\n      ).pipe(\n        Effect.andThen(tellStopped(stopped)),",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "keys that go away together release the subscriptions hearNext started together, as the run does"
+      ]
+    ]
+  },
+  {
+    name: "the job of rehearse leaves a call waiting on a start whose key went away",
+    file: "src/next/testing/rehearse.ts",
+    from: "        Effect.andThen(tellStopped(stopped)),\n",
+    to: "",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a call waiting when its key goes away fails the test, since nothing more arrives under it"
+      ]
+    ]
+  },
+  {
+    name: "the thunk of rehearse owes a step's commands before its job",
+    file: "src/next/testing/rehearse.ts",
+    from: "          return queued(jobOf(generations, stopped, owed, hearer))",
+    to: "          ledger = Ledger.owe(ledger, owed)\n          return queued(jobOf(generations, stopped, [], hearer))",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a message applied meanwhile shows in state, model and events at once, and owes its commands once the release has ended"
+      ],
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse applies it at once, as the run does, and owes its commands once the release has ended"
+      ]
+    ]
+  },
+  {
+    name: "the next rehearse leaves the subscriptions hearNext started to the close of its scope",
+    file: "src/next/testing/rehearse.ts",
+    from:
+      "      yield* Effect.forEach(listeners, ([, fiber]) => stopFiber(fiber), { concurrency: \"unbounded\", discard: true })\n",
+    to: "",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "runs the subscription under the key to its first message, applies it, and releases it at the end"
+      ]
+    ]
+  },
+  {
+    name: "the next rehearse leaves a hearNext waiting as its end stops the subscription",
+    file: "src/next/testing/rehearse.ts",
+    from: "      yield* tellStopped(Arr.fromIterable(ledger.calls))\n",
+    to: "",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a hearNext still waiting in a fiber the scenario did not join fails as the rehearsal ends"
+      ],
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a hearNext waiting on a start whose key went away fails, though the scenario failed"
+      ],
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a hearNext whose message was stopping a subscription as the scenario failed fails as one waiting"
+      ]
+    ]
+  },
+  {
+    name: "the end of the next rehearse tells only the calls still waiting on a start",
+    file: "src/next/testing/rehearse.ts",
+    from: "tellStopped(Arr.fromIterable(ledger.calls))",
+    to: "tellStopped(\n      Arr.fromIterable(ledger.hearings.values())\n"
+      + "        .flatMap((each) => each._tag === 'Opened' ? each.waiting : []),\n    )",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a hearNext waiting on a start whose key went away fails, though the scenario failed"
+      ],
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a hearNext whose message was stopping a subscription as the scenario failed fails as one waiting"
+      ]
+    ]
+  },
+  {
+    name: "the next rehearse leaves the commands under way to the close of its scope",
+    file: "src/next/testing/rehearse.ts",
+    from: "      yield* Effect.forEach(commands, stopFiber, { concurrency: \"unbounded\", discard: true })\n",
+    to: "",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "when a command is still under way at the end, since its answer would still arrive"
+      ]
+    ]
+  },
+  {
+    name: "the next rehearse lets its loop finish after a scenario that failed",
+    file: "src/next/testing/rehearse.ts",
+    from: "Exit.isSuccess(exit) ? Effect.exit(loop.finish) : Effect.void",
+    to: "Effect.exit(loop.finish)",
+    killedBy: [
+      ["src/next/testing/rehearse.test.ts", "a scenario that failed stops the loop at once, its job under way included"]
+    ]
+  },
+  {
+    name: "the next rehearse stops its loop at once after a scenario that returned",
+    file: "src/next/testing/rehearse.ts",
+    from: "      Effect.tap((exit) => Exit.isSuccess(exit) ? Effect.exit(loop.finish) : Effect.void),\n",
+    to: "",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a message sent as the scenario returns is applied, and the command it starts fails the rehearsal"
+      ]
+    ]
+  },
+  {
+    name: "the next rehearse's hearNext lets no call leave as it ends",
+    file: "src/next/testing/rehearse.ts",
+    from: "        Effect.ensuring(Effect.sync(() => {\n          ledger = Ledger.leave(ledger, call)\n        }))\n",
+    to: "",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a call interrupted while the subscription waits leaves its message to the next one"
+      ],
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a hearNext that left before the loop took its job starts nothing, and hear plays its key"
+      ]
+    ]
+  },
+  {
+    name: "the next rehearse calls the scenario outside the effect whose end is guarded",
+    file: "src/next/testing/rehearse.ts",
+    from: "Effect.suspend(() => scenario(rehearsal))",
+    to: "scenario(rehearsal)",
+    killedBy: [["src/next/testing/rehearse.test.ts", "what a hearNext it started holds is released"]]
+  },
+  {
+    name: "the next rehearse reads the commands under way once the end has waited",
+    file: "src/next/testing/rehearse.ts",
+    from: "const { cancelled, underWay } = owed",
+    to: "const { cancelled, underWay } = ledger",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a command that answers while the end releases a subscription fails it, as one under way"
+      ]
+    ]
+  },
+  {
+    name: "the next rehearse reads the commands pending as the scenario ends",
+    file: "src/next/testing/rehearse.ts",
+    from: "const { pending } = ledger",
+    to: "const { pending } = owed",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a message sent as the scenario returns is applied, and the command it starts fails the rehearsal"
+      ]
+    ]
+  },
+  {
+    name: "a defect of a subscription in the next rehearse is a command's",
+    file: "src/next/testing/rehearse.ts",
+    from: "scopedIn(register, \"subscription\", () => ({ key }))",
+    to: "scopedIn(register, \"command\", () => ({ key }))",
+    killedBy: [
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse fails, as the run dies, on a defect of what a subscription releases when the scenario ends"
+      ],
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse fails with a defect, as the run dies, on a subscription interrupting itself"
+      ]
+    ]
+  },
+  {
+    name: "a defect of a subscription in the next rehearse does not say its key",
+    file: "src/next/testing/rehearse.ts",
+    from: "scopedIn(register, \"subscription\", () => ({ key }))",
+    to: "scopedIn(register, \"subscription\")",
+    killedBy: [
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse fails, as the run dies, in a subscription, with its key, on a subscription that throws"
+      ]
+    ]
+  },
+  {
+    name: "a defect of a command in the next rehearse is a subscription's",
+    file: "src/next/testing/rehearse.ts",
+    from: "scopedIn(register, \"command\")",
+    to: "scopedIn(register, \"subscription\")",
+    killedBy: [
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse fails with a defect, as the run dies, on a command interrupting itself"
+      ]
+    ]
+  },
+  {
+    name: "the next rehearse lets a command whose run was interrupted go",
+    file: "src/next/testing/rehearse.ts",
+    from: "    if (cancelled.length > 0) {\n",
+    to: "    if (false) {\n",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "when a run interrupted while its command runs leaves the command unanswered"
+      ]
+    ]
+  },
+  {
+    name: "the next rehearse lets a command still under way at the end go",
+    file: "src/next/testing/rehearse.ts",
+    from: "    if (underWay.size > 0) {\n",
+    to: "    if (false) {\n",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "when a command is still under way at the end, since its answer would still arrive"
+      ]
+    ]
+  },
+  {
+    name: "the next rehearse lets a command still pending at the end go",
+    file: "src/next/testing/rehearse.ts",
+    from: "    if (pending.length > 0) {\n",
+    to: "    if (false) {\n",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "when a command is still pending at the end, since its answer would still arrive"
+      ]
+    ]
+  },
+  {
+    name: "hear plays a start whose job has not run yet",
+    file: "src/next/testing/rehearse.ts",
+    from: "        if (hearing?._tag === \"Unheard\" && !Deferred.isDoneUnsafe(hearing.subscription.begun)) {",
+    to: "        if (false) {",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "hear on a key whose start's job a release holds applies once the release has ended"
+      ],
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse hears a key that appears meanwhile only once the release has ended, by hear and by hearNext"
+      ]
+    ]
+  },
+  {
+    name: "hear plays, after the wait for its start's job, the start it found before",
+    file: "src/next/testing/rehearse.ts",
+    from: "Effect.andThen(Deferred.await(hearing.subscription.begun), hear(key, message))",
+    to: "Effect.andThen(Deferred.await(hearing.subscription.begun), loop.submit(() => play(key, generation, message)))",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "hear on a key that goes away while it waits for its start's job fails the test, and reaches no update"
+      ],
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse lets no message of such a start reach update, by hear and by hearNext: the call fails"
+      ]
+    ]
+  },
+  {
+    name: "a hearNext whose key went away before its job is never told",
+    file: "src/next/testing/rehearse.ts",
+    from: "              loop.offer(tellStopped([call]), Deferred.makeUnsafe<void>())\n",
+    to: "",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a hearNext whose key goes away before its job fails as stopped, and starts nothing"
+      ]
+    ]
+  },
+  {
+    name: "a hearNext whose key went away before its job is told before the release of its start",
+    file: "src/next/testing/rehearse.ts",
+    from:
+      "              loop.offer(tellStopped([call]), Deferred.makeUnsafe<void>())\n              return Effect.void\n",
+    to: "              return Effect.die(stoppedWhileWaiting(key))\n",
+    killedBy: [
+      [
+        "src/next/testing/contract.test.ts",
+        "rehearse fails with the defect alone, as the run dies, though a hearNext waited"
+      ]
+    ]
+  },
+  {
+    name: "the job of a hearNext hears no message held for it",
+    file: "src/next/testing/rehearse.ts",
+    from: "              hearHeld(key, generation)\n              return asks",
+    to: "              return asks",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a call interrupted while the subscription waits leaves its message to the next one"
+      ]
+    ]
+  },
+  {
+    name: "the job of a hearNext runs without the services of the call",
+    file: "src/next/testing/rehearse.ts",
+    from: "loop.offer(Effect.provideContext(opening(key, generation, call), context), done)",
+    to: "loop.offer(opening(key, generation, call) as Effect.Effect<void>, done)",
+    killedBy: [
+      [
+        "src/next/testing/rehearse.test.ts",
+        "runs a command with the services provided around run, and a subscription with those around the hearNext that starts it"
+      ]
+    ]
+  },
+  {
+    name: "the next loop decides once its end is marked",
+    file: "src/next/testing/loop.ts",
+    from: "Effect.suspend(() => ended ? (quiet ? Effect.never : Effect.interrupt) : decide())",
+    to: "Effect.suspend(() => decide())",
+    killedBy: [
+      [
+        "src/next/testing/loop.test.ts",
+        "decides nothing once its end is marked: the call is interrupted, or waits when quiet"
+      ],
+      ["src/next/testing/contract.test.ts", "in rehearse, it reaches no update, and its call is interrupted"]
+    ]
+  },
+  {
+    name: "the next loop lets a call refused once it has ended wait",
+    file: "src/next/testing/loop.ts",
+    from: "(quiet ? Effect.never : Effect.interrupt)",
+    to: "Effect.never",
+    killedBy: [
+      [
+        "src/next/testing/loop.test.ts",
+        "decides nothing once its end is marked: the call is interrupted, or waits when quiet"
+      ],
+      ["src/next/testing/contract.test.ts", "in rehearse, it reaches no update, and its call is interrupted"]
+    ]
+  },
+  {
+    name: "the next loop interrupts a quiet call refused once it has ended",
+    file: "src/next/testing/loop.ts",
+    from: "(quiet ? Effect.never : Effect.interrupt)",
+    to: "Effect.interrupt",
+    killedBy: [
+      [
+        "src/next/testing/loop.test.ts",
+        "decides nothing once its end is marked: the call is interrupted, or waits when quiet"
+      ]
+    ]
+  },
+  {
+    name: "the next loop finishes before it has done what it was offered",
+    file: "src/next/testing/loop.ts",
+    from: "Effect.andThen(Queue.offer(requests, { job: Effect.void, done }), Deferred.await(done))",
+    to: "Effect.void",
+    killedBy: [
+      ["src/next/testing/loop.test.ts", "finishes once it has done what it was offered before"],
+      [
+        "src/next/testing/rehearse.test.ts",
+        "a message sent as the scenario returns is applied, and the command it starts fails the rehearsal"
+      ]
+    ]
+  },
+  {
+    name: "the next loop leaves its job under way to the close of its scope",
+    file: "src/next/testing/loop.ts",
+    from: "    yield* stopping(loop)\n",
+    to: "",
+    killedBy: [["src/next/testing/loop.test.ts", "interrupts its job under way before its stop returns"]]
+  },
+  {
+    name: "the next loop leaves what it did not deliver waiting once stopped",
+    file: "src/next/testing/loop.ts",
+    from: "    yield* Effect.forEach(undelivered, Deferred.interrupt, { discard: true })\n",
+    to: "",
+    killedBy: [
+      [
+        "src/next/testing/loop.test.ts",
+        "interrupts at its stop what it has not delivered, its job under way included"
+      ],
+      ["src/next/testing/rehearse.test.ts", "a scenario that failed stops the loop at once, its job under way included"]
+    ]
+  },
+  {
+    name: "the next drive goes on after a defect of the program until the scenario ends",
+    file: "src/next/testing/drive.ts",
+    from: "    deaths\n  ).pipe(",
+    to: "    { ...deaths, died: Effect.never }\n  ).pipe(",
+    killedBy: [
+      ["src/next/testing/drive.test.ts", "a defect of the program fails the scenario"],
+      [
+        "src/next/testing/drive.test.ts",
+        "a subscription of init that dies fails a scenario waiting for a model, before its patience"
+      ]
+    ]
+  },
+  {
+    name: "the next drive reads a model after the first defect",
+    file: "src/next/testing/drive.ts",
+    from: "Arr.isReadonlyArrayNonEmpty(dies)",
+    to: "false",
+    killedBy: [["src/next/testing/drive.test.ts", "after a defect of the program, model fails with it"]]
   }
 ]
