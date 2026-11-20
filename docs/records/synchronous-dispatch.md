@@ -1,11 +1,11 @@
 # A dispatch that applies its message at once
 
-**Status:** decided by the owner, 20 November 2026, and done that day but for a reader's check of the documentation.
-The owner decided the direction, after the spike, and then every answer this plan proposed to the points left open
-("The decisions"). The plan was written that day by a session of Fable 5.2, on the owner's request, and read against
-the code at `88a3ae1`. Of its stages, 0 to 4 are done, each with its outcome under "The stages", and the spike of R4
-was run and rejected: stage 5, the reader's check, is left. Since the swap of stage 4 the code is in `src/` and
-`bridges/`: `src/next/` and `bridges/next/`, which this record names, are gone.
+**Status:** decided by the owner, 20 November 2026, and done that day. The owner decided the direction, after the
+spike, and then every answer this plan proposed to the points left open ("The decisions"). The plan was written that
+day by a session of Fable 5.2, on the owner's request, and read against the code at `88a3ae1`. Its stages are done,
+each with its outcome under "The stages", the reader's check among them, and the spike of R4 was run and rejected.
+What they left for the owner is in `ROADMAP.md`. Since the swap of stage 4 the code is in `src/` and `bridges/`:
+`src/next/` and `bridges/next/`, which this record names, are gone.
 
 This file has three parts: the plan; the proposal as `ROADMAP.md` held it before the plan; and the spike's record,
 brought from the branch `claude/spike-sync-dispatch-b4e430` (at `26b2cc1`), which is never to be merged. The spike's
@@ -358,6 +358,25 @@ A reader's check of the documentation ([`guide-reader`](../../.agents/skills/gui
 `ROADMAP.md`, the release of 0.8.0, with its review of the premises in a session that wrote none of this, and "The
 bridges in a real browser", with what this leaves it: an IME composition, and what is typed with snabbdom between a
 notice and its draw.
+
+**The reader's check is done, 20 November 2026**, by a session of Opus 5.5 that wrote none of the documentation, as
+`guide-reader` says: two readers that had not seen the code, one from the package and one from the guide alone, each
+built a greenhouse panel, and an examiner that had not seen the library wrote 27 acceptance tests from the requirement.
+Both programs pass the 27, once seven of the tests were fixed: each of the seven checked the world at the moment the
+page showed the new state, where the state is ahead of its effects. The session that briefed it read its report, and
+ran `comments`, `lint`, `typecheck` and the site's build again. What it showed:
+
+- **What the new pages taught with no guess and no slip**: a handler that calls `dispatch` itself, a controlled element
+  written over the value its model holds, a write over an older value rejected, a key that comes back listened to
+  anew, the `App` with its `subscribe` and its `model`, and when the bridge to snabbdom draws.
+- **Neither reader missed the "Precisely" of "View"**, which went with the frames.
+- **Neither reader called `dispatch` outside a view**: both took a key pressed anywhere as a subscription to a
+  service. So no reader relied on what is true when a dispatch returns, outside a handler of a view.
+- **One page changed**, with the same promise: "Testing tools", "drive", names `waitFor`, which the guide never named.
+- **Four findings wait for the owner** in `ROADMAP.md`, since each changes what a page promises or adds a page:
+  `renderInto` replaces `root`, where its doc comment, written by the swap, says that it draws into it; what the
+  bridge to snabbdom draws of a vnode's data; a subscription from an API of callbacks; and what is drawn outside the
+  root.
 
 ## What may go wrong
 

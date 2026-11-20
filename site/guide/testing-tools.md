@@ -151,8 +151,8 @@ rehearse(
   once, as a control drawn from that model would: when `send` returns, `update` has seen the message.
 - The program's commands run as soon as they start. To hold a command, give the program a service written by the
   test. The service waits on a `Deferred` that the scenario completes.
-- The renderer of `drive` is told of every new state, and reads the model of each one. A wait looks at the current
-  model and at later ones.
+- The renderer of `drive` is told of every new state, and reads the model of each one. A wait, `waitFor`, looks at the
+  current model and at later ones.
 - A wait that ends once a model shows a step does not wait for the step's commands. They start after it, in the run's
   own fiber, and a scenario that ends there may end the run before they start. To check what a command does, wait for
   a model that shows its answer.

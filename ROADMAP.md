@@ -6,9 +6,7 @@ rejected is removed and added to [`docs/rejected.md`](docs/rejected.md), with wh
 commit: read it before adding one. An item deferred or suspended leaves too, for "Parked, not rejected" there, with
 what would reopen it. How an item came to be, and what was weighed for it, goes in a record of
 [`docs/records/`](docs/records), not here: the order below comes from
-[`adoption.md`](docs/records/adoption.md), the owner's decision that the library is meant to be adopted by others, but
-for item 1, which the owner put before the release on the same day
-([`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), R2).
+[`adoption.md`](docs/records/adoption.md), the owner's decision that the library is meant to be adopted by others.
 
 ## Open problems
 
@@ -17,62 +15,32 @@ test of it. None is open.
 
 ## Next, in order
 
-### 1. A dispatch that applies its message at once
-
-**Why.** A dispatch only queued its message, and `update` heard it later. An element with a value of its own needs the
-state to change during its event, and what the library had for the element of an input followed from that one premise:
-`seen`, the number a dispatch returned, `Shown`, `edited`, `drawn`, and bridges that settled a native text field alone.
-Spiked on 20 November 2026, decided by the owner the same day with every answer of its plan, and swapped in that day:
-a dispatch is a function that applies its message before it returns, and a renderer gets an `App`.
-
-**How.** As the plan of [`docs/records/synchronous-dispatch.md`](docs/records/synchronous-dispatch.md) says. Stages 0
-to 4 are done, each with its outcome in the record. **What is left is stage 5, a reader's check of the documentation**
-([`guide-reader`](.agents/skills/guide-reader/SKILL.md)), by a session that wrote none of it.
-
-**Where it stands**, 20 November 2026, for a session that takes this up with none of the conversation:
-
-- **The swap is committed.** The engine, the testing tools and the bridges are the new ones, `src/next/` and
-  `bridges/next/` are gone, and the guide, `docs/invariants.md`, `docs/premises.md` and the changelog describe the new
-  code. Every check of the stage passed, run again by the session that briefed it.
-- **`AGENTS.md` says what the code does now**: the seven sentences the swap made untrue were proposed to the owner,
-  and written on the owner's yes. Three points of the guide still wait, under "Waiting for the owner".
-- **The reader's check is under way**, in a session of its own, which commits nothing: its report is to be
-  `scratch/reports/sync-dispatch-stage-5-reader.md`, and the session that briefed it reads it and commits.
-- **Tried in a browser**, by the session that verified the swap, in Chromium, with keys sent as a user's. In the form,
-  with snabbdom and with React: a text typed in its middle, and over a selection, keeps its caret, and a save empties
-  both fields. In the stock-take: a count typed in its middle, and a submit. Firefox, WebKit and an IME composition
-  were not run (item 3).
-- **For the reader's check**: "View" has no "Precisely" section any more, since its three parts went with the frames.
-- Left open by the stages, each in the record under its stage: a job queued for each message; the loop of the thunk
-  with no `finally`; a snabbdom renderer interrupted while its run goes on; a test of the timer's buttons, in the
-  bridges' tests, that no mutation tried makes fail.
-
-**Done when** the reader's check is done.
-
-### 2. Release 0.8.0
+### 1. Release 0.8.0
 
 **Why.** The unreleased section of `CHANGELOG.md` is long, and users get none of it until a release: the bridges as
-entries of the package, the inputs, the fixed declarations. It comes after item 1, which removes exports that no
-release has had yet.
+entries of the package, the inputs, the fixed declarations. It comes after the dispatch that applies its message at
+once ([`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), done on 20 November 2026), which removed
+exports that no release has had.
 
 **How.** As [`release`](.agents/skills/release/SKILL.md) says. First a review of the premises
 ([`premise-review`](.agents/skills/premise-review/SKILL.md)), in a session that wrote none of the changes of the engine
-and of the testing tools since the last review. The swap of item 1 leaves that review two leads. No test that a
-premise names was run again without its premise, under the new engine: `docs/premises.md` was rewritten by reading.
+and of the testing tools since the last review. That change leaves the review two leads. No test that a premise
+names was run again without its premise, under the new engine: `docs/premises.md` was rewritten by reading.
 And the premise "`Effect.scoped` fails with what a finalizer of its scope dies of" names a test that
 `test/premises.test.ts` has not had since `35fe18f`. Then `bun run mutations` and `bun run interleavings`, and the
 site built without warnings. Then the release commit and its tag. The owner publishes to npm.
 
 **Done when** the tag `v0.8.0` is pushed.
 
-### 3. The bridges in a real browser
+### 2. The bridges in a real browser
 
 **Why.** The bridges' tests run on happy-dom, which no browser is. The bridges draw controlled elements, and what is
 typed into one rests on a premise seen only in happy-dom and in one browser (`docs/premises.md`, of a controlled
-input): a text typed in its middle, with its caret, was tried once, by hand, in Chromium
-([`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md)). Never run: an IME composition while the program
-changes a value under the user, and what is typed with snabbdom between a notice from a command or a subscription and
-its draw, at the next animation frame, which is rejected and taken back.
+input): a text typed in its middle and over a selection, with its caret, was tried in Chromium with keys sent as a
+user's, in the form with both bridges and in the stock-take
+([`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), stage 4). Never run: an IME composition while the
+program changes a value under the user, and what is typed with snabbdom between a notice from a command or a
+subscription and its draw, at the next animation frame, which is rejected and taken back.
 
 **How.** The tests of `bridges/bridge.test_suite.ts` run in a real browser too, in Chromium, Firefox and WebKit, with
 those two cases; the tool is to be chosen. With React, also not run: `startTransition` or `useDeferredValue` in the
@@ -84,7 +52,7 @@ the split of `run` that `docs/rejected.md` parks.
 
 **Done when** the suite passes in a real browser, in the CI or by a command written down in the repository.
 
-### 4. The changes that break the API
+### 3. The changes that break the API
 
 **Why.** A user who adopts the library asks that its API stays, and a change that breaks it costs less the fewer users
 it has. The API looks close to stable, but what `docs/rejected.md` parks would change it.
@@ -94,7 +62,7 @@ owner: taken now, in a 0.x release, or kept parked.
 
 **Done when** each such entry is taken or kept parked by the owner's decision.
 
-### 5. A view of the library's own
+### 4. A view of the library's own
 
 **Why.** A view as data over snabbdom: a node holds its message, a child's view is lifted by a node that wraps its
 messages, an input's node names its input. A test then finds every message a view can send without a DOM, and a view
@@ -111,6 +79,36 @@ and what was weighed beside it. The owner decides whether to make it, under whic
 
 ## Waiting for the owner
 
+- **Four findings of the reader's check of 20 November 2026**, the last stage of
+  [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md): two readers that had not seen the code built a
+  greenhouse panel, one from the package and one from the guide alone. Each finding changes what a page promises, or
+  adds a page, so none was written.
+  1. **`renderInto` does not draw into `root`: it replaces it.** snabbdom's `patch`, given an element, puts the view's
+     top element in its place, and `renderInto` starts from `root`: `root` ends detached, and a test that queries
+     through it finds nothing. Both readers found it by a probe. The doc comment of `renderInto` says "draws the model
+     of the current state into `root`", written by the swap, where it said "starting from `root`"; the tutorial, step
+     1, says "draws the model into the element `root`", as it did before. To decide: say that the view's top element
+     takes the place of `root`, in the comment, the tutorial and "Writing a bridge"; or make the bridge draw into
+     `root`, with a child of its own.
+  2. **What the bridge to snabbdom draws of a vnode's data is said nowhere.** It has snabbdom's modules of props, of
+     style and of listeners: a `class`, an `attrs` or a `dataset` is dropped in silence, and `disabled` is a prop. The
+     examples' views say it in comments. To decide: whether "Writing a bridge" says it, which is a promise of the
+     bridge.
+  3. **A subscription from an API of callbacks, with its stop**, is shown only by `examples/volume/main.ts`. Both
+     readers needed one: the guide starts every subscription from a `Stream` that a service already has. To decide:
+     whether "Subscriptions" gets a section for it, and for a feed that never ends, which promises nothing new of the
+     library.
+  4. **What is drawn outside the root, and an event of the whole page**: `document.title`, a key pressed anywhere. No
+     page says how. The readers drew the title two ways, a hook of the view's top vnode and a renderer over `App` beside
+     `renderInto`, and both took the key as a subscription to a service. To decide: whether the guide says which way is
+     the library's.
+
+  Smaller, and not written either: "Running" could name `Fiber.interrupt` where it says to interrupt the fiber, and
+  "Testing tools" could say that `hearNext` asks for the services of every subscription, not of the one it hears.
+- **Left open by the stages of the dispatch that applies its message at once**, each in its record under its stage: a
+  job queued for each message, which is most of what a message costs; a snabbdom renderer that was interrupted while
+  its run goes on, whose handlers still apply and draw; and a test of the timer's buttons, in the bridges' tests, that
+  no mutation tried makes fail. To weigh, each.
 - **Three points of the guide that the swap left**, found by the session that rewrote it, which changed none of them.
   - **"Do not change the value in `set`"** ("Inputs the user types into", "What is typed, in another form"). Its
     reason says that the user's next write is rejected, and the next draw takes back what was typed. A write is now
@@ -124,10 +122,12 @@ and what was weighed beside it. The owner decides whether to make it, under whic
     does not. To decide: whether it is listed there.
   - **The skill's "Rules that nothing checks" does not say that the state is ahead of its effects.** The guide does
     ("Guarantees", "Testing tools"), as a description. A coding agent that writes a test with `drive` meets it first.
-    To decide: whether the skill names it.
+    The reader's check bears on it: an examiner that had not seen the library wrote 27 acceptance tests from the
+    requirement, and seven of them took the world to be in step with the page; and the reader of the guide alone met
+    the rule as a test that timed out. To decide: whether the skill names it.
 - **Seven points of a review of the design.** By the session of Fable 5.2 that briefed and verified the stages of
-  item 1, asked by the owner on 20 November 2026 what does not fit. Reasoned from the code read for those reviews, and
-  not run, but where a point says so. Each is to be weighed.
+  the same record, asked by the owner on 20 November 2026 what does not fit. Reasoned from the code read for those
+  reviews, and not run, but where a point says so. Each is to be weighed.
   1. **The end of the run may begin inside a step.** A defect recorded in the thunk completes `died` there
      (`Deaths.record`), and Effect resumes the run's waiter on that stack: the end sets `stopped` and stops fibers
      while the step still tells its listeners. It is correct, by the checks, and the hardest part of the engine to
@@ -155,8 +155,9 @@ and what was weighed beside it. The owner decides whether to make it, under whic
      each state. To do before the release: measure a step with many keys and a model that costs (the benchmark of
      "Any time").
   7. **The premise the design rests on was run in one real browser, and never with an IME** (P3 of the record). In
-     Chromium, with the form and the stock-take, the caret and a selection hold (item 1, "Where it stands"). To weigh:
-     Firefox, WebKit and an IME composition before the release, where "The bridges in a real browser" comes after it.
+     Chromium, with the form and the stock-take, the caret and a selection hold (the record, under its stage 4). To
+     weigh: Firefox, WebKit and an IME composition before the release, where "The bridges in a real browser" comes
+     after it.
 
   And for the reader who has an application in React: `Host` draws `fallback` until its run has started, and runs the
   commands of `init` twice under StrictMode. The split of `run` (B5 of the record, parked) would end both, and is what

@@ -18,5 +18,5 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`exploration.md`](exploration.md)                       | rejected: exploring a program from `init`                |
 | [`hosted-react.md`](hosted-react.md)                     | done, its store replaced: React hosts the program        |
 | [`adoption.md`](adoption.md)                             | decided, done in part: for others to adopt, and entries  |
-| [`synchronous-dispatch.md`](synchronous-dispatch.md)     | done, a reader's check left: a dispatch applied at once  |
+| [`synchronous-dispatch.md`](synchronous-dispatch.md)     | done: a dispatch that applies its message at once        |
 | [`input-in-the-model.md`](input-in-the-model.md)         | rejected: an input as an entry in the model              |

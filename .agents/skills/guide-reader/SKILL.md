@@ -43,9 +43,9 @@ reports is what the guide leaves to the examples.
 2. Choose the pages the check is for, or all of the guide and the tutorial, and the mode: closed for pages of the
    guide, package where the tutorial or the skill is among them, unless the author says otherwise.
 3. Choose a requirement that needs every page the check is for. In a check of the package no example may hold it:
-   what `counter`, `form`, `list`, `pages`, `stocktake`, `timer` and `volume` do is taken, since a reader would copy
-   them. In either mode, so is every requirement of an earlier check, listed here. An open check read the repository's
-   guide and all its examples, as a check of the package now reads them in the package.
+   what `bounce`, `counter`, `form`, `list`, `pages`, `stocktake`, `timer` and `volume` do is taken, since a reader
+   would copy them. In either mode, so is every requirement of an earlier check, listed here. An open check read the
+   repository's guide and all its examples, as a check of the package now reads them in the package.
    - a chat room: a connection status from a server feed that ends, a draft refused when blank or offline, sends that
      may fail and are retried, a log and a composer as children, and a reconnect under a new key (2026-11-16, open).
    - a warehouse stock-take: items loaded by a command that may fail and is retried, an item per id with a typed
@@ -58,6 +58,10 @@ reports is what the guide leaves to the examples.
      the shift and is listened to anew, a typed note whose assignment is refused when blank, off shift, in flight or
      paused, sends that may fail and are retried, an event the parent counts, a pause the parent tells every child,
      and a run under snabbdom in a DOM (2026-11-17, package).
+   - a greenhouse panel: beds watched by hand, each with a moisture feed listened to anew on each watch and ending
+     offline, a typed target sent to a controller, refused when invalid or in flight, sends that may fail, a count of
+     dry beds in the page's title, and a key anywhere that stops every watch (2026-11-20, package and closed; 27 of 27
+     acceptance tests passed for each reader, once 7 failures, all of the tests, were fixed).
 4. Make the project, from the repository's root, with the versions the repository is developed with:
 
    ```bash
