@@ -376,6 +376,22 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   snabbdom's README says only that the module attaches listeners; that its `destroy` hook takes them off is read in its
   source. Its test, in `snabbdom.test.ts`: "snabbdom's module of listeners takes off those of an element a patch
   removes, though the style module keeps it on screen as it fades", which fails with that module.
+- **A controlled input keeps what is typed, its caret and its selection when a store read with `useSyncExternalStore`
+  is updated during its `onChange`**, which is how the bridge to React of `bridges/next/react.ts`
+  ([`synchronous-dispatch.md`](records/synchronous-dispatch.md), until the swap of its stage 4) draws a text field as
+  React's documentation draws a controlled one, with the model of the run's state as `value`: the shared tests of a
+  text typed in its middle, in `bridges/next/react.test.ts`, rest on it. Agreed to by the owner on 20 November 2026.
+  react.dev ("<input>") states it of a state variable, not of a store. Its test, in `bridges/next/react.test.ts`: "a
+  controlled input keeps what is typed, its caret and its selection when a store read with useSyncExternalStore is
+  updated during its onChange", which fails with the store updated a microtask later: React then takes back the key as
+  the event ends, and shows it again with the caret at the end.
+- **The bridge to snabbdom of `bridges/next/snabbdom.ts` rests on the first two premises of snabbdom above**, until the
+  swap of its stage 4: that snabbdom reuses an `<input>` with no key in the same place, which keeps a controlled
+  element, with its focus and its caret, while the program changes its value (the shared tests of the lid, the steps
+  and the lock); and that snabbdom calls a module's `update` hook on every element `h` draws again, by which the
+  bridge's module forgets an element drawn without a `value` or a `checked` in `props` ("drawn in the same place
+  without a value, keeps what is typed into it through later draws"). Their tests, in `bridges/next/snabbdom.test.ts`,
+  are those of `snabbdom.test.ts`, under the same names.
 
 A premise about what code does when it runs is checked before the change that rests on it is written, and never
 only reasoned:

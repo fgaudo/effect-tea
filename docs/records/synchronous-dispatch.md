@@ -241,6 +241,33 @@ guide's "Writing a bridge" will include.
 
 **Done when** the same checks pass. A real browser is "The bridges in a real browser" of `ROADMAP.md`, as it was.
 
+**Done, 20 November 2026**, by a session of Opus 5.5, its code read by the session that briefed it, which ran the
+checks again: `typecheck`, `lint`, `test` (1,279), `test:node` (982), both searches, the build and `mutations` (333,
+26 of them new) pass. What it found and settled:
+
+- **R1: a listener can be called while a patch runs, so the guard is in.** Chromium 156 calls `blur` and `focusout`
+  inside `removeChild` of the focused element, against the HTML Standard, by which a removal fires no focus event.
+  happy-dom 21 follows the standard. And `focus()` fires them synchronously, by the standard, as an `insert` hook that
+  focuses an element does inside a patch. So a draw asked for while a patch runs waits for it, and the patch under way
+  draws again once it is done. Without the guard the inner patch meets a tree that no longer matches the page, and the
+  run dies in `'render'`. Its test reaches the guard through `focus()`, since happy-dom fires nothing on a removal.
+- **React reads the model in the store's notice itself**, to compare, so `makeModel` runs on the stack of whoever sent
+  the message, under React as under snabbdom, and not again in the render. No page of react.dev says it. Nothing of
+  the bridge rests on it, and a test holds it: the guide describes it, and promises nothing of it, unless the owner
+  takes it as a premise.
+- **One `catch` for what a handler's draw throws** with snabbdom, the view's or `makeModel`'s, handed to the
+  renderer's fiber, which dies of it at once. A defect of `makeModel` is still one: the one the run recorded.
+- **B3**: no test of a form's reset, nor of a value written past React's setter. The test of a text field that strips
+  line breaks stays: it holds what "What is left out" will say of a value the element changes by itself.
+- **The premises**: P3, with its test, and the two of snabbdom that the new bridge rests on, in `docs/premises.md`
+  beside those of the bridges it replaces, which stay until the swap.
+- **The regions** of `bridges/next/snabbdom.ts`, for the guide's "Writing a bridge": `controlled`, `draw`, `wait`,
+  `dispatch` and `handle`.
+
+Left open: a handler of a snabbdom renderer that was interrupted while its run goes on, as one of two renderers an
+application races, still applies its message and patches the root it drew last. And the release of the bridge's
+subscription to the handle has no killer: the run stops the engine before the renderer, so no notice comes after.
+
 ### The spike of R4
 
 Once stage 3 is committed: a spike over stages 1 and 3, on a branch, never to be merged, of the form and the

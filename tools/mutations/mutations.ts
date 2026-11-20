@@ -4143,5 +4143,318 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "Arr.isReadonlyArrayNonEmpty(dies)",
     to: "false",
     killedBy: [["src/next/testing/drive.test.ts", "after a defect of the program, model fails with it"]]
+  },
+  // The bridges of `bridges/next/` (`docs/records/synchronous-dispatch.md`, stage 3): each check of the bridges to
+  // snabbdom and to React, and of `messagesSentBy`.
+  {
+    name: "the snabbdom bridge of src/next draws a listener's message inside the patch under way",
+    file: "bridges/next/snabbdom.ts",
+    from: "        if (drawing) {\n"
+      + "          again = true\n"
+      + "          return\n"
+      + "        }\n",
+    to: "",
+    killedBy: [
+      [
+        "bridges/next/snabbdom.test.ts",
+        "is drawn once that patch is done, before the handler that set it going returns, and the run goes on"
+      ]
+    ]
+  },
+  {
+    name: "the snabbdom bridge of src/next leaves a message sent during a patch undrawn",
+    file: "bridges/next/snabbdom.ts",
+    from: "        } while (again)",
+    to: "        } while (false)",
+    killedBy: [
+      [
+        "bridges/next/snabbdom.test.ts",
+        "is drawn once that patch is done, before the handler that set it going returns, and the run goes on"
+      ]
+    ]
+  },
+  {
+    name: "the snabbdom bridge of src/next patches again the model it drew last",
+    file: "bridges/next/snabbdom.ts",
+    from: "if (Opt.isNone(last) || last.value !== model) {",
+    to: "if (true) {",
+    killedBy: [
+      ["bridges/next/snabbdom.test.ts", "a rejected click draws no tree again, and the element keeps what was typed"],
+      [
+        "bridges/next/snabbdom.test.ts",
+        "a key typed once it is locked is rejected, and the element shows the program's value again at once"
+      ]
+    ]
+  },
+  {
+    name: "the snabbdom bridge of src/next gives no controlled element its prop back",
+    file: "bridges/next/snabbdom.ts",
+    from: "          giveBack(controlled)\n",
+    to: "",
+    killedBy: [
+      [
+        "bridges/next/snabbdom.test.ts",
+        "a key typed once it is locked is rejected, and the element shows the program's value again at once"
+      ],
+      [
+        "bridges/next/snabbdom.test.ts",
+        "once frozen, a key in the textarea and a click on the checkbox are rejected, and both show the model again"
+      ]
+    ]
+  },
+  {
+    name: "the snabbdom bridge of src/next keeps an element drawn without a value among the controlled ones",
+    file: "bridges/next/snabbdom.ts",
+    from: "    else controlled.delete(element)\n",
+    to: "",
+    killedBy: [
+      [
+        "bridges/next/snabbdom.test.ts",
+        "drawn in the same place without a value, keeps what is typed into it through later draws"
+      ]
+    ]
+  },
+  {
+    name: "the snabbdom bridge of src/next keeps a removed element among the controlled ones",
+    file: "bridges/next/snabbdom.ts",
+    from: "      if (vnode.elm instanceof Element) controlled.delete(vnode.elm)\n",
+    to: "",
+    killedBy: [
+      [
+        "bridges/next/snabbdom.test.ts",
+        "removed, though the style module keeps it on screen as it fades, is left as it is through later draws"
+      ]
+    ]
+  },
+  {
+    name: "the snabbdom bridge of src/next lets what a handler's draw throws out of the handler",
+    file: "bridges/next/snabbdom.ts",
+    from: "        try {\n"
+      + "          draw()\n"
+      + "        } catch (error) {\n"
+      + "          thrown = Opt.some(error)\n"
+      + "          wake()\n"
+      + "        }",
+    to: "        draw()",
+    killedBy: [
+      ["bridges/next/snabbdom.test.ts", "by the view, ends the run at once, in render, and the handler gets nothing"],
+      [
+        "bridges/next/snabbdom.test.ts",
+        "by makeModel, ends the run at once, with one defect, in render, and the handler gets nothing"
+      ]
+    ]
+  },
+  {
+    name: "the snabbdom bridge of src/next does not wake its fiber on a handler's throw",
+    file: "bridges/next/snabbdom.ts",
+    from: "          thrown = Opt.some(error)\n"
+      + "          wake()",
+    to: "          thrown = Opt.some(error)",
+    killedBy: [
+      ["bridges/next/snabbdom.test.ts", "by the view, ends the run at once, in render, and the handler gets nothing"]
+    ]
+  },
+  {
+    name: "the snabbdom bridge of src/next waits for the frame before it dies of a handler's throw",
+    file: "bridges/next/snabbdom.ts",
+    from: "yield* Effect.raceFirst(animationFrame, until(() => Opt.isSome(thrown)))",
+    to: "yield* animationFrame",
+    killedBy: [
+      ["bridges/next/snabbdom.test.ts", "by the view, ends the run at once, in render, and the handler gets nothing"]
+    ]
+  },
+  {
+    name: "the snabbdom bridge of src/next does not die of a handler's throw",
+    file: "bridges/next/snabbdom.ts",
+    from: "          if (Opt.isSome(thrown)) return yield* Effect.die(thrown.value)\n",
+    to: "",
+    killedBy: [
+      ["bridges/next/snabbdom.test.ts", "by the view, ends the run at once, in render, and the handler gets nothing"]
+    ]
+  },
+  {
+    name: "the snabbdom bridge of src/next draws a notice at once",
+    file: "bridges/next/snabbdom.ts",
+    from: "yield* Effect.raceFirst(animationFrame, until(() => Opt.isSome(thrown)))",
+    to: "yield* until(() => true)",
+    killedBy: [
+      [
+        "bridges/next/snabbdom.test.ts",
+        "a notice from a command is drawn at the next refresh, at most once for each refresh"
+      ],
+      ["bridges/next/snabbdom.test.ts", "once a notice is drawn, it waits for no screen refresh until the next notice"]
+    ]
+  },
+  {
+    name: "the snabbdom bridge of src/next keeps a notice drawn",
+    file: "bridges/next/snabbdom.ts",
+    from: "          noticed = false\n",
+    to: "",
+    killedBy: [
+      ["bridges/next/snabbdom.test.ts", "once a notice is drawn, it waits for no screen refresh until the next notice"]
+    ]
+  },
+  {
+    name: "the snabbdom bridge of src/next does not hear a notice",
+    file: "bridges/next/snabbdom.ts",
+    from: "            noticed = true\n"
+      + "            wake()",
+    to: "            wake()",
+    killedBy: [
+      [
+        "bridges/next/snabbdom.test.ts",
+        "a notice from a command is drawn at the next refresh, at most once for each refresh"
+      ]
+    ]
+  },
+  {
+    name: "the React bridge of src/next reads the model without subscribing",
+    file: "bridges/next/react.ts",
+    from: "view(useSyncExternalStore(app.subscribe, app.model), app.dispatch)",
+    to: "view(app.model(), app.dispatch)",
+    killedBy: [
+      [
+        "bridges/next/react.test.ts",
+        "a click on a drawn button reaches the program, and is drawn once the handler returns"
+      ]
+    ]
+  },
+  {
+    name: "the React bridge of src/next's Host does not throw what its run died of",
+    file: "bridges/next/react.ts",
+    from: "  if (died !== undefined) throw died.error\n",
+    to: "",
+    killedBy: [
+      ["bridges/next/react.test.ts", "throws its ProgramDefect as Host renders, for the nearest error boundary"]
+    ]
+  },
+  {
+    name: "the React bridge of src/next's Host leaves its run running as it unmounts",
+    file: "bridges/next/react.ts",
+    from: "      Effect.runFork(Fiber.interrupt(fiber))\n",
+    to: "",
+    killedBy: [
+      ["bridges/next/react.test.ts", "interrupts the run as it unmounts, and the run releases what it holds"],
+      [
+        "bridges/next/react.test.ts",
+        "in StrictMode, the run of the first mount is interrupted, and the second's is drawn and typed into"
+      ],
+      [
+        "bridges/next/react.test.ts",
+        "in StrictMode, the first run starts the commands of init, which its interruption interrupts"
+      ],
+      [
+        "bridges/next/react.test.ts",
+        "a program unmounted while a command is under way interrupts the command, and draws nothing after"
+      ],
+      ["bridges/next/react.test.ts", "hidden by Activity, the run ends; shown again, the program starts from init"],
+      [
+        "bridges/next/react.test.ts",
+        "a view that throws reaches the nearest error boundary, which unmounts Host and interrupts the run"
+      ]
+    ]
+  },
+  {
+    name: "the React bridge of src/next's Host does not report what its run dies of once unmounted",
+    file: "bridges/next/react.ts",
+    from: "        else reportError(error)\n",
+    to: "",
+    killedBy: [
+      ["bridges/next/react.test.ts", "gives what it dies of once Host has unmounted to reportError"]
+    ]
+  },
+  {
+    name: "the React bridge of src/next's Host sets the death of its run once unmounted",
+    file: "bridges/next/react.ts",
+    from: "        if (mounted) setDied({ error })",
+    to: "        if (true) setDied({ error })",
+    killedBy: [
+      ["bridges/next/react.test.ts", "gives what it dies of once Host has unmounted to reportError"]
+    ]
+  },
+  {
+    name: "the React bridge of src/next's Host is never told it has unmounted",
+    file: "bridges/next/react.ts",
+    from: "      mounted = false\n",
+    to: "",
+    killedBy: [
+      ["bridges/next/react.test.ts", "gives what it dies of once Host has unmounted to reportError"]
+    ]
+  },
+  {
+    name: "the React bridge of src/next's Host starts its run with the props of the render its effect ran after",
+    file: "bridges/next/react.ts",
+    from: "const { program, options, fork } = first.current",
+    to: "const { program, options, fork } = props",
+    killedBy: [
+      ["bridges/next/react.test.ts", "shown again by Activity, starts the run with the fork of its first render"]
+    ]
+  },
+  {
+    name: "the React bridge of src/next's Host throws an interruption",
+    file: "bridges/next/react.ts",
+    from: "if (!Exit.isFailure(exit) || Cause.hasInterruptsOnly(exit.cause)) return",
+    to: "if (!Exit.isFailure(exit)) return",
+    killedBy: [
+      ["bridges/next/react.test.ts", "interrupts the run as it unmounts, and the run releases what it holds"]
+    ]
+  },
+  {
+    name: "the React bridge of src/next's Host hears how the run ends inside the fiber it forks",
+    file: "bridges/next/react.ts",
+    from: "    const fiber = forkRun(start(program, render, options))\n",
+    to: "    const fiber = forkRun(Effect.onExit(start(program, render, options), (exit) =>\n"
+      + "      Effect.sync(() => {\n"
+      + "        if (Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause)) setDied({ error: Cause.squash(exit.cause) })\n"
+      + "      })))\n",
+    killedBy: [
+      ["bridges/next/react.test.ts", "what the application handles around the run is not thrown again"]
+    ]
+  },
+  {
+    name: "the React bridge of src/next's Host starts its run with its latest props",
+    file: "bridges/next/react.ts",
+    from: "  const first = useRef(props)\n",
+    to: "  const first = { current: props }\n",
+    killedBy: [
+      ["bridges/next/react.test.ts", "shown again by Activity, starts the run with the fork of its first render"]
+    ]
+  },
+  {
+    name: "messagesSentBy of src/next gives a listener no value",
+    file: "bridges/next/snabbdom-testing.ts",
+    from: "      ...(\"value\" in props ? { value: props[\"value\"] } : {}),\n",
+    to: "",
+    killedBy: [
+      [
+        "bridges/next/snabbdom-testing.test.ts",
+        "finds the writes of controlled elements, each over the value its model holds, with that value"
+      ]
+    ]
+  },
+  {
+    name: "messagesSentBy of src/next gives a listener no checked",
+    file: "bridges/next/snabbdom-testing.ts",
+    from: "      ...(\"checked\" in props ? { checked: props[\"checked\"] } : {})\n",
+    to: "",
+    killedBy: [
+      [
+        "bridges/next/snabbdom-testing.test.ts",
+        "finds the writes of controlled elements, each over the value its model holds, with that value"
+      ]
+    ]
+  },
+  {
+    name: "messagesSentBy of src/next does not draw a thunk",
+    file: "bridges/next/snabbdom-testing.ts",
+    from: "      visit(fn(...args))\n"
+      + "      return\n",
+    to: "",
+    killedBy: [
+      [
+        "bridges/next/snabbdom-testing.test.ts",
+        "draws each thunk, and records the message of a child as the root of the program receives it"
+      ]
+    ]
   }
 ]
