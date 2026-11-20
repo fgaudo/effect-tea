@@ -15,8 +15,8 @@ test of it. None is open.
 ## Possible improvements
 
 In the order they would be taken, as a review of the architecture set it on 20 November 2026. Each item says what it
-is, why, how it would be done, and what "done" is. Items 1, 2, 4 and 5 wait for a decision of the owner; the others
-need none.
+is, why, how it would be done, and what "done" is. Items 1, 2 and 4 wait for a decision of the owner; item 3
+needs none.
 
 ### 1. The value of an input, read in `makeModel` through its declaration
 
@@ -120,15 +120,7 @@ Many children, many messages per second, to keep "frames cost only what is drawn
 what a write into an input and a bridge's frame cost; neither runs in the CI. To be designed: what is measured, and
 against what it fails, since a CI machine's times vary.
 
-### 4. A frame a bridge does not draw again still waits for the next animation frame
-
-In both bridges, a frame of the very same model only settles the inputs, and could be taken at once. Kept, so that a
-bridge takes at most one frame per screen refresh, whatever it draws. Weighed in the review of 20 November 2026,
-reasoned: left as it is. A rejected key stays on screen for one refresh at most, and a bridge that took such frames at
-once would settle its inputs once for each key of a burst. The owner has not decided: agreed, it goes to
-`docs/rejected.md`.
-
-### 5. What the search of an input's element leaves without a killer
+### 4. What the search of an input's element leaves without a killer
 
 Left by the session that put the element of an input under the search, 20 November 2026 (run):
 

@@ -624,6 +624,14 @@ comments are written by hand since, in plain English, and name the sections of t
   React (`docs/records/hosted-react.md`), and its inputs, each settled by itself and found by its run's context, work
   with a component's state, Suspense, `memo`, a portal and a shadow tree. What this entry says of React above is of the
   bridge it replaced; a form's reset and a value the element changes by itself are still left out, by both bridges.
+- **A frame of the very same model taken at once, without waiting for the next animation frame.** Weighed in the
+  review of the architecture of 20 November 2026, reasoned; rejected by the owner the same day. In both bridges a frame
+  whose model is the one drawn last only settles the inputs (the snabbdom bridge patches nothing, the React bridge's
+  `Frames` does not render again), and the renderer still waits for the next animation frame before it takes another.
+  Taking such a frame at once would end that wait, but a bridge would then take more than one frame per screen
+  refresh, and would settle its inputs once for each key of a burst. What it would save: a rejected key stays on
+  screen for one refresh at most. _Reopen if_ a case shows that refresh to matter to a user, or settling the inputs
+  becomes cheap enough to do on each frame.
 
 ## The checks
 
