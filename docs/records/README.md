@@ -16,3 +16,4 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`inert-steps.md`](inert-steps.md)                       | done in part, `Inert` deferred: a step that does nothing |
 | [`declared-inputs.md`](declared-inputs.md)               | suspended: what reaches `update`, declared as data       |
 | [`exploration.md`](exploration.md)                       | rejected: exploring a program from `init`                |
+| [`hosted-react.md`](hosted-react.md)                     | spiked, not decided: a bridge in which React hosts       |
