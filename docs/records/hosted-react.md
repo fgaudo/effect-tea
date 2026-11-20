@@ -1,7 +1,8 @@
 # A bridge to React in which React hosts the program
 
-**Status:** spiked, not decided. A spike of 20 November 2026 by a session of Opus 5.5, on the branch
-`claude/spike-hosted-react-47f7d5` cut from `ac9d2f5`, never to be merged. Read against the code at `ac9d2f5`.
+**Status:** decided by the owner, 20 November 2026: it replaces `bridges/react.ts` ("Decided", at the end), not yet
+done. A spike of 20 November 2026 by a session of Opus 5.5, on the branch `claude/spike-hosted-react-47f7d5` cut from
+`ac9d2f5`, never to be merged. Read against the code at `ac9d2f5`.
 
 ## Context
 
@@ -234,7 +235,7 @@ the commands of `init` run twice under StrictMode; everything not run, listed ab
 - **Three checks no test kills** (the yield, the dropped frames of a closed renderer, the forgotten frame): code kept on
   reasoning alone, which `AGENTS.md` asks to avoid.
 
-## What is left for the owner to decide
+## What was left for the owner to decide
 
 1. Whether the React bridge is hosted, and whether it replaces `bridges/react.ts` or stands beside it.
 2. Whether the three rules of "View" become promises of each bridge, as quoted above, and what "Guarantees" then says of
@@ -244,3 +245,35 @@ the commands of `init` run twice under StrictMode; everything not run, listed ab
 4. Where a defect goes after unmount: `reportError`, or a prop of the application.
 5. Whether the yield, the dropped frames and the forgotten frame stay without a test.
 6. Whether the commands of `init` running twice under StrictMode are acceptable, as React's own rule for effects.
+
+## Decided
+
+By the owner, 20 November 2026, on an opinion of Fable 5.2 that read this record and the spike's code (read, not run):
+
+1. **The hosted bridge replaces `bridges/react.ts`.** Its `Frames` stays, for an application that starts the run
+   itself. What ends with the old bridge: "a view that throws kills the run", and the snabbdom bridge becomes the only
+   one that keeps the three rules of "View" as they are. The 26 shared tests keep running through `Frames`, which
+   `together` needs, one run under two renderers.
+2. **The three rules of "View" become promises of each bridge**, and "Guarantees" says what it promises of the program;
+   the bridge says what it adds of the screen.
+3. **`Host`, a component with a render prop, takes `program`, its options and `fork`**, so that its types are inferred
+   as `run`'s are; no hook and no provider are exported, since an application writes a hook over the public `subscribe`
+   and `frame` of the store in a few lines. `Host` reads its first props only: the guide says that a new `key` starts
+   the run anew. `Host` observes the fiber that `fork` returns, so that what the application handles around the run
+   is not thrown or reported again by `Host`.
+4. **A defect after unmount goes to `reportError`**, with no prop: the application that wants more wraps the run in
+   `fork`. The guide says that `Cause.squash` keeps one defect, so that the whole cause is seen only by wrapping the run.
+5. **No check is kept without a test**: the yield, the dropped frames of a closed renderer and the forgotten frame each
+   get a test that fails without them, or go.
+6. **The commands of `init` running twice under StrictMode are accepted**, as React's rule for effects. The rule
+   underneath is that the run lives as long as `Host`'s effect: React's `<Activity>` destroys effects while it hides a
+   component, so the program starts again from `init` (Fast Refresh likely too, not checked). It goes in "What is left
+   to you", with `Frames` as the answer for a state that outlives a component, once a test checks what the first run's
+   commands do before it is interrupted.
+
+**The hang of 6.1 GB, explained**, the same day (run): no loop of the bridge. With the settling at mount taken out, the
+button stays disabled, and the shared test "is rejected while the save is under way, when the run has taken the first
+click" failed on `expect([button("Save"), save.disabled]).toEqual([save, false])`. Bun's failing `toEqual` walks the
+properties React puts on an element it drew: over two buttons drawn by React it took 17 seconds, over the form it grew
+past 2 GB in 9 seconds. A failing `toBe` on the same elements ends at once. The assertion is two `toBe` since, on
+`main` too, where the current React bridge runs it, and `add-example` says why.

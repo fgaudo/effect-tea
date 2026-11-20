@@ -91,17 +91,23 @@ library is for, while snabbdom is small enough to keep a copy of; and another re
 lit-html's `render` is the one that fits beside snabbdom (drawn at once, no component), but its templates are no tree
 a test can walk.
 
-**The bridge to React, hosted by React: spiked**, 20 November 2026, not decided
-([`docs/records/hosted-react.md`](docs/records/hosted-react.md); the code is on the branch
-`claude/spike-hosted-react-47f7d5`, commit `10fd404`, never to be merged). With nothing of `src/` changed, a component
-starts the run and hands its frames to a store that React reads, and each input settles itself after the commit. The 26
-shared tests of the bridges pass on it, with tests of a component with state of its own, `memo`, Suspense, a portal,
-two programs on a page and StrictMode; of the four gaps of 16 November it closes one, Suspense, and leaves three. Its
-costs, by its own record: three rules of the guide's "View" become promises of a bridge, the testing tools speak for
-the program and no longer for the screen, nine premises of React with one that no test holds, and three checks no test
-kills. Not run: a real browser. Open: a test of the spike with one check taken out grew to about 6.1 GB and did not
-end. The owner decides the six points at the end of the record, first whether it takes the place of
-`bridges/react.ts`.
+**The bridge to React, hosted by React: decided**, 20 November 2026, not yet done
+([`docs/records/hosted-react.md`](docs/records/hosted-react.md), "Decided"; the spike is on the branch
+`claude/spike-hosted-react-47f7d5`, commit `10fd404`, never to be merged). It replaces `bridges/react.ts`, with its
+`Frames` kept for an application that starts the run itself. What is left, in this order:
+
+1. The bridge from the spike, with `Host` taking `program`, its options and `fork`, and observing the fiber `fork`
+   returns; the shared tests through `Frames`, the spike's own tests beside them.
+2. A test for each of the yield, the dropped frames of a closed renderer and the forgotten frame, or the check goes;
+   a test of what the first run's commands do under StrictMode before it is interrupted.
+3. The guide: the three rules of "View" as promises of each bridge, "Guarantees" of the program, and in "What is left
+   to you" that the run lives as long as `Host`'s effect (`<Activity>`, a remount), with `Frames` as the answer; that
+   a defect after unmount goes to `reportError`, and the whole cause only to a wrapped run. Each rule changed one
+   section at a time (`AGENTS.md`, "The guide is a specification").
+4. The changelog, the README's row of the bridge, and `together` on `Frames`.
+
+Not run, still: a real browser. The hang of 6.1 GB of the spike was a failing `toEqual` over an element React drew, not
+a loop of the bridge; the shared test that held it compares with `toBe` since.
 
 **Done when** the packages are published with the library, or the entry of `docs/rejected.md` says why not.
 

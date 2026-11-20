@@ -104,7 +104,9 @@ renderers and is no bridge.
   without a DOM: `snabbdom-preload.ts` sets `window` to `undefined` so that snabbdom loads, and only the bridges'
   tests in a DOM register happy-dom. A check that needs a DOM (how often the bridge draws, a click on a drawn button,
   typing while frames are drawn) goes into the bridges' tests: `bridge.test_suite.ts` when every bridge must pass it,
-  the test of the bridge the example uses when it is about that renderer alone.
+  the test of the bridge the example uses when it is about that renderer alone. An element is compared with `toBe`,
+  never inside `toEqual`: a failing `toEqual` walks the properties React puts on an element it drew, its fibers and
+  through them the program, and took 17 seconds over two buttons, and over a form grew past 6 GB and did not end.
 
 ## Run it
 
