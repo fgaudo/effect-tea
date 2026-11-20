@@ -334,9 +334,22 @@ above. The owner took each advice as it was given, and left the names to that se
      started. `renderInto` named the renderer that `run` took, which goes, and no release has had it.
    - `die`, the word the guide has for a run that a defect ends.
 
-Not asked of the owner, and left to stage 1 to ask before it writes: whether "the effects of a step do not start in
-the call that sent its message" becomes a promise, with how `Queue` resumes a taker as its premise ("One wake for each
-dispatch").
+Asked of the owner after the eight, the same day, and answered on the same session's advice:
+
+9. **That the effects of a step do not start in the call that sent its message is described, and not promised**, and
+   no premise is added for it ("One wake for each dispatch"). The engine keeps the queue of today, so nothing changes.
+   - It gives a program little. The runtime has one thread, so a command whose effect is slow before its first wait
+     holds the page up either way, in the handler or a task later. What differs is that the new state is drawn before
+     the command starts.
+   - The guide already says what a program must bear: the state is ahead of its effects, and a command may not have
+     started yet.
+   - It would be false of the first state, whose effects start on the stack of whoever forks `run`.
+   - It would rest a promise on how `Queue` resumes a taker, which Effect does not document, before step 8 of
+     `ROADMAP.md` weighs what the guarantees rest on.
+   - It would rule out effects that start in the call, which a command that needs the user's gesture might ask for.
+
+   Step 4 removes the run's logs, and with them the one test that fails when the effects start in the dispatch. So
+   stage 1 adds a test of it, an alarm of what is described and the killer of no mutation.
 
 The stages are the four listed above, written as 2a to 2d of step 2 in `ROADMAP.md`, after its step 4, with what each
 owes to these answers.

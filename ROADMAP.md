@@ -95,9 +95,13 @@ that every check passes at its end. What differs from the branch:
 - **The defect that `main` loses** (point 2 of the seven, below) is fixed whole: `recordThrown` records before it
   reads the details, so that the defect of `update` is kept when a message's tag throws. What the loop of `apply`
   catches is recorded as it is, with no site, as the owner decided. Its test is in `src/start.test.ts`.
-- **Asked of the owner before it is written:** whether "the effects of a step do not start in the call that sent its
-  message" becomes a promise, with how `Queue` resumes a taker as its premise. A `Deferred` in place of the queue ran
-  them inside the dispatch (the record, "One wake for each dispatch").
+- **The effects of a step stay out of the call that sent its message, described and not promised**, as the owner
+  decided (the record, "Decided", 9): the engine keeps the queue, whose taker a task of the scheduler resumes, and no
+  premise is added for it. A `Deferred` in place of the queue ran them inside the dispatch. Step 4 removes the logs,
+  and with them the one test that would notice ("describeMessage and describeCommand are called only while debug logs
+  are enabled, in the fiber of effects"). So this stage adds a test that a dispatch returns before the commands of its
+  step start, while the fiber of effects waits: it says that it is an alarm of what is described, and the killer of
+  no mutation.
 - **`Engine.make`**, which the branch keeps as an effect for the tests of the engine, says that it is for them, or
   moves to their file.
 
@@ -153,6 +157,9 @@ what acquired it", each sentence checked against the code of 2a and 2b. And what
 
 - **A program is started, then run.** A message sent before `run` is applied, and its effects wait. A program started
   is run once. One that was never run is never stopped.
+- **Where the effects of a step start.** "The program runs on the stack of whoever sends the message", in "What is
+  left to you", says that the effects of a step start once that call has returned, but for the first state's, which
+  start as `run` is forked. Described, and not promised (the record, "Decided", 9).
 - **`'render'`** is `makeModel`, wherever the model is read, a renderer's listener, and what a renderer gives to `die`.
   What the engine's own code throws is in the cause as it is, with no site: "A defect anywhere ends the run. The run
   dies with it, as a `ProgramDefect`" is of the program's defects.
