@@ -1156,12 +1156,13 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a death recorded signals nobody",
     file: "src/shell.ts",
-    from: "    if (register !== before) Deferred.doneUnsafe(died, Exit.void)\n",
+    from: "    else Deferred.doneUnsafe(died, Exit.void)\n",
     to: "",
     killedBy: [
+      ["src/run.test.ts", "a defect in a command ends the run, which dies with it and with where it happened"],
       [
         "src/run.test.ts",
-        "a defect of update in a dispatch is never thrown to the caller, and the run dies of it in update"
+        "a model read outside any fiber is recorded in render, and the reader gets the defect recorded"
       ],
       [
         "src/testing/rehearse.test.ts",
@@ -1170,6 +1171,18 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/testing/rehearse.test.ts",
         "a run waiting for its command fails as soon as another fiber of the test's dies"
+      ]
+    ]
+  },
+  {
+    name: "a death recorded while a call applies signals nobody",
+    file: "src/shell.ts",
+    from: "      owed = false\n      Deferred.doneUnsafe(died, Exit.void)\n",
+    to: "      owed = false\n",
+    killedBy: [
+      [
+        "src/run.test.ts",
+        "a defect of update in a dispatch is never thrown to the caller, and the run dies of it in update"
       ]
     ]
   },
@@ -1280,7 +1293,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "what the thunk records of a throw has no site",
     file: "src/engine.ts",
-    from: "const cause = Core.wrapDefects(Cause.die(thrown), where, details(), wrapped)",
+    from: "const cause = Core.wrapDefects(Cause.die(thrown), where, said, wrapped)",
     to: "const cause = Cause.die(thrown)",
     killedBy: [
       [
@@ -1360,8 +1373,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a defect of subscriptions on the first state is one of update",
     file: "src/engine.ts",
-    from: "call(\"subscriptions\", () => Core.reconcile(Core.noneActive",
-    to: "call(\"update\", () => Core.reconcile(Core.noneActive",
+    from: "attempt(\"subscriptions\", () => Core.reconcile(Core.noneActive",
+    to: "attempt(\"update\", () => Core.reconcile(Core.noneActive",
     killedBy: [
       [
         "src/engine.test.ts",
@@ -1459,8 +1472,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "each job runs in a fiber of its own",
     file: "src/engine.ts",
-    from: "while (true) yield* perform(yield* Queue.take(jobs))",
-    to: "while (true) yield* Effect.forkChild(perform(yield* Queue.take(jobs)))",
+    from: "while (true) yield* perform(yield* Queue.take(queued))",
+    to: "while (true) yield* Effect.forkChild(perform(yield* Queue.take(queued)))",
     killedBy: [
       [
         "src/engine.test.ts",
@@ -1627,7 +1640,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a listener's site wraps again the defect a model recorded",
     file: "src/run.ts",
-    from: "      rendered: isModels,\n",
+    from: "    rendered: isModels,\n",
     to: "",
     killedBy: [
       ["src/run.test.ts", "a listener that reads a model that throws, and throws it, is one defect, in render"]
@@ -1654,12 +1667,16 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "a defect of init in the run has no site",
+    name: "a defect of init is one of update",
     file: "src/run.ts",
-    from: "Shell.diesIn(\"init\"), deaths.recorded)",
-    to: "deaths.recorded)",
+    from: "Engine.recordThrown(deaths, \"init\", thrown)",
+    to: "Engine.recordThrown(deaths, \"update\", thrown)",
     killedBy: [
-      ["src/run.test.ts", "an init that throws on its flags dies in init"]
+      ["src/run.test.ts", "an init that throws on its flags dies in init"],
+      [
+        "src/start.test.ts",
+        "in init: the handle is made, model() throws the defect in init, nothing is applied, and run dies of it"
+      ]
     ]
   },
   {
@@ -1761,6 +1778,66 @@ export const mutations: ReadonlyArray<Mutation> = [
         "src/engine.test.ts",
         "defects are recorded in the order they happened, and a listener that throws leaves the others told"
       ]
+    ]
+  },
+  // The engine in two halves (`docs/records/store-and-effects.md`): the register held while a call applies, the jobs
+  // offered as the outermost call returns, the `catch` of its loop, and a program started that is run once.
+  {
+    name: "the end of the run may begin inside a step",
+    file: "src/engine.ts",
+    from: "    deaths.hold()\n",
+    to: "",
+    killedBy: [
+      [
+        "src/start.test.ts",
+        "never begins inside a step: a defect a listener throws ends the run once every listener of the step is told"
+      ]
+    ]
+  },
+  {
+    name: "the jobs of a call are not offered as it returns",
+    file: "src/engine.ts",
+    from: "      offer()\n      deaths.release()\n",
+    to: "      deaths.release()\n",
+    killedBy: [
+      ["src/engine.test.ts", "a step applied before the first defect goes on whole: its commands still start"],
+      [
+        "src/run.test.ts",
+        "what a subscription acquires is released when its key goes away, apart from the next message"
+      ]
+    ]
+  },
+  {
+    name: "what the loop of apply meets thrown outside the program reaches whoever sent the message",
+    file: "src/engine.ts",
+    from: "      deaths.record(Cause.die(thrown))\n    } finally {",
+    to: "      throw thrown\n    } finally {",
+    killedBy: [
+      [
+        "src/start.test.ts",
+        "what the thunk throws outside every site is recorded as it is, after the defect it was saying, never thrown to the sender, and ends the run"
+      ]
+    ]
+  },
+  {
+    name: "a defect whose details throw is lost",
+    file: "src/engine.ts",
+    from: "    deaths.record(Core.wrapDefects(Cause.die(thrown), where, {}, wrapped))\n    throw failed\n",
+    to: "    throw failed\n",
+    killedBy: [
+      [
+        "src/start.test.ts",
+        "what the thunk throws outside every site is recorded as it is, after the defect it was saying, never thrown to the sender, and ends the run"
+      ]
+    ]
+  },
+  {
+    name: "a program started is run twice",
+    file: "src/run.ts",
+    from: "    if (begun) return Effect.die(",
+    to: "    if (begun && false) return Effect.die(",
+    killedBy: [
+      ["src/start.test.ts", "is run once: a second run dies, and the first goes on"]
     ]
   },
   // The testing tools (`docs/records/synchronous-dispatch.md`, stage 2).
@@ -2453,8 +2530,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "drive goes on after a defect of the program until the scenario ends",
     file: "src/testing/drive.ts",
-    from: "    deaths\n  ).pipe(",
-    to: "    { ...deaths, died: Effect.never }\n  ).pipe(",
+    from: "      deaths,\n      began\n    )",
+    to: "      { ...deaths, died: Effect.never },\n      began\n    )",
     killedBy: [
       ["src/testing/drive.test.ts", "a defect of the program fails the scenario"],
       [
@@ -2470,6 +2547,23 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "false",
     killedBy: [
       ["src/testing/drive.test.ts", "after a defect of the program, model fails with it"]
+    ]
+  },
+  {
+    name: "drive begins its scenario before the run has started the effects of the first state",
+    file: "src/testing/drive.ts",
+    from: "Effect.flatMap(began, () =>",
+    to: "Effect.flatMap(Effect.void, () =>",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "drive fails, as the run dies, on a defect of what a subscription releases when the scenario ends"
+      ],
+      [
+        "src/testing/contract.test.ts",
+        "drive fails, as rehearse does, in render alone: the scenario that would catch it never meets it"
+      ],
+      ["src/testing/contract.test.ts", "in drive, through the run's dispatch, it reaches no update"]
     ]
   },
   // The bridges (`docs/records/synchronous-dispatch.md`, stage 3): each check of the bridges to snabbdom and to

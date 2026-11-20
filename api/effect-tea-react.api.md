@@ -14,6 +14,7 @@ import type * as Scope from 'effect/Scope';
 
 // @public
 interface App<Model, Message> {
+    readonly die: (thrown: unknown) => void;
     readonly dispatch: Dispatch<Message>;
     readonly model: () => Model;
     readonly subscribe: (listener: () => void) => () => void;

@@ -26,6 +26,8 @@ version, and everything else, features included, the patch version.
   `@fgaudo/effect-tea/snabbdom/testing`, and `@fgaudo/effect-tea/react`, whose renderer is an optional peer
   (`snabbdom` ^3.6.4, `react` and `react-dom` ^19.3.1). They draw native controlled elements, React's with `Host` or
   `Draw`, snabbdom's in a microtask after each new state. They replace the files to copy ("Writing a bridge").
+- `start(program, options)` starts a program by plain code, with no fiber, and gives its handle, `Started`: what a
+  renderer reads, and `run`, the effect that runs the program's effects, which whoever runs the program forks.
 
 ### Changed
 
@@ -50,8 +52,8 @@ version, and everything else, features included, the patch version.
   was `(message) => Effect<void>`: when a handler returns, `update` has seen its message ("View").
   Upgrade: `Effect.runSync(dispatch(message))` becomes `dispatch(message)`, `yield* dispatch(message)` becomes
   `yield* Effect.sync(() => dispatch(message))`, and a dispatch written by hand returns nothing.
-- **Breaking**: `run`'s renderer is given an `App`, `{ model, subscribe, dispatch }`, in place of a stream of frames:
-  `Frame` is gone, and a model is made when it is read, once for each state ("Writing a bridge").
+- **Breaking**: `run`'s renderer is given an `App`, `{ model, subscribe, dispatch, die }`, in place of a stream of
+  frames: `Frame` is gone, and a model is made when it is read, once for each state ("Writing a bridge").
   Upgrade: `(frames) => Stream.runForEach(frames, ({ model, dispatch }) => draw(model, dispatch))` becomes a renderer
   that draws `app.model()` with `app.dispatch` as it starts, and again on each notice of `app.subscribe`.
 - A message is applied in the call that sends it, a command's answer and a subscription's message in their own fiber;

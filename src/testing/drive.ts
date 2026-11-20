@@ -1,4 +1,4 @@
-// `drive` runs the program with `run`: its renderer is told of every state, and reads the model of each one.
+// `drive` starts the program and runs it: it is told of every state, and reads the model of each one.
 import * as Arr from "effect/Array"
 import * as Cause from "effect/Cause"
 import * as Clock from "effect/Clock"
@@ -13,8 +13,8 @@ import * as Core from "../core.ts"
 import type { Dispatch } from "../dispatch.ts"
 import type { RunOptions } from "../engine.ts"
 import type { FlagsOption, Shape } from "../program.ts"
-import { type App, runWith } from "../run.ts"
-import { makeDeaths } from "../shell.ts"
+import { type App, type Started, startWith } from "../run.ts"
+import { type Deaths, makeDeaths } from "../shell.ts"
 
 /**
  * The user of a program that `drive` runs: it waits for what the models show, and sends what they show.
@@ -61,6 +61,47 @@ type Shown<Model, Message> = Readonly<{
   latest: () => Model
   changed: () => Deferred.Deferred<void>
 }>
+
+// Plain code: the program started, the handle there before any fiber, so that the driver's dispatch is the program's
+// from the scenario's first step, and `init` has been called before it begins, as in `rehearse`. Told of every state,
+// `drive` reads the model of each one, in the listener, on whatever stack made the state, and wakes the waits last, so
+// that a wait it wakes on that stack finds the model read. A read of the model may wake, on this stack, a fiber that
+// makes a newer state, and the read of that one ends first: only the read of the latest notice is kept. A model that
+// throws is recorded once, in `'render'`, where it is read.
+const driven = <Model, Message, R>(
+  starting: (deaths: Deaths, began: () => void) => Started<Model, Message, R>
+) => {
+  // What the program's fibers die of, the defects of `makeModel` a read meets included, as `drive` ends with it.
+  const deaths = makeDeaths(() => true)
+  const running = Deferred.makeUnsafe<void>()
+  // Said once the run has started the effects of the first state, unless the program has died by then: of `init`, of
+  // its first keys, of its first model, or of what the first state started. The check and the notice are one thunk.
+  const app = starting(deaths, () => {
+    if (!deaths.dead()) Deferred.doneUnsafe(running, Effect.void)
+  })
+  let notices = 0
+  let latest: Model | undefined
+  let changed = Deferred.makeUnsafe<void>()
+  const read = () => {
+    const notice = ++notices
+    const model = app.model()
+    if (notice === notices) latest = model
+  }
+  // Subscribed before the first read, so that no state is missed.
+  const unsubscribe = app.subscribe(() => {
+    read()
+    const woken = changed
+    changed = Deferred.makeUnsafe<void>()
+    Deferred.doneUnsafe(woken, Effect.void)
+  })
+  try {
+    read()
+  } catch {
+    // Recorded where the model was read, or by `init`: the run dies of it.
+  }
+  const now: Shown<Model, Message> = { app, latest: () => latest as Model, changed: () => changed }
+  return { deaths, began: Deferred.await(running), now, run: app.run, unsubscribe }
+}
 
 /**
  * Runs a program and plays a scenario on its models, as a user would.
@@ -118,38 +159,18 @@ export const drive = Effect.fnUntraced(function*<
     ? [options?: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>]
     : [options: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
 ): Effect.fn.Return<A, E, Exclude<RC | RS, Scope.Scope> | RT> {
-  // What the run's fibers die of, the defects of `makeModel` the renderer meets included, as `drive` ends with it.
-  const deaths = yield* makeDeaths(() => true)
-  const shown = yield* Deferred.make<Shown<Model, Message>>()
-  // Told of every state, it reads the model of each one, in the listener, on whatever stack made the state, and wakes
-  // the waits last, so that a wait it wakes on that stack finds the model read. A model that throws is recorded once,
-  // in `'render'`, by the run, and the listener's site takes it as it is.
-  const render = (app: App<Model, Message>) =>
-    Effect.acquireRelease(
-      Effect.sync(() => {
-        // A read of the model may wake, on this stack, a fiber that makes a newer state, and the read of that one
-        // ends first: only the read of the latest notice is kept.
-        let notices = 0
-        let latest: Model | undefined
-        let changed = Deferred.makeUnsafe<void>()
-        const read = () => {
-          const notice = ++notices
-          const model = app.model()
-          if (notice === notices) latest = model
-        }
-        // Subscribed before the first read, so that no state is missed.
-        const unsubscribe = app.subscribe(() => {
-          read()
-          const woken = changed
-          changed = Deferred.makeUnsafe<void>()
-          Deferred.doneUnsafe(woken, Effect.void)
-        })
-        read()
-        Deferred.doneUnsafe(shown, Effect.succeed({ app, latest: () => latest as Model, changed: () => changed }))
-        return unsubscribe
-      }),
-      (unsubscribe) => Effect.sync(unsubscribe)
-    ).pipe(Effect.andThen(Effect.never), Effect.scoped)
+  const { deaths, began, now, run, unsubscribe } = driven<Model, Message, Exclude<RC | RS, Scope.Scope>>((
+    deaths,
+    began
+  ) =>
+    startWith(
+      program,
+      // The rest of the options keeps the flags the parameter's type requires.
+      options as RunOptions<State, Message, Command>,
+      deaths,
+      began
+    )
+  )
   // The first model `select` maps to `Some`, the current one or a later one: what the waits wait on is taken before
   // the model is read, in one step, so that no state made in between is missed.
   const first = <B>({ latest, changed }: Shown<Model, Message>, select: (model: Model) => Opt.Option<B>) => {
@@ -187,30 +208,24 @@ export const drive = Effect.fnUntraced(function*<
     }),
     dispatch: now.app.dispatch
   })
-  const running = runWith(
-    program,
-    render,
-    // The rest of the options keeps the flags the parameter's type requires.
-    options as RunOptions<State, Message, Command>,
-    deaths
-  ).pipe(Effect.andThen(Effect.die(new Error("The program ended before the scenario"))))
   // Stopped and awaited however `drive` ends, interrupted by whoever runs it too: its exit holds what the program
   // dies of as it releases what it holds.
   return yield* Effect.uninterruptibleMask(Effect.fnUntraced(function*(restore) {
-    // Not `restore(running)`: it would give the run the region of whoever runs `drive`, uninterruptible where that is,
-    // when a fiber forked here is interruptible all the same (`docs/premises.md`). The scenario waits for the renderer's
-    // handle, below, so the run has called `init` before it begins, as `rehearse` has, however the run's fiber starts.
-    const fiber = yield* Effect.forkChild(running)
-    // The scenario begins once the renderer has its handle, so that the driver's dispatch is the run's from the
-    // scenario's first step; a run that ends first ends `drive`, the scenario never begun.
+    // Not `restore(app.run)`: it would give the run the region of whoever runs `drive`, uninterruptible where that is,
+    // when a fiber forked here is interruptible all the same (`docs/premises.md`).
+    const fiber = yield* Effect.forkChild(run)
+    // A run that ends first, of a defect, ends `drive`, whatever the scenario was doing.
     const ended = yield* Effect.exit(restore(Effect.raceFirst(
-      Effect.flatMap(Deferred.await(shown), (now) =>
+      // The scenario begins once the run has started the effects of the first state, as a user meets a program that
+      // runs: a run that ends first ends `drive`, the scenario never begun.
+      Effect.flatMap(began, () =>
         // Suspended, so that a scenario that throws before it returns its effect fails here, past nothing of the end.
         Effect.asSome(Effect.exit(Effect.suspend(() => scenario(driverOf(now)))))),
       Effect.as(Fiber.await(fiber), Opt.none())
     )))
     yield* Fiber.interrupt(fiber)
     const stopped = yield* Fiber.await(fiber)
+    unsubscribe()
     // What the scenario ended with, or how `drive` was interrupted. Once the run has ended, of a defect as of
     // anything else, what the scenario ended with is dropped. Interrupted, the run dies of what its fibers die of as
     // they release what they hold, as when whoever runs it interrupts it: the defects first, in the order they died.

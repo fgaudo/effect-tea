@@ -25,8 +25,10 @@ and of the JavaScript engine, each with what checks it, is [`docs/premises.md`](
    `docs/invariants.md`). Each leaves a test that fails without the check, deterministic, of the core or with a gate,
    and a mutation that takes the check out, naming that test. The thunk that applies a message runs on the sender's
    stack, and has no such point inside it; the points are between it and the fiber of effects, and in the testing
-   tools between a call's thunk and its job. A thunk writes first and offers or completes last: keep that order, which
-   no mutation holds, since a fiber resumed on the stack of whoever completes its `Deferred` is no premise.
+   tools between a call's thunk and its job. A thunk writes first and offers or completes last: keep that order. In the
+   engine, the jobs are offered and `died` completed only as the outermost `apply` returns, which mutations hold; in
+   the testing tools no mutation holds it, since a fiber resumed on the stack of whoever completes its `Deferred` is no
+   premise.
 4. When the engine or one tool changes, keep the others in step: `src/testing/contract.test.ts` gives the same
    program and inputs to each tool and to the run.
 

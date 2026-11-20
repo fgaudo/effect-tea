@@ -229,7 +229,7 @@ const rehearsing = Effect.fnUntraced(function*<
   // and what the test asks for after the first fails with them, as nothing happens in a run that died. The tool's own
   // failures of a call (nothing to send, a control that does nothing) are the caller's alone, so only a
   // `ProgramDefect` is recorded.
-  const register = yield* makeDeaths((defect) => defect instanceof ProgramDefect)
+  const register = makeDeaths((defect) => defect instanceof ProgramDefect)
   const { recorded, all: deaths, dead } = register
   // Fails with the defects recorded so far, if any: else runs `effect`. It guards no call of the program: one that
   // must not follow a death has its own check, the only one, in the thunk that calls it, since the scheduler may

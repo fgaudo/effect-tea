@@ -29,6 +29,7 @@ export type AnyProgram = {
 
 // @public
 export interface App<Model, Message> {
+    readonly die: (thrown: unknown) => void;
     readonly dispatch: Dispatch<Message>;
     readonly model: () => Model;
     readonly subscribe: (listener: () => void) => () => void;
@@ -584,6 +585,14 @@ type Start<P, Command> = Readonly<{
     state: StateOf<P>;
     commands: ReadonlyArray<Command>;
 }>;
+
+// @public
+export const start: <State, Model, Message, Command = never, RC = never, RS = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Started<Model, Message, Exclude<RC | RS, Scope.Scope>>;
+
+// @public
+export interface Started<Model, Message, R = never> extends App<Model, Message> {
+    readonly run: Effect.Effect<never, never, R>;
+}
 
 // @public
 export type StateOf<P> = FirstStepOf<P> extends Step<infer S, any> ? S : never;

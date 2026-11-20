@@ -12,6 +12,7 @@ import {
   ProgramDefect,
   reject,
   run,
+  start,
   type SubscriptionServicesOf,
   type Update
 } from "@fgaudo/effect-tea"
@@ -22,6 +23,7 @@ import * as Arr from "effect/Array"
 import * as Channel from "effect/Channel"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
+import * as Fiber from "effect/Fiber"
 import * as HashMap from "effect/HashMap"
 import * as Optic from "effect/Optic"
 import * as Opt from "effect/Option"
@@ -465,6 +467,10 @@ const main = Effect.gen(function*() {
   })
   assert(counts.join() === "0,1,2,3", `the renderer is told of every new state: ${counts.join()}`)
   assert(heard.length === 3, `onApplied hears every accepted message: ${heard.length}`)
+  const started = start(app)
+  started.dispatch(increment())
+  assert(started.model().main.count === 1, "a program started applies a message before it is run")
+  yield* Fiber.interrupt(yield* Effect.forkChild(started.run))
 })
 
 await Effect.runPromise(main)

@@ -178,15 +178,27 @@ export interface Deaths {
   readonly has: (defect: unknown) => boolean
   /** Dies with the defects recorded since it last ran, in the order they died; succeeds when there is none. */
   readonly report: Effect.Effect<void>
+  /**
+   * From now on, a defect recorded does not complete `died` until `release`: the thunk that applies a message holds
+   * it, so that what waits on `died` never resumes inside a step.
+   */
+  readonly hold: () => void
+  /** Ends `hold`, and completes `died` when a defect was recorded meanwhile. */
+  readonly release: () => void
 }
 
-export const makeDeaths = Effect.fnUntraced(function*(keeps: (defect: unknown) => boolean) {
+// Plain code: a program is started, and its register made, outside any fiber.
+export const makeDeaths = (keeps: (defect: unknown) => boolean): Deaths => {
   let register = Core.noDeaths
-  const died = yield* Deferred.make<void>()
+  const died = Deferred.makeUnsafe<void>()
+  let held = false
+  let owed = false
   const record = (cause: Cause.Cause<unknown>) => {
     const before = register
     register = Core.record(register, cause, keeps)
-    if (register !== before) Deferred.doneUnsafe(died, Exit.void)
+    if (register === before) return
+    if (held) owed = true
+    else Deferred.doneUnsafe(died, Exit.void)
   }
   return {
     recorded: (self) =>
@@ -203,9 +215,18 @@ export const makeDeaths = Effect.fnUntraced(function*(keeps: (defect: unknown) =
       const [dies, after] = Core.report(register)
       register = after
       return Opt.match(dies, { onNone: () => Effect.void, onSome: Effect.failCause })
-    })
-  } satisfies Deaths
-})
+    }),
+    hold: () => {
+      held = true
+    },
+    release: () => {
+      held = false
+      if (!owed) return
+      owed = false
+      Deferred.doneUnsafe(died, Exit.void)
+    }
+  }
+}
 
 /**
  * What the fibers of a run get from the context of whoever ran it: the same, but for its span, seen by them as

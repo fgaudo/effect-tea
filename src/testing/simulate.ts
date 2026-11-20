@@ -162,7 +162,7 @@ export const simulate = <State, Message, Command, Event, R = never>(
     const started = Core.init(from)
     // What the commands of this simulation die of, recorded as the run's fibers record theirs: one command runs at a
     // time, and the first that dies fails the simulation.
-    const deaths = yield* makeDeaths(() => true)
+    const deaths = makeDeaths(() => true)
     const listening: Listening = { current: started.current, active: Core.noneActive }
     yield* listen(listening)
     const first: Current = { messages: [], commands: started.commands, events: [], ignored: [] }

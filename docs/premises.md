@@ -120,7 +120,7 @@ The invariants themselves are in [`invariants.md`](invariants.md).
 - **A scope runs its finalizers in the reverse order they were added**, which is how the end of the engine, added
   after its queue of jobs, its `FiberSet` and its `FiberMap`, stops their fibers with the run's mark before they close,
   and reports what those die of as they release, and how the run releases the renderer, acquired after the engine,
-  before the engine's end (`make` in `engine.ts`, `running` in `run.ts`): "the end of the engine interrupts its
+  before the engine's end (`effects` in `engine.ts`, `running` in `run.ts`): "the end of the engine interrupts its
   commands and its subscriptions at once", "what a command dies of as the end of the engine interrupts it is what the
   end dies of" (`engine.test.ts`) and "a command that joins a fiber the fiber of the run interrupted, as the run ends,
   is a defect in the command" (`run.test.ts`) rest on it, and fail with a scope that runs them in the order they were
@@ -397,12 +397,12 @@ releases what a fiber holds, and leaves a test at each place the form can reach.
 
 A lead no test can reach yet is listed here, with what would decide it.
 
-- **An interruption never reaches the fiber that makes the engine between the fork of the fiber of effects and its
+- **An interruption never reaches the fiber that starts the effects between the fork of the fiber of effects and its
   assignment**, which is how `stop` knows of every fiber of effects that runs: interrupted between them, that fiber
   would close its scope with a fiber of effects the end does not stop first, nor wait for. It comes from the sixth
-  review (November 2026), of the loop the fiber of effects replaced. The fork and its assignment are one region nothing
-  interrupts (`make` in `engine.ts`), so nothing rests on it. No deterministic test
-  reaches that point: an interruption from outside lands there only under the scheduler of the tests, which no test
-  of a check runs under (`invariants.md`, "one thunk"). It would be decided by a test that interrupts the fiber that
-  makes the engine right after `FiberSet.run` returns, without that scheduler. With it, the region would go and the
-  premise would join the list.
+  review (November 2026), of the loop the fiber of effects replaced, when the fiber that made the engine forked it. The
+  fork and its assignment are one region nothing interrupts (`effects` in `engine.ts`), so nothing rests on it. No
+  deterministic test reaches that point: an interruption from outside lands there only under the scheduler of the tests,
+  which no test of a check runs under (`invariants.md`, "one thunk"). It would be decided by a test that interrupts the
+  fiber that starts the effects right after `FiberSet.run` returns, without that scheduler. With it, the region would go
+  and the premise would join the list.

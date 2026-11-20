@@ -23,9 +23,13 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   that hears it, the new state and its keys, and a message sent during it, as a listener or an `update` sends one,
   waits in `pending` until it is done (`apply`). No other code runs between the operations of the thunk but what it
   calls, by ECMAScript's run to completion: so every check of the thunk and its act are one thunk by construction. Its
-  subscriptions stopped and started and its commands started are a job, offered last, for one fiber of effects, which
-  takes the jobs from an unbounded queue one at a time, in the order of the states (`perform`). A step that stops,
-  starts and commands nothing offers no job, decided from the step alone (`queue`). Never apply a message
+  subscriptions stopped and started and its commands started are a job, which waits with the jobs of the other steps
+  of the call until the outermost `apply` returns, and is then offered with them, at once, to one fiber of effects,
+  which takes the jobs from an unbounded queue one at a time, in the order of the states (`perform`). A step that stops,
+  starts and commands nothing makes no job, decided from the step alone (`queue`). The engine is made by plain code
+  (`build`), and a message sent before its effects start is applied all the same: its job waits, with the first
+  state's, and the fiber that starts the effects (`effects`) does those that waited, in their order, a job a message
+  sends meanwhile included, before it forks the fiber of effects, which takes the later ones. Never apply a message
   from the fiber of effects, nor start a step's commands apart from its job. When a dispatch returns, `update` and the
   option have heard its message and the new state is current: "when it returns, update and onApplied have heard it,
   and the current state is the one it made", "a message a listener sends is applied after every listener has been told
@@ -33,7 +37,7 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   that sends them", "takes the jobs one at a time, in the order of the states: none starts while the job before is
   held" (`engine.test.ts`), with a gate. The promise is of the outermost call: one sent while another is applied
   returns before its message is applied, and is applied right after, before the outer call returns. The listeners are
-  told last, once the state is current; that they are told after the job is offered and after the keys are reconciled
+  told last, once the state is current; that they are told after the job is made and after the keys are reconciled
   is no promise, and has no test and no mutation (the guide says only "once the new state is current"). Each other
   check has a mutation (`tools/mutations/mutations.ts`), and the search checks that a dispatch has been applied when it
   returns, that each `update` is heard before the next is called, and that a message a listener sends is the next one
@@ -99,7 +103,7 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
 - **Every program keeps its state in an object**, replaced and never mutated, so that any program can be a child: a
   parent keeps a child's model and its lifted subscriptions by its state object (below), and a number or a string
   has no identity to keep them by. It binds whoever writes a program, and the types are what enforce it
-  (`ObjectState` in `program.ts`, checked by `Program`, `program`, `make`, `child`, `childById`, `run` and the
+  (`ObjectState` in `program.ts`, checked by `Program`, `program`, `make`, `child`, `childById`, `start`, `run` and the
   testing tools that take a program). `make` checks it on its config, since the program it returns carries the
   marker that the check of `run` asks for (`MakeProgram` in `compose.ts`). A primitive state gets past them only by a
   cast or from a caller without TypeScript: a
@@ -111,12 +115,18 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   the program throws there (`attempt` and `recordThrown` in `engine.ts`, with `record` of `Deaths` in `shell.ts`),
   never throwing it to the caller, whose fiber would take it for its own. No fiber is made for a message, nor for a
   defect. So a renderer calls it from a plain callback as it is, and effect code wraps it in `Effect.sync`. Keep the
-  queue of the jobs unbounded, offered with `Queue.offerUnsafe`, which never waits: a bounded one would refuse a job
+  queue of the jobs unbounded, offered with `Queue.offerAllUnsafe`, which never waits: a bounded one would refuse a job
   when full, and lose the effects of its step. A dispatch sent once the end has stopped the engine applies nothing,
   and throws nothing ("a dispatch from a plain callback after the run has ended applies nothing, and throws nothing",
-  `run.test.ts`). The loop of `apply` resets `applying` with no `finally`: nothing it calls throws but through
-  `attempt`, and a change that calls anything else there keeps it so, or the engine would apply nothing more, in
-  silence. Running a dispatch is the renderer's business: the library exports no helper for it.
+  `run.test.ts`). What the program throws, `attempt` records; what the loop of `apply` meets thrown outside it, by the
+  engine's own code or by what `recordThrown` reads of a message to say what a defect was on, its `catch` records as it
+  is, with no site, and the run dies of it. `recordThrown` records the defect before it throws what its details threw,
+  so the defect of `update` is kept too ("what the thunk throws outside every site is recorded as it is, after the
+  defect it was saying, never thrown to the sender, and ends the run", `start.test.ts`, the killer of the mutations of
+  the `catch` and of that order). Its `finally` resets `applying`, offers the jobs and releases the register (below):
+  the `catch` throws nothing, so the `finally` has no mutation of its own, and keeps the engine from applying nothing
+  more, in silence, should a change make it throw. Running a dispatch is the renderer's business: the library exports
+  no helper for it.
 - **A subscription never ends in silence**: its end value is a message (or `never`), sent to `update`. An ended
   subscription keeps its key among the active ones until the key goes away and comes back: never restart it
   automatically, which would loop on one that ends at once. What the end of a library's stream means is the
@@ -224,34 +234,34 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
     `subscriptions` and the options where the message was sent: in a command's fiber or a subscription's, whose root
     and scope take an interruption of that fiber for a defect of that command or subscription, not of `update`; in the
     renderer's; in a fiber of whoever runs a testing tool; or in no fiber at all, from a plain callback.
-  - Each fiber of the run records what it dies of in one place (`makeDeaths` in `shell.ts`, made by `run` or `drive`
-    and given through `runWith` to the engine; `rehearse` has its own, keeping only the program's defects, and
-    `simulate` one for each simulation, for the commands it runs): the engine's, the renderer, and the
-    run's own as it starts the engine, as they end, in a cleanup nothing interrupts, which an interruption that reaches
-    the fiber cannot stop halfway (the cleanup of `Effect.onExit`, `docs/premises.md`), and one with a scope of its own
-    as it dies too, before the scope releases what it holds (`scopedIn`), what a subscription's channel adds to that
-    scope included
-    (`runSubscription`), so that a defect is in the order it happened, though its release lets another fiber die first;
-    what the release dies of is wrapped apart, told from what the fiber died of by what the fiber kept of it, never by
-    the register, where a defect another fiber recorded may be the very one a release dies with. What a function of
-    the program throws where no fiber of the run calls it, in the thunk of `engine.ts` and of `rehearse`, is recorded at
-    once (`record` of `Deaths`), with no fiber made for it, in the same register and the same order. A site may be given
-    the defects that are its own already (`wrapped` of `scopedIn`), recorded where they were thrown, which its effect
-    and its release take as they are: the run records a defect of `makeModel` where the model is read, in `'render'`,
-    once for each state, and the reader gets that `ProgramDefect`; the renderer's site, its release and a listener's
-    site (`rendered` of `Engine.make`) take that very defect, so that a renderer that reads it is one defect, wherever
-    it reads it: "a model read outside any fiber is recorded in render, and the reader gets the defect recorded", "a
-    model read in the renderer's fiber is one defect, in render", "a listener that reads a model that throws, and
-    throws it, is one defect, in render", "a renderer whose release reads a model that throws is one defect, in render"
-    (`run.test.ts`). The killer of the renderer's site taking it as it is reads the model as the renderer acquires what
-    it draws on ("a model read as the renderer acquires what it draws on is one defect, in render"), where nothing
-    interrupts: read plainly in the renderer's fiber, the mutant survives, since the end begins on the stack that
-    records the defect and its interruption takes the place of the renderer's second death, so the plain test kills
-    nothing. A fiber of another site that reads a model and dies of it is a second defect, of that site, as a fiber
-    that dies of a defect another fiber recorded is. `scopedIn` closes the scope itself and takes what the close dies of
-    as it is (`docs/premises.md`), each defect of each release: never join the two with `Cause.combine`, as
-    `Effect.scoped` does, which keeps one of two defects equal by `Equal`. What the program wraps around its own code
-    (two `Effect.ensuring`) is joined by Effect, and is the effect's own.
+  - Each fiber of the run records what it dies of in one place (`makeDeaths` in `shell.ts`, made by plain code by
+    `start`, `run` or `drive` and given through `startWith` or `runWith` to the engine; `rehearse` has its own, keeping
+    only the program's defects, and `simulate` one for each simulation, for the commands it runs): the engine's, the
+    renderer, and the run's own as it starts the effects, as they end, in a cleanup nothing interrupts, which an
+    interruption that reaches the fiber cannot stop halfway (the cleanup of `Effect.onExit`, `docs/premises.md`), and
+    one with a scope of its own as it dies too, before the scope releases what it holds (`scopedIn`), what a
+    subscription's channel adds to that scope included (`runSubscription`), so that a defect is in the order it
+    happened, though its release lets another fiber die first; what the release dies of is wrapped apart, told from what
+    the fiber died of by what the fiber kept of it, never by the register, where a defect another fiber recorded may be
+    the very one a release dies with. What a function of the program throws where no fiber of the run calls it, in the
+    thunk of `engine.ts` and of `rehearse`, is recorded at once (`record` of `Deaths`), with no fiber made for it, in
+    the same register and the same order. A site may be given the defects that are its own already (`wrapped` of
+    `scopedIn`), recorded where they were thrown, which its effect and its release take as they are: the run records a
+    defect of `makeModel` where the model is read, in `'render'`, once for each state, and the reader gets that
+    `ProgramDefect`; the renderer's site, its release and a listener's site (`rendered` of `Engine.build`) and `die` of
+    the handle take that very defect, so that a renderer that reads it is one defect, wherever it reads it: "a model
+    read outside any fiber is recorded in render, and the reader gets the defect recorded", "a model read in the
+    renderer's fiber is one defect, in render", "a listener that reads a model that throws, and throws it, is one
+    defect, in render", "a renderer whose release reads a model that throws is one defect, in render" (`run.test.ts`).
+    The killer of the renderer's site taking it as it is reads the model as the renderer acquires what it draws on ("a
+    model read as the renderer acquires what it draws on is one defect, in render"), where nothing interrupts: read
+    plainly in the renderer's fiber, the mutant survives, since the end begins on the stack that records the defect and
+    its interruption takes the place of the renderer's second death, so the plain test kills nothing. A fiber of another
+    site that reads a model and dies of it is a second defect, of that site, as a fiber that dies of a defect another
+    fiber recorded is. `scopedIn` closes the scope itself and takes what the close dies of as it is
+    (`docs/premises.md`), each defect of each release: never join the two with `Cause.combine`, as `Effect.scoped` does,
+    which keeps one of two defects equal by `Equal`. What the program wraps around its own code (two `Effect.ensuring`)
+    is joined by Effect, and is the effect's own.
   - The order of the defects is the engine's to keep, and its tests', and no promise of the guide, which describes
     it: what a user relies on is that every defect is in the cause, each with where. No promise of the library's
     rests on what a function of Effect makes of a cause (`Cause.squash` gives the first defect).
@@ -265,10 +275,13 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
     the end reads the sets, no test without the scheduler of the tests reaches), then interrupts its other fibers
     itself, waits for them to release what they hold, and dies of the rest; the run's cause holds the defects first,
     then the rest of what it ended with, but for the defects already among them, by their identity (`endedWith` in
-    `core.ts`, which `rehearse`, `drive` and `simulate`, for a command it stops, end with too). The end may begin inside
-    a step: a defect recorded in the thunk completes `died` there, and what waits on it may resume on that stack, as
-    the guide describes and does not promise. Nothing rests on where the end begins: `stopped` is read before each
-    message, and the step under way goes on to its job and its listeners, as a step under way goes on whole.
+    `core.ts`, which `rehearse`, `drive` and `simulate`, for a command it stops, end with too). The end never begins
+    inside a step: the outermost `apply` holds the register (`hold` of `Deaths`), so that a defect recorded meanwhile
+    completes `died` only as it returns, once every message sent during it is applied, every listener told and its jobs
+    offered (`release`, in its `finally`): "never begins inside a step: a defect a listener throws ends the run once
+    every listener of the step is told" (`start.test.ts`), with a mutation. It may begin on the stack of the dispatch,
+    once it has applied, as the guide describes and does not promise: `stopped` is read before each message all the
+    same, since a defect recorded outside a step, by a fiber or by a model read, completes `died` at once.
   - From the first defect recorded on, the run applies no message, until its end stops it: it calls no `update`,
     checked in the thunk that calls it (`arrive` in `core.ts`, called by `applyOne` and by `rehearse`'s `apply`). It is
     the only check. A defect in the thunk stops the step there: one of `update` changes nothing, one of `onApplied`
@@ -291,14 +304,23 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
     lost, the defect is lost with it, and `FiberSet` and `FiberMap` discard the exits of the fibers they interrupt as
     they close. The renderer is one of them, interrupted and awaited however the run ends, once the engine has stopped
     and before the engine's other fibers (`running` in `run.ts`).
-  - `drive` stops and awaits its run however it ends, interrupted too, and begins its scenario once its renderer has
-    the handle, so that `Driver.dispatch` is the run's from the first step. Its renderer is the run's, told of every
-    state, which reads the model of each in its listener, so a defect of `makeModel` is recorded by the run, in
-    `'render'`, in the register of the run (`runWith` in `run.ts`) as any other, and the scenario races only the end of
-    the run. `Driver.model` fails with the defects once there is one, as `Rehearsal.model` does. A wait may still
-    match the model read before a defect of a later model; `drive` ends with the defect first all the same. A call of
-    `rehearse`'s that waits for a subscription or a command races its wait with the death of any fiber (`orDead`), as
-    the run dies at once.
+  - A program started is run once: the run's first operation reads and sets `begun` in one thunk (`startWith` in
+    `run.ts`), and a second `run` dies with a plain `Error`, a mistake of whoever runs it and no defect of the program,
+    while the first goes on ("is run once: a second run dies, and the first goes on", `start.test.ts`, with a mutation).
+    A program whose `run` was interrupted before that operation, or never forked, is never stopped: its state can still
+    change, and no effect follows, since only the end of a run stops the engine.
+  - `drive` starts the program by plain code (`startWith`), subscribes before its first read, forks its run, and stops
+    and awaits it however it ends, interrupted too. It begins its scenario once the run has started the effects of the
+    first state (`began`), unless the program has died by then: so `Driver.dispatch` is the program's from the first
+    step, and the scenario meets a program whose run has begun, since a fiber `Effect.forkChild` forks starts later and
+    one interrupted before it begins would leave the program not stopped (the tests of the contract that a subscription
+    of `init` starts, that a defect of the first model reaches no scenario, and that a message sent after `drive` ended
+    is not applied, with a mutation). It is told of every state, and reads the model of each in its listener, so a
+    defect of `makeModel` is recorded by the run, in `'render'`, in the register of the run as any other, and the
+    scenario races only the end of the run. `Driver.model` fails with the defects once there is one, as
+    `Rehearsal.model` does. A wait may still match the model read before a defect of a later model; `drive` ends with
+    the defect first all the same. A call of `rehearse`'s that waits for a subscription or a command races its wait with
+    the death of any fiber (`orDead`), as the run dies at once.
 
 ## What the engine keeps for itself
 
@@ -324,9 +346,9 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   parent's dispatch, its name and its id (compared with `Equal`, as subscription keys are), and removed by a
   `FinalizationRegistry` once collected. Never hold them strongly: ids that are never reused, as the guide
   advises, would pile up for as long as the run lasts.
-- **No span lives as long as the run**: `run` and `Engine.make` are untraced, and the run's fibers see the span
-  of whoever runs it as an external one (`withExternalSpan`), since Effect keeps every log as an event of the
-  current span until it ends.
+- **No span lives as long as the run**: `run`, the `run` of a program started and the engine's `effects` are untraced,
+  and the run's fibers see the span of whoever runs it as an external one (`withExternalSpan`), since Effect keeps every
+  log as an event of the current span until it ends.
 
 ## How a check is built, and how the testing tools follow
 
@@ -366,14 +388,21 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   What cannot be one thunk with its check, as the first step of an effect of the program, is no act the guide
   promises about.
 
-  A thunk writes first and offers or completes last: in the engine, the listeners are told once the new state is
-  current; in each thunk of `rehearse`, the state, its keys, the ledger's hearings and the model are written before the
-  job is offered; in `drive`, the listener reads the model before it wakes the waits, its renderer subscribes before
-  its first read and keeps only the read of the latest notice, and `waitFor` takes what it waits on before it reads the
-  model. So a fiber that the offer, or the completion of a `Deferred`, wakes on that stack finds the step written
-  whole. That a fiber is resumed on the stack of whoever completes its `Deferred` is no premise
-  ([`synchronous-dispatch.md`](records/synchronous-dispatch.md), E3): these orders have no mutation, since no
-  deterministic test reaches them but through that resumption. Nor has the release of the snabbdom bridge's
+  A thunk writes first and offers or completes last. In the engine, nothing rests on it any more: the listeners are
+  told once the new state is current, and the jobs are offered and `died` completed in one place, the `finally` of the
+  outermost `apply`, once every step of the call is written whole and every listener told, so no fiber is woken inside
+  a step, wherever a fiber that waits is resumed; the hold of the register has a mutation, and that the jobs are
+  offered there has one too. In each thunk of `rehearse`, the state, its keys, the ledger's hearings and the model are
+  written before the job is offered; in `drive`, the listener reads the model before it wakes the waits, it
+  subscribes before its first read and keeps only the read of the latest notice, and `waitFor` takes what it waits on
+  before it reads the model. So a fiber that the offer, or the completion of a `Deferred`, wakes on that stack finds
+  the step written whole. That a fiber is resumed on the stack of whoever completes its `Deferred` is no premise
+  ([`synchronous-dispatch.md`](records/synchronous-dispatch.md), E3): these orders of `rehearse` and `drive` have no
+  mutation, since no deterministic test reaches them but through that resumption. That the effects of a step start
+  only once the call that sent its message has returned rests on the queue resuming the fiber of effects in a task of
+  the scheduler, which is no premise either: the guide describes it and does not promise it, and "a dispatch returns
+  before the commands of its step start, while the fiber of effects waits" (`start.test.ts`) is its alarm, the killer
+  of no mutation. Nor has the release of the snabbdom bridge's
   subscription to the handle a killer: the run stops the engine before the renderer, so no notice comes after it.
 
   A region nothing may interrupt holds no code of the program, so no gate reaches it, and it has no mutation: one that

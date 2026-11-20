@@ -27,52 +27,14 @@ Taken by the owner on 20 November 2026, on the spike's record,
 `start(program, options)`, which gives the handle a renderer reads and `run`, the effect that runs the program's
 effects; `run(program, render)` is removed; a renderer gives the handle's `die` what its draw threw outside a
 listener; `Host` starts its run in a microtask after its effect; an `init` that throws gives a handle that has died;
-and the guide promises the first model on a server. Its four stages below come before the release: they remove an
-export that 0.7.1 has, and others that no release has had. The spike is the
-branch `claude/spike-store-and-effects` (`ab19927`), never to be merged: each stage brings its part onto `main` as
-`main` is then.
+and the guide promises the first model on a server. Its stages below come before the release: they remove an export
+that 0.7.1 has, and others that no release has had. The spike is the branch `claude/spike-store-and-effects`
+(`ab19927`), never to be merged: each stage brings its part onto `main` as `main` is then.
 
-#### 2a. The engine in two halves, `start` and `drive`
-
-**Model and effort.** Opus 5.5, `high`: the engine, and invariants to keep. The skills are
-[`change-engine`](.agents/skills/change-engine/SKILL.md) and [`change-api`](.agents/skills/change-api/SKILL.md).
-
-**Depends on** nothing open.
-
-**How.** What the branch holds of `src/`, as its record lists it under "What was built": the register of deaths made
-by plain code, with its hold; the engine built by plain code, with `effects`, one offer of the jobs as the outermost
-`apply` returns, and the `catch` and the `finally` of its loop; `start` and `Started`; `drive` over the program it
-starts; and `src/start.test.ts`. `run(program, render)` stays in this stage, as the composition of the two halves, so
-that every check passes at its end. What differs from the branch:
-
-- **The run writes no log of its own on `main`, and still does on the branch**, which was written before step 4: on
-  `main` a job is offered only for a step that stops or starts a subscription or has commands (`queue` in
-  `src/engine.ts`), and `DefectSite` has no `'log'`, `'describeMessage'` or `'describeCommand'`. The branch's engine is
-  brought over on top of that, with none of its logs.
-- **The jobs that waited are done by the fiber that starts the effects**, as today's engine does the first state's
-  job, and not taken from the queue: the branch rests there on `Queue.take` not yielding for a message that waits,
-  which is seen and not documented.
-- **The defect that `main` loses** (point 2 of the seven, below) is fixed whole: `recordThrown` records before it
-  reads the details, so that the defect of `update` is kept when a message's tag throws. What the loop of `apply`
-  catches is recorded as it is, with no site, as the owner decided. Its test is in `src/start.test.ts`.
-- **The effects of a step stay out of the call that sent its message, described and not promised**, as the owner
-  decided (the record, "Decided", 9): the engine keeps the queue, whose taker a task of the scheduler resumes, and no
-  premise is added for it. A `Deferred` in place of the queue ran them inside the dispatch. Step 4 removed the logs,
-  and with them the one test that would notice ("describeMessage and describeCommand are called only while debug logs
-  are enabled, in the fiber of effects"). So this stage adds a test that a dispatch returns before the commands of its
-  step start, while the fiber of effects waits: it says that it is an alarm of what is described, and the killer of
-  no mutation.
-- **`Engine.make`**, which the branch keeps as an effect for the tests of the engine, says that it is for them, or
-  moves to their file.
-
-With it: `docs/invariants.md` (where the end begins, the `finally` of `apply`, "A thunk writes first and offers or
-completes last" for the engine, a program started and never run), `docs/premises.md` (the premise of the fiber that
-makes the engine moves to the fiber that starts the effects), a mutation for each new check (the hold, the one offer,
-the `catch`, a second `run`, the wait of `drive` for the run to begin), and the unreleased section of `CHANGELOG.md`.
-The doc comments of `start` and `Started` name sections that the guide has only from 2c: until then they name none.
-
-**Done when** the checks of `AGENTS.md` and of `change-engine` pass, with `bun run mutations`, and this stage is
-removed.
+Its first stage is done: the engine is in two halves on `main`. `Engine.build` makes it by plain code, and its
+`effects` start the fiber of effects; `start` and `Started` are exported, with `die` on `App`; `drive` runs over
+`startWith`; and `run(program, render)` is still the composition of the two halves (`running` in `src/run.ts`), so that
+every check passes. `Engine.make` stays in `src/engine.ts`, for the tests of the engine alone.
 
 #### 2b. The bridges, the examples and the tests over `start`
 
@@ -80,7 +42,7 @@ removed.
 skills are [`change-engine`](.agents/skills/change-engine/SKILL.md),
 [`change-api`](.agents/skills/change-api/SKILL.md) and [`add-example`](.agents/skills/add-example/SKILL.md).
 
-**Depends on** 2a.
+**Depends on** nothing open.
 
 **How.** What the branch holds of `bridges/` and of `examples/`, and what it did not port:
 
@@ -88,8 +50,13 @@ skills are [`change-engine`](.agents/skills/change-engine/SKILL.md),
   effect; `fallback` goes. `Draw` gives `useSyncExternalStore` the handle's `model` as its server snapshot.
   `drawInto(root, view)(app)` is plain code, returns what stops it, and gives `die` what a draw throws; `renderInto`
   goes. The handle has `die`.
-- **`run(program, render)` goes**, with `runWith`, the renderer's fiber, its scope, its root and its site, and the race
-  of its end with `died`.
+- **`run(program, render)` goes**, with `runWith`, `running`, the renderer's fiber, its scope, its root and its site,
+  and the race of its end with `died`. `isModels` stays, since `die` takes a model's defect as it is; `rendered` of
+  `Engine.build` stays for the listeners. The mutations of `run.ts` that name the renderer go with it ("the run does
+  not stop the renderer", "the end of the run stops the renderer before the engine", "the renderer's site wraps again
+  the defect a model recorded", "a defect of the renderer of the run is a command's"), and `docs/invariants.md` loses
+  what it says of the renderer's fiber ("The renderer is called at most once", the renderer in "Never report a defect
+  only through a `join`", the renderer as one primitive in "one thunk").
 - **The tests.** `src/run.test.ts` is ported to `start`. Each of its 28 tests that name the renderer is weighed: one
   whose promise stays, as a defect met while the run ends, is kept over a command or a subscription, and one of the
   renderer's fiber alone goes. The renderer of the search (`src/interleaving.test.ts`), an effect that sends, releases
@@ -113,7 +80,7 @@ bridges, and the reports of the API. `bun run comments` may fail until 2c, so 2b
 **Depends on** 2b.
 
 **How.** Section by section, as the record lists them under "What the guide would say" and under "Nothing outlives
-what acquired it", each sentence checked against the code of 2a and 2b. And what the owner decided there:
+what acquired it", each sentence checked against the code of `main` and of 2b. And what the owner decided there:
 
 - **A program is started, then run.** A message sent before `run` is applied, and its effects wait. A program started
   is run once. One that was never run is never stopped.
@@ -129,6 +96,8 @@ what acquired it", each sentence checked against the code of 2a and 2b. And what
   promised.
 - **A server.** `Host` and `Draw` draw the first model on a server, and nothing of `init` starts. Nothing is promised
   of hydration.
+- **The doc comments of `start`, `Started` and `App.die`** (`src/run.ts`) name no section of the guide yet: they get
+  their `@see` lines once the sections are written, and the guide names `Started` and `die`.
 - **The changelog.** `run(program, render)` has an `Upgrade:` note, since 0.7.1 has it. What no release has had
   (`fallback`, `renderInto` of the entry `./snabbdom`) is edited in the unreleased section.
 
@@ -138,7 +107,7 @@ what acquired it", each sentence checked against the code of 2a and 2b. And what
 
 **Model and effort.** Sonnet 5.5, `medium`, from the record's "What it reverses in `rejected.md`".
 
-**Depends on** 2a, 2b and 2c.
+**Depends on** 2b and 2c.
 
 **How.** "`run` split into a synchronous half and the fibers" leaves "Parked, not rejected", and B5 is marked reversed
 in [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), as R1 is. The last sentence of
@@ -326,7 +295,8 @@ application in React meets, at their end: its stage 2d takes them from here. Ste
      spike of step 2, and run on `main`'s engine: `applyOne` reads a message's tag again to say what a defect of
      `update` was on, outside `attempt`, and a tag that throws on that read makes `dispatch` throw to its caller,
      loses the defect of `update`, and leaves the run applying nothing, ended with no defect
-     ([`store-and-effects.md`](docs/records/store-and-effects.md), "Found on the way"). Stage 2a fixes it.
+     ([`store-and-effects.md`](docs/records/store-and-effects.md), "Found on the way"). Fixed by stage 2a: the loop has
+     a `catch` and a `finally`, and `recordThrown` records the defect before it throws what its details threw.
   3. **A fiber resumed on the stack of whoever completes its `Deferred` is no premise, and shapes more code at each
      stage.** "Writes first, offers last" in every thunk, the counter of notices in `drive`, and two killers that work
      only through it (stages 1 and 2) exist for a behaviour the library refuses to rest on. They have no mutation,
