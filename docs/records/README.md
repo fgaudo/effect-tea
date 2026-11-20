@@ -22,3 +22,4 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`input-in-the-model.md`](input-in-the-model.md)         | rejected: an input as an entry in the model              |
 | [`architecture-review.md`](architecture-review.md)       | proposed: what a dispatch that applies at once left      |
 | [`write-without-was.md`](write-without-was.md)           | taken, to be done: a write without `was`                 |
+| [`store-and-effects.md`](store-and-effects.md)           | taken, to be done: a program started by plain code       |
