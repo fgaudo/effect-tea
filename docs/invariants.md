@@ -24,7 +24,8 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   waits in `pending` until it is done (`apply`). No other code runs between the operations of the thunk but what it
   calls, by ECMAScript's run to completion: so every check of the thunk and its act are one thunk by construction. Its
   subscriptions stopped and started and its commands started are a job, offered last, for one fiber of effects, which
-  takes the jobs from an unbounded queue one at a time, in the order of the states (`perform`). Never apply a message
+  takes the jobs from an unbounded queue one at a time, in the order of the states (`perform`). A step that stops,
+  starts and commands nothing offers no job, decided from the step alone (`queue`). Never apply a message
   from the fiber of effects, nor start a step's commands apart from its job. When a dispatch returns, `update` and the
   option have heard its message and the new state is current: "when it returns, update and onApplied have heard it,
   and the current state is the one it made", "a message a listener sends is applied after every listener has been told
@@ -143,7 +144,7 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   compares them only in `'subscriptions'` (`reconcile` in `core.ts`), and keeps its fibers, and tells a message that
   still applies, by their start, which compares no keys.
 - **Commands are data; only `runCommand` runs them.** Never let a command carry its effect, or a description
-  that must be kept in step with one: a test, `onApplied` and the logs read the command itself.
+  that must be kept in step with one: a test and `onApplied` read the command itself.
 - **Commands cannot be cancelled**, a deliberate choice: do not add cancellation without asking.
 - **Each command, each subscription and the renderer has a scope of its own** (`scopedIn` where the library starts
   them; a command's closes before its answer is applied: "a command's scope closes before its answer is applied",
@@ -174,17 +175,10 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   `test/gate.test_helper.ts`). A defect in them is a bug like any other, and stops the step: one of `onApplied` leaves
   the state as it was. Neither hears a message dropped before `update` (one left by a stopped subscription): that is
   the engine's, not the program's.
-- **Logs never carry message data by default** (`describeByTag` in `log.ts`): only tags, following a wrapped
-  `message` or `command` only when it is itself tagged, since a program's own field of that name may hold data.
-  A subscription's key is logged as it is, and may hold data, as the guide says ("Running"): the rule is of
-  messages and commands.
-  Level: `debug` for each message and for subscriptions starting, stopping and ending, nothing else, written by the
-  fiber of effects, first in the job of the step. What is computed only to be logged (`describeMessage`,
-  `describeCommand`) is computed only while debug logs are enabled there (`LogLevel.isEnabled`), never in the
-  dispatch (`logsOf` in `engine.ts`): "describeMessage and describeCommand are called only while debug logs are
-  enabled, in the fiber of effects" (`engine.test.ts`). A job is offered for each message, its logs included while
-  debug logs are off: deciding in the thunk whether to offer one would rest on how `LogLevel.isEnabled` reads the
-  level.
+- **The run writes no log of its own.** What the program logs is its own, and so is what it logs of what `onApplied`
+  and `onIgnored` hear. A message is named by its tags alone (`describeByTag` in `log.ts`) where the library names one,
+  in the `on` of a defect and in what the testing tools say: a wrapped `message` or `command` is followed only when it
+  is itself tagged, since a program's own field of that name may hold data.
 - **Defects always die, and the run dies with them.** Nothing in the library may retry, swallow, log or turn them into
   messages: reporting is the job of whoever runs the program.
   - A fiber of the program dies when its effect ends with a defect: what the program wraps around its own code
@@ -194,12 +188,11 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   - Where the engine knows where a defect happened, it wraps each defect of the cause in a `ProgramDefect` (`diesIn` in
     `shell.ts`) that holds it as its `cause` and says where, and keeps the rest of the cause. What a function of the
     program throws in the thunk is wrapped the same way, with the same site and fields (`recordThrown` in `engine.ts`,
-    over `Core.wrapDefects`). The run's own logs die in `'log'`, each outside any other site, so that a `Logger` that
-    throws is never taken for the subscription or the step that logs; what the program logs is in the site it logs
-    from. Every site where a defect is told where it happened, a `diesIn`, a `scopedIn`, which calls it, or a
-    `recordThrown`, in the engine and in each testing tool, has a mutation that takes the site out, or gives it another
-    (and one that drops the key or the message it says, where it says one): where is what a report groups defects by,
-    and a tool that told another site than the run's would point a test at the wrong code.
+    over `Core.wrapDefects`). What the program logs dies in the site it logs from. Every site where a defect is told
+    where it happened, a `diesIn`, a `scopedIn`, which calls it, or a `recordThrown`, in the engine and in each testing
+    tool, has a mutation that takes the site out, or gives it another (and one that drops the key or the message it
+    says, where it says one): where is what a report groups defects by, and a tool that told another site than the run's
+    would point a test at the wrong code.
   - The run stops each fiber of the program with a mark of its own on the interruption, made anew for each stop
     (`stopping` in `shell.ts`, `Stopped` in `core.ts`), and `diesIn` takes an interruption of the cause for one the
     fiber received only when it has the fiber id and the mark, or the lack of one, of a received one: a fiber id alone
@@ -225,9 +218,9 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
     alone is an interruption made in the operations after the scope, which a fiber of the program makes only where the
     scheduler preempts there, and no gate reaches. The search can, with a fiber of the program that interrupts another
     ("isInterrupted" in `interleaving.test.ts`). The fiber of whoever runs the program, where `init` runs and the
-    testing tools call the program, and the fiber of effects, where `describeMessage` and `describeCommand` run, have no
-    root: only functions of the program run there, which could interrupt it (`Fiber.getCurrent`) as whoever runs it
-    would, and the guide leaves that to the program ("Guarantees", "What is left to you"). The thunk runs `update`,
+    testing tools call the program, has no root: only functions of the program run there, which could interrupt it
+    (`Fiber.getCurrent`) as whoever runs it would, and the guide leaves that to the program ("Guarantees", "What is
+    left to you"). Nor has the fiber of effects, where no function of the program runs. The thunk runs `update`,
     `subscriptions` and the options where the message was sent: in a command's fiber or a subscription's, whose root
     and scope take an interruption of that fiber for a defect of that command or subscription, not of `update`; in the
     renderer's; in a fiber of whoever runs a testing tool; or in no fiber at all, from a plain callback.
@@ -432,8 +425,7 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   at a time, in the order of the states: none starts while the job before is held", where nothing tells that a later
   job has not started while a release holds the fiber of effects, and "the end stops the fiber of effects held by a
   release, which starts nothing after, nor any job it had not taken", where nothing of the program runs in it to tell
-  when the end has stopped it, and "a message of a stopped subscription, sent once a command has died, is not
-  described", where the job of the message would follow the one that stopped the ticks at once; "a subscription dying
+  when the end has stopped it; "a subscription dying
   in a scope of its channel lets no message apply as the channel releases" (`run.test.ts`), where a correct run
   applies nothing while the channel releases; "each call hears the next message, and the subscription waits between two
   of them" (`rehearse.test.ts`); "in the run, it is heard once to its end, under a key that stays, and again once its

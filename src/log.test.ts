@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { applyAll } from "./testing/apply-all.ts"
 import { reject } from "./update.ts"
 
-// The description that the logs use by default is also the one a failing test names a message with.
+// The description that names a message in the `on` of a defect is also the one a failing test names it with.
 const describedAs = (message: unknown) => {
   try {
     applyAll<null, unknown, never, never>(() => () => reject)([message], null)

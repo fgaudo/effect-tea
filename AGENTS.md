@@ -181,7 +181,8 @@ this summary says less. What every change keeps, an example's and a document's t
   a defect.
 - **The testing tools behave like the engine** where it is deterministic: when the engine or one tool changes, keep
   the others in step.
-- **Logs never carry message data by default**: only tags, at `debug`. A subscription's key is logged as it is.
+- **The run writes no log of its own**: what the program logs is its own. Where the library names a message, in the
+  `on` of a defect or a failure of a testing tool, it names it by its tags alone, never its data.
 - **A premise about what code does when it runs is checked before the change that rests on it is written**, and
   never only reasoned: by the documentation of a stable API, or by a test that fails without it.
 - **A new premise needs the owner's consent**: the owner is asked before the change that rests on one is written, and
@@ -259,8 +260,8 @@ this summary says less. What every change keeps, an example's and a document's t
   says so (`entriesOf` in `dispatch.ts`).
 - A test of the library is of one of five kinds, and a test of none of them is not added:
   - **the semantics of the pure pieces**: what a function that runs nothing returns, as a `Step` and `andThen`,
-    `forEach` and `reject` over it, a parent's composition, how a child's message is wrapped, how the logs describe
-    a message, `defect`, `applyAll` and `dispatchViolations`, what the core makes of a cause and of the keys of a
+    `forEach` and `reject` over it, a parent's composition, how a child's message is wrapped, how a message is named
+    by its tags, `defect`, `applyAll` and `dispatchViolations`, what the core makes of a cause and of the keys of a
     state. They lie in the test file of their module (`compose.test.ts`, which holds those of a `Step` too,
     `dispatch.test.ts`, `input.test.ts`, `log.test.ts`, `defect.test.ts`, `core.test.ts`, `src/testing/`).
   - **invariants under random histories**: fast-check draws clicks, answers, subscription messages and ends,

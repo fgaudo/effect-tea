@@ -16,9 +16,9 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
   sent while another is being applied, as a renderer's listener sends one, is applied right after it.
   - The step of a message is its `update`, then `onApplied` or `onIgnored`, then the renderer's listeners, once the new
     state is current.
-  - What the step does in the world follows in the run's own fiber, in the order of the states: its logs, the
-    subscriptions it stops and then those it starts, and the start of its commands. So the state is ahead of its
-    effects: when a message has been applied, its commands may not have started yet.
+  - What the step does in the world follows in the run's own fiber, in the order of the states: the subscriptions it
+    stops and then those it starts, and the start of its commands. So the state is ahead of its effects: when a message
+    has been applied, its commands may not have started yet.
   - What a dispatch sends is applied as it is sent.
   - A subscription's message is applied as it is emitted, in the subscription's fiber.
   - A command's answer is applied as the command ends, in the command's fiber, once its scope has closed.

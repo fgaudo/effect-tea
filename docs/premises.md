@@ -52,16 +52,16 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   option. Not documented: the option is in the types of both, not in their JSDoc. Its test: "a fiber forked with
   startImmediately runs on the stack of the fiber that forks it until it first waits", which fails without the option.
 - **A fiber forked with `FiberSet.run` or `FiberMap.run` runs on the stack of the fiber that runs it until it first
-  waits**, through the scope and the cleanup the engine wraps around a command and a subscription, so that `run`
-  returns only once `runCommand` has been called, or the subscription's channel made, where the job decided it, before
-  the fiber of effects goes on: "a command whose runCommand begins the end of the engine as it is called is
-  interrupted by that end", "a subscription that begins the end of the engine as it starts is interrupted by that end"
-  (`engine.test.ts`), "a log that dies as the run starts comes before what a subscription dies of as the end releases
-  it" (`run.test.ts`), "the run gives what a command that dies releases its defect, in a command" and "the run gives
-  what a command that interrupts itself releases a defect, in a command" (`contract.test.ts`) rest on it. Their
-  JSDoc says that the effect starts immediately; that it runs on the stack of the fiber that runs it, with no yield
-  until it first waits, is read in the source. Its tests: "a fiber forked with FiberSet.run or FiberMap.run runs on the
-  stack of the fiber that runs it until it first waits", of each, which fail with `startImmediately: false`.
+  waits**, through the scope and the cleanup the engine wraps around a command and a subscription, so that `run` returns
+  only once `runCommand` has been called, or the subscription's channel made, where the job decided it, before the fiber
+  of effects goes on: "a command whose runCommand begins the end of the engine as it is called is interrupted by that
+  end", "a subscription that begins the end of the engine as it starts is interrupted by that end" (`engine.test.ts`),
+  "a command that dies as the run starts comes before what a subscription dies of as the end releases it"
+  (`run.test.ts`), "the run gives what a command that dies releases its defect, in a command" and "the run gives what a
+  command that interrupts itself releases a defect, in a command" (`contract.test.ts`) rest on it. Their JSDoc says that
+  the effect starts immediately; that it runs on the stack of the fiber that runs it, with no yield until it first
+  waits, is read in the source. Its tests: "a fiber forked with FiberSet.run or FiberMap.run runs on the stack of the
+  fiber that runs it until it first waits", of each, which fail with `startImmediately: false`.
 - **Code that a fiber runs on the stack of the fiber that forks it sees the forked fiber as its own**, through
   `Effect.withFiber`, `Fiber.getCurrent` and `Effect.fiber` alike, from its first step on; and no stable API gives a
   fiber the one that forked it. This is how the root of a fiber the run forks (`rootedIn` in `shell.ts`) knows that an
@@ -208,9 +208,8 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   completed by a fiber of its own. No mutation's killer rests on it: a model of the scheduler gone wrong costs a false
   alarm, or a missed one, never a test that passes where it should fail.
 - **Effect calls each `Logger` synchronously, in the fiber that logs**, so that what it throws is a defect of
-  that fiber, which `diesIn` wraps where the log is written, in the fiber of effects for the run's own logs: "a Logger
-  that throws on the log of an accepted message is one defect, in the log, never in the dispatch", "a Logger that
-  throws on what a command logs is a defect in the command" (`run.test.ts`) rest on it. That it runs in the fiber that
+  that fiber, which `diesIn` wraps where the program logs, as the guide says ("Running"): "a Logger that throws on
+  what a command logs is a defect in the command" (`run.test.ts`) rests on it. That it runs in the fiber that
   logs is read only in the source. Its test: "Effect calls each Logger synchronously, in the fiber that logs", which
   fails with a logger that does its work in a fiber of its own (`Logger.batched`).
 - **An external span keeps no event of the logs written under it**, which is how no span lives as long as the run,

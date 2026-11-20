@@ -35,8 +35,7 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/core.test.ts",
         "a message of an earlier start of a key that came back is dropped, dead after a death, calling nothing"
-      ],
-      ["src/engine.test.ts", "a message of a stopped subscription, sent once a command has died, is not described"]
+      ]
     ]
   },
   {
@@ -53,7 +52,6 @@ export const mutations: ReadonlyArray<Mutation> = [
         "src/core.test.ts",
         "a message of an earlier start of a key that came back is dropped, dead after a death, calling nothing"
       ],
-      ["src/run.test.ts", "a Logger that throws on the log of a dropped message is one defect, in the log"],
       [
         "src/run.test.ts",
         "what a subscription sends once its key went away, before it is stopped, does not reach update"
@@ -1428,9 +1426,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the very same state tells the listeners",
     file: "src/engine.ts",
-    from:
-      "        if (!changed) return queue({ logs: Opt.some(logsOf(step, message, source)), gone: [], fresh: [], commands"
-      + " })\n",
+    from: "        if (!changed) return queue({ gone: [], fresh: [], commands })\n",
     to: "",
     killedBy: [
       [
@@ -1487,9 +1483,9 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a job starts its commands before it stops its gone keys",
     file: "src/engine.ts",
-    from: "    if (Opt.isSome(logs)) yield* logs.value\n",
-    to:
-      "    if (Opt.isSome(logs)) yield* logs.value\n    yield* Effect.forEach(commands, runCommand, { discard: true })\n",
+    from: "  const perform = Effect.fnUntraced(function*({ gone, fresh, commands }: Job<Message, Command, R, K>) {\n",
+    to: "  const perform = Effect.fnUntraced(function*({ gone, fresh, commands }: Job<Message, Command, R, K>) {\n"
+      + "    yield* Effect.forEach(commands, runCommand, { discard: true })\n",
     killedBy: [
       [
         "src/engine.test.ts",
@@ -1498,69 +1494,23 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "the fiber of effects describes a message while debug logs are disabled",
+    name: "a step that only stops subscriptions offers no job",
     file: "src/engine.ts",
-    from: "      if (!(yield* LogLevel.isEnabled(\"Debug\"))) return\n",
-    to: "",
+    from: "job.gone.length > 0 || job.fresh.length > 0",
+    to: "job.fresh.length > 0",
     killedBy: [
-      [
-        "src/engine.test.ts",
-        "describeMessage and describeCommand are called only while debug logs are enabled, in the fiber of effects"
-      ]
+      ["src/engine.test.ts", "keys that go away together are stopped together, not one after the other"],
+      ["src/engine.test.ts", "what a subscription acquires (Channel.fromEffect) is released when its key goes away"]
     ]
   },
   {
-    name: "the fiber of effects logs a message as it is by default",
+    name: "a step that only starts commands offers no job",
     file: "src/engine.ts",
-    from: "  describeMessage = describeByTag,\n",
-    to: "  describeMessage = (message) => message,\n",
+    from: "job.fresh.length > 0 || job.commands.length > 0",
+    to: "job.fresh.length > 0",
     killedBy: [
-      ["src/engine.test.ts", "by default, a message and its commands are logged by their tags, never their data"]
-    ]
-  },
-  {
-    name: "the fiber of effects logs a command as it is by default",
-    file: "src/engine.ts",
-    from: "  describeCommand = describeByTag,\n",
-    to: "  describeCommand = (command) => command,\n",
-    killedBy: [
-      ["src/engine.test.ts", "by default, a message and its commands are logged by their tags, never their data"]
-    ]
-  },
-  {
-    name: "a defect of describeMessage in the fiber of effects is one of describeCommand",
-    file: "src/engine.ts",
-    from: "call(\"describeMessage\", () => describeMessage(message))",
-    to: "call(\"describeCommand\", () => describeMessage(message))",
-    killedBy: [
-      [
-        "src/engine.test.ts",
-        "a defect of describeMessage dies in describeMessage, and one of describeCommand in describeCommand"
-      ]
-    ]
-  },
-  {
-    name: "a defect of describeCommand in the fiber of effects is one of describeMessage",
-    file: "src/engine.ts",
-    from: "call(\"describeCommand\", () => arrived.commands.map(describeCommand))",
-    to: "call(\"describeMessage\", () => arrived.commands.map(describeCommand))",
-    killedBy: [
-      [
-        "src/engine.test.ts",
-        "a defect of describeMessage dies in describeMessage, and one of describeCommand in describeCommand"
-      ]
-    ]
-  },
-  {
-    name: "a defect of the logs of the fiber of effects has no site",
-    file: "src/engine.ts",
-    from: "Effect.logDebug(...message).pipe(diesIn(\"log\"))",
-    to: "Effect.logDebug(...message)",
-    killedBy: [
-      [
-        "src/run.test.ts",
-        "a Logger that throws on the log of an accepted message is one defect, in the log, never in the dispatch"
-      ]
+      ["src/engine.test.ts", "its commands still run"],
+      ["src/engine.test.ts", "a command's scope closes before its answer is applied"]
     ]
   },
   {

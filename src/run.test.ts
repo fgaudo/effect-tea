@@ -448,7 +448,7 @@ describe("defects the handle meets", () => {
   })
 })
 
-describe("scopes and logs", () => {
+describe("scopes and spans", () => {
   test("what a subscription acquires is released when its key goes away, apart from the next message", async () => {
     type Listening = Readonly<{ listening: boolean; n: number }>
     const log = await Effect.runPromise(Effect.gen(function*() {
@@ -533,8 +533,6 @@ describe("scopes and logs", () => {
         return yield* Effect.orDie(Effect.currentSpan)
       }).pipe(
         Effect.withSpan("caller"),
-        // Down to debug: the engine's own logs, such as a subscription starting, are among them.
-        Effect.provideService(References.MinimumLogLevel, "Debug"),
         Effect.provide(Logger.layer([Logger.tracerLogger]))
       )
     )
@@ -544,25 +542,6 @@ describe("scopes and logs", () => {
     expect(parents.every((parent) => parent === caller.spanId)).toBe(true)
     expect(listening.length).toBeGreaterThan(0)
     expect(listening.every((parent) => parent === caller.spanId)).toBe(true)
-  })
-
-  test("a Logger that throws on the log of an accepted message is one defect, in the log, never in the dispatch", async () => {
-    const outcome = await Effect.runPromise(Effect.gen(function*() {
-      let thrown: unknown
-      const exit = yield* Effect.exit(
-        run(counter, (app) =>
-          Effect.sync(() => {
-            thrown = thrownBy(() => app.dispatch("Increment"))
-          }).pipe(Effect.andThen(Effect.never))).pipe(
-            Effect.provideService(References.MinimumLogLevel, "Debug"),
-            Effect.provide(Logger.layer([Logger.make(({ message }) => {
-              if (Array.isArray(message) && message[0] === "Message") throw "logger threw"
-            })]))
-          )
-      )
-      return { thrown, wheres: wheres(exit) }
-    }))
-    expect(outcome).toEqual({ thrown: undefined, wheres: ["log: logger threw"] })
   })
 })
 
@@ -714,7 +693,7 @@ describe("defects", () => {
   /**
    * Runs `program`, whose renderer draws the model with `view`, sends `Increment` and draws the model again, with
    * debug logs enabled, and tells where the run says its defect happened, if it died with the one thrown, and what it
-   * logged above the debug level.
+   * logged.
    */
   const failsWithBoom = async (
     program: Counter,
@@ -723,8 +702,8 @@ describe("defects", () => {
     } = {}
   ) => {
     const logged: Array<unknown> = []
-    const aboveDebug = Logger.make(({ message, logLevel }) => {
-      if (logLevel !== "Debug") logged.push(message)
+    const everything = Logger.make(({ message }) => {
+      logged.push(message)
     })
     const exit = await Effect.runPromiseExit(
       run(
@@ -738,7 +717,7 @@ describe("defects", () => {
         options
       ).pipe(
         Effect.provideService(References.MinimumLogLevel, "Debug"),
-        Effect.provide(Logger.layer([aboveDebug]))
+        Effect.provide(Logger.layer([everything]))
       )
     )
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
@@ -776,18 +755,6 @@ describe("defects", () => {
       () => failsWithBoom({ ...counter, init: pinging, runCommand: () => Effect.sync(boom) })
     ],
     ["runCommand", "command", () => failsWithBoom({ ...counter, init: pinging, runCommand: boom })],
-    ["describeMessage", "describeMessage", () => failsWithBoom(counter, { describeMessage: boom })],
-    [
-      "describeCommand",
-      "describeCommand",
-      () =>
-        failsWithBoom({
-          ...counter,
-          update: () => ({ count }) => ({ state: { count: count + 1 }, commands: ["Ping"] })
-        }, {
-          describeCommand: boom
-        })
-    ],
     [
       "what a subscription the run stopped releases",
       "subscription",
@@ -926,53 +893,6 @@ describe("defects", () => {
     return defects.map((defect) => defect instanceof ProgramDefect ? [defect.where, defect.cause] : defect)
   }
 
-  const leavesAMessage = Effect.suspend(() => dropsATick())
-
-  // The run's own logs are in no function of the program: whatever throws in one dies in the log, and never in the
-  // subscription or the step that logs it. That of an accepted message is under "scopes and logs".
-  test.each<[string, string, () => Effect.Effect<void>]>([
-    [
-      "a rejected message",
-      "Ignored a rejected message",
-      () => run({ ...counter, update: () => () => reject }, sendsIncrement)
-    ],
-    ["a dropped message", "Dropped a message of a stopped subscription", () => leavesAMessage],
-    [
-      "a subscription started by init",
-      "Subscription started",
-      () => run({ ...counter, subscriptions: () => HashMap.make(["k", Channel.never]) }, () => Effect.never)
-    ],
-    [
-      "a subscription started by a message",
-      "Subscription started",
-      () =>
-        run({
-          ...counter,
-          subscriptions: ({ count }) => count === 1 ? HashMap.make(["k", Channel.never]) : HashMap.empty()
-        }, sendsIncrement)
-    ],
-    [
-      "a subscription stopped",
-      "Subscription stopped",
-      () =>
-        run({
-          ...counter,
-          subscriptions: ({ count }) => count === 0 ? HashMap.make(["k", Channel.never]) : HashMap.empty()
-        }, sendsIncrement)
-    ],
-    [
-      "a subscription ended",
-      "Subscription ended",
-      () =>
-        run({
-          ...counter,
-          subscriptions: () => HashMap.make(["k", Channel.fromEffectDone(Effect.succeed<Message>("Forbidden"))])
-        }, () => Effect.never)
-    ]
-  ])("a Logger that throws on the log of %s is one defect, in the log", async (_, text, running) => {
-    expect(await diesOnLog(text, running())).toEqual([["log", new Boom()]])
-  })
-
   test("a Logger that throws on what a command logs is a defect in the command", async () => {
     const logging = run(
       { ...counter, init: pinging, runCommand: () => Effect.logDebug("Pinging").pipe(Effect.as(Opt.none())) },
@@ -980,153 +900,6 @@ describe("defects", () => {
     )
     expect(await diesOnLog("Pinging", logging)).toEqual([["command", new Boom()]])
   })
-})
-
-describe("logs", () => {
-  /**
-   * How many times the run describes a message, and a command, for a rejected message and one that starts a command:
-   * the answer of that command is applied once the job of its step, which logs it, has run.
-   */
-  const descriptionsAt = async (level: "Info" | "Debug") => {
-    const described = { messages: 0, commands: 0 }
-    await Effect.runPromise(
-      run(
-        counter,
-        (app) =>
-          Effect.sync(() => {
-            app.dispatch("Forbidden")
-            app.dispatch("Ping")
-          }).pipe(Effect.andThen(reaching(app, ({ count }) => count === 1))),
-        {
-          describeMessage: () => {
-            described.messages += 1
-            return "described"
-          },
-          describeCommand: () => {
-            described.commands += 1
-            return "described"
-          }
-        }
-      ).pipe(
-        Effect.provideService(References.MinimumLogLevel, level),
-        // Written nowhere: the level alone decides whether they are described.
-        Effect.provide(Logger.layer([]))
-      )
-    )
-    return described
-  }
-
-  test("messages and commands are described only while debug logs are enabled", async () => {
-    expect(await descriptionsAt("Info")).toEqual({ messages: 0, commands: 0 })
-    const atDebug = await descriptionsAt("Debug")
-    expect(atDebug.messages).toBeGreaterThan(0)
-    expect(atDebug.commands).toBeGreaterThan(0)
-  })
-
-  /**
-   * How many times the run describes a rejected message, which it ignores, sent before one that starts a command: the
-   * jobs run in the order of the messages, so once the command has answered, the rejected one has been logged.
-   */
-  const ignoredDescriptionsAt = async (level: "Info" | "Debug") => {
-    let forbidden = 0
-    await Effect.runPromise(
-      run(
-        counter,
-        (app) =>
-          Effect.sync(() => {
-            app.dispatch("Forbidden")
-            app.dispatch("Ping")
-          }).pipe(Effect.andThen(reaching(app, ({ count }) => count === 1))),
-        {
-          describeMessage: (message) => {
-            if (message === "Forbidden") forbidden += 1
-            return message
-          }
-        }
-      ).pipe(
-        Effect.provideService(References.MinimumLogLevel, level),
-        Effect.provide(Logger.layer([]))
-      )
-    )
-    return forbidden
-  }
-
-  test("a message ignored as rejected is described only while debug logs are enabled", async () => {
-    expect(await ignoredDescriptionsAt("Info")).toBe(0)
-    expect(await ignoredDescriptionsAt("Debug")).toBe(1)
-  })
-
-  // How many times the run describes the tick that `dropsATick` sends after its key went away.
-  const droppedDescriptionsAt = (level: "Info" | "Debug") =>
-    Effect.runPromise(Effect.gen(function*() {
-      let ticks = 0
-      yield* dropsATick({
-        describeMessage: (message) => {
-          if (message === "Tick") ticks += 1
-          return message
-        }
-      }).pipe(
-        Effect.provideService(References.MinimumLogLevel, level),
-        Effect.provide(Logger.layer([]))
-      )
-      return ticks
-    }))
-
-  test("a message dropped as its subscription stopped is described only while debug logs are enabled", async () => {
-    expect(await droppedDescriptionsAt("Info")).toBe(0)
-    expect(await droppedDescriptionsAt("Debug")).toBe(1)
-  })
-})
-
-type Ticking = Readonly<{ gated: boolean; running: boolean }>
-type TickMessage = "Hold" | "Stop" | "Tick" | "Done"
-
-// Has a subscription send a tick once its key has gone away, and before the fiber of effects has stopped it: that
-// fiber is held in the job of `Hold` by the release of the gate while `Stop` is applied and the tick sent, and is let go
-// once the tick is. The renderer then sends `Done`, whose command ends the run: the jobs run in the order of the
-// messages, so the tick's has run by then.
-const dropsATick = Effect.fnUntraced(function*(options: RunOptions<Ticking, TickMessage, "Finish"> = {}) {
-  const source = yield* Queue.unbounded<"Tick">()
-  const holding = yield* Deferred.make<void>()
-  const sent = yield* Deferred.make<void>()
-  const done = yield* Deferred.make<void>()
-  // The subscription asks for what follows the tick only once the tick has been applied: then `sent` completes.
-  const ticking = Channel.unwrap(Effect.map(Queue.take(source), (tick) => Channel.succeed(tick))).pipe(
-    Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never)))
-  )
-  const held = gate<TickMessage>(Deferred.succeed(holding, undefined).pipe(Effect.andThen(Deferred.await(sent))))
-  const ticks: Program<{ state: Ticking; model: Ticking; message: TickMessage; command: "Finish" }> = {
-    init: { state: { gated: true, running: true } },
-    update: (message) => (state) =>
-      message === "Hold"
-        ? { state: { ...state, gated: false } }
-        : message === "Stop"
-        ? { state: { ...state, running: false } }
-        : message === "Done"
-        ? { state, commands: ["Finish"] }
-        : { state },
-    runCommand: () => Deferred.succeed(done, undefined).pipe(Effect.as(Opt.none())),
-    subscriptions: ({ gated, running }) =>
-      gated && running
-        ? HashMap.make(["gate", held], ["ticks", ticking])
-        : running
-        ? HashMap.make(["ticks", ticking])
-        : HashMap.empty(),
-    makeModel: (state) => state
-  }
-  yield* run(
-    ticks,
-    Effect.fnUntraced(function*(app: App<Ticking, TickMessage>) {
-      app.dispatch("Hold")
-      yield* Deferred.await(holding)
-      app.dispatch("Stop")
-      yield* Queue.offer(source, "Tick")
-      yield* Deferred.await(sent)
-      app.dispatch("Done")
-      yield* Deferred.await(done)
-    }),
-    options
-  )
 })
 
 describe("onApplied", () => {
@@ -1952,32 +1725,25 @@ describe("the end of the run", () => {
     expect(Exit.isSuccess(exit)).toBe(true)
   })
 
-  test("a log that dies as the run starts comes before what a subscription dies of as the end releases it", async () => {
-    const throwsOnB = Logger.make(({ message }) => {
-      if (Array.isArray(message) && message[0] === "Subscription started" && message[1] === "b") throw new Error("log")
-    })
+  test("a command that dies as the run starts comes before what a subscription dies of as the end releases it", async () => {
     const exit = await Effect.runPromiseExit(
       run(
         {
           ...counter,
+          init: { state: { count: 0 }, commands: ["Ping"] },
+          runCommand: () => Effect.die("command"),
           subscriptions: () =>
-            HashMap.make(
-              [
-                "a",
-                Channel.unwrap(
-                  Effect.acquireRelease(Effect.void, () => Effect.die("release")).pipe(Effect.as(Channel.never))
-                )
-              ],
-              ["b", Channel.never]
-            )
+            HashMap.make([
+              "a",
+              Channel.unwrap(
+                Effect.acquireRelease(Effect.void, () => Effect.die("release")).pipe(Effect.as(Channel.never))
+              )
+            ])
         },
         () => Effect.never
-      ).pipe(
-        Effect.provideService(References.MinimumLogLevel, "Debug"),
-        Effect.provide(Logger.layer([throwsOnB]))
       )
     )
-    expect(sites(exit)).toEqual(["log", "subscription"])
+    expect(sites(exit)).toEqual(["command", "subscription"])
   })
 
   // The fiber of effects stops a key that went away with `stopping`, and the fiber stays in the map until it has ended:

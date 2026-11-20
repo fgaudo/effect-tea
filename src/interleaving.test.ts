@@ -684,7 +684,7 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
       })
     }).pipe(
       Effect.withSpan("caller"),
-      // Down to debug: the run's own logs, of each message and each subscription, are among them.
+      // Down to debug: what the subscriptions, the commands and the renderer log is among them.
       Effect.provideService(References.MinimumLogLevel, "Debug"),
       Effect.provide(Logger.layer([Logger.tracerLogger]))
     )

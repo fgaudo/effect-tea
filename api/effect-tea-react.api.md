@@ -123,8 +123,6 @@ type RunCommand<Command, Message, R = never> = (command: Command) => Execution<M
 
 // @public
 interface RunOptions<State, Message, Command = unknown> {
-    readonly describeCommand?: (command: Command) => unknown;
-    readonly describeMessage?: (message: Message) => unknown;
     readonly onApplied?: (applied: Applied<State, Message, Command>) => undefined;
     readonly onIgnored?: (ignored: Ignored<State, Message>) => undefined;
 }

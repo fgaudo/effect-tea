@@ -69,8 +69,11 @@ version, and everything else, features included, the patch version.
   state is required.
   Upgrade: `RunOptions<Message, State, Command>` becomes `RunOptions<State, Message, Command>`, and
   `DriveOptions<Message>` becomes `DriveOptions<State, Message>`.
-- **Breaking**: `DefectSite` gains `'init'` and `'log'`, for an `init` or a `Logger` that throws.
-  Upgrade: an exhaustive `switch` over `where` adds `case 'init'` and `case 'log'`.
+- **Breaking**: `DefectSite` gains `'init'`, for an `init` that throws.
+  Upgrade: an exhaustive `switch` over `where` adds `case 'init'`.
+- **Breaking**: the run writes no log of its own: `describeMessage`, `describeCommand` and their sites are removed.
+  Upgrade: log what `onApplied` and `onIgnored` hear, in a fiber that takes it from a queue ("Running", "Logs"), and
+  drop `case 'describeMessage'` and `case 'describeCommand'` from a `switch` over `where`.
 - **Breaking**: `isRejected`, `raise`, `subscriptionsOf` and `View` are removed.
   Upgrade: `isRejected(result)` becomes `result === reject`, `subscriptionsOf(app)(state)` becomes
   `app.subscriptions(state)`, `onEvent: { Products: raise }` becomes `onEvent: { Products: (event) => (state) => ({

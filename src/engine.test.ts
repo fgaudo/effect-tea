@@ -7,10 +7,7 @@ import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import { absurd, identity } from "effect/Function"
 import * as HashMap from "effect/HashMap"
-import * as Logger from "effect/Logger"
 import * as Opt from "effect/Option"
-import * as Queue from "effect/Queue"
-import * as References from "effect/References"
 import * as Scope from "effect/Scope"
 import * as Stream from "effect/Stream"
 import { gate } from "../test/gate.test_helper.ts"
@@ -1023,98 +1020,9 @@ describe("after the first defect", () => {
     )
     expect(calls.n).toBe(0)
   })
-
-  // The fiber of effects is held in the job of `Hold` by the release of a gate, while `Stop` takes the key of the ticks
-  // away and a command dies; the ticks, which the fiber of effects has not stopped yet, then send a tick. A message
-  // after a death is applied in nothing, and leaves no job: only the jobs of `Hold` and `Stop` describe their message.
-  test("a message of a stopped subscription, sent once a command has died, is not described", async () => {
-    type Gated = Readonly<{ phase: "Gated" | "Held" | "Stopped" }>
-    const described: Array<string> = []
-    await Effect.runPromiseExit(
-      Effect.gen(function*() {
-        const go = yield* Deferred.make<void>()
-        const holding = yield* Deferred.make<void>()
-        const opened = yield* Deferred.make<void>()
-        const stopped = yield* Deferred.make<void>()
-        const source = yield* Queue.unbounded<"Tick">()
-        const sent = yield* Deferred.make<void>()
-        // It asks for what follows the tick only once the call that sent the tick has returned: then `sent` completes.
-        const ticking = Channel.unwrap(
-          Effect.addFinalizer(() => Deferred.succeed(stopped, undefined)).pipe(
-            Effect.as(
-              Channel.unwrap(Effect.map(Queue.take(source), (tick) => Channel.succeed(tick))).pipe(
-                Channel.concatWith(() => Channel.unwrap(Effect.as(Deferred.succeed(sent, undefined), Channel.never)))
-              )
-            )
-          )
-        )
-        const held = gate<"Hold" | "Stop" | "Tick">(
-          Deferred.succeed(holding, undefined).pipe(Effect.andThen(Deferred.await(opened)))
-        )
-        const engine = yield* Engine.make<Gated, "Hold" | "Stop" | "Tick", "Die", never, string>({
-          init: { state: { phase: "Gated" }, commands: ["Die"] },
-          runCommand: () => Deferred.await(go).pipe(Effect.andThen(Effect.die("boom"))),
-          update: (message) => (state) =>
-            message === "Hold"
-              ? { state: { phase: "Held" } }
-              : message === "Stop"
-              ? { state: { phase: "Stopped" } }
-              : { state },
-          subscriptions: ({ phase }) =>
-            phase === "Gated"
-              ? HashMap.make(["gate", held], ["ticks", ticking])
-              : phase === "Held"
-              ? HashMap.make(["ticks", ticking])
-              : HashMap.empty(),
-          describeMessage: (message) => {
-            described.push(message)
-            return message
-          }
-        })
-        engine.dispatch("Hold")
-        yield* Deferred.await(holding)
-        engine.dispatch("Stop")
-        yield* Deferred.succeed(go, undefined)
-        yield* engine.died
-        yield* Queue.offer(source, "Tick")
-        yield* Deferred.await(sent)
-        yield* Deferred.succeed(opened, undefined)
-        yield* Deferred.await(stopped)
-        // A window of absence, once the job of `Stop` has stopped the ticks: a job of the tick would follow it at once,
-        // and nothing a correct run does could be awaited in its place.
-        yield* Effect.sleep("20 millis")
-      }).pipe(
-        Effect.scoped,
-        Effect.provideService(References.MinimumLogLevel, "Debug"),
-        Effect.provide(Logger.layer([]))
-      )
-    )
-    expect(described).toEqual(["Hold", "Stop"])
-  })
 })
 
 describe("the sites of the fibers of effects", () => {
-  test("a defect of describeMessage dies in describeMessage, and one of describeCommand in describeCommand", async () => {
-    const at = (option: "describeMessage" | "describeCommand") =>
-      Effect.runPromiseExit(
-        Effect.scoped(Effect.gen(function*() {
-          const engine = yield* Engine.make<{ n: number }, "Up", "Noted", never, never>({
-            init: { state: { n: 0 } },
-            runCommand: () => Effect.succeedNone,
-            update: () => (state) => ({ state: { n: state.n + 1 }, commands: ["Noted"] }),
-            subscriptions: () => HashMap.empty(),
-            [option]: () => {
-              throw `${option} threw`
-            }
-          })
-          engine.dispatch("Up")
-          yield* engine.died
-        })).pipe(Effect.provideService(References.MinimumLogLevel, "Debug"), Effect.provide(Logger.layer([])))
-      )
-    expect(sites(await at("describeMessage"))).toEqual(["describeMessage: describeMessage threw"])
-    expect(sites(await at("describeCommand"))).toEqual(["describeCommand: describeCommand threw"])
-  })
-
   test("a defect of subscriptions on the first state dies in subscriptions, as the engine is made", async () => {
     const exit = await Effect.runPromiseExit(Effect.scoped(Engine.make<{ n: number }, "Up", never, never, never>({
       init: { state: { n: 0 } },
@@ -1388,81 +1296,5 @@ describe("the end of the engine", () => {
       return log
     }))
     expect(log).toEqual(["subscription interrupted"])
-  })
-})
-
-describe("logs", () => {
-  test("describeMessage and describeCommand are called only while debug logs are enabled, in the fiber of effects", async () => {
-    const outcome = await Effect.runPromise(Effect.gen(function*() {
-      const called: Array<string> = []
-      const lines: Array<string> = []
-      const logger = Logger.make(({ message }) => void lines.push(JSON.stringify(message)))
-      const once = (level: "Debug" | "Info") =>
-        Effect.scoped(Effect.gen(function*() {
-          const done = yield* Deferred.make<void>()
-          const engine = yield* Engine.make<{ n: number }, "Up", "Noted", never, never>({
-            init: { state: { n: 0 } },
-            runCommand: () => Effect.as(Deferred.succeed(done, undefined), Opt.none()),
-            update: () => (state) => ({ state: { n: state.n + 1 }, commands: ["Noted"] }),
-            subscriptions: () => HashMap.empty(),
-            describeMessage: (message) => {
-              called.push(`message ${level}`)
-              return message
-            },
-            describeCommand: (command) => {
-              called.push(`command ${level}`)
-              return command
-            }
-          })
-          const before = called.length
-          engine.dispatch("Up")
-          const synchronously = called.slice(before)
-          yield* Deferred.await(done)
-          return synchronously
-        })).pipe(
-          Effect.provideService(References.MinimumLogLevel, level),
-          Effect.provide(Logger.layer([logger]))
-        )
-      const debug = yield* once("Debug")
-      const info = yield* once("Info")
-      return { debug, info, called, lines }
-    }))
-    expect(outcome.debug).toEqual([])
-    expect(outcome.info).toEqual([])
-    expect(outcome.called).toEqual(["message Debug", "command Debug"])
-    expect(outcome.lines).toEqual([JSON.stringify(["Message", "Up", { revision: 1, commands: ["Noted"] }])])
-  })
-
-  test("by default, a message and its commands are logged by their tags, never their data", async () => {
-    type Logged =
-      | Readonly<{ _tag: "Set"; value: number }>
-      | Readonly<{ _tag: "Stale"; value: number }>
-    const logs = await Effect.runPromise(Effect.gen(function*() {
-      const logs: Array<unknown> = []
-      yield* Effect.scoped(Effect.gen(function*() {
-        const done = yield* Deferred.make<void>()
-        const engine = yield* Engine.make<number, Logged, Readonly<{ _tag: "Save"; value: number }>, never, never>({
-          init: { state: 0 },
-          update: (message) => () =>
-            message._tag === "Set"
-              ? { state: message.value, commands: [{ _tag: "Save", value: message.value }] }
-              : reject,
-          runCommand: () => Effect.as(Deferred.succeed(done, undefined), Opt.none()),
-          subscriptions: () => HashMap.empty()
-        })
-        engine.dispatch({ _tag: "Stale", value: 1111 })
-        engine.dispatch({ _tag: "Set", value: 4321 })
-        // The command starts once its job has logged the message.
-        yield* Deferred.await(done)
-      })).pipe(
-        Effect.provideService(References.MinimumLogLevel, "Debug"),
-        Effect.provide(Logger.layer([Logger.make(({ message }) => logs.push(message))]))
-      )
-      return logs
-    }))
-    expect(logs).toEqual([
-      ["Ignored a rejected message", "Stale", { origin: "Dispatch" }],
-      ["Message", "Set", { revision: 1, commands: ["Save"] }]
-    ])
   })
 })

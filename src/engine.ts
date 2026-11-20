@@ -1,15 +1,14 @@
 // The engine: a message is applied in the call that sends it. The pure half of a step, `update`, the option that
 // hears it, the new state and the keys of that state, is one synchronous thunk, called by a dispatch, a command's
 // answer and a subscription's message alike, from whatever fiber or callback sends it. What the step does of effects,
-// its subscriptions stopped and started, its commands started and its logs, is a job for one fiber of effects, which
-// takes the jobs in the order of the states.
+// its subscriptions stopped and started and its commands started, is a job for one fiber of effects, which takes the
+// jobs in the order of the states. A step that does none of these offers no job.
 import * as Arr from "effect/Array"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import type * as Fiber from "effect/Fiber"
 import * as FiberMap from "effect/FiberMap"
 import * as FiberSet from "effect/FiberSet"
-import * as LogLevel from "effect/LogLevel"
 import * as Opt from "effect/Option"
 import * as Queue from "effect/Queue"
 import type * as Scope from "effect/Scope"
@@ -103,38 +102,22 @@ export type Ignored<State, Message> = {
 }
 
 /**
- * The options of a run: how messages and commands appear in the logs, and what hears each message.
+ * The options of a run: what hears each message.
  *
  * `run` and `drive` take them.
  *
  * @example
  * ```ts
- * run(program, render, { describeMessage: (message) => (message._tag === 'Searched' ? message : message._tag) })
+ * run(program, render, {
+ *   onApplied: ({ message }) => {
+ *     session.push(message)
+ *   }
+ * })
  * ```
  *
  * @see The guide, "Running", "Options".
  */
 export interface RunOptions<State, Message, Command = unknown> {
-  /**
-   * How a message appears in the logs.
-   *
-   * By default only its tags appear, never its data: `Home › Products › Deleted`. A message that is a string appears
-   * whole. It is called only while debug logs are enabled.
-   *
-   * @see The guide, "Running", "`describeMessage`".
-   * @see The guide, "Running", "How messages and commands appear in the logs".
-   */
-  readonly describeMessage?: (message: Message) => unknown
-  /**
-   * How a command appears in the logs.
-   *
-   * By default only its tags appear, never its data. A command that is a string appears whole. It is called only while
-   * debug logs are enabled.
-   *
-   * @see The guide, "Running", "`describeMessage`".
-   * @see The guide, "Running", "How messages and commands appear in the logs".
-   */
-  readonly describeCommand?: (command: Command) => unknown
   /**
    * Hears each message `update` accepts.
    *
@@ -191,8 +174,6 @@ const originOf = <K>(source: Core.Source<K>): Origin =>
 
 /** What a step leaves to the fiber of effects, in the order it is done. */
 type Job<Message, Command, R, K> = Readonly<{
-  /** The run's own debug logs of the message, written first. */
-  logs: Opt.Option<Effect.Effect<void>>
   gone: ReadonlyArray<readonly [K, Core.Generation]>
   fresh: ReadonlyArray<readonly [K, Subscription<Message, R>, Core.Generation]>
   commands: ReadonlyArray<Command>
@@ -250,8 +231,6 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   update,
   runCommand: interpret,
   subscriptions,
-  describeMessage = describeByTag,
-  describeCommand = describeByTag,
   onApplied = () => undefined,
   onIgnored = () => undefined
 }:
@@ -335,34 +314,11 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
       return Opt.none()
     }
   }
-  // The run's own logs belong to no function of the program: a `Logger` that throws dies in them.
-  const log = (...message: ReadonlyArray<unknown>) => Effect.logDebug(...message).pipe(diesIn("log"))
   const call = <A>(where: DefectSite, f: () => A) => Effect.sync(f).pipe(diesIn(where))
-  const described = (message: Message) => call("describeMessage", () => describeMessage(message))
-  // Decided in the fiber of effects, as it writes them, so that `describeMessage` and `describeCommand` are called only
-  // while debug logs are enabled there.
-  const logsOf = (arrived: Core.Arrived<State, Command, unknown>, message: Message, source: Core.Source<K>) =>
-    Effect.gen(function*() {
-      if (!(yield* LogLevel.isEnabled("Debug"))) return
-      switch (arrived._tag) {
-        case "Dropped":
-          if (source._tag === "Subscription") {
-            yield* log("Dropped a message of a stopped subscription", source.key, yield* described(message))
-          }
-          return
-        case "Dead":
-          return
-        case "Ignored":
-          return yield* log("Ignored a rejected message", yield* described(message), { origin: source._tag })
-        case "Applied":
-          return yield* log("Message", yield* described(message), {
-            revision: arrived.next.revision,
-            commands: yield* call("describeCommand", () => arrived.commands.map(describeCommand))
-          })
-      }
-    })
+  // Decided from the step alone: a step that stops, starts and commands nothing leaves the fiber of effects nothing to
+  // do, and costs no job.
   const queue = (job: Job<Message, Command, R, K>) => {
-    Queue.offerUnsafe(jobs, job)
+    if (job.gone.length > 0 || job.fresh.length > 0 || job.commands.length > 0) Queue.offerUnsafe(jobs, job)
   }
   // A listener that throws is a defect of the renderer's; the others are still told.
   const tell = () => {
@@ -381,13 +337,12 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     const step = arrived.value
     switch (step._tag) {
       case "Dead":
-        return
       case "Dropped":
-        return queue({ logs: Opt.some(logsOf(step, message, source)), gone: [], fresh: [], commands: [] })
+        return
       case "Ignored": {
         const ignored: Ignored<State, Message> = { message, origin: originOf(source), state: before.state }
-        if (Opt.isNone(attempt("onIgnored", () => onIgnored(ignored)))) return
-        return queue({ logs: Opt.some(logsOf(step, message, source)), gone: [], fresh: [], commands: [] })
+        attempt("onIgnored", () => onIgnored(ignored))
+        return
       }
       case "Applied": {
         const { next, changed, commands } = step
@@ -401,14 +356,14 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
         }
         if (Opt.isNone(attempt("onApplied", () => onApplied(applied)))) return
         current = next
-        if (!changed) return queue({ logs: Opt.some(logsOf(step, message, source)), gone: [], fresh: [], commands })
+        if (!changed) return queue({ gone: [], fresh: [], commands })
         // The keys are the program's, and so are their `Equal` and `Hash`: compared here, in `subscriptions`, and
         // nowhere else in the run.
         const reconciled = attempt("subscriptions", () => Core.reconcile(active, subscriptions(next.state)))
         if (Opt.isNone(reconciled)) return
         const { gone, fresh, active: keys } = reconciled.value
         active = keys
-        queue({ logs: Opt.some(logsOf(step, message, source)), gone, fresh, commands })
+        queue({ gone, fresh, commands })
         return tell()
       }
     }
@@ -440,23 +395,20 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
     )
   // The stops of a job are awaited together, before any start of that job or a later one: a key that comes back finds
   // its old subscription released. The next message does not wait for them: the effects of the next state do.
-  const perform = Effect.fnUntraced(function*({ logs, gone, fresh, commands }: Job<Message, Command, R, K>) {
-    if (Opt.isSome(logs)) yield* logs.value
+  const perform = Effect.fnUntraced(function*({ gone, fresh, commands }: Job<Message, Command, R, K>) {
     yield* Effect.forEach(
       gone,
-      ([key, generation]) =>
-        log("Subscription stopped", key).pipe(
-          Effect.andThen(FiberMap.get(subscriptionFibers, generation)),
+      ([, generation]) =>
+        FiberMap.get(subscriptionFibers, generation).pipe(
           Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: stopping }))
         ),
       { concurrency: "unbounded", discard: true }
     )
     for (const [key, subscription, generation] of fresh) {
       const send = sending({ _tag: "Subscription", key, generation })
-      yield* log("Subscription started", key)
       yield* runSubscription(subscription, send).pipe(
         scopedIn(deaths, "subscription", () => ({ key })),
-        Effect.flatMap((last) => log("Subscription ended", key).pipe(Effect.andThen(send(last)))),
+        Effect.flatMap(send),
         rootedIn("subscription", () => ({ key })),
         Effect.provideContext(context),
         recorded,
@@ -470,7 +422,7 @@ export const make = Effect.fnUntraced(function*<State, Message, Command, R, K>({
   yield* call("subscriptions", () => Core.reconcile(Core.noneActive, subscriptions(started.current.state))).pipe(
     Effect.flatMap(({ fresh, active: keys }) => {
       active = keys
-      return perform({ logs: Opt.none(), gone: [], fresh, commands: started.commands })
+      return perform({ gone: [], fresh, commands: started.commands })
     }),
     Effect.provideContext(context),
     recorded

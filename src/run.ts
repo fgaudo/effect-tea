@@ -145,9 +145,10 @@ const running = Effect.fnUntraced(
  * and a dispatch that applies its message before it returns.
  *
  * - The run ends when the renderer ends.
- * - One message at a time, in the order they were sent. A message is applied in the call that sends it. Its logs, the
- *   subscriptions it stops and starts, and the start of its commands follow in the run's own fiber, in the order of
+ * - One message at a time, in the order they were sent. A message is applied in the call that sends it. The
+ *   subscriptions it stops and starts, and the start of its commands, follow in the run's own fiber, in the order of
  *   the states. So the state is ahead of its effects.
+ * - The run writes no log of its own.
  * - A message that `update` rejects is ignored, and the state stays as it was.
  * - Each command, each subscription and the renderer has a scope of its own. What one acquires is released when it
  *   ends, never while it still runs. The next message does not wait for a release, but the effects of the next state
@@ -171,6 +172,7 @@ const running = Effect.fnUntraced(
  * @see The guide, "Guarantees", "Nothing outlives what acquired it".
  * @see The guide, "Guarantees", "Logs do not pile up in a span".
  * @see The guide, "Guarantees", "Nothing ends in silence".
+ * @see The guide, "Running", "Logs".
  */
 export const run = <State, Model, Message, Command = never, RC = never, RS = never, RR = never, Flags = never>(
   program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,

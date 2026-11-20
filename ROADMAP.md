@@ -9,7 +9,7 @@ what would reopen it. How an item came to be, and what was weighed for it, goes 
 [`adoption.md`](docs/records/adoption.md), the owner's decision that the library is meant to be adopted by others, and
 [`architecture-review.md`](docs/records/architecture-review.md), a review of the whole project that the owner asked
 for on 20 November 2026 and asked to be written here in the order it advises. Steps 1 to 4, 7 and 8 are its parts 1
-to 6. A step done leaves its number unused. Step 2 is below step 4: its stages come after it.
+to 6. A step done leaves its number unused.
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
 
@@ -20,28 +20,6 @@ test of it. None is open.
 
 ## Next, in order
 
-### 4. A run without logs of its own
-
-**Model and effort.** Opus 5.5, `high`: a change of the engine.
-
-**Depends on** the owner's yes, asked before anything is written: it removes two options that a release has had, and
-needs no spike. It is done before the stages of step 2, below, which change what a job is.
-
-**Why.** [`architecture-review.md`](docs/records/architecture-review.md), "A run without logs of its own". The run
-offers a job for every message so that it can log it, and the jobs are most of what a message costs ("Left open by the
-stages", below). `onApplied` and `onIgnored` with a queue log the same outside the run.
-
-**How.** If the owner agrees: the run's own logs go, with `describeMessage`, `describeCommand` and the three sites of
-a defect that are theirs. A job is offered only for a step that stops or starts a subscription, or has commands, and
-the thunk decides it from the step alone. The guide's "Running" shows the lines that log from `onApplied`.
-`describeByTag` stays, for the `on` of a defect. The skills are
-[`change-engine`](.agents/skills/change-engine/SKILL.md), [`change-api`](.agents/skills/change-api/SKILL.md) and
-[`release`](.agents/skills/release/SKILL.md), for the entry of the changelog and its upgrade.
-
-**Done when** the checks of `AGENTS.md` and of `change-engine` pass, the entry "A job for the fiber of effects only
-while debug logs are enabled" of `docs/rejected.md` says what became of it, and this step is removed. Or, refused: an
-entry of `docs/rejected.md` says why.
-
 ### 2. The run as a store and its effects
 
 Taken by the owner on 20 November 2026, on the spike's record,
@@ -49,8 +27,8 @@ Taken by the owner on 20 November 2026, on the spike's record,
 `start(program, options)`, which gives the handle a renderer reads and `run`, the effect that runs the program's
 effects; `run(program, render)` is removed; a renderer gives the handle's `die` what its draw threw outside a
 listener; `Host` starts its run in a microtask after its effect; an `init` that throws gives a handle that has died;
-and the guide promises the first model on a server. Its four stages below come after step 4, which changes what a job
-is, and before the release: they remove an export that 0.7.1 has, and others that no release has had. The spike is the
+and the guide promises the first model on a server. Its four stages below come before the release: they remove an
+export that 0.7.1 has, and others that no release has had. The spike is the
 branch `claude/spike-store-and-effects` (`ab19927`), never to be merged: each stage brings its part onto `main` as
 `main` is then.
 
@@ -59,7 +37,7 @@ branch `claude/spike-store-and-effects` (`ab19927`), never to be merged: each st
 **Model and effort.** Opus 5.5, `high`: the engine, and invariants to keep. The skills are
 [`change-engine`](.agents/skills/change-engine/SKILL.md) and [`change-api`](.agents/skills/change-api/SKILL.md).
 
-**Depends on** step 4.
+**Depends on** nothing open.
 
 **How.** What the branch holds of `src/`, as its record lists it under "What was built": the register of deaths made
 by plain code, with its hold; the engine built by plain code, with `effects`, one offer of the jobs as the outermost
@@ -67,6 +45,10 @@ by plain code, with its hold; the engine built by plain code, with `effects`, on
 starts; and `src/start.test.ts`. `run(program, render)` stays in this stage, as the composition of the two halves, so
 that every check passes at its end. What differs from the branch:
 
+- **The run writes no log of its own on `main`, and still does on the branch**, which was written before step 4: on
+  `main` a job is offered only for a step that stops or starts a subscription or has commands (`queue` in
+  `src/engine.ts`), and `DefectSite` has no `'log'`, `'describeMessage'` or `'describeCommand'`. The branch's engine is
+  brought over on top of that, with none of its logs.
 - **The jobs that waited are done by the fiber that starts the effects**, as today's engine does the first state's
   job, and not taken from the queue: the branch rests there on `Queue.take` not yielding for a message that waits,
   which is seen and not documented.
@@ -75,7 +57,7 @@ that every check passes at its end. What differs from the branch:
   catches is recorded as it is, with no site, as the owner decided. Its test is in `src/start.test.ts`.
 - **The effects of a step stay out of the call that sent its message, described and not promised**, as the owner
   decided (the record, "Decided", 9): the engine keeps the queue, whose taker a task of the scheduler resumes, and no
-  premise is added for it. A `Deferred` in place of the queue ran them inside the dispatch. Step 4 removes the logs,
+  premise is added for it. A `Deferred` in place of the queue ran them inside the dispatch. Step 4 removed the logs,
   and with them the one test that would notice ("describeMessage and describeCommand are called only while debug logs
   are enabled, in the fiber of effects"). So this stage adds a test that a dispatch returns before the commands of its
   step start, while the fiber of effects waits: it says that it is an alarm of what is described, and the killer of
@@ -300,8 +282,7 @@ whether `@fgaudo/effect-tea/snabbdom` stays beside it.
 
 Where a step above would answer a point below, the point stays here until the step is done. Step 2, taken, answers
 points 1 and 2 of the "Seven points of a review of the design", point 3 for the engine, and what the reader with an
-application in React meets, at their end: its stage 2d takes them from here. Step 4 would answer the job queued for
-each message, of "Left open by the stages". Step 7 would answer point 4 of the seven.
+application in React meets, at their end: its stage 2d takes them from here. Step 7 would answer point 4 of the seven.
 
 - **Three findings of the reader's check of 20 November 2026**, the last stage of
   [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md): two readers that had not seen the code built a
@@ -323,9 +304,8 @@ each message, of "Left open by the stages". Step 7 would answer point 4 of the s
   Smaller, and not written either: "Running" could name `Fiber.interrupt` where it says to interrupt the fiber, and
   "Testing tools" could say that `hearNext` asks for the services of every subscription, not of the one it hears.
 - **Left open by the stages of the dispatch that applies its message at once**, each in its record under its stage: a
-  job queued for each message, which is most of what a message costs; a snabbdom renderer that was interrupted while
-  its run goes on, whose handlers still apply and draw; and a test of the timer's buttons, in the bridges' tests, that
-  no mutation tried makes fail. To weigh, each.
+  snabbdom renderer that was interrupted while its run goes on, whose handlers still apply and draw; and a test of the
+  timer's buttons, in the bridges' tests, that no mutation tried makes fail. To weigh, each.
 - **A point of the guide that the swap left**, found by the session that rewrote it. Two more it found, the rule on
   `set` and a second write before React renders, were answered by the write without `was`.
   - **The skill's "Rules that nothing checks" does not say that the state is ahead of its effects.** The guide does

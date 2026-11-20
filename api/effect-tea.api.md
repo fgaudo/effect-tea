@@ -196,7 +196,7 @@ export type DeclareInputById<T extends DeclaredTypes> = <Id, A>(place: Placement
 export const defect: (reason: string) => never;
 
 // @public
-export type DefectSite = "init" | "update" | "subscriptions" | "subscription" | "command" | "describeMessage" | "describeCommand" | "onApplied" | "onIgnored" | "render" | "log";
+export type DefectSite = "init" | "update" | "subscriptions" | "subscription" | "command" | "onApplied" | "onIgnored" | "render";
 
 // @public
 export type Dispatch<Message> = (message: Message) => void;
@@ -567,8 +567,6 @@ type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never] ? Rea
 
 // @public
 export interface RunOptions<State, Message, Command = unknown> {
-    readonly describeCommand?: (command: Command) => unknown;
-    readonly describeMessage?: (message: Message) => unknown;
     readonly onApplied?: (applied: Applied<State, Message, Command>) => undefined;
     readonly onIgnored?: (ignored: Ignored<State, Message>) => undefined;
 }

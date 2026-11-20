@@ -35,10 +35,6 @@ that waits for a microtask before it reads the model draws the new states of one
 
 - **`flags`**: what the program starts from, for example the product a notification opened the app for. `flags` is
   required exactly when the program has flags.
-- **`describeMessage`**, **`describeCommand`**: how messages and commands appear in the logs. By default, only their
-  tags appear, never their data: `Home › Products › Deleted`. The run calls these two functions only while debug logs
-  are enabled (`References.MinimumLogLevel`), so they cost nothing otherwise. How a string and a parent's wrapping
-  appear is under [Precisely](#precisely).
 - **`onApplied`**: a function that hears every accepted message, for devtools or session recording. For each message,
   `onApplied` hears:
   - where the message came from (`origin`: a dispatch, a command, or a subscription with its key);
@@ -99,15 +95,26 @@ renderer that waits: wrap `runCommand`, a subscription or the renderer, and leav
 
 ### Logs
 
-The run logs only at the debug level. It logs:
+The run writes no log of its own. To log each message, log what `onApplied` and `onIgnored` hear, in the fiber that
+takes it from the queue. Choose there what a line holds: a message may hold data.
 
-- each message;
-- a rejected message;
-- subscriptions starting, stopping and ending;
-- a message of a subscription whose key is gone, which the run drops before `update`.
+```ts
+const app = Effect.gen(function*() {
+  const heard = yield* Queue.unbounded<Applied<State, Message, Command>>()
+  const logging = Queue.take(heard).pipe(
+    Effect.flatMap(({ message, revision }) => Effect.logDebug("Message", message._tag, { revision })),
+    Effect.forever
+  )
+  const running = run(program, render, {
+    onApplied: (applied) => {
+      Queue.offerUnsafe(heard, applied)
+    }
+  })
+  yield* Effect.raceFirst(running, logging)
+})
+```
 
-Effect's default minimum level, `Info`, hides all these logs. The debug logs of subscriptions show their keys. A key
-may hold data (an id, the text of a search).
+Neither option hears a message that the run drops before `update`: one that a subscription sent once its key was gone.
 
 ### Starting from another state
 
@@ -125,18 +132,17 @@ A defect anywhere ends the run, which dies with a `ProgramDefect`:
 - **Its `cause` is the defect itself**: an `InvariantDefect` for one thrown with `defect`.
 - **Its `where` says where it happened**, which only the run knows:
 
-  | `where`           | Where the defect happened                                                                                              |
-  | ----------------- | ---------------------------------------------------------------------------------------------------------------------- |
-  | `'init'`          | In `init`, for a program that starts from flags.                                                                       |
-  | `'update'`        | In `update`, `onEvent` included. The message it was given is in `on`, by its tags, as the logs describe it by default. |
-  | `'subscriptions'` | In `subscriptions`, the `Equal` and `Hash` of its keys included.                                                       |
-  | `'subscription'`  | In a subscription. Its `key` is there as it is, as the logs show it.                                                   |
-  | `'command'`       | In a command.                                                                                                          |
-  | `'render'`        | In the renderer, the view, the renderer's listeners and `makeModel` included, wherever the model is read.              |
-  | an option's name  | In that option.                                                                                                        |
-  | `'log'`           | In one of the run's own debug logs (a `Logger` that throws).                                                           |
+  | `where`           | Where the defect happened                                                                                 |
+  | ----------------- | --------------------------------------------------------------------------------------------------------- |
+  | `'init'`          | In `init`, for a program that starts from flags.                                                          |
+  | `'update'`        | In `update`, `onEvent` included. The message it was given is in `on`, by its tags.                        |
+  | `'subscriptions'` | In `subscriptions`, the `Equal` and `Hash` of its keys included.                                          |
+  | `'subscription'`  | In a subscription. Its `key` is there as it is.                                                           |
+  | `'command'`       | In a command.                                                                                             |
+  | `'render'`        | In the renderer, the view, the renderer's listeners and `makeModel` included, wherever the model is read. |
+  | an option's name  | In that option.                                                                                           |
 
-  When the program logs something itself, a defect in that log is in the place the program logs from.
+  When the program logs something, a defect in that log is in the place the program logs from.
 
 From the defect on, the run applies no message. Every defect is in the cause, each with where it happened.
 
@@ -175,7 +181,9 @@ Each pair sums up a rule of this page. The rule itself is above.
 
 ## Precisely
 
-### How messages and commands appear in the logs
+### How a message is named by its tags
+
+`on` names a message by its tags, never its data: `Home › Products › Deleted`.
 
 - A message or a command that is a string is its own tag, and appears whole. Data goes in a field of a tagged value.
 - A parent's wrapping is followed only to a tagged value. So the message of a child whose messages are strings appears

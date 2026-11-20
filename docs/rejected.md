@@ -30,7 +30,7 @@ answer, and saying so in the proposal.
   a defect in its site for every interruption by a fiber of the program; and about 28% fewer messages a second in a run
   with `onApplied` (a bench by hand), where the functions gave some 7% more than before. Three reviewers weighed it;
   the third, asked to choose with no preference given, chose the functions. The owner chose the functions as the
-  cleaner form: they are what `describeMessage` and `describeCommand` are already, a step waits only for a release,
+  cleaner form: they are what `describeMessage` and `describeCommand` were then, a step waits only for a release,
   and what must wait (a command that starts once its state is saved, a debugger that pauses) waits in a command, a
   subscription or the renderer, which whoever runs the program wraps. What is lost: an option that waits, and an
   option's logs through the run's logger. _Reopen if_ a use needs an option that waits and cannot be written as a
@@ -111,7 +111,18 @@ answer, and saying so in the proposal.
   nothing costs no job. Refused in the spike of [`synchronous-dispatch.md`](records/synchronous-dispatch.md), 20
   November 2026, reasoned: decided in the thunk from the run's context, it would rest on how `LogLevel.isEnabled` reads
   the level, and a job of logs alone is a small object for each message. Measured since, by hand, in its stage 1: the
-  jobs are most of what the new engine spends on a message. The record names no condition to reopen it.
+  jobs are most of what the new engine spends on a message. Done otherwise, the same day, by step 4 of the roadmap,
+  with the owner's yes: the run writes no log of its own (below), so the thunk offers a job only for a step that stops
+  or starts a subscription or has commands, decided from the step alone, with no reading of the level.
+- **The run's own debug logs**, of each message, each rejection, each message dropped before `update`, and each
+  subscription that starts, stops and ends, with `describeMessage` and `describeCommand` to shape them. Removed 20
+  November 2026, reasoned, with the owner's yes, on [`architecture-review.md`](records/architecture-review.md), "A run
+  without logs of its own": they were a name over a composition, since `onApplied` and `onIgnored` with a queue log the
+  same; every program paid a job for each message, debug logs enabled or not; and they needed two options, three sites
+  of a defect, an invariant and a premise of their own. What is lost: the log of a message dropped before `update`,
+  which no option hears, and the logs of a subscription that starts and stops, which an option works out from the
+  keys of the two states it is given. _Reopen if_ a user needs to see what no option hears, and an option cannot be
+  given it.
 - **Skipping the start of a subscription whose key went away before the fiber of effects reached it.** Refused in the
   same spike, reasoned: it would be a check of what the thunk changes, made in another fiber, against "one thunk"
   ([`invariants.md`](invariants.md)), and nothing needs it, since the messages of such a start are dropped by their
@@ -239,8 +250,8 @@ answer, and saying so in the proposal.
   and its defect, as "symmetric where its tools are" (`AGENTS.md`) asks about. Reasoned, 16 November 2026, on the item
   of `ROADMAP.md`. `RunOptions` is how a program runs (`engine.ts`): `drive` is a run and passes them on, while
   `rehearse` and `simulate` take a program without a runtime, and `flags` is the program's input, no option of a run.
-  `describeMessage` and `describeCommand` shape debug logs, and neither tool logs, so they would be taken and never
-  called. `onApplied` and `onIgnored` watch ("Invariants" in `invariants.md`): they cannot change what a rehearsal
+  `describeMessage` and `describeCommand` shaped the run's debug logs then, which neither tool writes, and are removed
+  since. `onApplied` and `onIgnored` watch ("Invariants" in `invariants.md`): they cannot change what a rehearsal
   checks of the program, and that a defect in one ends the run is the engine's promise, which `run.test.ts` keeps,
   not one an application's test checks. `simulate` runs no effect but its commands', and an observer returns one. In
   `rehearse` they would be an effect that waits inside the step the loop applies, which the end may interrupt: new
@@ -610,8 +621,8 @@ answer, and saying so in the proposal.
   it meets a leaf program's own values, which nothing of the library checks: another name for the field collides the
   same way, a rule of the types reaches only a composition's own tags, and a key that is a symbol, the one shape it
   could trust, would be imported by every parent's test and view and lost in a session saved as JSON. Following the
-  string would log a program's own text, `{ _tag: 'ToastShown', message: '<text>' }`, which the default must not.
-  The guide says what it does; `describeMessage` shows more. _Reopen if_ a wrapping the describer can tell from a
+  string would name a program's own text, `{ _tag: 'ToastShown', message: '<text>' }`, where only tags are named.
+  The guide says what it does. _Reopen if_ a wrapping the describer can tell from a
   program's own value comes for another reason.
 - **`forwardTo` dual**, then named `dispatchTo`: `pipe(dispatch, forwardTo('Home'), forwardTo('Products'))` for a
   grandchild's dispatch. Spiked, 16 November 2026, in the working tree and discarded uncommitted, after a survey of the

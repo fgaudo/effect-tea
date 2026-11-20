@@ -271,8 +271,7 @@ const ignored: Arrived<never, never, never> = { _tag: "Ignored" }
  * run before the fiber that stops it. This is the only check of a death, and whoever calls it calls it in one
  * synchronous thunk, since the scheduler may yield at any other operation: no other fiber can die between the check and
  * the call, and a defect of `update` dies in `update`. The register is read first, so that a message taken once the
- * run has died is dead, never dropped: a dropped one reaches nothing of the program but its description in the logs,
- * which is not written for a message taken once the run has died.
+ * run has died is dead, whatever its start.
  */
 export const arrive = <State, Message, Command, Event, K>(
   update: Update<State, Message, Command, Event>,

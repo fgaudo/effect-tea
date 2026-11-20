@@ -6,8 +6,8 @@ import * as Data from "effect/Data"
  * - `'update'` includes `onEvent`.
  * - `'subscriptions'` includes the `Equal` and `Hash` of the keys.
  * - `'render'` includes the view and `makeModel`.
- * - An option's name means that option. `'log'` means one of the run's own debug logs.
- * - A defect in a log of the program's own is in the place it logs from.
+ * - An option's name means that option.
+ * - A defect in a log that the program writes is in the place it logs from.
  *
  * @example
  * ```ts
@@ -22,12 +22,9 @@ export type DefectSite =
   | "subscriptions"
   | "subscription"
   | "command"
-  | "describeMessage"
-  | "describeCommand"
   | "onApplied"
   | "onIgnored"
   | "render"
-  | "log"
 
 const described: Readonly<Record<DefectSite, string>> = {
   init: "init",
@@ -35,12 +32,9 @@ const described: Readonly<Record<DefectSite, string>> = {
   subscriptions: "subscriptions",
   subscription: "a subscription",
   command: "a command",
-  describeMessage: "describeMessage",
-  describeCommand: "describeCommand",
   onApplied: "onApplied",
   onIgnored: "onIgnored",
-  render: "the renderer, its view or makeModel",
-  log: "a log of the run"
+  render: "the renderer, its view or makeModel"
 }
 
 // The constructors are private, so that each class keeps the one meaning the library gives it: these, set in each
@@ -67,7 +61,7 @@ type Fields = Readonly<{
  * the message.
  *
  * - `cause` is what was thrown: an `InvariantDefect` for one thrown with `defect`.
- * - `on` names the message by its tags, as the logs do by default. A message that is a string appears whole.
+ * - `on` names the message by its tags. A message that is a string appears whole.
  * - `key` is the subscription's key as it is. Like `cause`, it may hold the program's data.
  * - The run does not log the defect and does not recover from it. Report it, and choose what the user sees next.
  * - Only the run makes one. Read it, as a crash report or a test does: the types refuse a `new` of it.
@@ -80,7 +74,7 @@ type Fields = Readonly<{
  * @see The guide, "Running", "Its `cause` is the defect itself".
  * @see The guide, "Running", "When a defect happens".
  * @see The guide, "Running", "Its `where` says where it happened".
- * @see The guide, "Running", "How messages and commands appear in the logs".
+ * @see The guide, "Running", "How a message is named by its tags".
  * @see The guide, "Running", "The run never recovers from a defect, and does not log it".
  * @see The guide, "Running", "The app around the run chooses what leaves the device".
  */
@@ -114,8 +108,8 @@ type CompositionFields = Readonly<{
  *
  * It is thrown when a parent sends an external message to a child that is not there.
  * Among other cases, it is thrown for a parent's subscription key that a child uses too, and for a `subscribed` that
- * lists an id twice. `on` names the message by its tags, as the logs do by default. `id` is the child's id as it is,
- * and may hold the program's data. Only `program` makes one: a test reads it, and the types refuse a `new` of it.
+ * lists an id twice. `on` names the message by its tags. `id` is the child's id as it is, and may hold the program's
+ * data. Only `program` makes one: a test reads it, and the types refuse a `new` of it.
  *
  * @example
  * ```ts
@@ -124,7 +118,7 @@ type CompositionFields = Readonly<{
  *
  * @see The guide, "Composition", "What is a defect".
  * @see The guide, "Events and external messages", "An external message to a child that is not there is a defect".
- * @see The guide, "Running", "How messages and commands appear in the logs".
+ * @see The guide, "Running", "How a message is named by its tags".
  * @see The guide, "Running", "The app around the run chooses what leaves the device".
  */
 export class CompositionDefect extends Data.TaggedError("CompositionDefect")<CompositionFields> {
