@@ -18,3 +18,4 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`exploration.md`](exploration.md)                       | rejected: exploring a program from `init`                |
 | [`hosted-react.md`](hosted-react.md)                     | decided: a bridge in which React hosts the program       |
 | [`adoption.md`](adoption.md)                             | decided, done in part: for others to adopt, and entries  |
+| [`synchronous-dispatch.md`](synchronous-dispatch.md)     | decided, not done: a dispatch applied at once, its plan  |
