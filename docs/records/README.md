@@ -23,3 +23,4 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`architecture-review.md`](architecture-review.md)       | proposed: what a dispatch that applies at once left      |
 | [`write-without-was.md`](write-without-was.md)           | taken, to be done: a write without `was`                 |
 | [`store-and-effects.md`](store-and-effects.md)           | taken, to be done: a program started by plain code       |
+| [`external-handler.md`](external-handler.md)             | spiked, to be decided: external messages in `external`   |

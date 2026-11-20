@@ -3,7 +3,8 @@
 **Status:** proposed, 20 November 2026, by a review of the whole project that the owner asked for that day, made by a
 session of Fable 5.2 at commit `3797b03`. Nothing was run: each part is reasoned from the code and the documents read.
 Parts 1 and 2 were taken by the owner the same day, each on its spike ([`write-without-was.md`](write-without-was.md),
-[`store-and-effects.md`](store-and-effects.md)); the others are not decided. The steps that decide each part are in
+[`store-and-effects.md`](store-and-effects.md)); part 3 was spiked the same day
+([`external-handler.md`](external-handler.md)); the others are not decided. The steps that decide each part are in
 [`ROADMAP.md`](../../ROADMAP.md), in the order the review advises. A part that is taken gets a record of its own, for
 its spike and its plan. A part that is refused becomes an entry of [`rejected.md`](../rejected.md).
 

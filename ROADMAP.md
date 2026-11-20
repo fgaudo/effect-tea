@@ -39,6 +39,10 @@ TypeScript (`bun run inference`), and what the declarations and the hovers of a 
 skills are [`change-api`](.agents/skills/change-api/SKILL.md) and
 [`change-engine`](.agents/skills/change-engine/SKILL.md).
 
+**Spiked** on 20 November 2026: the record is [`external-handler.md`](docs/records/external-handler.md), the branch
+`claude/spike-external-handler` (`6f93071`). Every check passes there, the matrix with each supported TypeScript and
+the mutations too. What is left is the owner's decision; the record says what one stage would do if it is taken.
+
 **Done when** the owner has decided on the spike's record. Taken: its stages are steps here, each with its model and
 effort. Refused: an entry of `docs/rejected.md` says why.
 
