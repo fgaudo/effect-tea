@@ -34,22 +34,11 @@ value, and with React a second write before a render is rejected though it is no
 November 2026 (R1 of [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md)): the record says what R1 did
 not weigh, and how a bridge can close the window itself, with the outcome R1 wanted.
 
-**How.** A spike, on a branch of its own, never to be merged, with a record of its own in `docs/records/`. Then the
-owner decides. The record's "What the spike must show" lists what it answers:
-
-- `written` (`src/input.ts`) stores a write wherever its place is there, and a write of the value held leaves the very
-  same value.
-- The bridge to snabbdom lets no handler run on a view older than the state, in one of two ways: it draws at every
-  notice, with no animation frame, which is measured with a subscription that sends often; or it draws a notice not
-  drawn yet before a handler runs, from a listener in the capture phase.
-- The form of a write: `{ _tag: 'Written', value }`, or the value alone.
-- By hand in a browser, as stage 4 of `synchronous-dispatch.md` did, with both bridges: a text typed in its middle
-  and over a selection while a subscription changes that very value, with the pane on screen and hidden.
-- Whether a `set` may then change the value, which is the first of the "Three points of the guide that the swap left"
-  below.
-
-The skills are [`change-engine`](.agents/skills/change-engine/SKILL.md),
-[`change-api`](.agents/skills/change-api/SKILL.md) and [`add-example`](.agents/skills/add-example/SKILL.md).
+**How.** Spiked on 20 November 2026, on the branch `claude/spike-write-without-was` (`c806767`), never to be merged.
+Its record, [`write-without-was.md`](docs/records/write-without-was.md), says what was built, run and measured. What is
+left is the owner's decision, on the three questions of its last section: take it or keep `was`; the cost of a
+subscription that sends faster than the screen, held back to one draw a task as with React; and the rule on `set`. If
+taken, the record lists three stages, each with its model and effort, to write here after this step.
 
 **Done when** the owner has decided on the spike's record. Taken: its stages are steps here, each with its model and
 effort (the rule and its property of the search, the bridges, the examples' views, the guide and the skill), and the
