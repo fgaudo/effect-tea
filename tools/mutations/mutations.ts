@@ -1421,11 +1421,73 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "the React bridge draws again the model it drew last",
+    name: "the React bridge's store publishes a frame inside the effect of React that forks its renderer",
     file: "bridges/react.ts",
-    from: "if (!(Opt.isSome(drawn) && drawn.value === model)) {",
-    to: "if (true) {",
+    from: "Effect.yieldNow.pipe(",
+    to: "Effect.void.pipe(",
     killedBy: [
+      [
+        "bridges/react.test.ts",
+        "a renderer forked as an effect of React runs draws its first frame outside the effect"
+      ]
+    ]
+  },
+  {
+    name: "the React bridge's store publishes the frames of a renderer opened before the last",
+    file: "bridges/react.ts",
+    from: "              if (current !== render) return\n",
+    to: "",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "once another renderer of the store is opened, the frames of the first are not published"
+      ]
+    ]
+  },
+  {
+    name: "the React bridge's store keeps the frame of a renderer closed",
+    file: "bridges/react.ts",
+    from: "      latest = undefined\n",
+    to: "",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "hidden by Activity, the run ends; shown again, the program starts from init, after the fallback"
+      ]
+    ]
+  },
+  {
+    name: "the React bridge publishes a frame outside flushSync",
+    file: "bridges/react.ts",
+    from: "              flushSync(notify)\n",
+    to: "              notify()\n",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "draws the first frame at once, then at most once per screen refresh, the latest frame"
+      ],
+      [
+        "bridges/react.test.ts",
+        "a frame drawn while the user types does not take back what they typed since"
+      ],
+      [
+        "bridges/react.test.ts",
+        "draws its fallback until the first frame, then the frame"
+      ]
+    ]
+  },
+  {
+    name: "the React bridge's Frames renders again for a frame of the very same model",
+    file: "bridges/react.ts",
+    from:
+      "  const model = useSyncExternalStore(store.subscribe, () => {\n    const frame = store.frame()\n    return frame === undefined ? none : frame.model\n  })\n",
+    to:
+      "  const shot = useSyncExternalStore(store.subscribe, () => store.frame() ?? none)\n  const model = shot === none ? none : shot.model\n",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "a rejected click draws its frame without drawing its tree again, and the element keeps what was typed"
+      ],
       [
         "bridges/react.test.ts",
         "shows the program's value once a key, left unseen by the frame that locks it, is rejected"
@@ -1433,14 +1495,115 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "the React bridge settles no input of a frame it does not draw again",
+    name: "the React bridge's input reads seen from the render of its parent",
     file: "bridges/react.ts",
-    from: "              if (thrown.length > 0) throw thrown[0]\n            }\n",
-    to: "              if (thrown.length > 0) throw thrown[0]\n            } else return drawn\n",
+    from: "  const seen = useSyncExternalStore(store.subscribe, () => store.frame()?.seen ?? 0)\n",
+    to: "  const seen = store.frame()?.seen ?? 0\n",
     killedBy: [
       [
         "bridges/react.test.ts",
         "shows the program's value once a key, left unseen by the frame that locks it, is rejected"
+      ],
+      [
+        "bridges/react.test.ts",
+        "an input in a subtree that memo skips takes the program's value once a frame has seen its rejected key"
+      ]
+    ]
+  },
+  {
+    name: "the React bridge's input is settled when seen changes alone",
+    file: "bridges/react.ts",
+    from: "  }, [value, seen])",
+    to: "  }, [seen])",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "a value a command's message puts in an input's place, with no new seen, is shown by the element"
+      ]
+    ]
+  },
+  {
+    name: "the React bridge's input sends through the dispatch of its first render",
+    file: "bridges/react.ts",
+    from: "    sendTo.current = dispatch\n",
+    to: "",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "shows the program's value once a key for the first, left unseen, is rejected, and stores what is typed next"
+      ]
+    ]
+  },
+  {
+    name: "the React bridge's Host leaves its run running as it unmounts",
+    file: "bridges/react.ts",
+    from: "      Effect.runFork(Fiber.interrupt(fiber))\n    }\n",
+    to: "    }\n",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "interrupts the run as it unmounts, and the run releases what it holds"
+      ],
+      [
+        "bridges/react.test.ts",
+        "in StrictMode, the run of the first mount is interrupted, and the second's frames are drawn"
+      ],
+      [
+        "bridges/react.test.ts",
+        "in StrictMode, the first run starts the commands of init, which its interruption interrupts"
+      ],
+      [
+        "bridges/react.test.ts",
+        "a program unmounted while a command is under way interrupts the command, and draws nothing after"
+      ]
+    ]
+  },
+  {
+    name: "the React bridge's Host does not throw what its run died of",
+    file: "bridges/react.ts",
+    from: "  if (died !== undefined) throw died.error\n",
+    to: "",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "throws its ProgramDefect as Host renders, for the nearest error boundary"
+      ]
+    ]
+  },
+  {
+    name: "the React bridge's Host does not report what its run dies of once unmounted",
+    file: "bridges/react.ts",
+    from: "        else reportError(error)\n",
+    to: "",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "gives what it dies of once Host has unmounted to reportError"
+      ]
+    ]
+  },
+  {
+    name: "the React bridge's Host hears how the run ends inside the fiber it forks",
+    file: "bridges/react.ts",
+    from: "    const fiber = forkRun(start(program, render, options))\n",
+    to:
+      "    const fiber = forkRun(Effect.onExit(start(program, render, options), (exit) =>\n      Effect.sync(() => {\n        if (Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause)) setDied({ error: Cause.squash(exit.cause) })\n      })))\n",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "what the application handles around the run is not thrown again"
+      ]
+    ]
+  },
+  {
+    name: "the React bridge's Host starts its run with its latest props",
+    file: "bridges/react.ts",
+    from: "  const first = useRef(props)\n",
+    to: "  const first = { current: props }\n",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "shown again by Activity, starts the run with the fork of its first render"
       ]
     ]
   },

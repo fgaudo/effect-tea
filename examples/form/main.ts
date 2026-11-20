@@ -1,10 +1,12 @@
 import { run } from "@fgaudo/effect-tea"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
-import { renderInto as renderWithReact } from "../../bridges/react.ts"
+import { createElement } from "react"
+import { createRoot } from "react-dom/client"
+import { Frames, makeStore } from "../../bridges/react.ts"
 import { renderInto as renderWithSnabbdom } from "../../bridges/snabbdom.ts"
 import { together } from "../together.ts"
-import { form } from "./form.ts"
+import { form, type Message, type Model } from "./form.ts"
 import { Storage, StorageError } from "./storage.ts"
 import { view as reactView } from "./view-react.tsx"
 import { view as snabbdomView } from "./view-snabbdom.ts"
@@ -23,11 +25,15 @@ const storage = Storage.of({
     )
 })
 
+// React draws the frames that the run hands to a store: the run is started here, as snabbdom's alone would be.
+const store = makeStore<Model, Message>()
+createRoot(element("react")).render(createElement(Frames<Model, Message>, { store, view: reactView }))
+
 // One run, drawn by both renderers: what is typed or saved in either is drawn by both.
 Effect.runFork(
   run(
     form,
-    together(renderWithSnabbdom(element("snabbdom"), snabbdomView), renderWithReact(element("react"), reactView))
+    together(renderWithSnabbdom(element("snabbdom"), snabbdomView), store.open())
   ).pipe(
     Effect.provideService(Storage, storage),
     // The failure of a program that dies is reported; an interruption is no crash.

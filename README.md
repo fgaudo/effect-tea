@@ -71,9 +71,10 @@ It fits when:
 
 It probably does not when:
 
-- you want state in your components. Here the state is the program's, and a view is a plain function of its model
-  ([view](https://fgaudo.github.io/effect-tea/documents/Guide.View.html)). What the platform keeps by itself, such as
-  a hover, the focus or an animation, is fine;
+- you want the state your screens decide by in your components. Here it is the program's, and a view draws it from its
+  model ([view](https://fgaudo.github.io/effect-tea/documents/Guide.View.html)). What the platform keeps by itself,
+  such as a hover, the focus or an animation, is fine, and so is, with React, what the application's components keep
+  beside the program;
 - you want a renderer integration from npm. The bridges to snabbdom and to React are files of `bridges/`, about 150
   lines each, to copy and own
   ([writing a bridge](https://fgaudo.github.io/effect-tea/documents/Guide.Writing_a_bridge.html) explains one);
@@ -171,12 +172,11 @@ const view: View<Model, Message> = (model, dispatch) => (
   </main>
 )
 
-Effect.runFork(run(counter, renderInto(root, view)))
+createRoot(root).render(<Host program={counter}>{view}</Host>)
 ```
 
-`View`, `onClick` and `renderInto` are the examples' bridge to React,
-[`bridges/react.ts`](bridges/react.ts). [`examples/counter`](examples/counter) draws the same program
-with snabbdom.
+`View`, `onClick` and `Host` are the examples' bridge to React, [`bridges/react.ts`](bridges/react.ts). `Host` runs
+the program while it is mounted. [`examples/counter`](examples/counter) draws the same program with snabbdom.
 
 ### With its tests
 

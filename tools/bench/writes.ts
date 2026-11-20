@@ -342,8 +342,8 @@ const drawnSection = Effect.fnUntraced(function*({ rounds, values: made, writes 
   }
 })
 
-// As the React bridge has them (`bridges/react.ts`), without a DOM: an element is what holds `value`, a
-// string.
+// As a bridge settles them after a frame, each with `drawn` (`bridges/snabbdom.ts`; each `Shows` of
+// `bridges/react.ts` settles its own element so), without a DOM: an element is what holds `value`, a string.
 type Element = { value: string }
 
 type Live = { held: Shown<string> | undefined; value: string }

@@ -34,7 +34,7 @@ let requested = 0
 // ref callbacks before it returns. What a run waits for outside Effect's scheduler (`Effect.sleep`, a promise) is not held: a
 // test controls it by its own means (`TestClock`, a `Deferred`).
 const held = new Set<() => void>()
-const scheduler = new Scheduler.MixedScheduler("async", (task) => {
+export const scheduler = new Scheduler.MixedScheduler("async", (task) => {
   held.add(task)
   return () => held.delete(task)
 })

@@ -112,6 +112,8 @@ version, and everything else, features included, the patch version.
   `subscriptions` is pure ("Guarantees", "Commands", "Running").
 - The examples' bridges are in `bridges/`, with `messagesSentBy` in `snabbdom-testing.ts`; they settle each
   text `<input>` with `drawn`, and no longer have `onInput`. `counter` and `form` draw with React too.
+- The bridge to React is hosted by React: `Host` runs a program while it is mounted, and `Frames` draws a run started
+  elsewhere; what the guide's "View" said of every renderer is now what each bridge promises.
 
 ### Fixed
 
