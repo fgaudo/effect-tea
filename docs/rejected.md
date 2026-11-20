@@ -633,13 +633,13 @@ comments are written by hand since, in plain English, and name the sections of t
   features cost much review time for what is outside the library's concern, which is the program and its rule for an
   input's element, not each renderer's features; a bridge is an example to start from, and an application that needs
   more writes its own. The library (`edited`, `drawn`,
-  inputs) did not change. _Reopen if_ the bridges become packages of their own (`ROADMAP.md`, item 1), whose users
+  inputs) did not change. _Reopen if_ the bridges become packages of their own (`records/adoption.md`), whose users
   would expect a renderer's features to work. Reopened for React on 20 November 2026: the bridge to React is hosted by
   React (`docs/records/hosted-react.md`), and its inputs, each settled by itself and found by its run's context, work
   with a component's state, Suspense, `memo`, a portal and a shadow tree. What this entry says of React above is of the
   bridge it replaced; a form's reset and a value the element changes by itself are still left out, by both bridges.
   The bridges became entries of the package the same day (`@fgaudo/effect-tea/snabbdom`, `/snabbdom/testing`,
-  `/react`), with the contract as narrow as it was, as item 1 of `ROADMAP.md` proposed: so this entry stands, and
+  `/react`), with the contract as narrow as it was ([`adoption.md`](records/adoption.md)): so this entry stands, and
   _reopens_ when a user of an entry needs a feature of its renderer that it leaves out.
 - **A frame of the very same model taken at once, without waiting for the next animation frame.** Weighed in the
   review of the architecture of 20 November 2026, reasoned; rejected by the owner the same day. In both bridges a frame

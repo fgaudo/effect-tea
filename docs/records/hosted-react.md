@@ -7,12 +7,11 @@ same day. A spike of 20 November 2026 by a session of Opus 5.5, on the branch `c
 ## Context
 
 On 20 November 2026 the owner decided that the library is meant to be adopted by others, for two readers: one who starts
-a new application, and one who has an application already, most often in React (`ROADMAP.md`, "What the library is
-beside Foldkit", and "The bridges as packages of their own"). `bridges/react.ts` serves the second reader badly: the
-program owns the root, the view is a plain function called outside React, each frame is drawn with `flushSync`, and
-the guide rules that the renderer keeps no state and draws frames and nothing else. On 16 November 2026 the owner
-declined bridges that support what a renderer does beyond drawing a frame, after four gaps were found
-(`docs/rejected.md`, "The bridges").
+a new application, and one who has an application already, most often in React ([`adoption.md`](adoption.md)).
+`bridges/react.ts` serves the second reader badly: the program owns the root, the view is a plain function called
+outside React, each frame is drawn with `flushSync`, and the guide rules that the renderer keeps no state and draws
+frames and nothing else. On 16 November 2026 the owner declined bridges that support what a renderer does beyond drawing
+a frame, after four gaps were found (`docs/rejected.md`, "The bridges").
 
 For that reader the direction reverses: React hosts the program. A review reasoned that this needs no change of the
 engine, since the `render` given to `run` can hand each frame to a store that React reads, and that the three rules of
