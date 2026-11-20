@@ -11,7 +11,8 @@ renderer. A bridge does three things:
 
 - it draws each frame;
 - it sends messages from the handlers of the view;
-- after each frame, it settles the element of each input on screen, such as a text field.
+- after each frame, it settles the element of each input on screen, such as a text field, and as the renderer shows an
+  element again.
 
 ## An example
 
@@ -28,7 +29,8 @@ minimal example to start from. What else a renderer can do is left to the bridge
 ### Frames
 
 `run(program, render)` hands `render` a stream of frames, each `{ model, dispatch, seen }`. The run ends when `render`
-ends. A bridge's `renderInto(root, view)` is that `render`. For each frame, `renderInto`:
+ends. A bridge's `renderInto(root, view)` is that `render`. The bridge to React gives it as the `open()` of a store,
+which `Frames` draws, and which `Host` makes and opens for you. For each frame, `renderInto`:
 
 1. calls the view with the model and the dispatch, unless the model is the very one it drew last;
 2. draws what the view returns;
@@ -37,16 +39,19 @@ ends. A bridge's `renderInto(root, view)` is that `render`. For each frame, `ren
 {@includeCode ../../bridges/snabbdom.ts#frames}
 
 **The first place of the renderer** is the line that draws: `patch(previous, view(model, dispatch))`. There, snabbdom
-patches the tree drawn before into the one the view returned. The bridge to React calls
-`flushSync(() => root.render(view(model, dispatch)))` there instead. Whatever the renderer, the frame is drawn whole,
-and at once. When the line returns, the screen shows the frame. Between two frames, the bridge draws nothing. What else
-the screen may show is in [view](./view.md#rules).
+patches the tree drawn before into the one the view returned. The bridge to React publishes the frame to its store
+there instead, inside `flushSync`, and `Frames` calls the view as React renders. When the line returns, the screen shows
+the frame: snabbdom draws it whole and at once, and React commits it at once, but for a part of it that the application
+suspends. Between two frames, the bridge to snabbdom draws nothing, and React draws what the application's components
+hold. What else the screen may show is in [view](./view.md#rules).
 
 The rest is the bridge's own code:
 
 - The run keeps only the latest frame while the renderer is busy. So waiting for the next animation frame draws at
   most once per screen refresh, and a model the renderer never takes is never made (see [running](./running.md)).
-- If a view throws, the view throws inside the frame's `Effect.sync`, and the run dies with it.
+- With snabbdom, a view that throws throws inside the frame's `Effect.sync`, and the run dies with it. With React, a
+  view that throws is an error of the application, for its error boundaries: an error boundary above `Host` unmounts
+  it, and the run is interrupted.
 - A frame of the very same state as the frame before it holds the very same model. The run draws one for each
   dispatched message that makes no new state, with a new `seen`. The bridge does not draw it again: it only settles
   its inputs.
@@ -92,12 +97,14 @@ with what value. snabbdom calls a module of the bridge as it creates, patches or
 
 {@includeCode ../../bridges/snabbdom.ts#module}
 
-The bridge to React has no module. `Shows`, the component that draws its field, keeps the value of each render from a
-ref callback. The bridge finds the fields that `Shows` drew among the elements of its root. Another renderer needs some
-way to do this, as long as it gives the elements before the user can act on them.
+The bridge to React has no module. `Shows`, the component that draws its field, finds its run's store by a context of
+React, and reads the run's `seen` itself. It settles its own element in a layout effect, after each commit that changes
+its value or `seen`, and as React shows the element again. Another renderer needs some way to do this, as long as it
+gives the elements before the user can act on them.
 
-The rest is the bridge's own code again. After each frame, `drawn(held, value, seen)` says what the element then holds,
-and whether it takes the frame's value. The bridge writes the value it takes into the element:
+The rest is the bridge's own code again. After each frame, and as an element is shown again, `drawn(held, value, seen)`
+says what the element then holds, and whether it takes the frame's value. The bridge writes the value it takes into the
+element:
 
 - A new element takes it.
 - An element keeps what the user typed while the frame has not seen all its writes.
@@ -116,17 +123,21 @@ React do.
 
 What a bridge does, from the walkthrough above:
 
-- **It draws each frame whole, and at once.** Between two frames, it draws nothing. What else the screen may show is
-  in [view](./view.md#rules).
+- **It draws each frame, and says what else it draws.** The bridge to snabbdom draws each frame whole and at once,
+  and nothing between two frames. The bridge to React commits each frame at once. Between two frames, React draws what
+  the application's components hold, and a part of a frame that the application suspends is shown later. What else the
+  screen may show is in [view](./view.md#rules).
 - **A plain callback sends a message with `Effect.runSync`.** Sending needs no services and completes synchronously.
 - **The message is one the model holds**, never one the view builds.
 - **When the user edits an input's element, `edited` gives the write to send**, and `sent` what the element holds once
   the dispatch returns the write's number.
-- **After each frame, the bridge settles the element of each input with `drawn`.** The element is then never
+- **After each frame, and as the renderer shows an element again, the bridge settles the element of each input with
+  `drawn`.** The element is then never
   replaced, and keeps its focus, while two conditions hold (see
   [inputs the user types into](./inputs-the-user-types-into.md)):
   - the element's value changes only by an edit of the user, which it reports with the whole value, or by the bridge;
-  - the renderer lets the bridge reach the element after each frame, before the user can act on it.
+  - the renderer lets the bridge reach the element after each frame, and as it shows the element again, before the user
+    can act on it.
 - **The renderer keeps an element drawn in the same place from one frame to the next**, as snabbdom and React do.
   Otherwise there is no element to settle.
 
@@ -143,11 +154,13 @@ examples have two bridges:
 Each bridge is small enough to copy, and worth copying for your own. Each bridge:
 
 - names the type of its views, `View<Model, Message>`;
-- has `renderInto` for `run`, and handlers;
+- has a renderer for `run`, and handlers: `renderInto` with snabbdom; with React, `Host`, which runs a program while it
+  is mounted, and `Frames` with `makeStore`, which draw a run that the application starts itself;
 - has the element of each input: `shows` with snabbdom, `Shows` with React.
 
 [`counter`](../../examples/counter) and [`form`](../../examples/form) draw their programs with the bridge to snabbdom
-and with the bridge to React, one under the other. Both bridges draw the frames of one run. A bridge to React Native
+and with the bridge to React, one under the other. Both bridges draw the frames of one run, which React draws with
+`Frames`. A bridge to React Native
 would be written the same way, but the repository has none. The sections above show how to write a bridge for any
 renderer, from the bridge to snabbdom.
 
@@ -167,10 +180,9 @@ They leave out:
   The examples' bridges do not handle it. Whether a bridge that starts from them could handle it is left open.
 - **A form's reset**, by a reset button or `form.reset()`, with either bridge. A program may empty a field by leaving
   `''` in its place.
-- **A root or an input in a shadow tree**, with either bridge.
-- **With React**: a component with state or effects of its own, Suspense, a subtree that `memo` skips, and a portal.
-- **With React, a run whose root is inside another run's.** For that, the bridge would need to know which run each
-  input belongs to. A context of the bridge's own would tell it.
+- **A root or an input in a shadow tree**, with the bridge to snabbdom.
+- **With React, an input drawn under one run's `Host` or `Frames` with the dispatch of another run.** The input is
+  settled with the `seen` of the nearest run.
 - **Other native widgets.** A widget that meets the condition of `edited` and `drawn` (see
   [inputs the user types into](./inputs-the-user-types-into.md)) would be connected by hand with them. Where
   connecting a widget is too complex, prefer a widget that the program draws: its press is a message, and its drag a

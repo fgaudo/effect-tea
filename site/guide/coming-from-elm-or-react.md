@@ -52,24 +52,27 @@ keeping `update`, `makeModel` and `subscriptions` pure, and never mutating a sta
 You keep React to draw, and JSX to write views. What changes is where the state and the effects live. They live in one
 program, outside the components.
 
-| In React                                       | Here                                                                                                                            | See                                                                                                |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `useState`, `useReducer`, a store              | The program's state. The renderer keeps no state beside it                                                                      | [view](./view.md)                                                                                  |
-| A reducer and its actions                      | `update` and its messages. `update` also returns commands, and may `reject`                                                     | [update](./update.md)                                                                              |
-| `useEffect` that fetches or saves              | A command `update` returns, run by `runCommand`                                                                                 | [commands](./commands.md)                                                                          |
-| `useEffect` that listens, with a cleanup       | A subscription under a key: started when the state lists the key, stopped when it does not                                      | [subscriptions](./subscriptions.md)                                                                |
-| A component                                    | A view: a plain function of its model. With the [examples' bridge to React](../../bridges/react.ts), it uses no hooks           | [view](./view.md)                                                                                  |
-| A handler that decides what to do              | A handler that sends a message the model holds: `onClick(model.save, dispatch)`                                                 | [model](./model.md)                                                                                |
-| Props down, callbacks up                       | A child's model down, its events up                                                                                             | [composition](./composition.md), [events and external messages](./events-and-external-messages.md) |
-| A controlled `<input>`, `value` and `onChange` | An input. The [examples' bridge to React](../../bridges/react.ts) draws it over an uncontrolled `<input>`, with no `value` prop | [inputs the user types into](./inputs-the-user-types-into.md)                                      |
-| A test that renders a component                | A test of `update` and of the model, without a DOM                                                                              | [testing](./testing.md)                                                                            |
+| In React                                       | Here                                                                                                                              | See                                                                                                |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `useState`, `useReducer`, a store              | The program's state. A component keeps only what the program does not decide by                                                   | [view](./view.md)                                                                                  |
+| A reducer and its actions                      | `update` and its messages. `update` also returns commands, and may `reject`                                                       | [update](./update.md)                                                                              |
+| `useEffect` that fetches or saves              | A command `update` returns, run by `runCommand`                                                                                   | [commands](./commands.md)                                                                          |
+| `useEffect` that listens, with a cleanup       | A subscription under a key: started when the state lists the key, stopped when it does not                                        | [subscriptions](./subscriptions.md)                                                                |
+| A component                                    | A view: a function of its model, which `Host`, of the [examples' bridge to React](../../bridges/react.ts), calls as React renders | [view](./view.md)                                                                                  |
+| A handler that decides what to do              | A handler that sends a message the model holds: `onClick(model.save, dispatch)`                                                   | [model](./model.md)                                                                                |
+| Props down, callbacks up                       | A child's model down, its events up                                                                                               | [composition](./composition.md), [events and external messages](./events-and-external-messages.md) |
+| A controlled `<input>`, `value` and `onChange` | An input. The [examples' bridge to React](../../bridges/react.ts) draws it over an uncontrolled `<input>`, with no `value` prop   | [inputs the user types into](./inputs-the-user-types-into.md)                                      |
+| A test that renders a component                | A test of `update` and of the model, without a DOM                                                                                | [testing](./testing.md)                                                                            |
 
 Some things stay with the platform. A hover, an animation or the focus that the platform keeps by itself is not a state
 of the program (see [structuring a program](./structuring-a-program.md#model-and-view)). An animation that the program
 decides by is state, and moves by equal steps (see the same section).
 
-The examples' bridge to React leaves out a component with state or effects of its own, Suspense, a subtree that `memo`
-skips, and a portal (see [what is left out](./writing-a-bridge.md#what-is-left-out)). The bridge is a file to copy and
-to own: [`bridges/react.ts`](../../bridges/react.ts). The examples
+With the examples' bridge to React, React hosts the program: `<Host program={counter}>{view}</Host>` runs it while
+`Host` is mounted. The components of the view and of the application may keep state and effects of their own, beside
+the program (see [view](./view.md#rules)). The run lives as long as `Host`'s effect (see
+[what is left to you](./guarantees.md#what-is-left-to-you)). What the bridge leaves out is in
+[what is left out](./writing-a-bridge.md#what-is-left-out). The bridge is a file to copy and to own:
+[`bridges/react.ts`](../../bridges/react.ts). The examples
 [`counter`](../../examples/counter) and [`form`](../../examples/form) are drawn with it, and with the bridge to snabbdom
 too.

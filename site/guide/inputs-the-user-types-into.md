@@ -66,8 +66,9 @@ that element:
 
 - When the user edits the element, `edited(held, value)` gives the write to send, over what the element showed. Given
   the number that the dispatch returns, `edited` also gives what the element then holds.
-- After each frame, `drawn(held, value, seen)` gives what the element then holds, `shown`, and whether the element
-  takes the frame's value, `taken`. When the value is taken, the bridge writes that value into the element.
+- After each frame, and as the renderer shows an element again, `drawn(held, value, seen)` gives what the element then
+  holds, `shown`, and whether the element takes the frame's value, `taken`. When the value is taken, the bridge writes
+  that value into the element.
 
 **The element stays as it is while the frame has not seen all the element's writes.** Such a frame was made before
 the run took the last of them, so it may not show it yet.
@@ -208,7 +209,8 @@ So no `update` runs when the user types. A program that must act on what is type
 
 ### Settling an element
 
-After each frame, a bridge settles the element of each input with `drawn(held, value, seen)`. `drawn` is given:
+After each frame, and as the renderer shows an element again, a bridge settles the element of each input with
+`drawn(held, value, seen)`. `drawn` is given:
 
 - `held`, what the element holds, or `undefined` for an element just made;
 - `value`, the input's value in the frame;
@@ -242,8 +244,8 @@ That holds for elements and renderers that meet one condition, in two parts:
 
 - **The element**: its value changes only by an edit of the user, which it reports with the whole value, or by the
   bridge.
-- **The renderer**: after each frame, and before the user can act on it, it lets the bridge reach the element of each
-  input, with the frame's value and `seen`.
+- **The renderer**: after each frame, and as it shows an element again, before the user can act on it, it lets the
+  bridge reach the element of each input, with the frame's value and `seen`.
 
 What meets it, and what does not:
 
@@ -252,7 +254,9 @@ What meets it, and what does not:
   - a value written into it that it sanitizes, such as one with a line break.
 
   The examples' bridges do not handle these (see [what is left out](./writing-a-bridge.md#what-is-left-out)).
-- **A renderer that draws each frame at once meets it.**
+- **A renderer that draws each frame at once meets it.** So does React, with the examples' bridge: each `Shows`
+  settles its element in a layout effect, after each commit that changes its value or `seen`, and as React shows it
+  again, as Suspense does.
 - **A widget that changes its own value does not**, native or not. A range input is one: it changes its own value when
   its bounds narrow. Such a widget is outside what is promised here, unless its bridge reports each such change as an
   edit.

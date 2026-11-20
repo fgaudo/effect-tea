@@ -89,11 +89,18 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
 - **A view draws its model, and decides nothing.** A view is a function `(model, dispatch) => Node`. It matches tags
   and formats values. What it would decide, `makeModel` decides, as a case of the model. The guide, "View", "In short".
   The guide, "Structuring a program", "A view draws, it never decides".
-- **What the screen shows comes from the program's frames.** It comes from nowhere else, with two exceptions: what the
+- **What the program draws comes from its frames.** It comes from nowhere else, with two exceptions: what the
   platform keeps by itself, as a hover or the focus, and the element of an input, which may show what the user typed
-  after the frame. The renderer keeps no state beside the program's, except what a bridge keeps of that element. The
-  guide, "View", "The renderer draws frames, and nothing else". The guide, "Inputs the user types into", "The element
-  on screen".
+  after the frame. The guide, "View", "What the program draws comes from its frames". The guide, "Inputs the user types
+  into", "The element on screen".
+- **Each bridge says what it draws beside the frames.** The bridge to snabbdom keeps no state beside the program's,
+  except what it keeps of an input's element. With the bridge to React, the application's components may keep state of
+  their own, which the testing tools do not see. The guide, "View", "Each bridge says what it draws beside the frames".
+- **With React, the run lives as long as `Host`'s effect.** `<Activity>`, a remount, a new `key` and StrictMode start
+  the program again from `init`. For a state that outlives a component, start the run yourself and draw it with
+  `Frames`. A run that dies is thrown to the nearest error boundary, or given to `reportError` once `Host` has
+  unmounted. The guide, "Guarantees", "With the bridge to React, the run lives as long as the effect that starts it".
+  The guide, "Guarantees", "With the bridge to React, a run that dies is thrown to the nearest error boundary".
 - **A parent never reads a child's state to decide.** A child gets what it needs from its own services and
   subscriptions. The guide, "Structuring a program", "A parent never reads a child's state to decide".
 - **Whatever a subscription depends on is in its key.** A new subscription under a kept key is not used. A value that
@@ -139,9 +146,9 @@ Each sign breaks the rule named after it.
 - A condition on data in a view, such as `items.length === 0`. The guide, "Structuring a program", "A view draws, it
   never decides".
 - A variable outside the state that the screen depends on, or a service that the renderer reads. The guide, "View",
-  "The renderer draws frames, and nothing else".
-- A renderer written for one program, in place of a bridge's `renderInto`. The guide, "View", "The renderer draws
-  frames, and nothing else".
+  "What the program draws comes from its frames".
+- A renderer written for one program, in place of a bridge's renderer. The guide, "View", "What the program draws
+  comes from its frames".
 - A message built in a view, or `Message` exported as a value. The guide, "Model", "Messages live in the model".
 - A message for each keystroke. The guide, "Inputs the user types into", "What the user gives an input is no message
   of the program".

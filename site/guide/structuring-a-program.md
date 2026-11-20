@@ -70,8 +70,9 @@ where the row says less.
   "missing" is all that the screen tells apart.
 - **What the platform keeps by itself is not a state of the program.** A hover, the focus, or an animation that the
   platform keeps by itself are examples. The rest of what the screen shows comes from the program's state, and reaches
-  the view as the model, except the element of an input (see [view](./view.md#rules)). A state kept in a component of
-  the renderer, beside the program's state, is neither supported nor advised.
+  the view as the model, except the element of an input (see [view](./view.md#rules)). What the program decides by,
+  kept in a component of the renderer, is neither supported nor advised. What a bridge lets a component keep beside the
+  program is the bridge's to say, as the bridge to React does (see [view](./view.md#rules)).
 
   To choose where a thing goes:
   - What the program decides by is state.

@@ -620,7 +620,10 @@ comments are written by hand since, in plain English, and name the sections of t
   input's element, not each renderer's features; a bridge is an example to start from, and an application that needs
   more writes its own. The library (`edited`, `drawn`,
   inputs) did not change. _Reopen if_ the bridges become packages of their own (`ROADMAP.md`, item 2), whose users
-  would expect a renderer's features to work.
+  would expect a renderer's features to work. Reopened for React on 20 November 2026: the bridge to React is hosted by
+  React (`docs/records/hosted-react.md`), and its inputs, each settled by itself and found by its run's context, work
+  with a component's state, Suspense, `memo`, a portal and a shadow tree. What this entry says of React above is of the
+  bridge it replaced; a form's reset and a value the element changes by itself are still left out, by both bridges.
 
 ## The checks
 

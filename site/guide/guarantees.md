@@ -7,7 +7,8 @@ title: Guarantees
 ## In short
 
 This page lists what the library promises about a running program, so that you know what your program can count on.
-The library's tests check each guarantee. The second list is what the library leaves to you.
+The library's tests check each guarantee. The second list is what the library leaves to you. What the screen shows
+beside the program's frames is each bridge's to promise (see [view](./view.md#rules)).
 
 ## What you can rely on
 
@@ -80,8 +81,20 @@ The library's tests check each guarantee. The second list is what the library le
   - That the view draws what its model holds is checked with your renderer's tools.
 - **A view sends only what its model holds.** It writes only over the values its model holds, and never builds a
   message itself. The library does not enforce this (see [model](./model.md#precisely)).
-- **The renderer keeps no state beside the program's state**, except what a bridge keeps of the element of an input
+- **What the screen shows beside the program's frames.** The guarantees are of the program. Each bridge says what it
+  draws beside the frames: the bridge to snabbdom keeps no state beside the program's state, except what it keeps of
+  the element of an input, and with the bridge to React the application's components may keep state of their own
   (see [view](./view.md#rules)).
+- **With the bridge to React, the run lives as long as the effect that starts it.** That is the effect of `Host`.
+  React ends it, and `Host` interrupts the run, when it unmounts `Host`, and when `<Activity>` hides it. The next effect
+  starts the program again from `init`. So do a new `key`, a remount, and StrictMode, which starts every effect twice
+  in development. The first run may have started the commands of `init` before it is interrupted. For a state that
+  outlives a component, start the run yourself, and draw it with `Frames` (see
+  [the examples' bridges](./writing-a-bridge.md#the-examples-bridges)).
+- **With the bridge to React, a run that dies is thrown to the nearest error boundary.** `Host` throws it as it
+  renders, while it is mounted. Once `Host` has unmounted, it is given to `reportError` instead. What is thrown is
+  `Cause.squash` of what the run ended with, which keeps one defect. To see the whole cause, wrap the run in the `fork`
+  that you give `Host`: what the `fork` handles is not thrown or reported again.
 - **The rules of [structuring a program](./structuring-a-program.md).** The library does not enforce them: the shape
   of the state, a view that draws and never decides, a parent that never reads a child's state to decide.
 - **Whatever a subscription depends on is in its key.** A new value left out of the key is not used while the key is
