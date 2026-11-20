@@ -253,8 +253,8 @@ checks again: `typecheck`, `lint`, `test` (1,279), `test:node` (982), both searc
   run dies in `'render'`. Its test reaches the guard through `focus()`, since happy-dom fires nothing on a removal.
 - **React reads the model in the store's notice itself**, to compare, so `makeModel` runs on the stack of whoever sent
   the message, under React as under snabbdom, and not again in the render. No page of react.dev says it. Nothing of
-  the bridge rests on it, and a test holds it: the guide describes it, and promises nothing of it, unless the owner
-  takes it as a premise.
+  the bridge rests on it, and a test holds it. The owner decided the same day: it is described, in "What is left to
+  you", and not promised, and it is no premise.
 - **One `catch` for what a handler's draw throws** with snabbdom, the view's or `makeModel`'s, handed to the
   renderer's fiber, which dies of it at once. A defect of `makeModel` is still one: the one the run recorded.
 - **B3**: no test of a form's reset, nor of a value written past React's setter. The test of a text field that strips

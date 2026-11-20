@@ -40,9 +40,11 @@ a reader's check of the documentation (5).
 - **The spike of R4** is a session of its own, on a branch, never to be merged: the form and the stocktake, over
   `src/next/` and `bridges/next/`, with an input as a value of the library's in the model. Its record goes in the
   record's file, and the owner decides whether stage 4 takes it. Until then the views of stage 4 are not written.
-- For the owner, found by stage 3: React reads the model in the store's notice itself, so `makeModel` runs on the
-  stack of whoever sent the message, under React too. No page of react.dev says it, and nothing of the bridge rests on
-  it: the guide describes it, and promises nothing of it, unless the owner takes it as a premise.
+- Decided by the owner, 20 November 2026, on what stage 3 found: React reads the model in the store's notice itself,
+  so `makeModel` runs on the stack of whoever sent the message, under React too, and for every new state. No page of
+  react.dev says it, and nothing of the bridge rests on it. It is no premise and no promise: the guide's "What is left
+  to you" says that, with the bridge to React, `makeModel` may run for each new state, in the call that sends its
+  message. The test of stage 3 stays, as the alarm of that description.
 - Left open by the stages, for stage 4 or before, each in the record under its stage: a job queued for each message;
   the loop of the thunk with no `finally`; what `docs/premises.md` still says of `FiberSet.run` and of
   `startImmediately`; `Driver.waitFor` after a defect of a later model; a snabbdom renderer interrupted while its run
@@ -112,6 +114,40 @@ and what was weighed beside it. The owner decides whether to make it, under whic
   - "A frame that has seen the last write leaves the element as if it had not" is killed by none of the three
     properties of the search: it needs a frame whose `seen` is the number of the last write after a rejection, and
     nothing after. The deterministic tests are its killers. To decide: whether the scenario is made to reach it.
+- **Seven points of a review of the design.** By the session of Fable 5.2 that briefed and verified stages 1 to 3 of
+  item 1, asked by the owner on 20 November 2026 what does not fit. Reasoned from the code read for those reviews: none
+  was run. Each is to be weighed, and none holds stage 4 up but where it says so.
+  1. **The end of the run may begin inside a step.** A defect recorded in the thunk completes `died` there
+     (`Deaths.record`), and Effect resumes the run's waiter on that stack: the end sets `stopped` and stops fibers
+     while the step still tells its listeners. It is correct, by the checks, and the hardest part of the engine to
+     reason about. To weigh: the register written at once, and `died` completed once the outermost `apply` returns.
+  2. **The loop of the thunk has no `finally`** (`apply` in `src/next/engine.ts`). What threw there outside `attempt`
+     would leave `applying` set, and the engine applying nothing, in silence, against "Nothing ends in silence". To
+     weigh: a `finally`, and a defect of the library's own for what it catches.
+  3. **A fiber resumed on the stack of whoever completes its `Deferred` is no premise, and shapes more code at each
+     stage.** "Writes first, offers last" in every thunk, the counter of notices in `drive`, and two killers that work
+     only through it (stages 1 and 2) exist for a behaviour the library refuses to rest on. They have no mutation,
+     which `docs/premises.md` warns of ("never made unneeded by code of the library's written for it alone"). With a
+     dispatch that applies at once it is no edge any more. To weigh: adopt it as a premise, with its test, so that
+     those guards get killers. It reverses E3 of the record, which the same session proposed.
+  4. **The pure half of a step is written twice**, in `applyOne` (`src/next/engine.ts`) and in `apply`
+     (`src/next/testing/rehearse.ts`): `arrive`, the state, `reconcile` and the stop at a defect, in the same order.
+     To weigh: one transition of `core.ts` for both, as `shared-core.md` did for `arrive` and `reconcile`.
+  5. **The state is ahead of its effects, and a test may assume it is not.** A step's commands start in a later job,
+     and the end drops the jobs not taken. So a test that ends once the state shows something may end before the
+     commands of that step start: a test of `drive` changed meaning for it in stage 2. To do in stage 4: read every
+     test, and every sentence of the guide, that takes "the state shows it" for "its commands have started".
+  6. **The whole pure step now runs in the event that sends the message**: `update`, `onApplied`, `subscriptions` with
+     the lookup of every key, the listeners and, with React, `makeModel`. It was measured for a counter with no key
+     alone. And "Frames cost only what is drawn" is withdrawn with React, which makes a model for every state. To do
+     before the release: measure a step with many keys and a model that costs (the benchmark of "Any time").
+  7. **The premise the design rests on was never run in a real browser, nor with an IME** (P3 of the record), and
+     "The bridges in a real browser" comes after the release. To weigh: the caret, a selection and an IME composition
+     on `bridges/next/`, in Chromium, Firefox and WebKit, before stage 4.
+
+  And for the reader who has an application in React: `Host` draws `fallback` until its run has started, and runs the
+  commands of `init` twice under StrictMode. The split of `run` (B5 of the record, parked) would end both, and is what
+  such a reader meets first.
 
 ## Any time
 
