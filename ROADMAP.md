@@ -9,7 +9,7 @@ what would reopen it. How an item came to be, and what was weighed for it, goes 
 [`adoption.md`](docs/records/adoption.md), the owner's decision that the library is meant to be adopted by others, and
 [`architecture-review.md`](docs/records/architecture-review.md), a review of the whole project that the owner asked
 for on 20 November 2026 and asked to be written here in the order it advises. Steps 1 to 4, 7 and 8 are its parts 1
-to 6.
+to 6. A step done leaves its number unused.
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
 
@@ -20,36 +20,13 @@ test of it. None is open.
 
 ## Next, in order
 
-### 1. A write without `was`
-
-Taken by the owner on 20 November 2026, on the spike's record,
-[`write-without-was.md`](docs/records/write-without-was.md) ("Decided"): a write carries its value alone, the bridge to
-snabbdom draws in a microtask after each notice, the cost of a fast subscription is accepted and said, and the rule on
-`set` is dropped. Its stages come before the release: `Written` and the inputs are unreleased. The first two, the
-rule, the bridges and the tests, then the guide, the doc comments and the skill, are done; the one below is left. It
-is not done at the same time as step 3, which changes the same types of `compose.ts`.
-
-#### 1c. What it reverses in `docs/rejected.md`
-
-**Model and effort.** Sonnet 5.5, `medium`, from the record's "What it reverses in `rejected.md`".
-
-**Depends on** no other step: the guide is written.
-
-**How.** R1 is marked reversed in [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), and each entry the
-record lists says what became of it. "A value changed as the library stores it" is reversed for a `set` that stores
-another value, now allowed: the guide's "What is typed, in another form" lists it as the fourth way, with the caret
-described and not promised. Whether its `normalize` option earns a place is not reopened, since `set` does it. "A write
-that `update` sees and may reject" stays rejected.
-
-**Done when** each entry the record lists says so, and step 1 is removed with this stage.
-
 ### 2. The run as a store and its effects
 
 **Model and effort.** Fable 5.2, `high`: a design whose constraints pull apart, and one that reopens a decision of the
 owner's.
 
-**Depends on** step 1, decided: the bridge to snabbdom draws in a microtask after each notice. Its spike is built on
-`main`, whose bridge to snabbdom draws in a microtask.
+**Depends on** the write without `was`, done: the bridge to snabbdom draws in a microtask after each notice. Its spike
+is built on `main`, whose bridge to snabbdom draws in a microtask.
 
 **Why.** [`architecture-review.md`](docs/records/architecture-review.md), "The run as a store and its effects". Since
 a dispatch applies at once, a renderer needs nothing that is an effect, and three of the four renderers of the
@@ -72,8 +49,7 @@ and effort. Refused: the parked entry of `docs/rejected.md` says what was tried,
 **Model and effort.** Opus 5.5, `high`: the types of `program.ts` and `compose.ts`, which keep the three rules of
 `AGENTS.md`.
 
-**Depends on** no other step's outcome. It is not done at the same time as the stages of step 1, which change the
-same types of `compose.ts`.
+**Depends on** no other step's outcome.
 
 **Why.** [`architecture-review.md`](docs/records/architecture-review.md), "External messages with a handler of their
 own". A child that rejects an external message compiles, and dies of a `CompositionDefect`: the second rule of the
@@ -116,7 +92,7 @@ entry of `docs/rejected.md` says why.
 
 **Model and effort.** Opus 5.5, `high`: its first part is a review.
 
-**Depends on** steps 1 to 4: each decided, and the stages of those taken done. Released before them, 0.8.0 would
+**Depends on** steps 2 to 4: each decided, and the stages of those taken done. Released before them, 0.8.0 would
 publish for one release what they remove, as R2 of
 [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md) says of that change.
 
@@ -142,7 +118,8 @@ site built without warnings. Then the release commit and its tag. The owner publ
 **Depends on** no other step. It is here by the owner's order, after the release: point 7 of the "Seven points of a
 review of the design" below weighs taking it first. The second of its two cases is now: nothing typed with snabbdom is
 rejected for a draw that has not come, and what is left of it is an event that the program's own code dispatches in
-the task of a notice, before its draw ("The way the bridge to snabbdom takes", in the record of step 1).
+the task of a notice, before its draw ("The way the bridge to snabbdom takes", in
+[`write-without-was.md`](docs/records/write-without-was.md)).
 
 **Why.** The bridges' tests run on happy-dom, which no browser is. The bridges draw controlled elements, and what is
 typed into one rests on a premise seen only in happy-dom and in one browser (`docs/premises.md`, of a controlled
@@ -209,7 +186,7 @@ the tilde. The skills are [`premise-review`](.agents/skills/premise-review/SKILL
 
 **Model and effort.** Fable 5.2, `high`: each entry is a design weighed again.
 
-**Depends on** steps 1 to 4, which take the changes that the review of the architecture found.
+**Depends on** steps 2 to 4, which take the changes that the review of the architecture found.
 
 **Why.** A user who adopts the library asks that its API stays, and a change that breaks it costs less the fewer users
 it has. The API looks close to stable, but what `docs/rejected.md` parks would change it.
@@ -225,7 +202,7 @@ is weighed again with the owner: taken now, in a 0.x release, or kept parked. Wi
 **Model and effort.** Opus 5.5, `medium`, to write the entry of `docs/rejected.md` if the owner follows the advice
 below. A decision to make it is planned anew, by Fable 5.2, `high`.
 
-**Depends on** step 1, decided: a view writes the element's value alone, `{ _tag: 'Written', value }`.
+**Depends on** the write without `was`, done: a view writes the element's value alone, `{ _tag: 'Written', value }`.
 
 **Why.** A view as data over snabbdom: a node holds its message, a child's view is lifted by a node that wraps its
 messages, an input's node names its input. A test then finds every message a view can send without a DOM, and a view
@@ -273,7 +250,7 @@ seven.
   its run goes on, whose handlers still apply and draw; and a test of the timer's buttons, in the bridges' tests, that
   no mutation tried makes fail. To weigh, each.
 - **A point of the guide that the swap left**, found by the session that rewrote it. Two more it found, the rule on
-  `set` and a second write before React renders, were answered by step 1.
+  `set` and a second write before React renders, were answered by the write without `was`.
   - **The skill's "Rules that nothing checks" does not say that the state is ahead of its effects.** The guide does
     ("Guarantees", "Testing tools"), as a description. A coding agent that writes a test with `drive` meets it first.
     The reader's check bears on it: an examiner that had not seen the library wrote 27 acceptance tests from the

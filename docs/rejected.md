@@ -301,7 +301,8 @@ answer, and saying so in the proposal.
   Neither appears anywhere in this repository's history, so what each was, when it was removed and where are not
   found here: they may come from an application or a predecessor of the library. To be completed by whoever knows.
 - **`write`, `isRejected` and `raise`.** Removed in 0.8.0, 15 November 2026, by the same rule: each was a name over
-  what a user writes as it is, `write(was, value)` over the literal `{ _tag: 'Written', was, value }`,
+  what a user writes as it is, `write(was, value)` over the literal `{ _tag: 'Written', was, value }` (the literal has
+  carried its `value` alone since 20 November 2026, [`write-without-was.md`](records/write-without-was.md)),
   `isRejected(result)` over `result === reject`, and `raise(event)(state)` over the step `{ state, events: [event] }`,
   as the wrapping of a child's message would have been (below). `write` took two arguments of one type, in an order
   nothing checked, where the literal names them. Checked with `tsc`: `=== reject` narrows a `Transition` as
@@ -460,9 +461,10 @@ answer, and saying so in the proposal.
   and the state stored differed from the state written. _Reopen if_ the numbering of a frame (`seen`) or the condition
   on elements and renderers it rests on fails where no revision would. Both went on 20 November 2026, with the frames,
   once a dispatch applied its message at once ([`synchronous-dispatch.md`](records/synchronous-dispatch.md)): the plain
-  input stays, a view takes `was` from the model it was drawn with, and the bridge to snabbdom draws a handler's
-  message at once, so that a second key finds its view drawn again (R1 of the record). So the entry now reopens if a
-  write by `was` alone fails where a revision would not.
+  input stays, a view took `was` from the model it was drawn with, and the bridge to snabbdom drew a handler's message
+  at once (R1 of the record). `was` went later the same day ([`write-without-was.md`](records/write-without-was.md)): a
+  write carries its value alone, and the bridge draws in a microtask after each notice, so that no key is typed between
+  a state and its draw. So the entry now reopens if a write of its value alone fails where a revision would not.
 - **Whoever steps replaces what is below** (the seventh review) **and the channel of a replacement, declared** (the
   eighth). Spiked, 15 November 2026: `2d2e77b` on `worktree-agent-a144664c3ddf8f27a` and `45da546` on
   `worktree-agent-a04cfe354d300ce70`, never to be merged. The rule of a revision applied by whichever program steps to
@@ -517,6 +519,13 @@ answer, and saying so in the proposal.
   value takes another form ("Inputs the user types into", "What is typed, in another form"): parsed where the program
   reads it, replaced on a message of the program, or formatted in the element before the write. _Reopen if_ a value
   must be normal in the state as it is typed, and neither a parse where it is read nor a mask in the element gives it.
+
+  Reversed in part on 20 November 2026 ([`write-without-was.md`](records/write-without-was.md)): a write carries its
+  value alone and the rule on `set` is dropped, so a `set` that stores another value than the one written is allowed.
+  The probe's second write, sent before any frame, is now stored, and the bridge draws the stored value in its
+  microtask. The guide lists it as the fourth way, with the caret described and not promised: it goes to the end after
+  a key whose value `set` changes ("What is typed, in another form"). Whether `normalize` as an option of `input` earns
+  a place is not reopened, since a `set` does it.
 - **A condition on an input's declaration** (`input({ at, when })`), to say in which states a write applies, in place
   of a `get` that returns `None`. Reasoned, 18 November 2026: it is that `get` under another name, an option for what a
   place already says. What it answered, a rule of the program written inside a `get`
@@ -560,7 +569,8 @@ answer, and saying so in the proposal.
   - **It closes neither a write built by hand**, since `Written` is a type a literal fits, **nor the route above the
     program**: a parent's view still chooses which child an entry is written into.
 
-  So a view writes `{ _tag: 'Written', was, value }` by hand, over the value its model holds.
+  So a view writes `{ _tag: 'Written', value }` by hand (with `was` too until 20 November 2026,
+  [`write-without-was.md`](records/write-without-was.md)), over the value its model holds.
   [`input-in-the-model.md`](records/input-in-the-model.md). _Reopen if_ a view is shown to write over a value its
   model does not hold, or into another input, where the tests of its program pass; or with the parked "What reaches
   `update`, declared as data".
@@ -737,8 +747,9 @@ comments are written by hand since, in plain English, and name the sections of t
   bridge to snabbdom draws a message its view sends at once, before the handler returns, a model that is the very one
   drawn last included, whose controlled elements are only given their props back; a notice from a command or a
   subscription is still drawn at the next animation frame, at most once for each refresh. The bridge to React renders
-  as React schedules it. What is typed with snabbdom between such a notice and its draw is rejected and taken back,
-  which is for "The bridges in a real browser" (`ROADMAP.md`).
+  as React schedules it. Superseded again by [`write-without-was.md`](records/write-without-was.md), on the 20th: a
+  write carries its value alone, so nothing typed between a notice and its draw is rejected, and the animation frame
+  of the bridge to snabbdom goes. It draws in a microtask after each notice, as one draw for a task.
 
 ## The checks
 

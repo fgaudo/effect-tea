@@ -96,7 +96,9 @@ none was run: where an answer names something to check first, its stage checks i
 
 ### The four of the roadmap
 
-- **R1. `was` stays, and the snabbdom bridge draws a handler's message at once.** They are one question. A view takes
+- **R1. `was` stays, and the snabbdom bridge draws a handler's message at once.** _Reversed on 20 November 2026 by
+  [`write-without-was.md`](write-without-was.md): a write carries its value alone, and the bridge draws in a microtask
+  after each notice. What follows is the decision as it was taken._ They are one question. A view takes
   `was` from the model it was drawn with. With `was`, a handler must find its view drawn from the current state, or
   its second write is rejected: so the bridge draws in each handler, and leaves any other notice to the next
   animation frame. Without `was`, a write carries its value alone and the bridge may draw at the next animation frame
