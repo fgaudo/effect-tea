@@ -6,6 +6,7 @@ import * as Data from "effect/Data"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
+import * as Fiber from "effect/Fiber"
 import { pipe } from "effect/Function"
 import * as HashMap from "effect/HashMap"
 import * as Optic from "effect/Optic"
@@ -27,7 +28,7 @@ import type {
   Program,
   SubscriptionServicesOf
 } from "./program.ts"
-import { run } from "./run.ts"
+import { start } from "./run.ts"
 import type { Subscription } from "./subscription.ts"
 import { drive } from "./testing/drive.ts"
 import { rehearse } from "./testing/rehearse.ts"
@@ -166,8 +167,8 @@ type AppMessage = MessageOf<typeof app>
 type Drawn<M> = Readonly<{ model: M; dispatch: Dispatch<AppMessage> }>
 
 /**
- * Runs `program` with a renderer that draws the first state and each new one, and hands what it draws to `act`, until
- * `act` says it is done; returns what the renderer drew.
+ * Starts `program`, draws the first state and each new one as a renderer does, and hands what it draws to `act`; runs
+ * the program until `act` says it is done, and returns what was drawn.
  */
 const script = <M>(
   program: Program<{ state: ParentState; model: M; message: AppMessage; command: unknown }>,
@@ -175,21 +176,16 @@ const script = <M>(
   state: ParentState = program.init.state
 ) => {
   const seen: Array<Drawn<M>> = []
-  return run(
-    { ...program, init: { ...program.init, state } },
-    (app) =>
-      Effect.gen(function*() {
-        const done = yield* Deferred.make<void>()
-        const draw = () => {
-          const drawn = { model: app.model(), dispatch: app.dispatch }
-          seen.push(drawn)
-          if (act(drawn, seen.length - 1)) Deferred.doneUnsafe(done, Exit.void)
-        }
-        app.subscribe(draw)
-        draw()
-        yield* Deferred.await(done)
-      })
-  ).pipe(
+  const app = start({ ...program, init: { ...program.init, state } })
+  const done = Deferred.makeUnsafe<void>()
+  const draw = () => {
+    const drawn = { model: app.model(), dispatch: app.dispatch }
+    seen.push(drawn)
+    if (act(drawn, seen.length - 1)) Deferred.doneUnsafe(done, Exit.void)
+  }
+  app.subscribe(draw)
+  draw()
+  return Effect.raceFirst(app.run, Deferred.await(done)).pipe(
     Effect.timeout("2 seconds"),
     Effect.as(seen),
     Effect.runPromiseExit
@@ -518,34 +514,33 @@ describe("children by id", () => {
     expect(process.memoryUsage().heapUsed - before).toBeLessThan(5_000_000)
   })
 
-  // Lists A and B, each with counter 1 in the counter's initial state. The renderer draws the first state and each
-  // new one; each of the first `draws` draws increments A's counter, or B's on draw `bumpingB`. Returns the models
-  // drawn.
-  const nested = (draws: number, bumpingB?: number) => {
-    const seen: Array<ReturnType<typeof lists.makeModel>> = []
-    return run(
-      { ...lists, init: { state: { rows: [{ id: "A", list: rows(1) }, { id: "B", list: rows(1) }] } } },
-      (app) =>
-        Effect.gen(function*() {
-          const done = yield* Deferred.make<void>()
-          const draw = () => {
-            const model = app.model()
-            seen.push(model)
-            const index = seen.length - 1
-            if (index === draws) {
-              Deferred.doneUnsafe(done, Exit.void)
-              return
-            }
-            const id = index === bumpingB ? "B" : "A"
-            const counter = model.find((list) => list.id === id)?.rows[0]?.model
-            if (counter !== undefined) forwardTo(forwardTo(app.dispatch, "Lists", id), "Rows", 1)(counter.increment)
-          }
-          app.subscribe(draw)
-          draw()
-          yield* Deferred.await(done)
-        })
-    ).pipe(Effect.as(seen))
-  }
+  // Lists A and B, each with counter 1 in the counter's initial state. The first state and each new one are drawn, as a
+  // renderer does; each of the first `draws` draws increments A's counter, or B's on draw `bumpingB`. Returns the
+  // models drawn, once the run has been interrupted.
+  const nested = (draws: number, bumpingB?: number) =>
+    Effect.suspend(() => {
+      const seen: Array<ReturnType<typeof lists.makeModel>> = []
+      const app = start({
+        ...lists,
+        init: { state: { rows: [{ id: "A", list: rows(1) }, { id: "B", list: rows(1) }] } }
+      })
+      const done = Deferred.makeUnsafe<void>()
+      const draw = () => {
+        const model = app.model()
+        seen.push(model)
+        const index = seen.length - 1
+        if (index === draws) {
+          Deferred.doneUnsafe(done, Exit.void)
+          return
+        }
+        const id = index === bumpingB ? "B" : "A"
+        const counter = model.find((list) => list.id === id)?.rows[0]?.model
+        if (counter !== undefined) forwardTo(forwardTo(app.dispatch, "Lists", id), "Rows", 1)(counter.increment)
+      }
+      app.subscribe(draw)
+      draw()
+      return Effect.raceFirst(app.run, Deferred.await(done)).pipe(Effect.as(seen))
+    })
 
   test("in a run, a nested child that did not change keeps its model from one state to the next", async () => {
     const [first, second, third] = await Effect.runPromise(nested(2))
@@ -1417,8 +1412,8 @@ describe("what the types reject", () => {
     expect(child(counting, { get: () => Opt.some(0), set: (state) => state })).toBeDefined()
     // @ts-expect-error: a child's by id too.
     expect(childById(counting, { get: () => Opt.some(0), set: (state) => state, subscribed: () => [] })).toBeDefined()
-    // @ts-expect-error: and so is the state of the program that runs.
-    expect(run(counting, () => Effect.void)).toBeDefined()
+    // @ts-expect-error: and so is the state of the program that starts.
+    expect(() => start(counting)).toBeDefined()
     // @ts-expect-error: or that a testing tool takes.
     expect(simulate(counting)).toBeDefined()
     // @ts-expect-error: `rehearse` too.
@@ -1436,8 +1431,8 @@ describe("what the types reject", () => {
     }
     // @ts-expect-error: only `make` fills in the subscriptions of a program that has none.
     const typed: Program<{ state: Ticks; model: number; message: Tick }> = silent
-    // @ts-expect-error: so `run` does not take it either.
-    expect(run(silent, () => Effect.void)).toBeDefined()
+    // @ts-expect-error: so `start` does not take it either.
+    expect(() => start(silent)).toBeDefined()
     const { child, childById } = program<{ state: Readonly<{ one: Ticks; rows: Readonly<Record<string, Ticks>> }> }>()
     const one = { get: (state: { one: Ticks }) => Opt.some(state.one), set: <S>(state: S) => state }
     const rows = {
@@ -1465,8 +1460,8 @@ describe("what the types reject", () => {
     }
     // @ts-expect-error: a type without fields holds a number too.
     const typed: Program<{ state: Empty; model: null; message: never }> = empty
-    // @ts-expect-error: so a program written as an object does not run with it.
-    expect(run(empty, () => Effect.void)).toBeDefined()
+    // @ts-expect-error: so a program written as an object does not start with it.
+    expect(() => start(empty)).toBeDefined()
     // @ts-expect-error: nor does a testing tool take it.
     expect(simulate(empty)).toBeDefined()
     // @ts-expect-error: `rehearse` neither.
@@ -2155,15 +2150,13 @@ describe("a child's subscriptions in a run", () => {
       children: { Bumping: child(bumping, { at: Optic.id<Holder>().key("bumping") }) },
       makeModel: (state, children) => children.Bumping(state)
     })
-    const bumps = await Effect.runPromise(
-      run(holder, (app) =>
-        Effect.gen(function*() {
-          app.dispatch({ _tag: "Bumping", message: "Bump" })
-          app.dispatch({ _tag: "Bumping", message: "Bump" })
-          app.dispatch({ _tag: "Bumping", message: "Bump" })
-          yield* Deferred.await(noted)
-        })).pipe(Effect.as(3))
-    )
-    expect({ bumps, starts }).toEqual({ bumps: 3, starts: 1 })
+    const app = start(holder)
+    const fiber = Effect.runFork(app.run)
+    app.dispatch({ _tag: "Bumping", message: "Bump" })
+    app.dispatch({ _tag: "Bumping", message: "Bump" })
+    app.dispatch({ _tag: "Bumping", message: "Bump" })
+    await Effect.runPromise(Effect.raceFirst(Fiber.join(fiber), Deferred.await(noted)))
+    await Effect.runPromise(Fiber.interrupt(fiber))
+    expect({ bumps: app.model(), starts }).toEqual({ bumps: 3, starts: 1 })
   })
 })

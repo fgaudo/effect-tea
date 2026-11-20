@@ -11,7 +11,6 @@ import {
   program,
   ProgramDefect,
   reject,
-  run,
   start,
   type SubscriptionServicesOf,
   type Update
@@ -440,7 +439,7 @@ assert(opened === sealed, "a program typed with other external messages is the s
 
 // An option of the run is a function that returns nothing: an effect it returned would never run.
 // @ts-expect-error
-export const unheard = run(app, () => Effect.void, { onApplied: () => Effect.log("heard") })
+export const unheard = start(app, { onApplied: () => Effect.log("heard") }).run
 
 // Every value of the package, as a module that wraps the library would export it: its declarations name every type
 // of their signatures.
@@ -452,24 +451,19 @@ const main = Effect.gen(function*() {
   assert(simulation.state.main.count === 0, "simulate applies the external messages")
   const counts: Array<number> = []
   const heard: Array<unknown> = []
-  yield* run(app, (handle) =>
-    Effect.sync(() => {
-      counts.push(handle.model().main.count)
-      handle.subscribe(() => void counts.push(handle.model().main.count))
-      for (const count of [1, 2, 3]) {
-        handle.dispatch(increment())
-        assert(handle.model().main.count === count, "a dispatch applies its message before it returns")
-      }
-    }), {
+  const started = start(app, {
     onApplied: ({ message }) => {
       heard.push(message)
     }
   })
-  assert(counts.join() === "0,1,2,3", `the renderer is told of every new state: ${counts.join()}`)
+  counts.push(started.model().main.count)
+  started.subscribe(() => void counts.push(started.model().main.count))
+  for (const count of [1, 2, 3]) {
+    started.dispatch(increment())
+    assert(started.model().main.count === count, "a program started applies a message before it returns, unrun")
+  }
+  assert(counts.join() === "0,1,2,3", `a listener is told of every new state: ${counts.join()}`)
   assert(heard.length === 3, `onApplied hears every accepted message: ${heard.length}`)
-  const started = start(app)
-  started.dispatch(increment())
-  assert(started.model().main.count === 1, "a program started applies a message before it is run")
   yield* Fiber.interrupt(yield* Effect.forkChild(started.run))
 })
 

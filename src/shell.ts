@@ -93,9 +93,7 @@ const dying = <E>(
  * a self-interruption is: from it on, the run applies no message. A defect is in the order it
  * happened, though the release of what died first lets another fiber die before it ends. What `self` died of is told
  * from what the release dies of by what this fiber kept of it, never by the register: a release may die with a defect
- * another fiber recorded, handed to the program by whoever runs it, and that is a defect of its own. `wrapped` says
- * which defects are this site's already, recorded where they were thrown, and taken as they are, by the effect and by
- * the release alike: a defect of `makeModel` that the run records where the model is read, in `'render'`.
+ * another fiber recorded, handed to the program by whoever runs it, and that is a defect of its own.
  */
 // The scope is closed here, not by `Effect.scoped`, which joins what the effect ended with and what the release died of
 // with `Cause.combine`: that keeps one of two defects equal by `Equal`, before the register sees them. What the close
@@ -103,8 +101,7 @@ const dying = <E>(
 export const scopedIn = (
   deaths: Deaths,
   where: DefectSite,
-  details?: () => Readonly<{ key?: unknown; on?: unknown }>,
-  wrapped: (defect: unknown) => boolean = () => false
+  details?: () => Readonly<{ key?: unknown; on?: unknown }>
 ) =>
 <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, Scope.Scope>> =>
   Effect.uninterruptibleMask((restore) =>
@@ -112,7 +109,7 @@ export const scopedIn = (
       Scope.make(),
       (scope) =>
         Effect.exit(
-          restore(self.pipe(diesIn(where, details, wrapped, Core.byTheRun), deaths.recorded, Scope.provide(scope)))
+          restore(self.pipe(diesIn(where, details, () => false, Core.byTheRun), deaths.recorded, Scope.provide(scope)))
         ).pipe(
           Effect.flatMap((exit) => {
             const own: Cause.Cause<E> = Exit.isFailure(exit) ? exit.cause : Cause.empty
@@ -120,9 +117,7 @@ export const scopedIn = (
               diesIn(
                 where,
                 details,
-                (defect) =>
-                  wrapped(defect)
-                  || own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),
+                (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),
                 Core.byTheRun
               ),
               deaths.recorded,
@@ -231,7 +226,7 @@ export const makeDeaths = (keeps: (defect: unknown) => boolean): Deaths => {
 /**
  * What the fibers of a run get from the context of whoever ran it: the same, but for its span, seen by them as
  * an external one. Every log is also an event of the current span, kept in memory until the span is exported:
- * a fiber that lives as long as the run (the loop, a subscription, the renderer), or one of its many
+ * a fiber that lives as long as the run (the loop, a subscription), or one of its many
  * commands, would add to it for as long as the run lasts. An external span takes no events, and the spans
  * that commands and subscriptions open (`Effect.fn`) are still its children in the trace.
  */

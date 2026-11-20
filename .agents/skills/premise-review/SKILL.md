@@ -111,7 +111,7 @@ Your last message says the branch, the commit and the findings in a few lines.
 - A finding is fixed by its form, as `docs/premises.md` says after the rule of a review. Before the fix, write the
   form in a line (a cleanup skipped, or an exit discarded, as a scope closes; a step applied by two actors at once; a
   window between two fibers that nobody watches), and list each place of the engine and of the testing tools that ends a
-  run, applies a message or releases what a fiber holds: `runWith`, the engine's finalizer, `drive`, `simulate`,
+  run, applies a message or releases what a fiber holds: `startWith`, the engine's finalizer, `drive`, `simulate`,
   `rehearse`, and any added since. Each place the form can reach gets a test, failing where the form is and passing
   where it is not; the fix's commit names the form and the places it checked. Findings of one form are fixed
   together, by one mechanism where one can hold them all, rather than one place at a time.

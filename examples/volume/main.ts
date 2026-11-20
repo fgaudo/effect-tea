@@ -1,5 +1,5 @@
-import { run } from "@fgaudo/effect-tea"
-import { renderInto } from "@fgaudo/effect-tea/snabbdom"
+import { start } from "@fgaudo/effect-tea"
+import { drawInto } from "@fgaudo/effect-tea/snabbdom"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Queue from "effect/Queue"
@@ -53,8 +53,10 @@ const pointer = Pointer.of({
   )
 })
 
+const app = start(volume)
+drawInto(root, view)(app)
 Effect.runFork(
-  run(volume, renderInto(root, view)).pipe(
+  app.run.pipe(
     Effect.provideService(Pointer, pointer),
     // The failure of a program that dies is reported; an interruption is no crash.
     Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause)))

@@ -1,10 +1,19 @@
 // The tests every bridge passes, in a DOM, with controlled elements: a bridge's test file registers the DOM, holds its
-// screen refreshes (`holdFrames`) and calls `bridgeTests` with its `renderInto`, the views of the scenarios, and
+// screen refreshes (`holdFrames`) and calls `bridgeTests` with its `drawInto`, the views of the scenarios, and
 // `drawn`, what a test awaits after an act of the user so that the bridge has drawn what that act made (each bridge
 // draws a notice in a microtask). A `.test_suite.ts`, a file that serves the tests,
 // not a `*.test.ts`: `bun test` does not run it by itself, and it runs in the file of each bridge that calls it, under
 // that file's name.
-import { type App, type Dispatch, type MessageOf, type ModelOf, program, reject, run } from "@fgaudo/effect-tea"
+import {
+  type App,
+  type Dispatch,
+  type MessageOf,
+  type ModelOf,
+  program,
+  reject,
+  start,
+  type Started
+} from "@fgaudo/effect-tea"
 import { describe, expect, test } from "bun:test"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
@@ -60,46 +69,62 @@ export const holdFrames = () => {
   })
 }
 
-let running: Fiber.Fiber<void> | undefined
+// What a test drew and ran: what stops each bridge it drew with, and the fiber of each run it forked.
+const drawings: Array<() => void> = []
+const runs: Array<Fiber.Fiber<never>> = []
 
-/** Ends the run `mount` started, if any, and forgets the refreshes it waits for: called in `afterEach`. */
+/** Keeps what stops a bridge, which `stop` calls. */
+export const drawing = (stopDrawing: () => void) => void drawings.push(stopDrawing)
+
+/** Forks a program's `run` on the held scheduler: `stop` interrupts it. */
+export const forked = (run: Effect.Effect<never>): Fiber.Fiber<never> => {
+  const fiber = Effect.runFork(run, { scheduler })
+  runs.push(fiber)
+  return fiber
+}
+
+/** Stops the bridges a test drew with, ends the runs it forked, and forgets their refreshes: called in `afterEach`. */
 export const stop = async () => {
-  if (running !== undefined) {
-    // The run ends on the held scheduler too: what its interruption does is let through before it is awaited.
-    const ended = Effect.runPromise(Fiber.interrupt(running))
+  for (const stopDrawing of drawings.splice(0)) stopDrawing()
+  for (const fiber of runs.splice(0)) {
+    // A run ends on the held scheduler too: what its interruption does is let through before it is awaited.
+    const ended = Effect.runPromise(Fiber.interrupt(fiber))
     settle()
     await ended
   }
-  running = undefined
   waiting.clear()
 }
 
 /** A view of a program, drawn by a renderer whose trees are `Node`s. */
 export type View<Node, Model, Message> = (model: Model, dispatch: Dispatch<Message>) => Node
 
-/** A bridge's `renderInto`. */
-export type RenderInto<Node> = <Model, Message>(
+/** A bridge's `drawInto`: draws a program that was started into `root`, by plain code, and returns what stops it. */
+export type DrawInto<Node> = <Model, Message>(
   root: HTMLElement,
   view: View<Node, Model, Message>
-) => (app: App<Model, Message>) => Effect.Effect<void>
+) => (app: App<Model, Message>) => () => void
 
-/** Starts a run on a fresh page, `#app` its root, `#aside` for what a renderer draws outside it; `views` counts trees. */
-export const mount = <Node, Model, Message>(
-  renderInto: RenderInto<Node>,
+/**
+ * Draws a program that was started on a fresh page, `#app` its root, `#aside` for what a renderer draws outside it,
+ * then forks its `run`, given its services by `provide` when it needs some; `views` counts trees.
+ */
+export const mount = <Node, Model, Message, R = never>(
+  drawInto: DrawInto<Node>,
   view: View<Node, Model, Message>,
-  start: (render: (app: App<Model, Message>) => Effect.Effect<void>) => Effect.Effect<void>
+  app: Started<Model, Message, R>,
+  ...[provide]: [R] extends [never] ? [] : [provide: (run: Effect.Effect<never, never, R>) => Effect.Effect<never>]
 ) => {
   document.body.innerHTML = "<div id=\"app\"></div><div id=\"aside\"></div>"
   const root = document.getElementById("app") as HTMLElement
   let views = 0
-  running = Effect.runFork(
-    start(renderInto(root, (model, dispatch) => {
+  drawing(
+    drawInto(root, (model: Model, dispatch: Dispatch<Message>) => {
       views += 1
       return view(model, dispatch)
-    })),
-    { scheduler }
+    })(app)
   )
-  return { views: () => views }
+  forked(provide === undefined ? app.run as Effect.Effect<never> : provide(app.run))
+  return { views: () => views, app }
 }
 
 export const element = <E extends Element>(selector: string): E => {
@@ -314,7 +339,7 @@ export const typeArea = (area: HTMLTextAreaElement, text: string) => {
 
 /** What a bridge's tests give the shared ones. */
 export type Bridge<Node> = Readonly<{
-  renderInto: RenderInto<Node>
+  drawInto: DrawInto<Node>
   /**
    * Awaited after an act of the user, so that the bridge has drawn what it made. What a command answers is applied in
    * the command's fiber, once the scheduler lets it run, and drawn after: `paint`.
@@ -352,9 +377,9 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
     await bridge.drawn()
   }
 
-  describe("renderInto", () => {
+  describe("drawInto", () => {
     test("a click on a drawn button reaches the program, and is drawn once the handler returns", async () => {
-      mount(bridge.renderInto, bridge.views.counter, (render) => run(counter, render))
+      mount(bridge.drawInto, bridge.views.counter, start(counter))
       settle()
       await bridge.drawn()
       expect(element("output").textContent).toBe("0")
@@ -366,9 +391,11 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
   })
 
   describe("the root", () => {
-    // Starts a run of the counter drawn into `root`, which the test made where it wants it.
+    // Starts the counter, draws it into `root`, which the test made where it wants it, and runs it.
     const startIn = async (root: HTMLElement) => {
-      running = Effect.runFork(run(counter, bridge.renderInto(root, bridge.views.counter)), { scheduler })
+      const app = start(counter)
+      drawing(bridge.drawInto(root, bridge.views.counter)(app))
+      forked(app.run)
       settle()
       await bridge.drawn()
     }
@@ -396,7 +423,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       expect(drawnIn(root)).toEqual([1, "0"])
     })
 
-    test("a second run with the same root draws into it", async () => {
+    test("a root drawn into by a program that was stopped is drawn into by the next one", async () => {
       document.body.innerHTML = "<div id=\"app\"></div>"
       const root = element<HTMLElement>("#app")
       await startIn(root)
@@ -413,11 +440,15 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       const applied: Array<FormMessage["_tag"]> = []
       const ignored: Array<FormMessage["_tag"]> = []
       const storage = Storage.of({ save: (name) => Effect.andThen(Effect.sync(() => saves.push(name)), save(name)) })
-      mount(bridge.renderInto, bridge.views.form, (render) =>
-        run(form, render, {
+      mount(
+        bridge.drawInto,
+        bridge.views.form,
+        start(form, {
           onApplied: ({ message }) => void applied.push(message._tag),
           onIgnored: ({ message }) => void ignored.push(message._tag)
-        }).pipe(Effect.provideService(Storage, storage)))
+        }),
+        Effect.provideService(Storage, storage)
+      )
       settle()
       await bridge.drawn()
       return { saves, applied, ignored }
@@ -480,7 +511,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
 
   describe("an input in a draft its parent starts again, and brings back", () => {
     const mountDesk = async () => {
-      mount(bridge.renderInto, bridge.views.desk, (render) => run(desk, render))
+      mount(bridge.drawInto, bridge.views.desk, start(desk))
       settle()
       await bridge.drawn()
     }
@@ -500,7 +531,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
     })
 
     test("a rejected click draws no tree again, and the element keeps what was typed", async () => {
-      const app = mount(bridge.renderInto, bridge.views.desk, (render) => run(desk, render))
+      const app = mount(bridge.drawInto, bridge.views.desk, start(desk))
       settle()
       await bridge.drawn()
       const typedInto = element<HTMLInputElement>("input")
@@ -528,10 +559,10 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
   describe("the sliders of the volume", () => {
     test("a press on the one the program draws starts a drag, whose moves set it", async () => {
       mount(
-        bridge.renderInto,
+        bridge.drawInto,
         bridge.views.volume,
-        (render) =>
-          run(volume, render).pipe(Effect.provideService(Pointer, Pointer.of({ moves: Stream.make(40, 64.4) })))
+        start(volume),
+        Effect.provideService(Pointer, Pointer.of({ moves: Stream.make(40, 64.4) }))
       )
       settle()
       await bridge.drawn()
@@ -545,19 +576,10 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
 
   describe("a value the program puts in an input's place", () => {
     const mountNote = async (view = bridge.views.note, noted: typeof note = note) => {
-      let latest: Readonly<{ app: App<ModelOf<typeof note>, MessageOf<typeof note>> }> | undefined
-      mount(bridge.renderInto, view, (render) =>
-        run(noted, (app) => {
-          latest = { app }
-          return render(app)
-        }))
+      const { app } = mount(bridge.drawInto, view, start(noted))
       settle()
       await bridge.drawn()
-      const app = () => {
-        if (latest === undefined) throw new Error("The renderer has not started")
-        return latest.app
-      }
-      return { note: () => app().model(), send: (message: MessageOf<typeof note>) => app().dispatch(message) }
+      return { note: app.model, send: app.dispatch }
     }
 
     test("a text typed in its middle keeps the focus, the caret and the selection of the input", async () => {
@@ -662,7 +684,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
 
   describe("an input in the place of a plain field, and back", () => {
     const mountLid = async (flags: "Opened" | "Closed") => {
-      mount(bridge.renderInto, bridge.views.lid, (render) => run(lid, render, { flags }))
+      mount(bridge.drawInto, bridge.views.lid, start(lid, { flags }))
       settle()
       await bridge.drawn()
     }
@@ -693,7 +715,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
   // Restated: Next is applied and drawn at once, so no key for the first step can reach the run after it.
   describe("an input in the place of another input", () => {
     test("after Next, the element is the second step's input, empty, and what is typed is stored there", async () => {
-      mount(bridge.renderInto, bridge.views.steps, (render) => run(steps, render))
+      mount(bridge.drawInto, bridge.views.steps, start(steps))
       settle()
       await bridge.drawn()
       const typedInto = element<HTMLInputElement>("input")
@@ -709,7 +731,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
   // A write the state rejects leaves the very same state: no new state, and the element shows the model's value again.
   describe("an input whose place the state no longer holds", () => {
     test("a key typed once it is locked is rejected, and the element shows the program's value again at once", async () => {
-      const app = mount(bridge.renderInto, bridge.views.lock, (render) => run(lock, render))
+      const app = mount(bridge.drawInto, bridge.views.lock, start(lock))
       settle()
       await bridge.drawn()
       const typedInto = element<HTMLInputElement>("input")
@@ -726,18 +748,10 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
 
   describe("controlled elements of other kinds", () => {
     const mountControls = async () => {
-      let latest: App<ModelOf<typeof controls>, MessageOf<typeof controls>> | undefined
-      mount(bridge.renderInto, bridge.views.controls, (render) =>
-        run(controls, (app) => {
-          latest = app
-          return render(app)
-        }))
+      const { app } = mount(bridge.drawInto, bridge.views.controls, start(controls))
       settle()
       await bridge.drawn()
-      return () => {
-        if (latest === undefined) throw new Error("The renderer has not started")
-        return latest.model()
-      }
+      return app.model
     }
 
     test("a textarea keeps what is typed, with its caret, and stores it", async () => {
@@ -777,7 +791,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
     })
 
     test("once frozen, a key in the textarea and a click on the checkbox are rejected, and both show the model again", async () => {
-      mount(bridge.renderInto, bridge.views.gated, (render) => run(gated, render))
+      mount(bridge.drawInto, bridge.views.gated, start(gated))
       settle()
       await bridge.drawn()
       const area = element<HTMLTextAreaElement>("textarea")
@@ -797,20 +811,15 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       const shadow = element("#host").attachShadow({ mode: "open" })
       shadow.innerHTML = "<div id=\"app\"></div>"
       const root = shadow.getElementById("app") as HTMLElement
-      let latest: App<ModelOf<typeof note>, MessageOf<typeof note>> | undefined
-      running = Effect.runFork(
-        run(note, (app) => {
-          latest = app
-          return bridge.renderInto(root, bridge.views.note)(app)
-        }),
-        { scheduler }
-      )
+      const app = start(note)
+      drawing(bridge.drawInto(root, bridge.views.note)(app))
+      forked(app.run)
       settle()
       await bridge.drawn()
       const input = root.querySelector("input")
-      if (input === null || latest === undefined) throw new Error("Nothing is drawn in the shadow root")
+      if (input === null) throw new Error("Nothing is drawn in the shadow root")
       await act(() => type(input, "Ada"))
-      expect([input.value, latest.model()]).toEqual(["Ada", "Ada"])
+      expect([input.value, app.model()]).toEqual(["Ada", "Ada"])
     })
   })
 }

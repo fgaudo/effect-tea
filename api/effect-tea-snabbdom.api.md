@@ -4,7 +4,6 @@
 
 ```ts
 
-import * as Effect from 'effect/Effect';
 import { VNode } from 'snabbdom';
 
 // @public
@@ -19,7 +18,7 @@ interface App<Model, Message> {
 type Dispatch<Message> = (message: Message) => void;
 
 // @public
-export const renderInto: <Model, Message>(root: Element, view: View<Model, Message>) => (app: App<Model, Message>) => Effect.Effect<void>;
+export const drawInto: <Model, Message>(root: Element, view: View<Model, Message>) => (app: App<Model, Message>) => () => void;
 
 // @public
 export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => VNode;

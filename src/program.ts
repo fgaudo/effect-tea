@@ -64,7 +64,7 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * commands, and `external` when its parent may send it messages. A program is made with `program`. `make` returns this
  * type, and a function that takes a program names this type.
  *
- * - The view is not part of it: `run` gives the renderer an `App`, `{ model, subscribe, dispatch }`.
+ * - The view is not part of it: `start` gives the renderer an `App`, `{ model, subscribe, dispatch }`.
  * - Its state is an object. A program written as an object and typed `Program<…>` does not compile otherwise: with a
  *   state that is a number or a string, or with a state type without fields, such as `{}`. `make` refuses the state
  *   without fields too.
@@ -84,7 +84,7 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  *   makeModel: (state) => state,
  * })
  *
- * const started = (counter: Program<{ state: State; model: State; message: Message }>) => run(counter, renderer)
+ * const started = (counter: Program<{ state: State; model: State; message: Message }>) => start(counter)
  * ```
  *
  * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".

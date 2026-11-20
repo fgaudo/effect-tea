@@ -139,8 +139,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "scopedIn wraps again what it wrapped",
     file: "src/shell.ts",
-    from: "|| own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect)",
-    to: "|| false",
+    from: "(defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect)",
+    to: "() => false",
     killedBy: [
       [
         "src/testing/contract.test.ts",
@@ -159,8 +159,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "scopedIn tells what it wrapped by the register",
     file: "src/shell.ts",
-    from: "|| own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect)",
-    to: "|| deaths.has(defect)",
+    from: "(defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect)",
+    to: "(defect) => deaths.has(defect)",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
@@ -177,7 +177,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       ["src/run.test.ts", "of a command that dies are each a defect of the command"],
       ["src/run.test.ts", "of a subscription the run stops are each a defect of the subscription"],
-      ["src/run.test.ts", "of a renderer that dies are each a defect of the renderer"],
       [
         "src/testing/contract.test.ts",
         "the run dies of each of two equal defects of what a command that dies releases"
@@ -245,10 +244,9 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a defect is recorded after the release of its scope",
     file: "src/shell.ts",
-    from: "self.pipe(diesIn(where, details, wrapped, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
-    to: "self.pipe(diesIn(where, details, wrapped, Core.byTheRun), Scope.provide(scope))",
+    from: "self.pipe(diesIn(where, details, () => false, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
+    to: "self.pipe(diesIn(where, details, () => false, Core.byTheRun), Scope.provide(scope))",
     killedBy: [
-      ["src/run.test.ts", "a renderer that dies before a command is the first defect of the cause"],
       [
         "src/run.test.ts",
         "a command that dies before another, which its release lets die, is the first defect of the cause"
@@ -279,8 +277,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a fiber of the run acquires into the scope of the run",
     file: "src/shell.ts",
-    from: "self.pipe(diesIn(where, details, wrapped, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
-    to: "self.pipe(diesIn(where, details, wrapped, Core.byTheRun), deaths.recorded)",
+    from: "self.pipe(diesIn(where, details, () => false, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
+    to: "self.pipe(diesIn(where, details, () => false, Core.byTheRun), deaths.recorded)",
     killedBy: [
       ["src/engine.test.ts", "a command's scope closes before its answer is applied"],
       [
@@ -291,7 +289,7 @@ export const mutations: ReadonlyArray<Mutation> = [
       ["src/engine.test.ts", "what a subscription acquires (Channel.fromEffect) is released when its key goes away"],
       [
         "src/run.test.ts",
-        "what a command and the renderer acquire is theirs: no scope to provide, released after they stop"
+        "what a command acquires is its own: no scope to provide, released after it stops"
       ],
       [
         "src/testing/rehearse.test.ts",
@@ -332,7 +330,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "Cause.isInterruptReason(reason) && markOf(reason) !== undefined",
     to: "Cause.isInterruptReason(reason)",
     killedBy: [
-      ["src/run.test.ts", "of the renderer is a defect in the renderer"],
       ["src/run.test.ts", "of a command, as its scope releases what it holds, is a defect in the command"],
       ["src/run.test.ts", "of a subscription, as its scope releases what it holds, is a defect in the subscription"],
       ["src/testing/contract.test.ts", "the run dies with a defect of a command a fiber of the program interrupts"]
@@ -341,8 +338,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a fiber the run forks keeps an interruption without the run's mark until its root",
     file: "src/shell.ts",
-    from: "diesIn(where, details, wrapped, Core.byTheRun)",
-    to: "diesIn(where, details, wrapped)",
+    from: "diesIn(where, details, () => false, Core.byTheRun)",
+    to: "diesIn(where, details)",
     killedBy: [
       ["src/engine.test.ts", "no update is called on a message sent as a subscription the program interrupted releases"]
     ]
@@ -353,7 +350,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "const own = Core.otherwiseDefect(cause, kept(Exit.isFailure(received) ? received.cause : Cause.empty))",
     to: "const own = cause as Cause.Cause<never>",
     killedBy: [
-      ["src/run.test.ts", "a renderer that interrupts itself is a defect in render"],
       [
         "src/run.test.ts",
         "a command that joins an interrupted fiber that interrupts itself is a defect, where it happened"
@@ -406,10 +402,6 @@ export const mutations: ReadonlyArray<Mutation> = [
       ],
       [
         "src/run.test.ts",
-        "a renderer that interrupts itself as whoever runs the run interrupts it is a defect in the renderer"
-      ],
-      [
-        "src/run.test.ts",
         "a command that interrupts itself as whoever runs the run interrupts it is a defect in the command"
       ],
       ["src/run.test.ts", "a subscription that interrupts itself as the run stops it is a defect in the subscription"],
@@ -442,12 +434,10 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "keeps(reason.defect)",
     // The rest of the suite: `rehearse.test.ts` hangs under it.
     killedBy: [
-      ["src/run.test.ts", "a model read as the renderer acquires what it draws on is one defect, in render"],
       ["src/core.test.ts", "keeps each defect once, by its identity, in the order the fibers died"],
       ["src/core.test.ts", "is the same register when nothing new died, so that the shell signals only a new death"],
       ["src/run.test.ts", "every defect of the cause is kept, each with where it happened"],
       ["src/run.test.ts", "a Logger that throws on what a command logs is a defect in the command"],
-      ["src/run.test.ts", "a renderer that dies before a command is the first defect of the cause"],
       [
         "src/testing/contract.test.ts",
         "in the run, a defect of what a stopped subscription releases is all the cause holds"
@@ -479,7 +469,7 @@ export const mutations: ReadonlyArray<Mutation> = [
       ["src/core.test.ts", "a run that died ends with its defects first, then the rest of what it ended with"],
       [
         "src/run.test.ts",
-        "an interrupted run whose renderer dies as it releases has the defect first, then the interruption"
+        "an interrupted run whose command dies as it releases has the defect first, then the interruption"
       ],
       [
         "src/testing/contract.test.ts",
@@ -522,11 +512,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: " && mark === markOf(reason)",
     to: "",
     killedBy: [
-      ["src/core.test.ts", "an interruption with the fiber id of one received, and not its mark, is a defect"],
-      [
-        "src/run.test.ts",
-        "a renderer that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the renderer"
-      ]
+      ["src/core.test.ts", "an interruption with the fiber id of one received, and not its mark, is a defect"]
     ]
   },
   {
@@ -1048,11 +1034,10 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "scopedIn leaves what its effect dies of without a site",
     file: "src/shell.ts",
-    from: "self.pipe(diesIn(where, details, wrapped, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
+    from: "self.pipe(diesIn(where, details, () => false, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
     to: "self.pipe(deaths.recorded, Scope.provide(scope))",
     killedBy: [
       ["src/engine.test.ts", "what a command dies of as the end of the engine interrupts it is what the end dies of"],
-      ["src/run.test.ts", "a defect in the view ends the run, which dies with it and with where it happened"],
       ["src/run.test.ts", "a defect in a subscription ends the run, which dies with it and with where it happened"],
       ["src/run.test.ts", "a defect in a command ends the run, which dies with it and with where it happened"]
     ]
@@ -1064,17 +1049,14 @@ export const mutations: ReadonlyArray<Mutation> = [
       + "              diesIn(\n"
       + "                where,\n"
       + "                details,\n"
-      + "                (defect) =>\n"
-      + "                  wrapped(defect)\n"
-      + "                  || own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),\n"
+      + "                (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),\n"
       + "                Core.byTheRun\n"
       + "              ),\n",
     to: "return Scope.close(scope, exit).pipe(\n",
     killedBy: [
-      ["src/run.test.ts", "a renderer that dies while it releases what it holds ends the run with that defect"],
-      ["src/run.test.ts", "a renderer that dies while an interrupted run releases it is in the cause"],
-      ["src/run.test.ts", "a renderer that dies as a run that died elsewhere releases it is in the cause"],
-      ["src/run.test.ts", "a subscription whose release dies applies messages until its scope has released all"]
+      ["src/run.test.ts", "a subscription whose release dies applies messages until its scope has released all"],
+      ["src/run.test.ts", "a command whose release dies as an interrupted run stops it is in the cause, in command"],
+      ["src/run.test.ts", "a command whose release dies as a run that died elsewhere stops it is in the cause"]
     ]
   },
   {
@@ -1267,7 +1249,7 @@ export const mutations: ReadonlyArray<Mutation> = [
         "a dispatch from a plain callback after the run has ended applies nothing, and throws nothing"
       ],
       ["src/engine.test.ts", "once the end has stopped the engine, nothing sent is applied"],
-      ["src/run.test.ts", "a message the renderer sends as the run releases it does not reach update"]
+      ["src/run.test.ts", "a message a command sends as the run releases it does not reach update"]
     ]
   },
   {
@@ -1623,18 +1605,28 @@ export const mutations: ReadonlyArray<Mutation> = [
         "src/run.test.ts",
         "a model read outside any fiber is recorded in render, and the reader gets the defect recorded"
       ],
-      ["src/run.test.ts", "a model read in the renderer's fiber is one defect, in render"]
+      ["src/run.test.ts", "a model read before the run starts is one defect, in render, and the run dies of it"]
     ]
   },
   {
-    name: "the renderer's site wraps again the defect a model recorded",
+    name: "die wraps again the defect a model recorded",
     file: "src/run.ts",
-    from: "Shell.scopedIn(deaths, \"render\", undefined, isModels),",
-    to: "Shell.scopedIn(deaths, \"render\"),",
-    // Not "a model read in the renderer's fiber is one defect, in render": there, the end of the run may begin as the
-    // defect is recorded, on the reader's stack, and its interruption take the place of the renderer's second death.
+    from: "Engine.recordThrown(deaths, \"render\", thrown, undefined, isModels)",
+    to: "Engine.recordThrown(deaths, \"render\", thrown)",
     killedBy: [
-      ["src/run.test.ts", "a model read as the renderer acquires what it draws on is one defect, in render"]
+      ["src/run.test.ts", "a model's defect a renderer gives to die is one defect, in render"]
+    ]
+  },
+  {
+    name: "what a renderer gives to die is a defect of a command",
+    file: "src/run.ts",
+    from: "Engine.recordThrown(deaths, \"render\", thrown, undefined, isModels)",
+    to: "Engine.recordThrown(deaths, \"command\", thrown, undefined, isModels)",
+    killedBy: [
+      [
+        "src/run.test.ts",
+        "what a renderer gives to die is a defect in render: the program applies nothing after, and its run dies of it"
+      ]
     ]
   },
   {
@@ -1647,57 +1639,15 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "the release of scopedIn wraps again what its site takes as it is",
-    file: "src/shell.ts",
-    from: "                  wrapped(defect)\n                  || ",
-    to: "                  ",
-    killedBy: [
-      ["src/run.test.ts", "a renderer whose release reads a model that throws is one defect, in render"]
-    ]
-  },
-  {
-    name: "a defect of the renderer of the run is a command's",
-    file: "src/run.ts",
-    from: "Shell.scopedIn(deaths, \"render\", undefined, isModels),",
-    to: "Shell.scopedIn(deaths, \"command\", undefined, isModels),",
-    killedBy: [
-      ["src/run.test.ts", "a renderer that throws before it returns its effect dies in render"],
-      ["src/run.test.ts", "a renderer that interrupts itself is a defect in render"],
-      ["src/run.test.ts", "a renderer that dies while an interrupted run releases it is in the cause"]
-    ]
-  },
-  {
     name: "a defect of init is one of update",
     file: "src/run.ts",
     from: "Engine.recordThrown(deaths, \"init\", thrown)",
     to: "Engine.recordThrown(deaths, \"update\", thrown)",
     killedBy: [
-      ["src/run.test.ts", "an init that throws on its flags dies in init"],
       [
         "src/start.test.ts",
         "in init: the handle is made, model() throws the defect in init, nothing is applied, and run dies of it"
       ]
-    ]
-  },
-  {
-    name: "the run does not stop the renderer",
-    file: "src/run.ts",
-    from: "    const renderer = yield* Effect.acquireRelease(\n"
-      + "      Effect.forkChild(rendering),\n"
-      + "      (renderer) => engine.stop.pipe(Effect.andThen(Shell.stopping(renderer)))\n"
-      + "    )\n",
-    to: "    const renderer = yield* Effect.forkChild(rendering)\n",
-    killedBy: [
-      ["src/run.test.ts", "a renderer that dies while an interrupted run releases it is in the cause"]
-    ]
-  },
-  {
-    name: "the end of the run stops the renderer before the engine",
-    file: "src/run.ts",
-    from: "engine.stop.pipe(Effect.andThen(Shell.stopping(renderer)))",
-    to: "Shell.stopping(renderer)",
-    killedBy: [
-      ["src/run.test.ts", "a message the renderer sends as the run releases it does not reach update"]
     ]
   },
   {
@@ -2571,8 +2521,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the snabbdom bridge draws a notice at once, in the task that sent it",
     file: "bridges/snabbdom.ts",
-    from: "        queueMicrotask(() => {\n",
-    to: "        ;((draw: () => void) => draw())(() => {\n",
+    from: "      queueMicrotask(() => {\n",
+    to: "      ;((draw: () => void) => draw())(() => {\n",
     killedBy: [
       [
         "bridges/snabbdom.test.ts",
@@ -2584,8 +2534,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the snabbdom bridge draws a rejected message of its view's not at all",
     file: "bridges/snabbdom.ts",
-    from: "        app.dispatch(message)\n        notice()\n",
-    to: "        app.dispatch(message)\n",
+    from: "      app.dispatch(message)\n      notice()\n",
+    to: "      app.dispatch(message)\n",
     killedBy: [
       [
         "bridges/snabbdom.test.ts",
@@ -2598,12 +2548,12 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "the snabbdom bridge draws after its release",
+    name: "the snabbdom bridge draws once it is stopped",
     file: "bridges/snabbdom.ts",
-    from: "          if (released) return\n",
-    to: "",
+    from: "if (!stopped) attempt()",
+    to: "attempt()",
     killedBy: [
-      ["bridges/snabbdom.test.ts", "a draw asked for before the run ends is not made once it has ended"]
+      ["bridges/snabbdom.test.ts", "a draw asked for before the bridge is stopped is not made once it is stopped"]
     ]
   },
   {
@@ -2622,7 +2572,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the snabbdom bridge gives no controlled element its prop back",
     file: "bridges/snabbdom.ts",
-    from: "        giveBack(controlled)\n",
+    from: "      giveBack(controlled)\n",
     to: "",
     killedBy: [
       [
@@ -2660,36 +2610,59 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "the snabbdom bridge lets what a draw throws out of its microtask",
+    name: "the snabbdom bridge lets what a draw throws out of it",
     file: "bridges/snabbdom.ts",
-    from: "          try {\n"
-      + "            draw()\n"
-      + "          } catch (error) {\n"
-      + "            released = true\n"
-      + "            Deferred.doneUnsafe(thrown, Exit.die(error))\n"
-      + "          }",
-    to: "          draw()",
+    from: "      try {\n"
+      + "        draw()\n"
+      + "      } catch (error) {\n"
+      + "        stop()\n"
+      + "        app.die(error)\n"
+      + "      }",
+    to: "      draw()",
     killedBy: [
       ["bridges/snabbdom.test.ts", "by the view, ends the run at once, in render, and the handler gets nothing"],
       [
         "bridges/snabbdom.test.ts",
         "by makeModel, ends the run at once, with one defect, in render, and the handler gets nothing"
-      ]
+      ],
+      ["bridges/snabbdom.test.ts", "by the view, ends the run, in render, and drawInto throws nothing"]
     ]
   },
   {
     name: "the snabbdom bridge does not die of what a draw throws",
     file: "bridges/snabbdom.ts",
-    from: "            Deferred.doneUnsafe(thrown, Exit.die(error))\n",
+    from: "        app.die(error)\n",
     to: "",
     killedBy: [
-      ["bridges/snabbdom.test.ts", "by the view, ends the run at once, in render, and the handler gets nothing"]
+      ["bridges/snabbdom.test.ts", "by the view, ends the run at once, in render, and the handler gets nothing"],
+      ["bridges/snabbdom.test.ts", "by the view, ends the run, in render, and drawInto throws nothing"]
+    ]
+  },
+  {
+    name: "the snabbdom bridge draws on once a draw threw",
+    file: "bridges/snabbdom.ts",
+    from: "        stop()\n        app.die(error)\n",
+    to: "        app.die(error)\n",
+    killedBy: [
+      [
+        "bridges/snabbdom.test.ts",
+        "by the view, stops the bridge, which draws nothing more when a button on screen is clicked"
+      ]
+    ]
+  },
+  {
+    name: "the snabbdom bridge lets what its first draw throws out of it",
+    file: "bridges/snabbdom.ts",
+    from: "    attempt()\n    return stop\n",
+    to: "    draw()\n    return stop\n",
+    killedBy: [
+      ["bridges/snabbdom.test.ts", "by the view, ends the run, in render, and drawInto throws nothing"]
     ]
   },
   {
     name: "the React bridge reads the model without subscribing",
     file: "bridges/react.ts",
-    from: "view(useSyncExternalStore(app.subscribe, app.model), app.dispatch)",
+    from: "view(useSyncExternalStore(app.subscribe, app.model, app.model), app.dispatch)",
     to: "view(app.model(), app.dispatch)",
     killedBy: [
       ["bridges/react.test.ts", "a click on a drawn button reaches the program, and is drawn once the handler returns"]
@@ -2707,18 +2680,10 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the React bridge's Host leaves its run running as it unmounts",
     file: "bridges/react.ts",
-    from: "      Effect.runFork(Fiber.interrupt(fiber))\n",
+    from: "      if (fiber !== undefined) Effect.runFork(Fiber.interrupt(fiber))\n",
     to: "",
     killedBy: [
       ["bridges/react.test.ts", "interrupts the run as it unmounts, and the run releases what it holds"],
-      [
-        "bridges/react.test.ts",
-        "in StrictMode, the run of the first mount is interrupted, and the second's is drawn and typed into"
-      ],
-      [
-        "bridges/react.test.ts",
-        "in StrictMode, the first run starts the commands of init, which its interruption interrupts"
-      ],
       [
         "bridges/react.test.ts",
         "a program unmounted while a command is under way interrupts the command, and draws nothing after"
@@ -2760,9 +2725,50 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the React bridge's Host starts its run with the props of the render its effect ran after",
     file: "bridges/react.ts",
-    from: "const { program, options, fork } = first.current",
-    to: "const { program, options, fork } = props",
+    from: "const { fork } = first.current",
+    to: "const { fork } = props",
     killedBy: [
+      ["bridges/react.test.ts", "shown again by Activity, starts the run with the fork of its first render"]
+    ]
+  },
+  {
+    name: "the React bridge's Host starts its program anew with the props of the render its effect ran after",
+    file: "bridges/react.ts",
+    from: "running = begin<Model, Message>(first.current)",
+    to: "running = begin<Model, Message>(props)",
+    killedBy: [
+      ["bridges/react.test.ts", "shown again by Activity, starts the program anew with the options of its first render"]
+    ]
+  },
+  {
+    name: "the React bridge's Host starts its run in its effect, which StrictMode cleans up at once",
+    file: "bridges/react.ts",
+    from: "    queueMicrotask(() => {\n      if (!mounted) return\n",
+    to: "    ;((start: () => void) => start())(() => {\n",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "in StrictMode, one run starts, which no cleanup interrupts, and it is drawn and typed into"
+      ],
+      ["bridges/react.test.ts", "in StrictMode, the commands of init start once"]
+    ]
+  },
+  {
+    name: "the React bridge's Host starts a run its cleanup cancelled",
+    file: "bridges/react.ts",
+    from: "      if (!mounted) return\n",
+    to: "",
+    killedBy: [
+      ["bridges/react.test.ts", "in StrictMode, the commands of init start once"]
+    ]
+  },
+  {
+    name: "the React bridge's Host runs again a program whose run has ended",
+    file: "bridges/react.ts",
+    from: "if (ran.current) {",
+    to: "if (false) {",
+    killedBy: [
+      ["bridges/react.test.ts", "hidden by Activity, the run ends; shown again, the program starts from init"],
       ["bridges/react.test.ts", "shown again by Activity, starts the run with the fork of its first render"]
     ]
   },
@@ -2778,11 +2784,11 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the React bridge's Host hears how the run ends inside the fiber it forks",
     file: "bridges/react.ts",
-    from: "    const fiber = forkRun(start(program, render, options))\n",
-    to: "    const fiber = forkRun(Effect.onExit(start(program, render, options), (exit) =>\n"
-      + "      Effect.sync(() => {\n"
-      + "        if (Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause)) setDied({ error: Cause.squash(exit.cause) })\n"
-      + "      })))\n",
+    from: "      const forked = forkRun(running.run)\n",
+    to: "      const forked = forkRun(Effect.onExit(running.run, (exit) =>\n"
+      + "        Effect.sync(() => {\n"
+      + "          if (Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause)) setDied({ error: Cause.squash(exit.cause) })\n"
+      + "        })))\n",
     killedBy: [
       ["bridges/react.test.ts", "what the application handles around the run is not thrown again"]
     ]

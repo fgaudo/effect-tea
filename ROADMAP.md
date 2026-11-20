@@ -31,56 +31,24 @@ and the guide promises the first model on a server. Its stages below come before
 that 0.7.1 has, and others that no release has had. The spike is the branch `claude/spike-store-and-effects`
 (`ab19927`), never to be merged: each stage brings its part onto `main` as `main` is then.
 
-Its first stage is done: the engine is in two halves on `main`. `Engine.build` makes it by plain code, and its
+Its first two stages are done. The engine is in two halves on `main`: `Engine.build` makes it by plain code, and its
 `effects` start the fiber of effects; `start` and `Started` are exported, with `die` on `App`; `drive` runs over
-`startWith`; and `run(program, render)` is still the composition of the two halves (`running` in `src/run.ts`), so that
-every check passes. `Engine.make` stays in `src/engine.ts`, for the tests of the engine alone.
-
-#### 2b. The bridges, the examples and the tests over `start`
-
-**Model and effort.** Opus 5.5, `high`: the search and the tests of a boundary are rewritten, not only renamed. The
-skills are [`change-engine`](.agents/skills/change-engine/SKILL.md),
-[`change-api`](.agents/skills/change-api/SKILL.md) and [`add-example`](.agents/skills/add-example/SKILL.md).
-
-**Depends on** nothing open.
-
-**How.** What the branch holds of `bridges/` and of `examples/`, and what it did not port:
-
-- **The bridges.** `Host` starts its program in the initializer of its state and forks `run` in a microtask after its
-  effect; `fallback` goes. `Draw` gives `useSyncExternalStore` the handle's `model` as its server snapshot.
-  `drawInto(root, view)(app)` is plain code, returns what stops it, and gives `die` what a draw throws; `renderInto`
-  goes. The handle has `die`.
-- **`run(program, render)` goes**, with `runWith`, `running`, the renderer's fiber, its scope, its root and its site,
-  and the race of its end with `died`. `isModels` stays, since `die` takes a model's defect as it is; `rendered` of
-  `Engine.build` stays for the listeners. The mutations of `run.ts` that name the renderer go with it ("the run does
-  not stop the renderer", "the end of the run stops the renderer before the engine", "the renderer's site wraps again
-  the defect a model recorded", "a defect of the renderer of the run is a command's"), and `docs/invariants.md` loses
-  what it says of the renderer's fiber ("The renderer is called at most once", the renderer in "Never report a defect
-  only through a `join`", the renderer as one primitive in "one thunk").
-- **The tests.** `src/run.test.ts` is ported to `start`. Each of its 28 tests that name the renderer is weighed: one
-  whose promise stays, as a defect met while the run ends, is kept over a command or a subscription, and one of the
-  renderer's fiber alone goes. The renderer of the search (`src/interleaving.test.ts`), an effect that sends, releases
-  slowly and dies, becomes listeners and plain code. The bridges' suite takes a `Bridge` of plain code. So do the
-  examples' mains and tests, `tools/smoke/` and `tools/bench/`.
-- **The premise the owner consented to** goes into `docs/premises.md`: StrictMode runs an effect's cleanup in the task
-  of the effect, before any microtask. Its tests are the two of StrictMode in `bridges/react.test.ts`, which fail
-  without the microtask.
-
-With it: `docs/invariants.md` (the renderer's scope and site, `'render'`), the mutations of `run.ts` and of the
-bridges, and the reports of the API. `bun run comments` may fail until 2c, so 2b is not pushed without 2c.
-
-**Done when** the checks of `AGENTS.md` and of `change-engine` pass, `bun run comments` aside, with
-`bun run mutations`, `bun run smoke` and `bun run api --check`, and this stage is removed.
+`startWith`. `Engine.make` stays in `src/engine.ts`, for the tests of the engine alone. `run(program, render)` is
+removed, with the renderer's fiber, scope and site; the bridge to snabbdom has `drawInto` in place of `renderInto`,
+`Host` starts its program as it first renders and runs it in a microtask after its effect, and the tests, the search,
+the examples, the smoke test and the benchmark are over `start`. The premise of StrictMode is in `docs/premises.md`.
+The second stage is not pushed until 2c is done, so that `main` never has a guide that names an export it has
+removed.
 
 #### 2c. The guide, the doc comments, the skill, the README, the tutorial and the changelog
 
 **Model and effort.** Opus 5.5, `high`: the guide is a specification. The skill is
 [`release`](.agents/skills/release/SKILL.md), for the changelog and its upgrade.
 
-**Depends on** 2b.
+**Depends on** nothing open.
 
 **How.** Section by section, as the record lists them under "What the guide would say" and under "Nothing outlives
-what acquired it", each sentence checked against the code of `main` and of 2b. And what the owner decided there:
+what acquired it", each sentence checked against the code of `main`. And what the owner decided there:
 
 - **A program is started, then run.** A message sent before `run` is applied, and its effects wait. A program started
   is run once. One that was never run is never stopped.
@@ -101,13 +69,29 @@ what acquired it", each sentence checked against the code of `main` and of 2b. A
 - **The changelog.** `run(program, render)` has an `Upgrade:` note, since 0.7.1 has it. What no release has had
   (`fallback`, `renderInto` of the entry `./snabbdom`) is edited in the unreleased section.
 
+What 2b left for this stage:
+
+- **What no test checks any more**, since it went with the renderer's fiber: "A command, a subscription or the renderer
+  that the program interrupts is a defect" and "Each command, each subscription and the renderer has a scope of its
+  own", for the renderer; and in "How the run ends", the step "It stops the renderer" and what the renderer sends as it
+  releases. The guide loses them, as the record says.
+- **Prose that 2b changed for its code alone**: the README's quick start (`start`, with no run, since the counter has no
+  effects), the doc comment of `start`, which took the rules of the whole run from the removed `run` (its `@see` lines
+  too), the examples of `RunOptions` and `onApplied` in `src/engine.ts`, and the region `bell` of
+  `examples/timer/main.ts`, which the tutorial includes and now holds `start` and `drawInto`. Each is read against the
+  guide as it is rewritten.
+- **The label of `'render'`** in `src/defect.ts`, "the renderer, its view or makeModel", is read against what
+  `'render'` now is.
+- **The comment of `hosted` in `tools/smoke/bridges.ts`** says that React's server rendering is no part of what the
+  bridge supports: it follows the guide's new promise of the first model on a server.
+
 **Done when** `bun run comments`, `bun run lint`, `bun run smoke` and the site's build pass, and this stage is removed.
 
 #### 2d. What it reverses in `docs/rejected.md`
 
 **Model and effort.** Sonnet 5.5, `medium`, from the record's "What it reverses in `rejected.md`".
 
-**Depends on** 2b and 2c.
+**Depends on** 2c.
 
 **How.** "`run` split into a synchronous half and the fibers" leaves "Parked, not rejected", and B5 is marked reversed
 in [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), as R1 is. The last sentence of
@@ -135,7 +119,13 @@ exports that no release has had.
 and of the testing tools since the last review. That change leaves the review two leads. No test that a premise
 names was run again without its premise, under the new engine: `docs/premises.md` was rewritten by reading.
 And the premise "`Effect.scoped` fails with what a finalizer of its scope dies of" names a test that
-`test/premises.test.ts` has not had since `35fe18f`. Then `bun run mutations` and `bun run interleavings`, and the
+`test/premises.test.ts` has not had since `35fe18f`. Stage 2b of step 2 leaves two more. The mutation "an
+interruption with the fiber id of one the fiber received is no defect, whatever its mark" (`shell.ts`) has only the
+killer of `core.test.ts` left: the end of the run interrupts commands and subscriptions from fibers that
+`Effect.forEach` forks, never from the fiber of the run, so whether the run can still reach that check is to be weighed.
+And the search gives `die` a defect only while nothing has died, since the run reads its defects once, as it ends
+(`Core.endedWith`): whether a defect given to `die`, or recorded by a model read, while the run ends can miss the cause
+is to be checked. Then `bun run mutations` and `bun run interleavings`, and the
 site built without warnings. Then the release commit and its tag. The owner publishes to npm.
 
 **Done when** the tag `v0.8.0` is pushed.

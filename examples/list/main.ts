@@ -1,5 +1,5 @@
-import { run } from "@fgaudo/effect-tea"
-import { renderInto } from "@fgaudo/effect-tea/snabbdom"
+import { start } from "@fgaudo/effect-tea"
+import { drawInto } from "@fgaudo/effect-tea/snabbdom"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import { list } from "./list.ts"
@@ -8,8 +8,10 @@ import { view } from "./view.ts"
 const root = document.getElementById("app")
 if (root === null) throw new Error("index.html has no #app element")
 
+const app = start(list)
+drawInto(root, view)(app)
 Effect.runFork(
-  run(list, renderInto(root, view)).pipe(
+  app.run.pipe(
     // The failure of a program that dies is reported; an interruption is no crash.
     Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause)))
   )

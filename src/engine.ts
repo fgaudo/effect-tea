@@ -97,11 +97,11 @@ export type Ignored<State, Message> = {
 /**
  * The options of a run: what hears each message.
  *
- * `run` and `drive` take them.
+ * `start` and `drive` take them.
  *
  * @example
  * ```ts
- * run(program, render, {
+ * start(program, {
  *   onApplied: ({ message }) => {
  *     session.push(message)
  *   }
@@ -116,7 +116,7 @@ export interface RunOptions<State, Message, Command = unknown> {
    *
    * - It is a function, not an effect, and returns nothing. The types refuse one that returns a value.
    *   Declared apart, it needs the return type `undefined`: TypeScript gives it `void` otherwise, which they refuse.
-   * - The run calls it in the step of each message, before the next one, before the renderer is told, and before the
+   * - The run calls it in the step of each message, before the next one, before the listeners are told, and before the
    *   message's commands start. A slow one holds up the whole program, and the call that sent the message: offer what
    *   it hears to an unbounded queue, and do the slow work in a fiber raced with the run.
    * - A defect in it ends the run.
@@ -127,12 +127,12 @@ export interface RunOptions<State, Message, Command = unknown> {
    * const app = Effect.gen(function*() {
    *   const heard = yield* Queue.unbounded<Applied<State, Message, Command>>()
    *   const report = Queue.take(heard).pipe(Effect.flatMap(sendToDevtools), Effect.forever)
-   *   const running = run(program, render, {
+   *   const started = start(program, {
    *     onApplied: (applied) => {
    *       Queue.offerUnsafe(heard, applied)
    *     }
    *   })
-   *   yield* Effect.raceFirst(running, report)
+   *   yield* Effect.raceFirst(started.run, report)
    * })
    * ```
    *
@@ -242,7 +242,7 @@ type Config<State, Message, Command, R, K> =
     deaths: Deaths
     /**
      * The defects a listener may throw that are the renderer's already, recorded in `'render'` where they were thrown,
-     * and taken as they are: those of a model, which `run` records where it is read. By default, none.
+     * and taken as they are: those of a model, which `start` records where it is read. By default, none.
      */
     rendered?: (defect: unknown) => boolean
     init: Step<State, Command>

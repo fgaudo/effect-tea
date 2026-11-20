@@ -15,7 +15,15 @@
  *
  * @see The guide, "Writing a bridge", "The package's bridges".
  */
-import { type App, type Dispatch, type FlagsOption, run, type RunOptions, type Shape } from "@fgaudo/effect-tea"
+import {
+  type App,
+  type Dispatch,
+  type FlagsOption,
+  type RunOptions,
+  type Shape,
+  start,
+  type Started
+} from "@fgaudo/effect-tea"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -57,7 +65,7 @@ export const Draw = <Model, Message>({
   readonly app: App<Model, Message>
   /** Draws its model. */
   readonly view: View<Model, Message>
-}): ReactNode => view(useSyncExternalStore(app.subscribe, app.model), app.dispatch)
+}): ReactNode => view(useSyncExternalStore(app.subscribe, app.model, app.model), app.dispatch)
 
 /**
  * How the application runs the program: `Effect.runFork` by default, or the `runFork` of a `ManagedRuntime` that gives
@@ -78,8 +86,6 @@ export type HostProps<State, Model, Message, Command, RC, RS, Flags> =
     readonly program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>
     /** Draws its model. */
     readonly children: View<Model, Message>
-    /** What is drawn before the run has started its renderer. */
-    readonly fallback?: ReactNode
   }
   & ([Flags] extends [never] ? { readonly options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> }
     : {
@@ -118,39 +124,52 @@ type Died = { readonly error: unknown }
 export const Host = <State, Model, Message, Command = never, RC = never, RS = never, Flags = never>(
   props: HostProps<State, Model, Message, Command, RC, RS, Flags>
 ): ReactNode => {
-  const [app, setApp] = useState<App<Model, Message> | undefined>(undefined)
-  const [died, setDied] = useState<Died | undefined>(undefined)
   const first = useRef(props)
+  // The program is started as `Host` first renders, by plain code that runs no effect: its first model is drawn in the
+  // render that mounts it, and on a server. A render that React throws away leaves a program that nothing runs.
+  const [app, setApp] = useState(() => begin<Model, Message>(first.current))
+  const [died, setDied] = useState<Died | undefined>(undefined)
+  // Whether the program in `app` has been given to `fork`: a program started is run once.
+  const ran = useRef(false)
   useEffect(() => {
-    const { program, options, fork } = first.current
-    // `run`'s options are checked by `HostProps`, which the rest of `run`'s signature cannot see here.
-    const start = run as unknown as (
-      program: unknown,
-      render: (app: App<Model, Message>) => Effect.Effect<void>,
-      options: unknown
-    ) => Effect.Effect<void, never, never>
-    // The renderer only hands the `App` to React, and holds the run until it is interrupted. React ignores the state
-    // of a component that has unmounted.
-    const render = (handle: App<Model, Message>) =>
-      Effect.andThen(Effect.sync(() => setApp(() => handle)), Effect.never)
+    const { fork } = first.current
     const forkRun: Fork<never> = fork ?? ((effect) => Effect.runFork(effect))
-    const fiber = forkRun(start(program, render, options))
     let mounted = true
-    // The fiber `fork` returns, so that what the application handles around the run is not thrown or reported again.
-    Effect.runFork(Effect.flatMap(Fiber.await(fiber), (exit) =>
-      Effect.sync(() => {
-        if (!Exit.isFailure(exit) || Cause.hasInterruptsOnly(exit.cause)) return
-        const error = Cause.squash(exit.cause)
-        if (mounted) setDied({ error })
-        else reportError(error)
-      })))
+    let fiber: Fiber.Fiber<void, unknown> | undefined
+    // The run starts in a microtask after the effect, which the cleanup cancels. StrictMode runs the effect, its
+    // cleanup and the effect again in one task, so the first of the two starts nothing, and one program runs, once.
+    queueMicrotask(() => {
+      if (!mounted) return
+      // An effect that runs again later, as when `<Activity>` shows `Host` again, finds a program whose run has ended:
+      // it starts the program anew, from `init`.
+      let running = app
+      if (ran.current) {
+        running = begin<Model, Message>(first.current)
+        setApp(running)
+      }
+      ran.current = true
+      const forked = forkRun(running.run)
+      fiber = forked
+      // The fiber `fork` returns, so that what the application handles around the run is not thrown or reported again.
+      Effect.runFork(Effect.flatMap(Fiber.await(forked), (exit) =>
+        Effect.sync(() => {
+          if (!Exit.isFailure(exit) || Cause.hasInterruptsOnly(exit.cause)) return
+          const error = Cause.squash(exit.cause)
+          if (mounted) setDied({ error })
+          else reportError(error)
+        })))
+    })
     return () => {
       mounted = false
-      Effect.runFork(Fiber.interrupt(fiber))
+      if (fiber !== undefined) Effect.runFork(Fiber.interrupt(fiber))
     }
   }, [])
   if (died !== undefined) throw died.error
-  return app === undefined
-    ? (props.fallback ?? null)
-    : createElement(Draw<Model, Message>, { app, view: props.children })
+  return createElement(Draw<Model, Message>, { app, view: props.children })
 }
+
+// `start`'s options are checked by `HostProps`, which the rest of `start`'s signature cannot see here.
+const begin = <Model, Message>(
+  { options, program }: { readonly program: unknown; readonly options?: unknown }
+): Started<Model, Message> =>
+  (start as unknown as (program: unknown, options: unknown) => Started<Model, Message>)(program, options ?? {})

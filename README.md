@@ -105,12 +105,12 @@ does not install them, and the rest of it needs neither.
 ## Quick start
 
 A counter that cannot go below zero, in one file you can run as it is. There is no screen yet: the "renderer" here
-only logs each model, and clicks "increment" until the count reaches 3. A click is applied when `dispatch` returns, so
-the next model can be read at once.
+only logs each model, and clicks "increment" until the count reaches 3. `start` starts the program by plain code. A
+click is applied when `dispatch` returns, so the next model can be read at once. A program with effects is run too,
+with `Effect.runFork(app.run)`: this one has none.
 
 ```ts
-import { program, reject, run, type Update } from "@fgaudo/effect-tea"
-import * as Effect from "effect/Effect"
+import { program, reject, start, type Update } from "@fgaudo/effect-tea"
 
 type State = Readonly<{ count: number }>
 
@@ -146,17 +146,12 @@ const counter = program<{ state: State; model: Model; message: Message }>().make
       : { _tag: "AtZero", count, increment: "Increment" }
 })
 
-// The run ends when its renderer ends.
-const main = run(counter, (app) =>
-  Effect.sync(() => {
-    for (let model = app.model();; model = app.model()) {
-      console.log(model.count)
-      if (model.count === 3) return
-      app.dispatch(model.increment)
-    }
-  }))
-
-Effect.runFork(main) // logs 0, 1, 2, 3
+const app = start(counter)
+for (let model = app.model(); model.count < 3; model = app.model()) {
+  console.log(model.count)
+  app.dispatch(model.increment)
+}
+console.log(app.model().count) // logs 0, 1, 2, 3
 ```
 
 ### With a view

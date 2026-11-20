@@ -28,10 +28,10 @@ The bridges the examples share are entries of the package, `@fgaudo/effect-tea/s
 
 ```
 bridges/
-├─ snabbdom.ts               the bridge the examples use: View, and renderInto for run
+├─ snabbdom.ts               the bridge the examples use: View, and drawInto for a program started
 ├─ snabbdom-testing.ts       messagesSentBy, how to check that a view draws what its model holds
 ├─ snabbdom-preload.ts       what bun test loads first (bunfig.toml), so that snabbdom loads without a DOM
-├─ react.ts                  the bridge to React: View, Host, HostProps, Fork, and Draw for a run started apart
+├─ react.ts                  the bridge to React: View, Host, HostProps, Fork, and Draw for a program started apart
 ├─ snabbdom.test.ts          the snabbdom bridge's tests, in a DOM
 ├─ snabbdom-testing.test.ts  the tests of messagesSentBy, without a DOM
 ├─ react.test.ts             the React bridge's tests, React beside snabbdom over one run among them, in a DOM
@@ -43,11 +43,11 @@ React; the third is the line a user's tests of a snabbdom view load first, as th
 "Tests"). React is used only by
 [`counter`](../../../examples/counter) and [`form`](../../../examples/form), to show that a program does not change
 with its renderer: each has a `view-snabbdom.ts` and a `view-react.tsx`, and its `main.ts` draws one run with both
-renderers over the same `App`, into the `#snabbdom` and `#react` of its page. Its test checks the snabbdom view; the
+renderers over the same handle, into the `#snabbdom` and `#react` of its page. Its test checks the snabbdom view; the
 React view is checked by the bridges' tests. The bridges' tests are examples' tests like
 the others, and none of the library's five kinds (`AGENTS.md`, "Tests"). `snabbdom.test.ts` and `react.test.ts` call
-`bridge.test_suite.ts` with their renderer's `Bridge` (its `renderInto` and the views of the scenarios), beside the
-tests of that renderer alone.
+`bridge.test_suite.ts` with their renderer's `Bridge` (how it draws a program started, and the views of the
+scenarios), beside the tests of that renderer alone.
 
 In `examples/` itself are [`README.md`](../../../examples/README.md), which says where a user starts, and the shared
 [`style.css`](../../../examples/style.css) and [`tsconfig.json`](../../../examples/tsconfig.json).
@@ -61,10 +61,10 @@ In `examples/` itself are [`README.md`](../../../examples/README.md), which says
   The examples are published (`files` in `package.json`, all but their `tsconfig.json`), for the guide, the tutorial
   and the skill that link them, but nothing of the package imports them. snabbdom and React are optional peers, for
   the bridges alone, and `@happy-dom/global-registrator` is only a dev dependency.
-- **`main.ts`** finds `#app` and starts the program with `Effect.runFork(run(program, renderInto(root, view)))`,
-  through an `Effect.tapCause` that logs the failure of a dying program, unless it is only an interruption
-  (`list/main.ts`). Those of `counter` and `form` give `run` one renderer that runs two over the same `App` with
-  `Effect.all`: snabbdom's `renderInto`, and one that renders `Draw` with that `App` in a React root of its own.
+- **`main.ts`** finds `#app`, starts the program with `const app = start(program)`, draws it with
+  `drawInto(root, view)(app)`, and runs it with `Effect.runFork(app.run)`, through an `Effect.tapCause` that logs the
+  failure of a dying program, unless it is only an interruption (`list/main.ts`). Those of `counter` and `form` draw
+  the one handle with both renderers: snabbdom's `drawInto`, and `Draw` with that handle in a React root of its own.
 - **`index.html`** has the title `<Name> · effect-tea`, the shared `../style.css`, a header with the name,
   one sentence on what it shows and a "Source" link to `https://github.com/fgaudo/effect-tea/tree/main/examples/<name>`,
   the `#app` element and `<script type="module" src="./main.ts">`.
@@ -84,7 +84,7 @@ In `examples/` itself are [`README.md`](../../../examples/README.md), which says
   among them, has its press a message of the model and its drag a subscription (`volume`). A child's view is
   memoized with snabbdom's `thunk`, its dispatch from `forwardTo` among the arguments (`pages/view.ts`).
 - **An example that needs more than the guide gives is a change of design**, and the owner is asked before it is
-  written: a renderer other than the bridges' `renderInto`; a view that takes more than its model and its dispatch;
+  written: a renderer other than the bridges' `drawInto` and `Draw`; a view that takes more than its model and its dispatch;
   something the screen shows that is kept outside the program's state (a variable of `main.ts`, a service the renderer
   reads, what a subscription or a command writes beside its messages); a new or changed rule of the guide that the
   example needs in order to be allowed. The first `bounce` did all four.

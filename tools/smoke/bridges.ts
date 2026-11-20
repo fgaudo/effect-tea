@@ -2,9 +2,9 @@
 // which `smoke.ts` runs with Node and typechecks once it has installed the renderers, and only then: what `consumer.ts`
 // and the quick start check is checked without them. Node loads `window.ts` first, as a test of a snabbdom view does:
 // snabbdom reads `window` as it loads.
-import { type App, type Dispatch, program, run, type Update, type Written } from "@fgaudo/effect-tea"
+import { type App, type Dispatch, program, start, type Update, type Written } from "@fgaudo/effect-tea"
 import { Draw, Host, type View as ReactView } from "@fgaudo/effect-tea/react"
-import { renderInto, type View } from "@fgaudo/effect-tea/snabbdom"
+import { drawInto, type View } from "@fgaudo/effect-tea/snabbdom"
 import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
 import * as Effect from "effect/Effect"
 import { createElement } from "react"
@@ -31,7 +31,11 @@ const sent = messagesSentBy(view, counter.makeModel({ count: 0 }))
 if (sent.join() !== "Increment") throw new Error(`messagesSentBy found ${sent.join()}, not Increment`)
 
 // Typed, and not called: Node has no DOM to draw into.
-export const start = (root: Element) => Effect.runFork(run(counter, renderInto(root, view)))
+export const begin = (root: Element) => {
+  const app = start(counter)
+  const stop = drawInto(root, view)(app)
+  return { stop, fiber: Effect.runFork(app.run) }
+}
 
 // A controlled field: it shows the value, and what is typed is written.
 export const field = (value: string, dispatch: Dispatch<Written<string>>) =>

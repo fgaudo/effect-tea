@@ -65,7 +65,7 @@ export type { Subscription, Subscriptions } from "./subscription.ts"
 // How a view sends messages, its children's included.
 export { type Dispatch, forwardTo } from "./dispatch.ts"
 
-// Starting a program, which gives a handle on it, and running it, with a renderer or without one.
+// Starting a program, which gives a handle on it, and running its effects.
 export { CompositionDefect, defect, type DefectSite, InvariantDefect, ProgramDefect } from "./defect.ts"
 export type { Applied, Ignored, Origin, RunOptions } from "./engine.ts"
-export { type App, run, start, type Started } from "./run.ts"
+export { type App, start, type Started } from "./run.ts"

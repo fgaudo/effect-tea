@@ -10,7 +10,7 @@ import {
   type ModelOf,
   program,
   ProgramDefect,
-  run,
+  start,
   type Written
 } from "@fgaudo/effect-tea"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
@@ -18,7 +18,6 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
-import * as Fiber from "effect/Fiber"
 import * as Opt from "effect/Option"
 import * as Stream from "effect/Stream"
 import { h, init, propsModule, type VNode } from "snabbdom"
@@ -40,20 +39,21 @@ import {
   type desk,
   type Dictation,
   type draft,
+  drawing,
   element,
+  forked,
   type gated,
   holdFrames,
   type lid,
   type lock,
   mount,
   type note,
-  scheduler,
   settle,
   type steps,
   stop,
   type
 } from "./bridge.test_suite.ts"
-import { renderInto, type View } from "./snabbdom.ts"
+import { drawInto, type View } from "./snabbdom.ts"
 
 beforeAll(() => {
   GlobalRegistrator.register()
@@ -177,7 +177,7 @@ const gatedView: View<ModelOf<typeof gated>, MessageOf<typeof gated>> = (model, 
 const drawn = () => new Promise<void>((resolve) => queueMicrotask(resolve))
 
 const snabbdom: Bridge<VNode> = {
-  renderInto,
+  drawInto,
   drawn,
   views: {
     counter: counterView,
@@ -200,9 +200,10 @@ describe("when the bridge to snabbdom draws", () => {
   test("a notice from a command is drawn in a microtask, and what one task sends is drawn once", async () => {
     const answers: Array<string> = []
     const app = mount(
-      renderInto,
+      drawInto,
       formView,
-      (render) => run(form, render).pipe(Effect.provideService(Storage, Storage.of({ save: () => Effect.void })))
+      start(form),
+      Effect.provideService(Storage, Storage.of({ save: () => Effect.void }))
     )
     settle()
     const input = element<HTMLInputElement>("input")
@@ -227,17 +228,17 @@ describe("when the bridge to snabbdom draws", () => {
     expect(element("li").textContent).toBe("Ada")
   })
 
-  // A second run may draw into the same root by then.
-  test("a draw asked for before the run ends is not made once it has ended", async () => {
+  // Another program may draw into the same root by then.
+  test("a draw asked for before the bridge is stopped is not made once it is stopped", async () => {
     document.body.innerHTML = "<div id=\"app\"></div>"
-    const fiber = Effect.runFork(run(counter, renderInto(element("#app"), counterView)), { scheduler })
+    const app = start(counter)
+    const stopDrawing = drawInto(element("#app"), counterView)(app)
+    forked(app.run)
     settle()
     button("+").click()
-    const ended = Effect.runPromise(Fiber.interrupt(fiber))
-    settle()
-    await ended
+    stopDrawing()
     await drawn()
-    expect(element("output").textContent).toBe("0")
+    expect([app.model().count, element("output").textContent]).toEqual([1, "0"])
   })
 
   test("asks for no screen refresh", async () => {
@@ -248,11 +249,7 @@ describe("when the bridge to snabbdom draws", () => {
       return request(callback)
     }
     try {
-      mount(
-        renderInto,
-        formView,
-        (render) => run(form, render).pipe(Effect.provideService(Storage, Storage.of({ save: () => Effect.void })))
-      )
+      mount(drawInto, formView, start(form), Effect.provideService(Storage, Storage.of({ save: () => Effect.void })))
       settle()
       type(element<HTMLInputElement>("input"), "Ada")
       button("Save").click()
@@ -286,7 +283,9 @@ describe("when the bridge to snabbdom draws", () => {
     // A patch inside the patch under way would patch a tree that no longer matches the page.
     test("is drawn once that patch is done, in a microtask of its own, and the run goes on", async () => {
       document.body.innerHTML = "<div id=\"app\"></div>"
-      const fiber = Effect.runFork(run(editor, renderInto(element("#app"), editorView)), { scheduler })
+      const app = start(editor)
+      drawing(drawInto(element("#app"), editorView)(app))
+      const fiber = forked(app.run)
       settle()
       element<HTMLInputElement>("#name").focus()
       button("Edit").click()
@@ -300,12 +299,18 @@ describe("when the bridge to snabbdom draws", () => {
         "OUTPUT"
       ])
       settle()
-      const exit = fiber.pollUnsafe()
-      await Effect.runPromise(Fiber.interrupt(fiber))
-      expect(exit).toBeUndefined()
+      expect(fiber.pollUnsafe()).toBeUndefined()
     })
   })
 })
+
+// Where each defect of a run that died was met.
+const sites = (exit: Exit.Exit<never> | undefined) =>
+  exit !== undefined && Exit.isFailure(exit)
+    ? exit.cause.reasons.map((reason) =>
+      reason._tag === "Die" && reason.defect instanceof ProgramDefect ? reason.defect.where : reason._tag
+    )
+    : exit
 
 describe("what a draw after a handler throws", () => {
   // The errors a listener throws, which the DOM reports and never gives to the code that dispatched the event.
@@ -326,7 +331,9 @@ describe("what a draw after a handler throws", () => {
 
   const ending = async (view: View<CounterModel, CounterMessage>, program: typeof counter = counter) => {
     document.body.innerHTML = "<div id=\"app\"></div>"
-    const fiber = Effect.runFork(run(program, renderInto(element("#app"), view)), { scheduler })
+    const app = start(program)
+    drawing(drawInto(element("#app"), view)(app))
+    const fiber = forked(app.run)
     settle()
     const errors = reported()
     try {
@@ -336,27 +343,19 @@ describe("what a draw after a handler throws", () => {
       errors.done()
     }
     settle()
-    return { exit: fiber.pollUnsafe(), errors: errors.errors, fiber }
+    return { exit: fiber.pollUnsafe(), errors: errors.errors }
   }
 
-  const sites = (exit: Exit.Exit<void> | undefined) =>
-    exit !== undefined && Exit.isFailure(exit)
-      ? exit.cause.reasons.map((reason) =>
-        reason._tag === "Die" && reason.defect instanceof ProgramDefect ? reason.defect.where : reason._tag
-      )
-      : exit
-
   test("by the view, ends the run at once, in render, and the handler gets nothing", async () => {
-    const { exit, errors, fiber } = await ending((model, dispatch) => {
+    const { exit, errors } = await ending((model, dispatch) => {
       if (model.count === 1) throw new Error("A view that cannot draw")
       return counterView(model, dispatch)
     })
-    await Effect.runPromise(Fiber.interrupt(fiber))
     expect(errors).toEqual([])
     expect(sites(exit)).toEqual(["render"])
   })
 
-  // The run records a defect of `makeModel` where the model is read: the renderer's fiber dies of that very defect.
+  // The run records a defect of `makeModel` where the model is read: `die` is given that very defect.
   test("by makeModel, ends the run at once, with one defect, in render, and the handler gets nothing", async () => {
     const thrown = new Error("A model that cannot be made")
     const fragile = {
@@ -366,10 +365,38 @@ describe("what a draw after a handler throws", () => {
         return counter.makeModel(state)
       }
     }
-    const { exit, errors, fiber } = await ending(counterView, fragile)
-    await Effect.runPromise(Fiber.interrupt(fiber))
+    const { exit, errors } = await ending(counterView, fragile)
     expect(errors).toEqual([])
     expect(sites(exit)).toEqual(["render"])
+  })
+
+  // The tree it drew last stays on screen: its handlers still call the bridge's dispatch, which asks for a draw.
+  test("by the view, stops the bridge, which draws nothing more when a button on screen is clicked", async () => {
+    const drawnWith: Array<number> = []
+    await ending((model, dispatch) => {
+      drawnWith.push(model.count)
+      if (model.count === 1) throw new Error("A view that cannot draw")
+      return counterView(model, dispatch)
+    })
+    button("+").click()
+    await drawn()
+    expect(drawnWith).toEqual([0, 1])
+  })
+})
+
+describe("what the first draw throws", () => {
+  // Drawn by the call that starts the bridge, which nothing of the run calls: the run dies of it all the same.
+  test("by the view, ends the run, in render, and drawInto throws nothing", () => {
+    document.body.innerHTML = "<div id=\"app\"></div>"
+    const app = start(counter)
+    const draw = () =>
+      drawInto<CounterModel, CounterMessage>(element("#app"), () => {
+        throw new Error("A view that cannot draw")
+      })(app)
+    expect(draw).not.toThrow()
+    const fiber = forked(app.run)
+    settle()
+    expect(sites(fiber.pollUnsafe())).toEqual(["render"])
   })
 })
 
@@ -383,13 +410,13 @@ describe("an element the bridge no longer gives its value back to", () => {
   })
 
   test("drawn in the same place without a value, keeps what is typed into it through later draws", async () => {
-    mount(renderInto, (model: Shown, dispatch: Dispatch<"Released" | "Removed">) =>
+    mount(drawInto, (model: Shown, dispatch: Dispatch<"Released" | "Removed">) =>
       h("main", [
         model.controlled ? h("input", { props: { value: model.text } }) : h("input"),
         h("button", { on: { click: () => dispatch("Released") } }, "Release"),
         h("button", { on: { click: () => dispatch("Removed") } }, "Change"),
         h("output", model.text)
-      ]), (render) => run(shown, render))
+      ]), start(shown))
     settle()
     const input = element<HTMLInputElement>("input")
     button("Release").click()
@@ -404,7 +431,7 @@ describe("an element the bridge no longer gives its value back to", () => {
 
   // The style module keeps an element a patch removes on screen until its `remove` styles are done.
   test("removed, though the style module keeps it on screen as it fades, is left as it is through later draws", async () => {
-    mount(renderInto, (model: Shown, dispatch: Dispatch<"Released" | "Removed">) =>
+    mount(drawInto, (model: Shown, dispatch: Dispatch<"Released" | "Removed">) =>
       h("main", [
         ...(model.controlled
           ? [h("input", {
@@ -415,7 +442,7 @@ describe("an element the bridge no longer gives its value back to", () => {
         h("button", { on: { click: () => dispatch("Released") } }, "Release"),
         h("button", { on: { click: () => dispatch("Removed") } }, "Change"),
         h("output", model.text)
-      ]), (render) => run(shown, render))
+      ]), start(shown))
     settle()
     const input = element<HTMLInputElement>("input")
     button("Release").click()
@@ -434,7 +461,7 @@ describe("the buttons of the timer", () => {
   const oneMinute = { ...timer, init: { state: { minutes: 1, phase: Phase.Setting() } } }
 
   test("only the \"−\" of one minute is disabled, through a start and a reset", async () => {
-    mount(renderInto, timerView, (render) => run(oneMinute, render).pipe(Effect.provideService(Bell, quiet)))
+    mount(drawInto, timerView, start(oneMinute), Effect.provideService(Bell, quiet))
     settle()
     expect(button("−").disabled).toBe(true)
     button("Start").click()
@@ -461,11 +488,12 @@ describe("the counts of the stocktake", () => {
       load: () => Effect.succeed(items),
       submit: () => Effect.andThen(Deferred.await(gate), Effect.fail(new ServerError({ message: "refused" })))
     })
-    mount(renderInto, stocktakeView, (render) =>
-      run(stocktake, render, { flags: { aisle: "A3" } }).pipe(
-        Effect.provideService(Server, refusing),
-        Effect.provideService(Scanner, unplugged)
-      ))
+    mount(
+      drawInto,
+      stocktakeView,
+      start(stocktake, { flags: { aisle: "A3" } }),
+      (run) => run.pipe(Effect.provideService(Server, refusing), Effect.provideService(Scanner, unplugged))
+    )
     settle()
     await drawn()
     type(element<HTMLInputElement>("input.count"), "12")

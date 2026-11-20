@@ -1,6 +1,6 @@
 // What a write into an input costs as `main` stores it (`{ _tag: 'Written', value }`), for each kind of value: by the
 // bare rule, through the composed program's `update` as the engine calls it, and, for some cases, through the dispatch
-// `run` gives its renderer, which applies the write before it returns, with the model of the new state read after it,
+// of the program `start` gives, which applies the write before it returns, with the model of the new state read after it,
 // as a renderer's listener reads it: what a handler pays for a key, but the draw. A draw is not measured: it needs a DOM
 // and a renderer, which no file of `tools/` imports (`AGENTS.md`). Run by hand, on Bun or on Node; not part of
 // `bun run test`.
@@ -16,7 +16,7 @@ import * as Effect from "effect/Effect"
 import * as Num from "effect/Number"
 import * as Optic from "effect/Optic"
 import * as Opt from "effect/Option"
-import { type Program, program, reject, run, type Transition, type Update, type Written } from "../../src/index.ts"
+import { type Program, program, reject, start, type Transition, type Update, type Written } from "../../src/index.ts"
 import { written } from "../../src/input.ts"
 import { main } from "../cli.ts"
 
@@ -187,22 +187,18 @@ const alternated = Effect.fnUntraced(function*(rounds: number, samplers: Readonl
   return all
 })
 
-// One write at a time, through the run's dispatch, which applies it before it returns, then the model of the state it
-// made: the effects of each step are left to the run's fiber of effects.
+// One write at a time, through the dispatch of a program started, which applies it before it returns, then the model
+// of the state it made: a write has no effects, so the program is not run.
 const throughRun = (subject: Subject) =>
-  Effect.gen(function*() {
+  Effect.sync(() => {
     const messages = subject.messages().composed
-    let elapsed = 0
-    yield* run(subject.program, (app) =>
-      Effect.sync(() => {
-        const start = performance.now()
-        for (const message of messages) {
-          app.dispatch(message)
-          void app.model()
-        }
-        elapsed = performance.now() - start
-      }))
-    return (elapsed * 1e6) / messages.length
+    const app = start(subject.program)
+    const begun = performance.now()
+    for (const message of messages) {
+      app.dispatch(message)
+      void app.model()
+    }
+    return ((performance.now() - begun) * 1e6) / messages.length
   })
 
 const summary = (samples: ReadonlyArray<number>) => {
@@ -216,7 +212,7 @@ const summary = (samples: ReadonlyArray<number>) => {
 type Sizes = Readonly<{ writes: number; rounds: number; values: Values }>
 
 const writesSection = Effect.fnUntraced(function*({ rounds, values, writes }: Sizes) {
-  yield* Console.log("\n| case | bare rule | compose `update` | `run`'s dispatch, and the model |")
+  yield* Console.log("\n| case | bare rule | compose `update` | `start`'s dispatch, and the model |")
   yield* Console.log("| --- | --- | --- | --- |")
   for (const each of cases) {
     const subject = subjectOf(each, values)

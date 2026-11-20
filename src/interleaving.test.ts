@@ -21,7 +21,7 @@ import { type Dispatch, forwardTo } from "./dispatch.ts"
 import type { Applied, Ignored } from "./engine.ts"
 import type * as Input from "./input.ts"
 import type { Program } from "./program.ts"
-import { type App, run } from "./run.ts"
+import { start } from "./run.ts"
 import type { Subscription } from "./subscription.ts"
 import { reject } from "./update.ts"
 
@@ -36,13 +36,15 @@ import { reject } from "./update.ts"
 // swap turns into the other's place, the text kept. The user types into the element of that field, which shows what the
 // current model holds, as a controlled element does, or writes from a model read before, as its element would have;
 // clearing empties the field, and while it holds a text the list searches for it, under a key of that text. The
-// renderer is told of each new state, reads the model or not, as the fates say, and now and then sends a poke from
-// inside the step that told it. What the user does, when commands complete, when ticks arrive and when releases end is
-// all in the hands of the scheduler of the tests (`test/scheduled.test_scheduler.ts`), which may also make any fiber
-// yield between two of its steps; what is drawn beside it (`Fates`) says which subscriptions end or die, which releases
-// take time or die, which commands die, which steps `onApplied` and `onIgnored` die in, and whether the renderer, which
-// acquires something too, dies, and takes time to release what it holds. To die is to die of a defect, or to interrupt
-// oneself, which the run takes for one.
+// program is started by plain code, and the user may act before its run begins. The renderer is plain code too: a
+// listener of the handle, told of each new state, which reads the model or not, as the fates say, and now and then
+// sends a poke from inside the step that told it. What the user does, when the run begins, when commands complete,
+// when ticks arrive and when releases end is all in the hands of the scheduler of the tests
+// (`test/scheduled.test_scheduler.ts`), which may also make any fiber yield between two of its steps; what is drawn
+// beside it (`Fates`) says which subscriptions end or die, which releases take time or die, which commands die, which
+// steps `onApplied` and `onIgnored` die in, whether the renderer stops listening, and whether it dies: throwing from
+// its listener, or giving what it threw to `die`, as one that draws outside a listener does. To die is to die of a
+// defect, or, for a command or a subscription, to interrupt oneself, which the run takes for one.
 // The run runs in a span of whoever runs it, with debug logs enabled, and the program logs and opens spans of its own.
 
 type Id = 1 | 2
@@ -116,13 +118,17 @@ type Fates = Readonly<{
   hearings: ReadonlyArray<Hearing>
   ignorings: ReadonlyArray<Hearing>
   /**
-   * How many turns of the scheduler each wait of the program lasts: a tick, an answer, a release or a hearing that
-   * waits, or the renderer. So a wait that began first may end last, as a promise released in any order would.
+   * How many turns of the scheduler each wait of the program lasts: a tick, an answer or a release that waits. So a
+   * wait that began first may end last, as a promise released in any order would.
    */
   waits: ReadonlyArray<number>
-  rendererReleasesSlowly: boolean
-  /** Whether the renderer dies, when the scheduler says. */
-  rendererDies: Opt.Option<Death>
+  /**
+   * Whether the renderer dies: its listener throwing at the notice `at`, counted from 0, or giving what it threw to
+   * `die` before the act `at`, as a renderer that draws outside a listener does.
+   */
+  rendererDies: Opt.Option<Readonly<{ how: "throws" | "gives"; at: number }>>
+  /** Whether the renderer stops listening before the act `at`, as a bridge stops when it is unmounted. */
+  rendererStops: Opt.Option<number>
   /** Whether the renderer reads the model when it is told of a new state. */
   reads: ReadonlyArray<boolean>
   /** Whether the renderer, once it has read the model, sends a poke of the first row from inside the step. */
@@ -169,10 +175,18 @@ const fates: fc.Arbitrary<Fates> = fc.record({
     { minLength: 1, maxLength: 6 }
   ),
   waits: fc.array(fc.integer({ min: 1, max: 16 }), { minLength: 1, maxLength: 8 }),
-  rendererReleasesSlowly: fc.boolean(),
   rendererDies: fc.oneof(
-    { arbitrary: fc.constant(Opt.none<Death>()), weight: 12 },
-    { arbitrary: death.map(Opt.some), weight: 1 }
+    { arbitrary: fc.constant(Opt.none()), weight: 10 },
+    {
+      arbitrary: fc.record({ how: fc.constantFrom("throws", "gives"), at: fc.integer({ min: 0, max: 6 }) }).map(
+        Opt.some
+      ),
+      weight: 1
+    }
+  ),
+  rendererStops: fc.oneof(
+    { arbitrary: fc.constant(Opt.none()), weight: 8 },
+    { arbitrary: fc.integer({ min: 0, max: 8 }).map(Opt.some), weight: 1 }
   ),
   reads: fc.array(
     fc.oneof({ arbitrary: fc.constant(true), weight: 4 }, { arbitrary: fc.constant(false), weight: 1 }),
@@ -187,8 +201,8 @@ const fates: fc.Arbitrary<Fates> = fc.record({
 /** Where a fiber of the scenario dies. */
 type Where = Extract<DefectSite, "subscription" | "command" | "render" | "onApplied" | "onIgnored">
 
-/** What a holder other than a subscription is called in the events: a command by its name, or the renderer. */
-type Holder = `command ${string}` | "renderer"
+/** What a holder other than a subscription is called in the events: a command, by its name. */
+type Holder = `command ${string}`
 
 /** What happened, in the order it happened, as the program's own code, the renderer and the options saw it. */
 type Event =
@@ -203,9 +217,12 @@ type Event =
   | Readonly<{ _tag: "Took"; holder: Holder }>
   | Readonly<{ _tag: "Gave"; holder: Holder }>
   | Readonly<{ _tag: "Interrupted"; holder: Holder }>
-  // The renderer told of a new state; a model read, by the renderer as it starts or is told, or by the element as the
-  // user types into it; a poke the renderer sends from inside a step, and what the element writes.
+  // The run about to begin, in the fiber whoever runs it forked.
+  | Readonly<{ _tag: "Running" }>
+  // The renderer told of a new state, or stopped; a model read, by the renderer as it starts or is told, or by the
+  // element as the user types into it; a poke the renderer sends from inside a step, and what the element writes.
   | Readonly<{ _tag: "Noticed" }>
+  | Readonly<{ _tag: "Stopped" }>
   | Readonly<{ _tag: "Read"; model: Model; why: "notice" | "start" | "typing" }>
   | Readonly<{ _tag: "Reentering"; message: unknown }>
   | Readonly<{ _tag: "Typed"; input: Field["_tag"]; write: Input.Written<string> }>
@@ -224,6 +241,10 @@ const listener = (born: number, session: number) => `${born}.${session}`
 /** What an interruption by the program is called among the defects: the run wraps it in an error of its own. */
 const interrupted = "interrupted by the program"
 
+/** What the renderer throws: from its listener, or as it draws outside one, given to `die`. */
+const thrownByListener = "the renderer's listener"
+const thrownByDraw = "the renderer's draw"
+
 /** A death decided, by the fiber that decides it. */
 type Decision = Readonly<{ where: Where; how: Death; fiber: number }>
 
@@ -238,18 +259,12 @@ const decidedIn = (events: ReadonlyArray<Event>) => {
 
 /**
  * Dies as `how` says, as `defect`, which names what dies: at once, by joining a fiber it has interrupted, or
- * interrupted by a fiber of the program that nothing of the run interrupts first, which interrupts `victim` (by default
- * the fiber that dies). Only the run may interrupt a fiber of the run: one that the program interrupted would otherwise
- * leave a command without its answer, a subscription ended without its last message, and the run going on. It decides
- * the death alone: `endsAs` records it, where the effect the run gets ends.
+ * interrupted by a fiber of the program that nothing of the run interrupts first. Only the run may interrupt a fiber of
+ * the run: one that the program interrupted would otherwise leave a command without its answer, a subscription ended
+ * without its last message, and the run going on. It decides the death alone: `endsAs` records it, where the effect the
+ * run gets ends.
  */
-const dies = (
-  events: Array<Event>,
-  where: Where,
-  how: Death,
-  defect: string,
-  victim?: Fiber.Fiber<unknown, unknown>
-): Effect.Effect<never> => {
+const dies = (events: Array<Event>, where: Where, how: Death, defect: string): Effect.Effect<never> => {
   const now = (dying: Effect.Effect<never>) =>
     unpreempted.pipe(Effect.andThen(Effect.withFiber((fiber) => {
       decidedIn(events).set(defect, { where, how, fiber: fiber.id })
@@ -270,7 +285,7 @@ const dies = (
       return Effect.withFiber((self) =>
         Effect.forkDetach(Effect.withFiber((interrupter) => {
           decidedIn(events).set(defect, { where, how, fiber: interrupter.id })
-          return Fiber.interrupt(victim ?? self)
+          return Fiber.interrupt(self)
         })).pipe(Effect.andThen(Effect.never))
       )
   }
@@ -312,11 +327,11 @@ const spanned = (events: Array<Event>, name: string) =>
     Effect.withSpan(name)
   )
 
-/** Acquires something for `holder`, and releases it when the scope ends, after `release`. */
-const holds = (events: Array<Event>, holder: Holder, release: Effect.Effect<void> = Effect.void) =>
+/** Acquires something for `holder`, and releases it when the scope ends. */
+const holds = (events: Array<Event>, holder: Holder) =>
   Effect.acquireRelease(
     Effect.sync(() => events.push({ _tag: "Took", holder })),
-    () => release.pipe(Effect.andThen(Effect.sync(() => events.push({ _tag: "Gave", holder }))))
+    () => Effect.sync(() => events.push({ _tag: "Gave", holder }))
   )
 
 /** A point where the scheduler of the tests picks which fiber runs next, the one waiting among them. */
@@ -602,8 +617,6 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
       return model
     }
   }
-  let app: App<Model, Message> | undefined
-  let latest: Model | undefined
   const shown: Array<Model> = []
   let heard = 0
   // The options are functions: one hears at once, or throws, which is its death, there and then.
@@ -617,97 +630,88 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
     events.push({ _tag: "Died", where, how: "defect", defect: name, released: false })
     throw name
   }
-  // The dispatch of the handle, as a view's controls and `forwardTo` take one: the very same function for the run.
-  let dispatch: Dispatch<Message> | undefined
-  const read = (handle: App<Model, Message>, why: "notice" | "start" | "typing") => {
-    const model = handle.model()
+  // Started by plain code: the handle is there before the run begins, and so is its first model.
+  const app = start(counted, {
+    onApplied: (applied) => hearing({ _tag: "Applied", applied }),
+    onIgnored: (ignored) => hearing({ _tag: "Ignored", ignored })
+  })
+  const read = (why: "notice" | "start" | "typing") => {
+    const model = app.model()
     events.push({ _tag: "Read", model, why })
     shown.push(model)
     return model
   }
+  let latest = read("start")
   let notices = 0
-  // The renderer's listener: told of each new state, it reads the model or not, as the fates say, and now and then
-  // sends a message of its own, a poke of the first row, from inside the step that told it.
-  const listening = (handle: App<Model, Message>) => () => {
+  // The renderer's listener: told of each new state, it throws as the fates say, or reads the model or not, and now and
+  // then sends a message of its own, a poke of the first row, from inside the step that told it.
+  const stop = app.subscribe(() => {
     notices += 1
     events.push({ _tag: "Noticed" })
+    if (Opt.exists(fates.rendererDies, ({ how, at }) => how === "throws" && at + 1 === notices)) {
+      events.push({ _tag: "Died", where: "render", how: "defect", defect: thrownByListener, released: false })
+      throw thrownByListener
+    }
     if (!fateOf(fates.reads, notices)) return
-    const model = read(handle, "notice")
+    const model = read("notice")
     latest = model
     const first = model.rows[0]
-    if (first === undefined || !fateOf(fates.pokes, notices) || dispatch === undefined) return
+    if (first === undefined || !fateOf(fates.pokes, notices)) return
     events.push({ _tag: "Reentering", message: first.row.poke })
-    forwardTo(dispatch, "Rows", first.id)(first.row.poke)
-  }
+    forwardTo(app.dispatch, "Rows", first.id)(first.row.poke)
+  })
   // A key typed into the element of the field, which shows what the current model holds, as a controlled element
   // does: the write is that value with the key, sent from a plain callback.
-  const typing = (pick: number): Control => () =>
+  const typing = (pick: number): Control => (dispatch) =>
     Effect.sync(() => {
-      if (app === undefined || dispatch === undefined) return undefined
-      const { field } = read(app, "typing")
+      const { field } = read("typing")
       const write: Input.Written<string> = { _tag: "Written", value: typed(field.text, pick) }
       events.push({ _tag: "Typed", input: field._tag, write })
       writeInto(dispatch, field._tag, write)
       return write
     })
-  const renderer = (handle: App<Model, Message>) =>
-    holds(events, "renderer", fates.rendererReleasesSlowly ? waits(fates, 0) : Effect.void).pipe(
-      Effect.andThen(Effect.logDebug("Drawing")),
-      Effect.andThen(
-        Effect.acquireRelease(
-          Effect.sync(() => {
-            const stop = handle.subscribe(listening(handle))
-            dispatch = handle.dispatch
-            latest = read(handle, "start")
-            app = handle
-            return stop
-          }),
-          (stop) => Effect.sync(stop)
-        )
-      ),
-      Effect.andThen(Effect.withFiber((self) =>
-        Opt.match(fates.rendererDies, {
-          onNone: () => Effect.never,
-          onSome: (how) => waits(fates, 1).pipe(Effect.andThen(dies(events, "render", how, "the renderer", self)))
-        })
-      )),
-      Effect.onInterrupt(() => Effect.sync(() => events.push({ _tag: "Interrupted", holder: "renderer" }))),
-      Effect.onExit(endsAs(events, "the renderer"))
-    )
   let caller: Tracer.Span | undefined
   const fiber = yield* Effect.forkChild(
     Effect.gen(function*() {
       caller = yield* Effect.orDie(Effect.currentSpan)
-      yield* run(counted, renderer, {
-        onApplied: (applied) => hearing({ _tag: "Applied", applied }),
-        onIgnored: (ignored) => hearing({ _tag: "Ignored", ignored })
-      })
+      events.push({ _tag: "Running" })
+      return yield* app.run
     }).pipe(
       Effect.withSpan("caller"),
-      // Down to debug: what the subscriptions, the commands and the renderer log is among them.
+      // Down to debug: what the subscriptions and the commands log is among them.
       Effect.provideService(References.MinimumLogLevel, "Debug"),
       Effect.provide(Logger.layer([Logger.tracerLogger]))
     )
   )
-  // The user acts on what is drawn: before the renderer has started, or once the run has ended, an act does nothing.
-  while (latest === undefined && fiber.pollUnsafe() === undefined) yield* later(undefined)
-  for (const act of acts) {
+  // The user acts on what the renderer read last, from the first model on: before the run has begun, and after it has
+  // ended too, when a dispatch applies nothing.
+  for (const [nth, act] of acts.entries()) {
     for (let turn = 0; turn < act.pause; turn++) yield* later(undefined)
-    if (latest === undefined || dispatch === undefined || fiber.pollUnsafe() !== undefined) continue
-    const older = Opt.flatMap(act.stale, (nth) => Arr.get(shown, nth % Math.max(shown.length, 1)))
+    if (Opt.contains(fates.rendererStops, nth)) {
+      stop()
+      events.push({ _tag: "Stopped" })
+    }
+    // A draw outside a listener that throws, given to `die` by plain code, while nothing has died: the run reads what
+    // it dies of once, as it ends, and no defect recorded after is in what it ended with.
+    const gives = Opt.exists(fates.rendererDies, ({ how, at }) => how === "gives" && at === nth)
+    if (gives && fiber.pollUnsafe() === undefined && !events.some(({ _tag }) => _tag === "Died")) {
+      events.push({ _tag: "Died", where: "render", how: "defect", defect: thrownByDraw, released: false })
+      app.die(thrownByDraw)
+    }
+    const older = Opt.flatMap(act.stale, (index) => Arr.get(shown, index % Math.max(shown.length, 1)))
     const control = Opt.isSome(older)
       ? Opt.some(staleWrite(older.value, act.pick))
       : controlFor(latest, act, typing(act.pick))
     if (Opt.isNone(control)) continue
     for (const _ of act.twice ? [1, 2] : [1]) {
       events.push({ _tag: "Sending" })
-      const message = yield* control.value(dispatch)
+      const message = yield* control.value(app.dispatch)
       events.push({ _tag: "Returned", message })
     }
   }
   yield* idle
   const settled = events.length
-  const last = app === undefined || fiber.pollUnsafe() !== undefined ? undefined : app.model()
+  const last = fiber.pollUnsafe() !== undefined ? undefined : app.model()
   yield* Fiber.interrupt(fiber)
   const exit = yield* Fiber.await(fiber)
   return { exit, events, settled, last, made, stateOf, caller }
@@ -897,7 +901,12 @@ describe("interleavings of the user, commands and subscriptions", () => {
           reached.add("a message applied while a release is under way")
         }
       })
-      for (const event of events) if (event._tag === "Died") reached.add(`${event.where} ${event.how}`)
+      for (const event of events) {
+        if (event._tag !== "Died") continue
+        reached.add(`${event.where} ${event.how}`)
+        if (event.defect === thrownByListener) reached.add("a defect a listener throws")
+        if (event.defect === thrownByDraw) reached.add("a defect given to die")
+      }
       if (events.some(({ _tag }) => _tag === "Ignored")) reached.add("rejected")
       const typed = new Set(events.flatMap((event) => event._tag === "Typed" ? [event.write] : []))
       for (const event of events) {
@@ -906,11 +915,14 @@ describe("interleavings of the user, commands and subscriptions", () => {
         if (isWrite(message) && !typed.has(message.message)) reached.add("a write to a place that is gone")
       }
       if (events.some(({ _tag }) => _tag === "SearchStopped")) reached.add("a search stopped")
-      const renderer = events.flatMap((event, index) =>
-        event._tag === "Interrupted" && event.holder === "renderer" ? [index] : []
-      )
-      if (renderer.length > 0 && given(events.slice(renderer[0])).has("renderer")) {
-        reached.add("a renderer released once interrupted")
+      const stopped = events.findIndex(({ _tag }) => _tag === "Stopped")
+      const newState = (event: Event) => event._tag === "Applied" && event.applied.before !== event.applied.after
+      if (stopped !== -1 && events.slice(stopped, firstDeath(events)).some(newState)) {
+        reached.add("a new state once the renderer stopped")
+      }
+      const running = events.findIndex(({ _tag }) => _tag === "Running")
+      if (events.slice(0, running === -1 ? events.length : running).some(({ _tag }) => _tag === "Applied")) {
+        reached.add("a message applied before the run began")
       }
       const states = 1 + applied(events).filter(({ before, after }) => before !== after).length
       if (models < states) reached.add("a state whose model was never read")
@@ -920,7 +932,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
         reached.add("a model read twice for one state")
       }
     }, { numRuns: 2000, seed })
-    const places: ReadonlyArray<Where> = ["command", "subscription", "render"]
+    const places: ReadonlyArray<Where> = ["command", "subscription"]
     const missing = [
       "Add",
       "Clear",
@@ -938,6 +950,8 @@ describe("interleavings of the user, commands and subscriptions", () => {
       ...places.flatMap((where) =>
         (["defect", "interrupts", "joins", "isInterrupted"] as const).map((how) => `${where} ${how}`)
       ),
+      "a defect a listener throws",
+      "a defect given to die",
       "onApplied defect",
       "onIgnored defect",
       "rejected",
@@ -948,7 +962,8 @@ describe("interleavings of the user, commands and subscriptions", () => {
       "two waiting releases",
       "the very same state",
       "an answer after its release",
-      "a renderer released once interrupted",
+      "a new state once the renderer stopped",
+      "a message applied before the run began",
       "a state whose model was never read",
       "a model read twice for one state",
       "a span of the program",
@@ -1204,16 +1219,31 @@ describe("interleavings of the user, commands and subscriptions", () => {
     })
   }, 120_000)
 
-  test("the renderer releases what it acquired only once it has stopped, and is told nothing after", () => {
+  // `update`, the option that hears it and the listeners are one thunk: the notice of a new state comes before anything
+  // else is heard, and none comes of a rejected message, of the very same state, or once the listener is stopped.
+  test("a listener is told of each new state once, in the step that made it, and of nothing once it is stopped", () => {
     property(({ events }) => {
-      const gave = events.findIndex((event) => event._tag === "Gave" && event.holder === "renderer")
-      if (gave === -1) return
-      const before = events.slice(0, gave)
-      expect(before.some((event) =>
-        (event._tag === "Interrupted" && event.holder === "renderer") ||
-        (event._tag === "Died" && event.where === "render")
-      )).toBe(true)
-      expect(events.slice(gave).filter(({ _tag }) => _tag === "Noticed")).toEqual([])
+      const broken: Array<string> = []
+      let owed = false
+      let listening = true
+      events.slice(0, firstDeath(events)).forEach((event, index) => {
+        switch (event._tag) {
+          case "Stopped":
+            listening = false
+            return
+          case "Noticed":
+            if (!owed) broken.push(`a notice of nothing new at ${index}`)
+            owed = false
+            return
+          case "Updated":
+          case "Applied":
+          case "Ignored":
+            if (owed) broken.push(`a new state before ${index} that no notice followed`)
+            owed = listening && event._tag === "Applied" && event.applied.before !== event.applied.after
+        }
+      })
+      if (owed && firstDeath(events) === events.length) broken.push("a last new state that no notice followed")
+      expect(broken).toEqual([])
     })
   }, 120_000)
 
@@ -1227,7 +1257,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
     })
   }, 120_000)
 
-  test("once the run has ended, the subscriptions, the commands and the renderer have released all", () => {
+  test("once the run has ended, the subscriptions and the commands have released all", () => {
     property(({ events }) => {
       const acquired = events.flatMap((event) => event._tag === "Acquired" ? [event.listener] : [])
       const done = released(events, events.length)

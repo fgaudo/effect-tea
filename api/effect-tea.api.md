@@ -554,9 +554,6 @@ type Routed<Message> = Message extends Readonly<{
 }> ? [Exclude<keyof Message, "_tag" | "message" | "id">] extends [never] ? Message : never : never;
 
 // @public
-export const run: <State, Model, Message, Command = never, RC = never, RS = never, RR = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>, render: (app: App<Model, Message>) => Effect.Effect<void, never, RR>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<void, never, Exclude<RC | RS | RR, Scope.Scope>>;
-
-// @public
 export type RunCommand<Command, Message, R = never> = (command: Command) => Execution<Message, R>;
 
 // @public

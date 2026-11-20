@@ -1,5 +1,5 @@
 // The messages of the pages are built by the test: the parent's are `{ _tag: <page>, message }`.
-import { forwardTo, run } from "@fgaudo/effect-tea"
+import { forwardTo, start } from "@fgaudo/effect-tea"
 import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
 import { applyAll, dispatchViolations, simulate } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
@@ -132,22 +132,17 @@ describe("pages", () => {
   // state, as a view asks for it each time it is drawn.
   test("a user opens About, and the Clock's dispatch is the same function every time it is asked for", async () => {
     const clockDispatches = new Set<unknown>()
-    await Effect.runPromise(
-      run(app, (handle) =>
-        Effect.gen(function*() {
-          const opened = yield* Deferred.make<void>()
-          yield* Effect.sync(() =>
-            handle.subscribe(() => {
-              const { page } = handle.model()
-              const clock = forwardTo(handle.dispatch, "Clock")
-              clockDispatches.add(clock)
-              if (page._tag === "Clock" && page.model.time !== "") clock(page.model.openAbout)
-              if (page._tag === "About" && Opt.isSome(page.model.saying)) Deferred.doneUnsafe(opened, Exit.void)
-            })
-          )
-          yield* Deferred.await(opened)
-        })).pipe(Effect.timeout("3 seconds"))
-    )
+    const handle = start(app)
+    const opened = Deferred.makeUnsafe<void>()
+    handle.subscribe(() => {
+      const { page } = handle.model()
+      const clock = forwardTo(handle.dispatch, "Clock")
+      clockDispatches.add(clock)
+      if (page._tag === "Clock" && page.model.time !== "") clock(page.model.openAbout)
+      if (page._tag === "About" && Opt.isSome(page.model.saying)) Deferred.doneUnsafe(opened, Exit.void)
+    })
+    // The run is interrupted once About shows its saying.
+    await Effect.runPromise(Effect.raceFirst(handle.run, Deferred.await(opened)).pipe(Effect.timeout("3 seconds")))
     expect(clockDispatches.size).toBe(1)
   })
 })

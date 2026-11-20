@@ -1,5 +1,5 @@
-import { run } from "@fgaudo/effect-tea"
-import { renderInto } from "@fgaudo/effect-tea/snabbdom"
+import { start } from "@fgaudo/effect-tea"
+import { drawInto } from "@fgaudo/effect-tea/snabbdom"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import { namedTimers } from "./named-timers.ts"
@@ -22,8 +22,10 @@ const bell = Bell.of({
   })
 })
 
+const app = start(namedTimers)
+drawInto(root, namedTimersView)(app)
 Effect.runFork(
-  run(namedTimers, renderInto(root, namedTimersView)).pipe(
+  app.run.pipe(
     Effect.provideService(Bell, bell),
     // The failure of a program that dies is reported; an interruption is no crash.
     Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause)))

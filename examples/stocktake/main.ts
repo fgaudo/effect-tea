@@ -1,5 +1,5 @@
-import { run } from "@fgaudo/effect-tea"
-import { renderInto } from "@fgaudo/effect-tea/snabbdom"
+import { start } from "@fgaudo/effect-tea"
+import { drawInto } from "@fgaudo/effect-tea/snabbdom"
 import * as Arr from "effect/Array"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
@@ -36,8 +36,10 @@ const scanner = Scanner.of({
   )
 })
 
+const app = start(stocktake, { flags: { aisle: "A3" } })
+drawInto(root, view)(app)
 Effect.runFork(
-  run(stocktake, renderInto(root, view), { flags: { aisle: "A3" } }).pipe(
+  app.run.pipe(
     Effect.provideService(Server, server),
     Effect.provideService(Scanner, scanner),
     // The failure of a program that dies is reported; an interruption is no crash.

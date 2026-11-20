@@ -69,7 +69,6 @@ export const Host: <State, Model, Message, Command = never, RC = never, RS = nev
 export type HostProps<State, Model, Message, Command, RC, RS, Flags> = {
     readonly program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>;
     readonly children: View<Model, Message>;
-    readonly fallback?: ReactNode;
 } & ([Flags] extends [never] ? {
     readonly options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>;
 } : {

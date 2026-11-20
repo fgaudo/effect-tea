@@ -54,7 +54,7 @@ export interface DriveOptions<State, Message, Command = unknown> extends RunOpti
   readonly patience?: Duration.Input
 }
 
-// What the renderer of `drive` keeps: the model it read last, of the current state, and what the waits wait on until
+// What `drive` keeps of the program it reads: the model it read last, of the current state, and what the waits wait on until
 // the next state is current.
 type Shown<Model, Message> = Readonly<{
   app: App<Model, Message>

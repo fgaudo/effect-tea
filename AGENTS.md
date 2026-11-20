@@ -38,15 +38,16 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 ## What belongs here
 
 - **Generic, and only Effect.** The library knows nothing of the applications that use it, nor of any
-  renderer: views are generic over their node type, and the renderer is a function given to `run`. `effect`
-  (v4) is the only dependency of `.` and `./testing`, as a peer. The bridges are the one part of the package that knows
-  a renderer, each an entry of its own (`./snabbdom`, `./snabbdom/testing`, `./react`), whose renderer is an optional
-  peer: nothing else may import them. Oxlint forbids renderer imports, and `lib` (`ES2022`, no `DOM`) rejects browser
-  APIs, everywhere but in `examples/` and `bridges/`.
+  renderer: views are generic over their node type, and a renderer is plain code over the handle that `start` gives.
+  `effect` (v4) is the only dependency of `.` and `./testing`, as a peer. The bridges are the one part of the package
+  that knows a renderer, each an entry of its own (`./snabbdom`, `./snabbdom/testing`, `./react`), whose renderer is an
+  optional peer: nothing else may import them. Oxlint forbids renderer imports, and `lib` (`ES2022`, no `DOM`) rejects
+  browser APIs, everywhere but in `examples/` and `bridges/`.
 - **An API of its own.** The API is exactly what `src/index.ts` and `src/testing/index.ts` export, and the bridges,
-  `bridges/snabbdom.ts`, `bridges/snabbdom-testing.ts` and `bridges/react.ts`; every other module is internal. It is judged on its own terms, from the library's concepts, its examples and its users in
-  general: coherent, symmetric where its tools are (what `drive` gets, `simulate` and `rehearse` are asked
-  about), and never shaped by, nor justified with, what one application happens to use.
+  `bridges/snabbdom.ts`, `bridges/snabbdom-testing.ts` and `bridges/react.ts`; every other module is internal. It is
+  judged on its own terms, from the library's concepts, its examples and its users in general: coherent, symmetric where
+  its tools are (what `drive` gets, `simulate` and `rehearse` are asked about), and never shaped by, nor justified with,
+  what one application happens to use.
 - **A type is Effect's or the library's, never half of each.** One of Effect's is an alias with a name
   (`Subscription` is a `Channel`, `Execution` an `Effect`): it is built and transformed with Effect's own
   combinators, and the library defines no function over it. One of the library's own has a shape the library
@@ -88,15 +89,15 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   for a chain of steps written in a `pipe`.
 - **Only stable APIs.** A module or function marked `@stability unstable` in Effect's declarations may change
   under the library's users: never build on one, not even as an option, and not in `examples/` or `bridges/`
-  either, since users import the bridges and copy the examples. The same holds for React's `unstable_` and `experimental_` APIs in the bridges. The
-  typecheck fails on one, in the library, the examples and the bridges (the Effect language service's
-  `unstableApiUsage`). The tools are the one exception: `tools/` is not packed and no user copies it, so a tool may
-  build on an unstable module of Effect, or on `@effect/platform-bun`, that `tsconfig.json` lists for `tools/` (an
-  `allowedUnstableApis` of its `overrides`), as `effect/cli` for its arguments and `effect/process` for the processes
-  it runs. A module is added to that list when a tool first needs it, and a tool that breaks on an upgrade of Effect
-  is fixed in the same commit (`upgrade-effect`). The files of `tools/` that stand for a user's code
-  (`tools/smoke/consumer.ts`, `tools/inference/prelude.ts`, and the programs the inference and the benchmark write
-  or measure) keep the rule, and so do the tests.
+  either, since users import the bridges and copy the examples. The same holds for React's `unstable_` and
+  `experimental_` APIs in the bridges. The typecheck fails on one, in the library, the examples and the bridges (the
+  Effect language service's `unstableApiUsage`). The tools are the one exception: `tools/` is not packed and no user
+  copies it, so a tool may build on an unstable module of Effect, or on `@effect/platform-bun`, that `tsconfig.json`
+  lists for `tools/` (an `allowedUnstableApis` of its `overrides`), as `effect/cli` for its arguments and
+  `effect/process` for the processes it runs. A module is added to that list when a tool first needs it, and a tool that
+  breaks on an upgrade of Effect is fixed in the same commit (`upgrade-effect`). The files of `tools/` that stand for a
+  user's code (`tools/smoke/consumer.ts`, `tools/inference/prelude.ts`, and the programs the inference and the benchmark
+  write or measure) keep the rule, and so do the tests.
 - **Nothing deprecated.** No module, type, function, method or option marked `@deprecated`, of any dependency,
   in the library, its tests or its examples: use what the deprecation names instead, and replace a use found in
   passing. `bun run lint` fails on one (Oxlint's type-aware `typescript/no-deprecated`).
@@ -173,8 +174,7 @@ this summary says less. What every change keeps, an example's and a document's t
   restarted automatically. Subscriptions are reconciled by key.
 - **Commands are data; only `runCommand` runs them**, and they cannot be cancelled: do not add cancellation without
   asking.
-- **Each command, each subscription and the renderer has a scope of its own**: never let them acquire into the
-  run's scope.
+- **Each command and each subscription has a scope of its own**: never let them acquire into the run's scope.
 - **A model is made only when it is read**, and no span lives as long as the run.
 - **`onApplied` and `onIgnored` are given no dispatch, and return nothing**: they are functions, not effects, so
   applying a message runs no effect of the program; they send no message and change no state, and a defect in one is
@@ -194,10 +194,10 @@ this summary says less. What every change keeps, an example's and a document's t
   dispatch), `program.ts` (the program and its types), `compose.ts` (`program`), `input.ts` (an input, and the
   rule of a write), `log.ts`, `defect.ts`; `core.ts` is what the run and the
   testing tools share as pure functions of data, and `shell.ts` what they share that has effects
-  (`docs/records/shared-core.md`); `engine.ts` is the runtime only (with `RunOptions`), and `run.ts` connects it to a
-  renderer. `testing/` holds
-  one module per testing tool (and `unexpected.ts`, the failure they share, `ledger.ts`, what `rehearse` keeps of
-  its commands and starts, as pure transitions, and `loop.ts`, the loop that does its jobs one at a time).
+  (`docs/records/shared-core.md`); `engine.ts` is the runtime only (with `RunOptions`), and `run.ts` starts a program
+  over it, with the handle a renderer reads. `testing/` holds one module per testing tool (and `unexpected.ts`, the
+  failure they share, `ledger.ts`, what `rehearse` keeps of its commands and starts, as pure transitions, and `loop.ts`,
+  the loop that does its jobs one at a time).
 - `runCommand`, missing from a program without commands, is read through `runCommandOf`, never directly: the engine
   always gets the complete set. Likewise `init`, a step or a function of the flags, is read through `startOf`: a step
   is never a function, so `typeof` tells them apart, and so does `make` for a child's handle. Both are internal. A
@@ -220,7 +220,7 @@ this summary says less. What every change keeps, an example's and a document's t
 - Comments only for what the code cannot say: a reason, an invariant the types do not show, a choice that
   would look like a mistake. Never a repetition of names or of the next line.
 - The doc comment of an export is for whoever uses the package: a note on how it is implemented is a `//` comment, or
-  the doc comment of an internal declaration (as `running` beside `run`), which neither the hover of a user nor the
+  the doc comment of an internal declaration (as `startWith` beside `start`), which neither the hover of a user nor the
   site shows. `@privateRemarks`, and a doc comment right after another, reach the declarations all the same, and
   `bun run comments` fails on both.
 - A reason is written once, where the check it explains is: another place that needs it names that place
@@ -255,7 +255,7 @@ this summary says less. What every change keeps, an example's and a document's t
   entry `./snabbdom/testing`, with `messagesSentBy`, and `snabbdom-preload.ts`, which `bun test` preloads
   (`bunfig.toml`) and the guide's "Testing" describes for a user's own tests. It serves the examples' tests too, but it
   is what a user takes, not a file of the repository's tests, so it has no `.test_<kind>`.
-- Test through behaviour: what a module gives the rest of the library (`run`, `Engine.make`, the public functions, a
+- Test through behaviour: what a module gives the rest of the library (`start`, `Engine.make`, the public functions, a
   transition of `core.ts` or of `testing/ledger.ts`), never what it keeps to itself. An export made for a test alone
   says so (`entriesOf` in `dispatch.ts`).
 - A test of the library is of one of five kinds, and a test of none of them is not added:
@@ -287,14 +287,14 @@ this summary says less. What every change keeps, an example's and a document's t
   A bug found is held by a case of one of them: a rule of a pure piece, an invariant, a contract, a boundary or a type,
   and gets a scenario of its own only where none can hold it. The examples' own tests show users how to test a program.
   So do the bridges' (`bridges/snabbdom.test.ts`, `bridges/react.test.ts`), for a bridge: the tests of
-  `renderInto` and of an input that every bridge passes, written once in `bridges/bridge.test_suite.ts` and
-  given each renderer's `Bridge`, with those of one renderer alone, in a DOM, and those of the snabbdom bridge's
-  `messagesSentBy`, without one (`bridges/snabbdom-testing.test.ts`). The smoke test (`tools/smoke/`) and the
-  benchmark (`tools/bench/`) check the package and its speed. The inference matrix (`tools/inference/`,
-  `bun run inference`) generates programs in each way they can be written, and checks with each TypeScript the package
-  supports that their types keep the three rules of "What belongs here": it runs by hand, not in the CI, after a change
-  of the types of `program.ts` or `compose.ts`. None of them is a test of the library's correctness, and they are kept
-  apart from the five.
+  how a bridge draws a program started, and of an input, that every bridge passes, written once in
+  `bridges/bridge.test_suite.ts` and given each renderer's `Bridge`, with those of one renderer alone, in a DOM, and
+  those of the snabbdom bridge's `messagesSentBy`, without one (`bridges/snabbdom-testing.test.ts`). The smoke test
+  (`tools/smoke/`) and the benchmark (`tools/bench/`) check the package and its speed. The inference matrix
+  (`tools/inference/`, `bun run inference`) generates programs in each way they can be written, and checks with each
+  TypeScript the package supports that their types keep the three rules of "What belongs here": it runs by hand, not in
+  the CI, after a change of the types of `program.ts` or `compose.ts`. None of them is a test of the library's
+  correctness, and they are kept apart from the five.
 - **Each check an invariant rests on has a mutation** in `tools/mutations/mutations.ts` that takes it out, with the
   tests that must fail under it: `bun run mutations` applies them one at a time to each of several copies of the
   repository (`.mutants/`), runs those tests alone, and fails when one passes under its mutation, or fails without it.
