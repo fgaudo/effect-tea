@@ -110,8 +110,9 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
   of the state, a view that draws and never decides, a parent that never reads a child's state to decide.
 - **Whatever a subscription depends on is in its key.** A new value left out of the key is not used while the key is
   kept (see [subscriptions](./subscriptions.md)).
-- **`update`, `makeModel` and `subscriptions` are pure, and states are never mutated.** The library reuses a child's
-  model, and its subscriptions, while the child's state is the same object.
+- **`update`, `external`, `makeModel` and `subscriptions` are pure, and states are never mutated.** A child's
+  `external` runs in its parent's `update`. The library reuses a child's model, and its subscriptions, while the
+  child's state is the same object.
 - **A function of the program never interrupts the fiber it runs in.** `init`, and `subscriptions` on the first state,
   run in the fiber of whoever runs the program. `update`, `subscriptions` and the options run where the message was
   sent: in a command's fiber, a subscription's, the renderer's, or in no fiber at all. `makeModel` runs where the model

@@ -40,7 +40,7 @@ type ProgramTypes = Readonly<{
   subscriptionServices?: unknown
   /** What it tells its parent. */
   event?: unknown
-  /** The messages its parent may send it, e.g. a back button, among its `message`s. */
+  /** The messages its parent may send it, e.g. a back button: what its `external` takes. */
   external?: unknown
   /** What it starts from, given by whoever starts it. */
   flags?: unknown
@@ -61,21 +61,20 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  *
  * `init` says where the program starts. `update` says how each message changes the state. `makeModel` says what the
  * view draws. `subscriptions` says what it listens to in each state. `runCommand` is there when the program has
- * commands. A program is made with `program`. `make` returns this type, and a function that takes a program names this
- * type.
+ * commands, and `external` when its parent may send it messages. A program is made with `program`. `make` returns this
+ * type, and a function that takes a program names this type.
  *
  * - The view is not part of it: `run` gives the renderer an `App`, `{ model, subscribe, dispatch }`.
- * - Its state is an object, and its `external` messages are among its `message`s. A program written as an object
- *   and typed `Program<…>` does not compile otherwise: with a state that is a number or a string, with a state type
- *   without fields, such as `{}`, or with an `external` message that is not among its `message`s. `make` refuses the
- *   state without fields too. It accepts the `external` message, and `child` and `childById` refuse the program it
- *   returns.
- * - `runCommand` is required exactly when the program has commands.
+ * - Its state is an object. A program written as an object and typed `Program<…>` does not compile otherwise: with a
+ *   state that is a number or a string, or with a state type without fields, such as `{}`. `make` refuses the state
+ *   without fields too.
+ * - `runCommand` is required exactly when the program has commands, and `external` exactly when it has external
+ *   messages.
  * - `run` makes the model of a state with `makeModel(state)`. A test can call `makeModel` the same way, on any state.
  * - Every program has `subscriptions`. One that `make` makes without them listens to nothing. A test calls
  *   `subscriptions(state)` as `run` does, on any state.
- * - `update`, `makeModel` and `subscriptions` are pure, and states are never mutated. The library reuses a child's
- *   model and subscriptions while the child's state is the same object.
+ * - `update`, `external`, `makeModel` and `subscriptions` are pure, and states are never mutated. The library reuses
+ *   a child's model and subscriptions while the child's state is the same object.
  *
  * @example
  * ```ts
@@ -92,30 +91,39 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * @see The guide, "Anatomy of a program", "The view is not part of it".
  * @see The guide, "Anatomy of a program", "What does not compile".
  * @see The guide, "Anatomy of a program", "`runCommand` is required exactly when the program has commands".
+ * @see The guide, "Events and external messages", "`external` is required exactly when the program names external messages".
  * @see The guide, "Anatomy of a program", "A test makes a model as `run` does".
  * @see The guide, "Anatomy of a program", "What a program listens to".
- * @see The guide, "Guarantees", "`update`, `makeModel` and `subscriptions` are pure, and states are never mutated".
+ * @see The guide, "Guarantees", "`update`, `external`, `makeModel` and `subscriptions` are pure, and states are never mutated".
  */
-export type Program<T extends ProgramTypes> =
-  & Shape<
-    Field<T, "state">,
-    Field<T, "model">,
-    Field<T, "message">,
-    Field<T, "command">,
-    Field<T, "commandServices">,
-    Field<T, "subscriptionServices">,
-    Field<T, "event">,
-    Field<T, "external">,
-    Field<T, "flags">
-  >
-  & ExternalAmong<Field<T, "message">, Field<T, "external">>
+export type Program<T extends ProgramTypes> = Shape<
+  Field<T, "state">,
+  Field<T, "model">,
+  Field<T, "message">,
+  Field<T, "command">,
+  Field<T, "commandServices">,
+  Field<T, "subscriptionServices">,
+  Field<T, "event">,
+  Field<T, "external">,
+  Field<T, "flags">
+>
 
 /**
- * A program's external messages are among its messages: one that is not would reach an `update` that does not take
- * it, with no `CompositionDefect` to say so.
+ * A program's `external`, required exactly when `External` has values: how the program answers each message its parent
+ * may send it, in every state.
+ *
+ * It returns a `Step`, never `reject`: an external message applies in every state.
+ *
+ * @example
+ * ```ts
+ * type Halting = ExternalHandler<Halted, State, never, never>
+ * // { readonly external: (message: Halted) => (state: State) => Step<State, never, never> }
+ * ```
+ *
+ * @see The guide, "Events and external messages", "A child answers its external messages in every state".
  */
-type ExternalAmong<Message, External> = [Exclude<External, Message>] extends [never] ? unknown
-  : { readonly "an external message is not among the program messages": Exclude<External, Message> }
+export type ExternalHandler<External, State, Command, Event> = [External] extends [never] ? object
+  : { readonly external: (message: External) => (state: State) => Step<State, Command, Event> }
 
 /**
  * How a program starts: its first step, or, for a program with flags, a function that makes the first step from the
@@ -176,7 +184,7 @@ type Primitive = string | number | bigint | boolean | symbol
 
 /**
  * A program's pieces, of the types given in a row: what `run` and the testing tools take. `Program<…>` gives the same
- * types by name. `External` is only in its type: no program has the property.
+ * types by name.
  *
  * @example
  * ```ts
@@ -188,19 +196,14 @@ type Primitive = string | number | bigint | boolean | symbol
 export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> =
   & ObjectState<State>
   & {
-    // A string, as Effect's own type ids: a declaration that spells the type out can always name it, where a
-    // `unique symbol` the package does not export stops it (TS4023).
-    // In a tuple: the `undefined` that an optional property adds without `exactOptionalPropertyTypes` stays out of
-    // it, and an external message that is `undefined` stays in.
-    // As a parameter: a program may be given a type that names fewer external messages than it takes, never more, so
-    // what takes any program names `never`.
-    readonly "~@fgaudo/effect-tea/Program/external"?: readonly [(external: External) => void]
     readonly init: Init<State, Command, Flags>
     readonly update: Update<State, Message, Command, Event>
     readonly subscriptions: Subscriptions<State, Message, RS, unknown>
     readonly makeModel: (state: State) => Model
   }
   & Interpreter<Command, Message, RC>
+  // A parameter: a program may be given a type that names fewer external messages than it takes, never more.
+  & ExternalHandler<External, State, Command, Event>
 
 // Only what every program has: `Shape<any, …>` would demand a `runCommand` (`[any] extends [never]` is false).
 /**
@@ -305,9 +308,9 @@ export type CommandOf<P> = Listed<FirstStepOf<P>, "commands"> | Returned<P, "com
  */
 export type FlagsOf<P> = P extends { readonly init: (flags: infer F) => any } ? F : never
 /**
- * The external messages of a program: those its parent may send it.
+ * The external messages of a program: those its parent may send it, which its `external` takes.
  *
- * It is `never` unless the program's type names an `external`.
+ * It is `never` for a program without `external`.
  *
  * @example
  * ```ts
@@ -317,11 +320,7 @@ export type FlagsOf<P> = P extends { readonly init: (flags: infer F) => any } ? 
  * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
  * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
  */
-export type ExternalOf<P> = P extends { readonly "~@fgaudo/effect-tea/Program/external"?: infer E } ? Unboxed<E>
-  : never
-// Each member of the union apart: the tuple, and the `undefined` of an optional property, which holds none. A program
-// whose type lacks the property reads it back as `unknown`, which holds none either, rather than anything.
-type Unboxed<E> = E extends readonly [(external: infer External) => void] ? External : never
+export type ExternalOf<P> = P extends { readonly external: (message: infer E) => any } ? E : never
 /**
  * The events a program's `update` returns for its parent.
  *

@@ -17,7 +17,6 @@ export type Message = Data.TaggedEnum<{
   Stopped: object
   Ticked: object
   RemoveClicked: object
-  Halted: object
 }>
 
 // Not exported, as the guide's "Model" says: a view sends only the messages its model holds, and builds none.
@@ -25,7 +24,8 @@ const Message = Data.taggedEnum<Message>()
 
 export type Event = Readonly<{ _tag: "RemoveRequested" }>
 
-export type External = Data.TaggedEnum.Value<Message, "Halted">
+/** What only its parent sends it: no view, command or subscription of its own can. */
+export type External = Readonly<{ _tag: "Halted" }>
 
 export const update: Update<State, Message, never, Event> = (message) => (state) => {
   switch (message._tag) {
@@ -41,10 +41,13 @@ export const update: Update<State, Message, never, Event> = (message) => (state)
         : defect("A tick while the stopwatch was stopped")
     case "RemoveClicked":
       return { state, events: [{ _tag: "RemoveRequested" }] }
-    case "Halted":
-      return { state: state.watch._tag === "Running" ? { ...state, watch: Watch.Stopped() } : state }
   }
 }
+
+// A halt applies in every state: a step, never `reject`.
+export const external = (_: External) => (state: State) => ({
+  state: state.watch._tag === "Running" ? { ...state, watch: Watch.Stopped() } : state
+})
 
 const ticks: Subscription<Message> = Channel.forever(
   Channel.fromEffectDrain(Effect.sleep("1 second")).pipe(
@@ -70,6 +73,7 @@ export const stopwatch = program<{
 }>().make({
   init: { state: { seconds: 0, watch: Watch.Stopped() } },
   update,
+  external,
   subscriptions: (state) => state.watch._tag === "Running" ? HashMap.make(["ticks", ticks]) : HashMap.empty(),
   makeModel: (state) => ({
     seconds: state.seconds,

@@ -32,15 +32,14 @@ export const held = Channel.unwrap(Effect.map(Effect.service(Lock), (lock) => lo
 export type KidState = Readonly<{ k: number }>
 export type KInc = Readonly<{ _tag: "KInc" }>
 export type KReset = Readonly<{ _tag: "KReset" }>
-export type KidMessage = KInc | KReset
+// What only its parent sends it, through `external`: none of its messages.
+export type KidMessage = KInc
 export type KidCommand = Readonly<{ _tag: "KSave" }>
 export type KidEvent = Readonly<{ _tag: "KDone" }>
 
 const kidPieces = {
-  update: (message: KidMessage) => (state: KidState) =>
-    message._tag === "KInc"
-      ? { state: { k: state.k + 1 }, events: [{ _tag: "KDone" } as const] }
-      : { state: { k: 0 } },
+  update: (_: KidMessage) => (state: KidState) => ({ state: { k: state.k + 1 }, events: [{ _tag: "KDone" } as const] }),
+  external: (_: KReset) => () => ({ state: { k: 0 } }),
   runCommand: () => Effect.as(Effect.service(KidDb), Opt.none()),
   subscriptions: () => HashMap.make(["kid", Channel.unwrap(Effect.map(Effect.service(KidFeed), (feed) => feed.ticks))]),
   makeModel: (state: KidState) => state.k

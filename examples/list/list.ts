@@ -47,7 +47,7 @@ export const list = make({
       case "StopAllClicked":
         return Arr.isReadonlyArrayEmpty(state.entries)
           ? reject
-          : forEach({ state }, state.entries, ({ id }) => children.Stopwatch.update(id, { _tag: "Halted" }))
+          : forEach({ state }, state.entries, ({ id }) => children.Stopwatch.external(id, { _tag: "Halted" }))
     }
   },
   onEvent: {

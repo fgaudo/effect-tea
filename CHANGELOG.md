@@ -75,16 +75,19 @@ version, and everything else, features included, the patch version.
   Upgrade: `isRejected(result)` becomes `result === reject`, `subscriptionsOf(app)(state)` becomes
   `app.subscriptions(state)`, `onEvent: { Products: raise }` becomes `onEvent: { Products: (event) => (state) => ({
   state, events: [event] }) }`, and a bridge declares its own `View`, as `bridges/snabbdom.ts` does.
-- **Breaking**: these no longer compile: a parent's `external` that names, or can take, a message its child keeps to
-  itself; a parent's own command whose answer is a message for a child, external or not; a parent's own message or
-  command whose tag can take a child's name, as a `string` tag does; a state whose type has no fields, such as `{}`, or
-  that is a type parameter in `make`; a child with commands and no `runCommand`; a `Program<…>` that names more
-  `external` messages than it takes, or ones that are not among its messages; a program written as an object, or the
-  pieces given to `simulate`, without `subscriptions`.
-  Upgrade: send a child only its external messages, through its handle, from `update` or `onEvent`, and answer a
-  parent's own command with its own message; tag own messages with literals; write
-  `state: object` where it was `state: {}`; give the child its `runCommand`; write `subscriptions: () =>
-  HashMap.empty()` in a program written as an object that listens to nothing.
+- **Breaking**: a program answers its `external` messages in a function `external`, apart from `update`, which never
+  rejects; they are no longer among its messages, and a handle's `update` is `external` ("Events and external messages").
+  Upgrade: `children.Page.update(message)` becomes `children.Page.external(message)`, and an external message leaves
+  `message`: its case moves from `update` to `external: (message) => (state) => step`, which `Program<{ …; external }>`
+  asks for.
+- **Breaking**: these no longer compile: a parent's own command whose answer is a message for a child; a parent's own
+  message or command whose tag can take a child's name, as a `string` tag does; a state whose type has no fields, such
+  as `{}`, or that is a type parameter in `make`; a child with commands and no `runCommand`; a `Program<…>` that names
+  more `external` messages than it takes; a program written as an object, or the pieces given to `simulate`, without
+  `subscriptions`.
+  Upgrade: answer a parent's own command with its own message; tag own messages with literals; write `state: object`
+  where it was `state: {}`; give the child its `runCommand`; write `subscriptions: () => HashMap.empty()` in a program
+  written as an object that listens to nothing.
 - **Breaking**: `dispatchViolations` is called once, and reports as `Missing` only a candidate whose step would do
   something, so `withheld` is gone.
   Upgrade: `dispatchViolations(update, { repeatable, withheld })(state, sent, candidates)` becomes

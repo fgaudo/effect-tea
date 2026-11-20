@@ -77,21 +77,15 @@ type PlacementById<ParentState, Id, ChildState> =
     set?: never
   }>
 
-// A child's external messages are among its messages: one that is not would reach an `update` that does not take it.
-// Its own key, not that of `ExternalAmong`: `make` does not check them, so a program it makes with a wrong `external`
-// carries the marker of `Program`, which would satisfy a check asking for the same one.
-type ExternalTaken<P> = [Exclude<ExternalOf<P>, MessageOf<P>>] extends [never] ? unknown
-  : Readonly<{ "a child's external messages are not among its messages": Exclude<ExternalOf<P>, MessageOf<P>> }>
-
 // A child that runs commands has a `runCommand`; `Interpreter` is `object` for one that runs none, and `unknown` is
 // needed here instead: see `CheckedChild`.
 type CommandsRun<P> = [CommandOf<P>] extends [never] ? unknown : Interpreter<CommandOf<P>, unknown, unknown>
 
-// The child's program, with what it lacks for the checks above. Inferred from `P & …`, `P` would be the program less
-// the members TypeScript matches with the checks, which loses the name `Program<…>` in a consumer's declarations:
-// inferred from `P` alone, it keeps it, and the intersection is written only where a check fails. Without it, the
+// The child's program, with what it lacks for the check above. Inferred from `P & …`, `P` would be the program less
+// the members TypeScript matches with the check, which loses the name `Program<…>` in a consumer's declarations:
+// inferred from `P` alone, it keeps it, and the intersection is written only where the check fails. Without it, the
 // declarations of the smoke test's consumer spell out four programs, not one.
-type CheckedChild<P> = unknown extends CommandsRun<P> & ExternalTaken<P> ? P : P & CommandsRun<P> & ExternalTaken<P>
+type CheckedChild<P> = unknown extends CommandsRun<P> ? P : P & CommandsRun<P>
 
 /**
  * A child alone in its parent's state: what `child` returns, for `children` in `make`.
@@ -319,40 +313,39 @@ type Start<P, Command> = Readonly<{
 /**
  * What a parent does with its children, by name: `children` in `init`, `update` and `onEvent`.
  *
- * For each child, `init` starts it, from its flags when it has them, and `update` sends it an external message. For
- * children by id, both take the id first.
+ * For each child, `init` starts it, from its flags when it has them, and `external` sends it an external message,
+ * which the child's own `external` answers. For children by id, both take the id first.
  *
  * - `init` gives the child's state and its commands, lifted. Use both: the child's own `init.state` leaves its commands
  *   behind.
- * - `update` takes only a message that the child's type declares as `external`. The child answers in every state, with
- *   its state or with an event.
- * - A rejection of an external message is a defect, a `CompositionDefect`. So is an external message to a child that
- *   is not there.
+ * - `external` takes only a message that the child's `external` takes. The child answers in every state, with its
+ *   state or with an event.
+ * - An external message to a child that is not there is a defect, a `CompositionDefect`.
  * - A child's view sends the child's own messages through its own dispatch, `forwardTo(dispatch, 'Clock')`.
  *
  * @example
  * ```ts
- * update: (_: BackPressed, children) => children.Page.update({ _tag: 'BackPressed' }),
+ * update: (_: BackPressed, children) => children.Page.external({ _tag: 'BackPressed' }),
  * ```
  *
  * @see The guide, "Composition", "How a child starts".
  * @see The guide, "Composition", "A child with `flags`".
  * @see The guide, "Events and external messages", "A parent sends an external message".
- * @see The guide, "Events and external messages", "The child answers in every state".
- * @see The guide, "Events and external messages", "A rejection of an external message is a defect".
+ * @see The guide, "Events and external messages", "A child answers its external messages in every state".
+ * @see The guide, "Events and external messages", "An external message to a child that is not there is a defect".
  * @see The guide, "Composition", "A child's view gets a dispatch of its own".
  */
 type Handles<State, C, Command, Event> = {
   readonly [K in keyof C & string]: C[K] extends ChildByIdOf<infer Id, infer P> ? Readonly<{
       /** Sends the child at `id` an external message: the parent's step, as a function of its state. */
-      update: (id: Id, message: ExternalOf<P>) => (state: State) => Step<State, Command, Event>
+      external: (id: Id, message: ExternalOf<P>) => (state: State) => Step<State, Command, Event>
       /** Starts the child at `id`, from its flags when it has them. */
       init: [FlagsOf<P>] extends [never] ? (id: Id) => Start<P, Command>
         : (id: Id, flags: FlagsOf<P>) => Start<P, Command>
     }>
     : Readonly<{
       /** Sends the child an external message: the parent's step, as a function of its state. */
-      update: (message: ExternalOf<ProgramOf<C[K]>>) => (state: State) => Step<State, Command, Event>
+      external: (message: ExternalOf<ProgramOf<C[K]>>) => (state: State) => Step<State, Command, Event>
       /** Starts the child, from its flags when it has them. */
       init: [FlagsOf<ProgramOf<C[K]>>] extends [never] ? Start<ProgramOf<C[K]>, Command>
         : (flags: FlagsOf<ProgramOf<C[K]>>) => Start<ProgramOf<C[K]>, Command>
@@ -434,6 +427,29 @@ type UpdateOf<State, C, Own, Command, Event> = [Own] extends [never] ? Readonly<
     ) => (state: State) => Transition<State, Command, Event>
   }>
 
+/**
+ * `external` is required exactly when the program names external messages, and refused when it names none: what its
+ * parent sends it is answered in every state.
+ */
+type ExternalHandlerOf<State, C, External, Command, Event> = [External] extends [never] ? Readonly<{ external?: never }>
+  : Readonly<{
+    /**
+     * What each external message does, given the program's children: the step, as a function of the state.
+     *
+     * It is required exactly when the program names external messages, in `program`. It returns a step, never
+     * `reject`: the program answers in every state, with its state or with an event. A parent passes an external
+     * message on to a child here, with `children.<child>.external`.
+     *
+     * @see The guide, "Events and external messages", "A child answers its external messages in every state".
+     * @see The guide, "Events and external messages", "A parent passes an external message on".
+     * @see The guide, "Events and external messages", "`external` is required exactly when the program names external messages".
+     */
+    external: (
+      message: External,
+      children: Handles<State, C, Command, Event>
+    ) => (state: State) => Step<State, Command, Event>
+  }>
+
 /** `runCommand` is required exactly when the parent has commands of its own, so that none goes uninterpreted. */
 type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never] ? Readonly<{ runCommand?: never }>
   : Readonly<{
@@ -441,8 +457,8 @@ type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never] ? Rea
      * Runs one of the parent's own commands.
      *
      * - It is required exactly when the parent has commands of its own.
-     * - It answers with a message of the parent's own. To tell a child something, the parent's `update` or `onEvent`
-     *   sends it an external message.
+     * - It answers with a message of the parent's own. To tell a child something, the parent's `update`, `external`
+     *   or `onEvent` sends it an external message.
      *
      * @see The guide, "Composition", "`runCommand`".
      */
@@ -474,12 +490,13 @@ type NoClash<Own, OwnCommand, C, Of extends string> =
 type NoShared<C, I> = [keyof C & keyof I] extends [never] ? unknown
   : Readonly<{ "an input takes the name of a child": keyof C & keyof I }>
 
-type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> =
+type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, External, Flags> =
   & OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event>
-  // A command's answer is an own message, as a subscription's is: a parent talks to a child only from its `update` and
-  // `onEvent`, through the handles, where a rejection is a defect. So no answer writes into an input either.
+  // A command's answer is an own message, as a subscription's is: a parent talks to a child only through the handles.
+  // So no answer writes into an input either.
   & RunCommandOf<OwnCommand, Own, Ran>
   & UpdateOf<State, C, Own, OwnCommand | ChildCommands<C>, Event>
+  & ExternalHandlerOf<State, C, External, OwnCommand | ChildCommands<C>, Event>
   & NoClash<Own, OwnCommand, C, "a child">
   & NoClash<Own, OwnCommand, I, "an input">
   & NoShared<C, I>
@@ -556,6 +573,9 @@ type Lifted = ReadonlyArray<readonly [unknown, Subscription<unknown, unknown>]>
  */
 type Kept = { call: number; met: number; readonly places: Array<readonly [Place, Lifted]> }
 
+/** A child's `external`, as the routing reads it. */
+type Answer = (message: unknown) => (state: unknown) => Step<unknown, unknown, unknown>
+
 type UntypedChild = Readonly<{
   kind: "one" | "byId"
   program: AnyProgram
@@ -578,7 +598,7 @@ const make = <
   External,
   Flags
 >(
-  config: Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags>
+  config: Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, External, Flags>
 ): Shape<
   State,
   Model,
@@ -638,24 +658,31 @@ const make = <
     }
     return isById(place.name) ? handle(place.id, event, handles) : handle(event, handles)
   }
+  // A child's events are handled in order, each by the state its predecessors left. An unchanged child leaves its
+  // parent's state as it is, so that the very same state makes no new model.
+  const liftAt = (
+    place: Place,
+    state: State,
+    childState: unknown,
+    result: Step<unknown, unknown, unknown>
+  ): Step<State, Command, Event> => {
+    const lifted: Folded<State, Command, Event> = {
+      state: result.state === childState ? state : setAt(place, state, result.state),
+      commands: Arr.map(result.commands ?? [], wrapCommand(place)),
+      events: []
+    }
+    return Arr.reduce(
+      result.events ?? [],
+      lifted,
+      (acc, event) => appendStep(acc, onEventAt(place, event)(acc.state))
+    )
+  }
   const updateAt = (place: Place, message: unknown) => (state: State): Transition<State, Command, Event> =>
     Opt.match(getAt(place, state), {
       onNone: () => reject,
       onSome: (childState) => {
         const result = childOf(place.name).program.update(message)(childState) as Transition<unknown, unknown, unknown>
-        if (result === reject) return reject
-        // A child's events are handled in order, each by the state its predecessors left. An unchanged child
-        // leaves its parent's state as it is, so that the very same state makes no new model.
-        const lifted: Folded<State, Command, Event> = {
-          state: result.state === childState ? state : setAt(place, state, result.state),
-          commands: Arr.map(result.commands ?? [], wrapCommand(place)),
-          events: []
-        }
-        return Arr.reduce(
-          result.events ?? [],
-          lifted,
-          (acc, event) => appendStep(acc, onEventAt(place, event)(acc.state))
-        )
+        return result === reject ? reject : liftAt(place, state, childState, result)
       }
     })
   const startAt = (place: Place, flags: unknown) => {
@@ -664,26 +691,28 @@ const make = <
   }
   const hasFlags = (name: string) => typeof childOf(name).program.init === "function"
   const tell = (place: Place, message: unknown) => (state: State): Step<State, Command, Event> => {
-    if (Opt.isNone(getAt(place, state))) {
+    const childState = getAt(place, state)
+    if (Opt.isNone(childState)) {
       const on = describeByTag(message)
       throw defectAt(place, `The external message ${String(on)} to "${place.name}", which is not in this state`, on)
     }
-    const result = updateAt(place, message)(state)
-    if (result === reject) {
+    // Unreachable through the types: a handle takes what the child's `external` takes, `never` for a child without.
+    const answer = (childOf(place.name).program as Readonly<{ external?: Answer }>).external
+    if (answer === undefined) {
       const on = describeByTag(message)
-      throw defectAt(place, `"${place.name}" rejected the external message ${String(on)}, which it takes`, on)
+      throw defectAt(place, `The external message ${String(on)} to "${place.name}", which has no external`, on)
     }
-    return result
+    return liftAt(place, state, childState.value, answer(message)(childState.value))
   }
   // Built once: a child's update calls `onEvent`, which may call any child's handle.
   const handles = mapOwn(programs, (child, name) =>
     child.kind === "byId"
       ? {
-        update: (id: unknown, message: unknown) => tell({ name, id }, message),
+        external: (id: unknown, message: unknown) => tell({ name, id }, message),
         init: (id: unknown, flags: unknown) => startAt({ name, id }, flags)
       }
       : {
-        update: (message: unknown) => tell({ name, id: undefined }, message),
+        external: (message: unknown) => tell({ name, id: undefined }, message),
         init: hasFlags(name)
           ? (flags: unknown) => startAt({ name, id: undefined }, flags)
           : startAt({ name, id: undefined }, undefined)
@@ -765,6 +794,11 @@ const make = <
   const ownRunCommand = (
     config as Readonly<{ runCommand?: (command: OwnCommand) => Execution<Own, unknown> }>
   ).runCommand
+  const ownExternal = (
+    config as Readonly<{
+      external?: (message: External, children: typeof handles) => (state: State) => Step<State, Command, Event>
+    }>
+  ).external
   const program = {
     // Without children, `init` is the program's own, as `Program` writes it: a step is never a function, but a
     // function of the flags and one of the children cannot be told apart, so the children declared decide.
@@ -820,7 +854,11 @@ const make = <
         }
       )
     },
-    makeModel: (state: State): Model => config.makeModel(state, childModels)
+    makeModel: (state: State): Model => config.makeModel(state, childModels),
+    // Only where the program has external messages, as `Program` writes it.
+    ...(ownExternal === undefined ? {} : {
+      external: (message: External) => (state: State) => ownExternal(message, handles)(state)
+    })
   }
   return program as unknown as Shape<
     State,
@@ -856,7 +894,7 @@ type DeclaredTypes = Readonly<{
   command?: unknown
   /** The events it raises, if it raises any. */
   event?: unknown
-  /** Which of its messages a parent of its own may send it, if any: a part of its messages. */
+  /** The messages a parent of its own may send it, if any: what its `external` takes. */
   external?: unknown
   /** What it starts from, if it has flags. */
   flags?: unknown
@@ -881,9 +919,9 @@ type DeclaredTypes = Readonly<{
  * - a subscription under the key `[<child>, key]`.
  *
  * For children and inputs by id, each of these also carries the `id`: a key is then `[<child>, id, key]`. A message of
- * the parent's own that can take the name of a child or of an input does not compile, as one tagged `string` can, nor
- * does an external message that can take the name of an input. A key of the parent's own subscriptions that is the key of a child's subscription is a
- * defect, a `CompositionDefect`.
+ * the parent's own that can take the name of a child or of an input does not compile, as one tagged `string` can. An
+ * external message is not routed: the parent's `external` passes it on, by calling the child's handle. A key of the
+ * parent's own subscriptions that is the key of a child's subscription is a defect, a `CompositionDefect`.
  *
  * @returns `child` and `childById`, which declare a child alone and children by id, `input` and `inputById`, which
  * declare an input alone and inputs by id, and `make`, which makes the program.
@@ -916,7 +954,6 @@ type DeclaredTypes = Readonly<{
  * @see The guide, "Composition", "The parent's subscriptions".
  * @see The guide, "Composition", "What does not compile:".
  * @see The guide, "Composition", "What is a defect".
- * @see The guide, "Events and external messages", "An external message never writes into an input".
  */
 export const program = <T extends DeclaredTypes>(): ProgramMaker<T> => ({
   child: (program, place) => ({
@@ -930,32 +967,6 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> => ({
   inputById: (place) => ({ kind: "byId", ...placedById(place) }),
   make: (config) => make(config as never) as never
 })
-
-// On `make`'s config, which alone knows the children: the program's type holds all their messages, those they keep to
-// themselves too, so `ExternalAmong` in `program.ts` would let one through, and the child would get it as external.
-// Only a child's message is checked here: one that is no message at all is refused where the program is a child, as
-// for any program (`docs/rejected.md`).
-/** A parent's external messages for a child are the child's external messages, which it answers in every state. */
-type ExternalPassed<External, C> = Unpassed<
-  External extends unknown ? Unsent<External, TagsTaken<External, keyof C & string>, C> : never
->
-// An external message that a child's name may route to it, and whose `message` is not all among that child's external
-// messages: one with no `message` sends it none of them.
-type Unsent<External, Names, C> = Names extends keyof C
-  ? [External extends { readonly message: infer M } ? M : unknown] extends [ExternalOf<ProgramOf<C[Names]>>] ? never
-  : External
-  : never
-type Unpassed<Kept> = [Kept] extends [never] ? unknown
-  : Readonly<{ "an external message for a child is not among the child's": Kept }>
-
-// By the tag, not by the message: `make` routes every message tagged with an input's name to the input, so an external
-// message with that tag is a write, however its type is spelled (a union of tags, `string`).
-/**
- * An external message is answered in every state, and a write is rejected where its place is not there: no input is
- * written from outside.
- */
-type ExternalWritten<Written> = [Written] extends [never] ? unknown
-  : Readonly<{ "an external message writes into an input": Written }>
 
 // A type `T` names is checked, `never` too; one it does not name is inferred.
 type Named<T, K extends "model", Inferred> = T extends { readonly [P in K]: infer V } ? V : Inferred
@@ -1059,18 +1070,17 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * @see The guide, "Inputs the user types into", "A write into an input by id names its id".
    */
   readonly inputById: DeclareInputById<T>
-  // Its external messages are checked where it is a child (`child`, `childById`), not here (`docs/rejected.md`).
   /**
    * Makes the program from its pieces, and from the children and the inputs it declares.
    *
    * A model named in `program` is checked against `makeModel`, and a model not named is inferred from it. A parent's
-   * own `update` takes `children` too. It may reject the parent's own messages, as any `update` does. The parent's
-   * commands need the services of its `runCommand` and of its children's commands. The parent's subscriptions need the
-   * services of its own `subscriptions` and of its children's subscriptions. Nothing names these services: they are
-   * inferred.
+   * own `update` takes `children` too. It may reject the parent's own messages, as any `update` does. Its `external`
+   * takes `children` too, and never rejects. The parent's commands need the services of its `runCommand` and of its
+   * children's commands. The parent's subscriptions need the services of its own `subscriptions` and of its children's
+   * subscriptions. Nothing names these services: they are inferred.
    *
-   * @param config - Its `init` and `makeModel`, its `update`, `runCommand` and `subscriptions` where it has them, and
-   * for a parent its `children`, its `inputs` and `onEvent`.
+   * @param config - Its `init` and `makeModel`, its `update`, `external`, `runCommand` and `subscriptions` where it
+   * has them, and for a parent its `children`, its `inputs` and `onEvent`.
    * @returns The program, which runs alone or as a child of another.
    *
    * @example
@@ -1163,11 +1173,10 @@ export type MakeProgram<T extends DeclaredTypes> = <
       Ran,
       Heard,
       K,
+      Field<T, "external">,
       Field<T, "flags">
     >
     & Readonly<{ children?: C; inputs?: I }>
-    & ExternalPassed<Field<T, "external">, NoInfer<C>>
-    & ExternalWritten<TagsTaken<Field<T, "external">, keyof NoInfer<I> & string>>
     // On the config, as for a program written by hand: the program `make` returns carries the marker of `Program`,
     // which the check of `run` and of the testing tools asks for, so a state that holds a number would get past them.
     // A state that is a type parameter stays deferred here, and does not compile (`docs/rejected.md`).

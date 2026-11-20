@@ -11,13 +11,13 @@ rules where a line here says less.
 
 ## A program and its pieces
 
-| Word        | What it is                                                                                            | Defined in                                        |
-| ----------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| **Program** | A plain object: `init`, `update`, `makeModel`, `subscriptions`, and `runCommand` when it has commands | [anatomy of a program](./anatomy-of-a-program.md) |
-| **State**   | What the program knows. Always an object, replaced and never mutated                                  | [anatomy of a program](./anatomy-of-a-program.md) |
-| **Message** | What `update` is given: a click the model holds, a command's answer, what a subscription sends        | [update](./update.md)                             |
-| **Step**    | What `update` returns for a message it accepts: `{ state, commands?, events? }`                       | [update](./update.md)                             |
-| **Flags**   | What a program starts from, when it cannot start the same way every time                              | [anatomy of a program](./anatomy-of-a-program.md) |
+| Word        | What it is                                                                                                                                      | Defined in                                        |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| **Program** | A plain object: `init`, `update`, `makeModel`, `subscriptions`, `runCommand` when it has commands, and `external` when it has external messages | [anatomy of a program](./anatomy-of-a-program.md) |
+| **State**   | What the program knows. Always an object, replaced and never mutated                                                                            | [anatomy of a program](./anatomy-of-a-program.md) |
+| **Message** | What `update` is given: a click the model holds, a command's answer, what a subscription sends                                                  | [update](./update.md)                             |
+| **Step**    | What `update` returns for a message it accepts: `{ state, commands?, events? }`                                                                 | [update](./update.md)                             |
+| **Flags**   | What a program starts from, when it cannot start the same way every time                                                                        | [anatomy of a program](./anatomy-of-a-program.md) |
 
 ## What the user sees
 
@@ -66,8 +66,8 @@ rules where a line here says less.
 | **By id**                  | One child or one input for each row, as the rows of a list. `childById` and `inputById` declare them               | [composition](./composition.md#children-by-id), [inputs by id](./inputs-the-user-types-into.md#inputs-by-id) |
 | **Event**                  | What a child raises to ask its parent for something. The parent handles it in `onEvent`                            | [events and external messages](./events-and-external-messages.md)                                            |
 | **Handler** (of `onEvent`) | The function of `onEvent` for one child's events: `(event, children) => (state) => step`. Its type has no `reject` | [events and external messages](./events-and-external-messages.md)                                            |
-| **External message**       | A message of a child's that its type lets a parent send it                                                         | [events and external messages](./events-and-external-messages.md)                                            |
-| **`CompositionDefect`**    | The defect of a broken composition, such as an external message that the child rejects                             | [composition](./composition.md), [events and external messages](./events-and-external-messages.md)           |
+| **External message**       | What a parent may send a child. The child answers it in `external`, in every state                                 | [events and external messages](./events-and-external-messages.md)                                            |
+| **`CompositionDefect`**    | The defect of a broken composition, such as an external message to a child that is not there                       | [composition](./composition.md), [events and external messages](./events-and-external-messages.md)           |
 
 ## In a test
 

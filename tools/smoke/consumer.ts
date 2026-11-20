@@ -31,12 +31,11 @@ type CounterState = Readonly<{ count: number }>
 
 type Reset = Readonly<{ _tag: "Reset" }>
 
-type CounterMessage = Readonly<{ _tag: "Increment" }> | Reset
+type CounterMessage = Readonly<{ _tag: "Increment" }>
 
 type Full = Readonly<{ _tag: "Full" }>
 
-const counterUpdate: Update<CounterState, CounterMessage, never, Full> = (message) => ({ count }) => {
-  if (message._tag === "Reset") return { state: { count: 0 } }
+const counterUpdate: Update<CounterState, CounterMessage, never, Full> = () => ({ count }) => {
   if (count === 3) return reject
   return count === 2 ? { state: { count: 3 }, events: [{ _tag: "Full" }] } : { state: { count: count + 1 } }
 }
@@ -50,6 +49,7 @@ export const counter = program<{
 }>().make({
   init: { state: { count: 0 } },
   update: counterUpdate,
+  external: () => () => ({ state: { count: 0 } }),
   makeModel: (state) => state
 })
 
@@ -110,7 +110,7 @@ export const app = make({
   }),
   children,
   update: (_: ResetAll, children) => (state) =>
-    andThen(children.Main.update({ _tag: "Reset" })(state), children.Row.update(1, { _tag: "Reset" })),
+    andThen(children.Main.external({ _tag: "Reset" })(state), children.Row.external(1, { _tag: "Reset" })),
   onEvent: {
     Main: () => (state) => ({ state: { ...state, fulls: state.fulls + 1 } }),
     Row: () => (state) => ({ state: { ...state, fulls: state.fulls + 1 } })
@@ -138,11 +138,22 @@ make({
   onEvent: { Main: () => (state) => ({ state }), Row: () => (state) => ({ state }) },
   // A parent sends a child only its external messages.
   // @ts-expect-error
-  update: (_: ResetAll, children) => children.Main.update({ _tag: "Increment" }),
+  update: (_: ResetAll, children) => children.Main.external({ _tag: "Increment" }),
   makeModel: () => null
 })
 
-// A parent's own command answers with the parent's own messages, never with a child's, external or not.
+// A program with external messages and none of its own passes them on to its child, in its `external`.
+const relaying = program<{ state: CounterState; event: Full; external: Reset }>()
+
+export const relay = relaying.make({
+  init: (children) => ({ state: children.Inner.init.state }),
+  children: { Inner: relaying.child(counter, { get: Opt.some, set: (_, inner) => inner }) },
+  external: (reset: Reset, children) => children.Inner.external(reset),
+  onEvent: { Inner: (full) => (state) => ({ state, events: [full] }) },
+  makeModel: (state, children) => children.Inner(state)
+})
+
+// A parent's own command answers with the parent's own messages, never with a child's: an external message is none.
 export const loading = program<{ state: State; command: "Load"; message: ResetAll }>()
 
 loading.make({
@@ -169,7 +180,7 @@ loading.make({
   init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
   children: { Main: loading.child(counter, { at: Optic.id<State>().key("main") }) },
   onEvent: { Main: () => (state) => ({ state }) },
-  update: (_: ResetAll, children) => children.Main.update({ _tag: "Reset" }),
+  update: (_: ResetAll, children) => children.Main.external({ _tag: "Reset" }),
   runCommand: () => Effect.succeedSome<ResetAll>({ _tag: "ResetAll" }),
   makeModel: () => null
 })
@@ -199,7 +210,7 @@ export const served = loading.make({
   makeModel: () => null
 })
 
-// A copy spells its type out, the key of its external messages included.
+// A copy spells its type out.
 export const copied = { ...served, makeModel: () => 0 }
 
 type Ran = CommandServicesOf<typeof served>
@@ -244,7 +255,7 @@ program<{ state: State }>().make({
   makeModel: () => null
 })
 
-// A program's external messages are among its messages.
+// A program with external messages has an `external`, which answers them.
 // @ts-expect-error
 const deaf: Program<{ state: CounterState; model: null; message: Full; external: Reset }> = {
   init: { state: { count: 0 } },
@@ -307,7 +318,7 @@ const draft = drafting.make({
 })
 
 // A write is of the type of the value the place holds; an own message that takes an input's name does not compile, nor does a
-// command's answer that writes into an input, nor an external message that does.
+// command's answer that writes into an input.
 // @ts-expect-error
 const wrong: MessageOf<typeof draft> = { _tag: "Title", message: { _tag: "Written", value: 1 } }
 
@@ -349,10 +360,11 @@ drafting.make({
 
 type TitleWrite = Readonly<{ _tag: "Title"; message: Readonly<{ _tag: "Written"; value: string }> }>
 
-// @ts-expect-error
-program<{ state: Draft; external: TitleWrite }>().make({
+// An external message tagged like an input is no write: the program answers it in its `external`.
+export const filled = program<{ state: Draft; external: TitleWrite }>().make({
   init: { state: { title: "" } },
   inputs: { Title: drafting.input({ at: Optic.id<Draft>().key("title") }) },
+  external: (write: TitleWrite) => () => ({ state: { title: write.message.value } }),
   makeModel: () => null
 })
 

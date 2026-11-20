@@ -685,26 +685,24 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "an external message to a missing child is taken for one it rejects",
+    name: "an external message to a missing child is answered from no state",
     file: "src/compose.ts",
-    from: "    if (Opt.isNone(getAt(place, state))) {\n",
+    from: "    if (Opt.isNone(childState)) {\n",
     to: "    if (false) {\n",
     killedBy: [
-      ["src/compose.test.ts", "a child that rejects what its parent gives it, or is not there to take it, is a defect"]
-    ]
-  },
-  {
-    name: "an external message a child rejects is a rejection of the parent",
-    file: "src/compose.ts",
-    from: "    const result = updateAt(place, message)(state)\n    if (result === reject) {\n",
-    to: "    const result = updateAt(place, message)(state)\n    if (false) {\n",
-    killedBy: [
-      ["src/compose.test.ts", "a child that rejects what its parent gives it, or is not there to take it, is a defect"],
+      ["src/compose.test.ts", "a child's external never rejects, and one for a child that is not there is a defect"],
       [
         "src/compose.test.ts",
         "a CompositionDefect names the child, its id for a child by id, and the tags of what it happened on"
       ]
     ]
+  },
+  {
+    name: "an external message to a child without external dies of a TypeError",
+    file: "src/compose.ts",
+    from: "    if (answer === undefined) {\n",
+    to: "    if (false) {\n",
+    killedBy: [["src/compose.test.ts", "a child without external takes no external message from its parent"]]
   },
   {
     name: "a child's command with no runCommand dies of a TypeError",

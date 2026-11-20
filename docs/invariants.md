@@ -45,11 +45,12 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   message the state and the engine together rule out, never one that what was drawn rules out: an example
   never dies on a message of its view, nor on an event raised for one.
 - **A parent and its children talk only through external messages and events**, so that `reject` means the
-  same everywhere: a handle's `update` returns a step, never a rejection, and a child rejecting an external
-  message, or a parent giving one to a child that is not there, is a defect: a `CompositionDefect`, as every
+  same everywhere: a child answers an external message in its `external`, whose type returns a step, never a
+  rejection, and a parent giving one to a child that is not there is a defect: a `CompositionDefect`, as every
   break of what a parent declared is (`defectAt` in `compose.ts`), so that reports group them and name the child. The
   types enforce what a parent declares: `runCommand` exactly when it has commands of its own, `onEvent` exactly when a
-  child has events, a handle's `update` only with a child's `external` messages, which a handle alone sends (an own
+  child has events, `external` exactly when it names external messages, a handle's `external` only with what the
+  child's `external` takes, which reaches that `external` through a handle alone (an own
   subscription and an own command send only the parent's own messages, `RunCommandOf` in `compose.ts`), no own message
   or command named like a child. A program written without `Program<…>` has `unknown` types, read as `never` (`Known`
   in `program.ts`), so that it does not open these checks.

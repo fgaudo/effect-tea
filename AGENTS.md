@@ -61,8 +61,8 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 - **The types of a program keep three rules, and only these.** Every correct program can be written (a concrete
   one: a function over any program is an overload over erased types, "Composition" in the guide). No broken
   combination can: pieces that cannot work together, as an `update` without an `init`, and what compiles and then dies
-  by the engine's rules where the types could have prevented it, as a parent's `external` that names a message its
-  child keeps to itself; a cast takes that risk on itself. And what a program names is what its types give back,
+  by the engine's rules where the types could have prevented it, as a child that rejects an external message; a cast
+  takes that risk on itself. And what a program names is what its types give back,
   however it is written: no type widened, or narrowed to a `never` that is false. The rest is not a gap: a misspelled
   name is a name not given, a form that repeats another is allowed, and a type that is empty but true, as
   `update: (message: never) => …`, says that something does not happen. A check that only moves an error that exists
@@ -203,8 +203,8 @@ this summary says less. What every change keeps, an example's and a document's t
   program always has `subscriptions`: `make` is the one place where a config without them means listening to nothing,
   and a test reads `program.subscriptions(state)` as it reads `program.makeModel(state)`.
 - A key or symbol of the library is named `@fgaudo/effect-tea/<Type>` after the type it belongs to (`Rejected`, the
-  service `Stopped`), and `@fgaudo/effect-tea/<Type>/<part>` for a part of one (`Program/external`). A property keyed by
-  a string starts with `~`, as Effect's own type ids: `~@fgaudo/effect-tea/Program/external`.
+  service `Stopped`), and `@fgaudo/effect-tea/<Type>/<part>` for a part of one. A property keyed by a string starts
+  with `~`, as Effect's own type ids: `~@fgaudo/effect-tea/<Type>/<part>`.
 - An exported type that is an object record is written with `readonly` on each member, `{ readonly state: State }`,
   never as `Readonly<{ … }>`: TypeScript prints `Readonly<{ … }>` for one in a consumer's declarations and hovers, not
   its name. An internal type may keep the wrapper.

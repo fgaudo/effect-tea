@@ -58,9 +58,9 @@ const problemsOf = (declared: string) => {
   if (spelled !== expectedSpellings) {
     problems.push(`consumer.d.ts spells out the state ${spelled} times, not ${expectedSpellings}`)
   }
-  // A program is named `Program<…>` wherever the library holds one, as `Child<…>` does: spelled out, it shows the key
-  // of its external messages. Only `copied`, a copy, spells itself out.
-  const programs = declared.match(/~@fgaudo\/effect-tea\/Program\/external/g)?.length ?? 0
+  // A program is named `Program<…>` wherever the library holds one, as `Child<…>` does: spelled out, it shows its
+  // `makeModel`. Only `copied`, a copy, spells itself out.
+  const programs = declared.match(/\bmakeModel: /g)?.length ?? 0
   if (programs > 1) problems.push(`consumer.d.ts spells out a program ${programs} times, more than once`)
   // A program `make` returns names the types it has, not the others as `never`.
   const nevers = declared.match(/^\s+(command|commandServices|subscriptionServices|event|external|flags): never;$/gm)

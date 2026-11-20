@@ -50,7 +50,7 @@ type At<C> = C extends ChildByIdOf<infer Id, any> ? Readonly<{
 }> : unknown;
 
 // @public (undocumented)
-type CheckedChild<P> = unknown extends CommandsRun<P> & ExternalTaken<P> ? P : P & CommandsRun<P> & ExternalTaken<P>;
+type CheckedChild<P> = unknown extends CommandsRun<P> ? P : P & CommandsRun<P>;
 
 // @public
 export type Child<ParentState, P> = {
@@ -157,7 +157,7 @@ type CompositionFields = Readonly<{
 }>;
 
 // @public (undocumented)
-type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own, Ran> & UpdateOf<State, C, Own, OwnCommand | ChildCommands<C>, Event> & NoClash<Own, OwnCommand, C, "a child"> & NoClash<Own, OwnCommand, I, "an input"> & NoShared<C, I> & Readonly<{
+type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, External, Flags> = OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event> & RunCommandOf<OwnCommand, Own, Ran> & UpdateOf<State, C, Own, OwnCommand | ChildCommands<C>, Event> & ExternalHandlerOf<State, C, External, OwnCommand | ChildCommands<C>, Event> & NoClash<Own, OwnCommand, C, "a child"> & NoClash<Own, OwnCommand, I, "an input"> & NoShared<C, I> & Readonly<{
     init: [keyof C] extends [never] ? Init<State, OwnCommand, Flags> : (children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>) => Init<State, OwnCommand | ChildCommands<C>, Flags>;
     children?: C;
     inputs?: I;
@@ -208,27 +208,21 @@ export type EventOf<P> = Returned<P, "events">;
 export type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, never, R>;
 
 // @public
-type ExternalAmong<Message, External> = [Exclude<External, Message>] extends [never] ? unknown : {
-    readonly "an external message is not among the program messages": Exclude<External, Message>;
+export type ExternalHandler<External, State, Command, Event> = [External] extends [never] ? object : {
+    readonly external: (message: External) => (state: State) => Step<State, Command, Event>;
 };
 
 // @public
+type ExternalHandlerOf<State, C, External, Command, Event> = [External] extends [never] ? Readonly<{
+    external?: never;
+}> : Readonly<{
+    external: (message: External, children: Handles<State, C, Command, Event>) => (state: State) => Step<State, Command, Event>;
+}>;
+
+// @public
 export type ExternalOf<P> = P extends {
-    readonly "~@fgaudo/effect-tea/Program/external"?: infer E;
-} ? Unboxed<E> : never;
-
-// @public
-type ExternalPassed<External, C> = Unpassed<External extends unknown ? Unsent<External, TagsTaken<External, keyof C & string>, C> : never>;
-
-// @public (undocumented)
-type ExternalTaken<P> = [Exclude<ExternalOf<P>, MessageOf<P>>] extends [never] ? unknown : Readonly<{
-    "a child's external messages are not among its messages": Exclude<ExternalOf<P>, MessageOf<P>>;
-}>;
-
-// @public
-type ExternalWritten<Written> = [Written] extends [never] ? unknown : Readonly<{
-    "an external message writes into an input": Written;
-}>;
+    readonly external: (message: infer E) => any;
+} ? E : never;
 
 // @public
 export type Field<T, K extends string> = T extends {
@@ -286,10 +280,10 @@ export const forwardTo: <Message, Name extends string>(dispatch: Dispatch<Messag
 // @public
 type Handles<State, C, Command, Event> = {
     readonly [K in keyof C & string]: C[K] extends ChildByIdOf<infer Id, infer P> ? Readonly<{
-        update: (id: Id, message: ExternalOf<P>) => (state: State) => Step<State, Command, Event>;
+        external: (id: Id, message: ExternalOf<P>) => (state: State) => Step<State, Command, Event>;
         init: [FlagsOf<P>] extends [never] ? (id: Id) => Start<P, Command> : (id: Id, flags: FlagsOf<P>) => Start<P, Command>;
     }> : Readonly<{
-        update: (message: ExternalOf<ProgramOf<C[K]>>) => (state: State) => Step<State, Command, Event>;
+        external: (message: ExternalOf<ProgramOf<C[K]>>) => (state: State) => Step<State, Command, Event>;
         init: [FlagsOf<ProgramOf<C[K]>>] extends [never] ? Start<ProgramOf<C[K]>, Command> : (flags: FlagsOf<ProgramOf<C[K]>>) => Start<ProgramOf<C[K]>, Command>;
     }>;
 };
@@ -380,10 +374,10 @@ type Listed<T, Key extends "commands" | "events"> = T extends {
 } ? Items<L> : never;
 
 // @public
-export type MakeProgram<T extends DeclaredTypes> = <Model, C extends Children<Field<T, "state">> = None, I extends Inputs<Field<T, "state">> = None, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, "state">, NoInfer<C>, NoInfer<I>, Field<T, "message">, Field<T, "command">, Field<T, "event">, Named<T, "model", Model>, Ran, Heard, K, Field<T, "flags">> & Readonly<{
+export type MakeProgram<T extends DeclaredTypes> = <Model, C extends Children<Field<T, "state">> = None, I extends Inputs<Field<T, "state">> = None, Ran = never, Heard = never, K = unknown>(config: Config<Field<T, "state">, NoInfer<C>, NoInfer<I>, Field<T, "message">, Field<T, "command">, Field<T, "event">, Named<T, "model", Model>, Ran, Heard, K, Field<T, "external">, Field<T, "flags">> & Readonly<{
     children?: C;
     inputs?: I;
-}> & ExternalPassed<Field<T, "external">, NoInfer<C>> & ExternalWritten<TagsTaken<Field<T, "external">, keyof NoInfer<I> & string>> & ObjectState<Field<T, "state">>) => Program<Present<{
+}> & ObjectState<Field<T, "state">>) => Program<Present<{
     state: Field<T, "state">;
     model: Named<T, "model", Model>;
     message: Field<T, "message"> | ChildMessages<C> | InputMessages<I>;
@@ -495,7 +489,7 @@ type Present<T> = Extract<{
 type Primitive = string | number | bigint | boolean | symbol;
 
 // @public
-export type Program<T extends ProgramTypes> = Shape<Field<T, "state">, Field<T, "model">, Field<T, "message">, Field<T, "command">, Field<T, "commandServices">, Field<T, "subscriptionServices">, Field<T, "event">, Field<T, "external">, Field<T, "flags">> & ExternalAmong<Field<T, "message">, Field<T, "external">>;
+export type Program<T extends ProgramTypes> = Shape<Field<T, "state">, Field<T, "model">, Field<T, "message">, Field<T, "command">, Field<T, "commandServices">, Field<T, "subscriptionServices">, Field<T, "event">, Field<T, "external">, Field<T, "flags">>;
 
 // @public
 export const program: <T extends DeclaredTypes>() => ProgramMaker<T>;
@@ -581,12 +575,11 @@ export interface RunOptions<State, Message, Command = unknown> {
 
 // @public
 export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & {
-    readonly "~@fgaudo/effect-tea/Program/external"?: readonly [(external: External) => void];
     readonly init: Init<State, Command, Flags>;
     readonly update: Update<State, Message, Command, Event>;
     readonly subscriptions: Subscriptions<State, Message, RS, unknown>;
     readonly makeModel: (state: State) => Model;
-} & Interpreter<Command, Message, RC>;
+} & Interpreter<Command, Message, RC> & ExternalHandler<External, State, Command, Event>;
 
 // @public
 type Start<P, Command> = Readonly<{
@@ -622,19 +615,6 @@ type TagsTaken<M, Names> = 0 extends 1 & M ? Names : M extends unknown ? "_tag" 
 
 // @public
 export type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected;
-
-// @public (undocumented)
-type Unboxed<E> = E extends readonly [(external: infer External) => void] ? External : never;
-
-// @public (undocumented)
-type Unpassed<Kept> = [Kept] extends [never] ? unknown : Readonly<{
-    "an external message for a child is not among the child's": Kept;
-}>;
-
-// @public (undocumented)
-type Unsent<External, Names, C> = Names extends keyof C ? [External extends {
-    readonly message: infer M;
-} ? M : unknown] extends [ExternalOf<ProgramOf<C[Names]>>] ? never : External : never;
 
 // @public
 export type Update<State, Message, Command = never, Event = never> = (message: Message) => (state: State) => Transition<State, Command, Event>;

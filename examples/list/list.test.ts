@@ -43,15 +43,14 @@ const messagesOf = (model: Model): ReadonlyArray<Message> => [
   ...model.stopwatches.flatMap(({ id, model }) => stopwatchMessages(model).map((message) => to(id, message)))
 ]
 
-// What a user could ask of a stopwatch, a tag at a time: not the ticks, which only its clock sends, nor a halt,
-// which only the list sends it.
+// What a user could ask of a stopwatch, a tag at a time: not the ticks, which only its clock sends. A halt is no
+// message of the stopwatch: only the list sends it, through its `external`.
 const stopwatchClicks: ReadonlyArray<Stopwatch.Message> = Object.values(
   {
     Started: [{ _tag: "Started" }],
     Stopped: [{ _tag: "Stopped" }],
     RemoveClicked: [{ _tag: "RemoveClicked" }],
-    Ticked: [],
-    Halted: []
+    Ticked: []
   } satisfies { [Tag in Stopwatch.Message["_tag"]]: ReadonlyArray<Extract<Stopwatch.Message, { _tag: Tag }>> }
 ).flat()
 

@@ -80,10 +80,11 @@ The guide, "Structuring a program", "What kind of thing is it": its rows name th
 The library does not enforce these rules: no type refuses a break of them, and the run goes on. So check each one by
 reading the code. The guide, "Guarantees", "What is left to you". The guide, "Structuring a program", "In short".
 
-- **`update`, `makeModel` and `subscriptions` are pure, and a state is never mutated.** `update` may be called at any
-  time: never assume it runs once per message. The library reuses a child's model and subscriptions while the child's
-  state is the same object. The guide, "Update", "Keep it pure". The guide, "Update", "It may be called at any time".
-  The guide, "Update", "Never mutate the state".
+- **`update`, `external`, `makeModel` and `subscriptions` are pure, and a state is never mutated.** `update` may be
+  called at any time: never assume it runs once per message. A child's `external` runs in its parent's `update`. The
+  library reuses a child's model and subscriptions while the child's state is the same object. The guide, "Update",
+  "Keep it pure". The guide, "Update", "It may be called at any time". The guide, "Update", "Never mutate the state".
+  The guide, "Events and external messages", "A child answers its external messages in every state".
 - **One state machine per concern, and no flags.** Each concern is a union with a case per state. Each case holds only
   what exists in it. What follows from the state is computed in `makeModel`, not kept. The guide, "Structuring a
   program", "One state machine per concern, no flags". The guide, "Structuring a program", "No derived data in the
@@ -137,11 +138,11 @@ The run does not check these. A test does, with the tool named.
 A break of these rules does not compile, so they need no remembering. A state is always an object, never a number or a
 string. A program names its types, then is made, and a type it does not name is one it does not have. An execution
 cannot fail: an expected failure becomes a message. A subscription is a `Channel` whose end value is a message. A
-parent passes on only the external messages of a child, never one the child keeps to itself. The guide lists the rest:
+child answers an external message in `external`, in every state, never with `reject`. The guide lists the rest:
 The guide, "Anatomy of a program", "What does not compile". The guide, "Composition", "Precisely". The guide, "Anatomy
 of a program", "Its state is always an object". The guide, "Anatomy of a program", "Its types are named first, then it
 is made". The guide, "Commands", "An execution cannot fail". The guide, "Subscriptions", "The type says all of it".
-The guide, "Events and external messages", "A parent that passes on an external message of a child".
+The guide, "Events and external messages", "A child answers its external messages in every state".
 
 ## Signs that the design went wrong
 

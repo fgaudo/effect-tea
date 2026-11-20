@@ -41,7 +41,6 @@ type CounterMessage = Data.TaggedEnum<{
   Typed: { text: string }
   SaveClicked: object
   Saved: object
-  Cleared: object
 }>
 const CounterMessage = Data.taggedEnum<CounterMessage>()
 type CounterCommand = Data.TaggedEnum<{ Save: { count: number } }>
@@ -58,8 +57,9 @@ type CounterModel = Readonly<{
   save: Opt.Option<CounterMessage>
 }>
 
-// A parent may clear it, in any state: its other messages are its own.
-type External = Extract<CounterMessage, { readonly _tag: "Cleared" }>
+// A parent may clear it, in any state: no view of its own sends that.
+type External = Readonly<{ _tag: "Cleared" }>
+const cleared: External = { _tag: "Cleared" }
 
 const counter: Program<{
   state: Counter
@@ -85,10 +85,9 @@ const counter: Program<{
         return state.saving
           ? { state: { ...state, saving: false }, events: [{ _tag: "SavedAt", count: state.count }] }
           : reject
-      case "Cleared":
-        return { state: { ...state, count: 0 } }
     }
   },
+  external: () => (state) => ({ state: { ...state, count: 0 } }),
   runCommand: () => Effect.succeedSome(CounterMessage.Saved()),
   subscriptions: () => HashMap.empty(),
   makeModel: (state) => ({
@@ -146,7 +145,7 @@ const app = Parent.make({
   },
   update: (_: Reset, children) => (state) => {
     // A parent gives a child a message through its handle.
-    return children.Left.update(CounterMessage.Cleared())(state)
+    return children.Left.external(cleared)(state)
   },
   onEvent: {
     Left: () => (state) => ({ state: { ...state, saves: state.saves + 1 } }),
@@ -321,8 +320,8 @@ describe("compose", () => {
     const answer = Effect.runSync(app.runCommand({ _tag: "Right", command: CounterCommand.Save({ count: 0 }) }))
     expect(answer).toEqual(Opt.some({ _tag: "Right", message: CounterMessage.Saved() }))
     expect(app.update(Opt.getOrThrow(answer))(app.init.state)).toBe(reject)
-    // An external message too, as the child's view may send it: through the handle, it would be a defect.
-    expect(app.update({ _tag: "Right", message: CounterMessage.Cleared() })(app.init.state)).toBe(reject)
+    // An external message is none of the child's messages, which a view sends: only a handle sends it.
+    expectTypeOf<Extract<AppMessage, Readonly<{ message: External }>>>().toBeNever()
   })
 
   test("an own message or command whose tag a plain object inherits is the parent's own, not a child's", () => {
@@ -744,7 +743,7 @@ describe("children by id", () => {
 })
 
 describe("what a parent can do with a child", () => {
-  test("a handle's update takes only the messages the child's type says a parent may send", () => {
+  test("a handle's external takes only the messages the child's external takes", () => {
     const sendTo = Parent.make({
       init: () => ({ state: app.init.state }),
       children: {
@@ -752,7 +751,7 @@ describe("what a parent can do with a child", () => {
       },
       update: (_: Reset, children) => (state) => {
         // @ts-expect-error: `Increment` is the counter's own business.
-        return children.Left.update(CounterMessage.Increment())(state)
+        return children.Left.external(CounterMessage.Increment())(state)
       },
       onEvent: { Left: () => (state) => ({ state }) },
       makeModel: () => null
@@ -763,6 +762,9 @@ describe("what a parent can do with a child", () => {
   // A page with a menu, which a back button closes, or, with nothing to close, asks its parent to leave.
   type Page = Readonly<{ menu: boolean }>
   type BackPressed = Readonly<{ _tag: "BackPressed" }>
+  // Its view and its parent both send back: two entries, one function.
+  const back = () => (state: Page) =>
+    state.menu ? { state: { menu: false } } : { state, events: [{ _tag: "LeaveRequested" as const }] }
   const page: Program<{
     state: Page
     model: null
@@ -771,7 +773,8 @@ describe("what a parent can do with a child", () => {
     external: BackPressed
   }> = {
     init: { state: { menu: true } },
-    update: () => (state) => state.menu ? { state: { menu: false } } : { state, events: [{ _tag: "LeaveRequested" }] },
+    update: back,
+    external: back,
     subscriptions: () => HashMap.empty(),
     makeModel: () => null
   }
@@ -783,7 +786,7 @@ describe("what a parent can do with a child", () => {
     const pages = Pages.make({
       init: () => ({ state: { page: Opt.some(page.init.state) } }),
       children: { Page: shown },
-      update: (_: BackPressed, children) => children.Page.update({ _tag: "BackPressed" }),
+      update: (_: BackPressed, children) => children.Page.external({ _tag: "BackPressed" }),
       onEvent: { Page: () => () => ({ state: { page: Opt.none() } }) },
       makeModel: () => null
     })
@@ -795,21 +798,19 @@ describe("what a parent can do with a child", () => {
     expect(back(back(pages.init.state))).toEqual({ page: Opt.none() })
   })
 
-  test("a child that rejects what its parent gives it, or is not there to take it, is a defect", () => {
-    const rejecting: typeof page = { ...page, update: () => (state) => state.menu ? { state } : reject }
+  test("a child's external never rejects, and one for a child that is not there is a defect", () => {
+    // @ts-expect-error: an external message applies in every state.
+    const rejecting: typeof page = { ...page, external: () => (state) => state.menu ? { state } : reject }
     const pages = Pages.make({
       init: () => ({ state: { page: Opt.some(page.init.state) } }),
-      children: {
-        Page: Pages.child(rejecting, { get: (state) => state.page, set: (_, page) => ({ page: Opt.some(page) }) })
-      },
-      update: (_: BackPressed, children) => children.Page.update({ _tag: "BackPressed" }),
+      children: { Page: shown },
+      update: (_: BackPressed, children) => children.Page.external({ _tag: "BackPressed" }),
       onEvent: { Page: () => (state) => ({ state }) },
       makeModel: () => null
     })
-    expect(() => pages.update({ _tag: "BackPressed" })({ page: Opt.some({ menu: false }) }))
-      .toThrow("\"Page\" rejected the external message BackPressed, which it takes")
     expect(() => pages.update({ _tag: "BackPressed" })({ page: Opt.none() }))
       .toThrow("The external message BackPressed to \"Page\", which is not in this state")
+    expect(rejecting.update).toBe(page.update)
   })
 
   test("a CompositionDefect names the child, its id for a child by id, and the tags of what it happened on", () => {
@@ -824,7 +825,7 @@ describe("what a parent can do with a child", () => {
     const pages = Pages.make({
       init: () => ({ state: { page: Opt.none() } }),
       children: { Page: shown },
-      update: (_: BackPressed, children) => children.Page.update({ _tag: "BackPressed" }),
+      update: (_: BackPressed, children) => children.Page.external({ _tag: "BackPressed" }),
       onEvent: { Page: () => (state) => ({ state }) },
       makeModel: () => null
     })
@@ -841,27 +842,11 @@ describe("what a parent can do with a child", () => {
           subscribed: () => []
         })
       },
-      update: (_: Reset, children) => children.Rows.update(7, CounterMessage.Cleared()),
+      update: (_: Reset, children) => children.Rows.external(7, cleared),
       onEvent: { Rows: () => (state) => ({ state }) },
       makeModel: () => null
     })
     expect(thrown(() => telling.update({ _tag: "Reset" })({ rows: [] })))
-      .toMatchObject({ _tag: "CompositionDefect", child: "Rows", id: 7, on: "Cleared" })
-    const refusing: typeof counter = { ...counter, update: () => () => reject }
-    const rejecting = Clearable.make({
-      init: () => ({ state: { rows: [{ id: 7, counter: { count: 0, text: "", saving: false } }] } }),
-      children: {
-        Rows: Clearable.childById(refusing, {
-          get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
-          set: (state, id, counter) => ({ rows: state.rows.map((row) => row.id === id ? { id, counter } : row) }),
-          subscribed: () => []
-        })
-      },
-      update: (_: Reset, children) => children.Rows.update(7, CounterMessage.Cleared()),
-      onEvent: { Rows: () => (state) => ({ state }) },
-      makeModel: () => null
-    })
-    expect(thrown(() => rejecting.update({ _tag: "Reset" })(rejecting.init.state)))
       .toMatchObject({ _tag: "CompositionDefect", child: "Rows", id: 7, on: "Cleared" })
     const raising = {
       init: { state: noTicks },
@@ -1032,7 +1017,7 @@ describe("steps that add up", () => {
         })
       },
       update: (_: Reset, children) => (state) =>
-        forEach({ state }, state.rows, ({ id }) => children.Rows.update(id, CounterMessage.Cleared())),
+        forEach({ state }, state.rows, ({ id }) => children.Rows.external(id, cleared)),
       onEvent: { Rows: () => (state) => ({ state }) },
       makeModel: () => null
     })
@@ -1044,10 +1029,15 @@ describe("steps that add up", () => {
     })
   })
 
-  // A page that, left, forgets what it held and says so; a home that has nothing to say about it; an app that
-  // counts the pages left, and remembers whether each was left when it heard of it.
+  // A page that, left, forgets what it held and says so; a home that has nothing to say about it, and no message of
+  // its own; an app that counts the pages left, and remembers whether each was left when it heard of it.
   type Leave = Readonly<{ _tag: "Leave" }>
   type Left = Readonly<{ _tag: "Left" }>
+  const leave = () => () => ({
+    state: { left: true },
+    commands: ["Forget" as const],
+    events: [{ _tag: "Left" as const }]
+  })
   const leaving: Program<{
     state: Readonly<{ left: boolean }>
     model: null
@@ -1057,17 +1047,18 @@ describe("steps that add up", () => {
     external: Leave
   }> = {
     init: { state: { left: false } },
-    update: () => () => ({ state: { left: true }, commands: ["Forget"], events: [{ _tag: "Left" }] }),
+    update: leave,
+    external: leave,
     runCommand: () => Effect.succeedNone,
     subscriptions: () => HashMap.empty(),
     makeModel: () => null
   }
   type Home = Readonly<{ page: Readonly<{ left: boolean }> }>
-  const Home = program<{ state: Home; event: Left; external: Leave; message: Leave }>()
+  const Home = program<{ state: Home; event: Left; external: Leave }>()
   const home = Home.make({
     init: (children) => ({ state: { page: children.Page.init.state } }),
     children: { Page: Home.child(leaving, { get: (state) => Opt.some(state.page), set: (_, page) => ({ page }) }) },
-    update: (_: Leave, children) => children.Page.update({ _tag: "Leave" }),
+    external: (_: Leave, children) => children.Page.external({ _tag: "Leave" }),
     onEvent: { Page: (event) => (state) => ({ state, events: [event] }) },
     makeModel: () => null
   })
@@ -1081,7 +1072,7 @@ describe("steps that add up", () => {
     update: (_: Reset, children) => (state) =>
       andThen(
         { state: { ...state, resets: state.resets + 1 } },
-        children.Home.update({ _tag: "Leave" })
+        children.Home.external({ _tag: "Leave" })
       ),
     onEvent: { Home: () => (state) => ({ state: { ...state, heard: [...state.heard, state.home.page.left] } }) },
     makeModel: () => null
@@ -1401,7 +1392,7 @@ describe("flags", () => {
 
 // Each `@ts-expect-error` is the test: if the types accepted the mistake, the typecheck would fail.
 describe("what the types reject", () => {
-  // A program written as a plain object, without `Program<…>`: no external messages, so nothing a parent may send.
+  // A program written as a plain object, without `Program<…>`: no `external`, so nothing a parent may send.
   const plain = {
     init: { state: noTicks },
     update: (message: Tick) => ({ ticks }: Ticks) => message._tag === "Tick" ? { state: { ticks: ticks + 1 } } : reject,
@@ -1521,24 +1512,28 @@ describe("what the types reject", () => {
     expect(held([1]).init).toEqual({ state: { items: [1] } })
   })
 
-  test("a child whose type names no external message takes none from its parent", () => {
+  test("a child without external takes no external message from its parent", () => {
     const { child, make } = program<{ state: Ticks; message: Reset }>()
     const tested = make({
       init: () => ({ state: noTicks }),
       children: { Plain: child(plain, { get: (state) => Opt.some(state), set: (_, child) => child }) },
       update: (_: Reset, children) => (state) => {
         // @ts-expect-error: `Tick` is the child's own business.
-        return children.Plain.update({ _tag: "Tick" })(state)
+        return children.Plain.external({ _tag: "Tick" })(state)
       },
       makeModel: () => null
     })
-    expect(tested.update({ _tag: "Reset" })(noTicks)).not.toBe(reject)
+    // Past the types, by a cast: a CompositionDefect that names the child.
+    expect(() => tested.update({ _tag: "Reset" })(noTicks)).toThrow(
+      "The external message Tick to \"Plain\", which has no external"
+    )
   })
 
   test("a parent's own command answers with the parent's own messages, never with a child's", () => {
-    const resettable: Program<{ state: Ticks; model: number; message: Tick | Reset; external: Reset }> = {
+    const resettable: Program<{ state: Ticks; model: number; message: Tick; external: Reset }> = {
       init: { state: noTicks },
-      update: (message) => ({ ticks }) => ({ state: { ticks: message._tag === "Tick" ? ticks + 1 : 0 } }),
+      update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
+      external: () => () => ({ state: noTicks }),
       subscriptions: () => HashMap.empty(),
       makeModel: ({ ticks }) => ticks
     }
@@ -1558,42 +1553,20 @@ describe("what the types reject", () => {
       init: () => ({ state: noTicks }),
       children,
       update: () => (state) => ({ state, commands: ["Load"] }),
-      // @ts-expect-error: `Reset` is an external message, which the parent sends through the handle, from `update`.
+      // @ts-expect-error: `Reset` is no message of the child: the parent sends it through the handle.
       runCommand: () => Effect.succeedSome({ _tag: "Counter" as const, message: { _tag: "Reset" as const } }),
       makeModel: () => null
     })
     const tested = make({
       init: () => ({ state: noTicks }),
       children,
-      update: (_: "Loaded", children) => (state: Ticks) => children.Counter.update({ _tag: "Reset" })(state),
+      update: (_: "Loaded", children) => (state: Ticks) => children.Counter.external({ _tag: "Reset" })(state),
       runCommand: () => Effect.succeedSome("Loaded" as const),
       makeModel: () => null
     })
     expect(Effect.runSync(tested.runCommand("Load"))).toEqual(Opt.some("Loaded"))
     const loaded = tested.update("Loaded")({ ticks: 3 })
     expect(loaded !== reject && loaded.state).toEqual({ ticks: 0 })
-  })
-
-  test("a parent takes from its own parent, for a child, only what the child may be sent", () => {
-    const resettable: Program<{ state: Ticks; model: number; message: Tick | Reset; external: Reset }> = {
-      init: { state: noTicks },
-      update: (message) => ({ ticks }) => ({ state: { ticks: message._tag === "Tick" ? ticks + 1 : 0 } }),
-      subscriptions: () => HashMap.empty(),
-      makeModel: ({ ticks }) => ticks
-    }
-    type Wrapped<M> = Readonly<{ _tag: "Counter"; message: M }>
-    const counter = <M>() => {
-      const { child, make } = program<{ state: Ticks; external: Wrapped<M> }>()
-      return { make, children: { Counter: child(resettable, { get: Opt.some, set: (_, ticks) => ticks }) } }
-    }
-    const passing = counter<Reset>()
-    const tested = passing.make({ init: () => ({ state: noTicks }), children: passing.children, makeModel: () => null })
-    const private_ = counter<Tick>()
-    // @ts-expect-error: `Tick` is the child's own business.
-    private_.make({ init: () => ({ state: noTicks }), children: private_.children, makeModel: () => null })
-    expect(tested.update({ _tag: "Counter", message: { _tag: "Reset" } })({ ticks: 2 })).toMatchObject({
-      state: { ticks: 0 }
-    })
   })
 
   test("an own message cannot take the name of a child, which would receive it", () => {
@@ -1675,55 +1648,18 @@ describe("what the types reject", () => {
     expect([elsewhere.update(1)(noTicks), alone.init]).toEqual([{ state: noTicks }, { state: noTicks }])
   })
 
-  test("a parent takes from its own parent, for a child, only what the child may be sent, however wide its tag", () => {
-    const resettable: Program<{ state: Ticks; model: number; message: Tick | Reset; external: Reset }> = {
-      init: { state: noTicks },
-      update: (message) => ({ ticks }) => ({ state: { ticks: message._tag === "Tick" ? ticks + 1 : 0 } }),
-      subscriptions: () => HashMap.empty(),
-      makeModel: ({ ticks }) => ticks
-    }
-    const counter = <M>() => {
-      const { child, make } = program<{ state: Ticks; external: Readonly<{ _tag: string; message: M }> }>()
-      return { make, children: { Counter: child(resettable, { get: Opt.some, set: (_, ticks) => ticks }) } }
-    }
-    const private_ = counter<Tick>()
-    // @ts-expect-error: `Tick` is the child's own business, and any string is `Counter`.
-    private_.make({ init: () => ({ state: noTicks }), children: private_.children, makeModel: () => null })
-    expect(private_.children.Counter.program).toBe(resettable)
-  })
-
-  test("an external message cannot write into an input, whatever spells its tag", () => {
+  test("an external message tagged like an input is the program's to answer, never a write", () => {
     type Named = Readonly<{ name: string }>
-    type Write = Readonly<{ _tag: "Name"; message: Written<string> }>
-    type Own = Readonly<{ _tag: "Own"; message: Written<string> }>
-    type Either = Readonly<{ _tag: "Name" | "Own"; message: Written<string> }>
-    type Any = Readonly<{ _tag: string; message: Written<string> }>
-    type Cleared = Readonly<{ _tag: "Cleared" }>
-    const inputs = { Name: program<{ state: Named }>().input({ at: Optic.id<Named>().key("name") }) }
-    const init = { state: { name: "Ada" } }
-    // @ts-expect-error: `Name` is an input's name.
-    program<{ state: Named; external: Write }>().make({ init, inputs, makeModel: () => null })
-    // @ts-expect-error: likewise when it is one tag of several.
-    program<{ state: Named; message: Own; external: Either }>().make({
-      init,
-      inputs,
-      update: (_: Own) => (state) => ({ state }),
+    type Filled = Readonly<{ _tag: "Name"; message: Written<string> }>
+    const { input, make } = program<{ state: Named; external: Filled }>()
+    const filling = make({
+      init: { state: { name: "Ada" } },
+      inputs: { Name: input({ at: Optic.id<Named>().key("name") }) },
+      external: (filled: Filled) => () => ({ state: { name: filled.message.value.toUpperCase() } }),
       makeModel: () => null
     })
-    // @ts-expect-error: likewise when the tag is any string.
-    program<{ state: Named; message: Any; external: Any }>().make({
-      init,
-      inputs,
-      update: (_: Any) => (state) => ({ state }),
-      makeModel: () => null
-    })
-    const clearing = program<{ state: Named; message: Cleared; external: Cleared }>().make({
-      init,
-      inputs,
-      update: (_: Cleared) => () => ({ state: { name: "" } }),
-      makeModel: () => null
-    })
-    expect(clearing.update({ _tag: "Cleared" })(init.state)).toEqual({ state: { name: "" } })
+    const filled = filling.external({ _tag: "Name", message: { _tag: "Written", value: "Grace" } })
+    expect(filled(filling.init.state)).toEqual({ state: { name: "GRACE" } })
   })
 
   test("an input cannot take the name of a child, which it would replace", () => {
@@ -1740,41 +1676,77 @@ describe("what the types reject", () => {
     })
   })
 
-  test("an external message is one of the program's messages, however the program is made", () => {
-    // @ts-expect-error: `Reset` is none of its messages.
-    const resetting: Program<{ state: Ticks; model: number; message: Tick; external: Reset }> = {
+  test("a program has an external exactly when it has external messages, and it never rejects", () => {
+    const update = () => ({ ticks }: Ticks) => ({ state: { ticks: ticks + 1 } })
+    const pieces = { init: { state: noTicks }, update, subscriptions: () => HashMap.empty(), makeModel: () => 0 }
+    // @ts-expect-error: its parent may send it a `Reset`, which nothing answers.
+    const deaf: Program<{ state: Ticks; model: number; message: Tick; external: Reset }> = pieces
+    // @ts-expect-error: likewise for a program that `make` makes.
+    program<{ state: Ticks; message: Tick; external: Reset }>().make({
       init: { state: noTicks },
-      update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
-      subscriptions: () => HashMap.empty(),
-      makeModel: ({ ticks }) => ticks
-    }
-    const Wrapper = program<{ state: Ticks; external: Reset; message: Tick }>()
-    const wrapper = Wrapper.make({
-      init: { state: noTicks },
-      update: (_: Tick) => (state) => ({ state }),
-      makeModel: () => null
+      update,
+      makeModel: () => 0
     })
-    const { child, childById } = program<{ state: Ticks }>()
-    // @ts-expect-error: its parent may send it a `Reset`, which its `update` does not take.
-    expect(child(wrapper, { get: Opt.some, set: (_, ticks) => ticks })).toBeDefined()
-    // @ts-expect-error: likewise for children by id.
-    expect(childById(wrapper, { get: () => Opt.some(noTicks), set: (state) => state, subscribed: () => [] }))
-      .toBeDefined()
-    expect(resetting).toBeDefined()
+    program<{ state: Ticks; message: Tick }>().make({
+      init: { state: noTicks },
+      update,
+      // @ts-expect-error: a program that names no external messages has no `external`.
+      external: () => (state) => ({ state }),
+      makeModel: () => 0
+    })
+    program<{ state: Ticks; external: Reset }>().make({
+      init: { state: noTicks },
+      // @ts-expect-error: an external message applies in every state.
+      external: () => () => reject,
+      makeModel: () => 0
+    })
+    expect(deaf).toBeDefined()
   })
 
   test("a program may be typed with fewer external messages than it takes, never with more", () => {
-    const resetting = program<{ state: Ticks; message: Tick | Reset; external: Reset }>().make({
+    type Other = Readonly<{ _tag: "Other" }>
+    const resetting = program<{ state: Ticks; message: Tick; external: Tick | Reset }>().make({
       init: { state: noTicks },
-      update: (message: Tick | Reset) => ({ ticks }) => ({ state: { ticks: message._tag === "Tick" ? ticks + 1 : 0 } }),
+      update: (_: Tick) => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
+      external: (message: Tick | Reset) => ({ ticks }) => ({
+        state: { ticks: message._tag === "Tick" ? ticks + 1 : 0 }
+      }),
       makeModel: ({ ticks }) => ticks
     })
-    // @ts-expect-error: its parent could send it a `Tick`, which its `update` would take as its own business.
-    const widened: Program<{ state: Ticks; model: number; message: Tick | Reset; external: Tick | Reset }> = resetting
-    const narrowed: Program<{ state: Ticks; model: number; message: Tick | Reset }> = resetting
-    expectTypeOf<ExternalOf<typeof narrowed>>().toEqualTypeOf<never>()
-    expectTypeOf<ExternalOf<typeof resetting>>().toEqualTypeOf<Reset>()
-    expect([widened, narrowed]).toEqual([resetting, resetting])
+    // @ts-expect-error: its parent could send it an `Other`, which its `external` does not take.
+    const widened: Program<{ state: Ticks; model: number; message: Tick; external: Tick | Reset | Other }> = resetting
+    const narrowed: Program<{ state: Ticks; model: number; message: Tick; external: Reset }> = resetting
+    const none: Program<{ state: Ticks; model: number; message: Tick }> = resetting
+    expectTypeOf<ExternalOf<typeof narrowed>>().toEqualTypeOf<Reset>()
+    expectTypeOf<ExternalOf<typeof none>>().toEqualTypeOf<never>()
+    expectTypeOf<ExternalOf<typeof resetting>>().toEqualTypeOf<Tick | Reset>()
+    expect([widened, narrowed, none]).toEqual([resetting, resetting, resetting])
+  })
+
+  test("a parent passes an external message on in its own external, and a grandparent reaches the child", () => {
+    const resettable: Program<{ state: Ticks; model: number; message: Tick; external: Reset }> = {
+      init: { state: noTicks },
+      update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
+      external: () => () => ({ state: noTicks }),
+      subscriptions: () => HashMap.empty(),
+      makeModel: ({ ticks }) => ticks
+    }
+    const Middle = program<{ state: Ticks; external: Reset }>()
+    const middle = Middle.make({
+      init: () => ({ state: noTicks }),
+      children: { Counter: Middle.child(resettable, { get: Opt.some, set: (_, ticks) => ticks }) },
+      external: (reset: Reset, children) => children.Counter.external(reset),
+      makeModel: () => null
+    })
+    const Top = program<{ state: Ticks; message: Reset }>()
+    const top = Top.make({
+      init: () => ({ state: noTicks }),
+      children: { Middle: Top.child(middle, { get: Opt.some, set: (_, ticks) => ticks }) },
+      update: (reset: Reset, children) => children.Middle.external(reset),
+      makeModel: () => null
+    })
+    expect(top.update({ _tag: "Reset" })({ ticks: 2 })).toEqual({ state: noTicks, commands: [], events: [] })
+    expectTypeOf<MessageOf<typeof middle>>().toEqualTypeOf<Readonly<{ _tag: "Counter"; message: Tick }>>()
   })
 
   test("a function over programs passes its type parameter on to them", () => {

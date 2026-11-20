@@ -11,8 +11,8 @@ events for its parent, and a parent sends external messages to a child. The page
 how a parent declares its children.
 
 - A child raises an event to ask its parent for something. The parent handles the event in `onEvent`.
-- A parent sends a child an external message. It is one of the messages that the child's type declares as `external`.
-  The child answers it in every state.
+- A parent sends a child an external message. The child answers it in its `external`, apart from `update`, in every
+  state.
 - When the parent takes a step of its own before a child's step, combine the two steps with `andThen` or `forEach`.
 
 ## An example
@@ -22,13 +22,13 @@ parent sends `BackPressed` to the page as an external message, and leaves the pa
 
 ```ts
 // In the page: back always means something.
-case 'BackPressed':
-  return state.menu._tag === 'Open'
+external: (_: BackPressed) => (state) =>
+  state.menu._tag === 'Open'
     ? { state: { ...state, menu: { _tag: 'Closed' } } }
-    : { state, events: [{ _tag: 'LeaveRequested' }] }
+    : { state, events: [{ _tag: 'LeaveRequested' }] },
 
 // In its parent: what the page asks for, in the same step.
-update: (_: BackPressed, children) => children.Page.update({ _tag: 'BackPressed' }),
+update: (_: BackPressed, children) => children.Page.external({ _tag: 'BackPressed' }),
 onEvent: { Page: () => (state) => ({ state: leavePage(state) }) },
 ```
 
@@ -49,21 +49,30 @@ A parent and its children talk only through events and external messages.
 
 ### External messages
 
-- **A parent sends an external message** to a child with `children.<child>.update`, in the parent's own `update` and
-  `onEvent`.
-  - An external message is one of the messages that the child's type declares as `external`. In the example above,
-    `BackPressed` is one.
+- **A child answers its external messages in every state.** The child's type names its external messages, as
+  `external`. The child has a function `external`, apart from `update`. It takes the message, then the state, and
+  returns the next step, as `update` does.
+  - It returns a step, never `reject`: the child answers in every state, with its state or with an event.
+  - It is pure, as `update` is. It runs in its parent's `update` (see
+    [what is left to you](./guarantees.md#what-is-left-to-you)).
+  - An external message reaches only `external`. What the child's view, its commands and its subscriptions send are
+    its messages, and they reach `update`. In [`list`](../../examples/list/stopwatch.ts), only the list halts a
+    stopwatch.
+  - A message that both the child's view and its parent send is named twice, in `message` and in `external`. Then its
+    `update` and its `external` call one function.
+- **A parent sends an external message** to a child with `children.<child>.external`, in the parent's own `update`,
+  `external` and `onEvent`.
+  - It takes only what the child's `external` takes. In the example above, `BackPressed` is one.
   - The parent decides when to send it. The child's type says that the child takes it.
-  - In the child's type, `external` names some of the child's messages, for example
-    `Data.TaggedEnum.Value<Message, 'Halted'>` in [`list`](../../examples/list/stopwatch.ts).
-- **The child answers in every state**, with its state or with an event, never with `reject`.
+- **A parent passes an external message on** to a child in its own `external`. A parent's `external` takes `children`,
+  as its `update` does: `external: (message, children) => children.Page.external(message)`.
 
 ### Combining steps
 
-`children.Page.update` returns the parent's step, as a function of the parent's state. To take a step of its own
+`children.Page.external` returns the parent's step, as a function of the parent's state. To take a step of its own
 before the child's step, a parent combines the two steps:
 
-- **`andThen`**: `andThen(leave(state), children.Home.update({ _tag: 'ProductGone', at }))`. The result has:
+- **`andThen`**: `andThen(leave(state), children.Home.external({ _tag: 'ProductGone', at }))`. The result has:
   - the second step's state;
   - the commands of both steps, in order, and the events of both steps, in order. Both lists are always there.
 
@@ -74,7 +83,7 @@ before the child's step, a parent combines the two steps:
   - the commands of every step, in order, and the events of every step, in order. Both lists are always there.
 
   For example, a message to every child by id:
-  `forEach({ state }, state.rows, ({ id }) => children.Row.update(id, Cleared()))`.
+  `forEach({ state }, state.rows, ({ id }) => children.Row.external(id, Cleared()))`.
 
 `andThen` and `forEach` also have a form that takes the step last, for a chain written with Effect's `pipe`:
 `pipe({ state }, andThen(leave), forEach(ids, clearRow))`.
@@ -104,17 +113,17 @@ Each pair sums up a rule of this page. The rule itself is above.
 | Do                                                                                  | Don't                                                                     |
 | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | Combine the parent's step and a child's step with `andThen` or `forEach`.           | Take a step's `.state` by hand: you drop that step's commands and events. |
-| Answer an external message in every state, with the child's state or with an event. | Answer an external message with `reject`: the rejection is a defect.      |
-| Pass on only the external messages of a child, named in the parent's `external`.    | Pass on a message that the child keeps to itself: it does not compile.    |
+| Answer an external message in every state, with the child's state or with an event. | Answer an external message with `reject`: it does not compile.            |
+| Pass an external message on in the parent's `external`, with the child's handle.    | Send a child a message that it keeps to itself: it does not compile.      |
 
 ```ts
 // Don't: taking .state by hand drops the commands and the events of clear(state)
 update: (_: Cleared, children) => (state) =>
-  children.Watch.update({ _tag: 'Halted' })(clear(state).state),
+  children.Watch.external({ _tag: 'Halted' })(clear(state).state),
 
 // Do: combine the two steps with andThen
 update: (_: Cleared, children) => (state) =>
-  andThen(clear(state), children.Watch.update({ _tag: 'Halted' })),
+  andThen(clear(state), children.Watch.external({ _tag: 'Halted' })),
 ```
 
 ## Precisely
@@ -122,12 +131,10 @@ update: (_: Cleared, children) => (state) =>
 - **`onEvent`** is required exactly when a child has events.
 - **A parent that raises a child's event as its own** has an `Event` that includes the child's event, or this does not
   compile.
-- **A parent that passes on an external message of a child** names that message in its own `external`, wrapped as the
-  parent receives it: `{ _tag: 'Page', message: … }`. The message is one of the child's external messages, or this does
-  not compile. A message that the child keeps to itself does not pass through its parent either.
-- **An external message never writes into an input.** Only what is drawn writes into an input, and a write into a
-  place that is not there is rejected, which an external message must never be. So an external message whose `_tag` is
-  the name of an input of the program does not compile. To fill an input from its parent, a child takes an external
-  message of its own, such as `{ _tag: 'Filled', name }`, and its `update` writes the input's place.
-- **A rejection of an external message is a defect.** It is a `CompositionDefect` that names the child, and names the
-  message by its tags. Sending an external message to a child that is not there is such a defect too.
+- **`external` is required exactly when the program names external messages**, as `runCommand` is when the program
+  has commands. `make` refuses one when the program names none.
+- **An external message never writes into an input.** Only what is drawn writes into an input. An external message
+  reaches only `external`, so it is never routed to an input, whatever its `_tag`. To fill an input from its parent, a
+  child takes an external message, such as `{ _tag: 'Filled', name }`, and its `external` writes the input's place.
+- **An external message to a child that is not there is a defect.** It is a `CompositionDefect` that names the child,
+  and names the message by its tags.

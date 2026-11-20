@@ -53,7 +53,11 @@ type Violation =
   | "wrongCommand"
   | "missingRunCommand"
   | "wrongEvent"
-  | "externalNotAmong"
+  | "missingExternal"
+  | "externalUnnamed"
+  | "externalRejects"
+  | "wrongExternal"
+  | "externalToChild"
   | "unnamedCommand"
   | "unnamedEvent"
   | "flagsStep"
@@ -140,11 +144,11 @@ const tagOf: Record<Comp, string> = {
 // The own messages the program has: those it names, or none.
 const ownOf = (c: Case) => c.named.has("message") ? "Own" : "never"
 
-// A program whose `external` names a message it does not have is invalid, whatever the case meant.
-const isValid = (c: Case) => c.violation === undefined && !(c.named.has("external") && ownOf(c) === "never")
+const isValid = (c: Case) => c.violation === undefined
 
-// Broken rules that would compile and still work: an `update` that nothing calls, a `runCommand` that nothing runs.
-const harmless: ReadonlySet<Violation> = new Set<Violation>(["updateUnnamed", "extraRunCommand"])
+// Broken rules that would compile and still work: an `update` or an `external` that nothing calls, a `runCommand` that
+// nothing runs.
+const harmless: ReadonlySet<Violation> = new Set<Violation>(["updateUnnamed", "externalUnnamed", "extraRunCommand"])
 const verdictOf = (c: Case): Verdict =>
   isValid(c) ? true : c.violation !== undefined && harmless.has(c.violation) ? "refused" : false
 
@@ -165,9 +169,7 @@ const generate = (c: Case): string => {
     typeFields.push(width === undefined ? "command: Cmd" : `command: Cmd | ${clashing(tagOf[c.comp], width)}`)
   }
   if (has("event")) typeFields.push("event: Ev")
-  if (has("external")) {
-    typeFields.push(v === "externalNotAmong" ? "external: Readonly<{ _tag: 'Other' }>" : "external: Ext")
-  }
+  if (has("external")) typeFields.push("external: Ext")
   if (has("flags")) typeFields.push("flags: number")
   const T = `{ ${typeFields.join("; ")} }`
   const functions = ["make"]
@@ -264,11 +266,8 @@ const generate = (c: Case): string => {
       : `(message${has("message") && v !== "wrongMessage" ? "" : `: ${message}`}${
         isKid(c.comp) ? ", children" : ""
       }) => (state) =>`
-    const toKid = v === "ownToChild" ? "KInc" : "KReset"
     const resetTo = c.update === "contextual" && isKid(c.comp)
-      ? (c.comp === "childById"
-        ? `children.Kid.update(1, { _tag: '${toKid}' })(state)`
-        : `children.Kid.update({ _tag: '${toKid}' })(state)`)
+      ? toKid(c, v === "ownToChild" ? "KInc" : "KReset")
       : "{ state: { ...state, n: 0 } }"
     const commands = v === "wrongCommand"
       ? ", commands: [{ _tag: 'Load' }]"
@@ -296,6 +295,24 @@ const generate = (c: Case): string => {
       entries.push("    update,")
     } else {
       entries.push(`    update: ${body},`)
+    }
+  }
+  // external: written as `update` is, and, without `update`, as the case annotates.
+  if ((has("external") && v !== "missingExternal") || v === "externalUnnamed") {
+    const form = c.update === "absent" ? (c.annotate ? "annotated" : "contextual") : c.update
+    const message = v === "wrongExternal" ? "Readonly<{ _tag: 'Other' }>" : "Ext"
+    const reset = form === "contextual" && isKid(c.comp)
+      ? toKid(c, v === "externalToChild" ? "KInc" : "KReset")
+      : "({ state: { ...state, n: 0 } })"
+    const answer = v === "externalRejects" ? `state.n > 9 ? reject : ${reset}` : reset
+    if (form === "outside") {
+      lines.push(`  const answer = (message: ${message}) => (state: ${state}) => ${answer}`)
+      entries.push("    external: answer,")
+    } else {
+      const head = form === "annotated"
+        ? `(message: ${message}) => (state: ${state}) =>`
+        : `(message${v === "wrongExternal" ? `: ${message}` : ""}${isKid(c.comp) ? ", children" : ""}) => (state) =>`
+      entries.push(`    external: ${head} ${answer},`)
     }
   }
   // runCommand
@@ -397,8 +414,11 @@ const generate = (c: Case): string => {
   }
   const programFields = Object.entries(expected).map(([key, type]) => `${key}: ${type}`).join("; ")
   lines.push(`  const typed: Program<{ ${programFields} }> = made`)
-  // The program as a child of a parent that uses all it has: its flags, its external message and its events.
-  lines.push(`  const Parent = program<{ state: Outer<${state}>${has("external") ? "; message: Go" : ""} }>()`)
+  // The program as a child of a parent that uses all it has: its flags, its external message, from the parent's
+  // `update` and passed on from its `external`, and its events.
+  lines.push(
+    `  const Parent = program<{ state: Outer<${state}>${has("external") ? "; message: Go; external: Ext" : ""} }>()`
+  )
   lines.push("  const parent = Parent.make({")
   lines.push(
     `    init: (children) => { const i = children.Inner.init${
@@ -407,7 +427,8 @@ const generate = (c: Case): string => {
   )
   lines.push(`    children: { Inner: Parent.child(made, { at: Optic.id<Outer<${state}>>().key('inner') }) },`)
   if (has("external")) {
-    lines.push("    update: (_, children) => (state) => children.Inner.update({ _tag: 'Reset' })(state),")
+    lines.push("    update: (_, children) => (state) => children.Inner.external({ _tag: 'Reset' })(state),")
+    lines.push("    external: (message, children) => children.Inner.external(message),")
   }
   if (has("event")) lines.push("    onEvent: { Inner: (event, children) => (state) => ({ state }) },")
   lines.push("    makeModel: (state, children) => children.Inner(state),")
@@ -418,7 +439,7 @@ const generate = (c: Case): string => {
     message: `${has("external") ? "Go | " : ""}Readonly<{ _tag: 'Inner'; message: ${message} }>`,
     command: hasCommands ? `Readonly<{ _tag: 'Inner'; command: ${command} }>` : "never",
     event: "never",
-    external: "never",
+    external: has("external") ? "Ext" : "never",
     flags: "never",
     commandServices: expected.commandServices ?? "",
     subscriptionServices: expected.subscriptionServices ?? ""
@@ -464,6 +485,13 @@ const generateHand = (c: HandCase): string => {
   lines.push("      if (state.n > 9) return reject")
   lines.push(`      return { state: { n: state.n + 1 }${commands}${events} }`)
   lines.push("    },")
+  if (has("external")) {
+    lines.push(
+      `    external: ${
+        c.update === "annotated" ? "(message: Ext) => (state: SNone) =>" : "(message) => (state) =>"
+      } ({ state: { ...state, n: 0 } }),`
+    )
+  }
   if (has("command")) {
     lines.push(
       has("commandServices")
@@ -549,7 +577,12 @@ const violations: ReadonlyArray<
   { violation: "wrongCommand", applies: (c) => c.update !== "absent" },
   { violation: "missingRunCommand", applies: () => true },
   { violation: "wrongEvent", applies: (c) => c.update !== "absent" },
-  { violation: "externalNotAmong", applies: () => true },
+  { violation: "missingExternal", applies: () => true },
+  { violation: "externalUnnamed", applies: () => true, named: (named) => named.delete("external") },
+  { violation: "externalRejects", applies: () => true },
+  { violation: "wrongExternal", applies: () => true },
+  // Written as `update` is, or contextual without one: only that form takes `children`.
+  { violation: "externalToChild", applies: (c) => isKid(c.comp) && c.update !== "annotated" },
   { violation: "unnamedCommand", applies: () => true, named: (named) => named.delete("command") },
   { violation: "unnamedEvent", applies: (c) => c.update !== "absent", named: (named) => named.delete("event") },
   { violation: "flagsStep", applies: () => true },
@@ -703,47 +736,39 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
   const event: Exactly<EventOf<typeof made>, never> = true
   return event`
   },
-  // A parent's `external` that names a message its child keeps to itself is refused at `make`.
-  {
-    id: "special.external-a-child-keeps-to-itself",
-    valid: false,
-    body: `  type Through = Readonly<{ kid: KidState }>
-  const Parent = program<{ state: Through; external: Readonly<{ _tag: 'Kid'; message: Readonly<{ _tag: 'KInc' }> }> }>()
+  // A parent's `external` passes on to its child only what the child's `external` takes, whatever its own type.
+  ...([["'KReset'", "KReset", true], ["'KReset'", "KInc", false], ["string", "KReset", true], [
+    "string",
+    "KInc",
+    false
+  ]] as const)
+    .map(([tag, sent, valid]) => ({
+      id: `special.external-passed-on.${tag === "string" ? "string" : "literal"}.${sent}`,
+      valid,
+      body: `  type Through = Readonly<{ kid: KidState }>
+  const Parent = program<{ state: Through; external: Readonly<{ _tag: ${tag} }> }>()
   const parent = Parent.make({
     init: (children) => ({ state: { kid: children.Kid.init.state }, commands: children.Kid.init.commands }),
     children: { Kid: Parent.child(kid, { at: Optic.id<Through>().key('kid') }) },
+    external: (message, children) => children.Kid.external({ _tag: '${sent}' }),
     onEvent: { Kid: () => (state) => ({ state }) },
     makeModel: () => null,
   })
-  return parent`
-  },
-  {
-    id: "special.external-a-child-takes",
-    valid: true,
-    body: `  type Through = Readonly<{ kid: KidState }>
-  const Parent = program<{ state: Through; external: Readonly<{ _tag: 'Kid'; message: Readonly<{ _tag: 'KReset' }> }> }>()
-  const parent = Parent.make({
-    init: (children) => ({ state: { kid: children.Kid.init.state }, commands: children.Kid.init.commands }),
-    children: { Kid: Parent.child(kid, { at: Optic.id<Through>().key('kid') }) },
-    onEvent: { Kid: () => (state) => ({ state }) },
+  const external: Exactly<ExternalOf<typeof parent>, Readonly<{ _tag: ${tag} }>> = true
+  const message: Exactly<MessageOf<typeof parent>, Readonly<{ _tag: 'Kid'; message: KidMessage }>> = true
+  return [external, message]`
+    })),
+  // A wide type for the external messages is true, and read back as named.
+  ...(["any", "unknown"] as const).map((type) => ({
+    id: `special.wide-external.${type}`,
+    valid: true as const,
+    body: `  const made = program<{ state: SNone; external: ${type} }>().make({
+    init: { state: { n: 0 } },
+    external: () => (state) => ({ state }),
     makeModel: () => null,
   })
-  const external: Exactly<ExternalOf<typeof parent>, Readonly<{ _tag: 'Kid'; message: Readonly<{ _tag: 'KReset' }> }>> = true
-  return external`
-  },
-  // A parent's `external` whose tag is wide enough to name the child, with a message the child keeps to itself.
-  ...["string", "`K${string}`"].map((tag) => ({
-    id: `special.external-wide-tag.${tag === "string" ? "string" : "template"}`,
-    valid: false as const,
-    body: `  type Through = Readonly<{ kid: KidState }>
-  const Parent = program<{ state: Through; external: Readonly<{ _tag: ${tag}; message: Readonly<{ _tag: 'KInc' }> }> }>()
-  const parent = Parent.make({
-    init: (children) => ({ state: { kid: children.Kid.init.state }, commands: children.Kid.init.commands }),
-    children: { Kid: Parent.child(kid, { at: Optic.id<Through>().key('kid') }) },
-    onEvent: { Kid: () => (state) => ({ state }) },
-    makeModel: () => null,
-  })
-  return parent`
+  const read: Exactly<ExternalOf<typeof made>, ${type}> = true
+  return read`
   })),
   // Children and inputs given as a record of wide keys: an own message that takes the name of one is broken. One that
   // takes another name is the control: refused, since the same program can be written with the names as they are.
@@ -848,6 +873,12 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
   }
 ]
 
+// A handle's call that sends the child an external message, from a parent's `update` or `external`.
+const toKid = (c: Case, tag: "KInc" | "KReset") =>
+  c.comp === "childById"
+    ? `children.Kid.external(1, { _tag: '${tag}' })(state)`
+    : `children.Kid.external({ _tag: '${tag}' })(state)`
+
 const header = `import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
@@ -883,7 +914,7 @@ export const parent = make({
     commands: [${ids.map((i) => `...children.K${i}.init.commands`).join(", ")}],
   }),
   children: { ${ids.map((i) => `K${i}: child(kid, { at: Optic.id<State>().key('k${i}') })`).join(", ")} },
-  update: (_, children) => (state) => children.K${count - 1}.update({ _tag: 'KReset' })(state),
+  update: (_, children) => (state) => children.K${count - 1}.external({ _tag: 'KReset' })(state),
   onEvent: { ${ids.map((i) => `K${i}: (event, children) => (state) => ({ state })`).join(", ")} },
   makeModel: (state, children) => ({ ${ids.map((i) => `k${i}: children.K${i}(state)`).join(", ")} }),
 })

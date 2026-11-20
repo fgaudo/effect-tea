@@ -1,8 +1,9 @@
 # External messages with a handler of their own: the spike
 
-**Status:** spiked, 20 November 2026, by a session of Opus 5.5, on the branch `claude/spike-external-handler` at
-`6f93071`, never to be merged. Taken by the owner the same day ("Decided", at the end), to be done in the one stage
-that "If it is taken" describes, step 3 of [`ROADMAP.md`](../../ROADMAP.md). It answers part 3 of
+**Status:** done, 20 November 2026, in the one stage that "If it is taken" describes. Spiked the same day by a session
+of Opus 5.5, on the branch `claude/spike-external-handler` at `6f93071`, never merged, and taken by the owner
+("Decided", at the end). The stage wrote the guide section by section, and added to the draft that `external` is pure,
+as `update` is, among the rules that nothing checks. It answers part 3 of
 [`architecture-review.md`](architecture-review.md), which says why a child's rejection of an external message is in
 doubt, and its "Open, for the spike". Last read against the code at `3917346`.
 

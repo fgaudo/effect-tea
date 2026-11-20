@@ -356,7 +356,10 @@ answer, and saying so in the proposal.
   (Fable: a check by message missed `string`, template and non-distributed tags). That it also refuses, at `make`, an
   external with an input's tag and the wrong shape, which `child` would refuse later, is the only error it moves. Both
   checks read a tag by the names it can take (`TagsTaken`) since a review of the same day, which the matrix confirmed:
-  an `external` tagged `string` gave a child a message it keeps to itself, and compiled everywhere.
+  an `external` tagged `string` gave a child a message it keeps to itself, and compiled everywhere. Moot since 20
+  November 2026: external messages left the program's messages, for a function `external` of their own
+  ([`external-handler.md`](records/external-handler.md)), so there is no part of the messages left to check, and
+  `ExternalPassed` and `ExternalWritten` went with it.
 - **An error at `make` for a `runCommand` that returns `any`** (Fable: `0 extends 1 & Ran`, "a runCommand returns
   any"), listed in `ROADMAP.md`. Reasoned, 17 November 2026, on probes with `tsc`: such services were read as `never`
   by `CommandServicesOf` and `SubscriptionServicesOf` alone (`Known` in `program.ts`), and so by a parent, while `run`
@@ -638,7 +641,7 @@ answer, and saying so in the proposal.
   message carries an `id`, and its dispatch is `forwardTo(dispatch, name, id)`, which the suffix names; and the four
   names make a grid, the noun saying what and the suffix how. Refused: `each` with `eachInput`, an irregular pair that
   leaves "each what?"; `eachChild` with `eachInput`, regular, but keeping the word that reads as `forEach` over steps,
-  used beside it in `forEach({ state }, rows, ({ id }) => children.Row.update(id, …))`, where `each` iterates nothing,
+  used beside it in `forEach({ state }, rows, ({ id }) => children.Row.external(id, …))`, where `each` iterates nothing,
   and that the guide does not use; and one `each` for both, told apart by the number of its arguments, two signatures
   that overlap, not spiked, by the reason that refused `forwardTo` dual. _Reopen if_ a reader of the guide finds the
   suffix `ById` misleading.

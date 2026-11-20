@@ -9,12 +9,13 @@ title: Anatomy of a program
 This page shows the pieces of a program and how they connect. The other pages of the guide describe each piece in
 detail, so start here.
 
-A program is a plain object, made with `program`. It has up to five pieces:
+A program is a plain object, made with `program`. It has up to six pieces:
 
 - `init` says where the program starts.
 - `update` says how each message changes the state.
 - `makeModel` says what the view draws.
 - `runCommand` is there when the program has commands.
+- `external` is there when the program's parent may send it messages.
 - `subscriptions` says what the program listens to in each state.
 
 The view is not part of the program.
@@ -53,29 +54,30 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
 
 ## Rules
 
-| Piece           | What it does                                                                               | Needed               |
-| --------------- | ------------------------------------------------------------------------------------------ | -------------------- |
-| `init`          | the first state and the commands to start with, or a function of its flags that makes them | always               |
-| `update`        | `(message) => (state) =>` the next state, commands and events, or `reject`                 | when it has messages |
-| `makeModel`     | `(state) =>` what the view draws, with the messages it sends                               | always               |
-| `runCommand`    | how each command happens, as an Effect                                                     | when it has commands |
-| `subscriptions` | what it listens to in each state                                                           | when it listens      |
+| Piece           | What it does                                                                               | Needed                        |
+| --------------- | ------------------------------------------------------------------------------------------ | ----------------------------- |
+| `init`          | the first state and the commands to start with, or a function of its flags that makes them | always                        |
+| `update`        | `(message) => (state) =>` the next state, commands and events, or `reject`                 | when it has messages          |
+| `makeModel`     | `(state) =>` what the view draws, with the messages it sends                               | always                        |
+| `runCommand`    | how each command happens, as an Effect                                                     | when it has commands          |
+| `external`      | `(message) => (state) =>` the next state, commands and events, never `reject`              | when it has external messages |
+| `subscriptions` | what it listens to in each state                                                           | when it listens               |
 
 - **Its types are named first, then it is made**: `program<{ state: State; message: Message }>().make({ … })`. Besides
   `state`, the types may name these:
 
-  | Name       | What it names                              |
-  | ---------- | ------------------------------------------ |
-  | `message`  | the program's messages                     |
-  | `command`  | the program's commands                     |
-  | `event`    | the events the program raises              |
-  | `external` | which of its messages a parent may send it |
-  | `flags`    | the program's flags                        |
-  | `model`    | the program's model                        |
+  | Name       | What it names                          |
+  | ---------- | -------------------------------------- |
+  | `message`  | the program's messages                 |
+  | `command`  | the program's commands                 |
+  | `event`    | the events the program raises          |
+  | `external` | the messages that a parent may send it |
+  | `flags`    | the program's flags                    |
+  | `model`    | the program's model                    |
 
   A type that the program does not name is a type that the program does not have. So:
 
-  - A program that names no messages has no `update`.
+  - A program that names no messages has no `update`, and one that names no `external` messages has no `external`.
   - A program that raises an event it did not name does not compile.
 
   A model that is named is checked. A model that is not named is inferred from `makeModel`. The services are never
@@ -94,7 +96,7 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
 
 ## Precisely
 
-**What does not compile.** The compiler refuses four kinds of program. Each kind is refused in the places below:
+**What does not compile.** The compiler refuses three kinds of program. Each kind is refused in the places below:
 
 - A state that is a number or a string. It is refused by `Program<…>` and `program`, by `child` and `childById`, by
   `run`, and by `simulate`, `rehearse` and `drive`.
@@ -104,9 +106,6 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
   - A state that is a type parameter, such as `S` in `<S extends object>(state: S) => program<{ state: S }>()`, is
     refused by `make` too: the compiler cannot decide that `S` holds no number. A type parameter in a field of the
     state, such as `A` in `{ items: ReadonlyArray<A> }`, compiles.
-- `external` messages that are not among the program's `message`s. A program written as an object is refused when it
-  is typed `Program<…>`. `program` and `make` accept such messages. The program that `make` returns is refused when it
-  becomes a child, by `child` and `childById`.
 - A program written as an object without `subscriptions`. It is refused when it is typed `Program<…>`, and when
   `child`, `childById`, `run`, `rehearse` or `drive` takes it. `simulate` refuses the pieces of a program without
   `subscriptions` too. `make` accepts a program without them, and the program it returns has them.
@@ -116,7 +115,8 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
 accepts a program typed with more `external` messages than the program takes.
 
 **`runCommand` is required exactly when the program has commands.** So every command has a `runCommand` that
-interprets it.
+interprets it. In the same way, `external` is required exactly when the program has external messages (see
+[events and external messages](./events-and-external-messages.md#precisely)).
 
 **A test makes a model as `run` does.** `run` makes the model of a state with `program.makeModel(state)`. A test can
 call `program.makeModel` the same way, on any state.

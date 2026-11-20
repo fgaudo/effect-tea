@@ -112,7 +112,7 @@ type CompositionFields = Readonly<{
 /**
  * A parent that breaks what it declared of a child.
  *
- * It is thrown when a child rejects an external message, or when a parent sends one to a child that is not there.
+ * It is thrown when a parent sends an external message to a child that is not there.
  * Among other cases, it is thrown for a parent's subscription key that a child uses too, and for a `subscribed` that
  * lists an id twice. `on` names the message by its tags, as the logs do by default. `id` is the child's id as it is,
  * and may hold the program's data. Only `program` makes one: a test reads it, and the types refuse a `new` of it.
@@ -123,7 +123,7 @@ type CompositionFields = Readonly<{
  * ```
  *
  * @see The guide, "Composition", "What is a defect".
- * @see The guide, "Events and external messages", "A rejection of an external message is a defect".
+ * @see The guide, "Events and external messages", "An external message to a child that is not there is a defect".
  * @see The guide, "Running", "How messages and commands appear in the logs".
  * @see The guide, "Running", "The app around the run chooses what leaves the device".
  */

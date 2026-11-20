@@ -27,6 +27,7 @@ export type {
   CommandOf,
   CommandServicesOf,
   EventOf,
+  ExternalHandler,
   ExternalOf,
   Field,
   FlagsOf,

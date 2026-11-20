@@ -20,38 +20,6 @@ test of it. None is open.
 
 ## Next, in order
 
-### 3. External messages with a handler of their own
-
-Taken by the owner on 20 November 2026, on the spike's record,
-[`external-handler.md`](docs/records/external-handler.md) ("Decided"): a program that names external messages answers
-them in a function `external`, apart from `update`, which returns a `Step` and never rejects; external messages leave
-the program's messages; a handle's `update` becomes `external`. One stage. The spike is the branch
-`claude/spike-external-handler` (`6f93071`), never to be merged: the stage brings its part onto `main` as `main` is
-then.
-
-**Model and effort.** Opus 5.5, `high`: the types of `program.ts` and `compose.ts`, which keep the three rules of
-`AGENTS.md`, and the guide, a specification. The skills are [`change-api`](.agents/skills/change-api/SKILL.md),
-[`change-engine`](.agents/skills/change-engine/SKILL.md) (`tell`, its tests and the mutations) and
-[`release`](.agents/skills/release/SKILL.md), for the entry of the changelog.
-
-**Depends on** no other step's outcome: it changes the types of a program and `tell`, which steps 4 and 2 leave as
-they are. It comes before the release, step 5: it breaks what 0.7.1 has.
-
-**How.** What the record lists under "What was built": `src/program.ts`, `src/compose.ts` and their tests,
-`examples/list`, the inference's prelude and generator, the smoke test's consumer and its mark, and the mutations. The
-branch is read for each, not merged: where `main` moved since `3917346`, the change is made again on `main`. Then the
-guide, which the branch has only as a draft, one section at a time, each sentence checked against the old one:
-"Events and external messages", "Anatomy of a program", "Composition" and the glossary. With it, the doc comments that
-name those sections, the skill, `docs/invariants.md` ("A parent and its children talk only through external messages
-and events") and the reports of the API (`bun run api`). The changelog has a "Breaking" entry with how to upgrade: a
-handle's `update` becomes `external`, an external message leaves `message`, and `Program<{ …; external }>` asks for
-the function.
-
-**Done when** the checks of `AGENTS.md` and of `change-engine` pass, with `bun run smoke`, `bun run inference` with
-each supported TypeScript and `bun run mutations`; the entry "Checking a program's external messages in `make`" of
-`docs/rejected.md` says what became of it; the record is marked done, in its status and in the table of
-`docs/records/README.md`; and this step is removed.
-
 ### 4. A run without logs of its own
 
 **Model and effort.** Opus 5.5, `high`: a change of the engine.

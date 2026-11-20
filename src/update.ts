@@ -116,7 +116,7 @@ export const appendStep = <State, Command, Event>(
  * @example
  * ```ts
  * // A parent's own step, then a child's handle.
- * andThen(leave(state), children.Home.update({ _tag: 'ProductGone', at }))
+ * andThen(leave(state), children.Home.external({ _tag: 'ProductGone', at }))
  * ```
  *
  * @see The guide, "Events and external messages", "`andThen`".
@@ -159,7 +159,7 @@ export const andThen: {
  * @example
  * ```ts
  * // A parent that tells each of its children by id the same thing.
- * forEach({ state }, state.rows, ({ id }) => children.Row.update(id, Cleared()))
+ * forEach({ state }, state.rows, ({ id }) => children.Row.external(id, Cleared()))
  * ```
  *
  * @see The guide, "Events and external messages", "`forEach`".

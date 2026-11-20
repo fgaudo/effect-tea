@@ -41,6 +41,11 @@ export const Draw: <Model, Message>(input: {
 // @public
 type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, never, R>;
 
+// @public
+type ExternalHandler<External, State, Command, Event> = [External] extends [never] ? object : {
+    readonly external: (message: External) => (state: State) => Step<State, Command, Event>;
+};
+
 // @public (undocumented)
 type Fielded<State> = 0 extends 1 & State ? unknown : [keyof State] extends [never] ? [Extract<Primitive, State>] extends [never] ? unknown : {
     readonly "a program keeps its state in an object": State;
@@ -126,12 +131,11 @@ interface RunOptions<State, Message, Command = unknown> {
 
 // @public
 type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & {
-    readonly "~@fgaudo/effect-tea/Program/external"?: readonly [(external: External) => void];
     readonly init: Init<State, Command, Flags>;
     readonly update: Update<State, Message, Command, Event>;
     readonly subscriptions: Subscriptions<State, Message, RS, unknown>;
     readonly makeModel: (state: State) => Model;
-} & Interpreter<Command, Message, RC>;
+} & Interpreter<Command, Message, RC> & ExternalHandler<External, State, Command, Event>;
 
 // @public
 type Step<State, Command = never, Event = never> = {
