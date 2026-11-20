@@ -1486,10 +1486,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "bridges/react.test.ts",
-        "a rejected click draws its frame without drawing its tree again, and the element keeps what was typed"
-      ],
-      [
-        "bridges/react.test.ts",
         "shows the program's value once a key, left unseen by the frame that locks it, is rejected"
       ]
     ]

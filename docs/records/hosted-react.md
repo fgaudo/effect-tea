@@ -1,7 +1,7 @@
 # A bridge to React in which React hosts the program
 
-**Status:** decided by the owner, 20 November 2026: it replaces `bridges/react.ts` ("Decided", at the end), not yet
-done. A spike of 20 November 2026 by a session of Opus 5.5, on the branch `claude/spike-hosted-react-47f7d5` cut from
+**Status:** decided by the owner, 20 November 2026: it replaces `bridges/react.ts` ("Decided", at the end), done the
+same day. A spike of 20 November 2026 by a session of Opus 5.5, on the branch `claude/spike-hosted-react-47f7d5` cut from
 `ac9d2f5`, never to be merged. Read against the code at `ac9d2f5`.
 
 ## Context

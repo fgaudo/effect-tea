@@ -91,23 +91,26 @@ library is for, while snabbdom is small enough to keep a copy of; and another re
 lit-html's `render` is the one that fits beside snabbdom (drawn at once, no component), but its templates are no tree
 a test can walk.
 
-**The bridge to React, hosted by React: decided**, 20 November 2026, not yet done
-([`docs/records/hosted-react.md`](docs/records/hosted-react.md), "Decided"; the spike is on the branch
-`claude/spike-hosted-react-47f7d5`, commit `10fd404`, never to be merged). It replaces `bridges/react.ts`, with its
-`Frames` kept for an application that starts the run itself. What is left, in this order:
+**The bridge to React, hosted by React: done**, 20 November 2026
+([`docs/records/hosted-react.md`](docs/records/hosted-react.md), "Decided"). `bridges/react.ts` is the hosted bridge:
+`Host` takes `program`, its options and `fork`, and `Frames` with `makeStore` draws a run the application starts
+itself, as `together` does in `counter` and `form`. The guide's "View" says what each bridge draws beside the frames,
+and "What is left to you" how long a run of `Host` lives and where its defect goes. The yield before the first frame,
+the dropped frames of a closed renderer and the forgotten frame each have a test, and every check of the bridge a
+mutation of `tools/mutations/mutations.ts`. The contract of the proposal above is the snabbdom bridge's; the React
+bridge's is its own, in "View".
 
-1. The bridge from the spike, with `Host` taking `program`, its options and `fork`, and observing the fiber `fork`
-   returns; the shared tests through `Frames`, the spike's own tests beside them.
-2. A test for each of the yield, the dropped frames of a closed renderer and the forgotten frame, or the check goes;
-   a test of what the first run's commands do under StrictMode before it is interrupted.
-3. The guide: the three rules of "View" as promises of each bridge, "Guarantees" of the program, and in "What is left
-   to you" that the run lives as long as `Host`'s effect (`<Activity>`, a remount), with `Frames` as the answer; that
-   a defect after unmount goes to `reportError`, and the whole cause only to a wrapped run. Each rule changed one
-   section at a time (`AGENTS.md`, "The guide is a specification").
-4. The changelog, the README's row of the bridge, and `together` on `Frames`.
+What is left:
 
-Not run, still: a real browser. The hang of 6.1 GB of the spike was a failing `toEqual` over an element React drew, not
-a loop of the bridge; the shared test that held it compares with `toBe` since.
+- **The premises of the bridge on React** in `docs/premises.md`, once the owner consents (asked 20 November 2026):
+  the premise of `flushSync` widened to the layout effects of a commit, its test already in `bridges/react.test.ts`
+  ("React, as the bridge rests on it"), and those of `onUncaughtError` and `root.unmount()` gone with the root the
+  bridge no longer owns.
+- **Not run**: a real browser, an IME composition, the caret when the program changes a value, `startTransition` or
+  `useDeferredValue` in the application, Fast Refresh (likely to restart the run, as `<Activity>` does), server
+  rendering and hydration.
+- **Left out, as the guide's "What is left out" says**: a form's reset, a value the element changes by itself, and an
+  input drawn under one run's `Host` with the dispatch of another.
 
 **Done when** the packages are published with the library, or the entry of `docs/rejected.md` says why not.
 
