@@ -114,8 +114,8 @@ type Died = { readonly error: unknown }
  *   with `Draw`.
  * - On a server, it draws the first model, and nothing of `init` starts.
  * - A run that fails, or dies, throws what it ended with (`Cause.squash`: a `ProgramDefect` for a defect) as `Host`
- *   renders, for the nearest error boundary. One that `Host` has not thrown as it unmounts, or that ends so once it has
- *   unmounted, is given to `reportError`.
+ *   renders, for the nearest error boundary. One that `Host` has not thrown when its effect ends, as it unmounts or
+ *   `<Activity>` hides it, or that ends so after, is given to `reportError`, and is not thrown again.
  *   Whatever `fork` handles around the run is not thrown or reported again.
  * - A `makeModel` that throws is such a defect, thrown once: until the run has ended, `Host` draws the model it drew
  *   last. A first model that throws reaches the boundary as `Host` first renders, and the run never starts.
@@ -175,10 +175,14 @@ export const Host = <State, Model, Message, Command = never, RC = never, RS = ne
           } else reportError(error)
         })))
     })
-    // A parent that removes `Host` in the batch that sets the death leaves no render to throw it.
+    // A parent that removes `Host` in the batch that sets the death leaves no render to throw it. One that hides it with
+    // `<Activity>` keeps its state: a death reported here is not thrown as it shows `Host` again, which starts anew.
     return () => {
       mounted = false
-      if (set !== undefined && thrown.current !== set) reportError(set.error)
+      if (set !== undefined && thrown.current !== set) {
+        reportError(set.error)
+        setDied(undefined)
+      }
       if (fiber !== undefined) Effect.runFork(Fiber.interrupt(fiber))
     }
   }, [])

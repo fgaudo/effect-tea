@@ -28,11 +28,6 @@ grouped by their form, which a fix takes whole. Each `test.failing` was run with
 assertion. A finding of the types, of a document or of a check has no `test.failing`: its item names the check the fix
 adds.
 
-4. **With the bridge to React, a death is reported twice when `<Activity>` hides `Host` in its batch** (bridges-1). The
-   cleanup of `Host`'s effect gives the death to `reportError`; `<Activity>` keeps the state that holds it, which `Host`
-   throws to the boundary as it is shown again, in place of a new run. The mirror of the removal fixed on 21 November
-   2026. Test: `bridges/react.test.ts`, "Host" › "a run that dies" › "that dies as Activity hides Host, in one batch, is
-   reported once, and shown again starts anew". Opus 5.5, `high`.
 5. **Four sentences are false of the code** (engine-5, docs-2, docs-3, docs-4). "Composition", "Ids that come back":
    "when a row is removed, its subscriptions stop" is false when the same step adds a row with that id, since the keys
    stay. `CHANGELOG.md` says that `dispatchViolations`' `withheld` is gone, and its line of upgrade drops it: it is

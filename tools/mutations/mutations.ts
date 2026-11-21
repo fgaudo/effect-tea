@@ -970,12 +970,28 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "Host reports nothing of a death no render threw as it unmounts",
     file: "bridges/react.ts",
-    from: "      if (set !== undefined && thrown.current !== set) reportError(set.error)\n",
+    from: "        reportError(set.error)\n",
     to: "",
     killedBy: [
       [
         "bridges/react.test.ts",
         "that dies as its parent removes Host, in one batch, reaches the boundary or reportError"
+      ],
+      [
+        "bridges/react.test.ts",
+        "that dies as Activity hides Host, in one batch, is reported once, and shown again starts anew"
+      ]
+    ]
+  },
+  {
+    name: "Host keeps a death it reported as Activity hides it",
+    file: "bridges/react.ts",
+    from: "        setDied(undefined)\n",
+    to: "",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "that dies as Activity hides Host, in one batch, is reported once, and shown again starts anew"
       ]
     ]
   },

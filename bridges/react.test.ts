@@ -913,7 +913,7 @@ describe("Host", () => {
     // gives the defect to `reportError`, and `<Activity>` keeps the state that holds it, which `Host` throws to the
     // boundary as it is shown again, in place of a new run. Found by the review of the whole library of 21 November
     // 2026.
-    test.failing("that dies as Activity hides Host, in one batch, is reported once, and shown again starts anew", async () => {
+    test("that dies as Activity hides Host, in one batch, is reported once, and shown again starts anew", async () => {
       const caught: Array<unknown> = []
       const reported: Array<unknown> = []
       const reportError = globalThis.reportError
