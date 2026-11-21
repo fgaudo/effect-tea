@@ -1,8 +1,8 @@
 # What an application's upgrade to 0.8.0 found
 
 **Status:** proposed, 22 November 2026, at commit `ac24824`, by a session of Fable 5.2 that the owner asked to weigh a
-report. Steps 22 to 26 of [`ROADMAP.md`](../../ROADMAP.md) come from it. Nothing of the library, of the guide or of the
-examples was changed.
+report. Steps 22 to 27 of [`ROADMAP.md`](../../ROADMAP.md) come from it, with a point of its steps 16 and 26 and two
+items of its "Any time". Nothing of the library, of the guide or of the examples was changed.
 
 ## Where the report came from
 
@@ -156,6 +156,36 @@ It is a case of "Messages live in the model", which the clock of `pages` keeps w
   inputs") may be the key of `make`, the parameter of `init`, or both. It is both: `init` is then the first step.
 - **Services.** No page says that a subscription written apart names its services in its type,
   `Subscription<Message, R>`, and that the program's subscriptions then need them (`SubscriptionServicesOf`).
+
+## Why no check found them
+
+Asked by the owner, the same day. Each check of the repository starts from what the repository wrote: the forms its
+tests use, the sentences its guide has, the requirements chosen for a reader, and the engines and the renderer it
+installs. An application brings forms, questions and a place to run that nobody here chose. It is what step 16 of
+`ROADMAP.md` found of the types of a program, and it holds beyond them. Read in the code:
+
+- **`hear`.** Three tests give `hear` a child's message, each as a literal. The examples use the constructors of
+  `Data.taggedEnum` over the own messages of a program without children, never over a parent's. And a test of the types
+  says what is refused, not in how many forms what is right is taken.
+- **The syntax.** The package names no level, so nothing checks one. The smoke test runs Node and TypeScript, which
+  take any.
+- **`reportError` and `react-dom`.** `bridges/` is typechecked with `DOM`, where `src/` is not, so a global of the
+  browser compiles. `premises.md` has no premise for it. The bridge's tests run with `react-dom` on happy-dom alone.
+- **An input as a text.** The six requirements of `guide-reader` are each a page of a browser with a value that is
+  typed, and those that were drawn are drawn with snabbdom. A requirement is chosen to need the pages checked, so it
+  cannot find what no page holds.
+- **What a `set` may do.** [`promises-and-tests.md`](promises-and-tests.md) reads the sentences the guide has. A
+  question with no sentence has nothing to be read against.
+- **The form.** No check reads an example against a "Don't" of the guide, and the rule that a change of a rule rereads
+  every place that states it stops at the guide: the form's comment gives a reason older than the dispatch that
+  applies at once.
+
+So five checks were written into `ROADMAP.md`: each message in every form it is written, given to every function that
+takes one (step 16, point 5); the syntax of `dist/` and the globals of the entry for React (step 26, points 4 and 5);
+what the guide says of each function that a program gives the library (step 27); a reader's requirement chosen by what
+no check has met, and an upgrade as a mode of the check; and the examples read against the guide (both under "Any
+time"). The first three are checks that stay. The last two are readings, which find only while someone repeats them.
+None shows that nothing else is left.
 
 ## Found beside the report
 

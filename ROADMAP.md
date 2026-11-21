@@ -12,10 +12,12 @@ for on 20 November 2026 and asked to be written here in the order it advises. St
 4 and 6, and steps 17 to 21 its part 5, as the owner took it on 21 November 2026
 ([`one-engine.md`](docs/records/one-engine.md)). Step 16 comes from the owner's question, on 21 November
 2026, of why the findings api-1, api-2 and api-4 of [`library-review.md`](docs/records/library-review.md) passed the
-inference matrix and the tests. Steps 22 to 26 come from
+inference matrix and the tests. Steps 22 to 27 come from
 [`application-report.md`](docs/records/application-report.md), a report of an application's upgrade to 0.8.0 that the
 owner asked to weigh on 22 November 2026. They come first: each is small, none waits for the steps of the engine, and
-step 25 changes a type of `src/testing/rehearse.ts`, which step 19 writes anew. A step done leaves its number unused.
+step 25 changes a type of `src/testing/rehearse.ts`, which step 19 writes anew. From the same record, "Why no check
+found them", come step 27, point 5 of step 16, point 5 of step 26, and two items of "Any time". A step done leaves its
+number unused.
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
 
@@ -166,11 +168,42 @@ The guide says that the repository has no bridge to React Native, and asks for `
    none, so the owner says where.
 4. **The syntax.** The build targets ES2022, and the README does not say so. The three `static {}` blocks of
    `src/defect.ts` are the one syntax the package adds to what Effect's `dist/` asks of a toolchain. To decide: the
-   README says the level, and the three are written another way (advised), with a check of `bun run smoke` that
-   `dist/` has none.
+   README says the level, and the three are written another way (advised). Then `bun run smoke` parses `dist/` at the
+   level the README says, with a parser to be chosen: a level that nothing checks is one that the next class drifts
+   from.
+5. **What the entry for React asks of where it runs.** `bridges/` is typechecked with `DOM`, so a global of the
+   browser compiles in an entry that needs no browser, as `reportError` did. To try: `bridges/react.ts` typechecked
+   with the `lib` of `src/`, and each global it uses declared by name, so that a new one does not compile until it is
+   weighed. The bridge to snabbdom needs a DOM, and keeps it.
 
 **Done when** each point is decided, and done or written in `docs/rejected.md`, with the changelog entry of what a
 consumer notices.
+
+### 27. What the guide says of each function a program gives the library
+
+**Model and effort.** Opus 5.5, `high`: a review, of the guide against the API.
+
+**Depends on** step 24, which says what a `set` may do.
+
+**Why.** What a `set` may do, and when it is called, was a question that no sentence answered. The checks of the
+documentation start from the sentences the guide has ([`promises-and-tests.md`](docs/records/promises-and-tests.md)),
+or from a requirement chosen for its pages (`guide-reader`): neither finds a question that nobody wrote down. The API
+does: each function that a user gives the library is a place where the user asks when it runs, and what it may do
+([`application-report.md`](docs/records/application-report.md), "Why no check found them").
+
+**How.** A table, in a record, of every function that a user gives: `init` in each of its forms, `update`, `external`,
+`makeModel`, `subscriptions`, `runCommand`, `subscribed`, the `get` and the `set` of a child and of an input, alone and
+by id, `at` as a function of the id, a handler of `onEvent`, `onApplied` and `onIgnored`, a listener of the `App`, a
+view and the `fork` of `Host`, and in the testing tools `repeatable`, `withheld`, what `send` selects by, what `run`
+matches by and a scenario. For each: when it is called, how many times, whether it may be called more, what it may
+change or throw, and what becomes of what it returns. A cell names the sentence of the guide that says it, or is
+empty. An empty cell that the code and the tests already keep is written as a point of step 22 is, with its test
+first where none holds it. One that would promise something new goes under "Waiting for the owner".
+
+**Done when** the table is in a record, and each empty cell is written or listed. The owner then weighs whether a tool
+keeps the table, as `bun run comments` keeps the `guarantees`.
+
+### 16. The types checked in every form a program is written
 
 ### 16. The types checked in every form a program is written
 
@@ -211,6 +244,14 @@ axes, checked by `tsc`, so the risk left is in the axes it does not list.
    valid case of the matrix is run with messages drawn by fast-check (with `simulate`, or the run), and never dies of a
    `CompositionDefect`; and `Effect.runFork(start(program).run)` compiles for a case that needs no service, which
    would have found api-4. It runs apart, as `bun run inference` does.
+5. **Each message is given to every function that takes one, in every form it is written.** The matrix writes
+   programs, and never what a test or a view gives them. And the tests of the types say what is refused
+   (`@ts-expect-error`), not in how many forms what is right is taken: the three tests that give `hear` a child's
+   message write a literal. For each valid case, a message of its own, a child's and a write are written as a literal,
+   with a constructor of `Data.taggedEnum` over the program's own messages and over its whole message, as a wrapper
+   that such a constructor builds, and as a value typed `MessageOf`. Each is given to `dispatch`, `forwardTo`,
+   `applyAll`, `simulate`, and the `send` and the `hear` of a rehearsal. What is right compiles in every form, or the
+   guide says which form is refused, and why. Known lead: `hear`, which is step 25.
 
 Then the owner weighs two more, each taken as a step here or written in `docs/rejected.md`. Mutations of the types: a
 mutation in `tools/mutations/` that takes out each check of the types of `program.ts` and `compose.ts`, killed by the
@@ -221,7 +262,7 @@ in "Anatomy of a program" and "Composition", names a `Violation` of the matrix, 
 an item added, no more: a second opinion weighed on 21 November 2026 found that it passed on the day it was written,
 and that it says nothing of a sentence added to an item. A tie of the matrix would be weighed for the same limit.
 
-**Done when** points 1 to 4 run (the first three in `bun run inference`), `AGENTS.md`, `change-api` and the comment
+**Done when** points 1 to 5 run (all but the fourth in `bun run inference`), `AGENTS.md`, `change-api` and the comment
 at the head of `tools/inference/generate.ts` say what they check, their leads are fixed or listed under "Open
 problems", and the owner has decided the two others.
 
@@ -495,7 +536,19 @@ otherwise.
 - **The reading of the guide's promises against the tests, as a skill run before a release.** The method of
   [`promises-and-tests.md`](docs/records/promises-and-tests.md), which found 65 promises outside "What you can rely on"
   that no test checks, written in `.agents/skills/` and named by `release`, as `premise-review` is. Fable 5.2, `high`,
-  to write it: it decides what a release weighs.
+  to write it: it decides what a release weighs. With it, the examples read against the guide, which no check does:
+  each "Don't" of a page is looked for in `examples/`, and a comment of an example that gives a reason is reread when
+  the rule it rests on changes. The form kept a place that its model shows as read-only, for a reason older than the
+  dispatch that applies at once ([`application-report.md`](docs/records/application-report.md), point 3).
+- **A reader's check that meets what no check has met.** The six requirements of
+  [`guide-reader`](.agents/skills/guide-reader/SKILL.md) are each a page of a browser with a value that is typed, and
+  those that were drawn are drawn with snabbdom: each was chosen to need the pages that the guide has. The skill
+  would list what a requirement may vary, and its step 3 would choose one that no earlier check had: a program drawn
+  with the bridge to React, a node type with no DOM, a value that an element reports, a control that chooses among
+  fixed values, tests that build their messages with constructors. And a third mode, an upgrade: coding agents upgrade
+  an application that exists to the new version, from the package and its changelog alone, and report as a reader
+  does. `release` would name it, for where the owner has such an application. What it finds is weighed on the
+  library's own terms, as the record did. The owner is asked first: it changes a skill. Done when the skill has both.
 
 ## Low priority
 
