@@ -16,7 +16,49 @@ Each step names its model and effort, what it depends on, and how to tell that i
 ## Open problems
 
 A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a deterministic
-test of it. None is open.
+test of it. A finding of a review goes here with its `test.failing`, until its fix removes the mark and the item. The
+five below are of the review of the premises of 21 November 2026 (step 5), grouped by their form, which a fix takes
+whole, as [`premise-review`](.agents/skills/premise-review/SKILL.md) says. Each `test.failing` was run without its
+mark, and fails at its assertion.
+
+1. **A defect that the root of a command's fiber makes is not recorded, in `rehearse` and in `simulate`.** A release
+   of a command's scope that has another fiber of the program interrupt the command's fiber: the interruption lands
+   once `scopedIn` has returned, and only `rootedIn` takes it for a defect. The engine records it (`recorded` after
+   `rootedIn`); `rehearse` (`runFirst`) and `simulate` (`runOne`) do not, so `rehearse` loses it where the scenario
+   catches the failure of `run`, or never joins it, and `simulate` where whoever runs it interrupts it as the release
+   runs. Tests: `src/testing/contract.test.ts`, "rehearse fails with a defect, as the run dies, of a command a fiber
+   of the program interrupts as it releases, though the scenario catches it", and "simulate fails with a defect …, as
+   whoever runs it interrupts it". The places checked: the engine's commands and subscriptions, and `rehearse`'s
+   subscriptions, record it. In `rehearse`, an answer refused once the rehearsal ends (`loop.submit` in `answering`)
+   is an `Effect.interrupt` of the command's own fiber, which the root would then record as a defect: it wants
+   `{ quiet: true }`, as `sends` has for subscriptions. A mutation that takes `rootedIn` out of the engine's
+   `runCommand` has a killer now (`contract.test.ts`, "the run dies with a defect of a command a fiber of the program
+   interrupts as it releases"), against what `docs/invariants.md` says of the root.
+2. **`drive`'s `send`, made by a wait that a step wakes, returns before `update` has seen its message.** `drive`'s
+   listener completes the waits' `Deferred` inside the step; Effect 4.1.4 resumes the waiting fiber on that stack, so
+   its `send` is a dispatch during the step, kept for after it. It breaks the guide's "when `send` returns, `update`
+   has seen the message", and `docs/invariants.md`'s "no fiber is woken inside a step". Test:
+   `src/testing/drive.test.ts`, "drive's send, made by a wait that a step wakes" › "returns once update has seen its
+   message, as it promises". The same resumption as point 3 of the seven, under "Waiting for the owner": deciding that
+   point decides how this is fixed (the waits woken once the outermost `apply` returns, or a premise to rest on).
+3. **The bridge to snabbdom records a defect of `init` twice.** The first draw gives what `model()` threw back to
+   `die`, and the dead handle's `die` (`partsOf` in `src/run.ts`) takes as it is only a model's defect: the run dies
+   with `["init", "render"]`, against `App.die`'s doc comment. Test: `bridges/snabbdom.test.ts`, "what the first draw
+   throws" › "by an init that threw, ends the run with the one defect of init". The form: a defect a reader got from
+   the handle, given back, recorded again; a listener's site never meets it, and React's `Draw` gives no defect to
+   `die`.
+4. **With the bridge to React, a defect of `makeModel` reaches the error boundary and `reportError` both**, when the
+   end of the run waits for a release: React's render throws it to the boundary, which unmounts `Host`, and the run
+   then ends with that very defect, which `Host` gives to `reportError`. Test: `bridges/react.test.ts`, "Host" › "a run
+   that dies" › "a makeModel that throws reaches the nearest error boundary, and is not reported again". The form: one
+   defect reported by two actors once their order flips. To decide: `Host` keeps what React threw for it, or the guide
+   says that such a defect may reach both.
+5. **A difference of the contract on a first state whose subscriptions and model both throw**: the run dies in
+   `["subscriptions", "render"]`, since its handle is made and a renderer reads the model, and `rehearse` in
+   `["subscriptions"]`, since it fails before it makes the first model. Test: `src/testing/contract.test.ts`, "rehearse
+   fails in subscriptions, then in render, as the run dies, on a first state whose model is a defect too". The order
+   and count of defects are described, not promised: to decide whether `rehearse` makes the first model whatever the
+   first keys did, or the test goes with a line of the guide.
 
 ## Next, in order
 
@@ -33,19 +75,48 @@ entries of the package, the inputs, the fixed declarations. It comes after the d
 once ([`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), done on 20 November 2026), which removed
 exports that no release has had.
 
-**How.** As [`release`](.agents/skills/release/SKILL.md) says. First a review of the premises
-([`premise-review`](.agents/skills/premise-review/SKILL.md)), in a session that wrote none of the changes of the engine
-and of the testing tools since the last review. That change leaves the review two leads. No test that a premise
-names was run again without its premise, under the new engine: `docs/premises.md` was rewritten by reading.
-And the premise "`Effect.scoped` fails with what a finalizer of its scope dies of" names a test that
-`test/premises.test.ts` has not had since `35fe18f`. Stage 2b of step 2 leaves two more. The mutation "an
-interruption with the fiber id of one the fiber received is no defect, whatever its mark" (`shell.ts`) has only the
-killer of `core.test.ts` left: the end of the run interrupts commands and subscriptions from fibers that
-`Effect.forEach` forks, never from the fiber of the run, so whether the run can still reach that check is to be weighed.
-And the search gives `die` a defect only while nothing has died, since the run reads its defects once, as it ends
-(`Core.endedWith`): whether a defect given to `die`, or recorded by a model read, while the run ends can miss the cause
-is to be checked. Then `bun run mutations` and `bun run interleavings`, and the
-site built without warnings. Then the release commit and its tag. The owner publishes to npm.
+**How.** As [`release`](.agents/skills/release/SKILL.md) says. The review of the premises
+([`premise-review`](.agents/skills/premise-review/SKILL.md)) is done, by three reviewers that wrote none of the
+changes since `da12f71`: the engine, the testing tools and the bridges. Their reports are the bodies of `1317333`
+on `claude/premise-review-engine-080`, `8ffc7a4` on `claude/premise-review-testing-bc87b9` and `6e90b46` on
+`claude/premise-review-bridges-f28572`, which stay unmerged. Its findings are the open problems above, fixed by their
+form before the release. What else it leaves, each to do or decide before the release:
+
+- **The mutation "an interruption with the fiber id of one the fiber received is no defect, whatever its mark"**
+  (`src/core.ts`) has killers through `start` again: a command and a subscription, uninterruptible, that learn the id of
+  the fiber that stops them from the interruption they received (`Cause.interruptors`), interrupt a fiber as that id and
+  join it, as whoever runs the run interrupts it. The engine's reviewer wrote both, in
+  `src/engine-review-scratch.test.ts` of `claude/premise-review-engine-080` (with the three tests of `Effect.scoped`
+  below); they pass at `97d8d9f` and fail under the mutation. They go in `src/run.test.ts` and in the mutation's
+  `killedBy`. The tests that look like them (`run.test.ts`, "…joins a fiber the fiber of the run interrupted, as the
+  run ends…", and `engine.test.ts`, "a subscription interrupting itself as the end of the engine stops it, its key
+  gone, is a defect") kill nothing of the mark any more, and their comments say more than their setup reaches.
+- **The premise "`Effect.scoped` fails with what a finalizer of its scope dies of"** still holds, and
+  `engine.test.ts`, "what a command dies of as the end of the engine interrupts it is what the end dies of", rests on
+  it: its three tests, as `35fe18f` removed them, pass, and come back to `test/premises.test.ts`.
+- **The test of the premise "`HashMap` calls a key's `Equal` and `Hash` only within the call"** passes with the
+  variant its entry names (a `FiberMap` whose fiber, replaced under an equal key, ends after the call): four such
+  constructions called no `Equal` after the call. Either a test where `FiberMap`'s observer meets a pair the call did
+  not compare, or the sentence goes, from `docs/premises.md` and from `src/engine.ts` where it keeps fibers by start.
+  Of the other premises, every named test fails without its premise; the entries of `timeoutOption` and of `Logger`
+  should say that their tests fail by a timeout and by an error of the logger, not at an assertion.
+- **A defect given to `die`, or recorded by a model read, between the read of the register (`deaths.all()` in
+  `startWith`) and the end of the run's fiber, is in no cause.** No run of the search reached it (1000 runs, 4
+  schedules each, seeds 42, 7 and 99, with `die` given a defect whenever the run's fiber had not ended). The guide
+  says of `die`, without a condition, that the run dies of it ("Running"), also once the run has ended. To decide:
+  the guide's sentence, or a register closed in the thunk of its read.
+- **A premise of the bridge to React, listed nowhere**: React renders a `useSyncExternalStore` update made outside
+  its events before the browser's next task. "Writing a bridge" and `docs/invariants.md` rest on it; the bridge's tests
+  take every render with `flushSync`. The bridges' reviewer wrote a test of React alone that passes on happy-dom. It
+  needs the owner's consent, as `docs/premises.md` says.
+- **Sentences that say otherwise than the code**, listed in the reports: the reason for the mark (`core.ts`,
+  `docs/invariants.md`), `forkChild` in `rootedIn`, the first `run` of "untraced", the root without a killer, `drive`'s
+  options "of `run`", the frames of `drive.test.ts` and `contract.test.ts`, `refresh` in `bridge.test_suite.ts`,
+  "drawn once" per task where the bridge draws once per checkpoint, the check `if (queued) return` without a mutation,
+  and tests whose names say more than they check.
+
+Then `bun run mutations` and `bun run interleavings`, and the site built without warnings. Then the release commit and
+its tag. The owner publishes to npm.
 
 **Done when** the tag `v0.8.0` is pushed.
 

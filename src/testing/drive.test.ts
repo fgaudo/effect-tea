@@ -522,3 +522,36 @@ describe("drive's model and dispatch", () => {
     expect(Exit.isFailure(exit)).toBe(true)
   })
 })
+
+// Found by the review of the testing tools of November 2026. `drive` is told of a step in its listener, while the step
+// is still being applied, and wakes the waits there: a fiber waiting on a model goes on on that stack, so a `send` it
+// makes is a dispatch sent during the step, which returns before its message is applied.
+describe("drive's send, made by a wait that a step wakes", () => {
+  type Row = Readonly<{ count: number; went: boolean }>
+  const row: Program<{ state: Row; model: Row; message: "Up" | "Go" }> = {
+    init: { state: { count: 0, went: false } },
+    update: (message) => (state) =>
+      message === "Up" ? { state: { ...state, count: state.count + 1 } } : { state: { ...state, went: true } },
+    subscriptions: () => HashMap.empty(),
+    makeModel: (state) => state
+  }
+
+  // The waiting fiber is forked at once, so that it waits before the scenario dispatches.
+  test.failing("returns once update has seen its message, as it promises", async () => {
+    const after = await Effect.runPromise(drive(
+      row,
+      Effect.fnUntraced(function*(driver) {
+        const waiting = yield* Effect.forkChild(
+          driver.waitFor(({ count }) => count === 1 ? Opt.some(count) : Opt.none()).pipe(
+            Effect.andThen(driver.send(() => Opt.some<"Up" | "Go">("Go"))),
+            Effect.andThen(driver.model)
+          ),
+          { startImmediately: true }
+        )
+        yield* Effect.sync(() => driver.dispatch("Up"))
+        return yield* Fiber.join(waiting)
+      })
+    ))
+    expect(after).toEqual({ count: 1, went: true })
+  })
+})

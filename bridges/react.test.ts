@@ -17,10 +17,12 @@ import {
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test"
 import * as Cause from "effect/Cause"
+import * as Channel from "effect/Channel"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
+import * as HashMap from "effect/HashMap"
 import * as Layer from "effect/Layer"
 import * as ManagedRuntime from "effect/ManagedRuntime"
 import * as Opt from "effect/Option"
@@ -717,6 +719,65 @@ describe("Host", () => {
       settle()
       expect(element("#app").textContent).toBe("Crashed")
       expect(ended).toEqual(["interrupted"])
+    })
+
+    // React reads the model in the notice and as it renders: the defect `model()` throws reaches the boundary from
+    // React's render, which unmounts `Host`, while the run, whose end waits for a release, dies of that very defect once
+    // `Host` has unmounted. Found by the review of the bridges before 0.8.0: `Host` gives it to `reportError` too.
+    test.failing("a makeModel that throws reaches the nearest error boundary, and is not reported again", async () => {
+      const thrown = new Error("A model that cannot be made")
+      const gate = Deferred.makeUnsafe<void>()
+      const shaky = {
+        ...counter,
+        subscriptions: () =>
+          HashMap.make([
+            "held",
+            Channel.unwrap(
+              Effect.acquireRelease(Effect.void, () => Deferred.await(gate)).pipe(Effect.as(Channel.never))
+            )
+          ]),
+        makeModel: (state: Parameters<typeof counter.makeModel>[0]) => {
+          if (state.count > 0) throw thrown
+          return counter.makeModel(state)
+        }
+      }
+      const caught: Array<unknown> = []
+      const reported: Array<unknown> = []
+      const reportError = globalThis.reportError
+      globalThis.reportError = (error) => void reported.push(error)
+      try {
+        const root = createRoot(page(), { onCaughtError: (error) => void caught.push(error) })
+        roots.push(root)
+        let fiber: Fiber.Fiber<void, unknown> | undefined
+        await acting(() =>
+          root.render(createElement(
+            Boundary,
+            null,
+            host({
+              program: shaky,
+              fork: (effect) => {
+                fiber = heldFork(effect)
+                return fiber
+              },
+              children: counterView
+            })
+          ))
+        )
+        await started()
+        await acting(() => button("+").click())
+        expect([element("#app").textContent, caught.length]).toEqual(["Crashed", 1])
+        Deferred.doneUnsafe(gate, Exit.void)
+        settle()
+        if (fiber !== undefined) await Effect.runPromise(Fiber.await(fiber))
+        // A window of absence: nothing a correct run does tells that `Host` did not report what the run ended with, so
+        // the test waits a turn once the run has ended, then lets React do what that turn asked of it.
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        await acting(async () => {})
+        expect((caught[0] as ProgramDefect).where).toBe("render")
+        expect([caught.length, reported]).toEqual([1, []])
+      } finally {
+        globalThis.reportError = reportError
+      }
     })
 
     test("gives what it dies of once Host has unmounted to reportError", async () => {

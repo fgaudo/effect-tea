@@ -1607,6 +1607,30 @@ describe("a defect of makeModel", () => {
     }
   }
 
+  // Found by the review of the testing tools of November 2026. The run makes the handle though the subscriptions of the
+  // first state die, and a renderer that reads its model, as `drive` does, meets the model's defect too: `rehearse`,
+  // which makes the model "as a renderer told of every state that reads each one", fails on the first and never makes
+  // the model. On a later state neither reads it, since the run tells no listener of a state whose keys died.
+  const bothFirst: Program<{ state: Count; model: number; message: "Go" }> = {
+    ...modeling,
+    subscriptions: () => {
+      throw new Error("keys")
+    }
+  }
+
+  test("the run dies in subscriptions, then in render, on a first state whose model is a defect too", async () => {
+    const exit = await Effect.runPromiseExit(drive(bothFirst, () => Effect.never))
+    expect(reasons(exit)).toEqual(["subscriptions", "render"])
+  })
+
+  test.failing(
+    "rehearse fails in subscriptions, then in render, as the run dies, on a first state whose model is a defect too",
+    async () => {
+      const exit = await Effect.runPromiseExit(rehearse(bothFirst, () => Effect.never))
+      expect(reasons(exit)).toEqual(["subscriptions", "render"])
+    }
+  )
+
   test("the run dies in subscriptions first, on a state whose model is a defect too", async () => {
     const exit = await Effect.runPromiseExit(
       drive(both, (driver) => Effect.andThen(driver.send(() => Opt.some("Go")), Effect.never))
@@ -1834,6 +1858,96 @@ describe("a command or a subscription that a fiber of the program interrupts", (
       expect(diedIn(exit)).toBe("subscription")
     }
   )
+
+  // Found by the review of the testing tools of November 2026. The interrupter runs at once in the release of the
+  // command's scope, where nothing interrupts the fiber: the interruption lands once the scope has closed, which only the
+  // root of the fiber takes for a defect. The run records it; `rehearse` gave it only to the `run` that awaits the
+  // fiber, so a scenario that caught that failure, or a `run` nobody joined, lost it.
+  const releasing: Program<{
+    state: Row
+    model: number
+    message: "Go" | "Done"
+    command: "Quit"
+    commandServices: Scope.Scope
+  }> = {
+    init: { state: { seen: 0 } },
+    update: (message) => ({ seen }) =>
+      message === "Go" ? { state: { seen }, commands: ["Quit"] } : { state: { seen: seen + 1 } },
+    runCommand: () =>
+      Effect.gen(function*() {
+        const self = yield* Effect.fiber
+        yield* Effect.addFinalizer(() =>
+          Effect.asVoid(Effect.forkDetach(Fiber.interrupt(self), { startImmediately: true }))
+        )
+        return Opt.some<"Go" | "Done">("Done")
+      }),
+    subscriptions: () => HashMap.empty(),
+    makeModel: ({ seen }) => seen
+  }
+
+  test("the run dies with a defect of a command a fiber of the program interrupts as it releases", async () => {
+    const exit = await Effect.runPromiseExit(
+      drive(releasing, (driver) =>
+        driver.send(() => Opt.some("Go")).pipe(
+          Effect.andThen(driver.waitFor((seen) => seen === 1 ? Opt.some(seen) : Opt.none()))
+        ))
+    )
+    expect(diedIn(exit)).toBe("command")
+  })
+
+  test.failing(
+    "rehearse fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, though the scenario catches it",
+    async () => {
+      const exit = await Effect.runPromiseExit(
+        rehearse(
+          releasing,
+          (rehearsal) =>
+            rehearsal.send(() => Opt.some("Go")).pipe(Effect.andThen(Effect.exit(rehearsal.run(() => true))))
+        )
+      )
+      expect(diedIn(exit)).toBe("command")
+    }
+  )
+
+  // The same, as whoever runs the tool interrupts it while the release waits for `gate`: the tool stops the command
+  // with the run's mark, and the program's interruption lands beside it once the scope has closed.
+  const gated = (began: Deferred.Deferred<void>, gate: Deferred.Deferred<void>): typeof releasing => ({
+    ...releasing,
+    runCommand: () =>
+      Effect.gen(function*() {
+        const self = yield* Effect.fiber
+        yield* Effect.addFinalizer(() =>
+          Effect.forkDetach(Fiber.interrupt(self), { startImmediately: true }).pipe(
+            Effect.andThen(Deferred.succeed(began, undefined)),
+            Effect.andThen(Deferred.await(gate))
+          )
+        )
+        return Opt.some<"Go" | "Done">("Done")
+      })
+  })
+  const interruptedAsItReleases = (tool: "drive" | "simulate") =>
+    Effect.runPromise(Effect.gen(function*() {
+      const began = yield* Deferred.make<void>()
+      const gate = yield* Deferred.make<void>()
+      const program = gated(began, gate)
+      const fiber = yield* Effect.forkChild(
+        tool === "simulate"
+          ? Effect.asVoid(simulate(program)(["Go"], program.init))
+          : drive(program, (driver) => driver.send(() => Opt.some("Go")).pipe(Effect.andThen(Effect.never)))
+      )
+      yield* Deferred.await(began)
+      yield* Effect.forkChild(Fiber.interrupt(fiber), { startImmediately: true })
+      yield* Deferred.succeed(gate, undefined)
+      return diedIn(yield* Fiber.await(fiber))
+    }))
+
+  test("the run dies with a defect of a command a fiber of the program interrupts as it releases, as whoever runs it interrupts it", async () => {
+    expect(await interruptedAsItReleases("drive")).toBe("command")
+  })
+
+  test.failing("simulate fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, as whoever runs it interrupts it", async () => {
+    expect(await interruptedAsItReleases("simulate")).toBe("command")
+  })
 })
 
 // A message is applied in the call that sends it, and the effects of its step follow in the fiber of effects, in the
