@@ -1,8 +1,8 @@
 # The run as a store and its effects: the spike and the plan
 
 **Status:** spiked, 20 November 2026, by a session of Fable 5.2, on the branch `claude/spike-store-and-effects` at
-`ab19927`, never to be merged. Taken by the owner the same day ("Decided", at the end), to be done in the four stages
-of step 2 of [`ROADMAP.md`](../../ROADMAP.md). It answers part 2 of
+`ab19927`, never to be merged. Taken by the owner the same day ("Decided", at the end), and done on `main` in four
+stages. It answers part 2 of
 [`architecture-review.md`](architecture-review.md), which says why the renderer as an effect is in doubt, and its
 "Open, for the plan". It reopens "`run` split into a synchronous half and the fibers", parked on the same day (B5 of
 [`synchronous-dispatch.md`](synchronous-dispatch.md), [`rejected.md`](../rejected.md)). Last read against the code at

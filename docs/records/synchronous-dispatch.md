@@ -86,7 +86,9 @@ none was run: where an answer names something to check first, its stage checks i
   Nothing is promised of a reset with React either: it works there by what React does not document (the fourth
   premise of the spike's record), and the contract stays as narrow as `adoption.md` decided.
 - **B4. `Draw` and `Host`, as spiked.** The entry exports `View`, `Draw`, `Host`, `HostProps` and `Fork`.
-- **B5. `run` is not split now**: parked. The first model, for a server or for `Host`'s `fallback`, is data a program
+- **B5. `run` is not split now**: parked. _Reversed on 20 November 2026 by
+  [`store-and-effects.md`](store-and-effects.md): `start` is the split, and `run(program, render)` is removed. What
+  follows is the decision as it was taken._ The first model, for a server or for `Host`'s `fallback`, is data a program
   gives already, `program.makeModel(program.init.state)`, drawn with a dispatch that does nothing (`rejected.md`,
   "`renderToString`"). A split is an export and a second way to start a run. The engine keeps what the thunk reads
   and writes free of fibers, as spiked, so a split stays possible. _Reopen if_ a first model must be drawn by `Host`

@@ -167,8 +167,20 @@ answer, and saying so in the proposal.
   replaced is not among them, so is not reported, where taking any write to the input as held would report every late
   one. Source: the session that weighed it. _Reopen if_ rejections in production are shown to hide bugs the property
   tests cannot reach, and a frame's identity can reach the run without a change of `Dispatch`.
-
-## The testing tools
+- **`run` split into a synchronous half and the fibers** (B5 of
+  [`synchronous-dispatch.md`](records/synchronous-dispatch.md)), so that `Host` draws the first model in the render that
+  mounts it, and a server draws it with `getServerSnapshot`. Reasoned in the spike, not built: the thunk applies at once
+  and the effects of a step are jobs for a fiber, so the engine's state, its keys, its listeners and its queue of jobs
+  could be made synchronously, before any fiber starts, and the fibers started later. Parked by the owner on 20
+  November 2026: the first model, for a server or for `Host`'s `fallback`, is data a program gives already,
+  `program.makeModel(program.init.state)`, drawn with a dispatch that does nothing ("`renderToString`", below), and a
+  split is an export and a second way to start a run. Its sentence on StrictMode, that the second render would make a
+  second half that nothing starts with no command of `init` run twice, held of the second render and not of the second
+  effect, which is the one that starts a run. Reopened the same day, and reversed: spiked and taken by the owner
+  ([`store-and-effects.md`](records/store-and-effects.md)). `start(program, options)` is plain code and gives the handle
+  a renderer reads, with `run`, the effect that runs the program's effects; `run(program, render)` is removed; `Host`
+  starts its run in a microtask after its effect, so that under StrictMode the commands of `init` start once; and the
+  guide promises that a server draws the first model.
 
 - **`rehearse`, owning what the test starts, in other forms**: the loop calling `runCommand` (spiked, `cb7dfd0`),
   a request the loop has not taken failing the rehearsal (spiked, `74b271f`), a subscription's message applied as it
@@ -417,8 +429,9 @@ answer, and saying so in the proposal.
   commands of `init` have answered, a run to quiescence that returns its state: that is what Effect alone cannot do,
   and a feature other than this one. A first frame drawn on a server in an example goes with "The bridges as packages of
   their own" (`ROADMAP.md`), which decides the dependencies of the bridges. Since 20 November 2026 a dispatch is a
-  function, and the literal is `() => {}`; the split of `run` that would give a first model to a server is parked
-  ("Parked, not rejected", below), on this entry's reason.
+  function, and the literal is `() => {}`. The entry still stands: the library exports no function for it. Since the
+  split of `run` was taken ("`run` split into a synchronous half and the fibers", in "The engine and its guarantees"),
+  a server calls `start` and reads the handle.
 - **Offers as tokens, checked against `update`** (`offer`, `offerInput`, `missingOffers`, a run that reported a
   rejected offer). Shipped in 0.3.0 (`ae4661b`) and removed in 0.6.0 (`3c3fdf9`, 23 October 2026): checking each
   offer against `update` made every page carry rules (offer only what `update` accepts, never probe offers, inputs
@@ -836,14 +849,3 @@ there; one decided against becomes an entry above.
   ([`synchronous-dispatch.md`](records/synchronous-dispatch.md)): a renderer draws the model of the current state, and
   the bridge to snabbdom skips a model that is the very one it drew last, by identity, as it skipped a frame. The
   measure above is of the bridge of frames, and was not run again.
-- **`run` split into a synchronous half and the fibers** (B5 of
-  [`synchronous-dispatch.md`](records/synchronous-dispatch.md)), so that `Host` draws the first model in the render that
-  mounts it, and a server draws it with `getServerSnapshot`. Reasoned in the spike, not built: the thunk applies at once
-  and the effects of a step are jobs for a fiber, so the engine's state, its keys, its listeners and its queue of jobs
-  could be made synchronously, before any fiber starts, and the fibers started later; StrictMode's second render would
-  then make a second half that nothing starts, with no command of `init` run twice. Parked by the owner on 20 November
-  2026: the first model, for a server or for `Host`'s `fallback`, is data a program gives already,
-  `program.makeModel(program.init.state)`, drawn with a dispatch that does nothing ("`renderToString`", above), and a
-  split is an export and a second way to start a run. The engine keeps what the thunk reads and writes free of fibers,
-  so a split stays possible. _Reopen if_ a first model must be drawn by `Host` itself, or a server needs the state after
-  the commands of `init` have answered.

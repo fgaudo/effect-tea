@@ -20,40 +20,6 @@ test of it. None is open.
 
 ## Next, in order
 
-### 2. The run as a store and its effects
-
-Taken by the owner on 20 November 2026, on the spike's record,
-[`store-and-effects.md`](docs/records/store-and-effects.md) ("Decided"): a program is started by plain code,
-`start(program, options)`, which gives the handle a renderer reads and `run`, the effect that runs the program's
-effects; `run(program, render)` is removed; a renderer gives the handle's `die` what its draw threw outside a
-listener; `Host` starts its run in a microtask after its effect; an `init` that throws gives a handle that has died;
-and the guide promises the first model on a server. Its stages below come before the release: they remove an export
-that 0.7.1 has, and others that no release has had. The spike is the branch `claude/spike-store-and-effects`
-(`ab19927`), never to be merged: each stage brings its part onto `main` as `main` is then.
-
-Its first three stages are done. The engine is in two halves on `main`: `Engine.build` makes it by plain code, and its
-`effects` start the fiber of effects; `start` and `Started` are exported, with `die` on `App`; `drive` runs over
-`startWith`. `Engine.make` stays in `src/engine.ts`, for the tests of the engine alone. `run(program, render)` is
-removed, with the renderer's fiber, scope and site; the bridge to snabbdom has `drawInto` in place of `renderInto`,
-`Host` starts its program as it first renders and runs it in a microtask after its effect, and the tests, the search,
-the examples, the smoke test and the benchmark are over `start`. The premise of StrictMode is in `docs/premises.md`.
-The guide, the doc comments, the skill, the README, the tutorial and the changelog say so: the guide promises the first
-model on a server, and describes, without promising it, where the effects of a step start and what StrictMode does.
-
-#### 2d. What it reverses in `docs/rejected.md`
-
-**Model and effort.** Sonnet 5.5, `medium`, from the record's "What it reverses in `rejected.md`".
-
-**Depends on** nothing open.
-
-**How.** "`run` split into a synchronous half and the fibers" leaves "Parked, not rejected", and B5 is marked reversed
-in [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), as R1 is. The last sentence of
-"`renderToString`, a first frame for server-side rendering" says what a server does now. The record's status says
-that it is done. In "Waiting for the owner" below, points 1 and 2 of the seven go, point 3 keeps what it says of
-`drive` and of `rehearse`, and the paragraph on the reader with an application in React goes.
-
-**Done when** each of those says so, and step 2 is removed with this stage.
-
 ### 5. Release 0.8.0
 
 **Model and effort.** Opus 5.5, `high`: its first part is a review.
@@ -192,9 +158,8 @@ whether `@fgaudo/effect-tea/snabbdom` stays beside it.
 
 ## Waiting for the owner
 
-Where a step above would answer a point below, the point stays here until the step is done. Step 2, taken, answers
-points 1 and 2 of the "Seven points of a review of the design", point 3 for the engine, and what the reader with an
-application in React meets, at their end: its stage 2d takes them from here. Step 7 would answer point 4 of the seven.
+Where a step above would answer a point below, the point stays here until the step is done. Step 7 would answer point
+4 of the seven. A point of the seven that is gone leaves its number unused.
 
 - **Three findings of the reader's check of 20 November 2026**, the last stage of
   [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md): two readers that had not seen the code built a
@@ -228,45 +193,29 @@ application in React meets, at their end: its stage 2d takes them from here. Ste
 - **Seven points of a review of the design.** By the session of Fable 5.2 that briefed and verified the stages of
   the same record, asked by the owner on 20 November 2026 what does not fit. Reasoned from the code read for those
   reviews, and not run, but where a point says so. Each is to be weighed.
-  1. **The end of the run may begin inside a step.** A defect recorded in the thunk completes `died` there
-     (`Deaths.record`), and Effect resumes the run's waiter on that stack: the end sets `stopped` and stops fibers
-     while the step still tells its listeners. It is correct, by the checks, and the hardest part of the engine to
-     reason about. To weigh: the register written at once, and `died` completed once the outermost `apply` returns.
-  2. **The loop of the thunk has no `finally`** (`apply` in `src/engine.ts`). What threw there outside `attempt`
-     would leave `applying` set, and the engine applying nothing, in silence, against "Nothing ends in silence". To
-     weigh: a `finally`, and a defect of the library's own for what it catches. Reached on 20 November 2026, by the
-     spike of step 2, and run on `main`'s engine: `applyOne` reads a message's tag again to say what a defect of
-     `update` was on, outside `attempt`, and a tag that throws on that read makes `dispatch` throw to its caller,
-     loses the defect of `update`, and leaves the run applying nothing, ended with no defect
-     ([`store-and-effects.md`](docs/records/store-and-effects.md), "Found on the way"). Fixed by stage 2a: the loop has
-     a `catch` and a `finally`, and `recordThrown` records the defect before it throws what its details threw.
-  3. **A fiber resumed on the stack of whoever completes its `Deferred` is no premise, and shapes more code at each
-     stage.** "Writes first, offers last" in every thunk, the counter of notices in `drive`, and two killers that work
-     only through it (stages 1 and 2) exist for a behaviour the library refuses to rest on. They have no mutation,
-     which `docs/premises.md` warns of ("never made unneeded by code of the library's written for it alone"). With a
-     dispatch that applies at once it is no edge any more. To weigh: adopt it as a premise, with its test, so that
-     those guards get killers. It reverses E3 of the record, which the same session proposed.
+  3. **A fiber resumed on the stack of whoever completes its `Deferred` is no premise, and shapes code of the testing
+  tools.** The counter of notices in `drive`, and two killers that work only through it (stages 1 and 2), exist for
+  a behaviour the library refuses to rest on. They have no mutation, which `docs/premises.md` warns of ("never made
+  unneeded by code of the library's written for it alone"). With a dispatch that applies at once it is no edge any
+  more. To weigh: adopt it as a premise, with its test, so that those guards get killers. It reverses E3 of the
+  record, which the same session proposed.
   4. **The pure half of a step is written twice**, in `applyOne` (`src/engine.ts`) and in `apply`
-     (`src/testing/rehearse.ts`): `arrive`, the state, `reconcile` and the stop at a defect, in the same order.
-     To weigh: one transition of `core.ts` for both, as `shared-core.md` did for `arrive` and `reconcile`.
+  (`src/testing/rehearse.ts`): `arrive`, the state, `reconcile` and the stop at a defect, in the same order.
+  To weigh: one transition of `core.ts` for both, as `shared-core.md` did for `arrive` and `reconcile`.
   5. **The state is ahead of its effects, and a test may assume it is not.** A step's commands start in a later job,
-     and the end drops the jobs not taken. So a test that ends once the state shows something may end before the
-     commands of that step start: a test of `drive` changed meaning for it in stage 2. Done in stage 4 for the guide,
-     which says it in "Guarantees" and in "Testing tools", and for the doc comment of `drive`. Left: whether the skill
-     says it (above).
+  and the end drops the jobs not taken. So a test that ends once the state shows something may end before the
+  commands of that step start: a test of `drive` changed meaning for it in stage 2. Done in stage 4 for the guide,
+  which says it in "Guarantees" and in "Testing tools", and for the doc comment of `drive`. Left: whether the skill
+  says it (above).
   6. **The whole pure step now runs in the event that sends the message**: `update`, `onApplied`, `subscriptions` with
-     the lookup of every key, the listeners and, with React, `makeModel`. It was measured for a counter with no key
-     alone. The guide now promises that a model is made only when it is read, and describes that React reads one for
-     each state. To do before the release: measure a step with many keys and a model that costs (the benchmark of
-     "Any time").
+  the lookup of every key, the listeners and, with React, `makeModel`. It was measured for a counter with no key
+  alone. The guide now promises that a model is made only when it is read, and describes that React reads one for
+  each state. To do before the release: measure a step with many keys and a model that costs (the benchmark of
+  "Any time").
   7. **The premise the design rests on was run in one real browser, and never with an IME** (P3 of the record). In
-     Chromium, with the form and the stock-take, the caret and a selection hold (the record, under its stage 4). To
-     weigh: Firefox, WebKit and an IME composition before the release, where "The bridges in a real browser" comes
-     after it.
-
-  And for the reader who has an application in React: `Host` draws `fallback` until its run has started, and runs the
-  commands of `init` twice under StrictMode. The split of `run` (B5 of the record, parked) would end both, and is what
-  such a reader meets first.
+  Chromium, with the form and the stock-take, the caret and a selection hold (the record, under its stage 4). To
+  weigh: Firefox, WebKit and an IME composition before the release, where "The bridges in a real browser" comes
+  after it.
 
 ## Any time
 
