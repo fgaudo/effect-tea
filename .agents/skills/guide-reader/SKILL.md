@@ -320,8 +320,8 @@ export const valueOf = (selector: string): string | undefined => {
   question for the author, since the README and the doc comments are what it reads.
 - Check each possible bug against `src/`, `docs/invariants.md` and the guide before acting on it. A defect of the code
   is fixed as any other, with its test (`change-engine`, `change-api`). A choice of the API that the reader found
-  awkward is a question for the author, and goes in [`ROADMAP.md`](../../../ROADMAP.md), under "Ideas, to be
-  decided", with what would decide it, after [`docs/rejected.md`](../../../docs/rejected.md) is read for it.
+  awkward is a question for the author, and goes in [`ROADMAP.md`](../../../ROADMAP.md), under "Waiting for the
+  owner", with what would decide it, after [`docs/rejected.md`](../../../docs/rejected.md) is read for it.
 - Put each gap of (a) and (b), and each rule of (2) to (5) a user relies on, where the reader looked for it. A page of
   the guide or the tutorial gets it as a specification: a sentence added promises what the code and the tests already
   keep, and is checked against `src/` and its tests, or with the compiler, before it is committed, since a reader's

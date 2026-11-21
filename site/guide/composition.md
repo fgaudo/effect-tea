@@ -132,7 +132,8 @@ For each child, and for itself, a parent declares what follows. The sections bel
   - An input by id is placed in the same ways, as functions of the id.
   - An input is not a child. The input's value is part of the parent's own state. The parent's `update` and
     `makeModel` read that value like the rest of the state.
-  - A program with inputs and no children leaves `children` out.
+  - A program with inputs and no children leaves `children` out, both the key of `make` and the parameter of `init`. Its
+    `init` is then its first step, `init: { state }` (see [how a child starts](#how-a-child-starts)).
 
 ### What the library derives
 

@@ -48,10 +48,10 @@ Effect's own combinators, as the clock of [`pages`](../../examples/pages/clock.t
 
 **Pick a subscription or a command by what the work is for:**
 
-| Use a…           | for                                                                                                                               |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| **subscription** | input tied to a state (a clock while a page is open, a scroll), or work that stops when the state no longer wants it (a download) |
-| **command**      | a one-off effect whose answer must arrive even if the state has moved on                                                          |
+| Use a…           | for                                                                                                                                                                  |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **subscription** | messages from a source for as long as a state wants them (a clock while a page is open, a scroll), or work that stops when the state no longer wants it (a download) |
+| **command**      | a one-off effect whose answer must arrive even if the state has moved on                                                                                             |
 
 **Work that should stop is a subscription.** A download, or a search while the user types, can be a subscription. Keep
 the subscription's key in the state while the work is wanted.

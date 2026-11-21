@@ -81,7 +81,9 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
   - A program that raises an event it did not name does not compile.
 
   A model that is named is checked. A model that is not named is inferred from `makeModel`. The services are never
-  named. They are inferred from `runCommand` and `subscriptions`.
+  named. They are inferred from `runCommand` and `subscriptions`. A command's effect or a subscription written apart
+  names the services it needs in its own type, as `Execution<Message, R>` or `Subscription<Message, R>`. The program
+  that returns it then needs them: `CommandServicesOf` and `SubscriptionServicesOf` give what a program needs.
 
 - **Its type lists the types it is made of.** A program's type is `Program<{ state; model; message }>`. It also lists
   `command`, `commandServices`, `subscriptionServices`, `event`, `external` and `flags` when the program has them.

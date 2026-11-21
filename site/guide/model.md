@@ -53,6 +53,10 @@ control sends the message that the program fixed for it.
   [why what the user types is no message](./inputs-the-user-types-into.md#why-what-the-user-types-is-no-message)).
 - A view sends only the messages that the model holds. A view writes only into the inputs that the model shows. A view
   never builds a message of the program itself.
+- A control that chooses among fixed values, as the digits of a keypad, holds one message for each value: a list or a
+  record of messages. A function `(digit) => Message` would be a function in the model (see the next rule). The clock
+  of [`pages`](../../examples/pages/clock.ts) picks its format so: each case of its model holds the message that picks
+  the other format.
 - Export `Message` as a type only. Then no view can build a message.
 
 **A model is data.** A model holds no function. A model compares by value with `Equal`. The models of two equal states
@@ -94,4 +98,5 @@ of a program from its model (see [testing](./testing.md)). So no test has seen a
 checks this on the models of two equal states, built apart (see [testing](./testing.md)). A function made anew by each
 call of `makeModel` would break this comparison.
 
-**Data does not have to be serializable.** An `Option`, a `Data` class or a `HashMap` is data.
+**Data does not have to be serializable.** A plain object, an array, an `Option`, a `Data` class or a `HashMap` is
+data: `Equal` compares each of them by what it holds.

@@ -79,7 +79,15 @@ value in another form has four ways:
   [the element on screen](#the-element-on-screen)).
 - **Change the text as it is stored, in `set`.** A `set` may store another value than the one written: for example,
   the text in capitals. The element is then drawn with the value stored, at once, and keeps its focus. Where the caret
-  goes then is the browser's, and is not promised: Chromium puts it at the end of the text.
+  goes then is the browser's, and is not promised: Chromium puts it at the end of the text. The input gives `get` and
+  `set` in place of `at`:
+
+  ```ts
+  inputs: {
+    Note: input({ get: (state) => Opt.some(state.note), set: (state, note) => ({ ...state, note: note.toUpperCase() }) }),
+  },
+  ```
+
 - **Format the text in the element, before the write.** A limit that the element keeps by itself, such as
   `maxlength`, needs nothing: the element reports the value that it holds. A mask changes the element's own value. So
   it is outside what this page promises, as any value that an element changes by itself is (see
@@ -141,7 +149,7 @@ inputs: { Count: counts },
 ```
 
 Here `atCounts` is an optic to the counts, and `read` gives what an optic focuses on, as an `Option`. While the counts
-are `Locked`, `atOpen` focuses nothing. So `get` returns `None`, and `set` leaves the state as it is.
+are `Locked`, `atOpen` focuses nothing. So `get` returns `None`, and the write is rejected.
 
 **Keep what the user types in the case of the state where it can be typed.** The lock is then the shape of the state,
 and no condition beside it: the input, `update` and `makeModel` read the same case. In `stocktake`, a `set` that wrote

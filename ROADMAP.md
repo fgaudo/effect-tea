@@ -29,42 +29,6 @@ None is open.
 
 ## Next, in order
 
-### 22. What the guide says in other words, or leaves to an example
-
-**Model and effort.** Opus 5.5, `medium`.
-
-**Depends on** no other step. It changes no promise: each point says what the guide, the code and the tests already
-keep.
-
-**Why.** [`application-report.md`](docs/records/application-report.md), points 1, 2, 6 and 7: coding agents that
-upgraded an application read each of these another way, or found it by a script.
-
-**How.** Each sentence is checked against `src/` and its tests before it is written, as the last section of
-[`guide-reader`](.agents/skills/guide-reader/SKILL.md) says:
-
-1. **"Subscriptions", the table of a subscription or a command**: "input tied to a state", of a clock and a scroll,
-   uses the word of the glossary for another thing. It takes another word.
-2. **"Inputs the user types into", "Inputs by id"**: "So `get` returns `None`, and `set` leaves the state as it is"
-   reads as if `set` were called on the locked counts. The write is rejected, and `set` is not called (`updateAt` in
-   `src/compose.ts`).
-3. **An example of `input({ get, set })` alone**, on the same page: both of its examples of `get` and `set` are of
-   `inputById`.
-4. **"Composition", "The parent's inputs"**: "leaves `children` out" names both things it leaves out, the `children`
-   of `make` and the parameter of `init`, which is then the program's first step.
-5. **"Model", under "Messages live in the model"**: a control that chooses among fixed values holds one message for
-   each, as a list or a record of messages. The clock of `pages` holds two.
-6. **"Model", "Precisely"**: a plain object, an array and a record of data are data. Read first in Effect's
-   documentation of `Equal`: a probe is not enough for a sentence of the guide.
-7. **A subscription written apart names its services in its type**, `Subscription<Message, R>`, and the program's
-   subscriptions then need them (`SubscriptionServicesOf`), as an `Execution<Message, R>` does for the commands: in
-   "Anatomy of a program", where the guide says that the services are inferred.
-8. **The skill `guide-reader`** sends a choice of the API to "Ideas, to be decided" of this file, which is gone: it
-   names "Waiting for the owner".
-
-**Done when** the pages say it, the doc comments and the rules of the skill that name a changed section are reread,
-and `bun run comments`, `bun run typecheck`, `bun run lint` and `bun run test` pass. Whether a point has a changelog
-entry is [`release`](.agents/skills/release/SKILL.md)'s to say.
-
 ### 23. What an input is for, and what its `set` may do
 
 **Model and effort.** Fable 5.2, `high`: what the guide promises of an input is decided, with the owner.
@@ -197,8 +161,9 @@ by id, `at` as a function of the id, a handler of `onEvent`, `onApplied` and `on
 view and the `fork` of `Host`, and in the testing tools `repeatable`, `withheld`, what `send` selects by, what `run`
 matches by and a scenario. For each: when it is called, how many times, whether it may be called more, what it may
 change or throw, and what becomes of what it returns. A cell names the sentence of the guide that says it, or is
-empty. An empty cell that the code and the tests already keep is written as a point of step 22 is, with its test
-first where none holds it. One that would promise something new goes under "Waiting for the owner".
+empty. An empty cell that the code and the tests already keep is written in the guide, each sentence checked against
+`src/` and its tests first, as the last section of [`guide-reader`](.agents/skills/guide-reader/SKILL.md) says, with
+its test first where none holds it. One that would promise something new goes under "Waiting for the owner".
 
 **Done when** the table is in a record, and each empty cell is written or listed. The owner then weighs whether a tool
 keeps the table, as `bun run comments` keeps the `guarantees`.
