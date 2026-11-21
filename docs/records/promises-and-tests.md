@@ -3,8 +3,8 @@
 **Status:** done, 21 November 2026, as step 11 of [`ROADMAP.md`](../../ROADMAP.md), at commit `b6db847`, by a session
 of Opus 5.5. Six readers of Sonnet 5.5 read the pages and the tests. The session checked every type promise, every
 candidate of the step, and part of the other gaps on the tests' bodies. A reviewer of Opus 5.5 checked the rest. No test
-was written, and no sentence of the guide changed. Step 12 writes the tests, and step 13 weighs a check that keeps a
-guarantee tied to its tests.
+was written, and no sentence of the guide changed. Step 12 wrote the tests, and its decisions are at the end ("What step
+12 made of it"). Step 13 weighs a check that keeps a guarantee tied to its tests.
 
 ## In short
 
@@ -362,3 +362,70 @@ asserts, and "Composition", "An input. No `update` sees it", which `src/input.te
 - **Step 13**: "What you can rely on" has a test for each item, and the gaps are on the other pages. A check that names,
   for each guarantee, the mutations that hold it would cover none of these 65. The method above is what a skill run
   before a release would do for the other pages.
+
+## What step 12 made of it
+
+Done on 21 November 2026 by a session of Opus 5.5, with four agents of Opus 5.5 that wrote the tests of behaviour, each
+checked by the session against the full suite and against the mutations. No test came out failing: no sentence but the
+one above was found false. The owner decided what the record left to them, on the advice of a reviewer of Fable 5.2 for
+the negatives.
+
+**The sentences the owner decided.**
+
+- The sentence found false is changed: `makeModel` runs in the call that sends the message when a renderer reads the
+  model there, "as the bridge to React may", which `bridges/react.test.ts` holds ("a new state's model is made in the
+  notice, on the stack of whoever sent the message, and not again").
+- G5 and V3: "keeps no state beside the program's state" was neither observable nor true to the letter, since the bridge
+  keeps the tree it drew, the model it drew last, and what schedules its draws. It now reads "draws the model, and
+  nothing else: what it shows of a controlled element is the value its model gave it", in "View", "Guarantees" and the
+  skill, held by the suite of the bridges and the tests of an element no longer controlled.
+- G3 is held by the test of G4, which takes a release that never ends under a `TestClock`. M1 promises no behaviour of
+  its own, as the negatives under "Unsorted": the run could check the model only by making one that nobody read, which
+  "a model is made only when read, once for each state" (`src/run.test.ts`) rules out, or by a defect for a rejection,
+  which "a message that update rejects is ignored, and the program goes on" rules out.
+- A3 is advice on the compiler's options, and has no test.
+
+**The tests**, each in the file of its module, by gap:
+
+- Types: R1, R4, R5, C1, S1 in `src/run.test.ts`; P1, P5, P6, D1, A1, A2 in `src/compose.test.ts`; D2 in
+  `src/defect.test.ts`; V1 in `src/dispatch.test.ts`.
+- `src/run.test.ts`: R2 ("never succeeds: …"), R6 and D3 ("neither onApplied nor onIgnored hears what a subscription
+  sends once its key went away"), R7, R8, R9, R10, R11, G2 and C3 ("starts every command of a step, however many: a
+  thousand run at once"), G3 and G4 ("a release that never ends holds the next job, then the defects the run would die
+  with, with no defect of its own"), G7, G8, C2, and T2 in "hears every message update rejects", with a subscription's
+  message. `src/start.test.ts`: R3. `src/engine.test.ts`: G1 and V2.
+- `src/compose.test.ts`: E1, P2, P3, P4, P7 (two tests), P8, P9. `src/input.test.ts`: I2.
+- The bridges: B1 in `bridges/bridge.test_suite.ts`, for both; B2, B3, V4 and B8 in `bridges/snabbdom.test.ts`; G6, B4,
+  B6 in `bridges/react.test.ts`.
+- The testing tools: T1, T4 and T5 (one test), T7 in `src/testing/rehearse.test.ts`; T8, T9, T10 in
+  `src/testing/drive.test.ts`; T3, T11 in `src/testing/dispatch-violations.test.ts`. T9 waits two real seconds, by the
+  owner's leave: `drive` reads the real clock on purpose, so a `TestClock` cannot move its patience.
+
+Of the checks these tests hold, three that `docs/invariants.md` names had no mutation, or none that these tests kill:
+"the options hear a message dropped before update" (R6), "drive ends with what the scenario ended with, before the
+defects" (T10), and the existing "a child's state that is not an object dies of the WeakMap's TypeError", which now
+names the test of a child alone (P7). R10 and R11 are killers of "update is called after the first defect". The rest
+hold a form of the code, as the key a child's subscription is lifted under, and not a check that a mutation takes out.
+
+**No test.**
+
+- B5, B7 and I1 rest on a browser, and are named by step 6. Of I1: happy-dom, as a browser, does not apply `maxlength`
+  to a value that a script sets, only to what a user types.
+- T6: a call made once `rehearse` has ended is refused before it reaches the program (the contract's "in rehearse, it
+  reaches no update, and its call is interrupted"), and the exit returned cannot change after, so the sentence is true
+  by construction.
+
+Found in passing:
+
+- "after a defect of the program, model fails with it" (`src/testing/drive.test.ts`) reads the model in the scenario
+  right after the dispatch that dies, and nothing orders that read before the run's death ends the scenario. It passes,
+  since the scenario goes on in the same fiber, but no signal holds it.
+- `bun run mutations --discover`, over the whole list, filled the memory of the machine. Under "the listeners are told
+  before the new state is current", four tests of `src/compose.test.ts` looped in one synchronous call: the listeners of
+  `script` and `nested` sent a message on every notice past the last one they waited for, and a listener told twice for
+  each state reached that past. No timeout stops a loop that never yields. Both now send nothing once done. The same
+  probe, each test file alone with a bound on its memory, found nothing else under that mutation and under "the very
+  same state tells the listeners". So that it cannot happen again in silence, every run of `bun test` now preloads a
+  memory guard (`test/memory-guard.test_hook.ts`), whose worker ends the process past 2 GB, and `bun run mutations`
+  reports a run that it ended as one that ran away, with its files under `--discover`. With the helpers of before
+  put back, `--discover` of that mutation named `src/compose.test.ts` and kept the memory under the bound.

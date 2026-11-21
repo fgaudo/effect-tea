@@ -66,7 +66,7 @@
     "lint": "oxlint --deny-warnings && dprint check",
     "format": "oxlint --fix && dprint fmt",
     "test": "bun test --path-ignore-patterns=src/interleaving.test.ts",
-    "test:node": "node --expose-gc --import ./test/node/register.test_hook.ts --test \"src/**/!(interleaving).test.ts\" \"test/*.test.ts\"",
+    "test:node": "node --expose-gc --max-old-space-size=2048 --import ./test/node/register.test_hook.ts --test \"src/**/!(interleaving).test.ts\" \"test/*.test.ts\"",
     "interleavings": "bun test src/interleaving.test.ts",
     "bench": "bun tools/bench/subscriptions.ts",
     "mutations": "bun tools/mutations/mutate.ts",

@@ -45,7 +45,7 @@ import {
 import type { Root } from "react-dom/client"
 import { renderToString } from "react-dom/server"
 import { h } from "snabbdom"
-import { counter, type Message as CounterMessage } from "../examples/counter/counter.ts"
+import { counter, type Message as CounterMessage, type Model as CounterModel } from "../examples/counter/counter.ts"
 import { view as counterView } from "../examples/counter/view-react.tsx"
 import { form } from "../examples/form/form.ts"
 import { Storage } from "../examples/form/storage.ts"
@@ -389,6 +389,18 @@ const witness = <A>() => {
   return { promise, settled }
 }
 
+// An error boundary, which draws "Crashed" once it has caught what a render threw.
+class Boundary extends Component<Readonly<{ children: ReactNode }>, Readonly<{ caught: unknown }>> {
+  override state: Readonly<{ caught: unknown }> = { caught: undefined }
+  static getDerivedStateFromError(caught: unknown) {
+    return { caught }
+  }
+  override componentDidCatch(_: unknown, __: ErrorInfo) {}
+  override render() {
+    return this.state.caught === undefined ? this.props.children : createElement("p", null, "Crashed")
+  }
+}
+
 describe("Host", () => {
   test("draws the first model in the render that mounts it, before its run is forked", async () => {
     const order: Array<string> = []
@@ -621,17 +633,6 @@ describe("Host", () => {
       makeModel: () => ({ broken: "Broke" })
     })
 
-    class Boundary extends Component<Readonly<{ children: ReactNode }>, Readonly<{ caught: unknown }>> {
-      override state: Readonly<{ caught: unknown }> = { caught: undefined }
-      static getDerivedStateFromError(caught: unknown) {
-        return { caught }
-      }
-      override componentDidCatch(_: unknown, __: ErrorInfo) {}
-      override render() {
-        return this.state.caught === undefined ? this.props.children : createElement("p", null, "Crashed")
-      }
-    }
-
     const breakIn = (fork: Fork<never>) =>
       host({
         program: fragile,
@@ -655,6 +656,36 @@ describe("Host", () => {
       const error = await caught.promise
       expect(element("#app").textContent).toBe("Crashed")
       expect(error).toBeInstanceOf(ProgramDefect)
+      expect(error).toMatchObject({ where: "update" })
+    })
+
+    // The fork dies once more as the run ends: the cause it ends with holds two defects.
+    test("throws Cause.squash of what the run ended with, one defect of a cause that holds two", async () => {
+      const caught = witness<unknown>()
+      const released = new Error("A release that cannot complete")
+      let fiber: Fiber.Fiber<void, unknown> | undefined
+      const root = createRoot(page(), { onCaughtError: (error) => caught.settled(error) })
+      roots.push(root)
+      await acting(() =>
+        root.render(createElement(
+          Boundary,
+          null,
+          breakIn((effect) => {
+            fiber = heldFork(effect.pipe(Effect.ensuring(Effect.die(released))))
+            return fiber
+          })
+        ))
+      )
+      await started()
+      await acting(() => {
+        button("Break").click()
+        settle()
+      })
+      const error = await caught.promise
+      const exit = fiber === undefined ? undefined : await Effect.runPromise(Fiber.await(fiber))
+      if (exit === undefined || !Exit.isFailure(exit)) throw new Error("The run did not die")
+      expect(exit.cause.reasons.map((reason) => reason._tag)).toEqual(["Die", "Die"])
+      expect(error).toBe(Cause.squash(exit.cause))
       expect(error).toMatchObject({ where: "update" })
     })
 
@@ -1005,6 +1036,62 @@ describe("Host", () => {
     type(element<HTMLInputElement>("#one input"), "Ada")
     type(element<HTMLInputElement>("#two input"), "Bob")
     expect([one.note(), two.note()]).toEqual(["Ada", "Bob"])
+  })
+})
+
+describe("a makeModel that throws under Draw", () => {
+  // The application started the program: nothing gives the defect to `die`, and the run records it where it was read.
+  test("is thrown as Draw renders, for the nearest error boundary, and the run dies of that one defect", async () => {
+    const thrown = new Error("A model that cannot be made")
+    const fragile = {
+      ...counter,
+      makeModel: (state: Parameters<typeof counter.makeModel>[0]) => {
+        if (state.count > 0) throw thrown
+        return counter.makeModel(state)
+      }
+    }
+    const caught = witness<unknown>()
+    const { app, run } = start(fragile)
+    const root = createRoot(page(), { onCaughtError: (error) => caught.settled(error) })
+    roots.push(root)
+    await acting(() =>
+      root.render(createElement(
+        Boundary,
+        null,
+        createElement(bridge.Draw<CounterModel, CounterMessage>, {
+          app,
+          view: counterView
+        })
+      ))
+    )
+    const fiber = forked(run)
+    settle()
+    await acting(() => button("+").click())
+    const error = await caught.promise
+    settle()
+    const exit = fiber.pollUnsafe()
+    if (exit === undefined || !Exit.isFailure(exit)) throw new Error("The run did not die")
+    expect(element("#app").textContent).toBe("Crashed")
+    expect(error).toBeInstanceOf(ProgramDefect)
+    expect(error).toMatchObject({ where: "render", cause: thrown })
+    expect(exit.cause.reasons.map((reason) => reason._tag === "Die" ? reason.defect : reason._tag)).toEqual([error])
+  })
+})
+
+describe("what the bridge to React leaves out", () => {
+  // React keeps the value it gave a controlled input, through the element's own `value`: a script's write goes there
+  // too, so the input event finds no change, and React calls no `onChange`.
+  test("a text a script writes into an input, and announces with an input event, is lost, where one typed is stored", () => {
+    const { app, run } = start(note)
+    drawRun({ app, run }, noteView)
+    const input = element<HTMLInputElement>("input")
+    type(input, "Ada")
+    drawn()
+    expect(app.model()).toBe("Ada")
+    input.value = "Bob"
+    input.dispatchEvent(new Event("input", { bubbles: true }))
+    drawn()
+    expect(app.model()).toBe("Ada")
   })
 })
 

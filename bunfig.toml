@@ -1,2 +1,2 @@
 [test]
-preload = ["./bridges/snabbdom-preload.ts"]
+preload = ["./test/memory-guard.test_hook.ts", "./bridges/snabbdom-preload.ts"]

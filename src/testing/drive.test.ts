@@ -229,6 +229,50 @@ describe("drive", () => {
     ).toEqual(["subscription: release", "scenario"])
   })
 
+  // The model of the second state throws as it is read, after the model of the first. The release of the subscription
+  // waits for the scenario, so the run cannot end before the scenario has waited, and returned.
+  test("a wait matches a model read before a defect of a later model, and drive ends with the defect first all the same", async () => {
+    type Count = Readonly<{ count: number }>
+    const listening = Deferred.makeUnsafe<void>()
+    const gate = Deferred.makeUnsafe<void>()
+    let after: Opt.Option<Readonly<{ read: Exit.Exit<Count>; matched: number }>> = Opt.none()
+    const program: Program<{ state: Count; model: Count; message: "Up" }> = {
+      init: { state: { count: 0 } },
+      update: () => ({ count }) => ({ state: { count: count + 1 } }),
+      subscriptions: () =>
+        HashMap.make([
+          "k",
+          Channel.unwrap(Effect.as(Deferred.succeed(listening, undefined), Channel.never)).pipe(
+            Channel.ensuring(Deferred.await(gate))
+          )
+        ]),
+      makeModel: (state) => {
+        if (state.count === 2) throw new Error("model")
+        return state
+      }
+    }
+    const exit = await Effect.runPromiseExit(drive(
+      program,
+      Effect.fnUntraced(function*(driver) {
+        yield* Deferred.await(listening)
+        yield* driver.send(() => Opt.some("Up"))
+        yield* driver.send(() => Opt.some("Up"))
+        after = Opt.some({
+          read: yield* Effect.exit(driver.model),
+          matched: yield* driver.waitFor(({ count }) => count === 1 ? Opt.some(count) : Opt.none())
+        })
+        yield* Deferred.succeed(gate, undefined)
+        return "scenario"
+      })
+    ))
+    expect(Opt.map(after, ({ read, matched }) => [Exit.isFailure(read), matched])).toEqual(Opt.some([true, 1]))
+    const [first] = Exit.isFailure(exit) ? exit.cause.reasons : []
+    expect(
+      first !== undefined && Cause.isDieReason(first) && first.defect instanceof ProgramDefect && first.defect.where
+    )
+      .toBe("render")
+  })
+
   // The run may end before its renderer has its handle, which `drive` begins the scenario with.
   test("a subscription of init that dies fails a scenario waiting for a model, before its patience", async () => {
     type Still = Readonly<{ still: boolean }>
@@ -262,6 +306,18 @@ describe("drive", () => {
     )
     expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain("within 20ms")
   })
+
+  // It waits two real seconds, since what it checks is how long the default lasts, and `drive` reads the real clock.
+  test("a wait without a patience given fails after 2 seconds, which it names", async () => {
+    const started = Date.now()
+    const exit = await Effect.runPromiseExit(
+      drive(noteProgram(Effect.void), (driver) => driver.waitFor(() => Opt.none()))
+    )
+    const waited = Date.now() - started
+    expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain("within 2s")
+    // A timer may fire a little early. A loaded machine only makes it later, which the timeout of the test bounds.
+    expect(waited).toBeGreaterThanOrEqual(1900)
+  }, 10_000)
 
   test("a wait longer than the patience fails with the latest model as its cause", async () => {
     const exit = await Effect.runPromiseExit(drive(
@@ -362,6 +418,52 @@ describe("drive and a defect of the step the scenario waits for", () => {
         subscriptions: () => HashMap.empty()
       }, Effect.never)
     ).toBe("command")
+  })
+})
+
+// The job of a step stops the subscriptions it stopped before it starts its commands: a release that waits for the
+// scenario holds the commands back until the scenario lets it go.
+describe("drive and the commands of the step a wait sees", () => {
+  type Going = Readonly<{ listening: boolean; done: boolean }>
+
+  test("a wait that ends once a model shows a step does not wait for the step's commands, which start after it", async () => {
+    const log: Array<"waited" | "started"> = []
+    const listening = Deferred.makeUnsafe<void>()
+    const gate = Deferred.makeUnsafe<void>()
+    const program: Program<{ state: Going; model: Going; message: "Go" | "Done"; command: "Answer" }> = {
+      init: { state: { listening: true, done: false } },
+      update: (message) => (state) =>
+        message === "Go"
+          ? { state: { ...state, listening: false }, commands: ["Answer"] }
+          : { state: { ...state, done: true } },
+      runCommand: () => {
+        log.push("started")
+        return Effect.succeedSome<"Go" | "Done">("Done")
+      },
+      subscriptions: ({ listening: listens }) =>
+        listens
+          ? HashMap.make([
+            "k",
+            Channel.unwrap(Effect.as(Deferred.succeed(listening, undefined), Channel.never)).pipe(
+              Channel.ensuring(Deferred.await(gate))
+            )
+          ])
+          : HashMap.empty(),
+      makeModel: (state) => state
+    }
+    const done = await Effect.runPromise(drive(
+      program,
+      Effect.fnUntraced(function*(driver) {
+        yield* Deferred.await(listening)
+        yield* driver.send(() => Opt.some("Go"))
+        yield* driver.waitFor((model) => model.listening ? Opt.none() : Opt.some(model))
+        log.push("waited")
+        yield* Deferred.succeed(gate, undefined)
+        return yield* driver.waitFor((model) => model.done ? Opt.some(true) : Opt.none())
+      })
+    ))
+    expect(done).toBe(true)
+    expect(log).toEqual(["waited", "started"])
   })
 })
 

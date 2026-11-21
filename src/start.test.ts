@@ -173,6 +173,36 @@ describe("a program started", () => {
     const exit = await Effect.runPromiseExit(run)
     expect(wheres(exit)).toEqual(["update: Error: broke"])
   })
+
+  test("whose run is interrupted before it begins, is as one never run: it applies messages, starts nothing, reports no defect, and runs later", async () => {
+    type Noting = Program<{ state: Readonly<{ n: number }>; model: number; message: "Up" | "Break"; command: "Note" }>
+    const log: Array<string> = []
+    const noting: Noting = {
+      init: { state: { n: 0 }, commands: ["Note"] },
+      update: (message) => (state) => {
+        if (message === "Break") throw new Error("broke")
+        return { state: { n: state.n + 1 }, commands: ["Note"] }
+      },
+      runCommand: () => Effect.as(Effect.sync(() => log.push("command started")), Opt.none()),
+      subscriptions: () => HashMap.empty(),
+      makeModel: ({ n }) => n
+    }
+    const { app, run } = start(noting)
+    // Forked to start in a later task, and interrupted in this one: none of `run` has run.
+    const interruptedBefore = await Effect.runPromise(
+      Effect.forkChild(run).pipe(Effect.flatMap((fiber) => Effect.andThen(Fiber.interrupt(fiber), Fiber.await(fiber))))
+    )
+    app.dispatch("Up")
+    expect(() => app.dispatch("Break")).not.toThrow()
+    app.dispatch("Up")
+    expect({
+      interrupted: Exit.isFailure(interruptedBefore) && Cause.hasInterruptsOnly(interruptedBefore.cause),
+      model: app.model(),
+      log
+    }).toEqual({ interrupted: true, model: 1, log: [] })
+    const exit = await Effect.runPromiseExit(run)
+    expect(wheres(exit)).toEqual(["update: Error: broke"])
+  })
 })
 
 describe("a program whose start throws", () => {

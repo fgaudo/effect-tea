@@ -279,6 +279,34 @@ describe("rehearse", () => {
     expect(ignored).toEqual([{ _tag: "Saved", text: "old" }])
   })
 
+  // `Saved` applies only while the note is saving: heard while it is not, it no longer applies.
+  test("a subscription's message that no longer applies is ignored, and listed, heard by hear or by hearNext", async () => {
+    const late: Edit = { _tag: "Saved", text: "late" }
+    const played = await Effect.runPromise(withStorage(rehearse(
+      editor,
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.hear("ping", late)
+        return { state: yield* rehearsal.state, ignored: yield* rehearsal.ignored }
+      })
+    )))
+    expect(played).toEqual({ state: editor.init.state, ignored: [late] })
+    const sending: typeof editor = {
+      ...editor,
+      subscriptions: (note) =>
+        note.isSaving
+          ? HashMap.empty()
+          : HashMap.make(["ping", Channel.succeed(late).pipe(Channel.concatWith(() => Channel.never))])
+    }
+    const heard = await Effect.runPromise(withStorage(rehearse(
+      sending,
+      Effect.fnUntraced(function*(rehearsal) {
+        const message = yield* rehearsal.hearNext("ping")
+        return { message, state: yield* rehearsal.state, ignored: yield* rehearsal.ignored }
+      })
+    )))
+    expect(heard).toEqual({ message: late, state: editor.init.state, ignored: [late] })
+  })
+
   test("a subscription's message is heard while its key is in the state, and fails the test otherwise", async () => {
     const pings = await Effect.runPromise(withStorage(rehearse(
       editor,
@@ -1094,6 +1122,65 @@ describe("rehearse, under fibers of the test's and of whoever runs it", () => {
     expect(
       Opt.map(after, ({ sent, heard, model, count }) => [defectsOf(sent), defectsOf(heard), defectsOf(model), count])
     ).toEqual(Opt.some([[died], [died], [died], 0]))
+  })
+
+  // Every call that asks the program for something fails with the defect, none of them already waiting; what the test
+  // reads of the state keeps what the steps before the defect made: a command owed, an event, an answer ignored.
+  test("after a defect, send, run, runAll, hear, hearNext and model fail with it, and state, pending, events and ignored stay readable", async () => {
+    type Entry = "Go" | "Late" | "Boom"
+    const entered: Program<{ state: Gated; model: Gated; message: Entry; command: "Answer"; event: "Went" }> = {
+      init: { state: { listening: true, count: 0 } },
+      update: (message) => (state) => {
+        if (message === "Boom") throw new Error("boom")
+        return message === "Go"
+          ? { state: { ...state, count: state.count + 1 }, commands: ["Answer"], events: ["Went"] }
+          : reject
+      },
+      runCommand: () => Effect.succeedNone,
+      subscriptions: () => HashMap.make(["k", Channel.never]),
+      makeModel: (state) => state
+    }
+    let after: Opt.Option<
+      Readonly<{
+        calls: ReadonlyArray<Exit.Exit<unknown>>
+        read: Readonly<{
+          state: Gated
+          pending: ReadonlyArray<"Answer">
+          events: ReadonlyArray<"Went">
+          ignored: ReadonlyArray<Entry>
+        }>
+      }>
+    > = Opt.none()
+    const exit = await Effect.runPromiseExit(rehearse(
+      entered,
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.send(() => Opt.some("Go"))
+        yield* rehearsal.hear("k", "Late")
+        yield* Effect.exit(rehearsal.send(() => Opt.some("Boom")))
+        after = Opt.some({
+          calls: [
+            yield* Effect.exit(rehearsal.send(() => Opt.some("Go"))),
+            yield* Effect.exit(rehearsal.run(() => true)),
+            yield* Effect.exit(rehearsal.runAll),
+            yield* Effect.exit(rehearsal.hear("k", "Go")),
+            yield* Effect.exit(rehearsal.hearNext("k")),
+            yield* Effect.exit(rehearsal.model)
+          ],
+          read: {
+            state: yield* rehearsal.state,
+            pending: yield* rehearsal.pending,
+            events: yield* rehearsal.events,
+            ignored: yield* rehearsal.ignored
+          }
+        })
+      })
+    ))
+    const [died] = defectsOf(exit)
+    expect(died instanceof ProgramDefect && died.where).toBe("update")
+    expect(Opt.map(after, ({ calls, read }) => ({ calls: calls.map(defectsOf), read }))).toEqual(Opt.some({
+      calls: Array.from({ length: 6 }, () => [died]),
+      read: { state: { listening: true, count: 1 }, pending: ["Answer"], events: ["Went"], ignored: ["Late"] }
+    }))
   })
 
   // A test that asserts a defect wraps `rehearse`, never the call: caught by the scenario, it fails the rehearsal at
@@ -2068,6 +2155,33 @@ describe("rehearse, as the scenario ends while its loop waits for a release", ()
     }))
     expect(stopped !== undefined && Exit.hasInterrupts(stopped)).toBe(true)
     expect(Exit.isFailure(exit) && Cause.squash(exit.cause)).toBe("boom")
+  })
+
+  // The calls are made from the test's own fiber, which the interruption does not reach: only the end of the rehearsal
+  // can stop the job that the release holds, and the gate opens once it has.
+  test("a scenario interrupted by whoever runs it stops the loop at once, its job under way included", async () => {
+    const { stopped, exit } = await Effect.runPromise(Effect.gen(function*() {
+      const gate = yield* Deferred.make<void>()
+      const releasing = yield* Deferred.make<void>()
+      const handed = yield* Deferred.make<Rehearsal<Listening, Listening, Message>>()
+      const rehearsing = yield* Effect.forkChild(
+        rehearse(
+          holding(gate, releasing),
+          (rehearsal) => Effect.andThen(Deferred.succeed(handed, rehearsal), Effect.never)
+        )
+      )
+      const rehearsal = yield* Deferred.await(handed)
+      yield* rehearsal.hearNext("a")
+      const stopping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>("Stop")))
+      yield* Deferred.await(releasing)
+      const interrupting = yield* Effect.forkChild(Fiber.interrupt(rehearsing))
+      const stopped = yield* Fiber.await(stopping)
+      yield* Deferred.succeed(gate, undefined)
+      yield* Fiber.join(interrupting)
+      return { stopped, exit: yield* Fiber.await(rehearsing) }
+    }))
+    expect(Exit.hasInterrupts(stopped)).toBe(true)
+    expect(Exit.hasInterrupts(exit)).toBe(true)
   })
 })
 

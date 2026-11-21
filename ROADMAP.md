@@ -9,8 +9,8 @@ what would reopen it. How an item came to be, and what was weighed for it, goes 
 [`adoption.md`](docs/records/adoption.md), the owner's decision that the library is meant to be adopted by others, and
 [`architecture-review.md`](docs/records/architecture-review.md), a review of the whole project that the owner asked
 for on 20 November 2026 and asked to be written here in the order it advises. Steps 1 to 4, 7 and 8 are its parts 1
-to 6. Steps 12 and 13 come from a reading of the guide's promises against the tests, which the owner asked for on 21
-November 2026, and whose record is [`promises-and-tests.md`](docs/records/promises-and-tests.md). A step done leaves its
+to 6. Step 13 comes from a reading of the guide's promises against the tests, which the owner asked for on 21 November
+2026, and whose record is [`promises-and-tests.md`](docs/records/promises-and-tests.md). A step done leaves its
 number unused.
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
@@ -23,34 +23,6 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 None is open.
 
 ## Next, in order
-
-### 12. A test for each promise that has none
-
-**Model and effort.** Opus 5.5, `high`: tests of the engine and of the types, which hold invariants.
-
-**Depends on** the record [`promises-and-tests.md`](docs/records/promises-and-tests.md), which lists the gaps, each
-checked on the tests' bodies, and which the owner reads first. It stands before the release, by the advice of the
-session that proposed it, which the owner may refuse: a promise found false once 0.8.0 is out is a breaking change to
-take back.
-
-**Why.** A sentence of the guide that no test checks may be false, and nobody is told. The record found 65 gaps among
-488 sentences, and one sentence false: "Guarantees", "What is left to you", says that the bridge to snabbdom reads the
-model in the call of a handler of the view, and it reads it in a microtask.
-
-**How.** The false sentence first, for the owner: it is a description, so the change is of the sentence, unless the
-owner wants the bridge to read the model in the call. Then the types, the cheapest: the thirteen gaps that the record
-names under "What follows", each a `@ts-expect-error` or an `expectTypeOf` beside the tests of its function. The
-negatives (G3, G5, M1, V3) are asked of the owner before a test is written: each is held only by a test that fails when
-the library starts to check or to keep something. B5 and B7 rest on a browser, and go to step 6. Each gap of the record
-ends in one of three ways. A test of one of the five kinds of `AGENTS.md`, in the test
-file of its module, with a mutation where it holds a check an invariant rests on
-([`change-engine`](.agents/skills/change-engine/SKILL.md)). Or the test written fails, and the promise is false: the
-test stays as a `test.failing`, with an item under "Open problems", and the owner decides between the code and the
-sentence. Or the owner decides that the sentence promises no behaviour, and the record says so. No sentence of the guide
-changes without the owner's consent.
-
-**Done when** each gap of the record has a test named beside it, a `test.failing` with its item here, or the owner's
-decision.
 
 ### 5. Release 0.8.0
 
@@ -132,6 +104,9 @@ user's, in the form with both bridges and in the stock-take
 ([`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), stage 4). Never run: an IME composition while the
 program changes a value under the user, and an event that the program's own code dispatches in the task of a
 notice, before its draw (`element.click()`, `dispatchEvent`, `focus()`), whose handler runs on the view of before.
+Nor, by the record [`promises-and-tests.md`](docs/records/promises-and-tests.md), a handler that awaits, which returns at
+its first `await`, so that what it sends after is drawn apart (its B5), and a limit that the element keeps by itself, as
+`maxlength`, which needs nothing of the program and which a browser applies only to what a user types (its I1).
 And one test passes on happy-dom only, by the review of the bridges of 21 November 2026: "a name the program empties
 once saved is emptied in the input on screen, which stays and keeps the focus" (`bridges/bridge.test_suite.ts`). The
 form disables its input while it saves, and by the HTML Standard's "focus fixup rule" a focused element that stops

@@ -145,6 +145,37 @@ describe("a dispatch applies its message at once", () => {
     expect(outcome.current).toBe(2)
   })
 
+  // Code that a function of the program wakes: here plain code that `onApplied` calls, as a bus of a devtools would.
+  test("a message that code woken by onApplied sends is applied after the step, its listeners told, before the dispatch returns", async () => {
+    const outcome = await run(Effect.gen(function*() {
+      const heard: Array<string> = []
+      const woken = new Set<() => void>()
+      const engine = yield* Engine.make<{ count: number }, Message, never, never, never>({
+        init: { state: { count: 0 } },
+        runCommand: absurd,
+        update: (message) => (state) => counter(state.count)(message),
+        subscriptions: () => HashMap.empty(),
+        onApplied: ({ after }) => {
+          heard.push(`applied ${after.count}`)
+          for (const wake of woken) wake()
+          return undefined
+        }
+      })
+      woken.add(() => {
+        woken.clear()
+        engine.dispatch("Increment")
+        heard.push(`woken sent, now ${engine.current().state.count}`)
+      })
+      engine.subscribe(() => void heard.push(`told ${engine.current().state.count}`))
+      engine.dispatch("Increment")
+      return { heard, current: engine.current().state.count }
+    }))
+    expect(outcome).toEqual({
+      heard: ["applied 1", "woken sent, now 0", "told 1", "applied 2", "told 2"],
+      current: 2
+    })
+  })
+
   test("a command's answer and a subscription's message are applied in the call that sends them", async () => {
     const outcome = await run(Effect.gen(function*() {
       const told: Array<string> = []
@@ -569,6 +600,29 @@ describe("the fiber of effects", () => {
       return [...log.lines]
     }))
     expect(lines).toEqual(["releasing", "released", "command 1", "command 2"])
+  })
+
+  test("queues the jobs of every state, however many wait: a thousand applied while a release holds it, then done in order", async () => {
+    const many = 1000
+    const outcome = await run(Effect.gen(function*() {
+      const log = journal()
+      const opened = yield* Deferred.make<void>()
+      const engine = yield* gated(
+        log,
+        Effect.sync(() => log.push("releasing")).pipe(Effect.andThen(Deferred.await(opened)))
+      )
+      engine.dispatch("Open")
+      yield* log.reached("releasing")
+      for (let n = 0; n < many; n++) engine.dispatch("Work")
+      const applied = engine.current().state.works
+      yield* Deferred.succeed(opened, undefined)
+      yield* log.reached(`command ${many}`)
+      return { applied, lines: [...log.lines] }
+    }))
+    expect(outcome).toEqual({
+      applied: many,
+      lines: ["releasing", ...Array.from({ length: many }, (_, n) => `command ${n + 1}`)]
+    })
   })
 })
 

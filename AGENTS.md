@@ -290,7 +290,8 @@ this summary says less. What every change keeps, an example's and a document's t
     the JavaScript engine and nothing of the library (`test/premises.test.ts`), and so is one of the scheduler of the
     tests, `test/scheduled.test_scheduler.ts`, which is no part of the package: it serves the search, and the few
     tests of a boundary that run one scenario under the orders it gives (`engine.test.ts`, `rehearse.test.ts`),
-    alarms that are the killer of no mutation (`docs/invariants.md`, "one thunk").
+    alarms that are the killer of no mutation (`docs/invariants.md`, "one thunk"), and one of the memory guard of the
+    tests (`test/memory-guard.test.ts`).
   - **the types**: what the compiler refuses (`@ts-expect-error`), or infers (`expectTypeOf`), next to the tests
     of the function whose types they are.
 
@@ -332,6 +333,12 @@ this summary says less. What every change keeps, an example's and a document's t
   only let a mutant survive, never turn a correct run red, and the runner of the mutations runs a killer that passed
   under its mutation again, alone, before it reports a survivor. Where a witness can be awaited, it is: which windows
   have none is in `docs/invariants.md` ("Windows of absence").
+- **A test that loops in one call is ended by the memory guard.** A loop that never yields is past any timeout, and
+  fills the memory of the machine: a listener of a test that sends on every notice does, under a mutation that tells
+  it twice. So `bunfig.toml` preloads `test/memory-guard.test_hook.ts` in every run of `bun test`, whose worker ends the
+  process past 2 GB, a bound no file of the suite comes near; `bun run test:node` bounds Node's heap alike. Under a
+  mutation, `bun run mutations` reports such a run as one that ran away, and `--discover` names its files. A test's
+  listener that sends stops once it has what it waits for, so that a mutation makes it fail, not loop.
 - Only the bridges' tests in a DOM, `bridges/snabbdom.test.ts` and `bridges/react.test.ts`, register
   one (happy-dom), for the tests of `bridges/bridge.test_suite.ts` they call too; every other test runs without
   one, `bridges/snabbdom-testing.test.ts` too.

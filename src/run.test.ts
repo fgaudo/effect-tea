@@ -1,7 +1,8 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, expectTypeOf, test } from "bun:test"
 import * as Arr from "effect/Array"
 import * as Cause from "effect/Cause"
 import * as Channel from "effect/Channel"
+import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
@@ -13,17 +14,22 @@ import * as FiberMap from "effect/FiberMap"
 import * as FiberSet from "effect/FiberSet"
 import * as Hash from "effect/Hash"
 import * as HashMap from "effect/HashMap"
+import * as Layer from "effect/Layer"
 import * as Logger from "effect/Logger"
 import * as Opt from "effect/Option"
 import * as Queue from "effect/Queue"
 import * as References from "effect/References"
 import type * as Scope from "effect/Scope"
+import * as TestClock from "effect/testing/TestClock"
 import type * as Tracer from "effect/Tracer"
 import { gate } from "../test/gate.test_helper.ts"
-import { defect, type DefectSite, InvariantDefect, ProgramDefect } from "./defect.ts"
+import type { Execution, RunCommand } from "./command.ts"
+import { program } from "./compose.ts"
+import { CompositionDefect, defect, type DefectSite, InvariantDefect, ProgramDefect } from "./defect.ts"
 import type { Applied, Ignored, RunOptions } from "./engine.ts"
 import type { Program } from "./program.ts"
 import { type App, start } from "./run.ts"
+import type { Subscription } from "./subscription.ts"
 import { reject, type Step } from "./update.ts"
 
 // A counter: `Increment` counts, `Same` leaves the very same state, `Ping` starts the command `Ping`, which answers
@@ -396,6 +402,31 @@ describe("defects the handle meets", () => {
     })
   })
 
+  // A fiber that calls the dispatch is no fiber of the run: its interruption could be one by whoever runs the program,
+  // which the run cannot tell apart.
+  test("an update that interrupts a fiber that calls the dispatch is no defect, and the run goes on", async () => {
+    const { app, run } = start({
+      ...counter,
+      update: (message) => (state) => {
+        Fiber.getCurrent()?.interruptUnsafe()
+        return counter.update(message)(state)
+      }
+    })
+    const fiber = Effect.runFork(run)
+    const caller = await Effect.runPromiseExit(
+      Effect.andThen(Effect.sync(() => app.dispatch("Increment")), Effect.never)
+    )
+    // Outside any fiber: nothing to interrupt.
+    app.dispatch("Increment")
+    const count = app.model().count
+    const exit = await interrupted(fiber)
+    expect({
+      caller: Exit.isFailure(caller) && Cause.hasInterruptsOnly(caller.cause),
+      count,
+      run: Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)
+    }).toEqual({ caller: true, count: 2, run: true })
+  })
+
   // The end stops every fiber of the run with its mark: none of them takes it for an interruption by the program.
   test("a run interrupted by whoever runs it is no defect", async () => {
     const commanded = Deferred.makeUnsafe<void>()
@@ -550,6 +581,28 @@ describe("the run", () => {
     expect(counts).toEqual([0, 1])
   })
 
+  test("never succeeds: once every effect of the program has run and ended, it runs until it is interrupted", async () => {
+    // The command of `init` answers, and the subscription ends with its message: nothing of the program is left.
+    const { app, run } = start({
+      ...counter,
+      init: { state: { count: 0 }, commands: ["Ping"] },
+      subscriptions: () => HashMap.make(["once", Channel.end<Message>("Increment")])
+    })
+    const fiber = Effect.runFork(run)
+    await Effect.runPromise(
+      Effect.raceFirst(Effect.asVoid(Fiber.await(fiber)), reaching(app, ({ count }) => count === 2))
+    )
+    // A window of absence, once both have answered: the fibers that sent them end after, and nothing of a correct
+    // run could tell that the run has not ended.
+    await Effect.runPromise(Effect.sleep("20 millis"))
+    const running = fiber.pollUnsafe() === undefined
+    const exit = await interrupted(fiber)
+    expect({ running, interrupted: Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause) }).toEqual({
+      running: true,
+      interrupted: true
+    })
+  })
+
   test("a program with flags starts from the flags it is given, its commands included", async () => {
     const seeded: Program<{ state: Count; model: Model; message: Message; command: Command; flags: number }> = {
       ...counter,
@@ -583,6 +636,20 @@ describe("the run", () => {
     expect(() => start(pinging)).toBeDefined()
   })
 
+  test("only a program without events starts: no parent would handle them", () => {
+    const telling: Program<{ state: Count; model: Model; message: Message; command: Command; event: "Told" }> = counter
+    // @ts-expect-error: its events would go unhandled.
+    expect(() => start(telling)).toBeDefined()
+  })
+
+  test("a command's execution cannot fail: its type has no error", () => {
+    expectTypeOf<Effect.Error<Execution<Message>>>().toBeNever()
+    expectTypeOf<Effect.Error<ReturnType<RunCommand<Command, Message>>>>().toBeNever()
+    // An expected failure is a message, not an error.
+    expectTypeOf(Effect.succeedSome<Message>("Increment")).toExtend<Execution<Message>>()
+    expectTypeOf(Effect.fail("offline")).not.toExtend<Execution<Message>>()
+  })
+
   test("what a command acquires is its own: no scope to provide, released after it stops", async () => {
     const log: Array<string> = []
     const note = (line: string) => Effect.sync(() => void log.push(line))
@@ -606,6 +673,34 @@ describe("the run", () => {
     expect(log).toEqual(["acquire", "interrupted", "release"])
   })
 
+  test("what a command acquires is released before its defect ends the run, and what a service around run acquires after", async () => {
+    class Storage extends Context.Service<Storage, { readonly save: Effect.Effect<void> }>()("Storage") {}
+    const log: Array<string> = []
+    const note = (line: string) => Effect.sync(() => void log.push(line))
+    const storage = Layer.effect(
+      Storage,
+      Effect.acquireRelease(Effect.succeed({ save: note("saved") }), () => note("service released"))
+    )
+    const program: Program<
+      { state: object; model: null; message: never; command: "Save"; commandServices: Storage | Scope.Scope }
+    > = {
+      init: { state: {}, commands: ["Save"] },
+      update: () => (state) => ({ state }),
+      runCommand: Effect.fnUntraced(function*() {
+        yield* Effect.acquireRelease(Effect.void, () => note("command released"))
+        yield* (yield* Storage).save
+        return yield* Effect.die("boom")
+      }),
+      subscriptions: () => HashMap.empty(),
+      makeModel: () => null
+    }
+    const exit = await Effect.runPromiseExit(
+      start(program).run.pipe(Effect.onExit(() => note("run ended")), Effect.provide(storage))
+    )
+    expect(wheres(exit)).toEqual(["command: boom"])
+    expect(log).toEqual(["saved", "command released", "run ended", "service released"])
+  })
+
   test("the commands of a step run concurrently, and their answers reach update in the order they end", async () => {
     // `Slow` answers only once the answer of `Fast`, started after it, has been applied.
     const slow = Deferred.makeUnsafe<void>()
@@ -627,6 +722,131 @@ describe("the run", () => {
       )
     ))
     expect(app.model().heard).toEqual(["Fast", "Slow"])
+  })
+
+  // Each command waits for all of them to have started: a bound on how many run at once would hold the last ones back
+  // for ever.
+  test("starts every command of a step, however many: a thousand run at once", async () => {
+    const many = 1000
+    const all = Deferred.makeUnsafe<void>()
+    const open = Deferred.makeUnsafe<void>()
+    let started = 0
+    type Answered = Readonly<{ answered: number }>
+    const program: Program<{ state: Answered; model: Answered; message: "Answered"; command: number }> = {
+      init: { state: { answered: 0 }, commands: Arr.range(1, many) },
+      update: () => ({ answered }) => ({ state: { answered: answered + 1 } }),
+      runCommand: () =>
+        Effect.suspend(() => {
+          started += 1
+          if (started === many) Deferred.doneUnsafe(all, Exit.void)
+          return Effect.as(Deferred.await(open), Opt.some<"Answered">("Answered"))
+        }),
+      subscriptions: () => HashMap.empty(),
+      makeModel: (state) => state
+    }
+    const { app, run } = start(program)
+    await Effect.runPromise(Effect.raceFirst(
+      run,
+      Deferred.await(all).pipe(
+        Effect.andThen(Deferred.succeed(open, undefined)),
+        Effect.andThen(reaching(app, ({ answered }) => answered === many))
+      )
+    ))
+    expect({ started, answered: app.model().answered }).toEqual({ started: many, answered: many })
+  })
+
+  test("update, subscriptions and the options run where the message was sent: a command's fiber, a subscription's, a fiber that dispatches, or none", async () => {
+    type Sender = "Plain" | "Forked" | "Command" | "Subscription"
+    type Sent = Readonly<{ by: Sender; applies: boolean }>
+    type Sending = "Listen" | "Ping" | Sent
+    type Where = Readonly<{ count: number; listening: boolean }>
+    const named = new Map<Fiber.Fiber<unknown, unknown>, string>()
+    const own = (name: string) => Effect.map(Effect.fiber, (self) => void named.set(self, name))
+    const calls: Array<readonly [string, Fiber.Fiber<unknown, unknown> | undefined]> = []
+    const here = (call: string) => void calls.push([call, Fiber.getCurrent()])
+    const label = (message: Sending) =>
+      typeof message === "string" ? message : `${message.by} ${message.applies ? "applied" : "rejected"}`
+    // `subscriptions` runs in the step of the message `update` was last given.
+    let last = "init"
+    const done = Deferred.makeUnsafe<void>()
+    let heard = 0
+    const hear = (call: string): undefined => {
+      here(call)
+      heard += 1
+      if (heard === 10) Deferred.doneUnsafe(done, Exit.void)
+    }
+    const sent = (by: Sender, applies: boolean): Sending => ({ by, applies })
+    const where: Program<{ state: Where; model: Where; message: Sending; command: boolean }> = {
+      init: { state: { count: 0, listening: false } },
+      update: (message) => (state) => {
+        last = label(message)
+        here(`update ${last}`)
+        return message === "Listen"
+          ? { state: { ...state, listening: true } }
+          : message === "Ping"
+          ? { state, commands: [true, false] }
+          : message.applies
+          ? { state: { ...state, count: state.count + 1 } }
+          : reject
+      },
+      runCommand: (applies) =>
+        Effect.as(own(`Command ${applies ? "applied" : "rejected"}`), Opt.some(sent("Command", applies))),
+      subscriptions: ({ listening }) => {
+        here(`subscriptions after ${last}`)
+        return listening
+          ? HashMap.make([
+            "k",
+            Channel.unwrap(Effect.as(
+              own("Subscription"),
+              Channel.succeed(sent("Subscription", true)).pipe(
+                Channel.concatWith(() => Channel.succeed(sent("Subscription", false))),
+                Channel.concatWith(() => Channel.never)
+              )
+            ))
+          ])
+          : HashMap.empty()
+      },
+      makeModel: (state) => state
+    }
+    const { app, run } = start(where, {
+      onApplied: ({ message }) => hear(`onApplied ${label(message)}`),
+      onIgnored: ({ message }) => hear(`onIgnored ${label(message)}`)
+    })
+    const fiber = Effect.runFork(run)
+    app.dispatch("Listen")
+    app.dispatch(sent("Plain", true))
+    app.dispatch(sent("Plain", false))
+    await Effect.runPromise(Effect.andThen(
+      own("Forked"),
+      Effect.sync(() => {
+        app.dispatch(sent("Forked", true))
+        app.dispatch(sent("Forked", false))
+      })
+    ))
+    app.dispatch("Ping")
+    expect(wheres(await endedAfter(fiber, Deferred.await(done)))).toEqual([])
+    const nameOf = (fiber: Fiber.Fiber<unknown, unknown> | undefined) =>
+      fiber === undefined ? "none" : named.get(fiber) ?? "another fiber"
+    // Each command answers in a fiber of its own; plain code sends in none.
+    const senderOf = (by: Sender, applies: boolean) =>
+      by === "Plain" ? "none" : by === "Command" ? `Command ${applies ? "applied" : "rejected"}` : by
+    expect(calls.map(([call, fiber]) => `${call} in ${nameOf(fiber)}`).sort()).toEqual(
+      [
+        "subscriptions after init in none",
+        "update Listen in none",
+        "onApplied Listen in none",
+        "subscriptions after Listen in none",
+        "update Ping in none",
+        "onApplied Ping in none",
+        ...(["Plain", "Forked", "Command", "Subscription"] as const).flatMap((by) => [
+          `update ${by} applied in ${senderOf(by, true)}`,
+          `onApplied ${by} applied in ${senderOf(by, true)}`,
+          `subscriptions after ${by} applied in ${senderOf(by, true)}`,
+          `update ${by} rejected in ${senderOf(by, false)}`,
+          `onIgnored ${by} rejected in ${senderOf(by, false)}`
+        ])
+      ].sort()
+    )
   })
 })
 
@@ -775,12 +995,80 @@ describe("defects", () => {
     ).toEqual(["update", "Increment", "An increment cannot arrive"])
   })
 
+  test("a defect in onEvent dies in update, on the child's message whose step raised the event", async () => {
+    type Saver = Readonly<{ saved: boolean }>
+    const saver: Program<{ state: Saver; model: null; message: "Save"; event: "Saved" }> = {
+      init: { state: { saved: false } },
+      update: () => () => ({ state: { saved: true }, events: ["Saved"] }),
+      subscriptions: () => HashMap.empty(),
+      makeModel: () => null
+    }
+    const Page = program<{ state: Readonly<{ saver: Saver }> }>()
+    const page = Page.make({
+      init: (children) => ({ state: { saver: children.Saver.init.state } }),
+      children: {
+        Saver: Page.child(saver, {
+          get: (state) => Opt.some(state.saver),
+          set: (state, saver) => ({ ...state, saver })
+        })
+      },
+      onEvent: { Saver: () => () => boom() },
+      makeModel: () => null
+    })
+    const { app, run } = start(page)
+    const fiber = Effect.runFork(run)
+    app.dispatch({ _tag: "Saver", message: "Save" })
+    const exit = await ended(fiber)
+    const thrown = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    expect(thrown instanceof ProgramDefect && [thrown.where, thrown.on, thrown.cause instanceof Boom]).toEqual([
+      "update",
+      "Saver",
+      true
+    ])
+  })
+
   test("a defect in a subscription carries its key", async () => {
     const exit = await Effect.runPromiseExit(
       start({ ...counter, subscriptions: () => HashMap.make(["k", Channel.die(new Boom())]) }).run
     )
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
     expect(defect instanceof ProgramDefect && defect.key).toBe("k")
+  })
+
+  test("the key of a ProgramDefect and the id of a CompositionDefect are the program's own values, as they are", async () => {
+    const key = { room: "general" }
+    const keyed = await Effect.runPromiseExit(
+      start({ ...counter, subscriptions: () => HashMap.make([key, Channel.die(new Boom())]) }).run
+    )
+    const inKey = Exit.isFailure(keyed) ? Cause.squash(keyed.cause) : undefined
+    type Row = Readonly<{ n: number }>
+    const row: Program<{ state: Row; model: number; message: "Up"; external: "Clear" }> = {
+      init: { state: { n: 0 } },
+      update: () => ({ n }) => ({ state: { n: n + 1 } }),
+      external: () => () => ({ state: { n: 0 } }),
+      subscriptions: () => HashMap.empty(),
+      makeModel: ({ n }) => n
+    }
+    type Shelf = Readonly<{ shelf: string }>
+    const Rows = program<{ state: Readonly<{ rows: ReadonlyArray<Row> }>; message: Readonly<{ id: Shelf }> }>()
+    // No row is ever there: an external message to one is a defect that names its id.
+    const rows = Rows.make({
+      init: () => ({ state: { rows: [] } }),
+      children: {
+        Rows: Rows.childById(row, { get: (_, _id: Shelf) => Opt.none(), set: (state) => state, subscribed: () => [] })
+      },
+      update: ({ id }, children) => children.Rows.external(id, "Clear"),
+      onEvent: {},
+      makeModel: () => null
+    })
+    const id = { shelf: "top" }
+    const { app, run } = start(rows)
+    const fiber = Effect.runFork(run)
+    app.dispatch({ id })
+    const ided = await ended(fiber)
+    const inId = Exit.isFailure(ided) ? Cause.squash(ided.cause) : undefined
+    expect(inKey instanceof ProgramDefect && inKey.key).toBe(key)
+    expect(inId instanceof ProgramDefect && inId.cause instanceof CompositionDefect && inId.cause.id).toBe(id)
   })
 
   // Equal throws when the run compares a key with the next state's; Hash, which Effect caches by object, when the
@@ -833,9 +1121,112 @@ describe("defects", () => {
     }).run
     expect(await diesOnLog("Pinging", logging)).toEqual([["command", new Boom()]])
   })
+
+  test("a Logger that throws on what a subscription logs is a defect in the subscription", async () => {
+    const logging = start({
+      ...counter,
+      subscriptions: () =>
+        HashMap.make(["k", Channel.fromEffectDone(Effect.andThen(Effect.logDebug("Listening"), Effect.never))])
+    }).run
+    expect(await diesOnLog("Listening", logging)).toEqual([["subscription", new Boom()]])
+  })
+
+  type Busy = Readonly<{ count: number; listening: boolean }>
+
+  type BusyMessage = "Up" | "Break" | "Work"
+
+  /**
+   * `Up` counts, `Break` throws, and `Work` listens and starts the command `Note`: each notes in `log` that it is
+   * applied, and the command and the subscription that they started.
+   */
+  const busy = (
+    log: Array<string>,
+    init: Step<Busy, "Note" | "Answer">,
+    runCommand: (command: "Note" | "Answer") => Execution<BusyMessage>,
+    dies: Subscription<BusyMessage> = Channel.never
+  ): Program<{ state: Busy; model: Busy; message: BusyMessage; command: "Note" | "Answer" }> => ({
+    init,
+    update: (message) => (state) => {
+      log.push(`update ${message}`)
+      if (message === "Break") throw "update threw"
+      return message === "Up"
+        ? { state: { ...state, count: state.count + 1 } }
+        : { state: { ...state, listening: true }, commands: ["Note"] }
+    },
+    runCommand: (command) =>
+      command === "Note" ? Effect.as(Effect.sync(() => log.push("command started")), Opt.none()) : runCommand(command),
+    subscriptions: ({ listening }) =>
+      listening
+        ? HashMap.make([
+          "listening",
+          Channel.unwrap(Effect.as(Effect.sync(() => log.push("subscription started")), Channel.never))
+        ])
+        : HashMap.make(["dies", dies]),
+    makeModel: (state) => state
+  })
+
+  // A listener sends `Break` in the step of `Up`, and `Work` after it, in the same call: the end of the run has not
+  // begun when `Work` arrives, and only the defect keeps it out.
+  test("a message the run does not apply after a defect starts no command and no subscription, and onApplied does not hear it", async () => {
+    const log: Array<string> = []
+    const { app, run } = start(busy(log, { state: { count: 0, listening: false } }, () => Effect.succeedNone), {
+      onApplied: ({ message }) => void log.push(`applied ${message}`)
+    })
+    // Once: a `Work` applied would tell it again.
+    const stop = app.subscribe(() => {
+      stop()
+      app.dispatch("Break")
+      app.dispatch("Work")
+    })
+    const fiber = Effect.runFork(run)
+    app.dispatch("Up")
+    expect(wheres(await ended(fiber))).toEqual(["update: update threw"])
+    expect(log).toEqual(["update Up", "applied Up", "update Break"])
+  })
+
+  // The command of `init` answers `Work` once the subscription's release has begun, which comes after its death is
+  // recorded; uninterruptible, it answers however soon the end comes.
+  test("a run whose subscription of init dies as it starts applies no message after: an answer starts nothing, and onApplied does not hear it", async () => {
+    const log: Array<string> = []
+    const released = Deferred.makeUnsafe<void>()
+    const dies = Channel.unwrap(Effect.as(
+      Effect.addFinalizer(() => Deferred.succeed(released, undefined)),
+      Channel.die("subscription threw")
+    ))
+    const { run } = start(
+      busy(
+        log,
+        { state: { count: 0, listening: false }, commands: ["Answer"] },
+        () => Effect.uninterruptible(Effect.as(Deferred.await(released), Opt.some<BusyMessage>("Work"))),
+        dies
+      ),
+      { onApplied: ({ message }) => void log.push(`applied ${message}`) }
+    )
+    expect(wheres(await Effect.runPromiseExit(run))).toEqual(["subscription: subscription threw"])
+    expect(log).toEqual([])
+  })
 })
 
 describe("onApplied", () => {
+  test("returns nothing, as onIgnored does: the types refuse a value, an effect or a promise", () => {
+    // @ts-expect-error: a value it returned would be lost.
+    expect(() => start(counter, { onApplied: () => 1 })).toBeDefined()
+    // @ts-expect-error: an effect it returned would never run.
+    expect(() => start(counter, { onApplied: () => Effect.void })).toBeDefined()
+    // @ts-expect-error: a promise it returned would not be awaited.
+    expect(() => start(counter, { onIgnored: async () => undefined })).toBeDefined()
+    const heard: Array<Message> = []
+    const untyped = ({ message }: Applied<Count, Message, Command>) => {
+      heard.push(message)
+    }
+    const typed = ({ message }: Applied<Count, Message, Command>): undefined => {
+      heard.push(message)
+    }
+    // @ts-expect-error: declared apart, it is typed `void`, which may hide an effect.
+    expect(() => start(counter, { onApplied: untyped })).toBeDefined()
+    expect(() => start(counter, { onApplied: typed, onIgnored: () => undefined })).toBeDefined()
+  })
+
   test("hears every accepted message in order, with the states around it, before the dispatch returns", async () => {
     const heard: Array<Applied<Count, Message, Command>> = []
     const counts: Array<number> = []
@@ -916,39 +1307,61 @@ describe("onIgnored", () => {
   test("hears every message update rejects, with where it came from and the state it did not apply in", async () => {
     const ignored: Array<Ignored<Count, Message>> = []
     const applied: Array<Message> = []
-    const both = Deferred.makeUnsafe<void>()
+    const all = Deferred.makeUnsafe<void>()
     const { app, run } = start(
       {
         ...counter,
         init: { state: { count: 0 }, commands: ["Ping"] },
-        runCommand: () => Effect.succeedSome<Message>("Forbidden")
+        runCommand: () => Effect.succeedSome<Message>("Forbidden"),
+        subscriptions: () =>
+          HashMap.make(["k", Channel.succeed<Message>("Forbidden").pipe(Channel.concatWith(() => Channel.never))])
       },
       {
         onApplied: ({ message }) => void applied.push(message),
         onIgnored: (each) => {
           ignored.push(each)
-          if (ignored.length === 2) Deferred.doneUnsafe(both, Exit.void)
+          if (ignored.length === 3) Deferred.doneUnsafe(all, Exit.void)
         }
       }
     )
     const fiber = Effect.runFork(run)
     app.dispatch("Forbidden")
-    await endedAfter(fiber, Deferred.await(both))
+    await endedAfter(fiber, Deferred.await(all))
     expect(applied).toEqual([])
-    expect(ignored).toHaveLength(2)
+    expect(ignored).toHaveLength(3)
     expect(ignored).toContainEqual({ message: "Forbidden", origin: { _tag: "Dispatch" }, state: { count: 0 } })
     expect(ignored).toContainEqual({ message: "Forbidden", origin: { _tag: "Command" }, state: { count: 0 } })
+    expect(ignored).toContainEqual({
+      message: "Forbidden",
+      origin: { _tag: "Subscription", key: "k" },
+      state: { count: 0 }
+    })
   })
 })
 
 describe("subscriptions", () => {
-  test("what a subscription sends once its key went away, before it is stopped, does not reach update", async () => {
-    // A stopwatch: `Tick` counts in any state, so that only the run can keep a late one out; `Stop` drops the key of
-    // the ticks. The fiber of effects, held in the job of `Hold` by the release of the gate, has not stopped the ticks
-    // when `Stop` is applied and a tick is sent.
-    type Watch = Readonly<{ gated: boolean; isRunning: boolean; ticks: number }>
-    type WatchMessage = "Hold" | "Tick" | "Stop"
-    const ticks = await Effect.runPromise(Effect.gen(function*() {
+  test("a subscription is a Channel whose end value is a message", () => {
+    const ending: Subscription<Message> = Channel.end("Increment")
+    const sending: Subscription<Message> = Channel.succeed<Message>("Increment").pipe(
+      Channel.concatWith(() => Channel.end<Message>("Same"))
+    )
+    // @ts-expect-error: it would end in silence.
+    const silent: Subscription<Message> = Channel.succeed<Message>("Increment")
+    // @ts-expect-error: its end is no message.
+    const other: Subscription<Message> = Channel.end(0)
+    expect([ending, sending, silent, other]).toHaveLength(4)
+  })
+
+  // A stopwatch: `Tick` counts in any state, so that only the run can keep a late one out; `Stop` drops the key of
+  // the ticks. The fiber of effects, held in the job of `Hold` by the release of the gate, has not stopped the ticks
+  // when `Stop` is applied and a tick is sent.
+  type Watch = Readonly<{ gated: boolean; isRunning: boolean; ticks: number }>
+
+  type WatchMessage = "Hold" | "Tick" | "Stop"
+
+  /** Runs the stopwatch with `options`, sends a tick once its key went away, and returns the ticks the model counts. */
+  const lateTick = (options: RunOptions<Watch, WatchMessage, never> = {}) =>
+    Effect.runPromise(Effect.gen(function*() {
       const source = yield* Queue.unbounded<"Tick">()
       const holding = yield* Deferred.make<void>()
       const sent = yield* Deferred.make<void>()
@@ -973,7 +1386,7 @@ describe("subscriptions", () => {
             : HashMap.empty(),
         makeModel: (state) => state
       }
-      const { app, run } = start(watch)
+      const { app, run } = start(watch, options)
       return yield* Effect.raceFirst(
         run,
         Effect.gen(function*() {
@@ -986,7 +1399,18 @@ describe("subscriptions", () => {
         })
       )
     }))
-    expect(ticks).toBe(0)
+
+  test("what a subscription sends once its key went away, before it is stopped, does not reach update", async () => {
+    expect(await lateTick()).toBe(0)
+  })
+
+  test("neither onApplied nor onIgnored hears what a subscription sends once its key went away", async () => {
+    const heard: Array<string> = []
+    await lateTick({
+      onApplied: ({ message }) => void heard.push(`applied ${message}`),
+      onIgnored: ({ message }) => void heard.push(`ignored ${message}`)
+    })
+    expect(heard).toEqual(["applied Hold", "applied Stop"])
   })
 })
 
@@ -1019,6 +1443,65 @@ describe("the end of the run", () => {
       runCommand: () => dying(holding)
     })
     expect(where(await endedAfter(Effect.runFork(run), Deferred.await(holding)))).toBe("command")
+  })
+
+  // Nothing times out: under a `TestClock` moved on by a day, a release that never ends holds the job after it, then
+  // the end of the run, which waits for it before it dies. What would tell that nothing starts and nothing ends is what
+  // does not happen: the day moved once the release has begun, each hour followed by a yield for what it woke, is a
+  // window of absence, in which no real time passes.
+  test("a release that never ends holds the next job, then the defects the run would die with, with no defect of its own", async () => {
+    type Gated = Readonly<{ gated: boolean; works: number }>
+    const outcome = await Effect.runPromise(
+      Effect.gen(function*() {
+        const log: Array<string> = []
+        const releasing = yield* Deferred.make<void>()
+        // Opened only once the test has seen what it checks, so that the run can end.
+        const opened = yield* Deferred.make<void>()
+        const held: Program<{ state: Gated; model: Gated; message: "Open" | "Work"; command: number }> = {
+          init: { state: { gated: true, works: 0 } },
+          update: (message) => (state) =>
+            message === "Open"
+              ? { state: { ...state, gated: false } }
+              : { state: { ...state, works: state.works + 1 }, commands: [state.works + 1] },
+          runCommand: (n) => Effect.as(Effect.sync(() => log.push(`command ${n}`)), Opt.none()),
+          subscriptions: ({ gated }) =>
+            gated
+              ? HashMap.make([
+                "gate",
+                gate<"Open" | "Work">(
+                  Deferred.succeed(releasing, undefined).pipe(Effect.andThen(Deferred.await(opened)))
+                )
+              ])
+              : HashMap.empty(),
+          makeModel: (state) => state
+        }
+        const aDay = Effect.forEach(
+          Arr.range(1, 24),
+          () => TestClock.adjust("1 hour").pipe(Effect.andThen(Effect.yieldNow)),
+          { discard: true }
+        )
+        const { app, run } = start(held)
+        // Started at once, so that the release holds the fiber of effects, not the run's.
+        const fiber = yield* Effect.forkChild(run, { startImmediately: true })
+        app.dispatch("Open")
+        yield* Deferred.await(releasing)
+        app.dispatch("Work")
+        yield* aDay
+        // A message is still applied: no defect has come.
+        app.dispatch("Work")
+        const before = { works: app.model().works, commands: [...log], running: fiber.pollUnsafe() === undefined }
+        app.die("drew")
+        yield* aDay
+        const ending = { commands: [...log], running: fiber.pollUnsafe() === undefined }
+        yield* Deferred.succeed(opened, undefined)
+        return { before, ending, wheres: wheres(yield* Fiber.await(fiber)) }
+      }).pipe(Effect.provide(TestClock.layer()))
+    )
+    expect(outcome).toEqual({
+      before: { works: 2, commands: [], running: true },
+      ending: { commands: [], running: true },
+      wheres: ["render: drew"]
+    })
   })
 
   const sites = (exit: Exit.Exit<unknown>) =>

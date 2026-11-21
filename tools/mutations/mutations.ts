@@ -21,7 +21,15 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "",
     killedBy: [
       ["src/engine.test.ts", "from the first defect on, no update is called, on a subscription's message either"],
-      ["src/core.test.ts", "once the run has died, update is not called"]
+      ["src/core.test.ts", "once the run has died, update is not called"],
+      [
+        "src/run.test.ts",
+        "a message the run does not apply after a defect starts no command and no subscription, and onApplied does not hear it"
+      ],
+      [
+        "src/run.test.ts",
+        "a run whose subscription of init dies as it starts applies no message after: an answer starts nothing, and onApplied does not hear it"
+      ]
     ]
   },
   {
@@ -628,6 +636,10 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/compose.test.ts",
         "a child whose state is not an object is a defect that names it, in its model and in its subscriptions"
+      ],
+      [
+        "src/compose.test.ts",
+        "a child alone whose state is not an object is a defect that names it, in its model and in its subscriptions"
       ]
     ]
   },
@@ -1582,6 +1594,15 @@ export const mutations: ReadonlyArray<Mutation> = [
         "src/engine.test.ts",
         "a defect of onIgnored in a dispatch is recorded in onIgnored, never thrown to the caller, and no update follows"
       ]
+    ]
+  },
+  {
+    name: "the options hear a message dropped before update",
+    file: "src/engine.ts",
+    from: "      case \"Dead\":\n      case \"Dropped\":\n        return\n      case \"Ignored\": {\n",
+    to: "      case \"Dead\":\n        return\n      case \"Dropped\":\n      case \"Ignored\": {\n",
+    killedBy: [
+      ["src/run.test.ts", "neither onApplied nor onIgnored hears what a subscription sends once its key went away"]
     ]
   },
   {
@@ -2796,6 +2817,18 @@ export const mutations: ReadonlyArray<Mutation> = [
         "drive fails, as rehearse does, in render alone: the scenario that would catch it never meets it"
       ],
       ["src/testing/contract.test.ts", "in drive, through the run's dispatch, it reaches no update"]
+    ]
+  },
+  {
+    name: "drive ends with what the scenario ended with, before the defects",
+    file: "src/testing/drive.ts",
+    from: "    return yield* Core.endedWith(deaths.all(), Opt.getOrElse(outcome, () => stopped))\n",
+    to: "    return yield* Opt.getOrElse(outcome, () => stopped)\n",
+    killedBy: [
+      [
+        "src/testing/drive.test.ts",
+        "a wait matches a model read before a defect of a later model, and drive ends with the defect first all the same"
+      ]
     ]
   },
   // The bridges (`docs/records/synchronous-dispatch.md`, stage 3): each check of the bridges to snabbdom and to

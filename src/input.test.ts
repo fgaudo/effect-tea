@@ -534,6 +534,32 @@ describe("inputs at get and set, alone and by id", () => {
   })
 })
 
+describe("what input and inputById return", () => {
+  // A title that may be locked away, and counts in a record by id: places that are there in some states only.
+  type Sheet = Readonly<{ title: Opt.Option<string>; counts: Readonly<Record<string, string>> }>
+  const sheet = Optic.id<Sheet>()
+  const sheets = program<{ state: Sheet }>()
+
+  test("has the get of its place, given with at or with get and set, alone and by id", () => {
+    const titleAt = sheets.input({ at: sheet.key("title").compose(Optic.some()) })
+    const titleGot = sheets.input({
+      get: (state) => state.title,
+      set: (state, title) => ({ ...state, title: Opt.some(title) })
+    })
+    const countAt = sheets.inputById({ at: (id: string) => sheet.key("counts").at(id) })
+    const countGot = sheets.inputById({
+      get: (state, id: string) => Opt.fromNullishOr(state.counts[id]),
+      set: (state, id, count) => ({ ...state, counts: { ...state.counts, [id]: count } })
+    })
+    const open: Sheet = { title: Opt.some("Q3"), counts: { a: "1" } }
+    const locked: Sheet = { title: Opt.none(), counts: {} }
+    expect([titleAt.get(open), titleGot.get(open)]).toEqual([Opt.some("Q3"), Opt.some("Q3")])
+    expect([titleAt.get(locked), titleGot.get(locked)]).toEqual([Opt.none(), Opt.none()])
+    expect([countAt.get(open, "a"), countGot.get(open, "a")]).toEqual([Opt.some("1"), Opt.some("1")])
+    expect([countAt.get(open, "b"), countGot.get(open, "b")]).toEqual([Opt.none(), Opt.none()])
+  })
+})
+
 describe("the tools of the model", () => {
   // What a model holds is what the program fixes: no value is drawn, and what is written is asked of nothing.
   test("judge a step that empties an input as any message: on an empty one it changes nothing, so it does not act twice", () => {

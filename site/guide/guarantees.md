@@ -88,8 +88,8 @@ bridge's to promise (see [view](./view.md#rules)).
     defects that the run would die with.
 - **The program runs on the stack of whoever sends the message.** `update`, `subscriptions`, the options and the
   listeners of the `App` run in the call that sends the message: a handler of the view, a command's fiber, or a
-  subscription's. So does `makeModel`, when a renderer reads the model in that call, as the bridge to snabbdom does for
-  what a handler of the view sends. A slow one holds up the event that sent the message, and nothing bounds it.
+  subscription's. So does `makeModel`, when a renderer reads the model in that call, as the bridge to React may (below).
+  A slow one holds up the event that sent the message, and nothing bounds it.
   - The effects of the step, its subscriptions and the start of its commands, start once that call has returned. The
     first state's start as `run` is forked: with `Effect.runFork`, on the stack of that call. This is described, and not
     promised.
@@ -110,9 +110,9 @@ bridge's to promise (see [view](./view.md#rules)).
 - **A view sends only what its model holds.** It writes only into the inputs its model shows, and never builds a
   message itself. The library does not enforce this (see [model](./model.md#precisely)).
 - **What the screen shows beside the program's model.** The guarantees are of the program. Each bridge says what it
-  draws beside the model: the bridge to snabbdom keeps no state beside the program's state, except the value a model
-  gave each controlled element, and with the bridge to React the application's components may keep state of their own
-  (see [view](./view.md#rules)).
+  draws beside the model. The bridge to snabbdom draws the model and nothing else: what it shows of a controlled
+  element is the value its model gave it. With the bridge to React, the application's components may keep state of
+  their own (see [view](./view.md#rules)).
 - **With the bridge to React, the run lives as long as the effect that starts it.** That is the effect of `Host`.
   `Host` starts the program as it first renders, and starts its run after its effect.
   - React ends the effect, and `Host` interrupts the run, when it unmounts `Host`, and when `<Activity>` hides it. The

@@ -15,9 +15,11 @@ import {
 } from "@fgaudo/effect-tea"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test"
+import * as Cause from "effect/Cause"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
+import * as Fiber from "effect/Fiber"
 import * as Opt from "effect/Option"
 import * as Stream from "effect/Stream"
 import { h, init, propsModule, type VNode } from "snabbdom"
@@ -228,6 +230,20 @@ describe("when the bridge to snabbdom draws", () => {
     expect(element("li").textContent).toBe("Ada")
   })
 
+  test("what one task sends, two clicks and a message from outside the view, is drawn once", async () => {
+    const app = mount(drawInto, counterView, start(counter))
+    settle()
+    const views = app.views()
+    button("+").click()
+    button("+").click()
+    app.app.dispatch("Increment")
+    expect(app.views()).toBe(views)
+    await drawn()
+    expect([app.views(), element("output").textContent]).toEqual([views + 1, "3"])
+    await drawn()
+    expect(app.views()).toBe(views + 1)
+  })
+
   // Another program may draw into the same root by then.
   test("a draw asked for before the bridge is stopped is not made once it is stopped", async () => {
     document.body.innerHTML = "<div id=\"app\"></div>"
@@ -300,6 +316,47 @@ describe("when the bridge to snabbdom draws", () => {
       ])
       settle()
       expect(fiber.pollUnsafe()).toBeUndefined()
+    })
+
+    // The last hook a patch calls is an `insert` one: the span's, inserted after the input that the listener's
+    // message was sent from, reads the screen as the patch ends.
+    test("leaves every part of the screen showing the model the patch drew, and the next draw shows the next whole", async () => {
+      document.body.innerHTML = "<div id=\"app\"></div>"
+      const { app, run } = start(editor)
+      const shown = () => [
+        element<HTMLElement>("main").title,
+        element("output.left").textContent,
+        element<HTMLInputElement>("input#detail").value,
+        element("output.again").textContent
+      ]
+      const ended: Array<Readonly<{ drawn: number; current: number; shown: ReadonlyArray<unknown> }>> = []
+      const partsView: View<Desk, "Edit" | "Left"> = (model, dispatch) =>
+        h("main", { props: { title: String(model.left) } }, [
+          h("output.left", String(model.left)),
+          h("input#name", { on: { blur: () => dispatch("Left") } }),
+          ...(model.editing
+            ? [
+              h("input#detail", {
+                props: { value: String(model.left) },
+                hook: { insert: (vnode) => (vnode.elm as HTMLInputElement).focus() }
+              }),
+              h("span", {
+                hook: {
+                  insert: () => void ended.push({ drawn: model.left, current: app.model().left, shown: shown() })
+                }
+              })
+            ]
+            : [h("button", { on: { click: () => dispatch("Edit") } }, "Edit")]),
+          h("output.again", String(model.left))
+        ])
+      drawing(drawInto(element("#app"), { app, view: partsView }))
+      forked(run)
+      settle()
+      element<HTMLInputElement>("#name").focus()
+      button("Edit").click()
+      await drawn()
+      expect(ended).toEqual([{ drawn: 0, current: 1, shown: ["0", "0", "0", "0"] }])
+      expect(shown()).toEqual(["1", "1", "1", "1"])
     })
   })
 })
@@ -381,6 +438,37 @@ describe("what a draw after a handler throws", () => {
     button("+").click()
     await drawn()
     expect(drawnWith).toEqual([0, 1])
+  })
+
+  // The run was interrupted between the click and its draw: its cause holds no defect, and cannot take one.
+  test("by the view once the run has ended, is thrown out of the microtask, as an error of the page", async () => {
+    const thrown = new Error("A view that cannot draw")
+    document.body.innerHTML = "<div id=\"app\"></div>"
+    const { app, run } = start(counter)
+    drawing(drawInto(element("#app"), {
+      app,
+      view: (model, dispatch) => {
+        if (model.count === 1) throw thrown
+        return counterView(model, dispatch)
+      }
+    }))
+    const fiber = forked(run)
+    settle()
+    const errors = reported()
+    try {
+      button("+").click()
+      const ended = Effect.runPromise(Fiber.interrupt(fiber))
+      settle()
+      await ended
+      await drawn()
+    } finally {
+      errors.done()
+    }
+    const exit = fiber.pollUnsafe()
+    expect(exit !== undefined && Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)).toBe(true)
+    expect(errors.errors).toHaveLength(1)
+    expect(errors.errors[0]).toBeInstanceOf(ProgramDefect)
+    expect(errors.errors[0]).toMatchObject({ where: "render", cause: thrown })
   })
 })
 

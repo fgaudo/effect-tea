@@ -1,4 +1,8 @@
 import { describe, expect, expectTypeOf, test } from "bun:test"
+import * as Optic from "effect/Optic"
+import { program } from "../compose.ts"
+import { defect, InvariantDefect } from "../defect.ts"
+import type { MessageOf } from "../program.ts"
 import { reject, type Update } from "../update.ts"
 import { type DispatchViolation, dispatchViolations } from "./dispatch-violations.ts"
 
@@ -87,6 +91,14 @@ describe("dispatchViolations", () => {
     ]
     expect(never).toBeDefined()
   })
+
+  test("the InvariantDefect of defect fails it, as any error update throws, for a message held or a candidate", () => {
+    const broken: Update<State, Message, "Ping", "Notify"> = (message) => (state) =>
+      message === "Forbidden" ? defect("No Forbidden arrives here") : update(message)(state)
+    expect(() => dispatchViolations(broken, { state: closed, held: ["Forbidden"] })).toThrow(InvariantDefect)
+    expect(() => dispatchViolations(broken, { state: closed, held: [], candidates: ["Forbidden"] }))
+      .toThrow(InvariantDefect)
+  })
 })
 
 type Form = Readonly<{ isOpen: boolean; isSaving: boolean; text: string }>
@@ -164,5 +176,47 @@ describe("dispatchViolations, of the candidates", () => {
   test("reports both ways at once, what is sent first", () => {
     expect(dispatchViolations(updateForm, { state: idle, held: [shut], candidates: [opened] }))
       .toEqual([{ _tag: "Rejected", message: shut }, { _tag: "Missing", message: opened }])
+  })
+})
+
+// A sheet of counts by id, which the outside writes into, and a model that shows rows by the state's own list, as a
+// broken `makeModel` would: a row may be editable where the state has no count, or read-only where it has one.
+type Sheet = Readonly<{
+  counts: Readonly<Record<string, string>>
+  rows: ReadonlyArray<Readonly<{ id: string; editable: boolean }>>
+}>
+
+const Sheet = program<{ state: Sheet }>()
+
+const sheet = Sheet.make({
+  init: { state: { counts: {}, rows: [] } },
+  inputs: { Count: Sheet.inputById({ at: (id: string) => Optic.id<Sheet>().key("counts").at(id) }) },
+  makeModel: ({ counts, rows }) => rows.map(({ id, editable }) => ({ id, text: counts[id] ?? "", editable }))
+})
+
+type Row = ReturnType<typeof sheet.makeModel>[number]
+
+// A write of a value other than the one the row shows, so that its step does something.
+const writeOver = ({ id, text }: Row): MessageOf<typeof sheet> => ({
+  _tag: "Count",
+  id,
+  message: { _tag: "Written", value: `${text}0` }
+})
+
+describe("dispatchViolations, of the writes into an input", () => {
+  test("Rejected finds an editor with no place to write into, and Missing a place the model shows as read-only", () => {
+    const state: Sheet = {
+      counts: { milk: "1", tea: "2" },
+      rows: [{ id: "milk", editable: true }, { id: "eggs", editable: true }, { id: "tea", editable: false }]
+    }
+    const rows = sheet.makeModel(state)
+    expect(dispatchViolations(sheet.update, {
+      state,
+      held: rows.filter(({ editable }) => editable).map(writeOver),
+      candidates: rows.map(writeOver)
+    })).toEqual([
+      { _tag: "Rejected", message: { _tag: "Count", id: "eggs", message: { _tag: "Written", value: "0" } } },
+      { _tag: "Missing", message: { _tag: "Count", id: "tea", message: { _tag: "Written", value: "20" } } }
+    ])
   })
 })

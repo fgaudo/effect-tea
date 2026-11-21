@@ -394,6 +394,23 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       await act(() => button("−").click())
       expect(element("output").textContent).toBe("0")
     })
+
+    // Whoever started the program stops the bridge, or does not: the run does not.
+    test("a run that ends leaves the bridge drawing, and a state applied before the end is drawn after it", async () => {
+      document.body.innerHTML = "<div id=\"app\"></div>"
+      const { app, run } = start(counter)
+      drawing(bridge.drawInto(element<HTMLElement>("#app"), { app, view: bridge.views.counter }))
+      const fiber = forked(run)
+      settle()
+      await bridge.drawn()
+      button("+").click()
+      const ended = Effect.runPromise(Fiber.interrupt(fiber))
+      settle()
+      expect(fiber.pollUnsafe()).toBeDefined()
+      await ended
+      await bridge.drawn()
+      expect([app.model().count, element("output").textContent]).toEqual([1, "1"])
+    })
   })
 
   describe("the root", () => {

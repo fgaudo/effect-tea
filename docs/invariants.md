@@ -469,9 +469,12 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   "takes the jobs one at a time, in the order of the states: none starts while the job before is held", where nothing
   tells that a later job has not started while a release holds the fiber of effects, and "the end stops the fiber of
   effects held by a release, which starts nothing after, nor any job it had not taken", where nothing of the program
-  runs in it to tell when the end has stopped it; "a subscription dying in a scope of its channel lets no message apply
-  as the channel releases" (`run.test.ts`), where a correct run applies nothing while the channel releases; "each call
-  hears the next message, and the subscription waits between two of them" (`rehearse.test.ts`); "in the run, it is heard
-  once to its end, under a key that stays, and again once its key comes back", and the tests of "a fiber of the test's
-  that sends once the tool has ended" (`contract.test.ts`). The scheduler of the tests could await quiescence in their
+  runs in it to tell when the end has stopped it; of `run.test.ts`, "a subscription dying in a scope of its channel lets
+  no message apply as the channel releases", where a correct run applies nothing while the channel releases, "never
+  succeeds: once every effect of the program has run and ended, it runs until it is interrupted", where nothing of the
+  program is left to tell that the run has not ended, and "a release that never ends holds the next job, then the
+  defects the run would die with, with no defect of its own", whose window is a day of a `TestClock`, with yields and no
+  real time; "each call hears the next message, and the subscription waits between two of them" (`rehearse.test.ts`);
+  "in the run, it is heard once to its end, under a key that stays, and again once its key comes back", and the tests of
+  "a fiber of the test's that sends once the tool has ended" (`contract.test.ts`). The scheduler of the tests could await quiescence in their
   place, and does not, as "one thunk" says of every test of a check (`rejected.md`, "The checks").

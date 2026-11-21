@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, expectTypeOf, test } from "bun:test"
 import { CompositionDefect, defect, InvariantDefect, ProgramDefect } from "./defect.ts"
 
 describe("defect", () => {
@@ -16,6 +16,12 @@ describe("defect", () => {
       reason: "A save completed while nothing was saving",
       message: "A save completed while nothing was saving"
     })
+  })
+
+  test("is an expression of type never, for a branch of a ternary or a Match", () => {
+    expectTypeOf(defect).returns.toBeNever()
+    const saved = (saving: boolean): number => saving ? 1 : defect("A save completed while nothing was saving")
+    expect(saved(true)).toBe(1)
   })
 })
 

@@ -44,7 +44,7 @@ type Outcome = Readonly<{ file: string; name: string; title: string; failed: boo
 
 type Killer = Mutation["killedBy"][number]
 
-type Verdict = "passed" | "failed" | "hung"
+type Verdict = "passed" | "failed" | "hung" | "ran away"
 
 // Bun writes a control character, as a tab, by its number.
 const decode = (text: string) =>
@@ -104,7 +104,8 @@ const removeCopies = Effect.gen(function*() {
   yield* fs.remove(yield* base, { recursive: true, force: true })
 }).pipe(Effect.orDie)
 
-// Runs `files` in `copy`, only the test whose title is `title` when given, and returns what it did, or that it hung.
+// Runs `files` in `copy`, only the test whose title is `title` when given, and returns what it did, that it hung, or
+// that it ran away: that the memory guard of the tests (`test/memory-guard.test_hook.ts`) ended it, with no report.
 const runTests = Effect.fnUntraced(function*(copy: string, files: ReadonlyArray<string>, title?: string) {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
@@ -122,6 +123,7 @@ const runTests = Effect.fnUntraced(function*(copy: string, files: ReadonlyArray<
   if (Opt.isNone(ended)) return "hung" as const
   const { exitCode, stderr } = ended.value
   if (!(yield* fs.exists(report))) {
+    if (stderr.includes("memory guard: ")) return "ran away" as const
     return yield* new Failed({ message: `bun test wrote no report (exit ${exitCode}):\n${stderr}` })
   }
   const ran = outcomes(yield* fs.readFileString(report))
@@ -167,7 +169,11 @@ const describe = ([file, name]: Killer) => `${file} › ${name}`
 const titlesOf = Effect.fnUntraced(function*(copy: string, chosen: ReadonlyArray<Mutation>) {
   const killers = chosen.flatMap((mutation) => mutation.killedBy)
   const run = yield* runTests(copy, [...new Set(killers.map(([file]) => file))])
-  if (run === "hung") return yield* new Failed({ message: "The files of the tests hang without any mutation" })
+  if (run === "hung" || run === "ran away") {
+    return yield* new Failed({
+      message: `The files of the tests ${run === "hung" ? "hang" : "run away"} without any mutation`
+    })
+  }
   const { ran } = run
   const titles = new Map<string, string>()
   for (const mutation of chosen) {
@@ -193,7 +199,7 @@ const titlesOf = Effect.fnUntraced(function*(copy: string, chosen: ReadonlyArray
 const alone = Effect.fnUntraced(function*(copy: string, titles: ReadonlyMap<string, string>, killer: Killer) {
   const title = titles.get(describe(killer)) as string
   const run = yield* runTests(copy, [killer[0]], title)
-  if (run === "hung") return "hung" as Verdict
+  if (run === "hung" || run === "ran away") return run as Verdict
   if (run.ran.length !== 1 || (run.ran[0] as Outcome).title !== title) {
     return yield* new Failed({ message: `A run of ${describe(killer)} alone ran ${run.ran.length} tests` })
   }
@@ -310,17 +316,42 @@ const compare = Effect.fnUntraced(function*(revision: string, chosen: ReadonlyAr
   return different
 })
 
+// The files of the tests in `copy`, but for the search of the histories.
+const testFiles = Effect.fnUntraced(function*(copy: string) {
+  const fs = yield* FileSystem.FileSystem
+  const entries = yield* fs.readDirectory(copy, { recursive: true })
+  return entries
+    .map((entry) => entry.replaceAll("\\", "/"))
+    .filter((entry) => entry.endsWith(".test.ts") && entry !== "src/interleaving.test.ts")
+    .sort()
+})
+
 // The suite of `bun run test`: the search of the histories lasts longer than a test may, and a property of it is named
-// a killer only once it failed under the mutation on each of a hundred runs, which a discovery does not tell.
+// a killer only once it failed under the mutation on each of a hundred runs, which a discovery does not tell. A suite
+// that runs away names no test, since the guard ends its process at once: then each file runs alone, and those that run
+// away are named.
+const suiteUnder = Effect.fnUntraced(function*(copy: string) {
+  const run = yield* runTests(copy, ["--path-ignore-patterns=src/interleaving.test.ts"])
+  if (run !== "ran away") return run
+  const ranAway: Array<string> = []
+  for (const file of yield* testFiles(copy)) if ((yield* runTests(copy, [file])) === "ran away") ranAway.push(file)
+  return { ranAway } as const
+})
+
 const discoverIn = (copies: ReadonlyArray<string>, chosen: ReadonlyArray<Mutation>) =>
   pool(
     copies,
     chosen,
-    (copy, mutation) => under(copy, mutation, runTests(copy, ["--path-ignore-patterns=src/interleaving.test.ts"])),
+    (copy, mutation) => under(copy, mutation, suiteUnder(copy)),
     (run, index) => {
       const { name } = chosen[index] as Mutation
       if (run === "hung") {
         console.log(`\n${name}: the suite hangs under it`)
+        return
+      }
+      if ("ranAway" in run) {
+        console.log(`\n${name}: the suite runs away under it`)
+        for (const file of run.ranAway) console.log(`  and so does ${file}, alone`)
         return
       }
       const failed = run.ran.filter((outcome) => outcome.failed)
@@ -370,9 +401,11 @@ const killIn = Effect.fnUntraced(function*(copies: ReadonlyArray<string>, chosen
     const failedAgain = again.get(index) ?? []
     const passed = ran.filter(([killer, outcome]) => outcome === "passed" && !failedAgain.includes(killer))
     const hung = ran.filter(([, outcome]) => outcome === "hung")
+    const away = ran.filter(([, outcome]) => outcome === "ran away")
     const verdict = passed.length === 0 ? "killed" : "SURVIVED"
     yield* Console.log(`${verdict} [${index + 1}/${chosen.length}] ${(chosen[index] as Mutation).name} (${seconds}s)`)
     for (const [killer] of hung) yield* Console.log(`  hangs under it: ${describe(killer)}`)
+    for (const [killer] of away) yield* Console.log(`  runs away under it: ${describe(killer)}`)
     for (const killer of failedAgain) {
       yield* Console.log(`  passes under it beside the other copies, fails alone: ${describe(killer)}`)
     }

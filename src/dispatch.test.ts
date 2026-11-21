@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, expectTypeOf, test } from "bun:test"
 import * as Equal from "effect/Equal"
 import * as Hash from "effect/Hash"
 import { collectGarbage } from "../test/gc.test_helper.ts"
@@ -47,6 +47,13 @@ const entriesLeft = async (dispatch: Dispatch<Message>, atMost: number) => {
   }
   return left
 }
+
+describe("Dispatch", () => {
+  test("sends a message with a call that returns nothing, as what forwardTo gives does", () => {
+    expectTypeOf<Dispatch<Message>>().returns.toBeVoid()
+    expectTypeOf(forwardTo(recording().dispatch, "Clock")).returns.toBeVoid()
+  })
+})
 
 describe("forwardTo", () => {
   test("wraps a child's messages as the parent receives them, with the id of a child by id", () => {

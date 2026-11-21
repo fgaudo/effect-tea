@@ -49,7 +49,8 @@ tool, has one too, as `docs/invariants.md` says under "Defects always die": a ne
 its mutation; a test of one renamed or
 removed, or the code it replaces rewritten, updates the list, which the script refuses otherwise (a name that runs
 no test, or a text not found exactly once); `bun run mutations --discover <name>` lists every test that fails
-under one. A text found exactly once may still be found in another place than the check, once the code around it was
+under one, and the files whose run the memory guard of the tests ends ("ran away", as `AGENTS.md` says under "Tests"):
+such a file loops in one call under the mutation, and its listener is fixed to stop once done. A text found exactly once may still be found in another place than the check, once the code around it was
 rewritten: after a change that rewrites the code and not what it does (a format, a new version of dprint or of its
 options, a rename), the list is rewritten to match, and `bun run mutations --against=<rev>`, with the commit before
 the change, runs no test and fails on a mutation that does not change the same code that runs, in the same place, as

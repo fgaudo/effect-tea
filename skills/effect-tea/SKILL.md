@@ -107,10 +107,10 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   typed into it only for the length of its own event. A part of the page outside the bridge's `root`, as its title,
   is drawn from the model by code over the handle, beside the bridge. The guide, "View", "What the program draws
   comes from its model". The guide, "Inputs the user types into", "The element on screen".
-- **Each bridge says what it draws beside the model.** The bridge to snabbdom keeps no state beside the program's,
-  except the value a model gave each controlled element. With the bridge to React, the application's components may
-  keep state of their own, which the testing tools do not see. The guide, "View", "Each bridge says what it draws
-  beside the model".
+- **Each bridge says what it draws beside the model.** The bridge to snabbdom draws the model and nothing else: what
+  it shows of a controlled element is the value its model gave it. With the bridge to React, the application's
+  components may keep state of their own, which the testing tools do not see. The guide, "View", "Each bridge says what
+  it draws beside the model".
 - **A subscription that sends faster than the screen refreshes holds the run back.** The bridge to snabbdom, and
   React, draw once for each task, or listener that the browser calls, that brings a new state. Let such a
   subscription send its messages by batches, as a `Stream` grouped within a time does (`Stream.groupedWithin`). The

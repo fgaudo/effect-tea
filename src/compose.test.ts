@@ -5,6 +5,7 @@ import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
+import * as Equal from "effect/Equal"
 import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import { pipe } from "effect/Function"
@@ -18,6 +19,7 @@ import { CompositionDefect, compositionDefect } from "./defect.ts"
 import { type Dispatch, forwardTo } from "./dispatch.ts"
 import type { Written } from "./input.ts"
 import type {
+  AnyProgram,
   CommandOf,
   CommandServicesOf,
   EventOf,
@@ -178,10 +180,17 @@ const script = <M>(
   const seen: Array<Drawn<M>> = []
   const { app, run } = start({ ...program, init: { ...program.init, state } })
   const done = Deferred.makeUnsafe<void>()
+  let finished = false
   const draw = () => {
+    // Done, it sends nothing more: under an engine that tells it again, sending would loop in one call, past any
+    // timeout.
+    if (finished) return
     const drawn = { model: app.model(), dispatch: app.dispatch }
     seen.push(drawn)
-    if (act(drawn, seen.length - 1)) Deferred.doneUnsafe(done, Exit.void)
+    if (act(drawn, seen.length - 1)) {
+      finished = true
+      Deferred.doneUnsafe(done, Exit.void)
+    }
   }
   app.subscribe(draw)
   draw()
@@ -378,6 +387,26 @@ describe("compose", () => {
     expect(thrown).toMatchObject({ _tag: "CompositionDefect", child: "Right" })
   })
 
+  // Only a cast, or a caller without TypeScript, gets a primitive state past the types.
+  test("a child alone whose state is not an object is a defect that names it, in its model and in its subscriptions", () => {
+    type Holder = Readonly<{ ticks: Ticks }>
+    const primitive = "ticks" as unknown as Ticks
+    const Holder = program<{ state: Holder }>()
+    const holding = Holder.make({
+      init: () => ({ state: { ticks: primitive } }),
+      children: {
+        Ticker: Holder.child(ticker, { get: (state) => Opt.some(state.ticks), set: (_, ticks) => ({ ticks }) })
+      },
+      makeModel: (state, children) => children.Ticker(state)
+    })
+    const defect = compositionDefect({
+      message: "The state of \"Ticker\" is a string, where a program keeps its state in an object",
+      child: "Ticker"
+    })
+    expect(() => holding.makeModel(holding.init.state)).toThrow(defect)
+    expect(() => holding.subscriptions(holding.init.state)).toThrow(defect)
+  })
+
   test("a program made without subscriptions listens to nothing, in any state", () => {
     const silent = program<{ state: Ticks; message: Tick }>().make({
       init: { state: noTicks },
@@ -395,6 +424,24 @@ describe("compose", () => {
       HashMap.keys(subscriptions({ ...app.init.state, maybeRight: Opt.some(counter.init.state) }))
     )
     expect(keys).toEqual([["Ticker", "ticks"]])
+  })
+
+  test("a child without subscribed listens exactly when it is there", () => {
+    type Maybe = Readonly<{ maybeTicks: Opt.Option<Ticks> }>
+    const Maybe = program<{ state: Maybe }>()
+    const maybe = Maybe.make({
+      init: () => ({ state: { maybeTicks: Opt.none() } }),
+      children: {
+        Ticker: Maybe.child(ticker, {
+          get: (state) => state.maybeTicks,
+          set: (_, ticks) => ({ maybeTicks: Opt.some(ticks) })
+        })
+      },
+      makeModel: () => null
+    })
+    expect(HashMap.isEmpty(maybe.subscriptions({ maybeTicks: Opt.none() }))).toBe(true)
+    expect(Arr.fromIterable(HashMap.keys(maybe.subscriptions({ maybeTicks: Opt.some(noTicks) }))))
+      .toEqual([["Ticker", "ticks"]])
   })
 
   test("a child's model is kept while its state is the same object", () => {
@@ -529,7 +576,8 @@ describe("children by id", () => {
         const model = app.model()
         seen.push(model)
         const index = seen.length - 1
-        if (index === draws) {
+        // Past `draws` too, as `script` stops: under an engine that tells it again, sending would loop in one call.
+        if (index >= draws) {
           Deferred.doneUnsafe(done, Exit.void)
           return
         }
@@ -580,6 +628,35 @@ describe("children by id", () => {
     expect(list.update({ _tag: "Rows", id: 3, message: CounterMessage.Increment() })(rows(1, 2))).toBe(reject)
   })
 
+  test("a command's answer reaches the row that has its id when it arrives, a new row at a reused id included", () => {
+    const Kept = program<{ state: ListState }>()
+    const kept = Kept.make({
+      init: () => ({ state: { rows: [] } }),
+      children: {
+        Rows: Kept.childById(counter, {
+          get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
+          set: (state, id, counter) => ({ rows: state.rows.map((row) => row.id === id ? { id, counter } : row) }),
+          subscribed: () => []
+        })
+      },
+      onEvent: { Rows: () => (state) => ({ state }) },
+      makeModel: () => null
+    })
+    const saving = kept.update({ _tag: "Rows", id: 2, message: CounterMessage.SaveClicked() })(rows(1, 2))
+    if (saving === reject) throw new Error("saving was rejected")
+    const [command] = saving.commands ?? []
+    if (command === undefined) throw new Error("saving started no command")
+    const answer = Opt.getOrThrow(Effect.runSync(kept.runCommand(command)))
+    // Row 2 was removed, and a new row came to its id, saving a count of its own.
+    const first = { id: 1, counter: counter.init.state }
+    const reused: ListState = { rows: [first, { id: 2, counter: { count: 5, text: "", saving: true } }] }
+    expect(kept.update(answer)(reused)).toEqual({
+      state: { rows: [first, { id: 2, counter: { count: 5, text: "", saving: false } }] },
+      commands: [],
+      events: []
+    })
+  })
+
   test("each child listens under its name and id, alone ones under their name", () => {
     const Tickers = program<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
     const tickerList = Tickers.make({
@@ -599,6 +676,24 @@ describe("children by id", () => {
       ["Tickers", 7, "ticks"],
       ["Tickers", 8, "ticks"]
     ])
+  })
+
+  test("a row in the state that subscribed leaves out runs no subscription, and still takes its messages", () => {
+    type Listening = Readonly<{ ids: ReadonlyArray<number>; listening: ReadonlyArray<number> }>
+    const Tickers = program<{ state: Listening }>()
+    const some = Tickers.make({
+      init: () => ({ state: { ids: [7, 8], listening: [7] } }),
+      children: {
+        Tickers: Tickers.childById(ticker, {
+          get: (state, id: number) => state.ids.includes(id) ? Opt.some(noTicks) : Opt.none(),
+          set: (state) => state,
+          subscribed: (state) => state.listening.map((id) => [id, noTicks] as const)
+        })
+      },
+      makeModel: () => null
+    })
+    expect(Arr.fromIterable(HashMap.keys(some.subscriptions(some.init.state)))).toEqual([["Tickers", 7, "ticks"]])
+    expect(some.update({ _tag: "Tickers", id: 8, message: { _tag: "Tick" } })(some.init.state)).not.toBe(reject)
   })
 
   test("subscribed children that list one id twice are a defect that says so, not a clash with an own key", () => {
@@ -621,6 +716,30 @@ describe("children by id", () => {
         child: "Tickers",
         id: 7
       }))
+  })
+
+  test("subscribed children that list one id twice are no defect in a state where the child listens to nothing", () => {
+    // A ticker that listens only once it has ticked.
+    const late: typeof ticker = {
+      ...ticker,
+      subscriptions: (state) => state.ticks > 0 ? HashMap.make(["ticks", ticks]) : HashMap.empty()
+    }
+    type Twice = Readonly<{ ids: ReadonlyArray<number>; ticks: Ticks }>
+    const Tickers = program<{ state: Twice }>()
+    const twice = Tickers.make({
+      init: () => ({ state: { ids: [7, 7], ticks: noTicks } }),
+      children: {
+        Tickers: Tickers.childById(late, {
+          get: (state, id: number) => state.ids.includes(id) ? Opt.some(state.ticks) : Opt.none(),
+          set: (state) => state,
+          subscribed: (state) => state.ids.map((id) => [id, state.ticks] as const)
+        })
+      },
+      makeModel: () => null
+    })
+    expect(HashMap.isEmpty(twice.subscriptions(twice.init.state))).toBe(true)
+    expect(() => twice.subscriptions({ ids: [7, 7], ticks: { ticks: 1 } }))
+      .toThrow("The subscribed children of \"Tickers\" list the same id twice")
   })
 
   // Only a cast, or a caller without TypeScript, gets a primitive state past the types.
@@ -646,6 +765,35 @@ describe("children by id", () => {
     })
     expect(() => counting.makeModel(counting.init.state)).toThrow(defect)
     expect(() => counting.subscriptions(counting.init.state)).toThrow(defect)
+  })
+
+  test("the model of a child at an id that is not there is a defect that names it and its id", () => {
+    const asking = List.make({
+      init: () => ({ state: { rows: [] } }),
+      children: {
+        Rows: List.childById(counter, {
+          get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
+          set: (state, id, counter) => ({ rows: state.rows.map((row) => row.id === id ? { id, counter } : row) }),
+          subscribed: () => []
+        })
+      },
+      onEvent: { Rows: () => (state) => ({ state }) },
+      makeModel: (state, children) => children.Rows(state, 3)
+    })
+    const thrown = (() => {
+      try {
+        return asking.makeModel(rows(1, 2))
+      } catch (error) {
+        return error
+      }
+    })()
+    expect(thrown).toBeInstanceOf(CompositionDefect)
+    expect(thrown).toMatchObject({
+      _tag: "CompositionDefect",
+      message: "The model of \"Rows\", which is not in this state",
+      child: "Rows",
+      id: 3
+    })
   })
 
   // Rows of tickers, each in a state of its own; `calls` counts the calls of the ticker's `subscriptions`.
@@ -791,6 +939,29 @@ describe("what a parent can do with a child", () => {
     }
     expect(back(pages.init.state)).toEqual({ page: Opt.some({ menu: false }) })
     expect(back(back(pages.init.state))).toEqual({ page: Opt.none() })
+  })
+
+  test("a parent sends an external message from onEvent too: one child's event clears another, in the same step", () => {
+    type Both = Readonly<{ page: Page; left: Counter }>
+    const Both = program<{ state: Both }>()
+    const both = Both.make({
+      init: (children) => ({ state: { page: children.Page.init.state, left: children.Left.init.state } }),
+      children: {
+        Page: Both.child(page, { at: Optic.id<Both>().key("page") }),
+        Left: Both.child(counter, { at: Optic.id<Both>().key("left") })
+      },
+      onEvent: {
+        Page: (_, children) => children.Left.external(cleared),
+        Left: () => (state) => ({ state })
+      },
+      makeModel: () => null
+    })
+    const at: Both = { page: { menu: false }, left: { ...counter.init.state, count: 3 } }
+    expect(both.update({ _tag: "Page", message: { _tag: "BackPressed" } })(at)).toEqual({
+      state: { page: { menu: false }, left: { ...counter.init.state, count: 0 } },
+      commands: [],
+      events: []
+    })
   })
 
   test("a child's external never rejects, and one for a child that is not there is a defect", () => {
@@ -1433,6 +1604,10 @@ describe("what the types reject", () => {
     const typed: Program<{ state: Ticks; model: number; message: Tick }> = silent
     // @ts-expect-error: so `start` does not take it either.
     expect(() => start(silent)).toBeDefined()
+    // @ts-expect-error: nor `rehearse`.
+    expect(rehearse(silent, () => Effect.void)).toBeDefined()
+    // @ts-expect-error: nor `drive`.
+    expect(drive(silent, () => Effect.void)).toBeDefined()
     const { child, childById } = program<{ state: Readonly<{ one: Ticks; rows: Readonly<Record<string, Ticks>> }> }>()
     const one = { get: (state: { one: Ticks }) => Opt.some(state.one), set: <S>(state: S) => state }
     const rows = {
@@ -1562,6 +1737,45 @@ describe("what the types reject", () => {
     expect(Effect.runSync(tested.runCommand("Load"))).toEqual(Opt.some("Loaded"))
     const loaded = tested.update("Loaded")({ ticks: 3 })
     expect(loaded !== reject && loaded.state).toEqual({ ticks: 0 })
+  })
+
+  test("a parent's own subscription sends the parent's own messages, never a child's", () => {
+    const resettable: Program<{ state: Ticks; model: number; message: Tick; external: Reset }> = {
+      init: { state: noTicks },
+      update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
+      external: () => () => ({ state: noTicks }),
+      subscriptions: () => HashMap.empty(),
+      makeModel: ({ ticks }) => ticks
+    }
+    const idle = <M>(): Subscription<M, never> => Channel.never
+    const { child, make } = program<{ state: Ticks; message: "Loaded" }>()
+    const children = {
+      Counter: child(resettable, { get: (state: Ticks) => Opt.some(state), set: (_: Ticks, child: Ticks) => child })
+    }
+    make({
+      init: () => ({ state: noTicks }),
+      children,
+      update: () => (state) => ({ state }),
+      // @ts-expect-error: `Tick` is the child's own business.
+      subscriptions: () => HashMap.make(["load", idle<Readonly<{ _tag: "Counter"; message: Tick }>>()]),
+      makeModel: () => null
+    })
+    make({
+      init: () => ({ state: noTicks }),
+      children,
+      update: () => (state) => ({ state }),
+      // @ts-expect-error: `Reset` is no message of the child: the parent sends it through the handle.
+      subscriptions: () => HashMap.make(["load", idle<Readonly<{ _tag: "Counter"; message: Reset }>>()]),
+      makeModel: () => null
+    })
+    const tested = make({
+      init: () => ({ state: noTicks }),
+      children,
+      update: (_: "Loaded", children) => (state: Ticks) => children.Counter.external({ _tag: "Reset" })(state),
+      subscriptions: () => HashMap.make(["load", idle<"Loaded">()]),
+      makeModel: () => null
+    })
+    expect(Arr.fromIterable(HashMap.keys(tested.subscriptions(noTicks)))).toEqual(["load"])
   })
 
   test("an own message cannot take the name of a child, which would receive it", () => {
@@ -2122,6 +2336,54 @@ describe("what the types reject", () => {
     const byName: Exactly<MessageOf<typeof answered>, Tick | Reset> = true
     expect(byName).toBe(true)
   })
+
+  test("a program needs its init and its makeModel, however it is written", () => {
+    const { make } = program<{ state: Ticks }>()
+    // @ts-expect-error: it has nothing to start from.
+    expect(make({ makeModel: () => null })).toBeDefined()
+    // @ts-expect-error: it has nothing to draw.
+    expect(make({ init: { state: noTicks } })).toBeDefined()
+    const { init, ...uninitialized } = ticker
+    const { makeModel, ...unmodelled } = ticker
+    // @ts-expect-error: a program written as an object has nothing to start from without it.
+    expect(() => start(uninitialized)).toBeDefined()
+    // @ts-expect-error: nor anything to draw.
+    expect(() => start(unmodelled)).toBeDefined()
+    expect([init, makeModel]).toHaveLength(2)
+  })
+
+  test("a child by id says which of its rows listen: subscribed is required", () => {
+    const { childById } = program<{ state: ListState }>()
+    const rows = { get: (_: ListState, _id: number) => Opt.none<Counter>(), set: (state: ListState) => state }
+    // @ts-expect-error: without it, no row would say whether it listens.
+    expect(childById(counter, rows)).toBeDefined()
+    expect(childById(counter, { ...rows, subscribed: () => [] })).toBeDefined()
+  })
+
+  test("a handler of onEvent answers with a step, and its type has no reject", () => {
+    type Holder = Readonly<{ left: Counter }>
+    const { child, make } = program<{ state: Holder }>()
+    const Left = child(counter, { get: (state) => Opt.some(state.left), set: (_, left) => ({ left }) })
+    make({
+      init: (children) => ({ state: { left: children.Left.init.state } }),
+      children: { Left },
+      onEvent: {
+        // @ts-expect-error: a handler that does not apply answers `{ state }`.
+        Left: () => () => reject
+      },
+      makeModel: () => null
+    })
+  })
+
+  test("a child whose program is a type parameter does not compile in make", () => {
+    const wrapping = <P extends AnyProgram>(inner: P) => {
+      const { child, make } = program<{ state: Ticks }>()
+      const Inner = child(inner, { get: () => Opt.none(), set: (state) => state })
+      // @ts-expect-error: the compiler cannot decide what the child needs.
+      return make({ init: { state: noTicks }, children: { Inner }, makeModel: () => null })
+    }
+    expect(wrapping).toBeDefined()
+  })
 })
 
 describe("a child's subscriptions in a run", () => {
@@ -2158,5 +2420,75 @@ describe("a child's subscriptions in a run", () => {
     await Effect.runPromise(Effect.raceFirst(Fiber.join(fiber), Deferred.await(noted)))
     await Effect.runPromise(Fiber.interrupt(fiber))
     expect({ bumps: app.model(), starts }).toEqual({ bumps: 3, starts: 1 })
+  })
+
+  // Each step writes the id its message carries, a new array or object: only `Equal` finds the key again. The messages
+  // are sent once both rows listen, so that a key not found again would start a row's subscription over. The command of
+  // each row's second bump is the witness, as above: the second that runs was started once the last job was done.
+  test("a child by id keeps its subscription running from one state to the next, its id a tuple or a struct made anew", async () => {
+    let starts = 0
+    let noted = 0
+    const listening = Deferred.makeUnsafe<void>()
+    const done = Deferred.makeUnsafe<void>()
+    type Bumps = Readonly<{ bumps: number }>
+    const bumping: Program<{ state: Bumps; model: number; message: "Bump"; command: "Noted" }> = {
+      init: { state: { bumps: 0 } },
+      update: () => ({ bumps }) => ({ state: { bumps: bumps + 1 }, commands: bumps + 1 === 2 ? ["Noted"] : [] }),
+      runCommand: () =>
+        Effect.suspend(() => ++noted === 2 ? Deferred.succeed(done, undefined) : Effect.void).pipe(
+          Effect.as(Opt.none())
+        ),
+      subscriptions: () =>
+        HashMap.make([
+          "ticks",
+          Channel.fromEffectDone(
+            Effect.suspend(() => ++starts === 2 ? Deferred.succeed(listening, undefined) : Effect.void).pipe(
+              Effect.andThen(Effect.never)
+            )
+          )
+        ]),
+      makeModel: ({ bumps }) => bumps
+    }
+    type Pair = readonly [string, number]
+    type Shelf = Readonly<{ shelf: string }>
+    type Store = Readonly<{
+      pairs: ReadonlyArray<readonly [Pair, Bumps]>
+      shelves: ReadonlyArray<readonly [Shelf, Bumps]>
+    }>
+    const at = <Id>(rows: ReadonlyArray<readonly [Id, Bumps]>, id: Id) =>
+      Opt.map(Arr.findFirst(rows, ([held]) => Equal.equals(held, id)), ([, bumps]) => bumps)
+    const put = <Id>(rows: ReadonlyArray<readonly [Id, Bumps]>, id: Id, bumps: Bumps) =>
+      rows.map((row) => Equal.equals(row[0], id) ? [id, bumps] as const : row)
+    const first: Store = {
+      pairs: [[["milk", 1], bumping.init.state]],
+      shelves: [[{ shelf: "top" }, bumping.init.state]]
+    }
+    const { childById, make } = program<{ state: Store }>()
+    const store = make({
+      init: () => ({ state: first }),
+      children: {
+        Pairs: childById(bumping, {
+          get: (state, id: Pair) => at(state.pairs, id),
+          set: (state, id, bumps) => ({ ...state, pairs: put(state.pairs, id, bumps) }),
+          subscribed: (state) => state.pairs
+        }),
+        Shelves: childById(bumping, {
+          get: (state, id: Shelf) => at(state.shelves, id),
+          set: (state, id, bumps) => ({ ...state, shelves: put(state.shelves, id, bumps) }),
+          subscribed: (state) => state.shelves
+        })
+      },
+      makeModel: (state, children) => [children.Pairs(state, ["milk", 1]), children.Shelves(state, { shelf: "top" })]
+    })
+    const { app, run } = start(store)
+    const fiber = Effect.runFork(run)
+    await Effect.runPromise(Effect.raceFirst(Fiber.join(fiber), Deferred.await(listening)))
+    for (let bump = 0; bump < 2; bump++) {
+      app.dispatch({ _tag: "Pairs", id: ["milk", 1], message: "Bump" })
+      app.dispatch({ _tag: "Shelves", id: { shelf: "top" }, message: "Bump" })
+    }
+    await Effect.runPromise(Effect.raceFirst(Fiber.join(fiber), Deferred.await(done)))
+    await Effect.runPromise(Fiber.interrupt(fiber))
+    expect({ bumps: app.model(), starts }).toEqual({ bumps: [2, 2], starts: 2 })
   })
 })
