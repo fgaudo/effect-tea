@@ -114,7 +114,8 @@ type Died = { readonly error: unknown }
  *   with `Draw`.
  * - On a server, it draws the first model, and nothing of `init` starts.
  * - A run that fails, or dies, throws what it ended with (`Cause.squash`: a `ProgramDefect` for a defect) as `Host`
- *   renders, for the nearest error boundary. One that ends so once `Host` has unmounted is given to `reportError`.
+ *   renders, for the nearest error boundary. One that `Host` has not thrown as it unmounts, or that ends so once it has
+ *   unmounted, is given to `reportError`.
  *   Whatever `fork` handles around the run is not thrown or reported again.
  * - A `makeModel` that throws is such a defect, thrown once: until the run has ended, `Host` draws the model it drew
  *   last. A first model that throws reaches the boundary as `Host` first renders, and the run never starts.
@@ -138,6 +139,8 @@ export const Host = <State, Model, Message, Command = never, RC = never, RS = ne
   // render that mounts it, and on a server. A render that React throws away leaves a program that nothing runs.
   const [{ app, drawn }, setApp] = useState(() => hosted(begin<Model, Message>(first.current)))
   const [died, setDied] = useState<Died | undefined>(undefined)
+  // What a render of `Host` threw, for the boundary: the cleanup reports a death that no render threw.
+  const thrown = useRef<Died | undefined>(undefined)
   // Whether the program in `app` has been given to `fork`: a program started is run once.
   const ran = useRef(false)
   useEffect(() => {
@@ -145,6 +148,8 @@ export const Host = <State, Model, Message, Command = never, RC = never, RS = ne
     const forkRun: Fork<never> = fork ?? ((effect) => Effect.runFork(effect))
     let mounted = true
     let fiber: Fiber.Fiber<void, unknown> | undefined
+    // What the run died of while `Host` was mounted, set for a render to throw.
+    let set: Died | undefined
     // The run starts in a microtask after the effect, which the cleanup cancels. StrictMode runs the effect, its
     // cleanup and the effect again in one task, so the first of the two starts nothing, and one program runs, once.
     queueMicrotask(() => {
@@ -164,16 +169,23 @@ export const Host = <State, Model, Message, Command = never, RC = never, RS = ne
         Effect.sync(() => {
           if (!Exit.isFailure(exit) || Cause.hasInterruptsOnly(exit.cause)) return
           const error = Cause.squash(exit.cause)
-          if (mounted) setDied({ error })
-          else reportError(error)
+          if (mounted) {
+            set = { error }
+            setDied(set)
+          } else reportError(error)
         })))
     })
+    // A parent that removes `Host` in the batch that sets the death leaves no render to throw it.
     return () => {
       mounted = false
+      if (set !== undefined && thrown.current !== set) reportError(set.error)
       if (fiber !== undefined) Effect.runFork(Fiber.interrupt(fiber))
     }
   }, [])
-  if (died !== undefined) throw died.error
+  if (died !== undefined) {
+    thrown.current = died
+    throw died.error
+  }
   return createElement(Draw<Model, Message>, { app: drawn, view: props.children })
 }
 

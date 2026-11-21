@@ -833,11 +833,10 @@ describe("Host", () => {
       }
     })
 
-    // A lead of the advice on the open problems of the review of the premises, found on 21 November 2026 (ROADMAP.md,
-    // "Open problems"): the run dies while `Host` is mounted, and its parent removes `Host` in the same batch, as a
-    // button that dispatches and then closes the view would. `Host` keeps the defect in a state it never renders again,
-    // and its cleanup, which comes after, finds the run already ended.
-    test.failing("that dies as its parent removes Host, in one batch, reaches the boundary or reportError", async () => {
+    // Found by the review of the premises before 0.8.0: the run dies while `Host` is mounted, and its parent removes
+    // `Host` in the same batch, as a button that dispatches and then closes the view would. `Host` kept the defect in a
+    // state it never rendered again, and its cleanup, which comes after, found the run already ended.
+    test("that dies as its parent removes Host, in one batch, reaches the boundary or reportError", async () => {
       const caught: Array<unknown> = []
       const reported: Array<unknown> = []
       const reportError = globalThis.reportError

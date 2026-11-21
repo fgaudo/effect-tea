@@ -18,14 +18,7 @@ Each step names its model and effort, what it depends on, and how to tell that i
 A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a deterministic
 test of it. A finding of a review goes here with its `test.failing`, until its fix removes the mark and the item.
 
-- **A defect of a run under `Host` that nobody reports**, a lead of the review of the premises of 21 November 2026, run
-  on that day. The run dies while `Host` is mounted, and its observer calls `setDied`; its parent removes `Host` in the
-  same batch, as a button that dispatches and then closes the view would. `Host` never renders again, its state is
-  dropped, and its cleanup finds the run already ended: the defect reaches neither the boundary nor `reportError`, as
-  "Guarantees" promises. Held by `bridges/react.test.ts`, "Host" > "a run that dies" > "that dies as its parent removes
-  Host, in one batch, reaches the boundary or reportError". A fix could begin in `Host`: its cleanup gives
-  `reportError` a defect the observer set and no render threw. Whether 0.8.0 waits for it is the owner's call (step
-  5).
+None is open.
 
 ## Next, in order
 
@@ -47,8 +40,8 @@ exports that no release has had.
 changes since `da12f71`: the engine, the testing tools and the bridges. Their reports are the bodies of `1317333`
 on `claude/premise-review-engine-080`, `8ffc7a4` on `claude/premise-review-testing-bc87b9` and `6e90b46` on
 `claude/premise-review-bridges-f28572`, which stay unmerged. Its five findings were fixed, and what else it left was
-done or decided, on 21 November 2026, but for one finding, in "Open problems" above: the owner decides whether the
-release waits for its fix. Of the leads its reports name and nothing here took up: a defect given to `die` once the
+done or decided, on 21 November 2026, its last finding fixed on that day (a defect lost when a parent removes `Host`
+in the batch that sets it). Of the leads its reports name and nothing here took up: a defect given to `die` once the
 run has ended, or between the run's last read of its defects and its end, is in no cause, though "Running" says that
 `run` dies of it (the engine's report, lead B); and the focus a disabled input loses in a browser is for step 6.
 

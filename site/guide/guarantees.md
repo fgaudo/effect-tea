@@ -117,7 +117,8 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
 - **With the bridge to React, `Host` and `Draw` draw the first model on a server.** On a server, no effect runs: `Host`
   starts the program and draws its first model, and nothing of `init` starts. Nothing is promised of hydration.
 - **With the bridge to React, a run that dies is thrown to the nearest error boundary.** `Host` throws it as it
-  renders, while it is mounted. Once `Host` has unmounted, it is given to `reportError` instead. A `makeModel` that
+  renders, while it is mounted. One that `Host` has not thrown as it unmounts, or that ends once it has unmounted, is
+  given to `reportError` instead. A `makeModel` that
   throws is thrown this way too, once: until the run has ended, `Host` draws the model it drew last. A first model that
   throws reaches the boundary as `Host` first renders, and the run never starts. What is thrown is
   `Cause.squash` of what the run ended with, which keeps one defect. To see the whole cause, wrap the run in the `fork`

@@ -956,6 +956,30 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
+    name: "Host reports nothing of a death no render threw as it unmounts",
+    file: "bridges/react.ts",
+    from: "      if (set !== undefined && thrown.current !== set) reportError(set.error)\n",
+    to: "",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "that dies as its parent removes Host, in one batch, reaches the boundary or reportError"
+      ]
+    ]
+  },
+  {
+    name: "Host reports again as it unmounts a death a render threw",
+    file: "bridges/react.ts",
+    from: "    thrown.current = died\n",
+    to: "",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "a makeModel that throws reaches the nearest error boundary, and is not reported again"
+      ]
+    ]
+  },
+  {
     name: "Host draws nothing for a first model that throws",
     file: "bridges/react.ts",
     from: "      if (last === undefined) throw thrown\n      return last.model\n",
