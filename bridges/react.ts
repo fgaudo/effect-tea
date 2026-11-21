@@ -19,8 +19,8 @@ import {
   type App,
   type Dispatch,
   type FlagsOption,
+  type Program,
   type RunOptions,
-  type Shape,
   start,
   type Started
 } from "@fgaudo/effect-tea"
@@ -82,10 +82,18 @@ export type Fork<R> = (effect: Effect.Effect<void, never, R>) => Fiber.Fiber<voi
  *
  * @see The guide, "Running", "Options".
  */
-export type HostProps<State, Model, Message, Command, RC, RS, Flags> =
+export type HostProps<State extends object, Model, Message, Command, RC, RS, Flags> =
   & {
     /** The program to start and run. */
-    readonly program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>
+    readonly program: Program<{
+      state: State
+      model: Model
+      message: Message
+      command: Command
+      commandServices: RC
+      subscriptionServices: RS
+      flags: Flags
+    }>
     /** Draws its model. */
     readonly children: View<Model, Message>
   }
@@ -131,7 +139,15 @@ type Died = { readonly error: unknown }
  * @see The guide, "Guarantees", "With the bridge to React, `Host` and `Draw` draw the first model on a server".
  * @see The guide, "Guarantees", "With the bridge to React, a run that dies is thrown to the nearest error boundary".
  */
-export const Host = <State, Model, Message, Command = never, RC = never, RS = never, Flags = never>(
+export const Host = <
+  State extends object,
+  Model,
+  Message,
+  Command = never,
+  RC = never,
+  RS = never,
+  Flags = never
+>(
   props: HostProps<State, Model, Message, Command, RC, RS, Flags>
 ): ReactNode => {
   const first = useRef(props)

@@ -26,36 +26,13 @@ None is open.
 
 ## Next, in order
 
-### 17. `Shape` out of the API
-
-**Model and effort.** Opus 5.5, `medium`.
-
-**Depends on** no other step. Step 5 depends on it.
-
-**Why.** `Shape` gives a program's types in a row, and only signatures name it: those of `start`, `drive` and
-`rehearse`, and of `Host` in the bridge to React. No page of the guide and no example writes it. `v0.7.1` does not
-export it, so 0.8.0 would be its first release: taken out after, it is a breaking change of an export that one release
-had. The owner took it on 21 November 2026.
-
-**How.** As spiked on `c50bee1` of the branch `spike/one-engine`
-([`one-engine.md`](docs/records/one-engine.md), "`Shape` out of the API"), written anew from `main`. `start`, `drive`,
-`rehearse`, `Host` and `HostProps` take `Program<{ … }>` by name, `rehearse` with `Commanded` as it has it, and the
-state of each is constrained to an object, as `Program` asks. `Shape` leaves `src/index.ts`: what is not exported may
-keep it. The entry of the changelog that lists the types exported is read again by the four questions of
-[`release`](.agents/skills/release/SKILL.md), since the constraint is new for whoever gives these functions their type
-arguments. The entry "`run`, `drive` and `rehearse` taking `Program<{ … }>` by name, and `Shape` out of the API"
-leaves `docs/rejected.md`. The skill is [`change-api`](.agents/skills/change-api/SKILL.md).
-
-**Done when** `Shape` is no export, and `bun run typecheck`, `test`, `smoke`, `inference` and `comments` pass.
-
 ### 5. Release 0.8.0
 
 **Model and effort.** Opus 5.5, `high`: its first part is a review.
 
 **Depends on** steps 2 to 4: each decided, and the stages of those taken done. Released before them, 0.8.0 would
 publish for one release what they remove, as R2 of
-[`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md) says of that change. And on step 17, by the same
-reason: `Shape` is an export that no release has had.
+[`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md) says of that change.
 
 **Why.** The unreleased section of `CHANGELOG.md` is long, and users get none of it until a release: the bridges as
 entries of the package, the inputs, the fixed declarations. It comes after the dispatch that applies its message at
@@ -236,7 +213,9 @@ by what becomes of them: 22 go, and their killers are named by the engine's muta
 of the owner where one changes what a test sees: what the engine's `catch` records with no site, which a rehearsal's
 register drops; how a `run` finds the fiber of its command; and the report of the engine's end, which the rehearsal
 does not use. `docs/invariants.md` ("The testing tools behave like the engine", "one thunk") and `docs/premises.md`
-say what is still kept by hand. Point 4 of the seven, under "Waiting for the owner", goes with this step.
+say what is still kept by hand. Point 4 of the seven, under "Waiting for the owner", goes with this step. `Shape` is
+kept to `program.ts` since the spike: the spike's `Shape<…>` in `rehearse.ts` is written `Program<{ … }>`, with
+`State extends object`.
 
 **Done when** `src/testing/contract.test.ts` and `src/testing/rehearse.test.ts` pass as they are, and the checks of
 `change-engine` pass.

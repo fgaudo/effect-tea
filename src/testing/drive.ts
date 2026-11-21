@@ -12,7 +12,7 @@ import type * as Scope from "effect/Scope"
 import * as Core from "../core.ts"
 import type { Dispatch } from "../dispatch.ts"
 import type { RunOptions } from "../engine.ts"
-import type { FlagsOption, Shape } from "../program.ts"
+import type { FlagsOption, Program } from "../program.ts"
 import { type App, type Started, startWith } from "../run.ts"
 import { type Deaths, makeDeaths } from "../shell.ts"
 
@@ -145,7 +145,7 @@ const driven = <Model, Message, R>(
  * @see The guide, "Running", "Starting from another state".
  */
 export const drive = Effect.fnUntraced(function*<
-  State,
+  State extends object,
   Model,
   Message,
   Command = never,
@@ -156,7 +156,15 @@ export const drive = Effect.fnUntraced(function*<
   RT = never,
   Flags = never
 >(
-  program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
+  program: Program<{
+    state: State
+    model: Model
+    message: Message
+    command: Command
+    commandServices: RC
+    subscriptionServices: RS
+    flags: Flags
+  }>,
   scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>,
   ...[{ patience = "2 seconds", ...options } = {}]: [Flags] extends [never]
     ? [options?: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>]

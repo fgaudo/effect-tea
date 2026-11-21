@@ -508,7 +508,12 @@ export type Program<T extends ProgramTypes> = Shape<Field<T, "state">, Field<T, 
 export const program: <T extends DeclaredTypes>() => ProgramMaker<T>;
 
 // @public (undocumented)
-type ProgramChecked<P> = Shape<StateOf<P>, ModelOf<P>, MessageOf<P>, CommandOf<P>, CommandServicesOf<P>, SubscriptionServicesOf<P>, EventOf<P>, ExternalOf<P>, FlagsOf<P>>;
+type ProgramChecked<P> = ObjectState<StateOf<P>> & {
+    readonly init: Init<StateOf<P>, CommandOf<P>, FlagsOf<P>>;
+    readonly update: Update<StateOf<P>, MessageOf<P>, CommandOf<P>, EventOf<P>>;
+    readonly subscriptions: Subscriptions<StateOf<P>, MessageOf<P>, SubscriptionServicesOf<P>, unknown>;
+    readonly makeModel: (state: StateOf<P>) => ModelOf<P>;
+} & Interpreter<CommandOf<P>, MessageOf<P>, CommandServicesOf<P>> & ExternalHandler<ExternalOf<P>, StateOf<P>, CommandOf<P>, EventOf<P>>;
 
 // @public
 export class ProgramDefect extends ProgramDefect_base<Fields & Readonly<{
@@ -582,8 +587,8 @@ export interface RunOptions<State, Message, Command = unknown> {
     readonly onIgnored?: (ignored: Ignored<State, Message>) => undefined;
 }
 
-// @public
-export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & {
+// @public (undocumented)
+type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & {
     readonly init: Init<State, Command, Flags>;
     readonly update: Update<State, Message, Command, Event>;
     readonly subscriptions: Subscriptions<State, Message, RS, unknown>;
@@ -597,7 +602,15 @@ type Start<P, Command> = Readonly<{
 }>;
 
 // @public
-export const start: <State, Model, Message, Command = never, RC = never, RS = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Started<Model, Message, Exclude<RC | RS, Scope.Scope>>;
+export const start: <State extends object, Model, Message, Command = never, RC = never, RS = never, Flags = never>(program: Program<{
+    state: State;
+    model: Model;
+    message: Message;
+    command: Command;
+    commandServices: RC;
+    subscriptionServices: RS;
+    flags: Flags;
+}>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Started<Model, Message, Exclude<RC | RS, Scope.Scope>>;
 
 // @public
 export interface Started<Model, Message, R = never> {

@@ -18,6 +18,7 @@ import {
   type CommandOf,
   type CommandServicesOf,
   type EventOf,
+  type ExternalHandler,
   type ExternalOf,
   type Field,
   type FlagsOf,
@@ -27,12 +28,11 @@ import {
   type ModelOf,
   type ObjectState,
   type Program,
-  type Shape,
   startOf,
   type StateOf,
   type SubscriptionServicesOf
 } from "./program.ts"
-import type { Subscription } from "./subscription.ts"
+import type { Subscription, Subscriptions } from "./subscription.ts"
 import { appendStep, type Folded, reject, type Step, type Transition, type Update } from "./update.ts"
 
 /**
@@ -79,18 +79,18 @@ type PlacementById<ParentState, Id, ChildState> =
 
 // A child is checked as `start` checks a program, of the types read back from it: a child written as an object, and
 // not typed `Program<…>`, is checked by nothing else. So its `external` answers with a step, never `reject`, and its
-// `runCommand` is there when its steps list commands, `external`'s included.
-type ProgramChecked<P> = Shape<
-  StateOf<P>,
-  ModelOf<P>,
-  MessageOf<P>,
-  CommandOf<P>,
-  CommandServicesOf<P>,
-  SubscriptionServicesOf<P>,
-  EventOf<P>,
-  ExternalOf<P>,
-  FlagsOf<P>
->
+// `runCommand` is there when its steps list commands, `external`'s included. Its pieces are written out, as `Program`
+// writes them: `Program<…>` takes only a state that is an object, and the state read back is any type.
+type ProgramChecked<P> =
+  & ObjectState<StateOf<P>>
+  & {
+    readonly init: Init<StateOf<P>, CommandOf<P>, FlagsOf<P>>
+    readonly update: Update<StateOf<P>, MessageOf<P>, CommandOf<P>, EventOf<P>>
+    readonly subscriptions: Subscriptions<StateOf<P>, MessageOf<P>, SubscriptionServicesOf<P>, unknown>
+    readonly makeModel: (state: StateOf<P>) => ModelOf<P>
+  }
+  & Interpreter<CommandOf<P>, MessageOf<P>, CommandServicesOf<P>>
+  & ExternalHandler<ExternalOf<P>, StateOf<P>, CommandOf<P>, EventOf<P>>
 
 // What a child lacks for the check above, `unknown` where it lacks nothing. A child that runs commands has a
 // `runCommand`, a member, for the error that names it; `Interpreter` is `object` for one that runs none, and `unknown`
@@ -606,7 +606,7 @@ type UntypedChild = Readonly<{
 }>
 
 const make = <
-  State,
+  State extends object,
   C extends Children<State>,
   I extends Inputs<State>,
   Model,
@@ -620,17 +620,17 @@ const make = <
   Flags
 >(
   config: Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, External, Flags>
-): Shape<
-  State,
-  Model,
-  Own | ChildMessages<C> | InputMessages<I>,
-  OwnCommand | ChildCommands<C>,
-  RanServices<Ran> | ChildCommandServices<C>,
-  HeardServices<Heard> | ChildSubscriptionServices<C>,
-  Event,
-  External,
-  Flags
-> => {
+): Program<{
+  state: State
+  model: Model
+  message: Own | ChildMessages<C> | InputMessages<I>
+  command: OwnCommand | ChildCommands<C>
+  commandServices: RanServices<Ran> | ChildCommandServices<C>
+  subscriptionServices: HeardServices<Heard> | ChildSubscriptionServices<C>
+  event: Event
+  external: External
+  flags: Flags
+}> => {
   type Message = Own | ChildMessages<C> | InputMessages<I>
   type Command = OwnCommand | ChildCommands<C>
   const programs = (config.children ?? {}) as unknown as Readonly<Record<string, UntypedChild>>
@@ -882,17 +882,17 @@ const make = <
       external: (message: External) => (state: State) => ownExternal(message, handles)(state)
     })
   }
-  return program as unknown as Shape<
-    State,
-    Model,
-    Message,
-    Command,
-    RanServices<Ran> | ChildCommandServices<C>,
-    HeardServices<Heard> | ChildSubscriptionServices<C>,
-    Event,
-    External,
-    Flags
-  >
+  return program as unknown as Program<{
+    state: State
+    model: Model
+    message: Message
+    command: Command
+    commandServices: RanServices<Ran> | ChildCommandServices<C>
+    subscriptionServices: HeardServices<Heard> | ChildSubscriptionServices<C>
+    event: Event
+    external: External
+    flags: Flags
+  }>
 }
 
 /**

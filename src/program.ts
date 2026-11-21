@@ -183,18 +183,9 @@ type Fielded<State> = 0 extends 1 & State ? unknown
   : unknown
 type Primitive = string | number | bigint | boolean | symbol
 
-/**
- * A program's pieces, of the types given in a row: what `start` and the testing tools take. `Program<…>` gives the
- * same types by name.
- *
- * @example
- * ```ts
- * type Counter = Shape<State, State, Message, never, never, never, never, never>
- * ```
- *
- * @see The guide, "Anatomy of a program", "In short".
- */
-export type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> =
+// A program's pieces, of the types given in a row. Kept to this module: the API and the rest of the library name a
+// program by `Program<{ … }>`, which gives these types by name.
+type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> =
   & ObjectState<State>
   & {
     readonly init: Init<State, Command, Flags>

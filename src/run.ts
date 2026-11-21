@@ -7,7 +7,7 @@ import * as Core from "./core.ts"
 import type { Dispatch } from "./dispatch.ts"
 import type { RunOptions } from "./engine.ts"
 import * as Engine from "./engine.ts"
-import { type FlagsOption, runCommandOf, type Shape, startOf } from "./program.ts"
+import { type FlagsOption, type Program, runCommandOf, startOf } from "./program.ts"
 import * as Shell from "./shell.ts"
 import type { Step } from "./update.ts"
 
@@ -112,8 +112,16 @@ type Parts<State, Model, Message, R> = Readonly<{
 }>
 
 // Plain code, outside any fiber: `init`, the engine, and the model of the current state, made when it is read.
-const partsOf = <State, Model, Message, Command, RC, RS, Flags>(
-  program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
+const partsOf = <State extends object, Model, Message, Command, RC, RS, Flags>(
+  program: Program<{
+    state: State
+    model: Model
+    message: Message
+    command: Command
+    commandServices: RC
+    subscriptionServices: RS
+    flags: Flags
+  }>,
   options: RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>,
   deaths: Shell.Deaths,
   settled: () => void
@@ -192,8 +200,16 @@ const partsOf = <State, Model, Message, Command, RC, RS, Flags>(
  * and one interrupted before it begins leaves the program as it was, not stopped. `settled` is called as each call
  * that applies messages returns, once its step is done (`Engine.build`).
  */
-export const startWith = <State, Model, Message, Command, RC, RS, Flags>(
-  program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
+export const startWith = <State extends object, Model, Message, Command, RC, RS, Flags>(
+  program: Program<{
+    state: State
+    model: Model
+    message: Message
+    command: Command
+    commandServices: RC
+    subscriptionServices: RS
+    flags: Flags
+  }>,
   options: RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>,
   deaths: Shell.Deaths,
   began: () => void = () => undefined,
@@ -272,8 +288,24 @@ export const startWith = <State, Model, Message, Command, RC, RS, Flags>(
  * @see The guide, "Guarantees", "Nothing ends in silence".
  * @see The guide, "Running", "Logs".
  */
-export const start = <State, Model, Message, Command = never, RC = never, RS = never, Flags = never>(
-  program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
+export const start = <
+  State extends object,
+  Model,
+  Message,
+  Command = never,
+  RC = never,
+  RS = never,
+  Flags = never
+>(
+  program: Program<{
+    state: State
+    model: Model
+    message: Message
+    command: Command
+    commandServices: RC
+    subscriptionServices: RS
+    flags: Flags
+  }>,
   ...[options = {}]: [Flags] extends [never]
     ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>]
     : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]

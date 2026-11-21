@@ -19,7 +19,7 @@ import { ProgramDefect } from "../defect.ts"
 import { recordThrown } from "../engine.ts"
 import type { Written } from "../input.ts"
 import { describeByTag } from "../log.ts"
-import { type AnyProgram, type FlagsOption, runCommandOf, type Shape, startOf } from "../program.ts"
+import { type AnyProgram, type FlagsOption, type Program, runCommandOf, startOf } from "../program.ts"
 import { diesIn, makeDeaths, rootedIn, runSubscription, scopedIn, stopping as stopFiber } from "../shell.ts"
 import type { Subscription } from "../subscription.ts"
 import * as Ledger from "./ledger.ts"
@@ -209,7 +209,7 @@ const rejectedOutcome: Outcome = { _tag: "Rejected" }
 
 // The rehearsal itself: `rehearse`, below, gives it its types (`Commanded`).
 const rehearsing = Effect.fnUntraced(function*<
-  State,
+  State extends object,
   Model,
   Message,
   Command = never,
@@ -221,7 +221,16 @@ const rehearsing = Effect.fnUntraced(function*<
   RT = never,
   Flags = never
 >(
-  program: Shape<State, Model, Message, Command, RC, RS, Event, never, Flags>,
+  program: Program<{
+    state: State
+    model: Model
+    message: Message
+    command: Command
+    commandServices: RC
+    subscriptionServices: RS
+    event: Event
+    flags: Flags
+  }>,
   scenario: (rehearsal: Rehearsal<State, Model, Message, Command, Event, RC, RS>) => Effect.Effect<A, E, RT>,
   ...[{ flags } = {}]: [Flags] extends [never] ? [options?: FlagsOption<never>]
     : [options: FlagsOption<NoInfer<Flags>>]
@@ -817,7 +826,7 @@ const describeAll = (values: ReadonlyArray<unknown>) =>
  */
 export const rehearse = <
   P extends AnyProgram,
-  State,
+  State extends object,
   Model,
   Message,
   Command = never,
@@ -829,7 +838,18 @@ export const rehearse = <
   RT = never,
   Flags = never
 >(
-  program: P & Shape<State, Model, Message, Commanded<P, Command>, Commanded<P, RC>, RS, Event, never, Flags>,
+  program:
+    & P
+    & Program<{
+      state: State
+      model: Model
+      message: Message
+      command: Commanded<P, Command>
+      commandServices: Commanded<P, RC>
+      subscriptionServices: RS
+      event: Event
+      flags: Flags
+    }>,
   scenario: (
     rehearsal: Rehearsal<State, Model, Message, Commanded<P, Command>, Event, Commanded<P, RC>, RS>
   ) => Effect.Effect<A, E, RT>,

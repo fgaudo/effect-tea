@@ -38,7 +38,6 @@ export type {
   ModelOf,
   ObjectState,
   Program,
-  Shape,
   StateOf,
   SubscriptionServicesOf
 } from "./program.ts"

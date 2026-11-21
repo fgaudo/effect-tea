@@ -47,6 +47,11 @@ type ExternalHandler<External, State, Command, Event> = [External] extends [neve
     readonly external: (message: External) => (state: State) => Step<State, Command, Event>;
 };
 
+// @public
+type Field<T, K extends string> = T extends {
+    readonly [P in K]: infer V;
+} ? V : never;
+
 // @public (undocumented)
 type Fielded<State> = 0 extends 1 & State ? unknown : [keyof State] extends [never] ? [Extract<Primitive, State>] extends [never] ? unknown : {
     readonly "a program keeps its state in an object": State;
@@ -63,11 +68,19 @@ type FlagsOption<Flags> = [Flags] extends [never] ? {
 export type Fork<R> = (effect: Effect.Effect<void, never, R>) => Fiber.Fiber<void, unknown>;
 
 // @public
-export const Host: <State, Model, Message, Command = never, RC = never, RS = never, Flags = never>(props: HostProps<State, Model, Message, Command, RC, RS, Flags>) => ReactNode;
+export const Host: <State extends object, Model, Message, Command = never, RC = never, RS = never, Flags = never>(props: HostProps<State, Model, Message, Command, RC, RS, Flags>) => ReactNode;
 
 // @public
-export type HostProps<State, Model, Message, Command, RC, RS, Flags> = {
-    readonly program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>;
+export type HostProps<State extends object, Model, Message, Command, RC, RS, Flags> = {
+    readonly program: Program<{
+        state: State;
+        model: Model;
+        message: Message;
+        command: Command;
+        commandServices: RC;
+        subscriptionServices: RS;
+        flags: Flags;
+    }>;
     readonly children: View<Model, Message>;
 } & ([Flags] extends [never] ? {
     readonly options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>;
@@ -113,6 +126,22 @@ type Origin = {
 type Primitive = string | number | bigint | boolean | symbol;
 
 // @public
+type Program<T extends ProgramTypes> = Shape<Field<T, "state">, Field<T, "model">, Field<T, "message">, Field<T, "command">, Field<T, "commandServices">, Field<T, "subscriptionServices">, Field<T, "event">, Field<T, "external">, Field<T, "flags">>;
+
+// @public
+type ProgramTypes = Readonly<{
+    state: object;
+    model: unknown;
+    message: unknown;
+    command?: unknown;
+    commandServices?: unknown;
+    subscriptionServices?: unknown;
+    event?: unknown;
+    external?: unknown;
+    flags?: unknown;
+}>;
+
+// @public
 const reject: unique symbol;
 
 // @public
@@ -127,7 +156,7 @@ interface RunOptions<State, Message, Command = unknown> {
     readonly onIgnored?: (ignored: Ignored<State, Message>) => undefined;
 }
 
-// @public
+// @public (undocumented)
 type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & {
     readonly init: Init<State, Command, Flags>;
     readonly update: Update<State, Message, Command, Event>;

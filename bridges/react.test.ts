@@ -348,7 +348,7 @@ const withStorage = (storage: Storage["Service"]): Fork<Storage> => (effect) =>
   heldFork(effect.pipe(Effect.provideService(Storage, storage)))
 
 // `createElement` does not infer the types of a generic component, as JSX does: a function of its props does.
-const host = <State, Model, Message, Command = never, RC = never, RS = never, Flags = never>(
+const host = <State extends object, Model, Message, Command = never, RC = never, RS = never, Flags = never>(
   props: HostProps<State, Model, Message, Command, RC, RS, Flags> & Attributes
 ) => createElement(bridge.Host<State, Model, Message, Command, RC, RS, Flags>, props)
 
