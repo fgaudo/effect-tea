@@ -128,11 +128,12 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   stays the same while the key is kept, as a child's own id, can stay out. The guide, "Subscriptions", "A subscription
   sees the state only through its key". The guide, "Subscriptions", "A value that stays the same while the key is kept
   can stay out of the key".
-- **A function of the program never interrupts the fiber it runs in.** `init` runs in the call of `start`, in the fiber
-  of whoever starts the program, if any. `update`, `subscriptions` and the options run where the message was sent, and
-  `makeModel` where the model is read. Each could reach that fiber with `Fiber.getCurrent`. An interruption of a fiber
-  that is no command's or subscription's is no defect, so no defect says it happened. The guide, "Guarantees", "A
-  function of the program never interrupts the fiber it runs in".
+- **A function of the program never interrupts the fiber it runs in.** An `init` that takes flags runs in the call of
+  `start`, in the fiber of whoever starts the program, if any, and the `init` of a parent without flags in the call of
+  `make`. `update`, `subscriptions` and the options run where the message was sent, and `makeModel` where the model is
+  read. Each could reach that fiber with `Fiber.getCurrent`. An interruption of a fiber that is no command's or
+  subscription's is no defect, so no defect says it happened. The guide, "Guarantees", "A function of the program
+  never interrupts the fiber it runs in".
 
 ## Rules that a test checks
 

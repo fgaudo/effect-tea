@@ -145,8 +145,9 @@ bridge's to promise (see [view](./view.md#rules)).
 - **`update`, `external`, `makeModel` and `subscriptions` are pure, and states are never mutated.** A child's
   `external` runs in its parent's `update`. The library reuses a child's model, and its subscriptions, while the
   child's state is the same object.
-- **A function of the program never interrupts the fiber it runs in.** `init`, and `subscriptions` on the first state,
-  run in the call of `start`: in the fiber of whoever starts the program, or in no fiber at all. `update`,
+- **A function of the program never interrupts the fiber it runs in.** An `init` that takes flags, and `subscriptions`
+  on the first state, run in the call of `start`: in the fiber of whoever starts the program, or in no fiber at all. The
+  `init` of a parent without flags runs in the call of `make` (see [composition](./composition.md#precisely)). `update`,
   `subscriptions` and the options run where the message was sent: in a command's fiber, a subscription's, a fiber that
   calls the dispatch, or in no fiber at all. `makeModel` runs where the model is read. A function could reach that fiber
   (`Fiber.getCurrent`). One that interrupts the fiber of a command or of a subscription is a defect of that command or

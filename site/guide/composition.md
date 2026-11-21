@@ -166,6 +166,10 @@ Three more facts hold for children and inputs:
 
 **`runCommand`** is required exactly when the parent has commands of its own.
 
+**When the parent's `init` is called.** A parent without flags of its own has its `init` called once, by `make`, as
+it makes the program. Every start of the program begins from that step. What the `init` throws is thrown by `make`, as
+it is, and no run records it. A parent with flags gets from its `init` the function of the flags, which `start` calls.
+
 **What does not compile:**
 
 - a message or a command of the parent's own that can take the name of a child or of an input: by its tag, which a

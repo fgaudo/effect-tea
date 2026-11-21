@@ -29,7 +29,8 @@ defect anywhere ends the run too. The run dies, and reporting the crash is the j
 **A program is started, then run.** `start` gives a `Started`, `{ app, run }`: `app`, the `App` a renderer reads, and
 `run`.
 
-- `start` calls `init`, and makes the first state. It starts no fiber, and runs no effect.
+- `start` makes the first state, and calls `init` with the flags for a program that has them. It starts no fiber, and
+  runs no effect.
 - `run` starts the subscriptions and the commands of each state, in the order of the states. It never succeeds: it
   runs until it is interrupted, or until a defect ends it.
 - A message sent before `run` is applied all the same. Its effects wait for `run`.
@@ -176,9 +177,11 @@ A defect anywhere ends the run, which dies with a `ProgramDefect`:
 From the defect on, the run applies no message. Every defect is in the cause, each with where it happened. A program
 that was never run reports its defect only once `run` runs, and dies of it then (see [rules](#rules)).
 
-**A defect in `init` is recorded as the program starts.** `start` still gives a handle. Its `model()` throws the
-defect, and its `run` dies of it. A defect in `subscriptions` on the first state is recorded as the program starts
-too, and `run` dies of it.
+**A defect in the `init` of a program with flags is recorded as the program starts.** `start` still gives a handle.
+Its `model()` throws the defect, and its `run` dies of it. A program without flags starts from a step, which `start`
+does not make: the `init` of a parent without flags runs as the parent is made (see
+[composition](./composition.md#precisely)). A defect in `subscriptions` on the first state is recorded as the program
+starts too, and `run` dies of it.
 
 **What throws outside the functions of the program is in the cause as it is.** The run's own code throws it, or a
 message's tags as the run reads them to say what a defect was on. It has no `where`, it is no `ProgramDefect`, and it

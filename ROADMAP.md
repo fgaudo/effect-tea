@@ -28,13 +28,6 @@ grouped by their form, which a fix takes whole. Each `test.failing` was run with
 assertion. A finding of the types, of a document or of a check has no `test.failing`: its item names the check the fix
 adds.
 
-2. **A defect in the `init` of a parent with children and no flags escapes `make`** (api-3). `make` calls that `init`
-   as it builds the program, so the defect is thrown where the module is evaluated, against "Running" ("A defect in
-   `init` is recorded as the program starts"). Test: `src/start.test.ts`, "a program whose start throws" › "in the init
-   of a parent with a child and no flags: make returns, the handle is made, model() throws the defect, and run dies of
-   it". It stops at its first assertion today, so the later ones have never been seen to pass. To decide with step 9,
-   which weighs the two forms of `init`: the call deferred to `start`, or the guide says where such an `init` runs.
-   Opus 5.5, `high`.
 3. **`rehearse` differs from the run** (testing-1, testing-2). Its end stops the subscriptions `hearNext` started and
    waits for their release before it stops the commands, where the run stops them all at once: when a subscription's
    release waits for a command's, `rehearse` never ends, under `uninterruptibleMask`. And its defect in a subscription

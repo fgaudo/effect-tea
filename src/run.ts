@@ -76,8 +76,8 @@ export interface App<Model, Message> {
  *   was, and is never stopped.
  * - Nothing checks that `run` runs. Until it does, no defect is reported: from a defect on, the program applies no
  *   message, and `run` dies of it once it runs.
- * - An `init` that throws is a defect in `'init'`: the handle is made all the same, `model()` throws the defect, and
- *   `run` dies of it.
+ * - An `init` that takes flags and throws is a defect in `'init'`: the handle is made all the same, `model()` throws
+ *   the defect, and `run` dies of it. The `init` of a parent without flags runs as `make` makes the parent.
  *
  * @example
  * ```ts
@@ -87,7 +87,7 @@ export interface App<Model, Message> {
  * ```
  *
  * @see The guide, "Running", "A program is started, then run".
- * @see The guide, "Running", "A defect in `init` is recorded as the program starts".
+ * @see The guide, "Running", "A defect in the `init` of a program with flags is recorded as the program starts".
  * @see The guide, "Guarantees", "Whoever starts a program runs it".
  */
 export interface Started<Model, Message, R = never> {
@@ -230,13 +230,14 @@ export const startWith = <State, Model, Message, Command, RC, RS, Flags>(
 }
 
 /**
- * Starts a program, by plain code, with no fiber and no effect: it calls `init`, and makes the first state and its
- * keys. It gives the handle a renderer reads, and `run`, the effect that runs the program's effects.
+ * Starts a program, by plain code, with no fiber and no effect: it makes the first state and its keys, and calls
+ * `init` with the flags for a program that has them. It gives the handle a renderer reads, and `run`, the effect that runs the program's effects.
  *
  * - A message sent before `run` starts is applied all the same, and its effects wait for `run`. So does the report of
  *   a defect: from the defect on, the program applies no message.
  * - A program started is run once. Whoever runs it ends it by interrupting `run`. Nothing checks that it is run.
- * - An `init` that throws gives a handle whose `model()` throws the defect, and whose `run` dies of it.
+ * - An `init` that takes flags and throws gives a handle whose `model()` throws the defect, and whose `run` dies of
+ *   it. The `init` of a parent without flags runs as `make` makes the parent.
  * - One message at a time, in the order they were sent. A message is applied in the call that sends it. The
  *   subscriptions it stops and starts, and the start of its commands, follow in the run, in the order of the states.
  *   So the state is ahead of its effects.

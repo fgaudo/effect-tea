@@ -72,7 +72,7 @@ version, and everything else, features included, the patch version.
   state is required.
   Upgrade: `RunOptions<Message, State, Command>` becomes `RunOptions<State, Message, Command>`, and
   `DriveOptions<Message>` becomes `DriveOptions<State, Message>`.
-- **Breaking**: `DefectSite` gains `'init'`, for an `init` that throws.
+- **Breaking**: `DefectSite` gains `'init'`, for an `init` that takes flags and throws.
   Upgrade: an exhaustive `switch` over `where` adds `case 'init'`.
 - **Breaking**: the run writes no log of its own: `describeMessage`, `describeCommand` and their sites are removed.
   Upgrade: log what `onApplied` and `onIgnored` hear, in a fiber that takes it from a queue ("Running", "Logs"), and

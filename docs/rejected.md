@@ -736,6 +736,18 @@ comments are written by hand since, in plain English, and name the sections of t
   page by page, it made quoting the easy path, since setting aside needs a reason: 481 lines came into the comments
   of `src/`, and `run`'s grew from 57 lines to 136. _Reopen if_ the comments quote the guide again, and only with a
   bound on how long a comment may grow.
+- **The `init` of a parent without flags called by `start`, not by `make`**, so that a defect in it is recorded as
+  the program starts, as one in an `init` that takes flags is. Weighed on 21 November 2026 for api-3 of
+  `docs/records/library-review.md`, by a second opinion (Fable) that probed each form, the owner deciding.
+  `program<…>()` leaves no trace of the flags at run time, so `make` cannot tell what that `init` returns without
+  calling it. Kept as a function, the made program's `init` is no step where its type says one, and a grandparent
+  (`hasFlags` in `compose.ts`) would take it for a function of flags. Made always a function on `Program`, it breaks
+  the API: `FlagsOf` reads `unknown` from a thunk, and every read of `program.init.state` changes. Made an accessor, it
+  throws where `{ ...program, init: { state } }` spreads it, and a grandparent's handles need accessors too. Such an
+  `init` has no input, so it throws on every import or never: no bug of it outlives the first test. The guide says
+  instead that `make` calls it ("Composition", "Precisely"), and the promise of "Running" is of an `init` that takes
+  flags. _Reopen if_ a parent's `init` takes an input that `start` gives, or step 9 of `ROADMAP.md` makes the
+  config's `init` one form that leaves `make` a step without calling it.
 
 ## The bridges
 

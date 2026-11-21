@@ -254,38 +254,47 @@ describe("a program whose start throws", () => {
     expect(wheres(exit)).toEqual(["subscriptions: Error: unlucky"])
   })
 
-  // `make` calls the `init` of a parent with children and no flags as it makes the program, so a defect in it is
-  // thrown out of `make` before any `start`. Found by the review of the whole library of 21 November 2026.
-  test.failing("in the init of a parent with a child and no flags: make returns, the handle is made, model() throws the defect, and run dies of it", async () => {
-    type Leaf = Readonly<{ on: boolean }>
-    const leaf: Program<{ state: Leaf; model: null; message: "Flip" }> = {
-      init: { state: { on: false } },
-      update: () => (state) => ({ state: { on: !state.on } }),
-      subscriptions: () => HashMap.empty(),
-      makeModel: () => null
-    }
+  type Leaf = Readonly<{ on: boolean }>
+
+  const leaf: Program<{ state: Leaf; model: null; message: "Flip" }> = {
+    init: { state: { on: false } },
+    update: () => (state) => ({ state: { on: !state.on } }),
+    subscriptions: () => HashMap.empty(),
+    makeModel: () => null
+  }
+
+  const leafAt = {
+    get: (state: Readonly<{ leaf: Leaf }>) => Opt.some(state.leaf),
+    set: (state: Readonly<{ leaf: Leaf }>, leaf: Leaf) => ({ ...state, leaf })
+  }
+
+  // A parent's `init` without flags makes a step, which a program without flags starts from, as data: `make` calls
+  // it as it makes the program, so what it throws is no defect of a run ("Composition", "Precisely").
+  test("in the init of a parent with a child and no flags: make throws the defect as it is", () => {
     const Parent = program<{ state: Readonly<{ leaf: Leaf }> }>()
-    const make = () =>
+    let thrown: unknown
+    try {
       Parent.make({
         init: () => defect("no parent starts"),
-        children: {
-          Leaf: Parent.child(leaf, {
-            get: (state) => Opt.some(state.leaf),
-            set: (state, leaf) => ({ ...state, leaf })
-          })
-        },
+        children: { Leaf: Parent.child(leaf, leafAt) },
         makeModel: () => null
       })
-    let made: ReturnType<typeof make> | undefined
-    let thrownByMake: unknown
-    try {
-      made = make()
-    } catch (thrown) {
-      thrownByMake = thrown
+    } catch (caught) {
+      thrown = caught
     }
-    expect(thrownByMake).toBeUndefined()
-    if (made === undefined) return
-    const { app, run } = start(made)
+    expect(thrown).toBeInstanceOf(InvariantDefect)
+    expect(thrown instanceof InvariantDefect ? thrown.reason : thrown).toBe("no parent starts")
+  })
+
+  test("in the init of a parent with a child and flags: the handle is made, model() throws the defect, and run dies of it", async () => {
+    const Parent = program<{ state: Readonly<{ leaf: Leaf }>; flags: number }>()
+    const made = Parent.make({
+      init: (children) => (flags) =>
+        flags < 0 ? defect("no parent starts") : { state: { leaf: children.Leaf.init.state } },
+      children: { Leaf: Parent.child(leaf, leafAt) },
+      makeModel: () => null
+    })
+    const { app, run } = start(made, { flags: -1 })
     let thrown: unknown
     try {
       app.model()
@@ -293,12 +302,12 @@ describe("a program whose start throws", () => {
       thrown = caught
     }
     expect(thrown).toBeInstanceOf(ProgramDefect)
+    expect((thrown as ProgramDefect).where).toBe("init")
     const cause = thrown instanceof ProgramDefect ? thrown.cause : undefined
     expect(cause instanceof InvariantDefect ? cause.reason : cause).toBe("no parent starts")
     const exit = await Effect.runPromiseExit(run)
     const died = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
-    expect(died).toBeInstanceOf(ProgramDefect)
-    expect(died instanceof ProgramDefect ? died.cause : died).toBe(cause)
+    expect(died).toBe(thrown)
   })
 })
 

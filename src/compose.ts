@@ -522,13 +522,15 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, External,
   & Readonly<{
     /**
      * The first state and commands: a step, or, for a program with flags, the function that makes one from them. A
-     * parent makes it with its children (`(children) => …`, `(children) => (flags) => …`).
+     * parent makes it with its children (`(children) => …`, `(children) => (flags) => …`), and `make` calls that
+     * function once, as it makes the parent: what it throws is thrown by `make`.
      *
      * A child that is there from the start is started with `children.<child>.init`, which holds its state and its
      * commands. The program's own flags are declared with its other types, in `program`.
      *
      * @see The guide, "Composition", "How a child starts".
      * @see The guide, "Composition", "The parent's own flags".
+     * @see The guide, "Composition", "When the parent's `init` is called".
      */
     init: [keyof C] extends [never] ? Init<State, OwnCommand, Flags>
       : (
