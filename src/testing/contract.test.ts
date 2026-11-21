@@ -105,12 +105,14 @@ const recorded = Effect.fnUntraced(function*<A>(
 describe("the testing tools and the run, on the same program and inputs", () => {
   test("a session the run records with onApplied plays again with applyAll, step by step", async () => {
     const { applied } = await Effect.runPromise(
-      recorded(draftProgram(Effect.void, true), (driver) =>
-        Effect.gen(function*() {
+      recorded(
+        draftProgram(Effect.void, true),
+        Effect.fnUntraced(function*(driver) {
           yield* driver.send(({ type }) => type("a"))
           yield* driver.send(({ save }) => save)
           yield* driver.waitFor(({ draft }) => draft.saved.length === 1 ? Opt.some(draft) : Opt.none())
-        }))
+        })
+      )
     )
     const replayed = applied.map((_, index) =>
       applyAll(edit)(applied.slice(0, index + 1).map(({ message }) => message), empty)
@@ -148,33 +150,34 @@ describe("the testing tools and the run, on the same program and inputs", () => 
 
   test("rehearse and the run apply and ignore the same messages, a late answer and a tick included", async () => {
     const program = draftProgram(Effect.void, true)
-    const rehearsed = await Effect.runPromise(rehearse(program, (rehearsal) =>
-      Effect.gen(function*() {
+    const rehearsed = await Effect.runPromise(rehearse(
+      program,
+      Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.send(({ type }) => type("a"))
         yield* rehearsal.send(({ save }) => save)
         yield* rehearsal.hearNext("ticks")
         yield* rehearsal.send(({ cancel }) => cancel)
         yield* rehearsal.run(() => true)
         return { state: yield* rehearsal.state, ignored: yield* rehearsal.ignored }
-      })))
+      })
+    ))
     const answer = await Effect.runPromise(Deferred.make<void>())
     const allIgnored = await Effect.runPromise(Deferred.make<void>())
     const { result, ignored } = await Effect.runPromise(
       recorded(
         draftProgram(Deferred.await(answer), true),
-        (driver) =>
-          Effect.gen(function*() {
-            yield* driver.send(({ type }) => type("a"))
-            yield* driver.send(({ save }) => save)
-            yield* driver.waitFor(({ draft }) => draft.ticks === 1 ? Opt.some(draft) : Opt.none())
-            yield* driver.send(({ cancel }) => cancel)
-            const cancelled = yield* driver.waitFor(idle)
-            yield* Deferred.succeed(answer, undefined)
-            // The late answer is ignored, so no model shows it: `onIgnored` tells. Bounded, so that a run that ignores
-            // fewer than `rehearse` still ends.
-            yield* Effect.timeoutOption(Deferred.await(allIgnored), "1 second")
-            return cancelled
-          }),
+        Effect.fnUntraced(function*(driver) {
+          yield* driver.send(({ type }) => type("a"))
+          yield* driver.send(({ save }) => save)
+          yield* driver.waitFor(({ draft }) => draft.ticks === 1 ? Opt.some(draft) : Opt.none())
+          yield* driver.send(({ cancel }) => cancel)
+          const cancelled = yield* driver.waitFor(idle)
+          yield* Deferred.succeed(answer, undefined)
+          // The late answer is ignored, so no model shows it: `onIgnored` tells. Bounded, so that a run that ignores
+          // fewer than `rehearse` still ends.
+          yield* Effect.timeoutOption(Deferred.await(allIgnored), "1 second")
+          return cancelled
+        }),
         (count) => void (count === rehearsed.ignored.length && Deferred.doneUnsafe(allIgnored, Exit.void))
       )
     )
@@ -200,23 +203,27 @@ describe("the order of the answers of commands started together", () => {
   }
 
   const inTheRun = () =>
-    Effect.runPromise(drive(ordered, (driver) =>
-      Effect.gen(function*() {
+    Effect.runPromise(drive(
+      ordered,
+      Effect.fnUntraced(function*(driver) {
         yield* driver.send(() => Opt.some({ _tag: "Go" }))
         return yield* driver.waitFor(({ heard }) => heard.length === 3 ? Opt.some(heard) : Opt.none())
-      })))
+      })
+    ))
 
   test("in the run, the answers of commands started together are heard in the order they started, before those of the commands they start", async () => {
     expect(await inTheRun()).toEqual(["A", "B", "C"])
   })
 
   test("rehearse, running the oldest pending command first, hears them as the run does", async () => {
-    const heard = await Effect.runPromise(rehearse(ordered, (rehearsal) =>
-      Effect.gen(function*() {
+    const heard = await Effect.runPromise(rehearse(
+      ordered,
+      Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.send(() => Opt.some({ _tag: "Go" }))
         yield* rehearsal.runAll
         return (yield* rehearsal.state).heard
-      })))
+      })
+    ))
     expect(heard).toEqual(await inTheRun())
   })
 
@@ -716,14 +723,13 @@ describe("what the run dies of, and the tools fail on", () => {
     )
   )
 
-  const interruptsItselfOnceInterrupted = (started: Deferred.Deferred<void>) =>
-    Effect.uninterruptible(Effect.gen(function*() {
-      yield* Deferred.succeed(started, undefined)
-      yield* untilInterrupted
-      const interrupted = yield* Effect.forkChild(Effect.never)
-      yield* Fiber.interrupt(interrupted)
-      return yield* Fiber.join(interrupted)
-    }))
+  const interruptsItselfOnceInterrupted = Effect.fnUntraced(function*(started: Deferred.Deferred<void>) {
+    yield* Deferred.succeed(started, undefined)
+    yield* untilInterrupted
+    const interrupted = yield* Effect.forkChild(Effect.never)
+    yield* Fiber.interrupt(interrupted)
+    return yield* Fiber.join(interrupted)
+  }, Effect.uninterruptible)
 
   const lingering = (started: Deferred.Deferred<void>) =>
     ({
@@ -818,13 +824,11 @@ describe("what the run dies of, and the tools fail on", () => {
   const endedByTheFiberThatInterrupted = (
     running: (started: Deferred.Deferred<void>, stale: Fiber.Fiber<never>) => Effect.Effect<unknown>
   ) =>
-    interruptedOnce((started) =>
-      Effect.gen(function*() {
-        const stale = yield* Effect.forkDetach(Effect.never)
-        yield* Fiber.interrupt(stale)
-        return yield* running(started, stale)
-      })
-    )
+    interruptedOnce(Effect.fnUntraced(function*(started) {
+      const stale = yield* Effect.forkDetach(Effect.never)
+      yield* Fiber.interrupt(stale)
+      return yield* running(started, stale)
+    }))
 
   test("the run dies with a defect of a command joining, as it is stopped, a fiber its caller interrupted", async () => {
     const exit = await endedByTheFiberThatInterrupted((started, stale) =>
@@ -979,15 +983,14 @@ describe("what the run dies of, and the tools fail on", () => {
 
   // A subscription may read the fiber id of the interruption it received, and interrupt a fiber of its own as that id:
   // the join of that fiber is its own interruption, which only the mark of the run's tells from the one it received.
-  const forgesTheIdItReceived = (started: Deferred.Deferred<void>) =>
-    Effect.uninterruptible(Effect.gen(function*() {
-      yield* Deferred.succeed(started, undefined)
-      const received = yield* Effect.exit(Effect.interruptible(Effect.never))
-      const reason = Exit.isFailure(received) ? received.cause.reasons.find(Cause.isInterruptReason) : undefined
-      const work = yield* Effect.forkChild(Effect.never)
-      yield* Fiber.interruptAs(work, reason?.fiberId)
-      return yield* Fiber.join(work)
-    }))
+  const forgesTheIdItReceived = Effect.fnUntraced(function*(started: Deferred.Deferred<void>) {
+    yield* Deferred.succeed(started, undefined)
+    const received = yield* Effect.exit(Effect.interruptible(Effect.never))
+    const reason = Exit.isFailure(received) ? received.cause.reasons.find(Cause.isInterruptReason) : undefined
+    const work = yield* Effect.forkChild(Effect.never)
+    yield* Fiber.interruptAs(work, reason?.fiberId)
+    return yield* Fiber.join(work)
+  }, Effect.uninterruptible)
 
   const forging = (started: Deferred.Deferred<void>): Program<{ state: Row; model: number; message: "Seen" }> => ({
     ...row,
@@ -1725,14 +1728,13 @@ describe("a fiber of the test's that sends once the tool has ended", () => {
     makeModel: (state) => state
   })
   // The fiber is forked in the test's own fiber, which outlives the tool: it sends once `ended` opens.
-  const late = <A>(tool: (ended: Deferred.Deferred<void>) => Effect.Effect<A, unknown>) =>
-    Effect.gen(function*() {
-      const ended = yield* Deferred.make<void>()
-      const exit = yield* Effect.exit(tool(ended))
-      yield* Deferred.succeed(ended, undefined)
-      yield* Effect.sleep("20 millis")
-      return exit
-    })
+  const late = Effect.fnUntraced(function*<A>(tool: (ended: Deferred.Deferred<void>) => Effect.Effect<A, unknown>) {
+    const ended = yield* Deferred.make<void>()
+    const exit = yield* Effect.exit(tool(ended))
+    yield* Deferred.succeed(ended, undefined)
+    yield* Effect.sleep("20 millis")
+    return exit
+  })
 
   test("in drive, through the run's dispatch, it reaches no update", async () => {
     const applied: Array<"Go"> = []
@@ -1823,12 +1825,11 @@ describe("a command whose runCommand is called as whoever runs the tool interrup
 // that a defect would have been recorded by then.
 describe("a command or a subscription that a fiber of the program interrupts", () => {
   type Row = Readonly<{ seen: number }>
-  const interruptingItself = (interrupted: Deferred.Deferred<void>) =>
-    Effect.gen(function*() {
-      const self = yield* Effect.fiber
-      yield* Effect.forkDetach(Fiber.interrupt(self).pipe(Effect.andThen(Deferred.succeed(interrupted, undefined))))
-      return yield* Effect.never
-    })
+  const interruptingItself = Effect.fnUntraced(function*(interrupted: Deferred.Deferred<void>) {
+    const self = yield* Effect.fiber
+    yield* Effect.forkDetach(Fiber.interrupt(self).pipe(Effect.andThen(Deferred.succeed(interrupted, undefined))))
+    return yield* Effect.never
+  })
   const commanding = (
     interrupted: Deferred.Deferred<void>
   ): Program<{ state: Row; model: number; message: "Go"; command: "Quit" }> => ({
@@ -2182,8 +2183,9 @@ describe("a message applied while a release holds the effects of the step before
 
   test("rehearse hears a key that appears meanwhile only once the release has ended, by hear and by hearNext", async () => {
     const heard = await Effect.runPromise(
-      Effect.forEach(["hear", "hearNext"] as const, (how) =>
-        Effect.gen(function*() {
+      Effect.forEach(
+        ["hear", "hearNext"] as const,
+        Effect.fnUntraced(function*(how) {
           const given = yield* signals
           return yield* rehearse(
             holding(given),
@@ -2202,7 +2204,8 @@ describe("a message applied while a release holds the effects of the step before
               return [meanwhile, (yield* rehearsal.state).count]
             })
           )
-        }))
+        })
+      )
     )
     expect(heard).toEqual([[0, 1], [0, 1]])
   })
@@ -2227,30 +2230,34 @@ describe("a message applied while a release holds the effects of the step before
   })
 
   test("rehearse lets no message of such a start reach update, by hear and by hearNext: the call fails", async () => {
-    const seen = await Effect.runPromise(Effect.forEach(["hear", "hearNext"] as const, (how) =>
-      Effect.gen(function*() {
-        const given = yield* signals
-        return yield* rehearse(
-          holding(given),
-          Effect.fnUntraced(function*(rehearsal) {
-            yield* Effect.forkChild(rehearsal.hearNext("a"), { startImmediately: true })
-            const swapping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<HeldMessage>("Swap")))
-            yield* Deferred.await(given.releasing)
-            const hearing = yield* Effect.forkChild(
-              how === "hear" ? rehearsal.hear("b", "Tick") : rehearsal.hearNext("b"),
-              { startImmediately: true }
-            )
-            const dropping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<HeldMessage>("DropB")), {
-              startImmediately: true
+    const seen = await Effect.runPromise(
+      Effect.forEach(
+        ["hear", "hearNext"] as const,
+        Effect.fnUntraced(function*(how) {
+          const given = yield* signals
+          return yield* rehearse(
+            holding(given),
+            Effect.fnUntraced(function*(rehearsal) {
+              yield* Effect.forkChild(rehearsal.hearNext("a"), { startImmediately: true })
+              const swapping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<HeldMessage>("Swap")))
+              yield* Deferred.await(given.releasing)
+              const hearing = yield* Effect.forkChild(
+                how === "hear" ? rehearsal.hear("b", "Tick") : rehearsal.hearNext("b"),
+                { startImmediately: true }
+              )
+              const dropping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<HeldMessage>("DropB")), {
+                startImmediately: true
+              })
+              yield* Deferred.succeed(given.gate, undefined)
+              yield* Fiber.join(swapping)
+              yield* Fiber.join(dropping)
+              const call = yield* Fiber.await(hearing)
+              return { failed: Exit.isFailure(call), count: (yield* rehearsal.state).count }
             })
-            yield* Deferred.succeed(given.gate, undefined)
-            yield* Fiber.join(swapping)
-            yield* Fiber.join(dropping)
-            const call = yield* Fiber.await(hearing)
-            return { failed: Exit.isFailure(call), count: (yield* rehearsal.state).count }
-          })
-        )
-      })))
+          )
+        })
+      )
+    )
     expect(seen).toEqual([{ failed: true, count: 0 }, { failed: true, count: 0 }])
   })
 })

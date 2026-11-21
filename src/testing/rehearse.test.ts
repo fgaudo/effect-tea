@@ -1768,6 +1768,61 @@ describe("rehearse, as a fiber of the test's runs a command while it ends", () =
     expect(Exit.isFailure(exit) && exit.cause.reasons.map((reason) => reason._tag)).toEqual(["Fail"])
   })
 
+  // The call that sent `Tick` waits for the job of its step, behind that of `run`, when the scenario fails. The end marks
+  // itself, then stops the loop and interrupts the completion of that job: the call, resumed on the stack of the end
+  // (`docs/premises.md`), lets the subscription send before the end stops it. Refused, what it sends waits for the end
+  // to stop it, where a subscription that interrupted itself would be a defect.
+  test("a subscription that sends as the end tells a call that its job was not done is no defect", async () => {
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const listening = yield* Deferred.make<void>()
+      const opened = yield* Deferred.make<void>()
+      const ticked = yield* Deferred.make<void>()
+      const program: Program<{ state: Listening; model: Listening; message: Dropped; command: "Answer" }> = {
+        init: { state: { listening: true, count: 0 }, commands: ["Answer"] },
+        update: () => (state) => ({ state: { ...state, count: state.count + 1 } }),
+        runCommand: () =>
+          Deferred.succeed(started, undefined).pipe(
+            Effect.andThen(Deferred.await(opened)),
+            Effect.as(Opt.some<Dropped>("Answered"))
+          ),
+        subscriptions: () =>
+          HashMap.make([
+            "k",
+            Channel.fromEffect(
+              Deferred.succeed(listening, undefined).pipe(
+                Effect.andThen(Deferred.await(ticked)),
+                Effect.as<Dropped>("Tick")
+              )
+            ).pipe(Channel.concatWith(() => Channel.never))
+          ]),
+        makeModel: (state) => state
+      }
+      return yield* rehearse(
+        program,
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* Effect.forkChild(rehearsal.hearNext("k"), { startImmediately: true })
+          yield* Effect.forkChild(rehearsal.run(() => true))
+          yield* Deferred.await(started)
+          yield* Deferred.await(listening)
+          // Resumed on the stack of the subscription, the scenario gives it back, so that the subscription waits.
+          yield* Effect.yieldNow
+          // Started on this stack, the call waits for its job, behind that of `run`.
+          yield* Effect.forkChild(
+            rehearsal.send(() => Opt.some<Dropped>("Tick")).pipe(
+              Effect.ensuring(
+                Effect.andThen(Deferred.succeed(ticked, undefined), Deferred.succeed(opened, undefined))
+              )
+            ),
+            { startImmediately: true }
+          )
+          return yield* Effect.fail("failed" as const)
+        })
+      )
+    }))
+    expect(Exit.isFailure(exit) && exit.cause.reasons.map((reason) => reason._tag)).toEqual(["Fail"])
+  })
+
   // The rehearsal has ended, failing on its pending command, when a fiber the scenario did not join asks to run it:
   // nothing is left to apply its answer. The call is recorded, not the effect, which a scope already closed would not
   // run.
@@ -2477,16 +2532,15 @@ describe("rehearse, as the job of a message waits for a release", () => {
     makeModel: (state) => state
   })
   // Starts `a` under `hearNext`, which then waits for ever, and holds the loop in its release with `Swap`.
-  const holding = (
+  const holding = Effect.fnUntraced(function*(
     rehearsal: Rehearsal<Swapping, Swapping, Swap, "Note", "Went">,
     releasing: Deferred.Deferred<void>
-  ) =>
-    Effect.gen(function*() {
-      yield* Effect.forkChild(rehearsal.hearNext("a"), { startImmediately: true })
-      const swapping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<Swap>("Swap")))
-      yield* Deferred.await(releasing)
-      return swapping
-    })
+  ) {
+    yield* Effect.forkChild(rehearsal.hearNext("a"), { startImmediately: true })
+    const swapping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<Swap>("Swap")))
+    yield* Deferred.await(releasing)
+    return swapping
+  })
 
   test("a message applied meanwhile shows in state, model and events at once, and owes its commands once the release has ended", async () => {
     const seen = await Effect.runPromise(Effect.gen(function*() {

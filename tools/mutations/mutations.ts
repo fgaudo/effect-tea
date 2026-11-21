@@ -105,6 +105,26 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
+    name: "a rejected message is applied as a step that keeps the state",
+    file: "src/core.ts",
+    from: "  if (result === reject) return ignored\n",
+    to:
+      "  if (result === reject) return { _tag: \"Applied\", next: current, changed: false, commands: [], events: [] }\n",
+    killedBy: [
+      ["src/core.test.ts", "a message update rejects is ignored"],
+      [
+        "src/engine.test.ts",
+        "a rejected message leaves the very same state, onIgnored hears it at once, and no listener is told"
+      ],
+      [
+        "src/run.test.ts",
+        "hears every message update rejects, with where it came from and the state it did not apply in"
+      ],
+      ["src/testing/rehearse.test.ts", "a command's answer that no longer applies is ignored, and listed"],
+      ["src/testing/simulate.test.ts", "a command's message that update rejects is ignored, and listed"]
+    ]
+  },
+  {
     name: "the very same state is taken for a new one",
     file: "src/core.ts",
     from: "const changed = result.state !== current.state",
@@ -689,6 +709,30 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
+    name: "a message for a child that is not there is applied as a step that keeps the state",
+    file: "src/compose.ts",
+    from: "      onNone: () => reject,\n",
+    to: "      onNone: () => ({ state }),\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a message for a child that is not there is rejected, from its view or as the answer of a command"
+      ],
+      ["src/compose.test.ts", "the late message of a removed child is rejected"],
+      ["src/input.test.ts", "is rejected where the input is not in the state"],
+      ["src/input.test.ts", "rejects a write at an id the state does not hold"]
+    ]
+  },
+  {
+    name: "a child's rejection is applied by its parent as a step that keeps the state",
+    file: "src/compose.ts",
+    from: "result === reject ? reject : liftAt(place, state, childState, result)",
+    to: "result === reject ? { state } : liftAt(place, state, childState, result)",
+    killedBy: [
+      ["src/input.test.ts", "a fixed message drawn for the old draft reaches the new one, and update decides"]
+    ]
+  },
+  {
     name: "an external message to a missing child is answered from no state",
     file: "src/compose.ts",
     from: "    if (Opt.isNone(childState)) {\n",
@@ -836,6 +880,18 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/testing/contract.test.ts",
         "the run dies with a defect of a subscription a fiber of the program interrupts as it releases"
+      ]
+    ]
+  },
+  {
+    name: "rehearse interrupts a subscription that sends once it has ended",
+    file: "src/testing/rehearse.ts",
+    from: "      }, Effect.never)\n",
+    to: "      })\n",
+    killedBy: [
+      [
+        "src/testing/rehearse.test.ts",
+        "a subscription that sends as the end tells a call that its job was not done is no defect"
       ]
     ]
   },

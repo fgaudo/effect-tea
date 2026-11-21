@@ -2010,14 +2010,13 @@ describe("the end of the run", () => {
 // own first: Effect adds the ones the fiber received, which skip its handlers. The run tells them apart by asking the
 // fiber what it received, and its own is still a defect, as a defect in its place would be.
 describe("a self-interruption as the run interrupts", () => {
-  const interruptsItselfOnceInterrupted = (started: Deferred.Deferred<void>) =>
-    Effect.uninterruptible(Effect.gen(function*() {
-      yield* Deferred.succeed(started, undefined)
-      yield* untilInterrupted
-      const interrupted = yield* Effect.forkChild(Effect.never)
-      yield* Fiber.interrupt(interrupted)
-      return yield* Fiber.join(interrupted)
-    }))
+  const interruptsItselfOnceInterrupted = Effect.fnUntraced(function*(started: Deferred.Deferred<void>) {
+    yield* Deferred.succeed(started, undefined)
+    yield* untilInterrupted
+    const interrupted = yield* Effect.forkChild(Effect.never)
+    yield* Fiber.interrupt(interrupted)
+    return yield* Fiber.join(interrupted)
+  }, Effect.uninterruptible)
 
   const selfInterruptions = (exit: Exit.Exit<unknown>) =>
     Exit.isFailure(exit)
@@ -2077,36 +2076,45 @@ describe("a self-interruption as the run interrupts", () => {
   // itself, by joining a fiber that a map of its own interrupted, has no mark, and is not taken for the one the run
   // gives it as it stops it, which has one (`stopping`). The same join is a defect, as with no interruption by the
   // run.
-  const joinsWhatItsMapInterrupted = (started: Deferred.Deferred<void>) =>
-    Effect.uninterruptible(Effect.gen(function*() {
+  const joinsWhatItsMapInterrupted = Effect.fnUntraced(
+    function*(started: Deferred.Deferred<void>) {
       const map = yield* FiberMap.make<string>()
       const work = yield* FiberMap.run(map, "work", Effect.never)
       yield* Deferred.succeed(started, undefined)
       yield* untilInterrupted
       yield* FiberMap.remove(map, "work")
       return yield* Fiber.join(work)
-    })).pipe(Effect.scoped)
+    },
+    Effect.uninterruptible,
+    Effect.scoped
+  )
 
   // The same through a `FiberSet` and a `FiberHandle` of the subscription's: both interrupt as the fiber -1 too.
-  const joinsWhatItsSetInterrupted = (started: Deferred.Deferred<void>) =>
-    Effect.uninterruptible(Effect.gen(function*() {
+  const joinsWhatItsSetInterrupted = Effect.fnUntraced(
+    function*(started: Deferred.Deferred<void>) {
       const set = yield* FiberSet.make()
       const work = yield* FiberSet.run(set, Effect.never)
       yield* Deferred.succeed(started, undefined)
       yield* untilInterrupted
       yield* FiberSet.clear(set)
       return yield* Fiber.join(work)
-    })).pipe(Effect.scoped)
+    },
+    Effect.uninterruptible,
+    Effect.scoped
+  )
 
-  const joinsWhatItsHandleInterrupted = (started: Deferred.Deferred<void>) =>
-    Effect.uninterruptible(Effect.gen(function*() {
+  const joinsWhatItsHandleInterrupted = Effect.fnUntraced(
+    function*(started: Deferred.Deferred<void>) {
       const handle = yield* FiberHandle.make()
       const work = yield* FiberHandle.run(handle, Effect.never)
       yield* Deferred.succeed(started, undefined)
       yield* untilInterrupted
       yield* FiberHandle.clear(handle)
       return yield* Fiber.join(work)
-    })).pipe(Effect.scoped)
+    },
+    Effect.uninterruptible,
+    Effect.scoped
+  )
 
   for (
     const [name, joins] of [
@@ -2135,24 +2143,24 @@ describe("a self-interruption as the run interrupts", () => {
   // fails with an interruption the effect did not receive: the run stops the effect from a fiber of its own, never
   // from that one. It is a defect, as it is when joined in a run that goes on. A fiber interrupted with the very id
   // the effect received, told apart by the mark alone, is the case of the tests after these.
-  const joinsOnceInterrupted = (started: Deferred.Deferred<void>, stale: Fiber.Fiber<never>) =>
-    Effect.uninterruptible(Effect.gen(function*() {
+  const joinsOnceInterrupted = Effect.fnUntraced(
+    function*(started: Deferred.Deferred<void>, stale: Fiber.Fiber<never>) {
       yield* Deferred.succeed(started, undefined)
       yield* untilInterrupted
       return yield* Fiber.join(stale)
-    }))
+    },
+    Effect.uninterruptible
+  )
 
   /** Runs what `running` gives in a fiber that interrupted `stale` itself, and interrupts that fiber once started. */
   const endedByTheFiberThatInterrupted = (
     running: (started: Deferred.Deferred<void>, stale: Fiber.Fiber<never>) => Effect.Effect<void>
   ) =>
-    interruptedOnce((started) =>
-      Effect.gen(function*() {
-        const stale = yield* Effect.forkDetach(Effect.never)
-        yield* Fiber.interrupt(stale)
-        yield* running(started, stale)
-      })
-    )
+    interruptedOnce(Effect.fnUntraced(function*(started) {
+      const stale = yield* Effect.forkDetach(Effect.never)
+      yield* Fiber.interrupt(stale)
+      yield* running(started, stale)
+    }))
 
   test(
     "a command that joins a fiber the fiber of the run interrupted, as the run ends, is a defect in the command",
@@ -2197,14 +2205,13 @@ describe("a self-interruption as the run interrupts", () => {
   // Learns the fiber id of the fiber that stops it from the interruption it received, interrupts a fiber of its own as
   // that id, and joins it: an interruption with the very fiber id of one it received, and without its mark, is one the
   // program made, and a defect.
-  const joinsAsTheStopper = (started: Deferred.Deferred<void>) =>
-    Effect.uninterruptible(Effect.gen(function*() {
-      yield* Deferred.succeed(started, undefined)
-      const [by] = yield* receivedFrom
-      const stale = yield* Effect.forkDetach(Effect.never)
-      yield* Fiber.interruptAs(stale, by!)
-      return yield* Fiber.join(stale)
-    }))
+  const joinsAsTheStopper = Effect.fnUntraced(function*(started: Deferred.Deferred<void>) {
+    yield* Deferred.succeed(started, undefined)
+    const [by] = yield* receivedFrom
+    const stale = yield* Effect.forkDetach(Effect.never)
+    yield* Fiber.interruptAs(stale, by!)
+    return yield* Fiber.join(stale)
+  }, Effect.uninterruptible)
 
   test(
     "a command that joins a fiber it interrupted as the fiber that stops it, as the run ends, is a defect in the command",
@@ -2504,26 +2511,25 @@ describe("what a run that goes on keeps", () => {
     const fiber = Effect.runFork(run)
     // Each round in a function of its own, whose frame is gone when collecting: a collector that scans the stack
     // conservatively could take a stale slot there for a live reference.
-    const playRound = (round: number) =>
-      Effect.gen(function*() {
-        const listener = () => undefined
-        hold("listener", listener)
-        const stop = app.subscribe(listener)
-        app.dispatch({ _tag: "Tick", round })
-        stop()
-        hold("model", app.model())
-        yield* until("Saved", () => app.dispatch({ _tag: "Save", round }))
-        yield* until("acquired", () => app.dispatch({ _tag: "Show", round }))
-        yield* until("released", () => app.dispatch({ _tag: "Hide", round }))
-        yield* until("Ended", () => app.dispatch({ _tag: "Listen", round }))
-        app.dispatch({ _tag: "Add", round })
-        const dispatch = forwardTo(app.dispatch, "Rows", round)
-        hold("childDispatch", dispatch)
-        dispatch({ _tag: "Bump" })
-        const [model] = app.model().rows
-        if (model !== undefined) hold("childModel", model)
-        app.dispatch({ _tag: "Remove", round })
-      })
+    const playRound = Effect.fnUntraced(function*(round: number) {
+      const listener = () => undefined
+      hold("listener", listener)
+      const stop = app.subscribe(listener)
+      app.dispatch({ _tag: "Tick", round })
+      stop()
+      hold("model", app.model())
+      yield* until("Saved", () => app.dispatch({ _tag: "Save", round }))
+      yield* until("acquired", () => app.dispatch({ _tag: "Show", round }))
+      yield* until("released", () => app.dispatch({ _tag: "Hide", round }))
+      yield* until("Ended", () => app.dispatch({ _tag: "Listen", round }))
+      app.dispatch({ _tag: "Add", round })
+      const dispatch = forwardTo(app.dispatch, "Rows", round)
+      hold("childDispatch", dispatch)
+      dispatch({ _tag: "Bump" })
+      const [model] = app.model().rows
+      if (model !== undefined) hold("childModel", model)
+      app.dispatch({ _tag: "Remove", round })
+    })
     return { fiber, playRound }
   }
 

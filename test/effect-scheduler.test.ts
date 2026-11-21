@@ -227,8 +227,8 @@ interface AtWake {
  * free and the sleeper reaches its latch in the same run. `sleeperPreemptible` false keeps the sleeper from being
  * preempted inside its sleep.
  */
-const chain = (settle: "nothing" | "waiters" | "all", sleeperPreemptible = true, moverPreemptible = true) =>
-  Effect.gen(function*() {
+const chain = Effect.fnUntraced(
+  function*(settle: "nothing" | "waiters" | "all", sleeperPreemptible = true, moverPreemptible = true) {
     const started = yield* Deferred.make<void>()
     const queue = yield* Queue.unbounded<number>()
     const semaphore = yield* Semaphore.make(1)
@@ -288,7 +288,10 @@ const chain = (settle: "nothing" | "waiters" | "all", sleeperPreemptible = true,
     if (atWake === undefined) return yield* Effect.die("the sleeper never woke")
     yield* Fiber.join(holder)
     return { ...atWake, arrivedAfter: arrivals.filter((at) => at >= wokeAt).length } satisfies AtWake
-  }).pipe(Effect.scoped, Effect.provide(TestClock.layer()))
+  },
+  Effect.scoped,
+  Effect.provide(TestClock.layer())
+)
 
 const scenario = chain("nothing")
 
@@ -365,35 +368,34 @@ test("what a test reads by Effect.map, or right after yield*, stands as the effe
   // `internal/effect.ts`, read in the source); a wrapper such as `provideService` puts back what it changed in a step
   // of its own, where the fiber may be preempted.
   type Read = "map" | "after yield*" | "map inside a wrapper" | "after a wrapper"
-  const reads = (read: Read) =>
-    Effect.gen(function*() {
-      let count = 0
-      let stop = false
-      const counter = yield* Effect.forkChild(Effect.whileLoop({
-        while: () => !stop,
-        body: () => Effect.sync(() => count++),
-        step: () => {}
-      }))
-      const wrap = <A>(effect: Effect.Effect<A>) => Effect.provideService(effect, Scheduler.MaxOpsBeforeYield, 2048)
-      let moved = 0
-      for (let i = 0; i < 200; i++) {
-        let before = 0
-        const effect = Effect.sync(() => {
-          before = count
-        })
-        let after: number
-        if (read === "map") after = yield* Effect.map(effect, () => count)
-        else if (read === "map inside a wrapper") after = yield* wrap(Effect.map(effect, () => count))
-        else {
-          yield* read === "after yield*" ? effect : wrap(effect)
-          after = count
-        }
-        if (after !== before) moved++
+  const reads = Effect.fnUntraced(function*(read: Read) {
+    let count = 0
+    let stop = false
+    const counter = yield* Effect.forkChild(Effect.whileLoop({
+      while: () => !stop,
+      body: () => Effect.sync(() => count++),
+      step: () => {}
+    }))
+    const wrap = <A>(effect: Effect.Effect<A>) => Effect.provideService(effect, Scheduler.MaxOpsBeforeYield, 2048)
+    let moved = 0
+    for (let i = 0; i < 200; i++) {
+      let before = 0
+      const effect = Effect.sync(() => {
+        before = count
+      })
+      let after: number
+      if (read === "map") after = yield* Effect.map(effect, () => count)
+      else if (read === "map inside a wrapper") after = yield* wrap(Effect.map(effect, () => count))
+      else {
+        yield* read === "after yield*" ? effect : wrap(effect)
+        after = count
       }
-      stop = true
-      yield* Fiber.join(counter)
-      return moved
-    })
+      if (after !== before) moved++
+    }
+    stop = true
+    yield* Fiber.join(counter)
+    return moved
+  })
   const moved = (read: Read) => {
     const next = random(1)
     const exit = drive(reads(read), (ready) => Math.floor(next() * ready), () => next() < 0.5).exit

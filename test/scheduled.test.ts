@@ -517,16 +517,15 @@ test("idle dies outside a run of scheduled", () => {
 })
 
 /** Two writers, one of which asks no more to be made to yield before it writes. */
-const oneUnpreempted = (marked: boolean) =>
-  Effect.gen(function*() {
-    const log: Array<string> = []
-    const write = (letter: string) => Effect.replicateEffect(Effect.sync(() => log.push(letter)), 4, { discard: true })
-    const a = yield* Effect.forkChild(marked ? Effect.andThen(unpreempted, write("a")) : write("a"))
-    const b = yield* Effect.forkChild(write("b"))
-    yield* Fiber.join(a)
-    yield* Fiber.join(b)
-    return log.join("")
-  })
+const oneUnpreempted = Effect.fnUntraced(function*(marked: boolean) {
+  const log: Array<string> = []
+  const write = (letter: string) => Effect.replicateEffect(Effect.sync(() => log.push(letter)), 4, { discard: true })
+  const a = yield* Effect.forkChild(marked ? Effect.andThen(unpreempted, write("a")) : write("a"))
+  const b = yield* Effect.forkChild(write("b"))
+  yield* Fiber.join(a)
+  yield* Fiber.join(b)
+  return log.join("")
+})
 
 test("a fiber unpreempted is made to yield no more, and one not marked is", () => {
   const ends = (marked: boolean) => {

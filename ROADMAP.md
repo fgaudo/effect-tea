@@ -28,18 +28,6 @@ grouped by their form, which a fix takes whole. Each `test.failing` was run with
 assertion. A finding of the types, of a document or of a check has no `test.failing`: its item names the check the fix
 adds.
 
-6. **Five checks are missing** (engine-2, bridges-4, smoke-1, rule-1, and one found as testing-1 was fixed). Three
-   checks of the rejection have no mutation: `onNone: () => reject` and `result === reject ? reject : …` in `updateAt`
-   (`src/compose.ts`), and `if (result === reject) return ignored` in `Core.arrive`. Nor has the refusal of a
-   subscription's message once a rehearsal's end is marked: `sends` (`src/testing/rehearse.ts`) gives `loop.submit`
-   `Effect.never`, so that the end stops the subscription, which would otherwise interrupt itself, a defect. Its killer
-   may be built as that of the refusal of a command's answer ("a command that answers as the end tells a call that its
-   job was not done is no defect", `rehearse.test.ts`), with a subscription that sends in that window; it rests on the
-   same premise of the tests. Two tests of `bridges/bridge.test_suite.ts` name the caret and never read it, and no test
-   checks a textarea's caret. `tools/smoke/smoke.ts` does not check the links of `examples/README.md`, which the
-   package ships. About thirty helpers of the tests return an `Effect.gen` from a function of arguments, against "Code"
-   in `AGENTS.md`. Sonnet 5.5, `medium`, for the helpers and the links; Opus 5.5, `medium`, for the mutations and the
-   caret.
 7. **To decide: a listener stopped during a notice is still told of it** (engine-4). `tell` (`src/engine.ts`) goes
    over a copy of the listeners. The guide does not say when a stop takes effect. The owner decides: the guide says
    from the next notice, or `tell` skips a listener that was stopped. Then Opus 5.5, `medium`.

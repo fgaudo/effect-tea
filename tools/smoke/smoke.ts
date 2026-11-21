@@ -160,9 +160,9 @@ const command = Command.make(
       (path) => Effect.map(fs.readFileString(join(installed, path)), (text) => tsImport.test(text))
     )
     if (Opt.isSome(importing)) return yield* new Failed({ message: `dist/${importing.value} imports a .ts file` })
-    // The guide, the tutorial and the skill are read in the package, at the version installed: what they link
-    // relatively, and the files whose code the tutorial includes, must be in it. The README's links are left out, since
-    // npm sends them to the repository.
+    // The guide, the tutorial, the skill and the examples' README are read in the package, at the version installed:
+    // what they link relatively, and the files whose code the tutorial includes, must be in it. The root README's links
+    // are left out, since npm sends them to the repository.
     const packageRoot = join(dir, "node_modules/@fgaudo/effect-tea")
     const relativeLink =
       /\]\((?!https?:|#|mailto:)([^)#\s]+)|^\[[^\]]+\]: (?!https?:)([^\s#]+)|\{@includeCode ([^}#\s]+)/gm
@@ -171,7 +171,7 @@ const command = Command.make(
       ...yield* fs.glob("skills/*/*.md", { root: packageRoot })
     ]
     if (documents.length === 0) return yield* new Failed({ message: "The package ships no guide, tutorial or skill" })
-    for (const path of documents) {
+    for (const path of [...documents, "examples/README.md"]) {
       // Inline code is emptied: a link's text may be code, but code that only shows a tag links nothing.
       const text = (yield* fs.readFileString(join(packageRoot, path))).replace(/`[^`\n]*`/g, "``")
       for (const [, ...targets] of text.matchAll(relativeLink)) {

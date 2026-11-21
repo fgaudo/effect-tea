@@ -46,13 +46,12 @@ const described = <A, E>(exit: Exit.Exit<A, E>) =>
  * Forks the fiber `body` makes of the effect that says it runs, and waits until it does: `body` puts that effect where
  * the fiber has entered what the test is about.
  */
-const started = <A, E>(body: (running: Effect.Effect<void>) => Effect.Effect<A, E>) =>
-  Effect.gen(function*() {
-    const running = yield* Deferred.make<void>()
-    const fiber = yield* Effect.forkChild(body(Deferred.succeed(running, undefined).pipe(Effect.asVoid)))
-    yield* Deferred.await(running)
-    return fiber
-  })
+const started = Effect.fnUntraced(function*<A, E>(body: (running: Effect.Effect<void>) => Effect.Effect<A, E>) {
+  const running = yield* Deferred.make<void>()
+  const fiber = yield* Effect.forkChild(body(Deferred.succeed(running, undefined).pipe(Effect.asVoid)))
+  yield* Deferred.await(running)
+  return fiber
+})
 
 /** Keys that all collide, so that a map compares them, and that note each call made outside `within`. */
 const watched = () => {
@@ -822,29 +821,28 @@ describe("Effect keeps nothing of a fiber that has ended, nor of what its scope 
   // Each fiber makes a scope of its own, acquires into it, closes it with its exit, and ends with a value, as a command
   // or a subscription of the engine does, in a set that removes it once it ends. Made by a function of its own, whose
   // frame is gone when collecting.
-  const ran = (set: FiberSet.FiberSet<object>, count: number) =>
-    Effect.gen(function*() {
-      const refs: Array<WeakRef<object>> = []
-      const hold = <A extends object>(target: A): A => {
-        refs.push(new WeakRef(target))
-        return target
-      }
-      for (let index = 0; index < count; index++) {
-        const fiber = yield* Effect.flatMap(Scope.make(), (scope) =>
-          Effect.acquireRelease(
-            Effect.sync(() => hold({})),
-            (acquired) => Effect.sync(() => void acquired)
-          ).pipe(
-            Scope.provide(scope),
-            Effect.exit,
-            Effect.flatMap((exit) => Effect.andThen(Scope.close(scope, exit), exit)),
-            Effect.map(() => hold({}))
-          )).pipe(FiberSet.run(set))
-        hold(fiber)
-        yield* Fiber.await(fiber)
-      }
-      return refs
-    })
+  const ran = Effect.fnUntraced(function*(set: FiberSet.FiberSet<object>, count: number) {
+    const refs: Array<WeakRef<object>> = []
+    const hold = <A extends object>(target: A): A => {
+      refs.push(new WeakRef(target))
+      return target
+    }
+    for (let index = 0; index < count; index++) {
+      const fiber = yield* Effect.flatMap(Scope.make(), (scope) =>
+        Effect.acquireRelease(
+          Effect.sync(() => hold({})),
+          (acquired) => Effect.sync(() => void acquired)
+        ).pipe(
+          Scope.provide(scope),
+          Effect.exit,
+          Effect.flatMap((exit) => Effect.andThen(Scope.close(scope, exit), exit)),
+          Effect.map(() => hold({}))
+        )).pipe(FiberSet.run(set))
+      hold(fiber)
+      yield* Fiber.await(fiber)
+    }
+    return refs
+  })
 
   test("of a thousand fibers ended, a few collections leave a few at most, with what they acquired and ended with", async () => {
     const scope = Scope.makeUnsafe()
@@ -945,12 +943,14 @@ describe("Scope.close dies with every defect its finalizers die of, none merged 
   })
 
   test("a finalizer of a scope forked from it, beside one of its own", async () => {
-    const exit = await closed(Exit.void, (scope) =>
-      Effect.gen(function*() {
+    const exit = await closed(
+      Exit.void,
+      Effect.fnUntraced(function*(scope) {
         yield* Scope.addFinalizer(scope, Effect.die(closing()))
         const child = yield* Scope.fork(scope)
         yield* Scope.addFinalizer(child, Effect.die(closing()))
-      }))
+      })
+    )
     expect(described(exit)).toEqual([["Die", closing()], ["Die", closing()]])
   })
 })

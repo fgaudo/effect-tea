@@ -75,9 +75,11 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   was not done is no defect" (`rehearse.test.ts`), the killer of "rehearse interrupts a command whose answer comes once
   it has ended": the end of a rehearsal interrupts the completion of the jobs its loop did not do before it stops the
   commands, and a command answers in between only where the call that waited for such a job is resumed on the end's
-  stack, and the command on the call's. Should it fall, the library stays correct, and `bun run mutations` reports
-  those mutations as survivors. Read in the source: `Deferred.doneUnsafe` calls each waiter's `resume`, which
-  runs the fiber's loop on the caller's stack (`internal/effect.ts`). Its test: "a fiber that waits on a Deferred runs
+  stack, and the command on the call's. So does its twin for a subscription, "a subscription that sends as the end
+  tells a call that its job was not done is no defect", the killer of "rehearse interrupts a subscription that sends
+  once it has ended". Should it fall, the library stays correct, and `bun run mutations` reports those mutations as
+  survivors. Read in the source: `Deferred.doneUnsafe` calls each waiter's `resume`, which runs the fiber's loop on
+  the caller's stack (`internal/effect.ts`). Its test: "a fiber that waits on a Deferred runs
   on the stack of whoever completes it, until it waits again", which fails with the `Deferred` completed by a fiber of
   its own.
 - **Code that a fiber runs on the stack of the fiber that forks it sees the forked fiber as its own**, through

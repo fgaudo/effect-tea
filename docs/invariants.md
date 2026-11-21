@@ -431,8 +431,9 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   offer, or the completion of a `Deferred`, wakes on that stack finds the step written whole: that order has no
   mutation, since no deterministic test reaches it but through the resumption below. A fiber resumed on the stack of
   whoever completes its `Deferred` is a premise of the tests alone (`premises.md`): the killers of the mutations that
-  wake inside a step rest on it, in `start.test.ts` and `drive.test.ts`, and so does the killer of the refusal of a
-  command's answer once a rehearsal has ended, in `rehearse.test.ts`; no guarantee does. That the effects of a step
+  wake inside a step rest on it, in `start.test.ts` and `drive.test.ts`, and so do the killers of the refusal of a
+  command's answer and of a subscription's message once a rehearsal has ended, in `rehearse.test.ts`; no guarantee
+  does. That the effects of a step
   start only once the call that sent its message has returned rests on the queue resuming the fiber of effects in a
   task of the scheduler, which is no premise either: the guide describes it and does not promise it, and "a dispatch
   returns before the commands of its step start, while the fiber of effects waits" (`start.test.ts`) is its alarm, the
@@ -464,7 +465,9 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   exit, which is the one that marks the end of the loop (`end`, in `loop.ts`), which refuses what is asked after it: a
   command that answers once the end is marked, before the end stops it, is refused with no defect, as the run applies
   nothing once it has stopped ("a command that answers as the end tells a call that its job was not done is no
-  defect", `rehearse.test.ts`). A scenario that returned lets the loop finish what it was offered, a release a job
+  defect", `rehearse.test.ts`). A subscription that sends then is refused too, and waits for the end to stop it, since
+  one that interrupted itself would die ("a subscription that sends as the end tells a call that its job was not done
+  is no defect"). A scenario that returned lets the loop finish what it was offered, a release a job
   waits for included, before the end stops it and reads the commands pending: never interrupt that job to end sooner.
   A scenario that failed, or was interrupted, has the end interrupt the job under way, wherever it is: so the end stops
   what still runs by the fibers themselves, kept as they are forked (`listeners` and `commands` in `rehearse.ts`, as the
