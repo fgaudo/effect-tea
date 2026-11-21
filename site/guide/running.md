@@ -42,8 +42,9 @@ defect anywhere ends the run too. The run dies, and reporting the crash is the j
   listener is told of a rejected message, nor of the very same state.
 - `dispatch(message)` applies the message before it returns (see [view](./view.md#rules)).
 - `die(thrown)` takes what a renderer threw as it drew outside a listener, as in a microtask, where nothing of the
-  run calls it. From then on, the program applies no message, and `run` dies of it, in `'render'`. A defect of
-  `makeModel` that `model()` threw is taken as it is, and stays one defect.
+  run calls it. From then on, the program applies no message, and `run` dies of it, in `'render'`. A defect that
+  `model()` threw, of `makeModel` or of `init`, is taken as it is, and stays one defect. Once `run` has ended, its
+  cause cannot take a new defect: `die` throws back what the cause does not hold, so that it is not lost.
 
 **The `dispatch` of the `App` is the very same function for the whole run.** So a view
 [memoized](./glossary.md#what-the-user-sees) on its dispatch is not drawn again because of the dispatch.

@@ -276,6 +276,45 @@ describe("a model's defect", () => {
     app.die(thrownBy(() => app.model()))
     expect(wheres(await Effect.runPromiseExit(app.run))).toEqual(["render: makeModel threw"])
   })
+
+  test("a model's defect a renderer gives to die once the run has ended is thrown back as it is", async () => {
+    const app = start(throwing)
+    app.dispatch("Increment")
+    await interrupted(Effect.runFork(app.run))
+    const read = thrownBy(() => app.model())
+    expect(thrownBy(() => app.die(read))).toBe(read)
+  })
+})
+
+describe("die", () => {
+  test("by a handle whose init threw, takes the defect model() threw as it is, and the run dies of it alone", async () => {
+    const failing: Program<{ state: Count; model: Model; message: Message; command: Command; flags: number }> = {
+      ...counter,
+      init: () => {
+        throw "init threw"
+      }
+    }
+    const app = start(failing, { flags: 0 })
+    app.die(thrownBy(() => app.model()))
+    expect(wheres(await Effect.runPromiseExit(app.run))).toEqual(["init: init threw"])
+  })
+
+  test("once the run has ended, throws back what it is given, a defect in render that no cause holds", async () => {
+    const app = start(counter)
+    const exit = await interrupted(Effect.runFork(app.run))
+    const thrown = thrownBy(() => app.die("drew too late"))
+    expect({
+      wheres: wheres(exit),
+      thrown: thrown instanceof ProgramDefect ? `${thrown.where}: ${String(thrown.cause)}` : thrown
+    }).toEqual({ wheres: [], thrown: "render: drew too late" })
+  })
+
+  test("before the run has ended, throws nothing, and the run dies of what it is given", async () => {
+    const app = start(counter)
+    const fiber = Effect.runFork(app.run)
+    expect(thrownBy(() => app.die("drew"))).toBeUndefined()
+    expect(wheres(await ended(fiber))).toEqual(["render: drew"])
+  })
 })
 
 describe("defects the handle meets", () => {

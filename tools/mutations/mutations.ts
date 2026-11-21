@@ -831,6 +831,62 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
+    name: "die takes the defect of init a dead handle threw for a defect of its own",
+    file: "src/run.ts",
+    from: "    thrownToReaders.add(defect)\n    const dead",
+    to: "    const dead",
+    killedBy: [
+      [
+        "src/run.test.ts",
+        "by a handle whose init threw, takes the defect model() threw as it is, and the run dies of it alone"
+      ],
+      [
+        "bridges/snabbdom.test.ts",
+        "by an init that threw, ends the run with the one defect of init"
+      ]
+    ]
+  },
+  {
+    name: "die keeps in silence what it is given once the run has ended",
+    file: "src/run.ts",
+    from: "    if (ended !== undefined && !ended.some((death) => death.defect === defect)) throw defect\n",
+    to: "",
+    killedBy: [
+      [
+        "src/run.test.ts",
+        "once the run has ended, throws back what it is given, a defect in render that no cause holds"
+      ],
+      [
+        "src/run.test.ts",
+        "a model's defect a renderer gives to die once the run has ended is thrown back as it is"
+      ]
+    ]
+  },
+  {
+    name: "die throws back what the run's cause holds",
+    file: "src/run.ts",
+    from: "ended !== undefined && !ended.some((death) => death.defect === defect)",
+    to: "ended !== undefined",
+    killedBy: [
+      [
+        "bridges/snabbdom.test.ts",
+        "by makeModel, ends the run at once, with one defect, in render, and the handler gets nothing"
+      ]
+    ]
+  },
+  {
+    name: "the run ends without telling die",
+    file: "src/run.ts",
+    from: "        end(read)\n",
+    to: "",
+    killedBy: [
+      [
+        "src/run.test.ts",
+        "once the run has ended, throws back what it is given, a defect in render that no cause holds"
+      ]
+    ]
+  },
+  {
     name: "rehearse's take leaves its command pending",
     file: "src/testing/ledger.ts",
     from: "pending: Arr.remove(ledger.pending, index),",
@@ -1683,7 +1739,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "die wraps again the defect a model recorded",
     file: "src/run.ts",
-    from: "Engine.recordThrown(deaths, \"render\", thrown, undefined, isModels)",
+    from: "Engine.recordThrown(deaths, \"render\", thrown, undefined, isThrown)",
     to: "Engine.recordThrown(deaths, \"render\", thrown)",
     killedBy: [
       ["src/run.test.ts", "a model's defect a renderer gives to die is one defect, in render"]
@@ -1692,8 +1748,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "what a renderer gives to die is a defect of a command",
     file: "src/run.ts",
-    from: "Engine.recordThrown(deaths, \"render\", thrown, undefined, isModels)",
-    to: "Engine.recordThrown(deaths, \"command\", thrown, undefined, isModels)",
+    from: "Engine.recordThrown(deaths, \"render\", thrown, undefined, isThrown)",
+    to: "Engine.recordThrown(deaths, \"command\", thrown, undefined, isThrown)",
     killedBy: [
       [
         "src/run.test.ts",
@@ -1704,7 +1760,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a listener's site wraps again the defect a model recorded",
     file: "src/run.ts",
-    from: "    rendered: isModels,\n",
+    from: "    rendered: isThrown,\n",
     to: "",
     killedBy: [
       ["src/run.test.ts", "a listener that reads a model that throws, and throws it, is one defect, in render"]

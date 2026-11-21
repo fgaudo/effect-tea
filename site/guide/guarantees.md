@@ -46,7 +46,8 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
   - A defect anywhere in the program ends the run. The run dies with it, as a `ProgramDefect` that says where it
     happened.
   - A listener of the `App` that throws, a `makeModel` that throws, and what a renderer gives `die` are defects too, in
-    `'render'`.
+    `'render'`. Once the run has ended, `die` throws back what the run's cause does not hold
+    ([running](./running.md#rules)).
   - A command or a subscription that the program interrupts is a defect too: one that interrupts itself (with
     `Effect.interrupt`, or by joining an interrupted fiber), or that another fiber of the program interrupts.
   - Only the run, and whoever runs it, interrupt them.

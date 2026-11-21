@@ -258,7 +258,13 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
     starts is one defect, in render, and the run dies of it", "a listener that reads a model that throws, and throws it,
     is one defect, in render", "a model's defect a renderer gives to die is one defect, in render" (`run.test.ts`). The
     last two read the model before the run starts: once it has started, the end may begin on the stack that records the
-    defect, and finish before the renderer gives it on, so that a second record would change nothing the test sees. A
+    defect, and finish before the renderer gives it on, so that a second record would change nothing the test sees.
+    The defect of an `init` that threw, which the dead handle's `model()` throws, is taken as it is too ("by a handle
+    whose init threw, takes the defect model() threw as it is", `run.test.ts`, and the first draw of the bridge to
+    snabbdom). The thunk where the run reads its register is its end: `die` given a defect that this read lacks
+    throws it back to the renderer, since no cause will hold it, and it checks after it records, since the record may
+    end the run on its stack ("once the run has ended, throws back what it is given", "before the run has ended,
+    throws nothing", `run.test.ts`; "by makeModel, ends the run at once, with one defect", `snabbdom.test.ts`). A
     fiber of another site that reads a model and dies of it is a second defect, of that site, as a fiber that dies of a
     defect another fiber recorded is. `scopedIn` closes the scope itself and takes what the close dies of as it is
     (`docs/premises.md`), each defect of each release: never join the two with `Cause.combine`, as `Effect.scoped` does,

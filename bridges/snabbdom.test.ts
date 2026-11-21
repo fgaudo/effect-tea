@@ -402,7 +402,7 @@ describe("what the first draw throws", () => {
   // `model()` of a program whose `init` threw throws that very defect, and the first draw gives what it threw to `die`.
   // Found by the review of the bridges before 0.8.0: `die` takes only a model's defect as it is, so the run dies of the
   // defect of `init` and of a second one, in render, wrapping it.
-  test.failing("by an init that threw, ends the run with the one defect of init", () => {
+  test("by an init that threw, ends the run with the one defect of init", () => {
     document.body.innerHTML = "<div id=\"app\"></div>"
     const thrown = new Error("An init that cannot start")
     const failing = program<

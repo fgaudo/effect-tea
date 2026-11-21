@@ -1,4 +1,5 @@
 // The run: a program started by plain code, and the effect that runs its effects (`docs/records/store-and-effects.md`).
+import type * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import type * as Scope from "effect/Scope"
 import * as Core from "./core.ts"
@@ -54,7 +55,8 @@ export interface App<Model, Message> {
   /**
    * Takes what a renderer threw as it drew, for a defect in `'render'`: from then on the program applies no message,
    * and its run dies of it. It is for a renderer that draws outside a listener, as in a microtask, where nothing of the
-   * run calls it. A defect of `makeModel` that `model()` threw is taken as it is, and stays one defect.
+   * run calls it. A defect that `model()` threw, of `makeModel` or of `init`, is taken as it is, and stays one defect.
+   * Once the run has ended, it throws back what the run's cause does not hold.
    *
    * @see The guide, "Running", "The renderer gets an `App`".
    * @see The guide, "Running", "Its `where` says where it happened".
@@ -92,10 +94,12 @@ type Made<State, Model> =
   | Readonly<{ state: State; made: true; model: Model }>
   | Readonly<{ state: State; made: false; defect: unknown }>
 
-// What a handle is made of: the engine is missing when `init` threw, and there is no state.
+// What a handle is made of: the engine is missing when `init` threw, and there is no state. `end` is given the
+// defects of the run's cause, in the thunk where the run reads them from its register.
 type Parts<State, Model, Message, R> = Readonly<{
   app: App<Model, Message>
   engine: Engine.Engine<State, Message, R> | undefined
+  end: (deaths: ReadonlyArray<Cause.Die>) => void
 }>
 
 // Plain code, outside any fiber: `init`, the engine, and the model of the current state, made when it is read.
@@ -105,17 +109,29 @@ const partsOf = <State, Model, Message, Command, RC, RS, Flags>(
   deaths: Shell.Deaths
 ): Parts<State, Model, Message, RC | RS> => {
   const { flags, ...runOptions } = options
-  // The defects of `makeModel` recorded where a model was read: a listener's site and `die` take them as they are, so
-  // that a model that throws is one defect, wherever it is read.
-  const ofModels = new Set<unknown>()
-  const isModels = (defect: unknown) => ofModels.has(defect)
-  const die = (thrown: unknown) => void Engine.recordThrown(deaths, "render", thrown, undefined, isModels)
+  // The defects the handle threw to a reader, recorded where they were thrown: those of `makeModel`, and that of an
+  // `init` that threw. A listener's site and `die` take them as they are, so that a defect a renderer gives back is one
+  // defect, wherever it read it.
+  const thrownToReaders = new Set<unknown>()
+  const isThrown = (defect: unknown) => thrownToReaders.has(defect)
+  // The defects of the run's cause, once the run has read them. A defect given to `die` that they lack is in no cause:
+  // it is thrown back to the renderer, never kept in silence. The record and the check are one thunk, the record
+  // first, since it may end the run on its stack; and so are the end and the read.
+  let ended: ReadonlyArray<Cause.Die> | undefined
+  const die = (thrown: unknown) => {
+    const defect = Engine.recordThrown(deaths, "render", thrown, undefined, isThrown)
+    if (ended !== undefined && !ended.some((death) => death.defect === defect)) throw defect
+  }
+  const end = (read: ReadonlyArray<Cause.Die>) => {
+    ended = read
+  }
   // A step is data: only an `init` that makes it from the flags can throw.
   let init: Step<State, Command>
   try {
     init = startOf(program.init, flags)
   } catch (thrown) {
     const defect = Engine.recordThrown(deaths, "init", thrown)
+    thrownToReaders.add(defect)
     const dead: App<Model, Message> = {
       model: () => {
         throw defect
@@ -124,12 +140,12 @@ const partsOf = <State, Model, Message, Command, RC, RS, Flags>(
       dispatch: () => undefined,
       die
     }
-    return { app: dead, engine: undefined }
+    return { app: dead, engine: undefined, end }
   }
   const engine = Engine.build<State, Message, Command, RC | RS, unknown>({
     ...runOptions,
     deaths,
-    rendered: isModels,
+    rendered: isThrown,
     init,
     update: program.update,
     runCommand: runCommandOf(program),
@@ -146,14 +162,14 @@ const partsOf = <State, Model, Message, Command, RC, RS, Flags>(
       } catch (thrown) {
         // Recorded here, wherever the model is read: in a listener, or outside any fiber.
         const defect = Engine.recordThrown(deaths, "render", thrown)
-        ofModels.add(defect)
+        thrownToReaders.add(defect)
         last = { state, made: false, defect }
       }
     }
     if (last.made) return last.model
     throw last.defect
   }
-  return { app: { model, subscribe: engine.subscribe, dispatch: engine.dispatch, die }, engine }
+  return { app: { model, subscribe: engine.subscribe, dispatch: engine.dispatch, die }, engine, end }
 }
 
 /**
@@ -168,7 +184,7 @@ export const startWith = <State, Model, Message, Command, RC, RS, Flags>(
   deaths: Shell.Deaths,
   began: () => void = () => undefined
 ): Started<Model, Message, Exclude<RC | RS, Scope.Scope>> => {
-  const { app, engine } = partsOf(program, options, deaths)
+  const { app, engine, end } = partsOf(program, options, deaths)
   // The effects of the states, until a defect: the scope's end stops the engine, interrupts its fibers and dies of
   // what they died of. With no engine, `init` threw, and the run dies of that at once.
   const effects: Effect.Effect<never, never, Exclude<RC | RS, Scope.Scope>> = engine === undefined
@@ -188,9 +204,13 @@ export const startWith = <State, Model, Message, Command, RC, RS, Flags>(
     begun = true
     // The fiber of the run, the engine's fibers and its thunk record what they die of in one place: the defects come
     // first in the cause, in the order they died, then the rest of what the run ended with (an interruption by
-    // whoever runs it), but for the defects already among them, by their identity.
+    // whoever runs it), but for the defects already among them, by their identity. The read is the end of the run.
     return Effect.uninterruptibleMask((restore) =>
-      Effect.exit(restore(effects)).pipe(Effect.flatMap((exit) => Core.endedWith(deaths.all(), exit)))
+      Effect.exit(restore(effects)).pipe(Effect.flatMap((exit) => {
+        const read = deaths.all()
+        end(read)
+        return Core.endedWith(read, exit)
+      }))
     )
   })
   return { ...app, run }

@@ -28,12 +28,6 @@ as [`premise-review`](.agents/skills/premise-review/SKILL.md) says, and numbered
    `src/testing/drive.test.ts`, "drive's send, made by a wait that a step wakes" › "returns once update has seen its
    message, as it promises". The same resumption as point 3 of the seven, under "Waiting for the owner": deciding that
    point decides how this is fixed (the waits woken once the outermost `apply` returns, or a premise to rest on).
-3. **The bridge to snabbdom records a defect of `init` twice.** The first draw gives what `model()` threw back to
-   `die`, and the dead handle's `die` (`partsOf` in `src/run.ts`) takes as it is only a model's defect: the run dies
-   with `["init", "render"]`, against `App.die`'s doc comment. Test: `bridges/snabbdom.test.ts`, "what the first draw
-   throws" › "by an init that threw, ends the run with the one defect of init". The form: a defect a reader got from
-   the handle, given back, recorded again; a listener's site never meets it, and React's `Draw` gives no defect to
-   `die`.
 4. **With the bridge to React, a defect of `makeModel` reaches the error boundary and `reportError` both**, when the
    end of the run waits for a release: React's render throws it to the boundary, which unmounts `Host`, and the run
    then ends with that very defect, which `Host` gives to `reportError`. Test: `bridges/react.test.ts`, "Host" › "a run
@@ -87,11 +81,6 @@ form before the release. What else it leaves, each to do or decide before the re
   not compare, or the sentence goes, from `docs/premises.md` and from `src/engine.ts` where it keeps fibers by start.
   Of the other premises, every named test fails without its premise; the entries of `timeoutOption` and of `Logger`
   should say that their tests fail by a timeout and by an error of the logger, not at an assertion.
-- **A defect given to `die`, or recorded by a model read, between the read of the register (`deaths.all()` in
-  `startWith`) and the end of the run's fiber, is in no cause.** No run of the search reached it (1000 runs, 4
-  schedules each, seeds 42, 7 and 99, with `die` given a defect whenever the run's fiber had not ended). The guide
-  says of `die`, without a condition, that the run dies of it ("Running"), also once the run has ended. To decide:
-  the guide's sentence, or a register closed in the thunk of its read.
 - **A premise of the bridge to React, listed nowhere**: React renders a `useSyncExternalStore` update made outside
   its events before the browser's next task. "Writing a bridge" and `docs/invariants.md` rest on it; the bridge's tests
   take every render with `flushSync`. The bridges' reviewer wrote a test of React alone that passes on happy-dom. It

@@ -691,8 +691,8 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
       stop()
       events.push({ _tag: "Stopped" })
     }
-    // A draw outside a listener that throws, given to `die` by plain code, while nothing has died: the run reads what
-    // it dies of once, as it ends, and no defect recorded after is in what it ended with.
+    // A draw outside a listener that throws, given to `die` by plain code, while nothing has died and the run has not
+    // ended: once it has, `die` throws back what the cause lacks, which `run.test.ts` checks and the search does not.
     const gives = Opt.exists(fates.rendererDies, ({ how, at }) => how === "gives" && at === nth)
     if (gives && fiber.pollUnsafe() === undefined && !events.some(({ _tag }) => _tag === "Died")) {
       events.push({ _tag: "Died", where: "render", how: "defect", defect: thrownByDraw, released: false })
