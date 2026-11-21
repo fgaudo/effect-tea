@@ -222,11 +222,15 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
     that the scope recorded as it is, though Effect adds the interruption the fiber received to its failure
     (`docs/premises.md`). Nothing interrupts such a fiber unmarked before the run has stopped it: `Effect.forkChild`
     interrupts a child only as its parent ends, as its documentation says, and the sets close only after the end has
-    stopped their fibers. The root is the last thing the fiber runs, and has no mutation: the scope takes an
-    interruption that comes while the effect runs, and one that comes as it releases too (its `diesIn` restores the
-    close), so what reaches the root alone is an interruption made in the operations after the scope, which a fiber of
-    the program makes only where the scheduler preempts there, and no gate reaches. The search can, with a fiber of the
-    program that interrupts another ("isInterrupted" in `interleaving.test.ts`). The fiber of whoever runs the program,
+    stopped their fibers. The root is the last thing the fiber runs, and is recorded as the scope is (`recorded` after
+    it, in the engine and in each testing tool). The scope takes an interruption that comes while the effect runs, and
+    one that comes as it releases too (its `diesIn` restores the close), so what reaches the root alone is an
+    interruption that lands once the scope has closed. A release that has another fiber of the program interrupt the
+    command's fiber makes one, since nothing interrupts the fiber while it releases: the root of a command, and its
+    record, have a mutation in the engine and in each testing tool, killed by such a release ("of a command a fiber of
+    the program interrupts as it releases", `contract.test.ts`). The root of a subscription has no mutation: no test
+    has a subscription's release interrupt its fiber yet. The search reaches both, with a fiber of the program that
+    interrupts another ("isInterrupted" in `interleaving.test.ts`). The fiber of whoever runs the program,
     where `init` runs and the testing tools call the program, has no root: only functions of the program run there,
     which could interrupt it (`Fiber.getCurrent`) as whoever runs it would, and the guide leaves that to the program
     ("Guarantees", "What is left to you"). Nor has the fiber of effects, where no function of the program runs. The

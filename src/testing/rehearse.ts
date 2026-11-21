@@ -498,14 +498,14 @@ const rehearsing = Effect.fnUntraced(function*<
       }
     }
     // The subscription's own fiber gives what it sends, applied in its thunk at once when a call waits for it, as the
-    // run's applies it as it is sent, and waits for the next ask. Refused once the rehearsal has ended, it waits
-    // (`quiet`) for the end to stop it, since one that interrupts itself is a defect.
+    // run's applies it as it is sent, and waits for the next ask. Refused once the rehearsal has ended, it waits for the
+    // end to stop it, since one that interrupts itself is a defect.
     const sends = (key: unknown, generation: Core.Generation, message: Message, last: boolean) =>
       loop.submit(() => {
         ledger = Ledger.send(ledger, generation, { message, last })
         hearHeld(key, generation)
         return Effect.void
-      }, { quiet: true })
+      }, Effect.never)
     // Started as the run starts a subscription, but held after each message until a `hearNext` asks for one: between
     // two of them, it waits where the run's would be sending its next message. Its last message follows the end of its
     // scope, as in the run. Kept by its start, so that the job that stops the start finds it.
@@ -592,8 +592,9 @@ const rehearsing = Effect.fnUntraced(function*<
     })
     // The effect of a command, in a fiber of the rehearsal's scope: once it answers, nothing interrupts it before its
     // answer is applied, in its thunk, and the command is no longer under way from that thunk on. Refused, as the
-    // rehearsal has ended, the answer is applied by nobody, and the command was under way when it ended. However the
-    // fiber ends, the command is no longer under way. It gives what its `run` waits for: the job of its answer.
+    // rehearsal has ended, the answer is applied by nobody, and the command was under way when it ended: its fiber ends
+    // with no job, since one that interrupts itself is a defect. However the fiber ends, the command is no longer under
+    // way. It gives what its `run` waits for: the job of its answer.
     const answering = <RC>(ticket: Ledger.Ticket, effect: Effect.Effect<Opt.Option<Message>, never, RC>) => {
       const settle = (before: LedgerOf) => Ledger.settle(before, ticket)
       return Effect.uninterruptibleMask((restore) =>
@@ -604,7 +605,7 @@ const rehearsing = Effect.fnUntraced(function*<
               loop.submit(() => {
                 ledger = settle(ledger)
                 return Effect.succeed(outcomeOf(apply(Core.fromCommand, message, "list", Opt.none()), message))
-              })
+              }, Effect.succeed<Effect.Effect<void>>(Effect.void))
           })),
           Effect.ensuring(Effect.sync(() => {
             ledger = settle(ledger)
@@ -640,6 +641,7 @@ const rehearsing = Effect.fnUntraced(function*<
           // (`docs/premises.md`).
           return answering(ticket, calling(() => runCommand(command))).pipe(
             rootedIn("command"),
+            recorded,
             FiberSet.run(commands),
             Effect.map((fiber): Taking => ({ _tag: "Running", ticket, command, fiber }))
           )

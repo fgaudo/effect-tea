@@ -13,13 +13,10 @@ import { stopping } from "../shell.ts"
  */
 export type Loop = Readonly<{
   /**
-   * Runs `decide` in one thunk with the check of the end: once the end is marked, the call is interrupted, or waits for
-   * ever when `quiet`, and `decide` is not called. `decide` may offer jobs with `offer`, in the same thunk.
+   * Runs `decide` in one thunk with the check of the end: once the end is marked, `decide` is not called, and the call
+   * is `refused`, an interruption unless it says otherwise. `decide` may offer jobs with `offer`, in the same thunk.
    */
-  submit: <A, E, R>(
-    decide: () => Effect.Effect<A, E, R>,
-    options?: Readonly<{ quiet?: boolean }>
-  ) => Effect.Effect<A, E, R>
+  submit: <A, E, R>(decide: () => Effect.Effect<A, E, R>, refused?: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
   /**
    * Offers `job`, whose completion `done` is: to be called only in a thunk that has checked the end, `submit`'s or a
    * job's own. Its services are those it is given.
@@ -60,10 +57,8 @@ export const make = Effect.fnUntraced(function*(
     Effect.forkIn(forks)
   )
   // The check and what it guards are one thunk, so that nothing is decided, nor offered, once the end is marked.
-  const submit = <A, E, R>(
-    decide: () => Effect.Effect<A, E, R>,
-    { quiet = false }: Readonly<{ quiet?: boolean }> = {}
-  ) => Effect.suspend(() => ended ? (quiet ? Effect.never : Effect.interrupt) : decide())
+  const submit = <A, E, R>(decide: () => Effect.Effect<A, E, R>, refused: Effect.Effect<A, E, R> = Effect.interrupt) =>
+    Effect.suspend(() => ended ? refused : decide())
   const offer = (job: Effect.Effect<void>, done: Deferred.Deferred<void>) => {
     undelivered.add(done)
     Queue.offerUnsafe(requests, { job, done })

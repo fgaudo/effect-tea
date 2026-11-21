@@ -18,12 +18,12 @@ const withLoop = <A>(use: (loop: Loop.Loop) => Effect.Effect<A>) =>
   })
 
 // Offers `job` in the thunk of the check of the end, and returns its completion.
-const offered = (loop: Loop.Loop, job: Effect.Effect<void>, options?: Readonly<{ quiet?: boolean }>) =>
+const offered = (loop: Loop.Loop, job: Effect.Effect<void>) =>
   loop.submit(() => {
     const done = Deferred.makeUnsafe<void>()
     loop.offer(job, done)
     return Effect.succeed(done)
-  }, options)
+  })
 
 describe("the loop of rehearse", () => {
   test("runs its jobs one at a time, in the order they were offered", async () => {
@@ -77,28 +77,26 @@ describe("the loop of rehearse", () => {
     expect(done).toBe(true)
   })
 
-  test("decides nothing once its end is marked: the call is interrupted, or waits when quiet", async () => {
+  test("decides nothing once its end is marked: the call is interrupted, or is what it says when refused", async () => {
     let decided = 0
     const deciding = () =>
       Effect.sync(() => {
         decided++
+        return "decided"
       })
-    const [before, refused, quiet] = await Effect.runPromise(withLoop((loop) =>
+    const [before, refused, told] = await Effect.runPromise(withLoop((loop) =>
       Effect.gen(function*() {
         yield* loop.submit(deciding)
         const before = decided
         loop.end()
         const refused = yield* Effect.timeoutOption(Effect.exit(loop.submit(deciding)), "1 second")
-        // Started on this stack, the call has been refused, or is waiting, once the fork returns.
-        const waiting = yield* Effect.forkChild(loop.submit(deciding, { quiet: true }), { startImmediately: true })
-        const quiet = waiting.pollUnsafe()
-        yield* Fiber.interrupt(waiting)
-        return [before, refused, quiet] as const
+        const told = yield* loop.submit(deciding, Effect.succeed("refused"))
+        return [before, refused, told] as const
       })
     ))
     expect(before).toBe(1)
     expect(Opt.isSome(refused) && Exit.hasInterrupts(refused.value)).toBe(true)
-    expect(quiet).toBeUndefined()
+    expect(told).toBe("refused")
     expect(decided).toBe(1)
   })
 

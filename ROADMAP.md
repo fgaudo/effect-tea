@@ -16,24 +16,11 @@ Each step names its model and effort, what it depends on, and how to tell that i
 ## Open problems
 
 A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a deterministic
-test of it. A finding of a review goes here with its `test.failing`, until its fix removes the mark and the item. The
-five below are of the review of the premises of 21 November 2026 (step 5), grouped by their form, which a fix takes
-whole, as [`premise-review`](.agents/skills/premise-review/SKILL.md) says. Each `test.failing` was run without its
-mark, and fails at its assertion.
+test of it. A finding of a review goes here with its `test.failing`, until its fix removes the mark and the item. Those
+below are of the review of the premises of 21 November 2026 (step 5), grouped by their form, which a fix takes whole,
+as [`premise-review`](.agents/skills/premise-review/SKILL.md) says, and numbered as the review listed them. Each
+`test.failing` was run without its mark, and fails at its assertion.
 
-1. **A defect that the root of a command's fiber makes is not recorded, in `rehearse` and in `simulate`.** A release
-   of a command's scope that has another fiber of the program interrupt the command's fiber: the interruption lands
-   once `scopedIn` has returned, and only `rootedIn` takes it for a defect. The engine records it (`recorded` after
-   `rootedIn`); `rehearse` (`runFirst`) and `simulate` (`runOne`) do not, so `rehearse` loses it where the scenario
-   catches the failure of `run`, or never joins it, and `simulate` where whoever runs it interrupts it as the release
-   runs. Tests: `src/testing/contract.test.ts`, "rehearse fails with a defect, as the run dies, of a command a fiber
-   of the program interrupts as it releases, though the scenario catches it", and "simulate fails with a defect …, as
-   whoever runs it interrupts it". The places checked: the engine's commands and subscriptions, and `rehearse`'s
-   subscriptions, record it. In `rehearse`, an answer refused once the rehearsal ends (`loop.submit` in `answering`)
-   is an `Effect.interrupt` of the command's own fiber, which the root would then record as a defect: it wants
-   `{ quiet: true }`, as `sends` has for subscriptions. A mutation that takes `rootedIn` out of the engine's
-   `runCommand` has a killer now (`contract.test.ts`, "the run dies with a defect of a command a fiber of the program
-   interrupts as it releases"), against what `docs/invariants.md` says of the root.
 2. **`drive`'s `send`, made by a wait that a step wakes, returns before `update` has seen its message.** `drive`'s
    listener completes the waits' `Deferred` inside the step; Effect 4.1.4 resumes the waiting fiber on that stack, so
    its `send` is a dispatch during the step, kept for after it. It breaks the guide's "when `send` returns, `update`

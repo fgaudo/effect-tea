@@ -120,7 +120,7 @@ export const simulate = <State, Message, Command, Event, R = never>(
       Effect.sync(() => runCommand(command)).pipe(
         diesIn("command"),
         Effect.flatMap((effect) =>
-          Effect.forkChild(effect.pipe(scopedIn(deaths, "command"), rootedIn("command")), {
+          Effect.forkChild(effect.pipe(scopedIn(deaths, "command"), rootedIn("command"), deaths.recorded), {
             startImmediately: true
           })
         ),

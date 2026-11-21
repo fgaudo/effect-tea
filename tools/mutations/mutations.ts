@@ -752,10 +752,82 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "simulate forks a command without beginning it",
     file: "src/testing/simulate.ts",
-    from: "rootedIn(\"command\")), {\n            startImmediately: true\n          })",
-    to: "rootedIn(\"command\")))",
+    from: "deaths.recorded), {\n            startImmediately: true\n          })",
+    to: "deaths.recorded))",
     killedBy: [
       ["src/testing/contract.test.ts", "begins its effect in simulate, as in the run"]
+    ]
+  },
+  {
+    name: "the run takes no interruption a command gets once its scope has closed for a defect",
+    file: "src/engine.ts",
+    from: "        rootedIn(\"command\"),\n        Effect.provideContext(context),\n",
+    to: "        Effect.provideContext(context),\n",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "the run dies with a defect of a command a fiber of the program interrupts as it releases"
+      ]
+    ]
+  },
+  {
+    name: "rehearse gives what the root of a command dies of only to the run that awaits it",
+    file: "src/testing/rehearse.ts",
+    from: "            rootedIn(\"command\"),\n            recorded,\n",
+    to: "            rootedIn(\"command\"),\n",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "rehearse fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, though the scenario catches it"
+      ]
+    ]
+  },
+  {
+    name: "rehearse takes no interruption a command gets once its scope has closed for a defect",
+    file: "src/testing/rehearse.ts",
+    from: "            rootedIn(\"command\"),\n            recorded,\n",
+    to: "            recorded,\n",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "rehearse fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, though the scenario catches it"
+      ]
+    ]
+  },
+  {
+    name: "rehearse interrupts a command whose answer comes once it has ended",
+    file: "src/testing/rehearse.ts",
+    from: "}, Effect.succeed<Effect.Effect<void>>(Effect.void))",
+    to: "})",
+    killedBy: [
+      [
+        "src/testing/rehearse.test.ts",
+        "a command that answers while the end releases a subscription fails it, as one under way"
+      ]
+    ]
+  },
+  {
+    name: "simulate does not record what the root of a command dies of",
+    file: "src/testing/simulate.ts",
+    from: "rootedIn(\"command\"), deaths.recorded)",
+    to: "rootedIn(\"command\"))",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "simulate fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, as whoever runs it interrupts it"
+      ]
+    ]
+  },
+  {
+    name: "simulate takes no interruption a command gets once its scope has closed for a defect",
+    file: "src/testing/simulate.ts",
+    from: "rootedIn(\"command\"), deaths.recorded)",
+    to: "deaths.recorded)",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "simulate fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, as whoever runs it interrupts it"
+      ]
     ]
   },
   {
@@ -2410,12 +2482,12 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the loop decides once its end is marked",
     file: "src/testing/loop.ts",
-    from: "Effect.suspend(() => ended ? (quiet ? Effect.never : Effect.interrupt) : decide())",
+    from: "Effect.suspend(() => ended ? refused : decide())",
     to: "Effect.suspend(() => decide())",
     killedBy: [
       [
         "src/testing/loop.test.ts",
-        "decides nothing once its end is marked: the call is interrupted, or waits when quiet"
+        "decides nothing once its end is marked: the call is interrupted, or is what it says when refused"
       ],
       ["src/testing/contract.test.ts", "in rehearse, it reaches no update, and its call is interrupted"]
     ]
@@ -2423,25 +2495,25 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the loop lets a call refused once it has ended wait",
     file: "src/testing/loop.ts",
-    from: "(quiet ? Effect.never : Effect.interrupt)",
-    to: "Effect.never",
+    from: "refused: Effect.Effect<A, E, R> = Effect.interrupt",
+    to: "refused: Effect.Effect<A, E, R> = Effect.never",
     killedBy: [
       [
         "src/testing/loop.test.ts",
-        "decides nothing once its end is marked: the call is interrupted, or waits when quiet"
+        "decides nothing once its end is marked: the call is interrupted, or is what it says when refused"
       ],
       ["src/testing/contract.test.ts", "in rehearse, it reaches no update, and its call is interrupted"]
     ]
   },
   {
-    name: "the loop interrupts a quiet call refused once it has ended",
+    name: "the loop interrupts a call refused once it has ended, whatever it says",
     file: "src/testing/loop.ts",
-    from: "(quiet ? Effect.never : Effect.interrupt)",
-    to: "Effect.interrupt",
+    from: "ended ? refused : decide()",
+    to: "ended ? Effect.interrupt : decide()",
     killedBy: [
       [
         "src/testing/loop.test.ts",
-        "decides nothing once its end is marked: the call is interrupted, or waits when quiet"
+        "decides nothing once its end is marked: the call is interrupted, or is what it says when refused"
       ]
     ]
   },

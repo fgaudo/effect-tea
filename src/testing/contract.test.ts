@@ -1895,7 +1895,7 @@ describe("a command or a subscription that a fiber of the program interrupts", (
     expect(diedIn(exit)).toBe("command")
   })
 
-  test.failing(
+  test(
     "rehearse fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, though the scenario catches it",
     async () => {
       const exit = await Effect.runPromiseExit(
@@ -1945,7 +1945,7 @@ describe("a command or a subscription that a fiber of the program interrupts", (
     expect(await interruptedAsItReleases("drive")).toBe("command")
   })
 
-  test.failing("simulate fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, as whoever runs it interrupts it", async () => {
+  test("simulate fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, as whoever runs it interrupts it", async () => {
     expect(await interruptedAsItReleases("simulate")).toBe("command")
   })
 })
