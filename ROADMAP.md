@@ -10,9 +10,7 @@ what would reopen it. How an item came to be, and what was weighed for it, goes 
 [`architecture-review.md`](docs/records/architecture-review.md), a review of the whole project that the owner asked
 for on 20 November 2026 and asked to be written here in the order it advises. Steps 1 to 4 and 8 are its parts 1 to
 4 and 6, and steps 17 to 21 its part 5, as the owner took it on 21 November 2026
-([`one-engine.md`](docs/records/one-engine.md)). Step 13 comes from a reading of the guide's promises against the
-tests, which the owner asked for on 21 November 2026, and whose record is
-[`promises-and-tests.md`](docs/records/promises-and-tests.md). Step 16 comes from the owner's question, on 21 November
+([`one-engine.md`](docs/records/one-engine.md)). Step 16 comes from the owner's question, on 21 November
 2026, of why the findings api-1, api-2 and api-4 of [`library-review.md`](docs/records/library-review.md) passed the
 inference matrix and the tests. A step done leaves its number unused.
 
@@ -25,41 +23,6 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 None is open.
 
 ## Next, in order
-
-### 13. A guarantee names the checks that hold it
-
-**Model and effort.** Opus 5.5, `medium`, to build the form advised below, once the owner has taken it. Fable 5.2,
-`high`, if the owner asks for the forms to be weighed again on
-[`promises-and-tests.md`](docs/records/promises-and-tests.md).
-
-**Depends on** that record, done. It changes nothing a user writes. It adds a rule to `AGENTS.md`, so the owner is
-asked first.
-
-**Why.** Nothing ties a guarantee to its tests but prose kept by hand: `docs/invariants.md` names them, and the guide's
-"How the tests check them" says what the search checks. `tools/mutations/mutations.ts` ties each check to the tests that
-fail without it, and a tool proves that list, but no mutation says which guarantee its check holds. So a guarantee added
-or reworded asks for no test, and "The library's tests check each guarantee" is a sentence that nothing checks.
-
-**How.** The form advised: a field of a `Mutation` that names the items of "What you can rely on" that its check holds,
-each by its bold title, as a doc comment names a section of the guide. A check that runs no test, in `bun run comments`
-or beside it, fails on an item that no mutation holds, and on a name that the guide does not have. A command prints each
-guarantee with its checks and the tests that kill them: the list by guarantee that the owner asked about, made by a tool
-and never kept by hand. It adds no list of tests, since `bun run mutations` proves the one there is, and it says more of
-a guarantee than that a test exists: the test fails without the check. An item whose check has no mutation says so in
-the list, with the reason that `docs/invariants.md` gives. It covers "What you can rely on" alone, the list the guide
-says the tests check, and the only one with no gap, by the record: a check of the mutations covers none of its 65
-gaps. For the other pages, the record's method may become a skill, run before a release as
-`premise-review` is: to weigh.
-
-Weighed by the session that proposed the step, and advised against. A file of tests by guarantee (`guarantees.test.ts`):
-the tests are there, each beside its module, so that to move them rewrites the killers of the mutations and the names in
-`docs/invariants.md`, and to copy them makes two tests of one thing; and `src/interleaving.test.ts` is already laid out
-by guarantee. A list of its own from each promise to the names of its tests: a third list of names kept by hand, the
-drift that "Any time" below names. An entry for every sentence of the guide: `docs/rejected.md` has its kin ("Every line
-of the guide quoted by a doc comment, or set aside with a reason"), and 46 sentences could not be sorted, by the record.
-
-**Done when** the owner has decided. Taken: the check runs in the CI, and `AGENTS.md`, `change-engine` and
-`docs/invariants.md` say what it holds. Refused: an entry of `docs/rejected.md` says why.
 
 ### 16. The types checked in every form a program is written
 
@@ -105,8 +68,10 @@ Then the owner weighs two more, each taken as a step here or written in `docs/re
 mutation in `tools/mutations/` that takes out each check of the types of `program.ts` and `compose.ts`, killed by the
 typecheck of the tests of the types or by part of the matrix, so that each rule of the types has a check that fails
 without it; it costs a run of `tsc` for each. And the guide tied to the matrix: each item of "What does not compile",
-in "Anatomy of a program" and "Composition", names a `Violation` of the matrix, which a tool checks, as step 13 does
-for the guarantees.
+in "Anatomy of a program" and "Composition", names a `Violation` of the matrix, which a tool checks, as the
+`guarantees` of a mutation name the items of "What you can rely on" (`bun run comments`). That check is a tripwire for
+an item added, no more: a second opinion weighed on 21 November 2026 found that it passed on the day it was written,
+and that it says nothing of a sentence added to an item. A tie of the matrix would be weighed for the same limit.
 
 **Done when** points 1 to 4 run (the first three in `bun run inference`), `AGENTS.md`, `change-api` and the comment
 at the head of `tools/inference/generate.ts` say what they check, their leads are fixed or listed under "Open
@@ -371,8 +336,18 @@ otherwise.
   `tools/mutations/mutations.ts` binds to each check, and the two lists drift
   ([`architecture-review.md`](docs/records/architecture-review.md), "Smaller points"). The prose would keep each
   invariant and how it is kept, and leave the killers to the list, which a tool checks. Asked of the owner first: it
-  changes how a document that rules is laid out. Step 13 decides it: with the list that step prints by guarantee,
-  the prose may leave the names.
+  changes how a document that rules is laid out. `bun run guarantees` does not replace it: it prints dozens of
+  mutations under one item, where the prose pairs a sentence with its test.
+- **The search laid out by guarantee.** The 21 properties of `src/interleaving.test.ts` sit in one `describe`. Each
+  would go under a `describe` named by the bold title of the item of "What you can rely on" it checks, with one for
+  what the guide says the search "also checks", and `bun run comments` would check the names both ways, with
+  `sectionsOf` kept to that list. It ties an item to what the guide says checks it, which the `guarantees` of the
+  mutations cannot, since the search kills no mutation. Not tried: a spike first, for whether every property falls
+  under one item. It changes the layout of the tests of the engine, so the owner is asked (`change-engine`).
+- **The reading of the guide's promises against the tests, as a skill run before a release.** The method of
+  [`promises-and-tests.md`](docs/records/promises-and-tests.md), which found 65 promises outside "What you can rely on"
+  that no test checks, written in `.agents/skills/` and named by `release`, as `premise-review` is. Fable 5.2, `high`,
+  to write it: it decides what a release weighs.
 
 ## Low priority
 

@@ -4,8 +4,11 @@ The guide's "Guarantees" says what a user may rely on, and the library's tests c
 (`src/interleaving.test.ts` checks each that its scenario reaches, the order of the messages, the rule of an input and
 what the run does from the first defect on included, under random orders of clicks, writes into an input, typed into
 its element or over an older value, into a place the state may no longer hold, messages sent from inside a step,
-answers, subscription messages and ends, releases, defects and self-interruptions, as the guide says). This is how
-they are kept, and what a change must not undo. What they rest on of Effect and of the JavaScript engine is in
+answers, subscription messages and ends, releases, defects and self-interruptions, as the guide says). A mutation of
+`tools/mutations/mutations.ts` names the items of "What you can rely on" its check holds a part of, and
+`bun run guarantees` prints each item with those mutations and their killers: an index made by hand, which
+`bun run comments` checks only for a title the list lacks and an item no mutation names, so that an item says nothing
+of which of its sentences a test fails without. This is how they are kept, and what a change must not undo. What they rest on of Effect and of the JavaScript engine is in
 [`premises.md`](premises.md), and how a change of the engine or of a testing tool is made in
 [`change-engine`](../.agents/skills/change-engine/SKILL.md).
 

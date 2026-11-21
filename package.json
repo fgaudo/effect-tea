@@ -74,6 +74,7 @@
     "inference": "bun tools/inference/generate.ts",
     "api": "bun tools/api-report.ts",
     "comments": "bun tools/comments.ts",
+    "guarantees": "bun tools/comments.ts --guarantees",
     "prepare": "bunx effect-tsgo patch --typescript --no-oxlint"
   },
   "overrides": {

@@ -311,7 +311,9 @@ this summary says less. What every change keeps, an example's and a document's t
   repository (`.mutants/`), runs those tests alone, and fails when one passes under its mutation, or fails without it.
   What has none, and why, is in `docs/invariants.md` and `change-engine`. A new check adds its mutation; a test of one
   renamed or removed, or the code it replaces rewritten, updates the list. It runs before a release (`release`), and
-  after a change of a file it mutates; what a mutation is, and is not, is in `change-engine`.
+  after a change of a file it mutates; what a mutation is, and is not, is in `change-engine`. A mutation of a check
+  that holds a part of an item of the guide's "What you can rely on" names that item (`guarantees`), and an item added
+  to that list is named by the mutations of its checks: `bun run comments` fails on an item no mutation names.
 - **The tests of `src/` and `test/` run on Node too**, on V8 as Chrome and Edge run the library: `bun run test:node`
   makes Node resolve `bun:test` to `test/node/bun-test.test_shim.ts`, which gives what the tests use of it over Node's
   own runner, with Jest's `expect`. A test that needs more of `bun:test` adds it there, and one that asks for a

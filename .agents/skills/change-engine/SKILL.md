@@ -65,6 +65,14 @@ transition that rules it out (`ledger.test.ts`, `core.test.ts`), and has no muta
 interrupt, which holds no code of the program for a gate to stop in: its three forms are under "one thunk" in
 `docs/invariants.md`, and the checks beside it keep their mutations.
 
+A mutation of the engine whose check holds a part of an item of the guide's "What you can rely on" names that item in
+its `guarantees`, by its bold title without the final period; one of a testing tool or of a bridge names none, since the
+list is about a running program. `bun run comments` fails on a title the list does not have, and on an item no mutation
+names, and `bun run guarantees` prints each item with the mutations that name it and their killers. It is an index, and
+no more: a title is a judgement written by hand, an item with many checks may still have a sentence that none holds,
+and the search, which checks every item, kills no mutation. So an item reworded, or given a sentence, is weighed by
+hand: which check holds the new sentence, and which test fails without it.
+
 ### A lead of the search
 
 `bun run interleavings` (`src/interleaving.test.ts`) is a search, from a seed drawn on each run. A lead it finds is

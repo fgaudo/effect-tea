@@ -4,6 +4,12 @@
 export type Mutation = Readonly<{
   /** The check the mutation takes out. */
   name: string
+  /**
+   * The items of "What you can rely on", in the guide's "Guarantees", that the check holds a part of, each by its bold
+   * title without its final period. Left out for a check that holds none of them, as those of the testing tools and of
+   * the bridges. `bun run comments` fails on a title the list does not have, and on an item no mutation names.
+   */
+  guarantees?: ReadonlyArray<string>
   /** The file it changes, from the root of the repository. */
   file: string
   /** What it replaces, which the file must hold exactly once, and with what. */
@@ -16,6 +22,7 @@ export type Mutation = Readonly<{
 export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "update is called after the first defect",
+    guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
     from: "  if (died()) return dead\n",
     to: "",
@@ -34,6 +41,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a message is dropped before the register is read",
+    guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
     from: "  if (died()) return dead\n"
       + "  if (source._tag === \"Subscription\" && !active.starts.has(source.generation)) return dropped\n",
@@ -48,6 +56,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a message of a stopped start reaches update",
+    guarantees: ["Subscriptions follow their keys"],
     file: "src/core.ts",
     from: "source._tag === \"Subscription\" && !active.starts.has(source.generation)",
     to: "false",
@@ -68,6 +77,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a message applies by its key, not by its start",
+    guarantees: ["Subscriptions follow their keys"],
     file: "src/core.ts",
     from: "source._tag === \"Subscription\" && !active.starts.has(source.generation)",
     to: "source._tag === \"Subscription\" && !HashMap.has(active.keys, source.key)",
@@ -84,6 +94,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "as many keys are taken for the same keys",
+    guarantees: ["Subscriptions follow their keys"],
     file: "src/core.ts",
     from: "fresh.length === 0 && HashMap.size(listed) === HashMap.size(active.keys)",
     to: "HashMap.size(listed) === HashMap.size(active.keys)",
@@ -97,6 +108,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "keys all active are taken for the same keys, though one went away",
+    guarantees: ["Subscriptions follow their keys"],
     file: "src/core.ts",
     from: "fresh.length === 0 && HashMap.size(listed) === HashMap.size(active.keys)",
     to: "fresh.length === 0",
@@ -106,6 +118,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a rejected message is applied as a step that keeps the state",
+    guarantees: ["Outdated clicks are harmless"],
     file: "src/core.ts",
     from: "  if (result === reject) return ignored\n",
     to:
@@ -126,6 +139,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the very same state is taken for a new one",
+    guarantees: ["A model is made only when it is read"],
     file: "src/core.ts",
     from: "const changed = result.state !== current.state",
     to: "const changed = true",
@@ -166,6 +180,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "scopedIn wraps again what it wrapped",
+    guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
     from: "(defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect)",
     to: "() => false",
@@ -186,6 +201,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "scopedIn tells what it wrapped by the register",
+    guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
     from: "(defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect)",
     to: "(defect) => deaths.has(defect)",
@@ -198,6 +214,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "scopedIn joins what its release died of to what its effect died of by Equal, as Effect.scoped does",
+    guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
     from: "return Scope.close(scope, exit).pipe(\n",
     to: "return Scope.close(scope, exit).pipe(\n"
@@ -221,6 +238,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "scopedIn ends with what its effect and its release died of joined by Equal",
+    guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
     from: "Effect.failCause(Core.released(own, closed.cause))",
     to: "Effect.failCause(Cause.combine(own, closed.cause))",
@@ -237,6 +255,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "scopedIn keeps twice what its release dies of again",
+    guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
     from: "Effect.failCause(Core.released(own, closed.cause))",
     to: "Effect.failCause(Cause.fromReasons<E>([...own.reasons, ...closed.cause.reasons]))",
@@ -249,6 +268,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "what a fiber with a scope of its own ends with tells defects apart by value",
+    guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
     from: "(Cause.isDieReason(one) && Cause.isDieReason(other) && one.defect === other.defect)",
     to: "(Cause.isDieReason(one) && Cause.isDieReason(other)"
@@ -259,6 +279,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "what a fiber with a scope of its own ends with tells interruptions apart by their fiber alone",
+    guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
     from: "&& markOf(one) === markOf(other))",
     to: ")",
@@ -271,6 +292,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a defect is recorded after the release of its scope",
+    guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
     from: "self.pipe(diesIn(where, details, () => false, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
     to: "self.pipe(diesIn(where, details, () => false, Core.byTheRun), Scope.provide(scope))",
@@ -304,6 +326,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a fiber of the run acquires into the scope of the run",
+    guarantees: ["Nothing outlives what acquired it"],
     file: "src/shell.ts",
     from: "self.pipe(diesIn(where, details, () => false, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
     to: "self.pipe(diesIn(where, details, () => false, Core.byTheRun), deaths.recorded)",
@@ -328,6 +351,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a subscription's channel releases its scopes before its defect is recorded",
+    guarantees: ["Nothing outlives what acquired it"],
     file: "src/shell.ts",
     from: "Channel.toPull(subscription).pipe(\n"
       + "    // No yield of its own after each message, which made a pull of messages taken one by one three times slower: the\n"
@@ -354,6 +378,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a fiber the run forks takes an interruption without the run's mark for the run's",
+    guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
     from: "Cause.isInterruptReason(reason) && markOf(reason) !== undefined",
     to: "Cause.isInterruptReason(reason)",
@@ -365,6 +390,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a fiber the run forks keeps an interruption without the run's mark until its root",
+    guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
     from: "diesIn(where, details, () => false, Core.byTheRun)",
     to: "diesIn(where, details)",
@@ -374,6 +400,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a self-interruption is no defect",
+    guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
     from: "const own = Core.otherwiseDefect(cause, kept(Exit.isFailure(received) ? received.cause : Cause.empty))",
     to: "const own = cause as Cause.Cause<never>",
@@ -410,6 +437,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "an interruption the fiber received is taken for its own",
+    guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
     from: "Exit.isFailure(received) ? received.cause : Cause.empty",
     to: "Cause.empty",
@@ -420,6 +448,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a self-interruption beside one the fiber received is no defect",
+    guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
     from: "interrupters.some(({ fiberId, mark }) => fiberId === reason.fiberId && mark === markOf(reason))",
     to: "interrupters.length > 0",
@@ -457,6 +486,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a defect is recorded once for each fiber it ends",
+    guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
     from: "keeps(reason.defect) && !holds(deaths, reason.defect)",
     to: "keeps(reason.defect)",
@@ -478,6 +508,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the run's fibers log into the span of whoever runs it",
+    guarantees: ["Logs do not pile up in a span"],
     file: "src/shell.ts",
     from: "if (span === undefined || span._tag === \"ExternalSpan\") return context",
     to: "return context",
@@ -490,6 +521,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the run ends with what it ended with, not with its defects first",
+    guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
     from: "deaths.length === 0 ? exit :",
     to: "true ? exit :",
@@ -515,6 +547,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a defect the run died of is in its cause again, among the rest of what it ended with",
+    guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
     from: "!(Cause.isDieReason(reason) && holds(deaths, reason.defect))",
     to: "true",
@@ -536,6 +569,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "an interruption with the fiber id of one the fiber received is no defect, whatever its mark",
+    guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
     from: " && mark === markOf(reason)",
     to: "",
@@ -553,6 +587,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the run stops its fibers with no mark of its own",
+    guarantees: ["Nothing outlives what acquired it"],
     file: "src/shell.ts",
     from: "Fiber.interruptAs(fiber, id, Context.make(Core.Stopped, {}))",
     to: "Fiber.interruptAs(fiber, id)",
@@ -563,6 +598,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a child's model is made anew for a state it was made for",
+    guarantees: ["A model is made only when it is read"],
     file: "src/compose.ts",
     from: "    if (kept.has(childState)) return kept.get(childState)\n",
     to: "",
@@ -611,6 +647,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a child's lifted subscriptions are kept without their place",
+    guarantees: ["Subscriptions follow their keys"],
     file: "src/compose.ts",
     from: "at !== undefined && at[0].name === place.name && Equal.equals(at[0].id, place.id)",
     to: "at !== undefined",
@@ -620,6 +657,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a shared state keeps the places it no longer holds",
+    guarantees: ["Subscriptions follow their keys"],
     file: "src/compose.ts",
     from: "      kept.places.length = kept.met\n",
     to: "",
@@ -632,6 +670,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a child's lifted subscriptions are looked for past the places of the last call",
+    guarantees: ["Subscriptions follow their keys"],
     file: "src/compose.ts",
     from: "      kept.met = 0\n",
     to: "",
@@ -649,6 +688,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a child's state that is not an object dies of the WeakMap's TypeError",
+    guarantees: ["Nothing ends in silence"],
     file: "src/compose.ts",
     from: "    if (Predicate.isObjectKeyword(childState)) return childState\n",
     to: "    return childState as object\n",
@@ -665,6 +705,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "an own key equal to a lifted one is no defect",
+    guarantees: ["Nothing ends in silence"],
     file: "src/compose.ts",
     from: "                if (HashMap.has(own, key)) {\n"
       + "                  throw defectAt(place, `An own subscription key is the key of a subscription of \"${name}\"`)\n"
@@ -684,6 +725,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "an own key equal to a lifted one is the defect of an id listed twice",
+    guarantees: ["Nothing ends in silence"],
     file: "src/compose.ts",
     from: "                if (HashMap.has(own, key)) {\n"
       + "                  throw defectAt(place, `An own subscription key is the key of a subscription of \"${name}\"`)\n"
@@ -698,6 +740,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a child's event that nothing handles dies of a TypeError",
+    guarantees: ["Nothing ends in silence"],
     file: "src/compose.ts",
     from: "    if (handle === undefined) {\n",
     to: "    if (false) {\n",
@@ -710,6 +753,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a message for a child that is not there is applied as a step that keeps the state",
+    guarantees: ["Outdated clicks are harmless", "An input stores what is written, where its place is there"],
     file: "src/compose.ts",
     from: "      onNone: () => reject,\n",
     to: "      onNone: () => ({ state }),\n",
@@ -725,6 +769,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a child's rejection is applied by its parent as a step that keeps the state",
+    guarantees: ["Outdated clicks are harmless"],
     file: "src/compose.ts",
     from: "result === reject ? reject : liftAt(place, state, childState, result)",
     to: "result === reject ? { state } : liftAt(place, state, childState, result)",
@@ -734,6 +779,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "an external message to a missing child is answered from no state",
+    guarantees: ["Nothing ends in silence"],
     file: "src/compose.ts",
     from: "    if (Opt.isNone(childState)) {\n",
     to: "    if (false) {\n",
@@ -747,6 +793,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "an external message to a child without external dies of a TypeError",
+    guarantees: ["Nothing ends in silence"],
     file: "src/compose.ts",
     from: "    if (answer === undefined) {\n",
     to: "    if (false) {\n",
@@ -754,6 +801,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a child's command with no runCommand dies of a TypeError",
+    guarantees: ["Nothing ends in silence"],
     file: "src/compose.ts",
     from: "        if (run === undefined) {\n",
     to: "        if (false) {\n",
@@ -763,6 +811,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a write into an input by id goes to its place without its id",
+    guarantees: ["An input stores what is written, where its place is there"],
     file: "src/compose.ts",
     from: "  inputById: (place) => ({ kind: \"byId\", ...placedById(place) }),\n",
     to: "  inputById: (place) => ({ kind: \"one\", ...placedById(place) }),\n",
@@ -780,6 +829,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a write of the value an input holds makes a new state",
+    guarantees: ["An input stores what is written, where its place is there"],
     file: "src/input.ts",
     from: "  Equal.equals(message.value, held) ? { state: held } : { state: message.value }",
     to: "  ({ state: message.value })",
@@ -824,6 +874,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the run takes no interruption a command gets once its scope has closed for a defect",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "        rootedIn(\"command\"),\n        Effect.provideContext(context),\n",
     to: "        Effect.provideContext(context),\n",
@@ -860,6 +911,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the run takes no interruption a subscription gets once its scope has closed for a defect",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "          rootedIn(\"subscription\", () => ({ key })),\n",
     to: "",
@@ -872,6 +924,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the run does not record what the root of a subscription dies of",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from:
       "          Effect.provideContext(context),\n          recorded,\n          FiberMap.run(subscriptionFibers, generation)\n",
@@ -957,6 +1010,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "die takes the defect of init a dead handle threw for a defect of its own",
+    guarantees: ["Nothing ends in silence"],
     file: "src/run.ts",
     from: "    thrownToReaders.add(defect)\n    const dead",
     to: "    const dead",
@@ -973,6 +1027,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "die keeps in silence what it is given once the run has ended",
+    guarantees: ["Nothing ends in silence"],
     file: "src/run.ts",
     from: "    if (ended !== undefined && !ended.some((death) => death.defect === defect)) throw defect\n",
     to: "",
@@ -989,6 +1044,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "die throws back what the run's cause holds",
+    guarantees: ["Nothing ends in silence"],
     file: "src/run.ts",
     from: "ended !== undefined && !ended.some((death) => death.defect === defect)",
     to: "ended !== undefined",
@@ -1001,6 +1057,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the run ends without telling die",
+    guarantees: ["Nothing ends in silence"],
     file: "src/run.ts",
     from: "        end(read)\n",
     to: "",
@@ -1174,6 +1231,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a kept key starts again",
+    guarantees: ["Subscriptions follow their keys"],
     file: "src/core.ts",
     from: "if (HashMap.has(active.keys, key)) continue",
     to: "if (false) continue",
@@ -1220,6 +1278,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a gone key keeps running",
+    guarantees: ["Subscriptions follow their keys"],
     file: "src/core.ts",
     from: "([key]) => !HashMap.has(listed, key))",
     to: "() => false)",
@@ -1362,6 +1421,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "scopedIn leaves what its effect dies of without a site",
+    guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
     from: "self.pipe(diesIn(where, details, () => false, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
     to: "self.pipe(deaths.recorded, Scope.provide(scope))",
@@ -1373,6 +1433,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "scopedIn leaves what the release dies of without a site",
+    guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
     from: "return Scope.close(scope, exit).pipe(\n"
       + "              diesIn(\n"
@@ -1443,6 +1504,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a parent makes a new state for a child's message that keeps the child's",
+    guarantees: ["An input stores what is written, where its place is there"],
     file: "src/compose.ts",
     from: "state: Object.is(result.state, childState) ? state : setAt(place, state, result.state),",
     to: "state: setAt(place, state, result.state),",
@@ -1457,6 +1519,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a parent compares the state its child left by ===, which NaN never is of itself",
+    guarantees: ["An input stores what is written, where its place is there"],
     file: "src/compose.ts",
     from: "Object.is(result.state, childState)",
     to: "result.state === childState",
@@ -1464,6 +1527,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a report leaves the defects it reported to be reported again",
+    guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
     from: "[Opt.some(Cause.fromReasons<never>(dies)), { ...register, reported: register.deaths.length }]",
     to: "[Opt.some(Cause.fromReasons<never>(dies)), register]",
@@ -1473,6 +1537,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a death recorded signals nobody",
+    guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
     from: "    else Deferred.doneUnsafe(died, Exit.void)\n",
     to: "",
@@ -1494,6 +1559,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a death recorded while a call applies signals nobody",
+    guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
     from: "      owed = false\n      Deferred.doneUnsafe(died, Exit.void)\n",
     to: "      owed = false\n",
@@ -1537,6 +1603,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   // (`docs/invariants.md`).
   {
     name: "the thunk calls update after the first defect",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "() => Core.arrive(update, before, active, source, message, dead),",
     to: "() => Core.arrive(update, before, active, source, message, () => false),",
@@ -1550,6 +1617,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the thunk drops a message against the starts the fiber of effects made, not the keys of the current state",
+    guarantees: ["Subscriptions follow their keys"],
     file: "src/engine.ts",
     from: "() => Core.arrive(update, before, active, source, message, dead),",
     to:
@@ -1564,6 +1632,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a message sent while another is applied is applied inside it",
+    guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
     from: "    if (applying) return\n",
     to: "",
@@ -1576,6 +1645,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the thunk goes on applying once the end has stopped the engine",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "while (!stopped && pending.length > 0)",
     to: "while (pending.length > 0)",
@@ -1590,6 +1660,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a throw of the program in the thunk reaches whoever sent the message",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "      recordThrown(deaths, where, thrown, details, wrapped)\n      return Opt.none()\n",
     to: "      throw thrown\n",
@@ -1610,6 +1681,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "what the thunk records of a throw has no site",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "const cause = Core.wrapDefects(Cause.die(thrown), where, said, wrapped)",
     to: "const cause = Cause.die(thrown)",
@@ -1626,6 +1698,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a defect of update in the thunk is one of subscriptions",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "      \"update\",\n",
     to: "      \"subscriptions\",\n",
@@ -1640,6 +1713,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a defect of update in the thunk does not say its message",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "      () => ({ on: describeByTag(message) })\n",
     to: "",
@@ -1653,6 +1727,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a defect of onApplied in the thunk is one of onIgnored",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "attempt(\"onApplied\", () => onApplied(applied))",
     to: "attempt(\"onIgnored\", () => onApplied(applied))",
@@ -1665,6 +1740,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a defect of onIgnored in the thunk is one of onApplied",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "attempt(\"onIgnored\", () => onIgnored(ignored))",
     to: "attempt(\"onApplied\", () => onIgnored(ignored))",
@@ -1677,6 +1753,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the options hear a message dropped before update",
+    guarantees: ["Subscriptions follow their keys"],
     file: "src/engine.ts",
     from: "      case \"Dead\":\n      case \"Dropped\":\n        return\n      case \"Ignored\": {\n",
     to: "      case \"Dead\":\n        return\n      case \"Dropped\":\n      case \"Ignored\": {\n",
@@ -1686,6 +1763,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a defect of subscriptions in the thunk is one of update",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "attempt(\"subscriptions\", () => Core.reconcile(active, subscriptions(next.state)))",
     to: "attempt(\"update\", () => Core.reconcile(active, subscriptions(next.state)))",
@@ -1699,6 +1777,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a defect of subscriptions on the first state is one of update",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "attempt(\"subscriptions\", () => Core.reconcile(Core.noneActive",
     to: "attempt(\"update\", () => Core.reconcile(Core.noneActive",
@@ -1712,6 +1791,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a defect of a listener is a command's",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "attempt(\"render\", listener, undefined, rendered)",
     to: "attempt(\"command\", listener, undefined, rendered)",
@@ -1728,6 +1808,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the step goes on past a defect of onApplied",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "if (Opt.isNone(attempt(\"onApplied\", () => onApplied(applied)))) return",
     to: "attempt(\"onApplied\", () => onApplied(applied))",
@@ -1740,6 +1821,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the step goes on past a defect of subscriptions",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "        if (Opt.isNone(reconciled)) return\n",
     to: "",
@@ -1752,6 +1834,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the listeners are told before the new state is current",
+    guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
     from: "        current = next\n",
     to: "        if (changed) tell()\n        current = next\n",
@@ -1765,6 +1848,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a listener stopped is kept",
+    guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
     from: "        listeners.delete(entry)\n",
     to: "",
@@ -1778,6 +1862,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the very same state tells the listeners",
+    guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
     from: "        if (!changed) return queue({ gone: [], fresh: [], commands })\n",
     to: "",
@@ -1790,6 +1875,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the fiber of effects starts the keys of a job before its gone keys are released",
+    guarantees: ["Subscriptions follow their keys", "Nothing outlives what acquired it"],
     file: "src/engine.ts",
     from: "onSome: stopping }))",
     to: "onSome: (fiber) => Effect.forkDetach(stopping(fiber)) }))",
@@ -1802,6 +1888,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the fiber of effects releases the gone keys of a job one after the other",
+    guarantees: ["Subscriptions follow their keys"],
     file: "src/engine.ts",
     from: "      { concurrency: \"unbounded\", discard: true }\n",
     to: "      { discard: true }\n",
@@ -1811,6 +1898,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "each job runs in a fiber of its own",
+    guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
     from: "while (true) yield* perform(yield* Queue.take(queued))",
     to: "while (true) yield* Effect.forkChild(perform(yield* Queue.take(queued)))",
@@ -1823,6 +1911,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the queue of the jobs is bounded",
+    guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
     from: "Queue.unbounded<Job<Message, Command, R, K>>()",
     to: "Queue.bounded<Job<Message, Command, R, K>>(1)",
@@ -1835,6 +1924,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a job starts its commands before it stops its gone keys",
+    guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
     from: "  const perform = Effect.fnUntraced(function*({ gone, fresh, commands }: Job<Message, Command, R, K>) {\n",
     to: "  const perform = Effect.fnUntraced(function*({ gone, fresh, commands }: Job<Message, Command, R, K>) {\n"
@@ -1848,6 +1938,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a step that only stops subscriptions offers no job",
+    guarantees: ["Subscriptions follow their keys"],
     file: "src/engine.ts",
     from: "job.gone.length > 0 || job.fresh.length > 0",
     to: "job.fresh.length > 0",
@@ -1858,6 +1949,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a step that only starts commands offers no job",
+    guarantees: ["Nothing outlives what acquired it"],
     file: "src/engine.ts",
     from: "job.fresh.length > 0 || job.commands.length > 0",
     to: "job.fresh.length > 0",
@@ -1868,6 +1960,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a defect of a command of the engine is a subscription's",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "scopedIn(deaths, \"command\"),",
     to: "scopedIn(deaths, \"subscription\"),",
@@ -1881,6 +1974,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a defect of a subscription of the engine is a command's",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "scopedIn(deaths, \"subscription\", () => ({ key })),",
     to: "scopedIn(deaths, \"command\", () => ({ key })),",
@@ -1893,6 +1987,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a defect of a subscription of the engine does not say its key",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "scopedIn(deaths, \"subscription\", () => ({ key })),",
     to: "scopedIn(deaths, \"subscription\"),",
@@ -1906,6 +2001,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the end of the engine leaves its fibers to the close of their sets",
+    guarantees: ["Nothing outlives what acquired it"],
     file: "src/engine.ts",
     from: "return Effect.forEach(running, stopping, { concurrency: \"unbounded\", discard: true }).pipe(",
     to: "return Effect.void.pipe(",
@@ -1915,6 +2011,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the end of the engine stops its fibers one after the other",
+    guarantees: ["Nothing outlives what acquired it"],
     file: "src/engine.ts",
     from: "Effect.forEach(running, stopping, { concurrency: \"unbounded\", discard: true })",
     to: "Effect.forEach(running, stopping, { discard: true })",
@@ -1924,6 +2021,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the end of the engine does not report what its fibers died of",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "          Effect.andThen(report)\n",
     to: "",
@@ -1933,6 +2031,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a model is made again for the state it was made for",
+    guarantees: ["A model is made only when it is read"],
     file: "src/run.ts",
     from: "Opt.isSome(last) && last.value.state === state ? last.value : make(state)",
     to: "make(state)",
@@ -1943,6 +2042,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a model is taken as made of a state that is undefined before any is made",
+    guarantees: ["A model is made only when it is read"],
     file: "src/run.ts",
     from: "Opt.isSome(last) && last.value.state === state",
     to: "Opt.getOrUndefined(last)?.state === state",
@@ -1952,6 +2052,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a model's defect is not recorded where the model is read",
+    guarantees: ["Nothing ends in silence", "A model is made only when it is read"],
     file: "src/run.ts",
     from: "const defect = Engine.recordThrown(deaths, \"render\", thrown)",
     to: "const defect = thrown",
@@ -1964,6 +2065,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a model's defect is recorded in another site than render",
+    guarantees: ["Nothing ends in silence", "A model is made only when it is read"],
     file: "src/run.ts",
     from: "const defect = Engine.recordThrown(deaths, \"render\", thrown)",
     to: "const defect = Engine.recordThrown(deaths, \"update\", thrown)",
@@ -1977,6 +2079,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "die wraps again the defect a model recorded",
+    guarantees: ["Nothing ends in silence"],
     file: "src/run.ts",
     from: "Engine.recordThrown(deaths, \"render\", thrown, undefined, isThrown)",
     to: "Engine.recordThrown(deaths, \"render\", thrown)",
@@ -1986,6 +2089,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "what a renderer gives to die is a defect of a command",
+    guarantees: ["Nothing ends in silence"],
     file: "src/run.ts",
     from: "Engine.recordThrown(deaths, \"render\", thrown, undefined, isThrown)",
     to: "Engine.recordThrown(deaths, \"command\", thrown, undefined, isThrown)",
@@ -1998,6 +2102,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a listener's site wraps again the defect a model recorded",
+    guarantees: ["Nothing ends in silence", "A model is made only when it is read"],
     file: "src/run.ts",
     from: "    rendered: isThrown,\n",
     to: "",
@@ -2007,6 +2112,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a defect of init is one of update",
+    guarantees: ["Nothing ends in silence"],
     file: "src/run.ts",
     from: "Engine.recordThrown(deaths, \"init\", thrown)",
     to: "Engine.recordThrown(deaths, \"update\", thrown)",
@@ -2054,6 +2160,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a dispatch applies its message after it returns",
+    guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
     from: "    dispatch: (message) => apply(message, Core.fromDispatch),",
     to: "    dispatch: (message) => void queueMicrotask(() => apply(message, Core.fromDispatch)),",
@@ -2076,6 +2183,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a command's answer and a subscription's message are applied after the call that sends them",
+    guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
     from: "(message: Message) => Effect.sync(() => apply(message, source))",
     to: "(message: Message) => Effect.sync(() => void queueMicrotask(() => apply(message, source)))",
@@ -2085,6 +2193,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a listener that throws keeps the others from being told",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "if (listeners.has(listener)) attempt(\"render\", listener, undefined, rendered)",
     to: "if (listeners.has(listener) && Opt.isNone(attempt(\"render\", listener, undefined, rendered))) return",
@@ -2097,6 +2206,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a listener stopped during a notice is still told of it",
+    guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
     from: "if (listeners.has(listener)) attempt(",
     to: "attempt(",
@@ -2109,6 +2219,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a listener added during a notice is told of it",
+    guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
     from: "for (const listener of Array.from(listeners)) {",
     to: "for (const listener of listeners) {",
@@ -2123,6 +2234,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   // offered as the outermost call returns, the `catch` of its loop, and a program started that is run once.
   {
     name: "the end of the run may begin inside a step",
+    guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
     from: "    deaths.hold()\n",
     to: "",
@@ -2135,6 +2247,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the jobs of a call are not offered as it returns",
+    guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
     from: "      offer()\n      deaths.release()\n",
     to: "      deaths.release()\n",
@@ -2148,6 +2261,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "what the loop of apply meets thrown outside the program reaches whoever sent the message",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "      deaths.record(Cause.die(thrown))\n    } finally {",
     to: "      throw thrown\n    } finally {",
@@ -2160,6 +2274,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a defect whose details throw is lost",
+    guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
     from: "    deaths.record(Core.wrapDefects(Cause.die(thrown), where, {}, wrapped))\n    throw failed\n",
     to: "    throw failed\n",

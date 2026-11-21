@@ -13,13 +13,24 @@
 // page, or no such section, or has it more than once: a renamed section shows here, and whoever changes one finds the
 // comments that follow it by its name.
 //
+// It checks the titles the mutations (`tools/mutations/mutations.ts`) give of the items of "What you can rely on", in
+// "Guarantees": it fails on a title the list does not have, and on an item that no mutation names. That is a tripwire
+// for an item added, and no more: a title is written by hand, and says that a check of the item has a mutation, not
+// that each sentence of the item has one. With `--guarantees`, it prints each item with the mutations that name it and
+// the tests that kill them, beside the search (`src/interleaving.test.ts`), which checks each item and is the killer of
+// no mutation (`change-engine`).
+//
 //   bun tools/comments.ts
+//   bun tools/comments.ts --guarantees
 //   bun tools/comments.ts --help     the same, as the command describes itself
 import * as Command from "effect/cli/Command"
+import * as Flag from "effect/cli/Flag"
+import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Path from "effect/Path"
 import { Failed, main, repository } from "./cli.ts"
+import { mutations } from "./mutations/mutations.ts"
 
 // How many sections of a page have the title: its headings, and the list items and paragraphs that start with it in
 // bold.
@@ -30,6 +41,44 @@ const sectionsOf = (lines: ReadonlyArray<string>, title: string) =>
     const [, spaces = "", dash, bold] = /^(\s*)(- )?\*\*(.+?)\*\*/.exec(line) ?? []
     return bold?.replace(/\.$/, "") === title && (dash !== undefined || spaces === "")
   }).length
+
+// The bold titles of the items of "What you can rely on", without their final period.
+const reliedOn = (lines: ReadonlyArray<string>) => {
+  const start = lines.indexOf("## What you can rely on")
+  const end = lines.findIndex((line, at) => at > start && line.startsWith("## "))
+  return start === -1 ? [] : lines.slice(start, end).flatMap((line) => {
+    const [, bold] = /^- \*\*(.+?)\*\*/.exec(line) ?? []
+    return bold === undefined ? [] : [bold.replace(/\.$/, "")]
+  })
+}
+
+const naming = (item: string) => mutations.filter(({ guarantees = [] }) => guarantees.includes(item))
+
+// What the titles of the mutations break, by the items of "What you can rely on".
+const problemsOfMutations = (items: ReadonlyArray<string>) => [
+  ...(items.length === 0 ? ["site/guide/guarantees.md has no item under \"What you can rely on\"."] : []),
+  ...mutations.flatMap(({ guarantees = [], name }) =>
+    guarantees.filter((title) => !items.includes(title)).map((title) =>
+      `tools/mutations/mutations.ts: "${name}" names "${title}", which "What you can rely on" does not have.`
+    )
+  ),
+  ...items.filter((item) => naming(item).length === 0).map((item) =>
+    `site/guide/guarantees.md: no mutation names "${item}": name it in the mutations of the checks that hold it.`
+  )
+]
+
+// Each item with the mutations that name it and the tests that kill them.
+const index = (items: ReadonlyArray<string>) =>
+  items.map((item) =>
+    [
+      `${item}.`,
+      `  The search checks it, killing no mutation. ${naming(item).length} checks with a mutation name it:`,
+      ...naming(item).flatMap(({ file, killedBy, name }) => [
+        `  - ${name} (${file})`,
+        ...killedBy.map(([file, test]) => `      ${file}: ${test}`)
+      ])
+    ].join("\n")
+  ).join("\n\n")
 
 const reference = /^\s*\* @see The guide, "([^"]+)"(?:, "([^"]+)")?\.$/
 
@@ -96,8 +145,15 @@ const problemsOfSkill = (name: string, text: string, pages: ReadonlyMap<string, 
 
 const command = Command.make(
   "comments",
-  {},
-  Effect.fnUntraced(function*() {
+  {
+    guarantees: Flag.Boolean("guarantees").pipe(
+      Flag.withDescription(
+        "Prints each item of \"What you can rely on\" with the mutations that name it and the tests that kill them"
+      ),
+      Flag.withDefault(false)
+    )
+  },
+  Effect.fnUntraced(function*({ guarantees }) {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const root = yield* repository
@@ -116,7 +172,10 @@ const command = Command.make(
     for (const name of yield* fs.glob("skills/*/SKILL.md", { root })) {
       problems.push(...problemsOfSkill(name, yield* read(name), pages))
     }
+    const items = reliedOn(pages.get("Guarantees") ?? [])
+    problems.push(...problemsOfMutations(items))
     if (problems.length > 0) return yield* new Failed({ message: problems.join("\n") })
+    if (guarantees) yield* Console.log(index(items))
   })
 )
 

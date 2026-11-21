@@ -4,7 +4,9 @@
 of Opus 5.5. Six readers of Sonnet 5.5 read the pages and the tests. The session checked every type promise, every
 candidate of the step, and part of the other gaps on the tests' bodies. A reviewer of Opus 5.5 checked the rest. No test
 was written, and no sentence of the guide changed. Step 12 wrote the tests, and its decisions are at the end ("What step
-12 made of it"). Step 13 weighs a check that keeps a guarantee tied to its tests.
+12 made of it"). Step 13 weighed a check that keeps a guarantee tied to its tests: on a second opinion of Fable 5.2,
+the owner took it on 21 November 2026 as an index and a tripwire, not as a proof that each guarantee is checked (the
+`guarantees` of a mutation, checked by `bun run comments` and printed by `bun run guarantees`).
 
 ## In short
 
