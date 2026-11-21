@@ -26,9 +26,9 @@ and of the JavaScript engine, each with what checks it, is [`docs/premises.md`](
    and a mutation that takes the check out, naming that test. The thunk that applies a message runs on the sender's
    stack, and has no such point inside it; the points are between it and the fiber of effects, and in the testing
    tools between a call's thunk and its job. A thunk writes first and offers or completes last: keep that order. In the
-   engine, the jobs are offered and `died` completed only as the outermost `apply` returns, which mutations hold; in
-   the testing tools no mutation holds it, since a fiber resumed on the stack of whoever completes its `Deferred` is no
-   premise.
+   engine, the jobs are offered and `died` completed only as the outermost `apply` returns, and `drive` wakes its waits
+   there (`settled`), which mutations hold; their killers rest on a fiber resumed on the stack of whoever completes its
+   `Deferred`, a premise of the tests alone (`docs/premises.md`), and the orders of `rehearse`'s thunks have none.
 4. When the engine or one tool changes, keep the others in step: `src/testing/contract.test.ts` gives the same
    program and inputs to each tool and to the run.
 
@@ -71,7 +71,7 @@ checked under `test/scheduled.test_scheduler.ts` in both of its modes of resumpt
 order Effect's own scheduler gives, but for where it preempts, and so reachable when the program runs. One under
 `'queued'` alone (the default) rests on a fiber resumed by a `Deferred` or a `Fiber.join` waiting for its turn, where
 Effect 4.1.4 resumes it at once on the stack of the fiber that completes it: still a finding, since that inline
-resumption is read only in the source, unless it is added as a premise with a test that fails without it. A finding is
+resumption is a premise of the tests alone (`docs/premises.md`), and no guarantee rests on it. A finding is
 listed in `ROADMAP.md` with its seed and path until a fix leaves a deterministic test of it; no mutation names it among
 its killers.
 

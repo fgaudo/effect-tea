@@ -61,6 +61,18 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   the effect starts immediately; that it runs on the stack of the fiber that runs it, with no yield until it first
   waits, is read in the source. Its tests: "a fiber forked with FiberSet.run or FiberMap.run runs on the stack of the
   fiber that runs it until it first waits", of each, which fail with `startImmediately: false`.
+- **A fiber that waits on a `Deferred` runs on the stack of whoever completes it, until it waits again**, a fiber or
+  plain code. No guarantee of the guide rests on it, only killers of mutations: the engine offers its jobs and
+  completes `died` once the outermost `apply` has returned, and `drive` wakes its waits there too (`settled` of
+  `Engine.build`), so that what they wake runs outside the step wherever Effect resumes it, and a test tells that they
+  do only where it is resumed inside the step under the mutation. "never begins inside a step: a defect a listener
+  throws ends the run once every listener of the step is told" (`start.test.ts`) and "returns once update has seen its
+  message, as it promises" (`drive.test.ts`), the killers of "the end of the run may begin inside a step" and "drive
+  wakes its waits inside the step", rest on it. Should it fall, the library stays correct, and `bun run mutations`
+  reports those mutations as survivors. Read in the source: `Deferred.doneUnsafe` calls each waiter's `resume`, which
+  runs the fiber's loop on the caller's stack (`internal/effect.ts`). Its test: "a fiber that waits on a Deferred runs
+  on the stack of whoever completes it, until it waits again", which fails with the `Deferred` completed by a fiber of
+  its own.
 - **Code that a fiber runs on the stack of the fiber that forks it sees the forked fiber as its own**, through
   `Effect.withFiber`, `Fiber.getCurrent` and `Effect.fiber` alike, from its first step on; and no stable API gives a
   fiber the one that forked it. This is how the root of a fiber the run forks (`rootedIn` in `shell.ts`) knows that an

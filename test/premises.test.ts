@@ -175,6 +175,31 @@ test("a fiber forked with startImmediately runs on the stack of the fiber that f
   expect(steps).toEqual(["before the wait", "forked", "after the wait"])
 })
 
+// Completed first by plain code, as `drive` completes its waits, then by a fiber.
+test("a fiber that waits on a Deferred runs on the stack of whoever completes it, until it waits again", async () => {
+  const steps = await Effect.runPromise(Effect.gen(function*() {
+    const steps: Array<string> = []
+    const first = yield* Deferred.make<void>()
+    const second = yield* Deferred.make<void>()
+    const fiber = yield* Effect.forkChild(
+      Deferred.await(first).pipe(
+        Effect.andThen(Effect.sync(() => steps.push("resumed"))),
+        Effect.andThen(Deferred.await(second)),
+        Effect.andThen(Effect.sync(() => steps.push("resumed again")))
+      ),
+      { startImmediately: true }
+    )
+    steps.push("completing")
+    Deferred.doneUnsafe(first, Exit.void)
+    steps.push("completed")
+    yield* Deferred.succeed(second, undefined)
+    steps.push("completed again")
+    yield* Fiber.join(fiber)
+    return steps
+  }))
+  expect(steps).toEqual(["completing", "resumed", "completed", "resumed again", "completed again"])
+})
+
 describe("a fiber forked with FiberSet.run or FiberMap.run runs on the stack of the fiber that runs it until it first waits", () => {
   /**
    * Forks, with `fork`, a call wrapped as the engine wraps `runCommand` and a subscription (a scope, a cleanup), which

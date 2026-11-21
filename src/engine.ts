@@ -245,6 +245,11 @@ type Config<State, Message, Command, R, K> =
      * and taken as they are: those of a model, which `start` records where it is read. By default, none.
      */
     rendered?: (defect: unknown) => boolean
+    /**
+     * Called last as the outermost `apply` returns, once its jobs are offered and the register released: where a
+     * testing tool wakes what waits on a new state, so that nothing it wakes runs inside a step. It throws nothing.
+     */
+    settled?: () => void
     init: Step<State, Command>
     update: Update<State, Message, Command>
     runCommand: RunCommand<Command, Message, R>
@@ -259,6 +264,7 @@ type Config<State, Message, Command, R, K> =
 export const build = <State, Message, Command, R, K>({
   deaths,
   rendered = () => false,
+  settled = () => undefined,
   init: first,
   update,
   runCommand: interpret,
@@ -390,6 +396,7 @@ export const build = <State, Message, Command, R, K>({
       // nor the end begins inside a step, wherever a fiber that waits is resumed.
       offer()
       deaths.release()
+      settled()
     }
   }
   const sending = (source: Core.Source<K>) => (message: Message) => Effect.sync(() => apply(message, source))

@@ -106,7 +106,8 @@ type Parts<State, Model, Message, R> = Readonly<{
 const partsOf = <State, Model, Message, Command, RC, RS, Flags>(
   program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
   options: RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>,
-  deaths: Shell.Deaths
+  deaths: Shell.Deaths,
+  settled: () => void
 ): Parts<State, Model, Message, RC | RS> => {
   const { flags, ...runOptions } = options
   // The defects the handle threw to a reader, recorded where they were thrown: those of `makeModel`, and that of an
@@ -146,6 +147,7 @@ const partsOf = <State, Model, Message, Command, RC, RS, Flags>(
     ...runOptions,
     deaths,
     rendered: isThrown,
+    settled,
     init,
     update: program.update,
     runCommand: runCommandOf(program),
@@ -176,15 +178,17 @@ const partsOf = <State, Model, Message, Command, RC, RS, Flags>(
  * `start`, with its options as one value, recording what the program dies of in `deaths`: for a testing tool, which
  * passes the options on as it got them, and reads what the fibers died of. `began` is called once the run has started
  * the effects of the first state, on the run's own stack: a fiber forked for the run starts when the scheduler says,
- * and one interrupted before it begins leaves the program as it was, not stopped.
+ * and one interrupted before it begins leaves the program as it was, not stopped. `settled` is called as each call
+ * that applies messages returns, once its step is done (`Engine.build`).
  */
 export const startWith = <State, Model, Message, Command, RC, RS, Flags>(
   program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>,
   options: RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>,
   deaths: Shell.Deaths,
-  began: () => void = () => undefined
+  began: () => void = () => undefined,
+  settled: () => void = () => undefined
 ): Started<Model, Message, Exclude<RC | RS, Scope.Scope>> => {
-  const { app, engine, end } = partsOf(program, options, deaths)
+  const { app, engine, end } = partsOf(program, options, deaths, settled)
   // The effects of the states, until a defect: the scope's end stops the engine, interrupts its fibers and dies of
   // what they died of. With no engine, `init` threw, and the run dies of that at once.
   const effects: Effect.Effect<never, never, Exclude<RC | RS, Scope.Scope>> = engine === undefined

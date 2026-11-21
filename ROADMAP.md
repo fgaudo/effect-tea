@@ -21,13 +21,6 @@ below are of the review of the premises of 21 November 2026 (step 5), grouped by
 as [`premise-review`](.agents/skills/premise-review/SKILL.md) says. Each `test.failing` was run without its mark, and
 fails at its assertion.
 
-2. **`drive`'s `send`, made by a wait that a step wakes, returns before `update` has seen its message.** `drive`'s
-   listener completes the waits' `Deferred` inside the step; Effect 4.1.4 resumes the waiting fiber on that stack, so
-   its `send` is a dispatch during the step, kept for after it. It breaks the guide's "when `send` returns, `update`
-   has seen the message", and `docs/invariants.md`'s "no fiber is woken inside a step". Test:
-   `src/testing/drive.test.ts`, "drive's send, made by a wait that a step wakes" › "returns once update has seen its
-   message, as it promises". The same resumption as point 3 of the seven, under "Waiting for the owner": deciding that
-   point decides how this is fixed (the waits woken once the outermost `apply` returns, or a premise to rest on).
 3. **With the bridge to React, a defect of `makeModel` reaches the error boundary and `reportError` both**, when the
    end of the run waits for a release: React's render throws it to the boundary, which unmounts `Host`, and the run
    then ends with that very defect, which `Host` gives to `reportError`. Test: `bridges/react.test.ts`, "Host" › "a run
@@ -79,6 +72,10 @@ form before the release. What else it leaves, each to do or decide before the re
   its events before the browser's next task. "Writing a bridge" and `docs/invariants.md` rest on it; the bridge's tests
   take every render with `flushSync`. The bridges' reviewer wrote a test of React alone that passes on happy-dom. It
   needs the owner's consent, as `docs/premises.md` says.
+- **The form of the fix of `drive`'s `send`, looked for in `rehearse`.** `drive` now wakes its waits once the
+  outermost `apply` has returned. The reviewer of the testing tools suspected the same form in `rehearse`, unchecked: a
+  call of the scenario resumed inside `hearHeld`, or inside a job, that applies a message before the next held one. A
+  scenario that waits on `hearNext` and sends at once decides it: a `test.failing` and an open problem, or nothing.
 - **Sentences that say otherwise than the code**, listed in the reports: the reason for the mark (`core.ts`,
   `docs/invariants.md`), `forkChild` in `rootedIn`, the first `run` of "untraced", the root without a killer, `drive`'s
   options "of `run`", the frames of `drive.test.ts` and `contract.test.ts`, `refresh` in `bridge.test_suite.ts`,
@@ -234,12 +231,6 @@ Where a step above would answer a point below, the point stays here until the st
 - **Seven points of a review of the design.** By the session of Fable 5.2 that briefed and verified the stages of
   the same record, asked by the owner on 20 November 2026 what does not fit. Reasoned from the code read for those
   reviews, and not run, but where a point says so. Each is to be weighed.
-  3. **A fiber resumed on the stack of whoever completes its `Deferred` is no premise, and shapes code of the testing
-  tools.** The counter of notices in `drive`, and two killers that work only through it (stages 1 and 2), exist for
-  a behaviour the library refuses to rest on. They have no mutation, which `docs/premises.md` warns of ("never made
-  unneeded by code of the library's written for it alone"). With a dispatch that applies at once it is no edge any
-  more. To weigh: adopt it as a premise, with its test, so that those guards get killers. It reverses E3 of the
-  record, which the same session proposed.
   4. **The pure half of a step is written twice**, in `applyOne` (`src/engine.ts`) and in `apply`
   (`src/testing/rehearse.ts`): `arrive`, the state, `reconcile` and the stop at a defect, in the same order.
   To weigh: one transition of `core.ts` for both, as `shared-core.md` did for `arrive` and `reconcile`.

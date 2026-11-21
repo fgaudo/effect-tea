@@ -398,13 +398,15 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   told once the new state is current, and the jobs are offered and `died` completed in one place, the `finally` of the
   outermost `apply`, once every step of the call is written whole and every listener told, so no fiber is woken inside
   a step, wherever a fiber that waits is resumed; the hold of the register has a mutation, and that the jobs are
-  offered there has one too. In each thunk of `rehearse`, the state, its keys, the ledger's hearings and the model are
-  written before the job is offered; in `drive`, the listener reads the model before it wakes the waits, it
-  subscribes before its first read and keeps only the read of the latest notice, and `waitFor` takes what it waits on
-  before it reads the model. So a fiber that the offer, or the completion of a `Deferred`, wakes on that stack finds
-  the step written whole. That a fiber is resumed on the stack of whoever completes its `Deferred` is no premise
-  ([`synchronous-dispatch.md`](records/synchronous-dispatch.md), E3): these orders of `rehearse` and `drive` have no
-  mutation, since no deterministic test reaches them but through that resumption. That the effects of a step start
+  offered there has one too. `drive` wakes its waits in the same place (`settled` of `Engine.build`, called last in
+  that `finally`), having read the model in its listener, so that a `send` a wait makes is applied before it returns:
+  "returns once update has seen its message, as it promises" (`drive.test.ts`), with a mutation. It subscribes before
+  its first read, and `waitFor` takes what it waits on before it reads the model. In each thunk of `rehearse`, the
+  state, its keys, the ledger's hearings and the model are written before the job is offered, so a fiber that the
+  offer, or the completion of a `Deferred`, wakes on that stack finds the step written whole: that order has no
+  mutation, since no deterministic test reaches it but through the resumption below. A fiber resumed on the stack of
+  whoever completes its `Deferred` is a premise of the tests alone (`premises.md`): the killers of the mutations that
+  wake inside a step rest on it, in `start.test.ts` and `drive.test.ts`, and no guarantee does. That the effects of a step start
   only once the call that sent its message has returned rests on the queue resuming the fiber of effects in a task of
   the scheduler, which is no premise either: the guide describes it and does not promise it, and "a dispatch returns
   before the commands of its step start, while the fiber of effects waits" (`start.test.ts`) is its alarm, the killer

@@ -2619,10 +2619,34 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
+    name: "drive wakes its waits inside the step",
+    file: "src/testing/drive.ts",
+    from: "    latest = app.model()\n    told = true\n  })",
+    to: "    latest = app.model()\n    told = true\n    settled()\n  })",
+    killedBy: [
+      [
+        "src/testing/drive.test.ts",
+        "returns once update has seen its message, as it promises"
+      ]
+    ]
+  },
+  {
+    name: "the engine never tells whoever runs it that a call has applied its messages",
+    file: "src/engine.ts",
+    from: "      deaths.release()\n      settled()\n",
+    to: "      deaths.release()\n",
+    killedBy: [
+      [
+        "src/testing/drive.test.ts",
+        "returns once update has seen its message, as it promises"
+      ]
+    ]
+  },
+  {
     name: "drive goes on after a defect of the program until the scenario ends",
     file: "src/testing/drive.ts",
-    from: "      deaths,\n      began\n    )",
-    to: "      { ...deaths, died: Effect.never },\n      began\n    )",
+    from: "      deaths,\n      began,\n      settled\n    )",
+    to: "      { ...deaths, died: Effect.never },\n      began,\n      settled\n    )",
     killedBy: [
       ["src/testing/drive.test.ts", "a defect of the program fails the scenario"],
       [

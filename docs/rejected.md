@@ -98,8 +98,8 @@ answer, and saying so in the proposal.
   model's defect recorded where the model is read, its site taking it as it is (E6): no fiber is made for a defect, and
   `model()` asks nothing of the runtime. Nothing rests on the second: the engine is correct either way, and the guide
   describes, and does not promise, that the end of the run may begin inside a dispatch. The record names no condition
-  to reopen the first. Of the second, point 3 of the review of the design in `ROADMAP.md`, waiting for the owner,
-  weighs adopting it, with its test, so that the orders written for it, which have no mutation, get killers.
+  to reopen the first. The second was adopted on 21 November 2026, as a premise of the tests alone (`premises.md`):
+  the killers of the mutations that wake a fiber inside a step rest on it, and no guarantee does.
 - **A bound on how far the effects lag behind the state.** Reasoned, 20 November 2026, in the plan of
   [`synchronous-dispatch.md`](records/synchronous-dispatch.md) (E5), the owner deciding the same day: the effects of
   the states, their subscriptions stopped and started and their commands started, may lag without a bound. A step that

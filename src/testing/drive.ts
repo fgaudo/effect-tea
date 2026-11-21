@@ -64,38 +64,39 @@ type Shown<Model, Message> = Readonly<{
 
 // Plain code: the program started, the handle there before any fiber, so that the driver's dispatch is the program's
 // from the scenario's first step, and `init` has been called before it begins, as in `rehearse`. Told of every state,
-// `drive` reads the model of each one, in the listener, on whatever stack made the state, and wakes the waits last, so
-// that a wait it wakes on that stack finds the model read. A read of the model may wake, on this stack, a fiber that
-// makes a newer state, and the read of that one ends first: only the read of the latest notice is kept. A model that
-// throws is recorded once, in `'render'`, where it is read.
+// `drive` reads the model of each one, in the listener, on whatever stack made the state, and wakes the waits only once
+// the call that applied it has returned, its step done, as the engine offers its jobs: so a wait it wakes runs outside
+// the step, wherever Effect resumes it, and a `send` it makes is applied before it returns. A model that throws is
+// recorded once, in `'render'`, where it is read.
 const driven = <Model, Message, R>(
-  starting: (deaths: Deaths, began: () => void) => Started<Model, Message, R>
+  starting: (deaths: Deaths, began: () => void, settled: () => void) => Started<Model, Message, R>
 ) => {
   // What the program's fibers die of, the defects of `makeModel` a read meets included, as `drive` ends with it.
   const deaths = makeDeaths(() => true)
   const running = Deferred.makeUnsafe<void>()
+  let latest: Model | undefined
+  let changed = Deferred.makeUnsafe<void>()
+  // Whether a state was made since the waits were last woken.
+  let told = false
+  const settled = () => {
+    if (!told) return
+    told = false
+    const woken = changed
+    changed = Deferred.makeUnsafe<void>()
+    Deferred.doneUnsafe(woken, Effect.void)
+  }
   // Said once the run has started the effects of the first state, unless the program has died by then: of `init`, of
   // its first keys, of its first model, or of what the first state started. The check and the notice are one thunk.
   const app = starting(deaths, () => {
     if (!deaths.dead()) Deferred.doneUnsafe(running, Effect.void)
-  })
-  let notices = 0
-  let latest: Model | undefined
-  let changed = Deferred.makeUnsafe<void>()
-  const read = () => {
-    const notice = ++notices
-    const model = app.model()
-    if (notice === notices) latest = model
-  }
+  }, settled)
   // Subscribed before the first read, so that no state is missed.
   const unsubscribe = app.subscribe(() => {
-    read()
-    const woken = changed
-    changed = Deferred.makeUnsafe<void>()
-    Deferred.doneUnsafe(woken, Effect.void)
+    latest = app.model()
+    told = true
   })
   try {
-    read()
+    latest = app.model()
   } catch {
     // Recorded where the model was read, or by `init`: the run dies of it.
   }
@@ -161,14 +162,16 @@ export const drive = Effect.fnUntraced(function*<
 ): Effect.fn.Return<A, E, Exclude<RC | RS, Scope.Scope> | RT> {
   const { deaths, began, now, run, unsubscribe } = driven<Model, Message, Exclude<RC | RS, Scope.Scope>>((
     deaths,
-    began
+    began,
+    settled
   ) =>
     startWith(
       program,
       // The rest of the options keeps the flags the parameter's type requires.
       options as RunOptions<State, Message, Command>,
       deaths,
-      began
+      began,
+      settled
     )
   )
   // The first model `select` maps to `Some`, the current one or a later one: what the waits wait on is taken before

@@ -537,7 +537,7 @@ describe("drive's send, made by a wait that a step wakes", () => {
   }
 
   // The waiting fiber is forked at once, so that it waits before the scenario dispatches.
-  test.failing("returns once update has seen its message, as it promises", async () => {
+  test("returns once update has seen its message, as it promises", async () => {
     const after = await Effect.runPromise(drive(
       row,
       Effect.fnUntraced(function*(driver) {
