@@ -27,24 +27,25 @@ import { reject } from "./update.ts"
 
 // The search of the interleavings, in which a dispatch applies its message before it returns. Run apart:
 // `bun run interleavings`.
-// The program is a list of rows by id, from a pool of two so that ids come back. Each row is born anew when
-// it is added, works with a command that acquires something and completes when the scheduler says (working mutes the
-// row, so that one step both stops a subscription and starts a command), can be poked, which leaves it as it is, and,
-// while it listens, hears two ticks from a subscription that then stays open, ends with a last message, or dies; each
-// time it starts listening again is a new session. The list can clear all its rows at once, stopping their
-// subscriptions together. The list has a field, which is the place of one of two inputs, a note or a title, and which a
-// swap turns into the other's place, the text kept. The user types into the element of that field, which shows what the
-// current model holds, as a controlled element does, or writes from a model read before, as its element would have;
-// clearing empties the field, and while it holds a text the list searches for it, under a key of that text. The
-// program is started by plain code, and the user may act before its run begins. The renderer is plain code too: a
-// listener of the handle, told of each new state, which reads the model or not, as the fates say, and now and then
-// sends a poke from inside the step that told it. What the user does, when the run begins, when commands complete,
-// when ticks arrive and when releases end is all in the hands of the scheduler of the tests
-// (`test/scheduled.test_scheduler.ts`), which may also make any fiber yield between two of its steps; what is drawn
-// beside it (`Fates`) says which subscriptions end or die, which releases take time or die, which commands die, which
-// steps `onApplied` and `onIgnored` die in, whether the renderer stops listening, and whether it dies: throwing from
-// its listener, or giving what it threw to `die`, as one that draws outside a listener does. To die is to die of a
-// defect, or, for a command or a subscription, to interrupt oneself, which the run takes for one.
+// The program is a list of rows by id, from a pool of two so that ids come back, which starts with none, one or both
+// of them. Each row is born anew when it is added, works with a command that acquires something and completes when
+// the scheduler says (working mutes the row, so that one step both stops a subscription and starts a command), can be
+// poked, which leaves it as it is, and, while it listens, hears two ticks from a subscription that then stays open,
+// ends with a last message, or dies; each time it starts listening again is a new session. The list can clear all its
+// rows at once, stopping their subscriptions together. The list has a field, which is the place of one of two inputs,
+// a note or a title, and which a swap turns into the other's place, the text kept. The user types into the element of
+// that field, which shows what the current model holds, as a controlled element does, or writes from a model read
+// before, as its element would have; clearing empties the field, and while it holds a text the list searches for it,
+// under a key of that text. The program is started by plain code, and the user may act before its run begins. The
+// renderer is plain code too: a listener of the handle, told of each new state, which reads the model or not, as the
+// fates say, and now and then sends a poke from inside the step that told it. What the user does, when the run
+// begins, when commands complete, when ticks arrive and when releases end is all in the hands of the scheduler of the
+// tests (`test/scheduled.test_scheduler.ts`), which may also make any fiber yield between two of its steps; what is
+// drawn beside it (`Fates`) says how many rows the list starts with, which subscriptions end or die, which releases
+// take time or die, which commands die, which steps `onApplied` and `onIgnored` die in, whether the renderer stops
+// listening, and whether it dies: throwing from its listener, or giving what it threw to `die`, as one that draws
+// outside a listener does. To die is to die of a defect, or, for a command or a subscription, to interrupt oneself,
+// which the run takes for one.
 // The run runs in a span of whoever runs it, with debug logs enabled, and the program logs and opens spans of its own.
 
 type Id = 1 | 2
@@ -111,6 +112,11 @@ type Hearing = "quick" | "throws"
 
 /** What is drawn beside the scheduler, each list read in a loop by a number that only the program's data gives. */
 type Fates = Readonly<{
+  /**
+   * How many rows the list starts with, from the first id: a list that starts with both reaches far more often a step
+   * that stops two subscriptions at once, as `Clear` does, while they hold what they acquired.
+   */
+  rows: number
   endings: ReadonlyArray<Ending>
   releases: ReadonlyArray<Release>
   answers: ReadonlyArray<Answer>
@@ -140,6 +146,11 @@ const fateOf = <A>(fates: ReadonlyArray<A>, index: number): A => fates[index % f
 const death = fc.constantFrom<Death>("defect", "interrupts", "joins", "isInterrupted")
 
 const fates: fc.Arbitrary<Fates> = fc.record({
+  rows: fc.oneof(
+    { arbitrary: fc.constant(0), weight: 2 },
+    { arbitrary: fc.constant(1), weight: 1 },
+    { arbitrary: fc.constant(2), weight: 1 }
+  ),
   endings: fc.array(
     fc.oneof(
       { arbitrary: fc.constant<Ending>("stays"), weight: 3 },
@@ -341,6 +352,23 @@ const later = <A>(value: A) => Effect.as(Effect.yieldNow, value)
 const waits = (fates: Fates, index: number) =>
   Effect.replicateEffect(later(undefined), fateOf(fates.waits, index), { discard: true })
 
+const initial: Row = {
+  id: 1,
+  born: 0,
+  working: false,
+  attempts: 0,
+  listening: true,
+  session: 1,
+  heard: 0,
+  finished: false
+}
+
+/** The state the list starts with: as many rows as the fates say, each born anew, as an added one is. */
+const initialStateOf = (fates: Fates): ListState => {
+  const rows = ids.slice(0, fates.rows).map((id, index) => ({ id, row: { ...initial, id, born: index + 1 } }))
+  return { rows, born: rows.length, field: emptyField }
+}
+
 const makeList = (fates: Fates, events: Array<Event>) => {
   const ticking = (id: Id, born: number, session: number): Subscription<RowMessage, never> => {
     const key = listener(born, session)
@@ -393,16 +421,6 @@ const makeList = (fates: Fates, events: Array<Event>) => {
       Effect.acquireRelease(Effect.sync(() => events.push({ _tag: "Acquired", listener: key, id })), () => release)
         .pipe(Effect.tap(() => Effect.logDebug("Listening", key)), Effect.as(body))
     ).pipe(Channel.onExit(endsAs(events, `subscription ${key}`)))
-  }
-  const initial: Row = {
-    id: 1,
-    born: 0,
-    working: false,
-    attempts: 0,
-    listening: true,
-    session: 1,
-    heard: 0,
-    finished: false
   }
   const row: Program<
     { state: Row; model: RowModel; message: RowMessage; command: RowCommand; commandServices: Scope.Scope }
@@ -479,7 +497,7 @@ const makeList = (fates: Fates, events: Array<Event>) => {
     )
   const List = program<{ state: ListState; message: Own }>()
   return List.make({
-    init: () => ({ state: { rows: [], born: 0, field: emptyField } }),
+    init: () => ({ state: initialStateOf(fates) }),
     children: {
       Rows: List.childById(row, {
         get: (state, id: Id) => Opt.map(Arr.findFirst(state.rows, (entry) => entry.id === id), (entry) => entry.row),
@@ -714,7 +732,7 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
   const last = fiber.pollUnsafe() !== undefined ? undefined : app.model()
   yield* Fiber.interrupt(fiber)
   const exit = yield* Fiber.await(fiber)
-  return { exit, events, settled, last, made, stateOf, caller }
+  return { exit, events, settled, last, made, stateOf, caller, first: initialStateOf(fates) }
 })
 
 type Outcome = Effect.Success<ReturnType<typeof runScenario>>
@@ -727,13 +745,11 @@ const isWrite = (message: Message): message is Write => message._tag === "Note" 
 const applied = (events: ReadonlyArray<Event>) =>
   events.flatMap((event) => event._tag === "Applied" ? [event.applied] : [])
 
-const initialState: ListState = { rows: [], born: 0, field: emptyField }
+/** The state after the first `count` events: the last that a message made, or `first`, the one the list began with. */
+const stateAfter = (first: ListState, events: ReadonlyArray<Event>, count = events.length): ListState =>
+  applied(events.slice(0, count)).at(-1)?.after ?? first
 
-/** The state after the first `count` events: the last that a message made, or the first. */
-const stateAfter = (events: ReadonlyArray<Event>, count = events.length): ListState =>
-  applied(events.slice(0, count)).at(-1)?.after ?? initialState
-
-const finalState = (events: ReadonlyArray<Event>): ListState => stateAfter(events)
+const finalState = (first: ListState, events: ReadonlyArray<Event>): ListState => stateAfter(first, events)
 
 /**
  * The very state after the first `count` events, by its identity: the first state is the one the first message heard
@@ -875,7 +891,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
   test("the scenarios reach every message, every way of dying, and what each property checks", () => {
     const seed = Math.floor(Math.random() * 2 ** 31)
     const reached = new Set<string>()
-    property(({ events, made: models }) => {
+    property(({ events, first, made: models }) => {
       events.forEach((event, index) => {
         if (Opt.isSome(answerOf(event)) && given(events.slice(0, index)).has(Opt.getOrThrow(answerOf(event)))) {
           reached.add("an answer after its release")
@@ -883,7 +899,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
         if (event._tag === "Spanned") reached.add("a span of the program")
         if (event._tag === "Reentering") reached.add("a message a listener sends")
         if (event._tag === "Typed") reached.add("a write typed into the element")
-        if (event._tag === "Acquired" && !listeners(stateAfter(events, index)).includes(event.listener)) {
+        if (event._tag === "Acquired" && !listeners(stateAfter(first, events, index)).includes(event.listener)) {
           reached.add("a subscription started once its key had gone")
         }
         if (event._tag !== "Applied") return
@@ -1145,7 +1161,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
   }, 120_000)
 
   test("a search runs for the text of the field while it holds one, and starts once for each text it holds", () => {
-    property(({ events, settled }) => {
+    property(({ events, first, settled }) => {
       const broken: Array<string> = []
       events.forEach((event, index) => {
         if (event._tag !== "Searching") return
@@ -1153,13 +1169,13 @@ describe("interleavings of the user, commands and subscriptions", () => {
       })
       expect(broken).toEqual([])
       if (deaths(events).length > 0) return
-      const { text } = finalState(events).field
+      const { text } = finalState(first, events).field
       expect(searches(events, settled)).toEqual(text === "" ? [] : [text])
     })
   }, 120_000)
 
   test("a subscription that ends is heard ending, and never starts again while its key stays", () => {
-    property(({ events, settled }) => {
+    property(({ events, first, settled }) => {
       const starts = new Map<string, number>()
       for (const event of events) {
         if (event._tag === "Acquired") starts.set(event.listener, (starts.get(event.listener) ?? 0) + 1)
@@ -1174,7 +1190,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
         )
       )
       const ended = events.slice(0, settled).flatMap((event) => event._tag === "Ended" ? [event.listener] : [])
-      const listening = listeners(finalState(events))
+      const listening = listeners(finalState(first, events))
       expect(ended.filter((key) => listening.includes(key) && !heard.has(key))).toEqual([])
     })
   }, 120_000)
@@ -1248,11 +1264,11 @@ describe("interleavings of the user, commands and subscriptions", () => {
   }, 120_000)
 
   test("once everything has happened, the subscriptions holding resources are those of listening rows", () => {
-    property(({ events, settled }) => {
+    property(({ events, first, settled }) => {
       if (deaths(events).length > 0) return
       const ended = new Set(events.slice(0, settled).flatMap((event) => event._tag === "Ended" ? [event.listener] : []))
       expect(Array.from(holding(events, settled)).sort()).toEqual(
-        listeners(finalState(events)).filter((key) => !ended.has(key))
+        listeners(finalState(first, events)).filter((key) => !ended.has(key))
       )
     })
   }, 120_000)
@@ -1269,9 +1285,9 @@ describe("interleavings of the user, commands and subscriptions", () => {
   }, 120_000)
 
   test("once everything has happened, every operation has ended and a model read is of the last state", () => {
-    property(({ events, last, stateOf }) => {
+    property(({ events, first, last, stateOf }) => {
       if (deaths(events).length > 0) return
-      const final = finalState(events)
+      const final = finalState(first, events)
       expect(final.rows.filter(({ row }) => row.working)).toEqual([])
       expect(last === undefined ? undefined : stateOf.get(last)).toBe(sameStateAfter(events, stateOf))
     })
