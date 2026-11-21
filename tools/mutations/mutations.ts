@@ -2953,8 +2953,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the React bridge's Host does not throw what its run died of",
     file: "bridges/react.ts",
-    from: "  if (died !== undefined) throw died.error\n",
-    to: "",
+    from: "    thrown.current = died\n    throw died.error\n",
+    to: "    thrown.current = died\n",
     killedBy: [
       ["bridges/react.test.ts", "throws its ProgramDefect as Host renders, for the nearest error boundary"]
     ]
@@ -2980,8 +2980,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the React bridge's Host does not report what its run dies of once unmounted",
     file: "bridges/react.ts",
-    from: "        else reportError(error)\n",
-    to: "",
+    from: "          } else reportError(error)\n",
+    to: "          }\n",
     killedBy: [
       ["bridges/react.test.ts", "gives what it dies of once Host has unmounted to reportError"]
     ]
@@ -2989,8 +2989,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the React bridge's Host sets the death of its run once unmounted",
     file: "bridges/react.ts",
-    from: "        if (mounted) setDied({ error })",
-    to: "        if (true) setDied({ error })",
+    from: "          if (mounted) {\n",
+    to: "          if (true) {\n",
     killedBy: [
       ["bridges/react.test.ts", "gives what it dies of once Host has unmounted to reportError"]
     ]
