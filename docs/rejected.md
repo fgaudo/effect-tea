@@ -136,6 +136,11 @@ answer, and saying so in the proposal.
 - **The shared core in a smaller form**: the guard alone, a core for `rehearse` alone, and the register of deaths as
   part of the step's state. Reasoned; the document records no spike of them. [`shared-core.md`](records/shared-core.md),
   "Alternatives".
+- **One engine under the run and the testing tools, in other forms**: the engine generic in what performs a job, with
+  a performer for the run, one for `rehearse` and one for `simulate`, and one transition of `core.ts` for the pure half
+  of a step alone. Reasoned, 21 November 2026, beside the spike of the form the owner took, where the engine is given
+  what the fiber of a command and the fiber of a subscription run; neither was spiked.
+  [`one-engine.md`](records/one-engine.md), "The form".
 - **Other caches of a parent's lifted subscriptions, for children that share one state object.** Spiked, 15
   November 2026, on `compose.ts` in the working tree and in a copy, neither kept; measured with `bun run bench`, per
   change of state for a thousand children, in objects of their own and sharing one, against 0.22 and 1.31 ms before.

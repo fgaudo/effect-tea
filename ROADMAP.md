@@ -8,12 +8,13 @@ what would reopen it. How an item came to be, and what was weighed for it, goes 
 [`docs/records/`](docs/records), not here. The order below comes from two of them:
 [`adoption.md`](docs/records/adoption.md), the owner's decision that the library is meant to be adopted by others, and
 [`architecture-review.md`](docs/records/architecture-review.md), a review of the whole project that the owner asked
-for on 20 November 2026 and asked to be written here in the order it advises. Steps 1 to 4, 7 and 8 are its parts 1
-to 6. Step 13 comes from a reading of the guide's promises against the tests, which the owner asked for on 21 November
-2026, and whose record is [`promises-and-tests.md`](docs/records/promises-and-tests.md). Step 16 comes from the
-owner's question, on 21 November 2026, of why the findings api-1, api-2 and api-4 of
-[`library-review.md`](docs/records/library-review.md) passed the inference matrix and the tests. A step done leaves its
-number unused.
+for on 20 November 2026 and asked to be written here in the order it advises. Steps 1 to 4 and 8 are its parts 1 to
+4 and 6, and steps 17 to 21 its part 5, as the owner took it on 21 November 2026
+([`one-engine.md`](docs/records/one-engine.md)). Step 13 comes from a reading of the guide's promises against the
+tests, which the owner asked for on 21 November 2026, and whose record is
+[`promises-and-tests.md`](docs/records/promises-and-tests.md). Step 16 comes from the owner's question, on 21 November
+2026, of why the findings api-1, api-2 and api-4 of [`library-review.md`](docs/records/library-review.md) passed the
+inference matrix and the tests. A step done leaves its number unused.
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
 
@@ -25,13 +26,36 @@ None is open.
 
 ## Next, in order
 
+### 17. `Shape` out of the API
+
+**Model and effort.** Opus 5.5, `medium`.
+
+**Depends on** no other step. Step 5 depends on it.
+
+**Why.** `Shape` gives a program's types in a row, and only signatures name it: those of `start`, `drive` and
+`rehearse`, and of `Host` in the bridge to React. No page of the guide and no example writes it. `v0.7.1` does not
+export it, so 0.8.0 would be its first release: taken out after, it is a breaking change of an export that one release
+had. The owner took it on 21 November 2026.
+
+**How.** As spiked on `c50bee1` of the branch `spike/one-engine`
+([`one-engine.md`](docs/records/one-engine.md), "`Shape` out of the API"), written anew from `main`. `start`, `drive`,
+`rehearse`, `Host` and `HostProps` take `Program<{ … }>` by name, `rehearse` with `Commanded` as it has it, and the
+state of each is constrained to an object, as `Program` asks. `Shape` leaves `src/index.ts`: what is not exported may
+keep it. The entry of the changelog that lists the types exported is read again by the four questions of
+[`release`](.agents/skills/release/SKILL.md), since the constraint is new for whoever gives these functions their type
+arguments. The entry "`run`, `drive` and `rehearse` taking `Program<{ … }>` by name, and `Shape` out of the API"
+leaves `docs/rejected.md`. The skill is [`change-api`](.agents/skills/change-api/SKILL.md).
+
+**Done when** `Shape` is no export, and `bun run typecheck`, `test`, `smoke`, `inference` and `comments` pass.
+
 ### 5. Release 0.8.0
 
 **Model and effort.** Opus 5.5, `high`: its first part is a review.
 
 **Depends on** steps 2 to 4: each decided, and the stages of those taken done. Released before them, 0.8.0 would
 publish for one release what they remove, as R2 of
-[`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md) says of that change.
+[`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md) says of that change. And on step 17, by the same
+reason: `Shape` is an export that no release has had.
 
 **Why.** The unreleased section of `CHANGELOG.md` is long, and users get none of it until a release: the bridges as
 entries of the package, the inputs, the fixed declarations. It comes after the dispatch that applies its message at
@@ -173,33 +197,82 @@ on a server, which its spike ran under `renderToString`, and nothing of hydratio
 
 **Done when** the suite passes in a real browser, in the CI or by a command written down in the repository.
 
-### 7. One engine under the run and the testing tools
+### 18. The engine's seams, with the run as their only user
 
-**Model and effort.** Fable 5.2, `high`: a plan for the engine and for each testing tool, whose rules pull apart.
+**Model and effort.** Opus 5.5, `high`: code that keeps the invariants.
 
-**Depends on** steps 2 and 4: each decided, and the stages of those taken done, since they change the engine's shape
-and what a job is. It changes nothing a user writes, so it does not hold up the release.
+**Depends on** step 5: after the tag, so that 0.8.0 is the engine that the review of the premises read. It changes
+nothing a user writes.
 
-**Why.** [`architecture-review.md`](docs/records/architecture-review.md), "One engine under the run and the testing
-tools". `rehearse` is a second engine, as long as the first, kept in step with it by hand and by the contract's
-tests. Point 4 of the "Seven points of a review of the design" below proposes one transition of `core.ts` for the
-pure half of a step. The record proposes more: one engine, generic in what performs a job, with a performer for the
-run, one for `rehearse` and one for `simulate`.
+**Why.** `rehearse` is a second engine, kept in step with the first by hand and by the contract's tests
+([`architecture-review.md`](docs/records/architecture-review.md), part 5). The owner took, on 21 November 2026, the
+form that [`one-engine.md`](docs/records/one-engine.md) spiked: the engine is given what the fiber of a command and
+the fiber of a subscription run, and keeps the rest, the thunk, the queue of the jobs, their order, the fibers and the
+end. The code gets no shorter: the checks are then made once.
 
-**How.** A spike of `rehearse` over the engine, and a plan, in a record of its own. Then the owner decides between the
-wider form, the one transition, and neither. The proof of a form is that `src/testing/contract.test.ts` passes as it
-is. The plan also says what follows, each for the owner: whether `simulate` still earns its place, and whether
-`Shape` can leave the API. The skill is [`change-engine`](.agents/skills/change-engine/SKILL.md).
+**How.** The additions of "What the engine gets", in the record, each internal, with what the run does today as its
+default: what a subscription's fiber and a command's fiber run, called by the job, where the fiber is forked; what the
+thunk tells of a message; what the job tells once its stops have ended; a job that only tells; a message applied as a
+source sends it, and the active keys; the end marked by plain code. Written anew from `main`: `de4b7d7` of the branch
+`spike/one-engine` is a guide, and no design. Each addition has a test of `engine.test.ts` and a mutation. What a
+message costs is measured with `tools/bench/writes.ts`, before and after. `docs/invariants.md` says what each is, and
+that only the testing tools give them. The form adds no premise ("Where the rules pulled apart", in the record): one
+that turns up is asked of the owner first. The skill is [`change-engine`](.agents/skills/change-engine/SKILL.md).
 
-**Done when** the owner has decided on the plan. Taken: its stages are steps here, each with its model and effort.
-Refused: an entry of `docs/rejected.md` says why, and point 4 below is decided with it.
+**Done when** the checks of `change-engine` pass, `bun run mutations` among them, with no test of the run changed.
+
+### 19. `rehearse` over the engine
+
+**Model and effort.** Opus 5.5, `high`.
+
+**Depends on** step 18.
+
+**How.** As spiked on `de4b7d7`, written anew. The rehearsal builds the engine with a command that waits until a
+`run` takes it and a subscription that waits until a `hearNext` asks it. The ledger holds what the spike keeps in
+mutable maps: the fiber of each pending command, the asks of each start, and whether a start has begun, each as a
+transition with a test of `ledger.test.ts`. `loop.ts` and its test go. The record lists the mutations of `rehearse.ts`
+by what becomes of them: 22 go, and their killers are named by the engine's mutations where they add one; 21, and the
+6 of `loop.ts`, are written on the new text. Three things the record read and did not run are decided here, and asked
+of the owner where one changes what a test sees: what the engine's `catch` records with no site, which a rehearsal's
+register drops; how a `run` finds the fiber of its command; and the report of the engine's end, which the rehearsal
+does not use. `docs/invariants.md` ("The testing tools behave like the engine", "one thunk") and `docs/premises.md`
+say what is still kept by hand. Point 4 of the seven, under "Waiting for the owner", goes with this step.
+
+**Done when** `src/testing/contract.test.ts` and `src/testing/rehearse.test.ts` pass as they are, and the checks of
+`change-engine` pass.
+
+### 20. A review of the premises of the engine and of `rehearse`
+
+**Model and effort.** Opus 5.5, `high`, for each reviewer, which wrote none of steps 18 and 19.
+
+**Depends on** step 19. It comes before the release that follows 0.8.0.
+
+**How.** As [`premise-review`](.agents/skills/premise-review/SKILL.md) says, over the changes of the engine and of
+the testing tools since the review of 21 November 2026, which step 5 names.
+
+**Done when** each finding is fixed, or listed under "Open problems" with its `test.failing`.
+
+### 21. `simulate`, weighed again
+
+**Model and effort.** Fable 5.2, `high`: a form to decide, with the owner.
+
+**Depends on** step 19.
+
+**Why.** `simulate` is then the one tool with a thunk of its own: a fold in the caller's fiber over `Core.arrive` and
+`Core.reconcile`, with 14 mutations. The owner keeps it in the API (21 November 2026): three examples and the guide's
+"Testing tools" use it, for a flow where the test decides no order.
+
+**How.** Over the engine it would be the rehearsal's command that waits, run oldest first after each message: a
+rehearsal that hears nothing. It would cost a fiber of effects and a scope for each simulation, where a property may
+run thousands: measured before it is decided ([`one-engine.md`](docs/records/one-engine.md), "`simulate`").
+
+**Done when** the owner has decided: `simulate` runs over the engine, or an entry of `docs/rejected.md` says why not.
 
 ### 8. What the premises hold, and the peer range of Effect
 
 **Model and effort.** Fable 5.2, `high`: premises and guarantees are questioned, and a rule of `AGENTS.md` with them.
 
-**Depends on** steps 2 and 7: each decided, and the stages of those taken done, since they change which premises
-there are. It comes before 1.0.
+**Depends on** steps 18 to 21, which change which premises there are. It comes before 1.0.
 
 **Why.** [`architecture-review.md`](docs/records/architecture-review.md), "What the premises hold, and the peer range
 of Effect". The peer range of Effect accepts only patches, so an application on a later minor cannot install the
@@ -255,7 +328,7 @@ whether `@fgaudo/effect-tea/snabbdom` stays beside it.
 
 ## Waiting for the owner
 
-Where a step above would answer a point below, the point stays here until the step is done. Step 7 would answer point
+Where a step above would answer a point below, the point stays here until the step is done. Step 19 would answer point
 4 of the seven. A point of the seven that is gone leaves its number unused.
 
 - **Three findings of the reader's check of 20 November 2026**, the last stage of
