@@ -172,10 +172,9 @@ describe("the handle a renderer gets", () => {
     expect({ made, same }).toEqual({ made: [2], same: true })
   })
 
-  // A program run alone needs no object for its state, and is not checked (`docs/invariants.md`), but `model()` takes
-  // a state that is `undefined` for the one it last made a model of, before it has made any, and throws a TypeError
-  // that no defect records. Found by the review of the whole library of 21 November 2026.
-  test.failing("a model is made of a state that is undefined, as only a cast or plain JavaScript writes it", async () => {
+  // A program run alone needs no object for its state, and is not checked (`docs/invariants.md`): a state that is
+  // `undefined` is not the one `model()` last made a model of, before it has made any.
+  test("a model is made of a state that is undefined, as only a cast or plain JavaScript writes it", async () => {
     const blank = {
       init: { state: undefined },
       update: () => () => reject,

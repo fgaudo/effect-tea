@@ -35,14 +35,7 @@ adds.
    it". It stops at its first assertion today, so the later ones have never been seen to pass. To decide with step 9,
    which weighs the two forms of `init`: the call deferred to `start`, or the guide says where such an `init` runs.
    Opus 5.5, `high`.
-3. **Two checks by identity meet a primitive state** (engine-1, engine-3). `liftAt` (`src/compose.ts`) compares the
-   state a child left with `===`, so a write of `NaN` over `NaN` makes a new state, against "Guarantees" ("leaves the
-   very same state"). `model()` (`src/run.ts`) compares with a `last` that starts as `undefined`, so a state that is
-   `undefined` throws a `TypeError` that no defect records. Tests: `src/input.test.ts`, "what is written into an input"
-   › "a write of NaN over NaN leaves the very same state"; `src/run.test.ts`, "the handle a renderer gets" › "a model
-   is made of a state that is undefined, as only a cast or plain JavaScript writes it". `Object.is` in the first, a
-   `last` no state can equal in the second; each change of a check gets its mutation. Opus 5.5, `medium`.
-4. **`rehearse` differs from the run** (testing-1, testing-2). Its end stops the subscriptions `hearNext` started and
+3. **`rehearse` differs from the run** (testing-1, testing-2). Its end stops the subscriptions `hearNext` started and
    waits for their release before it stops the commands, where the run stops them all at once: when a subscription's
    release waits for a command's, `rehearse` never ends, under `uninterruptibleMask`. And its defect in a subscription
    carries the key given to `hearNext`, not the one the program listed. Tests: `src/testing/contract.test.ts`, "an end
@@ -51,12 +44,12 @@ adds.
    fix); "what the run dies of, and the tools fail on" › "rehearse fails, as the run dies, with the key the program
    listed, though hearNext was given another equal to it". Step 7 would remove both, but neither waits for it. Opus
    5.5, `high` (`change-engine`).
-5. **With the bridge to React, a death is reported twice when `<Activity>` hides `Host` in its batch** (bridges-1). The
+4. **With the bridge to React, a death is reported twice when `<Activity>` hides `Host` in its batch** (bridges-1). The
    cleanup of `Host`'s effect gives the death to `reportError`; `<Activity>` keeps the state that holds it, which `Host`
    throws to the boundary as it is shown again, in place of a new run. The mirror of the removal fixed on 21 November
    2026. Test: `bridges/react.test.ts`, "Host" › "a run that dies" › "that dies as Activity hides Host, in one batch, is
    reported once, and shown again starts anew". Opus 5.5, `high`.
-6. **Four sentences are false of the code** (engine-5, docs-2, docs-3, docs-4). "Composition", "Ids that come back":
+5. **Four sentences are false of the code** (engine-5, docs-2, docs-3, docs-4). "Composition", "Ids that come back":
    "when a row is removed, its subscriptions stop" is false when the same step adds a row with that id, since the keys
    stay. `CHANGELOG.md` says that `dispatchViolations`' `withheld` is gone, and its line of upgrade drops it: it is
    there, and was in 0.7.1. This one is for before the release of step 5. The comments of `examples/form/form.ts` still
@@ -64,14 +57,14 @@ adds.
    comment of `drive`'s `send` says that it waits for a later model, which the guide does not say: the guide says it,
    or the comment stops saying it. Each a change of the text, checked against the code; the guide's sentence is changed
    as `AGENTS.md` says ("The guide is a specification"). Opus 5.5, `medium`.
-7. **Four checks are missing** (engine-2, bridges-4, smoke-1, rule-1). Three checks of the rejection have no mutation:
+6. **Four checks are missing** (engine-2, bridges-4, smoke-1, rule-1). Three checks of the rejection have no mutation:
    `onNone: () => reject` and `result === reject ? reject : …` in `updateAt` (`src/compose.ts`), and
    `if (result === reject) return ignored` in `Core.arrive`. Two tests of `bridges/bridge.test_suite.ts` name the caret
    and never read it, and no test checks a textarea's caret. `tools/smoke/smoke.ts` does not check the links of
    `examples/README.md`, which the package ships. About thirty helpers of the tests return an `Effect.gen` from a
    function of arguments, against "Code" in `AGENTS.md`. Sonnet 5.5, `medium`, for the helpers and the links; Opus 5.5,
    `medium`, for the mutations and the caret.
-8. **To decide: a listener stopped during a notice is still told of it** (engine-4). `tell` (`src/engine.ts`) goes
+7. **To decide: a listener stopped during a notice is still told of it** (engine-4). `tell` (`src/engine.ts`) goes
    over a copy of the listeners. The guide does not say when a stop takes effect. The owner decides: the guide says
    from the next notice, or `tell` skips a listener that was stopped. Then Opus 5.5, `medium`.
 

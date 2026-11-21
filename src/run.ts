@@ -1,6 +1,7 @@
 // The run: a program started by plain code, and the effect that runs its effects (`docs/records/store-and-effects.md`).
 import type * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
+import * as Opt from "effect/Option"
 import type * as Scope from "effect/Scope"
 import * as Core from "./core.ts"
 import type { Dispatch } from "./dispatch.ts"
@@ -160,22 +161,24 @@ const partsOf = <State, Model, Message, Command, RC, RS, Flags>(
     subscriptions: program.subscriptions
   })
   // The last state a model was made of, with its model or the defect `makeModel` threw: a model is made only when it
-  // is read, and once for each state, by its identity, a failed one too.
-  let last: Made<State, Model> | undefined
+  // is read, and once for each state, by its identity, a failed one too. An option, since any value may be a state.
+  const make = (state: State): Made<State, Model> => {
+    try {
+      return { state, made: true, model: program.makeModel(state) }
+    } catch (thrown) {
+      // Recorded here, wherever the model is read: in a listener, or outside any fiber.
+      const defect = Engine.recordThrown(deaths, "render", thrown)
+      thrownToReaders.add(defect)
+      return { state, made: false, defect }
+    }
+  }
+  let last: Opt.Option<Made<State, Model>> = Opt.none()
   const model = (): Model => {
     const { state } = engine.current()
-    if (last?.state !== state) {
-      try {
-        last = { state, made: true, model: program.makeModel(state) }
-      } catch (thrown) {
-        // Recorded here, wherever the model is read: in a listener, or outside any fiber.
-        const defect = Engine.recordThrown(deaths, "render", thrown)
-        thrownToReaders.add(defect)
-        last = { state, made: false, defect }
-      }
-    }
-    if (last.made) return last.model
-    throw last.defect
+    const current = Opt.isSome(last) && last.value.state === state ? last.value : make(state)
+    last = Opt.some(current)
+    if (current.made) return current.model
+    throw current.defect
   }
   return { app: { model, subscribe: engine.subscribe, dispatch: engine.dispatch, die }, engine, end }
 }

@@ -678,7 +678,8 @@ const make = <
     return isById(place.name) ? handle(place.id, event, handles) : handle(event, handles)
   }
   // A child's events are handled in order, each by the state its predecessors left. An unchanged child leaves its
-  // parent's state as it is, so that the very same state makes no new model.
+  // parent's state as it is, so that the very same state makes no new model. `Object.is`, since an input's place may
+  // hold NaN, which a write of NaN leaves as it is.
   const liftAt = (
     place: Place,
     state: State,
@@ -686,7 +687,7 @@ const make = <
     result: Step<unknown, unknown, unknown>
   ): Step<State, Command, Event> => {
     const lifted: Folded<State, Command, Event> = {
-      state: result.state === childState ? state : setAt(place, state, result.state),
+      state: Object.is(result.state, childState) ? state : setAt(place, state, result.state),
       commands: Arr.map(result.commands ?? [], wrapCommand(place)),
       events: []
     }

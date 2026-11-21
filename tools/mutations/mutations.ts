@@ -1372,7 +1372,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a parent makes a new state for a child's message that keeps the child's",
     file: "src/compose.ts",
-    from: "state: result.state === childState ? state : setAt(place, state, result.state),",
+    from: "state: Object.is(result.state, childState) ? state : setAt(place, state, result.state),",
     to: "state: setAt(place, state, result.state),",
     killedBy: [
       [
@@ -1382,6 +1382,13 @@ export const mutations: ReadonlyArray<Mutation> = [
       ["src/input.test.ts", "leaves the very same state when the place holds it already"],
       ["src/input.test.ts", "equal by Equal to the value held, whatever it is made of, leaves the very value held"]
     ]
+  },
+  {
+    name: "a parent compares the state its child left by ===, which NaN never is of itself",
+    file: "src/compose.ts",
+    from: "Object.is(result.state, childState)",
+    to: "result.state === childState",
+    killedBy: [["src/input.test.ts", "a write of NaN over NaN leaves the very same state"]]
   },
   {
     name: "a report leaves the defects it reported to be reported again",
@@ -1855,11 +1862,20 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a model is made again for the state it was made for",
     file: "src/run.ts",
-    from: "if (last?.state !== state) {",
-    to: "if (true) {",
+    from: "Opt.isSome(last) && last.value.state === state ? last.value : make(state)",
+    to: "make(state)",
     killedBy: [
       ["src/run.test.ts", "a model is made only when read, once for each state"],
       ["src/run.test.ts", "a second read of the same state throws the same defect, recorded once"]
+    ]
+  },
+  {
+    name: "a model is taken as made of a state that is undefined before any is made",
+    file: "src/run.ts",
+    from: "Opt.isSome(last) && last.value.state === state",
+    to: "Opt.getOrUndefined(last)?.state === state",
+    killedBy: [
+      ["src/run.test.ts", "a model is made of a state that is undefined, as only a cast or plain JavaScript writes it"]
     ]
   },
   {
