@@ -38,7 +38,11 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   held" (`engine.test.ts`), with a gate. The promise is of the outermost call: one sent while another is applied
   returns before its message is applied, and is applied right after, before the outer call returns. The listeners are
   told last, once the state is current; that they are told after the job is made and after the keys are reconciled
-  is no promise, and has no test and no mutation (the guide says only "once the new state is current"). Each other
+  is no promise, and has no test and no mutation (the guide says only "once the new state is current"). A notice goes
+  over a copy of the listeners, and calls each only while it is still among them (`tell`): one stopped during the
+  notice is not told of it, and one added during it is told from the next, so that a listener that adds another on
+  every notice cannot loop in one call: "a listener stopped during a notice is not told of it, and one added during a
+  notice is told from the next" (`engine.test.ts`), with a mutation for the check and one for the copy. Each other
   check has a mutation (`tools/mutations/mutations.ts`), and the search checks that a dispatch has been applied when it
   returns, that each `update` is heard before the next is called, and that a message a listener sends is the next one
   heard.

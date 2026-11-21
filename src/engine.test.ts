@@ -123,6 +123,30 @@ describe("a dispatch applies its message at once", () => {
     expect(told).toEqual([1, 2])
   })
 
+  test("a listener stopped during a notice is not told of it, and one added during a notice is told from the next", async () => {
+    const told = await run(Effect.gen(function*() {
+      const engine = yield* make([])
+      const told: Array<string> = []
+      let added = false
+      const stopSecond = { stop: () => {} }
+      engine.subscribe(() => {
+        const { count } = engine.current().state
+        told.push(`first ${count}`)
+        if (count === 1) stopSecond.stop()
+        // Once only, so that a notice that tells it at once fails the test rather than loops.
+        if (!added) {
+          added = true
+          engine.subscribe(() => void told.push(`added ${engine.current().state.count}`))
+        }
+      })
+      stopSecond.stop = engine.subscribe(() => void told.push(`second ${engine.current().state.count}`))
+      engine.dispatch("Increment")
+      engine.dispatch("Increment")
+      return told
+    }))
+    expect(told).toEqual(["first 1", "first 2", "added 2"])
+  })
+
   test("a message a listener sends is applied after every listener has been told of the step, before the dispatch returns", async () => {
     const outcome = await run(Effect.gen(function*() {
       const heard: Array<string> = []

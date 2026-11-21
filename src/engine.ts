@@ -183,7 +183,8 @@ export interface Engine<State, Message, R = never> {
   readonly current: () => Core.Revisioned<State>
   /**
    * Hears each new state, once it is the current one: never for a rejected message, nor for the very same state.
-   * Returns what stops it.
+   * Returns what stops it, at once: a listener stopped during a notice is not told of it, and one added during a notice
+   * is told from the next.
    */
   readonly subscribe: (listener: () => void) => () => void
   /**
@@ -317,9 +318,13 @@ export const build = <State, Message, Command, R, K>({
   const queue = (job: Job<Message, Command, R, K>) => {
     if (job.gone.length > 0 || job.fresh.length > 0 || job.commands.length > 0) waiting.push(job)
   }
-  // A listener that throws is a defect of the renderer's; the others are still told.
+  // A listener that throws is a defect of the renderer's; the others are still told. The copy keeps a listener added
+  // during a notice for the next one, so one that subscribes on every notice cannot loop; the check skips one that an
+  // earlier listener stopped, which may have torn down what it draws.
   const tell = () => {
-    for (const listener of Array.from(listeners)) attempt("render", listener, undefined, rendered)
+    for (const listener of Array.from(listeners)) {
+      if (listeners.has(listener)) attempt("render", listener, undefined, rendered)
+    }
   }
   // The pure half of a step, in one synchronous thunk: the check of a death and of the message's start, `update`, the
   // option that hears it, the new state and its keys. Then its job, and the listeners, once the state is current.

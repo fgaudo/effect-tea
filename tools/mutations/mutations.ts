@@ -2086,14 +2086,36 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a listener that throws keeps the others from being told",
     file: "src/engine.ts",
-    from: "for (const listener of Array.from(listeners)) attempt(\"render\", listener, undefined, rendered)",
-    to: "for (const listener of Array.from(listeners)) {\n"
-      + "      if (Opt.isNone(attempt(\"render\", listener, undefined, rendered))) return\n"
-      + "    }",
+    from: "if (listeners.has(listener)) attempt(\"render\", listener, undefined, rendered)",
+    to: "if (listeners.has(listener) && Opt.isNone(attempt(\"render\", listener, undefined, rendered))) return",
     killedBy: [
       [
         "src/engine.test.ts",
         "defects are recorded in the order they happened, and a listener that throws leaves the others told"
+      ]
+    ]
+  },
+  {
+    name: "a listener stopped during a notice is still told of it",
+    file: "src/engine.ts",
+    from: "if (listeners.has(listener)) attempt(",
+    to: "attempt(",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "a listener stopped during a notice is not told of it, and one added during a notice is told from the next"
+      ]
+    ]
+  },
+  {
+    name: "a listener added during a notice is told of it",
+    file: "src/engine.ts",
+    from: "for (const listener of Array.from(listeners)) {",
+    to: "for (const listener of listeners) {",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "a listener stopped during a notice is not told of it, and one added during a notice is told from the next"
       ]
     ]
   },

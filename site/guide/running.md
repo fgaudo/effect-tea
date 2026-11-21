@@ -45,7 +45,9 @@ defect anywhere ends the run too. The run dies, and reporting the crash is the j
 
 - `model()` is the model of the current state. It is made when it is read, once while that state is the current one.
 - `subscribe(listener)` tells `listener` of each new state, once it is the current one, and returns what stops it. No
-  listener is told of a rejected message, nor of the very same state.
+  listener is told of a rejected message, nor of the very same state. A stop takes effect at once: a listener stopped
+  while the listeners are told of a state is not told of it. One added meanwhile is under
+  [precisely](#a-listener-added-during-a-notice).
 - `dispatch(message)` applies the message before it returns (see [view](./view.md#rules)).
 - `die(thrown)` takes what a renderer threw as it drew outside a listener, as in a microtask, where nothing of the
   run calls it. From then on, the program applies no message, and `run` dies of it, in `'render'`. A defect that
@@ -229,6 +231,11 @@ Each pair sums up a rule of this page. The rule itself is above.
 A defect of a program that was never run is recorded all the same. From the defect on, the program applies no
 message, so its state no longer changes. Nothing is thrown to whoever sent the message, and nothing ends. Only
 `model()` throws a defect of `makeModel` or of `init`, to whoever reads the model.
+
+### A listener added during a notice
+
+A listener added while the listeners are told of a state is not told of that state. It is told from the next new
+state on. So a listener that adds another each time it is told adds one per state, and the notice still ends.
 
 ### How a message is named by its tags
 

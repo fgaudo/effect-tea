@@ -21,16 +21,7 @@ Each step names its model and effort, what it depends on, and how to tell that i
 
 A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a deterministic
 test of it. A finding of a review goes here with its `test.failing`, until its fix removes the mark and the item.
-
-Those below are of the review of the whole library of 21 November 2026, whose record,
-[`library-review.md`](docs/records/library-review.md), gives each one's scenario and evidence under its id. They are
-grouped by their form, which a fix takes whole. Each `test.failing` was run without its mark, and fails at its
-assertion. A finding of the types, of a document or of a check has no `test.failing`: its item names the check the fix
-adds.
-
-7. **To decide: a listener stopped during a notice is still told of it** (engine-4). `tell` (`src/engine.ts`) goes
-   over a copy of the listeners. The guide does not say when a stop takes effect. The owner decides: the guide says
-   from the next notice, or `tell` skips a listener that was stopped. Then Opus 5.5, `medium`.
+None is open.
 
 ## Next, in order
 

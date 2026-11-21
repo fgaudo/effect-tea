@@ -40,10 +40,12 @@ export interface App<Model, Message> {
   readonly model: () => Model
   /**
    * Tells `listener` of each new state, once it is the current one, in the call that made it, and returns what stops
-   * it. No listener is told of a rejected message, nor of the very same state. A listener that throws is a defect in
-   * `'render'`.
+   * it. No listener is told of a rejected message, nor of the very same state. A stop takes effect at once: a listener
+   * stopped during a notice is not told of it. One added during a notice is told from the next state. A listener that
+   * throws is a defect in `'render'`.
    *
    * @see The guide, "Running", "The renderer gets an `App`".
+   * @see The guide, "Running", "A listener added during a notice".
    */
   readonly subscribe: (listener: () => void) => () => void
   /**
