@@ -187,6 +187,10 @@ bridge:
 - draws native controlled elements as its renderer's own documentation draws them: an input needs nothing else of the
   bridge.
 
+snabbdom's props module sets the props a view gives, and never removes one. So a view of the bridge to snabbdom gives
+a prop it changes in every state: `disabled: false` where a button is enabled, as the view of
+[`form`](../../examples/form/view-snabbdom.ts) does. Without it, a button once disabled stays disabled.
+
 [`counter`](../../examples/counter) and [`form`](../../examples/form) draw their programs with the bridge to snabbdom
 and with the bridge to React, one under the other. Both bridges draw the `App` of one program, which React draws with
 `Draw`. A bridge to React Native would be written the same way, but the repository has none. The sections above show

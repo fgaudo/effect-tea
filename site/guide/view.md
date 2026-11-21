@@ -44,6 +44,10 @@ the model holds: `on: { click: () => dispatch(model.more) }`.
   An element with a value of its own, such as a text field, shows the value of its model. For the length of its own
   event, it shows what the user typed into it (see
   [inputs the user types into](./inputs-the-user-types-into.md)).
+
+  A part of the page outside the bridge's `root`, such as the page's title, comes from the model too. Plain code over
+  the handle that `start` gives draws it: the code reads `app.model()` once, then again each time `app.subscribe` tells
+  it of a new state (see [running](./running.md)). That code draws beside the bridge, not in its place.
 - **Each bridge says what it draws beside the model.** The guarantees are of the program (see
   [guarantees](./guarantees.md)). What a bridge adds of the screen is its own promise:
   - The bridge to snabbdom draws the model, and nothing else. It keeps no state beside the program's state: what it

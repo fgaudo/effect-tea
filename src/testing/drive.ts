@@ -119,6 +119,8 @@ const driven = <Model, Message, R>(
  *   the step's commands: they start after it, and a scenario that ends there may end the run before they start.
  * - The program's commands run as soon as they start. To hold a command, give the program a service that waits on a
  *   `Deferred` that the scenario completes.
+ * - A model shows neither that a command has started nor that a subscription has. To wait for one, give the program a
+ *   service that completes a `Deferred` when it is called, and await it in the scenario.
  * - To start from another state, give it the program with another `init`.
  * - When the scenario ends, or when whoever runs `drive` interrupts it, `drive` interrupts the run and waits for it.
  * - A defect of the program fails `drive` with the `ProgramDefect` the run dies with. The defect comes first in the

@@ -109,7 +109,10 @@ For each child, and for itself, a parent declares what follows. The sections bel
   children's models.
 - **The parent's own messages, commands and subscriptions**, if it has any, are declared with `update`, `runCommand` and
   `subscriptions`:
-  - The parent's `update` takes `children` too.
+  - The parent's `update` takes `children` too, after the message: `update: (message, children) => (state) => …`. It
+    takes the parent's own messages.
+  - The program that `make` gives has the `update` of any program, `(message) => (state) => …`, over all the parent's
+    messages (see [what the library derives](#what-the-library-derives)). A test calls it so.
   - The parent's `update` may reject the parent's own messages, as any `update` does.
   - The parent's commands need the services that its `runCommand` needs, and the services that its children's commands
     need.
@@ -140,7 +143,8 @@ From these declarations, the library derives the parent's messages, commands and
   - `{ _tag: <input>, message: { _tag: 'Written', value } }` for each input, and `{ _tag: <input>, id, message }`
     for inputs by id.
 - **The parent's commands** are the parent's own commands, plus each child's commands. A child's commands are wrapped
-  in the same way as its messages, and the child's `runCommand` runs them.
+  as its messages are, with `command` in place of `message`: `{ _tag: <child>, command }`, and
+  `{ _tag: <child>, id, command }` for children by id. The child's `runCommand` runs them.
 - **The parent's subscriptions** are the parent's own subscriptions, plus each child's subscriptions, under the key
   `[<child>, key]`. For children by id, the key is `[<child>, id, key]`.
 

@@ -31,7 +31,9 @@ versions. The paths below are relative to this file.
   [`bridges/bridge.test_suite.ts`](../../bridges/bridge.test_suite.ts). snabbdom reads the global
   `window` when it loads. So a test file that imports snabbdom before a DOM is registered must first load a file that
   sets `window` to `undefined`, as [`bridges/snabbdom-preload.ts`](../../bridges/snabbdom-preload.ts) does. This holds
-  for a file that registers a DOM in `beforeAll` too: its imports run first. The preload's comment says how. The
+  for a file that registers a DOM in `beforeAll` too: its imports run first. The preload's comment says how.
+  snabbdom never removes a prop: a view gives a prop it changes in every state, `disabled: false` too. The guide,
+  "Writing a bridge", "The package's bridges". The
   examples import their own files with the `.ts` extension. If your `tsconfig.json` does not set
   `allowImportingTsExtensions`, write `.js` instead under `moduleResolution` `nodenext`, or remove the extension under
   `bundler`.
@@ -102,8 +104,9 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   The guide, "Structuring a program", "A view draws, it never decides".
 - **What the program draws comes from its model.** It comes from nowhere else, with one exception: what the platform
   keeps by itself, as a hover or the focus. An element with a value of its own, as a text field, shows what the user
-  typed into it only for the length of its own event. The guide, "View", "What the program draws comes from its
-  model". The guide, "Inputs the user types into", "The element on screen".
+  typed into it only for the length of its own event. A part of the page outside the bridge's `root`, as its title,
+  is drawn from the model by code over the handle, beside the bridge. The guide, "View", "What the program draws
+  comes from its model". The guide, "Inputs the user types into", "The element on screen".
 - **Each bridge says what it draws beside the model.** The bridge to snabbdom keeps no state beside the program's,
   except the value a model gave each controlled element. With the bridge to React, the application's components may
   keep state of their own, which the testing tools do not see. The guide, "View", "Each bridge says what it draws
@@ -166,8 +169,9 @@ Each sign breaks the rule named after it.
   never decides".
 - A variable outside the state that the screen depends on, or a service that the renderer reads. The guide, "View",
   "What the program draws comes from its model".
-- A renderer written for one program, in place of a bridge's renderer. The guide, "View", "What the program draws
-  comes from its model".
+- A renderer written for one program, in place of a bridge's renderer. Code that draws the model outside the
+  bridge's `root`, as the page's title, is beside the bridge, not in its place. The guide, "View", "What the program
+  draws comes from its model".
 - A message built in a view, or `Message` exported as a value. The guide, "Model", "Messages live in the model".
 - A message for each keystroke. The guide, "Inputs the user types into", "What the user gives an input is no message
   of the program".

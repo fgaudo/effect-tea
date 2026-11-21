@@ -62,6 +62,11 @@ reports is what the guide leaves to the examples.
      offline, a typed target sent to a controller, refused when invalid or in flight, sends that may fail, a count of
      dry beds in the page's title, and a key anywhere that stops every watch (2026-11-20, package and closed; 27 of 27
      acceptance tests passed for each reader, once 7 failures, all of the tests, were fixed).
+   - a kitchen order board: a station given at start, orders as children by id from a feed that ends and is listened
+     to anew on a reopen, a typed preparation time, a ready sent to the floor that may fail and is retried, refused
+     when invalid, in flight or paused, an event the parent counts, a pause the parent tells every order, a count in
+     the page's title, and a run under snabbdom in a DOM (2026-11-21, package; 47 of 47 acceptance tests passed at the
+     first run).
 4. Make the project, from the repository's root, with the versions the repository is developed with:
 
    ```bash

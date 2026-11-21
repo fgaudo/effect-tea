@@ -78,6 +78,7 @@ const giveBack = (controlled: Map<Element, Controlled>): void => {
  * - A model that is the very one drawn last is not drawn again.
  * - After each draw, an element drawn with a `value` or a `checked` in `props` is given it back where the element
  *   differs from it: what the user typed and the program rejected is taken back.
+ * - snabbdom never removes a prop. So a view gives a prop it changes in every state: `disabled: false` too.
  * - What a view or `makeModel` throws as it is drawn ends the run, the first draw's too: it draws nothing more, and
  *   the program's `run` dies of it, in `'render'`.
  *
@@ -91,6 +92,7 @@ const giveBack = (controlled: Map<Element, Controlled>): void => {
  * @see The guide, "Writing a bridge", "The handle".
  * @see The guide, "Writing a bridge", "Handlers".
  * @see The guide, "Writing a bridge", "A controlled element".
+ * @see The guide, "Writing a bridge", "The package's bridges".
  * @see The guide, "Inputs the user types into", "The element on screen".
  */
 export const drawInto =
