@@ -289,21 +289,23 @@ too. A parent never reads a child's state (see [splitting a program](./structuri
 
 **Ids that come back.** A command's answer goes to the id that the command was started for. When the answer arrives, it
 reaches the row that has that id at that moment. So if a row is removed, and another row is added with the same id, the
-new row may get the old row's answer. To prevent this, use ids that are never reused. Or put in the message which row
-it is for, so that the new row's `update` rejects the old answer. Subscriptions do not need this: when a row is removed,
-its subscriptions stop.
+new row may get the old row's answer. A row's subscriptions are kept by their keys, `[<child>, id, key]`, compared after
+each change of state (see [subscriptions](./subscriptions.md#rules)). When a step removes a row, its subscriptions stop.
+But when one step removes a row and adds another with the same id, the keys stay: the old row's subscriptions run on for
+the new row, and one that has ended does not start again. To prevent both, use ids that are never reused. For an answer,
+you can instead put in the message which row it is for, so that the new row's `update` rejects the old answer.
 
 ## Do and don't
 
 Each pair sums up a rule of this page. The rule itself is above.
 
-| Do                                                                                 | Don't                                                                          |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Start a child with `children.Clock.init`, and use its state and its commands.      | Read `Clock.clock.init.state`: it leaves the child's commands behind.          |
-| Give each child's view `forwardTo(dispatch, 'Clock')`.                             | Wrap the message in a lambda: it is a new function in every draw.              |
-| Make a value that the user types into a row, and the parent reads, an input by id. | Make the row a child, and read the child's state from the parent.              |
-| Use ids that are never reused, or say in the message which row it is for.          | Reuse the id of a removed row when an answer does not say which row it is for. |
-| List in `subscribed` every row that must listen.                                   | Leave out of `subscribed` a row that must listen: it runs no subscription.     |
+| Do                                                                                 | Don't                                                                                  |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Start a child with `children.Clock.init`, and use its state and its commands.      | Read `Clock.clock.init.state`: it leaves the child's commands behind.                  |
+| Give each child's view `forwardTo(dispatch, 'Clock')`.                             | Wrap the message in a lambda: it is a new function in every draw.                      |
+| Make a value that the user types into a row, and the parent reads, an input by id. | Make the row a child, and read the child's state from the parent.                      |
+| Use ids that are never reused, or say in the message which row it is for.          | Reuse a removed row's id in the step that removes it, or when an answer omits its row. |
+| List in `subscribed` every row that must listen.                                   | Leave out of `subscribed` a row that must listen: it runs no subscription.             |
 
 ```ts
 // Don't: the child's own init leaves its commands behind

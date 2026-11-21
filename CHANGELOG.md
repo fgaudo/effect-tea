@@ -96,9 +96,9 @@ version, and everything else, features included, the patch version.
   where it was `state: {}`; give the child its `runCommand` and its parent an `onEvent`; answer an external message
   with a step; write `subscriptions: () => HashMap.empty()` in a program written as an object that listens to nothing.
 - **Breaking**: `dispatchViolations` is called once, and reports as `Missing` only a candidate whose step would do
-  something, so `withheld` is gone.
+  something.
   Upgrade: `dispatchViolations(update, { repeatable, withheld })(state, sent, candidates)` becomes
-  `dispatchViolations(update, { state, held, candidates, repeatable })`.
+  `dispatchViolations(update, { state, held, candidates, repeatable, withheld })`.
 - **Breaking**: `rehearse` starts from the program's `init`, given `flags` for a program with them: `from` and
   `RehearseOptions` are gone. Its type parameters start with the program's type.
   Upgrade: `rehearse(program, scenario, { from })` becomes `rehearse({ ...program, init: from }, scenario)`, and

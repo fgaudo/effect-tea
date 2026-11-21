@@ -1,6 +1,6 @@
 // A form that saves names. The name is an input, a plain value of the form's own state that the outside writes over:
-// no `update` of the form's sees what is typed, which the library stores in any state, and rejects once the form has
-// put another name in its place. The form's messages are those it fixes, Save and the answers of its command, and its
+// no `update` of the form's sees what is typed, which the library stores in any state, over whatever name the form put
+// there. The form's messages are those it fixes, Save and the answers of its command, and its
 // model holds no function. The name's validity becomes model data: "Save" exists only for a name that is not blank.
 // Saving is a state that only its completion leaves, so a second click is rejected, and a completion outside it
 // cannot arrive: it is a defect. The model has no input to type into while saving, but a key typed before the input
@@ -87,8 +87,8 @@ export const form = make({
       // is a bug, and the run dies with it.
       case "SaveSucceeded":
         return state.save._tag === "Saving"
-          // Another value in the name's place: what was typed over the old one is rejected, and the input on screen
-          // is emptied.
+          // The form puts an empty name in the input's place, and the input on screen is emptied: what is typed next
+          // is stored over it.
           ? { state: { name: "", save: Save.Idle(), saved: [...state.saved, message.name] } }
           : defect("A save completed while nothing was saving")
       case "SaveFailed":

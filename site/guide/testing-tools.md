@@ -145,14 +145,15 @@ rehearse(
 - A program with flags gets them as `start` does, in the options.
 - `drive` takes the other options of `start` too, such as `onApplied` and `onIgnored` (see
   [running](./running.md#options)).
-- `drive` sends what the models show, through the run's dispatch. `send` finds the message on a model and sends it at
-  once, as a control drawn from that model would: when `send` returns, `update` has seen the message.
+- `drive` sends what the models show, through the run's dispatch. `send` waits for a model on which it finds the
+  message, and sends it at once, as a control drawn from that model would: when `send` returns, `update` has seen the
+  message.
 - The program's commands run as soon as they start. To hold a command, give the program a service written by the
   test. The service waits on a `Deferred` that the scenario completes.
 - A model shows neither that a command has started nor that a subscription has. To wait for one, give the program a
   service written by the test that completes a `Deferred` when it is called, and have the scenario await it.
-- `drive` is told of every new state, as a renderer is, and reads the model of each one. A wait, `waitFor`, looks at the
-  current model and at later ones.
+- `drive` is told of every new state, as a renderer is, and reads the model of each one. A wait, `waitFor` or `send`,
+  looks at the current model and at later ones.
 - A wait that ends once a model shows a step does not wait for the step's commands. They start after it, and a
   scenario that ends there may end the run before they start. To check what a command does, wait for a model that
   shows its answer.

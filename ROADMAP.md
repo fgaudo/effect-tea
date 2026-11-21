@@ -28,14 +28,6 @@ grouped by their form, which a fix takes whole. Each `test.failing` was run with
 assertion. A finding of the types, of a document or of a check has no `test.failing`: its item names the check the fix
 adds.
 
-5. **Four sentences are false of the code** (engine-5, docs-2, docs-3, docs-4). "Composition", "Ids that come back":
-   "when a row is removed, its subscriptions stop" is false when the same step adds a row with that id, since the keys
-   stay. `CHANGELOG.md` says that `dispatchViolations`' `withheld` is gone, and its line of upgrade drops it: it is
-   there, and was in 0.7.1. This one is for before the release of step 5. The comments of `examples/form/form.ts` still
-   say that a write is rejected once the form has put another name in its place, as the write with `was` did. The doc
-   comment of `drive`'s `send` says that it waits for a later model, which the guide does not say: the guide says it,
-   or the comment stops saying it. Each a change of the text, checked against the code; the guide's sentence is changed
-   as `AGENTS.md` says ("The guide is a specification"). Opus 5.5, `medium`.
 6. **Five checks are missing** (engine-2, bridges-4, smoke-1, rule-1, and one found as testing-1 was fixed). Three
    checks of the rejection have no mutation: `onNone: () => reject` and `result === reject ? reject : …` in `updateAt`
    (`src/compose.ts`), and `if (result === reject) return ignored` in `Core.arrive`. Nor has the refusal of a
