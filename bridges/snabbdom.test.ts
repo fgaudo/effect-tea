@@ -231,9 +231,9 @@ describe("when the bridge to snabbdom draws", () => {
   // Another program may draw into the same root by then.
   test("a draw asked for before the bridge is stopped is not made once it is stopped", async () => {
     document.body.innerHTML = "<div id=\"app\"></div>"
-    const app = start(counter)
+    const { app, run } = start(counter)
     const stopDrawing = drawInto(element("#app"), counterView)(app)
-    forked(app.run)
+    forked(run)
     settle()
     button("+").click()
     stopDrawing()
@@ -283,9 +283,9 @@ describe("when the bridge to snabbdom draws", () => {
     // A patch inside the patch under way would patch a tree that no longer matches the page.
     test("is drawn once that patch is done, in a microtask of its own, and the run goes on", async () => {
       document.body.innerHTML = "<div id=\"app\"></div>"
-      const app = start(editor)
+      const { app, run } = start(editor)
       drawing(drawInto(element("#app"), editorView)(app))
-      const fiber = forked(app.run)
+      const fiber = forked(run)
       settle()
       element<HTMLInputElement>("#name").focus()
       button("Edit").click()
@@ -331,9 +331,9 @@ describe("what a draw after a handler throws", () => {
 
   const ending = async (view: View<CounterModel, CounterMessage>, program: typeof counter = counter) => {
     document.body.innerHTML = "<div id=\"app\"></div>"
-    const app = start(program)
+    const { app, run } = start(program)
     drawing(drawInto(element("#app"), view)(app))
-    const fiber = forked(app.run)
+    const fiber = forked(run)
     settle()
     const errors = reported()
     try {
@@ -388,13 +388,13 @@ describe("what the first draw throws", () => {
   // Drawn by the call that starts the bridge, which nothing of the run calls: the run dies of it all the same.
   test("by the view, ends the run, in render, and drawInto throws nothing", () => {
     document.body.innerHTML = "<div id=\"app\"></div>"
-    const app = start(counter)
+    const { app, run } = start(counter)
     const draw = () =>
       drawInto<CounterModel, CounterMessage>(element("#app"), () => {
         throw new Error("A view that cannot draw")
       })(app)
     expect(draw).not.toThrow()
-    const fiber = forked(app.run)
+    const fiber = forked(run)
     settle()
     expect(sites(fiber.pollUnsafe())).toEqual(["render"])
   })
@@ -414,9 +414,9 @@ describe("what the first draw throws", () => {
       update: counter.update,
       makeModel: counter.makeModel
     })
-    const app = start(failing, { flags: 0 })
+    const { app, run } = start(failing, { flags: 0 })
     drawing(drawInto(element("#app"), counterView)(app))
-    const fiber = forked(app.run)
+    const fiber = forked(run)
     settle()
     expect(sites(fiber.pollUnsafe())).toEqual(["init"])
   })

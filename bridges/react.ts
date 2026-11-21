@@ -50,9 +50,9 @@ export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) =
  *
  * @example
  * ```ts
- * const app = start(counter)
+ * const { app, run } = start(counter)
  * createRoot(root).render(createElement(Draw<Model, Message>, { app, view }))
- * Effect.runFork(app.run)
+ * Effect.runFork(run)
  * ```
  *
  * @see The guide, "Writing a bridge", "The handle".
@@ -137,11 +137,11 @@ export const Host = <State, Model, Message, Command = never, RC = never, RS = ne
   const first = useRef(props)
   // The program is started as `Host` first renders, by plain code that runs no effect: its first model is drawn in the
   // render that mounts it, and on a server. A render that React throws away leaves a program that nothing runs.
-  const [{ app, drawn }, setApp] = useState(() => hosted(begin<Model, Message>(first.current)))
+  const [{ started, drawn }, setStarted] = useState(() => hosted(begin<Model, Message>(first.current)))
   const [died, setDied] = useState<Died | undefined>(undefined)
   // What a render of `Host` threw, for the boundary: the cleanup reports a death that no render threw.
   const thrown = useRef<Died | undefined>(undefined)
-  // Whether the program in `app` has been given to `fork`: a program started is run once.
+  // Whether the program in `started` has been given to `fork`: a program started is run once.
   const ran = useRef(false)
   useEffect(() => {
     const { fork } = first.current
@@ -156,10 +156,10 @@ export const Host = <State, Model, Message, Command = never, RC = never, RS = ne
       if (!mounted) return
       // An effect that runs again later, as when `<Activity>` shows `Host` again, finds a program whose run has ended:
       // it starts the program anew, from `init`.
-      let running = app
+      let running = started
       if (ran.current) {
         running = begin<Model, Message>(first.current)
-        setApp(hosted(running))
+        setStarted(hosted(running))
       }
       ran.current = true
       const forked = forkRun(running.run)
@@ -194,7 +194,8 @@ export const Host = <State, Model, Message, Command = never, RC = never, RS = ne
 // recorded where it was read, and the run dying of it. The first has no model before it: it throws, for the boundary,
 // and `Host`, which never mounted, never runs the program. The model drawn last stays the same: a program that died
 // applies no message.
-const hosted = <Model, Message>(app: Started<Model, Message>) => {
+const hosted = <Model, Message>(started: Started<Model, Message>) => {
+  const { app } = started
   let last: { readonly model: Model } | undefined
   const model = () => {
     try {
@@ -207,7 +208,7 @@ const hosted = <Model, Message>(app: Started<Model, Message>) => {
     }
   }
   const drawn: App<Model, Message> = { ...app, model }
-  return { app, drawn }
+  return { started, drawn }
 }
 
 // `start`'s options are checked by `HostProps`, which the rest of `start`'s signature cannot see here.

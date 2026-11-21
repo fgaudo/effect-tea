@@ -22,10 +22,10 @@ const bell = Bell.of({
   })
 })
 
-const app = start(namedTimers)
+const { app, run } = start(namedTimers)
 drawInto(root, namedTimersView)(app)
 Effect.runFork(
-  app.run.pipe(
+  run.pipe(
     Effect.provideService(Bell, bell),
     // The failure of a program that dies is reported; an interruption is no crash.
     Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause)))

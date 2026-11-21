@@ -80,6 +80,12 @@ The guide, "Structuring a program", "What kind of thing is it": its rows name th
 The library does not enforce these rules: no type refuses a break of them, and the run goes on. So check each one by
 reading the code. The guide, "Guarantees", "What is left to you". The guide, "Structuring a program", "In short".
 
+- **Whoever starts a program runs it.** `start` gives `{ app, run }`, and nothing checks that `run` runs. A program
+  that is never run still applies its messages, and does nothing else: no command and no subscription starts, and no
+  defect is reported, while from a defect on it applies no message. Leave it unrun only where none of its effects is
+  meant to run, as on a server. Write `const { app, run } = start(program)`, so that a linter can report a `run` left
+  unused. The guide, "Guarantees", "Whoever starts a program runs it". The guide, "Running", "A program is started,
+  then run".
 - **`update`, `external`, `makeModel` and `subscriptions` are pure, and a state is never mutated.** `update` may be
   called at any time: never assume it runs once per message. A child's `external` runs in its parent's `update`. The
   library reuses a child's model and subscriptions while the child's state is the same object. The guide, "Update",
@@ -173,6 +179,8 @@ Each sign breaks the rule named after it.
   decide".
 - A rejection asserted as "the state did not change". The guide, "Testing", "Do and don't".
 - An attempt to cancel a command. The guide, "Commands", "Commands cannot be cancelled".
+- A `start` whose `run` is never run, outside a server: the program changes its state and does nothing else. The
+  guide, "Guarantees", "Whoever starts a program runs it".
 - A `main` that runs the program and does not report its failure. A defect ends the run, and the run does not log it:
   reporting it is the job of the app around the run. The guide, "Running", "When a defect happens".
 

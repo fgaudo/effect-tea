@@ -83,9 +83,9 @@ const giveBack = (controlled: Map<Element, Controlled>): void => {
  *
  * @example
  * ```ts
- * const app = start(counter)
+ * const { app, run } = start(counter)
  * drawInto(document.getElementById("app")!, view)(app)
- * Effect.runFork(app.run)
+ * Effect.runFork(run)
  * ```
  *
  * @see The guide, "Writing a bridge", "The handle".

@@ -27,11 +27,11 @@ a minimal example to start from. What else a renderer can do is left to the brid
 
 ### The handle
 
-`start(program)` gives a `Started`, an `App` with `run` (see [running](./running.md#rules)). A bridge is plain code
-over the `App`, `{ model, subscribe, dispatch, die }`, and returns what stops it. With snabbdom,
-`drawInto(root, view)(app)` is that code. Whoever started the program calls what it returns, or does not: the run does
-not stop a bridge. With the bridge to React, `Host` starts the program and its run, and gives React the `App`. A
-program that the application starts itself hands its `App` to `Draw`.
+`start(program)` gives a `Started`, `{ app, run }`: `app` is an `App`, and `run` runs the program's effects (see
+[running](./running.md#rules)). A bridge is plain code over the `App`, `{ model, subscribe, dispatch, die }`, and
+returns what stops it. With snabbdom, `drawInto(root, view)(app)` is that code. Whoever started the program calls what
+it returns, or does not: the run does not stop a bridge. With the bridge to React, `Host` starts the program and its
+run, and gives React the `App`. A program that the application starts itself hands its `App` to `Draw`.
 
 `drawInto` draws the model of the current state:
 

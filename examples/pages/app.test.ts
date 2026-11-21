@@ -132,7 +132,7 @@ describe("pages", () => {
   // state, as a view asks for it each time it is drawn.
   test("a user opens About, and the Clock's dispatch is the same function every time it is asked for", async () => {
     const clockDispatches = new Set<unknown>()
-    const handle = start(app)
+    const { app: handle, run } = start(app)
     const opened = Deferred.makeUnsafe<void>()
     handle.subscribe(() => {
       const { page } = handle.model()
@@ -142,7 +142,7 @@ describe("pages", () => {
       if (page._tag === "About" && Opt.isSome(page.model.saying)) Deferred.doneUnsafe(opened, Exit.void)
     })
     // The run is interrupted once About shows its saying.
-    await Effect.runPromise(Effect.raceFirst(handle.run, Deferred.await(opened)).pipe(Effect.timeout("3 seconds")))
+    await Effect.runPromise(Effect.raceFirst(run, Deferred.await(opened)).pipe(Effect.timeout("3 seconds")))
     expect(clockDispatches.size).toBe(1)
   })
 })

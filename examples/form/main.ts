@@ -26,11 +26,11 @@ const storage = Storage.of({
 
 // One program, started once and drawn by both renderers over the same handle: what is typed or saved in either is
 // drawn by both.
-const app = start(form)
+const { app, run } = start(form)
 drawInto(element("snabbdom"), snabbdomView)(app)
 createRoot(element("react")).render(createElement(Draw<Model, Message>, { app, view: reactView }))
 Effect.runFork(
-  app.run.pipe(
+  run.pipe(
     Effect.provideService(Storage, storage),
     // The failure of a program that dies is reported; an interruption is no crash.
     Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause)))

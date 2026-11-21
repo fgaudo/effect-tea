@@ -587,7 +587,8 @@ type Start<P, Command> = Readonly<{
 export const start: <State, Model, Message, Command = never, RC = never, RS = never, Flags = never>(program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Started<Model, Message, Exclude<RC | RS, Scope.Scope>>;
 
 // @public
-export interface Started<Model, Message, R = never> extends App<Model, Message> {
+export interface Started<Model, Message, R = never> {
+    readonly app: App<Model, Message>;
     readonly run: Effect.Effect<never, never, R>;
 }
 

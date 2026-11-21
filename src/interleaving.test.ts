@@ -631,7 +631,7 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
     throw name
   }
   // Started by plain code: the handle is there before the run begins, and so is its first model.
-  const app = start(counted, {
+  const { app, run } = start(counted, {
     onApplied: (applied) => hearing({ _tag: "Applied", applied }),
     onIgnored: (ignored) => hearing({ _tag: "Ignored", ignored })
   })
@@ -675,7 +675,7 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
     Effect.gen(function*() {
       caller = yield* Effect.orDie(Effect.currentSpan)
       events.push({ _tag: "Running" })
-      return yield* app.run
+      return yield* run
     }).pipe(
       Effect.withSpan("caller"),
       // Down to debug: what the subscriptions and the commands log is among them.

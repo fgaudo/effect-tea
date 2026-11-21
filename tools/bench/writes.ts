@@ -192,7 +192,7 @@ const alternated = Effect.fnUntraced(function*(rounds: number, samplers: Readonl
 const throughRun = (subject: Subject) =>
   Effect.sync(() => {
     const messages = subject.messages().composed
-    const app = start(subject.program)
+    const { app } = start(subject.program)
     const begun = performance.now()
     for (const message of messages) {
       app.dispatch(message)

@@ -36,10 +36,10 @@ const scanner = Scanner.of({
   )
 })
 
-const app = start(stocktake, { flags: { aisle: "A3" } })
+const { app, run } = start(stocktake, { flags: { aisle: "A3" } })
 drawInto(root, view)(app)
 Effect.runFork(
-  app.run.pipe(
+  run.pipe(
     Effect.provideService(Server, server),
     Effect.provideService(Scanner, scanner),
     // The failure of a program that dies is reported; an interruption is no crash.

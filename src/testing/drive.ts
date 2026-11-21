@@ -87,7 +87,7 @@ const driven = <Model, Message, R>(
   }
   // Said once the run has started the effects of the first state, unless the program has died by then: of `init`, of
   // its first keys, of its first model, or of what the first state started. The check and the notice are one thunk.
-  const app = starting(deaths, () => {
+  const { app, run } = starting(deaths, () => {
     if (!deaths.dead()) Deferred.doneUnsafe(running, Effect.void)
   }, settled)
   // Subscribed before the first read, so that no state is missed.
@@ -101,7 +101,7 @@ const driven = <Model, Message, R>(
     // Recorded where the model was read, or by `init`: the run dies of it.
   }
   const now: Shown<Model, Message> = { app, latest: () => latest as Model, changed: () => changed }
-  return { deaths, began: Deferred.await(running), now, run: app.run, unsubscribe }
+  return { deaths, began: Deferred.await(running), now, run, unsubscribe }
 }
 
 /**
@@ -214,7 +214,7 @@ export const drive = Effect.fnUntraced(function*<
   // Stopped and awaited however `drive` ends, interrupted by whoever runs it too: its exit holds what the program
   // dies of as it releases what it holds.
   return yield* Effect.uninterruptibleMask(Effect.fnUntraced(function*(restore) {
-    // Not `restore(app.run)`: it would give the run the region of whoever runs `drive`, uninterruptible where that is,
+    // Not `restore(run)`: it would give the run the region of whoever runs `drive`, uninterruptible where that is,
     // when a fiber forked here is interruptible all the same (`docs/premises.md`).
     const fiber = yield* Effect.forkChild(run)
     // A run that ends first, of a defect, ends `drive`, whatever the scenario was doing.

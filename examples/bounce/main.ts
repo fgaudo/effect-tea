@@ -28,10 +28,10 @@ const screen = Screen.of({
   )
 })
 
-const app = start(bounce, { flags: { dt: 1000 / 60 } })
+const { app, run } = start(bounce, { flags: { dt: 1000 / 60 } })
 drawInto(root, view)(app)
 Effect.runFork(
-  app.run.pipe(
+  run.pipe(
     Effect.provideService(Screen, screen),
     // The failure of a program that dies is reported; an interruption is no crash.
     Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause)))

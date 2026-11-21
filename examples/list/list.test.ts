@@ -138,7 +138,7 @@ describe("list", () => {
   // As it runs, with a `TestClock`: a user adds a stopwatch and starts it, and time moves on.
   test("a running stopwatch counts the seconds that pass", async () => {
     let seconds = 0
-    const app = start(list)
+    const { app, run } = start(list)
     const counted = Deferred.makeUnsafe<void>()
     app.subscribe(() => {
       seconds = app.model().stopwatches[0]?.model.seconds ?? 0
@@ -153,7 +153,7 @@ describe("list", () => {
     }
     await Effect.runPromise(
       // The run is interrupted once three seconds have been counted.
-      Effect.raceFirst(app.run, Deferred.await(counted)).pipe(
+      Effect.raceFirst(run, Deferred.await(counted)).pipe(
         // Time moves on until then, and the race ends with the run.
         Effect.raceFirst(Effect.forever(TestClock.adjust("1 second").pipe(Effect.andThen(Effect.yieldNow)))),
         Effect.provide(TestClock.layer())

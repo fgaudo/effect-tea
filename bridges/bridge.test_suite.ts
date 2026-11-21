@@ -114,7 +114,7 @@ export type DrawInto<Node> = <Model, Message>(
 export const mount = <Node, Model, Message, R = never>(
   drawInto: DrawInto<Node>,
   view: View<Node, Model, Message>,
-  app: Started<Model, Message, R>,
+  { app, run }: Started<Model, Message, R>,
   ...[provide]: [R] extends [never] ? [] : [provide: (run: Effect.Effect<never, never, R>) => Effect.Effect<never>]
 ) => {
   document.body.innerHTML = "<div id=\"app\"></div><div id=\"aside\"></div>"
@@ -126,7 +126,7 @@ export const mount = <Node, Model, Message, R = never>(
       return view(model, dispatch)
     })(app)
   )
-  forked(provide === undefined ? app.run as Effect.Effect<never> : provide(app.run))
+  forked(provide === undefined ? run as Effect.Effect<never> : provide(run))
   return { views: () => views, app }
 }
 
@@ -396,9 +396,9 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
   describe("the root", () => {
     // Starts the counter, draws it into `root`, which the test made where it wants it, and runs it.
     const startIn = async (root: HTMLElement) => {
-      const app = start(counter)
+      const { app, run } = start(counter)
       drawing(bridge.drawInto(root, bridge.views.counter)(app))
-      forked(app.run)
+      forked(run)
       settle()
       await bridge.drawn()
     }
@@ -814,9 +814,9 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       const shadow = element("#host").attachShadow({ mode: "open" })
       shadow.innerHTML = "<div id=\"app\"></div>"
       const root = shadow.getElementById("app") as HTMLElement
-      const app = start(note)
+      const { app, run } = start(note)
       drawing(bridge.drawInto(root, bridge.views.note)(app))
-      forked(app.run)
+      forked(run)
       settle()
       await bridge.drawn()
       const input = root.querySelector("input")

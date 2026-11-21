@@ -451,20 +451,20 @@ const main = Effect.gen(function*() {
   assert(simulation.state.main.count === 0, "simulate applies the external messages")
   const counts: Array<number> = []
   const heard: Array<unknown> = []
-  const started = start(app, {
+  const { app: handle, run } = start(app, {
     onApplied: ({ message }) => {
       heard.push(message)
     }
   })
-  counts.push(started.model().main.count)
-  started.subscribe(() => void counts.push(started.model().main.count))
+  counts.push(handle.model().main.count)
+  handle.subscribe(() => void counts.push(handle.model().main.count))
   for (const count of [1, 2, 3]) {
-    started.dispatch(increment())
-    assert(started.model().main.count === count, "a program started applies a message before it returns, unrun")
+    handle.dispatch(increment())
+    assert(handle.model().main.count === count, "a program started applies a message before it returns, unrun")
   }
   assert(counts.join() === "0,1,2,3", `a listener is told of every new state: ${counts.join()}`)
   assert(heard.length === 3, `onApplied hears every accepted message: ${heard.length}`)
-  yield* Fiber.interrupt(yield* Effect.forkChild(started.run))
+  yield* Fiber.interrupt(yield* Effect.forkChild(run))
 })
 
 await Effect.runPromise(main)

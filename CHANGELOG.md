@@ -52,10 +52,11 @@ version, and everything else, features included, the patch version.
   Upgrade: `Effect.runSync(dispatch(message))` becomes `dispatch(message)`, `yield* dispatch(message)` becomes
   `yield* Effect.sync(() => dispatch(message))`, and a dispatch written by hand returns nothing.
 - **Breaking**: `run(program, render)` and `Frame` are removed: `start(program, options)` starts a program by plain
-  code, and gives a handle that a renderer reads, `{ model, subscribe, dispatch, die }`, with `run`, which runs the
-  program's effects; a model is made when it is read, once for each state ("Running", "Writing a bridge").
-  Upgrade: `Effect.runFork(run(program, render))` becomes `const app = start(program)`, plain code that draws
-  `app.model()` with `app.dispatch` and again on each notice of `app.subscribe`, then `Effect.runFork(app.run)`.
+  code, and gives `{ app, run }`: `app`, the handle a renderer reads, `{ model, subscribe, dispatch, die }`, and `run`,
+  which runs the program's effects; a model is made when it is read, once for each state ("Running", "Writing a
+  bridge").
+  Upgrade: `Effect.runFork(run(program, render))` becomes `const { app, run } = start(program)`, plain code that draws
+  `app.model()` with `app.dispatch` and again on each notice of `app.subscribe`, then `Effect.runFork(run)`.
 - A message is applied in the call that sends it, a command's answer and a subscription's message in their own fiber;
   its subscriptions and commands start after, in the order of the states, and the next message waits for no release.
 - **Breaking**: `Driver.latest` is gone: `Driver.model` is the model of the current state, and `Driver.dispatch` the

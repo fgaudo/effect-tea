@@ -53,10 +53,10 @@ const pointer = Pointer.of({
   )
 })
 
-const app = start(volume)
+const { app, run } = start(volume)
 drawInto(root, view)(app)
 Effect.runFork(
-  app.run.pipe(
+  run.pipe(
     Effect.provideService(Pointer, pointer),
     // The failure of a program that dies is reported; an interruption is no crash.
     Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause)))

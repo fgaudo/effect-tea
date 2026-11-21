@@ -65,7 +65,7 @@ export interface App<Model, Message> {
 }
 
 /**
- * A program started: the handle a renderer reads, and `run`, the effect that runs the program's effects.
+ * A program started: `app`, the handle a renderer reads, and `run`, the effect that runs the program's effects.
  *
  * - The handle is made by plain code, with no fiber: `init`, the first state and its keys. A message sent before `run`
  *   starts is applied all the same, and its effects wait for `run`.
@@ -73,19 +73,25 @@ export interface App<Model, Message> {
  *   program. It never succeeds: whoever runs the program ends it by interrupting `run`.
  * - A program started is run once: a second `run` dies. One whose `run` is interrupted before it begins is left as it
  *   was, and is never stopped.
+ * - Nothing checks that `run` runs. Until it does, no defect is reported: from a defect on, the program applies no
+ *   message, and `run` dies of it once it runs.
  * - An `init` that throws is a defect in `'init'`: the handle is made all the same, `model()` throws the defect, and
  *   `run` dies of it.
  *
  * @example
  * ```ts
- * const app: Started<Model, Message> = start(counter)
- * Effect.runFork(app.run)
+ * const { app, run }: Started<Model, Message> = start(counter)
+ * drawInto(root, view)(app)
+ * Effect.runFork(run)
  * ```
  *
  * @see The guide, "Running", "A program is started, then run".
  * @see The guide, "Running", "A defect in `init` is recorded as the program starts".
+ * @see The guide, "Guarantees", "Whoever starts a program runs it".
  */
-export interface Started<Model, Message, R = never> extends App<Model, Message> {
+export interface Started<Model, Message, R = never> {
+  /** The handle a renderer reads. */
+  readonly app: App<Model, Message>
   /** Runs the effects of the program, until it is interrupted or a defect ends it. */
   readonly run: Effect.Effect<never, never, R>
 }
@@ -217,15 +223,16 @@ export const startWith = <State, Model, Message, Command, RC, RS, Flags>(
       }))
     )
   })
-  return { ...app, run }
+  return { app, run }
 }
 
 /**
  * Starts a program, by plain code, with no fiber and no effect: it calls `init`, and makes the first state and its
  * keys. It gives the handle a renderer reads, and `run`, the effect that runs the program's effects.
  *
- * - A message sent before `run` starts is applied all the same, and its effects wait for `run`.
- * - A program started is run once. Whoever runs it ends it by interrupting `run`.
+ * - A message sent before `run` starts is applied all the same, and its effects wait for `run`. So does the report of
+ *   a defect: from the defect on, the program applies no message.
+ * - A program started is run once. Whoever runs it ends it by interrupting `run`. Nothing checks that it is run.
  * - An `init` that throws gives a handle whose `model()` throws the defect, and whose `run` dies of it.
  * - One message at a time, in the order they were sent. A message is applied in the call that sends it. The
  *   subscriptions it stops and starts, and the start of its commands, follow in the run's own fiber, in the order of
@@ -244,13 +251,14 @@ export const startWith = <State, Model, Message, Command, RC, RS, Flags>(
  *
  * @example
  * ```ts
- * const app = start(counter)
+ * const { app, run } = start(counter)
  * drawInto(root, view)(app)
- * Effect.runFork(app.run)
+ * Effect.runFork(run)
  * ```
  *
  * @see The guide, "Running", "In short".
  * @see The guide, "Running", "A program is started, then run".
+ * @see The guide, "Guarantees", "Whoever starts a program runs it".
  * @see The guide, "Guarantees", "One message at a time, in the order they were sent".
  * @see The guide, "Guarantees", "Outdated clicks are harmless".
  * @see The guide, "Guarantees", "Nothing outlives what acquired it".

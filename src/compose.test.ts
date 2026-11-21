@@ -176,7 +176,7 @@ const script = <M>(
   state: ParentState = program.init.state
 ) => {
   const seen: Array<Drawn<M>> = []
-  const app = start({ ...program, init: { ...program.init, state } })
+  const { app, run } = start({ ...program, init: { ...program.init, state } })
   const done = Deferred.makeUnsafe<void>()
   const draw = () => {
     const drawn = { model: app.model(), dispatch: app.dispatch }
@@ -185,7 +185,7 @@ const script = <M>(
   }
   app.subscribe(draw)
   draw()
-  return Effect.raceFirst(app.run, Deferred.await(done)).pipe(
+  return Effect.raceFirst(run, Deferred.await(done)).pipe(
     Effect.timeout("2 seconds"),
     Effect.as(seen),
     Effect.runPromiseExit
@@ -520,7 +520,7 @@ describe("children by id", () => {
   const nested = (draws: number, bumpingB?: number) =>
     Effect.suspend(() => {
       const seen: Array<ReturnType<typeof lists.makeModel>> = []
-      const app = start({
+      const { app, run } = start({
         ...lists,
         init: { state: { rows: [{ id: "A", list: rows(1) }, { id: "B", list: rows(1) }] } }
       })
@@ -539,7 +539,7 @@ describe("children by id", () => {
       }
       app.subscribe(draw)
       draw()
-      return Effect.raceFirst(app.run, Deferred.await(done)).pipe(Effect.as(seen))
+      return Effect.raceFirst(run, Deferred.await(done)).pipe(Effect.as(seen))
     })
 
   test("in a run, a nested child that did not change keeps its model from one state to the next", async () => {
@@ -2150,8 +2150,8 @@ describe("a child's subscriptions in a run", () => {
       children: { Bumping: child(bumping, { at: Optic.id<Holder>().key("bumping") }) },
       makeModel: (state, children) => children.Bumping(state)
     })
-    const app = start(holder)
-    const fiber = Effect.runFork(app.run)
+    const { app, run } = start(holder)
+    const fiber = Effect.runFork(run)
     app.dispatch({ _tag: "Bumping", message: "Bump" })
     app.dispatch({ _tag: "Bumping", message: "Bump" })
     app.dispatch({ _tag: "Bumping", message: "Bump" })

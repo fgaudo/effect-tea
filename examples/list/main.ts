@@ -8,10 +8,10 @@ import { view } from "./view.ts"
 const root = document.getElementById("app")
 if (root === null) throw new Error("index.html has no #app element")
 
-const app = start(list)
+const { app, run } = start(list)
 drawInto(root, view)(app)
 Effect.runFork(
-  app.run.pipe(
+  run.pipe(
     // The failure of a program that dies is reported; an interruption is no crash.
     Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause)))
   )

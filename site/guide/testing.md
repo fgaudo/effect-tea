@@ -122,10 +122,10 @@ have to have one.
 
 Then the test does these steps:
 
-1. It starts the program with `start(program, options)`, draws it with `drawInto(root, view)`, and forks its `run`
-   with `Effect.runFork`, with its services provided. `drawInto` empties `root` and draws the view into it, so the test
-   finds what the view draws through `root`. The test may make `root` with no parent, and may draw a second program
-   into the same `root`, once it has stopped the first bridge.
+1. It starts the program with `const { app, run } = start(program, options)`, draws `app` with
+   `drawInto(root, view)`, and forks `run` with `Effect.runFork`, with its services provided. `drawInto` empties
+   `root` and draws the view into it, so the test finds what the view draws through `root`. The test may make `root`
+   with no parent, and may draw a second program into the same `root`, once it has stopped the first bridge.
 2. It acts on the page. Then it waits until the page shows what it expects, because a renderer may draw a new state
    later. The bridge to snabbdom draws in a microtask after each new state, a message of its view's included: so the
    test awaits a microtask after each event it dispatches. React renders as React schedules it.

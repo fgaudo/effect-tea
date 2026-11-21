@@ -309,9 +309,9 @@ const unmount = async (root: Root) => {
 }
 
 // Draws a program that was started with `Draw` into a root of its own, and runs it.
-const drawRun = <Model, Message>(app: Started<Model, Message>, view: View<Model, Message>) => {
+const drawRun = <Model, Message>({ app, run }: Started<Model, Message>, view: View<Model, Message>) => {
   drawIn(rootIn(page()), view)(app)
-  forked(app.run)
+  forked(run)
   settle()
 }
 
@@ -328,8 +328,8 @@ describe("where React reads the model under Draw", () => {
         return count
       }
     })
-    const app = start(counted)
-    drawRun(app, (count, dispatch) => drawButton(String(count), () => dispatch("Increment")))
+    const { app, run } = start(counted)
+    drawRun({ app, run }, (count, dispatch) => drawButton(String(count), () => dispatch("Increment")))
     expect(made).toEqual(["0 after"])
     sending = true
     app.dispatch("Increment")
@@ -425,7 +425,7 @@ describe("Host", () => {
     }))
     expect(html).toBe("<output>7</output>")
     expect(commands).toEqual([])
-    const app = start(loading)
+    const { app } = start(loading)
     expect(renderToString(createElement(bridge.Draw<Readonly<{ loaded: number }>, "Loaded">, {
       app,
       view: (model) => createElement("output", null, model.loaded)
@@ -1043,8 +1043,8 @@ describe("what an application does beside the program", () => {
         createElement(Field, { value: model.text, write: forwardTo(dispatch, "Text") }),
         model._tag === "Open" ? drawButton("Lock", () => dispatch(model.lock)) : null
       )
-    const app = start(lock)
-    drawRun(app, view)
+    const { app, run } = start(lock)
+    drawRun({ app, run }, view)
     const input = element<HTMLInputElement>("input")
     type(input, "Ada")
     await acting(() => button("Lock").click())
@@ -1151,7 +1151,7 @@ describe("together, React beside snabbdom", () => {
 
   test("a click in either renderer is drawn by both", async () => {
     page().innerHTML = "<div id=\"snabbdom\"></div><div id=\"react\"></div>"
-    const app = start(counter)
+    const { app, run } = start(counter)
     drawing(
       drawWithSnabbdom(
         element("#snabbdom"),
@@ -1165,7 +1165,7 @@ describe("together, React beside snabbdom", () => {
       )(app)
     )
     drawIn(rootIn(element("#react")), counterView)(app)
-    forked(app.run)
+    forked(run)
     settle()
     const counts = () => [element("#snabbdom output").textContent, element("#react output").textContent]
     expect(counts()).toEqual(["0", "0"])
@@ -1181,10 +1181,10 @@ describe("together, React beside snabbdom", () => {
 
   test("each input shows what was typed into the other, and keeps its element", async () => {
     page().innerHTML = "<div id=\"snabbdom\"></div><div id=\"react\"></div>"
-    const app = start(form)
+    const { app, run } = start(form)
     drawing(drawWithSnabbdom(element("#snabbdom"), snabbdomFormView)(app))
     drawIn(rootIn(element("#react")), formView)(app)
-    forked(app.run.pipe(Effect.provideService(Storage, Storage.of({ save: () => Effect.void }))))
+    forked(run.pipe(Effect.provideService(Storage, Storage.of({ save: () => Effect.void }))))
     settle()
     const inSnabbdom = element<HTMLInputElement>("#snabbdom input")
     const inReact = element<HTMLInputElement>("#react input")

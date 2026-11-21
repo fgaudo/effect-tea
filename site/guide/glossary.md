@@ -45,7 +45,7 @@ rules where a line here says less.
 | **Key**                    | What `subscriptions(state)` lists a subscription under. Keys are compared by value: a new key starts its subscription, and a missing key stops it | [subscriptions](./subscriptions.md)                                          |
 | **Services**               | The Effect services that `runCommand` and `subscriptions` use. They are inferred, never named, and provided around `run`                          | [anatomy of a program](./anatomy-of-a-program.md), [commands](./commands.md) |
 | **Handler** (of a service) | The code that does a service's operations, such as the save. The layer provided around `run` holds it                                             | [commands](./commands.md#services-handlers-and-events)                       |
-| **Run**                    | The program's effects, running: `run` of the `Started` that `start(program, options?)` gives, until it is interrupted or a defect ends it         | [running](./running.md)                                                      |
+| **Run**                    | The program's effects, running: the `run` that `start(program, options?)` gives, until it is interrupted or a defect ends it                      | [running](./running.md)                                                      |
 
 ## Messages that do not fit
 

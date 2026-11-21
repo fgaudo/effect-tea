@@ -45,6 +45,8 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
 - **Nothing ends in silence.** A subscription that ends sends one last message.
   - A defect anywhere in the program ends the run. The run dies with it, as a `ProgramDefect` that says where it
     happened.
+  - A program that was never run reports no defect until `run` runs, and `run` then dies of it. From the defect on,
+    the program applies no message all the same ([running](./running.md#rules)).
   - A listener of the `App` that throws, a `makeModel` that throws, and what a renderer gives `die` are defects too, in
     `'render'`. Once the run has ended, `die` throws back what the run's cause does not hold
     ([running](./running.md#rules)).
@@ -63,6 +65,12 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
 
 ## What is left to you
 
+- **Whoever starts a program runs it.** Nothing checks that `run` runs. A program that is never run still applies its
+  messages, and does nothing else: no command and no subscription starts, and no defect is reported. From a defect on,
+  it applies no message, and nobody is told (see [running](./running.md#rules)).
+  - Leave a program unrun only where none of its effects is meant to run: on a server, to draw its first model.
+  - Take `run` from what `start` gives, as `const { app, run } = start(program)`. A `run` that is never run is then a
+    variable that is never used, which a linter can report. This helps, and checks nothing.
 - **Commands run to their end, or to the end of the run.** The end of the run interrupts the commands under way.
   - Until then, their answer goes where it is addressed, even if the state has moved on.
   - `update` decides whether the answer still applies. See [commands](./commands.md), and ids that come back in

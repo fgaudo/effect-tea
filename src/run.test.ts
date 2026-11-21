@@ -138,8 +138,8 @@ const thrownBy = (f: () => unknown): unknown => {
 
 describe("the handle a renderer gets", () => {
   test("model() is the model of the current state, at once after a dispatch, and a rejected message leaves it", async () => {
-    const app = start(counter)
-    const fiber = Effect.runFork(app.run)
+    const { app, run } = start(counter)
+    const fiber = Effect.runFork(run)
     const seen: Array<unknown> = [app.model().count]
     app.dispatch("Increment")
     seen.push(app.model().count)
@@ -152,8 +152,8 @@ describe("the handle a renderer gets", () => {
 
   test("a model is made only when read, once for each state", async () => {
     const made: Array<number> = []
-    const app = start({ ...counter, makeModel: ({ count }) => (made.push(count), { count }) })
-    const fiber = Effect.runFork(app.run)
+    const { app, run } = start({ ...counter, makeModel: ({ count }) => (made.push(count), { count }) })
+    const fiber = Effect.runFork(run)
     app.dispatch("Increment")
     app.dispatch("Increment")
     const first = app.model()
@@ -167,12 +167,12 @@ describe("the handle a renderer gets", () => {
   test("a listener is told of each new state, and a model read in it is of the latest state", async () => {
     const told: Array<number> = []
     const answered = Deferred.makeUnsafe<void>()
-    const app = start(counter)
+    const { app, run } = start(counter)
     app.subscribe(() => {
       told.push(app.model().count)
       if (app.model().count === 2) Deferred.doneUnsafe(answered, Exit.void)
     })
-    const fiber = Effect.runFork(app.run)
+    const fiber = Effect.runFork(run)
     app.dispatch("Increment")
     app.dispatch("Same")
     app.dispatch("Forbidden")
@@ -183,8 +183,8 @@ describe("the handle a renderer gets", () => {
   })
 
   test("a dispatch from a plain callback after the run has ended applies nothing, and throws nothing", async () => {
-    const app = start(counter)
-    await interrupted(Effect.runFork(app.run))
+    const { app, run } = start(counter)
+    await interrupted(Effect.runFork(run))
     const thrown = thrownBy(() => app.dispatch("Increment"))
     expect({ count: app.model().count, thrown }).toEqual({ count: 0, thrown: undefined })
   })
@@ -193,7 +193,7 @@ describe("the handle a renderer gets", () => {
     const calls = { n: 0 }
     const holding = Deferred.makeUnsafe<void>()
     let send: (message: Message) => void = () => undefined
-    const app = start({
+    const { app, run } = start({
       ...counter,
       init: { state: { count: 0 }, commands: ["Ping"] },
       update: (message) => (state) => {
@@ -209,7 +209,7 @@ describe("the handle a renderer gets", () => {
         )
     })
     send = app.dispatch
-    const exit = await endedAfter(Effect.runFork(app.run), Deferred.await(holding))
+    const exit = await endedAfter(Effect.runFork(run), Deferred.await(holding))
     expect(calls.n).toBe(0)
     expect(wheres(exit)).toEqual([])
   })
@@ -228,8 +228,8 @@ describe("a model's defect", () => {
   }
 
   test("a model read outside any fiber is recorded in render, and the reader gets the defect recorded", async () => {
-    const app = start(throwing)
-    const fiber = Effect.runFork(app.run)
+    const { app, run } = start(throwing)
+    const fiber = Effect.runFork(run)
     const read = Deferred.makeUnsafe<unknown>()
     // As a renderer's callback reads it: a timer's.
     setTimeout(() => {
@@ -242,10 +242,10 @@ describe("a model's defect", () => {
   })
 
   test("a model read before the run starts is one defect, in render, and the run dies of it", async () => {
-    const app = start(throwing)
+    const { app, run } = start(throwing)
     app.dispatch("Increment")
     const thrown = thrownBy(() => app.model())
-    const exit = await Effect.runPromiseExit(app.run)
+    const exit = await Effect.runPromiseExit(run)
     expect(wheres(exit)).toEqual(["render: makeModel threw"])
     expect(defectsOf(exit)[0]).toBe(thrown)
   })
@@ -253,34 +253,34 @@ describe("a model's defect", () => {
   // Before the run starts: once it has, its end may begin on the stack of the read that records the defect, and be over
   // before what follows the read.
   test("a second read of the same state throws the same defect, recorded once", async () => {
-    const app = start(throwing)
+    const { app, run } = start(throwing)
     app.dispatch("Increment")
     const reads = [thrownBy(() => app.model()), thrownBy(() => app.model())]
-    const exit = await Effect.runPromiseExit(app.run)
+    const exit = await Effect.runPromiseExit(run)
     expect(wheres(exit)).toEqual(["render: makeModel threw"])
     expect(reads.map((read) => read === defectsOf(exit)[0])).toEqual([true, true])
   })
 
   test("a listener that reads a model that throws, and throws it, is one defect, in render", async () => {
-    const app = start(throwing)
+    const { app, run } = start(throwing)
     app.subscribe(() => void app.model())
-    const fiber = Effect.runFork(app.run)
+    const fiber = Effect.runFork(run)
     app.dispatch("Increment")
     expect(wheres(await ended(fiber))).toEqual(["render: makeModel threw"])
   })
 
   // Before the run starts, as the second read above.
   test("a model's defect a renderer gives to die is one defect, in render", async () => {
-    const app = start(throwing)
+    const { app, run } = start(throwing)
     app.dispatch("Increment")
     app.die(thrownBy(() => app.model()))
-    expect(wheres(await Effect.runPromiseExit(app.run))).toEqual(["render: makeModel threw"])
+    expect(wheres(await Effect.runPromiseExit(run))).toEqual(["render: makeModel threw"])
   })
 
   test("a model's defect a renderer gives to die once the run has ended is thrown back as it is", async () => {
-    const app = start(throwing)
+    const { app, run } = start(throwing)
     app.dispatch("Increment")
-    await interrupted(Effect.runFork(app.run))
+    await interrupted(Effect.runFork(run))
     const read = thrownBy(() => app.model())
     expect(thrownBy(() => app.die(read))).toBe(read)
   })
@@ -294,14 +294,14 @@ describe("die", () => {
         throw "init threw"
       }
     }
-    const app = start(failing, { flags: 0 })
+    const { app, run } = start(failing, { flags: 0 })
     app.die(thrownBy(() => app.model()))
-    expect(wheres(await Effect.runPromiseExit(app.run))).toEqual(["init: init threw"])
+    expect(wheres(await Effect.runPromiseExit(run))).toEqual(["init: init threw"])
   })
 
   test("once the run has ended, throws back what it is given, a defect in render that no cause holds", async () => {
-    const app = start(counter)
-    const exit = await interrupted(Effect.runFork(app.run))
+    const { app, run } = start(counter)
+    const exit = await interrupted(Effect.runFork(run))
     const thrown = thrownBy(() => app.die("drew too late"))
     expect({
       wheres: wheres(exit),
@@ -310,8 +310,8 @@ describe("die", () => {
   })
 
   test("before the run has ended, throws nothing, and the run dies of what it is given", async () => {
-    const app = start(counter)
-    const fiber = Effect.runFork(app.run)
+    const { app, run } = start(counter)
+    const fiber = Effect.runFork(run)
     expect(thrownBy(() => app.die("drew"))).toBeUndefined()
     expect(wheres(await ended(fiber))).toEqual(["render: drew"])
   })
@@ -319,23 +319,23 @@ describe("die", () => {
 
 describe("defects the handle meets", () => {
   test("a listener that throws on a command's answer dies in render, and the command ends as it should", async () => {
-    const app = start(counter)
+    const { app, run } = start(counter)
     app.subscribe(() => {
       if (app.model().count === 1) throw "listener threw"
     })
-    const fiber = Effect.runFork(app.run)
+    const fiber = Effect.runFork(run)
     app.dispatch("Ping")
     expect(wheres(await ended(fiber))).toEqual(["render: listener threw"])
   })
 
   test("a defect of update in a dispatch is never thrown to the caller, and the run dies of it in update", async () => {
-    const app = start({
+    const { app, run } = start({
       ...counter,
       update: () => () => {
         throw "update threw"
       }
     })
-    const fiber = Effect.runFork(app.run)
+    const fiber = Effect.runFork(run)
     const thrown = thrownBy(() => app.dispatch("Increment"))
     expect({ thrown, wheres: wheres(await ended(fiber)) }).toEqual({
       thrown: undefined,
@@ -344,8 +344,8 @@ describe("defects the handle meets", () => {
   })
 
   test("what a renderer gives to die is a defect in render: the program applies nothing after, and its run dies of it", async () => {
-    const app = start(counter)
-    const fiber = Effect.runFork(app.run)
+    const { app, run } = start(counter)
+    const fiber = Effect.runFork(run)
     app.die("draw threw")
     app.dispatch("Increment")
     expect(app.model().count).toBe(0)
@@ -353,8 +353,8 @@ describe("defects the handle meets", () => {
   })
 
   test("a command that interrupts itself is a defect in the command", async () => {
-    const app = start({ ...counter, runCommand: () => Effect.interrupt })
-    const fiber = Effect.runFork(app.run)
+    const { app, run } = start({ ...counter, runCommand: () => Effect.interrupt })
+    const fiber = Effect.runFork(run)
     app.dispatch("Ping")
     expect(wheres(await ended(fiber))).toEqual([
       "command: Error: It was interrupted by the program, which only the run may do"
@@ -374,8 +374,8 @@ describe("defects the handle meets", () => {
     }
 
     test("the command whose answer it hears", async () => {
-      const app = start(interrupting)
-      const fiber = Effect.runFork(app.run)
+      const { app, run } = start(interrupting)
+      const fiber = Effect.runFork(run)
       app.dispatch("Ping")
       expect(wheres(await ended(fiber))).toEqual([
         "command: Error: It was interrupted by the program, which only the run may do"
@@ -400,7 +400,7 @@ describe("defects the handle meets", () => {
   test("a run interrupted by whoever runs it is no defect", async () => {
     const commanded = Deferred.makeUnsafe<void>()
     const subscribed = Deferred.makeUnsafe<void>()
-    const app = start({
+    const { run } = start({
       ...counter,
       init: { state: { count: 0 }, commands: ["Ping"] },
       runCommand: () => Effect.andThen(Deferred.succeed(commanded, undefined), Effect.never),
@@ -408,7 +408,7 @@ describe("defects the handle meets", () => {
         HashMap.make(["k", Channel.unwrap(Effect.as(Deferred.succeed(subscribed, undefined), Channel.never))])
     })
     const exit = await endedAfter(
-      Effect.runFork(app.run),
+      Effect.runFork(run),
       Effect.andThen(Deferred.await(commanded), Deferred.await(subscribed))
     )
     expect(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)).toBe(true)
@@ -448,8 +448,8 @@ describe("scopes and spans", () => {
           : HashMap.empty(),
       makeModel: (state) => state
     }
-    const app = start(listening)
-    const fiber = Effect.runFork(app.run)
+    const { app, run } = start(listening)
+    const fiber = Effect.runFork(run)
     app.dispatch("On")
     app.dispatch("Off")
     app.dispatch("Up")
@@ -501,8 +501,8 @@ describe("scopes and spans", () => {
     }
     const caller = await Effect.runPromise(
       Effect.gen(function*() {
-        const app = start(logging)
-        yield* Effect.raceFirst(app.run, reaching(app, (model) => model >= commands))
+        const { app, run } = start(logging)
+        yield* Effect.raceFirst(run, reaching(app, (model) => model >= commands))
         return yield* Effect.orDie(Effect.currentSpan)
       }).pipe(
         Effect.withSpan("caller"),
@@ -522,8 +522,8 @@ describe("the run", () => {
   // Nothing can interrupt it there: the end is a defect's, and it still stops the subscription, which would hold the
   // end forever had it been forked uninterruptible.
   test("called inside an uninterruptible region, runs the program's effects, and a defect still ends it", async () => {
-    const app = start({ ...counter, subscriptions: () => HashMap.make(["k", Channel.never]) })
-    const fiber = Effect.runFork(Effect.uninterruptible(app.run))
+    const { app, run } = start({ ...counter, subscriptions: () => HashMap.make(["k", Channel.never]) })
+    const fiber = Effect.runFork(Effect.uninterruptible(run))
     const counts = [app.model().count]
     app.dispatch("Increment")
     // Its answer, `Increment`, comes from the command's fiber.
@@ -538,8 +538,8 @@ describe("the run", () => {
   })
 
   test("a message that update rejects is ignored, and the program goes on", async () => {
-    const app = start(counter)
-    const fiber = Effect.runFork(app.run)
+    const { app, run } = start(counter)
+    const fiber = Effect.runFork(run)
     const counts = [app.model().count]
     // A buggy view: it sends a message that `update` does not accept, then increments.
     app.dispatch("Forbidden")
@@ -555,10 +555,10 @@ describe("the run", () => {
       ...counter,
       init: (count) => ({ state: { count }, commands: ["Ping"] })
     }
-    const app = start(seeded, { flags: 5 })
+    const { app, run } = start(seeded, { flags: 5 })
     // The command of `init` waits for the run.
     const counts = [app.model().count]
-    const exit = await endedAfter(Effect.runFork(app.run), reaching(app, ({ count }) => count === 6))
+    const exit = await endedAfter(Effect.runFork(run), reaching(app, ({ count }) => count === 6))
     counts.push(app.model().count)
     expect(wheres(exit)).toEqual([])
     expect(counts).toEqual([5, 6])
@@ -575,9 +575,9 @@ describe("the run", () => {
       subscriptions: () => HashMap.empty(),
       makeModel: ({ count }: Count) => count
     }
-    const app = start(plain)
+    const { app, run } = start(plain)
     expect(app.model()).toBe(0)
-    expect(wheres(await interrupted(Effect.runFork(app.run)))).toEqual([])
+    expect(wheres(await interrupted(Effect.runFork(run)))).toEqual([])
     const pinging = { ...plain, update: () => (state: Count) => ({ state, commands: ["Ping" as const] }) }
     // @ts-expect-error: its `Ping` would go uninterpreted.
     expect(() => start(pinging)).toBeDefined()
@@ -618,9 +618,9 @@ describe("the run", () => {
       subscriptions: () => HashMap.empty(),
       makeModel: (heard) => heard
     }
-    const app = start(program)
+    const { app, run } = start(program)
     await Effect.runPromise(Effect.raceFirst(
-      app.run,
+      run,
       reaching(app, ({ heard }) => heard.length === 1).pipe(
         Effect.andThen(Deferred.succeed(slow, undefined)),
         Effect.andThen(reaching(app, ({ heard }) => heard.length === 2))
@@ -651,11 +651,11 @@ describe("defects", () => {
     const everything = Logger.make(({ message }) => {
       logged.push(message)
     })
-    const app = start(program, options)
+    const { app, run } = start(program, options)
     app.subscribe(() => view(app.model()))
     const drawn = thrownBy(() => view(app.model()))
     if (drawn !== undefined) app.die(drawn)
-    const fiber = Effect.runFork(app.run.pipe(
+    const fiber = Effect.runFork(run.pipe(
       Effect.provideService(References.MinimumLogLevel, "Debug"),
       Effect.provide(Logger.layer([everything]))
     ))
@@ -724,8 +724,8 @@ describe("defects", () => {
 
   /** Starts `program`, sends it `Increment` once its run has started, and returns how the run ended. */
   const sentIncrement = (program: Counter) => {
-    const app = start(program)
-    const fiber = Effect.runFork(app.run)
+    const { app, run } = start(program)
+    const fiber = Effect.runFork(run)
     app.dispatch("Increment")
     return ended(fiber)
   }
@@ -839,8 +839,8 @@ describe("onApplied", () => {
   test("hears every accepted message in order, with the states around it, before the dispatch returns", async () => {
     const heard: Array<Applied<Count, Message, Command>> = []
     const counts: Array<number> = []
-    const app = start(counter, { onApplied: (applied) => void heard.push(applied) })
-    const fiber = Effect.runFork(app.run)
+    const { app, run } = start(counter, { onApplied: (applied) => void heard.push(applied) })
+    const fiber = Effect.runFork(run)
     app.dispatch("Increment")
     counts.push(heard.length)
     app.dispatch("Increment")
@@ -862,9 +862,9 @@ describe("onApplied", () => {
       subscriptions: () =>
         HashMap.make(["k", Channel.succeed<Message>("Increment").pipe(Channel.concatWith(() => Channel.never))])
     }
-    const app = start(pinging, { onApplied: ({ origin }) => void origins.push(origin) })
+    const { app, run } = start(pinging, { onApplied: ({ origin }) => void origins.push(origin) })
     await endedAfter(
-      Effect.runFork(app.run),
+      Effect.runFork(run),
       reaching(app, ({ count }) => count === 2).pipe(Effect.andThen(Effect.sync(() => app.dispatch("Increment"))))
     )
     expect(origins).toHaveLength(3)
@@ -880,8 +880,8 @@ describe("onApplied", () => {
       init: { state: { count: 0 }, commands: ["Ping"] },
       update: () => (state) => ({ state })
     }
-    const app = start(still, { onApplied: (message) => void Deferred.doneUnsafe(applied, Exit.succeed(message)) })
-    await endedAfter(Effect.runFork(app.run), Deferred.await(applied))
+    const { run } = start(still, { onApplied: (message) => void Deferred.doneUnsafe(applied, Exit.succeed(message)) })
+    await endedAfter(Effect.runFork(run), Deferred.await(applied))
     expect(await Effect.runPromise(Deferred.await(applied))).toEqual({
       message: "Increment",
       origin: { _tag: "Command" },
@@ -901,13 +901,13 @@ describe("onApplied", () => {
       init: { state: { count: 0 }, commands: ["Ping"] },
       update: () => ({ count }) => ({ state: { count: count + 1 }, commands: count === 0 ? ["Ping"] : [] })
     }
-    const app = start(pinging, {
+    const { run } = start(pinging, {
       onApplied: (step) => {
         applied.push(step)
         if (applied.length === 2) Deferred.doneUnsafe(two, Exit.void)
       }
     })
-    await endedAfter(Effect.runFork(app.run), Deferred.await(two))
+    await endedAfter(Effect.runFork(run), Deferred.await(two))
     expect(applied.slice(0, 2).map((step) => step.commands)).toEqual([["Ping"], []])
   })
 })
@@ -917,7 +917,7 @@ describe("onIgnored", () => {
     const ignored: Array<Ignored<Count, Message>> = []
     const applied: Array<Message> = []
     const both = Deferred.makeUnsafe<void>()
-    const app = start(
+    const { app, run } = start(
       {
         ...counter,
         init: { state: { count: 0 }, commands: ["Ping"] },
@@ -931,7 +931,7 @@ describe("onIgnored", () => {
         }
       }
     )
-    const fiber = Effect.runFork(app.run)
+    const fiber = Effect.runFork(run)
     app.dispatch("Forbidden")
     await endedAfter(fiber, Deferred.await(both))
     expect(applied).toEqual([])
@@ -973,9 +973,9 @@ describe("subscriptions", () => {
             : HashMap.empty(),
         makeModel: (state) => state
       }
-      const app = start(watch)
+      const { app, run } = start(watch)
       return yield* Effect.raceFirst(
-        app.run,
+        run,
         Effect.gen(function*() {
           app.dispatch("Hold")
           yield* Deferred.await(holding)
@@ -1004,18 +1004,21 @@ describe("the end of the run", () => {
   // interrupted joins the cause.
   test("a subscription that dies as the end of the run releases it ends the run with it", async () => {
     const holding = Deferred.makeUnsafe<void>()
-    const app = start({ ...counter, subscriptions: () => HashMap.make(["k", Channel.fromEffectDone(dying(holding))]) })
-    expect(where(await endedAfter(Effect.runFork(app.run), Deferred.await(holding)))).toBe("subscription")
+    const { run } = start({
+      ...counter,
+      subscriptions: () => HashMap.make(["k", Channel.fromEffectDone(dying(holding))])
+    })
+    expect(where(await endedAfter(Effect.runFork(run), Deferred.await(holding)))).toBe("subscription")
   })
 
   test("a command that dies as the end of the run interrupts it ends the run with it", async () => {
     const holding = Deferred.makeUnsafe<void>()
-    const app = start({
+    const { run } = start({
       ...counter,
       init: { state: { count: 0 }, commands: ["Ping"] },
       runCommand: () => dying(holding)
     })
-    expect(where(await endedAfter(Effect.runFork(app.run), Deferred.await(holding)))).toBe("command")
+    expect(where(await endedAfter(Effect.runFork(run), Deferred.await(holding)))).toBe("command")
   })
 
   const sites = (exit: Exit.Exit<unknown>) =>
@@ -1034,8 +1037,8 @@ describe("the end of the run", () => {
 
   test("a command whose release dies as a run that died elsewhere stops it is in the cause", async () => {
     const holding = Deferred.makeUnsafe<void>()
-    const app = start({ ...releaseDies(holding), update: () => () => defect("update") })
-    const fiber = Effect.runFork(app.run)
+    const { app, run } = start({ ...releaseDies(holding), update: () => () => defect("update") })
+    const fiber = Effect.runFork(run)
     await Effect.runPromise(Effect.raceFirst(Effect.asVoid(Fiber.await(fiber)), Deferred.await(holding)))
     app.dispatch("Increment")
     expect(sites(await ended(fiber))).toEqual(["update", "command"])
@@ -1044,7 +1047,7 @@ describe("the end of the run", () => {
   // What is read once the run has died is the model of the latest state, the one already made.
   test("a model read once a run has died is the model of the state before the defect", async () => {
     let made = 0
-    const app = start({
+    const { app, run } = start({
       ...counter,
       update: () => () => defect("update"),
       makeModel: (state) => {
@@ -1053,7 +1056,7 @@ describe("the end of the run", () => {
       }
     })
     const before = app.model()
-    const fiber = Effect.runFork(app.run)
+    const fiber = Effect.runFork(run)
     app.dispatch("Increment")
     const exit = await ended(fiber)
     expect([sites(exit), made, app.model() === before, app.model().count]).toEqual([["update"], 1, true, 0])
@@ -1062,7 +1065,7 @@ describe("the end of the run", () => {
   test("a makeModel that dies as a run that died elsewhere stops a command is the second defect, in render", async () => {
     const holding = Deferred.makeUnsafe<void>()
     const reader: { app?: App<Model, Message> } = {}
-    const app = start({
+    const { app, run } = start({
       ...counter,
       init: { state: { count: 0 }, commands: ["Ping"] },
       update: () => () => defect("update"),
@@ -1078,7 +1081,7 @@ describe("the end of the run", () => {
       }
     })
     reader.app = app
-    const fiber = Effect.runFork(app.run)
+    const fiber = Effect.runFork(run)
     await Effect.runPromise(Effect.raceFirst(Effect.asVoid(Fiber.await(fiber)), Deferred.await(holding)))
     app.dispatch("Increment")
     expect(sites(await ended(fiber))).toEqual(["update", "render"])
@@ -1098,21 +1101,21 @@ describe("the end of the run", () => {
 
   test("a command that dies, uninterruptible, once an interrupted run has interrupted it ends the run with it", async () => {
     const started = Deferred.makeUnsafe<void>()
-    const app = start({
+    const { run } = start({
       ...counter,
       init: { state: { count: 0 }, commands: ["Ping"] },
       runCommand: () => diesOnceInterrupted(started)
     })
-    expect(sites(await endedAfter(Effect.runFork(app.run), Deferred.await(started)))).toEqual(["command"])
+    expect(sites(await endedAfter(Effect.runFork(run), Deferred.await(started)))).toEqual(["command"])
   })
 
   test("a subscription that dies, uninterruptible, once an interrupted run has stopped it ends the run with it", async () => {
     const started = Deferred.makeUnsafe<void>()
-    const app = start({
+    const { run } = start({
       ...counter,
       subscriptions: () => HashMap.make(["k", Channel.fromEffectDone(diesOnceInterrupted(started))])
     })
-    expect(sites(await endedAfter(Effect.runFork(app.run), Deferred.await(started)))).toEqual(["subscription"])
+    expect(sites(await endedAfter(Effect.runFork(run), Deferred.await(started)))).toEqual(["subscription"])
   })
 
   // What a release dies of is a defect once the scope it is in has released all it holds: a subscription that ends
@@ -1122,7 +1125,7 @@ describe("the end of the run", () => {
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const releasing = yield* Deferred.make<void>()
       const go = yield* Deferred.make<void>()
-      const app = start({
+      const { app, run } = start({
         ...counter,
         subscriptions: () =>
           HashMap.make([
@@ -1138,7 +1141,7 @@ describe("the end of the run", () => {
           ])
       })
       return yield* Effect.raceFirst(
-        app.run,
+        run,
         Effect.gen(function*() {
           drawn.push(app.model().count)
           yield* Deferred.await(releasing)
@@ -1241,7 +1244,7 @@ describe("the end of the run", () => {
     let applied = 0
     const releasing = Deferred.makeUnsafe<void>()
     const heard = Deferred.makeUnsafe<void>()
-    const app = start(
+    const { run } = start(
       {
         ...counter,
         subscriptions: () =>
@@ -1277,7 +1280,7 @@ describe("the end of the run", () => {
         }
       }
     )
-    const exit = await Effect.runPromiseExit(app.run)
+    const exit = await Effect.runPromiseExit(run)
     expect([sites(exit), applied]).toEqual([["subscription"], 0])
   })
 
@@ -1362,8 +1365,8 @@ describe("the end of the run", () => {
   /** Runs `program` until its count is 1, unless the run dies first, and returns how it went. */
   const counted = (program: Counter) =>
     Effect.runPromiseExit(Effect.suspend(() => {
-      const app = start(program)
-      return Effect.raceFirst(app.run, reaching(app, ({ count }) => count === 1))
+      const { app, run } = start(program)
+      return Effect.raceFirst(run, reaching(app, ({ count }) => count === 1))
     }))
 
   test("a command that catches the defect of a scope of its own answers, and the run goes on", async () => {
@@ -1416,13 +1419,13 @@ describe("the end of the run", () => {
           Effect.andThen(Effect.die("boom"))
         )).pipe(Effect.as(Channel.never))
     )
-    const app = start({
+    const { app, run } = start({
       ...counter,
       init: { state: { count: 0 }, commands: ["Ping"] },
       runCommand: () => Effect.never.pipe(Effect.onInterrupt(() => Deferred.succeed(ending, undefined))),
       subscriptions: ({ count }) => count === 0 ? HashMap.make(["k", releasesThenDies]) : HashMap.empty()
     })
-    const fiber = Effect.runFork(app.run)
+    const fiber = Effect.runFork(run)
     app.dispatch("Increment")
     expect(sites(await endedAfter(fiber, Deferred.await(releasing)))).toEqual(["subscription"])
   })
@@ -1438,7 +1441,7 @@ describe("the end of the run", () => {
     }).pipe(Effect.andThen(Effect.die("boom")))
     // Held until the end of the run, which stops the fiber of effects first, has reached the gate.
     const held = gate<Message>(Deferred.succeed(holding, undefined).pipe(Effect.andThen(untilInterrupted)))
-    const app = start({
+    const { app, run } = start({
       ...counter,
       update: () => ({ count }) => ({ state: { count: count + 1 }, commands: ["Boom"] }),
       runCommand: () => startsAndDies,
@@ -1449,7 +1452,7 @@ describe("the end of the run", () => {
           ? HashMap.make(["k", Channel.fromEffectDone(startsAndDies)])
           : HashMap.empty()
     })
-    const fiber = Effect.runFork(app.run)
+    const fiber = Effect.runFork(run)
     app.dispatch("Increment")
     const exit = await endedAfter(fiber, Deferred.await(holding))
     expect(sites(exit).length).toBe(started)
@@ -1459,9 +1462,9 @@ describe("the end of the run", () => {
   // until the command of `Ping` has answered, unless the run dies first.
   const stopsThenEnds = (program: Counter) =>
     Effect.runPromiseExit(Effect.suspend(() => {
-      const app = start(program)
+      const { app, run } = start(program)
       return Effect.raceFirst(
-        app.run,
+        run,
         Effect.sync(() => {
           app.dispatch("Increment")
           app.dispatch("Ping")
@@ -1523,9 +1526,9 @@ describe("a self-interruption as the run interrupts", () => {
   // the program until the command of `Ping` has answered, unless the run dies first.
   const stopsOnceStarted = (started: Deferred.Deferred<void>, program: Counter) =>
     Effect.runPromiseExit(Effect.suspend(() => {
-      const app = start(program)
+      const { app, run } = start(program)
       return Effect.raceFirst(
-        app.run,
+        run,
         Deferred.await(started).pipe(
           Effect.andThen(Effect.sync(() => {
             app.dispatch("Increment")
@@ -1782,14 +1785,14 @@ describe("releases that die with errors equal by Equal", () => {
   })
 
   test("of a subscription the run stops are each a defect of the subscription", async () => {
-    const app = start({
+    const { app, run } = start({
       ...counter,
       subscriptions: ({ count }) =>
         count === 0
           ? HashMap.make(["k", Channel.unwrap(Effect.as(releasesThatDie, Channel.never))])
           : HashMap.empty()
     })
-    const fiber = Effect.runFork(app.run)
+    const fiber = Effect.runFork(run)
     app.dispatch("Increment")
     expect(sites(await ended(fiber))).toEqual([["subscription", "Closing"], ["subscription", "Closing"]])
   })

@@ -124,15 +124,16 @@ export interface RunOptions<State, Message, Command = unknown> {
    *
    * @example
    * ```ts
-   * const app = Effect.gen(function*() {
+   * const main = Effect.gen(function*() {
    *   const heard = yield* Queue.unbounded<Applied<State, Message, Command>>()
    *   const report = Queue.take(heard).pipe(Effect.flatMap(sendToDevtools), Effect.forever)
-   *   const started = start(program, {
+   *   const { app, run } = start(program, {
    *     onApplied: (applied) => {
    *       Queue.offerUnsafe(heard, applied)
    *     }
    *   })
-   *   yield* Effect.raceFirst(started.run, report)
+   *   drawInto(root, view)(app)
+   *   yield* Effect.raceFirst(run, report)
    * })
    * ```
    *

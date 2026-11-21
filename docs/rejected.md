@@ -177,10 +177,19 @@ answer, and saying so in the proposal.
   split is an export and a second way to start a run. Its sentence on StrictMode, that the second render would make a
   second half that nothing starts with no command of `init` run twice, held of the second render and not of the second
   effect, which is the one that starts a run. Reopened the same day, and reversed: spiked and taken by the owner
-  ([`store-and-effects.md`](records/store-and-effects.md)). `start(program, options)` is plain code and gives the handle
-  a renderer reads, with `run`, the effect that runs the program's effects; `run(program, render)` is removed; `Host`
-  starts its run in a microtask after its effect, so that under StrictMode the commands of `init` start once; and the
-  guide promises that a server draws the first model.
+  ([`store-and-effects.md`](records/store-and-effects.md)). `start(program, options)` is plain code and gives
+  `{ app, run }`: the handle a renderer reads, and the effect that runs the program's effects; `run(program, render)`
+  is removed; `Host` starts its run in a microtask after its effect, so that under StrictMode the commands of `init`
+  start once; and the guide promises that a server draws the first model.
+- **Telling a program that was started and never run, as it runs**: a `dispatch` that throws, or a warning or a log,
+  once a program applies messages and no `run` has begun. Reasoned, 21 November 2026, with a second opinion (Fable),
+  the owner deciding. A program started and never run is a state the library itself makes: `Host` and `Draw` draw the
+  first model on a server and run nothing, a render that React throws away leaves a program that nothing runs, and
+  `Host` starts its run in a microtask after its effect. No signal tells a forgotten `run` from one left out on purpose,
+  and a log would be one of the run's own ("The run writes no log of its own", `AGENTS.md`). So `start` gives
+  `{ app, run }`, where it gave the `App` with `run` among its members: a `run` left out is then a variable that a
+  linter reports, and leaving it out is written (`const { app } = start(…)`). The guide lists the rule under "What is
+  left to you". _Reopen if_ a signal is found that tells a forgotten `run` from one left out on purpose.
 
 - **`rehearse`, owning what the test starts, in other forms**: the loop calling `runCommand` (spiked, `cb7dfd0`),
   a request the loop has not taken failing the rehearsal (spiked, `74b271f`), a subscription's message applied as it

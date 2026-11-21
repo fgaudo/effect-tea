@@ -32,9 +32,9 @@ if (sent.join() !== "Increment") throw new Error(`messagesSentBy found ${sent.jo
 
 // Typed, and not called: Node has no DOM to draw into.
 export const begin = (root: Element) => {
-  const app = start(counter)
+  const { app, run } = start(counter)
   const stop = drawInto(root, view)(app)
-  return { stop, fiber: Effect.runFork(app.run) }
+  return { stop, fiber: Effect.runFork(run) }
 }
 
 // A controlled field: it shows the value, and what is typed is written.

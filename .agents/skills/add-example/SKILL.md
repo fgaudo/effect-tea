@@ -61,8 +61,8 @@ In `examples/` itself are [`README.md`](../../../examples/README.md), which says
   The examples are published (`files` in `package.json`, all but their `tsconfig.json`), for the guide, the tutorial
   and the skill that link them, but nothing of the package imports them. snabbdom and React are optional peers, for
   the bridges alone, and `@happy-dom/global-registrator` is only a dev dependency.
-- **`main.ts`** finds `#app`, starts the program with `const app = start(program)`, draws it with
-  `drawInto(root, view)(app)`, and runs it with `Effect.runFork(app.run)`, through an `Effect.tapCause` that logs the
+- **`main.ts`** finds `#app`, starts the program with `const { app, run } = start(program)`, draws it
+  with `drawInto(root, view)(app)`, and runs it with `Effect.runFork(run)`, through an `Effect.tapCause` that logs the
   failure of a dying program, unless it is only an interruption (`list/main.ts`). Those of `counter` and `form` draw
   the one handle with both renderers: snabbdom's `drawInto`, and `Draw` with that handle in a React root of its own.
 - **`index.html`** has the title `<Name> · effect-tea`, the shared `../style.css`, a header with the name,

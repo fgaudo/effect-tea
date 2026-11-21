@@ -16,11 +16,11 @@ const element = (id: string) => {
 }
 
 // One program, started once and drawn by both renderers over the same handle: a click in either is drawn by both.
-const app = start(counter)
+const { app, run } = start(counter)
 drawInto(element("snabbdom"), snabbdomView)(app)
 createRoot(element("react")).render(createElement(Draw<Model, Message>, { app, view: reactView }))
 Effect.runFork(
-  app.run.pipe(
+  run.pipe(
     // The failure of a program that dies is reported; an interruption is no crash.
     Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause)))
   )

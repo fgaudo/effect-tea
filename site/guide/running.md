@@ -8,32 +8,39 @@ title: Running
 
 This page shows how you start a program, what your renderer reads, and what to do when the run dies.
 
-`start(program, options?)` starts the program by plain code, and gives a handle: the model of the current state, a
-notice of each new state, the dispatch, and `run`, the effect that runs the program's effects. A renderer reads the
-handle. Whoever runs the program forks `run`, and ends the run by interrupting it:
+`start(program, options?)` starts the program by plain code, and gives two things. `app` is the handle a renderer
+reads: the model of the current state, a notice of each new state, and the dispatch. `run` is the effect that runs the
+program's effects. Whoever starts the program forks `run`, and ends the run by interrupting it:
 
 ```ts
-const app = start(counter)
+const { app, run } = start(counter)
 drawInto(root, view)(app)
-Effect.runFork(app.run)
+Effect.runFork(run)
 ```
 
 A message is applied in the call that sends it. Its commands and its subscriptions follow in the run's own fiber. A
-defect anywhere ends the run too. The run dies, and reporting the crash is the job of the app around the run.
+defect anywhere ends the run too. The run dies, and reporting the crash is the job of the app around the run. Until
+`run` runs, no effect of the program runs, and no defect is reported.
 
 ## Rules
 
 **Only a program without events starts.** There is no parent to handle the events.
 
-**A program is started, then run.** `start` gives a `Started`: an `App`, which a renderer reads, with `run`.
+**A program is started, then run.** `start` gives a `Started`, `{ app, run }`: `app`, the `App` a renderer reads, and
+`run`.
 
 - `start` calls `init`, and makes the first state. It starts no fiber, and runs no effect.
 - `run` starts the subscriptions and the commands of each state, in the order of the states. It never succeeds: it
   runs until it is interrupted, or until a defect ends it.
 - A message sent before `run` is applied all the same. Its effects wait for `run`.
 - A program started is run once. A second `run` dies. To run the program again, start it again.
-- A program that was never run is never stopped. Its state can still change, and no effect follows. This holds of a
-  program whose `run` is interrupted before it begins, too.
+- A program that was never run is never stopped. Its state can still change, and no effect follows.
+- A program that was never run reports no defect. The defect is recorded all the same: from the defect on, the
+  program applies no message, so its state no longer changes. Nothing is thrown to whoever sent the message, and
+  nothing ends. `run` dies of the defect once it runs. Only `model()` throws a defect of `makeModel` or of `init`, to
+  whoever reads the model.
+- Both hold of a program whose `run` is interrupted before it begins, too.
+- Nothing checks that a program started is run (see [guarantees](./guarantees.md#what-is-left-to-you)).
 
 **The renderer gets an `App`**, `{ model, subscribe, dispatch, die }`:
 
@@ -99,16 +106,16 @@ That fiber is raced with the run. So the fiber ends with the run, and a defect i
 in the queue when the run ends is not reported.
 
 ```ts
-const app = Effect.gen(function*() {
+const main = Effect.gen(function*() {
   const heard = yield* Queue.unbounded<Applied<State, Message, Command>>()
   const report = Queue.take(heard).pipe(Effect.flatMap(sendToDevtools), Effect.forever)
-  const started = start(program, {
+  const { app, run } = start(program, {
     onApplied: (applied) => {
       Queue.offerUnsafe(heard, applied)
     }
   })
-  drawInto(root, view)(started)
-  yield* Effect.raceFirst(started.run, report)
+  drawInto(root, view)(app)
+  yield* Effect.raceFirst(run, report)
 })
 ```
 
@@ -122,19 +129,19 @@ The run writes no log of its own. To log each message, log what `onApplied` and 
 takes it from the queue. Choose there what a line holds: a message may hold data.
 
 ```ts
-const app = Effect.gen(function*() {
+const main = Effect.gen(function*() {
   const heard = yield* Queue.unbounded<Applied<State, Message, Command>>()
   const logging = Queue.take(heard).pipe(
     Effect.flatMap(({ message, revision }) => Effect.logDebug("Message", message._tag, { revision })),
     Effect.forever
   )
-  const started = start(program, {
+  const { app, run } = start(program, {
     onApplied: (applied) => {
       Queue.offerUnsafe(heard, applied)
     }
   })
-  drawInto(root, view)(started)
-  yield* Effect.raceFirst(started.run, logging)
+  drawInto(root, view)(app)
+  yield* Effect.raceFirst(run, logging)
 })
 ```
 
@@ -168,7 +175,8 @@ A defect anywhere ends the run, which dies with a `ProgramDefect`:
 
   When the program logs something, a defect in that log is in the place the program logs from.
 
-From the defect on, the run applies no message. Every defect is in the cause, each with where it happened.
+From the defect on, the run applies no message. Every defect is in the cause, each with where it happened. A program
+that was never run reports its defect only once `run` runs, and dies of it then (see [rules](#rules)).
 
 **A defect in `init` is recorded as the program starts.** `start` still gives a handle. Its `model()` throws the
 defect, and its `run` dies of it. A defect in `subscriptions` on the first state is recorded as the program starts
@@ -189,10 +197,10 @@ program again.
 `Effect.runFork` returns (on `pagehide`, for example) ends the run too. That interruption is not a crash:
 
 ```ts
-const app = start(program, options)
+const { app, run } = start(program, options)
 drawInto(root, view)(app)
 Effect.runFork(
-  app.run.pipe(
+  run.pipe(
     Effect.tapCause((cause) => Cause.hasInterruptsOnly(cause) ? Effect.void : reportCrash(cause))
   )
 )

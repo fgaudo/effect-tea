@@ -64,7 +64,7 @@ const interrupted = <A, E>(fiber: Fiber.Fiber<A, E>) =>
 describe("a program started", () => {
   test("is made by plain code: its first model is read at once, and nothing of init has started", () => {
     const log: Array<string> = []
-    const app = start(loader(log, Deferred.makeUnsafe<void>()))
+    const { app } = start(loader(log, Deferred.makeUnsafe<void>()))
     expect(app.model()).toEqual({ loaded: 0, asked: 1 })
     expect(log).toEqual([])
   })
@@ -72,14 +72,14 @@ describe("a program started", () => {
   test("applies a message sent before run starts, and its effects wait for run, in the order of the states", async () => {
     const log: Array<string> = []
     const answer = Deferred.makeUnsafe<void>()
-    const app = start(loader(log, answer), { onApplied: ({ message }) => void log.push(`applied ${message}`) })
+    const { app, run } = start(loader(log, answer), { onApplied: ({ message }) => void log.push(`applied ${message}`) })
     const told: Array<number> = []
     app.subscribe(() => told.push(app.model().asked))
     app.dispatch("More")
     expect(app.model().asked).toBe(2)
     expect(told).toEqual([2])
     expect(log).toEqual(["applied More"])
-    const fiber = Effect.runFork(app.run)
+    const fiber = Effect.runFork(run)
     // The first state's job, then the message's: on the stack of whoever forks the run.
     expect(log).toEqual(["applied More", "subscription started", "command started", "command started"])
     Deferred.doneUnsafe(answer, Exit.void)
@@ -90,8 +90,8 @@ describe("a program started", () => {
 
   test("interrupted, its run stops the program: what it started is released, and a dispatch after applies nothing", async () => {
     const log: Array<string> = []
-    const app = start(loader(log, Deferred.makeUnsafe<void>()))
-    const fiber = Effect.runFork(app.run)
+    const { app, run } = start(loader(log, Deferred.makeUnsafe<void>()))
+    const fiber = Effect.runFork(run)
     const exit = await interrupted(fiber)
     expect(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)).toBe(true)
     expect(log).toEqual(["subscription started", "command started", "command interrupted", "subscription released"])
@@ -102,9 +102,9 @@ describe("a program started", () => {
 
   test("is run once: a second run dies, and the first goes on", async () => {
     const log: Array<string> = []
-    const app = start(loader(log, Deferred.makeUnsafe<void>()))
-    const first = Effect.runFork(app.run)
-    const second = await Effect.runPromiseExit(app.run)
+    const { app, run } = start(loader(log, Deferred.makeUnsafe<void>()))
+    const first = Effect.runFork(run)
+    const second = await Effect.runPromiseExit(run)
     expect(wheres(second)).toEqual([
       "raw: Error: A program that was started is run once: start it again to run it again"
     ])
@@ -114,7 +114,7 @@ describe("a program started", () => {
     await Effect.runPromise(Effect.yieldNow)
     expect(log).toEqual(["subscription started", "command started", "command started"])
     await interrupted(first)
-    const third = await Effect.runPromiseExit(app.run)
+    const third = await Effect.runPromiseExit(run)
     expect(wheres(third)).toHaveLength(1)
   })
 
@@ -123,8 +123,8 @@ describe("a program started", () => {
   // and is the killer of no mutation.
   test("a dispatch returns before the commands of its step start, while the fiber of effects waits", async () => {
     const log: Array<string> = []
-    const app = start(loader(log, Deferred.makeUnsafe<void>()))
-    const fiber = Effect.runFork(app.run)
+    const { app, run } = start(loader(log, Deferred.makeUnsafe<void>()))
+    const fiber = Effect.runFork(run)
     await Effect.runPromise(Effect.yieldNow)
     expect(log).toEqual(["subscription started", "command started"])
     app.dispatch("More")
@@ -143,13 +143,35 @@ describe("a program started", () => {
       subscriptions: () => HashMap.empty(),
       makeModel: ({ n }) => n
     }
-    const app = start(boom)
+    const { app, run } = start(boom)
     app.dispatch("Up")
     expect(app.model()).toBe(1)
-    const exit = await ended(Effect.runFork(app.run))
+    const exit = await ended(Effect.runFork(run))
     expect(wheres(exit)).toEqual(["command: boom"])
     app.dispatch("Up")
     expect(app.model()).toBe(1)
+  })
+
+  test("never run, reports no defect: nothing is thrown to the sender, nothing is applied after it, and run dies of it once it runs", async () => {
+    type Fragile = Program<{ state: Readonly<{ n: number }>; model: number; message: "Up" | "Break" }>
+    const fragile: Fragile = {
+      init: { state: { n: 0 } },
+      update: (message) => (state) => {
+        if (message === "Break") throw new Error("broke")
+        return { state: { n: state.n + 1 } }
+      },
+      subscriptions: () => HashMap.empty(),
+      makeModel: ({ n }) => n
+    }
+    const { app, run } = start(fragile)
+    let told = 0
+    app.subscribe(() => void told++)
+    app.dispatch("Up")
+    expect(() => app.dispatch("Break")).not.toThrow()
+    app.dispatch("Up")
+    expect([app.model(), told]).toEqual([1, 1])
+    const exit = await Effect.runPromiseExit(run)
+    expect(wheres(exit)).toEqual(["update: Error: broke"])
   })
 })
 
@@ -170,7 +192,7 @@ describe("a program whose start throws", () => {
   }
 
   test("in init: the handle is made, model() throws the defect in init, nothing is applied, and run dies of it", async () => {
-    const app = start(flagged, { flags: -1 })
+    const { app, run } = start(flagged, { flags: -1 })
     let thrown: unknown
     try {
       app.model()
@@ -183,7 +205,7 @@ describe("a program whose start throws", () => {
     app.subscribe(() => void told++)
     app.dispatch("Up")
     expect(told).toBe(0)
-    const exit = await Effect.runPromiseExit(app.run)
+    const exit = await Effect.runPromiseExit(run)
     expect(wheres(exit)).toEqual(["init: Error: negative"])
     expect(
       Exit.isFailure(exit) && exit.cause.reasons[0] !== undefined && Cause.isDieReason(exit.cause.reasons[0])
@@ -193,11 +215,11 @@ describe("a program whose start throws", () => {
   })
 
   test("in subscriptions, on the first state: the model is read, nothing is applied, and run dies of it", async () => {
-    const app = start(flagged, { flags: 13 })
+    const { app, run } = start(flagged, { flags: 13 })
     expect(app.model()).toBe(13)
     app.dispatch("Up")
     expect(app.model()).toBe(13)
-    const exit = await Effect.runPromiseExit(app.run)
+    const exit = await Effect.runPromiseExit(run)
     expect(wheres(exit)).toEqual(["subscriptions: Error: unlucky"])
   })
 })
@@ -208,8 +230,8 @@ describe("the end of a run", () => {
   // completed where the defect is recorded, the end would stop the subscription inside the step.
   test("never begins inside a step: a defect a listener throws ends the run once every listener of the step is told", async () => {
     const log: Array<string> = []
-    const app = start(loader(log, Deferred.makeUnsafe<void>()))
-    const fiber = Effect.runFork(app.run)
+    const { app, run } = start(loader(log, Deferred.makeUnsafe<void>()))
+    const fiber = Effect.runFork(run)
     log.length = 0
     app.subscribe(() => {
       throw new Error("listener")
@@ -243,8 +265,8 @@ describe("the end of a run", () => {
         return "Other"
       }
     }
-    const app = start(program)
-    const fiber = Effect.runFork(app.run)
+    const { app, run } = start(program)
+    const fiber = Effect.runFork(run)
     app.dispatch(twice)
     app.dispatch({ _tag: "Up" })
     expect(app.model()).toBe(0)
