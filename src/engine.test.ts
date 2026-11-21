@@ -1203,9 +1203,8 @@ describe("the end of the engine", () => {
     )
 
   // The end of the engine stops its fiber of effects in a job that was waiting for the release of a key that went
-  // away. It reads the fibers that still run, never the keys of a state, so it stops that subscription too, with its
-  // mark: one that then joins a fiber the fiber that ends the engine interrupted interrupts itself, a defect, and the
-  // end dies of it.
+  // away. It reads the fibers that still run, never the keys of a state, so it stops that subscription too: one that
+  // then joins a fiber the fiber that ends the engine interrupted interrupts itself, a defect, and the end dies of it.
   test("a subscription interrupting itself as the end of the engine stops it, its key gone, is a defect", async () => {
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const stopped = yield* Deferred.make<void>()

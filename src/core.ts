@@ -13,8 +13,9 @@ import { reject, type Step, type Update } from "./update.ts"
 /**
  * The mark of an interruption the run makes (`Shell.stopping`), one for each, among the annotations of its reason. A
  * fiber id tells no interruption of the run's from one the program makes: `FiberMap`, `FiberSet` and `FiberHandle`
- * interrupt as the fiber -1, and the fiber that ends the run may have interrupted a fiber before, that the program
- * joins. The program cannot make the mark: the key is the library's, and so is each value, made anew for each stop.
+ * interrupt as the fiber -1, and a fiber of the program learns the id of the fiber that stops it from the interruption
+ * it receives (`Cause.interruptors`), and can interrupt another fiber as that id, then join it. The program cannot
+ * make the mark: the key is the library's, and so is each value, made anew for each stop.
  */
 export class Stopped extends Context.Service<Stopped, object>()("@fgaudo/effect-tea/Stopped") {}
 

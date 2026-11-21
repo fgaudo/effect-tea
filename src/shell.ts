@@ -53,12 +53,13 @@ export const diesIn = (
 /**
  * The root of a fiber the run forks: one that ends with interruptions only, none of them the run's (`Core.byTheRun`),
  * was interrupted by the program, by whatever fiber, and dies in `where`. Only the run stops such a fiber, with its
- * mark, and before anything else could: `Effect.forkChild` interrupts a child only as its parent ends, and the run
- * stops it before; the sets close only after the end has stopped their fibers. So it holds where `scopedIn` cannot, which
- * takes the same interruption for a defect while the fiber's effect runs and as its scope releases: one made once
- * `scopedIn` has returned, before the answer or the last message is sent. A cause with a defect is the fiber's death
- * already, recorded by `scopedIn`, which an interruption beside it, as Effect adds what the fiber received, does not
- * change.
+ * mark, and before anything else could: a fiber forked with `FiberSet.run` or `FiberMap.run` is no child of the fiber
+ * that forks it, and the sets close only after the end has stopped their fibers; `Effect.forkChild`, with which
+ * `simulate` forks a command, interrupts a child only as its parent ends, and `simulate` stops it before. So it holds
+ * where `scopedIn` cannot, which takes the same interruption for a defect while the fiber's effect runs and as its
+ * scope releases: one made once `scopedIn` has returned, before the answer or the last message is sent. A cause with a
+ * defect is the fiber's death already, recorded by `scopedIn`, which an interruption beside it, as Effect adds what the
+ * fiber received, does not change.
  */
 export const rootedIn =
   (where: DefectSite, details: () => Readonly<{ key?: unknown; on?: unknown }> = () => ({})) =>

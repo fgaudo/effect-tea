@@ -467,7 +467,7 @@ describe("drive and a scenario that throws before it returns its effect", () => 
   })
 })
 
-// What a driver gets in place of the frames: the model of the current state, and the run's own dispatch.
+// What a driver reads of the run: the model of the current state, and the run's own dispatch.
 describe("drive's model and dispatch", () => {
   type Count = Readonly<{ count: number }>
   type Counted = "Up" | "Boom"

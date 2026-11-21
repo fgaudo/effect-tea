@@ -21,8 +21,11 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   (`run.test.ts`), "… on a key whose Equal throws against the key of the state before" (`contract.test.ts`) and "dies
   in subscriptions when a key's Equal throws, as the run does" (`rehearse.test.ts`) rest on it. `FiberMap` compares its
   keys in a fiber's observer as well, which is why the run keeps its fibers by their start, never by their key. Both are
-  read only in the source. Its test: "HashMap calls a key's Equal and Hash only within the call it is given the key in",
-  which fails with a `FiberMap` whose fiber, replaced under an equal key, ends after the call.
+  read only in the source. Its test: "HashMap calls a key's Equal and Hash only within the call it is given the key in".
+  What it fails with is the test after it, "the watch of that test sees a FiberMap call a key's Equal after the call, in
+  a fiber's observer": `Equal` keeps the result of each pair of objects, so a late call shows only on a pair no call
+  compared, there the key of a fiber replaced under an equal one, which ends once that key has left the map, and a key
+  added after it left.
 - **A fiber forked with `FiberSet.run` or `FiberMap.run` is no child of the fiber that forks it, which ends without
   waiting for it**, which is how the end of the run stops the fiber of effects first, while the commands and the
   subscriptions a job of it started run on, until the end interrupts them itself (`stop` in `engine.ts`). So does
@@ -218,7 +221,8 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   that fiber, which `diesIn` wraps where the program logs, as the guide says ("Running"): "a Logger that throws on
   what a command logs is a defect in the command" (`run.test.ts`) rests on it. That it runs in the fiber that
   logs is read only in the source. Its test: "Effect calls each Logger synchronously, in the fiber that logs", which
-  fails with a logger that does its work in a fiber of its own (`Logger.batched`).
+  fails with a logger that does its work in a fiber of its own (`Logger.batched`): by an error of the logger that
+  nothing handles, not at an assertion.
 - **An external span keeps no event of the logs written under it**, which is how no span lives as long as the run,
   the fibers of the run seeing the span of whoever runs it as an external one (`withExternalSpan` in `shell.ts`):
   "what runs in a run logs nothing into the span of whoever runs it, which stays the parent of their spans"
@@ -300,7 +304,8 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   the real clock under a `TestClock`, by giving the wait the default `Clock`: "a wait longer than the patience fails,
   measured with the real clock even under a TestClock" (`drive.test.ts`) rests on it. Its JSDoc names no clock. Its
   test: "Effect.timeoutOption measures with the Clock of its context", under a `TestClock` that the test adjusts,
-  which fails with a timeout that waits with `setTimeout`.
+  which fails with a timeout that waits with `setTimeout`: by the timeout of the test, since its join then waits an
+  hour, not at an assertion.
 - **The default value of `Clock.Clock` keeps real time where a `TestClock` is the context's clock**, which is the
   other half of how `drive` measures its patience with the real clock: the clock it provides (`drive.ts`) is
   `Clock.Clock.defaultValue()`, and the same tests rest on it, which fail with that line removed. Neither the JSDoc of
@@ -337,6 +342,15 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   a store. Its test, in `react.test.ts`: "a controlled input keeps what is typed, its caret and its selection when a
   store read with useSyncExternalStore is updated during its onChange", which fails with the store updated a microtask
   later: React then takes back the key as the event ends, and shows it again with the caret at the end.
+- **React renders a store read with `useSyncExternalStore`, updated outside its events, in a microtask**, before the
+  browser's next task, which is how the bridge to React draws a new state that a command's answer or a subscription's
+  message makes before the browser handles the next event, as "Writing a bridge" says: a key is then never typed on a
+  view older than the state, which a write, naming no value it was written over, would store over the newer state
+  (`invariants.md`, "What a screen shows of an input is the bridges'"). Agreed to by the owner on 21 November 2026.
+  react.dev ("useSyncExternalStore") says that React renders again when the store changes, not when; the bridge's tests
+  take every render with `flushSync`, so none of them checks it. Its test, in `react.test.ts`: "React renders a store
+  read with useSyncExternalStore, updated outside its events, in a microtask", which fails with the store's listeners
+  told a task later.
 - **StrictMode runs an effect's cleanup in the task of the effect, before any microtask**, which is how `Host`
   (`bridges/react.ts`) runs one program, once, under StrictMode: it forks the program's `run` in a microtask after its
   effect, which its cleanup cancels, so the effect that StrictMode cleans up at once starts nothing, and the commands of

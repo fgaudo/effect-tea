@@ -2596,3 +2596,47 @@ describe("rehearse, as the job of a hearNext comes once the scenario has returne
     expect(log).toEqual([])
   })
 })
+
+// The form of what the review of the testing tools found in `drive` (`drive.test.ts`, "drive's send, made by a wait
+// that a step wakes"), looked for here: `rehearse` tells a call of `hearNext` what it heard in the job of the message,
+// so a call of the scenario that it wakes may go on inside that job, never inside the thunk that applied the message.
+describe("rehearse's send, made by a hearNext that a job wakes", () => {
+  type Heard = Readonly<{ heard: ReadonlyArray<string> }>
+  const heard: Program<{ state: Heard; model: Heard; message: "Ping" | "Go" }> = {
+    init: { state: { heard: [] } },
+    update: (message) => (state) => ({ state: { heard: [...state.heard, message] } }),
+    subscriptions: () =>
+      HashMap.make(["k", Channel.succeed<"Ping" | "Go">("Ping").pipe(Channel.concatWith(() => Channel.never))]),
+    makeModel: (state) => state
+  }
+
+  test("returns once update has seen its message, as it promises", async () => {
+    const after = await Effect.runPromise(rehearse(
+      heard,
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.hearNext("k")
+        yield* rehearsal.send(() => Opt.some<"Ping" | "Go">("Go"))
+        return yield* rehearsal.state
+      })
+    ))
+    expect(after).toEqual({ heard: ["Ping", "Go"] })
+  })
+
+  // The waiting fiber is forked at once, so that it waits before the scenario goes on.
+  test("returns once update has seen its message, sent by a fiber of the scenario's", async () => {
+    const after = await Effect.runPromise(rehearse(
+      heard,
+      Effect.fnUntraced(function*(rehearsal) {
+        const waiting = yield* Effect.forkChild(
+          rehearsal.hearNext("k").pipe(
+            Effect.andThen(rehearsal.send(() => Opt.some<"Ping" | "Go">("Go"))),
+            Effect.andThen(rehearsal.state)
+          ),
+          { startImmediately: true }
+        )
+        return yield* Fiber.join(waiting)
+      })
+    ))
+    expect(after).toEqual({ heard: ["Ping", "Go"] })
+  })
+})

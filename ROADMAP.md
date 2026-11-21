@@ -16,8 +16,16 @@ Each step names its model and effort, what it depends on, and how to tell that i
 ## Open problems
 
 A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a deterministic
-test of it. A finding of a review goes here with its `test.failing`, until its fix removes the mark and the item. None is
-open: the five of the review of the premises of 21 November 2026 were fixed by their form on that day.
+test of it. A finding of a review goes here with its `test.failing`, until its fix removes the mark and the item.
+
+- **A defect of a run under `Host` that nobody reports**, a lead of the review of the premises of 21 November 2026, run
+  on that day. The run dies while `Host` is mounted, and its observer calls `setDied`; its parent removes `Host` in the
+  same batch, as a button that dispatches and then closes the view would. `Host` never renders again, its state is
+  dropped, and its cleanup finds the run already ended: the defect reaches neither the boundary nor `reportError`, as
+  "Guarantees" promises. Held by `bridges/react.test.ts`, "Host" > "a run that dies" > "that dies as its parent removes
+  Host, in one batch, reaches the boundary or reportError". A fix could begin in `Host`: its cleanup gives
+  `reportError` a defect the observer set and no render threw. Whether 0.8.0 waits for it is the owner's call (step
+  5).
 
 ## Next, in order
 
@@ -38,50 +46,11 @@ exports that no release has had.
 ([`premise-review`](.agents/skills/premise-review/SKILL.md)) is done, by three reviewers that wrote none of the
 changes since `da12f71`: the engine, the testing tools and the bridges. Their reports are the bodies of `1317333`
 on `claude/premise-review-engine-080`, `8ffc7a4` on `claude/premise-review-testing-bc87b9` and `6e90b46` on
-`claude/premise-review-bridges-f28572`, which stay unmerged. Its five findings are fixed, by the owner's decisions
-of 21 November 2026 on the advice of a session of Fable 5.2 (`730d188` to `86dd43c`): the root of a command recorded in
-`rehearse` and `simulate`; `die` taking the defect of `init` as it is, and throwing back, once the run has ended, what
-its cause lacks; `rehearse` making the first model whatever the first keys did; `drive` waking its waits once the
-outermost `apply` returns, with the resumption of a fiber on the stack of whoever completes its `Deferred` a premise
-of the tests alone; and `Host` reporting a defect of `makeModel` once, as the run ends. `bun run interleavings` ran
-after them. What else the review leaves, each to do or decide before the release:
-
-- **The mutation "an interruption with the fiber id of one the fiber received is no defect, whatever its mark"**
-  (`src/core.ts`) has killers through `start` again: a command and a subscription, uninterruptible, that learn the id of
-  the fiber that stops them from the interruption they received (`Cause.interruptors`), interrupt a fiber as that id and
-  join it, as whoever runs the run interrupts it. The engine's reviewer wrote both, in
-  `src/engine-review-scratch.test.ts` of `claude/premise-review-engine-080` (with the three tests of `Effect.scoped`
-  below); they pass at `97d8d9f` and fail under the mutation. They go in `src/run.test.ts` and in the mutation's
-  `killedBy`. The tests that look like them (`run.test.ts`, "…joins a fiber the fiber of the run interrupted, as the
-  run ends…", and `engine.test.ts`, "a subscription interrupting itself as the end of the engine stops it, its key
-  gone, is a defect") kill nothing of the mark any more, and their comments say more than their setup reaches.
-- **The premise "`Effect.scoped` fails with what a finalizer of its scope dies of"** still holds, and
-  `engine.test.ts`, "what a command dies of as the end of the engine interrupts it is what the end dies of", rests on
-  it: its three tests, as `35fe18f` removed them, pass, and come back to `test/premises.test.ts`.
-- **The test of the premise "`HashMap` calls a key's `Equal` and `Hash` only within the call"** passes with the
-  variant its entry names (a `FiberMap` whose fiber, replaced under an equal key, ends after the call): four such
-  constructions called no `Equal` after the call. Either a test where `FiberMap`'s observer meets a pair the call did
-  not compare, or the sentence goes, from `docs/premises.md` and from `src/engine.ts` where it keeps fibers by start.
-  Of the other premises, every named test fails without its premise; the entries of `timeoutOption` and of `Logger`
-  should say that their tests fail by a timeout and by an error of the logger, not at an assertion.
-- **A premise of the bridge to React, listed nowhere**: React renders a `useSyncExternalStore` update made outside
-  its events before the browser's next task. "Writing a bridge" and `docs/invariants.md` rest on it; the bridge's tests
-  take every render with `flushSync`. The bridges' reviewer wrote a test of React alone that passes on happy-dom. It
-  needs the owner's consent, as `docs/premises.md` says.
-- **The form of the fix of `drive`'s `send`, looked for in `rehearse`.** `drive` now wakes its waits once the
-  outermost `apply` has returned. The reviewer of the testing tools suspected the same form in `rehearse`, unchecked: a
-  call of the scenario resumed inside `hearHeld`, or inside a job, that applies a message before the next held one. A
-  scenario that waits on `hearNext` and sends at once decides it: a `test.failing` and an open problem, or nothing.
-- **A defect of a run under `Host` that nobody reports**, a lead of the advice on the open problems, reasoned and not
-  run. When the run dies while `Host` is mounted, its observer calls `setDied`; if a parent removes `Host` in the same
-  batch (a "close" button that dispatches and then unmounts it), `Host` never renders again, its state is dropped, and
-  the defect reaches neither the boundary nor `reportError`. A test makes the run die and unmounts `Host` inside one
-  `act`, and expects the defect in one of the two: a `test.failing` and an open problem, or nothing.
-- **Sentences that say otherwise than the code**, listed in the reports: the reason for the mark (`core.ts`,
-  `docs/invariants.md`), `forkChild` in `rootedIn`, the first `run` of "untraced", the root without a killer, `drive`'s
-  options "of `run`", the frames of `drive.test.ts` and `contract.test.ts`, `refresh` in `bridge.test_suite.ts`,
-  "drawn once" per task where the bridge draws once per checkpoint, the check `if (queued) return` without a mutation,
-  and tests whose names say more than they check.
+`claude/premise-review-bridges-f28572`, which stay unmerged. Its five findings were fixed, and what else it left was
+done or decided, on 21 November 2026, but for one finding, in "Open problems" above: the owner decides whether the
+release waits for its fix. Of the leads its reports name and nothing here took up: a defect given to `die` once the
+run has ended, or between the run's last read of its defects and its end, is in no cause, though "Running" says that
+`run` dies of it (the engine's report, lead B); and the focus a disabled input loses in a browser is for step 6.
 
 Then `bun run mutations` and `bun run interleavings`, and the site built without warnings. Then the release commit and
 its tag. The owner publishes to npm.
@@ -105,6 +74,10 @@ user's, in the form with both bridges and in the stock-take
 ([`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), stage 4). Never run: an IME composition while the
 program changes a value under the user, and an event that the program's own code dispatches in the task of a
 notice, before its draw (`element.click()`, `dispatchEvent`, `focus()`), whose handler runs on the view of before.
+And one test passes on happy-dom only, by the review of the bridges of 21 November 2026: "a name the program empties
+once saved is emptied in the input on screen, which stays and keeps the focus" (`bridges/bridge.test_suite.ts`). The
+form disables its input while it saves, and by the HTML Standard's "focus fixup rule" a focused element that stops
+being focusable leaves the focus to the viewport, and does not take it back when enabled again.
 
 **How.** The tests of `bridges/bridge.test_suite.ts` run in a real browser too, in Chromium, Firefox and WebKit, with
 those two cases; the tool is to be chosen. With React, also not run: `startTransition` or `useDeferredValue` in the

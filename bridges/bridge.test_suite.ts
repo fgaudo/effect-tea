@@ -50,7 +50,10 @@ export const settle = () => {
   }
 }
 
-/** One screen refresh: the renderer resumes in its callback, and draws the current model at once. */
+/**
+ * One screen refresh: each callback a renderer asked for runs. Neither bridge of the package asks for one ("asks for
+ * no screen refresh", `snabbdom.test.ts`): this is for a bridge of a user's that draws in one.
+ */
 export const refresh = () => {
   const due = [...waiting.values()]
   waiting.clear()
@@ -492,7 +495,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       settle()
       expect(saves).toEqual(["Ada"])
       expect(applied).toEqual(["Name", "SaveClicked"])
-      expect(ignored.filter((tag) => tag === "SaveClicked").length).toBeLessThanOrEqual(1)
+      expect(ignored).toEqual(["SaveClicked"])
     })
 
     test("saves again once the save has failed, as a click on the model of the failure would", async () => {

@@ -2,7 +2,7 @@
 import { type Dispatch, forwardTo, type MessageOf, type ModelOf, program, type Written } from "@fgaudo/effect-tea"
 import { describe, expect, test } from "bun:test"
 import * as Optic from "effect/Optic"
-import { h, thunk } from "snabbdom"
+import { h, thunk, type VNode } from "snabbdom"
 import { messagesSentBy } from "./snabbdom-testing.ts"
 import type { View } from "./snabbdom.ts"
 
@@ -24,6 +24,18 @@ describe("messagesSentBy", () => {
 
   test("calls each listener of a list, in order", () => {
     expect(messagesSentBy(view, [])).toEqual([{ _tag: "Cleared" }, { _tag: "Saved" }])
+  })
+
+  test("calls a listener as snabbdom does, with its node as this and as its second argument", () => {
+    const seen: View<null, string> = (_, dispatch) =>
+      h("button#tap", {
+        on: {
+          click: function(this: VNode, _event: Event, node: VNode) {
+            dispatch(`${this.sel} ${node.sel} ${this === node}`)
+          }
+        }
+      })
+    expect(messagesSentBy(seen, null)).toEqual(["button#tap button#tap true"])
   })
 
   test("draws each thunk, and records the message of a child as the root of the program receives it", () => {

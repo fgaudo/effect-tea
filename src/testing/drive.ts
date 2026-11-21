@@ -42,7 +42,7 @@ export type Driver<Model, Message> = {
 }
 
 /**
- * The options of `drive`: those of `run`, and how long a wait lasts.
+ * The options of `drive`: those of `start`, and how long a wait lasts.
  *
  * @example
  * ```ts

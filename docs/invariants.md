@@ -86,18 +86,22 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   it in a DOM (`bridges/bridge.test_suite.ts`). Since a write names no value it was written over, a key typed on a view
   older than the state would store that view's text over the newer state: so a bridge draws each new state before the
   browser handles the next event. The bridge to React draws the model read with `useSyncExternalStore`, so that a
-  controlled element is updated during its own event (`premises.md`, of a controlled input). The bridge to snabbdom
+  controlled element is updated during its own event (`premises.md`, of a controlled input), and React renders a state
+  made outside its events in a microtask (`premises.md`, of a store updated outside its events). The bridge to snabbdom
   keeps two rules beside snabbdom. After each draw it gives each element drawn with a `value` or a `checked` in `props`
   that prop back where the element differs from it (`giveBack` in `bridges/snabbdom.ts`), since snabbdom sets a prop
   only where it differs from the vnode drawn before. And it draws in a microtask after each notice, and after each
   message its view's own `dispatch` sends, whether it made a new state or not (`notice`): the HTML Standard runs the
   microtasks after each task and after each listener the browser calls, so no handler of an event the browser
   dispatches runs on an older view; and a rejected write makes no notice, but its element must be given its value
-  back. The notices of one task are drawn once. No microtask runs while a patch is on the stack, so a message a
-  listener sends during a patch (a browser calls `blur` as a patch removes the focused element, and the DOM calls
-  `blur` and `focus` as an `insert` hook focuses one) is drawn after it, in a microtask of its own ("a message a
-  listener sends while a patch runs", `snabbdom.test.ts`). A draw asked for before the bridge is stopped is not made
-  after it, since the root may be another program's by then. Each of these checks has a mutation. What no check holds,
+  back. The notices of one task, or of one listener the browser calls, are drawn once. No microtask runs while a
+  patch is on the stack, so a message a listener sends during a patch (a browser calls `blur` as a patch removes the
+  focused element, and the DOM calls `blur` and `focus` as an `insert` hook focuses one) is drawn after it, in a
+  microtask of its own ("a message a listener sends while a patch runs", `snabbdom.test.ts`). A draw asked for before
+  the bridge is stopped is not made after it, since the root may be another program's by then. Each of these checks
+  has a mutation, but the one that asks for one microtask for the notices of a task (`if (queued) return`): without it,
+  a second microtask draws the model drawn last, which patches nothing (`last`), and gives the controlled elements back
+  what they already hold, so no test can tell. What no check holds,
   in either bridge: an event that the program's own code dispatches in the task of a notice, before its draw
   (`element.click()`, `dispatchEvent`, `focus()`), runs its handler on the view of before the notice.
 - **Every program keeps its state in an object**, replaced and never mutated, so that any program can be a child: a
@@ -207,8 +211,9 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   - The run stops each fiber of the program with a mark of its own on the interruption, made anew for each stop
     (`stopping` in `shell.ts`, `Stopped` in `core.ts`), and `diesIn` takes an interruption of the cause for one the
     fiber received only when it has the fiber id and the mark, or the lack of one, of a received one: a fiber id alone
-    is one the program can make too (`FiberMap`, `FiberSet` and `FiberHandle` interrupt as the fiber -1, and the fiber
-    that ends the run may have interrupted another before). Never stop a fiber of the program otherwise. So do the
+    is one the program can make too (`FiberMap`, `FiberSet` and `FiberHandle` interrupt as the fiber -1, and a fiber
+    learns the id of the one that stops it from the interruption it receives, `Cause.interruptors`, and can interrupt
+    another as that id). Never stop a fiber of the program otherwise. So do the
     testing tools, which run in their caller's fiber: `rehearse` stops a command whose `run` is interrupted, the starts
     whose key went away, by the job of the step that stops them, and, as it ends, the subscriptions `hearNext` started
     and the commands under way, before it closes its scope, which would interrupt them as the fiber that ends it;
@@ -222,17 +227,20 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
     interruptions only: one that reached the fiber once its scope had closed, before its answer is applied or its last
     message is sent, past every site. A cause with a defect is no end of interruptions only, so the root leaves a death
     that the scope recorded as it is, though Effect adds the interruption the fiber received to its failure
-    (`docs/premises.md`). Nothing interrupts such a fiber unmarked before the run has stopped it: `Effect.forkChild`
-    interrupts a child only as its parent ends, as its documentation says, and the sets close only after the end has
-    stopped their fibers. The root is the last thing the fiber runs, and is recorded as the scope is (`recorded` after
+    (`docs/premises.md`). Nothing interrupts such a fiber unmarked before the run has stopped it: the engine and
+    `rehearse` fork it with `FiberSet.run` or `FiberMap.run`, as no child of the fiber that forks it
+    (`docs/premises.md`), and the sets close only after the end has stopped their fibers; `simulate` forks a command
+    with `Effect.forkChild`, which interrupts a child only as its parent ends, as its documentation says, and stops it
+    before. The root is the last thing the fiber runs, and is recorded as the scope is (`recorded` after
     it, in the engine and in each testing tool). The scope takes an interruption that comes while the effect runs, and
     one that comes as it releases too (its `diesIn` restores the close), so what reaches the root alone is an
     interruption that lands once the scope has closed. A release that has another fiber of the program interrupt the
-    command's fiber makes one, since nothing interrupts the fiber while it releases: the root of a command, and its
-    record, have a mutation in the engine and in each testing tool, killed by such a release ("of a command a fiber of
-    the program interrupts as it releases", `contract.test.ts`). The root of a subscription has no mutation: no test
-    has a subscription's release interrupt its fiber yet. The search reaches both, with a fiber of the program that
-    interrupts another ("isInterrupted" in `interleaving.test.ts`). The fiber of whoever runs the program,
+    command's or a subscription's fiber makes one, since nothing interrupts the fiber while it releases: the root of a
+    command, and its record, have a mutation in the engine and in each testing tool, and the root of a subscription,
+    and its record, in the engine and in `rehearse`, killed by such a release ("of a command a fiber of the program
+    interrupts as it releases" and "of a subscription a fiber of the program interrupts as it releases",
+    `contract.test.ts`). The search reaches both, with a fiber of the program that interrupts another ("isInterrupted"
+    in `interleaving.test.ts`). The fiber of whoever runs the program,
     where `init` runs and the testing tools call the program, has no root: only functions of the program run there,
     which could interrupt it (`Fiber.getCurrent`) as whoever runs it would, and the guide leaves that to the program
     ("Guarantees", "What is left to you"). Nor has the fiber of effects, where no function of the program runs. The
@@ -352,7 +360,7 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   parent's dispatch, its name and its id (compared with `Equal`, as subscription keys are), and removed by a
   `FinalizationRegistry` once collected. Never hold them strongly: ids that are never reused, as the guide
   advises, would pile up for as long as the run lasts.
-- **No span lives as long as the run**: `run`, the `run` of a program started and the engine's `effects` are untraced,
+- **No span lives as long as the run**: the `run` of a program started and the engine's `effects` are untraced,
   and the run's fibers see the span of whoever runs it as an external one (`withExternalSpan`), since Effect keeps every
   log as an event of the current span until it ends.
 

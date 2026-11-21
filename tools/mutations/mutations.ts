@@ -512,7 +512,15 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: " && mark === markOf(reason)",
     to: "",
     killedBy: [
-      ["src/core.test.ts", "an interruption with the fiber id of one received, and not its mark, is a defect"]
+      ["src/core.test.ts", "an interruption with the fiber id of one received, and not its mark, is a defect"],
+      [
+        "src/run.test.ts",
+        "a command that joins a fiber it interrupted as the fiber that stops it, as the run ends, is a defect in the command"
+      ],
+      [
+        "src/run.test.ts",
+        "a subscription that joins a fiber it interrupted as the fiber that stops it, as the run ends, is a defect in the subscription"
+      ]
     ]
   },
   {
@@ -791,6 +799,55 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/testing/contract.test.ts",
         "rehearse fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, though the scenario catches it"
+      ]
+    ]
+  },
+  {
+    name: "the run takes no interruption a subscription gets once its scope has closed for a defect",
+    file: "src/engine.ts",
+    from: "          rootedIn(\"subscription\", () => ({ key })),\n",
+    to: "",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "the run dies with a defect of a subscription a fiber of the program interrupts as it releases"
+      ]
+    ]
+  },
+  {
+    name: "the run does not record what the root of a subscription dies of",
+    file: "src/engine.ts",
+    from:
+      "          Effect.provideContext(context),\n          recorded,\n          FiberMap.run(subscriptionFibers, generation)\n",
+    to: "          Effect.provideContext(context),\n          FiberMap.run(subscriptionFibers, generation)\n",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "the run dies with a defect of a subscription a fiber of the program interrupts as it releases"
+      ]
+    ]
+  },
+  {
+    name: "rehearse takes no interruption a subscription gets once its scope has closed for a defect",
+    file: "src/testing/rehearse.ts",
+    from: "        rootedIn(\"subscription\", () => ({ key })),\n",
+    to: "",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "rehearse fails with a defect, as the run dies, of a subscription a fiber of the program interrupts as it releases, though the scenario catches it"
+      ]
+    ]
+  },
+  {
+    name: "rehearse does not record what the root of a subscription dies of",
+    file: "src/testing/rehearse.ts",
+    from: "        rootedIn(\"subscription\", () => ({ key })),\n        recorded,\n",
+    to: "        rootedIn(\"subscription\", () => ({ key })),\n",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "rehearse fails with a defect, as the run dies, of a subscription a fiber of the program interrupts as it releases, though the scenario catches it"
       ]
     ]
   },
@@ -1991,8 +2048,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the thunk of rehearse records a defect of a later model in update",
     file: "src/testing/rehearse.ts",
-    from: "recordThrown(register, \"render\", thrown)",
-    to: "recordThrown(register, \"update\", thrown)",
+    from: "            recordThrown(register, \"render\", thrown)\n          }\n",
+    to: "            recordThrown(register, \"update\", thrown)\n          }\n",
     killedBy: [
       [
         "src/testing/contract.test.ts",
@@ -2727,7 +2784,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "bridges/snabbdom.test.ts",
-        "a notice from a command is drawn in a microtask, and what one task sends is drawn once"
+        "a notice from a command is drawn in a microtask, once"
       ],
       ["bridges/snabbdom.test.ts", "is drawn once that patch is done, in a microtask of its own, and the run goes on"]
     ]

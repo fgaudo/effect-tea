@@ -86,9 +86,9 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
 - **A renderer is told of every new state**, in the call that made it. One that draws later reads the latest model
   when it draws.
 - **A subscription that sends faster than the screen refreshes holds the run back.** The bridge to snabbdom draws once
-  for each task that brings a new state, and React renders a store's new states the same way. So the run goes no
-  faster than one draw a task. Let such a subscription send its messages by batches, as a `Stream` grouped within a
-  time does (`Stream.groupedWithin`).
+  for each task, or listener that the browser calls, that brings a new state, and React renders a store's new states
+  the same way. So the run goes no faster than one draw a task. Let such a subscription send its messages by batches,
+  as a `Stream` grouped within a time does (`Stream.groupedWithin`).
 - **With the bridge to React, `makeModel` may run for each new state, in the call that sends its message.** React reads
   the model as it is told of the new state, to compare it with the model before. So a slow `makeModel` holds up the
   event that sent the message too. This is described, and not promised: it is how React behaves today, and React's

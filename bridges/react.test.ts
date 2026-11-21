@@ -832,6 +832,50 @@ describe("Host", () => {
         globalThis.reportError = reportError
       }
     })
+
+    // A lead of the advice on the open problems of the review of the premises, found on 21 November 2026 (ROADMAP.md,
+    // "Open problems"): the run dies while `Host` is mounted, and its parent removes `Host` in the same batch, as a
+    // button that dispatches and then closes the view would. `Host` keeps the defect in a state it never renders again,
+    // and its cleanup, which comes after, finds the run already ended.
+    test.failing("that dies as its parent removes Host, in one batch, reaches the boundary or reportError", async () => {
+      const caught: Array<unknown> = []
+      const reported: Array<unknown> = []
+      const reportError = globalThis.reportError
+      globalThis.reportError = (error) => void reported.push(error)
+      try {
+        let hide: (() => void) | undefined
+        let fiber: Fiber.Fiber<void, unknown> | undefined
+        const forking: Fork<never> = (effect) => {
+          fiber = heldFork(effect)
+          return fiber
+        }
+        const Parent = () => {
+          const [shown, setShown] = useState(true)
+          hide = () => setShown(false)
+          return shown ? breakIn(forking) : createElement("p", null, "Closed")
+        }
+        const root = createRoot(page(), { onCaughtError: (error) => void caught.push(error) })
+        roots.push(root)
+        await acting(() => root.render(createElement(Boundary, null, createElement(Parent))))
+        await started()
+        await acting(() => {
+          button("Break").click()
+          settle()
+          hide?.()
+        })
+        settle()
+        const exit = fiber === undefined ? undefined : await Effect.runPromise(Fiber.await(fiber))
+        expect(exit !== undefined && Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
+        // A window of absence: nothing a correct run does tells that the defect was lost, so the test waits a turn once
+        // the run has ended, then lets React do what that turn asked of it.
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        await acting(async () => {})
+        expect([...caught, ...reported]).toHaveLength(1)
+        expect([...caught, ...reported][0]).toMatchObject({ where: "update" })
+      } finally {
+        globalThis.reportError = reportError
+      }
+    })
   })
 
   // StrictMode mounts every component, unmounts it, and mounts it again, running its effects each time, in one task:
@@ -1195,6 +1239,25 @@ describe("React, as the bridge rests on it", () => {
     drawn()
     expect([input.value, input.selectionStart, input.selectionEnd, value]).toEqual(["Addas", 3, 5, "Addas"])
     expect(document.activeElement).toBe(input)
+  })
+
+  // react.dev ("useSyncExternalStore") says that React renders again when the store changes, not when. The update is
+  // made outside any event of React's, as a command's answer or a subscription's message is, and the check is a
+  // microtask queued after it: it runs after a microtask the update queued, before any task.
+  test("React renders a store read with useSyncExternalStore, updated outside its events, in a microtask", async () => {
+    let value = "Ada"
+    const listeners = new Set<() => void>()
+    const subscribe = (listener: () => void) => {
+      listeners.add(listener)
+      return () => void listeners.delete(listener)
+    }
+    const Shown = (): ReactNode => createElement("p", null, useSyncExternalStore(subscribe, () => value))
+    flushSync(() => rootIn(page()).render(createElement(Shown)))
+    value = "Bob"
+    // oxlint-disable-next-line unicorn/no-useless-spread -- a listener may subscribe or unsubscribe while it is told
+    for (const listener of [...listeners]) listener()
+    const shown = await new Promise<string | null>((resolve) => queueMicrotask(() => resolve(element("p").textContent)))
+    expect(shown).toBe("Bob")
   })
 
   // react.dev says that StrictMode runs one more setup and cleanup of each effect in development, not in which task.

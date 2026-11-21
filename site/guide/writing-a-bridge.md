@@ -40,7 +40,7 @@ program that the application starts itself hands its `App` to `Draw`.
 3. in a microtask after each message that a handler of the view sends, whether it made a new state or not (see
    [handlers](#handlers)).
 
-What one task sends is drawn once.
+What a task, or a listener that the browser calls, sends until it returns is drawn once.
 
 As it is called, `drawInto` empties `root`. Then `root` holds the view's top element and nothing else. `root` keeps its
 place in the page, and it may have no parent.
@@ -86,8 +86,9 @@ The bridge listens for the notices, draws as it is called, and returns what stop
 
 {@includeCode ../../bridges/snabbdom.ts#handle}
 
-The HTML Standard runs the microtasks after each task, and after each listener that the browser calls. So the new
-states of one task are drawn once, and before the browser handles the next event. The run reads the model only when
+The HTML Standard runs the microtasks after each task, and after each listener that the browser calls. So what one of
+them sends until it returns is drawn once, and before the browser handles the next event. A handler that awaits returns
+at its first `await`: what it sends after that is drawn apart. The run reads the model only when
 the renderer draws, so a state the renderer never draws makes no model (see [running](./running.md#rules)).
 
 ### Handlers
@@ -243,7 +244,8 @@ A bridge of your own can start from them. To run them on it:
   `drawn`, which a test awaits after each act of the user, so that your bridge has drawn what the act made.
 
 The file holds the screen refreshes and Effect's scheduler, with `holdFrames`, `refresh` and `settle`. So the test
-says when a screen refresh comes, and when the run's fibers go on.
+says when a screen refresh comes, for a bridge that draws in one (neither of the package's does), and when the run's
+fibers go on.
 
 Beside the snabbdom bridge, `@fgaudo/effect-tea/snabbdom/testing` ([`bridges/snabbdom-testing.ts`][messages]) has
 `messagesSentBy`. It finds what a view sends, without a DOM. Each listener gets an event whose `target` holds the

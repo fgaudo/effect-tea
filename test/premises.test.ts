@@ -104,6 +104,39 @@ test("HashMap calls a key's Equal and Hash only within the call it is given the 
   expect(HashMap.size(map)).toBe(4)
 })
 
+// What the test before fails with: a `FiberMap` compares a key in the observer of a fiber, as it ends. `Equal` keeps
+// the result of each pair of objects it compared, so the observer calls a key's `Equal` only on a pair that no call
+// compared: here, the key of a fiber replaced under an equal one, which ends once that key has left the map, and a key
+// added after it left.
+test("the watch of that test sees a FiberMap call a key's Equal after the call, in a fiber's observer", async () => {
+  const { Key, within, late } = watched()
+  const scope = Scope.makeUnsafe()
+  const map = Effect.runSync(Scope.provide(FiberMap.make<InstanceType<typeof Key>>(), scope))
+  const running = Deferred.makeUnsafe<void>()
+  const release = Deferred.makeUnsafe<void>()
+  // Once interrupted, it ends only when the test releases it.
+  const replaced = within(() =>
+    Effect.runSync(FiberMap.run(
+      map,
+      new Key(1),
+      Deferred.succeed(running, undefined).pipe(
+        Effect.andThen(Effect.never),
+        Effect.onInterrupt(() => Deferred.await(release))
+      )
+    ))
+  )
+  await Effect.runPromise(Deferred.await(running))
+  // Its observer, which runs before the wait's, takes the key away as it ends.
+  const replacing = within(() => Effect.runSync(FiberMap.run(map, new Key(1), Effect.void)))
+  await Effect.runPromise(Fiber.await(replacing))
+  within(() => Effect.runSync(FiberMap.run(map, new Key(2), Effect.never)))
+  expect(late).toEqual([])
+  Effect.runSync(Deferred.succeed(release, undefined))
+  await Effect.runPromise(Fiber.await(replaced))
+  expect(late).toEqual(["Equal"])
+  await Effect.runPromise(Scope.close(scope, Exit.void))
+})
+
 describe("a fiber forked with FiberSet.run or FiberMap.run is no child of the fiber that forks it, which ends without waiting for it", () => {
   const ranOn = (fork: (self: Effect.Effect<string>) => Effect.Effect<Fiber.Fiber<string>, never, Scope.Scope>) =>
     Effect.runPromise(Effect.scoped(Effect.gen(function*() {
@@ -527,7 +560,11 @@ describe("an interruption made with Fiber.interruptAs carries the annotations it
       yield* Deferred.succeed(gate, undefined)
       return yield* Fiber.await(fiber)
     }))
-    // The fiber gets what it received added to what the interruptible region failed with: a copy, annotated further.
+    // The fiber gets what it received added to what the interruptible region failed with: a copy, annotated further,
+    // with the frame of the traced function.
+    const annotated = reasonsOf(exit).filter(Cause.isInterruptReason).map((reason) => Cause.reasonAnnotations(reason))
+    expect(annotated.some((annotations) => Context.getOrUndefined(annotations, Cause.StackTrace) !== undefined))
+      .toBe(true)
     expect(markOf(exit).length).toBeGreaterThan(0)
     expect(markOf(exit)).not.toContain(undefined)
   })
@@ -774,6 +811,35 @@ describe("a fiber of a FiberSet or a FiberMap that dies leaves the other fibers 
       Effect.map(FiberMap.make<number>(), (map): Run => (effect) => FiberMap.run(map, key++, effect))
     )
     expect(result).toEqual({ other: [["Interrupt", 42]], ran: true })
+  })
+})
+
+describe("Effect.scoped fails with what a finalizer of its scope dies of", () => {
+  const releaseDies = Effect.addFinalizer(() => Effect.die("release"))
+
+  test("of an effect that succeeds", async () => {
+    const exit = await Effect.runPromiseExit(Effect.scoped(releaseDies))
+    expect(described(exit)).toEqual([["Die", "release"]])
+  })
+
+  test("of an effect that dies, beside what it died of", async () => {
+    const exit = await Effect.runPromiseExit(Effect.scoped(Effect.andThen(releaseDies, Effect.die("own"))))
+    expect(described(exit)).toHaveLength(2)
+    expect(described(exit)).toContainEqual(["Die", "own"])
+    expect(described(exit)).toContainEqual(["Die", "release"])
+  })
+
+  test("of an effect that is interrupted, beside its interruption", async () => {
+    const exit = await Effect.runPromise(Effect.gen(function*() {
+      const fiber = yield* started((running) =>
+        Effect.scoped(releaseDies.pipe(Effect.andThen(running), Effect.andThen(Effect.never)))
+      )
+      yield* Fiber.interruptAs(fiber, 42)
+      return yield* Fiber.await(fiber)
+    }))
+    expect(described(exit)).toHaveLength(2)
+    expect(described(exit)).toContainEqual(["Interrupt", 42])
+    expect(described(exit)).toContainEqual(["Die", "release"])
   })
 })
 

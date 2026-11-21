@@ -1414,7 +1414,7 @@ describe("what the run dies of, and the tools fail on", () => {
     expect(diedIn(exit)).toBe("subscriptions")
   })
 
-  // `drive`'s renderer makes the model as it pulls the frame, before `send` could select on it.
+  // `drive` reads the model of the first state as the run starts, before `send` could select on it.
   test("drive fails in render on a makeModel that throws, when it sends", async () => {
     const exit = await Effect.runPromiseExit(drive(modeling, (driver) => driver.send(go), { flags: 0 }))
     expect(said(exit)).toEqual(["render", undefined])
@@ -1478,8 +1478,9 @@ describe("a defect of the program, then a failure of the scenario", () => {
   })
 })
 
-// Found by the sixth premise review of November 2026. The run dies of a `makeModel` that throws as its renderer pulls
-// the frame, `drive` with it, and `rehearse` as it makes the model of the state: no scenario meets the defect.
+// Found by the sixth premise review of November 2026. The run dies of a `makeModel` that throws as a renderer reads
+// it, `drive` as it reads the model of each state, and `rehearse` as it makes the model of the state: no scenario
+// meets the defect.
 describe("a defect of makeModel", () => {
   type Count = Readonly<{ count: number }>
   const modeling: Program<{ state: Count; model: number; message: "Go" }> = {
@@ -1526,7 +1527,8 @@ describe("a defect of makeModel", () => {
     expect(diedIn(exit)).toBe("render")
   })
 
-  // `Go` starts `Note` and takes `ticks` away, on a state whose model throws: the run's renderer is a fiber of its own,
+  // `Go` starts `Note` and takes `ticks` away, on a state whose model throws: `drive` reads the model in its listener,
+  // on the stack of the step, and the run takes what a listener throws for a defect without raising it into the step,
   // so the step goes on whole, its commands started and the subscription it stops released.
   const noting = (
     released: Array<boolean>
@@ -1594,8 +1596,8 @@ describe("a defect of makeModel", () => {
       )
       : []
 
-  // `Go` leaves a state whose subscriptions throw too: the run reads them in the step that publishes the state, before
-  // its renderer pulls the frame.
+  // `Go` leaves a state whose subscriptions throw too: the run reads them in the step that makes the state, before a
+  // renderer could read its model.
   const both: Program<{ state: Count; model: number; message: "Go" }> = {
     ...modeling,
     subscriptions: ({ count }) => {
@@ -1913,6 +1915,40 @@ describe("a command or a subscription that a fiber of the program interrupts", (
         )
       )
       expect(diedIn(exit)).toBe("command")
+    }
+  )
+
+  // The same of a subscription, whose release interrupts its fiber once it has given its last message: the
+  // interruption lands once the scope has closed, before the message is sent, which only the root takes for a defect.
+  const ending: Program<{ state: Row; model: number; message: "Done"; subscriptionServices: Scope.Scope }> = {
+    init: { state: { seen: 0 } },
+    update: () => ({ seen }) => ({ state: { seen: seen + 1 } }),
+    subscriptions: () =>
+      HashMap.make([
+        "once",
+        Channel.fromEffectDone(Effect.gen(function*() {
+          const self = yield* Effect.fiber
+          yield* Effect.addFinalizer(() =>
+            Effect.asVoid(Effect.forkDetach(Fiber.interrupt(self), { startImmediately: true }))
+          )
+          return "Done" as const
+        }))
+      ]),
+    makeModel: ({ seen }) => seen
+  }
+
+  test("the run dies with a defect of a subscription a fiber of the program interrupts as it releases", async () => {
+    const exit = await Effect.runPromiseExit(
+      drive(ending, (driver) => driver.waitFor((seen) => seen === 1 ? Opt.some(seen) : Opt.none()))
+    )
+    expect(diedIn(exit)).toBe("subscription")
+  })
+
+  test(
+    "rehearse fails with a defect, as the run dies, of a subscription a fiber of the program interrupts as it releases, though the scenario catches it",
+    async () => {
+      const exit = await Effect.runPromiseExit(rehearse(ending, (rehearsal) => Effect.exit(rehearsal.hearNext("once"))))
+      expect(diedIn(exit)).toBe("subscription")
     }
   )
 

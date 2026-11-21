@@ -8,10 +8,10 @@
 //   where the element itself differs from it: what the user typed and the state rejected is taken back.
 // - When it draws: in a microtask after each notice, as React renders a store. The HTML Standard runs the microtasks
 //   after each task and after each listener the browser calls, so no handler of an event the browser dispatches runs on
-//   a view older than the state: a key is typed over what the program put there. The notices of one task are drawn
-//   once. A listener called while a patch runs (a browser calls `blur` as a patch removes the focused element, and the
-//   DOM calls `blur` and `focus` as an `insert` hook focuses one) is drawn after that patch, since no microtask runs
-//   while the patch is on the stack.
+//   a view older than the state: a key is typed over what the program put there. The notices of one task, or of one
+//   listener the browser calls, are drawn once. A listener called while a patch runs (a browser calls `blur` as a patch
+//   removes the focused element, and the DOM calls `blur` and `focus` as an `insert` hook focuses one) is drawn after
+//   that patch, since no microtask runs while the patch is on the stack.
 // Checked with snabbdom 3.6.4, the start of its peer range; the daily job runs its tests with the newest snabbdom 3.
 /**
  * The bridge to snabbdom: draws a program with snabbdom 3.6.4 or a newer 3.x, which you install beside the package.
@@ -73,7 +73,8 @@ const giveBack = (controlled: Map<Element, Controlled>): void => {
  *   place in the page, and may have no parent.
  * - It draws as it is called, then in a microtask after each new state, wherever its message comes from, and after each
  *   message a handler of the view sends, whether it made a new state or not: once the code that sent it returns, and
- *   before the browser handles the next event. What one task sends is drawn once.
+ *   before the browser handles the next event. What a task, or a listener that the browser calls, sends until it
+ *   returns is drawn once.
  * - A model that is the very one drawn last is not drawn again.
  * - After each draw, an element drawn with a `value` or a `checked` in `props` is given it back where the element
  *   differs from it: what the user typed and the program rejected is taken back.

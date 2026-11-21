@@ -197,7 +197,7 @@ const snabbdom: Bridge<VNode> = {
 bridgeTests(snabbdom)
 
 describe("when the bridge to snabbdom draws", () => {
-  test("a notice from a command is drawn in a microtask, and what one task sends is drawn once", async () => {
+  test("a notice from a command is drawn in a microtask, once", async () => {
     const answers: Array<string> = []
     const app = mount(
       drawInto,

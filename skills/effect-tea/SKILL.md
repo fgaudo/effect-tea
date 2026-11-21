@@ -101,9 +101,9 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   keep state of their own, which the testing tools do not see. The guide, "View", "Each bridge says what it draws
   beside the model".
 - **A subscription that sends faster than the screen refreshes holds the run back.** The bridge to snabbdom, and
-  React, draw once for each task that brings a new state. Let such a subscription send its messages by batches, as a
-  `Stream` grouped within a time does (`Stream.groupedWithin`). The guide, "Guarantees", "A subscription that sends
-  faster than the screen refreshes holds the run back".
+  React, draw once for each task, or listener that the browser calls, that brings a new state. Let such a
+  subscription send its messages by batches, as a `Stream` grouped within a time does (`Stream.groupedWithin`). The
+  guide, "Guarantees", "A subscription that sends faster than the screen refreshes holds the run back".
 - **With React, the run lives as long as `Host`'s effect.** `<Activity>`, a remount and a new `key` start the program
   again from `init`. Under StrictMode the commands of `init` start once today, which is described and not promised. For
   a state that outlives a component, start the program yourself and draw it with `Draw`. A run that dies is thrown to
