@@ -5,7 +5,7 @@ import * as Data from "effect/Data"
  *
  * - `'update'` includes `onEvent`.
  * - `'subscriptions'` includes the `Equal` and `Hash` of the keys.
- * - `'render'` includes the view and `makeModel`.
+ * - `'render'` is `makeModel`, wherever the model is read, a listener of the `App`, and what a renderer gives `die`.
  * - An option's name means that option.
  * - A defect in a log that the program writes is in the place it logs from.
  *
@@ -34,7 +34,7 @@ const described: Readonly<Record<DefectSite, string>> = {
   command: "a command",
   onApplied: "onApplied",
   onIgnored: "onIgnored",
-  render: "the renderer, its view or makeModel"
+  render: "makeModel or the renderer"
 }
 
 // The constructors are private, so that each class keeps the one meaning the library gives it: these, set in each

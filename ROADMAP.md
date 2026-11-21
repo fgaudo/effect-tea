@@ -31,67 +31,20 @@ and the guide promises the first model on a server. Its stages below come before
 that 0.7.1 has, and others that no release has had. The spike is the branch `claude/spike-store-and-effects`
 (`ab19927`), never to be merged: each stage brings its part onto `main` as `main` is then.
 
-Its first two stages are done. The engine is in two halves on `main`: `Engine.build` makes it by plain code, and its
+Its first three stages are done. The engine is in two halves on `main`: `Engine.build` makes it by plain code, and its
 `effects` start the fiber of effects; `start` and `Started` are exported, with `die` on `App`; `drive` runs over
 `startWith`. `Engine.make` stays in `src/engine.ts`, for the tests of the engine alone. `run(program, render)` is
 removed, with the renderer's fiber, scope and site; the bridge to snabbdom has `drawInto` in place of `renderInto`,
 `Host` starts its program as it first renders and runs it in a microtask after its effect, and the tests, the search,
 the examples, the smoke test and the benchmark are over `start`. The premise of StrictMode is in `docs/premises.md`.
-The second stage is not pushed until 2c is done, so that `main` never has a guide that names an export it has
-removed.
-
-#### 2c. The guide, the doc comments, the skill, the README, the tutorial and the changelog
-
-**Model and effort.** Opus 5.5, `high`: the guide is a specification. The skill is
-[`release`](.agents/skills/release/SKILL.md), for the changelog and its upgrade.
-
-**Depends on** nothing open.
-
-**How.** Section by section, as the record lists them under "What the guide would say" and under "Nothing outlives
-what acquired it", each sentence checked against the code of `main`. And what the owner decided there:
-
-- **A program is started, then run.** A message sent before `run` is applied, and its effects wait. A program started
-  is run once. One that was never run is never stopped.
-- **Where the effects of a step start.** "The program runs on the stack of whoever sends the message", in "What is
-  left to you", says that the effects of a step start once that call has returned, but for the first state's, which
-  start as `run` is forked. Described, and not promised (the record, "Decided", 9).
-- **`'render'`** is `makeModel`, wherever the model is read, a renderer's listener, and what a renderer gives to `die`.
-  What the engine's own code throws is in the cause as it is, with no site: "A defect anywhere ends the run. The run
-  dies with it, as a `ProgramDefect`" is of the program's defects.
-- **An `init` that throws** is recorded as the program starts: `model()` throws it, and `run` dies of it.
-- **StrictMode.** "With the bridge to React, the run lives as long as the effect that starts it" says that the run
-  starts in a microtask after the effect, and that under StrictMode one program then runs, once. Described, and not
-  promised.
-- **A server.** `Host` and `Draw` draw the first model on a server, and nothing of `init` starts. Nothing is promised
-  of hydration.
-- **The doc comments of `start`, `Started` and `App.die`** (`src/run.ts`) name no section of the guide yet: they get
-  their `@see` lines once the sections are written, and the guide names `Started` and `die`.
-- **The changelog.** `run(program, render)` has an `Upgrade:` note, since 0.7.1 has it. What no release has had
-  (`fallback`, `renderInto` of the entry `./snabbdom`) is edited in the unreleased section.
-
-What 2b left for this stage:
-
-- **What no test checks any more**, since it went with the renderer's fiber: "A command, a subscription or the renderer
-  that the program interrupts is a defect" and "Each command, each subscription and the renderer has a scope of its
-  own", for the renderer; and in "How the run ends", the step "It stops the renderer" and what the renderer sends as it
-  releases. The guide loses them, as the record says.
-- **Prose that 2b changed for its code alone**: the README's quick start (`start`, with no run, since the counter has no
-  effects), the doc comment of `start`, which took the rules of the whole run from the removed `run` (its `@see` lines
-  too), the examples of `RunOptions` and `onApplied` in `src/engine.ts`, and the region `bell` of
-  `examples/timer/main.ts`, which the tutorial includes and now holds `start` and `drawInto`. Each is read against the
-  guide as it is rewritten.
-- **The label of `'render'`** in `src/defect.ts`, "the renderer, its view or makeModel", is read against what
-  `'render'` now is.
-- **The comment of `hosted` in `tools/smoke/bridges.ts`** says that React's server rendering is no part of what the
-  bridge supports: it follows the guide's new promise of the first model on a server.
-
-**Done when** `bun run comments`, `bun run lint`, `bun run smoke` and the site's build pass, and this stage is removed.
+The guide, the doc comments, the skill, the README, the tutorial and the changelog say so: the guide promises the first
+model on a server, and describes, without promising it, where the effects of a step start and what StrictMode does.
 
 #### 2d. What it reverses in `docs/rejected.md`
 
 **Model and effort.** Sonnet 5.5, `medium`, from the record's "What it reverses in `rejected.md`".
 
-**Depends on** 2c.
+**Depends on** nothing open.
 
 **How.** "`run` split into a synchronous half and the fibers" leaves "Parked, not rejected", and B5 is marked reversed
 in [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), as R1 is. The last sentence of

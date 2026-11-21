@@ -70,9 +70,9 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  *   without fields too.
  * - `runCommand` is required exactly when the program has commands, and `external` exactly when it has external
  *   messages.
- * - `run` makes the model of a state with `makeModel(state)`. A test can call `makeModel` the same way, on any state.
+ * - The run makes the model of a state with `makeModel(state)`. A test can call `makeModel` the same way, on any state.
  * - Every program has `subscriptions`. One that `make` makes without them listens to nothing. A test calls
- *   `subscriptions(state)` as `run` does, on any state.
+ *   `subscriptions(state)` as the run does, on any state.
  * - `update`, `external`, `makeModel` and `subscriptions` are pure, and states are never mutated. The library reuses
  *   a child's model and subscriptions while the child's state is the same object.
  *
@@ -92,7 +92,7 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * @see The guide, "Anatomy of a program", "What does not compile".
  * @see The guide, "Anatomy of a program", "`runCommand` is required exactly when the program has commands".
  * @see The guide, "Events and external messages", "`external` is required exactly when the program names external messages".
- * @see The guide, "Anatomy of a program", "A test makes a model as `run` does".
+ * @see The guide, "Anatomy of a program", "A test makes a model as the run does".
  * @see The guide, "Anatomy of a program", "What a program listens to".
  * @see The guide, "Guarantees", "`update`, `external`, `makeModel` and `subscriptions` are pure, and states are never mutated".
  */

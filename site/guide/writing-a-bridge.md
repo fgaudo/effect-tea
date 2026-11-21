@@ -27,21 +27,22 @@ a minimal example to start from. What else a renderer can do is left to the brid
 
 ### The handle
 
-`run(program, render)` hands `render` an `App`, `{ model, subscribe, dispatch }` (see
-[running](./running.md#rules)). The run ends when `render` ends. A bridge's `renderInto(root, view)` is that `render`.
-With the bridge to React, `Host` starts the run and gives React the `App`. A run that the application starts itself
-hands its `App` to `Draw`.
+`start(program)` gives a `Started`, an `App` with `run` (see [running](./running.md#rules)). A bridge is plain code
+over the `App`, `{ model, subscribe, dispatch, die }`, and returns what stops it. With snabbdom,
+`drawInto(root, view)(app)` is that code. Whoever started the program calls what it returns, or does not: the run does
+not stop a bridge. With the bridge to React, `Host` starts the program and its run, and gives React the `App`. A
+program that the application starts itself hands its `App` to `Draw`.
 
-`renderInto` draws the model of the current state:
+`drawInto` draws the model of the current state:
 
-1. as it starts;
+1. as it is called;
 2. in a microtask after each new state, wherever its message comes from;
 3. in a microtask after each message that a handler of the view sends, whether it made a new state or not (see
    [handlers](#handlers)).
 
 What one task sends is drawn once.
 
-As it starts, `renderInto` empties `root`. Then `root` holds the view's top element and nothing else. `root` keeps its
+As it is called, `drawInto` empties `root`. Then `root` holds the view's top element and nothing else. `root` keeps its
 place in the page, and it may have no parent.
 
 Each draw calls the view with the model and the dispatch, unless the model is the very one it drew last, and draws
@@ -52,10 +53,10 @@ what the view returns. Then it gives each controlled element its value back (see
 
 **The first place of the renderer** is the line that draws: `patch(tree, view(model, dispatch))`. There, snabbdom
 patches the tree drawn before into the one the view returned. The first tree is a child of `root`, which the bridge puts
-there as it starts. snabbdom replaces that child with the view's top element. The bridge to React reads the model there
-instead, with `useSyncExternalStore(app.subscribe, app.model)` in `Draw`, and React calls the view as it renders. When
-the line returns, snabbdom has drawn the model whole. React draws it as React schedules it, but for a part of it that
-the application suspends. Between two draws, the bridge to snabbdom draws nothing, and React draws what the
+there as it is called. snabbdom replaces that child with the view's top element. The bridge to React reads the model
+there instead, with `useSyncExternalStore(app.subscribe, app.model)` in `Draw`, and React calls the view as it renders.
+When the line returns, snabbdom has drawn the model whole. React draws it as React schedules it, but for a part of it
+that the application suspends. Between two draws, the bridge to snabbdom draws nothing, and React draws what the
 application's components hold. What else the screen may show is in [view](./view.md#rules).
 
 The rest is the bridge's own code:
@@ -67,16 +68,17 @@ The rest is the bridge's own code:
   `focus()` calls `blur` and `focus` at once, as an `insert` hook that focuses an element does. What such a listener
   sends is drawn after the patch under way, in a microtask of its own: no microtask runs while the patch is on the
   stack.
-- With snabbdom, a view or a `makeModel` that throws as it is drawn ends the run, wherever it is drawn. With React, a
-  view that throws is an error of the application, for its error boundaries: an error boundary above `Host` unmounts
-  it, and the run is interrupted.
+- With snabbdom, a view or a `makeModel` that throws as it is drawn ends the run, wherever it is drawn, the first draw
+  too. A draw in a microtask runs in no call of the run, so the bridge gives what it threw to `die`. The run dies of
+  it, in `'render'`, and the bridge draws nothing more. With React, a view that throws is an error of the application,
+  for its error boundaries: an error boundary above `Host` unmounts it, and the run is interrupted.
 
-A notice of a new state queues one microtask, which draws the model of the current state. Once the renderer is
-released, a draw it asked for before is not made, since a second run may draw into the same root:
+A notice of a new state queues one microtask, which draws the model of the current state. Once the bridge is
+stopped, a draw it asked for before is not made, since another program may draw into the same root by then:
 
 {@includeCode ../../bridges/snabbdom.ts#notice}
 
-The renderer's fiber listens for the notices, draws as it starts, and then waits for what a draw in a microtask throws:
+The bridge listens for the notices, draws as it is called, and returns what stops it:
 
 {@includeCode ../../bridges/snabbdom.ts#handle}
 
@@ -99,7 +101,7 @@ the program's value back:
 
 So no handler of an event that the browser dispatches runs on a view older than the state: a key is typed over what
 the program has put in the element. React renders a store's new states the same way, in a microtask. What a draw in a
-microtask throws ends the run: the renderer's fiber dies of it, since a microtask runs in no fiber of the run.
+microtask throws ends the run: the bridge gives it to `die`, since a microtask runs in no call of the run.
 
 ### A controlled element
 
@@ -175,13 +177,13 @@ Each bridge is small, and a start for a bridge of your own: for another renderer
 bridge:
 
 - names the type of its views, `View<Model, Message>`;
-- has a renderer for `run`: `renderInto` with snabbdom; with React, `Host`, which runs a program while it is mounted,
-  and `Draw`, which draws a run that the application starts itself;
+- draws a program that was started: `drawInto` with snabbdom; with React, `Host`, which starts a program and runs it
+  while it is mounted, and `Draw`, which draws a program that the application starts itself;
 - draws native controlled elements as its renderer's own documentation draws them: an input needs nothing else of the
   bridge.
 
 [`counter`](../../examples/counter) and [`form`](../../examples/form) draw their programs with the bridge to snabbdom
-and with the bridge to React, one under the other. Both bridges draw the `App` of one run, which React draws with
+and with the bridge to React, one under the other. Both bridges draw the `App` of one program, which React draws with
 `Draw`. A bridge to React Native would be written the same way, but the repository has none. The sections above show
 how to write a bridge for any renderer, from the bridge to snabbdom.
 
@@ -233,7 +235,7 @@ A bridge of your own can start from them. To run them on it:
 
 - copy the file, with the examples whose programs it draws;
 - have a test file register a DOM, as those two do;
-- give `bridgeTests` a `Bridge`: your `renderInto`, the views of their scenarios drawn with your renderer, and
+- give `bridgeTests` a `Bridge`: your `drawInto`, the views of their scenarios drawn with your renderer, and
   `drawn`, which a test awaits after each act of the user, so that your bridge has drawn what the act made.
 
 The file holds the screen refreshes and Effect's scheduler, with `holdFrames`, `refresh` and `settle`. So the test

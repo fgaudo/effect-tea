@@ -53,7 +53,7 @@ if (JSON.stringify(written) !== JSON.stringify([{ _tag: "Written", value: "Ada" 
 
 const reactView: ReactView<Model, Message> = (model) => createElement("output", null, model.count)
 
-// Typed, and not drawn: React's server rendering is no part of what the bridge supports.
+// Typed, and not drawn: the bridge's own tests draw it on a server, and nothing is promised of hydration.
 export const hosted = () => createElement(Host<State, Model, Message>, { program: counter, children: reactView })
 
 export const drawn = (app: App<Model, Message>) => createElement(Draw<Model, Message>, { app, view: reactView })

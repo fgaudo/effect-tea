@@ -22,7 +22,7 @@ The tutorial shows how the pieces fit, and why. The [Guide](../guide/index.md) i
 here links to the rules it uses there.
 
 1. [A first program](./1-first-program.md): how long a timer lasts, set with "+" and "−". State, `update`,
-   `reject`, the model, a view, `run`.
+   `reject`, the model, a view, `start`.
 2. [Commands and subscriptions](./2-commands-and-subscriptions.md): the timer itself, which ticks while it runs
    and rings a bell when it finishes.
 3. [Children](./3-children.md): many timers, each the program of step 2 as it is, under a parent.
@@ -64,6 +64,6 @@ bun add @fgaudo/effect-tea effect
 The library draws nothing: a view is a function of its model, and a small bridge draws it with a renderer. The tutorial
 draws with [snabbdom](https://github.com/snabbdom/snabbdom). You do not need to know snabbdom: its views are a few
 lines each. They go through the package's bridge to snabbdom, `@fgaudo/effect-tea/snabbdom`
-([`bridges/snabbdom.ts`](../../bridges/snabbdom.ts)). In it, `renderInto` draws the model of the current state. A
+([`bridges/snabbdom.ts`](../../bridges/snabbdom.ts)). In it, `drawInto` draws the model of the current state. A
 view's listener calls `dispatch` itself, and an input is drawn as a native controlled element.
 [Writing a bridge](../guide/writing-a-bridge.md) explains the bridge, and names what a bridge to React does instead.

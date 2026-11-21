@@ -6,8 +6,9 @@ example shows, with a link to try it in the browser.
 
 ## Where to start
 
-- [`counter/`](counter): one program and the cheapest tests. Read it first. Its run is drawn twice, by snabbdom and by
-  React, over the same `App`. A program with one renderer gives `run` that renderer alone, as [`timer/`](timer) does.
+- [`counter/`](counter): one program and the cheapest tests. Read it first. It is started once, and drawn twice, by
+  snabbdom and by React, over the same `App`. A program with one renderer is drawn by that one alone, as
+  [`timer/`](timer) is.
 - [`pages/`](pages): a parent and its children, placed with optics, started from flags, and talking through events.
 - [`timer/`](timer): the application of the [tutorial](../site/tutorial/index.md), one module for each step.
 
@@ -24,9 +25,9 @@ counter/
 ```
 
 A parent has a module for each child too (`pages/about.ts`, `pages/clock.ts`). Only `counter/` and `form/` have a view
-for each renderer. Their `main.ts` draws one run with both renderers: the program and its tests do not change with the
-renderer. Both examples give `run` one renderer that runs the two together, each over the `App` of the run, React's
-through `Draw`. The other examples are drawn with snabbdom alone, by a `view.ts`.
+for each renderer. Their `main.ts` starts the program once and draws it with both renderers: the program and its tests
+do not change with the renderer. Both draw the `App` that `start` gives, snabbdom's with `drawInto` and React's with
+`Draw`. The other examples are drawn with snabbdom alone, by a `view.ts`.
 
 ## The bridges
 
@@ -35,7 +36,7 @@ beside it (`snabbdom`, or `react` and `react-dom`). The bridges' sources are in 
 
 | Import                                | Source                                                  | What it is                                                            | You need it to                              |
 | ------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------- |
-| `@fgaudo/effect-tea/snabbdom`         | [`snabbdom.ts`](../bridges/snabbdom.ts)                 | The bridge to snabbdom: `View` and `renderInto`.                      | draw a program with snabbdom                |
+| `@fgaudo/effect-tea/snabbdom`         | [`snabbdom.ts`](../bridges/snabbdom.ts)                 | The bridge to snabbdom: `View` and `drawInto`.                        | draw a program with snabbdom                |
 | `@fgaudo/effect-tea/snabbdom/testing` | [`snabbdom-testing.ts`](../bridges/snabbdom-testing.ts) | `messagesSentBy`: what a view sends for a model, found without a DOM. | test that a view draws what its model holds |
 | `@fgaudo/effect-tea/react`            | [`react.ts`](../bridges/react.ts)                       | The bridge to React: `View`, `Host` and `Draw`.                       | draw a program in a React application       |
 

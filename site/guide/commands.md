@@ -116,8 +116,8 @@ run at once. The run goes on without waiting for the command.
 
 This keeps commands plain data. It also means that no change of state cuts a save in half.
 
-The end of the run interrupts the commands under way, whatever brings that end: a defect, an interruption, or a
-renderer that ends (see [running](./running.md)).
+The end of the run interrupts the commands under way, whatever brings that end: a defect, or an interruption (see
+[running](./running.md)).
 
 ### A command's scope
 

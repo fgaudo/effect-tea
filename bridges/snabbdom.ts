@@ -1,6 +1,6 @@
 // The bridge to snabbdom, the entry `@fgaudo/effect-tea/snabbdom`, which the examples use.
-// A renderer is given the handle on the running program, an `App`: it draws `app.model()` as it starts, and again once
-// `app.subscribe` tells it of a new state. A view draws native controlled elements: a `value` or a `checked` in
+// The bridge is given the handle of a program that was started, an `App`: it draws `app.model()` as it is called, and
+// again once `app.subscribe` tells it of a new state. A view draws native controlled elements: a `value` or a `checked` in
 // `props`, the model's, and a listener that calls `dispatch` itself, with the value the element holds. The bridge keeps
 // two rules beside snabbdom, each with a test that fails without it:
 // - A controlled prop is compared with the element. snabbdom's props module sets `value` only where it differs from the

@@ -10,8 +10,8 @@ A view turns the model into what the user sees. This page shows how a view draws
 to the program.
 
 A view is a function `(model, dispatch) => Node`. It gets the model, and returns a `Node` of the renderer's tree. The
-view's controls send the program's messages with `dispatch`. The run gives the renderer the model of the current state,
-and tells it of each new state. The renderer draws the model.
+view's controls send the program's messages with `dispatch`. The `App` of the program gives the renderer the model of
+the current state, and tells it of each new state. The renderer draws the model.
 
 ## An example
 
@@ -31,7 +31,7 @@ the model holds: `on: { click: () => dispatch(model.more) }`.
   the new one. What the message starts, its commands and its subscriptions, runs later, in the run's own fiber, with
   the run's services.
   - A message sent while another is being applied is applied right after it, before the outer call returns. Two kinds
-    of code send one then: a renderer's listener, which the run tells of a new state, and code that a function of the
+    of code send one then: a renderer's listener, which the `App` tells of a new state, and code that a function of the
     program wakes. Such a call may return before its message is applied.
   - The program runs on the stack of whoever sends the message: a slow `update` holds the handler that sent it (see
     [what is left to you](./guarantees.md#what-is-left-to-you)).

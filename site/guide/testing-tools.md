@@ -14,7 +14,7 @@ program is tested with them.
 - `simulate` and `rehearse` play a flow without running the program.
 - `drive` plays a scenario on the running program.
 
-`simulate` and `rehearse` do not call `run`. Each calls the program's own functions itself, in an order that the tool
+`simulate` and `rehearse` do not call `start`. Each calls the program's own functions itself, in an order that the tool
 or the test decides. The result is still an effect, which the test runs. When a tool runs a command or a subscription
 of the program, the test provides the services of that command or subscription: see [simulate](#simulate) and
 [rehearse](#rehearse).
@@ -121,7 +121,7 @@ rehearse(
 )
 ```
 
-- **`rehearse` starts from the program's `init`.** A program with flags gets them as `run` does, in the options.
+- **`rehearse` starts from the program's `init`.** A program with flags gets them as `start` does, in the options.
 - **`rehearse` acts through what the current model shows**, as `drive` does.
 - **Nothing reaches `update` by itself.**
 - **A message is applied at once**, in the call that sends it, as in the run. Its commands are pending once what it
@@ -142,14 +142,14 @@ rehearse(
 
 `drive` tests a user's scenario on the running program, subscriptions included.
 
-- A program with flags gets them as `run` does, in the options.
-- `drive` takes the other options of `run` too, such as `onApplied` and `onIgnored` (see
+- A program with flags gets them as `start` does, in the options.
+- `drive` takes the other options of `start` too, such as `onApplied` and `onIgnored` (see
   [running](./running.md#options)).
 - `drive` sends what the models show, through the run's dispatch. `send` finds the message on a model and sends it at
   once, as a control drawn from that model would: when `send` returns, `update` has seen the message.
 - The program's commands run as soon as they start. To hold a command, give the program a service written by the
   test. The service waits on a `Deferred` that the scenario completes.
-- The renderer of `drive` is told of every new state, and reads the model of each one. A wait, `waitFor`, looks at the
+- `drive` is told of every new state, as a renderer is, and reads the model of each one. A wait, `waitFor`, looks at the
   current model and at later ones.
 - A wait that ends once a model shows a step does not wait for the step's commands. They start after it, in the run's
   own fiber, and a scenario that ends there may end the run before they start. To check what a command does, wait for

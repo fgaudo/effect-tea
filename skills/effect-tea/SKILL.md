@@ -104,22 +104,23 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   React, draw once for each task that brings a new state. Let such a subscription send its messages by batches, as a
   `Stream` grouped within a time does (`Stream.groupedWithin`). The guide, "Guarantees", "A subscription that sends
   faster than the screen refreshes holds the run back".
-- **With React, the run lives as long as `Host`'s effect.** `<Activity>`, a remount, a new `key` and StrictMode start
-  the program again from `init`. For a state that outlives a component, start the run yourself and draw it with
-  `Draw`. A run that dies is thrown to the nearest error boundary, or given to `reportError` once `Host` has
-  unmounted. The guide, "Guarantees", "With the bridge to React, the run lives as long as the effect that starts it".
-  The guide, "Guarantees", "With the bridge to React, a run that dies is thrown to the nearest error boundary".
+- **With React, the run lives as long as `Host`'s effect.** `<Activity>`, a remount and a new `key` start the program
+  again from `init`. Under StrictMode the commands of `init` start once today, which is described and not promised. For
+  a state that outlives a component, start the program yourself and draw it with `Draw`. A run that dies is thrown to
+  the nearest error boundary, or given to `reportError` once `Host` has unmounted. The guide, "Guarantees", "With the
+  bridge to React, the run lives as long as the effect that starts it". The guide, "Guarantees", "With the bridge to
+  React, a run that dies is thrown to the nearest error boundary".
 - **A parent never reads a child's state to decide.** A child gets what it needs from its own services and
   subscriptions. The guide, "Structuring a program", "A parent never reads a child's state to decide".
 - **Whatever a subscription depends on is in its key.** A new subscription under a kept key is not used. A value that
   stays the same while the key is kept, as a child's own id, can stay out. The guide, "Subscriptions", "A subscription
   sees the state only through its key". The guide, "Subscriptions", "A value that stays the same while the key is kept
   can stay out of the key".
-- **A function of the program never interrupts the fiber it runs in.** `init` runs in the fiber of whoever runs the
-  program. `update`, `subscriptions` and the options run where the message was sent, and `makeModel` where the model is
-  read. Each could reach that fiber with `Fiber.getCurrent`. An interruption of the fiber of whoever runs the program
-  is no defect, so no defect says it happened. The guide, "Guarantees", "A function of the program never interrupts
-  the fiber it runs in".
+- **A function of the program never interrupts the fiber it runs in.** `init` runs in the call of `start`, in the fiber
+  of whoever starts the program, if any. `update`, `subscriptions` and the options run where the message was sent, and
+  `makeModel` where the model is read. Each could reach that fiber with `Fiber.getCurrent`. An interruption of a fiber
+  that is no command's or subscription's is no defect, so no defect says it happened. The guide, "Guarantees", "A
+  function of the program never interrupts the fiber it runs in".
 
 ## Rules that a test checks
 

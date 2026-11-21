@@ -81,8 +81,7 @@ A larger program:
 
 Running and testing it:
 
-- [Running](./running.md): how you start a program, what the run gives your renderer, and what to do when the run
-  dies.
+- [Running](./running.md): how you start a program, what your renderer reads, and what to do when the run dies.
 - [Guarantees](./guarantees.md): what the library promises about a running program, and what it leaves to you.
 - [Testing](./testing.md): how a program is tested. Most of a program is pure, so most tests need no runtime.
 - [Testing tools](./testing-tools.md): the five tools of `@fgaudo/effect-tea/testing`, what fails the test in each,

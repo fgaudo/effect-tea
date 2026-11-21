@@ -55,6 +55,9 @@ export interface App<Model, Message> {
    * Takes what a renderer threw as it drew, for a defect in `'render'`: from then on the program applies no message,
    * and its run dies of it. It is for a renderer that draws outside a listener, as in a microtask, where nothing of the
    * run calls it. A defect of `makeModel` that `model()` threw is taken as it is, and stays one defect.
+   *
+   * @see The guide, "Running", "The renderer gets an `App`".
+   * @see The guide, "Running", "Its `where` says where it happened".
    */
   readonly die: (thrown: unknown) => void
 }
@@ -76,6 +79,9 @@ export interface App<Model, Message> {
  * const app: Started<Model, Message> = start(counter)
  * Effect.runFork(app.run)
  * ```
+ *
+ * @see The guide, "Running", "A program is started, then run".
+ * @see The guide, "Running", "A defect in `init` is recorded as the program starts".
  */
 export interface Started<Model, Message, R = never> extends App<Model, Message> {
   /** Runs the effects of the program, until it is interrupted or a defect ends it. */
@@ -206,8 +212,8 @@ export const startWith = <State, Model, Message, Command, RC, RS, Flags>(
  *   while it still runs. The next message does not wait for a release, but the effects of the next state do. So keep
  *   releases quick.
  * - The span of whoever runs it does not keep what the run's fibers log.
- * - A defect anywhere ends the run, which dies with a `ProgramDefect`. A command, a subscription or an option that
- *   interrupts itself is a defect too. Reporting the crash is the job of the app around the run.
+ * - A defect anywhere in the program ends the run, which dies with a `ProgramDefect`. A command or a subscription that
+ *   the program interrupts is a defect too. Reporting the crash is the job of the app around the run.
  *
  * @param program - The program to start, one without events.
  * @param options - `flags`, when the program has them, and the options of {@link RunOptions}.
@@ -220,6 +226,7 @@ export const startWith = <State, Model, Message, Command, RC, RS, Flags>(
  * ```
  *
  * @see The guide, "Running", "In short".
+ * @see The guide, "Running", "A program is started, then run".
  * @see The guide, "Guarantees", "One message at a time, in the order they were sent".
  * @see The guide, "Guarantees", "Outdated clicks are harmless".
  * @see The guide, "Guarantees", "Nothing outlives what acquired it".

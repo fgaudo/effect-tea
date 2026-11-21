@@ -88,9 +88,9 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
   `make` returns this type, and a function that takes a program names this type.
 - **Its state is always an object**: `{ count }` rather than `count`. So any program can become a child as it is (see
   [composition](./composition.md)).
-- **The view is not part of it.** `run` hands your renderer an **`App`**, `{ model, subscribe, dispatch }`: the model of
-  the current state, and a notice of each new state. The library does not say how the renderer draws the model. What
-  the renderer must keep to is in [view](./view.md).
+- **The view is not part of it.** `start` gives your renderer an **`App`**, `{ model, subscribe, dispatch, die }`: the
+  model of the current state, and a notice of each new state. The library does not say how the renderer draws the model.
+  What the renderer must keep to is in [view](./view.md).
 - **A program that cannot start the same way every time declares `flags`**, as in Elm. For example, a page that shows
   the product it was opened for declares flags.
 
@@ -99,15 +99,15 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
 **What does not compile.** The compiler refuses three kinds of program. Each kind is refused in the places below:
 
 - A state that is a number or a string. It is refused by `Program<…>` and `program`, by `child` and `childById`, by
-  `run`, and by `simulate`, `rehearse` and `drive`.
+  `start`, and by `simulate`, `rehearse` and `drive`.
 - A state whose type has no fields, such as `{}`. Such a type holds a number too, so name the type of a state without
   fields `object`. `program` accepts such a state, and `make` refuses it. A program written as an object is refused
-  when it is typed `Program<…>`, and when `child`, `childById`, `run`, `simulate`, `rehearse` or `drive` takes it.
+  when it is typed `Program<…>`, and when `child`, `childById`, `start`, `simulate`, `rehearse` or `drive` takes it.
   - A state that is a type parameter, such as `S` in `<S extends object>(state: S) => program<{ state: S }>()`, is
     refused by `make` too: the compiler cannot decide that `S` holds no number. A type parameter in a field of the
     state, such as `A` in `{ items: ReadonlyArray<A> }`, compiles.
 - A program written as an object without `subscriptions`. It is refused when it is typed `Program<…>`, and when
-  `child`, `childById`, `run`, `rehearse` or `drive` takes it. `simulate` refuses the pieces of a program without
+  `child`, `childById`, `start`, `rehearse` or `drive` takes it. `simulate` refuses the pieces of a program without
   `subscriptions` too. `make` accepts a program without them, and the program it returns has them.
 
 **The types need `strict`.** The library's types are checked under the compiler option `strict` alone. Without
@@ -118,11 +118,11 @@ accepts a program typed with more `external` messages than the program takes.
 interprets it. In the same way, `external` is required exactly when the program has external messages (see
 [events and external messages](./events-and-external-messages.md#precisely)).
 
-**A test makes a model as `run` does.** `run` makes the model of a state with `program.makeModel(state)`. A test can
+**A test makes a model as the run does.** The run makes the model of a state with `program.makeModel(state)`. A test can
 call `program.makeModel` the same way, on any state.
 
 **What a program listens to.** `program.subscriptions(state)` is what the program listens to in `state`, by key.
-It is what `run` reconciles. For a program made without `subscriptions`, it is empty. A parent lists the subscriptions
+It is what the run reconciles. For a program made without `subscriptions`, it is empty. A parent lists the subscriptions
 of each child under `[<child>, key]`. For children by id, the parent lists them under `[<child>, id, key]` (see
 [composition](./composition.md)).
 
@@ -130,4 +130,4 @@ of each child under `[<child>, key]`. For children by id, the parent lists them 
 starts the program gives the flags:
 
 - A parent gives them to its child (see [composition](./composition.md)).
-- `run` gives them to the root (see [running](./running.md)).
+- `start` gives them to the root (see [running](./running.md)).

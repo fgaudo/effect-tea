@@ -6,7 +6,7 @@ title: A first program
 
 Start small. You will build a control that sets how many minutes a timer lasts: "+" adds a minute, and "−" takes one
 away, never below one. In this step, you will meet the pieces of every program: the state, `update`, `reject`, the
-model, a view and `run`.
+model, a view and `start`.
 
 The rule "never below one" is the interesting part. By the end of this page, that rule holds in one place only.
 
@@ -61,11 +61,12 @@ It decides nothing on its own: whether "−" can be clicked is already in the mo
 
 ## Running it
 
-`run(duration, renderInto(root, durationView))` starts the program, and hands the renderer the model of the current
-state, a notice of each new state, and the `dispatch` to send its messages with. A click calls `dispatch`, and when it
-returns, `update` has seen the click. `renderInto` empties the element `root`, and draws the model into it.
+`start(duration)` starts the program, and gives its handle: the model of the current state, a notice of each new
+state, the `dispatch` to send its messages with, and `run`, which runs the program's effects.
+`drawInto(root, durationView)(app)` draws the handle: it empties the element `root`, and draws the model into it. A
+click calls `dispatch`, and when it returns, `update` has seen the click. This program has no effects yet.
 
-In a browser, the run is started with `Effect.runFork`, with a `tapCause` that reports a run that dies.
+In a browser, `run` is forked with `Effect.runFork`, with a `tapCause` that reports a run that dies.
 [Step 4](./4-inputs.md) shows it for the finished application (see [running](../guide/running.md)).
 
 ## What you have

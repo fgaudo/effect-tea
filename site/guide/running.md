@@ -6,23 +6,44 @@ title: Running
 
 ## In short
 
-This page shows how you start a program, what the run gives your renderer, and what to do when the run dies.
+This page shows how you start a program, what your renderer reads, and what to do when the run dies.
 
-`run(program, render, options?)` starts the program and hands `render` an `App`: the model of the current state, a
-notice of each new state, and the dispatch. A message is applied in the call that sends it. Its commands and its
-subscriptions follow in the run's own fiber. The run ends when the renderer ends. A defect anywhere ends the run too.
-The run dies, and reporting the crash is the job of the app around the run.
+`start(program, options?)` starts the program by plain code, and gives a handle: the model of the current state, a
+notice of each new state, the dispatch, and `run`, the effect that runs the program's effects. A renderer reads the
+handle. Whoever runs the program forks `run`, and ends the run by interrupting it:
+
+```ts
+const app = start(counter)
+drawInto(root, view)(app)
+Effect.runFork(app.run)
+```
+
+A message is applied in the call that sends it. Its commands and its subscriptions follow in the run's own fiber. A
+defect anywhere ends the run too. The run dies, and reporting the crash is the job of the app around the run.
 
 ## Rules
 
-**Only a program without events runs.** There is no parent to handle the events.
+**Only a program without events starts.** There is no parent to handle the events.
 
-**The renderer gets an `App`**, `{ model, subscribe, dispatch }`:
+**A program is started, then run.** `start` gives a `Started`: an `App`, which a renderer reads, with `run`.
+
+- `start` calls `init`, and makes the first state. It starts no fiber, and runs no effect.
+- `run` starts the subscriptions and the commands of each state, in the order of the states. It never succeeds: it
+  runs until it is interrupted, or until a defect ends it.
+- A message sent before `run` is applied all the same. Its effects wait for `run`.
+- A program started is run once. A second `run` dies. To run the program again, start it again.
+- A program that was never run is never stopped. Its state can still change, and no effect follows. This holds of a
+  program whose `run` is interrupted before it begins, too.
+
+**The renderer gets an `App`**, `{ model, subscribe, dispatch, die }`:
 
 - `model()` is the model of the current state. It is made when it is read, once for each state.
 - `subscribe(listener)` tells `listener` of each new state, once it is the current one, and returns what stops it. No
   listener is told of a rejected message, nor of the very same state.
 - `dispatch(message)` applies the message before it returns (see [view](./view.md#rules)).
+- `die(thrown)` takes what a renderer threw as it drew outside a listener, as in a microtask, where nothing of the
+  run calls it. From then on, the program applies no message, and `run` dies of it, in `'render'`. A defect of
+  `makeModel` that `model()` threw is taken as it is, and stays one defect.
 
 **The `dispatch` of the `App` is the very same function for the whole run.** So a view
 [memoized](./glossary.md#what-the-user-sees) on its dispatch is not drawn again because of the dispatch.
@@ -62,9 +83,9 @@ const onApplied = (applied: Applied<State, Message, Command>): undefined => {
 ```
 
 **The run calls `onApplied` and `onIgnored` in order.** The run calls them in the step of each message, before it
-applies the next one, so that they hear every message in order. The run also calls `onApplied` before the renderer is
-told, and before the message's commands start. So a slow `onApplied` or `onIgnored` holds up the whole program, and
-the call that sent the message. A defect in one of them ends the run, as any other defect does.
+applies the next one, so that they hear every message in order. The run also calls `onApplied` before the listeners of
+the `App` are told, and before the message's commands start. So a slow `onApplied` or `onIgnored` holds up the whole
+program, and the call that sent the message. A defect in one of them ends the run, as any other defect does.
 
 **Give slow work to a queue.** An `onApplied` or an `onIgnored` with slow work to do, such as a devtools that sends
 each step away, gives that work to a queue:
@@ -80,18 +101,19 @@ in the queue when the run ends is not reported.
 const app = Effect.gen(function*() {
   const heard = yield* Queue.unbounded<Applied<State, Message, Command>>()
   const report = Queue.take(heard).pipe(Effect.flatMap(sendToDevtools), Effect.forever)
-  const running = run(program, render, {
+  const started = start(program, {
     onApplied: (applied) => {
       Queue.offerUnsafe(heard, applied)
     }
   })
-  yield* Effect.raceFirst(running, report)
+  drawInto(root, view)(started)
+  yield* Effect.raceFirst(started.run, report)
 })
 ```
 
 **Work that must wait goes to the effects of the program.** An option cannot hold up the run to wait for something.
-What must wait, such as a command that may start only once its state is saved, is a command, a subscription or the
-renderer that waits: wrap `runCommand`, a subscription or the renderer, and leave the options to watch.
+What must wait, such as a command that may start only once its state is saved, is a command or a subscription that
+waits: wrap `runCommand` or a subscription, and leave the options to watch.
 
 ### Logs
 
@@ -105,12 +127,13 @@ const app = Effect.gen(function*() {
     Effect.flatMap(({ message, revision }) => Effect.logDebug("Message", message._tag, { revision })),
     Effect.forever
   )
-  const running = run(program, render, {
+  const started = start(program, {
     onApplied: (applied) => {
       Queue.offerUnsafe(heard, applied)
     }
   })
-  yield* Effect.raceFirst(running, logging)
+  drawInto(root, view)(started)
+  yield* Effect.raceFirst(started.run, logging)
 })
 ```
 
@@ -118,7 +141,7 @@ Neither option hears a message that the run drops before `update`: one that a su
 
 ### Starting from another state
 
-A program starts where its `init` says. To start the program elsewhere, give `run` the program with another first
+A program starts where its `init` says. To start the program elsewhere, give `start` the program with another first
 step: `{ ...program, init: { state } }`, with the step's commands, if any.
 
 - The state may be one saved by `onApplied`, or one kept across a reload in development.
@@ -132,19 +155,27 @@ A defect anywhere ends the run, which dies with a `ProgramDefect`:
 - **Its `cause` is the defect itself**: an `InvariantDefect` for one thrown with `defect`.
 - **Its `where` says where it happened**, which only the run knows:
 
-  | `where`           | Where the defect happened                                                                                 |
-  | ----------------- | --------------------------------------------------------------------------------------------------------- |
-  | `'init'`          | In `init`, for a program that starts from flags.                                                          |
-  | `'update'`        | In `update`, `onEvent` included. The message it was given is in `on`, by its tags.                        |
-  | `'subscriptions'` | In `subscriptions`, the `Equal` and `Hash` of its keys included.                                          |
-  | `'subscription'`  | In a subscription. Its `key` is there as it is.                                                           |
-  | `'command'`       | In a command.                                                                                             |
-  | `'render'`        | In the renderer, the view, the renderer's listeners and `makeModel` included, wherever the model is read. |
-  | an option's name  | In that option.                                                                                           |
+  | `where`           | Where the defect happened                                                                               |
+  | ----------------- | ------------------------------------------------------------------------------------------------------- |
+  | `'init'`          | In `init`, for a program that starts from flags.                                                        |
+  | `'update'`        | In `update`, `onEvent` included. The message it was given is in `on`, by its tags.                      |
+  | `'subscriptions'` | In `subscriptions`, the `Equal` and `Hash` of its keys included.                                        |
+  | `'subscription'`  | In a subscription. Its `key` is there as it is.                                                         |
+  | `'command'`       | In a command.                                                                                           |
+  | `'render'`        | In `makeModel`, wherever the model is read, in a listener of the `App`, and what a renderer gave `die`. |
+  | an option's name  | In that option.                                                                                         |
 
   When the program logs something, a defect in that log is in the place the program logs from.
 
 From the defect on, the run applies no message. Every defect is in the cause, each with where it happened.
+
+**A defect in `init` is recorded as the program starts.** `start` still gives a handle. Its `model()` throws the
+defect, and its `run` dies of it. A defect in `subscriptions` on the first state is recorded as the program starts
+too, and `run` dies of it.
+
+**What throws outside the functions of the program is in the cause as it is.** The run's own code throws it, or a
+message's tags as the run reads them to say what a defect was on. It has no `where`, it is no `ProgramDefect`, and it
+ends the run as a defect does.
 
 Only the run makes a `ProgramDefect`. The app around the run reads one, and a test does too. The types refuse to build
 one, with `new` or with a class that extends it.
@@ -157,8 +188,10 @@ program again.
 `Effect.runFork` returns (on `pagehide`, for example) ends the run too. That interruption is not a crash:
 
 ```ts
+const app = start(program, options)
+drawInto(root, view)(app)
 Effect.runFork(
-  run(app, render, options).pipe(
+  app.run.pipe(
     Effect.tapCause((cause) => Cause.hasInterruptsOnly(cause) ? Effect.void : reportCrash(cause))
   )
 )
@@ -190,7 +223,7 @@ Each pair sums up a rule of this page. The rule itself is above.
   by the child's name alone: `{ _tag: 'Counter', message: 'Increment' }` appears as `Counter`. A string in a field
   named `message` may be the program's own data.
 
-### How a command, a subscription or the renderer dies
+### How a command or a subscription dies
 
 1. It dies when its effect ends with a defect.
 2. What it wraps around its own code (`Effect.ensuring`, `Effect.onExit`, an `Effect.scoped` of its own) is part of its
@@ -214,9 +247,9 @@ Each pair sums up a rule of this page. The rule itself is above.
   - And `onApplied` may have heard a step whose model is never drawn and whose commands never start.
 - Once a command or a subscription has started, what the command or the subscription does is the program's business,
   until the run interrupts it.
-- The same holds for what the renderer does. This also holds in a run that died as it started, for example when a
-  subscription of `init` dies. A model that the renderer reads meanwhile is still made, since `makeModel` is pure and
-  calling `makeModel` changes nothing in the program.
+- This also holds in a run that died as it started, for example when a subscription of `init` dies.
+- A renderer is no part of the run, and the run does not stop it. A model that the renderer reads after the defect is
+  still made, since `makeModel` is pure and calling `makeModel` changes nothing in the program.
 
 ### How the run ends
 
@@ -224,13 +257,14 @@ When the run ends, because of a defect or of an interruption, it stops in this o
 
 1. It stops applying messages, then stops its own fiber, where the effects of each step run. What that fiber had not
    done yet is not done.
-2. It stops the renderer.
-3. It stops its commands and its subscriptions.
+2. It stops its commands and its subscriptions.
 
-What is sent meanwhile is not applied. This includes what the renderer sends as it releases what it holds.
+What is sent meanwhile is not applied. A renderer is not stopped by the run: whoever started the program stops it,
+with what its bridge returns. A renderer that nothing stops still draws nothing new, since no state is made after the
+end.
 
-The end may begin inside a dispatch: on the stack of the call whose step met the defect, before that call returns.
-This is described, and not promised.
+The end may begin on the stack of a dispatch whose step met the defect, once that dispatch has applied its messages
+and told the listeners, and never inside a step. This is described, and not promised.
 
 ### The defects in the cause
 

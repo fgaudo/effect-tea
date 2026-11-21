@@ -3,8 +3,8 @@
 // controlled elements as React's own documentation draws them, `value` and `onChange`, and a handler calls `dispatch`
 // itself. The state has changed when the handler
 // returns, as a controlled element asks. No store of frames, no `flushSync`, no animation frame, and no rule of the
-// library's for an input's element. Two components: `Host`, which starts the run as it mounts, and `Draw`, which draws
-// a run the application starts itself from the `App` its renderer is given.
+// library's for an input's element. Two components: `Host`, which starts the program as it first renders and runs it
+// while it is mounted, and `Draw`, which draws a program the application starts itself, from its `App`.
 // Checked with react and react-dom 19.3.1, the start of their peer range; the daily job runs its tests with the newest
 // React 19.
 /**
@@ -40,28 +40,28 @@ import { createElement, type ReactNode, useEffect, useRef, useState, useSyncExte
 export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => ReactNode
 
 /**
- * Draws the model of the current state of `app` with `view`: for a run the application starts itself, whose renderer
- * hands its `App` to React. It renders again for each new state, and draws the model of the state current when it
- * renders.
+ * Draws the model of the current state of `app` with `view`: for a program the application starts itself. It renders
+ * again for each new state, and draws the model of the state current when it renders. It draws it on a server too.
  *
  * React may make the model of each new state as it is told of it, in the call that sent the message: a slow
  * `makeModel` then holds up that call. This is described, and not promised.
  *
  * @example
  * ```ts
- * const render = (app: App<Model, Message>) =>
- *   Effect.andThen(Effect.sync(() => root.render(createElement(Draw<Model, Message>, { app, view }))), Effect.never)
- * Effect.runFork(run(counter, render))
+ * const app = start(counter)
+ * createRoot(root).render(createElement(Draw<Model, Message>, { app, view }))
+ * Effect.runFork(app.run)
  * ```
  *
  * @see The guide, "Writing a bridge", "The handle".
+ * @see The guide, "Guarantees", "With the bridge to React, `Host` and `Draw` draw the first model on a server".
  * @see The guide, "Guarantees", "With the bridge to React, `makeModel` may run for each new state, in the call that sends its message".
  */
 export const Draw = <Model, Message>({
   app,
   view
 }: {
-  /** The handle on the running program that the renderer is given. */
+  /** The handle of a program that was started. */
   readonly app: App<Model, Message>
   /** Draws its model. */
   readonly view: View<Model, Message>
@@ -76,13 +76,13 @@ export const Draw = <Model, Message>({
 export type Fork<R> = (effect: Effect.Effect<void, never, R>) => Fiber.Fiber<void, unknown>
 
 /**
- * What `Host` takes: `run`'s program and options, how to fork the run, and its view.
+ * What `Host` takes: `start`'s program and options, how to fork the run, and its view.
  *
  * @see The guide, "Running", "Options".
  */
 export type HostProps<State, Model, Message, Command, RC, RS, Flags> =
   & {
-    /** The program to run. */
+    /** The program to start and run. */
     readonly program: Shape<State, Model, Message, Command, RC, RS, never, never, Flags>
     /** Draws its model. */
     readonly children: View<Model, Message>
@@ -100,13 +100,17 @@ export type HostProps<State, Model, Message, Command, RC, RS, Flags> =
 type Died = { readonly error: unknown }
 
 /**
- * Runs a program while it is mounted, and draws the model of its current state with `children`, `fallback` before the
- * run has started its renderer.
+ * Starts a program as it first renders, runs it while it is mounted, and draws the model of its current state with
+ * `children`.
  *
- * - The run starts as `Host` mounts, with the `program`, the `options` and the `fork` of its first render, and is
- *   interrupted as it unmounts. Give it a new `key` to start the program anew.
- * - The run lives as long as `Host`'s effect: React's `<Activity>` and StrictMode end it, and the program starts again
- *   from `init`. For a state that outlives a component, start the run yourself, and draw it with `Draw`.
+ * - The program starts as `Host` first renders, with the `program`, the `options` and the `fork` of that render. Its
+ *   run starts after `Host`'s effect, and is interrupted as `Host` unmounts. Give it a new `key` to start the program
+ *   anew.
+ * - The run lives as long as `Host`'s effect: React's `<Activity>` ends it, and the program starts again from `init`.
+ *   The run starts in a microtask after the effect, so under StrictMode the commands of `init` start once today: this
+ *   is described, and not promised. For a state that outlives a component, start the program yourself, and draw it
+ *   with `Draw`.
+ * - On a server, it draws the first model, and nothing of `init` starts.
  * - A run that fails, or dies, throws what it ended with (`Cause.squash`: a `ProgramDefect` for a defect) as `Host`
  *   renders, for the nearest error boundary. One that ends so once `Host` has unmounted is given to `reportError`.
  *   Whatever `fork` handles around the run is not thrown or reported again.
@@ -119,6 +123,7 @@ type Died = { readonly error: unknown }
  * @see The guide, "View".
  * @see The guide, "Writing a bridge", "A controlled element".
  * @see The guide, "Guarantees", "With the bridge to React, the run lives as long as the effect that starts it".
+ * @see The guide, "Guarantees", "With the bridge to React, `Host` and `Draw` draw the first model on a server".
  * @see The guide, "Guarantees", "With the bridge to React, a run that dies is thrown to the nearest error boundary".
  */
 export const Host = <State, Model, Message, Command = never, RC = never, RS = never, Flags = never>(

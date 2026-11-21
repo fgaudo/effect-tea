@@ -63,7 +63,7 @@ test("the model holds what update accepts, all of it", () => {
 
 ### The model of any state
 
-`program.makeModel(state)` makes a model as `run` does. So a property test can read the model of any state.
+`program.makeModel(state)` makes a model as the run does. So a property test can read the model of any state.
 `program.subscriptions(state)` says what the program listens to in that state.
 
 **That the model is data** is checked on two equal states built apart. To get them, draw the same seed twice: call
@@ -122,13 +122,14 @@ have to have one.
 
 Then the test does these steps:
 
-1. It starts the run with `Effect.runFork(run(program, renderInto(root, view), options))`, with its services provided.
-   `renderInto` empties `root` and draws the view into it, so the test finds what the view draws through `root`. The
-   test may make `root` with no parent, and may start a second run with the same `root`.
+1. It starts the program with `start(program, options)`, draws it with `drawInto(root, view)`, and forks its `run`
+   with `Effect.runFork`, with its services provided. `drawInto` empties `root` and draws the view into it, so the test
+   finds what the view draws through `root`. The test may make `root` with no parent, and may draw a second program
+   into the same `root`, once it has stopped the first bridge.
 2. It acts on the page. Then it waits until the page shows what it expects, because a renderer may draw a new state
    later. The bridge to snabbdom draws in a microtask after each new state, a message of its view's included: so the
    test awaits a microtask after each event it dispatches. React renders as React schedules it.
-3. At the end, it interrupts the run's fiber.
+3. At the end, it stops the bridge, and interrupts the run's fiber.
 
 The tests of the package's bridges go further (see [their tests](./writing-a-bridge.md#their-tests)). In those tests,
 the run's fibers go on when the test says.

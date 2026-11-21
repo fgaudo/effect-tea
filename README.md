@@ -175,9 +175,9 @@ createRoot(root).render(<Host program={counter}>{view}</Host>)
 ```
 
 `View` and `Host` are the package's bridge to React, `@fgaudo/effect-tea/react`
-([`bridges/react.ts`](bridges/react.ts)). `Host` runs the program while it is mounted. A handler calls `dispatch`
-itself: when it returns, `update` has seen the message. [`examples/counter`](examples/counter) draws the same program
-with snabbdom.
+([`bridges/react.ts`](bridges/react.ts)). `Host` starts the program, and runs it while it is mounted. A handler calls
+`dispatch` itself: when it returns, `update` has seen the message. [`examples/counter`](examples/counter) draws the same
+program with snabbdom.
 
 ### With its tests
 

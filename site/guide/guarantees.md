@@ -14,8 +14,8 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
 
 - **One message at a time, in the order they were sent.** A message is applied in the call that sends it. A message
   sent while another is being applied, as a renderer's listener sends one, is applied right after it.
-  - The step of a message is its `update`, then `onApplied` or `onIgnored`, then the renderer's listeners, once the new
-    state is current.
+  - The step of a message is its `update`, then `onApplied` or `onIgnored`, then the listeners of the `App`, once the
+    new state is current.
   - What the step does in the world follows in the run's own fiber, in the order of the states: the subscriptions it
     stops and then those it starts, and the start of its commands. So the state is ahead of its effects: when a message
     has been applied, its commands may not have started yet.
@@ -32,7 +32,7 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
   - When the key goes away, the subscription releases what it holds.
   - From the moment the key is gone, nothing the subscription sent reaches `update`, even before it has been stopped,
     and even if the same key comes back later.
-- **Nothing outlives what acquired it.** Each command, each subscription and the renderer has a scope of its own.
+- **Nothing outlives what acquired it.** Each command and each subscription has a scope of its own.
   - What one of them acquires is released when it ends.
   - When the run ends, what it acquires is released once it has been interrupted.
   - What it acquires is never released while it still runs.
@@ -43,9 +43,12 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
   - Effect keeps each log as an event of the current span until that span ends.
   - The span of whoever runs it is still the parent of the spans that commands and subscriptions open.
 - **Nothing ends in silence.** A subscription that ends sends one last message.
-  - A defect anywhere ends the run. The run dies with it, as a `ProgramDefect` that says where it happened.
-  - A command, a subscription or the renderer that the program interrupts is a defect too: one that interrupts itself
-    (with `Effect.interrupt`, or by joining an interrupted fiber), or that another fiber of the program interrupts.
+  - A defect anywhere in the program ends the run. The run dies with it, as a `ProgramDefect` that says where it
+    happened.
+  - A listener of the `App` that throws, a `makeModel` that throws, and what a renderer gives `die` are defects too, in
+    `'render'`.
+  - A command or a subscription that the program interrupts is a defect too: one that interrupts itself (with
+    `Effect.interrupt`, or by joining an interrupted fiber), or that another fiber of the program interrupts.
   - Only the run, and whoever runs it, interrupt them.
 - **A model is made only when it is read.** It is made once for each state, by the state's identity. So the very same
   state has the very same model, and a bridge need not draw it again.
@@ -73,9 +76,12 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
   - As it ends, the run waits for every release before it dies. So a release that never ends also holds back the
     defects that the run would die with.
 - **The program runs on the stack of whoever sends the message.** `update`, `subscriptions`, the options and the
-  renderer's listeners run in the call that sends the message: a handler of the view, a command's fiber, or a
+  listeners of the `App` run in the call that sends the message: a handler of the view, a command's fiber, or a
   subscription's. So does `makeModel`, when a renderer reads the model in that call, as the bridge to snabbdom does for
   what a handler of the view sends. A slow one holds up the event that sent the message, and nothing bounds it.
+  - The effects of the step, its subscriptions and the start of its commands, start once that call has returned. The
+    first state's start as `run` is forked: with `Effect.runFork`, on the stack of that call. This is described, and not
+    promised.
 - **A renderer is told of every new state**, in the call that made it. One that draws later reads the latest model
   when it draws.
 - **A subscription that sends faster than the screen refreshes holds the run back.** The bridge to snabbdom draws once
@@ -97,11 +103,18 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
   gave each controlled element, and with the bridge to React the application's components may keep state of their own
   (see [view](./view.md#rules)).
 - **With the bridge to React, the run lives as long as the effect that starts it.** That is the effect of `Host`.
-  React ends it, and `Host` interrupts the run, when it unmounts `Host`, and when `<Activity>` hides it. The next effect
-  starts the program again from `init`. So do a new `key`, a remount, and StrictMode, which starts every effect twice
-  in development. The first run may have started the commands of `init` before it is interrupted. For a state that
-  outlives a component, start the run yourself, and draw it with `Draw` (see
-  [the package's bridges](./writing-a-bridge.md#the-packages-bridges)).
+  `Host` starts the program as it first renders, and starts its run after its effect.
+  - React ends the effect, and `Host` interrupts the run, when it unmounts `Host`, and when `<Activity>` hides it. The
+    next effect starts the program again from `init`. So do a new `key` and a remount. The first run may have started
+    the commands of `init` before it is interrupted.
+  - `Host` starts the run in a microtask after its effect. StrictMode runs every effect twice in development, with a
+    cleanup between them. It runs them in one task, so the first effect starts nothing, and one program runs, once: the
+    commands of `init` start once. This is described, and not promised: it is how React behaves today, which the
+    bridge's tests check.
+  - For a state that outlives a component, start the program yourself, and draw it with `Draw` (see
+    [the package's bridges](./writing-a-bridge.md#the-packages-bridges)).
+- **With the bridge to React, `Host` and `Draw` draw the first model on a server.** On a server, no effect runs: `Host`
+  starts the program and draws its first model, and nothing of `init` starts. Nothing is promised of hydration.
 - **With the bridge to React, a run that dies is thrown to the nearest error boundary.** `Host` throws it as it
   renders, while it is mounted. Once `Host` has unmounted, it is given to `reportError` instead. What is thrown is
   `Cause.squash` of what the run ended with, which keeps one defect. To see the whole cause, wrap the run in the `fork`
@@ -114,12 +127,12 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
   `external` runs in its parent's `update`. The library reuses a child's model, and its subscriptions, while the
   child's state is the same object.
 - **A function of the program never interrupts the fiber it runs in.** `init`, and `subscriptions` on the first state,
-  run in the fiber of whoever runs the program. `update`, `subscriptions` and the options run where the message was
-  sent: in a command's fiber, a subscription's, the renderer's, or in no fiber at all. `makeModel` runs where the model
-  is read. A function could reach that fiber (`Fiber.getCurrent`). One that interrupts the fiber of a command, of a
-  subscription or of the renderer is a defect of that command, subscription or renderer, not of the function. The run
-  cannot tell an interruption of the fiber of whoever runs it from one by whoever runs the program, so no defect says
-  that one happened.
+  run in the call of `start`: in the fiber of whoever starts the program, or in no fiber at all. `update`,
+  `subscriptions` and the options run where the message was sent: in a command's fiber, a subscription's, a fiber that
+  calls the dispatch, or in no fiber at all. `makeModel` runs where the model is read. A function could reach that fiber
+  (`Fiber.getCurrent`). One that interrupts the fiber of a command or of a subscription is a defect of that command or
+  subscription, not of the function. The run cannot tell an interruption of another fiber from one by whoever runs the
+  program, so no defect says that one happened.
 
 ## How the tests check them
 
@@ -136,7 +149,7 @@ and interruptions by the program. It checks:
   sends is the next one applied;
 - that outdated clicks leave the state as it was;
 - that subscriptions follow their keys;
-- that what a subscription, a command or the renderer acquires does not outlive it, and that the subscriptions a state
+- that what a subscription or a command acquires does not outlive it, and that the subscriptions a state
   stops are released before any start of that state or a later one;
 - that what the run logs is not kept by the span of whoever runs it, and that this span stays the parent of the spans
   opened in it;

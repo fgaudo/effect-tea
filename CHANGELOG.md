@@ -25,9 +25,8 @@ version, and everything else, features included, the patch version.
 - The bridges, as entries of the package: `@fgaudo/effect-tea/snabbdom`, with `messagesSentBy` in
   `@fgaudo/effect-tea/snabbdom/testing`, and `@fgaudo/effect-tea/react`, whose renderer is an optional peer
   (`snabbdom` ^3.6.4, `react` and `react-dom` ^19.3.1). They draw native controlled elements, React's with `Host` or
-  `Draw`, snabbdom's in a microtask after each new state. They replace the files to copy ("Writing a bridge").
-- `start(program, options)` starts a program by plain code, with no fiber, and gives its handle, `Started`: what a
-  renderer reads, and `run`, the effect that runs the program's effects, which whoever runs the program forks.
+  `Draw`, which draw the first model on a server too, snabbdom's with `drawInto`, in a microtask after each new state.
+  They replace the files to copy ("Writing a bridge").
 
 ### Changed
 
@@ -52,10 +51,11 @@ version, and everything else, features included, the patch version.
   was `(message) => Effect<void>`: when a handler returns, `update` has seen its message ("View").
   Upgrade: `Effect.runSync(dispatch(message))` becomes `dispatch(message)`, `yield* dispatch(message)` becomes
   `yield* Effect.sync(() => dispatch(message))`, and a dispatch written by hand returns nothing.
-- **Breaking**: `run`'s renderer is given an `App`, `{ model, subscribe, dispatch, die }`, in place of a stream of
-  frames: `Frame` is gone, and a model is made when it is read, once for each state ("Writing a bridge").
-  Upgrade: `(frames) => Stream.runForEach(frames, ({ model, dispatch }) => draw(model, dispatch))` becomes a renderer
-  that draws `app.model()` with `app.dispatch` as it starts, and again on each notice of `app.subscribe`.
+- **Breaking**: `run(program, render)` and `Frame` are removed: `start(program, options)` starts a program by plain
+  code, and gives a handle that a renderer reads, `{ model, subscribe, dispatch, die }`, with `run`, which runs the
+  program's effects; a model is made when it is read, once for each state ("Running", "Writing a bridge").
+  Upgrade: `Effect.runFork(run(program, render))` becomes `const app = start(program)`, plain code that draws
+  `app.model()` with `app.dispatch` and again on each notice of `app.subscribe`, then `Effect.runFork(app.run)`.
 - A message is applied in the call that sends it, a command's answer and a subscription's message in their own fiber;
   its subscriptions and commands start after, in the order of the states, and the next message waits for no release.
 - **Breaking**: `Driver.latest` is gone: `Driver.model` is the model of the current state, and `Driver.dispatch` the
@@ -109,8 +109,9 @@ version, and everything else, features included, the patch version.
   Upgrade: after its end value, a key must go away and come back before it is heard again.
 - **Breaking**: `simulate` runs each command after those started before it, as the run does.
   Upgrade: a step starting `A` and `B`, with `A`'s answer starting `C`, is heard `A, B, C`, where it was `A, C, B`.
-- **Breaking**: as the run ends, it stops applying messages first, then the renderer, then commands and subscriptions.
-  Upgrade: a renderer that sent a message for the program to act on as it is released does that work itself.
+- **Breaking**: as the run ends, it stops applying messages first, then its commands and subscriptions.
+  Upgrade: a command or a subscription that sent a message for the program to act on as it is released does that work
+  itself.
 - **Breaking**: `onApplied` and `onIgnored` are functions that return nothing, called as `update` is, not effects.
   Upgrade: `(applied) => Effect.sync(() => record(applied))` becomes `(applied) => { record(applied) }`, and one
   declared apart returns `: undefined`, not `void`; slow work goes to a queue, offered with `Queue.offerUnsafe`
@@ -147,8 +148,8 @@ version, and everything else, features included, the patch version.
   patience with a unit, `within 500ms`, with the latest model as the `cause`, where it gave an `Option` of it. It
   calls `init` before the scenario, so a scenario that returns at once fails on an `init` that throws, as `rehearse`.
 - `rehearse` no longer loses a command's answer or a message, and hears, applies and ends as the run does.
-- A command, a subscription or the renderer that another fiber of the program interrupts is a defect in its site, in
-  the run, `simulate` and `rehearse`, where the run went on, or ended, in silence.
+- A command or a subscription that another fiber of the program interrupts is a defect in its site, in the run,
+  `simulate` and `rehearse`, where the run went on, or ended, in silence.
 - `simulate` closes a command's scope as the run does.
 - A message or command whose wrapping comes back to itself is described by its tags until then, `Loop › …`, where its
   description overflowed the stack.
