@@ -27,3 +27,4 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`promises-and-tests.md`](promises-and-tests.md)         | done: each promise of the guide against the tests        |
 | [`library-review.md`](library-review.md)                 | done: a review of the whole library, its findings open   |
 | [`one-engine.md`](one-engine.md)                         | taken, to be done: `rehearse` over the engine itself     |
+| [`application-report.md`](application-report.md)         | proposed: what an application's upgrade to 0.8.0 found   |

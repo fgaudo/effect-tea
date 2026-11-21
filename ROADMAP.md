@@ -12,7 +12,10 @@ for on 20 November 2026 and asked to be written here in the order it advises. St
 4 and 6, and steps 17 to 21 its part 5, as the owner took it on 21 November 2026
 ([`one-engine.md`](docs/records/one-engine.md)). Step 16 comes from the owner's question, on 21 November
 2026, of why the findings api-1, api-2 and api-4 of [`library-review.md`](docs/records/library-review.md) passed the
-inference matrix and the tests. A step done leaves its number unused.
+inference matrix and the tests. Steps 22 to 26 come from
+[`application-report.md`](docs/records/application-report.md), a report of an application's upgrade to 0.8.0 that the
+owner asked to weigh on 22 November 2026. They come first: each is small, none waits for the steps of the engine, and
+step 25 changes a type of `src/testing/rehearse.ts`, which step 19 writes anew. A step done leaves its number unused.
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
 
@@ -23,6 +26,151 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 None is open.
 
 ## Next, in order
+
+### 22. What the guide says in other words, or leaves to an example
+
+**Model and effort.** Opus 5.5, `medium`.
+
+**Depends on** no other step. It changes no promise: each point says what the guide, the code and the tests already
+keep.
+
+**Why.** [`application-report.md`](docs/records/application-report.md), points 1, 2, 6 and 7: coding agents that
+upgraded an application read each of these another way, or found it by a script.
+
+**How.** Each sentence is checked against `src/` and its tests before it is written, as the last section of
+[`guide-reader`](.agents/skills/guide-reader/SKILL.md) says:
+
+1. **"Subscriptions", the table of a subscription or a command**: "input tied to a state", of a clock and a scroll,
+   uses the word of the glossary for another thing. It takes another word.
+2. **"Inputs the user types into", "Inputs by id"**: "So `get` returns `None`, and `set` leaves the state as it is"
+   reads as if `set` were called on the locked counts. The write is rejected, and `set` is not called (`updateAt` in
+   `src/compose.ts`).
+3. **An example of `input({ get, set })` alone**, on the same page: both of its examples of `get` and `set` are of
+   `inputById`.
+4. **"Composition", "The parent's inputs"**: "leaves `children` out" names both things it leaves out, the `children`
+   of `make` and the parameter of `init`, which is then the program's first step.
+5. **"Model", under "Messages live in the model"**: a control that chooses among fixed values holds one message for
+   each, as a list or a record of messages. The clock of `pages` holds two.
+6. **"Model", "Precisely"**: a plain object, an array and a record of data are data. Read first in Effect's
+   documentation of `Equal`: a probe is not enough for a sentence of the guide.
+7. **A subscription written apart names its services in its type**, `Subscription<Message, R>`, and the program's
+   subscriptions then need them (`SubscriptionServicesOf`), as an `Execution<Message, R>` does for the commands: in
+   "Anatomy of a program", where the guide says that the services are inferred.
+8. **The skill `guide-reader`** sends a choice of the API to "Ideas, to be decided" of this file, which is gone: it
+   names "Waiting for the owner".
+
+**Done when** the pages say it, the doc comments and the rules of the skill that name a changed section are reread,
+and `bun run comments`, `bun run typecheck`, `bun run lint` and `bun run test` pass. Whether a point has a changelog
+entry is [`release`](.agents/skills/release/SKILL.md)'s to say.
+
+### 23. What an input is for, and what its `set` may do
+
+**Model and effort.** Fable 5.2, `high`: what the guide promises of an input is decided, with the owner.
+
+**Depends on** no other step. Nothing is written until the owner has decided: each point changes what a page promises.
+
+**Why.** The design holds more than the guide says: an input is "a value a component of the renderer decides"
+(`src/input.ts`), and the guide speaks of a text that is typed. So a reader has no rule for a value that an element
+reports, nor for what a `set` may do, and the form does what the guide's own test would report. What was checked and
+weighed for each point is in [`application-report.md`](docs/records/application-report.md), points 1 to 3, with the
+advice of the session that wrote it.
+
+**How.** Four decisions, each with its advice in the record:
+
+1. **A value that an element reports**, as the offset of a scroll or a measured size. Whether the page says the rule
+   of which the text is a case: an input is the place of a value that an element holds or reports. And what it promises
+   of a value that the program cannot give back to the element: advised, the rule of an input and nothing of the
+   element. Weighed with finding 3 of the reader's check, under "Waiting for the owner": an event of the whole page is
+   a subscription, and a value of an element that the view draws is a write. And with point 6 of the seven: a scroll
+   writes at each of its events, and each write runs the whole pure step.
+2. **A fact that comes with a value**, as the end of a scroll with its offset. Whether the guide shows a handler that
+   writes the value and then sends the message its model holds. It holds by what "Guarantees" promises already.
+3. **What a `set` may do.** Either it stores into its place alone, in another form if the program wants one, and
+   anything else is not supported (advised). Or the guide promises what the code does: a `set` called exactly on a
+   write of another value that has a place, free to change the state.
+4. **The form, whose model shows no editor where a write has a place.** Either its test checks its writes, with those
+   of a saving form `withheld`, and "Testing" says that a place shown read-only on purpose is `withheld` (advised). Or
+   the form locks by the shape of its state, as the stock-take does. Either way "Testing" says that writes and the
+   program's own messages may share one call of `dispatchViolations`.
+
+**Done when** the owner has decided each, and step 24 says what was decided. A form refused goes to
+`docs/rejected.md`, with why.
+
+### 24. The guide, the examples and the skill say what step 23 decided
+
+**Model and effort.** Opus 5.5, `medium`.
+
+**Depends on** step 23.
+
+**How.** One section at a time, each sentence checked against the old one and against `src/` (`AGENTS.md`, "What
+belongs here"). A promise that no test keeps gets its test first: that a `set` is not called on an equal write, nor
+where `get` gives `None`, if step 23 promises it. The pages that speak of an input as a text are reread for the rule
+taken: "Inputs the user types into", "Model", "Structuring a program" (its table), "Testing", "Guarantees", the
+glossary, the fourth page of the tutorial and the skill. An example changed, as the form's test, changes after the
+page that allows it.
+
+**Done when** the checks of `AGENTS.md` pass, `bun run comments` among them, and the changelog says what a user
+notices.
+
+### 25. What `hear` takes
+
+**Model and effort.** Opus 5.5, `high`: a type of a testing tool
+([`change-engine`](.agents/skills/change-engine/SKILL.md), [`change-api`](.agents/skills/change-api/SKILL.md)).
+
+**Depends on** no other step. It comes before step 19, which writes `rehearse.ts` anew. The owner chooses between the
+two forms below before one is written.
+
+**Why.** `hear` refuses by its type any message that may be a write into an input. So it refuses a wrapper of a
+child's message built by a constructor of `Data.taggedEnum` over the parent's message, and any value typed as the
+whole message of a program with an input: tests that are right. The error names no rule, and only the doc comment
+says what `hear` takes, not "Testing tools". Run in a probe
+([`application-report.md`](docs/records/application-report.md), point 4). `docs/rejected.md` holds a first limit of
+the same check ("`hear` typed by what a program's subscriptions send").
+
+**How.** One of two:
+
+- **`hear` takes any message of the program** (advised). `Heard` and `Unwritten` go, with the known limit and its
+  test. The check is partial as it is: a test may say that a click or a command's answer was heard, and the guide says
+  that the test answers for what it says was heard. `applyAll` and `simulate` take any message too. The entry of
+  `docs/rejected.md` then says that the check by shape went.
+- **`Heard` stays.** "Testing tools" says what `hear` takes, and how a test writes a wrapper for it, and the error
+  names the rule, as `NoClash` does in `compose.ts`.
+
+**Done when** the form taken is in the code, the guide, the doc comment and the changelog, and the checks of the two
+skills pass.
+
+### 26. The entry for React outside a browser, and the syntax the package ships
+
+**Model and effort.** Opus 5.5, `high`: a premise to check before a change rests on it, and what the package asks of
+whoever installs it.
+
+**Depends on** no other step. The owner is asked first for points 1, 3 and 4, which change the peers, a page of the
+guide and what the README promises.
+
+**Why.** `bridges/react.ts` imports `react` alone, and an application on React Native draws its programs with it.
+The guide says that the repository has no bridge to React Native, and asks for `react-dom`
+([`application-report.md`](docs/records/application-report.md), point 5).
+
+**How.**
+
+1. **`react-dom` among the peers.** To decide: it leaves `peerDependencies` (advised), and the README, "Writing a
+   bridge", "Coming from Elm or React" and the skill say that the entry needs `react`, and that what it promises of a
+   controlled element is checked with `react-dom`.
+2. **`reportError`**, which the bridge calls for a run that dies once the effect of `Host` has ended, is a global of
+   the browser. A lead, not run: whether React Native has it is read in its documentation, or run there. If it lacks
+   it, the bridge falls back as React does, with a test of `bridges/react.test.ts` that takes the global away.
+3. **A renderer that draws after the next event**, as one whose elements live in another thread. To decide: whether
+   "Writing a bridge" describes what holds there. The state holds every write. A value that the program leaves in a
+   place may be written over by a key typed before its draw. A lock by the shape of the state holds whatever the
+   renderer. It is a description, and it is run under such a renderer before a sentence is written: the repository has
+   none, so the owner says where.
+4. **The syntax.** The build targets ES2022, and the README does not say so. The three `static {}` blocks of
+   `src/defect.ts` are the one syntax the package adds to what Effect's `dist/` asks of a toolchain. To decide: the
+   README says the level, and the three are written another way (advised), with a check of `bun run smoke` that
+   `dist/` has none.
+
+**Done when** each point is decided, and done or written in `docs/rejected.md`, with the changelog entry of what a
+consumer notices.
 
 ### 16. The types checked in every form a program is written
 
