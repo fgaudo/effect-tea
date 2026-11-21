@@ -1171,10 +1171,7 @@ describe("what the run dies of, and the tools fail on", () => {
     expect(keyOf(exit)).toBe(listed)
   })
 
-  // `rehearse` names the key given to `hearNext`, which finds the program's by `Equal`, where the run names the key
-  // the program listed: the guide's "Defects of the program" promises the same `key` of both. Found by the review of
-  // the whole library of 21 November 2026.
-  test.failing(
+  test(
     "rehearse fails, as the run dies, with the key the program listed, though hearNext was given another equal to it",
     async () => {
       const exit = await Effect.runPromiseExit(rehearse(listing, (rehearsal) => rehearsal.hearNext(new Key(1, "test"))))
@@ -2259,8 +2256,8 @@ describe("a message applied while a release holds the effects of the step before
 })
 
 // The end of the run stops every fiber it still runs, commands and subscriptions, all at once: a release may wait for
-// what another gives.
-describe("an end where the release of a subscription waits for the release of a command", () => {
+// what another gives, either way.
+describe("an end where the release of a fiber waits for the release of another", () => {
   type Ticks = Readonly<{ ticks: number }>
   type Holding = Program<{
     state: Ticks
@@ -2269,13 +2266,27 @@ describe("an end where the release of a subscription waits for the release of a 
     command: "Hold"
     commandServices: Scope.Scope
   }>
-  // `Hold` never answers, and its release gives `released`, which the release of the subscription under `k` waits for.
-  const holding = (started: Deferred.Deferred<void>, released: Deferred.Deferred<void>): Holding => ({
+  type Waiting = "command" | "subscription"
+  type Gates = Readonly<{
+    started: Deferred.Deferred<void>
+    command: Deferred.Deferred<void>
+    subscription: Deferred.Deferred<void>
+  }>
+  const gates = Effect.all({
+    started: Deferred.make<void>(),
+    command: Deferred.make<void>(),
+    subscription: Deferred.make<void>()
+  })
+  // A release gives its own gate, once it has awaited the other's where it is the one that waits.
+  const releasing = (waits: boolean, other: Deferred.Deferred<void>, own: Deferred.Deferred<void>) =>
+    Effect.andThen(waits ? Deferred.await(other) : Effect.void, Deferred.succeed(own, undefined))
+  // `Hold` never answers, and the subscription under `k` sends one `Tick`, then waits.
+  const holding = (waiting: Waiting, { command, started, subscription }: Gates): Holding => ({
     init: { state: { ticks: 0 } },
     update: (message) => (state) =>
       message === "Go" ? { state, commands: ["Hold"] } : { state: { ticks: state.ticks + 1 } },
     runCommand: () =>
-      Effect.addFinalizer(() => Deferred.succeed(released, undefined)).pipe(
+      Effect.addFinalizer(() => releasing(waiting === "command", subscription, command)).pipe(
         Effect.andThen(Deferred.succeed(started, undefined)),
         Effect.andThen(Effect.never)
       ),
@@ -2284,7 +2295,7 @@ describe("an end where the release of a subscription waits for the release of a 
         "k",
         Channel.succeed<"Go" | "Tick">("Tick").pipe(
           Channel.concatWith(() => Channel.never),
-          Channel.ensuring(Deferred.await(released))
+          Channel.ensuring(releasing(waiting === "subscription", command, subscription))
         )
       ]),
     makeModel: (state) => state
@@ -2305,38 +2316,43 @@ describe("an end where the release of a subscription waits for the release of a 
     return ended === "hung" ? ended : Exit.isSuccess(ended) ? "success" : String(Cause.squash(ended.cause))
   }
 
-  test("the run ends, as it stops the command and the subscription together", async () => {
-    const ended = await endedWithin(Effect.gen(function*() {
-      const started = yield* Deferred.make<void>()
-      const released = yield* Deferred.make<void>()
-      return yield* drive(
-        holding(started, released),
+  // The scenario ends once the command and the subscription both run.
+  const driven = (waiting: Waiting) =>
+    endedWithin(Effect.flatMap(gates, (given) =>
+      drive(
+        holding(waiting, given),
         Effect.fnUntraced(function*(driver) {
           yield* driver.waitFor(({ ticks }) => ticks === 1 ? Opt.some(ticks) : Opt.none())
           yield* driver.send(() => Opt.some("Go"))
-          yield* Deferred.await(started)
+          yield* Deferred.await(given.started)
         })
-      )
-    }))
-    expect(ended).toBe("success")
-  })
+      )))
 
-  // `rehearse` stops the subscriptions `hearNext` started and waits for their release before it stops the commands, so
-  // it never ends. Found by the review of the whole library of 21 November 2026.
-  test.failing("rehearse ends too, as the run does, failing on the command still under way", async () => {
-    const ended = await endedWithin(Effect.gen(function*() {
-      const started = yield* Deferred.make<void>()
-      const released = yield* Deferred.make<void>()
-      return yield* rehearse(
-        holding(started, released),
+  const rehearsed = (waiting: Waiting) =>
+    endedWithin(Effect.flatMap(gates, (given) =>
+      rehearse(
+        holding(waiting, given),
         Effect.fnUntraced(function*(rehearsal) {
           yield* rehearsal.hearNext("k")
           yield* rehearsal.send(() => Opt.some("Go"))
           yield* Effect.forkDetach(rehearsal.run(() => true))
-          yield* Deferred.await(started)
+          yield* Deferred.await(given.started)
         })
-      )
-    }))
-    expect(ended).toContain("Commands still under way when the scenario ended: Hold")
+      )))
+
+  test("the run ends, as it stops the command and the subscription together, whose release waits for the command's", async () => {
+    expect(await driven("subscription")).toBe("success")
+  })
+
+  test("rehearse ends too, as the run does, failing on the command still under way, where the subscription's release waits for the command's", async () => {
+    expect(await rehearsed("subscription")).toContain("Commands still under way when the scenario ended: Hold")
+  })
+
+  test("the run ends, as it stops the command and the subscription together, where the command's release waits for the subscription's", async () => {
+    expect(await driven("command")).toBe("success")
+  })
+
+  test("rehearse ends too, as the run does, failing on the command still under way, whose release waits for the subscription's", async () => {
+    expect(await rehearsed("command")).toContain("Commands still under way when the scenario ended: Hold")
   })
 })

@@ -28,15 +28,6 @@ grouped by their form, which a fix takes whole. Each `test.failing` was run with
 assertion. A finding of the types, of a document or of a check has no `test.failing`: its item names the check the fix
 adds.
 
-3. **`rehearse` differs from the run** (testing-1, testing-2). Its end stops the subscriptions `hearNext` started and
-   waits for their release before it stops the commands, where the run stops them all at once: when a subscription's
-   release waits for a command's, `rehearse` never ends, under `uninterruptibleMask`. And its defect in a subscription
-   carries the key given to `hearNext`, not the one the program listed. Tests: `src/testing/contract.test.ts`, "an end
-   where the release of a subscription waits for the release of a command" › "rehearse ends too, as the run does,
-   failing on the command still under way" (it waits 3 seconds before it fails, on every run of the suite, until the
-   fix); "what the run dies of, and the tools fail on" › "rehearse fails, as the run dies, with the key the program
-   listed, though hearNext was given another equal to it". Step 7 would remove both, but neither waits for it. Opus
-   5.5, `high` (`change-engine`).
 4. **With the bridge to React, a death is reported twice when `<Activity>` hides `Host` in its batch** (bridges-1). The
    cleanup of `Host`'s effect gives the death to `reportError`; `<Activity>` keeps the state that holds it, which `Host`
    throws to the boundary as it is shown again, in place of a new run. The mirror of the removal fixed on 21 November

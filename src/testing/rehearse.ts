@@ -172,9 +172,15 @@ type Unwritten<Inner> = Inner extends Written<unknown> ? never : Heard<Inner>
 // once its start has ended.
 type Call<Message> = Readonly<{ key: unknown; heard: Deferred.Deferred<Opt.Option<Message>> }>
 
-// What the ledger holds of a start nobody hears yet: the subscription listed when its key appeared, and the completion
-// of the job that starts it, which `hear` waits for. A start of the first state has no job, and one completed at once.
-type Unheard<Message, RS> = Readonly<{ subscription: Subscription<Message, RS>; begun: Deferred.Deferred<void> }>
+// What the ledger holds of a start nobody hears yet: the key and the subscription listed when the key appeared, and
+// the completion of the job that starts it, which `hear` waits for. A start of the first state has no job, and one
+// completed at once. The key is the program's, which its defects carry as it is: the test finds it by `Equal`, with
+// another key that may hold other data.
+type Unheard<Message, RS> = Readonly<{
+  key: unknown
+  subscription: Subscription<Message, RS>
+  begun: Deferred.Deferred<void>
+}>
 
 // What `hearNext` holds of a subscription it started: the queue of its asks. Its fiber is kept by its start, apart, and
 // stopped by the job of the step that stops the start, as the engine stops its subscriptions.
@@ -283,7 +289,7 @@ const rehearsing = Effect.fnUntraced(function*<
       ledger = Ledger.listened(
         ledger,
         [],
-        fresh.map(([, subscription, generation]) => [generation, { subscription, begun }] as const)
+        fresh.map(([key, subscription, generation]) => [generation, { key, subscription, begun }] as const)
       )[2]
     } catch (thrown) {
       recordThrown(register, "subscriptions", thrown)
@@ -406,7 +412,7 @@ const rehearsing = Effect.fnUntraced(function*<
           const [, stopped, listening] = Ledger.listened(
             ledger,
             generations,
-            fresh.map(([, subscription, generation]) => [generation, { subscription, begun: done }] as const)
+            fresh.map(([key, subscription, generation]) => [generation, { key, subscription, begun: done }] as const)
           )
           ledger = listening
           // Recorded, never raised into the step, which goes on whole: what is asked after it fails with the defect.
@@ -557,7 +563,7 @@ const rehearsing = Effect.fnUntraced(function*<
               const [asks, asked] = Ledger.ask(ledger, generation, call)
               ledger = asked
               return Effect.andThen(
-                listen(key, generation, found.subscription.subscription, fresh),
+                listen(found.subscription.key, generation, found.subscription.subscription, fresh),
                 asks ? Queue.offer(fresh, undefined) : Effect.void
               )
             }
@@ -706,16 +712,20 @@ const rehearsing = Effect.fnUntraced(function*<
       events: Effect.sync(() => now.events),
       ignored: Effect.sync(() => now.ignored)
     }
-    // However the rehearsal ends, it stops the loop and what `hearNext` started, as the end of the run interrupts its
-    // fibers, and waits for them to release what they hold: only then does it read what they died of. The job it
-    // interrupted may have been stopping a subscription, or telling a call: the end reads the fibers that still run and
-    // the calls that have not ended, so that it leaves none of them out, whatever that job had done of its own.
+    // However the rehearsal ends, it stops the loop, then the commands under way and what `hearNext` started, all at
+    // once, as the end of the run interrupts its fibers, and waits for them to release what they hold: a release may
+    // wait for what another gives. Only then does it read what they died of. The job it interrupted may have been
+    // stopping a subscription, or telling a call: the end reads the fibers that still run and the calls that have not
+    // ended, so that it leaves none of them out, whatever that job had done of its own.
     const end = Effect.gen(function*() {
       yield* loop.stop
+      const running: ReadonlyArray<Fiber.Fiber<unknown, never>> = [
+        ...commands,
+        ...Arr.map(Arr.fromIterable(listeners), ([, fiber]) => fiber)
+      ]
       // What they die of is recorded as they end.
-      yield* Effect.forEach(listeners, ([, fiber]) => stopFiber(fiber), { concurrency: "unbounded", discard: true })
+      yield* Effect.forEach(running, stopFiber, { concurrency: "unbounded", discard: true })
       yield* tellStopped(Arr.fromIterable(ledger.calls))
-      yield* Effect.forEach(commands, stopFiber, { concurrency: "unbounded", discard: true })
       yield* Scope.close(forks, Exit.void)
     })
     // A defect of the program comes first, as the run keeps first what ended it, then what the scenario ended with,

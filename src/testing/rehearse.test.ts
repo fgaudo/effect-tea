@@ -1708,50 +1708,64 @@ describe("rehearse, as a fiber of the test's runs a command while it ends", () =
   type Count = Readonly<{ count: number }>
   type Counted = "Go" | "Tick" | "Answered"
 
-  // The command is under way when the scenario returns, and answers while the end waits for the release of the
-  // subscription `hearNext` started: its answer is refused, and it is no longer under way once the end has waited.
-  // In the run its answer would arrive, so it is counted as under way as the scenario's exit is taken.
-  test("a command that answers while the end releases a subscription fails it, as one under way", async () => {
+  type Listening = Readonly<{ listening: boolean; count: number }>
+  type Dropped = "Tick" | "Drop" | "Answered"
+
+  // The call that sent `Drop` waits for the job of its step, which the release of the subscription holds, when the
+  // scenario fails. The end stops the loop and interrupts the completion of that job: the call, resumed on the stack of
+  // the end (`docs/premises.md`), lets the command answer before the end stops it, and nothing is left to apply its
+  // answer. Resumed later, it would let go of a command the end has stopped already: no defect either way.
+  test("a command that answers as the end tells a call that its job was not done is no defect", async () => {
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const started = yield* Deferred.make<void>()
       const releasing = yield* Deferred.make<void>()
-      let running: Fiber.Fiber<unknown, unknown> | undefined
-      const program: Program<{ state: Count; model: Count; message: Counted; command: "Answer" }> = {
-        init: { state: { count: 0 }, commands: ["Answer"] },
-        update: () => ({ count }) => ({ state: { count: count + 1 } }),
+      const released = yield* Deferred.make<void>()
+      const opened = yield* Deferred.make<void>()
+      const program: Program<{ state: Listening; model: Listening; message: Dropped; command: "Answer" }> = {
+        init: { state: { listening: true, count: 0 }, commands: ["Answer"] },
+        update: (message) => (state) =>
+          message === "Drop"
+            ? { state: { ...state, listening: false } }
+            : { state: { ...state, count: state.count + 1 } },
         runCommand: () =>
           Deferred.succeed(started, undefined).pipe(
-            Effect.andThen(Deferred.await(releasing)),
-            Effect.as(Opt.some<Counted>("Answered"))
+            Effect.andThen(Deferred.await(opened)),
+            Effect.as(Opt.some<Dropped>("Answered"))
           ),
-        subscriptions: () =>
-          HashMap.make([
-            "k",
-            Channel.succeed<Counted>("Tick").pipe(
-              Channel.concatWith(() => Channel.never),
-              // Lets the command answer, and waits for the call that ran it to end.
-              Channel.ensuring(Effect.suspend(() =>
-                Effect.andThen(
-                  Deferred.succeed(releasing, undefined),
-                  running === undefined ? Effect.void : Fiber.await(running)
-                )
-              ))
-            )
-          ]),
+        subscriptions: ({ listening }) =>
+          listening
+            ? HashMap.make([
+              "k",
+              Channel.succeed<Dropped>("Tick").pipe(
+                Channel.concatWith(() => Channel.never),
+                // Holds the job of the step that stops it until the call that sent `Drop` has ended.
+                Channel.ensuring(Effect.andThen(Deferred.succeed(releasing, undefined), Deferred.await(released)))
+              )
+            ])
+            : HashMap.empty(),
         makeModel: (state) => state
       }
       return yield* rehearse(
         program,
         Effect.fnUntraced(function*(rehearsal) {
           yield* rehearsal.hearNext("k")
-          running = yield* Effect.forkChild(rehearsal.run(() => true))
+          yield* Effect.forkChild(rehearsal.run(() => true))
           yield* Deferred.await(started)
+          // Started on this stack, the call waits for its job before the scenario goes on.
+          yield* Effect.forkChild(
+            rehearsal.send(() => Opt.some<Dropped>("Drop")).pipe(
+              Effect.ensuring(
+                Effect.andThen(Deferred.succeed(opened, undefined), Deferred.succeed(released, undefined))
+              )
+            ),
+            { startImmediately: true }
+          )
+          yield* Deferred.await(releasing)
+          return yield* Effect.fail("failed" as const)
         })
       )
     }))
-    expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain(
-      "Commands still under way when the scenario ended"
-    )
+    expect(Exit.isFailure(exit) && exit.cause.reasons.map((reason) => reason._tag)).toEqual(["Fail"])
   })
 
   // The rehearsal has ended, failing on its pending command, when a fiber the scenario did not join asks to run it:

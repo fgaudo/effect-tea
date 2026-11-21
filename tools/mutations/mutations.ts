@@ -871,7 +871,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
-        "a command that answers while the end releases a subscription fails it, as one under way"
+        "a command that answers as the end tells a call that its job was not done is no defect"
       ]
     ]
   },
@@ -2432,8 +2432,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse leaves the subscriptions hearNext started to the close of its scope",
     file: "src/testing/rehearse.ts",
-    from:
-      "      yield* Effect.forEach(listeners, ([, fiber]) => stopFiber(fiber), { concurrency: \"unbounded\", discard: true })\n",
+    from: "        ...Arr.map(Arr.fromIterable(listeners), ([, fiber]) => fiber)\n",
     to: "",
     killedBy: [
       [
@@ -2482,12 +2481,36 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse leaves the commands under way to the close of its scope",
     file: "src/testing/rehearse.ts",
-    from: "      yield* Effect.forEach(commands, stopFiber, { concurrency: \"unbounded\", discard: true })\n",
+    from: "        ...commands,\n",
     to: "",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
         "when a command is still under way at the end, since its answer would still arrive"
+      ]
+    ]
+  },
+  {
+    name: "the end of rehearse stops its fibers one after the other",
+    file: "src/testing/rehearse.ts",
+    from: "Effect.forEach(running, stopFiber, { concurrency: \"unbounded\", discard: true })",
+    to: "Effect.forEach(running, stopFiber, { discard: true })",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "rehearse ends too, as the run does, failing on the command still under way, whose release waits for the subscription's"
+      ]
+    ]
+  },
+  {
+    name: "a defect of a subscription hearNext started carries the key the test gave",
+    file: "src/testing/rehearse.ts",
+    from: "listen(found.subscription.key, generation,",
+    to: "listen(key, generation,",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "rehearse fails, as the run dies, with the key the program listed, though hearNext was given another equal to it"
       ]
     ]
   },
@@ -2545,7 +2568,11 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
-        "a command that answers while the end releases a subscription fails it, as one under way"
+        "when a command is still under way at the end, since its answer would still arrive"
+      ],
+      [
+        "src/testing/contract.test.ts",
+        "rehearse ends too, as the run does, failing on the command still under way, whose release waits for the subscription's"
       ]
     ]
   },

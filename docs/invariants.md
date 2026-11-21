@@ -216,7 +216,8 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
     another as that id). Never stop a fiber of the program otherwise. So do the
     testing tools, which run in their caller's fiber: `rehearse` stops a command whose `run` is interrupted, the starts
     whose key went away, by the job of the step that stops them, and, as it ends, the subscriptions `hearNext` started
-    and the commands under way, before it closes its scope, which would interrupt them as the fiber that ends it;
+    and the commands under way, all at once as the run does, before it closes its scope, which would interrupt them as
+    the fiber that ends it;
     `simulate` runs each command in a fiber of its own, which it stops when it is interrupted.
   - So only the run interrupts a fiber the run forks: a command, a subscription, and their kin in the testing tools.
     Such a fiber takes an interruption without the run's mark (`Core.byTheRun`) for one the program made, by whatever
@@ -430,12 +431,13 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   offer, or the completion of a `Deferred`, wakes on that stack finds the step written whole: that order has no
   mutation, since no deterministic test reaches it but through the resumption below. A fiber resumed on the stack of
   whoever completes its `Deferred` is a premise of the tests alone (`premises.md`): the killers of the mutations that
-  wake inside a step rest on it, in `start.test.ts` and `drive.test.ts`, and no guarantee does. That the effects of a step start
-  only once the call that sent its message has returned rests on the queue resuming the fiber of effects in a task of
-  the scheduler, which is no premise either: the guide describes it and does not promise it, and "a dispatch returns
-  before the commands of its step start, while the fiber of effects waits" (`start.test.ts`) is its alarm, the killer
-  of no mutation. Nor has the release of the snabbdom bridge's subscription to the handle a killer: its stop sets
-  `stopped` first, which keeps a notice that comes after from drawing.
+  wake inside a step rest on it, in `start.test.ts` and `drive.test.ts`, and so does the killer of the refusal of a
+  command's answer once a rehearsal has ended, in `rehearse.test.ts`; no guarantee does. That the effects of a step
+  start only once the call that sent its message has returned rests on the queue resuming the fiber of effects in a
+  task of the scheduler, which is no premise either: the guide describes it and does not promise it, and "a dispatch
+  returns before the commands of its step start, while the fiber of effects waits" (`start.test.ts`) is its alarm, the
+  killer of no mutation. Nor has the release of the snabbdom bridge's subscription to the handle a killer: its stop
+  sets `stopped` first, which keeps a notice that comes after from drawing.
 
   A region nothing may interrupt holds no code of the program, so no gate reaches it, and it has no mutation: one that
   took it out would fail only under the scheduler of the tests. It is written in one of three forms: a transition of
@@ -459,13 +461,17 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   call is whole for the test, and one made while a release is held applies at once and waits behind it, as in the run.
   `hear` waits for the job that starts its start, then looks its key up again; every `hearNext` is a job, whose key is
   looked up at the call. The end of a rehearsal reads the commands under way in the thunk that takes the scenario's
-  exit, which is the one that marks the end of the loop (`end`, in `loop.ts`), which refuses what is asked after it; a
-  scenario that returned lets the loop finish what it was offered, a release a job waits for included, before the end
-  stops it and reads the commands pending: never interrupt that job to end sooner. A scenario that failed, or was
-  interrupted, has the end interrupt the job under way, wherever it is: so the end stops what still runs by the fibers
-  themselves, kept as they are forked (`listeners` and `commands` in `rehearse.ts`, as the engine's end reads its
-  `FiberSet` and its `FiberMap`), and tells every call of `hearNext` that has not ended (`calls` in `ledger.ts`), never
-  only what the ledger still says of a start, which the thunk forgets in the transition that stops it: "a subscription
+  exit, which is the one that marks the end of the loop (`end`, in `loop.ts`), which refuses what is asked after it: a
+  command that answers once the end is marked, before the end stops it, is refused with no defect, as the run applies
+  nothing once it has stopped ("a command that answers as the end tells a call that its job was not done is no
+  defect", `rehearse.test.ts`). A scenario that returned lets the loop finish what it was offered, a release a job
+  waits for included, before the end stops it and reads the commands pending: never interrupt that job to end sooner.
+  A scenario that failed, or was interrupted, has the end interrupt the job under way, wherever it is: so the end stops
+  what still runs by the fibers themselves, kept as they are forked (`listeners` and `commands` in `rehearse.ts`, as the
+  engine's end reads its `FiberSet` and its `FiberMap`), all at once, since a release may wait for what another gives
+  ("rehearse ends too, as the run does, failing on the command still under way", both ways, `contract.test.ts`), and
+  tells every call of `hearNext` that has not ended (`calls` in `ledger.ts`), never only what the ledger still says of a
+  start, which the thunk forgets in the transition that stops it: "a subscription
   that interrupts itself as the end stops it, its key gone, is a defect", "a hearNext waiting on a start whose key went
   away fails, though the scenario failed", "a hearNext whose message was stopping a subscription as the scenario failed
   fails as one waiting" (`rehearse.test.ts`), and of the engine "a subscription interrupting itself as the end of the
