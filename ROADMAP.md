@@ -10,8 +10,9 @@ what would reopen it. How an item came to be, and what was weighed for it, goes 
 [`architecture-review.md`](docs/records/architecture-review.md), a review of the whole project that the owner asked
 for on 20 November 2026 and asked to be written here in the order it advises. Steps 1 to 4, 7 and 8 are its parts 1
 to 6. Step 13 comes from a reading of the guide's promises against the tests, which the owner asked for on 21 November
-2026, and whose record is [`promises-and-tests.md`](docs/records/promises-and-tests.md). A step done leaves its
-number unused.
+2026, and whose record is [`promises-and-tests.md`](docs/records/promises-and-tests.md). Steps 14 and 15 come from the
+owner's question of 21 November 2026, what checks the library has of the memory a run holds, and are first by the
+owner's order. A step done leaves its number unused.
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
 
@@ -23,6 +24,66 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 None is open.
 
 ## Next, in order
+
+### 14. A run that stays alive keeps nothing of the steps it has done
+
+**Model and effort.** Opus 5.5, `high`: tests of a run's boundary, which rest on when a collection reclaims. A leak it
+finds is fixed as a step of its own: Opus 5.5, `high`, while its cause is not known.
+
+**Depends on** no other step. It is first by the owner's order of 21 November 2026. It changes nothing a user writes,
+and a leak it finds is weighed before the release.
+
+**Why.** The tests that ask for a collection check the caches the library keeps for itself, each apart from a run: a
+child's dispatch (`dispatch.test.ts`), and a child's model and its lifted subscriptions (`compose.test.ts`). Others
+check that what a command and a subscription acquire is released (`run.test.ts`, the search), and that no span keeps
+the logs. None checks that a run that goes on lets go of what a step used. A run that kept its jobs, its states or its
+ended fibers would pass every test, the contracts and the search. So would an Effect that began to keep them: the daily
+job at the newest Effect (`.github/workflows/effect-latest.yml`) runs the tests, and would stay green.
+
+**How.** A test of the boundary of a run (`run.test.ts` or `engine.test.ts`), in the form of "a child's model is let go
+with its state" (`compose.test.ts`): what a round used is held by a `WeakRef` alone, and after the rounds, with the run
+still alive, a collection (`test/gc.test_helper.ts`) leaves a few of a thousand at most. A round has a message applied,
+and the state it replaced; a command run to its answer, with what it acquired; a key that comes and goes, with what its
+subscription acquired; a subscription that ends; a model read and then replaced; a listener removed; a child by id
+added and removed, with its model and its dispatch; and what `onApplied` heard. The testing tools keep what a test asks
+them about, and are no part of it.
+
+Read by the session that proposed the step, on 21 November 2026, and not run. Between two steps the engine holds
+`pending`, `waiting` and the queue of the jobs, `listeners`, the `FiberSet` of the commands, the `FiberMap` of the
+subscriptions by their start, `active` and the current state (`engine.ts`), and `run.ts` the defects its handle threw
+to a reader: none seemed to grow with the steps. That a `FiberSet` and a `FiberMap` remove a fiber that ended is in
+their JSDoc. That a queue keeps nothing of a job taken, and a closed scope nothing of what it released, is not. The
+premises are listed and checked as [`change-engine`](.agents/skills/change-engine/SKILL.md) says, and the owner is
+asked of a new one before the test that rests on it is written.
+
+A mutation takes a check out, and what lets go is seldom a check. Where a line lets go, as the removal of a listener
+does (`listeners.delete` in `engine.ts`, which no mutation takes out), a mutation names the test. Elsewhere the test is
+seen to fail under a retention written by hand (a job kept, a state kept), reported to the owner, and
+`docs/invariants.md` says why it has no mutation.
+
+**Done when** the test passes with `bun run test` and with `bun run test:node`, and each part of a round was seen to
+fail under its retention; `docs/invariants.md` states the invariant under "What the engine keeps for itself"; a leak
+found is under "Open problems" with its `test.failing`; what no `WeakRef` could hold is written on step 15; and the
+owner has been asked whether the guide's "Guarantees" says it, as a description.
+
+### 15. What a run counts for itself does not grow
+
+**Model and effort.** Opus 5.5, `medium`: the program and the rounds are those of step 14.
+
+**Depends on** step 14, which writes here what no `WeakRef` could hold.
+
+**Why.** Some of what a run keeps is no object that a test can hold weakly: the keys that are active and their starts,
+the entries of the `FiberSet` and of the `FiberMap`, the entries that `forwardTo` keeps by name and by id
+(`dispatch.ts`). One entry kept for each step is a leak that step 14 cannot see.
+
+**How.** The rounds of step 14, with the run alive: the heap is read after `n` rounds and after `3n`, a collection
+before each read, and the difference stays under a bound. It compares two reads of one run, where "the models of ids
+shown once each, under one shared state, do not pile up" (`compose.test.ts`) bounds one read: what a run costs once
+then does not count. The bound is measured on Bun and on Node, and the test says what it was measured from.
+
+**Done when** the test passes on each of a hundred runs, with `bun run test` and with `bun run test:node`, and fails
+with one small entry kept for each round, written by hand. If it cannot be kept short, where it runs is asked of the
+owner.
 
 ### 5. Release 0.8.0
 
@@ -255,6 +316,17 @@ Where a step above would answer a point below, the point stays here until the st
   Chromium, with the form and the stock-take, the caret and a selection hold (the record, under its stage 4). To
   weigh: Firefox, WebKit and an IME composition before the release, where "The bridges in a real browser" comes
   after it.
+- **A listener of the `App` that sends on every notice never returns, and no page says so.** Found on 21 November
+  2026, from the memory guard of the tests: two helpers of `compose.test.ts` did it under a mutation, and filled the
+  memory of the machine. A message that a listener sends is applied right after the step that told it ("View"), in the
+  loop of the outermost call and not in a call inside it. So a listener that answers each new state with a message
+  that makes another loops with no stack to overflow, and no defect says so. Only code that subscribes to the `App`
+  itself reaches it: a bridge, or a helper of a test. The bridge to snabbdom draws in a microtask, where a hook that
+  sends on every draw would loop by microtasks, outside the run: reasoned, not run. To decide: whether "Guarantees"
+  says it under "Nothing is bounded, and nothing times out", of which it is a case, and whether "Writing a bridge"
+  names it. For Opus 5.5, `medium`, once decided. Weighed by the session that found it, and advised against: a bound
+  on the messages applied in one call, with a defect past it. It adds an export, and a number that nothing gives, for
+  the few who write a listener, where the guide says that nothing is bounded.
 
 ## Any time
 
