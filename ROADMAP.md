@@ -16,10 +16,8 @@ Each step names its model and effort, what it depends on, and how to tell that i
 ## Open problems
 
 A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a deterministic
-test of it. A finding of a review goes here with its `test.failing`, until its fix removes the mark and the item. Those
-below are of the review of the premises of 21 November 2026 (step 5), grouped by their form, which a fix takes whole,
-as [`premise-review`](.agents/skills/premise-review/SKILL.md) says. Each `test.failing` was run without its mark, and
-fails at its assertion.
+test of it. A finding of a review goes here with its `test.failing`, until its fix removes the mark and the item. None is
+open: the five of the review of the premises of 21 November 2026 were fixed by their form on that day.
 
 ## Next, in order
 
@@ -40,8 +38,13 @@ exports that no release has had.
 ([`premise-review`](.agents/skills/premise-review/SKILL.md)) is done, by three reviewers that wrote none of the
 changes since `da12f71`: the engine, the testing tools and the bridges. Their reports are the bodies of `1317333`
 on `claude/premise-review-engine-080`, `8ffc7a4` on `claude/premise-review-testing-bc87b9` and `6e90b46` on
-`claude/premise-review-bridges-f28572`, which stay unmerged. Its findings are the open problems above, fixed by their
-form before the release. What else it leaves, each to do or decide before the release:
+`claude/premise-review-bridges-f28572`, which stay unmerged. Its five findings are fixed, by the owner's decisions
+of 21 November 2026 on the advice of a session of Fable 5.2 (`730d188` to `86dd43c`): the root of a command recorded in
+`rehearse` and `simulate`; `die` taking the defect of `init` as it is, and throwing back, once the run has ended, what
+its cause lacks; `rehearse` making the first model whatever the first keys did; `drive` waking its waits once the
+outermost `apply` returns, with the resumption of a fiber on the stack of whoever completes its `Deferred` a premise
+of the tests alone; and `Host` reporting a defect of `makeModel` once, as the run ends. `bun run interleavings` ran
+after them. What else the review leaves, each to do or decide before the release:
 
 - **The mutation "an interruption with the fiber id of one the fiber received is no defect, whatever its mark"**
   (`src/core.ts`) has killers through `start` again: a command and a subscription, uninterruptible, that learn the id of
