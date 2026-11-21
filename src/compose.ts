@@ -77,15 +77,37 @@ type PlacementById<ParentState, Id, ChildState> =
     set?: never
   }>
 
-// A child that runs commands has a `runCommand`; `Interpreter` is `object` for one that runs none, and `unknown` is
-// needed here instead: see `CheckedChild`.
-type CommandsRun<P> = [CommandOf<P>] extends [never] ? unknown : Interpreter<CommandOf<P>, unknown, unknown>
+// A child is checked as `start` checks a program, of the types read back from it: a child written as an object, and
+// not typed `Program<…>`, is checked by nothing else. So its `external` answers with a step, never `reject`, and its
+// `runCommand` is there when its steps list commands, `external`'s included.
+type ProgramChecked<P> = Shape<
+  StateOf<P>,
+  ModelOf<P>,
+  MessageOf<P>,
+  CommandOf<P>,
+  CommandServicesOf<P>,
+  SubscriptionServicesOf<P>,
+  EventOf<P>,
+  ExternalOf<P>,
+  FlagsOf<P>
+>
+
+// What a child lacks for the check above, `unknown` where it lacks nothing. A child that runs commands has a
+// `runCommand`, a member, for the error that names it; `Interpreter` is `object` for one that runs none, and `unknown`
+// is needed instead: see `CheckedChild`. The rest of the check is held under a key no program has, as `ObjectState`
+// does: as members, its types, read from a `P` not inferred yet, would type the functions of a child written in the
+// call, and its `HashMap.empty()` would hold subscriptions of `unknown` messages.
+type Lacking<P> = P extends ProgramChecked<P> ? unknown
+  :
+    & ([CommandOf<P>] extends [never] ? unknown : Interpreter<CommandOf<P>, unknown, unknown>)
+    & { readonly "a child is a program of the types read back from it": ProgramChecked<P> }
 
 // The child's program, with what it lacks for the check above. Inferred from `P & …`, `P` would be the program less
 // the members TypeScript matches with the check, which loses the name `Program<…>` in a consumer's declarations:
 // inferred from `P` alone, it keeps it, and the intersection is written only where the check fails. Without it, the
-// declarations of the smoke test's consumer spell out four programs, not one.
-type CheckedChild<P> = unknown extends CommandsRun<P> ? P : P & CommandsRun<P>
+// declarations of the smoke test's consumer spell out four programs, not one. The check is not on `P`, whose branch
+// would then see `P` as `P & ProgramChecked<P>`, the contextual type of a child written in the call.
+type CheckedChild<P> = unknown extends Lacking<P> ? P : P & Lacking<P>
 
 /**
  * A child alone in its parent's state: what `child` returns, for `children` in `make`.
@@ -292,11 +314,8 @@ type ChildCommands<C> = {
 // one parameter for the services, inferred from the branches of a `runCommand` or from the subscriptions of a map,
 // would be one of the candidates and not their union.
 type RanServices<Ran> = Ran extends Execution<any, infer R> ? R : never
-type HeardServices<Heard> = Heard extends HashMap.HashMap<any, infer Listened> ? Needed<Listened> : never
-
-// Apart, so that it distributes over what a map holds: an empty map holds `never`, which needs nothing. What a map of
-// type `any` holds reads back as `unknown`, and needs anything: as `never`, it would run without its services.
-type Needed<Listened> = unknown extends Listened ? unknown : Listened extends Subscription<any, infer R> ? R : never
+// What a map holds is read as a program's subscriptions are: see `SubscriptionServicesOf`.
+type HeardServices<Heard> = SubscriptionServicesOf<{ readonly subscriptions: (state: never) => Heard }>
 
 // A child's commands and subscriptions are lifted into its parent's, with what they need.
 type ChildCommandServices<C> = { [K in keyof C]: CommandServicesOf<ProgramOf<C[K]>> }[keyof C]

@@ -10,8 +10,10 @@ what would reopen it. How an item came to be, and what was weighed for it, goes 
 [`architecture-review.md`](docs/records/architecture-review.md), a review of the whole project that the owner asked
 for on 20 November 2026 and asked to be written here in the order it advises. Steps 1 to 4, 7 and 8 are its parts 1
 to 6. Step 13 comes from a reading of the guide's promises against the tests, which the owner asked for on 21 November
-2026, and whose record is [`promises-and-tests.md`](docs/records/promises-and-tests.md). A step done leaves its number
-unused.
+2026, and whose record is [`promises-and-tests.md`](docs/records/promises-and-tests.md). Step 16 comes from the
+owner's question, on 21 November 2026, of why the findings api-1, api-2 and api-4 of
+[`library-review.md`](docs/records/library-review.md) passed the inference matrix and the tests. A step done leaves its
+number unused.
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
 
@@ -26,15 +28,6 @@ grouped by their form, which a fix takes whole. Each `test.failing` was run with
 assertion. A finding of the types, of a document or of a check has no `test.failing`: its item names the check the fix
 adds.
 
-1. **A child written as an object is checked less than a program** (api-1, api-2, api-4). `DeclareChild` and
-   `DeclareChildById` bound it by `AnyProgram` alone, and `CommandOf` and `EventOf` do not read `external`. So a child
-   whose `external` returns `reject` compiles, and its parent's `update` sets its state to `undefined`; a child that
-   returns commands or events from `external` alone compiles without `runCommand` or `onEvent`, and dies with a
-   `CompositionDefect`; and a child with `subscriptions: () => HashMap.empty()` gives its parent `unknown` services,
-   which no run can provide. The fix checks such a child as `start` checks a program, reads `external` where `update`
-   is read, and treats an empty map as `make`'s `Needed` does; it adds a `@ts-expect-error` for each of the first two
-   and an `expectTypeOf` for the third, beside the tests of `child` in `src/compose.test.ts`. Opus 5.5, `high`: types
-   that keep the three rules of "What belongs here", checked by `bun run inference` too.
 2. **A defect in the `init` of a parent with children and no flags escapes `make`** (api-3). `make` calls that `init`
    as it builds the program, so the defect is thrown where the module is evaluated, against "Running" ("A defect in
    `init` is recorded as the program starts"). Test: `src/start.test.ts`, "a program whose start throws" › "in the init
@@ -146,6 +139,57 @@ of the guide quoted by a doc comment, or set aside with a reason"), and 46 sente
 
 **Done when** the owner has decided. Taken: the check runs in the CI, and `AGENTS.md`, `change-engine` and
 `docs/invariants.md` say what it holds. Refused: an entry of `docs/rejected.md` says why.
+
+### 16. The types checked in every form a program is written
+
+**Model and effort.** Opus 5.5, `high`: checks of the types that keep the three rules of "What belongs here", and the
+generator they run in.
+
+**Depends on** no other step. It changes nothing a user writes, so it does not hold up the release, but a lead it
+finds before 0.8.0 is fixed in it. It adds a rule to `AGENTS.md` (the first point below), so the owner is asked first.
+
+**Why.** api-1, api-2 and api-4 lived in one form of a program, an object not typed `Program<…>`, which `child`,
+`childById`, `start` and the testing tools take as it is. The inference matrix (`tools/inference/generate.ts`) writes
+two forms only, a program of `make` and one typed `Program<…>`, and the tests of `child` typed their children
+`Program<…>` too, so the weaker check of `child` never met a case. And nothing compares the functions that take a
+program: `child` checked less than `start`, and no check could see it. Its fix met a fourth case that the tests did not
+hold: a child written in the call, where the check became the contextual type of its functions, and `HashMap.empty()`
+held subscriptions of `unknown` messages. Only the smoke test found it, since every test gave `child` a constant. So
+what is written matters, and how it is written too. No formal check of TypeScript's types exists: the compiler is the
+only semantics, and it changes between 5.9, 6.0 and 7.0. The nearest is the matrix: every combination of declared
+axes, checked by `tsc`, so the risk left is in the axes it does not list.
+
+**How.** In this order, each with its leads listed under "Open problems" until fixed:
+
+1. **One check for every function that takes a program.** `start`, `child`, `childById`, `simulate`, `rehearse` and
+   `drive` check a program through one type, as `ProgramChecked` in `compose.ts` checks a child, so that they cannot
+   differ. A rule of `AGENTS.md` ("Code") says so. Mind the two forms the fix of api-1 needed (`Lacking` and
+   `CheckedChild` in `compose.ts`): the check is never on the type parameter itself, and never a member of the
+   argument's type, or it types a program written in the call.
+2. **The matrix writes the form it lacks**: a program as an object not typed `Program<…>`, in a constant, in the
+   call, and spread from another, with its parameters annotated or contextual, and each of its violations
+   (`externalRejects`, `missingRunCommand`, `missingOnEvent`, …) in that form too. Known lead, older than the fix of
+   api-1: a child written in the call with a parameter not annotated, `makeModel: (state) => state.count`, does not
+   compile: its error reads `P` as `AnyProgram`, whose `CommandOf` asks for a `runCommand`. Annotated, it
+   compiles. The matrix decides whether it breaks the first rule, or is a form that repeats another.
+3. **Each case is given to every function that takes a program**, and they must agree: the same verdict, and the same
+   types read back (`StateOf`, `CommandOf`, `EventOf`, `ExternalOf`, `FlagsOf` and the services). It needs no answer
+   known in advance: api-1 was `Program<…>` refusing what `child` took.
+4. **What compiles runs without a defect the types could prevent**, the second rule, which nothing checks today: each
+   valid case of the matrix is run with messages drawn by fast-check (with `simulate`, or the run), and never dies of a
+   `CompositionDefect`; and `Effect.runFork(start(program).run)` compiles for a case that needs no service, which
+   would have found api-4. It runs apart, as `bun run inference` does.
+
+Then the owner weighs two more, each taken as a step here or written in `docs/rejected.md`. Mutations of the types: a
+mutation in `tools/mutations/` that takes out each check of the types of `program.ts` and `compose.ts`, killed by the
+typecheck of the tests of the types or by part of the matrix, so that each rule of the types has a check that fails
+without it; it costs a run of `tsc` for each. And the guide tied to the matrix: each item of "What does not compile",
+in "Anatomy of a program" and "Composition", names a `Violation` of the matrix, which a tool checks, as step 13 does
+for the guarantees.
+
+**Done when** points 1 to 4 run (the first three in `bun run inference`), `AGENTS.md`, `change-api` and the comment
+at the head of `tools/inference/generate.ts` say what they check, their leads are fixed or listed under "Open
+problems", and the owner has decided the two others.
 
 ### 6. The bridges in a real browser
 

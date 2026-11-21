@@ -174,7 +174,8 @@ Three more facts hold for children and inputs:
 - an input whose optic, alone or by id, points into a state other than the program's;
 - a subscription or a command of the parent's own that sends anything but a message of the parent's own: a message for
   a child, or a write into an input, the parent's input or a child's input;
-- a child with commands and no `runCommand` (a program written without `Program<…>` can be one).
+- a child with commands and no `runCommand`, those its `external` returns among them (a program written without
+  `Program<…>` can be one).
 
 The parent's own subscriptions and commands send only the parent's own messages. To tell a child something, the
 parent's `update`, `external` or `onEvent` sends it an external message (see
@@ -188,8 +189,8 @@ of it. Here is what the compiler can check there, and what it cannot.
   - flags, when the child starts from them;
   - a `runCommand`, when the child has commands.
 - For a type parameter, such as `P` in `<P extends AnyProgram>(p: P) => …`, the compiler cannot decide what the child
-  needs. So `make` does not compile there. Nor does it for a state that is a type parameter (see
-  [what does not compile](./anatomy-of-a-program.md#precisely)).
+  needs. So `child`, `childById` and `make` do not compile there. Nor does `make` for a state that is a type parameter
+  (see [what does not compile](./anatomy-of-a-program.md#precisely)).
 - A wrapper around content, such as a dialog, is better as a child beside the content than as a parent of it. The
   parent of both is then a program like any other.
 - You can still write a function over any program. The function's signature names the types. The function's body makes

@@ -979,6 +979,65 @@ describe("what a parent can do with a child", () => {
     expect(rejecting.update).toBe(page.update)
   })
 
+  test("a child written as an object is checked as a program is: its external answers with a step, and asks for what it returns", () => {
+    const base = {
+      init: { state: noTicks },
+      update: (_: Tick) => (state: Ticks) => ({ state }),
+      subscriptions: () => HashMap.empty(),
+      makeModel: ({ ticks }: Ticks) => ticks
+    }
+    const rejecting = { ...base, external: (_: BackPressed) => (state: Ticks) => state.ticks > 0 ? { state } : reject }
+    const saving = { ...base, external: (_: BackPressed) => (state: Ticks) => ({ state, commands: ["Save" as const] }) }
+    const leaving = { ...base, external: (_: BackPressed) => (state: Ticks) => ({ state, events: ["Left" as const] }) }
+    const { child, childById, make } = program<{ state: Ticks }>()
+    const one = { get: (state: Ticks) => Opt.some(state), set: (_: Ticks, child: Ticks) => child }
+    const rows = {
+      get: (state: Ticks, _: number) => Opt.some(state),
+      set: (state: Ticks) => state,
+      subscribed: () => []
+    }
+    // @ts-expect-error: an external message applies in every state.
+    expect(child(rejecting, one)).toBeDefined()
+    // @ts-expect-error: for children by id too.
+    expect(childById(rejecting, rows)).toBeDefined()
+    // @ts-expect-error: the commands of its external need a `runCommand`, as those of its update do.
+    expect(child(saving, one)).toBeDefined()
+    // @ts-expect-error: for children by id too.
+    expect(childById(saving, rows)).toBeDefined()
+    // @ts-expect-error: and the events of its external need an `onEvent` of its parent.
+    const unheard = make({
+      init: () => ({ state: noTicks }),
+      children: { Leaving: child(leaving, one) },
+      makeModel: () => null
+    })
+    // @ts-expect-error: an object that is no program is no child.
+    expect(child({ ...base, subscriptions: "none", makeModel: 42 }, one)).toBeDefined()
+    const read: [CommandOf<typeof saving>, EventOf<typeof leaving>] = ["Save", "Left"]
+    const heard = make({
+      init: () => ({ state: noTicks }),
+      children: {
+        Saving: child({ ...saving, runCommand: () => Effect.succeedNone }, one),
+        Leaving: child(leaving, one)
+      },
+      onEvent: { Leaving: (left) => (state) => ({ state: { ticks: state.ticks + left.length } }) },
+      makeModel: () => null
+    })
+    const lifted: CommandOf<typeof heard> = { _tag: "Saving", command: "Save" }
+    // A child written in the call is checked alike, and its empty map holds subscriptions of its own messages.
+    const inline = [
+      child({ ...base, init: { state: noTicks }, subscriptions: () => HashMap.empty() }, one),
+      childById({ ...base, init: { state: noTicks }, subscriptions: () => HashMap.empty() }, rows),
+      child({
+        init: { state: noTicks, commands: ["Save" as const] },
+        update: (_: Tick) => (state: Ticks) => ({ state }),
+        runCommand: () => Effect.succeedNone,
+        subscriptions: () => HashMap.empty(),
+        makeModel: () => null
+      }, one)
+    ]
+    expect([unheard, read, lifted, inline]).toHaveLength(4)
+  })
+
   test("a CompositionDefect names the child, its id for a child by id, and the tags of what it happened on", () => {
     const thrown = (act: () => unknown): unknown => {
       try {
@@ -2193,6 +2252,21 @@ describe("what the types reject", () => {
     })
     const none: Exactly<SubscriptionServicesOf<typeof silent>, never> = true
     expect(none).toBe(true)
+    // A program written as an object, and its parent.
+    const written = {
+      init: { state: noTicks },
+      update: (_: Tick) => (state: Ticks) => ({ state }),
+      subscriptions: () => HashMap.empty(),
+      makeModel: () => null
+    }
+    const Holder = program<{ state: Ticks }>()
+    const holder = Holder.make({
+      init: (children) => children.Written.init,
+      children: { Written: Holder.child(written, { get: (state) => Opt.some(state), set: (_, child) => child }) },
+      makeModel: () => null
+    })
+    expectTypeOf<SubscriptionServicesOf<typeof written>>().toEqualTypeOf<never>()
+    expectTypeOf<SubscriptionServicesOf<typeof holder>>().toEqualTypeOf<never>()
     // What a `runCommand` is annotated to need is the parent's too, whatever it returns.
     const annotated = make({
       init: { state: noTicks },
@@ -2375,12 +2449,19 @@ describe("what the types reject", () => {
     })
   })
 
-  test("a child whose program is a type parameter does not compile in make", () => {
+  test("a child whose program is a type parameter does not compile, in child, childById or make", () => {
     const wrapping = <P extends AnyProgram>(inner: P) => {
-      const { child, make } = program<{ state: Ticks }>()
+      const { child, childById, make } = program<{ state: Ticks }>()
+      // @ts-expect-error: the compiler cannot decide that the program is one.
       const Inner = child(inner, { get: () => Opt.none(), set: (state) => state })
-      // @ts-expect-error: the compiler cannot decide what the child needs.
-      return make({ init: { state: noTicks }, children: { Inner }, makeModel: () => null })
+      // @ts-expect-error: nor for children by id.
+      const Rows = childById(inner, {
+        get: (_, _id: number) => Opt.none(),
+        set: (state) => state,
+        subscribed: () => []
+      })
+      // @ts-expect-error: nor what the child needs.
+      return make({ init: { state: noTicks }, children: { Inner, Rows }, makeModel: () => null })
     }
     expect(wrapping).toBeDefined()
   })

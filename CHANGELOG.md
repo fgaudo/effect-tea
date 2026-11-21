@@ -88,12 +88,13 @@ version, and everything else, features included, the patch version.
   asks for.
 - **Breaking**: these no longer compile: a parent's own command whose answer is a message for a child; a parent's own
   message or command whose tag can take a child's name, as a `string` tag does; a state whose type has no fields, such
-  as `{}`, or that is a type parameter in `make`; a child with commands and no `runCommand`; a `Program<…>` that names
-  more `external` messages than it takes; a program written as an object, or the pieces given to `simulate`, without
-  `subscriptions`.
+  as `{}`, or that is a type parameter in `make`; a child with commands and no `runCommand`, or with events and no
+  `onEvent`, those of its `external` included; a child written as an object that is no program, or whose `external`
+  returns `reject`, and one that is a type parameter in `child`; a `Program<…>` that names more `external` messages
+  than it takes; a program written as an object, or the pieces given to `simulate`, without `subscriptions`.
   Upgrade: answer a parent's own command with its own message; tag own messages with literals; write `state: object`
-  where it was `state: {}`; give the child its `runCommand`; write `subscriptions: () => HashMap.empty()` in a program
-  written as an object that listens to nothing.
+  where it was `state: {}`; give the child its `runCommand` and its parent an `onEvent`; answer an external message
+  with a step; write `subscriptions: () => HashMap.empty()` in a program written as an object that listens to nothing.
 - **Breaking**: `dispatchViolations` is called once, and reports as `Missing` only a candidate whose step would do
   something, so `withheld` is gone.
   Upgrade: `dispatchViolations(update, { repeatable, withheld })(state, sent, candidates)` becomes
@@ -142,8 +143,10 @@ version, and everything else, features included, the patch version.
   other than TypeScript could not resolve.
 - A package that exports a program, a child or what the API returns emits its declarations, where TypeScript failed
   with `TS2742`, `TS2883` or `TS4023`; `Applied`'s `revision` is a `number` in them.
-- A child's types read the `external`, `flags`, events, commands and services it has, where some read as `never` or
-  as absent, and a `Program<…>` that names fewer `external` messages than it takes compiles.
+- A child's types read the `external`, `flags`, events, commands and services it has, where some read as `never`, as
+  `unknown` or as absent, and a `Program<…>` that names fewer `external` messages than it takes compiles. `CommandOf`
+  and `EventOf` read what `external` returns too, and a program written as an object that listens to nothing needs no
+  service.
 - `andThen` over steps that list no commands or no events gives a step that has none, where they were `unknown`.
 - The run ends with every defect of its pieces and their releases, two equal by `Equal` among them, in the order they
   happened and saying where, and applies no message once one happened.

@@ -302,6 +302,27 @@ child(
   { get: (state) => Opt.some(state.main), set: (state, main) => ({ ...state, main }) }
 )
 
+// So does one whose `external` alone returns commands, and an `external` answers with a step, never `reject`.
+const resetting = {
+  init: { state: { count: 0 } },
+  update: counterUpdate,
+  subscriptions: () => HashMap.empty(),
+  makeModel: () => null
+}
+const inMain = {
+  get: (state: State) => Opt.some(state.main),
+  set: (state: State, main: CounterState) => ({ ...state, main })
+}
+const saving = {
+  ...resetting,
+  external: (_: Reset) => (state: CounterState) => ({ state, commands: ["Save" as const] })
+}
+const refusing = { ...resetting, external: (_: Reset) => (state: CounterState) => state.count > 0 ? { state } : reject }
+// @ts-expect-error
+child(saving, inMain)
+// @ts-expect-error
+child(refusing, inMain)
+
 // An input and no children: the title is the program's own state, which the outside writes over.
 type Draft = Readonly<{ title: string }>
 

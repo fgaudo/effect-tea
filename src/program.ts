@@ -1,7 +1,8 @@
 // A program: its pieces, its types named rather than in a row, and the types read back from one.
 import { absurd } from "effect/Function"
+import type * as HashMap from "effect/HashMap"
 import type { RunCommand } from "./command.ts"
-import type { Subscriptions } from "./subscription.ts"
+import type { Subscription, Subscriptions } from "./subscription.ts"
 import type { Step, Update } from "./update.ts"
 
 /**
@@ -274,14 +275,17 @@ type Listed<T, Key extends "commands" | "events"> = T extends { readonly [K in K
 // `L` is `undefined` where an object literal of the union lacks the list, and `unknown` where no type names it.
 type Items<L> = L extends ReadonlyArray<infer I> ? I : never
 
-/** What the steps `update` may return list under `Key`. */
-// `never` for the message, which any `update` takes: one of a program that names no messages takes nothing else.
-type Returned<P, Key extends "commands" | "events"> = P extends
-  { readonly update: (message: never) => (state: any) => infer T } ? Listed<T, Key> : never
+/** What the steps `update` and `external` may return list under `Key`. */
+type Returned<P, Key extends "commands" | "events"> = Answered<P, "update", Key> | Answered<P, "external", Key>
+// `never` for the message, which any function of a message takes: one of a program that names no messages takes
+// nothing else.
+type Answered<P, Piece extends "update" | "external", Key extends "commands" | "events"> = P extends
+  { readonly [K in Piece]: (message: never) => (state: any) => infer T } ? Listed<T, Key> : never
 
-// Read from `update` too: a program written without `Program<…>` may start with no command and still return some.
+// Read from `update` and `external` too: a program written without `Program<…>` may start with no command and still
+// return some.
 /**
- * The commands a program's steps list: those its `init` starts with, and those its `update` returns.
+ * The commands a program's steps list: those its `init` starts with, and those its `update` and `external` return.
  *
  * It is `never` for a program that lists none.
  *
@@ -322,7 +326,7 @@ export type FlagsOf<P> = P extends { readonly init: (flags: infer F) => any } ? 
  */
 export type ExternalOf<P> = P extends { readonly external: (message: infer E) => any } ? E : never
 /**
- * The events a program's `update` returns for its parent.
+ * The events a program's `update` and `external` return for its parent.
  *
  * It is `never` for a program that returns none.
  *
@@ -361,5 +365,11 @@ export type CommandServicesOf<P> = P extends { readonly runCommand: RunCommand<a
  * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
  * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
  */
-export type SubscriptionServicesOf<P> = P extends { readonly subscriptions: Subscriptions<any, any, infer R, any> } ? R
+export type SubscriptionServicesOf<P> = P extends { readonly subscriptions: (state: never) => infer Heard }
+  ? MapServices<Heard>
   : never
+// Apart, so that each distributes: over the maps `subscriptions` may return, and over what a map holds. An empty map
+// holds `never`, which needs nothing. What a map of type `any` holds reads back as `unknown`, and needs anything: as
+// `never`, it would run without its services.
+type MapServices<Heard> = Heard extends HashMap.HashMap<any, infer Listened> ? Needed<Listened> : never
+type Needed<Listened> = unknown extends Listened ? unknown : Listened extends Subscription<any, infer R> ? R : never

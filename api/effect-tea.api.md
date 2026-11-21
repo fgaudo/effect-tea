@@ -19,6 +19,11 @@ export const andThen: {
     <State, Command1 = never, Event1 = never, Command2 = never, Event2 = never>(step: Step<State, Command1, Event1>, next: (state: State) => Step<State, Command2, Event2>): Folded<State, Command1 | Command2, Event1 | Event2>;
 };
 
+// @public (undocumented)
+type Answered<P, Piece extends "update" | "external", Key extends "commands" | "events"> = P extends {
+    readonly [K in Piece]: (message: never) => (state: any) => infer T;
+} ? Listed<T, Key> : never;
+
 // @public
 export type AnyProgram = {
     readonly init: Step<any, any> | ((flags: any) => Step<any, any>);
@@ -51,7 +56,7 @@ type At<C> = C extends ChildByIdOf<infer Id, any> ? Readonly<{
 }> : unknown;
 
 // @public (undocumented)
-type CheckedChild<P> = unknown extends CommandsRun<P> ? P : P & CommandsRun<P>;
+type CheckedChild<P> = unknown extends Lacking<P> ? P : P & Lacking<P>;
 
 // @public
 export type Child<ParentState, P> = {
@@ -136,9 +141,6 @@ export type CommandOf<P> = Listed<FirstStepOf<P>, "commands"> | Returned<P, "com
 export type CommandServicesOf<P> = P extends {
     readonly runCommand: RunCommand<any, any, infer R>;
 } ? R : never;
-
-// @public (undocumented)
-type CommandsRun<P> = [CommandOf<P>] extends [never] ? unknown : Interpreter<CommandOf<P>, unknown, unknown>;
 
 // @public
 export class CompositionDefect extends CompositionDefect_base<CompositionFields> {
@@ -290,7 +292,9 @@ type Handles<State, C, Command, Event> = {
 };
 
 // @public (undocumented)
-type HeardServices<Heard> = Heard extends HashMap.HashMap<any, infer Listened> ? Needed<Listened> : never;
+type HeardServices<Heard> = SubscriptionServicesOf<{
+    readonly subscriptions: (state: never) => Heard;
+}>;
 
 // @public
 type IdOf<Message, Name> = [ChildOf<Message, Name>] extends [never] ? [] : ChildOf<Message, Name> extends Readonly<{
@@ -369,6 +373,11 @@ const InvariantDefect_base: new <A extends Record<string, any> = {}>(args: VoidI
 // @public (undocumented)
 type Items<L> = L extends ReadonlyArray<infer I> ? I : never;
 
+// @public (undocumented)
+type Lacking<P> = P extends ProgramChecked<P> ? unknown : ([CommandOf<P>] extends [never] ? unknown : Interpreter<CommandOf<P>, unknown, unknown>) & {
+    readonly "a child is a program of the types read back from it": ProgramChecked<P>;
+};
+
 // @public
 type Listed<T, Key extends "commands" | "events"> = T extends {
     readonly [K in Key]?: infer L;
@@ -389,6 +398,9 @@ export type MakeProgram<T extends DeclaredTypes> = <Model, C extends Children<Fi
     external: Field<T, "external">;
     flags: Field<T, "flags">;
 }>>;
+
+// @public (undocumented)
+type MapServices<Heard> = Heard extends HashMap.HashMap<any, infer Listened> ? Needed<Listened> : never;
 
 // @public
 export type MessageOf<P> = P extends {
@@ -495,6 +507,9 @@ export type Program<T extends ProgramTypes> = Shape<Field<T, "state">, Field<T, 
 // @public
 export const program: <T extends DeclaredTypes>() => ProgramMaker<T>;
 
+// @public (undocumented)
+type ProgramChecked<P> = Shape<StateOf<P>, ModelOf<P>, MessageOf<P>, CommandOf<P>, CommandServicesOf<P>, SubscriptionServicesOf<P>, EventOf<P>, ExternalOf<P>, FlagsOf<P>>;
+
 // @public
 export class ProgramDefect extends ProgramDefect_base<Fields & Readonly<{
     message: string;
@@ -543,9 +558,7 @@ export const reject: unique symbol;
 export type Rejected = typeof reject;
 
 // @public
-type Returned<P, Key extends "commands" | "events"> = P extends {
-    readonly update: (message: never) => (state: any) => infer T;
-} ? Listed<T, Key> : never;
+type Returned<P, Key extends "commands" | "events"> = Answered<P, "update", Key> | Answered<P, "external", Key>;
 
 // @public
 type Routed<Message> = Message extends Readonly<{
@@ -610,8 +623,8 @@ export type Subscriptions<State, Message, R = never, K = unknown> = (state: Stat
 
 // @public
 export type SubscriptionServicesOf<P> = P extends {
-    readonly subscriptions: Subscriptions<any, any, infer R, any>;
-} ? R : never;
+    readonly subscriptions: (state: never) => infer Heard;
+} ? MapServices<Heard> : never;
 
 // @public
 type TagsTaken<M, Names> = 0 extends 1 & M ? Names : M extends unknown ? "_tag" extends keyof M ? Extract<Names, M[keyof M & "_tag"]> | Extract<M[keyof M & "_tag"], Names> : Names extends unknown ? Readonly<{
