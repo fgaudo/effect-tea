@@ -49,9 +49,9 @@ export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) =
  * A `makeModel` that throws is thrown as `Draw` renders, for the nearest error boundary, and the run dies of it too.
  *
  * @example
- * ```ts
+ * ```tsx
  * const { app, run } = start(counter)
- * createRoot(root).render(createElement(Draw<Model, Message>, { app, view }))
+ * createRoot(root).render(<Draw app={app} view={view} />)
  * Effect.runFork(run)
  * ```
  *

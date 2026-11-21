@@ -9,7 +9,7 @@ const root = document.getElementById("app")
 if (root === null) throw new Error("index.html has no #app element")
 
 const { app, run } = start(list)
-drawInto(root, view)(app)
+drawInto(root, { app, view })
 Effect.runFork(
   run.pipe(
     // The failure of a program that dies is reported; an interruption is no crash.

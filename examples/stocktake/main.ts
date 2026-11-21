@@ -37,7 +37,7 @@ const scanner = Scanner.of({
 })
 
 const { app, run } = start(stocktake, { flags: { aisle: "A3" } })
-drawInto(root, view)(app)
+drawInto(root, { app, view })
 Effect.runFork(
   run.pipe(
     Effect.provideService(Server, server),

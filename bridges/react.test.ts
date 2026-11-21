@@ -44,8 +44,8 @@ import {
 } from "react"
 import type { Root } from "react-dom/client"
 import { renderToString } from "react-dom/server"
-import { h, type VNode } from "snabbdom"
-import { counter, type Message as CounterMessage, type Model as CounterModel } from "../examples/counter/counter.ts"
+import { h } from "snabbdom"
+import { counter, type Message as CounterMessage } from "../examples/counter/counter.ts"
 import { view as counterView } from "../examples/counter/view-react.tsx"
 import { form } from "../examples/form/form.ts"
 import { Storage } from "../examples/form/storage.ts"
@@ -133,12 +133,14 @@ const field = (value: string, write: Dispatch<Written<string>>) => ({
 const drawButton = (text: string, onClick: () => void) => createElement("button", { type: "button", onClick }, text)
 
 // The suite starts the program itself: `Draw` draws its `App`, in a React root of its own, which the stop unmounts.
-const drawInto: DrawInto<ReactNode> =
-  <Model, Message>(root: HTMLElement, view: View<Model, Message>) => (app: App<Model, Message>) => {
-    const reactRoot = createRoot(root)
-    flushSync(() => reactRoot.render(createElement(bridge.Draw<Model, Message>, { app, view })))
-    return () => reactRoot.unmount()
-  }
+const drawInto: DrawInto<ReactNode> = <Model, Message>(
+  root: HTMLElement,
+  { app, view }: { readonly app: App<Model, Message>; readonly view: View<Model, Message> }
+) => {
+  const reactRoot = createRoot(root)
+  flushSync(() => reactRoot.render(createElement(bridge.Draw<Model, Message>, { app, view })))
+  return () => reactRoot.unmount()
+}
 
 // `Draw` in a root the test made, which the test unmounts.
 const drawIn = <Model, Message>(root: Root, view: View<Model, Message>) => (app: App<Model, Message>) =>
@@ -1153,16 +1155,16 @@ describe("together, React beside snabbdom", () => {
     page().innerHTML = "<div id=\"snabbdom\"></div><div id=\"react\"></div>"
     const { app, run } = start(counter)
     drawing(
-      drawWithSnabbdom(
-        element("#snabbdom"),
-        (model: CounterModel, dispatch: Dispatch<CounterMessage>): VNode =>
+      drawWithSnabbdom(element("#snabbdom"), {
+        app,
+        view: (model, dispatch) =>
           h("main", [
             h("output", String(model.count)),
             h("button", {
               on: { click: () => dispatch(model.increment) }
             }, "+")
           ])
-      )(app)
+      })
     )
     drawIn(rootIn(element("#react")), counterView)(app)
     forked(run)
@@ -1182,7 +1184,7 @@ describe("together, React beside snabbdom", () => {
   test("each input shows what was typed into the other, and keeps its element", async () => {
     page().innerHTML = "<div id=\"snabbdom\"></div><div id=\"react\"></div>"
     const { app, run } = start(form)
-    drawing(drawWithSnabbdom(element("#snabbdom"), snabbdomFormView)(app))
+    drawing(drawWithSnabbdom(element("#snabbdom"), { app, view: snabbdomFormView }))
     drawIn(rootIn(element("#react")), formView)(app)
     forked(run.pipe(Effect.provideService(Storage, Storage.of({ save: () => Effect.void }))))
     settle()

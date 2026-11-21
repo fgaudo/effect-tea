@@ -67,7 +67,8 @@ const giveBack = (controlled: Map<Element, Controlled>): void => {
 // #endregion controlled
 
 /**
- * Draws a program that was started into `root`, patching the tree it drew before, and returns what stops it.
+ * Draws the model of the current state of `app` into `root` with `view`, patching the tree it drew before, and returns
+ * what stops it: for a program that was started.
  *
  * - It empties `root` as it is called, and `root` then holds the view's top element and nothing else. `root` keeps its
  *   place in the page, and may have no parent.
@@ -85,7 +86,7 @@ const giveBack = (controlled: Map<Element, Controlled>): void => {
  * @example
  * ```ts
  * const { app, run } = start(counter)
- * drawInto(document.getElementById("app")!, view)(app)
+ * drawInto(document.getElementById("app")!, { app, view })
  * Effect.runFork(run)
  * ```
  *
@@ -95,66 +96,70 @@ const giveBack = (controlled: Map<Element, Controlled>): void => {
  * @see The guide, "Writing a bridge", "The package's bridges".
  * @see The guide, "Inputs the user types into", "The element on screen".
  */
-export const drawInto =
-  <Model, Message>(root: Element, view: View<Model, Message>) => (app: App<Model, Message>): () => void => {
-    // #region draw
-    const controlled = new Map<Element, Controlled>()
-    const patch = init([propsModule, styleModule, eventListenersModule, controlledModule(controlled)])
-    // A child of the bridge's own, which the first patch replaces with the view's top element: so `root` keeps its
-    // place, with a parent or without one, and holds what the view draws and nothing else.
-    const place = root.ownerDocument.createElement("div")
-    root.replaceChildren(place)
-    let tree: Element | VNode = place
-    let last: Opt.Option<Model> = Opt.none()
-    // Draws the model of the current state, then gives the controlled elements their props back.
-    const draw = (): void => {
-      const model = app.model()
-      if (Opt.isNone(last) || last.value !== model) {
-        tree = patch(tree, view(model, dispatch))
-        last = Opt.some(model)
-      }
-      giveBack(controlled)
+export const drawInto = <Model, Message>(root: Element, { app, view }: {
+  /** The handle of a program that was started. */
+  readonly app: App<Model, Message>
+  /** Draws its model. */
+  readonly view: View<Model, Message>
+}): () => void => {
+  // #region draw
+  const controlled = new Map<Element, Controlled>()
+  const patch = init([propsModule, styleModule, eventListenersModule, controlledModule(controlled)])
+  // A child of the bridge's own, which the first patch replaces with the view's top element: so `root` keeps its
+  // place, with a parent or without one, and holds what the view draws and nothing else.
+  const place = root.ownerDocument.createElement("div")
+  root.replaceChildren(place)
+  let tree: Element | VNode = place
+  let last: Opt.Option<Model> = Opt.none()
+  // Draws the model of the current state, then gives the controlled elements their props back.
+  const draw = (): void => {
+    const model = app.model()
+    if (Opt.isNone(last) || last.value !== model) {
+      tree = patch(tree, view(model, dispatch))
+      last = Opt.some(model)
     }
-    // #endregion draw
-    // #region notice
-    let queued = false
-    // Once it is stopped, a draw it asked for before is not made: the root may be another program's by then.
-    let stopped = false
-    let unsubscribe = () => {}
-    const stop = () => {
-      stopped = true
-      unsubscribe()
-    }
-    // What a draw throws is the run's to die of, in `'render'`: a microtask is called by nothing of the run. A defect
-    // of `makeModel` is the one the run recorded where the model was read, so it is still one defect.
-    const attempt = () => {
-      try {
-        draw()
-      } catch (error) {
-        stop()
-        app.die(error)
-      }
-    }
-    const notice = () => {
-      if (queued) return
-      queued = true
-      queueMicrotask(() => {
-        queued = false
-        if (!stopped) attempt()
-      })
-    }
-    // #endregion notice
-    // #region dispatch
-    // The dispatch the view is given, the same in every draw: it applies the message, then asks for a draw, whether
-    // the message made a new state or not, so that what the element shows and the state rejected is taken back.
-    const dispatch: Dispatch<Message> = (message) => {
-      app.dispatch(message)
-      notice()
-    }
-    // #endregion dispatch
-    // #region handle
-    unsubscribe = app.subscribe(notice)
-    attempt()
-    return stop
-    // #endregion handle
+    giveBack(controlled)
   }
+  // #endregion draw
+  // #region notice
+  let queued = false
+  // Once it is stopped, a draw it asked for before is not made: the root may be another program's by then.
+  let stopped = false
+  let unsubscribe = () => {}
+  const stop = () => {
+    stopped = true
+    unsubscribe()
+  }
+  // What a draw throws is the run's to die of, in `'render'`: a microtask is called by nothing of the run. A defect
+  // of `makeModel` is the one the run recorded where the model was read, so it is still one defect.
+  const attempt = () => {
+    try {
+      draw()
+    } catch (error) {
+      stop()
+      app.die(error)
+    }
+  }
+  const notice = () => {
+    if (queued) return
+    queued = true
+    queueMicrotask(() => {
+      queued = false
+      if (!stopped) attempt()
+    })
+  }
+  // #endregion notice
+  // #region dispatch
+  // The dispatch the view is given, the same in every draw: it applies the message, then asks for a draw, whether
+  // the message made a new state or not, so that what the element shows and the state rejected is taken back.
+  const dispatch: Dispatch<Message> = (message) => {
+    app.dispatch(message)
+    notice()
+  }
+  // #endregion dispatch
+  // #region handle
+  unsubscribe = app.subscribe(notice)
+  attempt()
+  return stop
+  // #endregion handle
+}

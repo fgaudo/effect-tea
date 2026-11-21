@@ -104,8 +104,8 @@ export type View<Node, Model, Message> = (model: Model, dispatch: Dispatch<Messa
 /** A bridge's `drawInto`: draws a program that was started into `root`, by plain code, and returns what stops it. */
 export type DrawInto<Node> = <Model, Message>(
   root: HTMLElement,
-  view: View<Node, Model, Message>
-) => (app: App<Model, Message>) => () => void
+  drawn: { readonly app: App<Model, Message>; readonly view: View<Node, Model, Message> }
+) => () => void
 
 /**
  * Draws a program that was started on a fresh page, `#app` its root, `#aside` for what a renderer draws outside it,
@@ -121,10 +121,13 @@ export const mount = <Node, Model, Message, R = never>(
   const root = document.getElementById("app") as HTMLElement
   let views = 0
   drawing(
-    drawInto(root, (model: Model, dispatch: Dispatch<Message>) => {
-      views += 1
-      return view(model, dispatch)
-    })(app)
+    drawInto(root, {
+      app,
+      view: (model, dispatch) => {
+        views += 1
+        return view(model, dispatch)
+      }
+    })
   )
   forked(provide === undefined ? run as Effect.Effect<never> : provide(run))
   return { views: () => views, app }
@@ -397,7 +400,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
     // Starts the counter, draws it into `root`, which the test made where it wants it, and runs it.
     const startIn = async (root: HTMLElement) => {
       const { app, run } = start(counter)
-      drawing(bridge.drawInto(root, bridge.views.counter)(app))
+      drawing(bridge.drawInto(root, { app, view: bridge.views.counter }))
       forked(run)
       settle()
       await bridge.drawn()
@@ -815,7 +818,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       shadow.innerHTML = "<div id=\"app\"></div>"
       const root = shadow.getElementById("app") as HTMLElement
       const { app, run } = start(note)
-      drawing(bridge.drawInto(root, bridge.views.note)(app))
+      drawing(bridge.drawInto(root, { app, view: bridge.views.note }))
       forked(run)
       settle()
       await bridge.drawn()

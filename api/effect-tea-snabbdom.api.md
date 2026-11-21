@@ -18,7 +18,10 @@ interface App<Model, Message> {
 type Dispatch<Message> = (message: Message) => void;
 
 // @public
-export const drawInto: <Model, Message>(root: Element, view: View<Model, Message>) => (app: App<Model, Message>) => () => void;
+export const drawInto: <Model, Message>(root: Element, input: {
+    readonly app: App<Model, Message>;
+    readonly view: View<Model, Message>;
+}) => () => void;
 
 // @public
 export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => VNode;

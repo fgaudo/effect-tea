@@ -132,7 +132,7 @@ export interface RunOptions<State, Message, Command = unknown> {
    *       Queue.offerUnsafe(heard, applied)
    *     }
    *   })
-   *   drawInto(root, view)(app)
+   *   drawInto(root, { app, view })
    *   yield* Effect.raceFirst(run, report)
    * })
    * ```

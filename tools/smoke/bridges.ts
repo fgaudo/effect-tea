@@ -33,7 +33,7 @@ if (sent.join() !== "Increment") throw new Error(`messagesSentBy found ${sent.jo
 // Typed, and not called: Node has no DOM to draw into.
 export const begin = (root: Element) => {
   const { app, run } = start(counter)
-  const stop = drawInto(root, view)(app)
+  const stop = drawInto(root, { app, view })
   return { stop, fiber: Effect.runFork(run) }
 }
 

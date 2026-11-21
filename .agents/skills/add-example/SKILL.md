@@ -17,7 +17,7 @@ events, `forwardTo`).
 examples/<name>/
 ├─ <name>.ts        the program; a parent's children in a module each (pages/about.ts, pages/clock.ts)
 ├─ view.ts          its view, with snabbdom (view-snabbdom.ts and view-react.tsx in counter and form)
-├─ main.ts          starts it in the browser
+├─ main.ts          starts it in the browser (main.tsx in counter and form)
 ├─ index.html       the page that runs it
 └─ <name>.test.ts   its tests, showing the testing tools on it
 ```
@@ -42,7 +42,7 @@ The first two and the fourth are what a user imports to draw and test a program 
 React; the third is the line a user's tests of a snabbdom view load first, as the guide's "Testing" says (`AGENTS.md`,
 "Tests"). React is used only by
 [`counter`](../../../examples/counter) and [`form`](../../../examples/form), to show that a program does not change
-with its renderer: each has a `view-snabbdom.ts` and a `view-react.tsx`, and its `main.ts` draws one run with both
+with its renderer: each has a `view-snabbdom.ts` and a `view-react.tsx`, and its `main.tsx` draws one run with both
 renderers over the same handle, into the `#snabbdom` and `#react` of its page. Its test checks the snabbdom view; the
 React view is checked by the bridges' tests. The bridges' tests are examples' tests like
 the others, and none of the library's five kinds (`AGENTS.md`, "Tests"). `snabbdom.test.ts` and `react.test.ts` call
@@ -62,12 +62,13 @@ In `examples/` itself are [`README.md`](../../../examples/README.md), which says
   and the skill that link them, but nothing of the package imports them. snabbdom and React are optional peers, for
   the bridges alone, and `@happy-dom/global-registrator` is only a dev dependency.
 - **`main.ts`** finds `#app`, starts the program with `const { app, run } = start(program)`, draws it
-  with `drawInto(root, view)(app)`, and runs it with `Effect.runFork(run)`, through an `Effect.tapCause` that logs the
-  failure of a dying program, unless it is only an interruption (`list/main.ts`). Those of `counter` and `form` draw
-  the one handle with both renderers: snabbdom's `drawInto`, and `Draw` with that handle in a React root of its own.
+  with `drawInto(root, { app, view })`, and runs it with `Effect.runFork(run)`, through an `Effect.tapCause` that logs
+  the failure of a dying program, unless it is only an interruption (`list/main.ts`). Those of `counter` and `form` are
+  `main.tsx`, and draw the one handle with both renderers: snabbdom's `drawInto`, and `<Draw app={app} view={view} />`
+  in a React root of its own.
 - **`index.html`** has the title `<Name> · effect-tea`, the shared `../style.css`, a header with the name,
   one sentence on what it shows and a "Source" link to `https://github.com/fgaudo/effect-tea/tree/main/examples/<name>`,
-  the `#app` element and `<script type="module" src="./main.ts">`.
+  the `#app` element and `<script type="module" src="./main.ts">` (`./main.tsx` in `counter` and `form`).
 - **The program** follows the guide: one state machine per concern, as a tagged union
   (`form/form.ts`'s `save`, `list/stopwatch.ts`'s `watch`), never flags; `reject` for a message that may
   arrive and does not apply, and a thrown error for one that cannot arrive (a completion outside the state that

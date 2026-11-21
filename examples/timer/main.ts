@@ -23,7 +23,7 @@ const bell = Bell.of({
 })
 
 const { app, run } = start(namedTimers)
-drawInto(root, namedTimersView)(app)
+drawInto(root, { app, view: namedTimersView })
 Effect.runFork(
   run.pipe(
     Effect.provideService(Bell, bell),

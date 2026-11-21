@@ -54,7 +54,7 @@ const pointer = Pointer.of({
 })
 
 const { app, run } = start(volume)
-drawInto(root, view)(app)
+drawInto(root, { app, view })
 Effect.runFork(
   run.pipe(
     Effect.provideService(Pointer, pointer),

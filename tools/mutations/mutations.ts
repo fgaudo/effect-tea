@@ -2803,8 +2803,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the snabbdom bridge draws a notice at once, in the task that sent it",
     file: "bridges/snabbdom.ts",
-    from: "      queueMicrotask(() => {\n",
-    to: "      ;((draw: () => void) => draw())(() => {\n",
+    from: "    queueMicrotask(() => {\n",
+    to: "    ;((draw: () => void) => draw())(() => {\n",
     killedBy: [
       [
         "bridges/snabbdom.test.ts",
@@ -2816,8 +2816,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the snabbdom bridge draws a rejected message of its view's not at all",
     file: "bridges/snabbdom.ts",
-    from: "      app.dispatch(message)\n      notice()\n",
-    to: "      app.dispatch(message)\n",
+    from: "    app.dispatch(message)\n    notice()\n",
+    to: "    app.dispatch(message)\n",
     killedBy: [
       [
         "bridges/snabbdom.test.ts",
@@ -2854,7 +2854,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the snabbdom bridge gives no controlled element its prop back",
     file: "bridges/snabbdom.ts",
-    from: "      giveBack(controlled)\n",
+    from: "    giveBack(controlled)\n",
     to: "",
     killedBy: [
       [
@@ -2894,13 +2894,13 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the snabbdom bridge lets what a draw throws out of it",
     file: "bridges/snabbdom.ts",
-    from: "      try {\n"
-      + "        draw()\n"
-      + "      } catch (error) {\n"
-      + "        stop()\n"
-      + "        app.die(error)\n"
-      + "      }",
-    to: "      draw()",
+    from: "    try {\n"
+      + "      draw()\n"
+      + "    } catch (error) {\n"
+      + "      stop()\n"
+      + "      app.die(error)\n"
+      + "    }",
+    to: "    draw()",
     killedBy: [
       ["bridges/snabbdom.test.ts", "by the view, ends the run at once, in render, and the handler gets nothing"],
       [
@@ -2913,7 +2913,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the snabbdom bridge does not die of what a draw throws",
     file: "bridges/snabbdom.ts",
-    from: "        app.die(error)\n",
+    from: "      app.die(error)\n",
     to: "",
     killedBy: [
       ["bridges/snabbdom.test.ts", "by the view, ends the run at once, in render, and the handler gets nothing"],
@@ -2923,8 +2923,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the snabbdom bridge draws on once a draw threw",
     file: "bridges/snabbdom.ts",
-    from: "        stop()\n        app.die(error)\n",
-    to: "        app.die(error)\n",
+    from: "      stop()\n      app.die(error)\n",
+    to: "      app.die(error)\n",
     killedBy: [
       [
         "bridges/snabbdom.test.ts",
@@ -2935,8 +2935,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the snabbdom bridge lets what its first draw throws out of it",
     file: "bridges/snabbdom.ts",
-    from: "    attempt()\n    return stop\n",
-    to: "    draw()\n    return stop\n",
+    from: "  attempt()\n  return stop\n",
+    to: "  draw()\n  return stop\n",
     killedBy: [
       ["bridges/snabbdom.test.ts", "by the view, ends the run, in render, and drawInto throws nothing"]
     ]

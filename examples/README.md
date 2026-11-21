@@ -19,15 +19,15 @@ counter/
 ├─ counter.ts        the program
 ├─ view-snabbdom.ts  its view, drawn with snabbdom
 ├─ view-react.tsx    the same view, drawn with React
-├─ main.ts           starts it in the browser
+├─ main.tsx          starts it in the browser
 ├─ index.html        the page that runs it
 └─ counter.test.ts   its tests, with the testing tools of @fgaudo/effect-tea/testing
 ```
 
 A parent has a module for each child too (`pages/about.ts`, `pages/clock.ts`). Only `counter/` and `form/` have a view
-for each renderer. Their `main.ts` starts the program once and draws it with both renderers: the program and its tests
+for each renderer. Their `main.tsx` starts the program once and draws it with both renderers: the program and its tests
 do not change with the renderer. Both draw the `App` that `start` gives, snabbdom's with `drawInto` and React's with
-`Draw`. The other examples are drawn with snabbdom alone, by a `view.ts`.
+`Draw`. The other examples are drawn with snabbdom alone, by a `view.ts`, and started by a `main.ts`.
 
 ## The bridges
 

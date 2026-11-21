@@ -63,8 +63,8 @@ It decides nothing on its own: whether "−" can be clicked is already in the mo
 
 `const { app, run } = start(duration)` starts the program. `app` is its handle: the model of the current state, a
 notice of each new state, and the `dispatch` to send its messages with. `run` runs the program's effects.
-`drawInto(root, durationView)(app)` draws the handle: it empties the element `root`, and draws the model into it. A
-click calls `dispatch`, and when it returns, `update` has seen the click.
+`drawInto(root, { app, view: durationView })` draws the handle: it empties the element `root`, and draws the model into
+it. A click calls `dispatch`, and when it returns, `update` has seen the click.
 
 This program has no effects yet, and it is run all the same: once it has some, they start with `run` alone. In a
 browser, `run` is forked with `Effect.runFork`, with a `tapCause` that reports a run that dies.

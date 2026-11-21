@@ -29,7 +29,7 @@ const screen = Screen.of({
 })
 
 const { app, run } = start(bounce, { flags: { dt: 1000 / 60 } })
-drawInto(root, view)(app)
+drawInto(root, { app, view })
 Effect.runFork(
   run.pipe(
     Effect.provideService(Screen, screen),

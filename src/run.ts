@@ -81,7 +81,7 @@ export interface App<Model, Message> {
  * @example
  * ```ts
  * const { app, run }: Started<Model, Message> = start(counter)
- * drawInto(root, view)(app)
+ * drawInto(root, { app, view })
  * Effect.runFork(run)
  * ```
  *
@@ -252,7 +252,7 @@ export const startWith = <State, Model, Message, Command, RC, RS, Flags>(
  * @example
  * ```ts
  * const { app, run } = start(counter)
- * drawInto(root, view)(app)
+ * drawInto(root, { app, view })
  * Effect.runFork(run)
  * ```
  *

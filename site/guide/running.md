@@ -14,7 +14,7 @@ program's effects. Whoever starts the program forks `run`, and ends the run by i
 
 ```ts
 const { app, run } = start(counter)
-drawInto(root, view)(app)
+drawInto(root, { app, view })
 Effect.runFork(run)
 ```
 
@@ -112,7 +112,7 @@ const main = Effect.gen(function*() {
       Queue.offerUnsafe(heard, applied)
     }
   })
-  drawInto(root, view)(app)
+  drawInto(root, { app, view })
   yield* Effect.raceFirst(run, report)
 })
 ```
@@ -138,7 +138,7 @@ const main = Effect.gen(function*() {
       Queue.offerUnsafe(heard, applied)
     }
   })
-  drawInto(root, view)(app)
+  drawInto(root, { app, view })
   yield* Effect.raceFirst(run, logging)
 })
 ```
@@ -196,7 +196,7 @@ program again.
 
 ```ts
 const { app, run } = start(program, options)
-drawInto(root, view)(app)
+drawInto(root, { app, view })
 Effect.runFork(
   run.pipe(
     Effect.tapCause((cause) => Cause.hasInterruptsOnly(cause) ? Effect.void : reportCrash(cause))
