@@ -26,42 +26,14 @@ None is open.
 
 ## Next, in order
 
-### 5. Release 0.8.0
-
-**Model and effort.** Opus 5.5, `high`: its first part is a review.
-
-**Depends on** steps 2 to 4: each decided, and the stages of those taken done. Released before them, 0.8.0 would
-publish for one release what they remove, as R2 of
-[`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md) says of that change.
-
-**Why.** The unreleased section of `CHANGELOG.md` is long, and users get none of it until a release: the bridges as
-entries of the package, the inputs, the fixed declarations. It comes after the dispatch that applies its message at
-once ([`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), done on 20 November 2026), which removed
-exports that no release has had.
-
-**How.** As [`release`](.agents/skills/release/SKILL.md) says. The review of the premises
-([`premise-review`](.agents/skills/premise-review/SKILL.md)) is done, by three reviewers that wrote none of the
-changes since `da12f71`: the engine, the testing tools and the bridges. Their reports are the bodies of `1317333`
-on `claude/premise-review-engine-080`, `8ffc7a4` on `claude/premise-review-testing-bc87b9` and `6e90b46` on
-`claude/premise-review-bridges-f28572`, which stay unmerged. Its five findings were fixed, and what else it left was
-done or decided, on 21 November 2026, its last finding fixed on that day (a defect lost when a parent removes `Host`
-in the batch that sets it). Of the leads its reports name and nothing here took up: a defect given to `die` once the
-run has ended, or between the run's last read of its defects and its end, is in no cause, though "Running" says that
-`run` dies of it (the engine's report, lead B); and the focus a disabled input loses in a browser is for step 6.
-
-Then `bun run mutations` and `bun run interleavings`, and the site built without warnings. Then the release commit and
-its tag. The owner publishes to npm.
-
-**Done when** the tag `v0.8.0` is pushed.
-
 ### 13. A guarantee names the checks that hold it
 
 **Model and effort.** Opus 5.5, `medium`, to build the form advised below, once the owner has taken it. Fable 5.2,
 `high`, if the owner asks for the forms to be weighed again on
 [`promises-and-tests.md`](docs/records/promises-and-tests.md).
 
-**Depends on** that record, done. It changes nothing a user writes, so it does not hold up the release. It adds a
-rule to `AGENTS.md`, so the owner is asked first.
+**Depends on** that record, done. It changes nothing a user writes. It adds a rule to `AGENTS.md`, so the owner is
+asked first.
 
 **Why.** Nothing ties a guarantee to its tests but prose kept by hand: `docs/invariants.md` names them, and the guide's
 "How the tests check them" says what the search checks. `tools/mutations/mutations.ts` ties each check to the tests that
@@ -94,8 +66,8 @@ of the guide quoted by a doc comment, or set aside with a reason"), and 46 sente
 **Model and effort.** Opus 5.5, `high`: checks of the types that keep the three rules of "What belongs here", and the
 generator they run in.
 
-**Depends on** no other step. It changes nothing a user writes, so it does not hold up the release, but a lead it
-finds before 0.8.0 is fixed in it. It adds a rule to `AGENTS.md` (the first point below), so the owner is asked first.
+**Depends on** no other step. It changes nothing a user writes. It adds a rule to `AGENTS.md` (the first point
+below), so the owner is asked first.
 
 **Why.** api-1, api-2 and api-4 lived in one form of a program, an object not typed `Program<…>`, which `child`,
 `childById`, `start` and the testing tools take as it is. The inference matrix (`tools/inference/generate.ts`) writes
@@ -144,7 +116,7 @@ problems", and the owner has decided the two others.
 
 **Model and effort.** Opus 5.5, `medium`.
 
-**Depends on** no other step. It is here by the owner's order, after the release: point 7 of the "Seven points of a
+**Depends on** no other step. It is here by the owner's order, after 0.8.0: point 7 of the "Seven points of a
 review of the design" below weighs taking it first. The second of its two cases is now: nothing typed with snabbdom is
 rejected for a draw that has not come, and what is left of it is an event that the program's own code dispatches in
 the task of a notice, before its draw ("The way the bridge to snabbdom takes", in
@@ -178,7 +150,7 @@ on a server, which its spike ran under `renderToString`, and nothing of hydratio
 
 **Model and effort.** Opus 5.5, `high`: code that keeps the invariants.
 
-**Depends on** step 5: after the tag, so that 0.8.0 is the engine that the review of the premises read. It changes
+**Depends on** no other step: 0.8.0, released, is the engine that the review of the premises read. It changes
 nothing a user writes.
 
 **Why.** `rehearse` is a second engine, kept in step with the first by hand and by the contract's tests
@@ -227,7 +199,9 @@ kept to `program.ts` since the spike: the spike's `Shape<…>` in `rehearse.ts` 
 **Depends on** step 19. It comes before the release that follows 0.8.0.
 
 **How.** As [`premise-review`](.agents/skills/premise-review/SKILL.md) says, over the changes of the engine and of
-the testing tools since the review of 21 November 2026, which step 5 names.
+the testing tools since `v0.8.0`. The review of 21 November 2026, before that tag, has its reports in the bodies of
+`1317333` on `claude/premise-review-engine-080`, `8ffc7a4` on `claude/premise-review-testing-bc87b9` and `6e90b46` on
+`claude/premise-review-bridges-f28572`, which stay unmerged.
 
 **Done when** each finding is fixed, or listed under "Open problems" with its `test.failing`.
 
