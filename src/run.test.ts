@@ -2376,11 +2376,8 @@ describe("what a run that goes on keeps", () => {
 
   type Part = typeof parts[number]
 
-  test("of what a thousand rounds used, a collection leaves a few at most while the run goes on", async () => {
-    const held = new Map<Part, Array<WeakRef<object>>>(parts.map((part) => [part, []]))
-    const hold = (part: Part, target: object) => {
-      held.get(part)?.push(new WeakRef(target))
-    }
+  // A run of the program that plays the rounds, forked, and the round to play: `hold` is given each part a round uses.
+  const playing = (hold: (part: Part, target: object) => void) => {
     // What a round waits for, by name, before it goes on: names, never the objects of a round. The round resumes on
     // the stack of whoever signals, inside a step, where what it sends would wait for that step: so it yields first.
     let expected: Readonly<{ name: string; done: Deferred.Deferred<void> }> | undefined
@@ -2506,6 +2503,14 @@ describe("what a run that goes on keeps", () => {
         if (model !== undefined) hold("childModel", model)
         app.dispatch({ _tag: "Remove", round })
       })
+    return { fiber, playRound }
+  }
+
+  test("of what a thousand rounds used, a collection leaves a few at most while the run goes on", async () => {
+    const held = new Map<Part, Array<WeakRef<object>>>(parts.map((part) => [part, []]))
+    const { fiber, playRound } = playing((part, target) => {
+      held.get(part)?.push(new WeakRef(target))
+    })
     for (let round = 0; round < 1_000; round++) await Effect.runPromise(playRound(round))
     const left = () =>
       parts.flatMap((part) => {
@@ -2522,6 +2527,35 @@ describe("what a run that goes on keeps", () => {
     expect(fiber.pollUnsafe()).toBeUndefined()
     expect(left()).toEqual([])
     expect(parts.filter((part) => (held.get(part) ?? []).length < 1_000)).toEqual([])
+    expect(wheres(await interrupted(fiber))).toEqual([])
+  })
+
+  test("past two thousand rounds, four thousand more grow the heap of a run that goes on by less than 150 kB", async () => {
+    const { fiber, playRound } = playing(() => undefined)
+    let round = 0
+    const playTo = async (last: number) => {
+      for (; round < last; round++) await Effect.runPromise(playRound(round))
+    }
+    // The least of a few reads, each after a macrotask and a collection: what a read finds that is gone at the next is
+    // no part of what the run keeps.
+    const heap = async () => {
+      let least = Infinity
+      for (let read = 0; read < 5; read++) {
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        collectGarbage()
+        least = Math.min(least, process.memoryUsage().heapUsed)
+      }
+      return least
+    }
+    await playTo(2_000)
+    const before = await heap()
+    await playTo(6_000)
+    // Measured on 21 November 2026, in a hundred runs on each: the heap grew by 19 to 43 kB on Bun, and by 68 to 97 kB
+    // on Node. With one entry of a `Map` from a number to a number kept by the engine for each command, it grew by 520
+    // kB on Bun and by 235 to 260 kB on Node: a `Map` grows by doubling its table, and from 2,000 entries to 6,000 it
+    // doubles at least once.
+    expect(await heap() - before).toBeLessThan(150_000)
+    expect(fiber.pollUnsafe()).toBeUndefined()
     expect(wheres(await interrupted(fiber))).toEqual([])
   })
 })

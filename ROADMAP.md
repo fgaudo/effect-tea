@@ -10,9 +10,8 @@ what would reopen it. How an item came to be, and what was weighed for it, goes 
 [`architecture-review.md`](docs/records/architecture-review.md), a review of the whole project that the owner asked
 for on 20 November 2026 and asked to be written here in the order it advises. Steps 1 to 4, 7 and 8 are its parts 1
 to 6. Step 13 comes from a reading of the guide's promises against the tests, which the owner asked for on 21 November
-2026, and whose record is [`promises-and-tests.md`](docs/records/promises-and-tests.md). Step 15 comes from the owner's
-question of 21 November 2026, what checks the library has of the memory a run holds, and is first by the owner's
-order. A step done leaves its number unused.
+2026, and whose record is [`promises-and-tests.md`](docs/records/promises-and-tests.md). A step done leaves its number
+unused.
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
 
@@ -24,34 +23,6 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 None is open.
 
 ## Next, in order
-
-### 15. What a run counts for itself does not grow
-
-**Model and effort.** Opus 5.5, `medium`: the program and the rounds are those of the test of step 14, done.
-
-**Depends on** no open step. Step 14 left the test "of what a thousand rounds used, a collection leaves a few at most
-while the run goes on" (`run.test.ts`, "what a run that goes on keeps"), which holds every object a round uses by a
-`WeakRef` alone, and `docs/invariants.md`, "A run that goes on keeps nothing of the steps it has done". It changes
-nothing a user writes.
-
-**Why.** Some of what a run keeps is no object that the test of step 14 can hold weakly, and it saw none of it: the
-keys of `active` and their starts (`Core.Active`), whose keys in that test are strings; the entries of the `FiberMap`
-of the subscriptions by their start, a number, and the `FiberSet`'s own, apart from the fibers, which it holds; the
-entries that `forwardTo` keeps by name and by hash of the id (`dispatch.ts`), once their dispatch is collected and
-before the `FinalizationRegistry` calls back, which `dispatch.test.ts` counts apart from a run; and the buckets of the
-queue of the jobs, which `docs/premises.md` says keeps nothing of a value taken, not how much room it keeps. One entry
-kept for each step is a leak that step 14 cannot see.
-
-**How.** The rounds of step 14, with the run alive: the heap is read after `n` rounds and after `3n`, a collection
-before each read, and the difference stays under a bound. It compares two reads of one run, where "the models of ids
-shown once each, under one shared state, do not pile up" (`compose.test.ts`) bounds one read: what a run costs once
-then does not count. The bound is measured on Bun and on Node, and the test says what it was measured from. A round that
-awaits what a step signals, as `onApplied` does, resumes on the stack of that step, where what it sends waits for the
-step to end: the test of step 14 yields after each wait, and so does this one.
-
-**Done when** the test passes on each of a hundred runs, with `bun run test` and with `bun run test:node`, and fails
-with one small entry kept for each round, written by hand. If it cannot be kept short, where it runs is asked of the
-owner.
 
 ### 5. Release 0.8.0
 

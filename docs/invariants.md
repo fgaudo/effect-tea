@@ -371,7 +371,11 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   the test under a retention written by hand, on 21 November 2026: a job, a state, a message or what `onApplied`
   heard kept by the engine, a model kept by the handle, a fiber kept as it is forked, a scope's finalizers kept as it
   closes, a child's dispatch held strongly, and a child's model kept in a `Map`. What no weak reference can hold, the
-  keys and the entries a run counts, this test does not see.
+  keys and the entries a run counts, this test does not see: the keys of `active` and their starts, the entries of the
+  `FiberMap` and the `FiberSet`, those that `forwardTo` keeps before its `FinalizationRegistry` calls back, and the
+  room of the queue of the jobs. "past two thousand rounds, four thousand more grow the heap of a run that goes on by
+  less than 150 kB" (`run.test.ts`) sees them, by the heap of the same rounds read twice, and was seen to fail with one
+  entry of a `Map` kept by the engine for each command, on 21 November 2026. It has no mutation, for the reason above.
 - **No span lives as long as the run**: the `run` of a program started and the engine's `effects` are untraced,
   and the run's fibers see the span of whoever runs it as an external one (`withExternalSpan`), since Effect keeps every
   log as an event of the current span until it ends.
