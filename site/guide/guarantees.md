@@ -7,8 +7,10 @@ title: Guarantees
 ## In short
 
 This page lists what the library promises about a running program, so that you know what your program can count on.
-The library's tests check each guarantee. The second list is what the library leaves to you. What the screen shows
-beside the program's model is each bridge's to promise (see [view](./view.md#rules)).
+The library's tests check each guarantee. The second list is what the library leaves to you. It promises nothing:
+where it says how the library behaves, it describes this version (see
+[what a page promises](./index.md#what-a-page-promises)). What the screen shows beside the program's model is each
+bridge's to promise (see [view](./view.md#rules)).
 
 ## What you can rely on
 
@@ -16,12 +18,12 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
   sent while another is being applied, as a renderer's listener sends one, is applied right after it.
   - The step of a message is its `update`, then `onApplied` or `onIgnored`, then the listeners of the `App`, once the
     new state is current.
-  - What the step does in the world follows in the run's own fiber, in the order of the states: the subscriptions it
-    stops and then those it starts, and the start of its commands. So the state is ahead of its effects: when a message
-    has been applied, its commands may not have started yet.
+  - What the step does in the world follows, in the order of the states: the subscriptions it stops and then those it
+    starts, and the start of its commands. So the state is ahead of its effects: when a message has been applied, its
+    commands may not have started yet.
   - What a dispatch sends is applied as it is sent.
-  - A subscription's message is applied as it is emitted, in the subscription's fiber.
-  - A command's answer is applied as the command ends, in the command's fiber, once its scope has closed.
+  - A subscription's message is applied as it is emitted.
+  - A command's answer is applied as the command ends, once its scope has closed.
 - **Outdated clicks are harmless.** A message that `update` rejects is ignored: the state stays as it was.
   - This holds however many messages came in between.
 - **Subscriptions follow their keys.** A subscription starts when a new state brings its key. It is interrupted when a
@@ -36,7 +38,6 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
   - What one of them acquires is released when it ends.
   - When the run ends, what it acquires is released once it has been interrupted.
   - What it acquires is never released while it still runs.
-  - The subscriptions one message stops are released together.
   - The next message does not wait for a release. The subscriptions and the commands of the next state do, so keep
     releases quick.
 - **Logs do not pile up in a span.** What the run's fibers log is not kept by the span of whoever runs it.
@@ -45,17 +46,18 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
 - **Nothing ends in silence.** A subscription that ends sends one last message.
   - A defect anywhere in the program ends the run. The run dies with it, as a `ProgramDefect` that says where it
     happened.
-  - A program that was never run reports no defect until `run` runs, and `run` then dies of it. From the defect on,
-    the program applies no message all the same ([running](./running.md#rules)).
+  - A program that was never run reports no defect until `run` runs, and `run` then dies of it
+    ([running](./running.md#rules)).
   - A listener of the `App` that throws, a `makeModel` that throws, and what a renderer gives `die` are defects too, in
     `'render'`. Once the run has ended, `die` throws back what the run's cause does not hold
     ([running](./running.md#rules)).
   - A command or a subscription that the program interrupts is a defect too: one that interrupts itself (with
     `Effect.interrupt`, or by joining an interrupted fiber), or that another fiber of the program interrupts.
   - Only the run, and whoever runs it, interrupt them.
-- **A model is made only when it is read.** It is made once for each state, by the state's identity. So the very same
-  state has the very same model, and a bridge need not draw it again.
-  - A model that throws is a defect in `'render'`, recorded where the model is read, once for each state.
+- **A model is made only when it is read.** While a state is the current one, its model is made once, however many
+  times it is read. So every read gives the very same model, and a bridge need not draw it again.
+  - A model that throws is a defect in `'render'`, recorded where the model is read, once while its state is the
+    current one.
 - **An input stores what is written, where its place is there.** A write is stored when its place is there, and
   rejected otherwise.
   - This holds whatever the value is, and whatever else the state says.
@@ -81,7 +83,7 @@ beside the program's model is each bridge's to promise (see [view](./view.md#rul
     and a subscription may start, and be stopped, for a key that is already gone.
   - It starts every command, however many run.
   - It waits for each release for as long as it takes. One that never ends holds up the program, and no defect says
-    so.
+    so. The subscriptions one message stops are released together.
   - As it ends, the run waits for every release before it dies. So a release that never ends also holds back the
     defects that the run would die with.
 - **The program runs on the stack of whoever sends the message.** `update`, `subscriptions`, the options and the
@@ -166,8 +168,8 @@ and interruptions by the program. It checks:
 - that what the run logs is not kept by the span of whoever runs it, and that this span stays the parent of the spans
   opened in it;
 - that nothing ends in silence;
-- that a model is made only when it is read, once for each state, and that a model read after a notice is of the
-  latest state;
+- that a model is made only when it is read, once for each state that is read, and that a model read after a notice
+  is of the latest state;
 - that what is written into an input is stored exactly when its place is there, whatever it is (see
   [inputs the user types into](./inputs-the-user-types-into.md)).
 

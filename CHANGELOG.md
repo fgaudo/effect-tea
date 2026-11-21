@@ -53,7 +53,7 @@ version, and everything else, features included, the patch version.
   `yield* Effect.sync(() => dispatch(message))`, and a dispatch written by hand returns nothing.
 - **Breaking**: `run(program, render)` and `Frame` are removed: `start(program, options)` starts a program by plain
   code, and gives `{ app, run }`: `app`, the handle a renderer reads, `{ model, subscribe, dispatch, die }`, and `run`,
-  which runs the program's effects; a model is made when it is read, once for each state ("Running", "Writing a
+  which runs the program's effects; a model is made when it is read, once for the current state ("Running", "Writing a
   bridge").
   Upgrade: `Effect.runFork(run(program, render))` becomes `const { app, run } = start(program)`, plain code that draws
   `app.model()` with `app.dispatch` and again on each notice of `app.subscribe`, then `Effect.runFork(run)`.
@@ -129,8 +129,10 @@ version, and everything else, features included, the patch version.
 - The guide moved from the README to the site, a page per concept, with a tutorial that builds the `timer` example, a
   "Glossary" and "Coming from Elm or React"; a section the README had is found there on the page of its concept.
 - The guide now promises that messages are applied one at a time, in the order they were sent; that commands run
-  concurrently, with no bound, and the end of the run interrupts them; that nothing is bounded or times out; and that
-  `subscriptions` is pure ("Guarantees", "Commands", "Running").
+  concurrently, and the end of the run interrupts them; and that `subscriptions` is pure. It says that nothing is
+  bounded or times out ("Guarantees", "Commands", "Running").
+- The guide tells a promise from a description of the version installed: what stands under "Precisely", and under
+  "What is left to you" in "Guarantees", describes, and may change in any release ("Guide", "What a page promises").
 - What the guide's "View" said of every renderer is now what each bridge promises. `counter` and `form` draw with
   React too.
 

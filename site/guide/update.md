@@ -31,8 +31,8 @@ The duration of the timer's tutorial (`examples/timer/duration.ts`). Its `update
 
 - **Keep it pure.** `update` returns commands instead of running effects.
 - **It may be called at any time.** Never assume that `update` runs once per message. Never assume that it runs only
-  for a message that was sent. The testing tools call `update` twice on each message that a model holds. They also
-  call it on other messages that a test lists.
+  for a message that was sent. The testing tools call `update` on each message that a model holds, and often a second
+  time. They also call it on other messages that a test lists.
 - **Never mutate the state**, nested objects included. Return a new state.
 - **A message that cannot arrive is a defect.** If such a message arrives, that is a bug. `update` throws
   `defect(reason)`, and the run dies (see [rejections and defects](./rejections-and-defects.md)).

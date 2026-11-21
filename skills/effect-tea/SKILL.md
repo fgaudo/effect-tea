@@ -10,10 +10,12 @@ versions. The paths below are relative to this file.
 
 ## Where things are
 
-- **The guide**, [`site/guide/`](../../site/guide/index.md): what the library does and promises, one concept a page.
-  It is the specification. What it does not say, the library does not promise. Start with its index. Most pages have
-  the same sections, in this order: "In short", "An example", "Rules", "Do and don't" on some pages, and "Precisely",
-  whose details are promises too.
+- **The guide**, [`site/guide/`](../../site/guide/index.md): what the library does, one concept a page, at the
+  version installed. It is the specification. What it does not say, the library does not promise. Start with its
+  index. Most pages have the same sections, in this order: "In short", "An example", "Rules", "Do and don't" on some
+  pages, and "Precisely". What stands under "Precisely", and under "What is left to you" in "Guarantees", describes
+  this version and may change in any release. Every other sentence is a promise. The guide, "Guide", "What a page
+  promises".
 - **The tutorial**, [`site/tutorial/`](../../site/tutorial/index.md): one application, built step by step. A line
   `{@includeCode <file>#<name>}` in a page stands for the code between `// #region <name>` and `// #endregion` in
   that file.

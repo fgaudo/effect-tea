@@ -63,7 +63,8 @@ provided around `run`.
 which they started. So `update` must handle the answers in any order.
 
 **Commands cannot be cancelled.** Once started, a command runs to its end, and its message arrives, even if the state
-has moved on. Nothing the program does stops a command. Only the end of the run stops it: the end of the run
+has moved on. No message and no change of state stops a command, and a command that the program interrupts is a
+defect (see [guarantees](./guarantees.md#what-you-can-rely-on)). Only the end of the run stops it: the end of the run
 interrupts the commands under way (see [why a command cannot be cancelled](#why-a-command-cannot-be-cancelled)).
 
 - So a command must accept being interrupted at any point.
@@ -78,13 +79,13 @@ interrupts the commands under way (see [why a command cannot be cancelled](#why-
 
 Each pair sums up a rule of this page. The rule itself is above.
 
-| Do                                                                   | Don't                                                                          |
-| -------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Turn an expected failure into a message with `Effect.match`.         | Return an Effect that can fail. The type of an execution refuses it.           |
-| Put in the command everything that `runCommand` needs.               | Expect `runCommand` to read the state. It does not see the state.              |
-| Let `update` decide whether an answer still applies when it arrives. | Expect a change of state to stop a command. Nothing the program does stops it. |
-| Handle the answers of commands in any order.                         | Expect the answers in the order in which the commands started.                 |
-| Make work that should stop a [subscription](./subscriptions.md).     | Make it a command, and try to cancel the command.                              |
+| Do                                                                   | Don't                                                                    |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Turn an expected failure into a message with `Effect.match`.         | Return an Effect that can fail. The type of an execution refuses it.     |
+| Put in the command everything that `runCommand` needs.               | Expect `runCommand` to read the state. It does not see the state.        |
+| Let `update` decide whether an answer still applies when it arrives. | Expect a change of state to stop a command. No change of state stops it. |
+| Handle the answers of commands in any order.                         | Expect the answers in the order in which the commands started.           |
+| Make work that should stop a [subscription](./subscriptions.md).     | Make it a command, and try to cancel the command.                        |
 
 ```ts
 // Don't: an execution cannot fail, so this does not compile

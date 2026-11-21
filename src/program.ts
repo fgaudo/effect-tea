@@ -64,7 +64,7 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * commands, and `external` when its parent may send it messages. A program is made with `program`. `make` returns this
  * type, and a function that takes a program names this type.
  *
- * - The view is not part of it: `start` gives the renderer an `App`, `{ model, subscribe, dispatch }`.
+ * - The view is not part of it: `start` gives the renderer an `App`, `{ model, subscribe, dispatch, die }`.
  * - Its state is an object. A program written as an object and typed `Program<…>` does not compile otherwise: with a
  *   state that is a number or a string, or with a state type without fields, such as `{}`. `make` refuses the state
  *   without fields too.
@@ -159,7 +159,7 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? { readonly flags?: ne
  *
  * A parent keeps a child's model while the child's state is the same object. A number or a string has no identity
  * by which a model could be kept. A state that is a number or a string is refused by `Program<…>`, `program`,
- * `child`, `childById`, `run` and the testing tools that take a program. A type without fields, such as `{}`, holds a
+ * `child`, `childById`, `start` and the testing tools that take a program. A type without fields, such as `{}`, holds a
  * number too, so name the type of a state without fields `object`. `make` refuses a type without fields, and a state
  * that is a type parameter, since the compiler cannot decide whether it holds a number.
  *
@@ -183,8 +183,8 @@ type Fielded<State> = 0 extends 1 & State ? unknown
 type Primitive = string | number | bigint | boolean | symbol
 
 /**
- * A program's pieces, of the types given in a row: what `run` and the testing tools take. `Program<…>` gives the same
- * types by name.
+ * A program's pieces, of the types given in a row: what `start` and the testing tools take. `Program<…>` gives the
+ * same types by name.
  *
  * @example
  * ```ts

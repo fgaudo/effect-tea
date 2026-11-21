@@ -81,7 +81,8 @@ It probably does not when:
 - you are not on Effect 4.
 
 It is at version 0.x, so the API still changes. [`CHANGELOG.md`](CHANGELOG.md) says how to upgrade over each breaking
-change.
+change. The [Guide](https://fgaudo.github.io/effect-tea/documents/Guide.html) tells what it promises from what it only
+describes of the version installed.
 
 ## Installation
 
@@ -274,7 +275,7 @@ What the library promises about a running program is written down, in the guide'
   draws. It runs every day in the CI, from a new seed.
 - **By mutation.** Each check a guarantee rests on is taken out of the engine, one at a time, and a test must fail
   without it.
-- **On two engines.** The tests run on JavaScriptCore, under Bun, and on V8, under Node.
+- **On two engines.** The library's tests run on JavaScriptCore, under Bun, and on V8, under Node.
 - **As a consumer gets it.** A smoke test checks the packed package as Node and TypeScript consumers get it, and the
   report of the public API is committed, so no export changes unnoticed.
 

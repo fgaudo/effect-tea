@@ -71,7 +71,7 @@ child's id.
 **A connection that stays open is split three ways.** Some things should stay open while a value they use changes. An
 example is a connection whose filter the user picks. Split such a thing in three:
 
-- the connection is a **service**. A layer provided to `run` opens the connection when the program starts, and closes
+- the connection is a **service**. A layer provided to `run` opens the connection when the run starts, and closes
   it when the run ends. So subscriptions and commands only use the connection;
 - a **subscription** under a key that stays the same listens to what the service receives;
 - a **command** sends the service the new value, when `update` decides that the value changed.

@@ -64,7 +64,8 @@ type Fields = Readonly<{
  * - `on` names the message by its tags. A message that is a string appears whole.
  * - `key` is the subscription's key as it is. Like `cause`, it may hold the program's data.
  * - The run does not log the defect and does not recover from it. Report it, and choose what the user sees next.
- * - Only the run makes one. Read it, as a crash report or a test does: the types refuse a `new` of it.
+ * - Only the library makes one: the run, and the testing tools that fail as the run dies. Read it, as a crash report
+ *   or a test does: the types refuse a `new` of it.
  *
  * @example
  * ```ts
@@ -108,8 +109,9 @@ type CompositionFields = Readonly<{
  *
  * It is thrown when a parent sends an external message to a child that is not there.
  * Among other cases, it is thrown for a parent's subscription key that a child uses too, and for a `subscribed` that
- * lists an id twice. `on` names the message by its tags. `id` is the child's id as it is, and may hold the program's
- * data. Only `program` makes one: a test reads it, and the types refuse a `new` of it.
+ * lists an id twice, for a child that listens to something then. `on` names the message by its tags. `id` is the
+ * child's id as it is, and may hold the program's data. Only `program` makes one: a test reads it, and the types
+ * refuse a `new` of it.
  *
  * @example
  * ```ts

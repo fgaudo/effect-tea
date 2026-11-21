@@ -18,7 +18,7 @@ drawInto(root, view)(app)
 Effect.runFork(run)
 ```
 
-A message is applied in the call that sends it. Its commands and its subscriptions follow in the run's own fiber. A
+A message is applied in the call that sends it. Its commands and its subscriptions follow, in the run. A
 defect anywhere ends the run too. The run dies, and reporting the crash is the job of the app around the run. Until
 `run` runs, no effect of the program runs, and no defect is reported.
 
@@ -35,16 +35,14 @@ defect anywhere ends the run too. The run dies, and reporting the crash is the j
 - A message sent before `run` is applied all the same. Its effects wait for `run`.
 - A program started is run once. A second `run` dies. To run the program again, start it again.
 - A program that was never run is never stopped. Its state can still change, and no effect follows.
-- A program that was never run reports no defect. The defect is recorded all the same: from the defect on, the
-  program applies no message, so its state no longer changes. Nothing is thrown to whoever sent the message, and
-  nothing ends. `run` dies of the defect once it runs. Only `model()` throws a defect of `makeModel` or of `init`, to
-  whoever reads the model.
+- A program that was never run reports no defect. `run` dies of the defect once it runs. What the program does
+  meanwhile is under [precisely](#a-program-that-was-never-run).
 - Both hold of a program whose `run` is interrupted before it begins, too.
 - Nothing checks that a program started is run (see [guarantees](./guarantees.md#what-is-left-to-you)).
 
 **The renderer gets an `App`**, `{ model, subscribe, dispatch, die }`:
 
-- `model()` is the model of the current state. It is made when it is read, once for each state.
+- `model()` is the model of the current state. It is made when it is read, once while that state is the current one.
 - `subscribe(listener)` tells `listener` of each new state, once it is the current one, and returns what stops it. No
   listener is told of a rejected message, nor of the very same state.
 - `dispatch(message)` applies the message before it returns (see [view](./view.md#rules)).
@@ -57,8 +55,8 @@ defect anywhere ends the run too. The run dies, and reporting the crash is the j
 [memoized](./glossary.md#what-the-user-sees) on its dispatch is not drawn again because of the dispatch.
 
 **A renderer reads the model when it draws.** A listener is told in the call that made the new state. So a renderer
-that waits for a microtask before it reads the model draws the new states of one task once, as the bridge to snabbdom
-([`bridges/snabbdom.ts`](../../bridges/snabbdom.ts)) does.
+that waits for a microtask before it reads the model draws once the new states that a task, or a listener that the
+browser calls, made, as the bridge to snabbdom ([`bridges/snabbdom.ts`](../../bridges/snabbdom.ts)) does.
 
 ### Options
 
@@ -186,8 +184,8 @@ too, and `run` dies of it.
 message's tags as the run reads them to say what a defect was on. It has no `where`, it is no `ProgramDefect`, and it
 ends the run as a defect does.
 
-Only the run makes a `ProgramDefect`. The app around the run reads one, and a test does too. The types refuse to build
-one, with `new` or with a class that extends it.
+Only the library makes a `ProgramDefect`: the run, and the testing tools that fail as the run dies. The app around the
+run reads one, and a test does too. The types refuse to build one, with `new` or with a class that extends it.
 
 **The run never recovers from a defect, and does not log it.** Reporting the defect, and choosing what the user sees
 next, are the job of the app around the run. The screen keeps what was drawn last: show a crash screen, or run the
@@ -222,6 +220,12 @@ Each pair sums up a rule of this page. The rule itself is above.
 | Choose what of the `cause` leaves the device.                           | Expect a `key` or an `id` to hold no data. Each is the program's own value, as it is. |
 
 ## Precisely
+
+### A program that was never run
+
+A defect of a program that was never run is recorded all the same. From the defect on, the program applies no
+message, so its state no longer changes. Nothing is thrown to whoever sent the message, and nothing ends. Only
+`model()` throws a defect of `makeModel` or of `init`, to whoever reads the model.
 
 ### How a message is named by its tags
 

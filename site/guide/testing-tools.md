@@ -151,9 +151,9 @@ rehearse(
   test. The service waits on a `Deferred` that the scenario completes.
 - `drive` is told of every new state, as a renderer is, and reads the model of each one. A wait, `waitFor`, looks at the
   current model and at later ones.
-- A wait that ends once a model shows a step does not wait for the step's commands. They start after it, in the run's
-  own fiber, and a scenario that ends there may end the run before they start. To check what a command does, wait for
-  a model that shows its answer.
+- A wait that ends once a model shows a step does not wait for the step's commands. They start after it, and a
+  scenario that ends there may end the run before they start. To check what a command does, wait for a model that
+  shows its answer.
 - The scenario gets `model`, the model of the current state, and `dispatch`, the run's own, for a tap on a model that
   the state has moved past since. After a defect of the program, `model` fails with the defect.
 - A wait that lasts longer than `patience` fails. `patience` is an option of `drive`, 2 seconds by default. It is
@@ -162,6 +162,15 @@ rehearse(
 - Time in `drive` is real: a model may be past by the time its message arrives. So, as when the program runs, a
   rejected message is ignored, and a scenario checks what it expects to see.
 - How `drive` ends is under [precisely](#precisely).
+
+### Defects of the program
+
+A defect of the program fails `simulate`, `rehearse` and `drive`, as it ends the run when the program runs. These three
+tools fail with the `ProgramDefect` the run dies with, in the same `where`, with the same `on` or `key`. That holds
+wherever the tool calls the program: `init`, `update`, `makeModel`, `subscriptions`, a subscription, `runCommand`.
+(`simulate` calls no `init` and no `makeModel`, and runs no subscription.)
+
+**`applyAll` and `dispatchViolations` call `update` without a run**, and fail with the defect itself.
 
 ## Precisely
 
@@ -289,12 +298,3 @@ A defect of the program comes first in the cause of `drive`, before what the sce
 defect while the scenario runs, and for a defect of what the program releases as it stops.
 
 A wait may still match a model read before a defect of a later model. `drive` ends with the defect first all the same.
-
-### Defects of the program
-
-A defect of the program fails `simulate`, `rehearse` and `drive`, as it ends the run when the program runs. These three
-tools fail with the `ProgramDefect` the run dies with, in the same `where`, with the same `on` or `key`. That holds
-wherever the tool calls the program: `init`, `update`, `makeModel`, `subscriptions`, a subscription, `runCommand`.
-(`simulate` calls no `init` and no `makeModel`, and runs no subscription.)
-
-**`applyAll` and `dispatchViolations` call `update` without a run**, and fail with the defect itself.

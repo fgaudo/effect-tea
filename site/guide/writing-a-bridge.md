@@ -61,9 +61,9 @@ application's components hold. What else the screen may show is in [view](./view
 
 The rest is the bridge's own code:
 
-- A model that is the very one drawn last is not drawn again. A model is made once for each state, so a rejected
-  message, or one that leaves the very same state, draws no tree. The draw still gives the controlled elements their
-  values back.
+- A model that is the very one drawn last is not drawn again. A model is made once while its state is the current
+  one, so a rejected message, or one that leaves the very same state, draws no tree. The draw still gives the
+  controlled elements their values back.
 - A listener may be called while a patch runs. A browser may call `blur` as a patch removes the focused element, and
   `focus()` calls `blur` and `focus` at once, as an `insert` hook that focuses an element does. What such a listener
   sends is drawn after the patch under way, in a microtask of its own: no microtask runs while the patch is on the

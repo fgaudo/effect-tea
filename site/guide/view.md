@@ -28,8 +28,8 @@ the model holds: `on: { click: () => dispatch(model.more) }`.
 - **A handler calls it as it is.** A handler of any renderer, a plain callback, calls `dispatch(message)`. Effect code
   calls it in an `Effect.sync`: `Effect.sync(() => dispatch(message))`.
 - **Sending applies the message.** When a handler returns, `update` has seen the handler's message, and the model is
-  the new one. What the message starts, its commands and its subscriptions, runs later, in the run's own fiber, with
-  the run's services.
+  the new one. What the message starts, its commands and its subscriptions, runs later, in the run, with the run's
+  services.
   - A message sent while another is being applied is applied right after it, before the outer call returns. Two kinds
     of code send one then: a renderer's listener, which the `App` tells of a new state, and code that a function of the
     program wakes. Such a call may return before its message is applied.

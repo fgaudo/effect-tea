@@ -221,8 +221,10 @@ export function inDialog(content: Program<{ state: object; model: unknown; messa
 - a child whose state is not an object, which only a cast lets into the program. The defect comes when the child's model
   or its subscriptions are made;
 - a subscription key of the parent's own that is the key of a child's subscription;
-- a `subscribed` that lists one id twice;
-- asking for the model of a child that is not there.
+- a `subscribed` that lists one id twice, for a child that listens to something in that state;
+- asking for the model of a child that is not there;
+- an external message to a child that is not there (see
+  [events and external messages](./events-and-external-messages.md#precisely)).
 
 Only `program` makes a `CompositionDefect`. A test reads one. The types refuse to build one, with `new` or with a
 class that extends it.

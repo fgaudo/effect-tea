@@ -30,9 +30,9 @@ import type { Step } from "./update.ts"
  */
 export interface App<Model, Message> {
   /**
-   * The model of the current state. It is made when it is read, once for each state, by the state's identity, so the
-   * very same state has the very same model. When `makeModel` throws, the defect is a defect in `'render'`, recorded
-   * once for each state, and `model()` throws it.
+   * The model of the current state. It is made when it is read, once while that state is the current one, so every
+   * read then gives the very same model. When `makeModel` throws, the defect is a defect in `'render'`, recorded once
+   * while that state is the current one, and `model()` throws it.
    *
    * @see The guide, "Guarantees", "A model is made only when it is read".
    */
@@ -235,8 +235,8 @@ export const startWith = <State, Model, Message, Command, RC, RS, Flags>(
  * - A program started is run once. Whoever runs it ends it by interrupting `run`. Nothing checks that it is run.
  * - An `init` that throws gives a handle whose `model()` throws the defect, and whose `run` dies of it.
  * - One message at a time, in the order they were sent. A message is applied in the call that sends it. The
- *   subscriptions it stops and starts, and the start of its commands, follow in the run's own fiber, in the order of
- *   the states. So the state is ahead of its effects.
+ *   subscriptions it stops and starts, and the start of its commands, follow in the run, in the order of the states.
+ *   So the state is ahead of its effects.
  * - The run writes no log of its own.
  * - A message that `update` rejects is ignored, and the state stays as it was.
  * - Each command and each subscription has a scope of its own. What one acquires is released when it ends, never

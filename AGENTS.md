@@ -119,12 +119,22 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   documents or a rewording with the same promises; a change to what the unreleased section already lists, or to what
   it added, edits that entry instead of adding one; an entry is a line or two. Every entry answers the four questions
   of `release` first.
-- **The guide is a specification.** Its pages ([`site/guide/`](site/guide)), "Guarantees" among them, say what the
-  library promises, and applications cite them as rules. All bind alike: "Guarantees" is the list the guide says the
-  tests check, most of it under the search, and a sentence of another page promises no less for standing outside it;
-  what is described and not promised says so where it stands (the order of the defects). Its prose changes one section
-  at a time, each sentence checked against the old one: the same promise, no weaker and no stronger, as the code and the
-  tests keep it. A word that looks minor ("exactly when", "by `Equal`", "never more") is often the rule.
+- **The guide is a specification, of two strengths.** Its pages ([`site/guide/`](site/guide)), "Guarantees" among
+  them, say what the library does at the version they ship with, and applications cite them as rules. A **promise** is
+  what a user builds on and the library means to keep: a change of one is a breaking change (`release`). A
+  **description** says how the library behaves today, so that a user can follow a run and debug it: it is as true as a
+  promise, and a test checks it, but it may change in any release, with a changelog entry where a consumer can notice.
+  A sentence is a description where it stands under a page's "Precisely", or says that it is described and not
+  promised (the order of the defects); and "What is left to you", in "Guarantees", promises nothing: what it says of
+  how the library behaves is a description. Every other sentence is a promise, and one of another page promises no
+  less for standing outside "Guarantees", the list the guide says the tests check, most of it under the search. A
+  promise says what happens, and when a program can see it: a user would write another program if it were false. How
+  the library does it (in which fiber, in what order inside a step, in which function the compiler refuses a program)
+  is a description, and so is what rests on a renderer or a browser that the library does not control. In doubt, a
+  sentence is a description: one becomes a promise at any time, and a promise taken back breaks its users. Its prose
+  changes one section at a time, each sentence checked against the old one: the same promise or the same description,
+  no weaker and no stronger, as the code and the tests keep it. A word that looks minor ("exactly when", "by `Equal`",
+  "never more") is often the rule.
 - **A rule of the guide is added last, and stated alike wherever it stands.** Before a rule is added, the rule it is a
   case of is looked for: a case goes under that rule, as an example of it, and how one program does something goes in
   an example's code, not in a list of rules. A place that states a rule another page has names that page, and states

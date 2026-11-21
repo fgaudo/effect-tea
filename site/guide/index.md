@@ -23,11 +23,29 @@ children:
 
 # Guide
 
-Welcome. The guide says what the library does and what it promises, one concept a page. It is the specification: each
-sentence of a page is a promise you can rely on. Where a page describes something without promising it, the page says
-so.
+Welcome. The guide says what the library does, one concept a page, at the version of the package it comes with. It is
+the specification.
 
 This page is a map. It is a summary: the page each line links rules where the line says less.
+
+## What a page promises
+
+The guide says things with two strengths:
+
+- **A promise** is what you can build on. The library means to keep it. A change of a promise is a breaking change:
+  before 1.0 it raises the minor version, and the changelog says how to upgrade.
+- **A description** says how this version behaves, so that you can follow a run and debug it. It is true of this
+  version, and the library's tests check it. It may change in any release, and the changelog says so where you could
+  notice.
+
+A sentence is a description in three places:
+
+- under "Precisely", on any page;
+- under "What is left to you", in [guarantees](./guarantees.md): that list promises nothing;
+- where the sentence says that it is described, and not promised.
+
+Every other sentence is a promise. The library is at version 0.x, so its API still changes: a promise holds for the
+version you have installed, until a release that raises the minor version changes it.
 
 ## Where to start
 
@@ -46,7 +64,7 @@ Most pages have the same sections, in this order:
 - **An example**: the concept in code, usually from the examples.
 - **Rules**: what you follow when you write a program.
 - **Do and don't**: on some pages, the rules summed up as pairs. The rules themselves are above it.
-- **Precisely**: the exact details and the edge cases, for when you need them. They are promises too.
+- **Precisely**: the exact details and the edge cases, for when you need them. They are descriptions, not promises.
 
 ## The pages
 

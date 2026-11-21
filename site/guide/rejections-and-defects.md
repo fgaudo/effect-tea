@@ -133,11 +133,11 @@ answers `{ state }`, as [`pages`](../../examples/pages/app.ts) does when About i
 rejection there would take back a step that the child has accepted, including the child's own change of state. And a
 child tested alone would then promise what the program does not.
 
-Such a message is applied, and does nothing:
+Such a message is applied, and its handler adds nothing to it:
 
-- `onApplied` hears it with no commands;
-- `onApplied` hears it with the state it came to: the very same state, the same object, when the handler returns the
-  one it was given.
+- `onApplied` hears it with the commands of the child's own step, and no others;
+- `onApplied` hears it with the state it came to: the very same state, the same object, when the child's step kept
+  the child's state and the handler returns the one it was given.
 
 A completion promises something about the child's state, not about the parent's state. An event raised for a
 completion rules out a state of the parent only where the parent's own state promises it too.
