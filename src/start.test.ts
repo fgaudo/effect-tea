@@ -8,7 +8,8 @@ import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
-import { ProgramDefect } from "./defect.ts"
+import { program } from "./compose.ts"
+import { defect, InvariantDefect, ProgramDefect } from "./defect.ts"
 import type { Program } from "./program.ts"
 import { start } from "./run.ts"
 
@@ -251,6 +252,53 @@ describe("a program whose start throws", () => {
     expect(app.model()).toBe(13)
     const exit = await Effect.runPromiseExit(run)
     expect(wheres(exit)).toEqual(["subscriptions: Error: unlucky"])
+  })
+
+  // `make` calls the `init` of a parent with children and no flags as it makes the program, so a defect in it is
+  // thrown out of `make` before any `start`. Found by the review of the whole library of 21 November 2026.
+  test.failing("in the init of a parent with a child and no flags: make returns, the handle is made, model() throws the defect, and run dies of it", async () => {
+    type Leaf = Readonly<{ on: boolean }>
+    const leaf: Program<{ state: Leaf; model: null; message: "Flip" }> = {
+      init: { state: { on: false } },
+      update: () => (state) => ({ state: { on: !state.on } }),
+      subscriptions: () => HashMap.empty(),
+      makeModel: () => null
+    }
+    const Parent = program<{ state: Readonly<{ leaf: Leaf }> }>()
+    const make = () =>
+      Parent.make({
+        init: () => defect("no parent starts"),
+        children: {
+          Leaf: Parent.child(leaf, {
+            get: (state) => Opt.some(state.leaf),
+            set: (state, leaf) => ({ ...state, leaf })
+          })
+        },
+        makeModel: () => null
+      })
+    let made: ReturnType<typeof make> | undefined
+    let thrownByMake: unknown
+    try {
+      made = make()
+    } catch (thrown) {
+      thrownByMake = thrown
+    }
+    expect(thrownByMake).toBeUndefined()
+    if (made === undefined) return
+    const { app, run } = start(made)
+    let thrown: unknown
+    try {
+      app.model()
+    } catch (caught) {
+      thrown = caught
+    }
+    expect(thrown).toBeInstanceOf(ProgramDefect)
+    const cause = thrown instanceof ProgramDefect ? thrown.cause : undefined
+    expect(cause instanceof InvariantDefect ? cause.reason : cause).toBe("no parent starts")
+    const exit = await Effect.runPromiseExit(run)
+    const died = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    expect(died).toBeInstanceOf(ProgramDefect)
+    expect(died instanceof ProgramDefect ? died.cause : died).toBe(cause)
   })
 })
 

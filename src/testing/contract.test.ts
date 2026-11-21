@@ -1141,6 +1141,47 @@ describe("what the run dies of, and the tools fail on", () => {
     expect(keyed(exit)).toEqual(["subscription", "ticks"])
   })
 
+  // A key equal to another by its `id` alone: the test may find the program's key with another one, equal to it.
+  class Key implements Equal.Equal {
+    readonly id: number
+    readonly label: string
+    constructor(id: number, label: string) {
+      this.id = id
+      this.label = label
+    }
+    [Equal.symbol](that: Equal.Equal): boolean {
+      return that instanceof Key && that.id === this.id
+    }
+    [Hash.symbol](): number {
+      return Hash.number(this.id)
+    }
+  }
+  const listed = new Key(1, "program")
+  const listing: Program<{ state: Row; model: number; message: "Seen" }> = {
+    ...row,
+    subscriptions: () => HashMap.make([listed, Channel.fromEffectDone(Effect.sync(throwing))])
+  }
+  const keyOf = (exit: Exit.Exit<unknown>) => {
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    return defect instanceof ProgramDefect ? defect.key : defect
+  }
+
+  test("the run dies in a subscription with the key its program listed, as it is", async () => {
+    const exit = await Effect.runPromiseExit(drive(listing, () => Effect.never))
+    expect(keyOf(exit)).toBe(listed)
+  })
+
+  // `rehearse` names the key given to `hearNext`, which finds the program's by `Equal`, where the run names the key
+  // the program listed: the guide's "Defects of the program" promises the same `key` of both. Found by the review of
+  // the whole library of 21 November 2026.
+  test.failing(
+    "rehearse fails, as the run dies, with the key the program listed, though hearNext was given another equal to it",
+    async () => {
+      const exit = await Effect.runPromiseExit(rehearse(listing, (rehearsal) => rehearsal.hearNext(new Key(1, "test"))))
+      expect(keyOf(exit)).toBe(listed)
+    }
+  )
+
   test("rehearse fails, as the run dies, in init, on an init that throws on its flags", async () => {
     const exit = await Effect.runPromiseExit(rehearse(starting, () => Effect.void, { flags: 0 }))
     expect(said(exit)).toEqual(["init", undefined])
@@ -2214,5 +2255,88 @@ describe("a message applied while a release holds the effects of the step before
         )
       })))
     expect(seen).toEqual([{ failed: true, count: 0 }, { failed: true, count: 0 }])
+  })
+})
+
+// The end of the run stops every fiber it still runs, commands and subscriptions, all at once: a release may wait for
+// what another gives.
+describe("an end where the release of a subscription waits for the release of a command", () => {
+  type Ticks = Readonly<{ ticks: number }>
+  type Holding = Program<{
+    state: Ticks
+    model: Ticks
+    message: "Go" | "Tick"
+    command: "Hold"
+    commandServices: Scope.Scope
+  }>
+  // `Hold` never answers, and its release gives `released`, which the release of the subscription under `k` waits for.
+  const holding = (started: Deferred.Deferred<void>, released: Deferred.Deferred<void>): Holding => ({
+    init: { state: { ticks: 0 } },
+    update: (message) => (state) =>
+      message === "Go" ? { state, commands: ["Hold"] } : { state: { ticks: state.ticks + 1 } },
+    runCommand: () =>
+      Effect.addFinalizer(() => Deferred.succeed(released, undefined)).pipe(
+        Effect.andThen(Deferred.succeed(started, undefined)),
+        Effect.andThen(Effect.never)
+      ),
+    subscriptions: () =>
+      HashMap.make([
+        "k",
+        Channel.succeed<"Go" | "Tick">("Tick").pipe(
+          Channel.concatWith(() => Channel.never),
+          Channel.ensuring(Deferred.await(released))
+        )
+      ]),
+    makeModel: (state) => state
+  })
+
+  /**
+   * Runs `effect`, and says how it ended, or `"hung"` once it has run for three seconds. A tool that never ends does so
+   * in an uninterruptible region, which no timeout of Effect's can end: only a failing test reaches the bound, which
+   * a correct run, done in a few milliseconds, never comes near, and which lies under the timeout of a test.
+   */
+  const endedWithin = async (effect: Effect.Effect<unknown>) => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const hung = new Promise<"hung">((resolve) => {
+      timer = setTimeout(() => resolve("hung"), 3_000)
+    })
+    const ended = await Promise.race([Effect.runPromiseExit(effect), hung])
+    clearTimeout(timer)
+    return ended === "hung" ? ended : Exit.isSuccess(ended) ? "success" : String(Cause.squash(ended.cause))
+  }
+
+  test("the run ends, as it stops the command and the subscription together", async () => {
+    const ended = await endedWithin(Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const released = yield* Deferred.make<void>()
+      return yield* drive(
+        holding(started, released),
+        Effect.fnUntraced(function*(driver) {
+          yield* driver.waitFor(({ ticks }) => ticks === 1 ? Opt.some(ticks) : Opt.none())
+          yield* driver.send(() => Opt.some("Go"))
+          yield* Deferred.await(started)
+        })
+      )
+    }))
+    expect(ended).toBe("success")
+  })
+
+  // `rehearse` stops the subscriptions `hearNext` started and waits for their release before it stops the commands, so
+  // it never ends. Found by the review of the whole library of 21 November 2026.
+  test.failing("rehearse ends too, as the run does, failing on the command still under way", async () => {
+    const ended = await endedWithin(Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const released = yield* Deferred.make<void>()
+      return yield* rehearse(
+        holding(started, released),
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.hearNext("k")
+          yield* rehearsal.send(() => Opt.some("Go"))
+          yield* Effect.forkDetach(rehearsal.run(() => true))
+          yield* Deferred.await(started)
+        })
+      )
+    }))
+    expect(ended).toContain("Commands still under way when the scenario ended: Hold")
   })
 })

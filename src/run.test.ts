@@ -172,6 +172,28 @@ describe("the handle a renderer gets", () => {
     expect({ made, same }).toEqual({ made: [2], same: true })
   })
 
+  // A program run alone needs no object for its state, and is not checked (`docs/invariants.md`), but `model()` takes
+  // a state that is `undefined` for the one it last made a model of, before it has made any, and throws a TypeError
+  // that no defect records. Found by the review of the whole library of 21 November 2026.
+  test.failing("a model is made of a state that is undefined, as only a cast or plain JavaScript writes it", async () => {
+    const blank = {
+      init: { state: undefined },
+      update: () => () => reject,
+      subscriptions: () => HashMap.empty(),
+      makeModel: (state: undefined) => ({ count: state === undefined ? -1 : 0 })
+    } as unknown as Program<{ state: Count; model: Model; message: Message }>
+    const { app, run } = start(blank)
+    const fiber = Effect.runFork(run)
+    let model: unknown
+    try {
+      model = app.model()
+    } catch (thrown) {
+      model = thrown
+    }
+    expect(wheres(await interrupted(fiber))).toEqual([])
+    expect(model).toEqual({ count: -1 })
+  })
+
   test("a listener is told of each new state, and a model read in it is of the latest state", async () => {
     const told: Array<number> = []
     const answered = Deferred.makeUnsafe<void>()

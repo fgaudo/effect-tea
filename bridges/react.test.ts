@@ -908,6 +908,55 @@ describe("Host", () => {
         globalThis.reportError = reportError
       }
     })
+
+    // The run dies while `Host` is shown, and its parent hides `Host` with `<Activity>` in the same batch: the cleanup
+    // gives the defect to `reportError`, and `<Activity>` keeps the state that holds it, which `Host` throws to the
+    // boundary as it is shown again, in place of a new run. Found by the review of the whole library of 21 November
+    // 2026.
+    test.failing("that dies as Activity hides Host, in one batch, is reported once, and shown again starts anew", async () => {
+      const caught: Array<unknown> = []
+      const reported: Array<unknown> = []
+      const reportError = globalThis.reportError
+      globalThis.reportError = (error) => void reported.push(error)
+      try {
+        let show: ((mode: "visible" | "hidden") => void) | undefined
+        let fiber: Fiber.Fiber<void, unknown> | undefined
+        let forks = 0
+        const forking: Fork<never> = (effect) => {
+          forks++
+          fiber = heldFork(effect)
+          return fiber
+        }
+        const Parent = () => {
+          const [mode, setMode] = useState<"visible" | "hidden">("visible")
+          show = setMode
+          return createElement(Activity, { mode, children: breakIn(forking) })
+        }
+        const root = createRoot(page(), { onCaughtError: (error) => void caught.push(error) })
+        roots.push(root)
+        await acting(() => root.render(createElement(Boundary, null, createElement(Parent))))
+        await started()
+        await acting(() => {
+          button("Break").click()
+          settle()
+          show?.("hidden")
+        })
+        settle()
+        const exit = fiber === undefined ? undefined : await Effect.runPromise(Fiber.await(fiber))
+        expect(exit !== undefined && Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
+        // A window of absence: nothing a correct run does tells that the defect was not reported twice, so the test
+        // waits a turn once the run has ended, then lets React do what that turn asked of it.
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        await acting(async () => {})
+        await acting(() => show?.("visible"))
+        await started()
+        expect([...caught, ...reported]).toHaveLength(1)
+        expect([...caught, ...reported][0]).toMatchObject({ where: "update" })
+        expect(forks).toBe(2)
+      } finally {
+        globalThis.reportError = reportError
+      }
+    })
   })
 
   // StrictMode mounts every component, unmounts it, and mounts it again, running its effects each time, in one task:

@@ -121,6 +121,14 @@ describe("what is written into an input", () => {
     expect(stepped(write(["a", "b"])).state).toBe(held)
     expect(stepped(write(["b", "a"])).state).toEqual({ tags: ["b", "a"] })
   })
+
+  // `Equal` takes NaN for NaN, so the input leaves the value held, but the parent compares the state its input left
+  // by identity, which NaN never has, and makes a new state. Found by the review of the whole library of 21 November
+  // 2026.
+  test.failing("a write of NaN over NaN leaves the very same state", () => {
+    const held = draftOf("Ada", Number.NaN)
+    expect(stepped(draft.update(level(Number.NaN))(held)).state).toBe(held)
+  })
 })
 
 describe("a step of the program", () => {

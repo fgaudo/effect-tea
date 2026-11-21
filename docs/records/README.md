@@ -25,3 +25,4 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`store-and-effects.md`](store-and-effects.md)           | taken, to be done: a program started by plain code       |
 | [`external-handler.md`](external-handler.md)             | done: external messages in `external`                    |
 | [`promises-and-tests.md`](promises-and-tests.md)         | done: each promise of the guide against the tests        |
+| [`library-review.md`](library-review.md)                 | done: a review of the whole library, its findings open   |
