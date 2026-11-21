@@ -24,3 +24,4 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`write-without-was.md`](write-without-was.md)           | taken, to be done: a write without `was`                 |
 | [`store-and-effects.md`](store-and-effects.md)           | taken, to be done: a program started by plain code       |
 | [`external-handler.md`](external-handler.md)             | done: external messages in `external`                    |
+| [`promises-and-tests.md`](promises-and-tests.md)         | done: each promise of the guide against the tests        |

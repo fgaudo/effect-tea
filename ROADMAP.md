@@ -9,8 +9,9 @@ what would reopen it. How an item came to be, and what was weighed for it, goes 
 [`adoption.md`](docs/records/adoption.md), the owner's decision that the library is meant to be adopted by others, and
 [`architecture-review.md`](docs/records/architecture-review.md), a review of the whole project that the owner asked
 for on 20 November 2026 and asked to be written here in the order it advises. Steps 1 to 4, 7 and 8 are its parts 1
-to 6. Steps 11 to 13 come from a sample of the guide's promises read against the tests, which the owner asked for
-on 21 November 2026: step 11 writes its record. A step done leaves its number unused.
+to 6. Steps 12 and 13 come from a reading of the guide's promises against the tests, which the owner asked for on 21
+November 2026, and whose record is [`promises-and-tests.md`](docs/records/promises-and-tests.md). A step done leaves its
+number unused.
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
 
@@ -23,69 +24,25 @@ None is open.
 
 ## Next, in order
 
-### 11. Each promise of the guide against the tests
-
-**Model and effort.** Opus 5.5, `high`: a review. The pages are read by subagents of Sonnet 5.5, `medium`, and the
-session checks each gap they report before it writes it.
-
-**Depends on** no other step. It stands before the release by the advice of the session that proposed it, which the
-owner may refuse: a promise found false once 0.8.0 is out is a breaking change to take back.
-
-**Why.** The guide says that the library's tests check each guarantee ("Guarantees") and each description ("What a page
-promises"), and nothing checks that they do. On 21 November 2026 the owner asked whether each promise has a test. Each
-item of "What you can rely on" has a deterministic test whose name says it, beside the search, and every test that
-`docs/invariants.md` names is there. For the other pages, two readers sampled twelve pages outside "Precisely": of about
-250 sentences that say what the library does or what the compiler refuses, about 210 have a test, most of them matched
-by the test's name alone. They left the 25 candidates below. One sentence in six was hard to sort: a promise of
-behaviour, an advice, or a consequence of another sentence.
-
-**How.** For each page of `site/guide/`, list the sentences that say what the library, a testing tool or a bridge does,
-or what the compiler refuses or infers, "Precisely" and "What is left to you" included, since the guide says that the
-tests check a description too. For each, name the test that would fail if the sentence were false, from its body and not
-from its name. A promise of a type is checked by a `@ts-expect-error` or an `expectTypeOf` of a test: the smoke test and
-the inference matrix are named apart, since they are no tests of the library. Not sampled yet: every "Precisely", "What
-is left to you", "Anatomy of a program", "Structuring a program", "Testing", and the examples' tests. The result is a
-record, `docs/records/promises-and-tests.md`: the method, with what counts as a sentence of behaviour, the counts by
-page, each gap with its kind (no test, the search alone, or a part that no test checks), and the sentences that could
-not be sorted. The step writes no test and changes no sentence of the guide.
-
-The candidates, each to confirm or to refute. Those marked _checked_ were checked against the tests by the session that
-proposed the step, and the others are the readers' alone.
-
-- **Types with no `@ts-expect-error` and no `expectTypeOf`.** "Commands": "An execution cannot fail. Its type says so".
-  "Composition": `subscribed` "is required" of a child by id. "Rejections and defects": "the handler's type has no
-  `reject`". "Running": "Only a program without events starts", and "The types refuse one that returns a value, an
-  effect or a promise", which the smoke test alone checks, for an effect (_checked_). "View": "Sending a message is a
-  call that returns nothing". "Inputs the user types into": "What `input` and `inputById` return has the `get` of the
-  place", which the `stocktake` example alone calls (_checked_). "Subscriptions": "A subscription is a `Channel` whose
-  end value is a message".
-- **The run.** "Running": the site `'update'` is "In `update`, `onEvent` included", and no test has an `onEvent` that
-  throws (_checked_); "Both hold of a program whose `run` is interrupted before it begins, too" (_checked_, by the names
-  of the tests); "It never succeeds"; "The run also calls `onApplied` before the listeners of the `App` are told, and
-  before the message's commands start"; "Neither option hears a message that the run drops before `update`", where the
-  tests check `update` and not the options; "a defect in that log is in the place the program logs from", tested for a
-  command alone. "Commands": "Once started, a command runs to its end, and its message arrives, even if the state has
-  moved on". "Subscriptions": a new subscription "under the kept key is not used". "Events and external messages": "An
-  external message reaches only `external`". "Composition": "Ids are compared by value", for an id that is no primitive,
-  in a subscription key.
-- **The testing tools and the bridges.** "Testing tools": `applyAll` and `dispatchViolations` "fail with the defect
-  itself", which no test checks of `dispatchViolations` (_checked_); `rehearse` lists a subscription's message that no
-  longer applies in `ignored`; "A wait that ends once a model shows a step does not wait for the step's commands".
-  "Writing a bridge": "`Draw` alone throws it as it renders", and a draw that comes once the run has ended "throws it
-  out of the microtask". "View": "A part that the application suspends, under a Suspense boundary, is shown later, with
-  the model of the state current then", and "It draws each model whole, never in parts".
-
-**Done when** the record lists each gap, confirmed on the body of the tests, and the owner has read it.
-
 ### 12. A test for each promise that has none
 
 **Model and effort.** Opus 5.5, `high`: tests of the engine and of the types, which hold invariants.
 
-**Depends on** step 11, whose record lists the gaps. It stands before the release with it, by the same advice.
+**Depends on** the record [`promises-and-tests.md`](docs/records/promises-and-tests.md), which lists the gaps, each
+checked on the tests' bodies, and which the owner reads first. It stands before the release, by the advice of the
+session that proposed it, which the owner may refuse: a promise found false once 0.8.0 is out is a breaking change to
+take back.
 
-**Why.** A sentence of the guide that no test checks may be false, and nobody is told.
+**Why.** A sentence of the guide that no test checks may be false, and nobody is told. The record found 65 gaps among
+488 sentences, and one sentence false: "Guarantees", "What is left to you", says that the bridge to snabbdom reads the
+model in the call of a handler of the view, and it reads it in a microtask.
 
-**How.** Each gap of the record ends in one of three ways. A test of one of the five kinds of `AGENTS.md`, in the test
+**How.** The false sentence first, for the owner: it is a description, so the change is of the sentence, unless the
+owner wants the bridge to read the model in the call. Then the types, the cheapest: the thirteen gaps that the record
+names under "What follows", each a `@ts-expect-error` or an `expectTypeOf` beside the tests of its function. The
+negatives (G3, G5, M1, V3) are asked of the owner before a test is written: each is held only by a test that fails when
+the library starts to check or to keep something. B5 and B7 rest on a browser, and go to step 6. Each gap of the record
+ends in one of three ways. A test of one of the five kinds of `AGENTS.md`, in the test
 file of its module, with a mutation where it holds a check an invariant rests on
 ([`change-engine`](.agents/skills/change-engine/SKILL.md)). Or the test written fails, and the promise is false: the
 test stays as a `test.failing`, with an item under "Open problems", and the owner decides between the code and the
@@ -126,9 +83,10 @@ its tag. The owner publishes to npm.
 ### 13. A guarantee names the checks that hold it
 
 **Model and effort.** Opus 5.5, `medium`, to build the form advised below, once the owner has taken it. Fable 5.2,
-`high`, if the owner asks for the forms to be weighed again on the record of step 11.
+`high`, if the owner asks for the forms to be weighed again on
+[`promises-and-tests.md`](docs/records/promises-and-tests.md).
 
-**Depends on** step 11, for its record. It changes nothing a user writes, so it does not hold up the release. It adds a
+**Depends on** that record, done. It changes nothing a user writes, so it does not hold up the release. It adds a
 rule to `AGENTS.md`, so the owner is asked first.
 
 **Why.** Nothing ties a guarantee to its tests but prose kept by hand: `docs/invariants.md` names them, and the guide's
@@ -143,7 +101,8 @@ guarantee with its checks and the tests that kill them: the list by guarantee th
 and never kept by hand. It adds no list of tests, since `bun run mutations` proves the one there is, and it says more of
 a guarantee than that a test exists: the test fails without the check. An item whose check has no mutation says so in
 the list, with the reason that `docs/invariants.md` gives. It covers "What you can rely on" alone, the list the guide
-says the tests check. For the other pages, the method of step 11 may become a skill, run before a release as
+says the tests check, and the only one with no gap, by the record: a check of the mutations covers none of its 65
+gaps. For the other pages, the record's method may become a skill, run before a release as
 `premise-review` is: to weigh.
 
 Weighed by the session that proposed the step, and advised against. A file of tests by guarantee (`guarantees.test.ts`):
@@ -151,7 +110,7 @@ the tests are there, each beside its module, so that to move them rewrites the k
 `docs/invariants.md`, and to copy them makes two tests of one thing; and `src/interleaving.test.ts` is already laid out
 by guarantee. A list of its own from each promise to the names of its tests: a third list of names kept by hand, the
 drift that "Any time" below names. An entry for every sentence of the guide: `docs/rejected.md` has its kin ("Every line
-of the guide quoted by a doc comment, or set aside with a reason"), and one sentence in six could not be sorted.
+of the guide quoted by a doc comment, or set aside with a reason"), and 46 sentences could not be sorted, by the record.
 
 **Done when** the owner has decided. Taken: the check runs in the CI, and `AGENTS.md`, `change-engine` and
 `docs/invariants.md` say what it holds. Refused: an entry of `docs/rejected.md` says why.
