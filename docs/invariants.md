@@ -171,7 +171,9 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   of whoever sent its message ("a new state's model is made in the notice, on the stack of whoever sent the message,
   and not again", `react.test.ts`): no page of react.dev says so, and the guide describes it in "What is left to you"
   and does not promise it. `rehearse` makes the model of each new state in the thunk that makes it, as a renderer told
-  of every state that reads each one makes it, so that a defect of `makeModel` ends each tool as it ends the run, and
+  of every state that reads each one makes it, and the first model whatever the first keys did, as a renderer reads it
+  to draw ("rehearse fails in subscriptions, then in render, as the run dies, on a first state whose model is a defect
+  too", `contract.test.ts`), so that a defect of `makeModel` ends each tool as it ends the run, and
   no scenario meets it; since the run records a model's defect where the model is read, a defect of a later model
   never cuts that step short in either: its release and its commands go on ("in the run, the message whose model dies
   is applied whole, with its commands", and its twin of `rehearse`, `contract.test.ts`).

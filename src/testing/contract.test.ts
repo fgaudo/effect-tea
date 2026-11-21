@@ -16,6 +16,7 @@ import { program } from "../compose.ts"
 import { CompositionDefect, ProgramDefect } from "../defect.ts"
 import type { Applied, Ignored } from "../engine.ts"
 import type { Program } from "../program.ts"
+import { start } from "../run.ts"
 import { reject, type Update } from "../update.ts"
 import { applyAll } from "./apply-all.ts"
 import { drive } from "./drive.ts"
@@ -1618,12 +1619,18 @@ describe("a defect of makeModel", () => {
     }
   }
 
-  test("the run dies in subscriptions, then in render, on a first state whose model is a defect too", async () => {
+  // `drive` reads the first model, as a renderer that draws does: the second defect is the reader's.
+  test("the run dies in subscriptions, then in render, on a first state whose model is a defect too, read", async () => {
     const exit = await Effect.runPromiseExit(drive(bothFirst, () => Effect.never))
     expect(reasons(exit)).toEqual(["subscriptions", "render"])
   })
 
-  test.failing(
+  test("the run dies in subscriptions alone, on a first state whose model is a defect too, when none reads it", async () => {
+    const exit = await Effect.runPromiseExit(start(bothFirst).run)
+    expect(reasons(exit)).toEqual(["subscriptions"])
+  })
+
+  test(
     "rehearse fails in subscriptions, then in render, as the run dies, on a first state whose model is a defect too",
     async () => {
       const exit = await Effect.runPromiseExit(rehearse(bothFirst, () => Effect.never))

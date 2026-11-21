@@ -18,8 +18,8 @@ Each step names its model and effort, what it depends on, and how to tell that i
 A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a deterministic
 test of it. A finding of a review goes here with its `test.failing`, until its fix removes the mark and the item. Those
 below are of the review of the premises of 21 November 2026 (step 5), grouped by their form, which a fix takes whole,
-as [`premise-review`](.agents/skills/premise-review/SKILL.md) says, and numbered as the review listed them. Each
-`test.failing` was run without its mark, and fails at its assertion.
+as [`premise-review`](.agents/skills/premise-review/SKILL.md) says. Each `test.failing` was run without its mark, and
+fails at its assertion.
 
 2. **`drive`'s `send`, made by a wait that a step wakes, returns before `update` has seen its message.** `drive`'s
    listener completes the waits' `Deferred` inside the step; Effect 4.1.4 resumes the waiting fiber on that stack, so
@@ -28,18 +28,12 @@ as [`premise-review`](.agents/skills/premise-review/SKILL.md) says, and numbered
    `src/testing/drive.test.ts`, "drive's send, made by a wait that a step wakes" › "returns once update has seen its
    message, as it promises". The same resumption as point 3 of the seven, under "Waiting for the owner": deciding that
    point decides how this is fixed (the waits woken once the outermost `apply` returns, or a premise to rest on).
-4. **With the bridge to React, a defect of `makeModel` reaches the error boundary and `reportError` both**, when the
+3. **With the bridge to React, a defect of `makeModel` reaches the error boundary and `reportError` both**, when the
    end of the run waits for a release: React's render throws it to the boundary, which unmounts `Host`, and the run
    then ends with that very defect, which `Host` gives to `reportError`. Test: `bridges/react.test.ts`, "Host" › "a run
    that dies" › "a makeModel that throws reaches the nearest error boundary, and is not reported again". The form: one
    defect reported by two actors once their order flips. To decide: `Host` keeps what React threw for it, or the guide
    says that such a defect may reach both.
-5. **A difference of the contract on a first state whose subscriptions and model both throw**: the run dies in
-   `["subscriptions", "render"]`, since its handle is made and a renderer reads the model, and `rehearse` in
-   `["subscriptions"]`, since it fails before it makes the first model. Test: `src/testing/contract.test.ts`, "rehearse
-   fails in subscriptions, then in render, as the run dies, on a first state whose model is a defect too". The order
-   and count of defects are described, not promised: to decide whether `rehearse` makes the first model whatever the
-   first keys did, or the test goes with a line of the guide.
 
 ## Next, in order
 

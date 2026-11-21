@@ -190,7 +190,8 @@ rehearse(
 - on a state whose subscriptions are a defect. `rehearse` reads the subscriptions on each new state. A key whose `Equal`
   throws against a key of the state before is such a defect too;
 - on a state whose model is a defect. `rehearse` makes the model on each new state, as a renderer that is told of
-  every state and reads each one does;
+  every state and reads each one does. It makes the first one whatever the first subscriptions did, as a renderer
+  reads it to draw;
 - on a command or a subscription that the program interrupts, itself or by another fiber.
 
 #### How a subscription is heard

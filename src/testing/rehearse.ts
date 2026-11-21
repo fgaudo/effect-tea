@@ -272,19 +272,34 @@ const rehearsing = Effect.fnUntraced(function*<
   // The first state's starts have no job: they run from the start.
   const begun = yield* Deferred.make<void>()
   yield* Deferred.succeed(begun, undefined)
-  yield* Effect.sync(() => {
-    const { fresh, active: next } = Core.reconcile(active, subscriptions(started.current.state))
-    active = next
-    ledger = Ledger.listened(
-      ledger,
-      [],
-      fresh.map(([, subscription, generation]) => [generation, { subscription, begun }] as const)
-    )[2]
-  }).pipe(diesIn("subscriptions"))
-  let now: Now = { ...started.current, events: [], ignored: [] }
+  // The keys of the first state and its model, by plain code, as the thunk of `apply` makes those of a later state.
   // There is no renderer: the model of each new state is made in the thunk that makes the state, as a renderer told of
-  // every state that reads each one makes it, and a defect of `makeModel` is in `'render'` all the same.
-  let shown: Model = yield* Effect.sync(() => program.makeModel(started.current.state)).pipe(diesIn("render"))
+  // every state that reads each one makes it, and a defect of `makeModel` is in `'render'` all the same. The first
+  // model is made whatever its keys did, as a renderer reads it to draw, and the run dies of both.
+  const begin = (): Opt.Option<Model> => {
+    try {
+      const { fresh, active: next } = Core.reconcile(active, subscriptions(started.current.state))
+      active = next
+      ledger = Ledger.listened(
+        ledger,
+        [],
+        fresh.map(([, subscription, generation]) => [generation, { subscription, begun }] as const)
+      )[2]
+    } catch (thrown) {
+      recordThrown(register, "subscriptions", thrown)
+    }
+    try {
+      return Opt.some(program.makeModel(started.current.state))
+    } catch (thrown) {
+      recordThrown(register, "render", thrown)
+      return Opt.none()
+    }
+  }
+  const first = begin()
+  yield* deadOr(Effect.void)
+  if (Opt.isNone(first)) return yield* deadOr(Effect.never)
+  let now: Now = { ...started.current, events: [], ignored: [] }
+  let shown: Model = first.value
   // From its scope on, nothing interrupts the rehearsal but in its scenario: the scope and the loop forked in it are
   // one region with the end that closes and stops them, as `drive` forks its run, so that an interruption from outside
   // as it sets up meets the end too.

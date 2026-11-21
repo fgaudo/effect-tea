@@ -2030,8 +2030,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse dies with no site for a defect of the subscriptions of the first state",
     file: "src/testing/rehearse.ts",
-    from: "  }).pipe(diesIn(\"subscriptions\"))",
-    to: "  })",
+    from: "    } catch (thrown) {\n      recordThrown(register, \"subscriptions\", thrown)\n    }\n",
+    to: "    } catch (thrown) {\n      throw thrown\n    }\n",
     killedBy: [
       [
         "src/testing/contract.test.ts",
@@ -2042,10 +2042,23 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse dies with no site for a defect of the first model",
     file: "src/testing/rehearse.ts",
-    from: "program.makeModel(started.current.state)).pipe(diesIn(\"render\"))",
-    to: "program.makeModel(started.current.state))",
+    from: "      recordThrown(register, \"render\", thrown)\n      return Opt.none()\n",
+    to: "      throw thrown\n",
     killedBy: [
       ["src/testing/contract.test.ts", "rehearse fails in render, as the run dies"]
+    ]
+  },
+  {
+    name: "rehearse stops at the keys of the first state, before its first model",
+    file: "src/testing/rehearse.ts",
+    from: "    } catch (thrown) {\n      recordThrown(register, \"subscriptions\", thrown)\n    }\n",
+    to:
+      "    } catch (thrown) {\n      recordThrown(register, \"subscriptions\", thrown)\n      return Opt.none()\n    }\n",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "rehearse fails in subscriptions, then in render, as the run dies, on a first state whose model is a defect too"
+      ]
     ]
   },
   {
