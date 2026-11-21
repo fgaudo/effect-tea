@@ -21,13 +21,6 @@ below are of the review of the premises of 21 November 2026 (step 5), grouped by
 as [`premise-review`](.agents/skills/premise-review/SKILL.md) says. Each `test.failing` was run without its mark, and
 fails at its assertion.
 
-3. **With the bridge to React, a defect of `makeModel` reaches the error boundary and `reportError` both**, when the
-   end of the run waits for a release: React's render throws it to the boundary, which unmounts `Host`, and the run
-   then ends with that very defect, which `Host` gives to `reportError`. Test: `bridges/react.test.ts`, "Host" › "a run
-   that dies" › "a makeModel that throws reaches the nearest error boundary, and is not reported again". The form: one
-   defect reported by two actors once their order flips. To decide: `Host` keeps what React threw for it, or the guide
-   says that such a defect may reach both.
-
 ## Next, in order
 
 ### 5. Release 0.8.0
@@ -76,6 +69,11 @@ form before the release. What else it leaves, each to do or decide before the re
   outermost `apply` has returned. The reviewer of the testing tools suspected the same form in `rehearse`, unchecked: a
   call of the scenario resumed inside `hearHeld`, or inside a job, that applies a message before the next held one. A
   scenario that waits on `hearNext` and sends at once decides it: a `test.failing` and an open problem, or nothing.
+- **A defect of a run under `Host` that nobody reports**, a lead of the advice on the open problems, reasoned and not
+  run. When the run dies while `Host` is mounted, its observer calls `setDied`; if a parent removes `Host` in the same
+  batch (a "close" button that dispatches and then unmounts it), `Host` never renders again, its state is dropped, and
+  the defect reaches neither the boundary nor `reportError`. A test makes the run die and unmounts `Host` inside one
+  `act`, and expects the defect in one of the two: a `test.failing` and an open problem, or nothing.
 - **Sentences that say otherwise than the code**, listed in the reports: the reason for the mark (`core.ts`,
   `docs/invariants.md`), `forkChild` in `rootedIn`, the first `run` of "untraced", the root without a killer, `drive`'s
   options "of `run`", the frames of `drive.test.ts` and `contract.test.ts`, `refresh` in `bridge.test_suite.ts`,

@@ -721,10 +721,42 @@ describe("Host", () => {
       expect(ended).toEqual(["interrupted"])
     })
 
-    // React reads the model in the notice and as it renders: the defect `model()` throws reaches the boundary from
-    // React's render, which unmounts `Host`, while the run, whose end waits for a release, dies of that very defect once
-    // `Host` has unmounted. Found by the review of the bridges before 0.8.0: `Host` gives it to `reportError` too.
-    test.failing("a makeModel that throws reaches the nearest error boundary, and is not reported again", async () => {
+    // No model was drawn before it: React's render throws it to the boundary, `Host` never mounts, and nothing runs.
+    test("a first model that throws reaches the nearest error boundary, and the run never starts", async () => {
+      const thrown = new Error("A first model that cannot be made")
+      const forked: Array<unknown> = []
+      const caught: Array<unknown> = []
+      const root = createRoot(page(), { onCaughtError: (error) => void caught.push(error) })
+      roots.push(root)
+      await acting(() =>
+        root.render(createElement(
+          Boundary,
+          null,
+          host({
+            program: {
+              ...counter,
+              makeModel: () => {
+                throw thrown
+              }
+            },
+            fork: (effect) => {
+              forked.push(effect)
+              return heldFork(effect)
+            },
+            children: counterView
+          })
+        ))
+      )
+      await started()
+      expect(element("#app").textContent).toBe("Crashed")
+      expect([caught.length, (caught[0] as ProgramDefect).where, forked.length]).toEqual([1, "render", 0])
+    })
+
+    // React reads the model in the notice and as it renders. Found by the review of the bridges before 0.8.0: the
+    // defect `model()` threw reached the boundary from React's render, which unmounted `Host`, and the run, whose end
+    // waits for a release, died of that very defect once `Host` had unmounted, which gave it to `reportError` too. Now
+    // `Host` draws the model it drew last until the run has ended, and throws the defect then, once.
+    test("a makeModel that throws reaches the nearest error boundary, and is not reported again", async () => {
       const thrown = new Error("A model that cannot be made")
       const gate = Deferred.makeUnsafe<void>()
       const shaky = {
@@ -764,8 +796,9 @@ describe("Host", () => {
           ))
         )
         await started()
+        const before = element("#app").textContent
         await acting(() => button("+").click())
-        expect([element("#app").textContent, caught.length]).toEqual(["Crashed", 1])
+        expect([element("#app").textContent, caught.length]).toEqual([before, 0])
         Deferred.doneUnsafe(gate, Exit.void)
         settle()
         if (fiber !== undefined) await Effect.runPromise(Fiber.await(fiber))
@@ -773,6 +806,7 @@ describe("Host", () => {
         // the test waits a turn once the run has ended, then lets React do what that turn asked of it.
         await new Promise((resolve) => setTimeout(resolve, 0))
         await acting(async () => {})
+        expect(element("#app").textContent).toBe("Crashed")
         expect((caught[0] as ProgramDefect).where).toBe("render")
         expect([caught.length, reported]).toEqual([1, []])
       } finally {

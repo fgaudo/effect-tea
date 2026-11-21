@@ -107,7 +107,8 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
 - **With React, the run lives as long as `Host`'s effect.** `<Activity>`, a remount and a new `key` start the program
   again from `init`. Under StrictMode the commands of `init` start once today, which is described and not promised. For
   a state that outlives a component, start the program yourself and draw it with `Draw`. A run that dies is thrown to
-  the nearest error boundary, or given to `reportError` once `Host` has unmounted. The guide, "Guarantees", "With the
+  the nearest error boundary, or given to `reportError` once `Host` has unmounted. A `makeModel` that throws reaches it
+  once, as the run ends. The guide, "Guarantees", "With the
   bridge to React, the run lives as long as the effect that starts it". The guide, "Guarantees", "With the bridge to
   React, a run that dies is thrown to the nearest error boundary".
 - **A parent never reads a child's state to decide.** A child gets what it needs from its own services and

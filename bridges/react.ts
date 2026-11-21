@@ -46,6 +46,8 @@ export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) =
  * React may make the model of each new state as it is told of it, in the call that sent the message: a slow
  * `makeModel` then holds up that call. This is described, and not promised.
  *
+ * A `makeModel` that throws is thrown as `Draw` renders, for the nearest error boundary, and the run dies of it too.
+ *
  * @example
  * ```ts
  * const app = start(counter)
@@ -114,6 +116,8 @@ type Died = { readonly error: unknown }
  * - A run that fails, or dies, throws what it ended with (`Cause.squash`: a `ProgramDefect` for a defect) as `Host`
  *   renders, for the nearest error boundary. One that ends so once `Host` has unmounted is given to `reportError`.
  *   Whatever `fork` handles around the run is not thrown or reported again.
+ * - A `makeModel` that throws is such a defect, thrown once: until the run has ended, `Host` draws the model it drew
+ *   last. A first model that throws reaches the boundary as `Host` first renders, and the run never starts.
  *
  * @example
  * ```tsx
@@ -132,7 +136,7 @@ export const Host = <State, Model, Message, Command = never, RC = never, RS = ne
   const first = useRef(props)
   // The program is started as `Host` first renders, by plain code that runs no effect: its first model is drawn in the
   // render that mounts it, and on a server. A render that React throws away leaves a program that nothing runs.
-  const [app, setApp] = useState(() => begin<Model, Message>(first.current))
+  const [{ app, drawn }, setApp] = useState(() => hosted(begin<Model, Message>(first.current)))
   const [died, setDied] = useState<Died | undefined>(undefined)
   // Whether the program in `app` has been given to `fork`: a program started is run once.
   const ran = useRef(false)
@@ -150,7 +154,7 @@ export const Host = <State, Model, Message, Command = never, RC = never, RS = ne
       let running = app
       if (ran.current) {
         running = begin<Model, Message>(first.current)
-        setApp(running)
+        setApp(hosted(running))
       }
       ran.current = true
       const forked = forkRun(running.run)
@@ -170,7 +174,28 @@ export const Host = <State, Model, Message, Command = never, RC = never, RS = ne
     }
   }, [])
   if (died !== undefined) throw died.error
-  return createElement(Draw<Model, Message>, { app, view: props.children })
+  return createElement(Draw<Model, Message>, { app: drawn, view: props.children })
+}
+
+// The program `Host` runs, and the handle `Draw` reads of it. The run reports each defect once, as it ends, and `Host`
+// throws it then: so a model read for `Draw` that throws, past the first, gives the model drawn last, the defect being
+// recorded where it was read, and the run dying of it. The first has no model before it: it throws, for the boundary,
+// and `Host`, which never mounted, never runs the program. The model drawn last stays the same: a program that died
+// applies no message.
+const hosted = <Model, Message>(app: Started<Model, Message>) => {
+  let last: { readonly model: Model } | undefined
+  const model = () => {
+    try {
+      const made = app.model()
+      last = { model: made }
+      return made
+    } catch (thrown) {
+      if (last === undefined) throw thrown
+      return last.model
+    }
+  }
+  const drawn: App<Model, Message> = { ...app, model }
+  return { app, drawn }
 }
 
 // `start`'s options are checked by `HostProps`, which the rest of `start`'s signature cannot see here.

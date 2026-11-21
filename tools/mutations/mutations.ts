@@ -887,6 +887,42 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
+    name: "Host throws to React the defect of a model after the first",
+    file: "bridges/react.ts",
+    from: "      if (last === undefined) throw thrown\n",
+    to: "      throw thrown\n",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "a makeModel that throws reaches the nearest error boundary, and is not reported again"
+      ]
+    ]
+  },
+  {
+    name: "Host draws nothing for a first model that throws",
+    file: "bridges/react.ts",
+    from: "      if (last === undefined) throw thrown\n      return last.model\n",
+    to: "      return last?.model as Model\n",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "a first model that throws reaches the nearest error boundary, and the run never starts"
+      ]
+    ]
+  },
+  {
+    name: "Host gives React the model it read itself",
+    file: "bridges/react.ts",
+    from: "{ app: drawn, view: props.children }",
+    to: "{ app, view: props.children }",
+    killedBy: [
+      [
+        "bridges/react.test.ts",
+        "a makeModel that throws reaches the nearest error boundary, and is not reported again"
+      ]
+    ]
+  },
+  {
     name: "rehearse's take leaves its command pending",
     file: "src/testing/ledger.ts",
     from: "pending: Arr.remove(ledger.pending, index),",

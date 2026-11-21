@@ -71,8 +71,11 @@ The rest is the bridge's own code:
 - With snabbdom, a view or a `makeModel` that throws as it is drawn ends the run, wherever it is drawn, the first draw
   too. A draw in a microtask runs in no call of the run, so the bridge gives what it threw to `die`. The run dies of
   it, in `'render'`, and the bridge draws nothing more. A draw that comes once the run has ended gets it back from
-  `die`, and throws it out of the microtask, as an error of the page. With React, a view that throws is an error of the application,
-  for its error boundaries: an error boundary above `Host` unmounts it, and the run is interrupted.
+  `die`, and throws it out of the microtask, as an error of the page.
+- With React, a view that throws is an error of the application, for its error boundaries: an error boundary above
+  `Host` unmounts it, and the run is interrupted. A `makeModel` that throws is the run's: under `Host`, React draws the
+  model it drew last until the run has ended, and `Host` then throws the defect to the boundary, once. `Draw` alone
+  throws it as it renders, and the run that the application started dies of it too: one defect, met in two places.
 
 A notice of a new state queues one microtask, which draws the model of the current state. Once the bridge is
 stopped, a draw it asked for before is not made, since another program may draw into the same root by then:
