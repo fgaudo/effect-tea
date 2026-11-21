@@ -360,6 +360,18 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   parent's dispatch, its name and its id (compared with `Equal`, as subscription keys are), and removed by a
   `FinalizationRegistry` once collected. Never hold them strongly: ids that are never reused, as the guide
   advises, would pile up for as long as the run lasts.
+- **A run that goes on keeps nothing of the steps it has done**, but what waits: the state is replaced (`current` in
+  `engine.ts`), and with it the model of the last one read (`last` in `run.ts`); a message leaves `pending` as it is
+  applied; a job leaves `waiting` as it is offered, and the queue as it is taken (`docs/premises.md`); a command's or a
+  subscription's fiber leaves its `FiberSet` or its `FiberMap` as it ends, as their JSDoc says, and Effect keeps
+  nothing of it, nor of what its scope released (`docs/premises.md`); a listener stopped leaves `listeners`; and a
+  child's model and dispatch are kept weakly (above). "of what a thousand rounds used, a collection leaves a few at
+  most while the run goes on" (`run.test.ts`) holds it, with the run alive, for each of these. What lets go is an
+  assignment that replaces, not a check, so only the removal of a listener has a mutation; the others were seen to fail
+  the test under a retention written by hand, on 21 November 2026: a job, a state, a message or what `onApplied`
+  heard kept by the engine, a model kept by the handle, a fiber kept as it is forked, a scope's finalizers kept as it
+  closes, a child's dispatch held strongly, and a child's model kept in a `Map`. What no weak reference can hold, the
+  keys and the entries a run counts, this test does not see.
 - **No span lives as long as the run**: the `run` of a program started and the engine's `effects` are untraced,
   and the run's fibers see the span of whoever runs it as an external one (`withExternalSpan`), since Effect keeps every
   log as an event of the current span until it ends.

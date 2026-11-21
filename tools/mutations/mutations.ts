@@ -1685,6 +1685,19 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
+    name: "a listener stopped is kept",
+    file: "src/engine.ts",
+    from: "        listeners.delete(entry)\n",
+    to: "",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "a listener is told of each new state, once it is current, never of the very same one, until it stops"
+      ],
+      ["src/run.test.ts", "of what a thousand rounds used, a collection leaves a few at most while the run goes on"]
+    ]
+  },
+  {
     name: "the very same state tells the listeners",
     file: "src/engine.ts",
     from: "        if (!changed) return queue({ gone: [], fresh: [], commands })\n",

@@ -320,6 +320,19 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   collection is never required, and a cleanup callback may never be called. Its test: "a collection reclaims what
   nobody holds, and a FinalizationRegistry then calls back for each target it reclaimed", on Bun and on Node, which
   fails with a callback that never runs.
+- **A `Queue` keeps nothing of a value taken from it**, which is how the queue of the jobs, which lives as long as the
+  run, lets go of the commands and the subscriptions of the jobs the fiber of effects has done (`invariants.md`, "A run
+  that goes on keeps nothing of the steps it has done"): "of what a thousand rounds used, a collection leaves a few at
+  most while the run goes on" (`run.test.ts`) rests on it. The JSDoc of `Queue.take` and `Queue.offerAll` says what is
+  taken, not what the queue keeps of it; in the source, a taken slot is cleared, or its batch dropped once read. Agreed
+  to by the owner on 21 November 2026. Its test: "of a thousand values taken, a few collections leave a few at most,
+  while the queue lives", on Bun and on Node, which fails with a `MutableList.take` that keeps what it takes.
+- **Effect keeps nothing of a fiber that has ended, nor of what its scope released**, which is how a command or a
+  subscription that ended leaves nothing of itself in a run that goes on, once its `FiberSet` or its `FiberMap` has
+  removed it, as their JSDoc says they do: the test of `run.test.ts` named in the premise above rests on it too. No
+  JSDoc says what the runtime keeps of a fiber, or a closed scope of its finalizers. Agreed to by the owner on 21
+  November 2026. Its test: "of a thousand fibers ended, a few collections leave a few at most, with what they acquired
+  and ended with", on Bun and on Node, which fails with a fiber that the runtime keeps as it is made.
 - **snabbdom reuses an `<input>` with no key in the same place**, which is how a controlled element drawn by the
   bridge to snabbdom (`bridges/snabbdom.ts`), which needs no key, stays the same element, with its focus, caret and
   selection, while the program changes its value: the shared tests of the lid, the steps and the lock

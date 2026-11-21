@@ -86,6 +86,11 @@ bridge's to promise (see [view](./view.md#rules)).
     so. The subscriptions one message stops are released together.
   - As it ends, the run waits for every release before it dies. So a release that never ends also holds back the
     defects that the run would die with.
+  - What is done does not pile up. While the run goes on, it lets go of what a finished step used: its message and
+    what `onApplied` heard of it, the state it replaced and that state's model, a command that ended, a subscription
+    that was stopped or that ended, what they acquired, a listener that was removed, and a child that the state no
+    longer holds, with its model and its dispatch. The JavaScript engine then frees them when it chooses. What waits
+    is still kept, and so is what your program holds.
 - **The program runs on the stack of whoever sends the message.** `update`, `subscriptions`, the options and the
   listeners of the `App` run in the call that sends the message: a handler of the view, a command's fiber, or a
   subscription's. So does `makeModel`, when a renderer reads the model in that call, as the bridge to React may (below).

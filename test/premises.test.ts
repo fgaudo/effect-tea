@@ -23,6 +23,7 @@ import * as HashMap from "effect/HashMap"
 import * as Logger from "effect/Logger"
 import * as Opt from "effect/Option"
 import * as Pull from "effect/Pull"
+import * as Queue from "effect/Queue"
 import * as Scope from "effect/Scope"
 import * as TestClock from "effect/testing/TestClock"
 import * as Tracer from "effect/Tracer"
@@ -779,6 +780,81 @@ describe("a collection reclaims what nobody holds, and a FinalizationRegistry th
     // Held to the end, as `forwardTo` holds its own for as long as its module lives: a registry nobody holds calls back
     // for nothing.
     registry.unregister({})
+  })
+})
+
+/** The targets of `refs` that a few collections leave, each after the current job has ended. */
+const leftAfterCollections = async (refs: ReadonlyArray<WeakRef<object>>) => {
+  const left = () => refs.filter((ref) => ref.deref() !== undefined).length
+  // A WeakRef keeps its target until the current job ends, and JavaScriptCore scans the stack conservatively, so a
+  // few targets are allowed to stay.
+  for (let collection = 0; collection < 10 && left() > 10; collection++) {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    collectGarbage()
+  }
+  return left()
+}
+
+describe("a Queue keeps nothing of a value taken from it", () => {
+  // Offered one at a time and in batches, as the engine offers its jobs, and taken as they come, at times with more
+  // left behind them in the queue. Made by a function of its own, whose frame is gone when collecting.
+  const offeredAndTaken = (queue: Queue.Queue<object>, count: number) =>
+    Array.from({ length: count }, (_, index) => {
+      const batch = index % 3 === 0 ? [{}] : [{}, {}, {}]
+      if (batch.length === 1) Queue.offerUnsafe(queue, batch[0] ?? {})
+      else Queue.offerAllUnsafe(queue, batch)
+      if (index % 2 === 1) { while (Queue.takeUnsafe(queue) !== undefined); }
+      return batch.map((value) => new WeakRef(value))
+    }).flat()
+
+  test("of a thousand values taken, a few collections leave a few at most, while the queue lives", async () => {
+    const queue = Effect.runSync(Queue.unbounded<object>())
+    const refs = offeredAndTaken(queue, 500)
+    while (Queue.takeUnsafe(queue) !== undefined);
+    expect(refs.length).toBeGreaterThanOrEqual(1_000)
+    expect(await leftAfterCollections(refs)).toBeLessThanOrEqual(10)
+    // Held to the end: a queue nobody holds keeps nothing, whatever it does.
+    expect(Queue.sizeUnsafe(queue)).toBe(0)
+  })
+})
+
+describe("Effect keeps nothing of a fiber that has ended, nor of what its scope released", () => {
+  // Each fiber makes a scope of its own, acquires into it, closes it with its exit, and ends with a value, as a command
+  // or a subscription of the engine does, in a set that removes it once it ends. Made by a function of its own, whose
+  // frame is gone when collecting.
+  const ran = (set: FiberSet.FiberSet<object>, count: number) =>
+    Effect.gen(function*() {
+      const refs: Array<WeakRef<object>> = []
+      const hold = <A extends object>(target: A): A => {
+        refs.push(new WeakRef(target))
+        return target
+      }
+      for (let index = 0; index < count; index++) {
+        const fiber = yield* Effect.flatMap(Scope.make(), (scope) =>
+          Effect.acquireRelease(
+            Effect.sync(() => hold({})),
+            (acquired) => Effect.sync(() => void acquired)
+          ).pipe(
+            Scope.provide(scope),
+            Effect.exit,
+            Effect.flatMap((exit) => Effect.andThen(Scope.close(scope, exit), exit)),
+            Effect.map(() => hold({}))
+          )).pipe(FiberSet.run(set))
+        hold(fiber)
+        yield* Fiber.await(fiber)
+      }
+      return refs
+    })
+
+  test("of a thousand fibers ended, a few collections leave a few at most, with what they acquired and ended with", async () => {
+    const scope = Scope.makeUnsafe()
+    const set = Effect.runSync(Scope.provide(FiberSet.make<object>(), scope))
+    const refs = await Effect.runPromise(ran(set, 1_000))
+    expect(refs).toHaveLength(3_000)
+    expect(await leftAfterCollections(refs)).toBeLessThanOrEqual(10)
+    // Held to the end, open: a set nobody holds keeps nothing, whatever it does.
+    expect(Effect.runSync(FiberSet.size(set))).toBe(0)
+    await Effect.runPromise(Scope.close(scope, Exit.void))
   })
 })
 

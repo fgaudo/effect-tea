@@ -23,9 +23,11 @@ import type * as Scope from "effect/Scope"
 import * as TestClock from "effect/testing/TestClock"
 import type * as Tracer from "effect/Tracer"
 import { gate } from "../test/gate.test_helper.ts"
+import { collectGarbage } from "../test/gc.test_helper.ts"
 import type { Execution, RunCommand } from "./command.ts"
 import { program } from "./compose.ts"
 import { CompositionDefect, defect, type DefectSite, InvariantDefect, ProgramDefect } from "./defect.ts"
+import { forwardTo } from "./dispatch.ts"
 import type { Applied, Ignored, RunOptions } from "./engine.ts"
 import type { Program } from "./program.ts"
 import { type App, start } from "./run.ts"
@@ -2318,5 +2320,208 @@ describe("an interruption made by another fiber of the program", () => {
     )
     const listening: Counter = { ...counter, subscriptions: () => HashMap.make(["k", ending]) }
     expect(site(await endedWithin(start(listening).run))).toBe("subscription")
+  })
+})
+
+describe("what a run that goes on keeps", () => {
+  // A row by id, which counts.
+  type Row = Readonly<{ count: number }>
+
+  type Bump = Readonly<{ _tag: "Bump" }>
+
+  const row: Program<{ state: Row; model: Readonly<{ count: number; bump: Bump }>; message: Bump }> = {
+    init: { state: { count: 0 } },
+    update: () => (state) => ({ state: { count: state.count + 1 } }),
+    subscriptions: () => HashMap.empty(),
+    makeModel: ({ count }) => ({ count, bump: { _tag: "Bump" } })
+  }
+
+  // Each round sends its own messages, each a new object: `Tick` replaces the state, `Save` runs a command that
+  // answers `Saved`, `Show` and `Hide` bring a key and take it away, `Listen` starts a subscription that ends with
+  // `Ended`, and `Add` and `Remove` bring a row by id and take it away.
+  type Own = Readonly<{
+    _tag: "Tick" | "Save" | "Saved" | "Show" | "Hide" | "Listen" | "Ended" | "Add" | "Remove"
+    round: number
+  }>
+
+  type Save = Readonly<{ _tag: "Save"; round: number; payload: object }>
+
+  type Rounds = Readonly<{
+    round: number
+    payload: object
+    showing: boolean
+    listening: boolean
+    rows: ReadonlyArray<Readonly<{ id: number; row: Row }>>
+  }>
+
+  /** What a round uses, each part held by `WeakRef`s alone. */
+  const parts = [
+    "message",
+    "state",
+    "applied",
+    "model",
+    "listener",
+    "command",
+    "commandFiber",
+    "commandAcquired",
+    "subscription",
+    "subscriptionFiber",
+    "subscriptionAcquired",
+    "endingFiber",
+    "endingAcquired",
+    "childState",
+    "childModel",
+    "childDispatch"
+  ] as const
+
+  type Part = typeof parts[number]
+
+  test("of what a thousand rounds used, a collection leaves a few at most while the run goes on", async () => {
+    const held = new Map<Part, Array<WeakRef<object>>>(parts.map((part) => [part, []]))
+    const hold = (part: Part, target: object) => {
+      held.get(part)?.push(new WeakRef(target))
+    }
+    // What a round waits for, by name, before it goes on: names, never the objects of a round. The round resumes on
+    // the stack of whoever signals, inside a step, where what it sends would wait for that step: so it yields first.
+    let expected: Readonly<{ name: string; done: Deferred.Deferred<void> }> | undefined
+    const signal = (name: string) => {
+      if (expected?.name === name) Deferred.doneUnsafe(expected.done, Exit.void)
+    }
+    const until = (name: string, act: () => void) =>
+      Effect.suspend(() => {
+        const done = Deferred.makeUnsafe<void>()
+        expected = { name, done }
+        act()
+        return Effect.andThen(Deferred.await(done), Effect.yieldNow)
+      })
+    const holding = Effect.acquireRelease(
+      Effect.sync(() => {
+        const acquired = {}
+        signal("acquired")
+        return acquired
+      }),
+      () => Effect.sync(() => signal("released"))
+    )
+    const { make, childById } = program<{ state: Rounds; message: Own; command: Save }>()
+    const rounds = make({
+      init: () => ({ state: { round: -1, payload: {}, showing: false, listening: false, rows: [] } }),
+      children: {
+        Rows: childById(row, {
+          get: (state, id: number) =>
+            Opt.map(Arr.findFirst(state.rows, (entry) => entry.id === id), (entry) => entry.row),
+          set: (state, id, next) => ({
+            ...state,
+            rows: state.rows.map((entry) => entry.id === id ? { id, row: next } : entry)
+          }),
+          subscribed: () => []
+        })
+      },
+      update: ({ _tag, round }) => (state) => {
+        switch (_tag) {
+          case "Tick":
+            return { state: { ...state, round, payload: {} } }
+          case "Save":
+            return { state, commands: [{ _tag: "Save", round, payload: {} }] }
+          case "Saved":
+            return { state }
+          case "Show":
+            return { state: { ...state, showing: true } }
+          case "Hide":
+            return { state: { ...state, showing: false } }
+          case "Listen":
+            return { state: { ...state, listening: true } }
+          case "Ended":
+            return { state: { ...state, listening: false } }
+          case "Add":
+            return { state: { ...state, rows: [{ id: round, row: { count: 0 } }] } }
+          case "Remove":
+            return { state: { ...state, rows: [] } }
+        }
+      },
+      runCommand: (command) =>
+        Effect.withFiber((fiber) => {
+          hold("command", command)
+          hold("commandFiber", fiber)
+          return Effect.map(holding, (acquired): Opt.Option<Own> => {
+            hold("commandAcquired", acquired)
+            return Opt.some({ _tag: "Saved", round: command.round })
+          })
+        }),
+      subscriptions: (state) => {
+        const showing = Channel.unwrap(Effect.withFiber((fiber) => {
+          hold("subscriptionFiber", fiber)
+          return Effect.map(holding, (acquired) => {
+            hold("subscriptionAcquired", acquired)
+            return Channel.never
+          })
+        }))
+        const ending = Channel.unwrap(Effect.withFiber((fiber) => {
+          hold("endingFiber", fiber)
+          return Effect.map(holding, (acquired) => {
+            hold("endingAcquired", acquired)
+            return Channel.end<Own>({ _tag: "Ended", round: state.round })
+          })
+        }))
+        if (state.showing) hold("subscription", showing)
+        return HashMap.fromIterable<string, Subscription<Own>>([
+          ...(state.showing ? [[`showing ${state.round}`, showing] as const] : []),
+          ...(state.listening ? [[`ending ${state.round}`, ending] as const] : [])
+        ])
+      },
+      makeModel: (state, children) => ({
+        round: state.round,
+        rows: state.rows.map(({ id }) => children.Rows(state, id))
+      })
+    })
+    const { app, run } = start(rounds, {
+      onApplied: (applied) => {
+        hold("applied", applied)
+        hold("message", applied.message)
+        hold("state", applied.before)
+        const [entry] = applied.after.rows
+        if (entry !== undefined) hold("childState", entry.row)
+        signal(applied.message._tag)
+      }
+    })
+    const fiber = Effect.runFork(run)
+    // Each round in a function of its own, whose frame is gone when collecting: a collector that scans the stack
+    // conservatively could take a stale slot there for a live reference.
+    const playRound = (round: number) =>
+      Effect.gen(function*() {
+        const listener = () => undefined
+        hold("listener", listener)
+        const stop = app.subscribe(listener)
+        app.dispatch({ _tag: "Tick", round })
+        stop()
+        hold("model", app.model())
+        yield* until("Saved", () => app.dispatch({ _tag: "Save", round }))
+        yield* until("acquired", () => app.dispatch({ _tag: "Show", round }))
+        yield* until("released", () => app.dispatch({ _tag: "Hide", round }))
+        yield* until("Ended", () => app.dispatch({ _tag: "Listen", round }))
+        app.dispatch({ _tag: "Add", round })
+        const dispatch = forwardTo(app.dispatch, "Rows", round)
+        hold("childDispatch", dispatch)
+        dispatch({ _tag: "Bump" })
+        const [model] = app.model().rows
+        if (model !== undefined) hold("childModel", model)
+        app.dispatch({ _tag: "Remove", round })
+      })
+    for (let round = 0; round < 1_000; round++) await Effect.runPromise(playRound(round))
+    const left = () =>
+      parts.flatMap((part) => {
+        const count = (held.get(part) ?? []).filter((ref) => ref.deref() !== undefined).length
+        return count > 10 ? [[part, count] as const] : []
+      })
+    // A WeakRef keeps its target until the current job ends: a macrotask, unlike a microtask, ends it. A collection
+    // can still find a few in register or stack slots, which JavaScriptCore scans conservatively: of a thousand, a run
+    // that kept them would keep all.
+    for (let collection = 0; collection < 10 && left().length > 0; collection++) {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      collectGarbage()
+    }
+    expect(fiber.pollUnsafe()).toBeUndefined()
+    expect(left()).toEqual([])
+    expect(parts.filter((part) => (held.get(part) ?? []).length < 1_000)).toEqual([])
+    expect(wheres(await interrupted(fiber))).toEqual([])
   })
 })
